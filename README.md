@@ -1,117 +1,56 @@
-# Vibe - React + TypeScript + Vite + Tailwind CSS
+# Asteroids (React + TypeScript + Vite)
 
-A modern React application built with Vite, TypeScript, and Tailwind CSS.
+An Asteroids-style browser game built with React, TypeScript, Vite, and Tailwind CSS.
 
-## Features
+## Tech Stack
 
-- ⚡️ [Vite](https://vitejs.dev/) - Fast build tool and dev server
-- ⚛️ [React 19](https://react.dev/) - Latest React with TypeScript
-- 🎨 [Tailwind CSS](https://tailwindcss.com/) - Utility-first CSS framework
-- 📝 TypeScript - Type safety and better developer experience
-- 🔧 ESLint - Code linting and quality checks
+- React 19 + TypeScript
+- Vite
+- Tailwind CSS
+- ESLint
 
-## Getting Started
+## Development
 
-### Development
+Install dependencies:
 
-Start the development server:
+```bash
+npm install
+```
+
+Start the dev server:
 
 ```bash
 npm run dev
 ```
 
-The app will be available at [http://localhost:5173](http://localhost:5173)
+Vite will print the local URL (typically http://localhost:5173).
 
-### Build
-
-Build the app for production:
+## Scripts
 
 ```bash
-npm run build
-```
-
-### Preview
-
-Preview the production build locally:
-
-```bash
-npm run preview
+npm run dev      # Start dev server
+npm run build    # Type-check + production build to dist/
+npm run preview  # Preview the production build locally
+npm run lint     # Run ESLint
 ```
 
 ## Project Structure
 
-```
-vibe/
-├── src/
-│   ├── App.tsx          # Main application component
-│   ├── index.css        # Global styles with Tailwind directives
-│   └── main.tsx         # Application entry point
-├── public/              # Static assets
-├── index.html           # HTML template
-└── vite.config.ts       # Vite configuration
+```text
+src/
+  App.tsx        # Main application component
+  main.tsx       # Application entry point
+  index.css      # Tailwind directives + global styles
+  components/    # Reusable UI components
+public/          # Static assets
 ```
 
-## React Compiler
+## Deployment (Azure Static Web Apps)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+This repo includes a GitHub Actions workflow for Azure Static Web Apps deployment.
 
-## Expanding the ESLint configuration
+- Workflow: [.github/workflows/azure-static-web-apps-ambitious-stone-04a8a9c10.yml](.github/workflows/azure-static-web-apps-ambitious-stone-04a8a9c10.yml)
+- Build output: `dist/`
+- Required secret: `AZURE_STATIC_WEB_APPS_API_TOKEN_AMBITIOUS_STONE_04A8A9C10`
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+Pushes to `main` deploy automatically; pull requests create preview environments.

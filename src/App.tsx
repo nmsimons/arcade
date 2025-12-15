@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react'
 import { AsteroidsGame } from './games/AsteroidsGame'
 import { HelloWorldGame } from './games/HelloWorldGame'
 import { LunarLanderGame } from './games/LunarLanderGame'
+import { OmegaRaceGame } from './games/OmegaRaceGame'
 
-type GameId = 'asteroids' | 'hello' | 'lander'
+type GameId = 'asteroids' | 'hello' | 'lander' | 'omega'
 
-const GAMES: GameId[] = ['asteroids', 'lander', 'hello']
+const GAMES: GameId[] = ['asteroids', 'lander', 'omega', 'hello']
 
 export default function App() {
   const [game, setGame] = useState<GameId | null>(null)
@@ -45,6 +46,10 @@ export default function App() {
     return <LunarLanderGame onExit={() => setGame(null)} />
   }
 
+  if (game === 'omega') {
+    return <OmegaRaceGame onExit={() => setGame(null)} />
+  }
+
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono bg-[#0a0a0a]">
       <div className="absolute inset-0 flex items-center justify-center">
@@ -61,7 +66,7 @@ export default function App() {
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
-                {g === 'asteroids' ? 'Asteroids' : g === 'lander' ? 'Lunar Lander' : 'Hello World'}
+                {g === 'asteroids' ? 'Asteroids' : g === 'lander' ? 'Lunar Lander' : g === 'omega' ? 'Omega Race' : 'Hello World'}
               </button>
             ))}
           </div>

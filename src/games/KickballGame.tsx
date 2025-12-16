@@ -449,180 +449,54 @@ export function KickballGame({ onExit }: KickballGameProps) {
       let isAccelerating = false
       
       if (gameMode === '1p') {
-        // Advanced AI for red car with state machine
+        // Simple aggressive AI for red car
+        // Goal: Always try to push ball into the right (blue) goal
         const ball = ballRef.current
         const rightGoal = goalsRef.current.find(g => g.side === 'right')
         const leftGoal = goalsRef.current.find(g => g.side === 'left')
         const field = fieldRef.current
-        const centerX = (field.left + field.right) / 2
-        const centerY = (field.top + field.bottom) / 2
-        const opponent = vehicle2Ref.current
         
         if (rightGoal && leftGoal) {
-          // Predict where ball will be in the near future
-          const predictionTime = 0.5 // seconds ahead
-          const predictedBallX = ball.pos.x + ball.vel.x * predictionTime
-          const predictedBallY = ball.pos.y + ball.vel.y * predictionTime
+          // Direction from ball to opponent's goal (where we want to push)
+          const ballToGoalX = rightGoal.pos.x - ball.pos.x
+          const ballToGoalY = rightGoal.pos.y - ball.pos.y
+          const ballToGoalDist = Math.hypot(ballToGoalX, ballToGoalY)
           
-          // Determine AI state based on ball position and velocity
-          const ballMovingTowardOwnGoal = ball.vel.x < -50 // Ball moving left toward red's goal
-          const ballOnOwnSide = ball.pos.x < centerX
-          const ballInDanger = predictedBallX < field.left + 200 // Ball predicted to be near red goal
+          // Normalize direction
+          const pushDirX = ballToGoalX / ballToGoalDist
+          const pushDirY = ballToGoalY / ballToGoalDist
           
-          // Check if opponent is closer to ball than us
-          const aiToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
-          const opponentToBallDist = Math.hypot(ball.pos.x - opponent.pos.x, ball.pos.y - opponent.pos.y)
-          const opponentCloser = opponentToBallDist < aiToBallDist - 30
+          // How far is AI from ball?
+          const carToBallX = ball.pos.x - vehicle1.pos.x
+          const carToBallY = ball.pos.y - vehicle1.pos.y
+          const carToBallDist = Math.hypot(carToBallX, carToBallY)
           
-          // State machine: 'attack' | 'defend' | 'intercept' | 'block'
-          let aiState: 'attack' | 'defend' | 'intercept' | 'block' = 'attack'
+          let targetX: number
+          let targetY: number
           
-          if (ballInDanger || (ballMovingTowardOwnGoal && ballOnOwnSide)) {
-            // Ball is threatening our goal - intercept it
-            aiState = 'intercept'
-          } else if (opponentCloser && ballOnOwnSide) {
-            // Opponent has the ball on our side - block them
-            aiState = 'block'
-          } else if (ballOnOwnSide && !ballMovingTowardOwnGoal) {
-            // Ball is on our side but not dangerous - clear it
-            aiState = 'defend'
-          } else {
-            // Ball is on opponent's side or moving away - attack
-            aiState = 'attack'
-          }
+          // Check if ball is moving fast toward our goal - emergency defense
+          const ballMovingTowardOwnGoal = ball.vel.x < -80
+          const ballNearOwnGoal = ball.pos.x < field.left + 250
           
-          let targetX = ball.pos.x
-          let targetY = ball.pos.y
-          
-          if (aiState === 'attack') {
-            // Attack mode: Circle around to optimal approach angle
-            const ballToGoalX = rightGoal.pos.x - predictedBallX
-            const ballToGoalY = rightGoal.pos.y - predictedBallY
-            const ballToGoalDist = Math.hypot(ballToGoalX, ballToGoalY)
-            const ballToGoalAngle = Math.atan2(ballToGoalY, ballToGoalX)
-            
-            // Calculate car's current angle to ball
-            const carToBallX = ball.pos.x - vehicle1.pos.x
-            const carToBallY = ball.pos.y - vehicle1.pos.y
-            const carToBallDist = Math.hypot(carToBallX, carToBallY)
-            const carToBallAngle = Math.atan2(carToBallY, carToBallX)
-            
-            // Ideal approach: from opposite side of goal direction
-            const idealApproachAngle = ballToGoalAngle + Math.PI // Come from behind
-            
-            // Check if we're approaching from a good angle
-            let approachAngleDiff = carToBallAngle - idealApproachAngle
-            while (approachAngleDiff > Math.PI) approachAngleDiff -= Math.PI * 2
-            while (approachAngleDiff < -Math.PI) approachAngleDiff += Math.PI * 2
-            
-            if (carToBallDist < 80) {
-              // Close to ball, aim at the goal to push
-              targetX = rightGoal.pos.x
-              targetY = rightGoal.pos.y
-            } else if (Math.abs(approachAngleDiff) > Math.PI / 3 && carToBallDist > 120) {
-              // Bad approach angle and far enough - circle around to better position
-              // Offset perpendicular to ideal approach to arc around
-              const circleDir = approachAngleDiff > 0 ? -1 : 1
-              const perpAngle = idealApproachAngle + (Math.PI / 2) * circleDir
-              const behindBallDist = 80
-              targetX = predictedBallX - Math.cos(idealApproachAngle) * behindBallDist + Math.cos(perpAngle) * 60
-              targetY = predictedBallY - Math.sin(idealApproachAngle) * behindBallDist + Math.sin(perpAngle) * 60
-            } else {
-              // Good approach angle - go behind ball
-              const behindBallDist = 60
-              targetX = predictedBallX - (ballToGoalX / ballToGoalDist) * behindBallDist
-              targetY = predictedBallY - (ballToGoalY / ballToGoalDist) * behindBallDist
-            }
-          } else if (aiState === 'intercept') {
-            // Intercept mode: Get between ball and our goal
-            const goalToBallX = predictedBallX - leftGoal.pos.x
-            const goalToBallY = predictedBallY - leftGoal.pos.y
+          if (ballMovingTowardOwnGoal && ballNearOwnGoal) {
+            // Emergency: Get between ball and our goal
+            const goalToBallX = ball.pos.x - leftGoal.pos.x
+            const goalToBallY = ball.pos.y - leftGoal.pos.y
             const goalToBallDist = Math.hypot(goalToBallX, goalToBallY)
             
-            // Position between goal and ball's predicted position
-            const interceptDist = Math.min(goalToBallDist * 0.5, 150)
+            // Position closer to goal than ball
+            const interceptDist = Math.min(goalToBallDist * 0.4, 100)
             targetX = leftGoal.pos.x + (goalToBallX / goalToBallDist) * interceptDist
             targetY = leftGoal.pos.y + (goalToBallY / goalToBallDist) * interceptDist
-            
-            // If very close, aim to clear the ball to the side/right
-            const carToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
-            if (carToBallDist < 80) {
-              // Clear toward the right side of the field
-              targetX = field.right
-              targetY = ball.pos.y < centerY ? field.bottom : field.top
-            }
-          } else if (aiState === 'block') {
-            // Block mode: Position between opponent and ball
-            const oppToBallX = ball.pos.x - opponent.pos.x
-            const oppToBallY = ball.pos.y - opponent.pos.y
-            const oppToBallDist = Math.hypot(oppToBallX, oppToBallY)
-            
-            // Get between opponent and ball, closer to the ball
-            const blockDist = Math.min(oppToBallDist * 0.4, 60)
-            targetX = ball.pos.x - (oppToBallX / oppToBallDist) * blockDist
-            targetY = ball.pos.y - (oppToBallY / oppToBallDist) * blockDist
-            
-            // If close to ball while blocking, clear it
-            const carToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
-            if (carToBallDist < 70) {
-              targetX = centerX + 150
-              targetY = centerY
-            }
-          } else if (aiState === 'defend') {
-            // Defend mode: Push ball away from our side toward center/right
-            const ballToRightX = rightGoal.pos.x - ball.pos.x
-            const ballToRightY = centerY - ball.pos.y
-            const dist = Math.hypot(ballToRightX, ballToRightY)
-            
-            const behindBallDist = 50
-            targetX = ball.pos.x - (ballToRightX / dist) * behindBallDist
-            targetY = ball.pos.y - (ballToRightY / dist) * behindBallDist
-            
-            const carToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
-            if (carToBallDist < 80) {
-              targetX = centerX + 100
-              targetY = centerY
-            }
-          }
-          
-          // Bumper avoidance - check if path to target crosses any bumper
-          const bumpers = bumpersRef.current
-          const pathToTargetX = targetX - vehicle1.pos.x
-          const pathToTargetY = targetY - vehicle1.pos.y
-          const pathDist = Math.hypot(pathToTargetX, pathToTargetY)
-          
-          if (pathDist > 30) {
-            const pathNormX = pathToTargetX / pathDist
-            const pathNormY = pathToTargetY / pathDist
-            
-            for (const bumper of bumpers) {
-              // Check distance from bumper to our path line
-              const toBumperX = bumper.pos.x - vehicle1.pos.x
-              const toBumperY = bumper.pos.y - vehicle1.pos.y
-              const distAlongPath = toBumperX * pathNormX + toBumperY * pathNormY
-              
-              // Only consider bumpers ahead of us and within path distance
-              if (distAlongPath > 20 && distAlongPath < pathDist) {
-                const closestOnPathX = vehicle1.pos.x + pathNormX * distAlongPath
-                const closestOnPathY = vehicle1.pos.y + pathNormY * distAlongPath
-                const distToBumper = Math.hypot(bumper.pos.x - closestOnPathX, bumper.pos.y - closestOnPathY)
-                
-                const avoidRadius = bumper.radius + 35 // Vehicle radius + margin
-                if (distToBumper < avoidRadius) {
-                  // Bumper is in our way - steer around it
-                  const perpX = -pathNormY
-                  const perpY = pathNormX
-                  // Determine which side to go around
-                  const sideCheck = (bumper.pos.x - vehicle1.pos.x) * perpX + (bumper.pos.y - vehicle1.pos.y) * perpY
-                  const avoidDir = sideCheck > 0 ? -1 : 1
-                  
-                  // Offset target to go around bumper
-                  targetX = bumper.pos.x + perpX * avoidDir * (avoidRadius + 20)
-                  targetY = bumper.pos.y + perpY * avoidDir * (avoidRadius + 20)
-                  break // Handle one bumper at a time
-                }
-              }
-            }
+          } else if (carToBallDist < 70) {
+            // Close to ball - aim at the goal to push it
+            targetX = rightGoal.pos.x
+            targetY = rightGoal.pos.y
+          } else {
+            // Not close - get behind the ball (opposite side from goal)
+            const behindDist = 50
+            targetX = ball.pos.x - pushDirX * behindDist
+            targetY = ball.pos.y - pushDirY * behindDist
           }
           
           // Calculate angle to target
@@ -645,15 +519,14 @@ export function KickballGame({ onExit }: KickballGameProps) {
           // Accelerate if roughly facing the target
           const distToTarget = Math.hypot(dx, dy)
           if (Math.abs(angleDiff) < Math.PI / 2) {
-            // Accelerate more when far, less when close for better control
-            const accelMult = distToTarget > 150 ? 1.0 : 0.7
-            vehicle1.vel.x += Math.cos(vehicle1.angle) * accel * accelMult * dt
-            vehicle1.vel.y += Math.sin(vehicle1.angle) * accel * accelMult * dt
+            // Full speed ahead
+            vehicle1.vel.x += Math.cos(vehicle1.angle) * accel * dt
+            vehicle1.vel.y += Math.sin(vehicle1.angle) * accel * dt
             isAccelerating = true
-          } else if (distToTarget > 100) {
-            // If facing wrong way but far from target, reverse briefly
-            vehicle1.vel.x -= Math.cos(vehicle1.angle) * accel * 0.3 * dt
-            vehicle1.vel.y -= Math.sin(vehicle1.angle) * accel * 0.3 * dt
+          } else if (distToTarget > 80) {
+            // Facing wrong way - reverse to reposition faster
+            vehicle1.vel.x -= Math.cos(vehicle1.angle) * accel * 0.4 * dt
+            vehicle1.vel.y -= Math.sin(vehicle1.angle) * accel * 0.4 * dt
           }
         }
       } else {

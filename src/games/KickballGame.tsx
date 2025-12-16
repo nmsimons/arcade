@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
 type Vector2 = { x: number; y: number }
+type Vector3 = { x: number; y: number; z: number }
 
 type GameState = 'menu' | 'playing' | 'paused' | 'goal' | 'gameOver'
 
@@ -194,6 +195,9 @@ export function KickballGame({ onExit }: KickballGameProps) {
   const ripplesRef = useRef<{ x: number; y: number; radius: number; maxRadius: number; color: string }[]>([])
   const ambientRipplesRef = useRef<{ goalSide: 'left' | 'right'; radius: number; maxRadius: number }[]>([])
   const drainAnimRef = useRef<{ goalPos: Vector2; startPos: Vector2; progress: number; spinAngle: number } | null>(null)
+
+  const ballSpinAngleRef = useRef(0)
+  const ballSpinAxisRef = useRef<Vector3>({ x: 0, y: 1, z: 0 })
 
   const ai1Ref = useRef<AiMemory>({ offenseState: 'orbit', orbitSideSign: 1, commitMs: 0, stuckMs: 0, lastPos: { x: 0, y: 0 }, lastDistToBall: Number.POSITIVE_INFINITY, heldDir: { x: 1, y: 0 }, heldDirMs: 0 })
   const ai2Ref = useRef<AiMemory>({ offenseState: 'orbit', orbitSideSign: -1, commitMs: 0, stuckMs: 0, lastPos: { x: 0, y: 0 }, lastDistToBall: Number.POSITIVE_INFINITY, heldDir: { x: -1, y: 0 }, heldDirMs: 0 })
@@ -1620,11 +1624,191 @@ export function KickballGame({ onExit }: KickballGameProps) {
         ball.vel.x = (ball.vel.x / ballSpeed) * maxBallSpeed
         ball.vel.y = (ball.vel.y / ballSpeed) * maxBallSpeed
       }
+
+      // Update ball spin so it visually rolls.
+      // Rolling angular speed (no slip) is w = v / r, axis is perpendicular to velocity.
+      const speedForSpin = Math.hypot(ball.vel.x, ball.vel.y)
+      if (speedForSpin > 0.5) {
+        const ax = -ball.vel.y
+        const ay = ball.vel.x
+        const al = Math.hypot(ax, ay)
+        if (al > 0.0001) {
+          ballSpinAxisRef.current = { x: ax / al, y: ay / al, z: 0 }
+        }
+        ballSpinAngleRef.current += (speedForSpin / Math.max(10, ball.radius)) * dt
+      }
     }
 
     const draw = () => {
       const { width, height } = canvasSizeRef.current
       const field = fieldRef.current
+
+      const normalize3 = (v: Vector3): Vector3 => {
+        const d = Math.hypot(v.x, v.y, v.z)
+        if (d <= 0.000001) return { x: 0, y: 0, z: 1 }
+        return { x: v.x / d, y: v.y / d, z: v.z / d }
+      }
+
+      const dot3 = (a: Vector3, b: Vector3) => a.x * b.x + a.y * b.y + a.z * b.z
+
+      const cross3 = (a: Vector3, b: Vector3): Vector3 => ({
+        x: a.y * b.z - a.z * b.y,
+        y: a.z * b.x - a.x * b.z,
+        z: a.x * b.y - a.y * b.x,
+      })
+
+      const rotateAroundAxis = (v: Vector3, axis: Vector3, angle: number): Vector3 => {
+        // Rodrigues' rotation formula
+        const k = normalize3(axis)
+        const cos = Math.cos(angle)
+        const sin = Math.sin(angle)
+        const kv = dot3(k, v)
+        const kxv = cross3(k, v)
+        return {
+          x: v.x * cos + kxv.x * sin + k.x * kv * (1 - cos),
+          y: v.y * cos + kxv.y * sin + k.y * kv * (1 - cos),
+          z: v.z * cos + kxv.z * sin + k.z * kv * (1 - cos),
+        }
+      }
+
+      const projectSpherePoint = (centerX: number, centerY: number, radius: number, p: Vector3) => {
+        // Mild fake perspective based on z
+        const persp = 1 / (1 - p.z * 0.35)
+        return {
+          x: centerX + p.x * radius * persp,
+          y: centerY + p.y * radius * persp,
+          z: p.z,
+        }
+      }
+
+      const drawSoccerBall = (x: number, y: number, r: number) => {
+        ctx.save()
+        // Ensure the ball isn't affected by any prior alpha/compositing state.
+        ctx.globalAlpha = 1
+        ctx.globalCompositeOperation = 'source-over'
+
+        const spinAxis = ballSpinAxisRef.current
+        const spinAngle = ballSpinAngleRef.current
+
+        // Vector-style base sphere (flat fills + clean strokes)
+        ctx.fillStyle = '#f2f2f2'
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Simple "shade" lobe (still vector: one clipped, flat ellipse)
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.clip()
+        ctx.fillStyle = 'rgba(0,0,0,0.10)'
+        ctx.beginPath()
+        ctx.ellipse(x + r * 0.18, y + r * 0.22, r * 0.85, r * 0.65, 0.6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+
+        // Small highlight
+        ctx.fillStyle = 'rgba(255,255,255,0.22)'
+        ctx.beginPath()
+        ctx.ellipse(x - r * 0.22, y - r * 0.28, r * 0.34, r * 0.22, -0.6, 0, Math.PI * 2)
+        ctx.fill()
+
+        // 12 pentagon centers = icosahedron vertices.
+        const phi = (1 + Math.sqrt(5)) / 2
+        const rawVerts: Vector3[] = [
+          { x: 0, y: 1, z: phi },
+          { x: 0, y: -1, z: phi },
+          { x: 0, y: 1, z: -phi },
+          { x: 0, y: -1, z: -phi },
+          { x: 1, y: phi, z: 0 },
+          { x: -1, y: phi, z: 0 },
+          { x: 1, y: -phi, z: 0 },
+          { x: -1, y: -phi, z: 0 },
+          { x: phi, y: 0, z: 1 },
+          { x: -phi, y: 0, z: 1 },
+          { x: phi, y: 0, z: -1 },
+          { x: -phi, y: 0, z: -1 },
+        ]
+
+        const patches: { z: number; pts: { x: number; y: number }[]; fill: string; stroke: string }[] = []
+        for (const v0 of rawVerts) {
+          const center = normalize3(v0)
+          const c = rotateAroundAxis(center, spinAxis, spinAngle)
+
+          // Only draw patches that are on the visible hemisphere.
+          if (c.z <= 0.02) continue
+
+          // Tangent basis
+          const up: Vector3 = Math.abs(c.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 }
+          const u = normalize3(cross3(up, c))
+          const vv = cross3(c, u)
+
+          // Pentagon angular radius
+          const alpha = 0.36
+          const pts3: Vector3[] = []
+          // IMPORTANT: twist must be stable per patch (based on its base center),
+          // otherwise the patch appears to "spin in place" as the ball rotates.
+          const twist = (center.x * 7.1 + center.y * 3.3 + center.z * 5.7)
+          for (let i = 0; i < 5; i++) {
+            const theta = twist + (i * Math.PI * 2) / 5
+            const ring = normalize3({
+              x: u.x * Math.cos(theta) + vv.x * Math.sin(theta),
+              y: u.y * Math.cos(theta) + vv.y * Math.sin(theta),
+              z: u.z * Math.cos(theta) + vv.z * Math.sin(theta),
+            })
+            const p = normalize3({
+              x: c.x * Math.cos(alpha) + ring.x * Math.sin(alpha),
+              y: c.y * Math.cos(alpha) + ring.y * Math.sin(alpha),
+              z: c.z * Math.cos(alpha) + ring.z * Math.sin(alpha),
+            })
+            pts3.push(p)
+          }
+
+          let avgZ = 0
+          const pts2 = pts3.map((p) => {
+            const pr = projectSpherePoint(x, y, r, p)
+            avgZ += pr.z
+            return { x: pr.x, y: pr.y }
+          })
+          avgZ /= pts2.length
+
+          // Classic soccer ball: black pentagons on a light sphere
+          const fill = '#151515'
+          const stroke = 'rgba(0,0,0,0.18)'
+          patches.push({ z: avgZ, pts: pts2, fill, stroke })
+        }
+
+        patches.sort((a, b) => a.z - b.z)
+
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.clip()
+
+        for (const patch of patches) {
+          ctx.fillStyle = patch.fill
+          ctx.strokeStyle = patch.stroke
+          ctx.lineWidth = Math.max(1, Math.round(r * 0.06))
+          ctx.lineJoin = 'round'
+          ctx.beginPath()
+          ctx.moveTo(patch.pts[0].x, patch.pts[0].y)
+          for (let i = 1; i < patch.pts.length; i++) ctx.lineTo(patch.pts[i].x, patch.pts[i].y)
+          ctx.closePath()
+          ctx.fill()
+          ctx.stroke()
+        }
+
+        ctx.restore()
+
+        // Outline
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+        ctx.lineWidth = Math.max(2, Math.round(r * 0.08))
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.stroke()
+
+        ctx.restore()
+      }
 
       // Clear
       ctx.fillStyle = '#0a0a0a'
@@ -1770,11 +1954,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
 
       // Draw ball
       const ball = ballRef.current
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.arc(ball.pos.x, ball.pos.y, ball.radius, 0, Math.PI * 2)
-      ctx.stroke()
+      drawSoccerBall(ball.pos.x, ball.pos.y, ball.radius)
 
       // Draw vehicle helper function
       const drawVehicle = (vehicle: Vehicle) => {

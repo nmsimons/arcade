@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { ArmorAttackGame } from './games/ArmorAttackGame'
 import { AsteroidsGame } from './games/AsteroidsGame'
 import { HelloWorldGame } from './games/HelloWorldGame'
+import { KickballGame } from './games/KickballGame'
 import { LunarLanderGame } from './games/LunarLanderGame'
 import { OmegaRaceGame } from './games/OmegaRaceGame'
 
-type GameId = 'asteroids' | 'hello' | 'lander' | 'omega' | 'armor'
+type GameId = 'asteroids' | 'hello' | 'lander' | 'omega' | 'armor' | 'kickball'
 
-const GAMES: GameId[] = ['asteroids', 'lander', 'omega', 'armor', 'hello']
+const GAMES: GameId[] = ['asteroids', 'lander', 'omega', 'armor', 'kickball', 'hello']
 
 export default function App() {
   const [game, setGame] = useState<GameId | null>(null)
@@ -55,6 +56,10 @@ export default function App() {
     return <ArmorAttackGame onExit={() => setGame(null)} />
   }
 
+  if (game === 'kickball') {
+    return <KickballGame onExit={() => setGame(null)} />
+  }
+
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono bg-[#0a0a0a]">
       {/* Scanline effect */}
@@ -85,7 +90,7 @@ export default function App() {
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
-                {g === 'asteroids' ? 'Asteroids' : g === 'lander' ? 'Lunar Lander' : g === 'omega' ? 'Omega Race' : g === 'armor' ? 'Armor Attack' : 'Hello World'}
+                {g === 'asteroids' ? 'Asteroids' : g === 'lander' ? 'Lunar Lander' : g === 'omega' ? 'Omega Race' : g === 'armor' ? 'Armor Attack' : g === 'kickball' ? 'Kickball' : 'Hello World'}
               </button>
             ))}
           </div>

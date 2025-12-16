@@ -179,6 +179,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
   const lastScorerRef = useRef<'red' | 'blue'>('red')
   const goalFlashRef = useRef(0)
   const ripplesRef = useRef<{ x: number; y: number; radius: number; maxRadius: number; color: string }[]>([])
+  const ambientRipplesRef = useRef<{ goalSide: 'left' | 'right'; radius: number; maxRadius: number }[]>([])
   const drainAnimRef = useRef<{ goalPos: Vector2; startPos: Vector2; progress: number; spinAngle: number } | null>(null)
 
   const fieldRef = useRef({
@@ -386,17 +387,17 @@ export function KickballGame({ onExit }: KickballGameProps) {
           ball.pos.y = drain.goalPos.y + Math.sin(drain.spinAngle) * spiralRadius
         }
         
-        // Update ripples - expand outward and fade
-        const rippleSpeed = 200
+        // Update ripples - shrink inward rapidly for goal celebration
+        const rippleSpeed = 400
         ripplesRef.current = ripplesRef.current.filter(r => {
-          r.radius += rippleSpeed * dt
-          return r.radius < r.maxRadius
+          r.radius -= rippleSpeed * dt
+          return r.radius > r.maxRadius // maxRadius is now minimum (goal radius)
         })
         
-        // Spawn new ripples periodically
-        if (drainAnimRef.current && ripplesRef.current.length < 5) {
+        // Spawn new inward ripples rapidly during goal celebration
+        if (drainAnimRef.current && ripplesRef.current.length < 8) {
           const lastRipple = ripplesRef.current[ripplesRef.current.length - 1]
-          if (!lastRipple || lastRipple.radius > 80) {
+          if (!lastRipple || lastRipple.radius < 350) {
             const goal = goalsRef.current.find(g => 
               g.pos.x === drainAnimRef.current!.goalPos.x
             )
@@ -404,8 +405,8 @@ export function KickballGame({ onExit }: KickballGameProps) {
               ripplesRef.current.push({
                 x: goal.pos.x,
                 y: goal.pos.y,
-                radius: goal.radius,
-                maxRadius: 300,
+                radius: 400, // Start from far out
+                maxRadius: goal.radius, // Shrink to goal radius
                 color: goal.side === 'left' ? '#ff4444' : '#4444ff'
               })
             }
@@ -419,6 +420,26 @@ export function KickballGame({ onExit }: KickballGameProps) {
           setGameState('playing')
         }
         return
+      }
+      
+      // Update ambient goal ripples (always active during play) - ripple inward
+      const ambientRippleSpeed = 80
+      ambientRipplesRef.current = ambientRipplesRef.current.filter(r => {
+        r.radius -= ambientRippleSpeed * dt
+        return r.radius > r.maxRadius // maxRadius is now the minimum (goal radius)
+      })
+      
+      // Spawn ambient ripples for each goal - start at gravity radius, shrink to goal
+      for (const goal of goalsRef.current) {
+        const goalRipples = ambientRipplesRef.current.filter(r => r.goalSide === goal.side)
+        const lastRipple = goalRipples[goalRipples.length - 1]
+        if (!lastRipple || lastRipple.radius < goal.gravityRadius - 50) {
+          ambientRipplesRef.current.push({
+            goalSide: goal.side,
+            radius: goal.gravityRadius,
+            maxRadius: goal.radius // Now used as minimum radius
+          })
+        }
       }
 
       // Vehicle 1 controls - Red car
@@ -434,6 +455,8 @@ export function KickballGame({ onExit }: KickballGameProps) {
         const leftGoal = goalsRef.current.find(g => g.side === 'left')
         const field = fieldRef.current
         const centerX = (field.left + field.right) / 2
+        const centerY = (field.top + field.bottom) / 2
+        const opponent = vehicle2Ref.current
         
         if (rightGoal && leftGoal) {
           // Predict where ball will be in the near future
@@ -446,12 +469,20 @@ export function KickballGame({ onExit }: KickballGameProps) {
           const ballOnOwnSide = ball.pos.x < centerX
           const ballInDanger = predictedBallX < field.left + 200 // Ball predicted to be near red goal
           
-          // State machine: 'attack' | 'defend' | 'intercept'
-          let aiState: 'attack' | 'defend' | 'intercept' = 'attack'
+          // Check if opponent is closer to ball than us
+          const aiToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
+          const opponentToBallDist = Math.hypot(ball.pos.x - opponent.pos.x, ball.pos.y - opponent.pos.y)
+          const opponentCloser = opponentToBallDist < aiToBallDist - 30
+          
+          // State machine: 'attack' | 'defend' | 'intercept' | 'block'
+          let aiState: 'attack' | 'defend' | 'intercept' | 'block' = 'attack'
           
           if (ballInDanger || (ballMovingTowardOwnGoal && ballOnOwnSide)) {
             // Ball is threatening our goal - intercept it
             aiState = 'intercept'
+          } else if (opponentCloser && ballOnOwnSide) {
+            // Opponent has the ball on our side - block them
+            aiState = 'block'
           } else if (ballOnOwnSide && !ballMovingTowardOwnGoal) {
             // Ball is on our side but not dangerous - clear it
             aiState = 'defend'
@@ -464,25 +495,46 @@ export function KickballGame({ onExit }: KickballGameProps) {
           let targetY = ball.pos.y
           
           if (aiState === 'attack') {
-            // Attack mode: Get behind ball and push toward opponent's goal
+            // Attack mode: Circle around to optimal approach angle
             const ballToGoalX = rightGoal.pos.x - predictedBallX
             const ballToGoalY = rightGoal.pos.y - predictedBallY
             const ballToGoalDist = Math.hypot(ballToGoalX, ballToGoalY)
+            const ballToGoalAngle = Math.atan2(ballToGoalY, ballToGoalX)
             
-            // Position behind the predicted ball position
-            const behindBallDist = 60
-            targetX = predictedBallX - (ballToGoalX / ballToGoalDist) * behindBallDist
-            targetY = predictedBallY - (ballToGoalY / ballToGoalDist) * behindBallDist
+            // Calculate car's current angle to ball
+            const carToBallX = ball.pos.x - vehicle1.pos.x
+            const carToBallY = ball.pos.y - vehicle1.pos.y
+            const carToBallDist = Math.hypot(carToBallX, carToBallY)
+            const carToBallAngle = Math.atan2(carToBallY, carToBallX)
             
-            // If close to ball, aim at the goal to push
-            const carToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
+            // Ideal approach: from opposite side of goal direction
+            const idealApproachAngle = ballToGoalAngle + Math.PI // Come from behind
+            
+            // Check if we're approaching from a good angle
+            let approachAngleDiff = carToBallAngle - idealApproachAngle
+            while (approachAngleDiff > Math.PI) approachAngleDiff -= Math.PI * 2
+            while (approachAngleDiff < -Math.PI) approachAngleDiff += Math.PI * 2
+            
             if (carToBallDist < 80) {
+              // Close to ball, aim at the goal to push
               targetX = rightGoal.pos.x
               targetY = rightGoal.pos.y
+            } else if (Math.abs(approachAngleDiff) > Math.PI / 3 && carToBallDist > 120) {
+              // Bad approach angle and far enough - circle around to better position
+              // Offset perpendicular to ideal approach to arc around
+              const circleDir = approachAngleDiff > 0 ? -1 : 1
+              const perpAngle = idealApproachAngle + (Math.PI / 2) * circleDir
+              const behindBallDist = 80
+              targetX = predictedBallX - Math.cos(idealApproachAngle) * behindBallDist + Math.cos(perpAngle) * 60
+              targetY = predictedBallY - Math.sin(idealApproachAngle) * behindBallDist + Math.sin(perpAngle) * 60
+            } else {
+              // Good approach angle - go behind ball
+              const behindBallDist = 60
+              targetX = predictedBallX - (ballToGoalX / ballToGoalDist) * behindBallDist
+              targetY = predictedBallY - (ballToGoalY / ballToGoalDist) * behindBallDist
             }
           } else if (aiState === 'intercept') {
             // Intercept mode: Get between ball and our goal
-            // Target the predicted ball position, but from the goal side
             const goalToBallX = predictedBallX - leftGoal.pos.x
             const goalToBallY = predictedBallY - leftGoal.pos.y
             const goalToBallDist = Math.hypot(goalToBallX, goalToBallY)
@@ -497,24 +549,79 @@ export function KickballGame({ onExit }: KickballGameProps) {
             if (carToBallDist < 80) {
               // Clear toward the right side of the field
               targetX = field.right
-              targetY = ball.pos.y < centerX ? field.bottom : field.top // Clear to opposite corner
+              targetY = ball.pos.y < centerY ? field.bottom : field.top
+            }
+          } else if (aiState === 'block') {
+            // Block mode: Position between opponent and ball
+            const oppToBallX = ball.pos.x - opponent.pos.x
+            const oppToBallY = ball.pos.y - opponent.pos.y
+            const oppToBallDist = Math.hypot(oppToBallX, oppToBallY)
+            
+            // Get between opponent and ball, closer to the ball
+            const blockDist = Math.min(oppToBallDist * 0.4, 60)
+            targetX = ball.pos.x - (oppToBallX / oppToBallDist) * blockDist
+            targetY = ball.pos.y - (oppToBallY / oppToBallDist) * blockDist
+            
+            // If close to ball while blocking, clear it
+            const carToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
+            if (carToBallDist < 70) {
+              targetX = centerX + 150
+              targetY = centerY
             }
           } else if (aiState === 'defend') {
             // Defend mode: Push ball away from our side toward center/right
             const ballToRightX = rightGoal.pos.x - ball.pos.x
-            const ballToRightY = centerX - ball.pos.y // Aim toward center height
+            const ballToRightY = centerY - ball.pos.y
             const dist = Math.hypot(ballToRightX, ballToRightY)
             
-            // Get behind ball relative to center-right
             const behindBallDist = 50
             targetX = ball.pos.x - (ballToRightX / dist) * behindBallDist
             targetY = ball.pos.y - (ballToRightY / dist) * behindBallDist
             
-            // If close, push toward center/right
             const carToBallDist = Math.hypot(ball.pos.x - vehicle1.pos.x, ball.pos.y - vehicle1.pos.y)
             if (carToBallDist < 80) {
               targetX = centerX + 100
-              targetY = (field.top + field.bottom) / 2
+              targetY = centerY
+            }
+          }
+          
+          // Bumper avoidance - check if path to target crosses any bumper
+          const bumpers = bumpersRef.current
+          const pathToTargetX = targetX - vehicle1.pos.x
+          const pathToTargetY = targetY - vehicle1.pos.y
+          const pathDist = Math.hypot(pathToTargetX, pathToTargetY)
+          
+          if (pathDist > 30) {
+            const pathNormX = pathToTargetX / pathDist
+            const pathNormY = pathToTargetY / pathDist
+            
+            for (const bumper of bumpers) {
+              // Check distance from bumper to our path line
+              const toBumperX = bumper.pos.x - vehicle1.pos.x
+              const toBumperY = bumper.pos.y - vehicle1.pos.y
+              const distAlongPath = toBumperX * pathNormX + toBumperY * pathNormY
+              
+              // Only consider bumpers ahead of us and within path distance
+              if (distAlongPath > 20 && distAlongPath < pathDist) {
+                const closestOnPathX = vehicle1.pos.x + pathNormX * distAlongPath
+                const closestOnPathY = vehicle1.pos.y + pathNormY * distAlongPath
+                const distToBumper = Math.hypot(bumper.pos.x - closestOnPathX, bumper.pos.y - closestOnPathY)
+                
+                const avoidRadius = bumper.radius + 35 // Vehicle radius + margin
+                if (distToBumper < avoidRadius) {
+                  // Bumper is in our way - steer around it
+                  const perpX = -pathNormY
+                  const perpY = pathNormX
+                  // Determine which side to go around
+                  const sideCheck = (bumper.pos.x - vehicle1.pos.x) * perpX + (bumper.pos.y - vehicle1.pos.y) * perpY
+                  const avoidDir = sideCheck > 0 ? -1 : 1
+                  
+                  // Offset target to go around bumper
+                  targetX = bumper.pos.x + perpX * avoidDir * (avoidRadius + 20)
+                  targetY = bumper.pos.y + perpY * avoidDir * (avoidRadius + 20)
+                  break // Handle one bumper at a time
+                }
+              }
             }
           }
           
@@ -904,6 +1011,19 @@ export function KickballGame({ onExit }: KickballGameProps) {
         const pulseScale = isScoring ? 1 + Math.sin(Date.now() * 0.02) * 0.15 : 1
         const glowIntensity = isScoring ? 0.5 + Math.sin(Date.now() * 0.015) * 0.3 : 0
         
+        // Ambient ripples emanating inward toward goal
+        const goalRipples = ambientRipplesRef.current.filter(r => r.goalSide === goal.side)
+        for (const ripple of goalRipples) {
+          // Progress goes from 0 (at gravity radius) to 1 (at goal radius)
+          const progress = (goal.gravityRadius - ripple.radius) / (goal.gravityRadius - goal.radius)
+          const alpha = 0.1 + progress * 0.4 // Start light, get darker toward center
+          ctx.strokeStyle = goal.side === 'left' ? `rgba(255, 68, 68, ${alpha})` : `rgba(68, 68, 255, ${alpha})`
+          ctx.lineWidth = 1.5 + progress * 1.5 // Also get thicker
+          ctx.beginPath()
+          ctx.arc(goal.pos.x, goal.pos.y, ripple.radius, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+        
         // Gravity radius indicator (subtle)
         ctx.strokeStyle = goal.side === 'left' ? 'rgba(255, 68, 68, 0.2)' : 'rgba(68, 68, 255, 0.2)'
         ctx.lineWidth = 1
@@ -1077,13 +1197,15 @@ export function KickballGame({ onExit }: KickballGameProps) {
           ctx.fillRect(0, 0, width, height)
         }
         
-        // Draw ripples - circles emanating outward and fading
+        // Draw ripples - rushing inward with increasing intensity
         for (const ripple of ripplesRef.current) {
-          const progress = ripple.radius / ripple.maxRadius
-          const alpha = 1 - progress // Fade as it expands
+          const startRadius = 400
+          const endRadius = ripple.maxRadius
+          const progress = (startRadius - ripple.radius) / (startRadius - endRadius)
+          const alpha = 0.3 + progress * 0.7 // Start light, get bright toward center
           ctx.strokeStyle = ripple.color
           ctx.globalAlpha = alpha
-          ctx.lineWidth = 3
+          ctx.lineWidth = 2 + progress * 4 // Get thicker as it rushes in
           ctx.beginPath()
           ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2)
           ctx.stroke()

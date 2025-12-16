@@ -141,7 +141,8 @@ interface KickballGameProps {
 export function KickballGame({ onExit }: KickballGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<GameState>('menu')
-  const [redScore, setRedScore] = useState(0)  // Left side (WASD player)
+  const [gameMode, setGameMode] = useState<'1p' | '2p'>('2p')
+  const [redScore, setRedScore] = useState(0)  // Left side (WASD player or AI)
   const [blueScore, setBlueScore] = useState(0) // Right side (Arrow player)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
@@ -313,15 +314,16 @@ export function KickballGame({ onExit }: KickballGameProps) {
       if (gameState === 'menu') {
         if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
           e.preventDefault()
-          setMenuIndex((i) => (i > 0 ? i - 1 : 1))
+          setMenuIndex((i) => (i > 0 ? i - 1 : 2))
         }
         if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
           e.preventDefault()
-          setMenuIndex((i) => (i < 1 ? i + 1 : 0))
+          setMenuIndex((i) => (i < 2 ? i + 1 : 0))
         }
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          if (menuIndex === 0) startGame()
+          if (menuIndex === 0) { setGameMode('1p'); startGame() }
+          else if (menuIndex === 1) { setGameMode('2p'); startGame() }
           else onExit()
         }
       }
@@ -419,25 +421,81 @@ export function KickballGame({ onExit }: KickballGameProps) {
         return
       }
 
-      // Vehicle 1 controls (WASD) - Left/Red car
-      if (keysRef.current.has('a')) {
-        vehicle1.angle -= 4 * dt
-      }
-      if (keysRef.current.has('d')) {
-        vehicle1.angle += 4 * dt
-      }
-
+      // Vehicle 1 controls - Red car
+      // In 1 player mode: AI controls
+      // In 2 player mode: WASD controls
       const accel = 350
       let isAccelerating = false
-      if (keysRef.current.has('w')) {
-        vehicle1.vel.x += Math.cos(vehicle1.angle) * accel * dt
-        vehicle1.vel.y += Math.sin(vehicle1.angle) * accel * dt
-        isAccelerating = true
-      }
-      if (keysRef.current.has('s')) {
-        vehicle1.vel.x -= Math.cos(vehicle1.angle) * accel * 0.5 * dt
-        vehicle1.vel.y -= Math.sin(vehicle1.angle) * accel * 0.5 * dt
-        isAccelerating = true
+      
+      if (gameMode === '1p') {
+        // AI for red car - tries to push ball into blue goal (right side)
+        const ball = ballRef.current
+        const rightGoal = goalsRef.current.find(g => g.side === 'right')
+        
+        if (rightGoal) {
+          // Calculate where to aim - behind the ball relative to the goal
+          const ballToGoalX = rightGoal.pos.x - ball.pos.x
+          const ballToGoalY = rightGoal.pos.y - ball.pos.y
+          const ballToGoalDist = Math.hypot(ballToGoalX, ballToGoalY)
+          
+          // Position to get behind the ball
+          const behindBallDist = 60
+          let targetX = ball.pos.x - (ballToGoalX / ballToGoalDist) * behindBallDist
+          let targetY = ball.pos.y - (ballToGoalY / ballToGoalDist) * behindBallDist
+          
+          // If car is already between ball and goal, just push the ball
+          const carToBallX = ball.pos.x - vehicle1.pos.x
+          const carToBallY = ball.pos.y - vehicle1.pos.y
+          const carToBallDist = Math.hypot(carToBallX, carToBallY)
+          
+          if (carToBallDist < 80) {
+            // Close to ball, aim at the goal
+            targetX = rightGoal.pos.x
+            targetY = rightGoal.pos.y
+          }
+          
+          // Calculate angle to target
+          const dx = targetX - vehicle1.pos.x
+          const dy = targetY - vehicle1.pos.y
+          const targetAngle = Math.atan2(dy, dx)
+          
+          // Smoothly turn toward target
+          let angleDiff = targetAngle - vehicle1.angle
+          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+          
+          const turnSpeed = 4
+          if (angleDiff > 0.1) {
+            vehicle1.angle += turnSpeed * dt
+          } else if (angleDiff < -0.1) {
+            vehicle1.angle -= turnSpeed * dt
+          }
+          
+          // Accelerate if roughly facing the target
+          if (Math.abs(angleDiff) < Math.PI / 2) {
+            vehicle1.vel.x += Math.cos(vehicle1.angle) * accel * dt
+            vehicle1.vel.y += Math.sin(vehicle1.angle) * accel * dt
+            isAccelerating = true
+          }
+        }
+      } else {
+        // 2 player mode - WASD controls
+        if (keysRef.current.has('a')) {
+          vehicle1.angle -= 4 * dt
+        }
+        if (keysRef.current.has('d')) {
+          vehicle1.angle += 4 * dt
+        }
+        if (keysRef.current.has('w')) {
+          vehicle1.vel.x += Math.cos(vehicle1.angle) * accel * dt
+          vehicle1.vel.y += Math.sin(vehicle1.angle) * accel * dt
+          isAccelerating = true
+        }
+        if (keysRef.current.has('s')) {
+          vehicle1.vel.x -= Math.cos(vehicle1.angle) * accel * 0.5 * dt
+          vehicle1.vel.y -= Math.sin(vehicle1.angle) * accel * 0.5 * dt
+          isAccelerating = true
+        }
       }
 
       // Vehicle 2 controls (Arrow keys) - Right/Blue car
@@ -752,8 +810,6 @@ export function KickballGame({ onExit }: KickballGameProps) {
       ctx.lineWidth = 3
 
       // Field outline with rounded corners
-      const fieldWidth = field.right - field.left
-      const fieldHeight = field.bottom - field.top
       const cornerRadius = 30
       ctx.beginPath()
       ctx.moveTo(field.left + cornerRadius, field.top)
@@ -996,7 +1052,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, startGame, generateField, resetPositions, onExit, menuIndex, gameOverIndex, redScore, blueScore])
+  }, [gameState, gameMode, startGame, generateField, resetPositions, onExit, menuIndex, gameOverIndex, redScore, blueScore])
 
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black">
@@ -1009,10 +1065,14 @@ export function KickballGame({ onExit }: KickballGameProps) {
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] font-mono">KICKBALL</h1>
             <p className="text-[#00ff88]/60 text-sm mb-8 tracking-widest">PUSH THE BALL INTO THE GOAL</p>
             <div className="flex flex-col gap-3">
-              {['Start Game', 'Exit'].map((label, i) => (
+              {['1 Player', '2 Players', 'Exit'].map((label, i) => (
                 <button
                   key={label}
-                  onClick={() => (i === 0 ? startGame() : onExit())}
+                  onClick={() => {
+                    if (i === 0) { setGameMode('1p'); startGame() }
+                    else if (i === 1) { setGameMode('2p'); startGame() }
+                    else onExit()
+                  }}
                   className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
                     menuIndex === i
                       ? 'border-[#00ff88] bg-[#00ff88] text-black'
@@ -1024,7 +1084,8 @@ export function KickballGame({ onExit }: KickballGameProps) {
               ))}
             </div>
             <div className="mt-8 text-[#00ff88]/50 text-xs tracking-widest">
-              <p>WASD or Arrow Keys to move</p>
+              <p>Arrow Keys to move</p>
+              <p className="mt-1">2P: WASD + Arrows</p>
               <p className="mt-1">First to 5 goals wins!</p>
             </div>
           </div>

@@ -251,6 +251,8 @@ type Tank = {
   escapeAngle: number
   flankAngle: number // Offset angle for flanking behavior
   tacticalMode: 'approach' | 'flank' | 'hold' // Current tactical behavior
+  modeCommitMs: number
+  losTimeMs: number
 }
 
 type Helicopter = {
@@ -262,6 +264,7 @@ type Helicopter = {
   shootCooldown: number
   rotorAngle: number
   soundTimer: number
+  losTimeMs: number
 }
 
 type Bullet = {
@@ -567,6 +570,8 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         escapeAngle: 0,
         flankAngle: flankAngles[i % flankAngles.length],
         tacticalMode: 'approach',
+        modeCommitMs: 0,
+        losTimeMs: 0,
       })
     }
 
@@ -609,6 +614,7 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         shootCooldown: 1500 + Math.random() * 1500,
         rotorAngle: 0,
         soundTimer: 0,
+        losTimeMs: 0,
       })
     }
 
@@ -858,6 +864,9 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
       const { width, height } = canvasSizeRef.current
       const jeep = jeepRef.current
 
+      // Fairness: cap concurrent enemy bullets so difficulty stays readable.
+      const maxEnemyBullets = 6
+
       // Respawn timer
       if (respawnTimerRef.current > 0) {
         respawnTimerRef.current -= dt * 1000
@@ -992,6 +1001,13 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
             break
           }
         }
+
+        // Fairness: require a short, continuous "seeing you" window before accurate fire.
+        if (!pathBlocked) tank.losTimeMs = Math.min(2000, tank.losTimeMs + dt * 1000)
+        else tank.losTimeMs = 0
+
+        // Reduce tactical dithering.
+        tank.modeCommitMs = Math.max(0, tank.modeCommitMs - dt * 1000)
         
         // Feeler rays to detect nearby obstacles - check multiple distances
         const { width, height } = canvasSizeRef.current
@@ -1104,14 +1120,16 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         } else {
           // Smart tactical behavior based on distance and situation
           const optimalDist = 180 // Ideal shooting distance
-          
-          // Update tactical mode based on situation
-          if (dist > optimalDist + 80) {
-            tank.tacticalMode = 'approach'
-          } else if (dist < optimalDist - 40 && !pathBlocked) {
-            tank.tacticalMode = 'hold'
-          } else if (dist >= optimalDist - 40 && dist <= optimalDist + 80) {
-            tank.tacticalMode = 'flank'
+
+          // Pick a desired mode, then apply a small commit window so tanks don't flicker modes.
+          let desiredMode: Tank['tacticalMode'] = tank.tacticalMode
+          if (dist > optimalDist + 120) desiredMode = 'approach'
+          else if (dist < optimalDist - 60 && !pathBlocked) desiredMode = 'hold'
+          else desiredMode = 'flank'
+
+          if (tank.modeCommitMs <= 0 && desiredMode !== tank.tacticalMode) {
+            tank.tacticalMode = desiredMode
+            tank.modeCommitMs = 500 + Math.random() * 650
           }
           
           if (tank.tacticalMode === 'approach') {
@@ -1241,7 +1259,11 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         while (aimDiff > Math.PI) aimDiff -= Math.PI * 2
         while (aimDiff < -Math.PI) aimDiff += Math.PI * 2
         
-        if (tank.shootCooldown <= 0 && Math.abs(aimDiff) < 0.5 && dist < 350) {
+        const enemyBulletCount = bulletsRef.current.reduce((acc, b) => acc + (b.isEnemy ? 1 : 0), 0)
+        const reactionOk = tank.losTimeMs >= 250
+        const aimOk = Math.abs(aimDiff) < 0.35
+
+        if (tank.shootCooldown <= 0 && reactionOk && aimOk && dist < 350 && enemyBulletCount < maxEnemyBullets) {
           // Check if wall blocks the shot to predicted position
           let blocked = false
           for (const wall of wallsRef.current) {
@@ -1253,8 +1275,9 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
 
           if (!blocked) {
             // Shoot toward predicted position with slight randomness
-            const shootAngle = leadAngle + (Math.random() - 0.5) * 0.15
-            tank.shootCooldown = 2000 + Math.random() * 1500
+            // Fairness: a little wobble, but not instant "laser" snaps.
+            const shootAngle = leadAngle + (Math.random() - 0.5) * 0.12
+            tank.shootCooldown = 2200 + Math.random() * 1700
             bulletsRef.current.push({
               pos: { x: tank.pos.x, y: tank.pos.y },
               vel: {
@@ -1292,6 +1315,17 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         const dy = jeep.pos.y - heli.pos.y
         const dist = Math.hypot(dx, dy)
 
+        // LOS for fairness and effectiveness (don't spam into walls)
+        let heliPathBlocked = false
+        for (const wall of wallsRef.current) {
+          if (lineIntersectsRect(heli.pos.x, heli.pos.y, jeep.pos.x, jeep.pos.y, wall.x, wall.y, wall.width, wall.height)) {
+            heliPathBlocked = true
+            break
+          }
+        }
+        if (!heliPathBlocked) heli.losTimeMs = Math.min(2000, heli.losTimeMs + dt * 1000)
+        else heli.losTimeMs = 0
+
         if (dist > 50) {
           const targetVx = (dx / dist) * 60
           const targetVy = (dy / dist) * 60
@@ -1306,14 +1340,22 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
 
         // Shooting
         heli.shootCooldown -= dt * 1000
-        if (heli.shootCooldown <= 0 && dist < 300) {
-          heli.shootCooldown = 2000 + Math.random() * 1000
-          const bulletAngle = Math.atan2(dy, dx)
+        const enemyBulletCount = bulletsRef.current.reduce((acc, b) => acc + (b.isEnemy ? 1 : 0), 0)
+        const heliReactionOk = heli.losTimeMs >= 250
+        if (heli.shootCooldown <= 0 && heliReactionOk && !heliPathBlocked && dist < 320 && dist > 90 && enemyBulletCount < maxEnemyBullets) {
+          heli.shootCooldown = 2400 + Math.random() * 1400
+
+          const bulletSpeed = 220
+          const timeToTarget = dist / bulletSpeed
+          const predictedX = jeep.pos.x + jeep.vel.x * timeToTarget * 0.55
+          const predictedY = jeep.pos.y + jeep.vel.y * timeToTarget * 0.55
+          const bulletAngle = Math.atan2(predictedY - heli.pos.y, predictedX - heli.pos.x) + (Math.random() - 0.5) * 0.18
+
           bulletsRef.current.push({
             pos: { x: heli.pos.x, y: heli.pos.y },
             vel: {
-              x: Math.cos(bulletAngle) * 200,
-              y: Math.sin(bulletAngle) * 200,
+              x: Math.cos(bulletAngle) * bulletSpeed,
+              y: Math.sin(bulletAngle) * bulletSpeed,
             },
             life: 2000,
             isEnemy: true,

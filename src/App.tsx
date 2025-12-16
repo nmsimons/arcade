@@ -5,10 +5,11 @@ import { HelloWorldGame } from './games/HelloWorldGame'
 import { KickballGame } from './games/KickballGame'
 import { LunarLanderGame } from './games/LunarLanderGame'
 import { OmegaRaceGame } from './games/OmegaRaceGame'
+import { SlingLoadGame } from './games/SlingLoadGame'
 
-type GameId = 'asteroids' | 'hello' | 'lander' | 'omega' | 'armor' | 'kickball'
+type GameId = 'asteroids' | 'hello' | 'lander' | 'omega' | 'armor' | 'kickball' | 'sling'
 
-const GAMES: GameId[] = ['asteroids', 'lander', 'omega', 'armor', 'kickball', 'hello']
+const GAMES: GameId[] = ['asteroids', 'lander', 'omega', 'armor', 'kickball', 'sling', 'hello']
 
 export default function App() {
   const [game, setGame] = useState<GameId | null>(null)
@@ -60,6 +61,10 @@ export default function App() {
     return <KickballGame onExit={() => setGame(null)} />
   }
 
+  if (game === 'sling') {
+    return <SlingLoadGame onExit={() => setGame(null)} />
+  }
+
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono bg-[#0a0a0a]">
       {/* Scanline effect */}
@@ -90,7 +95,19 @@ export default function App() {
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
-                {g === 'asteroids' ? 'Asteroids' : g === 'lander' ? 'Lunar Lander' : g === 'omega' ? 'Omega Race' : g === 'armor' ? 'Armor Attack' : g === 'kickball' ? 'Bumper Ball' : 'Hello World'}
+                {g === 'asteroids'
+                  ? 'Asteroids'
+                  : g === 'lander'
+                    ? 'Lunar Lander'
+                    : g === 'omega'
+                      ? 'Omega Race'
+                      : g === 'armor'
+                        ? 'Armor Attack'
+                        : g === 'kickball'
+                          ? 'Bumper Ball'
+                          : g === 'sling'
+                            ? 'Sling Load'
+                            : 'Hello World'}
               </button>
             ))}
           </div>

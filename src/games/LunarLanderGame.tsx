@@ -453,7 +453,11 @@ export function LunarLanderGame({ onExit }: LunarLanderGameProps) {
 
     window.addEventListener('resize', resize)
 
-    const gravity = 45 // px/s^2
+    // Gravity increases by 20% per difficulty level
+    const baseGravity = 45 // px/s^2
+    const gravityMultiplier = difficulty === 'easy' ? 1.0 : difficulty === 'medium' ? 1.2 : 1.44 // 20% increase per level
+    const gravity = baseGravity * gravityMultiplier
+    
     const thrustAccel = 260 // px/s^2
     const rotSpeed = 2.6 // rad/s
     const fuelBurnPerSecond = 18

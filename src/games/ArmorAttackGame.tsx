@@ -249,6 +249,8 @@ type Tank = {
   trackOffset: number
   stuckTimer: number
   escapeAngle: number
+  flankAngle: number // Offset angle for flanking behavior
+  tacticalMode: 'approach' | 'flank' | 'hold' // Current tactical behavior
 }
 
 type Helicopter = {
@@ -548,6 +550,9 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         }
       }
 
+      // Assign flanking angles - distribute tanks around the player
+      const flankAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2, Math.PI / 4, -Math.PI / 4]
+      
       tanks.push({
         pos: { x: x!, y: y! },
         vel: { x: Math.cos(angle!) * 40, y: Math.sin(angle!) * 40 },
@@ -560,6 +565,8 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         trackOffset: 0,
         stuckTimer: 0,
         escapeAngle: 0,
+        flankAngle: flankAngles[i % flankAngles.length],
+        tacticalMode: 'approach',
       })
     }
 
@@ -1095,8 +1102,37 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
             desiredAngle = tank.angle + Math.PI
           }
         } else {
-          // Clear path, head toward jeep
-          desiredAngle = directAngle
+          // Smart tactical behavior based on distance and situation
+          const optimalDist = 180 // Ideal shooting distance
+          
+          // Update tactical mode based on situation
+          if (dist > optimalDist + 80) {
+            tank.tacticalMode = 'approach'
+          } else if (dist < optimalDist - 40 && !pathBlocked) {
+            tank.tacticalMode = 'hold'
+          } else if (dist >= optimalDist - 40 && dist <= optimalDist + 80) {
+            tank.tacticalMode = 'flank'
+          }
+          
+          if (tank.tacticalMode === 'approach') {
+            // Approach but at an angle to flank
+            desiredAngle = directAngle + tank.flankAngle * 0.3
+          } else if (tank.tacticalMode === 'flank') {
+            // Circle around the player at optimal distance
+            // Move perpendicular to player direction
+            const perpAngle = tank.flankAngle > 0 ? directAngle + Math.PI / 2 : directAngle - Math.PI / 2
+            // Blend between facing player and circling
+            if (dist < optimalDist) {
+              // Too close, back away while circling
+              desiredAngle = directAngle + Math.PI * 0.7 * Math.sign(tank.flankAngle)
+            } else {
+              // At good distance, circle while facing player
+              desiredAngle = perpAngle
+            }
+          } else {
+            // Hold position - face the player
+            desiredAngle = directAngle
+          }
         }
         
         // Smoothly update target angle to prevent jittering
@@ -1113,19 +1149,23 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
         tank.angle += angleDiff * dt * 2.0 // Smooth turning
 
-        // Move tank (slower than jeep)
-        const tankSpeed = 45
+        // Move tank - speed based on tactical mode
+        const tankSpeed = tank.tacticalMode === 'approach' ? 55 : tank.tacticalMode === 'flank' ? 45 : 25
         if (frontBlocked || frontLeftBlocked || frontRightBlocked) {
           // Slow down when obstacle ahead
           tank.vel.x = Math.cos(tank.angle) * tankSpeed * 0.3
           tank.vel.y = Math.sin(tank.angle) * tankSpeed * 0.3
+        } else if (tank.tacticalMode === 'hold' && dist < 120 && !pathBlocked) {
+          // Back up slowly when too close
+          tank.vel.x = -Math.cos(directAngle) * 30
+          tank.vel.y = -Math.sin(directAngle) * 30
+        } else if (tank.tacticalMode === 'flank') {
+          // Move at medium speed while flanking
+          tank.vel.x = Math.cos(tank.angle) * tankSpeed
+          tank.vel.y = Math.sin(tank.angle) * tankSpeed
         } else if (dist > 150) {
           tank.vel.x = Math.cos(tank.angle) * tankSpeed
           tank.vel.y = Math.sin(tank.angle) * tankSpeed
-        } else if (dist < 100 && !pathBlocked) {
-          // Only back up if we have clear line of sight
-          tank.vel.x = -Math.cos(tank.angle) * tankSpeed * 0.5
-          tank.vel.y = -Math.sin(tank.angle) * tankSpeed * 0.5
         } else {
           tank.vel.x *= 0.9
           tank.vel.y *= 0.9
@@ -1186,32 +1226,47 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
           }
         }
 
-        // Shooting - check line of sight
+        // Shooting - smart aim with lead prediction
         tank.shootCooldown -= dt * 1000
-        if (tank.shootCooldown <= 0 && Math.abs(angleDiff) < 0.4) {
-          // Check if wall blocks the shot
+        
+        // Calculate lead shot - predict where jeep will be
+        const bulletSpeed = 250
+        const timeToTarget = dist / bulletSpeed
+        const predictedX = jeep.pos.x + jeep.vel.x * timeToTarget * 0.7 // 70% prediction for some inaccuracy
+        const predictedY = jeep.pos.y + jeep.vel.y * timeToTarget * 0.7
+        const leadAngle = Math.atan2(predictedY - tank.pos.y, predictedX - tank.pos.x)
+        
+        // Check if aimed well enough (comparing tank angle to lead angle)
+        let aimDiff = leadAngle - tank.angle
+        while (aimDiff > Math.PI) aimDiff -= Math.PI * 2
+        while (aimDiff < -Math.PI) aimDiff += Math.PI * 2
+        
+        if (tank.shootCooldown <= 0 && Math.abs(aimDiff) < 0.5 && dist < 350) {
+          // Check if wall blocks the shot to predicted position
           let blocked = false
           for (const wall of wallsRef.current) {
-            if (lineIntersectsRect(tank.pos.x, tank.pos.y, jeep.pos.x, jeep.pos.y, wall.x, wall.y, wall.width, wall.height)) {
+            if (lineIntersectsRect(tank.pos.x, tank.pos.y, predictedX, predictedY, wall.x, wall.y, wall.width, wall.height)) {
               blocked = true
               break
             }
           }
 
           if (!blocked) {
-            tank.shootCooldown = 2500 + Math.random() * 1500
+            // Shoot toward predicted position with slight randomness
+            const shootAngle = leadAngle + (Math.random() - 0.5) * 0.15
+            tank.shootCooldown = 2000 + Math.random() * 1500
             bulletsRef.current.push({
               pos: { x: tank.pos.x, y: tank.pos.y },
               vel: {
-                x: Math.cos(tank.angle) * 250,
-                y: Math.sin(tank.angle) * 250,
+                x: Math.cos(shootAngle) * bulletSpeed,
+                y: Math.sin(shootAngle) * bulletSpeed,
               },
               life: 2000,
               isEnemy: true,
             })
             sounds.tankShoot()
           } else {
-            tank.shootCooldown = 500 // Try again soon
+            tank.shootCooldown = 400 // Try again soon
           }
         }
 

@@ -209,6 +209,21 @@ interface Vector2 {
   y: number
 }
 
+const isBossLevel = (lvl: number) => lvl > 0 && lvl % 4 === 0
+
+const createBossShape = (radius: number): Vector2[] => {
+  // Chunky polygon with slight symmetry for a "mothership" look.
+  const pts: Vector2[] = []
+  const vertices = 14
+  for (let i = 0; i < vertices; i++) {
+    const a = (i / vertices) * Math.PI * 2
+    const notch = i % 2 === 0 ? 0.82 : 1.02
+    const variance = notch * (0.92 + Math.random() * 0.12)
+    pts.push({ x: Math.cos(a) * radius * variance, y: Math.sin(a) * radius * variance })
+  }
+  return pts
+}
+
 interface Ship {
   pos: Vector2
   vel: Vector2
@@ -227,6 +242,19 @@ interface Bullet {
   pos: Vector2
   vel: Vector2
   life: number
+  isEnemy?: boolean
+}
+
+interface Boss {
+  pos: Vector2
+  vel: Vector2
+  angle: number
+  radius: number
+  points: Vector2[]
+  hp: number
+  maxHp: number
+  shootCooldown: number
+  hitFlash: number
 }
 
 interface Debris {
@@ -255,6 +283,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: 15 })
   const asteroidsRef = useRef<Asteroid[]>([])
   const bulletsRef = useRef<Bullet[]>([])
+  const bossRef = useRef<Boss | null>(null)
   const debrisRef = useRef<Debris[]>([])
   const keysRef = useRef<Set<string>>(new Set())
   const animationFrameRef = useRef<number | null>(null)
@@ -263,6 +292,40 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const levelingUpRef = useRef(false)
   const respawnTimerRef = useRef(0)
+
+  const spawnBoss = useCallback(
+    (lvl: number) => {
+      const { width, height } = canvasSizeRef.current
+      const radius = 55 + Math.min(35, lvl * 2)
+      const maxHp = 18 + lvl * 3
+
+      // Spawn away from the ship.
+      let x = width * 0.2
+      let y = height * 0.2
+      for (let i = 0; i < 20; i++) {
+        const tx = Math.random() * width
+        const ty = Math.random() * height
+        if (Math.hypot(tx - shipRef.current.pos.x, ty - shipRef.current.pos.y) > 220) {
+          x = tx
+          y = ty
+          break
+        }
+      }
+
+      bossRef.current = {
+        pos: { x, y },
+        vel: { x: 0, y: 0 },
+        angle: 0,
+        radius,
+        points: createBossShape(radius),
+        hp: maxHp,
+        maxHp,
+        shootCooldown: 900,
+        hitFlash: 0,
+      }
+    },
+    [],
+  )
 
   const createAsteroid = useCallback((x: number, y: number, radius: number): Asteroid => {
     const points: Vector2[] = []
@@ -340,6 +403,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     shipRef.current = { pos: { x: width / 2, y: height / 2 }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
     asteroidsRef.current = []
     bulletsRef.current = []
+    bossRef.current = null
     setScore(0)
     setLives(3)
     setLevel(1)
@@ -370,6 +434,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
             y: ship.vel.y + Math.sin(ship.angle) * 400,
           },
           life: 1000,
+          isEnemy: false,
         }
         bulletsRef.current.push(bullet)
         sounds.shoot()
@@ -504,6 +569,70 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         if (asteroid.pos.y < 0) asteroid.pos.y = h
       })
 
+      // Update boss (if active)
+      const boss = bossRef.current
+      if (boss) {
+        boss.hitFlash = Math.max(0, boss.hitFlash - dt * 1000)
+
+        const dx = ship.pos.x - boss.pos.x
+        const dy = ship.pos.y - boss.pos.y
+        const dist = Math.hypot(dx, dy)
+        const toShip = Math.atan2(dy, dx)
+
+        // Drift toward player with a subtle orbit bias so it feels "alive".
+        const orbit = Math.sin(Date.now() * 0.0012) * 0.6
+        const desiredAngle = toShip + orbit
+        const accel = 65
+        boss.vel.x += Math.cos(desiredAngle) * accel * dt
+        boss.vel.y += Math.sin(desiredAngle) * accel * dt
+
+        // Soft speed limit
+        const bSpeed = Math.hypot(boss.vel.x, boss.vel.y)
+        const bMax = 85
+        if (bSpeed > bMax) {
+          boss.vel.x = (boss.vel.x / bSpeed) * bMax
+          boss.vel.y = (boss.vel.y / bSpeed) * bMax
+        }
+        boss.vel.x *= 0.995
+        boss.vel.y *= 0.995
+
+        boss.pos.x += boss.vel.x * dt
+        boss.pos.y += boss.vel.y * dt
+
+        if (boss.pos.x > w) boss.pos.x = 0
+        if (boss.pos.x < 0) boss.pos.x = w
+        if (boss.pos.y > h) boss.pos.y = 0
+        if (boss.pos.y < 0) boss.pos.y = h
+
+        boss.angle = toShip
+
+        // Shooting: fair but effective. Requires player in reasonable range.
+        boss.shootCooldown -= dt * 1000
+        if (boss.shootCooldown <= 0 && dist < 650 && respawnTimerRef.current <= 0) {
+          const bulletSpeed = 260
+          const t = dist / bulletSpeed
+          const leadX = ship.pos.x + ship.vel.x * t * 0.6
+          const leadY = ship.pos.y + ship.vel.y * t * 0.6
+          const aim = Math.atan2(leadY - boss.pos.y, leadX - boss.pos.x)
+          const spread = boss.hp < boss.maxHp * 0.5 ? 0.22 : 0.14
+
+          const shots = boss.hp < boss.maxHp * 0.5 ? 2 : 1
+          for (let i = 0; i < shots; i++) {
+            const off = shots === 2 ? (i === 0 ? -spread : spread) : (Math.random() - 0.5) * spread
+            const a = aim + off
+            bulletsRef.current.push({
+              pos: { x: boss.pos.x, y: boss.pos.y },
+              vel: { x: boss.vel.x + Math.cos(a) * bulletSpeed, y: boss.vel.y + Math.sin(a) * bulletSpeed },
+              life: 1600,
+              isEnemy: true,
+            })
+          }
+
+          sounds.shoot()
+          boss.shootCooldown = 850 + Math.random() * 450
+        }
+      }
+
       // Update bullets with wrapping
       bulletsRef.current = bulletsRef.current.filter((bullet) => {
         bullet.pos.x += bullet.vel.x * dt
@@ -529,8 +658,41 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         return d.life > 0
       })
 
-      // Collision detection: bullets vs asteroids
+      // Collision detection: player bullets vs boss/asteroids
       bulletsRef.current = bulletsRef.current.filter((bullet) => {
+        if (bullet.isEnemy) return true
+
+        const boss = bossRef.current
+        if (boss) {
+          const dist = Math.hypot(bullet.pos.x - boss.pos.x, bullet.pos.y - boss.pos.y)
+          if (dist < boss.radius) {
+            boss.hp -= 1
+            boss.hitFlash = 120
+            setScore((s) => s + 50)
+            sounds.explosion('small')
+            if (boss.hp <= 0) {
+              createDebris(boss.pos.x, boss.pos.y, boss.vel.x, boss.vel.y, 18, 1.2, '255, 68, 68')
+              sounds.explosion('large')
+              bossRef.current = null
+
+              // Advance level after boss defeat
+              if (!levelingUpRef.current) {
+                levelingUpRef.current = true
+                setLevel((l) => {
+                  const newLevel = l + 1
+                  setTimeout(() => {
+                    spawnAsteroids(2 + Math.floor(newLevel / 3))
+                    invulnerableRef.current = 2500
+                    levelingUpRef.current = false
+                  }, 600)
+                  return newLevel
+                })
+              }
+            }
+            return false
+          }
+        }
+
         for (let i = 0; i < asteroidsRef.current.length; i++) {
           const asteroid = asteroidsRef.current[i]
           const dist = Math.hypot(bullet.pos.x - asteroid.pos.x, bullet.pos.y - asteroid.pos.y)
@@ -558,8 +720,46 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         return true
       })
 
+      // Collision detection: enemy bullets vs ship
+      if (invulnerableRef.current <= 0 && respawnTimerRef.current <= 0) {
+        for (let i = bulletsRef.current.length - 1; i >= 0; i--) {
+          const bullet = bulletsRef.current[i]
+          if (!bullet.isEnemy) continue
+          const dist = Math.hypot(ship.pos.x - bullet.pos.x, ship.pos.y - bullet.pos.y)
+          if (dist < ship.radius + 2) {
+            bulletsRef.current.splice(i, 1)
+            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y)
+            sounds.death()
+            respawnTimerRef.current = 1000
+            setLives((l) => {
+              const newLives = l - 1
+              if (newLives <= 0) setTimeout(() => setGameState('gameOver'), 1000)
+              return newLives
+            })
+            break
+          }
+        }
+      }
+
       // Collision detection: ship vs asteroids
       if (invulnerableRef.current <= 0 && respawnTimerRef.current <= 0) {
+        const boss = bossRef.current
+        if (boss) {
+          const dist = Math.hypot(ship.pos.x - boss.pos.x, ship.pos.y - boss.pos.y)
+          if (dist < ship.radius + boss.radius) {
+            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y)
+            sounds.death()
+            respawnTimerRef.current = 1000 // 1 second delay
+            setLives((l) => {
+              const newLives = l - 1
+              if (newLives <= 0) {
+                setTimeout(() => setGameState('gameOver'), 1000)
+              }
+              return newLives
+            })
+          }
+        }
+
         for (let i = 0; i < asteroidsRef.current.length; i++) {
           const asteroid = asteroidsRef.current[i]
           const dist = Math.hypot(ship.pos.x - asteroid.pos.x, ship.pos.y - asteroid.pos.y)
@@ -588,12 +788,16 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       }
 
       // Check if all asteroids destroyed
-      if (asteroidsRef.current.length === 0 && gameState === 'playing' && !levelingUpRef.current) {
+      if (asteroidsRef.current.length === 0 && !bossRef.current && gameState === 'playing' && !levelingUpRef.current) {
         levelingUpRef.current = true
         setLevel((l) => {
           const newLevel = l + 1
           setTimeout(() => {
-            spawnAsteroids(2 + Math.floor(newLevel / 3))
+            if (isBossLevel(newLevel)) {
+              spawnBoss(newLevel)
+            } else {
+              spawnAsteroids(2 + Math.floor(newLevel / 3))
+            }
             invulnerableRef.current = 2000
             levelingUpRef.current = false
           }, 500)
@@ -635,9 +839,34 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         ctx.stroke()
       })
 
+      // Draw boss
+      const boss = bossRef.current
+      if (boss) {
+        ctx.save()
+        ctx.translate(boss.pos.x, boss.pos.y)
+        ctx.rotate(boss.angle)
+        ctx.strokeStyle = boss.hitFlash > 0 ? '#ffffff' : '#ff4444'
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        boss.points.forEach((p, i) => {
+          if (i === 0) ctx.moveTo(p.x, p.y)
+          else ctx.lineTo(p.x, p.y)
+        })
+        ctx.closePath()
+        ctx.stroke()
+
+        // Simple inner core ring to read as a boss
+        ctx.strokeStyle = boss.hitFlash > 0 ? 'rgba(255,255,255,0.9)' : 'rgba(255,68,68,0.7)'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(0, 0, boss.radius * 0.35, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+      }
+
       // Draw bullets
-      ctx.fillStyle = '#00ff88'
       bulletsRef.current.forEach((bullet) => {
+        ctx.fillStyle = bullet.isEnemy ? '#ff4444' : '#00ff88'
         ctx.beginPath()
         ctx.arc(bullet.pos.x, bullet.pos.y, 2, 0, Math.PI * 2)
         ctx.fill()
@@ -708,7 +937,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, lives, createAsteroid, createDebris, spawnAsteroids, resetLevel])
+  }, [gameState, lives, createAsteroid, createDebris, spawnAsteroids, resetLevel, spawnBoss])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()

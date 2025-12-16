@@ -1690,111 +1690,55 @@ export function KickballGame({ onExit }: KickballGameProps) {
         const spinAxis = ballSpinAxisRef.current
         const spinAngle = ballSpinAngleRef.current
 
-        // Vector-style base sphere (flat fills + clean strokes)
-        ctx.fillStyle = '#f2f2f2'
-        ctx.beginPath()
-        ctx.arc(x, y, r, 0, Math.PI * 2)
-        ctx.fill()
+        // Outline-only ball (no fill)
 
-        // Simple "shade" lobe (still vector: one clipped, flat ellipse)
         ctx.save()
         ctx.beginPath()
         ctx.arc(x, y, r, 0, Math.PI * 2)
         ctx.clip()
-        ctx.fillStyle = 'rgba(0,0,0,0.10)'
-        ctx.beginPath()
-        ctx.ellipse(x + r * 0.18, y + r * 0.22, r * 0.85, r * 0.65, 0.6, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.restore()
 
-        // Small highlight
-        ctx.fillStyle = 'rgba(255,255,255,0.22)'
-        ctx.beginPath()
-        ctx.ellipse(x - r * 0.22, y - r * 0.28, r * 0.34, r * 0.22, -0.6, 0, Math.PI * 2)
-        ctx.fill()
+        // Seams only: thin white arcs, front hemisphere only.
+        ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+        ctx.lineWidth = Math.max(1, Math.round(r * 0.03))
+        ctx.lineCap = 'round'
 
-        // 12 pentagon centers = icosahedron vertices.
-        const phi = (1 + Math.sqrt(5)) / 2
-        const rawVerts: Vector3[] = [
-          { x: 0, y: 1, z: phi },
-          { x: 0, y: -1, z: phi },
-          { x: 0, y: 1, z: -phi },
-          { x: 0, y: -1, z: -phi },
-          { x: 1, y: phi, z: 0 },
-          { x: -1, y: phi, z: 0 },
-          { x: 1, y: -phi, z: 0 },
-          { x: -1, y: -phi, z: 0 },
-          { x: phi, y: 0, z: 1 },
-          { x: -phi, y: 0, z: 1 },
-          { x: phi, y: 0, z: -1 },
-          { x: -phi, y: 0, z: -1 },
+        const seamPlanes: Vector3[] = [
+          { x: 1, y: 0, z: 0 },
+          { x: 0, y: 1, z: 0 },
+          { x: 0, y: 0, z: 1 },
+          { x: 0.6, y: 0.2, z: 0.0 },
         ]
 
-        const patches: { z: number; pts: { x: number; y: number }[]; fill: string; stroke: string }[] = []
-        for (const v0 of rawVerts) {
-          const center = normalize3(v0)
-          const c = rotateAroundAxis(center, spinAxis, spinAngle)
+        for (const n0 of seamPlanes) {
+          const n = normalize3(rotateAroundAxis(n0, spinAxis, spinAngle))
+          const ref = Math.abs(n.z) < 0.9 ? { x: 0, y: 0, z: 1 } : { x: 0, y: 1, z: 0 }
+          const a = normalize3(cross3(n, ref))
+          const b = cross3(n, a)
 
-          // Only draw patches that are on the visible hemisphere.
-          if (c.z <= 0.02) continue
-
-          // Tangent basis
-          const up: Vector3 = Math.abs(c.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 }
-          const u = normalize3(cross3(up, c))
-          const vv = cross3(c, u)
-
-          // Pentagon angular radius
-          const alpha = 0.36
-          const pts3: Vector3[] = []
-          // IMPORTANT: twist must be stable per patch (based on its base center),
-          // otherwise the patch appears to "spin in place" as the ball rotates.
-          const twist = (center.x * 7.1 + center.y * 3.3 + center.z * 5.7)
-          for (let i = 0; i < 5; i++) {
-            const theta = twist + (i * Math.PI * 2) / 5
-            const ring = normalize3({
-              x: u.x * Math.cos(theta) + vv.x * Math.sin(theta),
-              y: u.y * Math.cos(theta) + vv.y * Math.sin(theta),
-              z: u.z * Math.cos(theta) + vv.z * Math.sin(theta),
-            })
-            const p = normalize3({
-              x: c.x * Math.cos(alpha) + ring.x * Math.sin(alpha),
-              y: c.y * Math.cos(alpha) + ring.y * Math.sin(alpha),
-              z: c.z * Math.cos(alpha) + ring.z * Math.sin(alpha),
-            })
-            pts3.push(p)
-          }
-
-          let avgZ = 0
-          const pts2 = pts3.map((p) => {
-            const pr = projectSpherePoint(x, y, r, p)
-            avgZ += pr.z
-            return { x: pr.x, y: pr.y }
-          })
-          avgZ /= pts2.length
-
-          // Classic soccer ball: black pentagons on a light sphere
-          const fill = '#151515'
-          const stroke = 'rgba(0,0,0,0.18)'
-          patches.push({ z: avgZ, pts: pts2, fill, stroke })
-        }
-
-        patches.sort((a, b) => a.z - b.z)
-
-        ctx.save()
-        ctx.beginPath()
-        ctx.arc(x, y, r, 0, Math.PI * 2)
-        ctx.clip()
-
-        for (const patch of patches) {
-          ctx.fillStyle = patch.fill
-          ctx.strokeStyle = patch.stroke
-          ctx.lineWidth = Math.max(1, Math.round(r * 0.06))
-          ctx.lineJoin = 'round'
           ctx.beginPath()
-          ctx.moveTo(patch.pts[0].x, patch.pts[0].y)
-          for (let i = 1; i < patch.pts.length; i++) ctx.lineTo(patch.pts[i].x, patch.pts[i].y)
-          ctx.closePath()
-          ctx.fill()
+          let started = false
+          for (let i = 0; i <= 64; i++) {
+            const t = (i / 64) * Math.PI * 2
+            const p = normalize3({
+              x: a.x * Math.cos(t) + b.x * Math.sin(t),
+              y: a.y * Math.cos(t) + b.y * Math.sin(t),
+              z: a.z * Math.cos(t) + b.z * Math.sin(t),
+            })
+
+            // Front hemisphere only.
+            if (p.z < 0.08) {
+              started = false
+              continue
+            }
+
+            const pr = projectSpherePoint(x, y, r, p)
+            if (!started) {
+              ctx.moveTo(pr.x, pr.y)
+              started = true
+            } else {
+              ctx.lineTo(pr.x, pr.y)
+            }
+          }
           ctx.stroke()
         }
 
@@ -1874,18 +1818,15 @@ export function KickballGame({ onExit }: KickballGameProps) {
         ctx.stroke()
         ctx.setLineDash([])
         
-        // Glow effect when scoring
+        // Outline-only pulse when scoring (no fills)
         if (isScoring && glowIntensity > 0) {
-          const gradient = ctx.createRadialGradient(
-            goal.pos.x, goal.pos.y, 0,
-            goal.pos.x, goal.pos.y, goal.radius * pulseScale * 1.5
-          )
-          gradient.addColorStop(0, goal.side === 'left' ? `rgba(255, 68, 68, ${glowIntensity})` : `rgba(68, 68, 255, ${glowIntensity})`)
-          gradient.addColorStop(1, 'rgba(0, 0, 0, 0)')
-          ctx.fillStyle = gradient
+          ctx.strokeStyle = goal.side === 'left'
+            ? `rgba(255, 68, 68, ${0.25 + glowIntensity * 0.35})`
+            : `rgba(68, 68, 255, ${0.25 + glowIntensity * 0.35})`
+          ctx.lineWidth = 2
           ctx.beginPath()
-          ctx.arc(goal.pos.x, goal.pos.y, goal.radius * pulseScale * 1.5, 0, Math.PI * 2)
-          ctx.fill()
+          ctx.arc(goal.pos.x, goal.pos.y, goal.radius * pulseScale * 1.35, 0, Math.PI * 2)
+          ctx.stroke()
         }
         
         // Goal circle
@@ -1895,11 +1836,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
         ctx.arc(goal.pos.x, goal.pos.y, goal.radius * pulseScale, 0, Math.PI * 2)
         ctx.stroke()
         
-        // Goal fill
-        ctx.fillStyle = goal.side === 'left' ? 'rgba(255, 68, 68, 0.3)' : 'rgba(68, 68, 255, 0.3)'
-        ctx.beginPath()
-        ctx.arc(goal.pos.x, goal.pos.y, goal.radius * pulseScale, 0, Math.PI * 2)
-        ctx.fill()
+        // No goal fill (outline-only)
       }
 
       // Draw bumpers

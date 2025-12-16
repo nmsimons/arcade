@@ -141,7 +141,7 @@ interface KickballGameProps {
 export function KickballGame({ onExit }: KickballGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<GameState>('menu')
-  const [gameMode, setGameMode] = useState<'1p' | '2p'>('2p')
+  const [gameMode, setGameMode] = useState<'0p' | '1p' | '2p'>('2p')
   const [redScore, setRedScore] = useState(0)  // Left side (WASD player or AI)
   const [blueScore, setBlueScore] = useState(0) // Right side (Arrow player)
   const [menuIndex, setMenuIndex] = useState(0)
@@ -315,16 +315,17 @@ export function KickballGame({ onExit }: KickballGameProps) {
       if (gameState === 'menu') {
         if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
           e.preventDefault()
-          setMenuIndex((i) => (i > 0 ? i - 1 : 2))
+          setMenuIndex((i) => (i > 0 ? i - 1 : 3))
         }
         if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
           e.preventDefault()
-          setMenuIndex((i) => (i < 2 ? i + 1 : 0))
+          setMenuIndex((i) => (i < 3 ? i + 1 : 0))
         }
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          if (menuIndex === 0) { setGameMode('1p'); startGame() }
-          else if (menuIndex === 1) { setGameMode('2p'); startGame() }
+          if (menuIndex === 0) { setGameMode('0p'); startGame() }
+          else if (menuIndex === 1) { setGameMode('1p'); startGame() }
+          else if (menuIndex === 2) { setGameMode('2p'); startGame() }
           else onExit()
         }
       }
@@ -448,25 +449,15 @@ export function KickballGame({ onExit }: KickballGameProps) {
       const accel = 350
       let isAccelerating = false
       
-      if (gameMode === '1p') {
-        // Simple aggressive AI for red car
-        // Goal: Always try to push ball into the right (blue) goal
+      if (gameMode === '1p' || gameMode === '0p') {
+        // Aggressive AI for red car
+        // Goal: Push ball into the right (blue) goal
         const ball = ballRef.current
         const rightGoal = goalsRef.current.find(g => g.side === 'right')
         const leftGoal = goalsRef.current.find(g => g.side === 'left')
         const field = fieldRef.current
-        const centerY = (field.top + field.bottom) / 2
         
         if (rightGoal && leftGoal) {
-          // Direction from ball to opponent's goal (where we want to push)
-          const ballToGoalX = rightGoal.pos.x - ball.pos.x
-          const ballToGoalY = rightGoal.pos.y - ball.pos.y
-          const ballToGoalDist = Math.hypot(ballToGoalX, ballToGoalY)
-          
-          // Normalize direction
-          const pushDirX = ballToGoalX / ballToGoalDist
-          const pushDirY = ballToGoalY / ballToGoalDist
-          
           // How far is AI from ball?
           const carToBallX = ball.pos.x - vehicle1.pos.x
           const carToBallY = ball.pos.y - vehicle1.pos.y
@@ -475,117 +466,158 @@ export function KickballGame({ onExit }: KickballGameProps) {
           let targetX: number
           let targetY: number
           
-          // Check if ball is moving fast toward our goal - emergency defense
-          const ballMovingTowardOwnGoal = ball.vel.x < -80
-          const ballNearOwnGoal = ball.pos.x < field.left + 250
+          // Only defend if ball is ACTIVELY moving fast toward our goal
+          const ballMovingTowardOwnGoal = ball.vel.x < -120 && ball.pos.x < field.left + 300
           
-          // Check if ball is stuck in a corner (near walls and slow)
-          const ballSpeed = Math.hypot(ball.vel.x, ball.vel.y)
-          const ballNearTopWall = ball.pos.y < field.top + 80
-          const ballNearBottomWall = ball.pos.y > field.bottom - 80
-          const ballNearLeftWall = ball.pos.x < field.left + 80
-          const ballInCorner = (ballNearTopWall || ballNearBottomWall) && (ballNearLeftWall) && ballSpeed < 50
-          
-          if (ballMovingTowardOwnGoal && ballNearOwnGoal) {
-            // Emergency: Get between ball and our goal
+          if (ballMovingTowardOwnGoal) {
+            // Emergency defense: Get between ball and our goal
             const goalToBallX = ball.pos.x - leftGoal.pos.x
             const goalToBallY = ball.pos.y - leftGoal.pos.y
             const goalToBallDist = Math.hypot(goalToBallX, goalToBallY)
             
-            // Position closer to goal than ball
             const interceptDist = Math.min(goalToBallDist * 0.4, 100)
             targetX = leftGoal.pos.x + (goalToBallX / goalToBallDist) * interceptDist
             targetY = leftGoal.pos.y + (goalToBallY / goalToBallDist) * interceptDist
-          } else if (ballInCorner) {
-            // Ball stuck in corner - approach from the open side to knock it out
-            // Come from the center of the field toward the ball
-            if (carToBallDist < 80) {
-              // Close enough - push toward the goal
-              targetX = rightGoal.pos.x
-              targetY = rightGoal.pos.y
-            } else {
-              // Approach from center-field side, not from behind
-              targetX = ball.pos.x + 60  // Approach from the right side of the ball
-              targetY = ball.pos.y < centerY ? ball.pos.y + 60 : ball.pos.y - 60  // And from center
-            }
-          } else if (carToBallDist < 70) {
-            // Close to ball - aim to push it into the goal
-            // But vary the angle based on ball position to avoid just bouncing back and forth
-            const ballYOffset = ball.pos.y - rightGoal.pos.y
-            
-            // If ball is above/below goal center, aim to curve it in
-            // Add an angle offset based on where the AI is relative to the ball
-            const aiAboveBall = vehicle1.pos.y < ball.pos.y
-            
-            // Aim at a point that will push the ball at an angle into the goal
-            targetX = rightGoal.pos.x
-            if (Math.abs(ballYOffset) < 50) {
-              // Ball is roughly level with goal - push at an angle based on AI position
-              targetY = rightGoal.pos.y + (aiAboveBall ? 60 : -60)
-            } else {
-              // Ball is above/below goal - aim to curve it toward center
-              targetY = rightGoal.pos.y
-            }
           } else {
-            // Not close - check if we're already roughly behind the ball
-            const behindPosX = ball.pos.x - pushDirX * 50
-            const behindPosY = ball.pos.y - pushDirY * 50
-            const distToBehindPos = Math.hypot(behindPosX - vehicle1.pos.x, behindPosY - vehicle1.pos.y)
+            // OFFENSE: Get BEHIND the ball (on left side) then push toward right goal
+            // This prevents head-on collisions with opponents
             
-            // If we're already behind the ball (within 80 units of ideal position), just go to the ball
-            if (distToBehindPos < 80 || vehicle1.pos.x < ball.pos.x - 30) {
-              // Already in position or to the left of ball - go directly to ball
+            // First, determine the best direction to push the ball (accounting for obstacles)
+            let pushTargetX = rightGoal.pos.x
+            let pushTargetY = rightGoal.pos.y
+            
+            // Check if there's a bumper blocking the direct path from ball to goal
+            const bumpers = bumpersRef.current
+            for (const bumper of bumpers) {
+              // Check if bumper is between ball and goal
+              const ballToGoalX = rightGoal.pos.x - ball.pos.x
+              const ballToGoalY = rightGoal.pos.y - ball.pos.y
+              const ballToGoalDist = Math.hypot(ballToGoalX, ballToGoalY)
+              
+              // Project bumper onto ball-to-goal line
+              const ballToBumperX = bumper.pos.x - ball.pos.x
+              const ballToBumperY = bumper.pos.y - ball.pos.y
+              const projection = (ballToBumperX * ballToGoalX + ballToBumperY * ballToGoalY) / ballToGoalDist
+              
+              // Is bumper along the path?
+              if (projection > 0 && projection < ballToGoalDist) {
+                // Find closest point on line to bumper
+                const closestX = ball.pos.x + (ballToGoalX / ballToGoalDist) * projection
+                const closestY = ball.pos.y + (ballToGoalY / ballToGoalDist) * projection
+                const distToLine = Math.hypot(bumper.pos.x - closestX, bumper.pos.y - closestY)
+                
+                // If ball would hit this bumper, go around it
+                if (distToLine < bumper.radius + 40) {
+                  // Push ball to the side that's closer to the goal's Y
+                  const perpX = -ballToGoalY / ballToGoalDist
+                  const perpY = ballToGoalX / ballToGoalDist
+                  
+                  // Choose side based on which way gets around bumper faster
+                  const sideSign = (bumper.pos.y > ball.pos.y) ? -1 : 1
+                  pushTargetX = bumper.pos.x + perpX * (bumper.radius + 60) * sideSign
+                  pushTargetY = bumper.pos.y + perpY * (bumper.radius + 60) * sideSign
+                  break
+                }
+              }
+            }
+            
+            // Calculate position behind the ball (opposite side from push target)
+            const ballToTargetX = pushTargetX - ball.pos.x
+            const ballToTargetY = pushTargetY - ball.pos.y
+            const ballToTargetDist = Math.hypot(ballToTargetX, ballToTargetY)
+            
+            // Position behind ball = ball position minus direction to target
+            const behindDist = 60 // How far behind the ball to position
+            const behindBallX = ball.pos.x - (ballToTargetX / ballToTargetDist) * behindDist
+            const behindBallY = ball.pos.y - (ballToTargetY / ballToTargetDist) * behindDist
+            
+            // Check if we're roughly behind the ball (angle-based, not just X)
+            // Vector from ball to car
+            const ballToCarX = vehicle1.pos.x - ball.pos.x
+            const ballToCarY = vehicle1.pos.y - ball.pos.y
+            // Dot product with direction from ball to goal (negative = we're behind)
+            const dotProduct = ballToCarX * ballToTargetX + ballToCarY * ballToTargetY
+            const amBehindBall = dotProduct < 0
+            
+            // Ball speed for decision making
+            const ballSpeed = Math.hypot(ball.vel.x, ball.vel.y)
+            
+            // BE AGGRESSIVE: If ball is slow or stationary, just rush it!
+            if (ballSpeed < 60) {
+              targetX = ball.pos.x
+              targetY = ball.pos.y
+            } else if (amBehindBall && carToBallDist < 150) {
+              // I'm behind the ball and reasonably close - charge toward push target!
+              targetX = pushTargetX
+              targetY = pushTargetY
+            } else if (carToBallDist < 70) {
+              // Very close - just push it regardless of position
+              targetX = pushTargetX
+              targetY = pushTargetY
+            } else if (carToBallDist > 200) {
+              // Ball is far - just chase it directly
               targetX = ball.pos.x
               targetY = ball.pos.y
             } else {
-              // Need to get behind the ball first
-              targetX = behindPosX
-              targetY = behindPosY
-              
-              // Clamp target to stay within field bounds
-              const margin = 40
-              targetX = Math.max(field.left + margin, Math.min(field.right - margin, targetX))
-              targetY = Math.max(field.top + margin, Math.min(field.bottom - margin, targetY))
+              // Mid-range - try to get behind
+              targetX = behindBallX
+              targetY = behindBallY
             }
           }
           
-          // Obstacle avoidance - steer around bumpers and away from walls
+          // Obstacle avoidance for the car itself - steer around bumpers and away from walls
           const bumpers = bumpersRef.current
-          const avoidanceForceX = 0
-          const avoidanceForceY = 0
           const vehicleRadius = 20
           
           // Check for nearby bumpers and calculate avoidance
           let steerAwayX = 0
           let steerAwayY = 0
           
-          for (const bumper of bumpers) {
-            const toBumperX = bumper.pos.x - vehicle1.pos.x
-            const toBumperY = bumper.pos.y - vehicle1.pos.y
-            const distToBumper = Math.hypot(toBumperX, toBumperY)
-            const avoidDist = bumper.radius + vehicleRadius + 50
-            
-            if (distToBumper < avoidDist && distToBumper > 0) {
-              // Too close to bumper - add force away from it
-              const avoidStrength = (avoidDist - distToBumper) / avoidDist
-              steerAwayX -= (toBumperX / distToBumper) * avoidStrength * 100
-              steerAwayY -= (toBumperY / distToBumper) * avoidStrength * 100
-            }
-          }
+          // Only apply obstacle avoidance when NOT close to ball
+          // When close to ball, priority is hitting it toward the goal
+          const applyAvoidance = carToBallDist > 100
           
-          // Wall avoidance
-          const wallMargin = 60
-          if (vehicle1.pos.x < field.left + wallMargin) {
-            steerAwayX += (wallMargin - (vehicle1.pos.x - field.left)) * 1.5
-          }
-          if (vehicle1.pos.x > field.right - wallMargin) {
-            steerAwayX -= (wallMargin - (field.right - vehicle1.pos.x)) * 1.5
-          }
-          if (vehicle1.pos.y < field.top + wallMargin) {
-            steerAwayY += (wallMargin - (vehicle1.pos.y - field.top)) * 1.5
-          }
-          if (vehicle1.pos.y > field.bottom - wallMargin) {
-            steerAwayY -= (wallMargin - (field.bottom - vehicle1.pos.y)) * 1.5
+          if (applyAvoidance) {
+            for (const bumper of bumpers) {
+              const toBumperX = bumper.pos.x - vehicle1.pos.x
+              const toBumperY = bumper.pos.y - vehicle1.pos.y
+              const distToBumper = Math.hypot(toBumperX, toBumperY)
+              const avoidDist = bumper.radius + vehicleRadius + 60
+              
+              if (distToBumper < avoidDist && distToBumper > 0) {
+                // Too close to bumper - add force away from it
+                const avoidStrength = (avoidDist - distToBumper) / avoidDist
+                steerAwayX -= (toBumperX / distToBumper) * avoidStrength * 120
+                steerAwayY -= (toBumperY / distToBumper) * avoidStrength * 120
+              }
+            }
+            
+            // Avoid opponent (vehicle2)
+            const toOpponentX = vehicle2.pos.x - vehicle1.pos.x
+            const toOpponentY = vehicle2.pos.y - vehicle1.pos.y
+            const distToOpponent = Math.hypot(toOpponentX, toOpponentY)
+            const opponentAvoidDist = 80
+            
+            if (distToOpponent < opponentAvoidDist && distToOpponent > 0) {
+              const avoidStrength = (opponentAvoidDist - distToOpponent) / opponentAvoidDist
+              steerAwayX -= (toOpponentX / distToOpponent) * avoidStrength * 100
+              steerAwayY -= (toOpponentY / distToOpponent) * avoidStrength * 100
+            }
+            
+            // Wall avoidance
+            const wallMargin = 60
+            if (vehicle1.pos.x < field.left + wallMargin) {
+              steerAwayX += (wallMargin - (vehicle1.pos.x - field.left)) * 1.5
+            }
+            if (vehicle1.pos.x > field.right - wallMargin) {
+              steerAwayX -= (wallMargin - (field.right - vehicle1.pos.x)) * 1.5
+            }
+            if (vehicle1.pos.y < field.top + wallMargin) {
+              steerAwayY += (wallMargin - (vehicle1.pos.y - field.top)) * 1.5
+            }
+            if (vehicle1.pos.y > field.bottom - wallMargin) {
+              steerAwayY -= (wallMargin - (field.bottom - vehicle1.pos.y)) * 1.5
+            }
           }
           
           // Apply avoidance to target
@@ -612,13 +644,15 @@ export function KickballGame({ onExit }: KickballGameProps) {
           // Accelerate if roughly facing the target
           const distToTarget = Math.hypot(dx, dy)
           
-          // Slow down if very close to a bumper
+          // Slow down if very close to a bumper (but only if not close to ball)
           let speedMult = 1.0
-          for (const bumper of bumpers) {
-            const distToBumper = Math.hypot(bumper.pos.x - vehicle1.pos.x, bumper.pos.y - vehicle1.pos.y)
-            if (distToBumper < bumper.radius + vehicleRadius + 30) {
-              speedMult = 0.5
-              break
+          if (applyAvoidance) {
+            for (const bumper of bumpers) {
+              const distToBumper = Math.hypot(bumper.pos.x - vehicle1.pos.x, bumper.pos.y - vehicle1.pos.y)
+              if (distToBumper < bumper.radius + vehicleRadius + 30) {
+                speedMult = 0.5
+                break
+              }
             }
           }
           
@@ -654,21 +688,218 @@ export function KickballGame({ onExit }: KickballGameProps) {
       }
 
       // Vehicle 2 controls (Arrow keys) - Right/Blue car
-      if (keysRef.current.has('arrowleft')) {
-        vehicle2.angle -= 4 * dt
-      }
-      if (keysRef.current.has('arrowright')) {
-        vehicle2.angle += 4 * dt
-      }
-      if (keysRef.current.has('arrowup')) {
-        vehicle2.vel.x += Math.cos(vehicle2.angle) * accel * dt
-        vehicle2.vel.y += Math.sin(vehicle2.angle) * accel * dt
-        isAccelerating = true
-      }
-      if (keysRef.current.has('arrowdown')) {
-        vehicle2.vel.x -= Math.cos(vehicle2.angle) * accel * 0.5 * dt
-        vehicle2.vel.y -= Math.sin(vehicle2.angle) * accel * 0.5 * dt
-        isAccelerating = true
+      // In 0 player mode: AI controls blue car too
+      if (gameMode === '0p') {
+        // AI for blue car - tries to push ball into LEFT (red) goal
+        const ball = ballRef.current
+        const leftGoal = goalsRef.current.find(g => g.side === 'left')
+        
+        if (leftGoal) {
+          const carToBallDist = Math.hypot(ball.pos.x - vehicle2.pos.x, ball.pos.y - vehicle2.pos.y)
+          
+          let targetX: number
+          let targetY: number
+          
+          // Only defend if ball is ACTIVELY moving fast toward our goal (right)
+          const ballMovingTowardOwnGoal = ball.vel.x > 120 && ball.pos.x > field.right - 300
+          
+          if (ballMovingTowardOwnGoal) {
+            // Emergency defense
+            const rightGoal = goalsRef.current.find(g => g.side === 'right')
+            if (rightGoal) {
+              const goalToBallX = ball.pos.x - rightGoal.pos.x
+              const goalToBallY = ball.pos.y - rightGoal.pos.y
+              const goalToBallDist = Math.hypot(goalToBallX, goalToBallY)
+              const interceptDist = Math.min(goalToBallDist * 0.4, 100)
+              targetX = rightGoal.pos.x + (goalToBallX / goalToBallDist) * interceptDist
+              targetY = rightGoal.pos.y + (goalToBallY / goalToBallDist) * interceptDist
+            } else {
+              targetX = ball.pos.x
+              targetY = ball.pos.y
+            }
+          } else {
+            // OFFENSE: Get BEHIND the ball (on right side) then push toward left goal
+            
+            // First, determine the best direction to push the ball (accounting for obstacles)
+            let pushTargetX = leftGoal.pos.x
+            let pushTargetY = leftGoal.pos.y
+            
+            // Check if there's a bumper blocking the direct path from ball to goal
+            const bumpers = bumpersRef.current
+            for (const bumper of bumpers) {
+              // Check if bumper is between ball and goal
+              const ballToGoalX = leftGoal.pos.x - ball.pos.x
+              const ballToGoalY = leftGoal.pos.y - ball.pos.y
+              const ballToGoalDist = Math.hypot(ballToGoalX, ballToGoalY)
+              
+              // Project bumper onto ball-to-goal line
+              const ballToBumperX = bumper.pos.x - ball.pos.x
+              const ballToBumperY = bumper.pos.y - ball.pos.y
+              const projection = (ballToBumperX * ballToGoalX + ballToBumperY * ballToGoalY) / ballToGoalDist
+              
+              // Is bumper along the path?
+              if (projection > 0 && projection < ballToGoalDist) {
+                // Find closest point on line to bumper
+                const closestX = ball.pos.x + (ballToGoalX / ballToGoalDist) * projection
+                const closestY = ball.pos.y + (ballToGoalY / ballToGoalDist) * projection
+                const distToLine = Math.hypot(bumper.pos.x - closestX, bumper.pos.y - closestY)
+                
+                // If ball would hit this bumper, go around it
+                if (distToLine < bumper.radius + 40) {
+                  // Push ball to the side that's closer to the goal's Y
+                  const perpX = -ballToGoalY / ballToGoalDist
+                  const perpY = ballToGoalX / ballToGoalDist
+                  
+                  // Choose side based on which way gets around bumper faster
+                  const sideSign = (bumper.pos.y > ball.pos.y) ? -1 : 1
+                  pushTargetX = bumper.pos.x + perpX * (bumper.radius + 60) * sideSign
+                  pushTargetY = bumper.pos.y + perpY * (bumper.radius + 60) * sideSign
+                  break
+                }
+              }
+            }
+            
+            // Calculate position behind the ball (opposite side from push target)
+            const ballToTargetX = pushTargetX - ball.pos.x
+            const ballToTargetY = pushTargetY - ball.pos.y
+            const ballToTargetDist = Math.hypot(ballToTargetX, ballToTargetY)
+            
+            // Position behind ball = ball position minus direction to target
+            const behindDist = 60
+            const behindBallX = ball.pos.x - (ballToTargetX / ballToTargetDist) * behindDist
+            const behindBallY = ball.pos.y - (ballToTargetY / ballToTargetDist) * behindDist
+            
+            // Check if we're roughly behind the ball (angle-based, not just X)
+            // Vector from ball to car
+            const ballToCarX = vehicle2.pos.x - ball.pos.x
+            const ballToCarY = vehicle2.pos.y - ball.pos.y
+            // Dot product with direction from ball to goal (negative = we're behind)
+            const dotProduct = ballToCarX * ballToTargetX + ballToCarY * ballToTargetY
+            const amBehindBall = dotProduct < 0
+            
+            // Ball speed for decision making
+            const ballSpeed = Math.hypot(ball.vel.x, ball.vel.y)
+            
+            // BE AGGRESSIVE: If ball is slow or stationary, just rush it!
+            if (ballSpeed < 60) {
+              targetX = ball.pos.x
+              targetY = ball.pos.y
+            } else if (amBehindBall && carToBallDist < 150) {
+              // I'm behind the ball and reasonably close - charge toward push target!
+              targetX = pushTargetX
+              targetY = pushTargetY
+            } else if (carToBallDist < 70) {
+              // Very close - just push it regardless of position
+              targetX = pushTargetX
+              targetY = pushTargetY
+            } else if (carToBallDist > 200) {
+              // Ball is far - just chase it directly
+              targetX = ball.pos.x
+              targetY = ball.pos.y
+            } else {
+              // Mid-range - try to get behind
+              targetX = behindBallX
+              targetY = behindBallY
+            }
+          }
+          
+          // Obstacle avoidance for the car itself - bumpers, walls, and opponent
+          const bumpersForAvoid = bumpersRef.current
+          const vehicleRadius = 20
+          let steerAwayX = 0
+          let steerAwayY = 0
+          
+          // Avoid bumpers
+          for (const bumper of bumpersForAvoid) {
+            const toBumperX = bumper.pos.x - vehicle2.pos.x
+            const toBumperY = bumper.pos.y - vehicle2.pos.y
+            const distToBumper = Math.hypot(toBumperX, toBumperY)
+            const avoidDist = bumper.radius + vehicleRadius + 60
+            
+            if (distToBumper < avoidDist && distToBumper > 0) {
+              const avoidStrength = (avoidDist - distToBumper) / avoidDist
+              steerAwayX -= (toBumperX / distToBumper) * avoidStrength * 120
+              steerAwayY -= (toBumperY / distToBumper) * avoidStrength * 120
+            }
+          }
+          
+          // Avoid opponent (vehicle1)
+          const toOpponentX = vehicle1.pos.x - vehicle2.pos.x
+          const toOpponentY = vehicle1.pos.y - vehicle2.pos.y
+          const distToOpponent = Math.hypot(toOpponentX, toOpponentY)
+          const opponentAvoidDist = 80
+          
+          if (distToOpponent < opponentAvoidDist && distToOpponent > 0) {
+            const avoidStrength = (opponentAvoidDist - distToOpponent) / opponentAvoidDist
+            steerAwayX -= (toOpponentX / distToOpponent) * avoidStrength * 100
+            steerAwayY -= (toOpponentY / distToOpponent) * avoidStrength * 100
+          }
+          
+          // Wall avoidance
+          const wallMargin = 60
+          if (vehicle2.pos.x < field.left + wallMargin) {
+            steerAwayX += (wallMargin - (vehicle2.pos.x - field.left)) * 1.5
+          }
+          if (vehicle2.pos.x > field.right - wallMargin) {
+            steerAwayX -= (wallMargin - (field.right - vehicle2.pos.x)) * 1.5
+          }
+          if (vehicle2.pos.y < field.top + wallMargin) {
+            steerAwayY += (wallMargin - (vehicle2.pos.y - field.top)) * 1.5
+          }
+          if (vehicle2.pos.y > field.bottom - wallMargin) {
+            steerAwayY -= (wallMargin - (field.bottom - vehicle2.pos.y)) * 1.5
+          }
+          
+          // Apply avoidance to target
+          targetX += steerAwayX
+          targetY += steerAwayY
+          
+          // Calculate angle to target
+          const dx = targetX - vehicle2.pos.x
+          const dy = targetY - vehicle2.pos.y
+          const targetAngle = Math.atan2(dy, dx)
+          
+          // Turn toward target
+          let angleDiff = targetAngle - vehicle2.angle
+          while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
+          while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+          
+          const turnSpeed = 4.5
+          if (angleDiff > 0.08) {
+            vehicle2.angle += turnSpeed * dt
+          } else if (angleDiff < -0.08) {
+            vehicle2.angle -= turnSpeed * dt
+          }
+          
+          // Accelerate
+          const distToTarget = Math.hypot(dx, dy)
+          if (Math.abs(angleDiff) < Math.PI / 2) {
+            vehicle2.vel.x += Math.cos(vehicle2.angle) * accel * dt
+            vehicle2.vel.y += Math.sin(vehicle2.angle) * accel * dt
+            isAccelerating = true
+          } else if (distToTarget > 80) {
+            vehicle2.vel.x -= Math.cos(vehicle2.angle) * accel * 0.4 * dt
+            vehicle2.vel.y -= Math.sin(vehicle2.angle) * accel * 0.4 * dt
+          }
+        }
+      } else {
+        // Human controls
+        if (keysRef.current.has('arrowleft')) {
+          vehicle2.angle -= 4 * dt
+        }
+        if (keysRef.current.has('arrowright')) {
+          vehicle2.angle += 4 * dt
+        }
+        if (keysRef.current.has('arrowup')) {
+          vehicle2.vel.x += Math.cos(vehicle2.angle) * accel * dt
+          vehicle2.vel.y += Math.sin(vehicle2.angle) * accel * dt
+          isAccelerating = true
+        }
+        if (keysRef.current.has('arrowdown')) {
+          vehicle2.vel.x -= Math.cos(vehicle2.angle) * accel * 0.5 * dt
+          vehicle2.vel.y -= Math.sin(vehicle2.angle) * accel * 0.5 * dt
+          isAccelerating = true
+        }
       }
 
       // Engine sound
@@ -1235,12 +1466,13 @@ export function KickballGame({ onExit }: KickballGameProps) {
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] font-mono">KICKBALL</h1>
             <p className="text-[#00ff88]/60 text-sm mb-8 tracking-widest">PUSH THE BALL INTO THE GOAL</p>
             <div className="flex flex-col gap-3">
-              {['1 Player', '2 Players', 'Exit'].map((label, i) => (
+              {['Watch AI', '1 Player', '2 Players', 'Exit'].map((label, i) => (
                 <button
                   key={label}
                   onClick={() => {
-                    if (i === 0) { setGameMode('1p'); startGame() }
-                    else if (i === 1) { setGameMode('2p'); startGame() }
+                    if (i === 0) { setGameMode('0p'); startGame() }
+                    else if (i === 1) { setGameMode('1p'); startGame() }
+                    else if (i === 2) { setGameMode('2p'); startGame() }
                     else onExit()
                   }}
                   className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
@@ -1254,8 +1486,9 @@ export function KickballGame({ onExit }: KickballGameProps) {
               ))}
             </div>
             <div className="mt-8 text-[#00ff88]/50 text-xs tracking-widest">
-              <p>Arrow Keys to move</p>
+              <p>1P: Arrow Keys to move</p>
               <p className="mt-1">2P: WASD + Arrows</p>
+              <p className="mt-1">Watch AI: Sit back and observe</p>
               <p className="mt-1">First to 5 goals wins!</p>
             </div>
           </div>

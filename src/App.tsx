@@ -90,7 +90,7 @@ export default function App() {
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
-                {g === 'asteroids' ? 'Asteroids' : g === 'lander' ? 'Lunar Lander' : g === 'omega' ? 'Omega Race' : g === 'armor' ? 'Armor Attack' : g === 'kickball' ? 'Kickball' : 'Hello World'}
+                {g === 'asteroids' ? 'Asteroids' : g === 'lander' ? 'Lunar Lander' : g === 'omega' ? 'Omega Race' : g === 'armor' ? 'Armor Attack' : g === 'kickball' ? 'Bumper Ball' : 'Hello World'}
               </button>
             ))}
           </div>

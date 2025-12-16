@@ -209,6 +209,8 @@ type Tank = {
   shootCooldown: number
   targetAngle: number
   trackOffset: number
+  stuckTimer: number
+  escapeAngle: number
 }
 
 type Helicopter = {
@@ -397,43 +399,129 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
     const tankCount = Math.min(2 + Math.floor(waveNum / 2), 4)
     const heliCount = waveNum >= 2 ? Math.min(1 + Math.floor((waveNum - 1) / 2), 3) : 0
 
+    // Helper to check if a path from spawn point is clear
+    const isPathClear = (startX: number, startY: number, angle: number, distance: number): boolean => {
+      const steps = 5
+      for (let i = 1; i <= steps; i++) {
+        const checkX = startX + Math.cos(angle) * (distance * i / steps)
+        const checkY = startY + Math.sin(angle) * (distance * i / steps)
+        for (const wall of wallsRef.current) {
+          if (
+            checkX > wall.x - 30 && checkX < wall.x + wall.width + 30 &&
+            checkY > wall.y - 30 && checkY < wall.y + wall.height + 30
+          ) {
+            return false
+          }
+        }
+      }
+      return true
+    }
+
+    // Define specific spawn points in gaps between perimeter buildings
+    // These are relative positions (0-1) along each edge where gaps exist
+    const spawnPoints = [
+      // Top edge gaps (between buildings)
+      { side: 0, pos: 0.18 },   // Gap after first building
+      { side: 0, pos: 0.38 },   // Gap in upper-left area
+      { side: 0, pos: 0.62 },   // Gap in upper-right area
+      { side: 0, pos: 0.82 },   // Gap before last building
+      // Bottom edge gaps
+      { side: 1, pos: 0.18 },
+      { side: 1, pos: 0.38 },
+      { side: 1, pos: 0.62 },
+      { side: 1, pos: 0.82 },
+      // Left edge gaps
+      { side: 2, pos: 0.18 },
+      { side: 2, pos: 0.38 },
+      { side: 2, pos: 0.62 },
+      { side: 2, pos: 0.82 },
+      // Right edge gaps
+      { side: 3, pos: 0.18 },
+      { side: 3, pos: 0.38 },
+      { side: 3, pos: 0.62 },
+      { side: 3, pos: 0.82 },
+    ]
+
+    // Shuffle spawn points
+    const shuffledSpawns = [...spawnPoints].sort(() => Math.random() - 0.5)
+
     // Spawn tanks (from edges, drive in)
     for (let i = 0; i < tankCount; i++) {
-      const side = Math.floor(Math.random() * 4)
       let x: number, y: number, angle: number
+      let foundSpawn = false
       
-      switch (side) {
-        case 0: // Top edge
-          x = 80 + Math.random() * (width - 160)
-          y = -30
-          angle = Math.PI / 2 + (Math.random() - 0.5) * 0.5 // Point downward
+      // Try to find a spawn point with a clear path
+      for (const spawn of shuffledSpawns) {
+        switch (spawn.side) {
+          case 0: // Top edge
+            x = width * spawn.pos
+            y = -30
+            angle = Math.PI / 2 + (Math.random() - 0.5) * 0.3
+            break
+          case 1: // Bottom edge
+            x = width * spawn.pos
+            y = height + 30
+            angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.3
+            break
+          case 2: // Left edge
+            x = -30
+            y = height * spawn.pos
+            angle = 0 + (Math.random() - 0.5) * 0.3
+            break
+          default: // Right edge
+            x = width + 30
+            y = height * spawn.pos
+            angle = Math.PI + (Math.random() - 0.5) * 0.3
+        }
+        
+        // Check if path is clear for 120 pixels
+        if (isPathClear(x, y, angle, 120)) {
+          foundSpawn = true
+          // Remove this spawn point so other tanks don't use it
+          const idx = shuffledSpawns.indexOf(spawn)
+          if (idx > -1) shuffledSpawns.splice(idx, 1)
           break
-        case 1: // Bottom edge
-          x = 80 + Math.random() * (width - 160)
-          y = height + 30
-          angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.5 // Point upward
-          break
-        case 2: // Left edge
-          x = -30
-          y = 80 + Math.random() * (height - 160)
-          angle = 0 + (Math.random() - 0.5) * 0.5 // Point right
-          break
-        default: // Right edge
-          x = width + 30
-          y = 80 + Math.random() * (height - 160)
-          angle = Math.PI + (Math.random() - 0.5) * 0.5 // Point left
+        }
+      }
+      
+      // Fallback if no clear spawn found
+      if (!foundSpawn) {
+        const side = Math.floor(Math.random() * 4)
+        switch (side) {
+          case 0:
+            x = width / 2
+            y = -30
+            angle = Math.PI / 2
+            break
+          case 1:
+            x = width / 2
+            y = height + 30
+            angle = -Math.PI / 2
+            break
+          case 2:
+            x = -30
+            y = height / 2
+            angle = 0
+            break
+          default:
+            x = width + 30
+            y = height / 2
+            angle = Math.PI
+        }
       }
 
       tanks.push({
-        pos: { x, y },
-        vel: { x: Math.cos(angle) * 40, y: Math.sin(angle) * 40 },
-        angle: angle,
+        pos: { x: x!, y: y! },
+        vel: { x: Math.cos(angle!) * 40, y: Math.sin(angle!) * 40 },
+        angle: angle!,
         health: 2,
         state: 'active',
         explodeTime: 0,
         shootCooldown: 2000 + Math.random() * 2000,
         targetAngle: 0,
         trackOffset: 0,
+        stuckTimer: 0,
+        escapeAngle: 0,
       })
     }
 
@@ -861,9 +949,16 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         }
         
         // Feeler rays to detect nearby obstacles - check multiple distances
-        const checkObstacle = (angle: number, dist: number): boolean => {
-          const checkX = tank.pos.x + Math.cos(angle) * dist
-          const checkY = tank.pos.y + Math.sin(angle) * dist
+        const { width, height } = canvasSizeRef.current
+        const checkObstacle = (angle: number, checkDist: number): boolean => {
+          const checkX = tank.pos.x + Math.cos(angle) * checkDist
+          const checkY = tank.pos.y + Math.sin(angle) * checkDist
+          
+          // Check screen edges
+          if (checkX < 30 || checkX > width - 30 || checkY < 30 || checkY > height - 30) {
+            return true
+          }
+          
           for (const wall of wallsRef.current) {
             if (
               checkX > wall.x - 25 && checkX < wall.x + wall.width + 25 &&
@@ -881,10 +976,64 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
         const frontRightBlocked = checkObstacle(tank.angle + Math.PI / 6, 60)
         const leftBlocked = checkObstacle(tank.angle - Math.PI / 3, 50)
         const rightBlocked = checkObstacle(tank.angle + Math.PI / 3, 50)
+        const rearBlocked = checkObstacle(tank.angle + Math.PI, 50)
+        
+        // Count how many directions are blocked
+        const blockedCount = [frontBlocked, frontLeftBlocked, frontRightBlocked, leftBlocked, rightBlocked, rearBlocked].filter(b => b).length
+        
+        // Check if near screen edges - if so, bias toward center
+        const nearLeftEdge = tank.pos.x < 80
+        const nearRightEdge = tank.pos.x > width - 80
+        const nearTopEdge = tank.pos.y < 80
+        const nearBottomEdge = tank.pos.y > height - 80
+        
+        // Calculate angle toward center of screen
+        const centerX = width / 2
+        const centerY = height / 2
+        const toCenterAngle = Math.atan2(centerY - tank.pos.y, centerX - tank.pos.x)
         
         // Calculate desired angle based on obstacles
         let desiredAngle = tank.targetAngle
-        if (frontBlocked || frontLeftBlocked || frontRightBlocked || pathBlocked) {
+        
+        // If heavily surrounded, enter escape mode
+        if (blockedCount >= 4) {
+          tank.stuckTimer += dt
+          if (tank.stuckTimer > 0.5) {
+            // Pick an escape angle and commit to it
+            if (tank.escapeAngle === 0 || tank.stuckTimer > 2) {
+              // Try toward center, or pick a random direction
+              tank.escapeAngle = toCenterAngle + (Math.random() - 0.5) * Math.PI
+              tank.stuckTimer = 0.5 // Reset but stay in escape mode
+            }
+            desiredAngle = tank.escapeAngle
+          }
+        } else {
+          // Not stuck anymore, reset timer
+          tank.stuckTimer = Math.max(0, tank.stuckTimer - dt * 2)
+          if (tank.stuckTimer <= 0) {
+            tank.escapeAngle = 0
+          }
+        }
+        
+        // If actively escaping, skip normal navigation
+        if (tank.escapeAngle !== 0) {
+          desiredAngle = tank.escapeAngle
+        } else if (nearLeftEdge || nearRightEdge || nearTopEdge || nearBottomEdge) {
+          // Blend between jeep direction and center direction when near edges
+          let blendedTarget = toCenterAngle
+          
+          // If we can see the jeep, try to angle toward them while escaping edge
+          if (!pathBlocked) {
+            let centerDiff = directAngle - toCenterAngle
+            while (centerDiff > Math.PI) centerDiff -= Math.PI * 2
+            while (centerDiff < -Math.PI) centerDiff += Math.PI * 2
+            // If jeep is somewhat toward center, go that way
+            if (Math.abs(centerDiff) < Math.PI / 2) {
+              blendedTarget = directAngle
+            }
+          }
+          desiredAngle = blendedTarget
+        } else if (frontBlocked || frontLeftBlocked || frontRightBlocked || pathBlocked) {
           // Need to navigate around obstacle
           if (!leftBlocked && (rightBlocked || frontRightBlocked)) {
             // Turn left harder

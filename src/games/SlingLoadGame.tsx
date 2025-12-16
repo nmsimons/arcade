@@ -286,12 +286,21 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       if (down) heli.vel.y += thrust * dt
 
       // 3D-ish yaw + pitch:
-      // - yaw: smoothly transitions between left (-1), front (0), right (+1)
+      // - yaw: smoothly transitions between left (-1) and right (+1)
       // - pitch: nose-down tilt in the direction of travel (never upside down)
       const vx = heli.vel.x
       const vxAbs = Math.abs(vx)
-      const yawDeadzone = 18
-      const yawTarget = vxAbs < yawDeadzone ? 0 : vx > 0 ? 1 : -1
+      
+      // If moving, face that direction. If stopped, maintain last facing direction.
+      // We use a small threshold to detect movement.
+      let yawTarget = heli.yaw
+      if (vx > 10) yawTarget = 1
+      else if (vx < -10) yawTarget = -1
+      else {
+        // If stopped, snap to nearest side (-1 or 1)
+        yawTarget = heli.yaw > 0 ? 1 : -1
+      }
+
       const yawT = 1 - Math.exp(-7 * dt)
       heli.yaw += (yawTarget - heli.yaw) * yawT
 
@@ -533,13 +542,16 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       // ========== 3D Helicopter Rendering ==========
       // 3D point type: [x, y, z] where +X is forward, +Y is down, +Z is right (viewer's left)
       type V3 = [number, number, number]
+      type Renderable = 
+        | { type: 'poly', pts: V3[], fill: string, stroke: string, z?: number }
+        | { type: 'line', pts: V3[], stroke: string, width: number, z?: number }
 
-      // Rotate around Y axis (yaw: turning left/right heading)
+      // Rotate around Y axis (yaw)
       const rotY = (p: V3, angle: number): V3 => {
         const c = Math.cos(angle), s = Math.sin(angle)
         return [p[0] * c + p[2] * s, p[1], -p[0] * s + p[2] * c]
       }
-      // Rotate around Z axis (pitch: nose tips down toward ground)
+      // Rotate around Z axis (pitch)
       const rotZ = (p: V3, angle: number): V3 => {
         const c = Math.cos(angle), s = Math.sin(angle)
         return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]
@@ -549,110 +561,211 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
       // Helicopter 3D model (scale factor)
       const S3 = 1.6
+      const bodyFill = '#000000' // Occlude background
+      const bodyStroke = heli.hitFlashMs > 0 ? '#ffffff' : '#00ff88'
+      
+      const renderables: Renderable[] = []
+      const addFace = (pts: V3[], fill: string, stroke: string) => renderables.push({ type: 'poly', pts, fill, stroke })
+      const addLine = (pts: V3[], stroke: string, width: number) => renderables.push({ type: 'line', pts, stroke, width })
 
-      // 3D polylines: each line is array of [x,y,z] points
-      // Fuselage (box-ish shape)
-      const fuselage: V3[] = [
-        [14, -4, 0], [16, 0, 0], [14, 6, 0], [4, 8, 0], [-8, 8, 0],
-        [-12, 4, 0], [-12, -4, 0], [-6, -6, 0], [8, -6, 0], [14, -4, 0]
+      // --- Fuselage Geometry (Huey-style) ---
+      // Define profile points (Left side)
+      const wBody = 5
+      const wNose = 3.5
+      const wTailStart = 2.5
+      
+      // 0: Nose Tip, 1: Windshield Top, 2: Roof Front, 3: Roof Rear, 4: Tail Start Top
+      // 5: Tail Start Bot, 6: Belly Rear, 7: Belly Front
+      const nodesL: V3[] = [
+        [24, 3, -wNose],      // 0
+        [14, -4, -wBody],     // 1
+        [6, -6, -wBody],      // 2
+        [-8, -6, -wBody],     // 3
+        [-12, -2, -wTailStart], // 4
+        [-12, 4, -wTailStart],  // 5
+        [-6, 8, -wBody],      // 6
+        [14, 8, -wBody]       // 7
       ]
-      // Tail boom
-      const tailBoom: V3[] = [[-12, 0, 0], [-38, 0, 0]]
-      // Tail fin
-      const tailFin: V3[] = [[-38, 0, 0], [-42, -8, 0], [-38, -2, 0]]
-      // Tail rotor (spinning in XY plane, axis along Z - perpendicular to fuselage side)
-      const tailRotorRadius = 7
-      const tailRotorAngle = heli.rotor * 3  // Spin faster than main rotor
-      const tailRotorCenterX = -40
-      const tailRotorCenterY = -3
-      const tailRotor: V3[] = [
-        [tailRotorCenterX + Math.cos(tailRotorAngle) * tailRotorRadius, tailRotorCenterY + Math.sin(tailRotorAngle) * tailRotorRadius, 0],
-        [tailRotorCenterX - Math.cos(tailRotorAngle) * tailRotorRadius, tailRotorCenterY - Math.sin(tailRotorAngle) * tailRotorRadius, 0]
-      ]
+      const nodesR = nodesL.map(p => [p[0], p[1], -p[2]] as V3)
+
+      // Side Faces
+      addFace(nodesL, bodyFill, bodyStroke)
+      addFace(nodesR.slice().reverse(), bodyFill, bodyStroke)
+
+      // Connecting Faces (Perimeter strip)
+      for (let i = 0; i < nodesL.length; i++) {
+        const next = (i + 1) % nodesL.length
+        addFace([nodesL[i], nodesR[i], nodesR[next], nodesL[next]], bodyFill, bodyStroke)
+      }
+
+      // Engine Housing (Hump on roof)
+      const engW = 2.5
+      const engL: V3[] = [[4, -6, -engW], [4, -10, -engW], [-8, -10, -engW], [-8, -6, -engW]]
+      const engR: V3[] = engL.map(p => [p[0], p[1], -p[2]] as V3)
+      addFace(engL, bodyFill, bodyStroke)
+      addFace(engR.slice().reverse(), bodyFill, bodyStroke)
+      addFace([engL[1], engR[1], engR[2], engL[2]], bodyFill, bodyStroke) // Top
+      addFace([engL[0], engR[0], engR[1], engL[1]], bodyFill, bodyStroke) // Front
+      addFace([engL[2], engR[2], engR[3], engL[3]], bodyFill, bodyStroke) // Back
+
+      // Tail Boom
+      const tbStartW = wTailStart
+      const tbEndW = 1
+      const tbL: V3[] = [[-12, -2, -tbStartW], [-40, -2, -tbEndW], [-40, 1, -tbEndW], [-12, 4, -tbStartW]]
+      const tbR: V3[] = [[-12, -2, tbStartW], [-40, -2, tbEndW], [-40, 1, tbEndW], [-12, 4, tbStartW]]
+      addFace(tbL, bodyFill, bodyStroke)
+      addFace(tbR.slice().reverse(), bodyFill, bodyStroke)
+      addFace([tbL[0], tbR[0], tbR[1], tbL[1]], bodyFill, bodyStroke) // Top
+      addFace([tbL[2], tbR[2], tbR[3], tbL[3]], bodyFill, bodyStroke) // Bottom
+      addFace([tbL[1], tbR[1], tbR[2], tbL[2]], bodyFill, bodyStroke) // End cap
+
+      // Tail Fin
+      const fin: V3[] = [[-36, -2, 0], [-42, -12, 0], [-46, -12, 0], [-40, 1, 0]]
+      addFace(fin, bodyFill, bodyStroke)
+
       // Skids
-      const skidL: V3[] = [[-10, 14, -4], [10, 14, -4]]
-      const skidR: V3[] = [[-10, 14, 4], [10, 14, 4]]
-      const strutFL: V3[] = [[-4, 8, -3], [-6, 14, -4]]
-      const strutFR: V3[] = [[-4, 8, 3], [-6, 14, 4]]
-      const strutBL: V3[] = [[4, 8, -3], [6, 14, -4]]
-      const strutBR: V3[] = [[4, 8, 3], [6, 14, 4]]
-      // Rotor mast
-      const mast: V3[] = [[0, -6, 0], [0, -14, 0]]
-      // Main rotor blade (spinning line in XZ plane)
-      const rotorRadius = 30
+      const skidZ = 7
+      const skidY = 14
+      const skidL: V3[] = [[-10, skidY, -skidZ], [12, skidY, -skidZ], [16, skidY - 2, -skidZ]] // Curved front
+      const skidR: V3[] = [[-10, skidY, skidZ], [12, skidY, skidZ], [16, skidY - 2, skidZ]]
+      addLine(skidL, bodyStroke, 2)
+      addLine(skidR, bodyStroke, 2)
+      // Struts
+      addLine([[-4, 8, -4], [-4, skidY, -skidZ]], bodyStroke, 1.5)
+      addLine([[4, 8, -4], [4, skidY, -skidZ]], bodyStroke, 1.5)
+      addLine([[-4, 8, 4], [-4, skidY, skidZ]], bodyStroke, 1.5)
+      addLine([[4, 8, 4], [4, skidY, skidZ]], bodyStroke, 1.5)
+      // Cross bars
+      addLine([[-4, skidY, -skidZ], [-4, skidY, skidZ]], bodyStroke, 1.5)
+      addLine([[4, skidY, -skidZ], [4, skidY, skidZ]], bodyStroke, 1.5)
+
+      // Mast
+      addLine([[0, -6, 0], [0, -14, 0]], bodyStroke, 2)
+
+      // Main Rotor
+      const rotorRadius = 32
       const rotorAngle = heli.rotor
-      const rotorBlade: V3[] = [
+      const rotorBlade1: V3[] = [
         [Math.cos(rotorAngle) * rotorRadius, -14, Math.sin(rotorAngle) * rotorRadius],
         [-Math.cos(rotorAngle) * rotorRadius, -14, -Math.sin(rotorAngle) * rotorRadius]
       ]
-      // Canopy (sphere cross-section circles)
-      const canopyR3 = 10
-      const canopyXY: V3[] = []
-      const canopyXZ: V3[] = []
-      const canopyYZ: V3[] = []
-      for (let i = 0; i <= 24; i++) {
-        const a = (i / 24) * Math.PI * 2
-        canopyXY.push([Math.cos(a) * canopyR3, Math.sin(a) * canopyR3, 0])
-        canopyXZ.push([Math.cos(a) * canopyR3, 0, Math.sin(a) * canopyR3])
-        canopyYZ.push([0, Math.cos(a) * canopyR3, Math.sin(a) * canopyR3])
-      }
+      const rotorBlade2: V3[] = [
+        [Math.cos(rotorAngle + Math.PI/2) * rotorRadius, -14, Math.sin(rotorAngle + Math.PI/2) * rotorRadius],
+        [-Math.cos(rotorAngle + Math.PI/2) * rotorRadius, -14, -Math.sin(rotorAngle + Math.PI/2) * rotorRadius]
+      ]
+      addLine(rotorBlade1, 'rgba(255,255,255,0.8)', 2)
+      addLine(rotorBlade2, 'rgba(255,255,255,0.8)', 2)
 
-      // Transform and draw a 3D polyline
-      // Order: pitch first (nose down), then yaw (turn left/right)
-      const draw3D = (pts: V3[], yaw: number, pitch: number, stroke: string, lineWidth: number) => {
-        ctx.strokeStyle = stroke
-        ctx.lineWidth = lineWidth
-        ctx.beginPath()
-        for (let i = 0; i < pts.length; i++) {
-          let p = pts[i]
-          p = rotZ(p, pitch)  // Pitch: nose tips down
-          p = rotY(p, yaw)    // Yaw: turn left/right
-          const [sx, sy] = proj(p)
-          if (i === 0) ctx.moveTo(sx * S3, sy * S3)
-          else ctx.lineTo(sx * S3, sy * S3)
-        }
-        ctx.stroke()
-      }
+      // Tail Rotor (XY plane, axis along Z - perpendicular to fuselage side)
+      const trRadius = 8
+      const trAngle = heli.rotor * 3
+      const trOffset = 2 // Right side
+      const trCenter: V3 = [-42, -12, trOffset] 
+      const trBlade: V3[] = [
+        [trCenter[0] + Math.cos(trAngle) * trRadius, trCenter[1] + Math.sin(trAngle) * trRadius, trCenter[2]],
+        [trCenter[0] - Math.cos(trAngle) * trRadius, trCenter[1] - Math.sin(trAngle) * trRadius, trCenter[2]]
+      ]
+      addLine(trBlade, 'rgba(255,255,255,0.6)', 1.5)
+      // Tail rotor hub
+      addLine([[-42, -12, 0], [-42, -12, trOffset]], bodyStroke, 1)
 
-      // Helicopter position and orientation
+
+      // --- Rendering ---
       ctx.save()
       ctx.translate(heli.pos.x, heli.pos.y)
 
+      // Convert yaw/pitch
+      const yawAngle = -heli.yaw * (Math.PI / 2)
+      const pitchAngle = heli.pitch
+
+      // Transform and Sort
+      renderables.forEach(r => {
+        // Transform points
+        const tPts = r.pts.map(p => {
+          let tp = rotZ(p, pitchAngle)
+          tp = rotY(tp, yawAngle)
+          return tp
+        })
+        // Store transformed points for drawing
+        // We can't mutate r.pts because it's shared/const. 
+        // But we can store the projected 2D points and the Z depth.
+        
+        // Compute average Z for sorting
+        let zSum = 0
+        tPts.forEach(p => zSum += p[0]) // In our projection, Z is mapped to X, but depth is...
+        // Wait, our coordinate system: +X forward, +Y down, +Z right.
+        // Viewer is looking from +Z side? No, side view.
+        // proj = (p) => [p[2], p[1]] (Z -> Screen X, Y -> Screen Y)
+        // So Screen X is Z (Right), Screen Y is Y (Down).
+        // The depth axis (into the screen) is X (Forward/Backward of heli).
+        // If we view from the side (Right side), then +Z is towards us.
+        // Wait, if proj is [p[2], p[1]], then p[2] is horizontal screen pos.
+        // p[0] (Forward) is the depth axis relative to the screen?
+        // Let's check rotY (Yaw).
+        // rotY rotates X and Z.
+        // If yaw=0, X is depth?
+        // Yes. If we look from the side, X is left-right on the heli, but depth in the view?
+        // No, if proj is [p[2], p[1]], then p[2] (Right) is Screen X.
+        // p[1] (Down) is Screen Y.
+        // p[0] (Forward) is NOT drawn. So p[0] is the depth (Z-buffer value).
+        // Positive X is Forward. If we view from the Right (+Z), then +X is to our Left?
+        // Let's assume p[0] is depth.
+        
+        const depth = tPts.reduce((sum, p) => sum + p[0], 0) / tPts.length
+        
+        // Store for render
+        // We'll attach a temporary property or return a new object
+        ;(r as any)._tPts = tPts
+        ;(r as any)._depth = depth
+      })
+
+      // Sort by depth (furthest first). 
+      // If +X is depth, and we view from +Z? 
+      // Actually, let's just try sorting by p[0].
+      // If p[0] is large (Forward), is it close or far?
+      // If we view from the side, X is perpendicular to view direction.
+      // Wait, if proj uses p[2] and p[1], then p[0] is the axis perpendicular to the screen.
+      // So yes, p[0] is depth.
+      // We want to draw furthest X first? Or closest?
+      // Standard painter's: draw furthest away first.
+      // If +X is "into" the screen or "out of"?
+      // Let's guess: Sort ascending or descending.
+      // If we rotate 90 deg, X becomes Z.
+      renderables.sort((a, b) => (a as any)._depth - (b as any)._depth) // Try ascending first
+
+      // Draw
+      renderables.forEach(r => {
+        const tPts = (r as any)._tPts as V3[]
+        const screenPts = tPts.map(p => proj(p))
+        
+        ctx.beginPath()
+        if (screenPts.length > 0) {
+          ctx.moveTo(screenPts[0][0] * S3, screenPts[0][1] * S3)
+          for (let i = 1; i < screenPts.length; i++) {
+            ctx.lineTo(screenPts[i][0] * S3, screenPts[i][1] * S3)
+          }
+        }
+        
+        if (r.type === 'poly') {
+          ctx.closePath()
+          ctx.fillStyle = r.fill
+          ctx.fill()
+          ctx.strokeStyle = r.stroke
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+        } else if (r.type === 'line') {
+          ctx.strokeStyle = r.stroke
+          ctx.lineWidth = r.width
+          ctx.stroke()
+        }
+      })
+
+      // Hook point (transformed)
       const groundUnderCrate = groundHeightAt(crate.pos.x)
       const crateOnGround = crate.attached && !crate.delivered && crate.pos.y + crate.radius >= groundUnderCrate - 0.5
       const isLoaded = crate.attached && !crate.delivered && !crateOnGround
-      const bodyStroke = heli.hitFlashMs > 0 ? '#ffffff' : '#00ff88'
 
-      // Convert yaw (-1 to 1) to angle
-      // yaw=1 means facing right, yaw=-1 means facing left, yaw=0 means facing viewer
-      const yawAngle = -heli.yaw * (Math.PI / 2)  // Negate so right movement = facing right
-      const pitchAngle = heli.pitch  // Positive tips nose down
-
-      // Draw body parts
-      draw3D(fuselage, yawAngle, pitchAngle, bodyStroke, 2)
-      draw3D(tailBoom, yawAngle, pitchAngle, bodyStroke, 2)
-      draw3D(tailFin, yawAngle, pitchAngle, bodyStroke, 2)
-      draw3D(tailRotor, yawAngle, pitchAngle, 'rgba(255,255,255,0.6)', 1.5)
-
-      // Skids
-      draw3D(skidL, yawAngle, pitchAngle, bodyStroke, 1.5)
-      draw3D(skidR, yawAngle, pitchAngle, bodyStroke, 1.5)
-      draw3D(strutFL, yawAngle, pitchAngle, bodyStroke, 1.5)
-      draw3D(strutFR, yawAngle, pitchAngle, bodyStroke, 1.5)
-      draw3D(strutBL, yawAngle, pitchAngle, bodyStroke, 1.5)
-      draw3D(strutBR, yawAngle, pitchAngle, bodyStroke, 1.5)
-
-      // Rotor system
-      draw3D(mast, yawAngle, pitchAngle, bodyStroke, 2)
-      draw3D(rotorBlade, yawAngle, pitchAngle, 'rgba(255,255,255,0.8)', 2)
-
-      // Canopy (3 rings to suggest a sphere)
-      draw3D(canopyXY, yawAngle, pitchAngle, bodyStroke, 2)
-      draw3D(canopyXZ, yawAngle, pitchAngle, 'rgba(255,255,255,0.3)', 1)
-      draw3D(canopyYZ, yawAngle, pitchAngle, 'rgba(255,255,255,0.3)', 1)
-
-      // Hook point (transformed with same rotations)
-      const hookLocal: V3 = [0, heli.radius * 0.9, 0]
+      const hookLocal: V3 = [0, 8, 0] // Belly center
       let hp = rotZ(hookLocal, pitchAngle)
       hp = rotY(hp, yawAngle)
       const [hx, hy] = proj(hp)

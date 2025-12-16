@@ -57,6 +57,20 @@ export default function App() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono bg-[#0a0a0a]">
+      {/* Scanline effect */}
+      <div 
+        className="pointer-events-none absolute inset-0 z-10"
+        style={{
+          background: 'repeating-linear-gradient(0deg, transparent, transparent 11px, rgba(0, 255, 136, 0.06) 11px, rgba(0, 255, 136, 0.06) 12px)',
+          animation: 'scanline 0.2s linear infinite',
+        }}
+      />
+      <style>{`
+        @keyframes scanline {
+          0% { background-position: 0 0; }
+          100% { background-position: 0 12px; }
+        }
+      `}</style>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
           <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Select Game</h1>

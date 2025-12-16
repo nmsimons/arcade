@@ -374,9 +374,9 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         bulletsRef.current.push(bullet)
         sounds.shoot()
       }
-      if (e.key === 'p' && gameState === 'playing') {
+      if ((e.key === 'p' || e.key === 'Escape') && gameState === 'playing') {
         setGameState('paused')
-      } else if (e.key === 'p' && gameState === 'paused') {
+      } else if ((e.key === 'p' || e.key === 'Escape') && gameState === 'paused') {
         setGameState('playing')
       }
       

@@ -358,7 +358,7 @@ export function LunarLanderGame({ onExit }: LunarLanderGameProps) {
     
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key.toLowerCase())
-      if (e.key.toLowerCase() === 'p' && (gameState === 'playing' || gameState === 'paused')) {
+      if ((e.key.toLowerCase() === 'p' || e.key === 'Escape') && (gameState === 'playing' || gameState === 'paused')) {
         setGameState((s) => (s === 'playing' ? 'paused' : 'playing'))
       }
       if (e.key.toLowerCase() === 'r' && (gameState === 'landed' || gameState === 'crashed')) {

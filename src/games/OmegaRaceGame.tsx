@@ -369,9 +369,9 @@ export function OmegaRaceGame({ onExit }: OmegaRaceGameProps) {
         }
       }
 
-      if (e.key === 'p' && gameState === 'playing') {
+      if ((e.key === 'p' || e.key === 'Escape') && gameState === 'playing') {
         setGameState('paused')
-      } else if (e.key === 'p' && gameState === 'paused') {
+      } else if ((e.key === 'p' || e.key === 'Escape') && gameState === 'paused') {
         setGameState('playing')
       }
 
@@ -734,6 +734,16 @@ export function OmegaRaceGame({ onExit }: OmegaRaceGameProps) {
       // Clear
       ctx.fillStyle = '#0a0a0a'
       ctx.fillRect(0, 0, width, height)
+
+      // Subtle scanline haze
+      ctx.save()
+      ctx.globalAlpha = 0.06
+      ctx.fillStyle = '#00ff88'
+      const scanY = ((Date.now() / 1000) * 60) % 12
+      for (let y = -12; y < height + 12; y += 12) {
+        ctx.fillRect(0, y + scanY, width, 1)
+      }
+      ctx.restore()
 
       // Draw arena walls
       ctx.strokeStyle = '#00ff88'

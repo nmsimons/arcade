@@ -569,6 +569,74 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         if (asteroid.pos.y < 0) asteroid.pos.y = h
       })
 
+      // Asteroid-asteroid collisions (treat as circles in a wrapped/toroidal space)
+      // This uses a simple impulse + positional correction so asteroids "bump" off each other.
+      const asteroids = asteroidsRef.current
+      const restitution = 0.9
+      const wrapX = (x: number) => {
+        if (x < 0) return x + w
+        if (x > w) return x - w
+        return x
+      }
+      const wrapY = (y: number) => {
+        if (y < 0) return y + h
+        if (y > h) return y - h
+        return y
+      }
+
+      for (let i = 0; i < asteroids.length; i++) {
+        const a = asteroids[i]
+        for (let j = i + 1; j < asteroids.length; j++) {
+          const b = asteroids[j]
+
+          // Shortest vector under wrapping.
+          let dx = a.pos.x - b.pos.x
+          let dy = a.pos.y - b.pos.y
+          if (dx > w / 2) dx -= w
+          else if (dx < -w / 2) dx += w
+          if (dy > h / 2) dy -= h
+          else if (dy < -h / 2) dy += h
+
+          const rSum = a.radius + b.radius
+          const dist2 = dx * dx + dy * dy
+          if (dist2 >= rSum * rSum) continue
+
+          const dist = Math.sqrt(Math.max(1e-8, dist2))
+          const nx = dx / dist
+          const ny = dy / dist
+          const penetration = rSum - dist
+
+          // Mass proportional to area.
+          const mA = a.radius * a.radius
+          const mB = b.radius * b.radius
+          const invA = 1 / mA
+          const invB = 1 / mB
+          const invSum = invA + invB
+
+          // Positional correction to resolve overlap.
+          const moveA = penetration * (invA / invSum)
+          const moveB = penetration * (invB / invSum)
+          a.pos.x = wrapX(a.pos.x + nx * moveA)
+          a.pos.y = wrapY(a.pos.y + ny * moveA)
+          b.pos.x = wrapX(b.pos.x - nx * moveB)
+          b.pos.y = wrapY(b.pos.y - ny * moveB)
+
+          // Elastic impulse along normal.
+          const rvx = a.vel.x - b.vel.x
+          const rvy = a.vel.y - b.vel.y
+          const velAlongNormal = rvx * nx + rvy * ny
+          if (velAlongNormal > 0) continue
+
+          const jImpulse = (-(1 + restitution) * velAlongNormal) / invSum
+          const impX = jImpulse * nx
+          const impY = jImpulse * ny
+          a.vel.x += impX * invA
+          a.vel.y += impY * invA
+          b.vel.x -= impX * invB
+          b.vel.y -= impY * invB
+        }
+      }
+
       // Update boss (if active)
       const boss = bossRef.current
       if (boss) {

@@ -6,6 +6,10 @@ type SlingLoadGameProps = {
 
 type Vector2 = { x: number; y: number }
 
+type CargoType = 'medical' | 'food' | 'ordinance'
+
+type OutpostName = 'ALPHA' | 'BRAVO' | 'CHARLIE'
+
 type Helicopter = {
   pos: Vector2
   vel: Vector2
@@ -20,8 +24,40 @@ type Crate = {
   pos: Vector2
   vel: Vector2
   radius: number
+  cargo: CargoType
+  angle: number
+  angVel: number
   attached: boolean
   delivered: boolean
+  destroyed: boolean
+}
+
+type Explosion = {
+  pos: Vector2
+  tMs: number
+  lifeMs: number
+  maxRadius: number
+  color: string
+}
+
+type Debris = {
+  pos: Vector2
+  vel: Vector2
+  angle: number
+  rotSpeed: number
+  life: number
+  length: number
+  color: string
+}
+
+type Outpost = {
+  name: OutpostName
+  pad: Pad
+}
+
+type Mission = {
+  cargo: CargoType
+  outpost: OutpostName
 }
 
 type Pad = {
@@ -42,6 +78,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
   const [deliveries, setDeliveries] = useState(0)
+  const [mission, setMission] = useState<Mission | null>(null)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
 
@@ -75,12 +112,23 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     pos: { x: 1200, y: 0 },
     vel: { x: 0, y: 0 },
     radius: 14,
+    cargo: 'medical',
+    angle: 0,
+    angVel: 0,
     attached: false,
     delivered: false,
+    destroyed: false,
   })
 
-  const padRef = useRef<Pad>({ x: 420, width: 140 })
+  const explosionsRef = useRef<Explosion[]>([])
+  const debrisRef = useRef<Debris[]>([])
+
   const startPadRef = useRef<Pad>({ x: 260, width: 220 })
+  const outpostsRef = useRef<Outpost[]>([
+    { name: 'ALPHA', pad: { x: 1400, width: 180 } },
+    { name: 'BRAVO', pad: { x: 2600, width: 180 } },
+    { name: 'CHARLIE', pad: { x: 3800, width: 180 } },
+  ])
 
   const hookRangeRef = useRef(80)
 
@@ -105,14 +153,81 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     return { x: heli.pos.x + localX, y: heli.pos.y + localY }
   }, [])
 
+  const rot2 = useCallback((v: Vector2, a: number): Vector2 => {
+    const c = Math.cos(a)
+    const s = Math.sin(a)
+    return { x: v.x * c - v.y * s, y: v.x * s + v.y * c }
+  }, [])
+
+  const getCrateAttachPoint = useCallback(
+    (crate: Crate) => {
+      // Attach at the top of the crate (local up).
+      const local = { x: 0, y: -crate.radius }
+      const off = rot2(local, crate.angle)
+      return { x: crate.pos.x + off.x, y: crate.pos.y + off.y }
+    },
+    [rot2],
+  )
+
   const groundHeightAt = useCallback((x: number) => {
     const { height } = canvasSizeRef.current
     void x
     return height * 0.82
   }, [])
 
+  const pick = <T,>(arr: readonly T[]) => arr[Math.floor(Math.random() * arr.length)]
+
+  const makeMission = useCallback((): Mission => {
+    const cargo = pick(['medical', 'food', 'ordinance'] as const)
+    const outpost = pick(['ALPHA', 'BRAVO', 'CHARLIE'] as const)
+    return { cargo, outpost }
+  }, [])
+
+  const spawnCrateAtBase = useCallback(
+    (cargo: CargoType) => {
+      const startPad = startPadRef.current
+      const x = startPad.x + 260
+      const y = groundHeightAt(x) - crateRef.current.radius
+      const crate = crateRef.current
+      crate.cargo = cargo
+      crate.attached = false
+      crate.delivered = false
+      crate.destroyed = false
+      crate.angle = 0
+      crate.angVel = 0
+      crate.vel = { x: 0, y: 0 }
+      crate.pos = { x, y }
+    },
+    [groundHeightAt],
+  )
+
+  const createDebris = useCallback(
+    (x: number, y: number, velX: number, velY: number, count: number, lifeMult: number, color: string) => {
+      const d: Debris[] = []
+      for (let i = 0; i < count; i++) {
+        const a = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5
+        const speed = 70 + Math.random() * 160
+        d.push({
+          pos: { x, y },
+          vel: { x: velX + Math.cos(a) * speed, y: velY + Math.sin(a) * speed },
+          angle: Math.random() * Math.PI * 2,
+          rotSpeed: (Math.random() - 0.5) * 10,
+          life: (900 + Math.random() * 650) * lifeMult,
+          length: 6 + Math.random() * 14,
+          color,
+        })
+      }
+      debrisRef.current = [...debrisRef.current, ...d]
+    },
+    [],
+  )
+
   const resetWorld = useCallback(() => {
     const heli = heliRef.current
+
+    // New mission (first click-stop: just deliver gear to named outposts)
+    const m = makeMission()
+    setMission(m)
 
     // Start on the heliport pad with rotors spun down.
     const startPad = startPadRef.current
@@ -131,16 +246,14 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     rotorTargetRef.current = 0
 
     const crate = crateRef.current
-    crate.attached = false
-    crate.delivered = false
-    crate.vel = { x: 0, y: 0 }
-    crate.pos = { x: 1100, y: groundHeightAt(1100) - crate.radius }
+    void crate
+    spawnCrateAtBase(m.cargo)
 
     ropeLengthRef.current = 110
     cameraXRef.current = 0
     prevCameraXRef.current = 0
     cameraVelRef.current = 0
-  }, [groundHeightAt])
+  }, [groundHeightAt, makeMission, spawnCrateAtBase])
 
   const startGame = useCallback(() => {
     setScore(0)
@@ -213,16 +326,19 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         const heli = heliRef.current
         const crate = crateRef.current
         if (crate.delivered) return
+        if (crate.destroyed) return
 
         if (crate.attached) {
           crate.attached = false
           // Give a tiny separation impulse so it doesn't immediately reattach.
           crate.vel.x += heli.vel.x * 0.1
           crate.vel.y += heli.vel.y * 0.1
+          crate.angVel += (Math.random() - 0.5) * 1.2
         } else {
           const hook = getHookPoint(heli)
-          const dx = crate.pos.x - hook.x
-          const dy = crate.pos.y - hook.y
+          const attach = getCrateAttachPoint(crate)
+          const dx = attach.x - hook.x
+          const dy = attach.y - hook.y
           const d = Math.hypot(dx, dy)
           const hookRange = hookRangeRef.current
           if (d < hookRange) {
@@ -257,12 +373,25 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       canvasSizeRef.current = { width: canvas.width, height: canvas.height }
 
       // Keep world scale roughly comparable across screens.
-      worldWidthRef.current = Math.max(2600, Math.floor(canvas.width * 5.5))
-      // Place pad near the start.
-      padRef.current = { x: Math.max(380, canvas.width * 0.45), width: 160 }
+      worldWidthRef.current = Math.max(5200, Math.floor(canvas.width * 7.0))
 
       // Heliport at the beginning of the level.
       startPadRef.current = { x: Math.max(240, canvas.width * 0.22), width: 220 }
+
+      // Outposts spread across the map.
+      const worldWidth = worldWidthRef.current
+      const margin = Math.max(520, canvas.width * 0.55)
+      const usable = Math.max(1200, worldWidth - margin * 2)
+      const xs = [
+        margin + usable * 0.25,
+        margin + usable * 0.55,
+        margin + usable * 0.85,
+      ]
+      outpostsRef.current = [
+        { name: 'ALPHA', pad: { x: xs[0], width: 180 } },
+        { name: 'BRAVO', pad: { x: xs[1], width: 180 } },
+        { name: 'CHARLIE', pad: { x: xs[2], width: 180 } },
+      ]
     }
 
     resize()
@@ -277,7 +406,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         } else {
           // Soft reset position without resetting score.
           const { height } = canvasSizeRef.current
-          heliRef.current.pos = { x: padRef.current.x, y: height * 0.35 }
+          heliRef.current.pos = { x: startPadRef.current.x, y: height * 0.35 }
           heliRef.current.vel = { x: 0, y: 0 }
           crateRef.current.attached = false
         }
@@ -292,6 +421,23 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const worldWidth = worldWidthRef.current
       const heli = heliRef.current
       const crate = crateRef.current
+
+      // Update explosion visuals
+      explosionsRef.current = explosionsRef.current.filter((e) => {
+        e.tMs -= dt * 1000
+        return e.tMs > 0
+      })
+
+      // Update debris
+      debrisRef.current = debrisRef.current.filter((d) => {
+        d.pos.x += d.vel.x * dt
+        d.pos.y += d.vel.y * dt
+        d.angle += d.rotSpeed * dt
+        d.life -= dt * 1000
+        d.vel.x *= 0.99
+        d.vel.y *= 0.99
+        return d.life > 0
+      })
 
       heli.hitFlashMs = Math.max(0, heli.hitFlashMs - dt * 1000)
 
@@ -412,18 +558,25 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       heli.rotor += dt * (rotorBase + rotorMoveBoost) * rotorSpin
 
       // Crate physics
-      const crateDrag = stabilize ? 0.965 : 0.988
-      crate.vel.y += 300 * dt
-      crate.vel.x *= crateDrag
-      crate.vel.y *= crateDrag
-      crate.pos.x += crate.vel.x * dt
-      crate.pos.y += crate.vel.y * dt
+      if (!crate.delivered && !crate.destroyed) {
+        const crateDrag = stabilize ? 0.965 : 0.988
+        crate.vel.y += 300 * dt
+        crate.vel.x *= crateDrag
+        crate.vel.y *= crateDrag
+        crate.pos.x += crate.vel.x * dt
+        crate.pos.y += crate.vel.y * dt
+
+        // Angular dynamics (air drag)
+        crate.angVel *= stabilize ? 0.92 : 0.985
+        crate.angle += crate.angVel * dt
+      }
 
       // Sling constraint (only max distance, slack allowed)
-      if (crate.attached && !crate.delivered) {
+      if (crate.attached && !crate.delivered && !crate.destroyed) {
         const hook = getHookPoint(heli)
-        const dx = crate.pos.x - hook.x
-        const dy = crate.pos.y - hook.y
+        const attach = getCrateAttachPoint(crate)
+        const dx = attach.x - hook.x
+        const dy = attach.y - hook.y
         const dist = Math.hypot(dx, dy)
         const L = ropeLengthRef.current
 
@@ -431,9 +584,27 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
           const nx = dx / dist
           const ny = dy / dist
 
-          // Project position to rope circle
-          crate.pos.x = hook.x + nx * L
-          crate.pos.y = hook.y + ny * L
+          // Rotate crate naturally toward the rope direction.
+          const toHookX = hook.x - crate.pos.x
+          const toHookY = hook.y - crate.pos.y
+          const toHookD = Math.hypot(toHookX, toHookY)
+          if (toHookD > 1e-4) {
+            const target = Math.atan2(toHookY, toHookX) + Math.PI / 2
+            // Wrap to [-pi, pi]
+            let err = target - crate.angle
+            err = Math.atan2(Math.sin(err), Math.cos(err))
+            const k = 14
+            const damp = 4.2
+            crate.angVel += (err * k - crate.angVel * damp) * dt
+          }
+
+          // Center offset from attach point (world)
+          const rLocal = { x: 0, y: -crate.radius }
+          const r = rot2(rLocal, crate.angle)
+
+          // Project ATTACH point to rope circle, then back-compute crate center.
+          crate.pos.x = hook.x + nx * L - r.x
+          crate.pos.y = hook.y + ny * L - r.y
 
           // Remove outward velocity component (prevents energy blow-up)
           const relVx = crate.vel.x - heli.vel.x
@@ -491,28 +662,89 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
       const groundHCrate = groundHeightAt(crate.pos.x)
       const crateBottom = crate.pos.y + crate.radius
-      if (crateBottom > groundHCrate) {
+      if (!crate.delivered && !crate.destroyed && crateBottom > groundHCrate) {
         const impact = Math.abs(crate.vel.y)
         crate.pos.y = groundHCrate - crate.radius
         crate.vel.y = 0
         crate.vel.x *= 0.86
 
-        // Delivery check (crate must be on pad and not slammed)
-        const pad = padRef.current
-        const onPad = crate.pos.x >= pad.x - pad.width / 2 && crate.pos.x <= pad.x + pad.width / 2
-        if (!crate.delivered && onPad && impact < 140 && !crate.attached) {
+        // Settle rotation on ground a bit
+        crate.angVel *= 0.7
+        crate.angle *= 0.985
+
+        // Hard impacts destroy cargo. Ordinance also explodes.
+        // (This approximates "dropped from a height" via impact velocity.)
+        const destroyImpact = 240
+        if (impact >= destroyImpact) {
+          crate.attached = false
+          crate.destroyed = true
+
+          const debrisColor =
+            crate.cargo === 'medical'
+              ? '255, 68, 68'
+              : crate.cargo === 'food'
+                ? '255, 210, 74'
+                : '220, 220, 220'
+
+          // Chunky debris burst
+          createDebris(crate.pos.x, crate.pos.y, crate.vel.x, crate.vel.y, 14, 1, debrisColor)
+
+          if (crate.cargo === 'ordinance') {
+            // BOOM.
+            const blastRadius = 160
+            explosionsRef.current.push({
+              pos: { x: crate.pos.x, y: crate.pos.y },
+              tMs: 520,
+              lifeMs: 520,
+              maxRadius: blastRadius,
+              color: '255, 160, 40',
+            })
+
+            // Extra spark debris on BOOM
+            createDebris(crate.pos.x, crate.pos.y, crate.vel.x, crate.vel.y, 18, 0.9, '255, 160, 40')
+
+            // Blast can take out the chopper if you're too close.
+            const dh = Math.hypot(heli.pos.x - crate.pos.x, heli.pos.y - crate.pos.y)
+            if (dh < blastRadius * 0.75) {
+              killPlayer()
+            }
+          } else {
+            // Small puff for destroyed cargo.
+            explosionsRef.current.push({
+              pos: { x: crate.pos.x, y: crate.pos.y },
+              tMs: 260,
+              lifeMs: 260,
+              maxRadius: 60,
+              color: '255, 255, 255',
+            })
+          }
+
+          // Re-spawn the current mission cargo back at base.
+          setTimeout(() => {
+            const m = mission
+            if (m) spawnCrateAtBase(m.cargo)
+          }, 650)
+          return
+        }
+
+        // Delivery check: crate must be on the CURRENT mission outpost pad and not slammed.
+        const m = mission
+        const outposts = outpostsRef.current
+        const target = m ? outposts.find((o) => o.name === m.outpost) : undefined
+        const pad = target?.pad
+        const onPad =
+          !!pad && crate.pos.x >= pad.x - pad.width / 2 && crate.pos.x <= pad.x + pad.width / 2
+
+        if (!crate.delivered && onPad && impact < 140 && !crate.attached && m && crate.cargo === m.cargo) {
           crate.delivered = true
           setDeliveries((d) => d + 1)
           setScore((s) => s + 500)
 
-          // Spawn a new crate further out.
-          const spawnX = clamp(pad.x + 900 + Math.random() * 2200, 600, worldWidth - 200)
+          // Spawn the next mission + crate back at base.
           setTimeout(() => {
-            const c = crateRef.current
-            c.delivered = false
-            c.attached = false
-            c.vel = { x: 0, y: 0 }
-            c.pos = { x: spawnX, y: groundHeightAt(spawnX) - c.radius }
+            const nm = makeMission()
+            setMission(nm)
+            spawnCrateAtBase(nm.cargo)
           }, 500)
         }
 
@@ -561,8 +793,8 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const i0 = Math.floor(xLeftWorld / tuftSpacing)
       const i1 = Math.ceil(xRightWorld / tuftSpacing)
 
-      const deliveryPad = padRef.current
       const startPad = startPadRef.current
+      const outposts = outpostsRef.current
 
       // Lean opposite camera movement to imply wind/speed.
       const baseLean = clamp(-camVel / 520, -1.3, 1.3)
@@ -579,12 +811,10 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         const wx = (i + (r - 0.5) * 0.9) * tuftSpacing
 
         // Keep pads clear (so objects and markings feel grounded/intentional).
-        if (
-          (wx >= deliveryPad.x - deliveryPad.width / 2 && wx <= deliveryPad.x + deliveryPad.width / 2) ||
-          (wx >= startPad.x - startPad.width / 2 && wx <= startPad.x + startPad.width / 2)
-        ) {
-          continue
-        }
+        const onAnyPad =
+          (wx >= startPad.x - startPad.width / 2 && wx <= startPad.x + startPad.width / 2) ||
+          outposts.some((o) => wx >= o.pad.x - o.pad.width / 2 && wx <= o.pad.x + o.pad.width / 2)
+        if (onAnyPad) continue
 
         const x = wx - camX
         const h = 4 + r * 10
@@ -680,6 +910,28 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       ctx2.moveTo(towerX + towerW / 2, cabY)
       ctx2.lineTo(towerX + towerW / 2, cabY - 18)
       ctx2.stroke()
+
+      // Simple cargo staging area (visual only)
+      const yardX = startPad.x + startPad.width / 2 + 40
+      const yardW = 180
+      const yardH = 46
+      ctx2.fillStyle = 'rgba(0,0,0,0.55)'
+      ctx2.fillRect(yardX, groundY - yardH, yardW, yardH)
+      ctx2.strokeStyle = 'rgba(0,255,136,0.6)'
+      ctx2.lineWidth = 2
+      ctx2.strokeRect(yardX, groundY - yardH, yardW, yardH)
+      ctx2.strokeStyle = 'rgba(0,255,136,0.35)'
+      ctx2.lineWidth = 1
+      for (let i = 0; i < 6; i++) {
+        const sx = yardX + 14 + i * 26
+        ctx2.beginPath()
+        ctx2.moveTo(sx, groundY - 6)
+        ctx2.lineTo(sx + 16, groundY - 22)
+        ctx2.stroke()
+      }
+      ctx2.fillStyle = 'rgba(0,255,136,0.65)'
+      ctx2.font = '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+      ctx2.fillText('BASE SUPPLIES', yardX + 10, groundY - yardH - 8)
     }
 
     const draw = () => {
@@ -713,61 +965,294 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       drawGround(ctx)
       ctx.restore()
 
-      // Drop pad
-      const pad = padRef.current
-      const padY = groundHeightAt(pad.x)
-      ctx.strokeStyle = '#00ff88'
-      ctx.lineWidth = 2
-      ctx.beginPath()
-      ctx.moveTo(pad.x - pad.width / 2, padY)
-      ctx.lineTo(pad.x - pad.width / 2, padY - 18)
-      ctx.lineTo(pad.x + pad.width / 2, padY - 18)
-      ctx.lineTo(pad.x + pad.width / 2, padY)
-      ctx.stroke()
+      // Outpost pads (Alpha/Bravo/Charlie)
+      const outposts = outpostsRef.current
+      for (const o of outposts) {
+        const pad = o.pad
+        const padY = groundHeightAt(pad.x)
+        const isTarget = mission?.outpost === o.name
 
-      ctx.strokeStyle = 'rgba(0,255,136,0.45)'
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(pad.x - pad.width / 2 + 10, padY - 10)
-      ctx.lineTo(pad.x + pad.width / 2 - 10, padY - 10)
-      ctx.stroke()
+        ctx.strokeStyle = isTarget ? 'rgba(255,255,255,0.95)' : '#00ff88'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(pad.x - pad.width / 2, padY)
+        ctx.lineTo(pad.x - pad.width / 2, padY - 18)
+        ctx.lineTo(pad.x + pad.width / 2, padY - 18)
+        ctx.lineTo(pad.x + pad.width / 2, padY)
+        ctx.stroke()
+
+        ctx.strokeStyle = isTarget ? 'rgba(255,255,255,0.45)' : 'rgba(0,255,136,0.45)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(pad.x - pad.width / 2 + 10, padY - 10)
+        ctx.lineTo(pad.x + pad.width / 2 - 10, padY - 10)
+        ctx.stroke()
+
+        // Label
+        ctx.fillStyle = isTarget ? 'rgba(255,255,255,0.9)' : 'rgba(0,255,136,0.8)'
+        ctx.font = '12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+        ctx.fillText(o.name, pad.x - pad.width / 2, padY - 24)
+
+        // Simple outpost structures (visual character only)
+        const baseY = padY
+        const structureFill = 'rgba(0,0,0,0.72)'
+        const structureStroke = isTarget ? 'rgba(255,255,255,0.85)' : 'rgba(0,255,136,0.7)'
+
+        // Tent
+        const tentW = 72
+        const tentH = 34
+        const tentX = pad.x - pad.width / 2 - 98
+        const tentY = baseY - tentH
+        ctx.fillStyle = structureFill
+        ctx.fillRect(tentX, tentY, tentW, tentH)
+        ctx.strokeStyle = structureStroke
+        ctx.lineWidth = 2
+        ctx.strokeRect(tentX, tentY, tentW, tentH)
+        ctx.strokeStyle = 'rgba(0,255,136,0.25)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(tentX, tentY)
+        ctx.lineTo(tentX + tentW, tentY + tentH)
+        ctx.moveTo(tentX + tentW, tentY)
+        ctx.lineTo(tentX, tentY + tentH)
+        ctx.stroke()
+
+        // Comms tower
+        const towerX = pad.x + pad.width / 2 + 56
+        const towerH = 86
+        ctx.strokeStyle = structureStroke
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(towerX, baseY)
+        ctx.lineTo(towerX, baseY - towerH)
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(0,255,136,0.35)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(towerX - 10, baseY - 16)
+        ctx.lineTo(towerX + 10, baseY - 16)
+        ctx.moveTo(towerX - 8, baseY - 34)
+        ctx.lineTo(towerX + 8, baseY - 34)
+        ctx.moveTo(towerX - 6, baseY - 52)
+        ctx.lineTo(towerX + 6, baseY - 52)
+        ctx.stroke()
+
+        // Fuel tank
+        const tankX = pad.x - 10
+        const tankW = 52
+        const tankH = 22
+        ctx.fillStyle = structureFill
+        ctx.fillRect(tankX, baseY - tankH, tankW, tankH)
+        ctx.strokeStyle = structureStroke
+        ctx.lineWidth = 2
+        ctx.strokeRect(tankX, baseY - tankH, tankW, tankH)
+        ctx.strokeStyle = 'rgba(0,255,136,0.25)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(tankX + 10, baseY - tankH)
+        ctx.lineTo(tankX + 10, baseY)
+        ctx.moveTo(tankX + 26, baseY - tankH)
+        ctx.lineTo(tankX + 26, baseY)
+        ctx.moveTo(tankX + 42, baseY - tankH)
+        ctx.lineTo(tankX + 42, baseY)
+        ctx.stroke()
+      }
 
       // Rope + crate
       const heli = heliRef.current
       const crate = crateRef.current
       const hook = getHookPoint(heli)
 
+      // Debris particles (Asteroids-style)
+      debrisRef.current.forEach((d) => {
+        const a = clamp(d.life / 1600, 0, 1)
+        ctx.strokeStyle = `rgba(${d.color}, ${a})`
+        ctx.lineWidth = 2
+        ctx.save()
+        ctx.translate(d.pos.x, d.pos.y)
+        ctx.rotate(d.angle)
+        ctx.beginPath()
+        ctx.moveTo(-d.length / 2, 0)
+        ctx.lineTo(d.length / 2, 0)
+        ctx.stroke()
+        ctx.restore()
+      })
+
       if (crate.attached) {
         ctx.strokeStyle = 'rgba(255,255,255,0.7)'
         ctx.lineWidth = 1.5
         ctx.beginPath()
         ctx.moveTo(hook.x, hook.y)
-        ctx.lineTo(crate.pos.x, crate.pos.y)
+        const attach = getCrateAttachPoint(crate)
+        ctx.lineTo(attach.x, attach.y)
         ctx.stroke()
       }
 
-      if (!crate.delivered) {
+      if (!crate.delivered && !crate.destroyed) {
+        // Crate visuals: outline + braces + cargo icon
         ctx.strokeStyle = '#ffffff'
         ctx.lineWidth = 2
         ctx.save()
         ctx.translate(crate.pos.x, crate.pos.y)
+        ctx.rotate(crate.angle)
+
+        // Body
+        ctx.fillStyle = 'rgba(0,0,0,0.75)'
         ctx.beginPath()
         ctx.rect(-crate.radius, -crate.radius, crate.radius * 2, crate.radius * 2)
+        ctx.fill()
         ctx.stroke()
+
+        // Bracing
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(-crate.radius + 3, -crate.radius + 3)
+        ctx.lineTo(crate.radius - 3, crate.radius - 3)
+        ctx.moveTo(crate.radius - 3, -crate.radius + 3)
+        ctx.lineTo(-crate.radius + 3, crate.radius - 3)
+        ctx.stroke()
+
+        // Icon
+        const iconSize = Math.max(10, crate.radius * 0.9)
+        const cx = 0
+        const cy = 0
+        const drawMedical = () => {
+          ctx.fillStyle = 'rgba(255,68,68,0.95)'
+          const bar = iconSize * 0.25
+          const arm = iconSize * 0.9
+          ctx.fillRect(cx - bar / 2, cy - arm / 2, bar, arm)
+          ctx.fillRect(cx - arm / 2, cy - bar / 2, arm, bar)
+          ctx.strokeStyle = 'rgba(255,255,255,0.15)'
+          ctx.lineWidth = 1
+          ctx.strokeRect(cx - bar / 2, cy - arm / 2, bar, arm)
+          ctx.strokeRect(cx - arm / 2, cy - bar / 2, arm, bar)
+        }
+
+        const drawFood = () => {
+          // Canned food (cylinder + label band). Much clearer at small sizes.
+          ctx.save()
+          ctx.translate(cx, cy + 1)
+          ctx.rotate(-0.12)
+
+          const canW = iconSize * 0.92
+          const canH = iconSize * 1.05
+          const rx = canW * 0.50
+          const ry = Math.max(2.2, canH * 0.18)
+          const topY = -canH * 0.48
+          const botY = canH * 0.48
+
+          // Body
+          ctx.fillStyle = 'rgba(220,220,220,0.92)'
+          ctx.strokeStyle = 'rgba(0,0,0,0.45)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(-rx, topY)
+          ctx.lineTo(-rx, botY)
+          ctx.ellipse(0, botY, rx, ry, 0, Math.PI, 0, true)
+          ctx.lineTo(rx, topY)
+          ctx.ellipse(0, topY, rx, ry, 0, 0, Math.PI, true)
+          ctx.closePath()
+          ctx.fill()
+          ctx.stroke()
+
+          // Label band
+          const bandH = canH * 0.40
+          const bandY = -bandH * 0.10
+          ctx.fillStyle = 'rgba(255,210,74,0.90)'
+          ctx.beginPath()
+          ctx.rect(-rx + 1.2, bandY - bandH / 2, rx * 2 - 2.4, bandH)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255,255,255,0.22)'
+          ctx.lineWidth = 1
+          ctx.strokeRect(-rx + 1.2, bandY - bandH / 2, rx * 2 - 2.4, bandH)
+
+          // Small highlight stripe
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(-rx * 0.35, topY + ry * 0.2)
+          ctx.lineTo(-rx * 0.35, botY - ry * 0.2)
+          ctx.stroke()
+
+          // Top rim accent
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.ellipse(0, topY, rx * 0.92, ry * 0.70, 0, 0, Math.PI * 2)
+          ctx.stroke()
+
+          ctx.restore()
+        }
+
+        const drawOrdinance = () => {
+          // Simple bomb icon.
+          ctx.fillStyle = 'rgba(220,220,220,0.9)'
+          const r = iconSize * 0.42
+          ctx.beginPath()
+          ctx.arc(cx, cy + 2, r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(0,0,0,0.55)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+
+          // Fuse
+          ctx.strokeStyle = 'rgba(255,160,40,0.95)'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(cx + r * 0.25, cy - r * 0.6)
+          ctx.quadraticCurveTo(cx + r * 0.85, cy - r * 1.05, cx + r * 0.95, cy - r * 0.35)
+          ctx.stroke()
+          // Spark
+          ctx.strokeStyle = 'rgba(255,160,40,0.75)'
+          ctx.lineWidth = 1.2
+          ctx.beginPath()
+          ctx.moveTo(cx + r * 0.98, cy - r * 0.38)
+          ctx.lineTo(cx + r * 1.25, cy - r * 0.62)
+          ctx.moveTo(cx + r * 0.98, cy - r * 0.38)
+          ctx.lineTo(cx + r * 1.33, cy - r * 0.28)
+          ctx.stroke()
+        }
+
+        if (crate.cargo === 'medical') drawMedical()
+        else if (crate.cargo === 'food') drawFood()
+        else drawOrdinance()
+
         ctx.restore()
 
         // Hook hint ring
-        const dx = crate.pos.x - hook.x
-        const dy = crate.pos.y - hook.y
+        const attach = getCrateAttachPoint(crate)
+        const dx = attach.x - hook.x
+        const dy = attach.y - hook.y
         const dist = Math.hypot(dx, dy)
         const hookRange = hookRangeRef.current
         if (!crate.attached && dist < hookRange) {
           ctx.strokeStyle = 'rgba(255,255,255,0.25)'
           ctx.lineWidth = 1
           ctx.beginPath()
-          ctx.arc(crate.pos.x, crate.pos.y, 30, 0, Math.PI * 2)
+          ctx.arc(attach.x, attach.y, 26, 0, Math.PI * 2)
           ctx.stroke()
         }
+      }
+
+      // Explosions (shockwaves)
+      for (const e of explosionsRef.current) {
+        const age01 = 1 - e.tMs / e.lifeMs
+        const r = e.maxRadius * (0.15 + 0.85 * age01)
+        const a = 1 - age01
+        ctx.save()
+        ctx.globalCompositeOperation = 'lighter'
+        ctx.strokeStyle = `rgba(${e.color}, ${0.55 * a})`
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.arc(e.pos.x, e.pos.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.strokeStyle = `rgba(255,255,255, ${0.22 * a})`
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(e.pos.x, e.pos.y, r * 0.72, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
       }
 
       // ========== 3D Helicopter Rendering ==========
@@ -1053,6 +1538,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         ctx.fillText(`LIVES ${lives}`, 16, 48)
         ctx.fillText(`DELIVERED ${deliveries}`, 16, 68)
 
+        if (mission) {
+          ctx.fillStyle = 'rgba(255,255,255,0.9)'
+          ctx.fillText(`MISSION: DELIVER ${mission.cargo.toUpperCase()} TO ${mission.outpost}`, 16, 92)
+        }
+
         // Minimal instructions
         ctx.fillStyle = 'rgba(0,255,136,0.65)'
         ctx.fillText('ARROWS/WASD: THRUST  •  SPACE: HOOK/RELEASE  •  SHIFT: STABILIZE  •  P: PAUSE', 16, height - 18)
@@ -1088,7 +1578,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [gameState, groundHeightAt, score, lives, deliveries, getHookPoint])
+  }, [gameState, groundHeightAt, score, lives, deliveries, mission, getHookPoint, makeMission, spawnCrateAtBase])
 
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono">

@@ -393,7 +393,13 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       heli.pos.x += heli.vel.x * dt
       heli.pos.y += heli.vel.y * dt
 
-      heli.pos.x = clamp(heli.pos.x, 0, worldWidth)
+      // If you fly off either end of the level, the game ends.
+      // Give it enough margin that the whole helicopter (incl. rotor disc) can disappear first.
+      const edgeMargin = 32 * 1.6 + 24
+      if (heli.pos.x < -edgeMargin || heli.pos.x > worldWidth + edgeMargin) {
+        setGameState('gameOver')
+        return
+      }
       heli.pos.y = clamp(heli.pos.y, 30, height - 30)
 
       // Rotor animation (spools up/down via X)

@@ -209,6 +209,100 @@ interface Vector2 {
   y: number
 }
 
+type V3 = [number, number, number]
+
+const rotX = (p: V3, a: number): V3 => {
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]
+}
+
+const rotY = (p: V3, a: number): V3 => {
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  return [p[0] * c + p[2] * s, p[1], -p[0] * s + p[2] * c]
+}
+
+const rotZ = (p: V3, a: number): V3 => {
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]
+}
+
+const normalize3 = (v: V3): V3 => {
+  const m = Math.hypot(v[0], v[1], v[2])
+  if (m < 1e-8) return [0, 0, 0]
+  return [v[0] / m, v[1] / m, v[2] / m]
+}
+
+const cross3 = (a: V3, b: V3): V3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+]
+
+const makeAsteroidMesh = (radius: number, seed: number) => {
+  // Regular icosahedron: 12 vertices, 20 triangular faces.
+  // `seed` is unused by design (stable, geometric asteroid).
+  void seed
+
+  const phi = (1 + Math.sqrt(5)) / 2
+
+  const baseVerts: V3[] = [
+    // (0, ±1, ±φ)
+    [0, -1, -phi],
+    [0, -1, phi],
+    [0, 1, -phi],
+    [0, 1, phi],
+    // (±1, ±φ, 0)
+    [-1, -phi, 0],
+    [-1, phi, 0],
+    [1, -phi, 0],
+    [1, phi, 0],
+    // (±φ, 0, ±1)
+    [-phi, 0, -1],
+    [-phi, 0, 1],
+    [phi, 0, -1],
+    [phi, 0, 1],
+  ]
+
+  const verts: V3[] = baseVerts.map((v) => {
+    const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2])
+    const ux = v[0] / len
+    const uy = v[1] / len
+    const uz = v[2] / len
+    return [ux * radius, uy * radius, uz * radius]
+  })
+
+  const polys: number[][] = [
+    [0, 2, 8],
+    [0, 8, 4],
+    [0, 4, 6],
+    [0, 6, 10],
+    [0, 10, 2],
+
+    [3, 9, 1],
+    [3, 1, 11],
+    [3, 11, 7],
+    [3, 7, 5],
+    [3, 5, 9],
+
+    [2, 10, 7],
+    [2, 7, 5],
+    [2, 5, 8],
+    [8, 5, 9],
+    [8, 9, 4],
+
+    [10, 6, 11],
+    [10, 11, 7],
+    [6, 4, 1],
+    [6, 1, 11],
+    [4, 9, 1],
+  ]
+
+  return { verts, polys }
+}
+
 const isBossLevel = (lvl: number) => lvl > 0 && lvl % 4 === 0
 
 const createBossShape = (radius: number): Vector2[] => {
@@ -236,6 +330,9 @@ interface Asteroid {
   vel: Vector2
   radius: number
   points: Vector2[]
+  rot: V3
+  angVel: V3
+  mesh: { verts: V3[]; polys: number[][] }
 }
 
 interface Bullet {
@@ -342,11 +439,24 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     const angle = Math.random() * Math.PI * 2
     const speed = 20 + Math.random() * 30
 
+    // 3D tumbling: independent angular velocity per axis.
+    // Smaller asteroids tend to tumble faster.
+    const spinBase = 0.9 + 42 / Math.max(18, radius)
+    const seed = Math.random() * 10000
+    const angVel: V3 = [
+      (Math.random() - 0.5) * spinBase,
+      (Math.random() - 0.5) * spinBase,
+      (Math.random() - 0.5) * spinBase,
+    ]
+
     return {
       pos: { x, y },
       vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
       radius,
       points,
+      rot: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2],
+      angVel,
+      mesh: makeAsteroidMesh(radius, seed),
     }
   }, [])
 
@@ -562,6 +672,11 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       asteroidsRef.current.forEach((asteroid) => {
         asteroid.pos.x += asteroid.vel.x * dt
         asteroid.pos.y += asteroid.vel.y * dt
+
+        // 3D tumbling
+        asteroid.rot[0] += asteroid.angVel[0] * dt
+        asteroid.rot[1] += asteroid.angVel[1] * dt
+        asteroid.rot[2] += asteroid.angVel[2] * dt
 
         if (asteroid.pos.x > w) asteroid.pos.x = 0
         if (asteroid.pos.x < 0) asteroid.pos.x = w
@@ -893,18 +1008,136 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       ctx.restore()
 
       // Draw asteroids
-      ctx.strokeStyle = '#888'
-      ctx.lineWidth = 2
       asteroidsRef.current.forEach((asteroid) => {
-        ctx.beginPath()
-        asteroid.points.forEach((point, i) => {
-          const x = asteroid.pos.x + point.x
-          const y = asteroid.pos.y + point.y
-          if (i === 0) ctx.moveTo(x, y)
-          else ctx.lineTo(x, y)
+        const { verts, polys } = asteroid.mesh
+
+        // Rotate vertices in all axes.
+        const rx = asteroid.rot[0]
+        const ry = asteroid.rot[1]
+        const rz = asteroid.rot[2]
+
+        const tVerts: V3[] = verts.map((v) => {
+          let p = rotX(v, rx)
+          p = rotY(p, ry)
+          p = rotZ(p, rz)
+          return p
         })
-        ctx.closePath()
+
+        // Simple perspective projection.
+        const f = 260
+        const proj = (p: V3): [number, number, number] => {
+          const denom = Math.max(60, f + p[2])
+          const s = f / denom
+          return [p[0] * s, p[1] * s, p[2]]
+        }
+
+        // Pre-project all vertices once.
+        const proj2 = tVerts.map((p) => {
+          const pp = proj(p)
+          return { x: pp[0], y: pp[1], z: pp[2] }
+        })
+
+        // Shaded face fill (front faces only), sorted back-to-front.
+        const lightDir = normalize3(([0.25, -0.35, -1] as V3))
+        const frontEps = 1e-4
+        const faces2: Array<{ idxs: number[]; z: number; shade: number; n: V3; isFront: boolean; isBack: boolean }> = []
+        for (const idxs of polys) {
+          if (idxs.length < 3) continue
+          const p0 = tVerts[idxs[0]]
+          const p1 = tVerts[idxs[1]]
+          const p2 = tVerts[idxs[2]]
+          const u: V3 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]]
+          const v: V3 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]]
+          let n = normalize3(cross3(u, v))
+
+          // Ensure outward-facing normals.
+          let cx = 0
+          let cy = 0
+          let cz = 0
+          for (const ii of idxs) {
+            const p = tVerts[ii]
+            cx += p[0]
+            cy += p[1]
+            cz += p[2]
+          }
+          cx /= idxs.length
+          cy /= idxs.length
+          cz /= idxs.length
+          const outward = n[0] * cx + n[1] * cy + n[2] * cz
+          if (outward < 0) n = ([-n[0], -n[1], -n[2]] as V3)
+
+          // Camera looks along +Z toward the origin; visible faces point toward -Z.
+          // Use an epsilon band to reduce edge-on flicker.
+          const isFront = n[2] < -frontEps
+          const isBack = n[2] > frontEps
+          const ndotl = Math.max(0, n[0] * lightDir[0] + n[1] * lightDir[1] + n[2] * lightDir[2])
+          const shade = 0.18 + ndotl * 0.82
+          faces2.push({ idxs, z: cz, shade, n, isFront, isBack })
+        }
+        faces2.sort((a, b) => b.z - a.z)
+
+        // Hidden-line rendering: dark silhouette outline + lighter interior crease lines.
+        type EdgeAcc = {
+          a: number
+          b: number
+          faceCount: number
+          frontCount: number
+          backCount: number
+          n0?: V3
+          n1?: V3
+        }
+        const edgeMap = new Map<string, EdgeAcc>()
+        const keyOf = (u: number, v: number) => (u < v ? `${u},${v}` : `${v},${u}`)
+
+        // Build edge map from true polyhedron edges (avoids diagonal/triangulation artifacts).
+        for (const f of faces2) {
+          const idxs = f.idxs
+          const isFront = f.isFront
+          const isBack = f.isBack
+          const n = f.n
+          for (let i = 0; i < idxs.length; i++) {
+            const u = idxs[i]
+            const v = idxs[(i + 1) % idxs.length]
+            const k = keyOf(u, v)
+            const aIdx = Math.min(u, v)
+            const bIdx = Math.max(u, v)
+            const e =
+              edgeMap.get(k) ||
+              ({ a: aIdx, b: bIdx, faceCount: 0, frontCount: 0, backCount: 0 } as EdgeAcc)
+            e.faceCount += 1
+            if (isFront) e.frontCount += 1
+            else if (isBack) e.backCount += 1
+            if (!e.n0) e.n0 = n
+            else if (!e.n1) e.n1 = n
+            edgeMap.set(k, e)
+          }
+        }
+
+        ctx.save()
+        ctx.translate(asteroid.pos.x, asteroid.pos.y)
+
+        // Thin white outlines only (visible edges only).
+        ctx.shadowBlur = 0
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+        ctx.lineWidth = 1.4
+        ctx.lineCap = 'round'
+        ctx.lineJoin = 'round'
+        ctx.beginPath()
+
+        for (const e of edgeMap.values()) {
+          const isBoundaryFront = e.faceCount === 1 && e.frontCount > 0
+          const isSilhouette = e.frontCount > 0 && e.backCount > 0
+          const isFrontEdge = e.faceCount === 2 && e.frontCount === 2
+          if (!isBoundaryFront && !isSilhouette && !isFrontEdge) continue
+
+          const pa = proj2[e.a]
+          const pb = proj2[e.b]
+          ctx.moveTo(pa.x, pa.y)
+          ctx.lineTo(pb.x, pb.y)
+        }
+
         ctx.stroke()
+        ctx.restore()
       })
 
       // Draw boss

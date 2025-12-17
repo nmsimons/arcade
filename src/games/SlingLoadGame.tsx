@@ -59,7 +59,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     radius: 16,
     rotor: 0,
     hitFlashMs: 0,
-    yaw: 0,
+    yaw: 1,
     pitch: 0,
   })
 
@@ -543,8 +543,8 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       // 3D point type: [x, y, z] where +X is forward, +Y is down, +Z is right (viewer's left)
       type V3 = [number, number, number]
       type Renderable = 
-        | { type: 'poly', pts: V3[], fill: string, stroke: string, z?: number }
-        | { type: 'line', pts: V3[], stroke: string, width: number, z?: number }
+        | { type: 'poly', pts: V3[], fill: string, stroke: string, z?: number, _tPts?: V3[], _depth?: number }
+        | { type: 'line', pts: V3[], stroke: string, width: number, z?: number, _tPts?: V3[], _depth?: number }
 
       // Rotate around Y axis (yaw)
       const rotY = (p: V3, angle: number): V3 => {
@@ -591,6 +591,41 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       // Side Faces
       addFace(nodesL, bodyFill, bodyStroke)
       addFace(nodesR.slice().reverse(), bodyFill, bodyStroke)
+
+      // Windows and Doors
+      const windowFill = '#1a3b5c'
+      const doorStroke = bodyStroke
+      const zSide = wBody + 0.1 // Slight offset to prevent z-fighting
+
+      // Pilot Window (Sleek, following nose line)
+      // Helper to interpolate Z for nose points
+      const getZ = (x: number) => {
+        if (x <= 14) return zSide
+        const t = (x - 14) / (24 - 14)
+        return wBody + t * (wNose - wBody) + 0.1
+      }
+
+      const winL: V3[] = [
+        [6, -5, -getZ(6)],
+        [14, -4, -getZ(14)],
+        [20, 0, -getZ(20)],
+        [14, 2, -getZ(14)],
+        [6, 2, -getZ(6)]
+      ]
+      const winR: V3[] = winL.map(p => [p[0], p[1], -p[2]] as V3)
+      
+      addFace(winL, windowFill, bodyStroke)
+      addFace(winR, windowFill, bodyStroke)
+
+      // Cargo Door Outline (Large sliding door)
+      const doorL: V3[] = [
+        [6, -5, -zSide], [-6, -5, -zSide], [-6, 7, -zSide], [6, 7, -zSide], [6, -5, -zSide]
+      ]
+      const doorR: V3[] = [
+        [6, -5, zSide], [-6, -5, zSide], [-6, 7, zSide], [6, 7, zSide], [6, -5, zSide]
+      ]
+      addLine(doorL, doorStroke, 1)
+      addLine(doorR, doorStroke, 1)
 
       // Connecting Faces (Perimeter strip)
       for (let i = 0; i < nodesL.length; i++) {
@@ -715,8 +750,8 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         
         // Store for render
         // We'll attach a temporary property or return a new object
-        ;(r as any)._tPts = tPts
-        ;(r as any)._depth = depth
+        r._tPts = tPts
+        r._depth = depth
       })
 
       // Sort by depth (furthest first). 
@@ -731,11 +766,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       // If +X is "into" the screen or "out of"?
       // Let's guess: Sort ascending or descending.
       // If we rotate 90 deg, X becomes Z.
-      renderables.sort((a, b) => (a as any)._depth - (b as any)._depth) // Try ascending first
+      renderables.sort((a, b) => (a._depth || 0) - (b._depth || 0)) // Try ascending first
 
       // Draw
       renderables.forEach(r => {
-        const tPts = (r as any)._tPts as V3[]
+        const tPts = r._tPts as V3[]
         const screenPts = tPts.map(p => proj(p))
         
         ctx.beginPath()

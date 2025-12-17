@@ -80,6 +80,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   })
 
   const padRef = useRef<Pad>({ x: 420, width: 140 })
+  const startPadRef = useRef<Pad>({ x: 260, width: 220 })
 
   const hookRangeRef = useRef(80)
 
@@ -111,11 +112,23 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   }, [])
 
   const resetWorld = useCallback(() => {
-    const { height } = canvasSizeRef.current
     const heli = heliRef.current
-    heli.pos = { x: 320, y: height * 0.35 }
+
+    // Start on the heliport pad with rotors spun down.
+    const startPad = startPadRef.current
+    const groundY = groundHeightAt(startPad.x)
+    const renderScale = 1.6
+    const skidYLocal = 14
+    const skidBottomOffset = skidYLocal * renderScale + 2 // matches collision cushion
+
+    heli.pos = { x: startPad.x, y: groundY - skidBottomOffset }
     heli.vel = { x: 0, y: 0 }
     heli.hitFlashMs = 0
+    heli.pitch = 0
+    heli.rotor = 0
+
+    rotorPowerRef.current = 0
+    rotorTargetRef.current = 0
 
     const crate = crateRef.current
     crate.attached = false
@@ -125,6 +138,8 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
     ropeLengthRef.current = 110
     cameraXRef.current = 0
+    prevCameraXRef.current = 0
+    cameraVelRef.current = 0
   }, [groundHeightAt])
 
   const startGame = useCallback(() => {
@@ -245,6 +260,9 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       worldWidthRef.current = Math.max(2600, Math.floor(canvas.width * 5.5))
       // Place pad near the start.
       padRef.current = { x: Math.max(380, canvas.width * 0.45), width: 160 }
+
+      // Heliport at the beginning of the level.
+      startPadRef.current = { x: Math.max(240, canvas.width * 0.22), width: 220 }
     }
 
     resize()
@@ -537,6 +555,9 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const i0 = Math.floor(xLeftWorld / tuftSpacing)
       const i1 = Math.ceil(xRightWorld / tuftSpacing)
 
+      const deliveryPad = padRef.current
+      const startPad = startPadRef.current
+
       // Lean opposite camera movement to imply wind/speed.
       const baseLean = clamp(-camVel / 520, -1.3, 1.3)
       const wispAlpha = 0.10 + 0.18 * speed01
@@ -550,6 +571,15 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         if (r < 0.38) continue
 
         const wx = (i + (r - 0.5) * 0.9) * tuftSpacing
+
+        // Keep pads clear (so objects and markings feel grounded/intentional).
+        if (
+          (wx >= deliveryPad.x - deliveryPad.width / 2 && wx <= deliveryPad.x + deliveryPad.width / 2) ||
+          (wx >= startPad.x - startPad.width / 2 && wx <= startPad.x + startPad.width / 2)
+        ) {
+          continue
+        }
+
         const x = wx - camX
         const h = 4 + r * 10
         const lean = baseLean * (3 + h) + (hash01(i + 9.7) - 0.5) * 2
@@ -584,6 +614,68 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       ctx2.stroke()
     }
 
+    const drawHeliport = (ctx2: CanvasRenderingContext2D) => {
+      const groundY = groundHeightAt(0)
+      const startPad = startPadRef.current
+
+      // Concrete pad
+      const padTop = groundY - 10
+      ctx2.fillStyle = 'rgba(0,0,0,0.72)'
+      ctx2.fillRect(startPad.x - startPad.width / 2, padTop, startPad.width, 10)
+      ctx2.strokeStyle = '#00ff88'
+      ctx2.lineWidth = 2
+      ctx2.strokeRect(startPad.x - startPad.width / 2, padTop, startPad.width, 10)
+
+      // Pad markings
+      ctx2.strokeStyle = 'rgba(0,255,136,0.55)'
+      ctx2.lineWidth = 1
+      ctx2.beginPath()
+      ctx2.moveTo(startPad.x - 42, groundY - 7)
+      ctx2.lineTo(startPad.x + 42, groundY - 7)
+      ctx2.stroke()
+      ctx2.fillStyle = 'rgba(0,255,136,0.55)'
+      ctx2.font = '14px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+      ctx2.fillText('H', startPad.x - 4, groundY - 10)
+
+      // Control tower (simple, grounded)
+      const towerX = startPad.x - startPad.width / 2 - 70
+      const towerW = 34
+      const towerH = 92
+      const baseY = groundY
+
+      ctx2.fillStyle = 'rgba(0,0,0,0.72)'
+      ctx2.fillRect(towerX, baseY - towerH, towerW, towerH)
+      ctx2.strokeStyle = '#00ff88'
+      ctx2.lineWidth = 2
+      ctx2.strokeRect(towerX, baseY - towerH, towerW, towerH)
+
+      // Cab
+      const cabW = 54
+      const cabH = 24
+      const cabX = towerX - (cabW - towerW) / 2
+      const cabY = baseY - towerH - cabH + 6
+      ctx2.fillStyle = 'rgba(0,0,0,0.72)'
+      ctx2.fillRect(cabX, cabY, cabW, cabH)
+      ctx2.strokeStyle = '#00ff88'
+      ctx2.lineWidth = 2
+      ctx2.strokeRect(cabX, cabY, cabW, cabH)
+
+      // Windows (subtle tint)
+      ctx2.fillStyle = 'rgba(26,59,92,0.6)'
+      ctx2.fillRect(cabX + 6, cabY + 6, cabW - 12, cabH - 12)
+      ctx2.strokeStyle = 'rgba(0,255,136,0.35)'
+      ctx2.lineWidth = 1
+      ctx2.strokeRect(cabX + 6, cabY + 6, cabW - 12, cabH - 12)
+
+      // Antenna
+      ctx2.strokeStyle = 'rgba(0,255,136,0.55)'
+      ctx2.lineWidth = 2
+      ctx2.beginPath()
+      ctx2.moveTo(towerX + towerW / 2, cabY)
+      ctx2.lineTo(towerX + towerW / 2, cabY - 18)
+      ctx2.stroke()
+    }
+
     const draw = () => {
       const { width, height } = canvasSizeRef.current
       const camX = cameraXRef.current
@@ -605,6 +697,9 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       // World transform
       ctx.save()
       ctx.translate(-camX, 0)
+
+      // Heliport + tower (at start of level)
+      drawHeliport(ctx)
 
       // Ground
       ctx.save()
@@ -1000,6 +1095,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2"><span className="text-white">›</span> Arrows / WASD: Thrust</div>
               <div className="flex items-center gap-2"><span className="text-white">›</span> Space: Hook / Release</div>
+              <div className="flex items-center gap-2"><span className="text-white">›</span> X: Rotor on / off</div>
               <div className="flex items-center gap-2"><span className="text-white">›</span> Shift: Stabilize (damping)</div>
               <div className="flex items-center gap-2"><span className="text-white">›</span> P: Pause</div>
             </div>

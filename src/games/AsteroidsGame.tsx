@@ -400,6 +400,12 @@ interface Bullet {
   isEnemy?: boolean
 }
 
+interface BaseShot {
+  pos: Vector2
+  vel: Vector2
+  life: number
+}
+
 interface Debris {
   pos: Vector2
   vel: Vector2
@@ -423,9 +429,11 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
 
-  const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: 15 })
+  const SHIP_RADIUS = 15
+  const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: SHIP_RADIUS })
   const asteroidsRef = useRef<Asteroid[]>([])
   const bulletsRef = useRef<Bullet[]>([])
+  const baseShotsRef = useRef<BaseShot[]>([])
   const debrisRef = useRef<Debris[]>([])
   const keysRef = useRef<Set<string>>(new Set())
   const animationFrameRef = useRef<number | null>(null)
@@ -434,6 +442,8 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const levelingUpRef = useRef(false)
   const harpoonRef = useRef<Harpoon>({ state: 'idle' })
+  const miningBaseAngleRef = useRef(0)
+  const miningGunCooldownsRef = useRef<[number, number, number]>([0, 0.06, 0.12])
 
   // Harpoon cable is a fixed-length tether. The fired hook cannot exceed this distance.
   const HARPOON_CABLE_LENGTH = 130
@@ -442,11 +452,12 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const HARPOON_VISUAL_SLACK = 1.18
   const HARPOON_HOOK_RADIUS = 5
   const HARPOON_HOOK_MASS = Math.max(0.2, (HARPOON_HOOK_RADIUS / 18) * (HARPOON_HOOK_RADIUS / 18))
-  const HARPOON_REEL_MIN_LEN = shipRef.current.radius + HARPOON_HOOK_RADIUS + 2
+  const HARPOON_REEL_MIN_LEN = SHIP_RADIUS + HARPOON_HOOK_RADIUS + 2
 
   // Central mining base (asteroid hopper)
   const MINING_BASE_RADIUS = 118
   const MINING_DOOR_TRIM = 44
+  const MINING_ROT_SPEED = 0.18
 
   const toroidalDelta = useCallback((ax: number, ay: number, bx: number, by: number, w: number, h: number) => {
     // Vector from A -> B under wrapping (shortest).
@@ -657,6 +668,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     shipRef.current = { pos: { x: width / 2, y: height / 2 }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
     asteroidsRef.current = []
     bulletsRef.current = []
+    baseShotsRef.current = []
     setScore(0)
     setDamage(0)
     setLevel(1)
@@ -665,6 +677,8 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     debrisRef.current = []
     levelingUpRef.current = false
     harpoonRef.current = { state: 'idle' }
+    miningBaseAngleRef.current = 0
+    miningGunCooldownsRef.current = [0, 0.06, 0.12]
     spawnAsteroids(asteroidCountForLevel(1), 100, speedMultForLevel(1))
   }, [spawnAsteroids, asteroidCountForLevel, speedMultForLevel])
 
@@ -844,9 +858,18 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     const update = (dt: number) => {
       if (gameState !== 'playing') return
 
+      miningBaseAngleRef.current += dt * MINING_ROT_SPEED
+
       const applyImpactDamage = (impactSpeed: number) => {
         if (invulnerableRef.current > 0) return
-        const amt = impactSpeed >= 220 ? 2 : impactSpeed >= 125 ? 1 : 0
+        // Calibrated for gameplay feel (ship max speed ~300):
+        // very slow -> 0, slow -> 1, medium -> 2, fast -> 3.
+        // User-calibrated collision thresholds (relative speed):
+        // < 30 -> 0, 30-100 -> 1, 100-250 -> 2, 250+ -> 3
+        const slow = 30
+        const medium = 100
+        const fast = 250
+        const amt = impactSpeed >= fast ? 3 : impactSpeed >= medium ? 2 : impactSpeed >= slow ? 1 : 0
         if (amt <= 0) return
         invulnerableRef.current = 450
         setDamage((d) => {
@@ -939,8 +962,10 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         const baseX = w / 2
         const baseY = h / 2
 
+        const baseAng = miningBaseAngleRef.current
+
         const hexVerts: Vector2[] = Array.from({ length: 6 }, (_, i) => {
-          const a = (i / 6) * Math.PI * 2
+          const a = baseAng + (i / 6) * Math.PI * 2
           return { x: Math.cos(a) * MINING_BASE_RADIUS, y: Math.sin(a) * MINING_BASE_RADIUS }
         })
 
@@ -1033,7 +1058,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
 
             const vAlong = vel.x * nx + vel.y * ny
             if (vAlong < 0) {
-              onImpact?.(-vAlong)
+              onImpact?.(Math.hypot(vel.x, vel.y))
               vel.x -= (1 + restitutionK) * vAlong * nx
               vel.y -= (1 + restitutionK) * vAlong * ny
             }
@@ -1050,8 +1075,11 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           collideWithWalls(a.pos, a.vel, a.radius, 0.85)
         }
 
-        // Process any asteroid only once it is fully inside the hex for 2 seconds.
-        for (let i = asteroids.length - 1; i >= 0; i--) {
+        // Track how long each asteroid has been fully inside the base.
+        // Processing is handled by base guns (shots), not automatically.
+        let targetIndex = -1
+        let targetDist = Infinity
+        for (let i = 0; i < asteroids.length; i++) {
           const a = asteroids[i]
           const d = toroidalDelta(baseX, baseY, a.pos.x, a.pos.y, w, h)
           const fullyInside = circleFullyInHex(d.dx, d.dy, a.radius)
@@ -1059,16 +1087,83 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
             a.inBaseTime = 0
             continue
           }
-
           a.inBaseTime = (a.inBaseTime ?? 0) + dt
           if (a.inBaseTime < 2) continue
-
-          asteroids.splice(i, 1)
-          setScore((s) => s + 700 + Math.max(0, Math.round((60 - a.radius) * 10)))
-          createDebris(wrapX(baseX + d.dx), wrapY(baseY + d.dy), 0, 0, 12, 0.8, '0, 255, 136')
-          sounds.collect()
+          const dd = d.dx * d.dx + d.dy * d.dy
+          if (dd < targetDist) {
+            targetDist = dd
+            targetIndex = i
+          }
         }
 
+        // Base guns: three simple dots that shoot asteroids eligible for processing.
+        // Guns are attached to the rotating base and fire inward.
+        {
+          // Update gun cooldowns.
+          const cds = miningGunCooldownsRef.current
+          for (let i = 0; i < 3; i++) cds[i] = Math.max(0, cds[i] - dt)
+
+          if (targetIndex >= 0) {
+            const target = asteroids[targetIndex]
+            const shotSpeed = 520
+            const fireCooldown = 0.18
+
+            // Choose three gun positions in base-local space, rotated with the base.
+            // Place them slightly inside the hull on the three solid arms.
+            const gunRadius = MINING_BASE_RADIUS * 0.63
+            const baseAng = miningBaseAngleRef.current
+            const gunAngles = [baseAng + 0, baseAng + (2 * Math.PI) / 3, baseAng + (4 * Math.PI) / 3]
+
+            for (let gi = 0; gi < 3; gi++) {
+              if (cds[gi] > 0) continue
+
+              const gx = wrapX(baseX + Math.cos(gunAngles[gi]) * gunRadius)
+              const gy = wrapY(baseY + Math.sin(gunAngles[gi]) * gunRadius)
+
+              const td = toroidalDelta(gx, gy, target.pos.x, target.pos.y, w, h)
+              const tl = Math.hypot(td.dx, td.dy)
+              if (tl < 1e-6) continue
+              const vx = (td.dx / tl) * shotSpeed
+              const vy = (td.dy / tl) * shotSpeed
+
+              baseShotsRef.current.push({ pos: { x: gx, y: gy }, vel: { x: vx, y: vy }, life: 0.9 })
+              cds[gi] = fireCooldown
+            }
+          }
+        }
+
+
+      // Update base shots.
+      baseShotsRef.current = baseShotsRef.current
+        .map((s) => {
+          s.pos.x = wrapX(s.pos.x + s.vel.x * dt)
+          s.pos.y = wrapY(s.pos.y + s.vel.y * dt)
+          s.life -= dt
+          return s
+        })
+        .filter((s) => s.life > 0)
+
+      // Base shots hit asteroids (processing). Only affects asteroids, not the ship.
+      if (baseShotsRef.current.length > 0 && asteroidsRef.current.length > 0) {
+        const shots = baseShotsRef.current
+        const asts = asteroidsRef.current
+        for (let si = shots.length - 1; si >= 0; si--) {
+          const sh = shots[si]
+          for (let ai = asts.length - 1; ai >= 0; ai--) {
+            const a = asts[ai]
+            const d = toroidalDelta(sh.pos.x, sh.pos.y, a.pos.x, a.pos.y, w, h)
+            if (Math.hypot(d.dx, d.dy) <= a.radius + 2) {
+              // Process asteroid on hit.
+              shots.splice(si, 1)
+              asts.splice(ai, 1)
+              setScore((s) => s + 700 + Math.max(0, Math.round((60 - a.radius) * 10)))
+              createDebris(wrapX(a.pos.x), wrapY(a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
+              sounds.collect()
+              break
+            }
+          }
+        }
+      }
         collideWithWalls(ship.pos, ship.vel, ship.radius, 0.55, (impact) => applyImpactDamage(impact))
         {
           const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, w, h)
@@ -1707,7 +1802,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           const relVy = asteroid.vel.y - ship.vel.y
           const relAlong = relVx * nx + relVy * ny
           if (relAlong < 0) {
-            applyImpactDamage(-relAlong)
+            applyImpactDamage(Math.hypot(ship.vel.x - asteroid.vel.x, ship.vel.y - asteroid.vel.y))
             const e = 0.55
             const j = (-(1 + e) * relAlong) / invSum
             ship.vel.x -= j * nx * invShip
@@ -1757,6 +1852,8 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         const cy = height / 2
         const R = MINING_BASE_RADIUS
 
+        const baseAng = miningBaseAngleRef.current
+
         const poly = (r: number, n: number, rot: number) => {
           const pts: Vector2[] = []
           for (let i = 0; i < n; i++) {
@@ -1767,33 +1864,288 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         }
 
         ctx.save()
-        ctx.lineWidth = 2
+        ctx.lineWidth = 3
         ctx.lineJoin = 'round'
         ctx.lineCap = 'round'
         ctx.strokeStyle = 'rgba(255,255,255,0.9)'
 
         // Flat-topped hex (flats north/south).
-        const outer = poly(R, 6, 0)
-
-        // Doors: remove every other segment starting at 1 o'clock.
-        // Implemented as corner gaps at 1, 9, and 5 o'clock.
         const doorCorners = new Set([1, 3, 5])
-        for (let i = 0; i < 6; i++) {
-          const a0 = outer[i]
-          const b0 = outer[(i + 1) % 6]
-          const ex = b0.x - a0.x
-          const ey = b0.y - a0.y
-          const len = Math.hypot(ex, ey)
-          if (len < 1e-6) continue
-          const startT = doorCorners.has(i) ? MINING_DOOR_TRIM / len : 0
-          const endT = doorCorners.has((i + 1) % 6) ? 1 - MINING_DOOR_TRIM / len : 1
-          if (startT >= endT - 1e-6) continue
-          ctx.beginPath()
-          ctx.moveTo(a0.x + ex * startT, a0.y + ey * startT)
-          ctx.lineTo(a0.x + ex * endT, a0.y + ey * endT)
-          ctx.stroke()
+
+        const drawHexWithDoorGaps = (verts: Vector2[]) => {
+          const segs: Array<{ ax: number; ay: number; bx: number; by: number; edge: number }> = []
+          for (let i = 0; i < 6; i++) {
+            const a0 = verts[i]
+            const b0 = verts[(i + 1) % 6]
+            const ex = b0.x - a0.x
+            const ey = b0.y - a0.y
+            const len = Math.hypot(ex, ey)
+            if (len < 1e-6) continue
+            const startT = doorCorners.has(i) ? MINING_DOOR_TRIM / len : 0
+            const endT = doorCorners.has((i + 1) % 6) ? 1 - MINING_DOOR_TRIM / len : 1
+            if (startT >= endT - 1e-6) continue
+            const ax = a0.x + ex * startT
+            const ay = a0.y + ey * startT
+            const bx = a0.x + ex * endT
+            const by = a0.y + ey * endT
+
+            ctx.beginPath()
+            ctx.moveTo(ax, ay)
+            ctx.lineTo(bx, by)
+            ctx.stroke()
+
+            segs.push({ ax, ay, bx, by, edge: i })
+          }
+
+          return segs
         }
 
+        const outer = poly(R, 6, baseAng)
+        const outerSegs = drawHexWithDoorGaps(outer)
+
+        // Extend short lines inward from segment endpoints (about 1/5 to center).
+        ctx.save()
+        ctx.globalAlpha = 0.55
+        ctx.lineWidth = 1.6
+        for (const s of outerSegs) {
+          const ax2 = s.ax + (cx - s.ax) * 0.2
+          const ay2 = s.ay + (cy - s.ay) * 0.2
+          const bx2 = s.bx + (cx - s.bx) * 0.2
+          const by2 = s.by + (cy - s.by) * 0.2
+
+          // Second interior layer: same construction off the interior segment, but shorter.
+          const innerFrac = 0.12
+          const ax3 = ax2 + (cx - ax2) * innerFrac
+          const ay3 = ay2 + (cy - ay2) * innerFrac
+          const bx3 = bx2 + (cx - bx2) * innerFrac
+          const by3 = by2 + (cy - by2) * innerFrac
+
+          // Third interior layer: repeat again, even shorter.
+          const innerFrac2 = 0.08
+          const ax4 = ax3 + (cx - ax3) * innerFrac2
+          const ay4 = ay3 + (cy - ay3) * innerFrac2
+          const bx4 = bx3 + (cx - bx3) * innerFrac2
+          const by4 = by3 + (cy - by3) * innerFrac2
+
+          // Inward extensions.
+          ctx.beginPath()
+          ctx.moveTo(s.ax, s.ay)
+          ctx.lineTo(ax2, ay2)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.moveTo(s.bx, s.by)
+          ctx.lineTo(bx2, by2)
+          ctx.stroke()
+
+          // Connect the inner endpoints; this stays parallel to the outer segment.
+          ctx.beginPath()
+          ctx.moveTo(ax2, ay2)
+          ctx.lineTo(bx2, by2)
+          ctx.stroke()
+
+          // Repeat from the interior segment ends toward center (shorter), then connect.
+          ctx.save()
+          ctx.globalAlpha = 0.42
+          ctx.lineWidth = 1.2
+
+          ctx.beginPath()
+          ctx.moveTo(ax2, ay2)
+          ctx.lineTo(ax3, ay3)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.moveTo(bx2, by2)
+          ctx.lineTo(bx3, by3)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.moveTo(ax3, ay3)
+          ctx.lineTo(bx3, by3)
+          ctx.stroke()
+
+          ctx.restore()
+
+          // Repeat one more time from the second interior segment.
+          ctx.save()
+          ctx.globalAlpha = 0.32
+          ctx.lineWidth = 1
+
+          ctx.beginPath()
+          ctx.moveTo(ax3, ay3)
+          ctx.lineTo(ax4, ay4)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.moveTo(bx3, by3)
+          ctx.lineTo(bx4, by4)
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.moveTo(ax4, ay4)
+          ctx.lineTo(bx4, by4)
+          ctx.stroke()
+
+          ctx.restore()
+
+          // Manufactured micro-brace motif: one per arm, mirrored on the adjacent panel.
+          // Arms correspond to the three solid corners (edges 0,2,4). Mirror on neighbors (1,3,5).
+          const isArmPanel = s.edge === 0 || s.edge === 2 || s.edge === 4
+          const isNeighborPanel = s.edge === 1 || s.edge === 3 || s.edge === 5
+          if (isArmPanel || isNeighborPanel) {
+            const sx = s.bx - s.ax
+            const sy = s.by - s.ay
+            const sl = Math.hypot(sx, sy)
+            if (sl > 1e-6) {
+              const tx = sx / sl
+              const ty = sy / sl
+
+              const alongSign = isArmPanel ? 1 : -1
+              const t = isArmPanel ? 0.42 : 0.58
+              const inset = 8
+              const p0x = s.ax + sx * t
+              const p0y = s.ay + sy * t
+              const rx0 = cx - p0x
+              const ry0 = cy - p0y
+              const rl = Math.hypot(rx0, ry0)
+              if (rl < 1e-6) continue
+              const rx = rx0 / rl
+              const ry = ry0 / rl
+
+              const px = p0x + rx * inset
+              const py = p0y + ry * inset
+
+              // Find the closest intersection between a ray and a set of segments.
+              const raySegHitT = (
+                ox: number,
+                oy: number,
+                dx: number,
+                dy: number,
+                ax: number,
+                ay: number,
+                bx: number,
+                by: number,
+              ) => {
+                const sx2 = bx - ax
+                const sy2 = by - ay
+                const denom = dx * sy2 - dy * sx2
+                if (Math.abs(denom) < 1e-6) return null
+                const qpx = ax - ox
+                const qpy = ay - oy
+                const tRay = (qpx * sy2 - qpy * sx2) / denom
+                const uSeg = (qpx * dy - qpy * dx) / denom
+                if (tRay > 1e-3 && uSeg >= 0 && uSeg <= 1) return tRay
+                return null
+              }
+
+              const rayHitMin = (ox: number, oy: number, dx: number, dy: number, segs: Array<[number, number, number, number]>) => {
+                let best: number | null = null
+                for (const seg of segs) {
+                  const tHit = raySegHitT(ox, oy, dx, dy, seg[0], seg[1], seg[2], seg[3])
+                  if (tHit == null) continue
+                  if (best == null || tHit < best) best = tHit
+                }
+                return best
+              }
+
+              const rayHitNth = (
+                ox: number,
+                oy: number,
+                dx: number,
+                dy: number,
+                segs: Array<[number, number, number, number]>,
+                n: number,
+              ) => {
+                const hits: number[] = []
+                for (const seg of segs) {
+                  const tHit = raySegHitT(ox, oy, dx, dy, seg[0], seg[1], seg[2], seg[3])
+                  if (tHit == null) continue
+                  hits.push(tHit)
+                }
+                if (hits.length === 0) return null
+                hits.sort((a, b) => a - b)
+                return hits[Math.min(n, hits.length - 1)]
+              }
+
+              ctx.save()
+              ctx.globalAlpha = 0.45
+              ctx.lineWidth = 1.3
+
+              // Extend the tangent leg until it meets the nearest inward stub on that side.
+              const tdx = tx * alongSign
+              const tdy = ty * alongSign
+              const useB = alongSign > 0
+              const tangentTargets: Array<[number, number, number, number]> = useB
+                ? [
+                    [s.bx, s.by, bx2, by2],
+                    [bx2, by2, bx3, by3],
+                    [bx3, by3, bx4, by4],
+                  ]
+                : [
+                    [s.ax, s.ay, ax2, ay2],
+                    [ax2, ay2, ax3, ay3],
+                    [ax3, ay3, ax4, ay4],
+                  ]
+              const alongT = rayHitNth(px, py, tdx, tdy, tangentTargets, 1)
+
+              // Extend the radial leg until it meets the nearest inner parallel segment.
+              const radialTargets: Array<[number, number, number, number]> = [
+                [ax2, ay2, bx2, by2],
+                [ax3, ay3, bx3, by3],
+                [ax4, ay4, bx4, by4],
+              ]
+              const upT = rayHitNth(px, py, rx, ry, radialTargets, 1)
+
+              const along = (alongT ?? 10) * 0.98
+              const up = (upT ?? 7) * 0.98
+              ctx.beginPath()
+              ctx.moveTo(px, py)
+              ctx.lineTo(px + tdx * along, py + tdy * along)
+              ctx.stroke()
+
+              ctx.beginPath()
+              ctx.moveTo(px, py)
+              ctx.lineTo(px + rx * up, py + ry * up)
+              ctx.stroke()
+
+              ctx.restore()
+            }
+          }
+        }
+        ctx.restore()
+
+        ctx.restore()
+
+        // Draw base guns as simple dots (no extra geometry).
+        {
+          const gunRadius = MINING_BASE_RADIUS * 0.63
+          const gunAngles = [baseAng + 0, baseAng + (2 * Math.PI) / 3, baseAng + (4 * Math.PI) / 3]
+          ctx.save()
+          ctx.fillStyle = 'rgba(255,255,255,0.85)'
+          for (let gi = 0; gi < 3; gi++) {
+            const gx = cx + Math.cos(gunAngles[gi]) * gunRadius
+            const gy = cy + Math.sin(gunAngles[gi]) * gunRadius
+            ctx.beginPath()
+            ctx.arc(gx, gy, 2.2, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.restore()
+        }
+      }
+
+      // Draw base shots (thin, bright).
+      if (baseShotsRef.current.length > 0) {
+        ctx.save()
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+        ctx.lineWidth = 1.4
+        for (const s of baseShotsRef.current) {
+          const tx = s.pos.x - s.vel.x * 0.02
+          const ty = s.pos.y - s.vel.y * 0.02
+          ctx.beginPath()
+          ctx.moveTo(tx, ty)
+          ctx.lineTo(s.pos.x, s.pos.y)
+          ctx.stroke()
+        }
         ctx.restore()
       }
 
@@ -1961,8 +2313,8 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         const ship = shipRef.current
 
         const drawToroidalLine = (ax: number, ay: number, bx: number, by: number) => {
-          let dx = bx - ax
-          let dy = by - ay
+          const dx = bx - ax
+          const dy = by - ay
           let ox = 0
           let oy = 0
           if (dx > w2 / 2) ox = -w2

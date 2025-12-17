@@ -29,6 +29,21 @@ class SoundSystem {
     osc.stop(this.ctx.currentTime + 0.1)
   }
 
+  collect() {
+    if (!this.ctx) return
+    const osc = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.connect(gain)
+    gain.connect(this.ctx.destination)
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(520, this.ctx.currentTime)
+    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.18, this.ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.12)
+    osc.start()
+    osc.stop(this.ctx.currentTime + 0.12)
+  }
+
   explosion(size: 'large' | 'medium' | 'small') {
     if (!this.ctx) return
     const duration = size === 'large' ? 0.6 : size === 'medium' ? 0.4 : 0.2
@@ -331,6 +346,7 @@ interface Asteroid {
   rot: V3
   angVel: V3
   mesh: { verts: V3[]; polys: number[][] }
+  inBaseTime?: number
 }
 
 type Harpoon =
@@ -402,7 +418,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
-  const [lives, setLives] = useState(3)
+  const [damage, setDamage] = useState(0)
   const [level, setLevel] = useState(1)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
@@ -417,7 +433,6 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const invulnerableRef = useRef(0)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const levelingUpRef = useRef(false)
-  const respawnTimerRef = useRef(0)
   const harpoonRef = useRef<Harpoon>({ state: 'idle' })
 
   // Harpoon cable is a fixed-length tether. The fired hook cannot exceed this distance.
@@ -428,6 +443,10 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const HARPOON_HOOK_RADIUS = 5
   const HARPOON_HOOK_MASS = Math.max(0.2, (HARPOON_HOOK_RADIUS / 18) * (HARPOON_HOOK_RADIUS / 18))
   const HARPOON_REEL_MIN_LEN = shipRef.current.radius + HARPOON_HOOK_RADIUS + 2
+
+  // Central mining base (asteroid hopper)
+  const MINING_BASE_RADIUS = 118
+  const MINING_DOOR_TRIM = 44
 
   const toroidalDelta = useCallback((ax: number, ay: number, bx: number, by: number, w: number, h: number) => {
     // Vector from A -> B under wrapping (shortest).
@@ -543,9 +562,20 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       const ship = shipRef.current
       const edgeInset = 1.5
 
+      const baseX = width / 2
+      const baseY = height / 2
+
       const toroidalDistToShip = (x: number, y: number) => {
         const dxRaw = Math.abs(x - ship.pos.x)
         const dyRaw = Math.abs(y - ship.pos.y)
+        const dx = Math.min(dxRaw, width - dxRaw)
+        const dy = Math.min(dyRaw, height - dyRaw)
+        return Math.hypot(dx, dy)
+      }
+
+      const toroidalDistToBase = (x: number, y: number) => {
+        const dxRaw = Math.abs(x - baseX)
+        const dyRaw = Math.abs(y - baseY)
         const dx = Math.min(dxRaw, width - dxRaw)
         const dy = Math.min(dyRaw, height - dyRaw)
         return Math.hypot(dx, dy)
@@ -591,7 +621,10 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         let chosen = sampleEdgeSpawn()
         for (let tries = 0; tries < 40; tries++) {
           const candidate = sampleEdgeSpawn()
-          if (toroidalDistToShip(candidate.x, candidate.y) >= avoidRadius) {
+          if (
+            toroidalDistToShip(candidate.x, candidate.y) >= avoidRadius &&
+            toroidalDistToBase(candidate.x, candidate.y) >= MINING_BASE_RADIUS + 180
+          ) {
             chosen = candidate
             break
           }
@@ -625,22 +658,15 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     asteroidsRef.current = []
     bulletsRef.current = []
     setScore(0)
-    setLives(3)
+    setDamage(0)
     setLevel(1)
     setGameState('playing')
-    invulnerableRef.current = 3000
+    invulnerableRef.current = 1200
     debrisRef.current = []
     levelingUpRef.current = false
     harpoonRef.current = { state: 'idle' }
     spawnAsteroids(asteroidCountForLevel(1), 100, speedMultForLevel(1))
   }, [spawnAsteroids, asteroidCountForLevel, speedMultForLevel])
-
-  const resetLevel = useCallback(() => {
-    const { width, height } = canvasSizeRef.current
-    shipRef.current = { pos: { x: width / 2, y: height / 2 }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
-    bulletsRef.current = []
-    invulnerableRef.current = 3000
-  }, [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -669,7 +695,6 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       // Harpoon grapple (X): fire / release.
       if (!e.repeat && e.key.toLowerCase() === 'x' && gameState === 'playing') {
         e.preventDefault()
-        if (respawnTimerRef.current > 0) return
         const hp = harpoonRef.current
         if (hp.state === 'idle') {
           const ship = shipRef.current
@@ -819,6 +844,18 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     const update = (dt: number) => {
       if (gameState !== 'playing') return
 
+      const applyImpactDamage = (impactSpeed: number) => {
+        if (invulnerableRef.current > 0) return
+        const amt = impactSpeed >= 220 ? 2 : impactSpeed >= 125 ? 1 : 0
+        if (amt <= 0) return
+        invulnerableRef.current = 450
+        setDamage((d) => {
+          const next = Math.min(3, d + amt)
+          if (next >= 3) setGameState('gameOver')
+          return next
+        })
+      }
+
       const ship = shipRef.current
 
       // Ship controls
@@ -893,6 +930,153 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         if (y < 0) return y + h
         if (y > h) return y - h
         return y
+      }
+
+      // Mining base interaction: a flat-topped hex with 3 door gaps.
+      // Anything inside the hex is processed (asteroids) or repaired (ship).
+      // Only the visible wall segments collide.
+      {
+        const baseX = w / 2
+        const baseY = h / 2
+
+        const hexVerts: Vector2[] = Array.from({ length: 6 }, (_, i) => {
+          const a = (i / 6) * Math.PI * 2
+          return { x: Math.cos(a) * MINING_BASE_RADIUS, y: Math.sin(a) * MINING_BASE_RADIUS }
+        })
+
+        const doorCorners = new Set([1, 3, 5]) // remove every other segment starting at ~1 o'clock
+        const wallSegments: Array<{ a: Vector2; b: Vector2 }> = []
+        for (let i = 0; i < 6; i++) {
+          const a0 = hexVerts[i]
+          const b0 = hexVerts[(i + 1) % 6]
+          const ex = b0.x - a0.x
+          const ey = b0.y - a0.y
+          const len = Math.hypot(ex, ey)
+          if (len < 1e-6) continue
+          const startT = doorCorners.has(i) ? MINING_DOOR_TRIM / len : 0
+          const endT = doorCorners.has((i + 1) % 6) ? 1 - MINING_DOOR_TRIM / len : 1
+          if (startT >= endT - 1e-6) continue
+          wallSegments.push({
+            a: { x: a0.x + ex * startT, y: a0.y + ey * startT },
+            b: { x: a0.x + ex * endT, y: a0.y + ey * endT },
+          })
+        }
+
+        const pointInHex = (px: number, py: number) => {
+          let sign = 0
+          for (let i = 0; i < 6; i++) {
+            const a = hexVerts[i]
+            const b = hexVerts[(i + 1) % 6]
+            const cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x)
+            if (Math.abs(cross) < 1e-6) continue
+            const s = cross > 0 ? 1 : -1
+            if (sign === 0) sign = s
+            else if (s !== sign) return false
+          }
+          return true
+        }
+
+        const circleFullyInHex = (px: number, py: number, radius: number) => {
+          // Hex is CCW; inside is to the left of each directed edge.
+          for (let i = 0; i < 6; i++) {
+            const a = hexVerts[i]
+            const b = hexVerts[(i + 1) % 6]
+            const ex = b.x - a.x
+            const ey = b.y - a.y
+            const len = Math.hypot(ex, ey)
+            if (len < 1e-6) continue
+            // Left normal (points inward for CCW polygon)
+            const nx = -ey / len
+            const ny = ex / len
+            const dist = (px - a.x) * nx + (py - a.y) * ny
+            if (dist < radius) return false
+          }
+          return true
+        }
+
+        const collideWithWalls = (
+          pos: Vector2,
+          vel: Vector2,
+          radius: number,
+          restitutionK: number,
+          onImpact?: (impactSpeed: number) => void,
+        ) => {
+          const d = toroidalDelta(baseX, baseY, pos.x, pos.y, w, h)
+          let px = d.dx
+          let py = d.dy
+          let touched = false
+
+          for (let i = 0; i < wallSegments.length; i++) {
+            const seg = wallSegments[i]
+            const ax = seg.a.x
+            const ay = seg.a.y
+            const bx = seg.b.x
+            const by = seg.b.y
+            const vx = bx - ax
+            const vy = by - ay
+            const denom = vx * vx + vy * vy
+            if (denom < 1e-6) continue
+            const t = clamp(((px - ax) * vx + (py - ay) * vy) / denom, 0, 1)
+            const qx = ax + vx * t
+            const qy = ay + vy * t
+            const dx = px - qx
+            const dy = py - qy
+            const dist = Math.hypot(dx, dy)
+            if (dist >= radius || dist < 1e-6) continue
+
+            const nx = dx / dist
+            const ny = dy / dist
+            const push = radius - dist
+            px += nx * push
+            py += ny * push
+            touched = true
+
+            const vAlong = vel.x * nx + vel.y * ny
+            if (vAlong < 0) {
+              onImpact?.(-vAlong)
+              vel.x -= (1 + restitutionK) * vAlong * nx
+              vel.y -= (1 + restitutionK) * vAlong * ny
+            }
+          }
+
+          if (touched) {
+            pos.x = wrapX(baseX + px)
+            pos.y = wrapY(baseY + py)
+          }
+        }
+
+        for (let i = 0; i < asteroids.length; i++) {
+          const a = asteroids[i]
+          collideWithWalls(a.pos, a.vel, a.radius, 0.85)
+        }
+
+        // Process any asteroid only once it is fully inside the hex for 2 seconds.
+        for (let i = asteroids.length - 1; i >= 0; i--) {
+          const a = asteroids[i]
+          const d = toroidalDelta(baseX, baseY, a.pos.x, a.pos.y, w, h)
+          const fullyInside = circleFullyInHex(d.dx, d.dy, a.radius)
+          if (!fullyInside) {
+            a.inBaseTime = 0
+            continue
+          }
+
+          a.inBaseTime = (a.inBaseTime ?? 0) + dt
+          if (a.inBaseTime < 2) continue
+
+          asteroids.splice(i, 1)
+          setScore((s) => s + 700 + Math.max(0, Math.round((60 - a.radius) * 10)))
+          createDebris(wrapX(baseX + d.dx), wrapY(baseY + d.dy), 0, 0, 12, 0.8, '0, 255, 136')
+          sounds.collect()
+        }
+
+        collideWithWalls(ship.pos, ship.vel, ship.radius, 0.55, (impact) => applyImpactDamage(impact))
+        {
+          const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, w, h)
+          if (pointInHex(d.dx, d.dy)) {
+            setDamage((dmg) => (dmg === 0 ? dmg : 0))
+            if (invulnerableRef.current < 120) invulnerableRef.current = 120
+          }
+        }
       }
 
       // Harpoon update (wrap-aware)
@@ -1495,53 +1679,42 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         return true
       })
 
-      // Collision detection: enemy bullets vs ship
-      if (invulnerableRef.current <= 0 && respawnTimerRef.current <= 0) {
-        for (let i = bulletsRef.current.length - 1; i >= 0; i--) {
-          const bullet = bulletsRef.current[i]
-          if (!bullet.isEnemy) continue
-          const dist = Math.hypot(ship.pos.x - bullet.pos.x, ship.pos.y - bullet.pos.y)
-          if (dist < ship.radius + 2) {
-            bulletsRef.current.splice(i, 1)
-            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y)
-            sounds.death()
-            respawnTimerRef.current = 1000
-            setLives((l) => {
-              const newLives = l - 1
-              if (newLives <= 0) setTimeout(() => setGameState('gameOver'), 1000)
-              return newLives
-            })
-            break
-          }
-        }
-      }
-
-      // Collision detection: ship vs asteroids
-      if (invulnerableRef.current <= 0 && respawnTimerRef.current <= 0) {
+      // Collision detection: ship vs asteroids (bounce + damage based on impact speed)
+      {
+        const shipMass = 1
         for (let i = 0; i < asteroidsRef.current.length; i++) {
           const asteroid = asteroidsRef.current[i]
-          const dist = Math.hypot(ship.pos.x - asteroid.pos.x, ship.pos.y - asteroid.pos.y)
-          if (dist < ship.radius + asteroid.radius) {
-            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y)
-            sounds.death()
-            respawnTimerRef.current = 1000 // 1 second delay
-            setLives((l) => {
-              const newLives = l - 1
-              if (newLives <= 0) {
-                setTimeout(() => setGameState('gameOver'), 1000)
-              }
-              return newLives
-            })
-            break
-          }
-        }
-      }
+          const d = toroidalDelta(ship.pos.x, ship.pos.y, asteroid.pos.x, asteroid.pos.y, w, h)
+          const dist = Math.hypot(d.dx, d.dy)
+          const minDist = ship.radius + asteroid.radius
+          if (dist >= minDist || dist < 1e-6) continue
 
-      // Handle respawn timer
-      if (respawnTimerRef.current > 0) {
-        respawnTimerRef.current -= dt * 1000
-        if (respawnTimerRef.current <= 0 && lives > 0) {
-          resetLevel()
+          const nx = d.dx / dist
+          const ny = d.dy / dist
+          const penetration = minDist - dist
+
+          const astMass = Math.max(0.25, (asteroid.radius / 18) * (asteroid.radius / 18))
+          const invShip = 1 / shipMass
+          const invAst = 1 / astMass
+          const invSum = invShip + invAst
+
+          ship.pos.x = wrapX(ship.pos.x - nx * (penetration * (invShip / invSum)))
+          ship.pos.y = wrapY(ship.pos.y - ny * (penetration * (invShip / invSum)))
+          asteroid.pos.x = wrapX(asteroid.pos.x + nx * (penetration * (invAst / invSum)))
+          asteroid.pos.y = wrapY(asteroid.pos.y + ny * (penetration * (invAst / invSum)))
+
+          const relVx = asteroid.vel.x - ship.vel.x
+          const relVy = asteroid.vel.y - ship.vel.y
+          const relAlong = relVx * nx + relVy * ny
+          if (relAlong < 0) {
+            applyImpactDamage(-relAlong)
+            const e = 0.55
+            const j = (-(1 + e) * relAlong) / invSum
+            ship.vel.x -= j * nx * invShip
+            ship.vel.y -= j * ny * invShip
+            asteroid.vel.x += j * nx * invAst
+            asteroid.vel.y += j * ny * invAst
+          }
         }
       }
 
@@ -1577,6 +1750,52 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         ctx.fillRect(0, y + scanY, width, 1)
       }
       ctx.restore()
+
+      // Draw mining base (center) behind asteroids.
+      {
+        const cx = width / 2
+        const cy = height / 2
+        const R = MINING_BASE_RADIUS
+
+        const poly = (r: number, n: number, rot: number) => {
+          const pts: Vector2[] = []
+          for (let i = 0; i < n; i++) {
+            const a = rot + (i / n) * Math.PI * 2
+            pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r })
+          }
+          return pts
+        }
+
+        ctx.save()
+        ctx.lineWidth = 2
+        ctx.lineJoin = 'round'
+        ctx.lineCap = 'round'
+        ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+
+        // Flat-topped hex (flats north/south).
+        const outer = poly(R, 6, 0)
+
+        // Doors: remove every other segment starting at 1 o'clock.
+        // Implemented as corner gaps at 1, 9, and 5 o'clock.
+        const doorCorners = new Set([1, 3, 5])
+        for (let i = 0; i < 6; i++) {
+          const a0 = outer[i]
+          const b0 = outer[(i + 1) % 6]
+          const ex = b0.x - a0.x
+          const ey = b0.y - a0.y
+          const len = Math.hypot(ex, ey)
+          if (len < 1e-6) continue
+          const startT = doorCorners.has(i) ? MINING_DOOR_TRIM / len : 0
+          const endT = doorCorners.has((i + 1) % 6) ? 1 - MINING_DOOR_TRIM / len : 1
+          if (startT >= endT - 1e-6) continue
+          ctx.beginPath()
+          ctx.moveTo(a0.x + ex * startT, a0.y + ey * startT)
+          ctx.lineTo(a0.x + ex * endT, a0.y + ey * endT)
+          ctx.stroke()
+        }
+
+        ctx.restore()
+      }
 
       // Draw asteroids
       asteroidsRef.current.forEach((asteroid) => {
@@ -1794,7 +2013,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       }
 
       // Draw ship
-      if (gameState === 'playing' && respawnTimerRef.current <= 0) {
+      if (gameState === 'playing') {
         const ship = shipRef.current
         const isInvulnerable = invulnerableRef.current > 0
         if (!isInvulnerable || Math.floor(Date.now() / 100) % 2 === 0) {
@@ -1843,7 +2062,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, lives, createAsteroid, createDebris, spawnAsteroids, resetLevel])
+  }, [gameState, damage, createAsteroid, createDebris, spawnAsteroids])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()
@@ -1860,12 +2079,16 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           <div className="text-[#00ff88] space-y-1 text-sm tracking-wider uppercase">
             <div>Score {score.toString().padStart(6, '0')}</div>
             <div>Level {level}</div>
-            <div className="flex items-center gap-1">
-              {Array.from({ length: lives }).map((_, i) => (
-                <svg key={i} width="16" height="16" viewBox="-10 -10 20 20" className="inline-block">
-                  <polygon points="0,-10 6,8 0,4 -6,8" fill="none" stroke="#00ff88" strokeWidth="1.5" />
-                </svg>
-              ))}
+            <div className="flex items-center gap-2">
+              <div>Damage</div>
+              <div className="flex items-center gap-1">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={`h-3 w-3 border border-[#00ff88] ${i < damage ? 'bg-[#00ff88]/40' : ''}`}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -1882,6 +2105,9 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> Space: Shoot
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-white">›</span> X: Harpoon (toggle reel)
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> P: Pause

@@ -260,7 +260,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       })
     }
 
-    const update = (dt: number) => {
+    const update = (dt: number, time: number) => {
       if (gameState !== 'playing') return
 
       const { width, height } = canvasSizeRef.current
@@ -280,6 +280,13 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const down = keysRef.current.has('arrowdown') || keysRef.current.has('s')
       const stabilize = keysRef.current.has('shift')
 
+      // Hover drift (when no input)
+      if (!left && !right && !up && !down && !stabilize) {
+        const t = time / 1000
+        heli.vel.x += Math.sin(t * 1.1) * 15 * dt
+        heli.vel.y += Math.cos(t * 1.4) * 12 * dt
+      }
+
       if (left) heli.vel.x -= thrust * dt
       if (right) heli.vel.x += thrust * dt
       if (up) heli.vel.y -= thrust * dt
@@ -292,20 +299,30 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const vxAbs = Math.abs(vx)
       
       // If moving, face that direction. If stopped, maintain last facing direction.
-      // We use a small threshold to detect movement.
+      // We use a hysteresis threshold to prevent flipping during drift or small backward movements.
       let yawTarget = heli.yaw
-      if (vx > 10) yawTarget = 1
-      else if (vx < -10) yawTarget = -1
-      else {
-        // If stopped, snap to nearest side (-1 or 1)
-        yawTarget = heli.yaw > 0 ? 1 : -1
+      const turnThreshold = 60
+      
+      if (heli.yaw > 0) {
+        // Facing Right: only turn left if moving significantly left
+        if (vx < -turnThreshold) yawTarget = -1
+        else yawTarget = 1
+      } else {
+        // Facing Left: only turn right if moving significantly right
+        if (vx > turnThreshold) yawTarget = 1
+        else yawTarget = -1
       }
 
       const yawT = 1 - Math.exp(-7 * dt)
       heli.yaw += (yawTarget - heli.yaw) * yawT
 
       const maxPitch = 0.28 // ~16 degrees
-      const pitchTarget = maxPitch * smoothstep(0, 260, vxAbs)
+      // Tilt nose down in direction of travel relative to facing
+      // If moving forward (vx and yaw same sign), pitch > 0 (Nose Down)
+      // If moving backward (vx and yaw diff sign), pitch < 0 (Nose Up)
+      const isMovingForward = (vx * heli.yaw) >= 0
+      const pitchSign = isMovingForward ? 1 : -1
+      const pitchTarget = pitchSign * maxPitch * smoothstep(0, 260, vxAbs)
       const pitchT = 1 - Math.exp(-8 * dt)
       heli.pitch += (pitchTarget - heli.pitch) * pitchT
 
@@ -845,7 +862,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     const animate = (t: number) => {
       const dt = Math.min((t - lastTimeRef.current) / 1000, 0.05)
       lastTimeRef.current = t
-      update(dt)
+      update(dt, t)
       draw()
       rafRef.current = requestAnimationFrame(animate)
     }

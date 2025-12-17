@@ -146,6 +146,37 @@ class SoundSystem {
     osc.start()
     osc.stop(this.ctx.currentTime + 0.1)
   }
+
+  explosion() {
+    if (!this.ctx) return
+
+    // Short, punchy "boom" using layered oscillators.
+    const now = this.ctx.currentTime
+
+    const bass = this.ctx.createOscillator()
+    const bassGain = this.ctx.createGain()
+    bass.type = 'sine'
+    bass.frequency.setValueAtTime(90, now)
+    bass.frequency.exponentialRampToValueAtTime(35, now + 0.35)
+    bassGain.gain.setValueAtTime(0.45, now)
+    bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.35)
+    bass.connect(bassGain)
+    bassGain.connect(this.ctx.destination)
+    bass.start(now)
+    bass.stop(now + 0.35)
+
+    const crack = this.ctx.createOscillator()
+    const crackGain = this.ctx.createGain()
+    crack.type = 'square'
+    crack.frequency.setValueAtTime(240, now)
+    crack.frequency.exponentialRampToValueAtTime(70, now + 0.12)
+    crackGain.gain.setValueAtTime(0.16, now)
+    crackGain.gain.exponentialRampToValueAtTime(0.01, now + 0.12)
+    crack.connect(crackGain)
+    crackGain.connect(this.ctx.destination)
+    crack.start(now)
+    crack.stop(now + 0.12)
+  }
 }
 
 interface KickballGameProps {
@@ -154,12 +185,24 @@ interface KickballGameProps {
 
 export function KickballGame({ onExit }: KickballGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const MATCH_TIME_MS = 3 * 60 * 1000
   const [gameState, setGameState] = useState<GameState>('menu')
   const [gameMode, setGameMode] = useState<'0p' | '1p' | '2p'>('2p')
   const [redScore, setRedScore] = useState(0)  // Left side (WASD player or AI)
   const [blueScore, setBlueScore] = useState(0) // Right side (Arrow player)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
+
+  const timeLeftMsRef = useRef(MATCH_TIME_MS)
+
+  type ExplosionParticle = { x: number; y: number; vx: number; vy: number; life: number; ttl: number; r: number; color: string }
+  type ExplosionRing = { x: number; y: number; r: number; dr: number; life: number; ttl: number; color: string }
+  const endSequenceRef = useRef<{
+    msLeft: number
+    explodedSides: Set<'left' | 'right'>
+    particles: ExplosionParticle[]
+    rings: ExplosionRing[]
+  } | null>(null)
 
   const vehicle1Ref = useRef<Vehicle>({
     pos: { x: 200, y: 300 },
@@ -299,10 +342,12 @@ export function KickballGame({ onExit }: KickballGameProps) {
     soundsRef.current.init()
     setRedScore(0)
     setBlueScore(0)
+    timeLeftMsRef.current = MATCH_TIME_MS
+    setGameOverIndex(0)
     generateField()
     resetPositions()
     setGameState('playing')
-  }, [generateField, resetPositions])
+  }, [MATCH_TIME_MS, generateField, resetPositions])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -380,6 +425,82 @@ export function KickballGame({ onExit }: KickballGameProps) {
 
     const update = (dt: number) => {
       if (gameState !== 'playing' && gameState !== 'goal') return
+
+      // Match end sequence: play a quick explosion event before showing Game Over.
+      if (endSequenceRef.current) {
+        const endSeq = endSequenceRef.current
+        endSeq.msLeft -= dt * 1000
+        for (const p of endSeq.particles) {
+          p.life -= dt * 1000
+          p.x += p.vx * dt
+          p.y += p.vy * dt
+          p.vx *= 0.98
+          p.vy *= 0.98
+          p.vy += 220 * dt
+        }
+        endSeq.particles = endSeq.particles.filter(p => p.life > 0)
+
+        for (const r of endSeq.rings) {
+          r.life -= dt * 1000
+          r.r += r.dr * dt
+        }
+        endSeq.rings = endSeq.rings.filter(r => r.life > 0)
+
+        if (endSeq.msLeft <= 0) {
+          endSequenceRef.current = null
+          setGameState('gameOver')
+        }
+        return
+      }
+
+      // Match timer (max 5 minutes). Pause during goal celebration.
+      if (gameState === 'playing') {
+        timeLeftMsRef.current = Math.max(0, timeLeftMsRef.current - dt * 1000)
+        if (timeLeftMsRef.current <= 0) {
+          const explodedSides = new Set<'left' | 'right'>()
+          if (redScore > blueScore) explodedSides.add('right')
+          else if (blueScore > redScore) explodedSides.add('left')
+          else {
+            explodedSides.add('left')
+            explodedSides.add('right')
+          }
+
+          const particles: ExplosionParticle[] = []
+          const rings: ExplosionRing[] = []
+          const spawnExplosion = (x: number, y: number, side: 'left' | 'right') => {
+            const palette = side === 'left'
+              ? ['#ff4444', '#ffaa00', '#ffffff']
+              : ['#4444ff', '#00ff88', '#ffffff']
+            const count = 90
+            for (let i = 0; i < count; i++) {
+              const a = Math.random() * Math.PI * 2
+              const sp = 120 + Math.random() * 380
+              const ttl = 650 + Math.random() * 550
+              particles.push({
+                x,
+                y,
+                vx: Math.cos(a) * sp,
+                vy: Math.sin(a) * sp - 60,
+                life: ttl,
+                ttl,
+                r: 1.5 + Math.random() * 2.2,
+                color: palette[Math.floor(Math.random() * palette.length)],
+              })
+            }
+            rings.push({ x, y, r: 10, dr: 420, life: 420, ttl: 420, color: palette[0] })
+            rings.push({ x, y, r: 18, dr: 520, life: 520, ttl: 520, color: 'rgba(255,255,255,0.9)' })
+          }
+
+          const vehicle1 = vehicle1Ref.current
+          const vehicle2 = vehicle2Ref.current
+          if (explodedSides.has('left')) spawnExplosion(vehicle1.pos.x, vehicle1.pos.y, 'left')
+          if (explodedSides.has('right')) spawnExplosion(vehicle2.pos.x, vehicle2.pos.y, 'right')
+
+          sounds.explosion()
+          endSequenceRef.current = { msLeft: 1200, explodedSides, particles, rings }
+          return
+        }
+      }
 
       const field = fieldRef.current
       const vehicle1 = vehicle1Ref.current
@@ -1500,9 +1621,6 @@ export function KickballGame({ onExit }: KickballGameProps) {
             // Ball went in left (red) goal - Blue team (arrows) scored!
             setBlueScore(s => {
               const newScore = s + 1
-              if (newScore >= 5) {
-                setTimeout(() => setGameState('gameOver'), 1500)
-              }
               return newScore
             })
             lastScorerRef.current = 'blue'
@@ -1510,9 +1628,6 @@ export function KickballGame({ onExit }: KickballGameProps) {
             // Ball went in right (blue) goal - Red team (WASD) scored!
             setRedScore(s => {
               const newScore = s + 1
-              if (newScore >= 5) {
-                setTimeout(() => setGameState('gameOver'), 1500)
-              }
               return newScore
             })
             lastScorerRef.current = 'red'
@@ -1895,6 +2010,8 @@ export function KickballGame({ onExit }: KickballGameProps) {
 
       // Draw vehicle helper function
       const drawVehicle = (vehicle: Vehicle) => {
+        const endSeq = endSequenceRef.current
+        if (endSeq && endSeq.explodedSides.has(vehicle.side)) return
         const color = vehicle.side === 'left' ? '#ff4444' : '#4444ff'
         ctx.save()
         ctx.translate(vehicle.pos.x, vehicle.pos.y)
@@ -1953,6 +2070,36 @@ export function KickballGame({ onExit }: KickballGameProps) {
       drawVehicle(vehicle1Ref.current)
       drawVehicle(vehicle2Ref.current)
 
+      // Match end explosions
+      if (endSequenceRef.current) {
+        const endSeq = endSequenceRef.current
+
+        // Rings
+        for (const r of endSeq.rings) {
+          const a = Math.max(0, r.life / r.ttl)
+          ctx.save()
+          ctx.globalAlpha = 0.7 * a
+          ctx.strokeStyle = r.color
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.restore()
+        }
+
+        // Particles
+        for (const p of endSeq.particles) {
+          const a = Math.max(0, p.life / p.ttl)
+          ctx.save()
+          ctx.globalAlpha = a
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+      }
+
       // Score display - Red (WASD) on left, Blue (Arrows) on right
       ctx.font = '48px monospace'
       ctx.textAlign = 'center'
@@ -1960,6 +2107,16 @@ export function KickballGame({ onExit }: KickballGameProps) {
       ctx.fillText(redScore.toString(), width * 0.25, 40)
       ctx.fillStyle = '#4444ff'
       ctx.fillText(blueScore.toString(), width * 0.75, 40)
+
+      // Time remaining (centered between scores)
+      const totalSeconds = Math.ceil(timeLeftMsRef.current / 1000)
+      const mm = Math.floor(totalSeconds / 60)
+      const ss = totalSeconds % 60
+      const timeText = `${mm}:${ss.toString().padStart(2, '0')}`
+      ctx.textAlign = 'center'
+      ctx.font = '26px monospace'
+      ctx.fillStyle = '#00ff88'
+      ctx.fillText(timeText, width / 2, 40)
 
       // Goal celebration effects
       if (gameState === 'goal') {
@@ -2053,7 +2210,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
             <div className="mt-8 text-[#00ff88]/50 text-xs tracking-widest">
               <p>1P: Arrow Keys to move</p>
               <p className="mt-1">2P: WASD + Arrows</p>
-              <p className="mt-1">First to 5 goals wins!</p>
+              <p className="mt-1">5:00 time limit — highest score wins.</p>
             </div>
           </div>
         </div>
@@ -2074,8 +2231,12 @@ export function KickballGame({ onExit }: KickballGameProps) {
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
           <div className="text-center">
             <h2 className="text-4xl text-[#00ff88] mb-2 tracking-[0.3em] font-mono">GAME OVER</h2>
-            <p className={`text-2xl mb-6 font-mono ${redScore >= 5 ? 'text-[#ff4444]' : 'text-[#4444ff]'}`}>
-              {redScore >= 5 ? 'RED WINS!' : 'BLUE WINS!'}
+            <p
+              className={`text-2xl mb-6 font-mono ${
+                redScore === blueScore ? 'text-[#00ff88]' : redScore > blueScore ? 'text-[#ff4444]' : 'text-[#4444ff]'
+              }`}
+            >
+              {redScore === blueScore ? 'TIE GAME!' : redScore > blueScore ? 'RED WINS!' : 'BLUE WINS!'}
             </p>
             <p className="text-[#00ff88]/60 text-lg mb-6 font-mono">
               Final Score: <span className="text-[#ff4444]">{redScore}</span> - <span className="text-[#4444ff]">{blueScore}</span>

@@ -373,7 +373,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const levelingUpRef = useRef(false)
   const respawnTimerRef = useRef(0)
 
-  const createAsteroid = useCallback((x: number, y: number, radius: number): Asteroid => {
+  const createAsteroid = useCallback((x: number, y: number, radius: number, velOverride?: Vector2): Asteroid => {
     const points: Vector2[] = []
     const vertices = 8 + Math.floor(Math.random() * 4)
     for (let i = 0; i < vertices; i++) {
@@ -400,7 +400,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
 
     return {
       pos: { x, y },
-      vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+      vel: velOverride ?? { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
       radius,
       points,
       rot: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2],
@@ -442,14 +442,68 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     (count: number, avoidRadius: number = 100) => {
       const newAsteroids: Asteroid[] = []
       const { width, height } = canvasSizeRef.current
-      for (let i = 0; i < count; i++) {
-        let x, y
-        do {
-          x = Math.random() * width
-          y = Math.random() * height
-        } while (Math.hypot(x - shipRef.current.pos.x, y - shipRef.current.pos.y) < avoidRadius)
+      const ship = shipRef.current
+      const edgeInset = 1.5
 
-        newAsteroids.push(createAsteroid(x, y, 30 + Math.random() * 15))
+      const toroidalDistToShip = (x: number, y: number) => {
+        const dxRaw = Math.abs(x - ship.pos.x)
+        const dyRaw = Math.abs(y - ship.pos.y)
+        const dx = Math.min(dxRaw, width - dxRaw)
+        const dy = Math.min(dyRaw, height - dyRaw)
+        return Math.hypot(dx, dy)
+      }
+
+      const sampleEdgeSpawn = () => {
+        const edge = Math.floor(Math.random() * 4)
+        let x = 0
+        let y = 0
+        let inwardDir = 0
+
+        if (edge === 0) {
+          // Left edge -> inward right
+          x = edgeInset
+          y = Math.random() * height
+          inwardDir = 0
+        } else if (edge === 1) {
+          // Right edge -> inward left
+          x = width - edgeInset
+          y = Math.random() * height
+          inwardDir = Math.PI
+        } else if (edge === 2) {
+          // Top edge -> inward down
+          x = Math.random() * width
+          y = edgeInset
+          inwardDir = Math.PI / 2
+        } else {
+          // Bottom edge -> inward up
+          x = Math.random() * width
+          y = height - edgeInset
+          inwardDir = -Math.PI / 2
+        }
+
+        // Bias velocity inward but allow variation.
+        const spread = Math.PI * 0.7
+        const a = inwardDir + (Math.random() - 0.5) * spread
+        const speed = 20 + Math.random() * 30
+        const vel: Vector2 = { x: Math.cos(a) * speed, y: Math.sin(a) * speed }
+        return { x, y, vel }
+      }
+
+      for (let i = 0; i < count; i++) {
+        let chosen = sampleEdgeSpawn()
+        for (let tries = 0; tries < 40; tries++) {
+          const candidate = sampleEdgeSpawn()
+          if (toroidalDistToShip(candidate.x, candidate.y) >= avoidRadius) {
+            chosen = candidate
+            break
+          }
+          // Keep the best candidate so far if we can't satisfy avoidRadius (e.g., ship hugging an edge).
+          if (toroidalDistToShip(candidate.x, candidate.y) > toroidalDistToShip(chosen.x, chosen.y)) {
+            chosen = candidate
+          }
+        }
+
+        newAsteroids.push(createAsteroid(chosen.x, chosen.y, 30 + Math.random() * 15, chosen.vel))
       }
       asteroidsRef.current = [...asteroidsRef.current, ...newAsteroids]
     },

@@ -25,6 +25,7 @@ type Crate = {
   vel: Vector2
   radius: number
   cargo: CargoType
+  homeSlot: number
   angle: number
   angVel: number
   attached: boolean
@@ -50,14 +51,33 @@ type Debris = {
   color: string
 }
 
+type Emplacement = {
+  id: number
+  pos: Vector2
+  alive: boolean
+  cooldownMs: number
+  fireRateMs: number
+  range: number
+}
+
+type Projectile = {
+  pos: Vector2
+  vel: Vector2
+  lifeMs: number
+  radius: number
+}
+
 type Outpost = {
   name: OutpostName
   pad: Pad
 }
 
 type Mission = {
+  id: number
   cargo: CargoType
   outpost: OutpostName
+  createdAtMs: number
+  dueAtMs: number
 }
 
 type Pad = {
@@ -78,9 +98,23 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
   const [deliveries, setDeliveries] = useState(0)
-  const [mission, setMission] = useState<Mission | null>(null)
+  const [missionQueue, setMissionQueue] = useState<Mission[]>([])
+  const [failedMissions, setFailedMissions] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
+
+  const missionQueueRef = useRef<Mission[]>([])
+  useEffect(() => {
+    missionQueueRef.current = missionQueue
+  }, [missionQueue])
+
+  const gameClockMsRef = useRef(0)
+  const missionIdRef = useRef(1)
+  const lastMissionSpawnMsRef = useRef(0)
+
+  const MISSION_DEADLINE_MS = 3 * 60 * 1000
+  const MISSION_SPAWN_INTERVAL_MS = 60 * 1000
+  const MAX_MISSION_QUEUE = 6
 
   const keysRef = useRef<Set<string>>(new Set())
   const rafRef = useRef<number | null>(null)
@@ -108,20 +142,49 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   const rotorTargetRef = useRef(1)
 
   const ropeLengthRef = useRef(110)
-  const crateRef = useRef<Crate>({
-    pos: { x: 1200, y: 0 },
-    vel: { x: 0, y: 0 },
-    radius: 14,
-    cargo: 'medical',
-    angle: 0,
-    angVel: 0,
-    attached: false,
-    delivered: false,
-    destroyed: false,
-  })
+  const cratesRef = useRef<Crate[]>([
+    {
+      pos: { x: 0, y: 0 },
+      vel: { x: 0, y: 0 },
+      radius: 14,
+      cargo: 'medical',
+      homeSlot: 0,
+      angle: 0,
+      angVel: 0,
+      attached: false,
+      delivered: false,
+      destroyed: false,
+    },
+    {
+      pos: { x: 0, y: 0 },
+      vel: { x: 0, y: 0 },
+      radius: 14,
+      cargo: 'food',
+      homeSlot: 1,
+      angle: 0,
+      angVel: 0,
+      attached: false,
+      delivered: false,
+      destroyed: false,
+    },
+    {
+      pos: { x: 0, y: 0 },
+      vel: { x: 0, y: 0 },
+      radius: 14,
+      cargo: 'ordinance',
+      homeSlot: 2,
+      angle: 0,
+      angVel: 0,
+      attached: false,
+      delivered: false,
+      destroyed: false,
+    },
+  ])
 
   const explosionsRef = useRef<Explosion[]>([])
   const debrisRef = useRef<Debris[]>([])
+  const emplacementsRef = useRef<Emplacement[]>([])
+  const projectilesRef = useRef<Projectile[]>([])
 
   const startPadRef = useRef<Pad>({ x: 260, width: 220 })
   const outpostsRef = useRef<Outpost[]>([
@@ -177,19 +240,19 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
   const pick = <T,>(arr: readonly T[]) => arr[Math.floor(Math.random() * arr.length)]
 
-  const makeMission = useCallback((): Mission => {
+  const makeMission = useCallback((nowMs: number): Mission => {
     const cargo = pick(['medical', 'food', 'ordinance'] as const)
     const outpost = pick(['ALPHA', 'BRAVO', 'CHARLIE'] as const)
-    return { cargo, outpost }
+    const id = missionIdRef.current++
+    return { id, cargo, outpost, createdAtMs: nowMs, dueAtMs: nowMs + MISSION_DEADLINE_MS }
   }, [])
 
   const spawnCrateAtBase = useCallback(
-    (cargo: CargoType) => {
+    (crate: Crate) => {
       const startPad = startPadRef.current
-      const x = startPad.x + 260
-      const y = groundHeightAt(x) - crateRef.current.radius
-      const crate = crateRef.current
-      crate.cargo = cargo
+      const slotSpacing = 54
+      const x = startPad.x + 260 + crate.homeSlot * slotSpacing
+      const y = groundHeightAt(x) - crate.radius
       crate.attached = false
       crate.delivered = false
       crate.destroyed = false
@@ -225,9 +288,15 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   const resetWorld = useCallback(() => {
     const heli = heliRef.current
 
-    // New mission (first click-stop: just deliver gear to named outposts)
-    const m = makeMission()
-    setMission(m)
+    const nowMs = gameClockMsRef.current || performance.now()
+    gameClockMsRef.current = nowMs
+    missionIdRef.current = 1
+    lastMissionSpawnMsRef.current = nowMs
+
+    // Missions: first click-stop is still "deliver gear", but now queued + timed.
+    const m = makeMission(nowMs)
+    missionQueueRef.current = [m]
+    setMissionQueue([m])
 
     // Start on the heliport pad with rotors spun down.
     const startPad = startPadRef.current
@@ -245,9 +314,31 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     rotorPowerRef.current = 0
     rotorTargetRef.current = 0
 
-    const crate = crateRef.current
-    void crate
-    spawnCrateAtBase(m.cargo)
+    // Always keep each cargo type staged at base.
+    const crates = cratesRef.current
+    for (const c of crates) spawnCrateAtBase(c)
+
+    // Spawn enemy emplacements between outposts (projectile hazard).
+    const outposts = outpostsRef.current
+    const mids: number[] = []
+    if (outposts.length >= 2) {
+      for (let i = 0; i < outposts.length - 1; i++) {
+        mids.push((outposts[i].pad.x + outposts[i + 1].pad.x) / 2)
+      }
+    }
+    emplacementsRef.current = mids.slice(0, 3).map((mx, i) => {
+      const x = clamp(mx + (Math.random() - 0.5) * 240, 260, worldWidthRef.current - 260)
+      const y = groundHeightAt(x)
+      return {
+        id: i + 1,
+        pos: { x, y },
+        alive: true,
+        cooldownMs: 700 + Math.random() * 600,
+        fireRateMs: 900,
+        range: 950,
+      }
+    })
+    projectilesRef.current = []
 
     ropeLengthRef.current = 110
     cameraXRef.current = 0
@@ -259,6 +350,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     setScore(0)
     setLives(3)
     setDeliveries(0)
+    setFailedMissions(0)
     resetWorld()
     setGameState('playing')
   }, [resetWorld])
@@ -324,25 +416,37 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         e.preventDefault()
         if (e.repeat) return
         const heli = heliRef.current
-        const crate = crateRef.current
-        if (crate.delivered) return
-        if (crate.destroyed) return
+        const crates = cratesRef.current
+        const attached = crates.find((c) => c.attached)
 
-        if (crate.attached) {
-          crate.attached = false
+        if (attached) {
+          attached.attached = false
           // Give a tiny separation impulse so it doesn't immediately reattach.
-          crate.vel.x += heli.vel.x * 0.1
-          crate.vel.y += heli.vel.y * 0.1
-          crate.angVel += (Math.random() - 0.5) * 1.2
+          attached.vel.x += heli.vel.x * 0.1
+          attached.vel.y += heli.vel.y * 0.1
+          attached.angVel += (Math.random() - 0.5) * 1.2
         } else {
           const hook = getHookPoint(heli)
-          const attach = getCrateAttachPoint(crate)
-          const dx = attach.x - hook.x
-          const dy = attach.y - hook.y
-          const d = Math.hypot(dx, dy)
           const hookRange = hookRangeRef.current
-          if (d < hookRange) {
-            crate.attached = true
+
+          let best: Crate | null = null
+          let bestD = Infinity
+          for (const c of crates) {
+            if (c.delivered || c.destroyed) continue
+            const attach = getCrateAttachPoint(c)
+            const dx = attach.x - hook.x
+            const dy = attach.y - hook.y
+            const d = Math.hypot(dx, dy)
+            if (d < hookRange && d < bestD) {
+              best = c
+              bestD = d
+            }
+          }
+
+          if (best) {
+            // Ensure only one crate can be attached.
+            crates.forEach((c) => (c.attached = false))
+            best.attached = true
           }
         }
       }
@@ -408,7 +512,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
           const { height } = canvasSizeRef.current
           heliRef.current.pos = { x: startPadRef.current.x, y: height * 0.35 }
           heliRef.current.vel = { x: 0, y: 0 }
-          crateRef.current.attached = false
+          cratesRef.current.forEach((c) => (c.attached = false))
         }
         return nl
       })
@@ -417,10 +521,56 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     const update = (dt: number, time: number) => {
       if (gameState !== 'playing') return
 
+      gameClockMsRef.current = time
+
       const { width, height } = canvasSizeRef.current
       const worldWidth = worldWidthRef.current
       const heli = heliRef.current
-      const crate = crateRef.current
+      const crates = cratesRef.current
+
+      const setQueue = (next: Mission[]) => {
+        missionQueueRef.current = next
+        setMissionQueue(next)
+      }
+
+      // Ensure we always have at least one active mission.
+      if (missionQueueRef.current.length === 0) {
+        const nm = makeMission(time)
+        setQueue([nm])
+        lastMissionSpawnMsRef.current = time
+      }
+
+      // Add a new mission every 60s (up to a small max queue).
+      const elapsedSinceSpawn = time - lastMissionSpawnMsRef.current
+      if (elapsedSinceSpawn >= MISSION_SPAWN_INTERVAL_MS) {
+        const dueCount = Math.min(3, Math.floor(elapsedSinceSpawn / MISSION_SPAWN_INTERVAL_MS))
+        if (dueCount > 0) {
+          lastMissionSpawnMsRef.current += dueCount * MISSION_SPAWN_INTERVAL_MS
+
+          const q = missionQueueRef.current
+          const canAdd = Math.max(0, Math.min(dueCount, MAX_MISSION_QUEUE - q.length))
+          if (canAdd > 0) {
+            const added: Mission[] = []
+            for (let i = 0; i < canAdd; i++) added.push(makeMission(time))
+            setQueue([...q, ...added])
+          }
+        }
+      }
+
+      // Expire missions (3 minute deadline).
+      const activeMission = missionQueueRef.current[0]
+      if (activeMission && time > activeMission.dueAtMs) {
+        const nextQ = missionQueueRef.current.slice(1)
+        setFailedMissions((f) => f + 1)
+
+        if (nextQ.length === 0) {
+          const nm = makeMission(time)
+          setQueue([nm])
+          lastMissionSpawnMsRef.current = time
+        } else {
+          setQueue(nextQ)
+        }
+      }
 
       // Update explosion visuals
       explosionsRef.current = explosionsRef.current.filter((e) => {
@@ -437,6 +587,59 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         d.vel.x *= 0.99
         d.vel.y *= 0.99
         return d.life > 0
+      })
+
+      // Enemy emplacements: fire projectiles when in range
+      const emplacements = emplacementsRef.current
+      const projectiles = projectilesRef.current
+      for (const e of emplacements) {
+        if (!e.alive) continue
+        e.cooldownMs -= dt * 1000
+
+        const dx = heli.pos.x - e.pos.x
+        const dy = heli.pos.y - (e.pos.y - 22)
+        const dist = Math.hypot(dx, dy)
+        if (dist < e.range && e.cooldownMs <= 0) {
+          const inv = dist > 1e-4 ? 1 / dist : 0
+          const nx = dx * inv
+          const ny = dy * inv
+          const speed = 620
+          projectiles.push({
+            pos: { x: e.pos.x, y: e.pos.y - 26 },
+            vel: { x: nx * speed, y: ny * speed },
+            lifeMs: 3600,
+            radius: 4,
+          })
+          e.cooldownMs = e.fireRateMs
+        }
+      }
+
+      // Projectiles update + heli collision
+      projectilesRef.current = projectiles.filter((p) => {
+        p.pos.x += p.vel.x * dt
+        p.pos.y += p.vel.y * dt
+        p.lifeMs -= dt * 1000
+        if (p.lifeMs <= 0) return false
+
+        // Cull if wildly out of bounds.
+        if (p.pos.x < -200 || p.pos.x > worldWidth + 200 || p.pos.y < -200 || p.pos.y > height + 200) return false
+
+        const dh = Math.hypot(p.pos.x - heli.pos.x, p.pos.y - heli.pos.y)
+        if (dh < heli.radius * 1.1 + p.radius) {
+          // Hit feedback
+          explosionsRef.current.push({
+            pos: { x: p.pos.x, y: p.pos.y },
+            tMs: 220,
+            lifeMs: 220,
+            maxRadius: 46,
+            color: '255, 255, 255',
+          })
+          createDebris(p.pos.x, p.pos.y, p.vel.x * 0.2, p.vel.y * 0.2, 10, 0.7, '255, 160, 40')
+          killPlayer()
+          return false
+        }
+
+        return true
       })
 
       heli.hitFlashMs = Math.max(0, heli.hitFlashMs - dt * 1000)
@@ -508,9 +711,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
       // The helicopter should not auto-descend unless it's carrying a load.
       // If the attached load is still resting on the ground, it shouldn't pull the chopper down.
-      const groundUnderCrate = groundHeightAt(crate.pos.x)
-      const crateOnGround = crate.attached && !crate.delivered && crate.pos.y + crate.radius >= groundUnderCrate - 0.5
-      const isLoaded = crate.attached && !crate.delivered && !crateOnGround
+      const carried = crates.find((c) => c.attached && !c.delivered && !c.destroyed)
+      const groundUnderCrate = carried ? groundHeightAt(carried.pos.x) : 0
+      const crateOnGround =
+        !!carried && carried.pos.y + carried.radius >= groundUnderCrate - 0.5
+      const isLoaded = !!carried && !crateOnGround
 
       // Gravity / lift model:
       // - With rotors on, we keep the original arcade feel (no gravity unless loaded).
@@ -558,7 +763,8 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       heli.rotor += dt * (rotorBase + rotorMoveBoost) * rotorSpin
 
       // Crate physics
-      if (!crate.delivered && !crate.destroyed) {
+      for (const crate of crates) {
+        if (crate.delivered || crate.destroyed) continue
         const crateDrag = stabilize ? 0.965 : 0.988
         crate.vel.y += 300 * dt
         crate.vel.x *= crateDrag
@@ -572,7 +778,9 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       }
 
       // Sling constraint (only max distance, slack allowed)
-      if (crate.attached && !crate.delivered && !crate.destroyed) {
+      const attachedCrate = crates.find((c) => c.attached && !c.delivered && !c.destroyed)
+      if (attachedCrate) {
+        const crate = attachedCrate
         const hook = getHookPoint(heli)
         const attach = getCrateAttachPoint(crate)
         const dx = attach.x - hook.x
@@ -660,94 +868,153 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         }
       }
 
-      const groundHCrate = groundHeightAt(crate.pos.x)
-      const crateBottom = crate.pos.y + crate.radius
-      if (!crate.delivered && !crate.destroyed && crateBottom > groundHCrate) {
-        const impact = Math.abs(crate.vel.y)
-        crate.pos.y = groundHCrate - crate.radius
-        crate.vel.y = 0
-        crate.vel.x *= 0.86
+      for (const crate of crates) {
+        const groundHCrate = groundHeightAt(crate.pos.x)
+        const crateBottom = crate.pos.y + crate.radius
+        if (!crate.delivered && !crate.destroyed && crateBottom > groundHCrate) {
+          const impact = Math.abs(crate.vel.y)
+          crate.pos.y = groundHCrate - crate.radius
+          crate.vel.y = 0
+          crate.vel.x *= 0.86
 
-        // Settle rotation on ground a bit
-        crate.angVel *= 0.7
-        crate.angle *= 0.985
+          // Hard impacts destroy cargo. Ordinance also explodes.
+          // (This approximates "dropped from a height" via impact velocity.)
+          const destroyImpact = 240
+          if (impact >= destroyImpact) {
+            crate.attached = false
+            crate.destroyed = true
 
-        // Hard impacts destroy cargo. Ordinance also explodes.
-        // (This approximates "dropped from a height" via impact velocity.)
-        const destroyImpact = 240
-        if (impact >= destroyImpact) {
-          crate.attached = false
-          crate.destroyed = true
+            const debrisColor =
+              crate.cargo === 'medical'
+                ? '255, 68, 68'
+                : crate.cargo === 'food'
+                  ? '255, 210, 74'
+                  : '220, 220, 220'
 
-          const debrisColor =
-            crate.cargo === 'medical'
-              ? '255, 68, 68'
-              : crate.cargo === 'food'
-                ? '255, 210, 74'
-                : '220, 220, 220'
+            // Chunky debris burst
+            createDebris(crate.pos.x, crate.pos.y, crate.vel.x, crate.vel.y, 14, 1, debrisColor)
 
-          // Chunky debris burst
-          createDebris(crate.pos.x, crate.pos.y, crate.vel.x, crate.vel.y, 14, 1, debrisColor)
+            if (crate.cargo === 'ordinance') {
+              // BOOM.
+              const blastRadius = 160
+              explosionsRef.current.push({
+                pos: { x: crate.pos.x, y: crate.pos.y },
+                tMs: 520,
+                lifeMs: 520,
+                maxRadius: blastRadius,
+                color: '255, 160, 40',
+              })
 
-          if (crate.cargo === 'ordinance') {
-            // BOOM.
-            const blastRadius = 160
-            explosionsRef.current.push({
-              pos: { x: crate.pos.x, y: crate.pos.y },
-              tMs: 520,
-              lifeMs: 520,
-              maxRadius: blastRadius,
-              color: '255, 160, 40',
-            })
+              // Blast destroys nearby emplacements.
+              const emplacements2 = emplacementsRef.current
+              for (const e of emplacements2) {
+                if (!e.alive) continue
+                const de = Math.hypot(e.pos.x - crate.pos.x, (e.pos.y - 18) - crate.pos.y)
+                if (de < blastRadius) {
+                  e.alive = false
+                  explosionsRef.current.push({
+                    pos: { x: e.pos.x, y: e.pos.y - 14 },
+                    tMs: 300,
+                    lifeMs: 300,
+                    maxRadius: 70,
+                    color: '255, 160, 40',
+                  })
+                  createDebris(e.pos.x, e.pos.y - 14, 0, -20, 16, 0.95, '255, 160, 40')
+                }
+              }
 
-            // Extra spark debris on BOOM
-            createDebris(crate.pos.x, crate.pos.y, crate.vel.x, crate.vel.y, 18, 0.9, '255, 160, 40')
+              // Blast clears projectiles too.
+              projectilesRef.current = projectilesRef.current.filter((p) => {
+                const dp = Math.hypot(p.pos.x - crate.pos.x, p.pos.y - crate.pos.y)
+                return dp > blastRadius
+              })
 
-            // Blast can take out the chopper if you're too close.
-            const dh = Math.hypot(heli.pos.x - crate.pos.x, heli.pos.y - crate.pos.y)
-            if (dh < blastRadius * 0.75) {
-              killPlayer()
+              // Extra spark debris on BOOM
+              createDebris(crate.pos.x, crate.pos.y, crate.vel.x, crate.vel.y, 18, 0.9, '255, 160, 40')
+
+              // Blast can take out the chopper if you're too close.
+              const dh = Math.hypot(heli.pos.x - crate.pos.x, heli.pos.y - crate.pos.y)
+              if (dh < blastRadius * 0.75) {
+                killPlayer()
+              }
+            } else {
+              // Small puff for destroyed cargo.
+              explosionsRef.current.push({
+                pos: { x: crate.pos.x, y: crate.pos.y },
+                tMs: 260,
+                lifeMs: 260,
+                maxRadius: 60,
+                color: '255, 255, 255',
+              })
             }
-          } else {
-            // Small puff for destroyed cargo.
-            explosionsRef.current.push({
-              pos: { x: crate.pos.x, y: crate.pos.y },
-              tMs: 260,
-              lifeMs: 260,
-              maxRadius: 60,
-              color: '255, 255, 255',
-            })
+
+            // Re-stage that crate type back at base.
+            setTimeout(() => {
+              spawnCrateAtBase(crate)
+            }, 650)
+            continue
           }
 
-          // Re-spawn the current mission cargo back at base.
-          setTimeout(() => {
-            const m = mission
-            if (m) spawnCrateAtBase(m.cargo)
-          }, 650)
-          return
+          // Delivery check: crate can satisfy ANY queued mission (out of order).
+          const outposts = outpostsRef.current
+          const onOutpost = outposts.find((o) => {
+            const pad = o.pad
+            return crate.pos.x >= pad.x - pad.width / 2 && crate.pos.x <= pad.x + pad.width / 2
+          })
+
+          if (!crate.attached && onOutpost && impact < 140) {
+            const q = missionQueueRef.current
+            const idx = q.findIndex((m) => m.outpost === onOutpost.name && m.cargo === crate.cargo)
+            if (idx !== -1) {
+              const deliveredMissionId = q[idx].id
+              crate.delivered = true
+              setDeliveries((d) => d + 1)
+              setScore((s) => s + 500)
+
+              setTimeout(() => {
+                const qq = missionQueueRef.current
+                const nextQ = qq.filter((m) => m.id !== deliveredMissionId)
+                if (nextQ.length === 0) {
+                  const nm = makeMission(gameClockMsRef.current)
+                  setQueue([nm])
+                  lastMissionSpawnMsRef.current = gameClockMsRef.current
+                } else {
+                  setQueue(nextQ)
+                }
+
+                // Re-stage the delivered crate back at base.
+                spawnCrateAtBase(crate)
+              }, 500)
+            }
+          }
         }
+      }
 
-        // Delivery check: crate must be on the CURRENT mission outpost pad and not slammed.
-        const m = mission
-        const outposts = outpostsRef.current
-        const target = m ? outposts.find((o) => o.name === m.outpost) : undefined
-        const pad = target?.pad
-        const onPad =
-          !!pad && crate.pos.x >= pad.x - pad.width / 2 && crate.pos.x <= pad.x + pad.width / 2
+      // Grounded crates should feel heavy: keep snapping toward a stable "flat" orientation
+      // while resting on the ground (not just on the single penetration frame).
+      for (const crate of crates) {
+        if (crate.delivered || crate.destroyed || crate.attached) continue
+        const groundH = groundHeightAt(crate.pos.x)
+        const onGround = crate.pos.y + crate.radius >= groundH - 0.5
+        if (onGround) {
+          const step = Math.PI / 2
+          const target = Math.round(crate.angle / step) * step
+          let err = target - crate.angle
+          err = Math.atan2(Math.sin(err), Math.cos(err))
 
-        if (!crate.delivered && onPad && impact < 140 && !crate.attached && m && crate.cargo === m.cargo) {
-          crate.delivered = true
-          setDeliveries((d) => d + 1)
-          setScore((s) => s + 500)
+          const kGround = 140
+          const dampGround = 22
+          crate.angVel += (err * kGround - crate.angVel * dampGround) * dt
 
-          // Spawn the next mission + crate back at base.
-          setTimeout(() => {
-            const nm = makeMission()
-            setMission(nm)
-            spawnCrateAtBase(nm.cargo)
-          }, 500)
+          // Strong angular friction on contact.
+          crate.angVel *= 0.35
+
+          // Stop tiny jitter once essentially settled.
+          if (Math.abs(err) < 0.01 && Math.abs(crate.angVel) < 0.08) {
+            crate.angle = target
+            crate.angVel = 0
+          }
         }
-
       }
 
       // Camera follows heli
@@ -970,7 +1237,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       for (const o of outposts) {
         const pad = o.pad
         const padY = groundHeightAt(pad.x)
-        const isTarget = mission?.outpost === o.name
+        const isTarget = missionQueue[0]?.outpost === o.name
 
         ctx.strokeStyle = isTarget ? 'rgba(255,255,255,0.95)' : '#00ff88'
         ctx.lineWidth = 2
@@ -1058,9 +1325,45 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         ctx.stroke()
       }
 
+      // Enemy emplacements + projectiles
+      const emps = emplacementsRef.current
+      for (const e of emps) {
+        if (!e.alive) continue
+        const baseY = e.pos.y
+        ctx.fillStyle = 'rgba(0,0,0,0.72)'
+        ctx.strokeStyle = 'rgba(255,160,40,0.85)'
+        ctx.lineWidth = 2
+        ctx.fillRect(e.pos.x - 14, baseY - 18, 28, 18)
+        ctx.strokeRect(e.pos.x - 14, baseY - 18, 28, 18)
+        // Barrel points at heli
+        const ang = Math.atan2(heliRef.current.pos.y - (baseY - 24), heliRef.current.pos.x - e.pos.x)
+        ctx.strokeStyle = 'rgba(255,160,40,0.95)'
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.moveTo(e.pos.x, baseY - 24)
+        ctx.lineTo(e.pos.x + Math.cos(ang) * 22, baseY - 24 + Math.sin(ang) * 22)
+        ctx.stroke()
+      }
+
+      // Projectiles (tracers)
+      for (const p of projectilesRef.current) {
+        const a = clamp(p.lifeMs / 3600, 0, 1)
+        const vx = p.vel.x
+        const vy = p.vel.y
+        const v = Math.hypot(vx, vy) || 1
+        const nx = vx / v
+        const ny = vy / v
+        ctx.strokeStyle = `rgba(255,160,40,${0.35 + 0.55 * a})`
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(p.pos.x - nx * 6, p.pos.y - ny * 6)
+        ctx.lineTo(p.pos.x + nx * 8, p.pos.y + ny * 8)
+        ctx.stroke()
+      }
+
       // Rope + crate
       const heli = heliRef.current
-      const crate = crateRef.current
+      const crates = cratesRef.current
       const hook = getHookPoint(heli)
 
       // Debris particles (Asteroids-style)
@@ -1078,17 +1381,20 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         ctx.restore()
       })
 
-      if (crate.attached) {
+      const attachedCrate = crates.find((c) => c.attached && !c.delivered && !c.destroyed)
+      if (attachedCrate) {
         ctx.strokeStyle = 'rgba(255,255,255,0.7)'
         ctx.lineWidth = 1.5
         ctx.beginPath()
         ctx.moveTo(hook.x, hook.y)
-        const attach = getCrateAttachPoint(crate)
+        const attach = getCrateAttachPoint(attachedCrate)
         ctx.lineTo(attach.x, attach.y)
         ctx.stroke()
       }
 
-      if (!crate.delivered && !crate.destroyed) {
+      for (const crate of crates) {
+        if (crate.delivered || crate.destroyed) continue
+
         // Crate visuals: outline + braces + cargo icon
         ctx.strokeStyle = '#ffffff'
         ctx.lineWidth = 2
@@ -1512,9 +1818,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       })
 
       // Hook point (transformed)
-      const groundUnderCrate = groundHeightAt(crate.pos.x)
-      const crateOnGround = crate.attached && !crate.delivered && crate.pos.y + crate.radius >= groundUnderCrate - 0.5
-      const isLoaded = crate.attached && !crate.delivered && !crateOnGround
+      const carried = cratesRef.current.find((c) => c.attached && !c.delivered && !c.destroyed)
+      const groundUnderCrate = carried ? groundHeightAt(carried.pos.x) : 0
+      const crateOnGround =
+        !!carried && carried.pos.y + carried.radius >= groundUnderCrate - 0.5
+      const isLoaded = !!carried && !crateOnGround
 
       const hookLocal: V3 = [0, 8, 0] // Belly center
       let hp = rotZ(hookLocal, pitchAngle)
@@ -1538,9 +1846,47 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         ctx.fillText(`LIVES ${lives}`, 16, 48)
         ctx.fillText(`DELIVERED ${deliveries}`, 16, 68)
 
-        if (mission) {
+        const threats = emplacementsRef.current.reduce((n, e) => n + (e.alive ? 1 : 0), 0)
+        ctx.fillStyle = 'rgba(255,160,40,0.85)'
+        ctx.fillText(`THREATS ${threats}`, 16, 86)
+
+        const nowMs = gameClockMsRef.current || performance.now()
+        const q = missionQueue
+        const active = q[0]
+        if (active) {
+          const remainingMs = Math.max(0, active.dueAtMs - nowMs)
+          const mm = Math.floor(remainingMs / 60000)
+          const ss = Math.floor((remainingMs % 60000) / 1000)
           ctx.fillStyle = 'rgba(255,255,255,0.9)'
-          ctx.fillText(`MISSION: DELIVER ${mission.cargo.toUpperCase()} TO ${mission.outpost}`, 16, 92)
+          ctx.fillText(
+            `MISSION: DELIVER ${active.cargo.toUpperCase()} TO ${active.outpost}  (${mm}:${ss
+              .toString()
+              .padStart(2, '0')})`,
+            16,
+            108,
+          )
+        }
+
+        if (q.length > 1) {
+          ctx.fillStyle = 'rgba(0,255,136,0.7)'
+          ctx.fillText(`QUEUE ${q.length - 1}  FAILED ${failedMissions}`, 16, 128)
+
+          ctx.fillStyle = 'rgba(0,255,136,0.55)'
+          const maxShow = Math.min(q.length - 1, 3)
+          for (let i = 1; i <= maxShow; i++) {
+            const m = q[i]
+            const remainingMs = Math.max(0, m.dueAtMs - nowMs)
+            const mm = Math.floor(remainingMs / 60000)
+            const ss = Math.floor((remainingMs % 60000) / 1000)
+            ctx.fillText(
+              `NEXT ${i}: ${m.cargo.toUpperCase()} → ${m.outpost}  (${mm}:${ss.toString().padStart(2, '0')})`,
+              16,
+              128 + 18 * i,
+            )
+          }
+        } else if (failedMissions > 0) {
+          ctx.fillStyle = 'rgba(0,255,136,0.7)'
+          ctx.fillText(`FAILED ${failedMissions}`, 16, 128)
         }
 
         // Minimal instructions
@@ -1578,7 +1924,18 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [gameState, groundHeightAt, score, lives, deliveries, mission, getHookPoint, makeMission, spawnCrateAtBase])
+  }, [
+    gameState,
+    groundHeightAt,
+    score,
+    lives,
+    deliveries,
+    missionQueue,
+    failedMissions,
+    getHookPoint,
+    makeMission,
+    spawnCrateAtBase,
+  ])
 
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono">

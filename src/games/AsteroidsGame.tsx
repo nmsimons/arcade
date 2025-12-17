@@ -241,6 +241,8 @@ const cross3 = (a: V3, b: V3): V3 => [
   a[0] * b[1] - a[1] * b[0],
 ]
 
+const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
+
 const makeAsteroidMesh = (radius: number, seed: number) => {
   // Regular icosahedron: 12 vertices, 20 triangular faces.
   // Add a small deterministic radial jitter per vertex to make each asteroid
@@ -331,6 +333,50 @@ interface Asteroid {
   mesh: { verts: V3[]; polys: number[][] }
 }
 
+type Harpoon =
+  | { state: 'idle' }
+  | {
+      state: 'flying'
+      pos: Vector2
+      vel: Vector2
+      life: number
+      traveled: number
+      maxLength: number
+      ropeLength: number
+      segLen: number
+      rope: Vector2[]
+      ropePrev: Vector2[]
+    }
+  | {
+      state: 'deployed'
+      pos: Vector2
+      vel: Vector2
+      maxLength: number
+      ropeLength: number
+      segLen: number
+      rope: Vector2[]
+      ropePrev: Vector2[]
+    }
+  | {
+      state: 'attached'
+      asteroid: Asteroid
+      ropeLength: number
+      maxLength: number
+      segLen: number
+      rope: Vector2[]
+      ropePrev: Vector2[]
+    }
+  | {
+      state: 'reeling'
+      pos: Vector2
+      reelSpeed: number
+      reelLength: number
+      ropeLength: number
+      segLen: number
+      rope: Vector2[]
+      ropePrev: Vector2[]
+    }
+
 interface Bullet {
   pos: Vector2
   vel: Vector2
@@ -372,6 +418,58 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const levelingUpRef = useRef(false)
   const respawnTimerRef = useRef(0)
+  const harpoonRef = useRef<Harpoon>({ state: 'idle' })
+
+  // Harpoon cable is a fixed-length tether. The fired hook cannot exceed this distance.
+  const HARPOON_CABLE_LENGTH = 130
+  const HARPOON_REEL_SPEED = 440
+  // Visual-only slack so the cable can look weighty/curvy even when fully extended.
+  const HARPOON_VISUAL_SLACK = 1.18
+  const HARPOON_HOOK_RADIUS = 5
+  const HARPOON_HOOK_MASS = Math.max(0.2, (HARPOON_HOOK_RADIUS / 18) * (HARPOON_HOOK_RADIUS / 18))
+  const HARPOON_REEL_MIN_LEN = shipRef.current.radius + HARPOON_HOOK_RADIUS + 2
+
+  const toroidalDelta = useCallback((ax: number, ay: number, bx: number, by: number, w: number, h: number) => {
+    // Vector from A -> B under wrapping (shortest).
+    let dx = bx - ax
+    let dy = by - ay
+    if (dx > w / 2) dx -= w
+    else if (dx < -w / 2) dx += w
+    if (dy > h / 2) dy -= h
+    else if (dy < -h / 2) dy += h
+    return { dx, dy }
+  }, [])
+
+  const buildRopeBetween = useCallback(
+    (ax: number, ay: number, bx: number, by: number, ropeLen: number) => {
+      const { width: w, height: h } = canvasSizeRef.current
+      const wrapX = (x: number) => {
+        if (x < 0) return x + w
+        if (x > w) return x - w
+        return x
+      }
+      const wrapY = (y: number) => {
+        if (y < 0) return y + h
+        if (y > h) return y - h
+        return y
+      }
+
+      const segments = clamp(Math.ceil(ropeLen / 14), 10, 44)
+      const segLen = ropeLen / segments
+      const d = toroidalDelta(ax, ay, bx, by, w, h)
+      const rope: Vector2[] = []
+      const ropePrev: Vector2[] = []
+      for (let k = 1; k < segments; k++) {
+        const t = k / segments
+        const px = wrapX(ax + d.dx * t)
+        const py = wrapY(ay + d.dy * t)
+        rope.push({ x: px, y: py })
+        ropePrev.push({ x: px, y: py })
+      }
+      return { rope, ropePrev, segLen }
+    },
+    [toroidalDelta],
+  )
 
   const createAsteroid = useCallback((x: number, y: number, radius: number, velOverride?: Vector2): Asteroid => {
     const points: Vector2[] = []
@@ -439,7 +537,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   )
 
   const spawnAsteroids = useCallback(
-    (count: number, avoidRadius: number = 100) => {
+    (count: number, avoidRadius: number = 100, speedMult: number = 1) => {
       const newAsteroids: Asteroid[] = []
       const { width, height } = canvasSizeRef.current
       const ship = shipRef.current
@@ -484,7 +582,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         // Bias velocity inward but allow variation.
         const spread = Math.PI * 0.7
         const a = inwardDir + (Math.random() - 0.5) * spread
-        const speed = 20 + Math.random() * 30
+        const speed = (20 + Math.random() * 30) * speedMult
         const vel: Vector2 = { x: Math.cos(a) * speed, y: Math.sin(a) * speed }
         return { x, y, vel }
       }
@@ -510,6 +608,16 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     [createAsteroid],
   )
 
+  const speedMultForLevel = useCallback((lvl: number) => {
+    // Noticeable but not explosive. Caps keep later levels playable.
+    return clamp(1 + (lvl - 1) * 0.085, 1, 2.25)
+  }, [])
+
+  const asteroidCountForLevel = useCallback((lvl: number) => {
+    // Ramps faster than the old “every 3 levels” behavior.
+    return 2 + Math.floor((lvl - 1) * 0.8)
+  }, [])
+
   const startGame = useCallback(() => {
     sounds.init()
     const { width, height } = canvasSizeRef.current
@@ -523,8 +631,9 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     invulnerableRef.current = 3000
     debrisRef.current = []
     levelingUpRef.current = false
-    spawnAsteroids(2)
-  }, [spawnAsteroids])
+    harpoonRef.current = { state: 'idle' }
+    spawnAsteroids(asteroidCountForLevel(1), 100, speedMultForLevel(1))
+  }, [spawnAsteroids, asteroidCountForLevel, speedMultForLevel])
 
   const resetLevel = useCallback(() => {
     const { width, height } = canvasSizeRef.current
@@ -555,6 +664,91 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         setGameState('paused')
       } else if ((e.key === 'p' || e.key === 'Escape') && gameState === 'paused') {
         setGameState('playing')
+      }
+
+      // Harpoon grapple (X): fire / release.
+      if (!e.repeat && e.key.toLowerCase() === 'x' && gameState === 'playing') {
+        e.preventDefault()
+        if (respawnTimerRef.current > 0) return
+        const hp = harpoonRef.current
+        if (hp.state === 'idle') {
+          const ship = shipRef.current
+          const speedRel = 720
+
+          // Recoil: treat the hook like a small mass body.
+          // We fire at `speedRel` relative to the ship *after* recoil, conserving momentum.
+          const mShip = 1
+          const mHook = HARPOON_HOOK_MASS
+          const mSum = mShip + mHook
+          const dirX = Math.cos(ship.angle)
+          const dirY = Math.sin(ship.angle)
+          const shipV0x = ship.vel.x
+          const shipV0y = ship.vel.y
+          ship.vel.x = shipV0x - dirX * speedRel * (mHook / mSum)
+          ship.vel.y = shipV0y - dirY * speedRel * (mHook / mSum)
+
+          const hookVx = shipV0x + dirX * speedRel * (mShip / mSum)
+          const hookVy = shipV0y + dirY * speedRel * (mShip / mSum)
+
+          const ropeLength = HARPOON_CABLE_LENGTH * HARPOON_VISUAL_SLACK
+          const seedX = ship.pos.x + Math.cos(ship.angle) * Math.min(ropeLength, 16)
+          const seedY = ship.pos.y + Math.sin(ship.angle) * Math.min(ropeLength, 16)
+          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, seedX, seedY, ropeLength)
+          harpoonRef.current = {
+            state: 'flying',
+            pos: { x: ship.pos.x, y: ship.pos.y },
+            vel: {
+              x: hookVx,
+              y: hookVy,
+            },
+            // Long enough to reach maxLength at the given speed.
+            life: 1200,
+            traveled: 0,
+            maxLength: HARPOON_CABLE_LENGTH,
+            ropeLength,
+            segLen: seed.segLen,
+            rope: seed.rope,
+            ropePrev: seed.ropePrev,
+          }
+        } else if (hp.state === 'reeling') {
+          // Ignore while reeling; you can't fire again until it's fully in.
+        } else if (hp.state === 'attached') {
+          // Reel-in detaches.
+          const ship = shipRef.current
+          const { width: w, height: h } = canvasSizeRef.current
+          const d0 = toroidalDelta(ship.pos.x, ship.pos.y, hp.asteroid.pos.x, hp.asteroid.pos.y, w, h)
+          const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
+          const ropeLength = reelLength * HARPOON_VISUAL_SLACK
+          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp.asteroid.pos.x, hp.asteroid.pos.y, ropeLength)
+          harpoonRef.current = {
+            state: 'reeling',
+            pos: { x: hp.asteroid.pos.x, y: hp.asteroid.pos.y },
+            reelSpeed: HARPOON_REEL_SPEED,
+            reelLength,
+            ropeLength,
+            segLen: seed.segLen,
+            rope: seed.rope,
+            ropePrev: seed.ropePrev,
+          }
+        } else {
+          // Any other non-idle state (flying/deployed): reel in.
+          const ship = shipRef.current
+          const { width: w, height: h } = canvasSizeRef.current
+          const d0 = toroidalDelta(ship.pos.x, ship.pos.y, hp.pos.x, hp.pos.y, w, h)
+          const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
+          const ropeLength = reelLength * HARPOON_VISUAL_SLACK
+          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp.pos.x, hp.pos.y, ropeLength)
+          harpoonRef.current = {
+            state: 'reeling',
+            pos: { x: hp.pos.x, y: hp.pos.y },
+            reelSpeed: HARPOON_REEL_SPEED,
+            reelLength,
+            ropeLength,
+            segLen: seed.segLen,
+            rope: seed.rope,
+            ropePrev: seed.ropePrev,
+          }
+        }
       }
       
       // Menu keyboard navigation
@@ -701,6 +895,480 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         return y
       }
 
+      // Harpoon update (wrap-aware)
+      const hp0 = harpoonRef.current
+      if (hp0.state === 'flying') {
+        hp0.pos.x = wrapX(hp0.pos.x + hp0.vel.x * dt)
+        hp0.pos.y = wrapY(hp0.pos.y + hp0.vel.y * dt)
+        hp0.life -= dt * 1000
+
+        // Enforce the cable max length (tension-only) with hook mass.
+        // Treat the hook like a tiny asteroid: tension affects both ship and hook.
+        {
+          const sh = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+          const shDist = Math.hypot(sh.dx, sh.dy)
+          if (shDist > hp0.maxLength && shDist > 1e-6) {
+            const nx = sh.dx / shDist
+            const ny = sh.dy / shDist
+
+            const invShip = 1
+            const invHook = 1 / HARPOON_HOOK_MASS
+            const invSum = invShip + invHook
+
+            const err = shDist - hp0.maxLength
+            const maxCorr = 140
+            const corr = Math.min(err, maxCorr)
+
+            ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
+            ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
+            hp0.pos.x = wrapX(hp0.pos.x - nx * (corr * (invHook / invSum)))
+            hp0.pos.y = wrapY(hp0.pos.y - ny * (corr * (invHook / invSum)))
+
+            const relVx = hp0.vel.x - ship.vel.x
+            const relVy = hp0.vel.y - ship.vel.y
+            const relAlong = relVx * nx + relVy * ny
+            if (relAlong > 0) {
+              const j = (-relAlong * 0.9) / invSum
+              ship.vel.x -= j * nx * invShip
+              ship.vel.y -= j * ny * invShip
+              hp0.vel.x += j * nx * invHook
+              hp0.vel.y += j * ny * invHook
+            }
+          }
+        }
+
+        // When it reaches full extension without latching, leave it deployed until the player reels it in.
+        const sh2 = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+        const sh2Dist = Math.hypot(sh2.dx, sh2.dy)
+
+        // Rope simulation for rendering (slack/curve) while unattached.
+        // Endpoints are ship + hook; this is visual-only.
+        {
+          const rope = hp0.rope
+          const ropePrev = hp0.ropePrev
+          const segLen = hp0.segLen
+
+          const damp = 0.992
+          const dt2 = dt * dt
+
+          for (let i = 0; i < rope.length; i++) {
+            const p = rope[i]
+            const pp = ropePrev[i]
+            const vx = (p.x - pp.x) * damp
+            const vy = (p.y - pp.y) * damp
+            ropePrev[i] = { x: p.x, y: p.y }
+            // No gravity in space; curvature comes from inertia + slack.
+            rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy + 0 * dt2) }
+          }
+
+          const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
+            const d = toroidalDelta(ax, ay, bx, by, w, h)
+            const dLen = Math.hypot(d.dx, d.dy)
+            if (dLen < 1e-6) return { cx: 0, cy: 0 }
+            const diff = (dLen - target) / dLen
+            return { cx: d.dx * diff, cy: d.dy * diff }
+          }
+
+          const iterations = 9
+          for (let it = 0; it < iterations; it++) {
+            // ship -> first
+            if (rope.length > 0) {
+              const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
+              rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+            }
+            // internal
+            for (let i = 0; i < rope.length - 1; i++) {
+              const p0 = rope[i]
+              const p1 = rope[i + 1]
+              const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
+              rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
+              rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+            }
+            // last -> hook
+            if (rope.length > 0) {
+              const last = rope[rope.length - 1]
+              const c = solvePair(last.x, last.y, hp0.pos.x, hp0.pos.y, segLen)
+              rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+            }
+          }
+        }
+
+        hp0.traveled += Math.hypot(hp0.vel.x, hp0.vel.y) * dt
+
+        if (hp0.life <= 0) {
+          harpoonRef.current = {
+            state: 'deployed',
+            pos: { x: hp0.pos.x, y: hp0.pos.y },
+            vel: { x: 0, y: 0 },
+            maxLength: hp0.maxLength,
+            ropeLength: hp0.ropeLength,
+            segLen: hp0.segLen,
+            rope: hp0.rope,
+            ropePrev: hp0.ropePrev,
+          }
+        } else {
+          // Try to latch onto an asteroid.
+          for (let i = 0; i < asteroids.length; i++) {
+            const a = asteroids[i]
+            const { dx, dy } = toroidalDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y, w, h)
+            const dist = Math.hypot(dx, dy)
+            if (dist < a.radius) {
+              // Fixed-length cable: latch uses the full cable length.
+              const ropeLen = hp0.maxLength
+
+              // Build a segmented rope for slack visuals.
+              const segments = Math.max(18, Math.min(60, Math.ceil(ropeLen / 22)))
+              const segLen = ropeLen / segments
+              const ship0 = shipRef.current
+              const d2 = toroidalDelta(ship0.pos.x, ship0.pos.y, a.pos.x, a.pos.y, w, h)
+              const rope: Vector2[] = []
+              const ropePrev: Vector2[] = []
+              for (let k = 1; k < segments; k++) {
+                const t = k / segments
+                const px = wrapX(ship0.pos.x + d2.dx * t)
+                const py = wrapY(ship0.pos.y + d2.dy * t)
+                rope.push({ x: px, y: py })
+                ropePrev.push({ x: px, y: py })
+              }
+
+              harpoonRef.current = {
+                state: 'attached',
+                asteroid: a,
+                ropeLength: ropeLen,
+                maxLength: hp0.maxLength,
+                segLen,
+                rope,
+                ropePrev,
+              }
+              break
+            }
+          }
+
+          // If not attached and fully extended, switch to deployed.
+          if (harpoonRef.current === hp0 && sh2Dist >= hp0.maxLength - 0.5) {
+            harpoonRef.current = {
+              state: 'deployed',
+              pos: { x: hp0.pos.x, y: hp0.pos.y },
+              vel: { x: 0, y: 0 },
+              maxLength: hp0.maxLength,
+              ropeLength: hp0.ropeLength,
+              segLen: hp0.segLen,
+              rope: hp0.rope,
+              ropePrev: hp0.ropePrev,
+            }
+          }
+        }
+      } else if (hp0.state === 'deployed') {
+        // Hook is left out in space until the player reels it in.
+        hp0.pos.x = wrapX(hp0.pos.x + hp0.vel.x * dt)
+        hp0.pos.y = wrapY(hp0.pos.y + hp0.vel.y * dt)
+
+        // Mild damping for stability (feels like a small object with some drag).
+        hp0.vel.x *= 0.996
+        hp0.vel.y *= 0.996
+
+        // Enforce the cable max length (tension-only) with hook mass.
+        {
+          const sh = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+          const shDist = Math.hypot(sh.dx, sh.dy)
+          if (shDist > hp0.maxLength && shDist > 1e-6) {
+            const nx = sh.dx / shDist
+            const ny = sh.dy / shDist
+
+            const invShip = 1
+            const invHook = 1 / HARPOON_HOOK_MASS
+            const invSum = invShip + invHook
+
+            const err = shDist - hp0.maxLength
+            const maxCorr = 140
+            const corr = Math.min(err, maxCorr)
+
+            ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
+            ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
+            hp0.pos.x = wrapX(hp0.pos.x - nx * (corr * (invHook / invSum)))
+            hp0.pos.y = wrapY(hp0.pos.y - ny * (corr * (invHook / invSum)))
+
+            const relVx = hp0.vel.x - ship.vel.x
+            const relVy = hp0.vel.y - ship.vel.y
+            const relAlong = relVx * nx + relVy * ny
+            if (relAlong > 0) {
+              const j = (-relAlong * 0.9) / invSum
+              ship.vel.x -= j * nx * invShip
+              ship.vel.y -= j * ny * invShip
+              hp0.vel.x += j * nx * invHook
+              hp0.vel.y += j * ny * invHook
+            }
+          }
+        }
+
+        // If it touches an asteroid later, it should still latch.
+        for (let i = 0; i < asteroids.length; i++) {
+          const a = asteroids[i]
+          const { dx, dy } = toroidalDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y, w, h)
+          const dist = Math.hypot(dx, dy)
+          if (dist < a.radius) {
+            const ropeLen = hp0.maxLength
+            const segments = Math.max(18, Math.min(60, Math.ceil(ropeLen / 22)))
+            const segLen = ropeLen / segments
+            const d2 = toroidalDelta(ship.pos.x, ship.pos.y, a.pos.x, a.pos.y, w, h)
+            const rope: Vector2[] = []
+            const ropePrev: Vector2[] = []
+            for (let k = 1; k < segments; k++) {
+              const t = k / segments
+              const px = wrapX(ship.pos.x + d2.dx * t)
+              const py = wrapY(ship.pos.y + d2.dy * t)
+              rope.push({ x: px, y: py })
+              ropePrev.push({ x: px, y: py })
+            }
+            harpoonRef.current = {
+              state: 'attached',
+              asteroid: a,
+              ropeLength: ropeLen,
+              maxLength: hp0.maxLength,
+              segLen,
+              rope,
+              ropePrev,
+            }
+            break
+          }
+        }
+
+        // Rope simulation for rendering (slack/curve).
+        {
+          const rope = hp0.rope
+          const ropePrev = hp0.ropePrev
+          const segLen = hp0.segLen
+
+          const damp = 0.992
+          const dt2 = dt * dt
+          for (let i = 0; i < rope.length; i++) {
+            const p = rope[i]
+            const pp = ropePrev[i]
+            const vx = (p.x - pp.x) * damp
+            const vy = (p.y - pp.y) * damp
+            ropePrev[i] = { x: p.x, y: p.y }
+            rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy + 0 * dt2) }
+          }
+
+          const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
+            const d = toroidalDelta(ax, ay, bx, by, w, h)
+            const dLen = Math.hypot(d.dx, d.dy)
+            if (dLen < 1e-6) return { cx: 0, cy: 0 }
+            const diff = (dLen - target) / dLen
+            return { cx: d.dx * diff, cy: d.dy * diff }
+          }
+
+          const iterations = 9
+          for (let it = 0; it < iterations; it++) {
+            if (rope.length > 0) {
+              const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
+              rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+            }
+            for (let i = 0; i < rope.length - 1; i++) {
+              const p0 = rope[i]
+              const p1 = rope[i + 1]
+              const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
+              rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
+              rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+            }
+            if (rope.length > 0) {
+              const last = rope[rope.length - 1]
+              const c = solvePair(last.x, last.y, hp0.pos.x, hp0.pos.y, segLen)
+              rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+            }
+          }
+        }
+      } else if (hp0.state === 'attached') {
+        // If the asteroid got destroyed/split, drop the harpoon.
+        if (!asteroids.includes(hp0.asteroid)) {
+          const ropeLength = hp0.maxLength * HARPOON_VISUAL_SLACK
+          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp0.asteroid.pos.x, hp0.asteroid.pos.y, ropeLength)
+          harpoonRef.current = {
+            state: 'deployed',
+            pos: { x: hp0.asteroid.pos.x, y: hp0.asteroid.pos.y },
+            vel: { x: 0, y: 0 },
+            maxLength: hp0.maxLength,
+            ropeLength,
+            segLen: seed.segLen,
+            rope: seed.rope,
+            ropePrev: seed.ropePrev,
+          }
+        } else {
+          const a = hp0.asteroid
+          const { dx, dy } = toroidalDelta(ship.pos.x, ship.pos.y, a.pos.x, a.pos.y, w, h)
+          const dist = Math.hypot(dx, dy)
+          const L = hp0.ropeLength
+
+          // Physics: tension-only cable.
+          // Only enforce when stretched (dist > L). If compressed, it goes slack (no pushing).
+          if (dist > L && dist > 1e-6) {
+            const nx = dx / dist
+            const ny = dy / dist
+
+            // Mass: larger asteroid = heavier. Ship is always light.
+            const invShip = 1
+            const mAst = Math.max(1, (a.radius / 18) * (a.radius / 18))
+            const invAst = 1 / mAst
+            const invSum = invShip + invAst
+
+            // Position correction to remove stretch.
+            const err = dist - L
+            const maxCorr = 140
+            const corr = Math.min(err, maxCorr)
+
+            ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
+            ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
+            a.pos.x = wrapX(a.pos.x - nx * (corr * (invAst / invSum)))
+            a.pos.y = wrapY(a.pos.y - ny * (corr * (invAst / invSum)))
+
+            // Velocity correction: only remove separating motion (keeps it from "rubber banding").
+            const relVx = a.vel.x - ship.vel.x
+            const relVy = a.vel.y - ship.vel.y
+            const relAlong = relVx * nx + relVy * ny
+            if (relAlong > 0) {
+              const j = (-relAlong * 0.9) / invSum
+              ship.vel.x -= j * nx * invShip
+              ship.vel.y -= j * ny * invShip
+              a.vel.x += j * nx * invAst
+              a.vel.y += j * ny * invAst
+            }
+          }
+
+          // Rope simulation for rendering (slack/curve).
+          // Endpoints are fixed at ship/asteroid positions so slack doesn't push them.
+          const rope = hp0.rope
+          const ropePrev = hp0.ropePrev
+          const segLen = hp0.segLen
+
+          // Verlet integrate internal rope points.
+          const damp = 0.992
+          for (let i = 0; i < rope.length; i++) {
+            const p = rope[i]
+            const pp = ropePrev[i]
+            const vx = (p.x - pp.x) * damp
+            const vy = (p.y - pp.y) * damp
+            ropePrev[i] = { x: p.x, y: p.y }
+            rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy) }
+          }
+
+          const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
+            const d = toroidalDelta(ax, ay, bx, by, w, h)
+            const dLen = Math.hypot(d.dx, d.dy)
+            if (dLen < 1e-6) return { cx: 0, cy: 0 }
+            const diff = (dLen - target) / dLen
+            return { cx: d.dx * diff, cy: d.dy * diff }
+          }
+
+          // Iterative constraint solve (PBD): keep each segment at segLen.
+          const iterations = 10
+          for (let it = 0; it < iterations; it++) {
+            // Segment: ship -> first
+            if (rope.length > 0) {
+              const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
+              rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+            }
+
+            // Internal segments
+            for (let i = 0; i < rope.length - 1; i++) {
+              const p0 = rope[i]
+              const p1 = rope[i + 1]
+              const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
+              rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
+              rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+            }
+
+            // Segment: last -> asteroid
+            if (rope.length > 0) {
+              const last = rope[rope.length - 1]
+              const c = solvePair(last.x, last.y, a.pos.x, a.pos.y, segLen)
+              rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+            }
+          }
+        }
+      } else if (hp0.state === 'reeling') {
+        // Winch behavior: cable length shrinks and tension pulls the hook in.
+        hp0.reelLength = Math.max(HARPOON_REEL_MIN_LEN, hp0.reelLength - hp0.reelSpeed * dt)
+        hp0.ropeLength = hp0.reelLength * HARPOON_VISUAL_SLACK
+
+        const targetSegLen = hp0.ropeLength / Math.max(1, hp0.rope.length + 1)
+
+        const d = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+        const dist = Math.hypot(d.dx, d.dy)
+        if (dist > 1e-6 && dist > hp0.reelLength) {
+          const nx = d.dx / dist
+          const ny = d.dy / dist
+
+          // Bias so the ship doesn't get dragged as much by the winch.
+          const invShip = 0.35
+          const invHook = 1 / HARPOON_HOOK_MASS
+          const invSum = invShip + invHook
+
+          const err = dist - hp0.reelLength
+          const maxCorr = 220
+          const corr = Math.min(err, maxCorr)
+
+          ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
+          ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
+          hp0.pos.x = wrapX(hp0.pos.x - nx * (corr * (invHook / invSum)))
+          hp0.pos.y = wrapY(hp0.pos.y - ny * (corr * (invHook / invSum)))
+
+          // Reeling state doesn't store velocity; position solve is sufficient and avoids "hook flies into ship" snaps.
+        }
+
+        // Finished: once the cable is fully in, drop to idle.
+        const d2 = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+        const dist2 = Math.hypot(d2.dx, d2.dy)
+        if (hp0.reelLength <= HARPOON_REEL_MIN_LEN + 0.5 && dist2 <= HARPOON_REEL_MIN_LEN + 6) {
+          harpoonRef.current = { state: 'idle' }
+        }
+
+        // Rope simulation for rendering while reeling.
+        {
+          const rope = hp0.rope
+          const ropePrev = hp0.ropePrev
+          const segLen = targetSegLen
+
+          const damp = 0.992
+          const dt2 = dt * dt
+          for (let i = 0; i < rope.length; i++) {
+            const p = rope[i]
+            const pp = ropePrev[i]
+            const vx = (p.x - pp.x) * damp
+            const vy = (p.y - pp.y) * damp
+            ropePrev[i] = { x: p.x, y: p.y }
+            rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy + 0 * dt2) }
+          }
+
+          const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
+            const dd = toroidalDelta(ax, ay, bx, by, w, h)
+            const dLen = Math.hypot(dd.dx, dd.dy)
+            if (dLen < 1e-6) return { cx: 0, cy: 0 }
+            const diff = (dLen - target) / dLen
+            return { cx: dd.dx * diff, cy: dd.dy * diff }
+          }
+
+          const iterations = 9
+          for (let it = 0; it < iterations; it++) {
+            if (rope.length > 0) {
+              const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
+              rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+            }
+            for (let i = 0; i < rope.length - 1; i++) {
+              const p0 = rope[i]
+              const p1 = rope[i + 1]
+              const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
+              rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
+              rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+            }
+            if (rope.length > 0) {
+              const last = rope[rope.length - 1]
+              const c = solvePair(last.x, last.y, hp0.pos.x, hp0.pos.y, segLen)
+              rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+            }
+          }
+        }
+      }
+
       for (let i = 0; i < asteroids.length; i++) {
         const a = asteroids[i]
         for (let j = i + 1; j < asteroids.length; j++) {
@@ -787,6 +1455,23 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           const asteroid = asteroidsRef.current[i]
           const dist = Math.hypot(bullet.pos.x - asteroid.pos.x, bullet.pos.y - asteroid.pos.y)
           if (dist < asteroid.radius) {
+            // If harpoon was attached to this asteroid, release it.
+            const hp = harpoonRef.current
+            if (hp.state === 'attached' && hp.asteroid === asteroid) {
+              const ship = shipRef.current
+              const ropeLength = hp.maxLength * HARPOON_VISUAL_SLACK
+              const seed = buildRopeBetween(ship.pos.x, ship.pos.y, asteroid.pos.x, asteroid.pos.y, ropeLength)
+              harpoonRef.current = {
+                state: 'deployed',
+                pos: { x: asteroid.pos.x, y: asteroid.pos.y },
+                vel: { x: 0, y: 0 },
+                maxLength: hp.maxLength,
+                ropeLength,
+                segLen: seed.segLen,
+                rope: seed.rope,
+                ropePrev: seed.ropePrev,
+              }
+            }
             asteroidsRef.current.splice(i, 1)
             setScore((s) => s + Math.floor(100 / asteroid.radius))
 
@@ -866,7 +1551,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         setLevel((l) => {
           const newLevel = l + 1
           setTimeout(() => {
-            spawnAsteroids(2 + Math.floor(newLevel / 3))
+            spawnAsteroids(asteroidCountForLevel(newLevel), 100, speedMultForLevel(newLevel))
             invulnerableRef.current = 2000
             levelingUpRef.current = false
           }, 500)
@@ -1049,6 +1734,64 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         ctx.stroke()
         ctx.restore()
       })
+
+      // Draw harpoon + tether (wrap-aware)
+      const hp = harpoonRef.current
+      if (hp.state !== 'idle' && gameState === 'playing') {
+        const { width: w2, height: h2 } = canvasSizeRef.current
+        const ship = shipRef.current
+
+        const drawToroidalLine = (ax: number, ay: number, bx: number, by: number) => {
+          let dx = bx - ax
+          let dy = by - ay
+          let ox = 0
+          let oy = 0
+          if (dx > w2 / 2) ox = -w2
+          else if (dx < -w2 / 2) ox = w2
+          if (dy > h2 / 2) oy = -h2
+          else if (dy < -h2 / 2) oy = h2
+
+          ctx.beginPath()
+          ctx.moveTo(ax, ay)
+          ctx.lineTo(bx + ox, by + oy)
+          ctx.stroke()
+
+          // If wrapping occurred, draw the complementary segment on the opposite edge.
+          if (ox !== 0 || oy !== 0) {
+            ctx.beginPath()
+            ctx.moveTo(ax - ox, ay - oy)
+            ctx.lineTo(bx, by)
+            ctx.stroke()
+          }
+        }
+
+        ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+        ctx.lineWidth = 1.6
+
+        if (hp.state === 'attached') {
+          // Draw segmented rope for attached state.
+          const pts: Vector2[] = [ship.pos, ...hp.rope, hp.asteroid.pos]
+          for (let i = 0; i < pts.length - 1; i++) {
+            drawToroidalLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
+          }
+
+          ctx.fillStyle = 'rgba(255,255,255,0.9)'
+          ctx.beginPath()
+          ctx.arc(hp.asteroid.pos.x, hp.asteroid.pos.y, 3, 0, Math.PI * 2)
+          ctx.fill()
+        } else {
+          // Draw segmented rope for any unattached state (flying/deployed/reeling).
+          const pts: Vector2[] = [ship.pos, ...hp.rope, hp.pos]
+          for (let i = 0; i < pts.length - 1; i++) {
+            drawToroidalLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
+          }
+
+          ctx.fillStyle = 'rgba(255,255,255,0.9)'
+          ctx.beginPath()
+          ctx.arc(hp.pos.x, hp.pos.y, 3, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
 
       // Draw ship
       if (gameState === 'playing' && respawnTimerRef.current <= 0) {

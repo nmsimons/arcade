@@ -422,7 +422,7 @@ type AsteroidsGameProps = {
 
 export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
+  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'dying' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
   const [damage, setDamage] = useState(0)
   const [level, setLevel] = useState(1)
@@ -439,6 +439,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const animationFrameRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
   const invulnerableRef = useRef(0)
+  const dyingTimerRef = useRef(0)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const levelingUpRef = useRef(false)
   const harpoonRef = useRef<Harpoon>({ state: 'idle' })
@@ -856,9 +857,31 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     window.addEventListener('resize', resize)
 
     const update = (dt: number) => {
+      // Always update debris so explosions can play during transitions/menus.
+      if (debrisRef.current.length > 0) {
+        debrisRef.current = debrisRef.current.filter((d) => {
+          d.pos.x += d.vel.x * dt
+          d.pos.y += d.vel.y * dt
+          d.angle += d.rotSpeed * dt
+          d.life -= dt * 1000
+          d.vel.x *= 0.99
+          d.vel.y *= 0.99
+          return d.life > 0
+        })
+      }
+
+      // Let the death explosion play before showing Game Over.
+      if (gameState === 'dying') {
+        dyingTimerRef.current -= dt * 1000
+        if (dyingTimerRef.current <= 0) setGameState('gameOver')
+        return
+      }
+
       if (gameState !== 'playing') return
 
       miningBaseAngleRef.current += dt * MINING_ROT_SPEED
+
+      const ship = shipRef.current
 
       const applyImpactDamage = (impactSpeed: number) => {
         if (invulnerableRef.current > 0) return
@@ -874,12 +897,19 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         invulnerableRef.current = 450
         setDamage((d) => {
           const next = Math.min(3, d + amt)
-          if (next >= 3) setGameState('gameOver')
+          if (next >= 3) {
+            // BOOM: use the existing debris explosion effect.
+            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 18, 1.2, '255, 255, 255')
+            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 10, 1.0, '255, 170, 0')
+            sounds.explosion('large')
+            sounds.stopThrust()
+            keysRef.current.clear()
+            dyingTimerRef.current = 1200
+            setGameState('dying')
+          }
           return next
         })
       }
-
-      const ship = shipRef.current
 
       // Ship controls
       if (keysRef.current.has('arrowleft') || keysRef.current.has('a')) {
@@ -1715,17 +1745,6 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         return bullet.life > 0
       })
 
-      // Update debris
-      debrisRef.current = debrisRef.current.filter((d) => {
-        d.pos.x += d.vel.x * dt
-        d.pos.y += d.vel.y * dt
-        d.angle += d.rotSpeed * dt
-        d.life -= dt * 1000
-        d.vel.x *= 0.99
-        d.vel.y *= 0.99
-        return d.life > 0
-      })
-
       // Collision detection: player bullets vs boss/asteroids
       bulletsRef.current = bulletsRef.current.filter((bullet) => {
         if (bullet.isEnemy) return true
@@ -2036,16 +2055,6 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
                 const uSeg = (qpx * dy - qpy * dx) / denom
                 if (tRay > 1e-3 && uSeg >= 0 && uSeg <= 1) return tRay
                 return null
-              }
-
-              const rayHitMin = (ox: number, oy: number, dx: number, dy: number, segs: Array<[number, number, number, number]>) => {
-                let best: number | null = null
-                for (const seg of segs) {
-                  const tHit = raySegHitT(ox, oy, dx, dy, seg[0], seg[1], seg[2], seg[3])
-                  if (tHit == null) continue
-                  if (best == null || tHit < best) best = tHit
-                }
-                return best
               }
 
               const rayHitNth = (
@@ -2368,31 +2377,104 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       if (gameState === 'playing') {
         const ship = shipRef.current
         const isInvulnerable = invulnerableRef.current > 0
-        if (!isInvulnerable || Math.floor(Date.now() / 100) % 2 === 0) {
-          ctx.save()
-          ctx.translate(ship.pos.x, ship.pos.y)
-          ctx.rotate(ship.angle)
-          ctx.strokeStyle = '#00ff88'
-          ctx.lineWidth = 2
+        ctx.save()
+        ctx.translate(ship.pos.x, ship.pos.y)
+        ctx.rotate(ship.angle)
+          const s = ship.radius / 15
+
+          // Damage color pattern (like Armor Assault): base color by damage, flash white while invulnerable.
+          const baseColor = damage <= 0 ? '#ffffff' : damage === 1 ? '#ffaa00' : '#ff4444'
+          const flashOn = isInvulnerable && Math.floor(invulnerableRef.current / 50) % 2 === 0
+          const shipColor = flashOn ? '#ffffff' : baseColor
+
+          // Neon outline + subtle glow
+          ctx.strokeStyle = shipColor
+          ctx.lineWidth = 2.4
+          ctx.lineJoin = 'round'
+          ctx.lineCap = 'round'
+          ctx.shadowColor =
+            shipColor === '#ffffff'
+              ? 'rgba(255, 255, 255, 0.28)'
+              : shipColor === '#ffaa00'
+                ? 'rgba(255, 170, 0, 0.3)'
+                : shipColor === '#ff4444'
+                  ? 'rgba(255, 68, 68, 0.3)'
+                  : 'rgba(255, 255, 255, 0.28)'
+          ctx.shadowBlur = 8
+
+          const noseX = 18 * s
+          const midX = -1 * s
+          const tailX = -18 * s
+          const bodyHalf = 10 * s
+          const podOutY = 9 * s
+          const podRearY = 4.5 * s
+
+          // Outer hull (inspired by the reference: wedge body + two rear pods)
           ctx.beginPath()
-          ctx.moveTo(15, 0)
-          ctx.lineTo(-10, -10)
-          ctx.lineTo(-7, 0)
-          ctx.lineTo(-10, 10)
+          ctx.moveTo(noseX, 0)
+          ctx.lineTo(midX, -bodyHalf)
+          ctx.lineTo(-10 * s, -podOutY)
+          ctx.lineTo(tailX, -podRearY)
+          ctx.lineTo(-9 * s, 0)
+          ctx.lineTo(tailX, podRearY)
+          ctx.lineTo(-10 * s, podOutY)
+          ctx.lineTo(midX, bodyHalf)
           ctx.closePath()
           ctx.stroke()
 
-          // Thrust flame
-          if (keysRef.current.has('arrowup') || keysRef.current.has('w')) {
-            ctx.strokeStyle = '#ff6600'
+          // Internal structure lines (kept sparse, confident)
+          ctx.shadowBlur = 0
+          ctx.globalAlpha = 0.9
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(noseX - 2 * s, 0)
+          ctx.lineTo(-3 * s, -6.5 * s)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(noseX - 2 * s, 0)
+          ctx.lineTo(-3 * s, 6.5 * s)
+          ctx.stroke()
+
+          // Pod panel ticks
+          ctx.globalAlpha = 0.85
+          ctx.lineWidth = 1.6
+          for (const sign of [-1, 1]) {
+            const px = -12.5 * s
+            const py = sign * 6.2 * s
             ctx.beginPath()
-            ctx.moveTo(-7, -3)
-            ctx.lineTo(-15 - Math.random() * 5, 0)
-            ctx.lineTo(-7, 3)
+            ctx.moveTo(px, py)
+            ctx.lineTo(px + 3.2 * s, py)
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.moveTo(px, py + sign * 2.2 * s)
+            ctx.lineTo(px + 2.2 * s, py + sign * 2.2 * s)
             ctx.stroke()
           }
+
+          // Thrust flame: twin engines
+          if (keysRef.current.has('arrowup') || keysRef.current.has('w')) {
+            ctx.save()
+            ctx.globalAlpha = 1
+            ctx.strokeStyle = '#ff6600'
+            ctx.shadowColor = 'rgba(255, 102, 0, 0.25)'
+            ctx.shadowBlur = 6
+            ctx.lineWidth = 2.6
+
+            for (const sign of [-1, 1]) {
+              const ex = tailX + 1.5 * s
+              const ey = sign * 2.7 * s
+              const flame = (8 + Math.random() * 7) * s
+              const flare = 2.8 * s
+              ctx.beginPath()
+              ctx.moveTo(ex, ey - flare)
+              ctx.lineTo(ex - flame, ey)
+              ctx.lineTo(ex, ey + flare)
+              ctx.stroke()
+            }
+
+            ctx.restore()
+          }
           ctx.restore()
-        }
       }
     }
 

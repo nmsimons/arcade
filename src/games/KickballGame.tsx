@@ -2210,7 +2210,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
             <div className="mt-8 text-[#00ff88]/50 text-xs tracking-widest">
               <p>1P: Arrow Keys to move</p>
               <p className="mt-1">2P: WASD + Arrows</p>
-              <p className="mt-1">5:00 time limit — highest score wins.</p>
+              <p className="mt-1">Highest score wins.</p>
             </div>
           </div>
         </div>

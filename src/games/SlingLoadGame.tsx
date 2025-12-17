@@ -52,6 +52,8 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
   const worldWidthRef = useRef(4200)
   const cameraXRef = useRef(0)
+  const prevCameraXRef = useRef(0)
+  const cameraVelRef = useRef(0)
 
   const heliRef = useRef<Helicopter>({
     pos: { x: 300, y: 200 },
@@ -62,6 +64,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     yaw: 1,
     pitch: 0,
   })
+
+  // Rotor spool (0..1). Toggled with X.
+  // This affects both visuals and flight physics.
+  const rotorPowerRef = useRef(1)
+  const rotorTargetRef = useRef(1)
 
   const ropeLengthRef = useRef(110)
   const crateRef = useRef<Crate>({
@@ -98,14 +105,9 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   }, [])
 
   const groundHeightAt = useCallback((x: number) => {
-    // A smooth height field made from a few sine waves (fast + deterministic).
-    const base = 0.78
-    const h1 = Math.sin(x * 0.004) * 0.03
-    const h2 = Math.sin(x * 0.011 + 1.7) * 0.02
-    const h3 = Math.sin(x * 0.023 + 0.4) * 0.01
-    const n = base + h1 + h2 + h3
     const { height } = canvasSizeRef.current
-    return height * n
+    void x
+    return height * 0.82
   }, [])
 
   const resetWorld = useCallback(() => {
@@ -136,6 +138,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key.toLowerCase())
+
+      // Rotor toggle (full <-> almost-off). A tiny amount remains for autorotation.
+      if (!e.repeat && e.key.toLowerCase() === 'x' && gameState === 'playing') {
+        rotorTargetRef.current = rotorTargetRef.current > 0.5 ? 0 : 1
+      }
 
       // Pause
       if ((e.key === 'p' || e.key === 'Escape') && gameState === 'playing') {
@@ -274,6 +281,15 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const thrust = 520
       const drag = 0.985
 
+      // Rotor power (spools up/down via X)
+      const spoolT = 1 - Math.exp(-3.2 * dt)
+      rotorPowerRef.current += (rotorTargetRef.current - rotorPowerRef.current) * spoolT
+      const rotorPower = clamp(rotorPowerRef.current, 0, 1)
+
+      // Thrust scaling: when rotors are cut, almost no thrust remains.
+      const thrustScale = 0.06 + 0.94 * rotorPower
+      const thrustEff = thrust * thrustScale
+
       const left = keysRef.current.has('arrowleft') || keysRef.current.has('a')
       const right = keysRef.current.has('arrowright') || keysRef.current.has('d')
       const up = keysRef.current.has('arrowup') || keysRef.current.has('w')
@@ -287,10 +303,10 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         heli.vel.y += Math.cos(t * 1.4) * 12 * dt
       }
 
-      if (left) heli.vel.x -= thrust * dt
-      if (right) heli.vel.x += thrust * dt
-      if (up) heli.vel.y -= thrust * dt
-      if (down) heli.vel.y += thrust * dt
+      if (left) heli.vel.x -= thrustEff * dt
+      if (right) heli.vel.x += thrustEff * dt
+      if (up) heli.vel.y -= thrustEff * dt
+      if (down) heli.vel.y += thrustEff * dt
 
       // 3D-ish yaw + pitch:
       // - yaw: smoothly transitions between left (-1) and right (+1)
@@ -331,7 +347,19 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const groundUnderCrate = groundHeightAt(crate.pos.x)
       const crateOnGround = crate.attached && !crate.delivered && crate.pos.y + crate.radius >= groundUnderCrate - 0.5
       const isLoaded = crate.attached && !crate.delivered && !crateOnGround
-      if (isLoaded) heli.vel.y += 220 * dt
+
+      // Gravity / lift model:
+      // - With rotors on, we keep the original arcade feel (no gravity unless loaded).
+      // - With rotors cut, add gravity, but allow autorotation to reduce descent.
+      if (rotorPower < 0.15) {
+        // Fall, but with some autorotation (more effective when descending / moving forward).
+        const gravity = 260
+        const autorotateLift = clamp(heli.vel.y, 0, 520) * 0.42 + clamp(Math.abs(heli.vel.x), 0, 520) * 0.08
+        heli.vel.y += gravity * dt
+        heli.vel.y -= clamp(autorotateLift, 0, 220) * dt
+      } else if (isLoaded) {
+        heli.vel.y += 220 * dt
+      }
 
       const maxSpeed = 420
       const speed = Math.hypot(heli.vel.x, heli.vel.y)
@@ -350,8 +378,14 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       heli.pos.x = clamp(heli.pos.x, 0, worldWidth)
       heli.pos.y = clamp(heli.pos.y, 30, height - 30)
 
-      // Rotor animation
-      heli.rotor += dt * (8 + clamp(Math.hypot(heli.vel.x, heli.vel.y) / 60, 0, 8))
+      // Rotor animation (spools up/down via X)
+      // When rotors are cut, blades keep spinning a bit during descent (autorotation).
+      const autoSpin = rotorPower < 0.2 ? clamp(heli.vel.y / 420, 0, 1) * 0.35 : 0
+      const rotorSpin = clamp(rotorPower + autoSpin, 0, 1.2)
+
+      const rotorBase = 10
+      const rotorMoveBoost = clamp(Math.hypot(heli.vel.x, heli.vel.y) / 60, 0, 8)
+      heli.rotor += dt * (rotorBase + rotorMoveBoost) * rotorSpin
 
       // Crate physics
       const crateDrag = stabilize ? 0.965 : 0.988
@@ -394,12 +428,37 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
       // Ground collisions
       const groundHHeli = groundHeightAt(heli.pos.x)
-      const heliBottom = heli.pos.y + heli.radius
-      if (heliBottom > groundHHeli) {
+      // Use the skid contact point (matches the rendered model) instead of the generic radius.
+      // This prevents the skids from visually clipping through the ground.
+      const renderScale = 1.6
+      const skidYLocal = 14
+      const skidProfile: Array<[number, number]> = [
+        [-10, skidYLocal],
+        [12, skidYLocal],
+        [16, skidYLocal - 2],
+      ]
+      const cP = Math.cos(heli.pitch)
+      const sP = Math.sin(heli.pitch)
+      let skidMaxY = -Infinity
+      for (const [x, y] of skidProfile) {
+        // rotZ: y' = x*sin(pitch) + y*cos(pitch)
+        const yRot = x * sP + y * cP
+        skidMaxY = Math.max(skidMaxY, yRot)
+      }
+      const skidBottomOffset = skidMaxY * renderScale + 2 // small cushion for line width
+      const skidBottom = heli.pos.y + skidBottomOffset
+
+      if (skidBottom > groundHHeli) {
         const impact = Math.hypot(heli.vel.x, heli.vel.y)
-        heli.pos.y = groundHHeli - heli.radius
-        heli.vel.y *= -0.15
-        heli.vel.x *= 0.6
+        heli.pos.y = groundHHeli - skidBottomOffset
+        if (rotorPower < 0.15) {
+          // With rotors cut, settle onto the skids (landing).
+          heli.vel.y = 0
+          heli.vel.x *= 0.75
+        } else {
+          heli.vel.y *= -0.15
+          heli.vel.x *= 0.6
+        }
         heli.hitFlashMs = 150
         if (impact > 220) {
           killPlayer()
@@ -438,37 +497,91 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       // Camera follows heli
       const camTarget = clamp(heli.pos.x - width * 0.45, 0, worldWidth - width)
       cameraXRef.current += (camTarget - cameraXRef.current) * (1 - Math.pow(0.001, dt))
+
+      if (dt > 0) {
+        cameraVelRef.current = (cameraXRef.current - prevCameraXRef.current) / dt
+      }
+      prevCameraXRef.current = cameraXRef.current
     }
 
     const drawGround = (ctx2: CanvasRenderingContext2D) => {
       const { width, height } = canvasSizeRef.current
       const camX = cameraXRef.current
+      const bufferPx = 260
 
-      ctx2.strokeStyle = '#00ff88'
-      ctx2.lineWidth = 2
+      // --- Foreground ground plane (collidable) ---
+      const groundY = groundHeightAt(0)
+
+      ctx2.fillStyle = 'rgba(0, 255, 136, 0.06)'
       ctx2.beginPath()
+      ctx2.moveTo(-bufferPx, height)
+      ctx2.lineTo(-bufferPx, groundY)
+      ctx2.lineTo(width + bufferPx, groundY)
+      ctx2.lineTo(width + bufferPx, height)
+      ctx2.closePath()
+      ctx2.fill()
 
-      const step = 18
-      for (let sx = 0; sx <= width + step; sx += step) {
-        const wx = camX + sx
-        const gy = groundHeightAt(wx)
-        if (sx === 0) ctx2.moveTo(sx, gy)
-        else ctx2.lineTo(sx, gy)
+      // Grounded vegetation wisps (same layer/speed as crates/objects).
+      const camVel = cameraVelRef.current
+      const speed01 = clamp(Math.abs(camVel) / 520, 0, 1)
+      const t = Date.now() / 1000
+
+      const hash01 = (n: number) => {
+        const s = Math.sin(n * 127.1 + 311.7) * 43758.5453123
+        return s - Math.floor(s)
+      }
+
+      const tuftSpacing = 26
+      const xLeftWorld = camX - bufferPx
+      const xRightWorld = camX + width + bufferPx
+      const i0 = Math.floor(xLeftWorld / tuftSpacing)
+      const i1 = Math.ceil(xRightWorld / tuftSpacing)
+
+      // Lean opposite camera movement to imply wind/speed.
+      const baseLean = clamp(-camVel / 520, -1.3, 1.3)
+      const wispAlpha = 0.10 + 0.18 * speed01
+
+      ctx2.strokeStyle = `rgba(0,255,136,${wispAlpha})`
+      ctx2.lineWidth = 1.5
+      ctx2.beginPath()
+      for (let i = i0; i <= i1; i++) {
+        const r = hash01(i)
+        // Not every slot has a tuft.
+        if (r < 0.38) continue
+
+        const wx = (i + (r - 0.5) * 0.9) * tuftSpacing
+        const x = wx - camX
+        const h = 4 + r * 10
+        const lean = baseLean * (3 + h) + (hash01(i + 9.7) - 0.5) * 2
+        const sway = Math.sin(t * (1.2 + r * 1.3) + i * 0.7) * (0.6 + 0.9 * speed01)
+
+        // A few blades per tuft.
+        const blades = 2 + Math.floor(hash01(i + 3.1) * 3)
+        for (let b = 0; b < blades; b++) {
+          const br = hash01(i * 13.7 + b * 7.3)
+          const bx = x + (br - 0.5) * 6
+          const bh = h * (0.65 + br * 0.8)
+          const bend = (lean + sway) * (0.25 + br * 0.25)
+          ctx2.moveTo(bx, groundY)
+          ctx2.lineTo(bx + bend, groundY - bh)
+        }
+
+        // Occasional longer wisp that feels like vegetation.
+        if (hash01(i + 22.9) > 0.86) {
+          const wh = h * 1.8
+          ctx2.moveTo(x, groundY)
+          ctx2.lineTo(x + (lean + sway) * 0.45, groundY - wh)
+        }
       }
       ctx2.stroke()
 
-      // Fill below ground as a dark mass
-      ctx2.fillStyle = 'rgba(0, 255, 136, 0.06)'
+      // Crisp ground line on top to "ground" everything.
+      ctx2.strokeStyle = '#00ff88'
+      ctx2.lineWidth = 2
       ctx2.beginPath()
-      ctx2.moveTo(0, height)
-      for (let sx = 0; sx <= width + step; sx += step) {
-        const wx = camX + sx
-        const gy = groundHeightAt(wx)
-        ctx2.lineTo(sx, gy)
-      }
-      ctx2.lineTo(width, height)
-      ctx2.closePath()
-      ctx2.fill()
+      ctx2.moveTo(-bufferPx, groundY)
+      ctx2.lineTo(width + bufferPx, groundY)
+      ctx2.stroke()
     }
 
     const draw = () => {
@@ -579,7 +692,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       // Helicopter 3D model (scale factor)
       const S3 = 1.6
       const bodyFill = '#000000' // Occlude background
-      const bodyStroke = heli.hitFlashMs > 0 ? '#ffffff' : '#00ff88'
+      const bodyStroke = '#ffffff'
       
       const renderables: Renderable[] = []
       const addFace = (pts: V3[], fill: string, stroke: string) => renderables.push({ type: 'poly', pts, fill, stroke })

@@ -9,6 +9,7 @@ class SoundSystem {
   private thrusting = false
 
   private repairHumPlaying = false
+  private repairHumReady = false
   private repairHumOsc: OscillatorNode | null = null
   private repairHumGain: GainNode | null = null
   private repairHumFilter: BiquadFilterNode | null = null
@@ -33,93 +34,163 @@ class SoundSystem {
     this.initialized = true
   }
 
-  startRepairHum() {
-    if (!this.ctx || this.repairHumPlaying) return
-    this.repairHumPlaying = true
-
-    const ctx = this.ctx
-    const t0 = ctx.currentTime
-
-    const osc = ctx.createOscillator()
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(110, t0)
-
-    const filter = ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.setValueAtTime(900, t0)
-    filter.Q.setValueAtTime(0.25, t0)
-
-    const gain = ctx.createGain()
-    gain.gain.setValueAtTime(0.0001, t0)
-    gain.gain.exponentialRampToValueAtTime(0.03, t0 + 0.18)
-
-    // Subtle oscillation: gentle tremolo + tiny vibrato.
-    const lfo = ctx.createOscillator()
-    lfo.type = 'sine'
-    lfo.frequency.setValueAtTime(4.6, t0)
-
-    const lfoGain = ctx.createGain()
-    lfoGain.gain.setValueAtTime(0.006, t0)
-    lfo.connect(lfoGain)
-    lfoGain.connect(gain.gain)
-
-    const vibGain = ctx.createGain()
-    vibGain.gain.setValueAtTime(1.6, t0) // Hz modulation depth
-    lfo.connect(vibGain)
-    vibGain.connect(osc.frequency)
-
-    osc.connect(filter)
-    filter.connect(gain)
-    gain.connect(ctx.destination)
-
-    osc.start(t0)
-    lfo.start(t0)
-
-    this.repairHumOsc = osc
-    this.repairHumFilter = filter
-    this.repairHumGain = gain
-    this.repairHumLfo = lfo
-    this.repairHumLfoGain = lfoGain
-    this.repairHumVibGain = vibGain
+  shutdown() {
+    // Best-effort cleanup (useful for dev/HMR and leaving the game).
+    try {
+      this.stopRepairHum(true)
+      this.stopThrust()
+      this.stopStoreMusic()
+    } catch {
+      // Ignore.
+    }
+    try {
+      this.ctx?.close()
+    } catch {
+      // Ignore.
+    }
+    this.ctx = null
+    this.initialized = false
   }
 
-  stopRepairHum() {
-    if (!this.ctx || !this.repairHumPlaying) return
-    this.repairHumPlaying = false
+  startRepairHum() {
+    if (!this.ctx) return
+    if (!this.repairHumReady) {
+      const ctx = this.ctx
+      const t0 = ctx.currentTime
+
+      const osc = ctx.createOscillator()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(110, t0)
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'lowpass'
+      filter.frequency.setValueAtTime(900, t0)
+      filter.Q.setValueAtTime(0.25, t0)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, t0)
+
+      // Subtle oscillation: gentle tremolo + tiny vibrato.
+      const lfo = ctx.createOscillator()
+      lfo.type = 'sine'
+      lfo.frequency.setValueAtTime(4.6, t0)
+
+      const lfoGain = ctx.createGain()
+      // Start with 0 tremolo depth; we'll ramp it in with the hum so it doesn't "pop" on.
+      lfoGain.gain.setValueAtTime(0, t0)
+      lfo.connect(lfoGain)
+      lfoGain.connect(gain.gain)
+
+      const vibGain = ctx.createGain()
+      vibGain.gain.setValueAtTime(1.6, t0) // Hz modulation depth
+      lfo.connect(vibGain)
+      vibGain.connect(osc.frequency)
+
+      osc.connect(filter)
+      filter.connect(gain)
+      gain.connect(ctx.destination)
+
+      osc.start(t0)
+      lfo.start(t0)
+
+      this.repairHumOsc = osc
+      this.repairHumFilter = filter
+      this.repairHumGain = gain
+      this.repairHumLfo = lfo
+      this.repairHumLfoGain = lfoGain
+      this.repairHumVibGain = vibGain
+      this.repairHumReady = true
+    }
+
+    if (this.repairHumPlaying) return
+    this.repairHumPlaying = true
 
     const t = this.ctx.currentTime
     if (this.repairHumGain) {
-      this.repairHumGain.gain.cancelScheduledValues(t)
-      this.repairHumGain.gain.setValueAtTime(Math.max(0.0001, this.repairHumGain.gain.value), t)
-      this.repairHumGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18)
+      const g = this.repairHumGain.gain
+      g.cancelScheduledValues(t)
+      // Always fade in from silence to avoid any transient if stop/start happens quickly.
+      g.setValueAtTime(0, t)
+      g.linearRampToValueAtTime(0.02, t + 0.45)
     }
 
-    const stopAt = t + 0.22
+    if (this.repairHumLfoGain) {
+      const lg = this.repairHumLfoGain.gain
+      lg.cancelScheduledValues(t)
+      lg.setValueAtTime(0, t)
+      // Ramp tremolo depth in gently; keep it subtle.
+      lg.linearRampToValueAtTime(0.004, t + 0.55)
+    }
+  }
+
+  stopRepairHum(immediate = false) {
+    if (!this.ctx || !this.repairHumReady || !this.repairHumGain) return
+
+    this.repairHumPlaying = false
+    const t = this.ctx.currentTime
+    const g = this.repairHumGain.gain
+
+    g.cancelScheduledValues(t)
+    if (immediate) {
+      g.setValueAtTime(0, t)
+    } else {
+      g.setValueAtTime(g.value, t)
+      g.setTargetAtTime(0, t, 0.04)
+    }
+
+    if (this.repairHumLfoGain) {
+      const lg = this.repairHumLfoGain.gain
+      lg.cancelScheduledValues(t)
+      if (immediate) lg.setValueAtTime(0, t)
+      else {
+        lg.setValueAtTime(lg.value, t)
+        lg.setTargetAtTime(0, t, 0.04)
+      }
+    }
+
+    if (!immediate) return
+
+    // Hard kill for safety (dev/HMR/unmount): stop and disconnect the graph.
+    const stopAt = t + 0.02
     try {
       this.repairHumOsc?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+    try {
       this.repairHumLfo?.stop(stopAt)
     } catch {
-      // Ignore double-stop.
+      // Ignore.
     }
 
-    // Disconnect to keep the audio graph tidy (and to meaningfully use these refs).
     try {
       this.repairHumVibGain?.disconnect()
+    } catch {
+      // Ignore.
+    }
+    try {
       this.repairHumLfoGain?.disconnect()
+    } catch {
+      // Ignore.
+    }
+    try {
       this.repairHumFilter?.disconnect()
+    } catch {
+      // Ignore.
+    }
+    try {
       this.repairHumGain?.disconnect()
     } catch {
-      // Ignore disconnect errors.
+      // Ignore.
     }
 
-    setTimeout(() => {
-      this.repairHumOsc = null
-      this.repairHumGain = null
-      this.repairHumFilter = null
-      this.repairHumLfo = null
-      this.repairHumLfoGain = null
-      this.repairHumVibGain = null
-    }, 320)
+    this.repairHumOsc = null
+    this.repairHumGain = null
+    this.repairHumFilter = null
+    this.repairHumLfo = null
+    this.repairHumLfoGain = null
+    this.repairHumVibGain = null
+    this.repairHumReady = false
   }
 
   startStoreMusic() {
@@ -601,6 +672,17 @@ class SoundSystem {
 
 const sounds = new SoundSystem()
 
+// Dev-only: ensure hot reloads don't leave looping WebAudio nodes running.
+if (import.meta && (import.meta as any).hot) {
+  ;(import.meta as any).hot.dispose(() => {
+    try {
+      sounds.shutdown()
+    } catch {
+      // Ignore.
+    }
+  })
+}
+
 interface Vector2 {
   x: number
   y: number
@@ -810,12 +892,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'store' | 'dying' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
   const [shields, setShields] = useState(2)
+  const shieldsRef = useRef(shields)
   const [level, setLevel] = useState(1)
   const [gravityCharges, setGravityCharges] = useState(0)
   const [stasisCharges, setStasisCharges] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
   const [storeIndex, setStoreIndex] = useState(0)
+
+  useEffect(() => {
+    shieldsRef.current = shields
+  }, [shields])
 
   useEffect(() => {
     // Ensure continuous audio loops don't get stuck across state transitions.
@@ -845,7 +932,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const baseShotsRef = useRef<BaseShot[]>([])
   const debrisRef = useRef<Debris[]>([])
   const keysRef = useRef<Set<string>>(new Set())
-  const animationFrameRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
   const invulnerableRef = useRef(0)
   const lastShieldHitAtRef = useRef(0)
@@ -1126,6 +1212,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     bulletsRef.current = []
     baseShotsRef.current = []
     setScore(0)
+    shieldsRef.current = 2
     setShields(2)
     setLevel(1)
     resetBlueRocksForLevel(1)
@@ -1233,6 +1320,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     menuSceneInitializedRef.current = true
 
     // Reset visuals.
+    shieldsRef.current = 2
     setShields(2)
     miningBaseAngleRef.current = 0
     debrisRef.current = []
@@ -1699,6 +1787,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           // Starts at 2 and ticks down (by the same impact amounts as the old damage system).
           // Once shields are gone, the next hit destroys the ship.
           if (s <= 0) {
+            shieldsRef.current = 0
             createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 18, 1.2, '255, 255, 255')
             createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 10, 1.0, '255, 170, 0')
             sounds.explosion('large')
@@ -1710,6 +1799,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
 
           const next = Math.max(0, s - amt)
+          shieldsRef.current = next
           if (next < s) {
             lastShieldHitAtRef.current = Date.now()
             if (!shieldSoundPlayed) {
@@ -2110,15 +2200,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                   shieldChargePlayed = true
                   sounds.shieldCharge()
                 }
+                shieldsRef.current = 2
                 return 2
               })
               if (invulnerableRef.current < 120) invulnerableRef.current = 120
             }
           }
 
-          const healingActive = fullyInside && shields < 2 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
-          if (healingActive) sounds.startRepairHum()
-          else sounds.stopRepairHum()
         }
       }
 
@@ -3492,7 +3580,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
           const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, width, height)
           const fullyInside = circleFullyInHexLocal(d.dx, d.dy, ship.radius)
-          isHealing = fullyInside && shields < 2 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
+          isHealing =
+            fullyInside &&
+            shieldsRef.current < 2 &&
+            shipRepairTimeRef.current > 0 &&
+            shipRepairTimeRef.current < 2
+        }
+
+        // Audio should match what the player sees: only play the hum while the healing halo is visible.
+        if (gameState === 'playing') {
+          if (isHealing) sounds.startRepairHum()
+          else sounds.stopRepairHum()
         }
 
         ctx.save()
@@ -3735,23 +3833,26 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       ctx.restore()
     }
 
+    let rafId: number | null = null
+    let disposed = false
     const animate = (timestamp: number) => {
+      if (disposed) return
       const dt = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1)
       lastTimeRef.current = timestamp
 
       update(dt)
       draw()
 
-      animationFrameRef.current = requestAnimationFrame(animate)
+      if (!disposed) rafId = requestAnimationFrame(animate)
     }
 
-    animationFrameRef.current = requestAnimationFrame(animate)
+    rafId = requestAnimationFrame(animate)
 
     return () => {
+      disposed = true
       window.removeEventListener('resize', resize)
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
-      }
+      if (rafId != null) cancelAnimationFrame(rafId)
+      sounds.stopRepairHum(true)
     }
   }, [gameState, shields, createRock, createDebris, spawnRocks])
 

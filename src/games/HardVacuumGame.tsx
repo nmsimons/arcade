@@ -8,10 +8,276 @@ class SoundSystem {
   private thrustNoise: AudioBufferSourceNode | null = null
   private thrusting = false
 
+  private repairHumPlaying = false
+  private repairHumOsc: OscillatorNode | null = null
+  private repairHumGain: GainNode | null = null
+  private repairHumFilter: BiquadFilterNode | null = null
+  private repairHumLfo: OscillatorNode | null = null
+  private repairHumLfoGain: GainNode | null = null
+  private repairHumVibGain: GainNode | null = null
+
+  private storeMasterGain: GainNode | null = null
+  private storeFilter: BiquadFilterNode | null = null
+  private storeMelOsc: OscillatorNode | null = null
+  private storeBassOsc: OscillatorNode | null = null
+  private storeMelGain: GainNode | null = null
+  private storeBassGain: GainNode | null = null
+  private storeSeqTimer: number | null = null
+  private storeSeqNextTime = 0
+  private storeSeqStep = 0
+  private storePlaying = false
+
   init() {
     if (this.initialized) return
     this.ctx = new AudioContext()
     this.initialized = true
+  }
+
+  startRepairHum() {
+    if (!this.ctx || this.repairHumPlaying) return
+    this.repairHumPlaying = true
+
+    const ctx = this.ctx
+    const t0 = ctx.currentTime
+
+    const osc = ctx.createOscillator()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(110, t0)
+
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(900, t0)
+    filter.Q.setValueAtTime(0.25, t0)
+
+    const gain = ctx.createGain()
+    gain.gain.setValueAtTime(0.0001, t0)
+    gain.gain.exponentialRampToValueAtTime(0.03, t0 + 0.18)
+
+    // Subtle oscillation: gentle tremolo + tiny vibrato.
+    const lfo = ctx.createOscillator()
+    lfo.type = 'sine'
+    lfo.frequency.setValueAtTime(4.6, t0)
+
+    const lfoGain = ctx.createGain()
+    lfoGain.gain.setValueAtTime(0.006, t0)
+    lfo.connect(lfoGain)
+    lfoGain.connect(gain.gain)
+
+    const vibGain = ctx.createGain()
+    vibGain.gain.setValueAtTime(1.6, t0) // Hz modulation depth
+    lfo.connect(vibGain)
+    vibGain.connect(osc.frequency)
+
+    osc.connect(filter)
+    filter.connect(gain)
+    gain.connect(ctx.destination)
+
+    osc.start(t0)
+    lfo.start(t0)
+
+    this.repairHumOsc = osc
+    this.repairHumFilter = filter
+    this.repairHumGain = gain
+    this.repairHumLfo = lfo
+    this.repairHumLfoGain = lfoGain
+    this.repairHumVibGain = vibGain
+  }
+
+  stopRepairHum() {
+    if (!this.ctx || !this.repairHumPlaying) return
+    this.repairHumPlaying = false
+
+    const t = this.ctx.currentTime
+    if (this.repairHumGain) {
+      this.repairHumGain.gain.cancelScheduledValues(t)
+      this.repairHumGain.gain.setValueAtTime(Math.max(0.0001, this.repairHumGain.gain.value), t)
+      this.repairHumGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.18)
+    }
+
+    const stopAt = t + 0.22
+    try {
+      this.repairHumOsc?.stop(stopAt)
+      this.repairHumLfo?.stop(stopAt)
+    } catch {
+      // Ignore double-stop.
+    }
+
+    setTimeout(() => {
+      this.repairHumOsc = null
+      this.repairHumGain = null
+      this.repairHumFilter = null
+      this.repairHumLfo = null
+      this.repairHumLfoGain = null
+      this.repairHumVibGain = null
+    }, 320)
+  }
+
+  startStoreMusic() {
+    if (!this.ctx || this.storePlaying) return
+    this.storePlaying = true
+
+    const ctx = this.ctx
+    const t0 = ctx.currentTime
+
+    // Cheery chiptune loop: square-ish lead + triangle bass.
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.setValueAtTime(2400, t0)
+    filter.Q.setValueAtTime(0.35, t0)
+
+    const master = ctx.createGain()
+    master.gain.setValueAtTime(0.0001, t0)
+    master.gain.exponentialRampToValueAtTime(0.07, t0 + 0.28)
+
+    const melOsc = ctx.createOscillator()
+    melOsc.type = 'square'
+    const melGain = ctx.createGain()
+    melGain.gain.setValueAtTime(0.0001, t0)
+
+    const bassOsc = ctx.createOscillator()
+    bassOsc.type = 'triangle'
+    const bassGain = ctx.createGain()
+    bassGain.gain.setValueAtTime(0.0001, t0)
+
+    melOsc.connect(melGain)
+    bassOsc.connect(bassGain)
+    melGain.connect(filter)
+    bassGain.connect(filter)
+    filter.connect(master)
+    master.connect(ctx.destination)
+
+    melOsc.start(t0)
+    bassOsc.start(t0)
+
+    // Note helpers
+    const hz = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12)
+
+    // C major-ish feel.
+    // Melody is a 2-bar pattern of 16th steps; null means rest.
+    const melody: Array<number | null> = [
+      72,
+      null,
+      76,
+      null,
+      79,
+      null,
+      81,
+      null,
+      79,
+      null,
+      76,
+      null,
+      74,
+      null,
+      76,
+      null,
+
+      79,
+      null,
+      81,
+      null,
+      83,
+      null,
+      81,
+      null,
+      79,
+      null,
+      76,
+      null,
+      72,
+      null,
+      74,
+      null,
+    ]
+
+    // Bass: quarter notes over two bars (C - F - G - C).
+    const bass: number[] = [48, 53, 55, 48, 48, 53, 55, 48]
+
+    const bpm = 132
+    const step = (60 / bpm) / 4 // 16th notes
+    const scheduleAhead = 0.7
+    const tickMs = 120
+
+    this.storeSeqStep = 0
+    this.storeSeqNextTime = ctx.currentTime + 0.05
+
+    const scheduleStep = (stepIndex: number, time: number) => {
+      const m = melody[stepIndex % melody.length]
+      if (m != null) {
+        melOsc.frequency.setValueAtTime(hz(m), time)
+        melGain.gain.setValueAtTime(0.0001, time)
+        melGain.gain.exponentialRampToValueAtTime(0.12, time + 0.01)
+        melGain.gain.exponentialRampToValueAtTime(0.0001, time + step * 0.92)
+      } else {
+        melGain.gain.setValueAtTime(0.0001, time)
+      }
+
+      // Bass on quarter notes.
+      if (stepIndex % 4 === 0) {
+        const qi = Math.floor(stepIndex / 4) % bass.length
+        const b = bass[qi]
+        bassOsc.frequency.setValueAtTime(hz(b), time)
+        bassGain.gain.setValueAtTime(0.0001, time)
+        bassGain.gain.exponentialRampToValueAtTime(0.09, time + 0.015)
+        bassGain.gain.exponentialRampToValueAtTime(0.0001, time + step * 3.85)
+      }
+    }
+
+    const tick = () => {
+      if (!this.ctx || !this.storePlaying) return
+      const now = this.ctx.currentTime
+      const until = now + scheduleAhead
+      while (this.storeSeqNextTime < until) {
+        scheduleStep(this.storeSeqStep, this.storeSeqNextTime)
+        this.storeSeqNextTime += step
+        this.storeSeqStep += 1
+      }
+    }
+
+    tick()
+    this.storeSeqTimer = window.setInterval(tick, tickMs)
+
+    this.storeFilter = filter
+    this.storeMasterGain = master
+    this.storeMelOsc = melOsc
+    this.storeBassOsc = bassOsc
+    this.storeMelGain = melGain
+    this.storeBassGain = bassGain
+  }
+
+  stopStoreMusic() {
+    if (!this.ctx || !this.storePlaying) return
+    this.storePlaying = false
+
+    if (this.storeSeqTimer != null) {
+      window.clearInterval(this.storeSeqTimer)
+      this.storeSeqTimer = null
+    }
+
+    const t = this.ctx.currentTime
+    if (this.storeMasterGain) {
+      // Fade out quickly to avoid clicks.
+      this.storeMasterGain.gain.cancelScheduledValues(t)
+      this.storeMasterGain.gain.setValueAtTime(Math.max(0.0001, this.storeMasterGain.gain.value), t)
+      this.storeMasterGain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+    }
+
+    const stopAt = t + 0.25
+    try {
+      this.storeMelOsc?.stop(stopAt)
+      this.storeBassOsc?.stop(stopAt)
+    } catch {
+      // Ignore double-stop.
+    }
+
+    setTimeout(() => {
+      this.storeMelOsc = null
+      this.storeBassOsc = null
+      this.storeMelGain = null
+      this.storeBassGain = null
+      this.storeFilter = null
+      this.storeMasterGain = null
+    }, 350)
   }
 
   shoot() {
@@ -531,6 +797,22 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [gameOverIndex, setGameOverIndex] = useState(0)
   const [storeIndex, setStoreIndex] = useState(0)
 
+  useEffect(() => {
+    // Ensure continuous audio loops don't get stuck across state transitions.
+    if (gameState !== 'playing') sounds.stopThrust()
+    if (gameState !== 'playing') sounds.stopRepairHum()
+
+    if (gameState === 'store') sounds.startStoreMusic()
+    else sounds.stopStoreMusic()
+
+    return () => {
+      // Ensure no loop persists across unmount / StrictMode re-mounts.
+      sounds.stopThrust()
+      sounds.stopStoreMusic()
+      sounds.stopRepairHum()
+    }
+  }, [gameState])
+
   const SHIP_RADIUS = 15
   const SMALLEST_ROCK_RADIUS = 20
   const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: SHIP_RADIUS })
@@ -816,6 +1098,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   const startGame = useCallback(() => {
     sounds.init()
+    sounds.stopStoreMusic()
     const { width, height } = canvasSizeRef.current
     shipRef.current = { pos: { x: width / 2, y: height / 2 }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
     rocksRef.current = []
@@ -1812,6 +2095,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               if (invulnerableRef.current < 120) invulnerableRef.current = 120
             }
           }
+
+          const healingActive = fullyInside && shields < 2 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
+          if (healingActive) sounds.startRepairHum()
+          else sounds.stopRepairHum()
         }
       }
 
@@ -3110,6 +3397,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (gameState === 'playing' || gameState === 'store' || gameState === 'menu') {
         const ship = shipRef.current
 
+        // Used for the shield-repair halo. Computed in world space, drawn in ship-local space.
+        let isHealing = false
+
         // Powerup activation pulses (visible): ring expands outward from the ship.
         {
           const now = Date.now()
@@ -3180,34 +3470,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
           const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, width, height)
           const fullyInside = circleFullyInHexLocal(d.dx, d.dy, ship.radius)
-          const isHealing = fullyInside && shields < 2 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
-
-          if (isHealing) {
-            const t = Date.now() / 1000
-            const pulse = 0.5 + 0.5 * Math.sin(t * 5)
-            const r1 = ship.radius + 10 + pulse * 6
-            const r2 = ship.radius + 18 + pulse * 8
-
-            ctx.save()
-            ctx.globalAlpha = 0.85
-            ctx.strokeStyle = `rgba(0,255,136,${0.22 + pulse * 0.18})`
-            ctx.lineWidth = 3
-            ctx.shadowColor = 'rgba(0,255,136,0.55)'
-            ctx.shadowBlur = 18
-            ctx.beginPath()
-            ctx.arc(ship.pos.x, ship.pos.y, r1, 0, Math.PI * 2)
-            ctx.stroke()
-
-            ctx.shadowBlur = 0
-            ctx.globalAlpha = 0.6
-            ctx.strokeStyle = `rgba(0,255,136,${0.14 + pulse * 0.14})`
-            ctx.lineWidth = 1.6
-            ctx.beginPath()
-            ctx.arc(ship.pos.x, ship.pos.y, r2, 0, Math.PI * 2)
-            ctx.stroke()
-
-            ctx.restore()
-          }
+          isHealing = fullyInside && shields < 2 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
         }
 
         ctx.save()
@@ -3234,6 +3497,73 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const bodyHalf = 10 * s
           const podOutY = 9 * s
           const podRearY = 4.5 * s
+
+          // Shield recharge halo: mimic the shield silhouette but further out.
+          if (isHealing) {
+            const haloGap = 24
+            const haloNoseX = noseX + 4 * s
+            const haloNotchX = tailX + 6 * s
+            const haloHull: Vector2[] = [
+              { x: haloNoseX, y: 0 },
+              { x: midX, y: -bodyHalf },
+              { x: -10 * s, y: -podOutY },
+              { x: tailX, y: -podRearY },
+              { x: haloNotchX, y: 0 },
+              { x: tailX, y: podRearY },
+              { x: -10 * s, y: podOutY },
+              { x: midX, y: bodyHalf },
+            ]
+
+            const expandHullByGap = (gap: number) =>
+              haloHull.map((p) => {
+                const len = Math.hypot(p.x, p.y)
+                if (len < 1e-6) return p
+                const k = 1 + gap / len
+                return { x: p.x * k, y: p.y * k }
+              })
+
+            // Bumper Ball goal vibe: multiple rings rushing inward, thicker/brighter near center.
+            const healT = clamp(shipRepairTimeRef.current / 2, 0, 1)
+            const intensity = 0.4 + 0.35 * healT
+            const now = Date.now() / 1000
+
+            const base = expandHullByGap(haloGap)
+            ctx.save()
+            ctx.strokeStyle = '#00ff88'
+            ctx.lineJoin = 'round'
+            ctx.lineCap = 'round'
+            ctx.shadowColor = 'rgba(0, 255, 136, 0.55)'
+            ctx.shadowBlur = 9
+            ctx.globalAlpha = 0.09 * intensity
+            ctx.lineWidth = 1.6
+            ctx.beginPath()
+            ctx.moveTo(base[0].x, base[0].y)
+            for (let i = 1; i < base.length; i++) ctx.lineTo(base[i].x, base[i].y)
+            ctx.closePath()
+            ctx.stroke()
+
+            const rippleCount = 2
+            const cycleSec = 0.85
+            const outerExtra = 58
+            for (let i = 0; i < rippleCount; i++) {
+              const t = ((now / cycleSec) + i / rippleCount) % 1 // 0..1
+              // Start wide and rush inward to the halo outline.
+              const rippleGap = haloGap + outerExtra * (1 - t)
+              const progress = t // 0 outer -> 1 near center
+              const ring = expandHullByGap(rippleGap)
+
+              ctx.shadowBlur = 6 + 12 * progress
+              ctx.globalAlpha = (0.035 + 0.18 * progress) * intensity
+              ctx.lineWidth = 0.9 + 2.2 * progress
+              ctx.beginPath()
+              ctx.moveTo(ring[0].x, ring[0].y)
+              for (let j = 1; j < ring.length; j++) ctx.lineTo(ring[j].x, ring[j].y)
+              ctx.closePath()
+              ctx.stroke()
+            }
+
+            ctx.restore()
+          }
 
           // Shield indicator outline (visual-only): an outline around the hull with a small gap.
           if (shields > 0) {
@@ -3403,6 +3733,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   const exitToGameSelect = () => {
     sounds.stopThrust()
+    sounds.stopStoreMusic()
     onExit()
   }
 

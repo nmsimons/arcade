@@ -356,6 +356,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   }, [resetWorld])
 
   useEffect(() => {
+    if (gameState !== 'menu') return
+    resetWorld()
+  }, [gameState, resetWorld])
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key.toLowerCase())
 
@@ -502,6 +507,10 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         { name: 'BRAVO', pad: { x: xs[1], width: 180 } },
         { name: 'CHARLIE', pad: { x: xs[2], width: 180 } },
       ]
+
+      if (gameState === 'menu') {
+        resetWorld()
+      }
     }
 
     resize()
@@ -1934,9 +1943,9 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       <canvas ref={canvasRef} className="absolute inset-0" />
 
       {gameState === 'menu' && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Sling Load</h1>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="text-center max-w-md px-8">
+            <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] uppercase">Sling Load</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2"><span className="text-white">›</span> Arrows / WASD: Thrust</div>
               <div className="flex items-center gap-2"><span className="text-white">›</span> Space: Hook / Release</div>
@@ -1944,10 +1953,10 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
               <div className="flex items-center gap-2"><span className="text-white">›</span> Shift: Stabilize (damping)</div>
               <div className="flex items-center gap-2"><span className="text-white">›</span> P: Pause</div>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
@@ -1957,7 +1966,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
               </button>
               <button
                 onClick={onExit}
-                className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
@@ -1973,19 +1982,19 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
       {gameState === 'paused' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-            <h2 className="text-3xl text-[#00ff88] mb-6 text-center tracking-[0.3em] uppercase">Paused</h2>
+          <div className="text-center max-w-md px-8">
+            <h2 className="text-4xl text-[#00ff88] mb-4 tracking-[0.3em] uppercase">Paused</h2>
             <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={() => setGameState('playing')}
-                className="w-full border-2 border-[#00ff88] text-[#00ff88] py-3 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Resume
               </button>
               <button
                 onClick={onExit}
-                className="w-full border-2 border-[#00ff88] text-[#00ff88] py-3 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Back
               </button>
@@ -1995,37 +2004,37 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       )}
 
       {gameState === 'gameOver' && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-            <h1 className="text-4xl text-[#00ff88] mb-4 text-center tracking-[0.3em] uppercase">Game Over</h1>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="text-center max-w-md px-8">
+            <h1 className="text-4xl text-[#00ff88] mb-2 tracking-[0.3em] uppercase">Game Over</h1>
             <div className="text-[#00ff88] text-sm mb-8 tracking-wider text-center">
               <div>Score {score.toString().padStart(6, '0')}</div>
               <div>Delivered {deliveries}</div>
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
-                Retry
+                Play Again
               </button>
               <button
                 onClick={() => setGameState('menu')}
-                className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
-                Menu
+                Main Menu
               </button>
               <button
                 onClick={onExit}
-                className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 2
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'

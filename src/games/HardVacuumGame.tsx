@@ -3592,7 +3592,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             const shieldNoseX = noseX + 4 * s
             const shieldNotchX = tailX + 6 * s
 
-            const shieldDamaged = shields < 2
+            const shieldDamaged = shields <= 0
             const hitAgeMs = Date.now() - lastShieldHitAtRef.current
             const flashActive = hitAgeMs >= 0 && hitAgeMs < 220
             const flashAlpha = flashActive ? (Math.floor(hitAgeMs / 60) % 2 === 0 ? 1 : 0.18) : 1
@@ -3601,12 +3601,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             const rechargeFadeAlpha =
               !shieldDamaged && rechargeAgeMs >= 0 && rechargeAgeMs < 160 ? clamp(rechargeAgeMs / 160, 0, 1) : 1
 
-            // Once damaged, the shield becomes thinner and orange.
+            // Only when the shield is fully down does it become thinner and orange.
             // It flashes only at the moment it's damaged.
             const shieldColor = shieldDamaged ? '#ffaa00' : '#00ff88'
             const shieldGlow = shieldDamaged ? 'rgba(255, 170, 0, 0.7)' : 'rgba(0, 255, 136, 0.75)'
-            const shieldLineWidth = shieldDamaged ? 1.4 : 2.2
-            const shieldBlur = (shieldDamaged ? 8 : 14) + shieldFrac * (shieldDamaged ? 10 : 14)
+            const shieldLow = shields < 2
+            // Slightly thinner when weakened (1 shield), but keep the green color.
+            const shieldLineWidth = shieldDamaged ? 1.4 : shieldLow ? 1.7 : 2.2
+            const shieldBlur = (shieldDamaged ? 8 : shieldLow ? 12 : 14) + shieldFrac * (shieldDamaged ? 10 : 14)
             const hull: Vector2[] = [
               { x: shieldNoseX, y: 0 },
               { x: midX, y: -bodyHalf },

@@ -1952,16 +1952,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       ctx.fillStyle = '#0a0a0a'
       ctx.fillRect(0, 0, width, height)
 
-      // Subtle scanline haze (shared retro background feel)
-      ctx.save()
-      ctx.globalAlpha = 0.06
-      ctx.fillStyle = '#00ff88'
-      const scanY = ((Date.now() / 1000) * 60) % 12
-      for (let y = -12; y < height + 12; y += 12) {
-        ctx.fillRect(0, y + scanY, width, 1)
-      }
-      ctx.restore()
-
       // Draw mining base (center) behind rocks.
       {
         const cx = width / 2
@@ -2366,13 +2356,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         ctx.save()
         ctx.translate(rock.pos.x, rock.pos.y)
 
-        // Opaque black body fill so the interior isn't visually transparent.
+        // Opaque body fill so the interior isn't visually transparent.
         {
           ctx.save()
           ctx.globalAlpha = 1
           ctx.shadowBlur = 0
           ctx.shadowColor = 'rgba(0, 0, 0, 0)'
-          ctx.fillStyle = '#000'
+          ctx.fillStyle = '#0a0a0a'
 
           // Painter's algorithm: far-to-near to reduce overdraw artifacts.
           const facesFill = [...faces2].sort((a, b) => a.z - b.z)
@@ -2608,12 +2598,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           ctx.lineTo(midX, bodyHalf)
           ctx.closePath()
 
-          // Opaque black fill so the interior isn't visually transparent.
+          // Opaque body fill so the interior isn't visually transparent.
           ctx.save()
           ctx.globalAlpha = 1
           ctx.shadowBlur = 0
           ctx.shadowColor = 'rgba(0, 0, 0, 0)'
-          ctx.fillStyle = '#000'
+          ctx.fillStyle = '#0a0a0a'
           ctx.fill()
           ctx.restore()
 
@@ -2673,6 +2663,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
           ctx.restore()
       }
+
+      // Subtle scanline haze (shared retro background feel)
+      // Draw at the end so it overlays ships/rocks too.
+      ctx.save()
+      ctx.globalAlpha = 0.06
+      ctx.fillStyle = '#00ff88'
+      const scanY = ((Date.now() / 1000) * 60) % 12
+      for (let y = -12; y < height + 12; y += 12) {
+        ctx.fillRect(0, y + scanY, width, 1)
+      }
+      ctx.restore()
     }
 
     const animate = (timestamp: number) => {

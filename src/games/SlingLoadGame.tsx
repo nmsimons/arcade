@@ -359,17 +359,23 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key.toLowerCase())
 
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onExit()
+        return
+      }
+
       // Rotor toggle (full <-> almost-off). A tiny amount remains for autorotation.
       if (!e.repeat && e.key.toLowerCase() === 'x' && gameState === 'playing') {
         rotorTargetRef.current = rotorTargetRef.current > 0.5 ? 0 : 1
       }
 
       // Pause
-      if ((e.key === 'p' || e.key === 'Escape') && gameState === 'playing') {
+      if (e.key === 'p' && gameState === 'playing') {
         setGameState('paused')
         return
       }
-      if ((e.key === 'p' || e.key === 'Escape') && gameState === 'paused') {
+      if (e.key === 'p' && gameState === 'paused') {
         setGameState('playing')
         return
       }
@@ -1891,21 +1897,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
         // Minimal instructions
         ctx.fillStyle = 'rgba(0,255,136,0.65)'
-        ctx.fillText('ARROWS/WASD: THRUST  •  SPACE: HOOK/RELEASE  •  SHIFT: STABILIZE  •  P: PAUSE', 16, height - 18)
-      }
-
-      // Pause overlay
-      if (gameState === 'paused') {
-        ctx.fillStyle = 'rgba(0,0,0,0.6)'
-        ctx.fillRect(0, 0, width, height)
-        ctx.strokeStyle = '#00ff88'
-        ctx.lineWidth = 2
-        ctx.strokeRect(width / 2 - 180, height / 2 - 90, 360, 180)
-        ctx.fillStyle = '#00ff88'
-        ctx.font = '24px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-        ctx.fillText('PAUSED', width / 2 - 54, height / 2 - 30)
-        ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
-        ctx.fillText('Press P or Esc to resume', width / 2 - 96, height / 2 + 10)
+        ctx.fillText('ARROWS/WASD: THRUST  •  SPACE: HOOK/RELEASE  •  SHIFT: STABILIZE  •  P: PAUSE  •  ESC: EXIT', 16, height - 18)
       }
     }
 
@@ -1974,7 +1966,30 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 Back
               </button>
             </div>
-            <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ to select • Enter to confirm</p>
+            <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ to select • Enter to confirm • Esc to exit</p>
+          </div>
+        </div>
+      )}
+
+      {gameState === 'paused' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
+            <h2 className="text-3xl text-[#00ff88] mb-6 text-center tracking-[0.3em] uppercase">Paused</h2>
+            <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setGameState('playing')}
+                className="w-full border-2 border-[#00ff88] text-[#00ff88] py-3 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+              >
+                Resume
+              </button>
+              <button
+                onClick={onExit}
+                className="w-full border-2 border-[#00ff88] text-[#00ff88] py-3 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+              >
+                Back
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2019,7 +2034,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 Back
               </button>
             </div>
-            <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ to select • Enter to confirm</p>
+            <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ to select • Enter to confirm • Esc to exit</p>
           </div>
         </div>
       )}

@@ -688,6 +688,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key.toLowerCase())
+
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onExit()
+        return
+      }
+
       if (e.key === ' ' && gameState === 'playing') {
         e.preventDefault()
         const ship = shipRef.current
@@ -703,9 +710,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         bulletsRef.current.push(bullet)
         sounds.shoot()
       }
-      if ((e.key === 'p' || e.key === 'Escape') && gameState === 'playing') {
+      if (e.key.toLowerCase() === 'p' && gameState === 'playing') {
         setGameState('paused')
-      } else if ((e.key === 'p' || e.key === 'Escape') && gameState === 'paused') {
+      } else if (e.key.toLowerCase() === 'p' && gameState === 'paused') {
         setGameState('playing')
       }
 
@@ -2564,7 +2571,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                 Back
               </button>
             </div>
-            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • Enter to confirm</p>
+            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • Enter to confirm • Esc to exit</p>
           </div>
         </div>
       )}
@@ -2574,13 +2581,21 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         <div className="absolute inset-0 flex items-center justify-center bg-black/70">
           <div className="border-2 border-[#00ff88] bg-black p-8">
             <h2 className="text-3xl text-[#00ff88] mb-6 text-center tracking-[0.3em] uppercase">Paused</h2>
-            <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume</p>
-            <button
-              onClick={exitToGameSelect}
-              className="w-full border-2 border-[#ff4444] text-[#ff4444] py-3 uppercase tracking-widest hover:bg-[#ff4444] hover:text-black transition-colors"
-            >
-              Quit to Game Select
-            </button>
+            <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setGameState('playing')}
+                className="w-full border-2 border-[#00ff88] text-[#00ff88] py-3 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+              >
+                Resume
+              </button>
+              <button
+                onClick={exitToGameSelect}
+                className="w-full border-2 border-[#00ff88] text-[#00ff88] py-3 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+              >
+                Back
+              </button>
+            </div>
           </div>
         </div>
       )}

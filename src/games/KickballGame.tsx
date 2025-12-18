@@ -370,9 +370,15 @@ export function KickballGame({ onExit }: KickballGameProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key.toLowerCase())
 
-      if ((e.key === 'p' || e.key === 'Escape') && gameState === 'playing') {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onExit()
+        return
+      }
+
+      if (e.key === 'p' && gameState === 'playing') {
         setGameState('paused')
-      } else if ((e.key === 'p' || e.key === 'Escape') && gameState === 'paused') {
+      } else if (e.key === 'p' && gameState === 'paused') {
         setGameState('playing')
       }
 
@@ -2189,7 +2195,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] font-mono">BUMPER BALL</h1>
             <p className="text-[#00ff88]/60 text-sm mb-8 tracking-widest">BUMP THE BALL INTO THE GOAL</p>
             <div className="flex flex-col gap-3">
-              {['1 Player', '2 Players', 'Exit'].map((label, i) => (
+              {['1 Player', '2 Players', 'Back'].map((label, i) => (
                 <button
                   key={label}
                   onClick={() => {
@@ -2211,6 +2217,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
               <p>1P: Arrow Keys to move</p>
               <p className="mt-1">2P: WASD + Arrows</p>
               <p className="mt-1">Highest score wins.</p>
+              <p className="mt-2">Press Esc to exit</p>
             </div>
           </div>
         </div>
@@ -2221,7 +2228,25 @@ export function KickballGame({ onExit }: KickballGameProps) {
         <div className="absolute inset-0 flex items-center justify-center bg-black/80">
           <div className="text-center">
             <h2 className="text-4xl text-[#00ff88] mb-4 tracking-[0.3em] font-mono">PAUSED</h2>
-            <p className="text-[#00ff88]/60 text-sm tracking-widest">Press P or ESC to resume</p>
+            <p className="text-[#00ff88]/60 text-sm mb-6 tracking-widest">Press P to resume • Press Esc to exit</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => setGameState('playing')}
+                className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
+                  'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                }`}
+              >
+                Resume
+              </button>
+              <button
+                onClick={onExit}
+                className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
+                  'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                }`}
+              >
+                Back
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2242,7 +2267,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
               Final Score: <span className="text-[#ff4444]">{redScore}</span> - <span className="text-[#4444ff]">{blueScore}</span>
             </p>
             <div className="flex flex-col gap-3">
-              {['Play Again', 'Main Menu', 'Exit'].map((label, i) => (
+              {['Play Again', 'Main Menu', 'Back'].map((label, i) => (
                 <button
                   key={label}
                   onClick={() => {

@@ -236,6 +236,38 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
   })
   const respawnTimerRef = useRef(0)
   const waveCompleteRef = useRef(false)
+  const starFieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  const ensureStarField = useCallback((width: number, height: number) => {
+    if (starFieldCanvasRef.current && 
+        starFieldCanvasRef.current.width === width && 
+        starFieldCanvasRef.current.height === height) {
+      return starFieldCanvasRef.current
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    // Draw stars
+    ctx.fillStyle = '#ffffff'
+    for (let i = 0; i < 200; i++) {
+      const x = Math.random() * width
+      const y = Math.random() * height
+      const size = Math.random() * 1.5
+      const alpha = Math.random() * 0.5 + 0.1
+      ctx.globalAlpha = alpha
+      ctx.beginPath()
+      ctx.arc(x, y, size, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    ctx.globalAlpha = 1.0
+    
+    starFieldCanvasRef.current = canvas
+    return canvas
+  }, [])
 
   const createDebris = useCallback(
     (x: number, y: number, velX: number, velY: number, count: number = 8, color: string = '0, 255, 136') => {
@@ -745,28 +777,21 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
     }
 
     const draw = () => {
-      const { width, height } = canvasSizeRef.current
       const arena = arenaRef.current
 
       // Clear
-      ctx.fillStyle = '#0a0a0a'
-      ctx.fillRect(0, 0, width, height)
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      // Subtle scanline haze
-      ctx.save()
-      ctx.globalAlpha = 0.06
-      ctx.fillStyle = '#00ff88'
-      const scanY = ((Date.now() / 1000) * 60) % 12
-      for (let y = -12; y < height + 12; y += 12) {
-        ctx.fillRect(0, y + scanY, width, 1)
+      // Draw Starfield
+      const starField = ensureStarField(canvas.width, canvas.height)
+      if (starField) {
+        ctx.drawImage(starField, 0, 0)
       }
-      ctx.restore()
-
-      // Draw arena walls
-      ctx.strokeStyle = '#00ff88'
-      ctx.lineWidth = 3
 
       // Outer walls
+      ctx.strokeStyle = '#00ff88'
+      ctx.lineWidth = 2
       ctx.strokeRect(arena.outer.left, arena.outer.top, arena.outer.right - arena.outer.left, arena.outer.bottom - arena.outer.top)
 
       // Inner barrier
@@ -792,40 +817,70 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
         ctx.translate(enemy.pos.x, enemy.pos.y)
         ctx.rotate(enemy.angle)
 
+        // Opaque fill to block stars
+        ctx.fillStyle = '#0a0a0a'
+        ctx.beginPath()
+        ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2)
+        ctx.fill()
+
         if (enemy.type === 'droid') {
+          // Droid: Spiky mine shape
           ctx.strokeStyle = '#ff4444'
           ctx.lineWidth = 2
           ctx.beginPath()
-          ctx.moveTo(enemy.radius, 0)
-          for (let i = 1; i <= 6; i++) {
-            const a = (i / 6) * Math.PI * 2
-            ctx.lineTo(Math.cos(a) * enemy.radius, Math.sin(a) * enemy.radius)
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2
+            const r = i % 2 === 0 ? enemy.radius : enemy.radius * 0.5
+            if (i === 0) ctx.moveTo(Math.cos(angle) * r, Math.sin(angle) * r)
+            else ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r)
           }
+          ctx.closePath()
+          ctx.stroke()
+          
+          // Inner detail
+          ctx.beginPath()
+          ctx.arc(0, 0, enemy.radius * 0.3, 0, Math.PI * 2)
           ctx.stroke()
         } else if (enemy.type === 'chaser') {
+          // Chaser: Aggressive dart/fighter
           ctx.strokeStyle = '#ffaa00'
           ctx.lineWidth = 2
           ctx.beginPath()
           ctx.moveTo(enemy.radius, 0)
-          ctx.lineTo(-enemy.radius * 0.7, -enemy.radius * 0.7)
-          ctx.lineTo(-enemy.radius * 0.3, 0)
-          ctx.lineTo(-enemy.radius * 0.7, enemy.radius * 0.7)
+          ctx.lineTo(-enemy.radius, -enemy.radius * 0.6)
+          ctx.lineTo(-enemy.radius * 0.5, 0)
+          ctx.lineTo(-enemy.radius, enemy.radius * 0.6)
           ctx.closePath()
           ctx.stroke()
+          
+          // Engine detail
+          ctx.beginPath()
+          ctx.moveTo(-enemy.radius * 0.5, 0)
+          ctx.lineTo(-enemy.radius * 0.8, 0)
+          ctx.stroke()
         } else {
+          // Shooter: Turret/Cannon shape
           ctx.strokeStyle = '#ff00ff'
           ctx.lineWidth = 2
+          
+          // Main body
           ctx.beginPath()
-          ctx.arc(0, 0, enemy.radius, 0, Math.PI * 2)
+          ctx.arc(0, 0, enemy.radius * 0.7, 0, Math.PI * 2)
           ctx.stroke()
+          
+          // Cannons
           ctx.beginPath()
-          ctx.moveTo(-enemy.radius, 0)
-          ctx.lineTo(enemy.radius, 0)
-          ctx.moveTo(0, -enemy.radius)
-          ctx.lineTo(0, enemy.radius)
+          ctx.moveTo(enemy.radius * 0.4, -enemy.radius * 0.4)
+          ctx.lineTo(enemy.radius, -enemy.radius * 0.4)
+          ctx.moveTo(enemy.radius * 0.4, enemy.radius * 0.4)
+          ctx.lineTo(enemy.radius, enemy.radius * 0.4)
+          ctx.stroke()
+          
+          // Center eye
+          ctx.beginPath()
+          ctx.arc(0, 0, enemy.radius * 0.3, 0, Math.PI * 2)
           ctx.stroke()
         }
-
         ctx.restore()
       })
 
@@ -868,29 +923,60 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
           ctx.save()
           ctx.translate(ship.pos.x, ship.pos.y)
           ctx.rotate(ship.angle)
-          ctx.strokeStyle = '#00ff88'
-          ctx.lineWidth = 2
+          
+          // Opaque fill
+          ctx.fillStyle = '#0a0a0a'
           ctx.beginPath()
           ctx.moveTo(15, 0)
-          ctx.lineTo(-10, -10)
+          ctx.lineTo(-10, -12)
           ctx.lineTo(-5, 0)
-          ctx.lineTo(-10, 10)
+          ctx.lineTo(-10, 12)
           ctx.closePath()
+          ctx.fill()
+
+          ctx.strokeStyle = '#00ff88'
+          ctx.lineWidth = 2
+          
+          // Main body
+          ctx.beginPath()
+          ctx.moveTo(15, 0)
+          ctx.lineTo(-8, -10)
+          ctx.lineTo(-4, 0)
+          ctx.lineTo(-8, 10)
+          ctx.closePath()
+          ctx.stroke()
+          
+          // Wings/Details
+          ctx.beginPath()
+          ctx.moveTo(-4, -6)
+          ctx.lineTo(-12, -12)
+          ctx.moveTo(-4, 6)
+          ctx.lineTo(-12, 12)
           ctx.stroke()
 
           // Thrust flame
           if (keysRef.current.has('arrowup') || keysRef.current.has('w')) {
             ctx.strokeStyle = '#ff6600'
             ctx.beginPath()
-            ctx.moveTo(-5, -4)
-            ctx.lineTo(-15 - Math.random() * 8, 0)
-            ctx.lineTo(-5, 4)
+            ctx.moveTo(-6, -3)
+            ctx.lineTo(-18 - Math.random() * 8, 0)
+            ctx.lineTo(-6, 3)
             ctx.stroke()
           }
 
           ctx.restore()
         }
       }
+
+      // Scanlines (matching Hard Vacuum style)
+      ctx.save()
+      ctx.globalAlpha = 0.06
+      ctx.fillStyle = '#00ff88'
+      const scanY = ((Date.now() / 1000) * 60) % 12
+      for (let y = -12; y < canvas.height + 12; y += 12) {
+        ctx.fillRect(0, y + scanY, canvas.width, 1)
+      }
+      ctx.restore()
 
       // HUD
       if (gameState === 'playing') {

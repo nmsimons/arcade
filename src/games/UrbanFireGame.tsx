@@ -216,6 +216,25 @@ class ArmorSoundSystem {
     noise.start()
     noise.stop(this.ctx.currentTime + duration)
   }
+
+  repairPickup() {
+    if (!this.ctx) return
+    const now = this.ctx.currentTime
+
+    const osc = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(740, now)
+    osc.frequency.exponentialRampToValueAtTime(980, now + 0.08)
+    gain.gain.setValueAtTime(0.0001, now)
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18)
+
+    osc.connect(gain)
+    gain.connect(this.ctx.destination)
+    osc.start(now)
+    osc.stop(now + 0.2)
+  }
 }
 
 const sounds = new ArmorSoundSystem()
@@ -225,6 +244,10 @@ type UrbanFireGameProps = {
 }
 
 type Vector2 = { x: number; y: number }
+
+const JEEP_MAX_HEALTH = 3
+
+const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 type Jeep = {
   pos: Vector2
@@ -290,6 +313,11 @@ type Debris = {
   length: number
 }
 
+type RepairKit = {
+  pos: Vector2
+  spawnedAtMs: number
+}
+
 export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
@@ -302,7 +330,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     pos: { x: 0, y: 0 },
     vel: { x: 0, y: 0 },
     angle: 0,
-    health: 3,
+    health: JEEP_MAX_HEALTH,
     state: 'active',
     explodeTime: 0,
     wheelAngle: 0,
@@ -313,12 +341,70 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const bulletsRef = useRef<Bullet[]>([])
   const wallsRef = useRef<Wall[]>([])
   const debrisRef = useRef<Debris[]>([])
+  const repairKitsRef = useRef<RepairKit[]>([])
   const keysRef = useRef<Set<string>>(new Set())
   const rafRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const respawnTimerRef = useRef(0)
   const waveCompleteRef = useRef(false)
+
+  const spawnRepairKit = useCallback(() => {
+    const { width, height } = canvasSizeRef.current
+    if (width <= 0 || height <= 0) return
+
+    // Only ever allow one repair kit; if it's still on the map, don't spawn another.
+    if (repairKitsRef.current.length > 0) return
+
+    const spawnMargin = clamp(Math.min(width, height) * 0.12, 70, 140)
+    const kitRadius = 20
+    const jeep = jeepRef.current
+
+    const isInsideWall = (x: number, y: number, radius: number) => {
+      for (const wall of wallsRef.current) {
+        if (
+          x + radius > wall.x &&
+          x - radius < wall.x + wall.width &&
+          y + radius > wall.y &&
+          y - radius < wall.y + wall.height
+        ) {
+          return true
+        }
+      }
+      return false
+    }
+
+    let best: Vector2 | null = null
+    let bestScore = -Infinity
+
+    // Try multiple candidates and pick the one farthest from the jeep (feels fair).
+    for (let i = 0; i < 50; i++) {
+      const x = spawnMargin + Math.random() * (width - spawnMargin * 2)
+      const y = spawnMargin + Math.random() * (height - spawnMargin * 2)
+
+      if (isInsideWall(x, y, kitRadius)) continue
+      const dJeep = Math.hypot(x - jeep.pos.x, y - jeep.pos.y)
+      if (dJeep < 120) continue
+
+      // Prefer positions with some breathing room from walls.
+      let wallPenalty = 0
+      for (const wall of wallsRef.current) {
+        const cx = clamp(x, wall.x, wall.x + wall.width)
+        const cy = clamp(y, wall.y, wall.y + wall.height)
+        const d = Math.hypot(x - cx, y - cy)
+        if (d < 40) wallPenalty += (40 - d)
+      }
+
+      const score = dJeep - wallPenalty * 0.8
+      if (score > bestScore) {
+        bestScore = score
+        best = { x, y }
+      }
+    }
+
+    const pos = best ?? { x: width / 2, y: height / 2 }
+    repairKitsRef.current = [{ pos, spawnedAtMs: Date.now() }]
+  }, [])
 
   const createDebris = useCallback((x: number, y: number, count: number = 8) => {
     const debris: Debris[] = []
@@ -666,7 +752,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       pos: { x: spawnX, y: spawnY },
       vel: { x: 0, y: 0 },
       angle: -Math.PI / 2,
-      health: 3,
+      health: JEEP_MAX_HEALTH,
       state: 'active',
       explodeTime: 0,
       wheelAngle: 0,
@@ -681,13 +767,15 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     resetJeep()
     bulletsRef.current = []
     debrisRef.current = []
+    repairKitsRef.current = []
     waveCompleteRef.current = false
     respawnTimerRef.current = 0
     setScore(0)
     setWave(1)
     spawnEnemies(1)
+    spawnRepairKit()
     setGameState('playing')
-  }, [generateWalls, resetJeep, spawnEnemies])
+  }, [generateWalls, resetJeep, spawnEnemies, spawnRepairKit])
 
   useEffect(() => {
     if (gameState !== 'menu') return
@@ -696,6 +784,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     resetJeep()
     bulletsRef.current = []
     debrisRef.current = []
+    repairKitsRef.current = []
     if (tanksRef.current.length === 0 && helicoptersRef.current.length === 0) {
       spawnEnemies(1)
     }
@@ -1001,6 +1090,19 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       // Screen bounds
       jeep.pos.x = Math.max(20, Math.min(width - 20, jeep.pos.x))
       jeep.pos.y = Math.max(20, Math.min(height - 20, jeep.pos.y))
+
+      // Repair kit pickup
+      if (repairKitsRef.current.length > 0 && jeep.health < JEEP_MAX_HEALTH) {
+        for (let i = repairKitsRef.current.length - 1; i >= 0; i--) {
+          const kit = repairKitsRef.current[i]
+          const dist = Math.hypot(kit.pos.x - jeep.pos.x, kit.pos.y - jeep.pos.y)
+          if (dist < 22) {
+            jeep.health = Math.min(JEEP_MAX_HEALTH, jeep.health + 1)
+            repairKitsRef.current.splice(i, 1)
+            sounds.repairPickup()
+          }
+        }
+      }
 
       // Update tanks
       tanksRef.current = tanksRef.current.filter((tank) => {
@@ -1510,6 +1612,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           setWave((w) => {
             const newWave = w + 1
             spawnEnemies(newWave)
+            spawnRepairKit()
             waveCompleteRef.current = false
             return newWave
           })
@@ -1575,6 +1678,31 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         ctx.strokeRect(wall.x, wall.y, wall.width, wall.height)
       }
 
+      // Draw repair kit (single): medical cross icon, stationary (no spin/bounce).
+      for (const kit of repairKitsRef.current) {
+        ctx.save()
+        ctx.translate(kit.pos.x, kit.pos.y)
+
+        const size = 18
+
+        // White square background
+        ctx.fillStyle = '#ffffff'
+        ctx.fillRect(-size / 2, -size / 2, size, size)
+
+        // Red cross
+        ctx.fillStyle = '#ff4444'
+        const crossThick = size * 0.25
+        const crossLen = size * 0.75
+
+        // Horizontal bar
+        ctx.fillRect(-crossLen / 2, -crossThick / 2, crossLen, crossThick)
+
+        // Vertical bar
+        ctx.fillRect(-crossThick / 2, -crossLen / 2, crossThick, crossLen)
+
+        ctx.restore()
+      }
+
       // Draw tanks
       for (const tank of tanksRef.current) {
         if (tank.state === 'exploding') {
@@ -1590,6 +1718,57 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         const tankColor = tank.health === 2 ? '#ffffff' : '#ffaa00'
         ctx.strokeStyle = tankColor
         ctx.lineWidth = 2
+
+        // Opaque fill so pickups don't show under vehicles.
+        ctx.save()
+        ctx.fillStyle = '#0a0a0a'
+        ctx.globalAlpha = 1
+        ctx.shadowBlur = 0
+
+        // Left track fill
+        ctx.beginPath()
+        ctx.moveTo(-20, -16)
+        ctx.lineTo(16, -16)
+        ctx.lineTo(20, -13)
+        ctx.lineTo(20, -9)
+        ctx.lineTo(-18, -9)
+        ctx.lineTo(-22, -12)
+        ctx.closePath()
+        ctx.fill()
+
+        // Right track fill
+        ctx.beginPath()
+        ctx.moveTo(-20, 16)
+        ctx.lineTo(16, 16)
+        ctx.lineTo(20, 13)
+        ctx.lineTo(20, 9)
+        ctx.lineTo(-18, 9)
+        ctx.lineTo(-22, 12)
+        ctx.closePath()
+        ctx.fill()
+
+        // Hull fill
+        ctx.beginPath()
+        ctx.moveTo(-15, -8)
+        ctx.lineTo(10, -8)
+        ctx.lineTo(14, -5)
+        ctx.lineTo(14, 5)
+        ctx.lineTo(10, 8)
+        ctx.lineTo(-15, 8)
+        ctx.lineTo(-18, 5)
+        ctx.lineTo(-18, -5)
+        ctx.closePath()
+        ctx.fill()
+
+        // Turret fill
+        ctx.beginPath()
+        ctx.arc(-2, 0, 9, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(-2, 0, 6, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.restore()
 
         // Left track (outer housing)
         ctx.beginPath()
@@ -1700,6 +1879,39 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         ctx.strokeStyle = '#ffaa00'
         ctx.lineWidth = 2
 
+        // Opaque fill so pickups don't show under vehicles.
+        ctx.save()
+        ctx.fillStyle = '#0a0a0a'
+        ctx.globalAlpha = 1
+        ctx.shadowBlur = 0
+
+        // Fuselage fill
+        ctx.beginPath()
+        ctx.moveTo(12, 0)
+        ctx.lineTo(6, -5)
+        ctx.lineTo(-6, -5)
+        ctx.lineTo(-6, 5)
+        ctx.lineTo(6, 5)
+        ctx.closePath()
+        ctx.fill()
+
+        // Tail boom fill
+        ctx.beginPath()
+        ctx.moveTo(-6, -2)
+        ctx.lineTo(-24, -2)
+        ctx.lineTo(-24, 2)
+        ctx.lineTo(-6, 2)
+        ctx.closePath()
+        ctx.fill()
+
+        // Cockpit fill
+        ctx.beginPath()
+        ctx.arc(8, 0, 4, -Math.PI / 2, Math.PI / 2)
+        ctx.closePath()
+        ctx.fill()
+
+        ctx.restore()
+
         // Simple fuselage body
         ctx.beginPath()
         ctx.moveTo(12, 0)
@@ -1783,6 +1995,38 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           ctx.save()
           ctx.translate(jeep.pos.x, jeep.pos.y)
           ctx.rotate(jeep.angle)
+
+          // Opaque fill so pickups don't show under the jeep.
+          ctx.save()
+          ctx.fillStyle = '#0a0a0a'
+          ctx.globalAlpha = 1
+          ctx.shadowBlur = 0
+
+          // Tires fill
+          const tireWidthFill = 8
+          const tireHeightFill = 4
+          const fillTire = (tx: number, ty: number) => {
+            ctx.beginPath()
+            ctx.rect(tx - tireWidthFill / 2, ty - tireHeightFill / 2, tireWidthFill, tireHeightFill)
+            ctx.fill()
+          }
+          fillTire(7, -8)
+          fillTire(7, 8)
+          fillTire(-7, -8)
+          fillTire(-7, 8)
+
+          // Body fill
+          ctx.beginPath()
+          ctx.moveTo(12, -6)
+          ctx.lineTo(12, 6)
+          ctx.lineTo(-10, 6)
+          ctx.lineTo(-12, 4)
+          ctx.lineTo(-12, -4)
+          ctx.lineTo(-10, -6)
+          ctx.closePath()
+          ctx.fill()
+
+          ctx.restore()
 
           // Color based on health: white (3), orange (2), red (1)
           // Flash when hit
@@ -1873,7 +2117,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [gameState, score, wave, generateWalls, resetJeep, spawnEnemies, createDebris, lineIntersectsRect])
+  }, [gameState, score, wave, generateWalls, resetJeep, spawnEnemies, spawnRepairKit, createDebris, lineIntersectsRect])
 
   const exitToGameSelect = () => {
     sounds.stopEngine()

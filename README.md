@@ -12,7 +12,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 ## Included Games
 
 - **Hard Vacuum** — classic ship + shooting, plus a harpoon mechanic
-- **Lunar Lander** — land gently on the pad (difficulty selectable)
+- **Final Approach** — land gently on the pad (difficulty selectable)
 - **Omega Race** — arena shooter with force-field bounces
 - **Armor Attack** — top-down combat with tanks + helicopters
 - **Bumper Ball** — physics soccer-ish bumper cars (1P/2P)
@@ -33,7 +33,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - X: harpoon (toggle reel)
 - P: pause
 
-**Lunar Lander**
+**Final Approach**
 
 - Arrows / WASD: rotate + thrust
 - P: pause

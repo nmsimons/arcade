@@ -3,13 +3,13 @@ import { ArmorAttackGame } from './games/ArmorAttackGame'
 import { HardVacuumGame } from './games/HardVacuumGame'
 import { HelloWorldGame } from './games/HelloWorldGame'
 import { KickballGame } from './games/KickballGame'
-import { LunarLanderGame } from './games/LunarLanderGame'
+import { FinalApproachGame } from './games/FinalApproachGame'
 import { OmegaRaceGame } from './games/OmegaRaceGame'
 import { SlingLoadGame } from './games/SlingLoadGame'
 
-type GameId = 'hardVacuum' | 'hello' | 'lander' | 'omega' | 'armor' | 'kickball' | 'sling'
+type GameId = 'hardVacuum' | 'hello' | 'finalApproach' | 'omega' | 'armor' | 'kickball' | 'sling'
 
-const GAMES: GameId[] = ['hardVacuum', 'lander', 'omega', 'armor', 'kickball', 'sling', 'hello']
+const GAMES: GameId[] = ['hardVacuum', 'finalApproach', 'omega', 'armor', 'kickball', 'sling', 'hello']
 
 export default function App() {
   const [game, setGame] = useState<GameId | null>(null)
@@ -45,8 +45,8 @@ export default function App() {
     return <HelloWorldGame onExit={() => setGame(null)} />
   }
 
-  if (game === 'lander') {
-    return <LunarLanderGame onExit={() => setGame(null)} />
+  if (game === 'finalApproach') {
+    return <FinalApproachGame onExit={() => setGame(null)} />
   }
 
   if (game === 'omega') {
@@ -97,8 +97,8 @@ export default function App() {
               >
                 {g === 'hardVacuum'
                   ? 'Hard Vacuum'
-                  : g === 'lander'
-                    ? 'Lunar Lander'
+                  : g === 'finalApproach'
+                    ? 'Final Approach'
                     : g === 'omega'
                       ? 'Omega Race'
                       : g === 'armor'

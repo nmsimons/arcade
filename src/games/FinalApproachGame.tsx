@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// Sound system for Lunar Lander using Web Audio API
+// Sound system for Final Approach using Web Audio API
 class LanderSoundSystem {
   private ctx: AudioContext | null = null
   private initialized = false
@@ -158,7 +158,7 @@ class LanderSoundSystem {
 
 const sounds = new LanderSoundSystem()
 
-type LunarLanderGameProps = {
+type FinalApproachGameProps = {
   onExit: () => void
 }
 
@@ -288,7 +288,7 @@ function generateTerrain(width: number, height: number, difficulty: 'easy' | 'me
   return { points: finalPoints, pad: { x1: padX1, x2: padX2, y: padY } }
 }
 
-export function LunarLanderGame({ onExit }: LunarLanderGameProps) {
+export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const keysRef = useRef<Set<string>>(new Set())
   const rafRef = useRef<number | null>(null)
@@ -777,7 +777,7 @@ export function LunarLanderGame({ onExit }: LunarLanderGameProps) {
       {gameState === 'menu' && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Lunar Lander</h1>
+            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Final Approach</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> Arrow Keys / WASD: Rotate + Thrust

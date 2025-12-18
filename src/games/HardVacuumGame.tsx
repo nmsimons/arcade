@@ -102,6 +102,16 @@ class SoundSystem {
       // Ignore double-stop.
     }
 
+    // Disconnect to keep the audio graph tidy (and to meaningfully use these refs).
+    try {
+      this.repairHumVibGain?.disconnect()
+      this.repairHumLfoGain?.disconnect()
+      this.repairHumFilter?.disconnect()
+      this.repairHumGain?.disconnect()
+    } catch {
+      // Ignore disconnect errors.
+    }
+
     setTimeout(() => {
       this.repairHumOsc = null
       this.repairHumGain = null
@@ -268,6 +278,16 @@ class SoundSystem {
       this.storeBassOsc?.stop(stopAt)
     } catch {
       // Ignore double-stop.
+    }
+
+    // Disconnect nodes to avoid lingering graph connections (and to use stored refs).
+    try {
+      this.storeMelGain?.disconnect()
+      this.storeBassGain?.disconnect()
+      this.storeFilter?.disconnect()
+      this.storeMasterGain?.disconnect()
+    } catch {
+      // Ignore disconnect errors.
     }
 
     setTimeout(() => {

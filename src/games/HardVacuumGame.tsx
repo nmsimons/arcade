@@ -2830,14 +2830,15 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         if (!sctx) return
 
         // Subtle static stars; keep them close to the background so gameplay stays primary.
+        // (Slightly boosted so the field reads on most monitors.)
         const area = width * height
-        const count = clamp(Math.round(area / 8500), 140, 420)
+        const count = clamp(Math.round(area / 7600), 160, 520)
         for (let i = 0; i < count; i++) {
           const x = Math.random() * width
           const y = Math.random() * height
           const r = Math.random()
           const size = r < 0.08 ? 2 : 1
-          const alpha = r < 0.08 ? 0.18 : 0.09
+          const alpha = r < 0.08 ? 0.24 : 0.12
           sctx.fillStyle = `rgba(255,255,255,${alpha})`
           sctx.fillRect(x, y, size, size)
         }

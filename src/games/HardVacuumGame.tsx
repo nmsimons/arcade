@@ -576,6 +576,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const starFieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const starFieldSizeRef = useRef({ width: 0, height: 0 })
 
+  // Curated menu “action shot” scene.
+  const menuSceneInitializedRef = useRef(false)
+
   // Harpoon cable is a fixed-length tether. The fired hook cannot exceed this distance.
   const HARPOON_CABLE_LENGTH = 130
   const HARPOON_REEL_SPEED = 440
@@ -917,18 +920,157 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   useEffect(() => {
     if (gameState !== 'menu') return
 
+    // Menu should be an enticing action shot that is still consistent with game mechanics.
+    // We stage a deterministic-ish scene (ship + bullets + harpoon + base processing) and keep
+    // rock *positions* static so nothing drifts into ugly overlaps.
     const { width, height } = canvasSizeRef.current
+
+    // Avoid rebuilding the scene repeatedly while staying on the menu.
+    if (menuSceneInitializedRef.current) return
+    menuSceneInitializedRef.current = true
+
+    // Reset visuals.
+    setShields(2)
+    miningBaseAngleRef.current = 0
+    debrisRef.current = []
+
+    // Place ship in a dramatic but plausible position.
+    const baseX = width / 2
+    const baseY = height / 2
     shipRef.current = {
-      pos: { x: width * 0.32, y: height * 0.58 },
+      pos: { x: width * 0.28, y: height * 0.62 },
       vel: { x: 0, y: 0 },
-      angle: -Math.PI / 2,
+      angle: Math.atan2(baseY - height * 0.62, baseX - width * 0.28),
       radius: SHIP_RADIUS,
     }
 
-    if (rocksRef.current.length === 0) {
-      spawnRocks(9, MINING_BASE_RADIUS + 70, 0.55)
+    // One rock being processed inside the base (mechanic-accurate and visually interesting).
+    const processingRock = createRock(baseX + MINING_BASE_RADIUS * 0.18, baseY - MINING_BASE_RADIUS * 0.08, 26, {
+      x: 0,
+      y: 0,
+    })
+    // Mark it as “in base long enough” so base-gun shots make sense visually.
+    ;(processingRock as Rock & { inBaseTime?: number }).inBaseTime = 3
+
+    const toroidalDist = (ax: number, ay: number, bx: number, by: number) => {
+      const dxRaw = Math.abs(ax - bx)
+      const dyRaw = Math.abs(ay - by)
+      const dx = Math.min(dxRaw, width - dxRaw)
+      const dy = Math.min(dyRaw, height - dyRaw)
+      return Math.hypot(dx, dy)
     }
-  }, [gameState, spawnRocks, MINING_BASE_RADIUS, SHIP_RADIUS])
+
+    // Additional spaced rocks around the arena for an “in-progress” feel.
+    const levelForShot = 5
+    const speedMult = speedMultForLevel(levelForShot)
+    const count = clamp(rockCountForLevel(levelForShot), 5, 7)
+
+    const edgeInset = 1.5
+    const sampleEdgeSpawn = () => {
+      const edge = Math.floor(Math.random() * 4)
+      let x = 0
+      let y = 0
+      let inwardDir = 0
+
+      if (edge === 0) {
+        x = edgeInset
+        y = Math.random() * height
+        inwardDir = 0
+      } else if (edge === 1) {
+        x = width - edgeInset
+        y = Math.random() * height
+        inwardDir = Math.PI
+      } else if (edge === 2) {
+        x = Math.random() * width
+        y = edgeInset
+        inwardDir = Math.PI / 2
+      } else {
+        x = Math.random() * width
+        y = height - edgeInset
+        inwardDir = -Math.PI / 2
+      }
+
+      const spread = Math.PI * 0.7
+      const a = inwardDir + (Math.random() - 0.5) * spread
+      const speed = (20 + Math.random() * 30) * speedMult
+      return { x, y, vel: { x: Math.cos(a) * speed, y: Math.sin(a) * speed } as Vector2 }
+    }
+
+    const nextRocks: Rock[] = [processingRock]
+    for (let i = 0; i < count; i++) {
+      const radius = 30 + Math.random() * 15
+      let chosen = sampleEdgeSpawn()
+
+      for (let tries = 0; tries < 120; tries++) {
+        const candidate = sampleEdgeSpawn()
+        const distToShip = toroidalDist(candidate.x, candidate.y, shipRef.current.pos.x, shipRef.current.pos.y)
+        const distToBase = toroidalDist(candidate.x, candidate.y, baseX, baseY)
+        if (distToShip < 140) continue
+        if (distToBase < MINING_BASE_RADIUS + 190) continue
+
+        let ok = true
+        for (const r of nextRocks) {
+          const d = toroidalDist(candidate.x, candidate.y, r.pos.x, r.pos.y)
+          if (d < (radius + r.radius) * 1.2) {
+            ok = false
+            break
+          }
+        }
+        if (!ok) continue
+
+        chosen = candidate
+        break
+      }
+
+      nextRocks.push(createRock(chosen.x, chosen.y, radius, chosen.vel))
+    }
+
+    rocksRef.current = nextRocks
+
+    // Keep harpoon hidden on the menu.
+    harpoonRef.current = { state: 'idle' }
+
+    // Stage looping ship bullets aimed toward the base area.
+    const ship = shipRef.current
+    const aim = Math.atan2(baseY - ship.pos.y, baseX - ship.pos.x)
+    ship.angle = aim
+    const bulletSpeed = 420
+    bulletsRef.current = Array.from({ length: 6 }, (_, k) => {
+      const t = (k / 6) * Math.PI * 2
+      const spread = (Math.random() - 0.5) * 0.25
+      const a = aim + spread
+      const r = 18 + 6 * Math.sin(t)
+      return {
+        pos: { x: ship.pos.x + Math.cos(a) * r, y: ship.pos.y + Math.sin(a) * r },
+        vel: { x: Math.cos(a) * bulletSpeed, y: Math.sin(a) * bulletSpeed },
+        life: 1e9,
+        isEnemy: false,
+      }
+    })
+
+    // Stage looping base shots pointed at the processing rock.
+    const gunRadius = MINING_BASE_RADIUS * 0.63
+    const baseShotSpeed = 520
+    const gunAngles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3]
+    baseShotsRef.current = gunAngles.map((ga) => {
+      const gx = baseX + Math.cos(ga) * gunRadius
+      const gy = baseY + Math.sin(ga) * gunRadius
+      const dx = processingRock.pos.x - gx
+      const dy = processingRock.pos.y - gy
+      const dl = Math.max(1e-6, Math.hypot(dx, dy))
+      return {
+        pos: { x: gx, y: gy },
+        vel: { x: (dx / dl) * baseShotSpeed, y: (dy / dl) * baseShotSpeed },
+        life: 1e9,
+      }
+    })
+  }, [gameState, SHIP_RADIUS, MINING_BASE_RADIUS, createRock, rockCountForLevel, speedMultForLevel])
+
+  useEffect(() => {
+    if (gameState !== 'menu') {
+      menuSceneInitializedRef.current = false
+    }
+  }, [gameState])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1188,26 +1330,47 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         return
       }
 
-      // Keep the base (and menu background) alive even when not playing.
-      miningBaseAngleRef.current += dt * MINING_ROT_SPEED
-
+      // Menu: animate the action shot without moving rocks (prevents overlap drift).
       if (gameState === 'menu') {
         const { width: w, height: h } = canvasSizeRef.current
-        rocksRef.current.forEach((rock) => {
-          rock.pos.x += rock.vel.x * dt
-          rock.pos.y += rock.vel.y * dt
+        miningBaseAngleRef.current += dt * MINING_ROT_SPEED
 
+        // Tumble rocks in place (no translation).
+        for (const rock of rocksRef.current) {
           rock.rot[0] += rock.angVel[0] * dt
           rock.rot[1] += rock.angVel[1] * dt
           rock.rot[2] += rock.angVel[2] * dt
+        }
 
-          if (rock.pos.x > w) rock.pos.x = 0
-          if (rock.pos.x < 0) rock.pos.x = w
-          if (rock.pos.y > h) rock.pos.y = 0
-          if (rock.pos.y < 0) rock.pos.y = h
-        })
+        // Loop bullets with wrapping.
+        if (bulletsRef.current.length > 0) {
+          for (const b of bulletsRef.current) {
+            b.pos.x += b.vel.x * dt
+            b.pos.y += b.vel.y * dt
+            if (b.pos.x > w) b.pos.x = 0
+            if (b.pos.x < 0) b.pos.x = w
+            if (b.pos.y > h) b.pos.y = 0
+            if (b.pos.y < 0) b.pos.y = h
+          }
+        }
+
+        // Loop base shots with wrapping.
+        if (baseShotsRef.current.length > 0) {
+          for (const s of baseShotsRef.current) {
+            s.pos.x += s.vel.x * dt
+            s.pos.y += s.vel.y * dt
+            if (s.pos.x > w) s.pos.x = 0
+            if (s.pos.x < 0) s.pos.x = w
+            if (s.pos.y > h) s.pos.y = 0
+            if (s.pos.y < 0) s.pos.y = h
+          }
+        }
+
         return
       }
+
+      // Keep the base alive even when not playing.
+      miningBaseAngleRef.current += dt * MINING_ROT_SPEED
 
       if (gameState !== 'playing') return
 
@@ -2381,12 +2544,15 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       ctx.fillRect(0, 0, width, height)
 
       // Starfield background (behind everything).
-      ensureStarField()
-      if (starFieldCanvasRef.current) {
-        ctx.save()
-        ctx.globalAlpha = 1
-        ctx.drawImage(starFieldCanvasRef.current, 0, 0)
-        ctx.restore()
+      // Keep the menu cleaner by omitting the stars there.
+      if (gameState !== 'menu') {
+        ensureStarField()
+        if (starFieldCanvasRef.current) {
+          ctx.save()
+          ctx.globalAlpha = 1
+          ctx.drawImage(starFieldCanvasRef.current, 0, 0)
+          ctx.restore()
+        }
       }
 
       // Draw mining base (center) behind rocks.
@@ -2941,7 +3107,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Draw ship
-      if (gameState === 'playing' || gameState === 'store') {
+      if (gameState === 'playing' || gameState === 'store' || gameState === 'menu') {
         const ship = shipRef.current
 
         // Powerup activation pulses (visible): ring expands outward from the ship.

@@ -294,6 +294,9 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
   const rafRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
 
+  const starfieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const starfieldSizeRef = useRef({ width: 0, height: 0 })
+
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'landed' | 'crashed' | 'exploding'>('menu')
   const [finalScore, setFinalScore] = useState(0)
   const [resultIndex, setResultIndex] = useState(0)
@@ -343,7 +346,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
       radius: 14,
     }
 
-    fuelRef.current = 1000
+    fuelRef.current = 100
     debrisRef.current = []
   }, [difficulty])
 
@@ -550,7 +553,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
         lander.vel.x += ax * dt
         lander.vel.y += ay * dt
 
-        fuelRef.current = clamp(fuelRef.current - fuelBurnPerSecond * dt, 0, 1000)
+        fuelRef.current = clamp(fuelRef.current - fuelBurnPerSecond * dt, 0, 100)
         sounds.startThrust()
       } else {
         sounds.stopThrust()
@@ -589,9 +592,62 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
     const draw = () => {
       const { width, height } = canvasSizeRef.current
 
+      const terrain = terrainRef.current
+
+      const ensureStarfield = () => {
+        if (starfieldCanvasRef.current && starfieldSizeRef.current.width === width && starfieldSizeRef.current.height === height) return
+
+        const off = document.createElement('canvas')
+        off.width = width
+        off.height = height
+        const octx = off.getContext('2d')
+        if (!octx) return
+
+        // Sparse, subtle starfield.
+        const count = Math.round((width * height) / 9000)
+        for (let i = 0; i < count; i++) {
+          const x = Math.random() * width
+          const y = Math.random() * height
+          const r = Math.random() < 0.85 ? 1 : 1.6
+          const a = 0.18 + Math.random() * 0.35
+          const greenish = Math.random() < 0.18
+          octx.fillStyle = greenish ? `rgba(0, 255, 136, ${a * 0.55})` : `rgba(255, 255, 255, ${a})`
+          octx.beginPath()
+          octx.arc(x, y, r, 0, Math.PI * 2)
+          octx.fill()
+        }
+
+        starfieldCanvasRef.current = off
+        starfieldSizeRef.current = { width, height }
+      }
+
       // Clear
       ctx.fillStyle = '#0a0a0a'
       ctx.fillRect(0, 0, width, height)
+
+      // Starfield (behind everything; masked out under terrain)
+      ensureStarfield()
+      if (starfieldCanvasRef.current) {
+        ctx.drawImage(starfieldCanvasRef.current, 0, 0)
+      }
+
+      // Mask stars out under the terrain by filling the ground.
+      if (terrain.points.length > 1) {
+        const leftY = terrainYAtX(terrain, 0)
+        const rightY = terrainYAtX(terrain, width)
+        ctx.save()
+        ctx.fillStyle = '#0a0a0a'
+        ctx.beginPath()
+        // Ensure the ground polygon covers the full screen width.
+        ctx.moveTo(0, leftY)
+        for (let i = 0; i < terrain.points.length; i++) ctx.lineTo(terrain.points[i].x, terrain.points[i].y)
+        ctx.lineTo(width, rightY)
+        ctx.lineTo(width, height)
+        ctx.lineTo(0, height)
+        ctx.closePath()
+        ctx.fill()
+        ctx.restore()
+      }
 
       // Subtle scanline haze
       ctx.save()
@@ -604,14 +660,16 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
       ctx.restore()
 
       // Terrain
-      const terrain = terrainRef.current
       ctx.strokeStyle = '#888'
       ctx.lineWidth = 2
       ctx.beginPath()
-      terrain.points.forEach((p, i) => {
-        if (i === 0) ctx.moveTo(p.x, p.y)
-        else ctx.lineTo(p.x, p.y)
-      })
+      {
+        const leftY = terrainYAtX(terrain, 0)
+        const rightY = terrainYAtX(terrain, width)
+        ctx.moveTo(0, leftY)
+        terrain.points.forEach((p) => ctx.lineTo(p.x, p.y))
+        ctx.lineTo(width, rightY)
+      }
       ctx.stroke()
 
       // Landing pad highlight - color based on landing safety
@@ -641,6 +699,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
         ctx.translate(lander.pos.x, lander.pos.y)
         ctx.rotate(lander.angle + Math.PI / 2) // rotate so "up" is the top of the lander
 
+        const landerFill = '#0a0a0a'
         ctx.strokeStyle = '#00ff88'
         ctx.lineWidth = 2
 
@@ -654,6 +713,8 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
         ctx.lineTo(12, 6)
         ctx.lineTo(10, 2)
         ctx.closePath()
+        ctx.fillStyle = landerFill
+        ctx.fill()
         ctx.stroke()
 
         // Ascent stage (angular cabin on top)
@@ -664,6 +725,9 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
         ctx.lineTo(4, -12)
         ctx.lineTo(8, -6)
         ctx.lineTo(8, 2)
+        ctx.closePath()
+        ctx.fillStyle = landerFill
+        ctx.fill()
         ctx.stroke()
 
         // Window (triangular)
@@ -672,6 +736,8 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
         ctx.lineTo(0, -9)
         ctx.lineTo(3, -6)
         ctx.closePath()
+        ctx.fillStyle = landerFill
+        ctx.fill()
         ctx.stroke()
 
         // Antenna on top

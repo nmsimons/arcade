@@ -1366,7 +1366,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       const crates = cratesRef.current
       const hook = getHookPoint(heli)
 
-      // Debris particles (Asteroids-style)
+      // Debris particles (vector-style)
       debrisRef.current.forEach((d) => {
         const a = clamp(d.life / 1600, 0, 1)
         ctx.strokeStyle = `rgba(${d.color}, ${a})`

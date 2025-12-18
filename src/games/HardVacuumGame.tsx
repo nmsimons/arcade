@@ -258,9 +258,9 @@ const cross3 = (a: V3, b: V3): V3 => [
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
-const makeAsteroidMesh = (radius: number, seed: number) => {
+const makeRockMesh = (radius: number, seed: number) => {
   // Regular icosahedron: 12 vertices, 20 triangular faces.
-  // Add a small deterministic radial jitter per vertex to make each asteroid
+  // Add a small deterministic radial jitter per vertex to make each rock
   // feel a bit less perfectly regular while staying convex and stable.
   const rand01 = (n: number) => {
     const x = Math.sin(n) * 43758.5453123
@@ -338,7 +338,7 @@ interface Ship {
   radius: number
 }
 
-interface Asteroid {
+interface Rock {
   pos: Vector2
   vel: Vector2
   radius: number
@@ -375,7 +375,7 @@ type Harpoon =
     }
   | {
       state: 'attached'
-      asteroid: Asteroid
+      rock: Rock
       ropeLength: number
       maxLength: number
       segLen: number
@@ -416,11 +416,11 @@ interface Debris {
   color: string
 }
 
-type AsteroidsGameProps = {
+type HardVacuumGameProps = {
   onExit: () => void
 }
 
-export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
+export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'dying' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
@@ -431,7 +431,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
 
   const SHIP_RADIUS = 15
   const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: SHIP_RADIUS })
-  const asteroidsRef = useRef<Asteroid[]>([])
+  const rocksRef = useRef<Rock[]>([])
   const bulletsRef = useRef<Bullet[]>([])
   const baseShotsRef = useRef<BaseShot[]>([])
   const debrisRef = useRef<Debris[]>([])
@@ -455,7 +455,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
   const HARPOON_HOOK_MASS = Math.max(0.2, (HARPOON_HOOK_RADIUS / 18) * (HARPOON_HOOK_RADIUS / 18))
   const HARPOON_REEL_MIN_LEN = SHIP_RADIUS + HARPOON_HOOK_RADIUS + 2
 
-  // Central mining base (asteroid hopper)
+  // Central mining base (ore hopper)
   const MINING_BASE_RADIUS = 118
   const MINING_DOOR_TRIM = 44
   const MINING_ROT_SPEED = 0.18
@@ -502,7 +502,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     [toroidalDelta],
   )
 
-  const createAsteroid = useCallback((x: number, y: number, radius: number, velOverride?: Vector2): Asteroid => {
+  const createRock = useCallback((x: number, y: number, radius: number, velOverride?: Vector2): Rock => {
     const points: Vector2[] = []
     const vertices = 8 + Math.floor(Math.random() * 4)
     for (let i = 0; i < vertices; i++) {
@@ -518,7 +518,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     const speed = 20 + Math.random() * 30
 
     // 3D tumbling: independent angular velocity per axis.
-    // Smaller asteroids tend to tumble faster.
+    // Smaller rocks tend to tumble faster.
     const spinBase = 0.9 + 42 / Math.max(18, radius)
     const seed = Math.random() * 10000
     const angVel: V3 = [
@@ -534,7 +534,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       points,
       rot: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2],
       angVel,
-      mesh: makeAsteroidMesh(radius, seed),
+      mesh: makeRockMesh(radius, seed),
     }
   }, [])
 
@@ -567,9 +567,9 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     [],
   )
 
-  const spawnAsteroids = useCallback(
+  const spawnRocks = useCallback(
     (count: number, avoidRadius: number = 100, speedMult: number = 1) => {
-      const newAsteroids: Asteroid[] = []
+      const newRocks: Rock[] = []
       const { width, height } = canvasSizeRef.current
       const ship = shipRef.current
       const edgeInset = 1.5
@@ -646,11 +646,11 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           }
         }
 
-        newAsteroids.push(createAsteroid(chosen.x, chosen.y, 30 + Math.random() * 15, chosen.vel))
+        newRocks.push(createRock(chosen.x, chosen.y, 30 + Math.random() * 15, chosen.vel))
       }
-      asteroidsRef.current = [...asteroidsRef.current, ...newAsteroids]
+      rocksRef.current = [...rocksRef.current, ...newRocks]
     },
-    [createAsteroid],
+    [createRock],
   )
 
   const speedMultForLevel = useCallback((lvl: number) => {
@@ -658,7 +658,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     return clamp(1 + (lvl - 1) * 0.085, 1, 2.25)
   }, [])
 
-  const asteroidCountForLevel = useCallback((lvl: number) => {
+  const rockCountForLevel = useCallback((lvl: number) => {
     // Ramps faster than the old “every 3 levels” behavior.
     return 2 + Math.floor((lvl - 1) * 0.8)
   }, [])
@@ -667,7 +667,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     sounds.init()
     const { width, height } = canvasSizeRef.current
     shipRef.current = { pos: { x: width / 2, y: height / 2 }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
-    asteroidsRef.current = []
+    rocksRef.current = []
     bulletsRef.current = []
     baseShotsRef.current = []
     setScore(0)
@@ -680,8 +680,8 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
     harpoonRef.current = { state: 'idle' }
     miningBaseAngleRef.current = 0
     miningGunCooldownsRef.current = [0, 0.06, 0.12]
-    spawnAsteroids(asteroidCountForLevel(1), 100, speedMultForLevel(1))
-  }, [spawnAsteroids, asteroidCountForLevel, speedMultForLevel])
+    spawnRocks(rockCountForLevel(1), 100, speedMultForLevel(1))
+  }, [spawnRocks, rockCountForLevel, speedMultForLevel])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -756,13 +756,13 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           // Reel-in detaches.
           const ship = shipRef.current
           const { width: w, height: h } = canvasSizeRef.current
-          const d0 = toroidalDelta(ship.pos.x, ship.pos.y, hp.asteroid.pos.x, hp.asteroid.pos.y, w, h)
+          const d0 = toroidalDelta(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y, w, h)
           const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
           const ropeLength = reelLength * HARPOON_VISUAL_SLACK
-          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp.asteroid.pos.x, hp.asteroid.pos.y, ropeLength)
+          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y, ropeLength)
           harpoonRef.current = {
             state: 'reeling',
-            pos: { x: hp.asteroid.pos.x, y: hp.asteroid.pos.y },
+            pos: { x: hp.rock.pos.x, y: hp.rock.pos.y },
             reelSpeed: HARPOON_REEL_SPEED,
             reelLength,
             ropeLength,
@@ -953,26 +953,26 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         invulnerableRef.current -= dt * 1000
       }
 
-      // Update asteroids with wrapping
+      // Update rocks with wrapping
       const { width: w, height: h } = canvasSizeRef.current
-      asteroidsRef.current.forEach((asteroid) => {
-        asteroid.pos.x += asteroid.vel.x * dt
-        asteroid.pos.y += asteroid.vel.y * dt
+      rocksRef.current.forEach((rock) => {
+        rock.pos.x += rock.vel.x * dt
+        rock.pos.y += rock.vel.y * dt
 
         // 3D tumbling
-        asteroid.rot[0] += asteroid.angVel[0] * dt
-        asteroid.rot[1] += asteroid.angVel[1] * dt
-        asteroid.rot[2] += asteroid.angVel[2] * dt
+        rock.rot[0] += rock.angVel[0] * dt
+        rock.rot[1] += rock.angVel[1] * dt
+        rock.rot[2] += rock.angVel[2] * dt
 
-        if (asteroid.pos.x > w) asteroid.pos.x = 0
-        if (asteroid.pos.x < 0) asteroid.pos.x = w
-        if (asteroid.pos.y > h) asteroid.pos.y = 0
-        if (asteroid.pos.y < 0) asteroid.pos.y = h
+        if (rock.pos.x > w) rock.pos.x = 0
+        if (rock.pos.x < 0) rock.pos.x = w
+        if (rock.pos.y > h) rock.pos.y = 0
+        if (rock.pos.y < 0) rock.pos.y = h
       })
 
-      // Asteroid-asteroid collisions (treat as circles in a wrapped/toroidal space)
-      // This uses a simple impulse + positional correction so asteroids "bump" off each other.
-      const asteroids = asteroidsRef.current
+      // Rock-rock collisions (treat as circles in a wrapped/toroidal space)
+      // This uses a simple impulse + positional correction so rocks "bump" off each other.
+      const rocks = rocksRef.current
       const restitution = 0.9
       const wrapX = (x: number) => {
         if (x < 0) return x + w
@@ -986,7 +986,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       }
 
       // Mining base interaction: a flat-topped hex with 3 door gaps.
-      // Anything inside the hex is processed (asteroids) or repaired (ship).
+      // Anything inside the hex is processed (rocks) or repaired (ship).
       // Only the visible wall segments collide.
       {
         const baseX = w / 2
@@ -1100,17 +1100,17 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           }
         }
 
-        for (let i = 0; i < asteroids.length; i++) {
-          const a = asteroids[i]
+        for (let i = 0; i < rocks.length; i++) {
+          const a = rocks[i]
           collideWithWalls(a.pos, a.vel, a.radius, 0.85)
         }
 
-        // Track how long each asteroid has been fully inside the base.
+        // Track how long each rock has been fully inside the base.
         // Processing is handled by base guns (shots), not automatically.
         let targetIndex = -1
         let targetDist = Infinity
-        for (let i = 0; i < asteroids.length; i++) {
-          const a = asteroids[i]
+        for (let i = 0; i < rocks.length; i++) {
+          const a = rocks[i]
           const d = toroidalDelta(baseX, baseY, a.pos.x, a.pos.y, w, h)
           const fullyInside = circleFullyInHex(d.dx, d.dy, a.radius)
           if (!fullyInside) {
@@ -1126,7 +1126,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           }
         }
 
-        // Base guns: three simple dots that shoot asteroids eligible for processing.
+        // Base guns: three simple dots that shoot rocks eligible for processing.
         // Guns are attached to the rotating base and fire inward.
         {
           // Update gun cooldowns.
@@ -1134,7 +1134,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           for (let i = 0; i < 3; i++) cds[i] = Math.max(0, cds[i] - dt)
 
           if (targetIndex >= 0) {
-            const target = asteroids[targetIndex]
+            const target = rocks[targetIndex]
             const shotSpeed = 520
             const fireCooldown = 0.18
 
@@ -1173,19 +1173,19 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         })
         .filter((s) => s.life > 0)
 
-      // Base shots hit asteroids (processing). Only affects asteroids, not the ship.
-      if (baseShotsRef.current.length > 0 && asteroidsRef.current.length > 0) {
+      // Base shots hit rocks (processing). Only affects rocks, not the ship.
+      if (baseShotsRef.current.length > 0 && rocksRef.current.length > 0) {
         const shots = baseShotsRef.current
-        const asts = asteroidsRef.current
+        const rocks2 = rocksRef.current
         for (let si = shots.length - 1; si >= 0; si--) {
           const sh = shots[si]
-          for (let ai = asts.length - 1; ai >= 0; ai--) {
-            const a = asts[ai]
+          for (let ai = rocks2.length - 1; ai >= 0; ai--) {
+            const a = rocks2[ai]
             const d = toroidalDelta(sh.pos.x, sh.pos.y, a.pos.x, a.pos.y, w, h)
             if (Math.hypot(d.dx, d.dy) <= a.radius + 2) {
-              // Process asteroid on hit.
+              // Process rock on hit.
               shots.splice(si, 1)
-              asts.splice(ai, 1)
+              rocks2.splice(ai, 1)
               setScore((s) => s + 700 + Math.max(0, Math.round((60 - a.radius) * 10)))
               createDebris(wrapX(a.pos.x), wrapY(a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
               sounds.collect()
@@ -1212,7 +1212,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         hp0.life -= dt * 1000
 
         // Enforce the cable max length (tension-only) with hook mass.
-        // Treat the hook like a tiny asteroid: tension affects both ship and hook.
+        // Treat the hook like a tiny rock: tension affects both ship and hook.
         {
           const sh = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
           const shDist = Math.hypot(sh.dx, sh.dy)
@@ -1316,9 +1316,9 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
             ropePrev: hp0.ropePrev,
           }
         } else {
-          // Try to latch onto an asteroid.
-          for (let i = 0; i < asteroids.length; i++) {
-            const a = asteroids[i]
+          // Try to latch onto a rock.
+          for (let i = 0; i < rocks.length; i++) {
+            const a = rocks[i]
             const { dx, dy } = toroidalDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y, w, h)
             const dist = Math.hypot(dx, dy)
             if (dist < a.radius) {
@@ -1342,7 +1342,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
 
               harpoonRef.current = {
                 state: 'attached',
-                asteroid: a,
+                rock: a,
                 ropeLength: ropeLen,
                 maxLength: hp0.maxLength,
                 segLen,
@@ -1410,9 +1410,9 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           }
         }
 
-        // If it touches an asteroid later, it should still latch.
-        for (let i = 0; i < asteroids.length; i++) {
-          const a = asteroids[i]
+        // If it touches a rock later, it should still latch.
+        for (let i = 0; i < rocks.length; i++) {
+          const a = rocks[i]
           const { dx, dy } = toroidalDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y, w, h)
           const dist = Math.hypot(dx, dy)
           if (dist < a.radius) {
@@ -1431,7 +1431,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
             }
             harpoonRef.current = {
               state: 'attached',
-              asteroid: a,
+              rock: a,
               ropeLength: ropeLen,
               maxLength: hp0.maxLength,
               segLen,
@@ -1488,13 +1488,13 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
           }
         }
       } else if (hp0.state === 'attached') {
-        // If the asteroid got destroyed/split, drop the harpoon.
-        if (!asteroids.includes(hp0.asteroid)) {
+        // If the rock got destroyed/split, drop the harpoon.
+        if (!rocks.includes(hp0.rock)) {
           const ropeLength = hp0.maxLength * HARPOON_VISUAL_SLACK
-          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp0.asteroid.pos.x, hp0.asteroid.pos.y, ropeLength)
+          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp0.rock.pos.x, hp0.rock.pos.y, ropeLength)
           harpoonRef.current = {
             state: 'deployed',
-            pos: { x: hp0.asteroid.pos.x, y: hp0.asteroid.pos.y },
+            pos: { x: hp0.rock.pos.x, y: hp0.rock.pos.y },
             vel: { x: 0, y: 0 },
             maxLength: hp0.maxLength,
             ropeLength,
@@ -1503,8 +1503,8 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
             ropePrev: seed.ropePrev,
           }
         } else {
-          const a = hp0.asteroid
-          const { dx, dy } = toroidalDelta(ship.pos.x, ship.pos.y, a.pos.x, a.pos.y, w, h)
+          const rock = hp0.rock
+          const { dx, dy } = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
           const dist = Math.hypot(dx, dy)
           const L = hp0.ropeLength
 
@@ -1514,11 +1514,11 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
             const nx = dx / dist
             const ny = dy / dist
 
-            // Mass: larger asteroid = heavier. Ship is always light.
+            // Mass: larger rock = heavier. Ship is always light.
             const invShip = 1
-            const mAst = Math.max(1, (a.radius / 18) * (a.radius / 18))
-            const invAst = 1 / mAst
-            const invSum = invShip + invAst
+            const mRock = Math.max(1, (rock.radius / 18) * (rock.radius / 18))
+            const invRock = 1 / mRock
+            const invSum = invShip + invRock
 
             // Position correction to remove stretch.
             const err = dist - L
@@ -1527,24 +1527,24 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
 
             ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
             ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
-            a.pos.x = wrapX(a.pos.x - nx * (corr * (invAst / invSum)))
-            a.pos.y = wrapY(a.pos.y - ny * (corr * (invAst / invSum)))
+            rock.pos.x = wrapX(rock.pos.x - nx * (corr * (invRock / invSum)))
+            rock.pos.y = wrapY(rock.pos.y - ny * (corr * (invRock / invSum)))
 
             // Velocity correction: only remove separating motion (keeps it from "rubber banding").
-            const relVx = a.vel.x - ship.vel.x
-            const relVy = a.vel.y - ship.vel.y
+            const relVx = rock.vel.x - ship.vel.x
+            const relVy = rock.vel.y - ship.vel.y
             const relAlong = relVx * nx + relVy * ny
             if (relAlong > 0) {
               const j = (-relAlong * 0.9) / invSum
               ship.vel.x -= j * nx * invShip
               ship.vel.y -= j * ny * invShip
-              a.vel.x += j * nx * invAst
-              a.vel.y += j * ny * invAst
+              rock.vel.x += j * nx * invRock
+              rock.vel.y += j * ny * invRock
             }
           }
 
           // Rope simulation for rendering (slack/curve).
-          // Endpoints are fixed at ship/asteroid positions so slack doesn't push them.
+          // Endpoints are fixed at ship/rock positions so slack doesn't push them.
           const rope = hp0.rope
           const ropePrev = hp0.ropePrev
           const segLen = hp0.segLen
@@ -1586,10 +1586,10 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
               rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
             }
 
-            // Segment: last -> asteroid
+            // Segment: last -> rock
             if (rope.length > 0) {
               const last = rope[rope.length - 1]
-              const c = solvePair(last.x, last.y, a.pos.x, a.pos.y, segLen)
+              const c = solvePair(last.x, last.y, rock.pos.x, rock.pos.y, segLen)
               rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
             }
           }
@@ -1678,10 +1678,10 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         }
       }
 
-      for (let i = 0; i < asteroids.length; i++) {
-        const a = asteroids[i]
-        for (let j = i + 1; j < asteroids.length; j++) {
-          const b = asteroids[j]
+      for (let i = 0; i < rocks.length; i++) {
+        const a = rocks[i]
+        for (let j = i + 1; j < rocks.length; j++) {
+          const b = rocks[j]
 
           // Shortest vector under wrapping.
           let dx = a.pos.x - b.pos.x
@@ -1745,23 +1745,23 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         return bullet.life > 0
       })
 
-      // Collision detection: player bullets vs boss/asteroids
+      // Collision detection: player bullets vs boss/rocks
       bulletsRef.current = bulletsRef.current.filter((bullet) => {
         if (bullet.isEnemy) return true
 
-        for (let i = 0; i < asteroidsRef.current.length; i++) {
-          const asteroid = asteroidsRef.current[i]
-          const dist = Math.hypot(bullet.pos.x - asteroid.pos.x, bullet.pos.y - asteroid.pos.y)
-          if (dist < asteroid.radius) {
-            // If harpoon was attached to this asteroid, release it.
+        for (let i = 0; i < rocksRef.current.length; i++) {
+          const rock = rocksRef.current[i]
+          const dist = Math.hypot(bullet.pos.x - rock.pos.x, bullet.pos.y - rock.pos.y)
+          if (dist < rock.radius) {
+            // If harpoon was attached to this rock, release it.
             const hp = harpoonRef.current
-            if (hp.state === 'attached' && hp.asteroid === asteroid) {
+            if (hp.state === 'attached' && hp.rock === rock) {
               const ship = shipRef.current
               const ropeLength = hp.maxLength * HARPOON_VISUAL_SLACK
-              const seed = buildRopeBetween(ship.pos.x, ship.pos.y, asteroid.pos.x, asteroid.pos.y, ropeLength)
+              const seed = buildRopeBetween(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, ropeLength)
               harpoonRef.current = {
                 state: 'deployed',
-                pos: { x: asteroid.pos.x, y: asteroid.pos.y },
+                pos: { x: rock.pos.x, y: rock.pos.y },
                 vel: { x: 0, y: 0 },
                 maxLength: hp.maxLength,
                 ropeLength,
@@ -1770,22 +1770,22 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
                 ropePrev: seed.ropePrev,
               }
             }
-            asteroidsRef.current.splice(i, 1)
-            setScore((s) => s + Math.floor(100 / asteroid.radius))
+            rocksRef.current.splice(i, 1)
+            setScore((s) => s + Math.floor(100 / rock.radius))
 
             // Play explosion sound based on size
-            const explosionSize = asteroid.radius > 35 ? 'large' : asteroid.radius > 20 ? 'medium' : 'small'
+            const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
             sounds.explosion(explosionSize)
 
-            // Split asteroid or create debris for smallest ones
-            if (asteroid.radius > 20) {
-              const newRadius = asteroid.radius / 2
+            // Split rock or create debris for smallest ones
+            if (rock.radius > 20) {
+              const newRadius = rock.radius / 2
               for (let j = 0; j < 2; j++) {
-                asteroidsRef.current.push(createAsteroid(asteroid.pos.x, asteroid.pos.y, newRadius))
+                rocksRef.current.push(createRock(rock.pos.x, rock.pos.y, newRadius))
               }
             } else {
-              // Smallest asteroid destroyed - create particle debris
-              createDebris(asteroid.pos.x, asteroid.pos.y, asteroid.vel.x, asteroid.vel.y, 5, 0.5, '255, 255, 255')
+              // Smallest rock destroyed - create particle debris
+              createDebris(rock.pos.x, rock.pos.y, rock.vel.x, rock.vel.y, 5, 0.5, '255, 255, 255')
             }
             return false
           }
@@ -1793,52 +1793,52 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         return true
       })
 
-      // Collision detection: ship vs asteroids (bounce + damage based on impact speed)
+      // Collision detection: ship vs rocks (bounce + damage based on impact speed)
       {
         const shipMass = 1
-        for (let i = 0; i < asteroidsRef.current.length; i++) {
-          const asteroid = asteroidsRef.current[i]
-          const d = toroidalDelta(ship.pos.x, ship.pos.y, asteroid.pos.x, asteroid.pos.y, w, h)
+        for (let i = 0; i < rocksRef.current.length; i++) {
+          const rock = rocksRef.current[i]
+          const d = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
           const dist = Math.hypot(d.dx, d.dy)
-          const minDist = ship.radius + asteroid.radius
+          const minDist = ship.radius + rock.radius
           if (dist >= minDist || dist < 1e-6) continue
 
           const nx = d.dx / dist
           const ny = d.dy / dist
           const penetration = minDist - dist
 
-          const astMass = Math.max(0.25, (asteroid.radius / 18) * (asteroid.radius / 18))
+          const rockMass = Math.max(0.25, (rock.radius / 18) * (rock.radius / 18))
           const invShip = 1 / shipMass
-          const invAst = 1 / astMass
-          const invSum = invShip + invAst
+          const invRock = 1 / rockMass
+          const invSum = invShip + invRock
 
           ship.pos.x = wrapX(ship.pos.x - nx * (penetration * (invShip / invSum)))
           ship.pos.y = wrapY(ship.pos.y - ny * (penetration * (invShip / invSum)))
-          asteroid.pos.x = wrapX(asteroid.pos.x + nx * (penetration * (invAst / invSum)))
-          asteroid.pos.y = wrapY(asteroid.pos.y + ny * (penetration * (invAst / invSum)))
+          rock.pos.x = wrapX(rock.pos.x + nx * (penetration * (invRock / invSum)))
+          rock.pos.y = wrapY(rock.pos.y + ny * (penetration * (invRock / invSum)))
 
-          const relVx = asteroid.vel.x - ship.vel.x
-          const relVy = asteroid.vel.y - ship.vel.y
+          const relVx = rock.vel.x - ship.vel.x
+          const relVy = rock.vel.y - ship.vel.y
           const relAlong = relVx * nx + relVy * ny
           if (relAlong < 0) {
-            applyImpactDamage(Math.hypot(ship.vel.x - asteroid.vel.x, ship.vel.y - asteroid.vel.y))
+            applyImpactDamage(Math.hypot(ship.vel.x - rock.vel.x, ship.vel.y - rock.vel.y))
             const e = 0.55
             const j = (-(1 + e) * relAlong) / invSum
             ship.vel.x -= j * nx * invShip
             ship.vel.y -= j * ny * invShip
-            asteroid.vel.x += j * nx * invAst
-            asteroid.vel.y += j * ny * invAst
+            rock.vel.x += j * nx * invRock
+            rock.vel.y += j * ny * invRock
           }
         }
       }
 
-      // Check if all asteroids destroyed
-      if (asteroidsRef.current.length === 0 && gameState === 'playing' && !levelingUpRef.current) {
+      // Check if all rocks destroyed
+      if (rocksRef.current.length === 0 && gameState === 'playing' && !levelingUpRef.current) {
         levelingUpRef.current = true
         setLevel((l) => {
           const newLevel = l + 1
           setTimeout(() => {
-            spawnAsteroids(asteroidCountForLevel(newLevel), 100, speedMultForLevel(newLevel))
+            spawnRocks(rockCountForLevel(newLevel), 100, speedMultForLevel(newLevel))
             invulnerableRef.current = 2000
             levelingUpRef.current = false
           }, 500)
@@ -1865,7 +1865,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       }
       ctx.restore()
 
-      // Draw mining base (center) behind asteroids.
+      // Draw mining base (center) behind rocks.
       {
         const cx = width / 2
         const cy = height / 2
@@ -2158,14 +2158,14 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         ctx.restore()
       }
 
-      // Draw asteroids
-      asteroidsRef.current.forEach((asteroid) => {
-        const { verts, polys } = asteroid.mesh
+      // Draw rocks
+      rocksRef.current.forEach((rock) => {
+        const { verts, polys } = rock.mesh
 
         // Rotate vertices in all axes.
-        const rx = asteroid.rot[0]
-        const ry = asteroid.rot[1]
-        const rz = asteroid.rot[2]
+        const rx = rock.rot[0]
+        const ry = rock.rot[1]
+        const rz = rock.rot[2]
 
         const tVerts: V3[] = verts.map((v) => {
           let p = rotX(v, rx)
@@ -2265,7 +2265,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         }
 
         ctx.save()
-        ctx.translate(asteroid.pos.x, asteroid.pos.y)
+        ctx.translate(rock.pos.x, rock.pos.y)
 
         // Thin white outlines only (visible edges only).
         ctx.shadowBlur = 0
@@ -2350,14 +2350,14 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
 
         if (hp.state === 'attached') {
           // Draw segmented rope for attached state.
-          const pts: Vector2[] = [ship.pos, ...hp.rope, hp.asteroid.pos]
+          const pts: Vector2[] = [ship.pos, ...hp.rope, hp.rock.pos]
           for (let i = 0; i < pts.length - 1; i++) {
             drawToroidalLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
           }
 
           ctx.fillStyle = 'rgba(255,255,255,0.9)'
           ctx.beginPath()
-          ctx.arc(hp.asteroid.pos.x, hp.asteroid.pos.y, 3, 0, Math.PI * 2)
+          ctx.arc(hp.rock.pos.x, hp.rock.pos.y, 3, 0, Math.PI * 2)
           ctx.fill()
         } else {
           // Draw segmented rope for any unattached state (flying/deployed/reeling).
@@ -2496,7 +2496,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, damage, createAsteroid, createDebris, spawnAsteroids])
+  }, [gameState, damage, createRock, createDebris, spawnRocks])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()
@@ -2532,7 +2532,7 @@ export function AsteroidsGame({ onExit }: AsteroidsGameProps) {
       {gameState === 'menu' && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Asteroids</h1>
+            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Hard Vacuum</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> Arrow Keys / WASD: Move & Rotate

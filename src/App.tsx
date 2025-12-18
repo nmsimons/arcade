@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
 import { ArmorAttackGame } from './games/ArmorAttackGame'
-import { AsteroidsGame } from './games/AsteroidsGame'
+import { HardVacuumGame } from './games/HardVacuumGame'
 import { HelloWorldGame } from './games/HelloWorldGame'
 import { KickballGame } from './games/KickballGame'
 import { LunarLanderGame } from './games/LunarLanderGame'
 import { OmegaRaceGame } from './games/OmegaRaceGame'
 import { SlingLoadGame } from './games/SlingLoadGame'
 
-type GameId = 'asteroids' | 'hello' | 'lander' | 'omega' | 'armor' | 'kickball' | 'sling'
+type GameId = 'hardVacuum' | 'hello' | 'lander' | 'omega' | 'armor' | 'kickball' | 'sling'
 
-const GAMES: GameId[] = ['asteroids', 'lander', 'omega', 'armor', 'kickball', 'sling', 'hello']
+const GAMES: GameId[] = ['hardVacuum', 'lander', 'omega', 'armor', 'kickball', 'sling', 'hello']
 
 export default function App() {
   const [game, setGame] = useState<GameId | null>(null)
@@ -37,8 +37,8 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [game, selectedIndex])
 
-  if (game === 'asteroids') {
-    return <AsteroidsGame onExit={() => setGame(null)} />
+  if (game === 'hardVacuum') {
+    return <HardVacuumGame onExit={() => setGame(null)} />
   }
 
   if (game === 'hello') {
@@ -95,8 +95,8 @@ export default function App() {
                     : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
-                {g === 'asteroids'
-                  ? 'Asteroids'
+                {g === 'hardVacuum'
+                  ? 'Hard Vacuum'
                   : g === 'lander'
                     ? 'Lunar Lander'
                     : g === 'omega'

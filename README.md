@@ -1,6 +1,6 @@
-# Asteroids (React + TypeScript + Vite)
+# Hard Vacuum (React + TypeScript + Vite)
 
-An Asteroids-style browser game built with React, TypeScript, Vite, and Tailwind CSS.
+A small retro-style browser arcade: a full-screen game selector that launches several canvas-based mini-games (each with its own keyboard controls and Web Audio sound effects).
 
 ## Tech Stack
 
@@ -8,6 +8,67 @@ An Asteroids-style browser game built with React, TypeScript, Vite, and Tailwind
 - Vite
 - Tailwind CSS
 - ESLint
+
+## Included Games
+
+- **Hard Vacuum** — classic ship + shooting, plus a harpoon mechanic
+- **Lunar Lander** — land gently on the pad (difficulty selectable)
+- **Omega Race** — arena shooter with force-field bounces
+- **Armor Attack** — top-down combat with tanks + helicopters
+- **Bumper Ball** — physics soccer-ish bumper cars (1P/2P)
+- **Sling Load** — helicopter sling-load delivery / survival
+- **Hello World** — vector display “HELLO WORLD” screen
+
+## Controls
+
+**Arcade menu**
+
+- Up/Down (or W/S): select a game
+- Enter/Space: launch
+
+**Hard Vacuum**
+
+- Arrows / WASD: move & rotate
+- Space: shoot
+- X: harpoon (toggle reel)
+- P: pause
+
+**Lunar Lander**
+
+- Arrows / WASD: rotate + thrust
+- P: pause
+- Menu: Left/Right changes difficulty
+
+**Omega Race**
+
+- Arrows / WASD: rotate + thrust
+- Space: fire (max 3 shots)
+- P: pause
+
+**Armor Attack**
+
+- Arrows / WASD: move
+- Space: fire (max 2 shots)
+
+**Bumper Ball**
+
+- 1P: Arrow Keys to move
+- 2P: WASD + Arrows
+- P or Esc: pause/resume
+
+**Sling Load**
+
+- Arrows / WASD: thrust
+- Space: hook / release
+- X: rotor on/off
+- Shift: stabilize (damping)
+- P: pause
+
+**Hello World**
+
+- Escape / Enter / Space: exit
+
+Note: browsers often require a user gesture (key press/click) before audio can start.
 
 ## Development
 
@@ -38,12 +99,21 @@ npm run lint     # Run ESLint
 
 ```text
 src/
-  App.tsx        # Main application component
+  App.tsx        # Arcade menu + game launcher
   main.tsx       # Application entry point
   index.css      # Tailwind directives + global styles
   components/    # Reusable UI components
+  games/         # Canvas games (one component per game)
 public/          # Static assets
 ```
+
+## Adding a Game
+
+1. Create a new component in `src/games/` that accepts `{ onExit: () => void }`.
+2. Import it in `src/App.tsx` and add it to:
+   - the `GameId` union
+   - the `GAMES` list (for menu order)
+   - the render switch that returns the game component
 
 ## Deployment (Azure Static Web Apps)
 

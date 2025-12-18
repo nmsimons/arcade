@@ -806,7 +806,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
                     className={`flex-1 border-2 py-2 uppercase tracking-widest text-sm transition-colors ${
                       difficulty === d
                         ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                        : 'border-[#00ff88]/50 text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
+                        : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
                     }`}
                   >
                     {d}
@@ -820,7 +820,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Start
@@ -830,7 +830,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
+                    : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
                 }`}
               >
                 Back
@@ -849,13 +849,13 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={() => setGameState('playing')}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Resume
               </button>
               <button
                 onClick={exitToGameSelect}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Back
               </button>
@@ -885,7 +885,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   resultIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Play Again
@@ -894,8 +894,8 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
                 onClick={exitToGameSelect}
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   resultIndex === 1
-                    ? 'border-[#ff4444] bg-[#ff4444] text-black'
-                    : 'border-[#ff4444] text-[#ff4444] hover:bg-[#ff4444] hover:text-black'
+                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    : 'border-[#ff4444] bg-black text-[#ff4444] hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
                 }`}
               >
                 Back

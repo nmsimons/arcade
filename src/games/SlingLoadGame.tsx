@@ -1959,7 +1959,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Start
@@ -1969,7 +1969,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Back
@@ -1988,13 +1988,13 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={() => setGameState('playing')}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Resume
               </button>
               <button
                 onClick={onExit}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Back
               </button>
@@ -2017,7 +2017,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Play Again
@@ -2027,7 +2027,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Main Menu
@@ -2037,7 +2037,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 2
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Back

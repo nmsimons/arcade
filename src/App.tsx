@@ -92,7 +92,7 @@ export default function App() {
                 className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
                   selectedIndex === i
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 {g === 'hardVacuum'

@@ -232,7 +232,7 @@ export function HelloWorldGame({ onExit }: HelloWorldGameProps) {
       <div className="absolute top-4 right-4">
         <button
           onClick={onExit}
-          className="border-2 border-[#00ff88] text-[#00ff88] px-4 py-2 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+          className="bg-black border-2 border-[#00ff88] text-[#00ff88] px-4 py-2 uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
         >
           Back
         </button>

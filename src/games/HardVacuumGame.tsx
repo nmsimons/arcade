@@ -454,6 +454,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const miningBaseAngleRef = useRef(0)
   const miningGunCooldownsRef = useRef<[number, number, number]>([0, 0.06, 0.12])
 
+  // Cached background starfield (offscreen) so it costs ~one drawImage per frame.
+  const starFieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
+  const starFieldSizeRef = useRef({ width: 0, height: 0 })
+
   // Harpoon cable is a fixed-length tether. The fired hook cannot exceed this distance.
   const HARPOON_CABLE_LENGTH = 130
   const HARPOON_REEL_SPEED = 440
@@ -906,6 +910,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
       canvasSizeRef.current = { width: canvas.width, height: canvas.height }
+
+      // Force starfield regeneration for the new resolution.
+      starFieldCanvasRef.current = null
+      starFieldSizeRef.current = { width: 0, height: 0 }
     }
 
     resize()
@@ -1948,9 +1956,50 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       const width = canvas.width
       const height = canvas.height
 
+      const ensureStarField = () => {
+        if (
+          starFieldCanvasRef.current &&
+          starFieldSizeRef.current.width === width &&
+          starFieldSizeRef.current.height === height
+        ) {
+          return
+        }
+
+        const off = document.createElement('canvas')
+        off.width = width
+        off.height = height
+        const sctx = off.getContext('2d')
+        if (!sctx) return
+
+        // Subtle static stars; keep them close to the background so gameplay stays primary.
+        const area = width * height
+        const count = clamp(Math.round(area / 8500), 140, 420)
+        for (let i = 0; i < count; i++) {
+          const x = Math.random() * width
+          const y = Math.random() * height
+          const r = Math.random()
+          const size = r < 0.08 ? 2 : 1
+          const alpha = r < 0.08 ? 0.18 : 0.09
+          sctx.fillStyle = `rgba(255,255,255,${alpha})`
+          sctx.fillRect(x, y, size, size)
+        }
+
+        starFieldCanvasRef.current = off
+        starFieldSizeRef.current = { width, height }
+      }
+
       // Clear
       ctx.fillStyle = '#0a0a0a'
       ctx.fillRect(0, 0, width, height)
+
+      // Starfield background (behind everything).
+      ensureStarField()
+      if (starFieldCanvasRef.current) {
+        ctx.save()
+        ctx.globalAlpha = 1
+        ctx.drawImage(starFieldCanvasRef.current, 0, 0)
+        ctx.restore()
+      }
 
       // Draw mining base (center) behind rocks.
       {
@@ -2007,6 +2056,20 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
 
         const outer = poly(R, 6, baseAng)
+
+        // Opaque base panels (match background) so stars don't show through the base.
+        ctx.save()
+        ctx.globalAlpha = 1
+        ctx.shadowBlur = 0
+        ctx.shadowColor = 'rgba(0, 0, 0, 0)'
+        ctx.fillStyle = '#0a0a0a'
+        ctx.beginPath()
+        ctx.moveTo(outer[0].x, outer[0].y)
+        for (let i = 1; i < outer.length; i++) ctx.lineTo(outer[i].x, outer[i].y)
+        ctx.closePath()
+        ctx.fill()
+        ctx.restore()
+
         const outerSegs = drawHexWithDoorGaps(outer)
 
         // Extend short lines inward from segment endpoints (about 1/5 to center).
@@ -2751,7 +2814,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Start
@@ -2761,7 +2824,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
+                    : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
                 }`}
               >
                 Back
@@ -2781,13 +2844,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={() => setGameState('playing')}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Resume
               </button>
               <button
                 onClick={exitToGameSelect}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Back
               </button>
@@ -2811,7 +2874,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Play Again
@@ -2821,7 +2884,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
+                    : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
                 }`}
               >
                 Main Menu
@@ -2830,8 +2893,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                 onClick={exitToGameSelect}
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 2
-                    ? 'border-[#ff4444] bg-[#ff4444] text-black'
-                    : 'border-[#ff4444] text-[#ff4444] hover:bg-[#ff4444] hover:text-black'
+                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    : 'border-[#ff4444] bg-black text-[#ff4444] hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
                 }`}
               >
                 Back

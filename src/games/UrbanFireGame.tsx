@@ -1930,7 +1930,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Start
@@ -1940,7 +1940,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
+                    : 'bg-black border-[#00ff88]/50 text-[#00ff88]/50 hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
                 }`}
               >
                 Back
@@ -1962,13 +1962,13 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
                   sounds.startEngine()
                   setGameState('playing')
                 }}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Resume
               </button>
               <button
                 onClick={exitToGameSelect}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Back
               </button>
@@ -1991,7 +1991,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 0
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Play Again
@@ -2001,7 +2001,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
+                    : 'bg-black border-[#00ff88]/50 text-[#00ff88]/50 hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
                 }`}
               >
                 Main Menu
@@ -2010,8 +2010,8 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
                 onClick={exitToGameSelect}
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 2
-                    ? 'border-[#ff4444] bg-[#ff4444] text-black'
-                    : 'border-[#ff4444] text-[#ff4444] hover:bg-[#ff4444] hover:text-black'
+                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    : 'bg-black border-[#ff4444] text-[#ff4444] hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
                 }`}
               >
                 Back

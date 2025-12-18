@@ -1811,12 +1811,16 @@ export function KickballGame({ onExit }: KickballGameProps) {
         const spinAxis = ballSpinAxisRef.current
         const spinAngle = ballSpinAngleRef.current
 
-        // Outline-only ball (no fill)
-
         ctx.save()
         ctx.beginPath()
         ctx.arc(x, y, r, 0, Math.PI * 2)
         ctx.clip()
+
+        // Opaque fill so the field/scanlines don't show through the ball.
+        ctx.fillStyle = '#0a0a0a'
+        ctx.beginPath()
+        ctx.arc(x, y, r, 0, Math.PI * 2)
+        ctx.fill()
 
         // Seams only: thin white arcs, front hemisphere only.
         ctx.strokeStyle = 'rgba(255,255,255,0.7)'
@@ -1878,16 +1882,6 @@ export function KickballGame({ onExit }: KickballGameProps) {
       // Clear
       ctx.fillStyle = '#0a0a0a'
       ctx.fillRect(0, 0, width, height)
-
-      // Subtle scanline haze
-      ctx.save()
-      ctx.globalAlpha = 0.06
-      ctx.fillStyle = '#00ff88'
-      const scanY = ((Date.now() / 1000) * 60) % 12
-      for (let y = -12; y < height + 12; y += 12) {
-        ctx.fillRect(0, y + scanY, width, 1)
-      }
-      ctx.restore()
 
       // Draw field
       ctx.strokeStyle = '#00ff88'
@@ -2019,7 +2013,11 @@ export function KickballGame({ onExit }: KickballGameProps) {
         const endSeq = endSequenceRef.current
         if (endSeq && endSeq.explodedSides.has(vehicle.side)) return
         const color = vehicle.side === 'left' ? '#ff4444' : '#4444ff'
+        const bg = '#0a0a0a'
         ctx.save()
+        // Ensure the vehicle isn't affected by any prior alpha/compositing state.
+        ctx.globalAlpha = 1
+        ctx.globalCompositeOperation = 'source-over'
         ctx.translate(vehicle.pos.x, vehicle.pos.y)
         ctx.rotate(vehicle.angle)
         ctx.strokeStyle = color
@@ -2029,8 +2027,14 @@ export function KickballGame({ onExit }: KickballGameProps) {
         const drawTire = (tx: number, ty: number) => {
           const tireWidth = 8
           const tireHeight = 4
+
+          // Opaque tire fill so the field/scanlines don't show through.
           ctx.beginPath()
           ctx.rect(tx - tireWidth / 2, ty - tireHeight / 2, tireWidth, tireHeight)
+          ctx.save()
+          ctx.fillStyle = bg
+          ctx.fill()
+          ctx.restore()
           ctx.stroke()
           const treadSpacing = 3
           for (let i = -1; i <= 1; i++) {
@@ -2058,6 +2062,10 @@ export function KickballGame({ onExit }: KickballGameProps) {
         ctx.lineTo(-12, -4)
         ctx.lineTo(-10, -6)
         ctx.closePath()
+        ctx.save()
+        ctx.fillStyle = bg
+        ctx.fill()
+        ctx.restore()
         ctx.stroke()
 
         // Front bumper (for pushing)
@@ -2067,6 +2075,10 @@ export function KickballGame({ onExit }: KickballGameProps) {
         ctx.lineTo(15, -5)
         ctx.lineTo(15, 5)
         ctx.lineTo(12, 7)
+        ctx.save()
+        ctx.fillStyle = bg
+        ctx.fill()
+        ctx.restore()
         ctx.stroke()
 
         ctx.restore()
@@ -2162,6 +2174,16 @@ export function KickballGame({ onExit }: KickballGameProps) {
         ctx.fillText('GOAL!', width / 2, height / 2) // Draw twice for stronger glow
         ctx.shadowBlur = 0
       }
+
+      // Subtle scanline haze (draw last so it overlays cars/ball too)
+      ctx.save()
+      ctx.globalAlpha = 0.06
+      ctx.fillStyle = '#00ff88'
+      const scanY = ((Date.now() / 1000) * 60) % 12
+      for (let y = -12; y < height + 12; y += 12) {
+        ctx.fillRect(0, y + scanY, width, 1)
+      }
+      ctx.restore()
     }
 
     const gameLoop = (time: number) => {
@@ -2206,7 +2228,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
                   className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
                     menuIndex === i
                       ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                      : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                      : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                   }`}
                 >
                   {label}
@@ -2233,7 +2255,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
               <button
                 onClick={() => setGameState('playing')}
                 className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
-                  'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                  'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Resume
@@ -2241,7 +2263,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
               <button
                 onClick={onExit}
                 className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
-                  'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                  'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
               >
                 Back
@@ -2278,7 +2300,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
                   className={`px-8 py-3 border-2 font-mono uppercase tracking-widest transition-colors ${
                     gameOverIndex === i
                       ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                      : 'border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                      : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                   }`}
                 >
                   {label}

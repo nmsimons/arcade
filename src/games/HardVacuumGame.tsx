@@ -427,7 +427,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'dying' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
-  const [damage, setDamage] = useState(0)
+  const [shields, setShields] = useState(2)
   const [level, setLevel] = useState(1)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
@@ -447,6 +447,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const animationFrameRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
   const invulnerableRef = useRef(0)
+  const lastShieldHitAtRef = useRef(0)
+  const lastShieldRechargeAtRef = useRef(0)
   const dyingTimerRef = useRef(0)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const levelingUpRef = useRef(false)
@@ -702,7 +704,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     bulletsRef.current = []
     baseShotsRef.current = []
     setScore(0)
-    setDamage(0)
+    setShields(2)
     setLevel(1)
     resetBlueRocksForLevel(1)
     setGameState('playing')
@@ -965,7 +967,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       const ship = shipRef.current
 
-      const applyImpactDamage = (impactSpeed: number) => {
+      const applyImpactShield = (impactSpeed: number) => {
         if (invulnerableRef.current > 0) return
         // Calibrated for gameplay feel (ship max speed ~300):
         // very slow -> 0, slow -> 1, medium -> 2, fast -> 3.
@@ -977,10 +979,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         const amt = impactSpeed >= fast ? 3 : impactSpeed >= medium ? 2 : impactSpeed >= slow ? 1 : 0
         if (amt <= 0) return
         invulnerableRef.current = 450
-        setDamage((d) => {
-          const next = Math.min(3, d + amt)
-          if (next >= 3) {
-            // BOOM: use the existing debris explosion effect.
+        setShields((s) => {
+          // Shields are a visual indicator only; collision math stays unchanged.
+          // Starts at 2 and ticks down (by the same impact amounts as the old damage system).
+          // Once shields are gone, the next hit destroys the ship.
+          if (s <= 0) {
             createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 18, 1.2, '255, 255, 255')
             createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 10, 1.0, '255, 170, 0')
             sounds.explosion('large')
@@ -988,7 +991,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             keysRef.current.clear()
             dyingTimerRef.current = 1200
             setGameState('dying')
+            return 0
           }
+
+          const next = Math.max(0, s - amt)
+          if (next < s) lastShieldHitAtRef.current = Date.now()
           return next
         })
       }
@@ -1262,7 +1269,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
         }
       }
-        collideWithWalls(ship.pos, ship.vel, ship.radius, 0.55, (impact) => applyImpactDamage(impact))
+        collideWithWalls(ship.pos, ship.vel, ship.radius, 0.55, (impact) => applyImpactShield(impact))
         {
           const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, w, h)
           const fullyInside = circleFullyInHex(d.dx, d.dy, ship.radius)
@@ -1272,7 +1279,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             shipRepairTimeRef.current += dt
             if (shipRepairTimeRef.current >= 2) {
               shipRepairTimeRef.current = 2
-              setDamage((dmg) => (dmg === 0 ? dmg : 0))
+              setShields((s) => {
+                if (s >= 2) return s
+                lastShieldRechargeAtRef.current = Date.now()
+                return 2
+              })
               if (invulnerableRef.current < 120) invulnerableRef.current = 120
             }
           }
@@ -1897,7 +1908,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         return true
       })
 
-      // Collision detection: ship vs rocks (bounce + damage based on impact speed)
+      // Collision detection: ship vs rocks (bounce + shield loss based on impact speed)
       {
         const shipMass = 1
         for (let i = 0; i < rocksRef.current.length; i++) {
@@ -1925,7 +1936,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const relVy = rock.vel.y - ship.vel.y
           const relAlong = relVx * nx + relVy * ny
           if (relAlong < 0) {
-            applyImpactDamage(Math.hypot(ship.vel.x - rock.vel.x, ship.vel.y - rock.vel.y))
+            applyImpactShield(Math.hypot(ship.vel.x - rock.vel.x, ship.vel.y - rock.vel.y))
             const e = 0.55
             const j = (-(1 + e) * relAlong) / invSum
             ship.vel.x -= j * nx * invShip
@@ -2555,7 +2566,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       // Draw ship
       if (gameState === 'playing') {
         const ship = shipRef.current
-        const isInvulnerable = invulnerableRef.current > 0
 
         // Healing halo: while fully inside the base and the 2s repair timer is counting.
         {
@@ -2587,7 +2597,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
           const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, width, height)
           const fullyInside = circleFullyInHexLocal(d.dx, d.dy, ship.radius)
-          const isHealing = fullyInside && damage > 0 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
+          const isHealing = fullyInside && shields < 2 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
 
           if (isHealing) {
             const t = Date.now() / 1000
@@ -2622,24 +2632,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         ctx.rotate(ship.angle)
           const s = ship.radius / 15
 
-          // Damage color pattern (like Armor Assault): base color by damage, flash white while invulnerable.
-          const baseColor = damage <= 0 ? '#ffffff' : damage === 1 ? '#ffaa00' : '#ff4444'
-          const flashOn = isInvulnerable && Math.floor(invulnerableRef.current / 50) % 2 === 0
-          const shipColor = flashOn ? '#ffffff' : baseColor
+          // Ship outline stays neutral; shields are shown via the separate green outline.
+          const baseColor = '#ffffff'
+          // The ship should NEVER flash. Invulnerability is communicated via the shield.
+          const shipColor = baseColor
 
           // Neon outline + subtle glow
           ctx.strokeStyle = shipColor
           ctx.lineWidth = 2.4
           ctx.lineJoin = 'round'
           ctx.lineCap = 'round'
-          ctx.shadowColor =
-            shipColor === '#ffffff'
-              ? 'rgba(255, 255, 255, 0.28)'
-              : shipColor === '#ffaa00'
-                ? 'rgba(255, 170, 0, 0.3)'
-                : shipColor === '#ff4444'
-                  ? 'rgba(255, 68, 68, 0.3)'
-                  : 'rgba(255, 255, 255, 0.28)'
+          ctx.shadowColor = 'rgba(255, 255, 255, 0.28)'
           ctx.shadowBlur = 8
 
           const noseX = 18 * s
@@ -2648,6 +2651,62 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const bodyHalf = 10 * s
           const podOutY = 9 * s
           const podRearY = 4.5 * s
+
+          // Shield indicator outline (visual-only): an outline around the hull with a small gap.
+          if (shields > 0) {
+            const shieldFrac = clamp(shields / 2, 0, 1)
+            const gap = 6
+            const shieldNoseX = noseX + 4 * s
+            const shieldNotchX = tailX + 6 * s
+
+            const shieldDamaged = shields < 2
+            const hitAgeMs = Date.now() - lastShieldHitAtRef.current
+            const flashActive = hitAgeMs >= 0 && hitAgeMs < 220
+            const flashAlpha = flashActive ? (Math.floor(hitAgeMs / 60) % 2 === 0 ? 1 : 0.18) : 1
+
+            const rechargeAgeMs = Date.now() - lastShieldRechargeAtRef.current
+            const rechargeFadeAlpha =
+              !shieldDamaged && rechargeAgeMs >= 0 && rechargeAgeMs < 160 ? clamp(rechargeAgeMs / 160, 0, 1) : 1
+
+            // Once damaged, the shield becomes thinner and orange.
+            // It flashes only at the moment it's damaged.
+            const shieldColor = shieldDamaged ? '#ffaa00' : '#00ff88'
+            const shieldGlow = shieldDamaged ? 'rgba(255, 170, 0, 0.7)' : 'rgba(0, 255, 136, 0.75)'
+            const shieldLineWidth = shieldDamaged ? 1.4 : 2.2
+            const shieldBlur = (shieldDamaged ? 8 : 14) + shieldFrac * (shieldDamaged ? 10 : 14)
+            const hull: Vector2[] = [
+              { x: shieldNoseX, y: 0 },
+              { x: midX, y: -bodyHalf },
+              { x: -10 * s, y: -podOutY },
+              { x: tailX, y: -podRearY },
+              { x: shieldNotchX, y: 0 },
+              { x: tailX, y: podRearY },
+              { x: -10 * s, y: podOutY },
+              { x: midX, y: bodyHalf },
+            ]
+
+            const expanded = hull.map((p) => {
+              const len = Math.hypot(p.x, p.y)
+              if (len < 1e-6) return p
+              const k = 1 + gap / len
+              return { x: p.x * k, y: p.y * k }
+            })
+
+            ctx.save()
+            ctx.globalAlpha = (0.25 + 0.55 * shieldFrac) * flashAlpha * rechargeFadeAlpha
+            ctx.strokeStyle = flashActive && shieldDamaged ? '#00ff88' : shieldColor
+            ctx.lineWidth = flashActive && shieldDamaged ? 2.2 : shieldLineWidth
+            ctx.lineJoin = 'round'
+            ctx.lineCap = 'round'
+            ctx.shadowColor = flashActive && shieldDamaged ? 'rgba(0, 255, 136, 0.75)' : shieldGlow
+            ctx.shadowBlur = flashActive && shieldDamaged ? 14 + shieldFrac * 14 : shieldBlur
+            ctx.beginPath()
+            ctx.moveTo(expanded[0].x, expanded[0].y)
+            for (let i = 1; i < expanded.length; i++) ctx.lineTo(expanded[i].x, expanded[i].y)
+            ctx.closePath()
+            ctx.stroke()
+            ctx.restore()
+          }
 
           // Outer hull (inspired by the reference: wedge body + two rear pods)
           ctx.beginPath()
@@ -2757,7 +2816,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         cancelAnimationFrame(animationFrameRef.current)
       }
     }
-  }, [gameState, damage, createRock, createDebris, spawnRocks])
+  }, [gameState, shields, createRock, createDebris, spawnRocks])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()
@@ -2771,20 +2830,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       {/* HUD */}
       {gameState === 'playing' && (
         <div className="absolute top-4 left-4 pointer-events-none">
-          <div className="text-[#00ff88] space-y-1 text-sm tracking-wider uppercase">
-            <div>Score {score.toString().padStart(6, '0')}</div>
-            <div>Level {level}</div>
-            <div className="flex items-center gap-2">
-              <div>Damage</div>
-              <div className="flex items-center gap-1">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`h-3 w-3 border border-[#00ff88] ${i < damage ? 'bg-[#00ff88]/40' : ''}`}
-                  />
-                ))}
-              </div>
-            </div>
+          <div className="text-[#00ff88] space-y-1 tracking-wider uppercase">
+            <div className="text-base font-semibold">Credits {score.toString().padStart(6, '0')}</div>
+            <div className="text-base font-semibold">Wave {level}</div>
           </div>
         </div>
       )}
@@ -2865,8 +2913,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           <div className="text-center max-w-md px-8">
             <h2 className="text-4xl text-[#ff4444] mb-2 tracking-[0.3em] uppercase">Game Over</h2>
             <div className="text-center mb-8">
-              <div className="text-[#00ff88] text-2xl mb-2 tracking-wider">{score.toString().padStart(6, '0')}</div>
-              <div className="text-[#00ff88]/70 tracking-wider uppercase">Level {level}</div>
+                <div className="text-[#00ff88] text-2xl mb-2 tracking-wider">Credits {score.toString().padStart(6, '0')}</div>
+                <div className="text-[#00ff88]/70 tracking-wider uppercase">Wave {level}</div>
             </div>
             <div className="flex flex-col gap-3 items-center">
               <button

@@ -276,6 +276,13 @@ type Tank = {
   tacticalMode: 'approach' | 'flank' | 'hold' // Current tactical behavior
   modeCommitMs: number
   losTimeMs: number
+
+  // Navigation (A* pathing on a coarse grid) used when LOS is blocked.
+  navPath: Vector2[]
+  navIndex: number
+  navReplanMs: number
+  navLastGoal: Vector2
+  navLastFrom: Vector2
 }
 
 type Helicopter = {
@@ -340,6 +347,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const helicoptersRef = useRef<Helicopter[]>([])
   const bulletsRef = useRef<Bullet[]>([])
   const wallsRef = useRef<Wall[]>([])
+  const wallsVersionRef = useRef(0)
   const debrisRef = useRef<Debris[]>([])
   const repairKitsRef = useRef<RepairKit[]>([])
   const keysRef = useRef<Set<string>>(new Set())
@@ -348,6 +356,19 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const respawnTimerRef = useRef(0)
   const waveCompleteRef = useRef(false)
+
+  type NavGrid = {
+    width: number
+    height: number
+    cols: number
+    rows: number
+    cellSize: number
+    clearance: number
+    version: number
+    blocked: Uint8Array
+  }
+
+  const navGridRef = useRef<NavGrid | null>(null)
 
   const spawnRepairKit = useCallback(() => {
     const { width, height } = canvasSizeRef.current
@@ -518,6 +539,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     walls.push({ x: width * 0.7 - bw, y: height * 0.65 - bw * 0.6, width: bw, height: bw * 0.6 })
 
     wallsRef.current = walls
+    wallsVersionRef.current += 1
   }, [])
 
   const spawnEnemies = useCallback((waveNum: number) => {
@@ -658,6 +680,12 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         tacticalMode: 'approach',
         modeCommitMs: 0,
         losTimeMs: 0,
+
+        navPath: [],
+        navIndex: 0,
+        navReplanMs: 0,
+        navLastGoal: { x: 0, y: 0 },
+        navLastFrom: { x: 0, y: 0 },
       })
     }
 
@@ -969,6 +997,265 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       return { collision: false, pushX: 0, pushY: 0 }
     }
 
+    const TANK_NAV_CELL_SIZE = 26
+    const TANK_NAV_CLEARANCE = 34
+
+    const ensureNavGrid = (width: number, height: number) => {
+      const version = wallsVersionRef.current
+      const existing = navGridRef.current
+      if (existing && existing.width === width && existing.height === height && existing.version === version) return existing
+
+      const cellSize = TANK_NAV_CELL_SIZE
+      const cols = Math.max(8, Math.floor(width / cellSize))
+      const rows = Math.max(8, Math.floor(height / cellSize))
+      const blocked = new Uint8Array(cols * rows)
+
+      const clearance = TANK_NAV_CLEARANCE
+      const walls = wallsRef.current
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const cx = (c + 0.5) * cellSize
+          const cy = (r + 0.5) * cellSize
+
+          let isBlocked = false
+          if (cx < clearance || cx > width - clearance || cy < clearance || cy > height - clearance) {
+            isBlocked = true
+          } else {
+            for (const wall of walls) {
+              if (
+                cx > wall.x - clearance &&
+                cx < wall.x + wall.width + clearance &&
+                cy > wall.y - clearance &&
+                cy < wall.y + wall.height + clearance
+              ) {
+                isBlocked = true
+                break
+              }
+            }
+          }
+
+          blocked[r * cols + c] = isBlocked ? 1 : 0
+        }
+      }
+
+      const grid: NavGrid = { width, height, cols, rows, cellSize, clearance, version, blocked }
+      navGridRef.current = grid
+      return grid
+    }
+
+    const cellIndex = (c: number, r: number, cols: number) => r * cols + c
+
+    const worldToCell = (x: number, y: number, grid: NavGrid) => {
+      const c = clamp(Math.floor(x / grid.cellSize), 0, grid.cols - 1)
+      const r = clamp(Math.floor(y / grid.cellSize), 0, grid.rows - 1)
+      return { c, r }
+    }
+
+    const cellCenter = (c: number, r: number, grid: NavGrid) => ({
+      x: (c + 0.5) * grid.cellSize,
+      y: (r + 0.5) * grid.cellSize,
+    })
+
+    const findNearestOpen = (c0: number, r0: number, grid: NavGrid) => {
+      const { cols, rows, blocked } = grid
+      const idx0 = cellIndex(c0, r0, cols)
+      if (!blocked[idx0]) return { c: c0, r: r0 }
+
+      const maxRing = 10
+      for (let ring = 1; ring <= maxRing; ring++) {
+        for (let dr = -ring; dr <= ring; dr++) {
+          for (let dc = -ring; dc <= ring; dc++) {
+            if (Math.abs(dc) !== ring && Math.abs(dr) !== ring) continue
+            const c = c0 + dc
+            const r = r0 + dr
+            if (c < 0 || r < 0 || c >= cols || r >= rows) continue
+            const idx = cellIndex(c, r, cols)
+            if (!blocked[idx]) return { c, r }
+          }
+        }
+      }
+      return null
+    }
+
+    class MinHeap {
+      private heap: number[] = []
+      private readonly score: Float32Array
+      constructor(score: Float32Array) {
+        this.score = score
+      }
+      get size() {
+        return this.heap.length
+      }
+      push(i: number) {
+        const h = this.heap
+        h.push(i)
+        let k = h.length - 1
+        while (k > 0) {
+          const p = (k - 1) >> 1
+          if (this.score[h[p]] <= this.score[h[k]]) break
+          ;[h[p], h[k]] = [h[k], h[p]]
+          k = p
+        }
+      }
+      pop(): number | undefined {
+        const h = this.heap
+        if (h.length === 0) return undefined
+        const top = h[0]
+        const last = h.pop()!
+        if (h.length > 0) {
+          h[0] = last
+          let k = 0
+          while (true) {
+            const l = k * 2 + 1
+            const r = l + 1
+            let m = k
+            if (l < h.length && this.score[h[l]] < this.score[h[m]]) m = l
+            if (r < h.length && this.score[h[r]] < this.score[h[m]]) m = r
+            if (m === k) break
+            ;[h[m], h[k]] = [h[k], h[m]]
+            k = m
+          }
+        }
+        return top
+      }
+    }
+
+    const buildPath = (cameFrom: Int32Array, current: number) => {
+      const out: number[] = [current]
+      let cur = current
+      while (cameFrom[cur] !== -1) {
+        cur = cameFrom[cur]
+        out.push(cur)
+      }
+      out.reverse()
+      return out
+    }
+
+    const segmentClear = (ax: number, ay: number, bx: number, by: number, clearance: number) => {
+      for (const wall of wallsRef.current) {
+        const rx = wall.x - clearance
+        const ry = wall.y - clearance
+        const rw = wall.width + clearance * 2
+        const rh = wall.height + clearance * 2
+        if (lineIntersectsRect(ax, ay, bx, by, rx, ry, rw, rh)) return false
+      }
+      return true
+    }
+
+    const smoothPath = (points: Vector2[], clearance: number) => {
+      if (points.length <= 2) return points
+      const out: Vector2[] = [points[0]]
+      let i = 0
+      while (i < points.length - 1) {
+        let j = points.length - 1
+        for (; j > i + 1; j--) {
+          if (segmentClear(points[i].x, points[i].y, points[j].x, points[j].y, clearance)) break
+        }
+        out.push(points[j])
+        i = j
+      }
+      return out
+    }
+
+    const aStarPath = (start: Vector2, goal: Vector2, width: number, height: number): Vector2[] | null => {
+      const grid = ensureNavGrid(width, height)
+      const n = grid.cols * grid.rows
+      const s = worldToCell(start.x, start.y, grid)
+      const g0 = worldToCell(goal.x, goal.y, grid)
+      const g = findNearestOpen(g0.c, g0.r, grid)
+      const s2 = findNearestOpen(s.c, s.r, grid)
+      if (!g || !s2) return null
+
+      const startIdx = cellIndex(s2.c, s2.r, grid.cols)
+      const goalIdx = cellIndex(g.c, g.r, grid.cols)
+      if (startIdx === goalIdx) return [goal]
+
+      const cameFrom = new Int32Array(n)
+      cameFrom.fill(-1)
+      const gScore = new Float32Array(n)
+      const fScore = new Float32Array(n)
+      for (let i = 0; i < n; i++) {
+        gScore[i] = Infinity
+        fScore[i] = Infinity
+      }
+      const closed = new Uint8Array(n)
+
+      const heuristic = (a: number, b: number) => {
+        const ac = a % grid.cols
+        const ar = Math.floor(a / grid.cols)
+        const bc = b % grid.cols
+        const br = Math.floor(b / grid.cols)
+        const dx = Math.abs(ac - bc)
+        const dy = Math.abs(ar - br)
+        const m = Math.min(dx, dy)
+        const M = Math.max(dx, dy)
+        return (M - m) + Math.SQRT2 * m
+      }
+
+      gScore[startIdx] = 0
+      fScore[startIdx] = heuristic(startIdx, goalIdx)
+      const open = new MinHeap(fScore)
+      open.push(startIdx)
+
+      const dirs = [
+        { dc: 1, dr: 0, cost: 1 },
+        { dc: -1, dr: 0, cost: 1 },
+        { dc: 0, dr: 1, cost: 1 },
+        { dc: 0, dr: -1, cost: 1 },
+        { dc: 1, dr: 1, cost: Math.SQRT2 },
+        { dc: 1, dr: -1, cost: Math.SQRT2 },
+        { dc: -1, dr: 1, cost: Math.SQRT2 },
+        { dc: -1, dr: -1, cost: Math.SQRT2 },
+      ]
+
+      const maxIters = Math.min(14000, n * 18)
+      let iters = 0
+      while (open.size > 0 && iters++ < maxIters) {
+        const current = open.pop()!
+        if (closed[current]) continue
+        if (current === goalIdx) {
+          const cells = buildPath(cameFrom, current)
+          const pts: Vector2[] = cells.map((idx) => {
+            const c = idx % grid.cols
+            const r = Math.floor(idx / grid.cols)
+            return cellCenter(c, r, grid)
+          })
+          // Prefer the real tactical goal for the final waypoint.
+          pts[pts.length - 1] = { x: goal.x, y: goal.y }
+          return smoothPath(pts, grid.clearance)
+        }
+
+        closed[current] = 1
+        const cc = current % grid.cols
+        const cr = Math.floor(current / grid.cols)
+
+        for (const d of dirs) {
+          const nc = cc + d.dc
+          const nr = cr + d.dr
+          if (nc < 0 || nr < 0 || nc >= grid.cols || nr >= grid.rows) continue
+          const ni = cellIndex(nc, nr, grid.cols)
+          if (grid.blocked[ni]) continue
+
+          // Prevent diagonal corner-cutting.
+          if (d.dc !== 0 && d.dr !== 0) {
+            const i1 = cellIndex(cc + d.dc, cr, grid.cols)
+            const i2 = cellIndex(cc, cr + d.dr, grid.cols)
+            if (grid.blocked[i1] || grid.blocked[i2]) continue
+          }
+
+          const tentative = gScore[current] + d.cost
+          if (tentative < gScore[ni]) {
+            cameFrom[ni] = current
+            gScore[ni] = tentative
+            fScore[ni] = tentative + heuristic(ni, goalIdx)
+            open.push(ni)
+          }
+        }
+      }
+      return null
+    }
+
     const update = (dt: number) => {
       if (gameState !== 'playing') return
 
@@ -1111,7 +1398,10 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           return tank.explodeTime > 0
         }
 
-        // AI: Smart navigation with obstacle avoidance
+        const dtMs = dt * 1000
+        const optimalDist = 180
+
+        // AI: Smart navigation with obstacle avoidance + A* routing when LOS is blocked.
         const dx = jeep.pos.x - tank.pos.x
         const dy = jeep.pos.y - tank.pos.y
         const dist = Math.hypot(dx, dy)
@@ -1127,11 +1417,74 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         }
 
         // Fairness: require a short, continuous "seeing you" window before accurate fire.
-        if (!pathBlocked) tank.losTimeMs = Math.min(2000, tank.losTimeMs + dt * 1000)
+        if (!pathBlocked) tank.losTimeMs = Math.min(2000, tank.losTimeMs + dtMs)
         else tank.losTimeMs = 0
 
         // Reduce tactical dithering.
-        tank.modeCommitMs = Math.max(0, tank.modeCommitMs - dt * 1000)
+        tank.modeCommitMs = Math.max(0, tank.modeCommitMs - dtMs)
+
+        // Keep tactical mode up to date even when pathing.
+        let desiredMode: Tank['tacticalMode'] = tank.tacticalMode
+        if (dist > optimalDist + 120) desiredMode = 'approach'
+        else if (dist < optimalDist - 60 && !pathBlocked) desiredMode = 'hold'
+        else desiredMode = 'flank'
+        if (tank.modeCommitMs <= 0 && desiredMode !== tank.tacticalMode) {
+          tank.tacticalMode = desiredMode
+          tank.modeCommitMs = 500 + Math.random() * 650
+        }
+
+        const clampGoal = (p: Vector2) => {
+          const margin = TANK_NAV_CLEARANCE
+          return {
+            x: Math.max(margin, Math.min(width - margin, p.x)),
+            y: Math.max(margin, Math.min(height - margin, p.y)),
+          }
+        }
+
+        const computeTacticalGoal = () => {
+          if (tank.tacticalMode === 'flank') {
+            const side = tank.flankAngle >= 0 ? 1 : -1
+            const around = directAngle + Math.PI + side * (Math.PI / 2)
+            return clampGoal({ x: jeep.pos.x + Math.cos(around) * optimalDist, y: jeep.pos.y + Math.sin(around) * optimalDist })
+          }
+          // Approach/hold: try to stay near optimal distance rather than ramming the jeep.
+          return clampGoal({ x: jeep.pos.x - Math.cos(directAngle) * optimalDist, y: jeep.pos.y - Math.sin(directAngle) * optimalDist })
+        }
+
+        const tryUpdateNav = (goal: Vector2) => {
+          tank.navReplanMs = Math.max(0, tank.navReplanMs - dtMs)
+          const goalMoved = Math.hypot(goal.x - tank.navLastGoal.x, goal.y - tank.navLastGoal.y)
+          const fromMoved = Math.hypot(tank.pos.x - tank.navLastFrom.x, tank.pos.y - tank.navLastFrom.y)
+          const shouldReplan =
+            tank.navPath.length === 0 ||
+            tank.navIndex >= tank.navPath.length ||
+            tank.navReplanMs <= 0 ||
+            goalMoved > TANK_NAV_CELL_SIZE * 0.75 ||
+            fromMoved > TANK_NAV_CELL_SIZE * 1.25
+
+          if (shouldReplan) {
+            const path = aStarPath(tank.pos, goal, width, height)
+            tank.navPath = path ?? []
+            tank.navIndex = 0
+            tank.navLastGoal = { x: goal.x, y: goal.y }
+            tank.navLastFrom = { x: tank.pos.x, y: tank.pos.y }
+            tank.navReplanMs = 450 + Math.random() * 250
+          }
+
+          if (tank.navPath.length === 0) return null
+
+          // Advance waypoints.
+          const advanceDist = TANK_NAV_CELL_SIZE * 0.45
+          while (tank.navIndex < tank.navPath.length) {
+            const wp = tank.navPath[tank.navIndex]
+            if (Math.hypot(wp.x - tank.pos.x, wp.y - tank.pos.y) > advanceDist) break
+            tank.navIndex += 1
+          }
+
+          if (tank.navIndex >= tank.navPath.length) return null
+          const wp = tank.navPath[tank.navIndex]
+          return Math.atan2(wp.y - tank.pos.y, wp.x - tank.pos.x)
+        }
         
         // Feeler rays to detect nearby obstacles - check multiple distances
         const { width, height } = canvasSizeRef.current
@@ -1165,6 +1518,21 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         
         // Count how many directions are blocked
         const blockedCount = [frontBlocked, frontLeftBlocked, frontRightBlocked, leftBlocked, rightBlocked, rearBlocked].filter(b => b).length
+
+        // A* navigation when LOS is blocked or the local feelers indicate we're boxed in.
+        let navAngle: number | null = null
+        if ((pathBlocked || blockedCount >= 3) && dist > 80) {
+          const goal = computeTacticalGoal()
+          navAngle = tryUpdateNav(goal)
+          if (navAngle != null) {
+            tank.escapeAngle = 0
+            tank.stuckTimer = 0
+          }
+        } else {
+          // If we're not in a blocked situation, don't keep following stale paths.
+          tank.navPath = []
+          tank.navIndex = 0
+        }
         
         // Check if near screen edges - if so, bias toward center
         const nearLeftEdge = tank.pos.x < 80
@@ -1243,19 +1611,6 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           }
         } else {
           // Smart tactical behavior based on distance and situation
-          const optimalDist = 180 // Ideal shooting distance
-
-          // Pick a desired mode, then apply a small commit window so tanks don't flicker modes.
-          let desiredMode: Tank['tacticalMode'] = tank.tacticalMode
-          if (dist > optimalDist + 120) desiredMode = 'approach'
-          else if (dist < optimalDist - 60 && !pathBlocked) desiredMode = 'hold'
-          else desiredMode = 'flank'
-
-          if (tank.modeCommitMs <= 0 && desiredMode !== tank.tacticalMode) {
-            tank.tacticalMode = desiredMode
-            tank.modeCommitMs = 500 + Math.random() * 650
-          }
-          
           if (tank.tacticalMode === 'approach') {
             // Approach but at an angle to flank
             desiredAngle = directAngle + tank.flankAngle * 0.3
@@ -1275,6 +1630,10 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
             // Hold position - face the player
             desiredAngle = directAngle
           }
+        }
+
+        if (navAngle != null) {
+          desiredAngle = navAngle
         }
         
         // Smoothly update target angle to prevent jittering

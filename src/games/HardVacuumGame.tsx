@@ -2863,7 +2863,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Draw mining base (center) behind rocks.
-      {
+      // Keep the menu/start screen background cleaner by omitting the base there.
+      if (gameState !== 'menu') {
         const cx = width / 2
         const cy = height / 2
         const R = MINING_BASE_RADIUS
@@ -3154,7 +3155,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Draw base shots (thin, bright).
-      if (baseShotsRef.current.length > 0) {
+      if (gameState !== 'menu' && baseShotsRef.current.length > 0) {
         ctx.save()
         ctx.strokeStyle = 'rgba(255,255,255,0.85)'
         ctx.lineWidth = 1.4

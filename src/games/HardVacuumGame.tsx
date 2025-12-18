@@ -432,6 +432,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const SHIP_RADIUS = 15
   const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: SHIP_RADIUS })
   const rocksRef = useRef<Rock[]>([])
+  const shipRepairTimeRef = useRef(0)
   const bulletsRef = useRef<Bullet[]>([])
   const baseShotsRef = useRef<BaseShot[]>([])
   const debrisRef = useRef<Debris[]>([])
@@ -668,6 +669,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     const { width, height } = canvasSizeRef.current
     shipRef.current = { pos: { x: width / 2, y: height / 2 }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
     rocksRef.current = []
+    shipRepairTimeRef.current = 0
     bulletsRef.current = []
     baseShotsRef.current = []
     setScore(0)
@@ -1017,20 +1019,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           })
         }
 
-        const pointInHex = (px: number, py: number) => {
-          let sign = 0
-          for (let i = 0; i < 6; i++) {
-            const a = hexVerts[i]
-            const b = hexVerts[(i + 1) % 6]
-            const cross = (b.x - a.x) * (py - a.y) - (b.y - a.y) * (px - a.x)
-            if (Math.abs(cross) < 1e-6) continue
-            const s = cross > 0 ? 1 : -1
-            if (sign === 0) sign = s
-            else if (s !== sign) return false
-          }
-          return true
-        }
-
         const circleFullyInHex = (px: number, py: number, radius: number) => {
           // Hex is CCW; inside is to the left of each directed edge.
           for (let i = 0; i < 6; i++) {
@@ -1197,9 +1185,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         collideWithWalls(ship.pos, ship.vel, ship.radius, 0.55, (impact) => applyImpactDamage(impact))
         {
           const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, w, h)
-          if (pointInHex(d.dx, d.dy)) {
-            setDamage((dmg) => (dmg === 0 ? dmg : 0))
-            if (invulnerableRef.current < 120) invulnerableRef.current = 120
+          const fullyInside = circleFullyInHex(d.dx, d.dy, ship.radius)
+          if (!fullyInside) {
+            shipRepairTimeRef.current = 0
+          } else {
+            shipRepairTimeRef.current += dt
+            if (shipRepairTimeRef.current >= 2) {
+              shipRepairTimeRef.current = 2
+              setDamage((dmg) => (dmg === 0 ? dmg : 0))
+              if (invulnerableRef.current < 120) invulnerableRef.current = 120
+            }
           }
         }
       }

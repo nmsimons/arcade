@@ -44,6 +44,102 @@ class SoundSystem {
     osc.stop(this.ctx.currentTime + 0.12)
   }
 
+  shieldHit(remainingShields: number) {
+    if (!this.ctx) return
+
+    // Short electric zap + click. Slightly higher pitch when shields are lower.
+    const t = this.ctx.currentTime
+    const base = remainingShields <= 0 ? 520 : remainingShields === 1 ? 620 : 720
+
+    // Tonal zap
+    const osc = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.type = 'triangle'
+    osc.frequency.setValueAtTime(base, t)
+    osc.frequency.exponentialRampToValueAtTime(140, t + 0.07)
+    gain.gain.setValueAtTime(0.0001, t)
+    gain.gain.exponentialRampToValueAtTime(0.18, t + 0.01)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.09)
+    osc.connect(gain)
+    gain.connect(this.ctx.destination)
+    osc.start(t)
+    osc.stop(t + 0.1)
+
+    // Noise click (filtered)
+    const noiseLen = Math.floor(this.ctx.sampleRate * 0.06)
+    const buf = this.ctx.createBuffer(1, noiseLen, this.ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < noiseLen; i++) {
+      // Strong at start, decays quickly.
+      const env = 1 - i / noiseLen
+      data[i] = (Math.random() * 2 - 1) * env
+    }
+    const noise = this.ctx.createBufferSource()
+    noise.buffer = buf
+
+    const filter = this.ctx.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.setValueAtTime(1100, t)
+    filter.Q.setValueAtTime(1.4, t)
+
+    const ng = this.ctx.createGain()
+    ng.gain.setValueAtTime(0.0001, t)
+    ng.gain.exponentialRampToValueAtTime(0.14, t + 0.008)
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.06)
+
+    noise.connect(filter)
+    filter.connect(ng)
+    ng.connect(this.ctx.destination)
+    noise.start(t)
+    noise.stop(t + 0.06)
+  }
+
+  shieldCharge() {
+    if (!this.ctx) return
+
+    // Short rising chirp + soft shimmer to indicate recharge.
+    const t = this.ctx.currentTime
+
+    const osc = this.ctx.createOscillator()
+    const gain = this.ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(260, t)
+    osc.frequency.exponentialRampToValueAtTime(920, t + 0.18)
+    gain.gain.setValueAtTime(0.0001, t)
+    gain.gain.exponentialRampToValueAtTime(0.16, t + 0.02)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+    osc.connect(gain)
+    gain.connect(this.ctx.destination)
+    osc.start(t)
+    osc.stop(t + 0.24)
+
+    // Shimmer noise layer
+    const noiseLen = Math.floor(this.ctx.sampleRate * 0.2)
+    const buf = this.ctx.createBuffer(1, noiseLen, this.ctx.sampleRate)
+    const data = buf.getChannelData(0)
+    for (let i = 0; i < noiseLen; i++) {
+      const env = 1 - i / noiseLen
+      data[i] = (Math.random() * 2 - 1) * env
+    }
+    const noise = this.ctx.createBufferSource()
+    noise.buffer = buf
+
+    const filter = this.ctx.createBiquadFilter()
+    filter.type = 'highpass'
+    filter.frequency.setValueAtTime(1200, t)
+
+    const ng = this.ctx.createGain()
+    ng.gain.setValueAtTime(0.0001, t)
+    ng.gain.exponentialRampToValueAtTime(0.08, t + 0.03)
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.22)
+
+    noise.connect(filter)
+    filter.connect(ng)
+    ng.connect(this.ctx.destination)
+    noise.start(t)
+    noise.stop(t + 0.22)
+  }
+
   explosion(size: 'large' | 'medium' | 'small') {
     if (!this.ctx) return
     const duration = size === 'large' ? 0.6 : size === 'medium' ? 0.4 : 0.2
@@ -1129,6 +1225,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         const amt = impactSpeed >= fast ? 3 : impactSpeed >= medium ? 2 : impactSpeed >= slow ? 1 : 0
         if (amt <= 0) return
         invulnerableRef.current = 450
+
+        // Guard against React StrictMode double-invoking state updaters in dev.
+        let shieldSoundPlayed = false
         setShields((s) => {
           // Shields are a visual indicator only; collision math stays unchanged.
           // Starts at 2 and ticks down (by the same impact amounts as the old damage system).
@@ -1145,7 +1244,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
 
           const next = Math.max(0, s - amt)
-          if (next < s) lastShieldHitAtRef.current = Date.now()
+          if (next < s) {
+            lastShieldHitAtRef.current = Date.now()
+            if (!shieldSoundPlayed) {
+              shieldSoundPlayed = true
+              sounds.shieldHit(next)
+            }
+          }
           return next
         })
       }
@@ -1529,9 +1634,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             shipRepairTimeRef.current += dt
             if (shipRepairTimeRef.current >= 2) {
               shipRepairTimeRef.current = 2
+
+              // Guard against React StrictMode double-invoking state updaters in dev.
+              let shieldChargePlayed = false
               setShields((s) => {
                 if (s >= 2) return s
                 lastShieldRechargeAtRef.current = Date.now()
+                if (!shieldChargePlayed) {
+                  shieldChargePlayed = true
+                  sounds.shieldCharge()
+                }
                 return 2
               })
               if (invulnerableRef.current < 120) invulnerableRef.current = 120

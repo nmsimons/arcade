@@ -1578,17 +1578,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       // Draw tanks
       for (const tank of tanksRef.current) {
         if (tank.state === 'exploding') {
-          // Explosion flash
-          ctx.strokeStyle = '#ff4444'
-          ctx.lineWidth = 2
-          const flashSize = 25 * (tank.explodeTime / 1000)
-          for (let i = 0; i < 6; i++) {
-            const a = (i / 6) * Math.PI * 2 + Date.now() * 0.01
-            ctx.beginPath()
-            ctx.moveTo(tank.pos.x, tank.pos.y)
-            ctx.lineTo(tank.pos.x + Math.cos(a) * flashSize, tank.pos.y + Math.sin(a) * flashSize)
-            ctx.stroke()
-          }
+          // No starburst flash; explosion is represented by debris particles only.
           continue
         }
 
@@ -1699,16 +1689,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       // Draw helicopters
       for (const heli of helicoptersRef.current) {
         if (heli.state === 'exploding') {
-          ctx.strokeStyle = '#ffaa00'
-          ctx.lineWidth = 2
-          const flashSize = 25 * (heli.explodeTime / 1000)
-          for (let i = 0; i < 6; i++) {
-            const a = (i / 6) * Math.PI * 2 + Date.now() * 0.01
-            ctx.beginPath()
-            ctx.moveTo(heli.pos.x, heli.pos.y)
-            ctx.lineTo(heli.pos.x + Math.cos(a) * flashSize, heli.pos.y + Math.sin(a) * flashSize)
-            ctx.stroke()
-          }
+          // No starburst flash; explosion is represented by debris particles only.
           continue
         }
 

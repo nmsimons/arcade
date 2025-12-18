@@ -2103,7 +2103,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             continue
           }
           a.inBaseTime = (a.inBaseTime ?? 0) + dt
-          if (a.inBaseTime < 2) continue
+          if (a.inBaseTime < 1) continue
           const dd = d.dx * d.dx + d.dy * d.dy
           if (dd < targetDist) {
             targetDist = dd

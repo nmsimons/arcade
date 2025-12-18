@@ -338,6 +338,8 @@ interface Ship {
   radius: number
 }
 
+type RockKind = 'normal' | 'blue'
+
 interface Rock {
   pos: Vector2
   vel: Vector2
@@ -346,6 +348,7 @@ interface Rock {
   rot: V3
   angVel: V3
   mesh: { verts: V3[]; polys: number[][] }
+  kind: RockKind
   inBaseTime?: number
 }
 
@@ -430,8 +433,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [gameOverIndex, setGameOverIndex] = useState(0)
 
   const SHIP_RADIUS = 15
+  const SMALLEST_ROCK_RADIUS = 20
   const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: SHIP_RADIUS })
   const rocksRef = useRef<Rock[]>([])
+  const levelRef = useRef(1)
+  const blueRockQuotaRef = useRef(0)
+  const blueRocksSpawnedThisLevelRef = useRef(0)
   const shipRepairTimeRef = useRef(0)
   const bulletsRef = useRef<Bullet[]>([])
   const baseShotsRef = useRef<BaseShot[]>([])
@@ -458,6 +465,20 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   // Central mining base (ore hopper)
   const MINING_BASE_RADIUS = 118
+
+  const blueRockQuotaForLevel = useCallback((lvl: number) => {
+    // Ensure some levels require base processing to finish.
+    return lvl >= 3 && lvl % 3 === 0 ? 1 : 0
+  }, [])
+
+  const resetBlueRocksForLevel = useCallback(
+    (lvl: number) => {
+      levelRef.current = lvl
+      blueRockQuotaRef.current = blueRockQuotaForLevel(lvl)
+      blueRocksSpawnedThisLevelRef.current = 0
+    },
+    [blueRockQuotaForLevel],
+  )
   const MINING_DOOR_TRIM = 44
   const MINING_ROT_SPEED = 0.18
 
@@ -503,7 +524,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     [toroidalDelta],
   )
 
-  const createRock = useCallback((x: number, y: number, radius: number, velOverride?: Vector2): Rock => {
+  const createRock = useCallback(
+    (x: number, y: number, radius: number, velOverride?: Vector2, kind: RockKind = 'normal'): Rock => {
     const points: Vector2[] = []
     const vertices = 8 + Math.floor(Math.random() * 4)
     for (let i = 0; i < vertices; i++) {
@@ -536,8 +558,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       rot: [Math.random() * Math.PI * 2, Math.random() * Math.PI * 2, Math.random() * Math.PI * 2],
       angVel,
       mesh: makeRockMesh(radius, seed),
+      kind,
     }
-  }, [])
+    },
+    [],
+  )
 
   const createDebris = useCallback(
     (
@@ -675,6 +700,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     setScore(0)
     setDamage(0)
     setLevel(1)
+    resetBlueRocksForLevel(1)
     setGameState('playing')
     invulnerableRef.current = 1200
     debrisRef.current = []
@@ -683,7 +709,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     miningBaseAngleRef.current = 0
     miningGunCooldownsRef.current = [0, 0.06, 0.12]
     spawnRocks(rockCountForLevel(1), 100, speedMultForLevel(1))
-  }, [spawnRocks, rockCountForLevel, speedMultForLevel])
+  }, [spawnRocks, rockCountForLevel, speedMultForLevel, resetBlueRocksForLevel])
+
+  useEffect(() => {
+    levelRef.current = level
+  }, [level])
 
   useEffect(() => {
     if (gameState !== 'menu') return
@@ -1788,8 +1818,23 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
         for (let i = 0; i < rocksRef.current.length; i++) {
           const rock = rocksRef.current[i]
-          const dist = Math.hypot(bullet.pos.x - rock.pos.x, bullet.pos.y - rock.pos.y)
-          if (dist < rock.radius) {
+          const d = toroidalDelta(bullet.pos.x, bullet.pos.y, rock.pos.x, rock.pos.y, w, h)
+          const dist = Math.hypot(d.dx, d.dy)
+          if (dist <= rock.radius + 2) {
+            if (rock.kind === 'blue') {
+              // Blue smallest rocks cannot be destroyed by ship bullets.
+              // Impacts transfer momentum (push) and consume the bullet.
+              const bv = Math.hypot(bullet.vel.x, bullet.vel.y)
+              if (bv > 1e-6) {
+                const ux = bullet.vel.x / bv
+                const uy = bullet.vel.y / bv
+                const push = 170
+                rock.vel.x += ux * push
+                rock.vel.y += uy * push
+              }
+              return false
+            }
+
             // If harpoon was attached to this rock, release it.
             const hp = harpoonRef.current
             if (hp.state === 'attached' && hp.rock === rock) {
@@ -1815,10 +1860,24 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             sounds.explosion(explosionSize)
 
             // Split rock or create debris for smallest ones
-            if (rock.radius > 20) {
+            if (rock.radius > SMALLEST_ROCK_RADIUS) {
               const newRadius = rock.radius / 2
               for (let j = 0; j < 2; j++) {
-                rocksRef.current.push(createRock(rock.pos.x, rock.pos.y, newRadius))
+                let kind: RockKind = 'normal'
+                if (newRadius <= SMALLEST_ROCK_RADIUS) {
+                  if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
+                    kind = 'blue'
+                    blueRocksSpawnedThisLevelRef.current += 1
+                  } else {
+                    const p = clamp(0.12 + (levelRef.current - 1) * 0.015, 0.12, 0.3)
+                    if (Math.random() < p) {
+                      kind = 'blue'
+                      blueRocksSpawnedThisLevelRef.current += 1
+                    }
+                  }
+                }
+
+                rocksRef.current.push(createRock(rock.pos.x, rock.pos.y, newRadius, undefined, kind))
               }
             } else {
               // Smallest rock destroyed - create particle debris
@@ -1875,6 +1934,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         setLevel((l) => {
           const newLevel = l + 1
           setTimeout(() => {
+            resetBlueRocksForLevel(newLevel)
             spawnRocks(rockCountForLevel(newLevel), 100, speedMultForLevel(newLevel))
             invulnerableRef.current = 2000
             levelingUpRef.current = false
@@ -2301,12 +2361,15 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
         }
 
+        const isBlue = rock.kind === 'blue'
+
         ctx.save()
         ctx.translate(rock.pos.x, rock.pos.y)
 
         // Thin white outlines only (visible edges only).
-        ctx.shadowBlur = 0
-        ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+        ctx.shadowBlur = isBlue ? 10 : 0
+        ctx.shadowColor = isBlue ? 'rgba(40, 170, 255, 0.45)' : 'rgba(0, 0, 0, 0)'
+        ctx.strokeStyle = isBlue ? 'rgba(40, 170, 255, 0.95)' : 'rgba(255,255,255,0.9)'
         ctx.lineWidth = 1.4
         ctx.lineCap = 'round'
         ctx.lineJoin = 'round'
@@ -2414,6 +2477,67 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (gameState === 'playing') {
         const ship = shipRef.current
         const isInvulnerable = invulnerableRef.current > 0
+
+        // Healing halo: while fully inside the base and the 2s repair timer is counting.
+        {
+          const baseX = width / 2
+          const baseY = height / 2
+          const baseAng = miningBaseAngleRef.current
+          const hexVerts: Vector2[] = Array.from({ length: 6 }, (_, i) => {
+            const a = baseAng + (i / 6) * Math.PI * 2
+            return { x: Math.cos(a) * MINING_BASE_RADIUS, y: Math.sin(a) * MINING_BASE_RADIUS }
+          })
+
+          const circleFullyInHexLocal = (px: number, py: number, radius: number) => {
+            // Hex is CCW; inside is to the left of each directed edge.
+            for (let i = 0; i < 6; i++) {
+              const a = hexVerts[i]
+              const b = hexVerts[(i + 1) % 6]
+              const ex = b.x - a.x
+              const ey = b.y - a.y
+              const len = Math.hypot(ex, ey)
+              if (len < 1e-6) continue
+              // Left normal (points inward for CCW polygon)
+              const nx = -ey / len
+              const ny = ex / len
+              const dist = (px - a.x) * nx + (py - a.y) * ny
+              if (dist < radius) return false
+            }
+            return true
+          }
+
+          const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, width, height)
+          const fullyInside = circleFullyInHexLocal(d.dx, d.dy, ship.radius)
+          const isHealing = fullyInside && damage > 0 && shipRepairTimeRef.current > 0 && shipRepairTimeRef.current < 2
+
+          if (isHealing) {
+            const t = Date.now() / 1000
+            const pulse = 0.5 + 0.5 * Math.sin(t * 5)
+            const r1 = ship.radius + 10 + pulse * 6
+            const r2 = ship.radius + 18 + pulse * 8
+
+            ctx.save()
+            ctx.globalAlpha = 0.85
+            ctx.strokeStyle = `rgba(0,255,136,${0.22 + pulse * 0.18})`
+            ctx.lineWidth = 3
+            ctx.shadowColor = 'rgba(0,255,136,0.55)'
+            ctx.shadowBlur = 18
+            ctx.beginPath()
+            ctx.arc(ship.pos.x, ship.pos.y, r1, 0, Math.PI * 2)
+            ctx.stroke()
+
+            ctx.shadowBlur = 0
+            ctx.globalAlpha = 0.6
+            ctx.strokeStyle = `rgba(0,255,136,${0.14 + pulse * 0.14})`
+            ctx.lineWidth = 1.6
+            ctx.beginPath()
+            ctx.arc(ship.pos.x, ship.pos.y, r2, 0, Math.PI * 2)
+            ctx.stroke()
+
+            ctx.restore()
+          }
+        }
+
         ctx.save()
         ctx.translate(ship.pos.x, ship.pos.y)
         ctx.rotate(ship.angle)

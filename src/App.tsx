@@ -96,13 +96,13 @@ export default function App() {
         }
       />
 
-      <Route path="/hard-vacuum" element={<HardVacuumGame onExit={() => navigate('/')} />} />
-      <Route path="/final-approach" element={<FinalApproachGame onExit={() => navigate('/')} />} />
-      <Route path="/no-exit" element={<NoExitGame onExit={() => navigate('/')} />} />
-      <Route path="/urban-fire" element={<UrbanFireGame onExit={() => navigate('/')} />} />
-      <Route path="/bumper-ball" element={<KickballGame onExit={() => navigate('/')} />} />
-      <Route path="/sling-load" element={<SlingLoadGame onExit={() => navigate('/')} />} />
-      <Route path="/hello-world" element={<HelloWorldGame onExit={() => navigate('/')} />} />
+      <Route path="/hard-vacuum" element={<HardVacuumGame onExit={() => navigate('/', { replace: true })} />} />
+      <Route path="/final-approach" element={<FinalApproachGame onExit={() => navigate('/', { replace: true })} />} />
+      <Route path="/no-exit" element={<NoExitGame onExit={() => navigate('/', { replace: true })} />} />
+      <Route path="/urban-fire" element={<UrbanFireGame onExit={() => navigate('/', { replace: true })} />} />
+      <Route path="/bumper-ball" element={<KickballGame onExit={() => navigate('/', { replace: true })} />} />
+      <Route path="/sling-load" element={<SlingLoadGame onExit={() => navigate('/', { replace: true })} />} />
+      <Route path="/hello-world" element={<HelloWorldGame onExit={() => navigate('/', { replace: true })} />} />
 
       {/* Back-compat redirects */}
       <Route path="/games/hard-vacuum" element={<Navigate to="/hard-vacuum" replace />} />

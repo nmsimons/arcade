@@ -94,6 +94,7 @@ const smoothstep = (edge0: number, edge1: number, x: number) => {
 
 export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [isExiting, setIsExiting] = useState(false)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
@@ -102,6 +103,29 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   const [failedMissions, setFailedMissions] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
+
+  const exitToArcade = useCallback(() => {
+    setIsExiting(true)
+    keysRef.current.clear()
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    onExit()
+  }, [onExit])
+
+  useEffect(() => {
+    const onPop = () => {
+      // If the browser back/forward changes the URL away from this route,
+      // immediately hide Sling Load even if React Router doesn't unmount yet.
+      if (window.location.pathname !== '/sling-load') {
+        setIsExiting(true)
+      }
+    }
+
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   const missionQueueRef = useRef<Mission[]>([])
   useEffect(() => {
@@ -366,7 +390,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
       if (e.key === 'Escape') {
         e.preventDefault()
-        onExit()
+        exitToArcade()
         return
       }
 
@@ -398,7 +422,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           if (menuIndex === 0) startGame()
-          else onExit()
+          else exitToArcade()
         }
         return
       }
@@ -417,7 +441,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
           e.preventDefault()
           if (gameOverIndex === 0) startGame()
           else if (gameOverIndex === 1) setGameState('menu')
-          else onExit()
+          else exitToArcade()
         }
         return
       }
@@ -473,7 +497,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, startGame, onExit, getHookPoint])
+  }, [gameState, menuIndex, gameOverIndex, startGame, exitToArcade, getHookPoint])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1938,12 +1962,16 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     spawnCrateAtBase,
   ])
 
+  if (isExiting && window.location.pathname !== '/sling-load') {
+    return null
+  }
+
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono">
-      <canvas ref={canvasRef} className="absolute inset-0" />
+      <canvas ref={canvasRef} className="absolute inset-0 z-0" />
 
       {gameState === 'menu' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
           <div className="text-center max-w-md px-8">
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] uppercase">Sling Load</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
@@ -1965,7 +1993,12 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 Start
               </button>
               <button
-                onClick={onExit}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  exitToArcade()
+                }}
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   menuIndex === 1
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
@@ -1981,7 +2014,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       )}
 
       {gameState === 'paused' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
           <div className="text-center max-w-md px-8">
             <h2 className="text-4xl text-[#00ff88] mb-4 tracking-[0.3em] uppercase">Paused</h2>
             <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
@@ -1993,7 +2026,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 Resume
               </button>
               <button
-                onClick={onExit}
+                onClick={exitToArcade}
                 className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
               >
                 Back
@@ -2004,7 +2037,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       )}
 
       {gameState === 'gameOver' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
           <div className="text-center max-w-md px-8">
             <h1 className="text-4xl text-[#00ff88] mb-2 tracking-[0.3em] uppercase">Game Over</h1>
             <div className="text-[#00ff88] text-sm mb-8 tracking-wider text-center">
@@ -2033,7 +2066,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                 Main Menu
               </button>
               <button
-                onClick={onExit}
+                onClick={exitToArcade}
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
                   gameOverIndex === 2
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'

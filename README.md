@@ -13,8 +13,8 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 - **Hard Vacuum** — classic ship + shooting, plus a harpoon mechanic
 - **Final Approach** — land gently on the pad (difficulty selectable)
-- **Omega Race** — arena shooter with force-field bounces
-- **Armor Attack** — top-down combat with tanks + helicopters
+- **No Exit** — arena shooter with force-field bounces
+- **Urban Fire** — top-down combat with tanks + helicopters
 - **Bumper Ball** — physics soccer-ish bumper cars (1P/2P)
 - **Sling Load** — helicopter sling-load delivery / survival
 - **Hello World** — vector display “HELLO WORLD” screen
@@ -39,13 +39,13 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - P: pause
 - Menu: Left/Right changes difficulty
 
-**Omega Race**
+**No Exit**
 
 - Arrows / WASD: rotate + thrust
 - Space: fire (max 3 shots)
 - P: pause
 
-**Armor Attack**
+**Urban Fire**
 
 - Arrows / WASD: move
 - Space: fire (max 2 shots)

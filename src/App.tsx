@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react'
-import { ArmorAttackGame } from './games/ArmorAttackGame'
 import { HardVacuumGame } from './games/HardVacuumGame'
 import { HelloWorldGame } from './games/HelloWorldGame'
 import { KickballGame } from './games/KickballGame'
 import { FinalApproachGame } from './games/FinalApproachGame'
-import { OmegaRaceGame } from './games/OmegaRaceGame'
+import { NoExitGame } from './games/NoExitGame'
 import { SlingLoadGame } from './games/SlingLoadGame'
+import { UrbanFireGame } from './games/UrbanFireGame'
 
-type GameId = 'hardVacuum' | 'hello' | 'finalApproach' | 'omega' | 'armor' | 'kickball' | 'sling'
+type GameId = 'hardVacuum' | 'hello' | 'finalApproach' | 'noExit' | 'urbanFire' | 'kickball' | 'sling'
 
-const GAMES: GameId[] = ['hardVacuum', 'finalApproach', 'omega', 'armor', 'kickball', 'sling', 'hello']
+const GAMES: GameId[] = ['hardVacuum', 'finalApproach', 'noExit', 'urbanFire', 'kickball', 'sling', 'hello']
 
 export default function App() {
   const [game, setGame] = useState<GameId | null>(null)
@@ -49,12 +49,12 @@ export default function App() {
     return <FinalApproachGame onExit={() => setGame(null)} />
   }
 
-  if (game === 'omega') {
-    return <OmegaRaceGame onExit={() => setGame(null)} />
+  if (game === 'noExit') {
+    return <NoExitGame onExit={() => setGame(null)} />
   }
 
-  if (game === 'armor') {
-    return <ArmorAttackGame onExit={() => setGame(null)} />
+  if (game === 'urbanFire') {
+    return <UrbanFireGame onExit={() => setGame(null)} />
   }
 
   if (game === 'kickball') {
@@ -99,10 +99,10 @@ export default function App() {
                   ? 'Hard Vacuum'
                   : g === 'finalApproach'
                     ? 'Final Approach'
-                    : g === 'omega'
-                      ? 'Omega Race'
-                      : g === 'armor'
-                        ? 'Armor Attack'
+                    : g === 'noExit'
+                      ? 'No Exit'
+                      : g === 'urbanFire'
+                        ? 'Urban Fire'
                         : g === 'kickball'
                           ? 'Bumper Ball'
                           : g === 'sling'

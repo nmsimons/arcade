@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// Sound system for Armor Attack
+// Sound system for Urban Fire
 class ArmorSoundSystem {
   private ctx: AudioContext | null = null
   private initialized = false
@@ -220,7 +220,7 @@ class ArmorSoundSystem {
 
 const sounds = new ArmorSoundSystem()
 
-type ArmorAttackGameProps = {
+type UrbanFireGameProps = {
   onExit: () => void
 }
 
@@ -290,7 +290,7 @@ type Debris = {
   length: number
 }
 
-export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
+export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
@@ -341,7 +341,7 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
     const { width, height } = canvasSizeRef.current
     const walls: Wall[] = []
     
-    // Armor Attack style - fortress perimeter with internal structures
+    // Urban Fire style - fortress perimeter with internal structures
     const margin = 45
     const bw = Math.min(width, height) * 0.075  // Building size
     const bh = bw * 1.3
@@ -1884,7 +1884,7 @@ export function ArmorAttackGame({ onExit }: ArmorAttackGameProps) {
       {gameState === 'menu' && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Armor Attack</h1>
+            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Urban Fire</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> Arrow Keys / WASD: Move

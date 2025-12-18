@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// Sound system for Omega Race
+// Sound system for No Exit
 class OmegaSoundSystem {
   private ctx: AudioContext | null = null
   private initialized = false
@@ -159,7 +159,7 @@ class OmegaSoundSystem {
 
 const sounds = new OmegaSoundSystem()
 
-type OmegaRaceGameProps = {
+type NoExitGameProps = {
   onExit: () => void
 }
 
@@ -211,7 +211,7 @@ type Arena = {
   inner: { left: number; right: number; top: number; bottom: number }
 }
 
-export function OmegaRaceGame({ onExit }: OmegaRaceGameProps) {
+export function NoExitGame({ onExit }: NoExitGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
@@ -939,7 +939,7 @@ export function OmegaRaceGame({ onExit }: OmegaRaceGameProps) {
       {gameState === 'menu' && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Omega Race</h1>
+            <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">No Exit</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> Arrow Keys / WASD: Rotate + Thrust

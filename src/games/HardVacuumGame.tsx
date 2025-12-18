@@ -425,12 +425,15 @@ type HardVacuumGameProps = {
 
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'dying' | 'gameOver'>('menu')
+  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'store' | 'dying' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
   const [shields, setShields] = useState(2)
   const [level, setLevel] = useState(1)
+  const [gravityCharges, setGravityCharges] = useState(0)
+  const [stasisCharges, setStasisCharges] = useState(0)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
+  const [storeIndex, setStoreIndex] = useState(0)
 
   const SHIP_RADIUS = 15
   const SMALLEST_ROCK_RADIUS = 20
@@ -452,9 +455,26 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const dyingTimerRef = useRef(0)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const levelingUpRef = useRef(false)
+  const waitingForWaveEndFxRef = useRef(false)
   const harpoonRef = useRef<Harpoon>({ state: 'idle' })
   const miningBaseAngleRef = useRef(0)
   const miningGunCooldownsRef = useRef<[number, number, number]>([0, 0.06, 0.12])
+
+  // Updated each frame while playing.
+  const shipFullyInBaseRef = useRef(false)
+
+  const pendingNextWaveRef = useRef<number | null>(null)
+
+  // Powerups: charges carry over; players buy more in the store.
+  const gravityPulseChargesRef = useRef(0)
+  const stasisChargesRef = useRef(0)
+  const queuedGravityPulseRef = useRef(false)
+  const queuedStasisRef = useRef(false)
+
+  const powerPulsesRef = useRef<Array<{ kind: 'gravity' | 'stasis'; at: number }>>([])
+
+  const GRAVITY_PULSE_COST = 1500
+  const STASIS_FIELD_COST = 3000
 
   // Cached background starfield (offscreen) so it costs ~one drawImage per frame.
   const starFieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -714,8 +734,85 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     harpoonRef.current = { state: 'idle' }
     miningBaseAngleRef.current = 0
     miningGunCooldownsRef.current = [0, 0.06, 0.12]
+    gravityPulseChargesRef.current = 0
+    stasisChargesRef.current = 0
+    setGravityCharges(0)
+    setStasisCharges(0)
+    queuedGravityPulseRef.current = false
+    queuedStasisRef.current = false
+    pendingNextWaveRef.current = null
     spawnRocks(rockCountForLevel(1), 100, speedMultForLevel(1))
   }, [spawnRocks, rockCountForLevel, speedMultForLevel, resetBlueRocksForLevel])
+
+  const continueToNextWave = useCallback(() => {
+    const next = pendingNextWaveRef.current
+    if (!next) return
+
+    const { width: w, height: h } = canvasSizeRef.current
+    setLevel(next)
+    resetBlueRocksForLevel(next)
+    baseShotsRef.current = []
+    bulletsRef.current = []
+    queuedGravityPulseRef.current = false
+    queuedStasisRef.current = false
+    shipFullyInBaseRef.current = false
+    shipRepairTimeRef.current = 0
+
+    // Ensure ship stays inside bounds on resume.
+    shipRef.current.pos.x = clamp(shipRef.current.pos.x, 0, w)
+    shipRef.current.pos.y = clamp(shipRef.current.pos.y, 0, h)
+
+    spawnRocks(rockCountForLevel(next), 100, speedMultForLevel(next))
+    invulnerableRef.current = 2000
+    levelingUpRef.current = false
+    waitingForWaveEndFxRef.current = false
+    pendingNextWaveRef.current = null
+    setGameState('playing')
+  }, [resetBlueRocksForLevel, spawnRocks, rockCountForLevel, speedMultForLevel])
+
+  const isStoreOptionEnabled = useCallback(
+    (index: number) => {
+      if (index === 0) return score >= GRAVITY_PULSE_COST
+      if (index === 1) return score >= STASIS_FIELD_COST
+      return true // Continue
+    },
+    [score, STASIS_FIELD_COST],
+  )
+
+  const firstEnabledStoreIndex = useCallback(() => {
+    if (isStoreOptionEnabled(0)) return 0
+    if (isStoreOptionEnabled(1)) return 1
+    return 2
+  }, [isStoreOptionEnabled])
+
+  const buyGravityPulse = useCallback(() => {
+    // Keep this handler side-effect free w.r.t. React state updaters.
+    // In React StrictMode, updater functions may be invoked more than once in dev.
+    if (score < GRAVITY_PULSE_COST) return
+    setScore((s) => s - GRAVITY_PULSE_COST)
+    setGravityCharges((c) => c + 1)
+  }, [score])
+
+  const buyStasisField = useCallback(() => {
+    if (score < STASIS_FIELD_COST) return
+    setScore((s) => s - STASIS_FIELD_COST)
+    setStasisCharges((c) => c + 1)
+  }, [score])
+
+  useEffect(() => {
+    if (gameState !== 'store') return
+    if (!isStoreOptionEnabled(storeIndex)) {
+      setStoreIndex(firstEnabledStoreIndex())
+    }
+  }, [gameState, score, storeIndex, isStoreOptionEnabled, firstEnabledStoreIndex])
+
+  useEffect(() => {
+    gravityPulseChargesRef.current = gravityCharges
+  }, [gravityCharges])
+
+  useEffect(() => {
+    stasisChargesRef.current = stasisCharges
+  }, [stasisCharges])
 
   useEffect(() => {
     levelRef.current = level
@@ -768,8 +865,42 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         setGameState('playing')
       }
 
-      // Harpoon grapple (X): fire / release.
-      if (!e.repeat && e.key.toLowerCase() === 'x' && gameState === 'playing') {
+      // Store keyboard navigation
+      if (gameState === 'store') {
+        if (e.key === 'ArrowUp') {
+          e.preventDefault()
+          setStoreIndex((current) => {
+            // Move up, skipping disabled options.
+            let next = current
+            for (let k = 0; k < 3; k++) {
+              next = next > 0 ? next - 1 : 2
+              if (isStoreOptionEnabled(next)) return next
+            }
+            return 2
+          })
+        }
+        if (e.key === 'ArrowDown') {
+          e.preventDefault()
+          setStoreIndex((current) => {
+            // Move down, skipping disabled options.
+            let next = current
+            for (let k = 0; k < 3; k++) {
+              next = next < 2 ? next + 1 : 0
+              if (isStoreOptionEnabled(next)) return next
+            }
+            return 2
+          })
+        }
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          if (storeIndex === 0) buyGravityPulse()
+          else if (storeIndex === 1) buyStasisField()
+          else continueToNextWave()
+        }
+      }
+
+      // Harpoon grapple (F): fire / release.
+      if (!e.repeat && e.key.toLowerCase() === 'f' && gameState === 'playing') {
         e.preventDefault()
         const hp = harpoonRef.current
         if (hp.state === 'idle') {
@@ -851,6 +982,25 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
         }
       }
+
+      // Powerups: D = demolition pulse, S = stasis field.
+      if (!e.repeat && e.key.toLowerCase() === 'd' && gameState === 'playing') {
+        if (gravityPulseChargesRef.current > 0 && !queuedGravityPulseRef.current) {
+          gravityPulseChargesRef.current -= 1
+          setGravityCharges(gravityPulseChargesRef.current)
+          queuedGravityPulseRef.current = true
+          powerPulsesRef.current.push({ kind: 'gravity', at: Date.now() })
+        }
+      }
+
+      if (!e.repeat && e.key.toLowerCase() === 's' && gameState === 'playing') {
+        if (stasisChargesRef.current > 0 && !queuedStasisRef.current) {
+          stasisChargesRef.current -= 1
+          setStasisCharges(stasisChargesRef.current)
+          queuedStasisRef.current = true
+          powerPulsesRef.current.push({ kind: 'stasis', at: Date.now() })
+        }
+      }
       
       // Menu keyboard navigation
       if (gameState === 'menu') {
@@ -899,7 +1049,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, startGame, onExit])
+  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1001,13 +1151,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Ship controls
-      if (keysRef.current.has('arrowleft') || keysRef.current.has('a')) {
+      if (keysRef.current.has('arrowleft')) {
         ship.angle -= 5 * dt
       }
-      if (keysRef.current.has('arrowright') || keysRef.current.has('d')) {
+      if (keysRef.current.has('arrowright')) {
         ship.angle += 5 * dt
       }
-      const isThrusting = keysRef.current.has('arrowup') || keysRef.current.has('w')
+      const isThrusting = keysRef.current.has('arrowup')
       if (isThrusting) {
         ship.vel.x += Math.cos(ship.angle) * 300 * dt
         ship.vel.y += Math.sin(ship.angle) * 300 * dt
@@ -1072,6 +1222,105 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         if (y < 0) return y + h
         if (y > h) return y - h
         return y
+      }
+
+      // Powerups: process queued activations inside the simulation step.
+      // Demolition Pulse: hits each asteroid once as if shot by the ship.
+      // Stasis Field: removes all momentum from all asteroids.
+      if (queuedStasisRef.current) {
+        queuedStasisRef.current = false
+        for (const rock of rocksRef.current) {
+          rock.vel.x = 0
+          rock.vel.y = 0
+        }
+      }
+
+      if (queuedGravityPulseRef.current) {
+        queuedGravityPulseRef.current = false
+
+        const originX = shipRef.current.pos.x
+        const originY = shipRef.current.pos.y
+        const targets = [...rocksRef.current]
+
+        const releaseHarpoonIfAttached = (rock: Rock) => {
+          const hp = harpoonRef.current
+          if (hp.state === 'attached' && hp.rock === rock) {
+            const ship = shipRef.current
+            const ropeLength = hp.maxLength * HARPOON_VISUAL_SLACK
+            const seed = buildRopeBetween(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, ropeLength)
+            harpoonRef.current = {
+              state: 'deployed',
+              pos: { x: rock.pos.x, y: rock.pos.y },
+              vel: { x: 0, y: 0 },
+              maxLength: hp.maxLength,
+              ropeLength,
+              segLen: seed.segLen,
+              rope: seed.rope,
+              ropePrev: seed.ropePrev,
+            }
+          }
+        }
+
+        const hitRockLikeShipBullet = (rock: Rock) => {
+          if (rock.kind === 'blue') {
+            // Blue smallest rocks cannot be destroyed by ship bullets.
+            // Impacts transfer momentum (push).
+            const d = toroidalDelta(originX, originY, rock.pos.x, rock.pos.y, w, h)
+            const dl = Math.hypot(d.dx, d.dy)
+            if (dl > 1e-6) {
+              const ux = d.dx / dl
+              const uy = d.dy / dl
+              const push = 170
+              rock.vel.x += ux * push
+              rock.vel.y += uy * push
+            }
+            return
+          }
+
+          releaseHarpoonIfAttached(rock)
+
+          const idx = rocksRef.current.indexOf(rock)
+          if (idx === -1) return
+          rocksRef.current.splice(idx, 1)
+          setScore((s) => s + Math.floor(100 / rock.radius))
+
+          // Play explosion sound based on size
+          const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
+          sounds.explosion(explosionSize)
+
+          // Split rock or create debris for smallest ones
+          if (rock.radius > SMALLEST_ROCK_RADIUS) {
+            const newRadius = rock.radius / 2
+            for (let j = 0; j < 2; j++) {
+              let kind: RockKind = 'normal'
+              if (newRadius <= SMALLEST_ROCK_RADIUS) {
+                if (levelRef.current >= 3) {
+                  if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
+                    kind = 'blue'
+                    blueRocksSpawnedThisLevelRef.current += 1
+                  } else {
+                    const p = clamp(0.12 + (levelRef.current - 1) * 0.015, 0.12, 0.3)
+                    if (Math.random() < p) {
+                      kind = 'blue'
+                      blueRocksSpawnedThisLevelRef.current += 1
+                    }
+                  }
+                }
+              }
+
+              rocksRef.current.push(createRock(rock.pos.x, rock.pos.y, newRadius, undefined, kind))
+            }
+          } else {
+            // Smallest rock destroyed - create particle debris
+            createDebris(rock.pos.x, rock.pos.y, rock.vel.x, rock.vel.y, 5, 0.5, '255, 255, 255')
+          }
+        }
+
+        for (const rock of targets) {
+          // Only hit asteroids that existed at activation time.
+          if (rocksRef.current.indexOf(rock) === -1) continue
+          hitRockLikeShipBullet(rock)
+        }
       }
 
       // Mining base interaction: a flat-topped hex with 3 door gaps.
@@ -1273,6 +1522,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         {
           const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, w, h)
           const fullyInside = circleFullyInHex(d.dx, d.dy, ship.radius)
+          shipFullyInBaseRef.current = fullyInside
           if (!fullyInside) {
             shipRepairTimeRef.current = 0
           } else {
@@ -1884,14 +2134,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               for (let j = 0; j < 2; j++) {
                 let kind: RockKind = 'normal'
                 if (newRadius <= SMALLEST_ROCK_RADIUS) {
-                  if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
-                    kind = 'blue'
-                    blueRocksSpawnedThisLevelRef.current += 1
-                  } else {
-                    const p = clamp(0.12 + (levelRef.current - 1) * 0.015, 0.12, 0.3)
-                    if (Math.random() < p) {
+                  if (levelRef.current >= 3) {
+                    if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
                       kind = 'blue'
                       blueRocksSpawnedThisLevelRef.current += 1
+                    } else {
+                      const p = clamp(0.12 + (levelRef.current - 1) * 0.015, 0.12, 0.3)
+                      if (Math.random() < p) {
+                        kind = 'blue'
+                        blueRocksSpawnedThisLevelRef.current += 1
+                      }
                     }
                   }
                 }
@@ -1950,16 +2202,29 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       // Check if all rocks destroyed
       if (rocksRef.current.length === 0 && gameState === 'playing' && !levelingUpRef.current) {
         levelingUpRef.current = true
-        setLevel((l) => {
-          const newLevel = l + 1
-          setTimeout(() => {
-            resetBlueRocksForLevel(newLevel)
-            spawnRocks(rockCountForLevel(newLevel), 100, speedMultForLevel(newLevel))
-            invulnerableRef.current = 2000
-            levelingUpRef.current = false
-          }, 500)
-          return newLevel
-        })
+        const nextLevel = levelRef.current + 1
+
+        // Prepare to open the store before spawning the next wave,
+        // but wait until the final explosion/debris animation finishes.
+        queuedGravityPulseRef.current = false
+        queuedStasisRef.current = false
+
+        pendingNextWaveRef.current = nextLevel
+        waitingForWaveEndFxRef.current = true
+      }
+
+      // If the wave is clear, don't show the store until the wave-ending animation completes.
+      if (
+        gameState === 'playing' &&
+        levelingUpRef.current &&
+        waitingForWaveEndFxRef.current &&
+        rocksRef.current.length === 0 &&
+        debrisRef.current.length === 0
+      ) {
+        baseShotsRef.current = []
+        setStoreIndex(firstEnabledStoreIndex())
+        setGameState('store')
+        waitingForWaveEndFxRef.current = false
       }
     }
 
@@ -2564,8 +2829,48 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Draw ship
-      if (gameState === 'playing') {
+      if (gameState === 'playing' || gameState === 'store') {
         const ship = shipRef.current
+
+        // Powerup activation pulses (visible): ring expands outward from the ship.
+        {
+          const now = Date.now()
+          const durationMs = 520
+          powerPulsesRef.current = powerPulsesRef.current.filter((p) => now - p.at < durationMs)
+
+          if (powerPulsesRef.current.length > 0) {
+            const drawWrappedRing = (cx: number, cy: number, r: number) => {
+              for (const ox of [-width, 0, width]) {
+                for (const oy of [-height, 0, height]) {
+                  ctx.beginPath()
+                  ctx.arc(cx + ox, cy + oy, r, 0, Math.PI * 2)
+                  ctx.stroke()
+                }
+              }
+            }
+
+            for (const p of powerPulsesRef.current) {
+              const t = clamp((now - p.at) / durationMs, 0, 1)
+              const r = ship.radius + 12 + t * 360
+              const a = (1 - t) * 0.75
+
+              ctx.save()
+              ctx.globalAlpha = 1
+              ctx.lineWidth = 3.2 - 1.8 * t
+              if (p.kind === 'stasis') {
+                ctx.strokeStyle = `rgba(0,255,136,${a})`
+                ctx.shadowColor = `rgba(0,255,136,${0.55 * a})`
+              } else {
+                // Match the existing enemy/bullet red so we don't introduce a new palette.
+                ctx.strokeStyle = `rgba(255,68,68,${a})`
+                ctx.shadowColor = `rgba(255,68,68,${0.55 * a})`
+              }
+              ctx.shadowBlur = 18
+              drawWrappedRing(ship.pos.x, ship.pos.y, r)
+              ctx.restore()
+            }
+          }
+        }
 
         // Healing halo: while fully inside the base and the 2s repair timer is counting.
         {
@@ -2828,11 +3133,79 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       <canvas ref={canvasRef} className="absolute inset-0" />
 
       {/* HUD */}
-      {gameState === 'playing' && (
+      {(gameState === 'playing' || gameState === 'store') && (
         <div className="absolute top-4 left-4 pointer-events-none">
-          <div className="text-[#00ff88] space-y-1 tracking-wider uppercase">
+          <div className="text-white space-y-1 tracking-wider uppercase">
             <div className="text-base font-semibold">Credits {score.toString().padStart(6, '0')}</div>
             <div className="text-base font-semibold">Wave {level}</div>
+            <div className="text-sm font-semibold">
+              <span className="text-[#ff4444]">D:</span> {gravityCharges}{' '}
+              <span className="text-[#00ff88]">S:</span> {stasisCharges}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Store (between waves) */}
+      {gameState === 'store' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+          <div className="text-center max-w-md px-8">
+            <h2 className="text-4xl text-[#00ff88] mb-3 tracking-[0.3em] uppercase">Store</h2>
+            <div className="text-white text-sm space-y-2 mb-6 tracking-wider">
+              <div>
+                Credits: <span className="text-[#00ff88] font-semibold">{score.toString().padStart(6, '0')}</span>
+              </div>
+              <div>
+                Inventory: <span className="text-[#ff4444] font-semibold">D:</span> {gravityCharges}{' '}
+                <span className="text-[#00ff88] font-semibold">S:</span> {stasisCharges}
+              </div>
+              <div className="text-white/70">↑/↓ to select • Enter to confirm</div>
+            </div>
+
+            <div className="flex flex-col gap-3 items-center">
+              <button
+                onClick={buyGravityPulse}
+                disabled={score < GRAVITY_PULSE_COST}
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
+                  storeIndex === 0 && score >= GRAVITY_PULSE_COST
+                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    : score >= GRAVITY_PULSE_COST
+                      ? 'border-[#00ff88] bg-black text-white hover:bg-[#00ff88] hover:text-black'
+                      : 'border-[#00ff88]/30 bg-black text-white/40'
+                }`}
+              >
+                Buy Demolition Pulse (<span className="text-[#ff4444]">D</span>) ({GRAVITY_PULSE_COST})
+              </button>
+
+              <button
+                onClick={buyStasisField}
+                disabled={score < STASIS_FIELD_COST}
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
+                  storeIndex === 1 && score >= STASIS_FIELD_COST
+                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    : score >= STASIS_FIELD_COST
+                      ? 'border-[#00ff88] bg-black text-white hover:bg-[#00ff88] hover:text-black'
+                      : 'border-[#00ff88]/30 bg-black text-white/40'
+                }`}
+              >
+                Buy Stasis Field (<span className="text-[#00ff88]">S</span>) ({STASIS_FIELD_COST})
+              </button>
+
+              <button
+                onClick={continueToNextWave}
+                className={`w-64 px-8 py-3 border-2 border-[#00ff88] uppercase tracking-widest transition-colors ${
+                  storeIndex === 2
+                    ? 'bg-[#00ff88] text-black'
+                    : 'bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                }`}
+              >
+                Continue
+              </button>
+            </div>
+
+            <div className="mt-6 text-white/70 text-xs tracking-wider">
+              Processing rocks inside your base earns more credits. Use your harpoon (F).
+            </div>
           </div>
         </div>
       )}
@@ -2844,13 +3217,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] uppercase">Hard Vacuum</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2">
-                <span className="text-white">›</span> Arrow Keys / WASD: Move & Rotate
+                <span className="text-white">›</span> Arrow Keys: Move & Rotate
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> Space: Shoot
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-white">›</span> X: Harpoon (toggle reel)
+                <span className="text-white">›</span> F: Harpoon (toggle reel)
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> P: Pause

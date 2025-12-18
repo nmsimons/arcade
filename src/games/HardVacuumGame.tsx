@@ -2366,6 +2366,32 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         ctx.save()
         ctx.translate(rock.pos.x, rock.pos.y)
 
+        // Opaque black body fill so the interior isn't visually transparent.
+        {
+          ctx.save()
+          ctx.globalAlpha = 1
+          ctx.shadowBlur = 0
+          ctx.shadowColor = 'rgba(0, 0, 0, 0)'
+          ctx.fillStyle = '#000'
+
+          // Painter's algorithm: far-to-near to reduce overdraw artifacts.
+          const facesFill = [...faces2].sort((a, b) => a.z - b.z)
+          for (const f of facesFill) {
+            if (!f.isFront) continue
+            ctx.beginPath()
+            const p0 = proj2[f.idxs[0]]
+            ctx.moveTo(p0.x, p0.y)
+            for (let i = 1; i < f.idxs.length; i++) {
+              const p = proj2[f.idxs[i]]
+              ctx.lineTo(p.x, p.y)
+            }
+            ctx.closePath()
+            ctx.fill()
+          }
+
+          ctx.restore()
+        }
+
         // Thin white outlines only (visible edges only).
         ctx.shadowBlur = isBlue ? 10 : 0
         ctx.shadowColor = isBlue ? 'rgba(40, 170, 255, 0.45)' : 'rgba(0, 0, 0, 0)'
@@ -2581,6 +2607,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           ctx.lineTo(-10 * s, podOutY)
           ctx.lineTo(midX, bodyHalf)
           ctx.closePath()
+
+          // Opaque black fill so the interior isn't visually transparent.
+          ctx.save()
+          ctx.globalAlpha = 1
+          ctx.shadowBlur = 0
+          ctx.shadowColor = 'rgba(0, 0, 0, 0)'
+          ctx.fillStyle = '#000'
+          ctx.fill()
+          ctx.restore()
+
           ctx.stroke()
 
           // Internal structure lines (kept sparse, confident)

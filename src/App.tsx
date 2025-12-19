@@ -16,12 +16,10 @@ export default function App() {
     () =>
       [
         { id: 'hardVacuum', path: '/hard-vacuum', label: 'Hard Vacuum' },
-        { id: 'finalApproach', path: '/final-approach', label: 'Final Approach' },
-        { id: 'noExit', path: '/no-exit', label: 'No Exit' },
-        { id: 'urbanFire', path: '/urban-fire', label: 'Urban Fire' },
         { id: 'kickball', path: '/bumper-ball', label: 'Bumper Ball' },
-        { id: 'sling', path: '/sling-load', label: 'Sling Load' },
-        { id: 'hello', path: '/hello-world', label: 'Hello World' },
+        { id: 'noExit', path: '/no-exit', label: 'No Exit' },
+        { id: 'finalApproach', path: '/final-approach', label: 'Final Approach' },        
+        { id: 'urbanFire', path: '/urban-fire', label: 'Urban Fire' },
       ] as const,
     [],
   )

@@ -2162,8 +2162,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         for (let i = 0; i < rocks.length; i++) {
           const a = rocks[i]
           const d = toroidalDelta(baseX, baseY, a.pos.x, a.pos.y, w, h)
-          const fullyInside = circleFullyInHex(d.dx, d.dy, a.radius)
-          if (!fullyInside) {
+          // More lenient check: rock center must be inside, with small margin for bouncing
+          const distFromCenter = Math.hypot(d.dx, d.dy)
+          const isInProcessingZone = distFromCenter < MINING_BASE_RADIUS - a.radius * 0.3
+          if (!isInProcessingZone) {
             a.inBaseTime = 0
             continue
           }
@@ -2813,15 +2815,15 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         const baseX = w / 2
         const baseY = h / 2
         const baseAng = miningBaseAngleRef.current
-        const attractorRange = MINING_BASE_RADIUS * 2.5
-        const attractorStrength = 25000 // strong gravity
+        const attractorRange = MINING_BASE_RADIUS * 3.0 // Increased range
+        const attractorStrength = 40000 // Much stronger gravity
 
         // 3 gates: doors are centered at vertices 1, 3, 5
         const doorVertices = [1, 3, 5]
         for (const vertIdx of doorVertices) {
           // Angle to door vertex
           const gateAngle = baseAng + (vertIdx / 6) * Math.PI * 2
-          const fanAngleSpread = Math.PI / 5 // ~36 degree fan
+          const fanAngleSpread = Math.PI / 3.5 // ~51 degree fan (wider coverage)
 
           // Apply gravity to rocks in this fan
           for (const rock of rocksRef.current) {
@@ -2844,8 +2846,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               const distFromEdge = distToBase - MINING_BASE_RADIUS
               const maxRange = attractorRange - MINING_BASE_RADIUS
               const normalizedDist = Math.max(0, Math.min(1, distFromEdge / maxRange))
-              // Exponential curve: weak at 1.0 (far), extremely strong at 0.0 (close)
-              const exponentialFactor = Math.pow(normalizedDist, 3)
+              // Stronger exponential curve: weak at 1.0 (far), extremely strong at 0.0 (close)
+              const exponentialFactor = Math.pow(normalizedDist, 2.5)
               const gravityMag = attractorStrength * (1 - exponentialFactor) / Math.max(1, distFromEdge)
               const ux = -d.dx / distToBase
               const uy = -d.dy / distToBase

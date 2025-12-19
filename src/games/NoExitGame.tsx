@@ -981,30 +981,66 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
       // HUD
       if (gameState === 'playing') {
         ctx.save()
-        ctx.fillStyle = '#00ff88'
-        ctx.font = '14px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
 
-        ctx.textAlign = 'left'
-        ctx.fillText(`SCORE ${score.toString().padStart(6, '0')}`, arena.outer.left, arena.outer.top - 15)
-        ctx.fillText(`WAVE ${wave}`, arena.outer.left + 150, arena.outer.top - 15)
+        // Centered HUD in the inner arena box
+        const hudCenterX = (arena.inner.left + arena.inner.right) / 2
+        const hudCenterY = (arena.inner.top + arena.inner.bottom) / 2
 
-        ctx.textAlign = 'right'
-        ctx.fillText(`LIVES`, arena.outer.right - 50, arena.outer.top - 15)
+        // Score
+        ctx.fillStyle = '#ffffff'
+        ctx.font = '600 20px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+        ctx.fillText(score.toString().padStart(6, '0'), hudCenterX, hudCenterY - 32)
 
-        // Draw lives as ships
+        // Wave
+        ctx.fillStyle = '#ffffff'
+        ctx.font = '600 16px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+        ctx.fillText(`WAVE ${wave}`, hudCenterX, hudCenterY - 8)
+
+        // Lives: ships in a horizontal row (matching actual ship design)
+        const shipSpacing = 30
+        const shipsY = hudCenterY + 20
+        const totalWidth = (lives - 1) * shipSpacing
+        const shipsStartX = hudCenterX - totalWidth / 2
+
+        const scale = 0.55 // Scale down the ship for HUD display
         for (let i = 0; i < lives; i++) {
           ctx.save()
-          ctx.translate(arena.outer.right - 40 + i * 20, arena.outer.top - 20)
+          ctx.translate(shipsStartX + i * shipSpacing, shipsY)
           ctx.rotate(-Math.PI / 2)
-          ctx.strokeStyle = '#00ff88'
-          ctx.lineWidth = 1
+          ctx.scale(scale, scale)
+
+          // Opaque fill (same as actual ship)
+          ctx.fillStyle = '#0a0a0a'
           ctx.beginPath()
-          ctx.moveTo(8, 0)
-          ctx.lineTo(-5, -5)
-          ctx.lineTo(-2, 0)
-          ctx.lineTo(-5, 5)
+          ctx.moveTo(15, 0)
+          ctx.lineTo(-10, -12)
+          ctx.lineTo(-5, 0)
+          ctx.lineTo(-10, 12)
+          ctx.closePath()
+          ctx.fill()
+
+          ctx.strokeStyle = '#00ff88'
+          ctx.lineWidth = 2
+
+          // Main body
+          ctx.beginPath()
+          ctx.moveTo(15, 0)
+          ctx.lineTo(-8, -10)
+          ctx.lineTo(-4, 0)
+          ctx.lineTo(-8, 10)
           ctx.closePath()
           ctx.stroke()
+
+          // Wings/Details
+          ctx.beginPath()
+          ctx.moveTo(-4, -6)
+          ctx.lineTo(-12, -12)
+          ctx.moveTo(-4, 6)
+          ctx.lineTo(-12, 12)
+          ctx.stroke()
+
           ctx.restore()
         }
 
@@ -1028,7 +1064,7 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [gameState, score, lives, wave, setupArena, resetShip, spawnEnemies, createDebris])
+  }, [gameState, score, lives, wave, setupArena, resetShip, spawnEnemies, createDebris, ensureStarField])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()

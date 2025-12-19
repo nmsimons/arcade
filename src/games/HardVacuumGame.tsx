@@ -1269,10 +1269,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     (index: number) => {
       if (index === 0) return score >= GRAVITY_PULSE_COST
       if (index === 1) return score >= STASIS_FIELD_COST
-      if (index === 2) return score >= ATTRACTOR_RECHARGE_COST
+      if (index === 2) return score >= ATTRACTOR_RECHARGE_COST && attractorTimer < 30
       return true // Continue
     },
-    [score, STASIS_FIELD_COST, ATTRACTOR_RECHARGE_COST],
+    [score, STASIS_FIELD_COST, ATTRACTOR_RECHARGE_COST, attractorTimer],
   )
 
   const firstEnabledStoreIndex = useCallback(() => {
@@ -1701,7 +1701,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField, isStoreOptionEnabled, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, attractorTimer])
+  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField, buyAttractorRecharge, isStoreOptionEnabled, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, attractorTimer])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1923,8 +1923,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               // Check if it's trying to leave
               if (distToBase > MINING_BASE_RADIUS - rock.radius - 5) {
                 // Bounce the rock back towards center
-                const normalX = -d.dx / distToBase
-                const normalY = -d.dy / distToBase
                 const velDot = rock.vel.x * d.dx / distToBase + rock.vel.y * d.dy / distToBase
                 
                 if (velDot > 0) { // Moving outward
@@ -3463,7 +3461,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           for (const vertIdx of doorVertices) {
             // Door is at this vertex. The gap spans from the end of the previous edge to the start of the next edge.
             const prevEdgeIdx = (vertIdx - 1 + 6) % 6
-            const nextEdgeIdx = vertIdx
             
             // Previous edge goes from verts[prevEdgeIdx] to verts[vertIdx]
             const prevStart = verts[prevEdgeIdx]
@@ -4214,11 +4211,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
               <button
                 onClick={buyAttractorRecharge}
-                disabled={score < ATTRACTOR_RECHARGE_COST}
+                disabled={score < ATTRACTOR_RECHARGE_COST || attractorTimer >= 30}
                 className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  storeIndex === 2 && score >= ATTRACTOR_RECHARGE_COST
+                  storeIndex === 2 && score >= ATTRACTOR_RECHARGE_COST && attractorTimer < 30
                     ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : score >= ATTRACTOR_RECHARGE_COST
+                    : score >= ATTRACTOR_RECHARGE_COST && attractorTimer < 30
                       ? 'border-[#00ff88] bg-black text-white hover:bg-[#00ff88] hover:text-black'
                       : 'border-[#00ff88]/30 bg-black text-white/40'
                 }`}
@@ -4259,6 +4256,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> F: Harpoon (toggle reel)
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-white">›</span> D: Demolition Pulse
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-white">›</span> S: Stasis Field
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> A: Attractor Beam

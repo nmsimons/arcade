@@ -673,8 +673,8 @@ class SoundSystem {
 const sounds = new SoundSystem()
 
 // Dev-only: ensure hot reloads don't leave looping WebAudio nodes running.
-if (import.meta && (import.meta as any).hot) {
-  ;(import.meta as any).hot.dispose(() => {
+if (import.meta && import.meta.hot) {
+  import.meta.hot.dispose(() => {
     try {
       sounds.shutdown()
     } catch {
@@ -1291,7 +1291,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   useEffect(() => {
     if (gameState !== 'store') return
     if (!isStoreOptionEnabled(storeIndex)) {
-      setStoreIndex(firstEnabledStoreIndex())
+      queueMicrotask(() => setStoreIndex(firstEnabledStoreIndex()))
     }
   }, [gameState, score, storeIndex, isStoreOptionEnabled, firstEnabledStoreIndex])
 
@@ -1321,7 +1321,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
     // Reset visuals.
     shieldsRef.current = 2
-    setShields(2)
+    queueMicrotask(() => setShields(2))
     miningBaseAngleRef.current = 0
     debrisRef.current = []
 
@@ -1678,7 +1678,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField])
+  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField, isStoreOptionEnabled, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -3854,7 +3854,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (rafId != null) cancelAnimationFrame(rafId)
       sounds.stopRepairHum(true)
     }
-  }, [gameState, shields, createRock, createDebris, spawnRocks])
+  }, [gameState, shields, createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, firstEnabledStoreIndex, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()

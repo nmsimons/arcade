@@ -837,7 +837,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [gameState, difficulty])
+  }, [gameState, difficulty, createDebris])
 
   const exitToGameSelect = () => {
     onExit()

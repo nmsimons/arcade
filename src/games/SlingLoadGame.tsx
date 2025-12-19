@@ -269,7 +269,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     const outpost = pick(['ALPHA', 'BRAVO', 'CHARLIE'] as const)
     const id = missionIdRef.current++
     return { id, cargo, outpost, createdAtMs: nowMs, dueAtMs: nowMs + MISSION_DEADLINE_MS }
-  }, [])
+  }, [MISSION_DEADLINE_MS])
 
   const spawnCrateAtBase = useCallback(
     (crate: Crate) => {
@@ -381,7 +381,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
 
   useEffect(() => {
     if (gameState !== 'menu') return
-    resetWorld()
+    queueMicrotask(() => resetWorld())
   }, [gameState, resetWorld])
 
   useEffect(() => {
@@ -497,7 +497,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, startGame, exitToArcade, getHookPoint])
+  }, [gameState, menuIndex, gameOverIndex, startGame, exitToArcade, getHookPoint, getCrateAttachPoint])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1943,7 +1943,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     }
 
     lastTimeRef.current = performance.now()
-    rafRef.current = requestAnimationFrame(animate)
+    requestAnimationFrame(animate)
 
     return () => {
       window.removeEventListener('resize', resize)
@@ -1960,6 +1960,11 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     getHookPoint,
     makeMission,
     spawnCrateAtBase,
+    MISSION_SPAWN_INTERVAL_MS,
+    createDebris,
+    getCrateAttachPoint,
+    resetWorld,
+    rot2,
   ])
 
   if (isExiting && window.location.pathname !== '/sling-load') {

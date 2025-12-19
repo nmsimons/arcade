@@ -239,6 +239,50 @@ class ArmorSoundSystem {
 
 const sounds = new ArmorSoundSystem()
 
+// MinHeap for pathfinding A* algorithm
+class MinHeap {
+  private heap: number[] = []
+  private readonly score: Float32Array
+  constructor(score: Float32Array) {
+    this.score = score
+  }
+  get size() {
+    return this.heap.length
+  }
+  push(i: number) {
+    const h = this.heap
+    h.push(i)
+    let k = h.length - 1
+    while (k > 0) {
+      const p = (k - 1) >> 1
+      if (this.score[h[p]] <= this.score[h[k]]) break
+      ;[h[p], h[k]] = [h[k], h[p]]
+      k = p
+    }
+  }
+  pop(): number | undefined {
+    const h = this.heap
+    if (h.length === 0) return undefined
+    const top = h[0]
+    const last = h.pop()!
+    if (h.length > 0) {
+      h[0] = last
+      let k = 0
+      while (true) {
+        const l = k * 2 + 1
+        const r = l + 1
+        let m = k
+        if (l < h.length && this.score[h[l]] < this.score[h[m]]) m = l
+        if (r < h.length && this.score[h[r]] < this.score[h[m]]) m = r
+        if (m === k) break
+        ;[h[m], h[k]] = [h[k], h[m]]
+        k = m
+      }
+    }
+    return top
+  }
+}
+
 type UrbanFireGameProps = {
   onExit: () => void
 }
@@ -906,7 +950,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   }, [gameState, menuIndex, gameOverIndex, startGame, onExit])
 
   // Line-rectangle intersection for bullet collision with walls
-  const lineIntersectsRect = (
+  const lineIntersectsRect = useCallback((
     x1: number,
     y1: number,
     x2: number,
@@ -950,7 +994,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       intersectsLine(x1, y1, x2, y2, right, bottom, left, bottom) ||
       intersectsLine(x1, y1, x2, y2, left, bottom, left, top)
     )
-  }
+  }, [])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1076,49 +1120,6 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         }
       }
       return null
-    }
-
-    class MinHeap {
-      private heap: number[] = []
-      private readonly score: Float32Array
-      constructor(score: Float32Array) {
-        this.score = score
-      }
-      get size() {
-        return this.heap.length
-      }
-      push(i: number) {
-        const h = this.heap
-        h.push(i)
-        let k = h.length - 1
-        while (k > 0) {
-          const p = (k - 1) >> 1
-          if (this.score[h[p]] <= this.score[h[k]]) break
-          ;[h[p], h[k]] = [h[k], h[p]]
-          k = p
-        }
-      }
-      pop(): number | undefined {
-        const h = this.heap
-        if (h.length === 0) return undefined
-        const top = h[0]
-        const last = h.pop()!
-        if (h.length > 0) {
-          h[0] = last
-          let k = 0
-          while (true) {
-            const l = k * 2 + 1
-            const r = l + 1
-            let m = k
-            if (l < h.length && this.score[h[l]] < this.score[h[m]]) m = l
-            if (r < h.length && this.score[h[r]] < this.score[h[m]]) m = r
-            if (m === k) break
-            ;[h[m], h[k]] = [h[k], h[m]]
-            k = m
-          }
-        }
-        return top
-      }
     }
 
     const buildPath = (cameFrom: Int32Array, current: number) => {

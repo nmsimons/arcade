@@ -2162,9 +2162,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         for (let i = 0; i < rocks.length; i++) {
           const a = rocks[i]
           const d = toroidalDelta(baseX, baseY, a.pos.x, a.pos.y, w, h)
-          // More lenient check: rock center must be inside, with small margin for bouncing
+          // Check if rock is inside: center must be far enough from edge that rock can't be outside
           const distFromCenter = Math.hypot(d.dx, d.dy)
-          const isInProcessingZone = distFromCenter < MINING_BASE_RADIUS - a.radius * 0.3
+          const isInProcessingZone = distFromCenter < MINING_BASE_RADIUS - a.radius * 0.7
           if (!isInProcessingZone) {
             a.inBaseTime = 0
             continue
@@ -2238,7 +2238,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               // Process rock on hit.
               shots.splice(si, 1)
               rocks2.splice(ai, 1)
-              setScore((s) => s + 700 + Math.max(0, Math.round((60 - a.radius) * 10)))
+              
+              // Base score increases with rock size
+              const sizeBonus = Math.max(0, Math.round((a.radius - 20) * 15))
+              const basePoints = 700 + sizeBonus
+              
+              // Blue rocks are worth double
+              const multiplier = a.kind === 'blue' ? 2 : 1
+              const totalPoints = basePoints * multiplier
+              
+              setScore((s) => s + totalPoints)
               createDebris(wrapX(a.pos.x), wrapY(a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
               sounds.collect()
               break

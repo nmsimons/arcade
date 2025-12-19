@@ -896,6 +896,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [level, setLevel] = useState(1)
   const [gravityCharges, setGravityCharges] = useState(0)
   const [stasisCharges, setStasisCharges] = useState(0)
+  const [attractorActive, setAttractorActive] = useState(false)
+  const [attractorTimer, setAttractorTimer] = useState(30)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
   const [storeIndex, setStoreIndex] = useState(0)
@@ -959,6 +961,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   const GRAVITY_PULSE_COST = 1500
   const STASIS_FIELD_COST = 3000
+  const ATTRACTOR_RECHARGE_COST = 2000
 
   // Cached background starfield (offscreen) so it costs ~one drawImage per frame.
   const starFieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -1223,10 +1226,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     harpoonRef.current = { state: 'idle' }
     miningBaseAngleRef.current = 0
     miningGunCooldownsRef.current = [0, 0.06, 0.12]
-    gravityPulseChargesRef.current = 0
-    stasisChargesRef.current = 0
-    setGravityCharges(0)
-    setStasisCharges(0)
+    gravityPulseChargesRef.current = 1
+    stasisChargesRef.current = 1
+    setGravityCharges(1)
+    setStasisCharges(1)
+    setAttractorActive(false)
+    setAttractorTimer(30)
     queuedGravityPulseRef.current = false
     queuedStasisRef.current = false
     pendingNextWaveRef.current = null
@@ -1246,6 +1251,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     queuedStasisRef.current = false
     shipFullyInBaseRef.current = false
     shipRepairTimeRef.current = 0
+    setAttractorActive(false)
 
     // Ensure ship stays inside bounds on resume.
     shipRef.current.pos.x = clamp(shipRef.current.pos.x, 0, w)
@@ -1263,15 +1269,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     (index: number) => {
       if (index === 0) return score >= GRAVITY_PULSE_COST
       if (index === 1) return score >= STASIS_FIELD_COST
+      if (index === 2) return score >= ATTRACTOR_RECHARGE_COST
       return true // Continue
     },
-    [score, STASIS_FIELD_COST],
+    [score, STASIS_FIELD_COST, ATTRACTOR_RECHARGE_COST],
   )
 
   const firstEnabledStoreIndex = useCallback(() => {
     if (isStoreOptionEnabled(0)) return 0
     if (isStoreOptionEnabled(1)) return 1
-    return 2
+    if (isStoreOptionEnabled(2)) return 2
+    return 3
   }, [isStoreOptionEnabled])
 
   const buyGravityPulse = useCallback(() => {
@@ -1287,6 +1295,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     setScore((s) => s - STASIS_FIELD_COST)
     setStasisCharges((c) => c + 1)
   }, [score])
+
+  const buyAttractorRecharge = useCallback(() => {
+    if (score < ATTRACTOR_RECHARGE_COST) return
+    setScore((s) => s - ATTRACTOR_RECHARGE_COST)
+    setAttractorTimer(30)
+  }, [score, ATTRACTOR_RECHARGE_COST])
 
   useEffect(() => {
     if (gameState !== 'store') return
@@ -1501,11 +1515,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           setStoreIndex((current) => {
             // Move up, skipping disabled options.
             let next = current
-            for (let k = 0; k < 3; k++) {
-              next = next > 0 ? next - 1 : 2
+            for (let k = 0; k < 4; k++) {
+              next = next > 0 ? next - 1 : 3
               if (isStoreOptionEnabled(next)) return next
             }
-            return 2
+            return 3
           })
         }
         if (e.key === 'ArrowDown') {
@@ -1513,17 +1527,18 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           setStoreIndex((current) => {
             // Move down, skipping disabled options.
             let next = current
-            for (let k = 0; k < 3; k++) {
-              next = next < 2 ? next + 1 : 0
+            for (let k = 0; k < 4; k++) {
+              next = next < 3 ? next + 1 : 0
               if (isStoreOptionEnabled(next)) return next
             }
-            return 2
+            return 3
           })
         }
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           if (storeIndex === 0) buyGravityPulse()
           else if (storeIndex === 1) buyStasisField()
+          else if (storeIndex === 2) buyAttractorRecharge()
           else continueToNextWave()
         }
       }
@@ -1612,7 +1627,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
       }
 
-      // Powerups: D = demolition pulse, S = stasis field.
+      // Powerups: D = demolition pulse, S = stasis field, A = attractor beam.
       if (!e.repeat && e.key.toLowerCase() === 'd' && gameState === 'playing') {
         if (gravityPulseChargesRef.current > 0 && !queuedGravityPulseRef.current) {
           gravityPulseChargesRef.current -= 1
@@ -1629,6 +1644,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           queuedStasisRef.current = true
           powerPulsesRef.current.push({ kind: 'stasis', at: Date.now() })
         }
+      }
+
+      if (!e.repeat && e.key.toLowerCase() === 'a' && gameState === 'playing') {
+        setAttractorActive((active) => {
+          if (!active && attractorTimer > 0) return true
+          if (active) return false
+          return active
+        })
       }
       
       // Menu keyboard navigation
@@ -1678,7 +1701,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField, isStoreOptionEnabled, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS])
+  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField, isStoreOptionEnabled, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, attractorTimer])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1869,6 +1892,50 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         if (rock.pos.y > h) rock.pos.y = 0
         if (rock.pos.y < 0) rock.pos.y = h
       })
+
+      // Force field collision: prevent rocks from exiting base through doors when attractor is active
+      if (attractorActive && attractorTimer > 0) {
+        const baseX = w / 2
+        const baseY = h / 2
+        const baseAng = miningBaseAngleRef.current
+        const doorVertices = [1, 3, 5]
+        
+        for (const rock of rocksRef.current) {
+          // Check if rock is near base using toroidal distance
+          const d = toroidalDelta(baseX, baseY, rock.pos.x, rock.pos.y, w, h)
+          const distToBase = Math.hypot(d.dx, d.dy)
+          
+          // Only check rocks that are inside the base
+          if (distToBase > MINING_BASE_RADIUS - rock.radius) continue
+          
+          // Check each door - if rock is trying to exit through a door, bounce it back
+          for (const vertIdx of doorVertices) {
+            const doorAngle = baseAng + (vertIdx / 6) * Math.PI * 2
+            
+            // Check if rock is near this door
+            const angleToRock = Math.atan2(d.dy, d.dx)
+            let angleDiff = angleToRock - doorAngle
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+            
+            // If rock is heading towards this door (within 30 degrees)
+            if (Math.abs(angleDiff) < Math.PI / 6) {
+              // Check if it's trying to leave
+              if (distToBase > MINING_BASE_RADIUS - rock.radius - 5) {
+                // Bounce the rock back towards center
+                const normalX = -d.dx / distToBase
+                const normalY = -d.dy / distToBase
+                const velDot = rock.vel.x * d.dx / distToBase + rock.vel.y * d.dy / distToBase
+                
+                if (velDot > 0) { // Moving outward
+                  rock.vel.x -= 1.8 * velDot * d.dx / distToBase
+                  rock.vel.y -= 1.8 * velDot * d.dy / distToBase
+                }
+              }
+            }
+          }
+        }
+      }
 
       // Rock-rock collisions (treat as circles in a wrapped/toroidal space)
       // This uses a simple impulse + positional correction so rocks "bump" off each other.
@@ -2737,6 +2804,60 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
       }
 
+      // Attractor Beam: when active, apply strong gravity to rocks within fan-shaped zones from 3 gates
+      if (attractorActive && attractorTimer > 0) {
+        // Decrement timer
+        setAttractorTimer((t) => Math.max(0, t - dt))
+        if (attractorTimer <= 0) {
+          setAttractorActive(false)
+        }
+
+        const baseX = w / 2
+        const baseY = h / 2
+        const baseAng = miningBaseAngleRef.current
+        const attractorRange = MINING_BASE_RADIUS * 2.5
+        const attractorStrength = 25000 // strong gravity
+
+        // 3 gates: doors are centered at vertices 1, 3, 5
+        const doorVertices = [1, 3, 5]
+        for (const vertIdx of doorVertices) {
+          // Angle to door vertex
+          const gateAngle = baseAng + (vertIdx / 6) * Math.PI * 2
+          const fanAngleSpread = Math.PI / 5 // ~36 degree fan
+
+          // Apply gravity to rocks in this fan
+          for (const rock of rocksRef.current) {
+            const d = toroidalDelta(baseX, baseY, rock.pos.x, rock.pos.y, w, h)
+            const distToBase = Math.hypot(d.dx, d.dy)
+
+            // Check if within range (outside base but within beam range)
+            if (distToBase > attractorRange || distToBase < MINING_BASE_RADIUS + rock.radius) continue
+
+            // Check if within fan angle
+            const angleToRock = Math.atan2(d.dy, d.dx)
+            let angleDiff = angleToRock - gateAngle
+            // Normalize angle difference to [-π, π]
+            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
+            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
+
+            if (Math.abs(angleDiff) <= fanAngleSpread / 2) {
+              // Apply exponentially increasing gravity towards base center
+              // Starts slow at range, becomes extremely strong near center to hold rocks
+              const distFromEdge = distToBase - MINING_BASE_RADIUS
+              const maxRange = attractorRange - MINING_BASE_RADIUS
+              const normalizedDist = Math.max(0, Math.min(1, distFromEdge / maxRange))
+              // Exponential curve: weak at 1.0 (far), extremely strong at 0.0 (close)
+              const exponentialFactor = Math.pow(normalizedDist, 3)
+              const gravityMag = attractorStrength * (1 - exponentialFactor) / Math.max(1, distFromEdge)
+              const ux = -d.dx / distToBase
+              const uy = -d.dy / distToBase
+              rock.vel.x += ux * gravityMag * dt
+              rock.vel.y += uy * gravityMag * dt
+            }
+          }
+        }
+      }
+
       // Update bullets with wrapping
       bulletsRef.current = bulletsRef.current.filter((bullet) => {
         bullet.pos.x += bullet.vel.x * dt
@@ -3238,6 +3359,170 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             ctx.beginPath()
             ctx.arc(gx, gy, 2.2, 0, Math.PI * 2)
             ctx.fill()
+          }
+          ctx.restore()
+        }
+      }
+
+      // Draw Attractor Beam UI: green hexagon indicator in center of base
+      if (gameState !== 'menu') {
+        const cx = width / 2
+        const cy = height / 2
+        const hexRadius = 20
+
+        ctx.save()
+        ctx.strokeStyle = 'rgba(0, 136, 255, 0.8)'
+        ctx.lineWidth = 2
+        ctx.fillStyle = 'rgba(0, 136, 255, 0.15)'
+
+        // Draw non-rotating hexagon
+        ctx.beginPath()
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2
+          const x = cx + Math.cos(a) * hexRadius
+          const y = cy + Math.sin(a) * hexRadius
+          if (i === 0) ctx.moveTo(x, y)
+          else ctx.lineTo(x, y)
+        }
+        ctx.closePath()
+        ctx.stroke()
+        ctx.fill()
+
+        // Draw timer inside hexagon
+        ctx.fillStyle = attractorActive ? 'rgba(0, 136, 255, 1)' : 'rgba(255, 255, 255, 0.6)'
+        ctx.font = '20px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(Math.ceil(attractorTimer).toString(), cx, cy + 2)
+        ctx.restore()
+
+        // Draw fan-shaped attractor beams when active
+        if (attractorActive && attractorTimer > 0) {
+          const baseAng = miningBaseAngleRef.current
+          const attractorRange = MINING_BASE_RADIUS * 2.5
+          const doorVertices = [1, 3, 5]
+          const fanAngleSpread = Math.PI / 5
+
+          ctx.save()
+          // Slower pulse for smoother effect (3 second cycle instead of 1)
+          const pulsePhase = ((Date.now() / 1000) / 3) % 1
+
+          for (const vertIdx of doorVertices) {
+            const gateAngle = baseAng + (vertIdx / 6) * Math.PI * 2
+
+            // Draw fan shape with gradient (more transparent farther from center)
+            const arcStartAngle = gateAngle - fanAngleSpread / 2
+            const arcEndAngle = gateAngle + fanAngleSpread / 2
+            
+            const gradient = ctx.createRadialGradient(cx, cy, MINING_BASE_RADIUS, cx, cy, attractorRange)
+            gradient.addColorStop(0, 'rgba(0, 136, 255, 0.25)') // More opaque at center
+            gradient.addColorStop(1, 'rgba(0, 136, 255, 0.02)') // Very transparent at edge
+            
+            ctx.fillStyle = gradient
+            ctx.beginPath()
+            ctx.moveTo(cx, cy)
+            ctx.arc(cx, cy, attractorRange, arcStartAngle, arcEndAngle)
+            ctx.closePath()
+            ctx.fill()
+
+            // Draw multiple wave lines pulsing inward (slower, smoother - like Kickball)
+            for (let waveIdx = 0; waveIdx < 4; waveIdx++) {
+              const waveT = (pulsePhase + waveIdx * 0.25) % 1
+              // Start at max range, pulse all the way to center
+              const waveRadius = attractorRange * (1 - waveT)
+              // Progress from outer to inner (0 = far, 1 = center)
+              const progress = waveT
+              // Alpha: start light, get brighter toward center
+              const alpha = 0.15 + progress * 0.6
+              // Line width: get thicker as it approaches center
+              const lineWidth = 1.5 + progress * 2.5
+              ctx.strokeStyle = `rgba(0, 136, 255, ${alpha})`
+              ctx.lineWidth = lineWidth
+              ctx.beginPath()
+              ctx.arc(cx, cy, waveRadius, arcStartAngle, arcEndAngle)
+              ctx.stroke()
+            }
+          }
+
+          ctx.restore()
+        }
+
+        // Draw force field barriers over doors when attractor is active
+        if (attractorActive && attractorTimer > 0) {
+          ctx.save()
+          const baseAng = miningBaseAngleRef.current
+          const doorVertices = [1, 3, 5]
+          
+          // Calculate all vertices first
+          const verts: Vector2[] = []
+          for (let i = 0; i < 6; i++) {
+            const a = baseAng + (i / 6) * Math.PI * 2
+            verts.push({ x: cx + Math.cos(a) * MINING_BASE_RADIUS, y: cy + Math.sin(a) * MINING_BASE_RADIUS })
+          }
+          
+          for (const vertIdx of doorVertices) {
+            // Door is at this vertex. The gap spans from the end of the previous edge to the start of the next edge.
+            const prevEdgeIdx = (vertIdx - 1 + 6) % 6
+            const nextEdgeIdx = vertIdx
+            
+            // Previous edge goes from verts[prevEdgeIdx] to verts[vertIdx]
+            const prevStart = verts[prevEdgeIdx]
+            const prevEnd = verts[vertIdx]
+            const prevDx = prevEnd.x - prevStart.x
+            const prevDy = prevEnd.y - prevStart.y
+            const prevLen = Math.hypot(prevDx, prevDy)
+            
+            // End of previous edge (trimmed)
+            const door1x = prevStart.x + prevDx * (1 - MINING_DOOR_TRIM / prevLen)
+            const door1y = prevStart.y + prevDy * (1 - MINING_DOOR_TRIM / prevLen)
+            
+            // Next edge goes from verts[vertIdx] to verts[(vertIdx+1)%6]
+            const nextStart = verts[vertIdx]
+            const nextEnd = verts[(vertIdx + 1) % 6]
+            const nextDx = nextEnd.x - nextStart.x
+            const nextDy = nextEnd.y - nextStart.y
+            const nextLen = Math.hypot(nextDx, nextDy)
+            
+            // Start of next edge (trimmed)
+            const door2x = nextStart.x + nextDx * (MINING_DOOR_TRIM / nextLen)
+            const door2y = nextStart.y + nextDy * (MINING_DOOR_TRIM / nextLen)
+            
+            // Draw brighter, more visible force field
+            const shimmer = Math.sin(Date.now() * 0.008 + vertIdx) * 0.2 + 0.8
+            const gradient = ctx.createLinearGradient(door1x, door1y, door2x, door2y)
+            gradient.addColorStop(0, `rgba(0, 136, 255, ${0.3 * shimmer})`)
+            gradient.addColorStop(0.5, `rgba(100, 200, 255, ${0.7 * shimmer})`)
+            gradient.addColorStop(1, `rgba(0, 136, 255, ${0.3 * shimmer})`)
+            
+            ctx.strokeStyle = gradient
+            ctx.lineWidth = 5
+            ctx.beginPath()
+            ctx.moveTo(door1x, door1y)
+            ctx.lineTo(door2x, door2y)
+            ctx.stroke()
+            
+            // Outer glow
+            ctx.strokeStyle = `rgba(100, 200, 255, ${0.3 * shimmer})`
+            ctx.lineWidth = 10
+            ctx.globalAlpha = 0.3
+            ctx.beginPath()
+            ctx.moveTo(door1x, door1y)
+            ctx.lineTo(door2x, door2y)
+            ctx.stroke()
+            ctx.globalAlpha = 1
+            
+            // Add energy particles along the barrier
+            for (let i = 0; i < 4; i++) {
+              const t = ((Date.now() / 600 + i * 0.25 + vertIdx * 0.2) % 1)
+              const px = door1x + (door2x - door1x) * t
+              const py = door1y + (door2y - door1y) * t
+              const particleAlpha = Math.sin(t * Math.PI) * 0.8
+              
+              ctx.fillStyle = `rgba(150, 220, 255, ${particleAlpha})`
+              ctx.beginPath()
+              ctx.arc(px, py, 3, 0, Math.PI * 2)
+              ctx.fill()
+            }
           }
           ctx.restore()
         }
@@ -3854,7 +4139,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (rafId != null) cancelAnimationFrame(rafId)
       sounds.stopRepairHum(true)
     }
-  }, [gameState, shields, createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, firstEnabledStoreIndex, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN])
+  }, [gameState, shields, createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, firstEnabledStoreIndex, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, attractorActive, attractorTimer])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()
@@ -3874,7 +4159,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             <div className="text-base font-semibold">Wave {level}</div>
             <div className="text-sm font-semibold">
               <span className="text-[#ff4444]">D:</span> {gravityCharges}{' '}
-              <span className="text-[#00ff88]">S:</span> {stasisCharges}
+              <span className="text-[#00ff88]">S:</span> {stasisCharges}{' '}
+              <span className="text-[#4488ff]">A:</span> {Math.ceil(attractorTimer)}
             </div>
           </div>
         </div>
@@ -3891,7 +4177,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               </div>
               <div>
                 Inventory: <span className="text-[#ff4444] font-semibold">D:</span> {gravityCharges}{' '}
-                <span className="text-[#00ff88] font-semibold">S:</span> {stasisCharges}
+                <span className="text-[#00ff88] font-semibold">S:</span> {stasisCharges}{' '}
+                <span className="text-[#4488ff] font-semibold">A:</span> {Math.ceil(attractorTimer)}
               </div>
               <div className="text-white/70">↑/↓ to select • Enter to confirm</div>
             </div>
@@ -3926,9 +4213,23 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               </button>
 
               <button
+                onClick={buyAttractorRecharge}
+                disabled={score < ATTRACTOR_RECHARGE_COST}
+                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
+                  storeIndex === 2 && score >= ATTRACTOR_RECHARGE_COST
+                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    : score >= ATTRACTOR_RECHARGE_COST
+                      ? 'border-[#00ff88] bg-black text-white hover:bg-[#00ff88] hover:text-black'
+                      : 'border-[#00ff88]/30 bg-black text-white/40'
+                }`}
+              >
+                Recharge Attractor Beam (<span className="text-[#4488ff]">A</span>) ({ATTRACTOR_RECHARGE_COST})
+              </button>
+
+              <button
                 onClick={continueToNextWave}
                 className={`w-64 px-8 py-3 border-2 border-[#00ff88] uppercase tracking-widest transition-colors ${
-                  storeIndex === 2
+                  storeIndex === 3
                     ? 'bg-[#00ff88] text-black'
                     : 'bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
                 }`}
@@ -3958,6 +4259,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> F: Harpoon (toggle reel)
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-white">›</span> A: Attractor Beam
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-white">›</span> P: Pause

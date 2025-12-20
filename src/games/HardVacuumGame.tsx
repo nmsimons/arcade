@@ -887,17 +887,79 @@ type HardVacuumGameProps = {
   onExit: () => void
 }
 
+// ============================================================================
+// GAME BALANCE CONSTANTS
+// ============================================================================
+// Adjust these values to tweak game mechanics and difficulty
+
+// --- CREDITS / SCORE REWARDS ---
+const CREDITS_SHOOTING_ROCK_DIVISOR = 100 // Credits = DIVISOR / rock radius
+const CREDITS_BASE_PROCESSING_BASE = 100 // Base credits for processing rocks in mining base
+const CREDITS_BASE_PROCESSING_SIZE_BONUS = 15 // Bonus per unit of rock radius above 20
+const CREDITS_BLUE_ROCK_MULTIPLIER = 9 // Blue rocks are worth this times normal value
+
+// --- STORE PRICES ---
+const STORE_PRICE_GRAVITY_PULSE = 1000
+const STORE_PRICE_STASIS_FIELD = 3000
+const STORE_PRICE_ATTRACTOR_RECHARGE = 2000
+
+// --- ATTRACTOR BEAM ---
+const ATTRACTOR_BEAM_STRENGTH = 80000 // Gravity strength applied to rocks
+const ATTRACTOR_BEAM_RANGE_MULTIPLIER = 3.0 // Range as multiple of base radius
+const ATTRACTOR_BEAM_DURATION = 30 // Seconds of operation per charge
+
+// --- SHIP PHYSICS & CONTROLS ---
+const SHIP_ROTATION_SPEED = 5 // Degrees per frame
+const SHIP_THRUST_ACCELERATION = 300 // Forward acceleration when thrusting
+const SHIP_MAX_SPEED = 300 // Maximum velocity (speed cap)
+const SHIP_FRICTION = 0.99 // Velocity damping per frame (0.99 = 1% friction)
+
+// --- COMBAT & WEAPONS ---
+const BULLET_SPEED = 420 // Player bullet velocity
+const BASE_SHOT_SPEED = 520 // Mining base turret velocity
+const BASE_GUN_FIRE_COOLDOWN = 0.18 // Seconds between base turret shots
+const BASE_GUN_INITIAL_COOLDOWNS = [0, 0.06, 0.12] as [number, number, number] // Staggered initial timing
+
+// --- SHIELDS & DAMAGE ---
+const SHIP_MAX_SHIELDS = 2 // Starting/maximum shield count
+const SHIELD_REPAIR_TIME = 1 // Seconds in base to fully repair shields
+const INVULNERABILITY_AFTER_HIT = 450 // Milliseconds of invulnerability after taking damage
+const INVULNERABILITY_GAME_START = 1200 // Milliseconds at game start
+const INVULNERABILITY_LEVEL_START = 2000 // Milliseconds at new level
+const INVULNERABILITY_MIN_AFTER_REPAIR = 120 // Minimum ms after shield repair
+const COLLISION_DAMAGE_SLOW = 30 // Impact speed threshold for 1 shield damage
+const COLLISION_DAMAGE_MEDIUM = 100 // Impact speed threshold for 2 shield damage
+const COLLISION_DAMAGE_FAST = 250 // Impact speed threshold for 3 shield damage
+
+// --- ROCK SPAWNING & BEHAVIOR ---
+const ROCK_BASE_SPEED_MIN = 20 // Minimum rock speed
+const ROCK_BASE_SPEED_MAX = 50 // Maximum rock speed (min + 30)
+const ROCK_SPAWN_AVOID_RADIUS = 100 // Clearance around player when spawning
+const ROCK_BASE_CLEARANCE = 180 // Extra clearance around mining base for rock spawns
+const BLUE_ROCK_SPAWN_CHANCE_BASE = 0.12 // Base probability for blue rock spawns (level 3+)
+const BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL = 0.015 // Additional chance per level
+const BLUE_ROCK_SPAWN_CHANCE_MAX = 0.3 // Maximum blue rock spawn probability
+
+// --- DEBRIS EFFECTS ---
+const DEBRIS_SPEED_MIN = 50 // Minimum debris particle speed
+const DEBRIS_SPEED_MAX = 150 // Maximum debris particle speed (min + 100)
+const DEBRIS_LIFETIME_MIN = 1500 // Minimum debris lifetime in ms
+const DEBRIS_LIFETIME_MAX = 2000 // Maximum debris lifetime in ms (min + 500)
+
+// --- TIMING & DURATIONS ---
+const DYING_ANIMATION_DURATION = 1200 // Milliseconds for death animation
+
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'store' | 'dying' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
-  const [shields, setShields] = useState(2)
+  const [shields, setShields] = useState(SHIP_MAX_SHIELDS)
   const shieldsRef = useRef(shields)
   const [level, setLevel] = useState(1)
   const [gravityCharges, setGravityCharges] = useState(0)
   const [stasisCharges, setStasisCharges] = useState(0)
   const [attractorActive, setAttractorActive] = useState(false)
-  const [attractorTimer, setAttractorTimer] = useState(30)
+  const [attractorTimer, setAttractorTimer] = useState(ATTRACTOR_BEAM_DURATION)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
   const [storeIndex, setStoreIndex] = useState(0)
@@ -944,7 +1006,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const waitingForWaveEndFxRef = useRef(false)
   const harpoonRef = useRef<Harpoon>({ state: 'idle' })
   const miningBaseAngleRef = useRef(0)
-  const miningGunCooldownsRef = useRef<[number, number, number]>([0, 0.06, 0.12])
+  const miningGunCooldownsRef = useRef<[number, number, number]>(BASE_GUN_INITIAL_COOLDOWNS)
 
   // Updated each frame while playing.
   const shipFullyInBaseRef = useRef(false)
@@ -959,9 +1021,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   const powerPulsesRef = useRef<Array<{ kind: 'gravity' | 'stasis'; at: number }>>([])
 
-  const GRAVITY_PULSE_COST = 1500
-  const STASIS_FIELD_COST = 3000
-  const ATTRACTOR_RECHARGE_COST = 2000
+  const GRAVITY_PULSE_COST = STORE_PRICE_GRAVITY_PULSE
+  const STASIS_FIELD_COST = STORE_PRICE_STASIS_FIELD
+  const ATTRACTOR_RECHARGE_COST = STORE_PRICE_ATTRACTOR_RECHARGE
 
   // Cached background starfield (offscreen) so it costs ~one drawImage per frame.
   const starFieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -1054,7 +1116,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     }
 
     const angle = Math.random() * Math.PI * 2
-    const speed = 20 + Math.random() * 30
+    const speed = ROCK_BASE_SPEED_MIN + Math.random() * (ROCK_BASE_SPEED_MAX - ROCK_BASE_SPEED_MIN)
 
     // 3D tumbling: independent angular velocity per axis.
     // Smaller rocks tend to tumble faster.
@@ -1093,13 +1155,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       const debris: Debris[] = []
       for (let i = 0; i < count; i++) {
         const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5
-        const speed = 50 + Math.random() * 100
+        const speed = DEBRIS_SPEED_MIN + Math.random() * (DEBRIS_SPEED_MAX - DEBRIS_SPEED_MIN)
         debris.push({
           pos: { x, y },
           vel: { x: velX + Math.cos(angle) * speed, y: velY + Math.sin(angle) * speed },
           angle: Math.random() * Math.PI * 2,
           rotSpeed: (Math.random() - 0.5) * 10,
-          life: (1500 + Math.random() * 500) * lifeMult,
+          life: (DEBRIS_LIFETIME_MIN + Math.random() * (DEBRIS_LIFETIME_MAX - DEBRIS_LIFETIME_MIN)) * lifeMult,
           length: 5 + Math.random() * 10,
           color,
         })
@@ -1166,7 +1228,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         // Bias velocity inward but allow variation.
         const spread = Math.PI * 0.7
         const a = inwardDir + (Math.random() - 0.5) * spread
-        const speed = (20 + Math.random() * 30) * speedMult
+        const speed = (ROCK_BASE_SPEED_MIN + Math.random() * (ROCK_BASE_SPEED_MAX - ROCK_BASE_SPEED_MIN)) * speedMult
         const vel: Vector2 = { x: Math.cos(a) * speed, y: Math.sin(a) * speed }
         return { x, y, vel }
       }
@@ -1177,7 +1239,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const candidate = sampleEdgeSpawn()
           if (
             toroidalDistToShip(candidate.x, candidate.y) >= avoidRadius &&
-            toroidalDistToBase(candidate.x, candidate.y) >= MINING_BASE_RADIUS + 180
+            toroidalDistToBase(candidate.x, candidate.y) >= MINING_BASE_RADIUS + ROCK_BASE_CLEARANCE
           ) {
             chosen = candidate
             break
@@ -1215,27 +1277,27 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     bulletsRef.current = []
     baseShotsRef.current = []
     setScore(0)
-    shieldsRef.current = 2
-    setShields(2)
+    shieldsRef.current = SHIP_MAX_SHIELDS
+    setShields(SHIP_MAX_SHIELDS)
     setLevel(1)
     resetBlueRocksForLevel(1)
     setGameState('playing')
-    invulnerableRef.current = 1200
+    invulnerableRef.current = INVULNERABILITY_GAME_START
     debrisRef.current = []
     levelingUpRef.current = false
     harpoonRef.current = { state: 'idle' }
     miningBaseAngleRef.current = 0
-    miningGunCooldownsRef.current = [0, 0.06, 0.12]
+    miningGunCooldownsRef.current = BASE_GUN_INITIAL_COOLDOWNS
     gravityPulseChargesRef.current = 1
     stasisChargesRef.current = 1
     setGravityCharges(1)
     setStasisCharges(1)
     setAttractorActive(false)
-    setAttractorTimer(30)
+    setAttractorTimer(ATTRACTOR_BEAM_DURATION)
     queuedGravityPulseRef.current = false
     queuedStasisRef.current = false
     pendingNextWaveRef.current = null
-    spawnRocks(rockCountForLevel(1), 100, speedMultForLevel(1))
+    spawnRocks(rockCountForLevel(1), ROCK_SPAWN_AVOID_RADIUS, speedMultForLevel(1))
   }, [spawnRocks, rockCountForLevel, speedMultForLevel, resetBlueRocksForLevel])
 
   const continueToNextWave = useCallback(() => {
@@ -1257,8 +1319,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     shipRef.current.pos.x = clamp(shipRef.current.pos.x, 0, w)
     shipRef.current.pos.y = clamp(shipRef.current.pos.y, 0, h)
 
-    spawnRocks(rockCountForLevel(next), 100, speedMultForLevel(next))
-    invulnerableRef.current = 2000
+    spawnRocks(rockCountForLevel(next), ROCK_SPAWN_AVOID_RADIUS, speedMultForLevel(next))
+    invulnerableRef.current = INVULNERABILITY_LEVEL_START
     levelingUpRef.current = false
     waitingForWaveEndFxRef.current = false
     pendingNextWaveRef.current = null
@@ -1439,7 +1501,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     const ship = shipRef.current
     const aim = Math.atan2(baseY - ship.pos.y, baseX - ship.pos.x)
     ship.angle = aim
-    const bulletSpeed = 420
+    const bulletSpeed = BULLET_SPEED
     bulletsRef.current = Array.from({ length: 6 }, (_, k) => {
       const t = (k / 6) * Math.PI * 2
       const spread = (Math.random() - 0.5) * 0.25
@@ -1455,7 +1517,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
     // Stage looping base shots pointed at the processing rock.
     const gunRadius = MINING_BASE_RADIUS * 0.63
-    const baseShotSpeed = 520
+    const baseShotSpeed = BASE_SHOT_SPEED
     const gunAngles = [0, (2 * Math.PI) / 3, (4 * Math.PI) / 3]
     baseShotsRef.current = gunAngles.map((ga) => {
       const gx = baseX + Math.cos(ga) * gunRadius
@@ -1796,12 +1858,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         // very slow -> 0, slow -> 1, medium -> 2, fast -> 3.
         // User-calibrated collision thresholds (relative speed):
         // < 30 -> 0, 30-100 -> 1, 100-250 -> 2, 250+ -> 3
-        const slow = 30
-        const medium = 100
-        const fast = 250
+        const slow = COLLISION_DAMAGE_SLOW
+        const medium = COLLISION_DAMAGE_MEDIUM
+        const fast = COLLISION_DAMAGE_FAST
         const amt = impactSpeed >= fast ? 3 : impactSpeed >= medium ? 2 : impactSpeed >= slow ? 1 : 0
         if (amt <= 0) return
-        invulnerableRef.current = 450
+        invulnerableRef.current = INVULNERABILITY_AFTER_HIT
 
         // Guard against React StrictMode double-invoking state updaters in dev.
         let shieldSoundPlayed = false
@@ -1816,7 +1878,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             sounds.explosion('large')
             sounds.stopThrust()
             keysRef.current.clear()
-            dyingTimerRef.current = 1200
+            dyingTimerRef.current = DYING_ANIMATION_DURATION
             setGameState('dying')
             return 0
           }
@@ -1836,29 +1898,29 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       // Ship controls
       if (keysRef.current.has('arrowleft')) {
-        ship.angle -= 5 * dt
+        ship.angle -= SHIP_ROTATION_SPEED * dt
       }
       if (keysRef.current.has('arrowright')) {
-        ship.angle += 5 * dt
+        ship.angle += SHIP_ROTATION_SPEED * dt
       }
       const isThrusting = keysRef.current.has('arrowup')
       if (isThrusting) {
-        ship.vel.x += Math.cos(ship.angle) * 300 * dt
-        ship.vel.y += Math.sin(ship.angle) * 300 * dt
+        ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt
+        ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt
         sounds.startThrust()
       } else {
         sounds.stopThrust()
       }
 
       // Apply friction and speed limit
-      const maxSpeed = 300
+      const maxSpeed = SHIP_MAX_SPEED
       const speed = Math.hypot(ship.vel.x, ship.vel.y)
       if (speed > maxSpeed) {
         ship.vel.x = (ship.vel.x / speed) * maxSpeed
         ship.vel.y = (ship.vel.y / speed) * maxSpeed
       }
-      ship.vel.x *= 0.99
-      ship.vel.y *= 0.99
+      ship.vel.x *= SHIP_FRICTION
+      ship.vel.y *= SHIP_FRICTION
 
       // Update ship position with wrapping
       ship.pos.x += ship.vel.x * dt
@@ -2008,7 +2070,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const idx = rocksRef.current.indexOf(rock)
           if (idx === -1) return
           rocksRef.current.splice(idx, 1)
-          setScore((s) => s + Math.floor(100 / rock.radius))
+          setScore((s) => s + Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius))
 
           // Play explosion sound based on size
           const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
@@ -2025,7 +2087,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                     kind = 'blue'
                     blueRocksSpawnedThisLevelRef.current += 1
                   } else {
-                    const p = clamp(0.12 + (levelRef.current - 1) * 0.015, 0.12, 0.3)
+                    const p = clamp(BLUE_ROCK_SPAWN_CHANCE_BASE + (levelRef.current - 1) * BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL, BLUE_ROCK_SPAWN_CHANCE_BASE, BLUE_ROCK_SPAWN_CHANCE_MAX)
                     if (Math.random() < p) {
                       kind = 'blue'
                       blueRocksSpawnedThisLevelRef.current += 1
@@ -2188,7 +2250,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           if (targetIndex >= 0) {
             const target = rocks[targetIndex]
             const shotSpeed = 520
-            const fireCooldown = 0.18
+            const fireCooldown = BASE_GUN_FIRE_COOLDOWN
 
             // Choose three gun positions in base-local space, rotated with the base.
             // Place them slightly inside the hull on the three solid arms.
@@ -2240,11 +2302,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               rocks2.splice(ai, 1)
               
               // Base score increases with rock size
-              const sizeBonus = Math.max(0, Math.round((a.radius - 20) * 15))
-              const basePoints = 700 + sizeBonus
+              const sizeBonus = Math.max(0, Math.round((a.radius - 20) * CREDITS_BASE_PROCESSING_SIZE_BONUS))
+              const basePoints = CREDITS_BASE_PROCESSING_BASE + sizeBonus
               
               // Blue rocks are worth double
-              const multiplier = a.kind === 'blue' ? 2 : 1
+              const multiplier = a.kind === 'blue' ? CREDITS_BLUE_ROCK_MULTIPLIER : 1
               const totalPoints = basePoints * multiplier
               
               setScore((s) => s + totalPoints)
@@ -2264,22 +2326,22 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             shipRepairTimeRef.current = 0
           } else {
             shipRepairTimeRef.current += dt
-            if (shipRepairTimeRef.current >= 2) {
-              shipRepairTimeRef.current = 2
+            if (shipRepairTimeRef.current >= SHIELD_REPAIR_TIME) {
+              shipRepairTimeRef.current = SHIELD_REPAIR_TIME
 
               // Guard against React StrictMode double-invoking state updaters in dev.
               let shieldChargePlayed = false
               setShields((s) => {
-                if (s >= 2) return s
+                if (s >= SHIP_MAX_SHIELDS) return s
                 lastShieldRechargeAtRef.current = Date.now()
                 if (!shieldChargePlayed) {
                   shieldChargePlayed = true
                   sounds.shieldCharge()
                 }
-                shieldsRef.current = 2
-                return 2
+                shieldsRef.current = SHIP_MAX_SHIELDS
+                return SHIP_MAX_SHIELDS
               })
-              if (invulnerableRef.current < 120) invulnerableRef.current = 120
+              if (invulnerableRef.current < INVULNERABILITY_MIN_AFTER_REPAIR) invulnerableRef.current = INVULNERABILITY_MIN_AFTER_REPAIR
             }
           }
 
@@ -2824,8 +2886,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         const baseX = w / 2
         const baseY = h / 2
         const baseAng = miningBaseAngleRef.current
-        const attractorRange = MINING_BASE_RADIUS * 3.0 // Increased range
-        const attractorStrength = 40000 // Much stronger gravity
+        const attractorRange = MINING_BASE_RADIUS * ATTRACTOR_BEAM_RANGE_MULTIPLIER
+        const attractorStrength = ATTRACTOR_BEAM_STRENGTH
 
         // 3 gates: doors are centered at vertices 1, 3, 5
         const doorVertices = [1, 3, 5]
@@ -2922,7 +2984,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               }
             }
             rocksRef.current.splice(i, 1)
-            setScore((s) => s + Math.floor(100 / rock.radius))
+            setScore((s) => s + Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius))
 
             // Play explosion sound based on size
             const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
@@ -2939,7 +3001,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                       kind = 'blue'
                       blueRocksSpawnedThisLevelRef.current += 1
                     } else {
-                      const p = clamp(0.12 + (levelRef.current - 1) * 0.015, 0.12, 0.3)
+                      const p = clamp(BLUE_ROCK_SPAWN_CHANCE_BASE + (levelRef.current - 1) * BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL, BLUE_ROCK_SPAWN_CHANCE_BASE, BLUE_ROCK_SPAWN_CHANCE_MAX)
                       if (Math.random() < p) {
                         kind = 'blue'
                         blueRocksSpawnedThisLevelRef.current += 1

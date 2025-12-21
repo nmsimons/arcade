@@ -1605,25 +1605,57 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         if (e.key === 'ArrowUp') {
           e.preventDefault()
           setStoreIndex((current) => {
-            // Move up, skipping disabled options.
-            let next = current
-            for (let k = 0; k < 4; k++) {
-              next = next > 0 ? next - 1 : 3
-              if (isStoreOptionEnabled(next)) return next
+            // Move up in 2x2 grid (subtract 2 to go up a row)
+            let next = current >= 2 ? current - 2 : current + 2
+            // If disabled, try the other option in the same row
+            if (!isStoreOptionEnabled(next)) {
+              next = next % 2 === 0 ? next + 1 : next - 1
             }
-            return 3
+            // If still disabled, stay where we are
+            if (!isStoreOptionEnabled(next)) return current
+            return next
           })
         }
         if (e.key === 'ArrowDown') {
           e.preventDefault()
           setStoreIndex((current) => {
-            // Move down, skipping disabled options.
-            let next = current
-            for (let k = 0; k < 4; k++) {
-              next = next < 3 ? next + 1 : 0
-              if (isStoreOptionEnabled(next)) return next
+            // Move down in 2x2 grid (add 2 to go down a row)
+            let next = current < 2 ? current + 2 : current - 2
+            // If disabled, try the other option in the same row
+            if (!isStoreOptionEnabled(next)) {
+              next = next % 2 === 0 ? next + 1 : next - 1
             }
-            return 3
+            // If still disabled, stay where we are
+            if (!isStoreOptionEnabled(next)) return current
+            return next
+          })
+        }
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault()
+          setStoreIndex((current) => {
+            // Move left in 2x2 grid
+            let next = current % 2 === 1 ? current - 1 : current + 1
+            // If disabled, try moving up or down in the same column
+            if (!isStoreOptionEnabled(next)) {
+              next = current < 2 ? current + 2 : current - 2
+            }
+            // If still disabled, stay where we are
+            if (!isStoreOptionEnabled(next)) return current
+            return next
+          })
+        }
+        if (e.key === 'ArrowRight') {
+          e.preventDefault()
+          setStoreIndex((current) => {
+            // Move right in 2x2 grid
+            let next = current % 2 === 0 ? current + 1 : current - 1
+            // If disabled, try moving up or down in the same column
+            if (!isStoreOptionEnabled(next)) {
+              next = current < 2 ? current + 2 : current - 2
+            }
+            // If still disabled, stay where we are
+            if (!isStoreOptionEnabled(next)) return current
+            return next
           })
         }
         if (e.key === 'Enter' || e.key === ' ') {
@@ -4320,8 +4352,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       {/* HUD - Left Side */}
       {(gameState === 'playing' || gameState === 'store') && (
-        <div className="absolute top-6 left-6 pointer-events-none">
-          <div className="flex items-baseline gap-2">
+        <div className={`absolute top-6 left-6 pointer-events-none ${gameState === 'store' ? 'z-50' : ''}`}>
+          <div className={`flex items-baseline gap-2 ${gameState === 'store' ? 'bg-black/70 px-4 py-2 border-2 border-[#00ff88]/50 rounded' : ''}`}>
             <span className="text-xs text-white/50 uppercase tracking-wider">Credits</span>
             <span className="text-3xl font-bold text-[#00ff88]">{score.toString().padStart(6, '0')}</span>
           </div>
@@ -4395,7 +4427,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                       : 'border-[#ff4444]/20 bg-black text-white/30'
                 }`}
               >
-                <div className="text-2xl font-bold mb-1"><span className="text-[#ff4444]">D</span></div>
+                <div className="text-2xl font-bold mb-1">
+                  <span className={storeIndex === 0 && score >= GRAVITY_PULSE_COST ? 'text-black' : 'text-[#ff4444]'}>
+                    D
+                  </span>
+                </div>
                 <div className="text-xs opacity-70 mb-2">Demolition Pulse</div>
                 <div className="text-sm">{GRAVITY_PULSE_COST}</div>
               </button>
@@ -4411,7 +4447,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                       : 'border-[#00ff88]/20 bg-black text-white/30'
                 }`}
               >
-                <div className="text-2xl font-bold mb-1"><span className="text-[#00ff88]">S</span></div>
+                <div className="text-2xl font-bold mb-1">
+                  <span className={storeIndex === 1 && score >= STASIS_FIELD_COST ? 'text-black' : 'text-[#00ff88]'}>
+                    S
+                  </span>
+                </div>
                 <div className="text-xs opacity-70 mb-2">Stasis Field</div>
                 <div className="text-sm">{STASIS_FIELD_COST}</div>
               </button>
@@ -4427,7 +4467,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
                       : 'border-[#4488ff]/20 bg-black text-white/30'
                 }`}
               >
-                <div className="text-2xl font-bold mb-1"><span className="text-[#4488ff]">A</span></div>
+                <div className="text-2xl font-bold mb-1">
+                  <span className={storeIndex === 2 && score >= ATTRACTOR_RECHARGE_COST && attractorTimer < 30 ? 'text-black' : 'text-[#4488ff]'}>
+                    A
+                  </span>
+                </div>
                 <div className="text-xs opacity-70 mb-2">Attractor Beam</div>
                 <div className="text-sm">{ATTRACTOR_RECHARGE_COST}</div>
               </button>

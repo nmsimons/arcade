@@ -898,6 +898,10 @@ const CREDITS_BASE_PROCESSING_BASE = 100 // Base credits for processing rocks in
 const CREDITS_BASE_PROCESSING_SIZE_BONUS = 15 // Bonus per unit of rock radius above 20
 const CREDITS_BLUE_ROCK_MULTIPLIER = 9 // Blue rocks are worth this times normal value
 
+// --- TIME-BASED BONUS MULTIPLIER ---
+const TIME_BONUS_TARGET_SECONDS = 45 // "Par" time for wave completion
+const TIME_BONUS_MAX_MULTIPLIER = 3.0 // Max bonus added (2.0x total = 1 + 1.0)
+
 // --- STORE PRICES ---
 const STORE_PRICE_GRAVITY_PULSE = 1000
 const STORE_PRICE_STASIS_FIELD = 3000
@@ -963,6 +967,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
   const [storeIndex, setStoreIndex] = useState(0)
+  
+  // Wave timing for bonus multiplier
+  const [waveStartTime, setWaveStartTime] = useState(0)
+  const [waveElapsedTime, setWaveElapsedTime] = useState(0) // Updated each frame during gameplay
+  const [waveCompletionTime, setWaveCompletionTime] = useState(0)
+  const [waveCreditsEarned, setWaveCreditsEarned] = useState(0)
+  const [waveTimeBonus, setWaveTimeBonus] = useState(0)
+  const waveCreditsRef = useRef(0)
 
   useEffect(() => {
     shieldsRef.current = shields
@@ -1047,6 +1059,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const blueRockQuotaForLevel = useCallback((lvl: number) => {
     // Ensure some levels require base processing to finish.
     return lvl >= 3 && lvl % 3 === 0 ? 1 : 0
+  }, [])
+
+  const calculateTimeMultiplier = useCallback((completionTimeSeconds: number) => {
+    // Exponential decay: rewards speed significantly
+    // Fast completion = high multiplier, slow completion approaches 1.0x (no bonus)
+    return 1 + TIME_BONUS_MAX_MULTIPLIER * Math.exp(-completionTimeSeconds / TIME_BONUS_TARGET_SECONDS)
   }, [])
 
   const resetBlueRocksForLevel = useCallback(
@@ -1283,6 +1301,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     resetBlueRocksForLevel(1)
     setGameState('playing')
     invulnerableRef.current = INVULNERABILITY_GAME_START
+    setWaveStartTime(Date.now())
+    setWaveElapsedTime(0)
+    setWaveCompletionTime(0)
+    setWaveCreditsEarned(0)
+    setWaveTimeBonus(0)
+    waveCreditsRef.current = 0
     debrisRef.current = []
     levelingUpRef.current = false
     harpoonRef.current = { state: 'idle' }
@@ -1325,6 +1349,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     waitingForWaveEndFxRef.current = false
     pendingNextWaveRef.current = null
     setGameState('playing')
+    setWaveStartTime(Date.now())
+    setWaveElapsedTime(0)
+    setWaveCompletionTime(0)
+    setWaveCreditsEarned(0)
+    setWaveTimeBonus(0)
+    waveCreditsRef.current = 0
   }, [resetBlueRocksForLevel, spawnRocks, rockCountForLevel, speedMultForLevel])
 
   const isStoreOptionEnabled = useCallback(
@@ -1773,19 +1803,32 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     if (!ctx) return
 
     const resize = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-      canvasSizeRef.current = { width: canvas.width, height: canvas.height }
+      const newWidth = window.innerWidth
+      const newHeight = window.innerHeight
+      
+      // Only reset starfield if size actually changed
+      const sizeChanged = canvas.width !== newWidth || canvas.height !== newHeight
+      
+      canvas.width = newWidth
+      canvas.height = newHeight
+      canvasSizeRef.current = { width: newWidth, height: newHeight }
 
-      // Force starfield regeneration for the new resolution.
-      starFieldCanvasRef.current = null
-      starFieldSizeRef.current = { width: 0, height: 0 }
+      // Force starfield regeneration only when size actually changes
+      if (sizeChanged) {
+        starFieldCanvasRef.current = null
+        starFieldSizeRef.current = { width: 0, height: 0 }
+      }
     }
 
     resize()
     window.addEventListener('resize', resize)
 
     const update = (dt: number) => {
+      // Update wave timer display
+      if (gameState === 'playing' && waveStartTime > 0) {
+        setWaveElapsedTime((Date.now() - waveStartTime) / 1000)
+      }
+      
       // Always update debris so explosions can play during transitions/menus.
       if (debrisRef.current.length > 0) {
         debrisRef.current = debrisRef.current.filter((d) => {
@@ -2070,7 +2113,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const idx = rocksRef.current.indexOf(rock)
           if (idx === -1) return
           rocksRef.current.splice(idx, 1)
-          setScore((s) => s + Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius))
+          const credits = Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius)
+          setScore((s) => s + credits)
+          waveCreditsRef.current += credits
 
           // Play explosion sound based on size
           const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
@@ -2308,8 +2353,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               // Blue rocks are worth double
               const multiplier = a.kind === 'blue' ? CREDITS_BLUE_ROCK_MULTIPLIER : 1
               const totalPoints = basePoints * multiplier
-              
+
               setScore((s) => s + totalPoints)
+              waveCreditsRef.current += totalPoints
               createDebris(wrapX(a.pos.x), wrapY(a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
               sounds.collect()
               break
@@ -2984,7 +3030,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               }
             }
             rocksRef.current.splice(i, 1)
-            setScore((s) => s + Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius))
+            const credits = Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius)
+            setScore((s) => s + credits)
+            waveCreditsRef.current += credits
 
             // Play explosion sound based on size
             const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
@@ -3084,6 +3132,20 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         debrisRef.current.length === 0
       ) {
         baseShotsRef.current = []
+        
+        // Calculate time bonus ONCE at wave completion
+        // The multiplier is applied to ALL credits earned during the wave
+        // Credits are tracked in waveCreditsRef.current throughout gameplay
+        const completionTime = (Date.now() - waveStartTime) / 1000
+        const multiplier = calculateTimeMultiplier(completionTime)
+        const creditsEarned = waveCreditsRef.current
+        const bonus = Math.floor(creditsEarned * (multiplier - 1))
+        
+        setWaveCompletionTime(completionTime)
+        setWaveCreditsEarned(creditsEarned)
+        setWaveTimeBonus(bonus)
+        setScore((s) => s + bonus) // Apply bonus only here, not during gameplay
+        
         setStoreIndex(firstEnabledStoreIndex())
         setGameState('store')
         waitingForWaveEndFxRef.current = false
@@ -3091,40 +3153,44 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     }
 
     const draw = () => {
-      const width = canvas.width
-      const height = canvas.height
+      const width = canvasSizeRef.current.width
+      const height = canvasSizeRef.current.height
 
       const ensureStarField = () => {
+        // Use cached canvas size to avoid regeneration
+        const w = canvasSizeRef.current.width
+        const h = canvasSizeRef.current.height
+        
         if (
           starFieldCanvasRef.current &&
-          starFieldSizeRef.current.width === width &&
-          starFieldSizeRef.current.height === height
+          starFieldSizeRef.current.width === w &&
+          starFieldSizeRef.current.height === h
         ) {
           return
         }
 
         const off = document.createElement('canvas')
-        off.width = width
-        off.height = height
+        off.width = w
+        off.height = h
         const sctx = off.getContext('2d')
         if (!sctx) return
 
         // Subtle static stars; keep them close to the background so gameplay stays primary.
         // (Slightly boosted so the field reads on most monitors.)
-        const area = width * height
-        const count = clamp(Math.round(area / 7600), 160, 520)
+        const area = w * h
+        const count = clamp(Math.round(area / 5000), 200, 600)
         for (let i = 0; i < count; i++) {
-          const x = Math.random() * width
-          const y = Math.random() * height
+          const x = Math.random() * w
+          const y = Math.random() * h
           const r = Math.random()
           const size = r < 0.08 ? 2 : 1
-          const alpha = r < 0.08 ? 0.24 : 0.12
+          const alpha = r < 0.08 ? 0.35 : 0.18
           sctx.fillStyle = `rgba(255,255,255,${alpha})`
           sctx.fillRect(x, y, size, size)
         }
 
         starFieldCanvasRef.current = off
-        starFieldSizeRef.current = { width, height }
+        starFieldSizeRef.current = { width: w, height: h }
       }
 
       // Clear
@@ -4209,7 +4275,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (rafId != null) cancelAnimationFrame(rafId)
       sounds.stopRepairHum(true)
     }
-  }, [gameState, shields, createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, firstEnabledStoreIndex, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, attractorActive, attractorTimer])
+  }, [gameState, shields, createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, firstEnabledStoreIndex, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, attractorActive, attractorTimer, calculateTimeMultiplier, waveStartTime, waveElapsedTime])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()
@@ -4221,16 +4287,62 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     <div className="relative w-screen h-screen overflow-hidden font-mono">
       <canvas ref={canvasRef} className="absolute inset-0" />
 
-      {/* HUD */}
+      {/* Top Center - Wave & Bonus */}
       {(gameState === 'playing' || gameState === 'store') && (
-        <div className="absolute top-4 left-4 pointer-events-none">
-          <div className="text-white space-y-1 tracking-wider uppercase">
-            <div className="text-base font-semibold">Credits {score.toString().padStart(6, '0')}</div>
-            <div className="text-base font-semibold">Wave {level}</div>
-            <div className="text-sm font-semibold">
-              <span className="text-[#ff4444]">D:</span> {gravityCharges}{' '}
-              <span className="text-[#00ff88]">S:</span> {stasisCharges}{' '}
-              <span className="text-[#4488ff]">A:</span> {Math.ceil(attractorTimer)}
+        <div className="absolute top-6 left-1/2 -translate-x-1/2 pointer-events-none">
+          <div className="flex items-center gap-6 text-white tracking-wider">
+            {/* Wave Number */}
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-white/50 uppercase">Wave</span>
+              <span className="text-4xl font-bold text-[#00ff88]">{level}</span>
+            </div>
+            
+            {/* Divider */}
+            <div className="h-10 w-px bg-white/20"></div>
+            
+            {/* Time Bonus */}
+            {gameState === 'playing' && waveStartTime > 0 && (() => {
+              const currentMultiplier = calculateTimeMultiplier(waveElapsedTime)
+              const multiplierColor = currentMultiplier >= 1.5 ? '#00ff88' : currentMultiplier >= 1.25 ? '#ffaa00' : '#ff8844'
+              
+              return (
+                <div className="flex items-baseline gap-2">
+                  <span className="text-xs text-white/50 uppercase">Bonus</span>
+                  <span style={{ color: multiplierColor }} className="text-4xl font-bold">
+                    {currentMultiplier.toFixed(2)}x
+                  </span>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* HUD - Left Side */}
+      {(gameState === 'playing' || gameState === 'store') && (
+        <div className="absolute top-6 left-6 pointer-events-none">
+          <div className="flex items-baseline gap-2">
+            <span className="text-xs text-white/50 uppercase tracking-wider">Credits</span>
+            <span className="text-3xl font-bold text-[#00ff88]">{score.toString().padStart(6, '0')}</span>
+          </div>
+        </div>
+      )}
+
+      {/* HUD - Right Side */}
+      {(gameState === 'playing' || gameState === 'store') && (
+        <div className="absolute top-6 right-6 pointer-events-none">
+          <div className="flex items-center gap-4">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[#ff4444] text-2xl font-bold">{gravityCharges}</span>
+              <span className="text-xs text-[#ff4444]/70 uppercase">D</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[#00ff88] text-2xl font-bold">{stasisCharges}</span>
+              <span className="text-xs text-[#00ff88]/70 uppercase">S</span>
+            </div>
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[#4488ff] text-2xl font-bold">{Math.ceil(attractorTimer)}</span>
+              <span className="text-xs text-[#4488ff]/70 uppercase">A</span>
             </div>
           </div>
         </div>
@@ -4238,78 +4350,107 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       {/* Store (between waves) */}
       {gameState === 'store' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
-            <h2 className="text-4xl text-[#00ff88] mb-3 tracking-[0.3em] uppercase">Store</h2>
-            <div className="text-white text-sm space-y-2 mb-6 tracking-wider">
-              <div>
-                Credits: <span className="text-[#00ff88] font-semibold">{score.toString().padStart(6, '0')}</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/90">
+          <div className="text-center max-w-2xl px-8">
+            {/* Wave Complete Summary */}
+            {waveCompletionTime > 0 && (
+              <div className="mb-8 border-2 border-[#ffaa00]/40 bg-[#ffaa00]/5 px-6 py-4 rounded">
+                <div className="text-[#ffaa00] text-2xl font-bold tracking-wider mb-3">
+                  WAVE {level} COMPLETE
+                </div>
+                <div className="flex items-center justify-center gap-8 text-lg">
+                  <div>
+                    <div className="text-white/50 text-xs uppercase mb-1">Time</div>
+                    <div className="text-white font-bold">{waveCompletionTime.toFixed(1)}s</div>
+                  </div>
+                  <div className="h-8 w-px bg-white/20"></div>
+                  <div>
+                    <div className="text-white/50 text-xs uppercase mb-1">Multiplier</div>
+                    <div className="text-[#ffaa00] font-bold">{calculateTimeMultiplier(waveCompletionTime).toFixed(2)}x</div>
+                  </div>
+                  <div className="h-8 w-px bg-white/20"></div>
+                  <div>
+                    <div className="text-white/50 text-xs uppercase mb-1">Earned</div>
+                    <div className="text-white font-bold">{waveCreditsEarned}</div>
+                  </div>
+                  <div className="h-8 w-px bg-white/20"></div>
+                  <div>
+                    <div className="text-[#ffaa00]/70 text-xs uppercase mb-1">Bonus</div>
+                    <div className="text-[#ffaa00] font-bold text-xl">+{waveTimeBonus}</div>
+                  </div>
+                </div>
               </div>
-              <div>
-                Inventory: <span className="text-[#ff4444] font-semibold">D:</span> {gravityCharges}{' '}
-                <span className="text-[#00ff88] font-semibold">S:</span> {stasisCharges}{' '}
-                <span className="text-[#4488ff] font-semibold">A:</span> {Math.ceil(attractorTimer)}
-              </div>
-              <div className="text-white/70">↑/↓ to select • Enter to confirm</div>
-            </div>
+            )}
 
-            <div className="flex flex-col gap-3 items-center">
+            {/* Store Items */}
+            <div className="grid grid-cols-2 gap-4 mb-6">
               <button
                 onClick={buyGravityPulse}
                 disabled={score < GRAVITY_PULSE_COST}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
+                className={`px-6 py-4 border-2 uppercase tracking-wider transition-all ${
                   storeIndex === 0 && score >= GRAVITY_PULSE_COST
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    ? 'border-[#ff4444] bg-[#ff4444] text-black scale-105'
                     : score >= GRAVITY_PULSE_COST
-                      ? 'border-[#00ff88] bg-black text-white hover:bg-[#00ff88] hover:text-black'
-                      : 'border-[#00ff88]/30 bg-black text-white/40'
+                      ? 'border-[#ff4444]/50 bg-black text-white hover:border-[#ff4444] hover:bg-[#ff4444]/10'
+                      : 'border-[#ff4444]/20 bg-black text-white/30'
                 }`}
               >
-                Buy Demolition Pulse (<span className="text-[#ff4444]">D</span>) ({GRAVITY_PULSE_COST})
+                <div className="text-2xl font-bold mb-1"><span className="text-[#ff4444]">D</span></div>
+                <div className="text-xs opacity-70 mb-2">Demolition Pulse</div>
+                <div className="text-sm">{GRAVITY_PULSE_COST}</div>
               </button>
 
               <button
                 onClick={buyStasisField}
                 disabled={score < STASIS_FIELD_COST}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
+                className={`px-6 py-4 border-2 uppercase tracking-wider transition-all ${
                   storeIndex === 1 && score >= STASIS_FIELD_COST
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    ? 'border-[#00ff88] bg-[#00ff88] text-black scale-105'
                     : score >= STASIS_FIELD_COST
-                      ? 'border-[#00ff88] bg-black text-white hover:bg-[#00ff88] hover:text-black'
-                      : 'border-[#00ff88]/30 bg-black text-white/40'
+                      ? 'border-[#00ff88]/50 bg-black text-white hover:border-[#00ff88] hover:bg-[#00ff88]/10'
+                      : 'border-[#00ff88]/20 bg-black text-white/30'
                 }`}
               >
-                Buy Stasis Field (<span className="text-[#00ff88]">S</span>) ({STASIS_FIELD_COST})
+                <div className="text-2xl font-bold mb-1"><span className="text-[#00ff88]">S</span></div>
+                <div className="text-xs opacity-70 mb-2">Stasis Field</div>
+                <div className="text-sm">{STASIS_FIELD_COST}</div>
               </button>
 
               <button
                 onClick={buyAttractorRecharge}
                 disabled={score < ATTRACTOR_RECHARGE_COST || attractorTimer >= 30}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
+                className={`px-6 py-4 border-2 uppercase tracking-wider transition-all ${
                   storeIndex === 2 && score >= ATTRACTOR_RECHARGE_COST && attractorTimer < 30
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
+                    ? 'border-[#4488ff] bg-[#4488ff] text-black scale-105'
                     : score >= ATTRACTOR_RECHARGE_COST && attractorTimer < 30
-                      ? 'border-[#00ff88] bg-black text-white hover:bg-[#00ff88] hover:text-black'
-                      : 'border-[#00ff88]/30 bg-black text-white/40'
+                      ? 'border-[#4488ff]/50 bg-black text-white hover:border-[#4488ff] hover:bg-[#4488ff]/10'
+                      : 'border-[#4488ff]/20 bg-black text-white/30'
                 }`}
               >
-                Recharge Attractor Beam (<span className="text-[#4488ff]">A</span>) ({ATTRACTOR_RECHARGE_COST})
+                <div className="text-2xl font-bold mb-1"><span className="text-[#4488ff]">A</span></div>
+                <div className="text-xs opacity-70 mb-2">Attractor Beam</div>
+                <div className="text-sm">{ATTRACTOR_RECHARGE_COST}</div>
               </button>
 
               <button
                 onClick={continueToNextWave}
-                className={`w-64 px-8 py-3 border-2 border-[#00ff88] uppercase tracking-widest transition-colors ${
+                className={`px-6 py-4 border-2 border-[#00ff88] uppercase tracking-wider transition-all ${
                   storeIndex === 3
-                    ? 'bg-[#00ff88] text-black'
-                    : 'bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
+                    ? 'bg-[#00ff88] text-black scale-105'
+                    : 'bg-black text-[#00ff88] hover:bg-[#00ff88]/10'
                 }`}
               >
-                Continue
+                <div className="text-2xl font-bold mb-1">→</div>
+                <div className="text-xs opacity-70 mb-2">Continue</div>
+                <div className="text-sm">Next Wave</div>
               </button>
             </div>
 
-            <div className="mt-6 text-white/70 text-xs tracking-wider">
-              Processing rocks inside your base earns more credits. Use your harpoon (F).
+            <div className="text-white/40 text-xs tracking-wider mb-2">
+              ↑ ↓ ← → to select • Enter to confirm
+            </div>
+            <div className="text-white/50 text-xs tracking-wider">
+              Tip: Process rocks inside your base for more credits. Use harpoon (F).
             </div>
           </div>
         </div>

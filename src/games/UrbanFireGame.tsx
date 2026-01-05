@@ -291,6 +291,82 @@ type Vector2 = { x: number; y: number }
 
 const JEEP_MAX_HEALTH = 3
 
+// Gameplay tuning knobs (jeep)
+// Adjust these values to quickly iterate on feel/difficulty.
+const JEEP_TUNING = {
+  // Rotation (radians / second)
+  turnSpeed: 4,
+
+  // Acceleration (pixels / second^2)
+  accelForward: 280,
+  accelReverseFactor: 0.5,
+
+  // Drift/grip
+  driftSpeedThreshold: 10,
+  gripBase: 0.06,
+  gripSpeedFactor: 0.0003,
+  gripMin: 0.015,
+
+  // Friction / speed cap
+  friction: 0.96,
+  maxSpeed: 500,
+
+  // Wheels / visuals
+  wheelSpinFactor: 0.3,
+
+  // Collision / bounds
+  collisionRadius: 12,
+  collisionVelocityDamping: 0.5,
+  screenMargin: 20,
+
+  // Firing
+  maxPlayerBullets: 2,
+  playerBulletSpeed: 400,
+  playerBulletLifeMs: 1500,
+
+  // Pickups
+  repairPickupRadius: 22,
+} as const
+
+// Gameplay tuning knobs (tanks)
+// Adjust these values to quickly iterate on feel/difficulty.
+const TANK_TUNING = {
+  // Rotation (radians / second)
+  hullTurnSpeed: 0.3,
+  turretTurnSpeed: 0.5,
+
+  // Movement (pixels / second)
+  speedApproach: 55,
+  speedFlank: 45,
+  speedHold: 25,
+  tooCloseBackUpSpeed: 30,
+  obstacleSlowFactor: 0.3,
+  holdTooCloseDistPx: 120,
+  moveDistThresholdPx: 150,
+  velocityDamping: 0.9,
+
+  // AI aiming / firing
+  bulletSpeed: 250,
+  fireRangePx: 350,
+  leadPredictionFactor: 0.7,
+  aimToleranceRad: 0.35,
+  reactionTimeMs: 250,
+  enemyBulletCap: 6,
+
+  // Cooldowns (milliseconds)
+  initialShootCooldownMsMin: 2000,
+  initialShootCooldownMsRand: 2000,
+  shootCooldownMsMin: 2200,
+  shootCooldownMsRand: 1700,
+  blockedRetryCooldownMs: 400,
+
+  // Visual / muzzle
+  muzzleDistancePx: 28,
+
+  // Steering smoothing (unitless multipliers)
+  targetAngleBlend: 3,
+} as const
+
 const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
 
 type Jeep = {
@@ -308,6 +384,7 @@ type Tank = {
   pos: Vector2
   vel: Vector2
   angle: number
+  turretAngle: number
   health: number
   state: 'active' | 'exploding'
   explodeTime: number
@@ -712,10 +789,11 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         pos: { x: x!, y: y! },
         vel: { x: Math.cos(angle!) * 40, y: Math.sin(angle!) * 40 },
         angle: angle!,
+        turretAngle: angle!,
         health: 2,
         state: 'active',
         explodeTime: 0,
-        shootCooldown: 2000 + Math.random() * 2000,
+        shootCooldown: TANK_TUNING.initialShootCooldownMsMin + Math.random() * TANK_TUNING.initialShootCooldownMsRand,
         targetAngle: 0,
         trackOffset: 0,
         stuckTimer: 0,
@@ -876,16 +954,16 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       if (e.key === ' ' && gameState === 'playing') {
         e.preventDefault()
         const jeep = jeepRef.current
-        // Max 2 bullets on screen
+        // Cap player bullets so the game stays readable.
         const playerBullets = bulletsRef.current.filter((b) => !b.isEnemy)
-        if (playerBullets.length < 2 && jeep.state === 'active') {
+        if (playerBullets.length < JEEP_TUNING.maxPlayerBullets && jeep.state === 'active') {
           bulletsRef.current.push({
             pos: { x: jeep.pos.x, y: jeep.pos.y },
             vel: {
-              x: Math.cos(jeep.angle) * 400,
-              y: Math.sin(jeep.angle) * 400,
+              x: Math.cos(jeep.angle) * JEEP_TUNING.playerBulletSpeed,
+              y: Math.sin(jeep.angle) * JEEP_TUNING.playerBulletSpeed,
             },
-            life: 1500,
+            life: JEEP_TUNING.playerBulletLifeMs,
             isEnemy: false,
           })
           sounds.shoot()
@@ -1264,7 +1342,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       const jeep = jeepRef.current
 
       // Fairness: cap concurrent enemy bullets so difficulty stays readable.
-      const maxEnemyBullets = 6
+      const maxEnemyBullets = TANK_TUNING.enemyBulletCap
 
       // Respawn timer
       if (respawnTimerRef.current > 0) {
@@ -1309,25 +1387,24 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
 
       // Jeep controls
       if (keysRef.current.has('arrowleft') || keysRef.current.has('a')) {
-        jeep.angle -= 4 * dt
+        jeep.angle -= JEEP_TUNING.turnSpeed * dt
       }
       if (keysRef.current.has('arrowright') || keysRef.current.has('d')) {
-        jeep.angle += 4 * dt
+        jeep.angle += JEEP_TUNING.turnSpeed * dt
       }
 
-      const accel = 280
       if (keysRef.current.has('arrowup') || keysRef.current.has('w')) {
-        jeep.vel.x += Math.cos(jeep.angle) * accel * dt
-        jeep.vel.y += Math.sin(jeep.angle) * accel * dt
+        jeep.vel.x += Math.cos(jeep.angle) * JEEP_TUNING.accelForward * dt
+        jeep.vel.y += Math.sin(jeep.angle) * JEEP_TUNING.accelForward * dt
       }
       if (keysRef.current.has('arrowdown') || keysRef.current.has('s')) {
-        jeep.vel.x -= Math.cos(jeep.angle) * accel * 0.5 * dt
-        jeep.vel.y -= Math.sin(jeep.angle) * accel * 0.5 * dt
+        jeep.vel.x -= Math.cos(jeep.angle) * JEEP_TUNING.accelForward * JEEP_TUNING.accelReverseFactor * dt
+        jeep.vel.y -= Math.sin(jeep.angle) * JEEP_TUNING.accelForward * JEEP_TUNING.accelReverseFactor * dt
       }
 
       // Drift physics - velocity gradually aligns with facing direction
       const speed = Math.hypot(jeep.vel.x, jeep.vel.y)
-      if (speed > 10) {
+      if (speed > JEEP_TUNING.driftSpeedThreshold) {
         const velAngle = Math.atan2(jeep.vel.y, jeep.vel.x)
         let angleDiff = jeep.angle - velAngle
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
@@ -1335,7 +1412,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         
         // The faster you go, the more you drift (less grip)
         // Grip factor: 1.0 = instant alignment, lower = more drift
-        const gripFactor = Math.max(0.015, 0.06 - speed * 0.0003)
+        const gripFactor = Math.max(JEEP_TUNING.gripMin, JEEP_TUNING.gripBase - speed * JEEP_TUNING.gripSpeedFactor)
         const alignAmount = angleDiff * gripFactor
         
         // Rotate velocity toward facing direction
@@ -1345,18 +1422,18 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       }
 
       // Friction (slightly less when drifting sideways)
-      jeep.vel.x *= 0.96
-      jeep.vel.y *= 0.96
+      jeep.vel.x *= JEEP_TUNING.friction
+      jeep.vel.y *= JEEP_TUNING.friction
 
       // Speed limit
-      const maxSpeed = 190
+      const maxSpeed = JEEP_TUNING.maxSpeed
       if (speed > maxSpeed) {
         jeep.vel.x = (jeep.vel.x / speed) * maxSpeed
         jeep.vel.y = (jeep.vel.y / speed) * maxSpeed
       }
 
       // Animate wheels
-      jeep.wheelAngle += speed * dt * 0.3
+      jeep.wheelAngle += speed * dt * JEEP_TUNING.wheelSpinFactor
 
       sounds.setEngineSpeed(speed)
 
@@ -1366,25 +1443,25 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
 
       // Wall collision for jeep
       for (const wall of wallsRef.current) {
-        const { collision, pushX, pushY } = rectCollision(jeep.pos.x, jeep.pos.y, 12, wall)
+        const { collision, pushX, pushY } = rectCollision(jeep.pos.x, jeep.pos.y, JEEP_TUNING.collisionRadius, wall)
         if (collision) {
           jeep.pos.x += pushX
           jeep.pos.y += pushY
-          jeep.vel.x *= 0.5
-          jeep.vel.y *= 0.5
+          jeep.vel.x *= JEEP_TUNING.collisionVelocityDamping
+          jeep.vel.y *= JEEP_TUNING.collisionVelocityDamping
         }
       }
 
       // Screen bounds
-      jeep.pos.x = Math.max(20, Math.min(width - 20, jeep.pos.x))
-      jeep.pos.y = Math.max(20, Math.min(height - 20, jeep.pos.y))
+      jeep.pos.x = Math.max(JEEP_TUNING.screenMargin, Math.min(width - JEEP_TUNING.screenMargin, jeep.pos.x))
+      jeep.pos.y = Math.max(JEEP_TUNING.screenMargin, Math.min(height - JEEP_TUNING.screenMargin, jeep.pos.y))
 
       // Repair kit pickup
       if (repairKitsRef.current.length > 0 && jeep.health < JEEP_MAX_HEALTH) {
         for (let i = repairKitsRef.current.length - 1; i >= 0; i--) {
           const kit = repairKitsRef.current[i]
           const dist = Math.hypot(kit.pos.x - jeep.pos.x, kit.pos.y - jeep.pos.y)
-          if (dist < 22) {
+          if (dist < JEEP_TUNING.repairPickupRadius) {
             jeep.health = Math.min(JEEP_MAX_HEALTH, jeep.health + 1)
             repairKitsRef.current.splice(i, 1)
             sounds.repairPickup()
@@ -1644,33 +1721,38 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         while (targetDiff < -Math.PI) targetDiff += Math.PI * 2
         
         // Gradually blend toward desired angle to smooth out rapid changes
-        tank.targetAngle += targetDiff * dt * 3
+        tank.targetAngle += targetDiff * dt * TANK_TUNING.targetAngleBlend
 
         let angleDiff = tank.targetAngle - tank.angle
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
-        tank.angle += angleDiff * dt * 2.0 // Smooth turning
+        tank.angle += angleDiff * dt * TANK_TUNING.hullTurnSpeed // Smooth turning
 
         // Move tank - speed based on tactical mode
-        const tankSpeed = tank.tacticalMode === 'approach' ? 55 : tank.tacticalMode === 'flank' ? 45 : 25
+        const tankSpeed =
+          tank.tacticalMode === 'approach'
+            ? TANK_TUNING.speedApproach
+            : tank.tacticalMode === 'flank'
+              ? TANK_TUNING.speedFlank
+              : TANK_TUNING.speedHold
         if (frontBlocked || frontLeftBlocked || frontRightBlocked) {
           // Slow down when obstacle ahead
-          tank.vel.x = Math.cos(tank.angle) * tankSpeed * 0.3
-          tank.vel.y = Math.sin(tank.angle) * tankSpeed * 0.3
-        } else if (tank.tacticalMode === 'hold' && dist < 120 && !pathBlocked) {
+          tank.vel.x = Math.cos(tank.angle) * tankSpeed * TANK_TUNING.obstacleSlowFactor
+          tank.vel.y = Math.sin(tank.angle) * tankSpeed * TANK_TUNING.obstacleSlowFactor
+        } else if (tank.tacticalMode === 'hold' && dist < TANK_TUNING.holdTooCloseDistPx && !pathBlocked) {
           // Back up slowly when too close
-          tank.vel.x = -Math.cos(directAngle) * 30
-          tank.vel.y = -Math.sin(directAngle) * 30
+          tank.vel.x = -Math.cos(directAngle) * TANK_TUNING.tooCloseBackUpSpeed
+          tank.vel.y = -Math.sin(directAngle) * TANK_TUNING.tooCloseBackUpSpeed
         } else if (tank.tacticalMode === 'flank') {
           // Move at medium speed while flanking
           tank.vel.x = Math.cos(tank.angle) * tankSpeed
           tank.vel.y = Math.sin(tank.angle) * tankSpeed
-        } else if (dist > 150) {
+        } else if (dist > TANK_TUNING.moveDistThresholdPx) {
           tank.vel.x = Math.cos(tank.angle) * tankSpeed
           tank.vel.y = Math.sin(tank.angle) * tankSpeed
         } else {
-          tank.vel.x *= 0.9
-          tank.vel.y *= 0.9
+          tank.vel.x *= TANK_TUNING.velocityDamping
+          tank.vel.y *= TANK_TUNING.velocityDamping
         }
 
         // Animate tracks based on movement
@@ -1732,26 +1814,40 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         tank.shootCooldown -= dt * 1000
         
         // Calculate lead shot - predict where jeep will be
-        const bulletSpeed = 250
+        const bulletSpeed = TANK_TUNING.bulletSpeed
         const timeToTarget = dist / bulletSpeed
-        const predictedX = jeep.pos.x + jeep.vel.x * timeToTarget * 0.7 // 70% prediction for some inaccuracy
-        const predictedY = jeep.pos.y + jeep.vel.y * timeToTarget * 0.7
+        const predictedX = jeep.pos.x + jeep.vel.x * timeToTarget * TANK_TUNING.leadPredictionFactor
+        const predictedY = jeep.pos.y + jeep.vel.y * timeToTarget * TANK_TUNING.leadPredictionFactor
         const leadAngle = Math.atan2(predictedY - tank.pos.y, predictedX - tank.pos.x)
+
+        // Turret rotates independently of the hull; aiming is aligned strictly to the turret.
+        const turretTurnSpeed = TANK_TUNING.turretTurnSpeed
+        let turretDiff = leadAngle - tank.turretAngle
+        while (turretDiff > Math.PI) turretDiff -= Math.PI * 2
+        while (turretDiff < -Math.PI) turretDiff += Math.PI * 2
+        const turretStep = turretTurnSpeed * dt
+        if (turretDiff > turretStep) turretDiff = turretStep
+        else if (turretDiff < -turretStep) turretDiff = -turretStep
+        tank.turretAngle += turretDiff
         
-        // Check if aimed well enough (comparing tank angle to lead angle)
-        let aimDiff = leadAngle - tank.angle
+        // Check if aimed well enough (comparing turret angle to lead angle)
+        let aimDiff = leadAngle - tank.turretAngle
         while (aimDiff > Math.PI) aimDiff -= Math.PI * 2
         while (aimDiff < -Math.PI) aimDiff += Math.PI * 2
         
         const enemyBulletCount = bulletsRef.current.reduce((acc, b) => acc + (b.isEnemy ? 1 : 0), 0)
-        const reactionOk = tank.losTimeMs >= 250
-        const aimOk = Math.abs(aimDiff) < 0.35
+        const reactionOk = tank.losTimeMs >= TANK_TUNING.reactionTimeMs
+        const aimOk = Math.abs(aimDiff) < TANK_TUNING.aimToleranceRad
 
-        if (tank.shootCooldown <= 0 && reactionOk && aimOk && dist < 350 && enemyBulletCount < maxEnemyBullets) {
+        if (tank.shootCooldown <= 0 && reactionOk && aimOk && dist < TANK_TUNING.fireRangePx && enemyBulletCount < maxEnemyBullets) {
+          // Spawn shells from the barrel muzzle (not the tank center).
+          const muzzleX = tank.pos.x + Math.cos(tank.turretAngle) * TANK_TUNING.muzzleDistancePx
+          const muzzleY = tank.pos.y + Math.sin(tank.turretAngle) * TANK_TUNING.muzzleDistancePx
+
           // Check if wall blocks the shot to predicted position
           let blocked = false
           for (const wall of wallsRef.current) {
-            if (lineIntersectsRect(tank.pos.x, tank.pos.y, predictedX, predictedY, wall.x, wall.y, wall.width, wall.height)) {
+            if (lineIntersectsRect(muzzleX, muzzleY, predictedX, predictedY, wall.x, wall.y, wall.width, wall.height)) {
               blocked = true
               break
             }
@@ -1760,10 +1856,10 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           if (!blocked) {
             // Shoot toward predicted position with slight randomness
             // Fairness: a little wobble, but not instant "laser" snaps.
-            const shootAngle = leadAngle + (Math.random() - 0.5) * 0.12
-            tank.shootCooldown = 2200 + Math.random() * 1700
+            const shootAngle = tank.turretAngle
+            tank.shootCooldown = TANK_TUNING.shootCooldownMsMin + Math.random() * TANK_TUNING.shootCooldownMsRand
             bulletsRef.current.push({
-              pos: { x: tank.pos.x, y: tank.pos.y },
+              pos: { x: muzzleX, y: muzzleY },
               vel: {
                 x: Math.cos(shootAngle) * bulletSpeed,
                 y: Math.sin(shootAngle) * bulletSpeed,
@@ -1773,7 +1869,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
             })
             sounds.tankShoot()
           } else {
-            tank.shootCooldown = 400 // Try again soon
+            tank.shootCooldown = TANK_TUNING.blockedRetryCooldownMs // Try again soon
           }
         }
 
@@ -1983,6 +2079,24 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     const draw = () => {
       const { width, height } = canvasSizeRef.current
 
+      const hashToUnit = (x: number) => {
+        // Deterministic pseudo-random in [0,1) from integer-ish input.
+        // Keeps roof details stable frame-to-frame.
+        let n = x | 0
+        n ^= n << 13
+        n ^= n >>> 17
+        n ^= n << 5
+        return ((n >>> 0) % 10000) / 10000
+      }
+
+      const buildSeed = (x: number, y: number, w: number, h: number) => {
+        const xi = Math.floor(x)
+        const yi = Math.floor(y)
+        const wi = Math.floor(w)
+        const hi = Math.floor(h)
+        return (xi * 73856093) ^ (yi * 19349663) ^ (wi * 83492791) ^ (hi * 2654435761)
+      }
+
       // Clear
       ctx.fillStyle = '#0a0a0a'
       ctx.fillRect(0, 0, width, height)
@@ -1997,45 +2111,120 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       }
       ctx.restore()
 
-      // Draw walls with crosshatch fill
-      ctx.strokeStyle = '#00ff88'
-      ctx.lineWidth = 2
-      for (const wall of wallsRef.current) {
-        // Outline
-        ctx.strokeRect(wall.x, wall.y, wall.width, wall.height)
-        
-        // Crosshatch fill
-        ctx.save()
+      // City ground: subtle street markings (the "roads" are the empty space between buildings).
+      ctx.save()
+      ctx.strokeStyle = '#004422'
+      ctx.globalAlpha = 0.16
+      ctx.lineWidth = 1
+      ctx.setLineDash([10, 16])
+      const streetGrid = 96
+      for (let x = streetGrid / 2; x < width; x += streetGrid) {
         ctx.beginPath()
-        ctx.rect(wall.x, wall.y, wall.width, wall.height)
-        ctx.clip()
-        
-        ctx.strokeStyle = '#004422'
-        ctx.lineWidth = 1
-        const spacing = 8
-        
-        // Diagonal lines (top-left to bottom-right)
-        for (let i = -wall.height; i < wall.width + wall.height; i += spacing) {
-          ctx.beginPath()
-          ctx.moveTo(wall.x + i, wall.y)
-          ctx.lineTo(wall.x + i + wall.height, wall.y + wall.height)
-          ctx.stroke()
-        }
-        
-        // Diagonal lines (top-right to bottom-left)
-        for (let i = 0; i < wall.width + wall.height; i += spacing) {
-          ctx.beginPath()
-          ctx.moveTo(wall.x + wall.width - i + wall.height, wall.y)
-          ctx.lineTo(wall.x + wall.width - i, wall.y + wall.height)
-          ctx.stroke()
-        }
-        
+        ctx.moveTo(x, 0)
+        ctx.lineTo(x, height)
+        ctx.stroke()
+      }
+      for (let y = streetGrid / 2; y < height; y += streetGrid) {
+        ctx.beginPath()
+        ctx.moveTo(0, y)
+        ctx.lineTo(width, y)
+        ctx.stroke()
+      }
+      ctx.restore()
+
+      // Buildings (collision still uses the rectangle; this is visuals only)
+      for (const wall of wallsRef.current) {
+        const seed = buildSeed(wall.x, wall.y, wall.width, wall.height)
+        const r0 = hashToUnit(seed)
+        const r1 = hashToUnit(seed ^ 0x9e3779b9)
+
+        // Roof fill
+        ctx.save()
+        ctx.fillStyle = '#004422'
+        ctx.globalAlpha = 0.35 + r0 * 0.10
+        ctx.fillRect(wall.x, wall.y, wall.width, wall.height)
         ctx.restore()
-        
-        // Re-draw outline on top
+
+        // Sidewalk/parapet outline
+        ctx.save()
         ctx.strokeStyle = '#00ff88'
         ctx.lineWidth = 2
+        ctx.globalAlpha = 1
         ctx.strokeRect(wall.x, wall.y, wall.width, wall.height)
+
+        // Inner parapet
+        const inset = 4
+        if (wall.width > inset * 2 + 8 && wall.height > inset * 2 + 8) {
+          ctx.globalAlpha = 0.35
+          ctx.lineWidth = 1
+          ctx.strokeRect(wall.x + inset, wall.y + inset, wall.width - inset * 2, wall.height - inset * 2)
+        }
+
+        // Roof details clipped to the building footprint
+        ctx.beginPath()
+        ctx.rect(wall.x + inset, wall.y + inset, Math.max(0, wall.width - inset * 2), Math.max(0, wall.height - inset * 2))
+        ctx.clip()
+
+        ctx.strokeStyle = '#00ff88'
+        ctx.globalAlpha = 0.18
+        ctx.lineWidth = 1
+
+        // HVAC units
+        const area = wall.width * wall.height
+        const hvacCount = Math.min(4, Math.max(1, Math.floor(area / 5200)))
+        for (let i = 0; i < hvacCount; i++) {
+          const ri = hashToUnit(seed ^ (i * 0x27d4eb2d))
+          const rj = hashToUnit(seed ^ (i * 0x165667b1) ^ 0x85ebca6b)
+          const rw = 10 + Math.floor(ri * 10)
+          const rh = 6 + Math.floor(rj * 8)
+          const px = wall.x + inset + ri * Math.max(1, wall.width - inset * 2 - rw)
+          const py = wall.y + inset + rj * Math.max(1, wall.height - inset * 2 - rh)
+          ctx.strokeRect(px, py, rw, rh)
+          ctx.beginPath()
+          ctx.moveTo(px + 2, py + rh / 2)
+          ctx.lineTo(px + rw - 2, py + rh / 2)
+          ctx.stroke()
+        }
+
+        // Skylight strips (direction varies per-building)
+        const skylightVertical = r1 > 0.5
+        const stripCount = 2 + Math.floor(r0 * 3)
+        for (let s = 0; s < stripCount; s++) {
+          const t = (s + 1) / (stripCount + 1)
+          ctx.beginPath()
+          if (skylightVertical) {
+            const x = wall.x + inset + (wall.width - inset * 2) * t
+            ctx.moveTo(x, wall.y + inset)
+            ctx.lineTo(x, wall.y + wall.height - inset)
+          } else {
+            const y = wall.y + inset + (wall.height - inset * 2) * t
+            ctx.moveTo(wall.x + inset, y)
+            ctx.lineTo(wall.x + wall.width - inset, y)
+          }
+          ctx.stroke()
+        }
+
+        // Large blocks: visually subdivide into multiple rooftops
+        if (wall.width > 90 && wall.height > 60) {
+          ctx.globalAlpha = 0.16
+          const divs = 1 + Math.floor(r0 * 2)
+          for (let d = 0; d < divs; d++) {
+            const rd = hashToUnit(seed ^ (d * 0x2c1b3c6d))
+            ctx.beginPath()
+            if (wall.width > wall.height) {
+              const x = wall.x + inset + (wall.width - inset * 2) * (0.25 + rd * 0.5)
+              ctx.moveTo(x, wall.y + inset)
+              ctx.lineTo(x, wall.y + wall.height - inset)
+            } else {
+              const y = wall.y + inset + (wall.height - inset * 2) * (0.25 + rd * 0.5)
+              ctx.moveTo(wall.x + inset, y)
+              ctx.lineTo(wall.x + wall.width - inset, y)
+            }
+            ctx.stroke()
+          }
+        }
+
+        ctx.restore()
       }
 
       // Draw repair kit (single): medical cross icon, stationary (no spin/bounce).
@@ -2120,13 +2309,81 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         ctx.closePath()
         ctx.fill()
 
-        // Turret fill
+        // Turret fill (rotate independently from hull)
+        ctx.save()
+        ctx.rotate(tank.turretAngle - tank.angle)
+
+        // Opaque turret fill (prevents anything underneath from showing through).
+        ctx.save()
+        ctx.fillStyle = '#0a0a0a'
+        ctx.globalAlpha = 1
+        ctx.shadowBlur = 0
+
+        // Turret base
         ctx.beginPath()
-        ctx.arc(-2, 0, 9, 0, Math.PI * 2)
+        ctx.moveTo(-14, -7)
+        ctx.lineTo(6, -7)
+        ctx.lineTo(10, -3)
+        ctx.lineTo(10, 3)
+        ctx.lineTo(6, 7)
+        ctx.lineTo(-14, 7)
+        ctx.lineTo(-17, 3)
+        ctx.lineTo(-17, -3)
+        ctx.closePath()
         ctx.fill()
+
+        // Turret top
         ctx.beginPath()
-        ctx.arc(-2, 0, 6, 0, Math.PI * 2)
+        ctx.moveTo(-10, -4)
+        ctx.lineTo(2, -4)
+        ctx.lineTo(5, -2)
+        ctx.lineTo(5, 2)
+        ctx.lineTo(2, 4)
+        ctx.lineTo(-10, 4)
+        ctx.lineTo(-12, 2)
+        ctx.lineTo(-12, -2)
+        ctx.closePath()
         ctx.fill()
+
+        // Cupola
+        ctx.beginPath()
+        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.restore()
+
+        // Turret base
+        ctx.beginPath()
+        ctx.moveTo(-14, -7)
+        ctx.lineTo(6, -7)
+        ctx.lineTo(10, -3)
+        ctx.lineTo(10, 3)
+        ctx.lineTo(6, 7)
+        ctx.lineTo(-14, 7)
+        ctx.lineTo(-17, 3)
+        ctx.lineTo(-17, -3)
+        ctx.closePath()
+        ctx.fill()
+
+        // Turret top
+        ctx.beginPath()
+        ctx.moveTo(-10, -4)
+        ctx.lineTo(2, -4)
+        ctx.lineTo(5, -2)
+        ctx.lineTo(5, 2)
+        ctx.lineTo(2, 4)
+        ctx.lineTo(-10, 4)
+        ctx.lineTo(-12, 2)
+        ctx.lineTo(-12, -2)
+        ctx.closePath()
+        ctx.fill()
+
+        // Cupola
+        ctx.beginPath()
+        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.restore()
 
         ctx.restore()
 
@@ -2196,14 +2453,81 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         ctx.lineTo(10, 6)
         ctx.stroke()
 
-        // Turret ring
+        ctx.save()
+        ctx.rotate(tank.turretAngle - tank.angle)
+
+        // Opaque turret fill (drawn after hull strokes so the hull can't show through).
+        ctx.save()
+        ctx.fillStyle = '#0a0a0a'
+        ctx.globalAlpha = 1
+        ctx.shadowBlur = 0
+
+        // Turret base
         ctx.beginPath()
-        ctx.arc(-2, 0, 9, 0, Math.PI * 2)
+        ctx.moveTo(-14, -7)
+        ctx.lineTo(6, -7)
+        ctx.lineTo(10, -3)
+        ctx.lineTo(10, 3)
+        ctx.lineTo(6, 7)
+        ctx.lineTo(-14, 7)
+        ctx.lineTo(-17, 3)
+        ctx.lineTo(-17, -3)
+        ctx.closePath()
+        ctx.fill()
+
+        // Turret top
+        ctx.beginPath()
+        ctx.moveTo(-10, -4)
+        ctx.lineTo(2, -4)
+        ctx.lineTo(5, -2)
+        ctx.lineTo(5, 2)
+        ctx.lineTo(2, 4)
+        ctx.lineTo(-10, 4)
+        ctx.lineTo(-12, 2)
+        ctx.lineTo(-12, -2)
+        ctx.closePath()
+        ctx.fill()
+
+        // Cupola
+        ctx.beginPath()
+        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.restore()
+
+        // Turret base
+        ctx.beginPath()
+        ctx.moveTo(-14, -7)
+        ctx.lineTo(6, -7)
+        ctx.lineTo(10, -3)
+        ctx.lineTo(10, 3)
+        ctx.lineTo(6, 7)
+        ctx.lineTo(-14, 7)
+        ctx.lineTo(-17, 3)
+        ctx.lineTo(-17, -3)
+        ctx.closePath()
         ctx.stroke()
 
         // Turret top
         ctx.beginPath()
-        ctx.arc(-2, 0, 6, 0, Math.PI * 2)
+        ctx.moveTo(-10, -4)
+        ctx.lineTo(2, -4)
+        ctx.lineTo(5, -2)
+        ctx.lineTo(5, 2)
+        ctx.lineTo(2, 4)
+        ctx.lineTo(-10, 4)
+        ctx.lineTo(-12, 2)
+        ctx.lineTo(-12, -2)
+        ctx.closePath()
+        ctx.stroke()
+
+        // Cupola + hatch line
+        ctx.beginPath()
+        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(-6, -2.5)
+        ctx.lineTo(-6, 2.5)
         ctx.stroke()
 
         // Main gun barrel
@@ -2221,6 +2545,8 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         ctx.lineTo(28, 3)
         ctx.lineTo(24, 3)
         ctx.stroke()
+
+        ctx.restore()
 
         ctx.restore()
       }

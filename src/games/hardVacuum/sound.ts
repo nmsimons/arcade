@@ -6,6 +6,17 @@ export class SoundSystem {
   private thrustNoise: AudioBufferSourceNode | null = null
   private thrusting = false
 
+  private phaserPlaying = false
+  private phaserReady = false
+  private phaserOsc: OscillatorNode | null = null
+  private phaserNoise: AudioBufferSourceNode | null = null
+  private phaserFilter: BiquadFilterNode | null = null
+  private phaserGain: GainNode | null = null
+  private phaserLfo: OscillatorNode | null = null
+  private phaserLfoGain: GainNode | null = null
+  private phaserAmpLfo: OscillatorNode | null = null
+  private phaserAmpLfoGain: GainNode | null = null
+
   private repairHumPlaying = false
   private repairHumReady = false
   private repairHumOsc: OscillatorNode | null = null
@@ -35,6 +46,7 @@ export class SoundSystem {
   shutdown() {
     // Best-effort cleanup (useful for dev/HMR and leaving the game).
     try {
+      this.stopPhaser(true)
       this.stopRepairHum(true)
       this.stopThrust()
       this.stopStoreMusic()
@@ -382,6 +394,181 @@ export class SoundSystem {
     gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1)
     osc.start()
     osc.stop(this.ctx.currentTime + 0.1)
+  }
+
+  startPhaser() {
+    if (!this.ctx) return
+
+    if (!this.phaserReady) {
+      const ctx = this.ctx
+      const t0 = ctx.currentTime
+
+      // TOS-ish tonal body (simple, buzzy)
+      const osc = ctx.createOscillator()
+      osc.type = 'square'
+      osc.frequency.setValueAtTime(520, t0)
+
+      // Subtle pitch wobble
+      const lfo = ctx.createOscillator()
+      lfo.type = 'sine'
+      lfo.frequency.setValueAtTime(5.2, t0)
+      const lfoGain = ctx.createGain()
+      lfoGain.gain.setValueAtTime(0, t0)
+      lfo.connect(lfoGain)
+      lfoGain.connect(osc.frequency)
+
+      // Amplitude buzz (fast tremolo)
+      const ampLfo = ctx.createOscillator()
+      ampLfo.type = 'square'
+      ampLfo.frequency.setValueAtTime(28, t0)
+      const ampLfoGain = ctx.createGain()
+      ampLfoGain.gain.setValueAtTime(0, t0)
+      ampLfo.connect(ampLfoGain)
+
+      // Noise layer for the “beam” texture
+      const bufferSize = Math.floor(ctx.sampleRate * 1.5)
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+      const output = noiseBuffer.getChannelData(0)
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1
+      }
+      const noise = ctx.createBufferSource()
+      noise.buffer = noiseBuffer
+      noise.loop = true
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.setValueAtTime(1400, t0)
+      filter.Q.setValueAtTime(0.65, t0)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, t0)
+
+      // Drive buzz into gain (around a base level)
+      ampLfoGain.connect(gain.gain)
+
+      osc.connect(filter)
+      noise.connect(filter)
+      filter.connect(gain)
+      gain.connect(ctx.destination)
+
+      osc.start(t0)
+      noise.start(t0)
+      lfo.start(t0)
+      ampLfo.start(t0)
+
+      this.phaserOsc = osc
+      this.phaserNoise = noise
+      this.phaserFilter = filter
+      this.phaserGain = gain
+      this.phaserLfo = lfo
+      this.phaserLfoGain = lfoGain
+      this.phaserAmpLfo = ampLfo
+      this.phaserAmpLfoGain = ampLfoGain
+      this.phaserReady = true
+    }
+
+    if (this.phaserPlaying) return
+    this.phaserPlaying = true
+
+    const t = this.ctx.currentTime
+    if (this.phaserGain) {
+      const g = this.phaserGain.gain
+      g.cancelScheduledValues(t)
+      g.setValueAtTime(0, t)
+      g.linearRampToValueAtTime(0.038, t + 0.07)
+    }
+    if (this.phaserLfoGain) {
+      const lg = this.phaserLfoGain.gain
+      lg.cancelScheduledValues(t)
+      lg.setValueAtTime(0, t)
+      lg.linearRampToValueAtTime(7, t + 0.12) // Hz pitch wobble depth
+    }
+    if (this.phaserAmpLfoGain) {
+      const ag = this.phaserAmpLfoGain.gain
+      ag.cancelScheduledValues(t)
+      ag.setValueAtTime(0, t)
+      ag.linearRampToValueAtTime(0.012, t + 0.1)
+    }
+  }
+
+  stopPhaser(immediate = false) {
+    if (!this.ctx || !this.phaserReady || !this.phaserGain) return
+    this.phaserPlaying = false
+
+    const t = this.ctx.currentTime
+    const g = this.phaserGain.gain
+
+    g.cancelScheduledValues(t)
+    if (immediate) {
+      g.setValueAtTime(0, t)
+    } else {
+      g.setValueAtTime(g.value, t)
+      g.setTargetAtTime(0, t, 0.03)
+    }
+
+    if (this.phaserLfoGain) {
+      const lg = this.phaserLfoGain.gain
+      lg.cancelScheduledValues(t)
+      if (immediate) lg.setValueAtTime(0, t)
+      else {
+        lg.setValueAtTime(lg.value, t)
+        lg.setTargetAtTime(0, t, 0.04)
+      }
+    }
+
+    if (this.phaserAmpLfoGain) {
+      const ag = this.phaserAmpLfoGain.gain
+      ag.cancelScheduledValues(t)
+      if (immediate) ag.setValueAtTime(0, t)
+      else {
+        ag.setValueAtTime(ag.value, t)
+        ag.setTargetAtTime(0, t, 0.04)
+      }
+    }
+
+    if (!immediate) return
+
+    const stopAt = t + 0.02
+    try {
+      this.phaserOsc?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+    try {
+      this.phaserNoise?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+    try {
+      this.phaserLfo?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+    try {
+      this.phaserAmpLfo?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+
+    try {
+      this.phaserLfoGain?.disconnect()
+      this.phaserAmpLfoGain?.disconnect()
+      this.phaserFilter?.disconnect()
+      this.phaserGain?.disconnect()
+    } catch {
+      // Ignore.
+    }
+
+    this.phaserOsc = null
+    this.phaserNoise = null
+    this.phaserFilter = null
+    this.phaserGain = null
+    this.phaserLfo = null
+    this.phaserLfoGain = null
+    this.phaserAmpLfo = null
+    this.phaserAmpLfoGain = null
+    this.phaserReady = false
   }
 
   collect() {

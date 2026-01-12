@@ -1,5 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import type { BaseShot, Bullet, Debris, HardVacuumGameProps, Harpoon, Rock, RockKind, Ship, Vector2, V3 } from './types'
+import type {
+  BaseShot,
+  Bullet,
+  Debris,
+  HardVacuumGameProps,
+  Harpoon,
+  PhaserBeam,
+  PhaserParticle,
+  Rock,
+  RockKind,
+  Ship,
+  Vector2,
+  V3,
+} from './types'
 import { clamp, makeRockMesh } from './math'
 import { sounds } from './sound'
 import {
@@ -25,6 +38,11 @@ import {
   INVULNERABILITY_GAME_START,
   INVULNERABILITY_LEVEL_START,
   INVULNERABILITY_MIN_AFTER_REPAIR,
+  PHASER_BEAM_RADIUS,
+  PHASER_COOLDOWN,
+  PHASER_HIT_INTERVAL,
+  PHASER_MAX_FIRE_DURATION,
+  PHASER_RANGE,
   ROCK_BASE_CLEARANCE,
   ROCK_BASE_SPEED_MAX,
   ROCK_BASE_SPEED_MIN,
@@ -129,6 +147,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     // Ensure continuous audio loops don't get stuck across state transitions.
     if (gameState !== 'playing') sounds.stopThrust()
     if (gameState !== 'playing') sounds.stopRepairHum()
+    if (gameState !== 'playing') sounds.stopPhaser()
 
     if (gameState === 'store') sounds.startStoreMusic()
     else sounds.stopStoreMusic()
@@ -138,6 +157,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       sounds.stopThrust()
       sounds.stopStoreMusic()
       sounds.stopRepairHum()
+      sounds.stopPhaser(true)
     }
   }, [gameState])
 
@@ -164,6 +184,20 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const harpoonRef = useRef<Harpoon>({ state: 'idle' })
   const miningBaseAngleRef = useRef(0)
   const miningGunCooldownsRef = useRef<[number, number, number]>(BASE_GUN_INITIAL_COOLDOWNS)
+
+  const phaserStateRef = useRef<{ energyMs: number; cooldownMs: number; hitCooldownMs: number; particleCarry: number }>({
+    energyMs: PHASER_MAX_FIRE_DURATION * 1000,
+    cooldownMs: 0,
+    hitCooldownMs: 0,
+    particleCarry: 0,
+  })
+  const phaserBeamRef = useRef<PhaserBeam>({
+    active: false,
+    start: { x: 0, y: 0 },
+    end: { x: 0, y: 0 },
+    energy01: 1,
+  })
+  const phaserParticlesRef = useRef<PhaserParticle[]>([])
 
   // Updated each frame while playing.
   const shipFullyInBaseRef = useRef(false)
@@ -459,6 +493,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     harpoonRef.current = { state: 'idle' }
     miningBaseAngleRef.current = 0
     miningGunCooldownsRef.current = BASE_GUN_INITIAL_COOLDOWNS
+    phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
+    phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, end: { x: 0, y: 0 }, energy01: 1 }
+    phaserParticlesRef.current = []
     gravityPulseChargesRef.current = 1
     stasisChargesRef.current = 1
     setGravityCharges(1)
@@ -480,6 +517,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     resetBlueRocksForLevel(next)
     baseShotsRef.current = []
     bulletsRef.current = []
+    phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
+    phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, end: { x: 0, y: 0 }, energy01: 1 }
+    phaserParticlesRef.current = []
     queuedGravityPulseRef.current = false
     queuedStasisRef.current = false
     shipFullyInBaseRef.current = false
@@ -729,19 +769,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       if (e.key === ' ' && gameState === 'playing') {
+        // Primary fire is handled in the update loop for hold-to-fire behavior.
         e.preventDefault()
-        const ship = shipRef.current
-        const bullet: Bullet = {
-          pos: { x: ship.pos.x, y: ship.pos.y },
-          vel: {
-            x: ship.vel.x + Math.cos(ship.angle) * 400,
-            y: ship.vel.y + Math.sin(ship.angle) * 400,
-          },
-          life: 1000,
-          isEnemy: false,
-        }
-        bulletsRef.current.push(bullet)
-        sounds.shoot()
       }
       if (e.key.toLowerCase() === 'p' && gameState === 'playing') {
         setGameState('paused')
@@ -1010,6 +1039,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       const attractorActive = attractorActiveRef.current
       const attractorTimer = attractorTimerRef.current
 
+      const phaser = phaserStateRef.current
+
+      // Phaser timers tick even if we aren't actively playing (so cooldowns don't get stuck).
+      if (phaser.cooldownMs > 0) {
+        phaser.cooldownMs -= dt * 1000
+        if (phaser.cooldownMs <= 0) {
+          phaser.cooldownMs = 0
+          phaser.energyMs = PHASER_MAX_FIRE_DURATION * 1000
+        }
+      }
+
       // Update wave timer display
       if (gameState === 'playing' && waveStartTime > 0) {
         setWaveElapsedTime((Date.now() - waveStartTime) / 1000)
@@ -1080,6 +1120,93 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (gameState !== 'playing') return
 
       const ship = shipRef.current
+
+      const { width: w, height: h } = canvasSizeRef.current
+      const wrapX = (x: number) => {
+        if (x < 0) return x + w
+        if (x > w) return x - w
+        return x
+      }
+      const wrapY = (y: number) => {
+        if (y < 0) return y + h
+        if (y > h) return y - h
+        return y
+      }
+
+      const releaseHarpoonIfAttached = (rock: Rock) => {
+        const hp = harpoonRef.current
+        if (hp.state === 'attached' && hp.rock === rock) {
+          const ropeLength = hp.maxLength * HARPOON_VISUAL_SLACK
+          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, ropeLength)
+          harpoonRef.current = {
+            state: 'deployed',
+            pos: { x: rock.pos.x, y: rock.pos.y },
+            vel: { x: 0, y: 0 },
+            maxLength: hp.maxLength,
+            ropeLength,
+            segLen: seed.segLen,
+            rope: seed.rope,
+            ropePrev: seed.ropePrev,
+          }
+        }
+      }
+
+      const hitRockLikeShipWeapon = (rock: Rock, pushDir?: Vector2) => {
+        if (rock.kind === 'blue') {
+          // Blue smallest rocks cannot be destroyed by ship weapons; they only get pushed.
+          const ux = pushDir ? pushDir.x : 0
+          const uy = pushDir ? pushDir.y : 0
+          const dl = Math.hypot(ux, uy)
+          if (dl > 1e-6) {
+            const px = ux / dl
+            const py = uy / dl
+            const push = 170
+            rock.vel.x += px * push
+            rock.vel.y += py * push
+          }
+          return
+        }
+
+        releaseHarpoonIfAttached(rock)
+
+        const idx = rocksRef.current.indexOf(rock)
+        if (idx === -1) return
+        rocksRef.current.splice(idx, 1)
+        const credits = Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius)
+        setScore((s) => s + credits)
+        waveCreditsRef.current += credits
+
+        const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
+        sounds.explosion(explosionSize)
+
+        if (rock.radius > SMALLEST_ROCK_RADIUS) {
+          const newRadius = rock.radius / 2
+          for (let j = 0; j < 2; j++) {
+            let kind: RockKind = 'normal'
+            if (newRadius <= SMALLEST_ROCK_RADIUS) {
+              if (levelRef.current >= 3) {
+                if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
+                  kind = 'blue'
+                  blueRocksSpawnedThisLevelRef.current += 1
+                } else {
+                  const p = clamp(
+                    BLUE_ROCK_SPAWN_CHANCE_BASE + (levelRef.current - 1) * BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL,
+                    BLUE_ROCK_SPAWN_CHANCE_BASE,
+                    BLUE_ROCK_SPAWN_CHANCE_MAX,
+                  )
+                  if (Math.random() < p) {
+                    kind = 'blue'
+                    blueRocksSpawnedThisLevelRef.current += 1
+                  }
+                }
+              }
+            }
+            rocksRef.current.push(createRock(rock.pos.x, rock.pos.y, newRadius, undefined, kind))
+          }
+        } else {
+          createDebris(rock.pos.x, rock.pos.y, rock.vel.x, rock.vel.y, 5, 0.5, '255, 255, 255')
+        }
+      }
 
       const applyImpactShield = (impactSpeed: number) => {
         if (invulnerableRef.current > 0) return
@@ -1181,7 +1308,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Update rocks with wrapping
-      const { width: w, height: h } = canvasSizeRef.current
       rocksRef.current.forEach((rock) => {
         rock.pos.x += rock.vel.x * dt
         rock.pos.y += rock.vel.y * dt
@@ -1243,16 +1369,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       // This uses a simple impulse + positional correction so rocks "bump" off each other.
       const rocks = rocksRef.current
       const restitution = 0.9
-      const wrapX = (x: number) => {
-        if (x < 0) return x + w
-        if (x > w) return x - w
-        return x
-      }
-      const wrapY = (y: number) => {
-        if (y < 0) return y + h
-        if (y > h) return y - h
-        return y
-      }
 
       // Powerups: process queued activations inside the simulation step.
       // Demolition Pulse: hits each asteroid once as if shot by the ship.
@@ -1271,87 +1387,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         const originX = shipRef.current.pos.x
         const originY = shipRef.current.pos.y
         const targets = [...rocksRef.current]
-
-        const releaseHarpoonIfAttached = (rock: Rock) => {
-          const hp = harpoonRef.current
-          if (hp.state === 'attached' && hp.rock === rock) {
-            const ship = shipRef.current
-            const ropeLength = hp.maxLength * HARPOON_VISUAL_SLACK
-            const seed = buildRopeBetween(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, ropeLength)
-            harpoonRef.current = {
-              state: 'deployed',
-              pos: { x: rock.pos.x, y: rock.pos.y },
-              vel: { x: 0, y: 0 },
-              maxLength: hp.maxLength,
-              ropeLength,
-              segLen: seed.segLen,
-              rope: seed.rope,
-              ropePrev: seed.ropePrev,
-            }
-          }
-        }
-
-        const hitRockLikeShipBullet = (rock: Rock) => {
-          if (rock.kind === 'blue') {
-            // Blue smallest rocks cannot be destroyed by ship bullets.
-            // Impacts transfer momentum (push).
-            const d = toroidalDelta(originX, originY, rock.pos.x, rock.pos.y, w, h)
-            const dl = Math.hypot(d.dx, d.dy)
-            if (dl > 1e-6) {
-              const ux = d.dx / dl
-              const uy = d.dy / dl
-              const push = 170
-              rock.vel.x += ux * push
-              rock.vel.y += uy * push
-            }
-            return
-          }
-
-          releaseHarpoonIfAttached(rock)
-
-          const idx = rocksRef.current.indexOf(rock)
-          if (idx === -1) return
-          rocksRef.current.splice(idx, 1)
-          const credits = Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius)
-          setScore((s) => s + credits)
-          waveCreditsRef.current += credits
-
-          // Play explosion sound based on size
-          const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
-          sounds.explosion(explosionSize)
-
-          // Split rock or create debris for smallest ones
-          if (rock.radius > SMALLEST_ROCK_RADIUS) {
-            const newRadius = rock.radius / 2
-            for (let j = 0; j < 2; j++) {
-              let kind: RockKind = 'normal'
-              if (newRadius <= SMALLEST_ROCK_RADIUS) {
-                if (levelRef.current >= 3) {
-                  if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
-                    kind = 'blue'
-                    blueRocksSpawnedThisLevelRef.current += 1
-                  } else {
-                    const p = clamp(BLUE_ROCK_SPAWN_CHANCE_BASE + (levelRef.current - 1) * BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL, BLUE_ROCK_SPAWN_CHANCE_BASE, BLUE_ROCK_SPAWN_CHANCE_MAX)
-                    if (Math.random() < p) {
-                      kind = 'blue'
-                      blueRocksSpawnedThisLevelRef.current += 1
-                    }
-                  }
-                }
-              }
-
-              rocksRef.current.push(createRock(rock.pos.x, rock.pos.y, newRadius, undefined, kind))
-            }
-          } else {
-            // Smallest rock destroyed - create particle debris
-            createDebris(rock.pos.x, rock.pos.y, rock.vel.x, rock.vel.y, 5, 0.5, '255, 255, 255')
-          }
-        }
-
         for (const rock of targets) {
-          // Only hit asteroids that existed at activation time.
           if (rocksRef.current.indexOf(rock) === -1) continue
-          hitRockLikeShipBullet(rock)
+          const d = toroidalDelta(originX, originY, rock.pos.x, rock.pos.y, w, h)
+          hitRockLikeShipWeapon(rock, { x: d.dx, y: d.dy })
         }
       }
 
@@ -1596,6 +1635,137 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         ATTRACTOR_BEAM_STRENGTH,
       })
 
+      // Phaser (SPACE): hold-to-fire beam with energy + cooldown.
+      {
+        const wantFire = keysRef.current.has(' ')
+
+        // Recharge while not firing (unless in cooldown).
+        if (phaser.cooldownMs <= 0 && !wantFire && phaser.energyMs < PHASER_MAX_FIRE_DURATION * 1000) {
+          phaser.energyMs = Math.min(PHASER_MAX_FIRE_DURATION * 1000, phaser.energyMs + dt * 1000)
+        }
+
+        const canFire = wantFire && phaser.cooldownMs <= 0 && phaser.energyMs > 0
+        const justStarted = canFire && !phaserBeamRef.current.active
+
+        if (justStarted) {
+          sounds.startPhaser()
+          phaser.hitCooldownMs = 0
+        }
+
+        if (canFire) {
+          if (!phaserBeamRef.current.active) sounds.startPhaser()
+          phaser.energyMs = Math.max(0, phaser.energyMs - dt * 1000)
+          phaser.hitCooldownMs = Math.max(0, phaser.hitCooldownMs - dt * 1000)
+
+          const ux = Math.cos(ship.angle)
+          const uy = Math.sin(ship.angle)
+          const len = PHASER_RANGE
+          const endX = wrapX(ship.pos.x + ux * len)
+          const endY = wrapY(ship.pos.y + uy * len)
+
+          phaserBeamRef.current = {
+            active: true,
+            start: { x: ship.pos.x, y: ship.pos.y },
+            end: { x: endX, y: endY },
+            energy01: clamp(phaser.energyMs / (PHASER_MAX_FIRE_DURATION * 1000), 0, 1),
+          }
+
+          if (phaser.hitCooldownMs <= 0) {
+            // Find nearest rock intersecting the beam in toroidal space.
+            let bestRock: Rock | null = null
+            let bestT = Infinity
+
+            for (const rock of rocksRef.current) {
+              const d = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
+              const proj = d.dx * ux + d.dy * uy
+              if (proj < 0 || proj > len) continue
+              const perpX = d.dx - proj * ux
+              const perpY = d.dy - proj * uy
+              const perpDist = Math.hypot(perpX, perpY)
+              const hitR = rock.radius + PHASER_BEAM_RADIUS
+              if (perpDist > hitR) continue
+
+              if (proj < bestT) {
+                bestT = proj
+                bestRock = rock
+              }
+            }
+
+            if (bestRock) {
+              hitRockLikeShipWeapon(bestRock, { x: ux, y: uy })
+              phaser.hitCooldownMs = PHASER_HIT_INTERVAL * 1000
+            } else {
+              // Still throttle targeting work a bit even if we didn't hit.
+              phaser.hitCooldownMs = Math.min(phaser.hitCooldownMs + 1, PHASER_HIT_INTERVAL * 1000)
+            }
+          }
+
+          // Particle effects around the beam (biased toward the far end).
+          {
+            const ratePerSec = 120
+            phaser.particleCarry += dt * ratePerSec
+            const spawnCount = Math.min(6, Math.floor(phaser.particleCarry))
+            phaser.particleCarry -= spawnCount
+            if (spawnCount > 0) {
+              for (let i = 0; i < spawnCount; i++) {
+                const t = 0.6 + Math.random() * 0.4
+                const baseX = wrapX(ship.pos.x + ux * (len * t))
+                const baseY = wrapY(ship.pos.y + uy * (len * t))
+                const px = -uy
+                const py = ux
+                const off = (Math.random() * 2 - 1) * (6 + 10 * (1 - t))
+                const x = wrapX(baseX + px * off)
+                const y = wrapY(baseY + py * off)
+
+                const jitterAng = Math.random() * Math.PI * 2
+                const jitterSpd = 40 + Math.random() * 120
+                const vx = (px * off * 0.6 + Math.cos(jitterAng) * jitterSpd) * 0.6
+                const vy = (py * off * 0.6 + Math.sin(jitterAng) * jitterSpd) * 0.6
+
+                phaserParticlesRef.current.push({
+                  pos: { x, y },
+                  vel: { x: vx, y: vy },
+                  life: 240 + Math.random() * 120,
+                })
+              }
+              const cap = 180
+              if (phaserParticlesRef.current.length > cap) {
+                phaserParticlesRef.current.splice(0, phaserParticlesRef.current.length - cap)
+              }
+            }
+          }
+
+          if (phaser.energyMs <= 0) {
+            phaserBeamRef.current = {
+              ...phaserBeamRef.current,
+              active: false,
+            }
+            sounds.stopPhaser()
+            phaser.cooldownMs = PHASER_COOLDOWN * 1000
+          }
+        } else {
+          // Not firing.
+          sounds.stopPhaser()
+          phaserBeamRef.current = {
+            ...phaserBeamRef.current,
+            active: false,
+            energy01: clamp(phaser.energyMs / (PHASER_MAX_FIRE_DURATION * 1000), 0, 1),
+          }
+        }
+      }
+
+      // Update phaser particles
+      if (phaserParticlesRef.current.length > 0) {
+        phaserParticlesRef.current = phaserParticlesRef.current.filter((p) => {
+          p.pos.x = wrapX(p.pos.x + p.vel.x * dt)
+          p.pos.y = wrapY(p.pos.y + p.vel.y * dt)
+          p.vel.x *= 0.95
+          p.vel.y *= 0.95
+          p.life -= dt * 1000
+          return p.life > 0
+        })
+      }
+
       // Drive the repair hum from simulation state (not rendering).
       const isHealing =
         shipFullyInBaseRef.current &&
@@ -1732,6 +1902,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         baseShotsRef,
         rocksRef,
         bulletsRef,
+        phaserBeamRef,
+        phaserParticlesRef,
         debrisRef,
         harpoonRef,
         shipRef,

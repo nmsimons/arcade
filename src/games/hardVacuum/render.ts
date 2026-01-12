@@ -1,4 +1,4 @@
-import type { BaseShot, Bullet, Debris, Harpoon, Rock, Ship, Vector2, V3 } from './types'
+import type { BaseShot, Bullet, Debris, Harpoon, PhaserBeam, PhaserParticle, Rock, Ship, Vector2, V3 } from './types'
 import { clamp, cross3, normalize3, rotX, rotY, rotZ } from './math'
 import type { HardVacuumGameState } from './ui'
 
@@ -26,6 +26,8 @@ export function drawHardVacuumFrame(args: {
   baseShotsRef: Ref<BaseShot[]>
   rocksRef: Ref<Rock[]>
   bulletsRef: Ref<Bullet[]>
+  phaserBeamRef: Ref<PhaserBeam>
+  phaserParticlesRef: Ref<PhaserParticle[]>
   debrisRef: Ref<Debris[]>
 
   harpoonRef: Ref<Harpoon>
@@ -56,6 +58,8 @@ export function drawHardVacuumFrame(args: {
     baseShotsRef,
     rocksRef,
     bulletsRef,
+    phaserBeamRef,
+    phaserParticlesRef,
     debrisRef,
     harpoonRef,
     shipRef,
@@ -717,6 +721,123 @@ export function drawHardVacuumFrame(args: {
     ctx.arc(bullet.pos.x, bullet.pos.y, 2, 0, Math.PI * 2)
     ctx.fill()
   })
+
+  // Draw phaser beam (player)
+  if (gameState === 'playing' && phaserBeamRef.current.active) {
+    const beam = phaserBeamRef.current
+
+    const now = Date.now()
+
+    const drawWavyGradientStroke = (
+      ax: number,
+      ay: number,
+      bx: number,
+      by: number,
+      color: string,
+      alphaStart: number,
+      alphaEnd: number,
+      widthPx: number,
+      wobbleAmp: number,
+      wobbleFreq: number,
+      phase: number,
+    ) => {
+      const dx = bx - ax
+      const dy = by - ay
+      const len = Math.max(1e-6, Math.hypot(dx, dy))
+      const ux = dx / len
+      const uy = dy / len
+      const px = -uy
+      const py = ux
+
+      const g = ctx.createLinearGradient(ax, ay, bx, by)
+      g.addColorStop(0, `rgba(${color}, ${alphaStart})`)
+      g.addColorStop(0.72, `rgba(${color}, ${alphaStart})`)
+      g.addColorStop(1, `rgba(${color}, ${alphaEnd})`)
+
+      const segs = clamp(Math.round(len / 22), 8, 26)
+      ctx.strokeStyle = g
+      ctx.lineWidth = widthPx
+      ctx.beginPath()
+      for (let i = 0; i <= segs; i++) {
+        const t = i / segs
+        const baseX = ax + dx * t
+        const baseY = ay + dy * t
+        const env = 0.25 + 0.75 * (1 - t)
+        const wobble = Math.sin(t * Math.PI * 2 * wobbleFreq + now * 0.018 + phase) * wobbleAmp * env
+        const x = baseX + px * wobble
+        const y = baseY + py * wobble
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+    }
+
+    const drawToroidalWavy = (ax: number, ay: number, bx: number, by: number, draw: (ax2: number, ay2: number, bx2: number, by2: number) => void) => {
+      const dx = bx - ax
+      const dy = by - ay
+      let ox = 0
+      let oy = 0
+      if (dx > width / 2) ox = -width
+      else if (dx < -width / 2) ox = width
+      if (dy > height / 2) oy = -height
+      else if (dy < -height / 2) oy = height
+
+      draw(ax, ay, bx + ox, by + oy)
+      if (ox !== 0 || oy !== 0) draw(ax - ox, ay - oy, bx, by)
+    }
+
+    const energyA = clamp(0.25 + 0.75 * beam.energy01, 0.25, 1)
+    const flicker = 0.85 + 0.15 * Math.sin(now * 0.045)
+    const a = energyA * flicker
+
+    ctx.save()
+    ctx.globalAlpha = 1
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+
+    // Outer glow (soft fade-out near end-of-reach)
+    ctx.shadowBlur = 18
+    ctx.shadowColor = `rgba(40, 170, 255, ${0.35 * a})`
+    drawToroidalWavy(beam.start.x, beam.start.y, beam.end.x, beam.end.y, (ax, ay, bx, by) => {
+      drawWavyGradientStroke(ax, ay, bx, by, '40, 170, 255', 0.14 * a, 0.0, 12, 2.2, 2.2, 0.3)
+    })
+
+    // Core
+    ctx.shadowBlur = 22
+    ctx.shadowColor = `rgba(40, 170, 255, ${0.5 * a})`
+    drawToroidalWavy(beam.start.x, beam.start.y, beam.end.x, beam.end.y, (ax, ay, bx, by) => {
+      drawWavyGradientStroke(ax, ay, bx, by, '40, 170, 255', 0.92 * a, 0.05, 3.8, 1.6, 2.8, 1.1)
+    })
+
+    // White-hot center
+    ctx.shadowBlur = 0
+    drawToroidalWavy(beam.start.x, beam.start.y, beam.end.x, beam.end.y, (ax, ay, bx, by) => {
+      drawWavyGradientStroke(ax, ay, bx, by, '255,255,255', 0.7 * a, 0.0, 1.5, 0.9, 3.2, 2.7)
+    })
+
+    ctx.restore()
+  }
+
+  // Phaser particles (player)
+  if (gameState === 'playing' && phaserParticlesRef.current.length > 0) {
+    const { width: w2, height: h2 } = canvasSizeRef.current
+    for (const p of phaserParticlesRef.current) {
+      const a = clamp(p.life / 280, 0, 1)
+      ctx.save()
+      ctx.globalAlpha = 1
+      ctx.shadowBlur = 10
+      ctx.shadowColor = `rgba(40, 170, 255, ${0.55 * a})`
+      ctx.fillStyle = `rgba(255,255,255,${0.85 * a})`
+      for (const ox of [-w2, 0, w2]) {
+        for (const oy of [-h2, 0, h2]) {
+          ctx.beginPath()
+          ctx.arc(p.pos.x + ox, p.pos.y + oy, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+      ctx.restore()
+    }
+  }
 
   // Draw debris
   debrisRef.current.forEach((d) => {

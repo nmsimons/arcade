@@ -77,6 +77,19 @@ export interface Bullet {
   isEnemy?: boolean
 }
 
+export interface PhaserBeam {
+  active: boolean
+  start: Vector2
+  end: Vector2
+  energy01: number
+}
+
+export interface PhaserParticle {
+  pos: Vector2
+  vel: Vector2
+  life: number // milliseconds
+}
+
 export interface BaseShot {
   pos: Vector2
   vel: Vector2

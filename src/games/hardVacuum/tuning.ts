@@ -36,6 +36,13 @@ export const BASE_SHOT_SPEED = 520 // Mining base turret velocity
 export const BASE_GUN_FIRE_COOLDOWN = 0.18 // Seconds between base turret shots
 export const BASE_GUN_INITIAL_COOLDOWNS = [0, 0.06, 0.12] as [number, number, number] // Staggered initial timing
 
+// Phaser (player primary fire): hold to fire a continuous beam.
+export const PHASER_MAX_FIRE_DURATION = 0.5 // Seconds of continuous firing before overheat
+export const PHASER_COOLDOWN = 0.5 // Seconds locked out after overheat
+export const PHASER_RANGE = 520 // Pixels
+export const PHASER_BEAM_RADIUS = 6 // Collision radius around the beam line
+export const PHASER_HIT_INTERVAL = 0.09 // Seconds between damage ticks while holding
+
 // --- SHIELDS & DAMAGE ---
 export const SHIP_MAX_SHIELDS = 2 // Starting/maximum shield count
 export const SHIELD_REPAIR_TIME = 1 // Seconds in base to fully repair shields

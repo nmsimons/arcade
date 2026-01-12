@@ -148,6 +148,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     if (gameState !== 'playing') sounds.stopThrust()
     if (gameState !== 'playing') sounds.stopRepairHum()
     if (gameState !== 'playing') sounds.stopPhaser()
+    if (gameState !== 'playing') sounds.stopAttractor()
 
     if (gameState === 'store') sounds.startStoreMusic()
     else sounds.stopStoreMusic()
@@ -158,6 +159,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       sounds.stopStoreMusic()
       sounds.stopRepairHum()
       sounds.stopPhaser(true)
+      sounds.stopAttractor(true)
     }
   }, [gameState])
 
@@ -1634,6 +1636,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         ATTRACTOR_BEAM_RANGE_MULTIPLIER,
         ATTRACTOR_BEAM_STRENGTH,
       })
+
+      // Attractor beam sound
+      if (attractorActive && attractorTimer > 0) sounds.startAttractor()
+      else sounds.stopAttractor()
 
       // Phaser (SPACE): hold-to-fire beam with energy + cooldown.
       {

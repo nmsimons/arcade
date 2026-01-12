@@ -17,6 +17,15 @@ export class SoundSystem {
   private phaserAmpLfo: OscillatorNode | null = null
   private phaserAmpLfoGain: GainNode | null = null
 
+  private attractorPlaying = false
+  private attractorReady = false
+  private attractorOsc: OscillatorNode | null = null
+  private attractorNoise: AudioBufferSourceNode | null = null
+  private attractorFilter: BiquadFilterNode | null = null
+  private attractorGain: GainNode | null = null
+  private attractorLfo: OscillatorNode | null = null
+  private attractorLfoGain: GainNode | null = null
+
   private repairHumPlaying = false
   private repairHumReady = false
   private repairHumOsc: OscillatorNode | null = null
@@ -46,6 +55,7 @@ export class SoundSystem {
   shutdown() {
     // Best-effort cleanup (useful for dev/HMR and leaving the game).
     try {
+      this.stopAttractor(true)
       this.stopPhaser(true)
       this.stopRepairHum(true)
       this.stopThrust()
@@ -569,6 +579,139 @@ export class SoundSystem {
     this.phaserAmpLfo = null
     this.phaserAmpLfoGain = null
     this.phaserReady = false
+  }
+
+  startAttractor() {
+    if (!this.ctx) return
+
+    if (!this.attractorReady) {
+      const ctx = this.ctx
+      const t0 = ctx.currentTime
+
+      // Low, warbly hum + filtered noise (distinct from thrust/repair).
+      const osc = ctx.createOscillator()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(92, t0)
+
+      const lfo = ctx.createOscillator()
+      lfo.type = 'sine'
+      lfo.frequency.setValueAtTime(0.9, t0)
+      const lfoGain = ctx.createGain()
+      lfoGain.gain.setValueAtTime(0, t0)
+      lfo.connect(lfoGain)
+      lfoGain.connect(osc.frequency)
+
+      const bufferSize = Math.floor(ctx.sampleRate * 2)
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
+      const output = noiseBuffer.getChannelData(0)
+      for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1
+
+      const noise = ctx.createBufferSource()
+      noise.buffer = noiseBuffer
+      noise.loop = true
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'lowpass'
+      filter.frequency.setValueAtTime(520, t0)
+      filter.Q.setValueAtTime(0.35, t0)
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, t0)
+
+      osc.connect(filter)
+      noise.connect(filter)
+      filter.connect(gain)
+      gain.connect(ctx.destination)
+
+      osc.start(t0)
+      noise.start(t0)
+      lfo.start(t0)
+
+      this.attractorOsc = osc
+      this.attractorNoise = noise
+      this.attractorFilter = filter
+      this.attractorGain = gain
+      this.attractorLfo = lfo
+      this.attractorLfoGain = lfoGain
+      this.attractorReady = true
+    }
+
+    if (this.attractorPlaying) return
+    this.attractorPlaying = true
+
+    const t = this.ctx.currentTime
+    if (this.attractorGain) {
+      const g = this.attractorGain.gain
+      g.cancelScheduledValues(t)
+      g.setValueAtTime(0, t)
+      g.linearRampToValueAtTime(0.03, t + 0.18)
+    }
+    if (this.attractorLfoGain) {
+      const lg = this.attractorLfoGain.gain
+      lg.cancelScheduledValues(t)
+      lg.setValueAtTime(0, t)
+      lg.linearRampToValueAtTime(18, t + 0.25)
+    }
+  }
+
+  stopAttractor(immediate = false) {
+    if (!this.ctx || !this.attractorReady || !this.attractorGain) return
+    this.attractorPlaying = false
+
+    const t = this.ctx.currentTime
+    const g = this.attractorGain.gain
+    g.cancelScheduledValues(t)
+    if (immediate) {
+      g.setValueAtTime(0, t)
+    } else {
+      g.setValueAtTime(g.value, t)
+      g.setTargetAtTime(0, t, 0.06)
+    }
+
+    if (this.attractorLfoGain) {
+      const lg = this.attractorLfoGain.gain
+      lg.cancelScheduledValues(t)
+      if (immediate) lg.setValueAtTime(0, t)
+      else {
+        lg.setValueAtTime(lg.value, t)
+        lg.setTargetAtTime(0, t, 0.08)
+      }
+    }
+
+    if (!immediate) return
+
+    const stopAt = t + 0.02
+    try {
+      this.attractorOsc?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+    try {
+      this.attractorNoise?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+    try {
+      this.attractorLfo?.stop(stopAt)
+    } catch {
+      // Ignore.
+    }
+
+    try {
+      this.attractorLfoGain?.disconnect()
+      this.attractorFilter?.disconnect()
+      this.attractorGain?.disconnect()
+    } catch {
+      // Ignore.
+    }
+
+    this.attractorOsc = null
+    this.attractorNoise = null
+    this.attractorFilter = null
+    this.attractorGain = null
+    this.attractorLfo = null
+    this.attractorLfoGain = null
+    this.attractorReady = false
   }
 
   collect() {

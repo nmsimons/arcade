@@ -31,6 +31,7 @@ import {
   ROCK_SPAWN_AVOID_RADIUS,
   SHIELD_REPAIR_TIME,
   SHIP_FRICTION,
+  SHIP_LATERAL_FRICTION,
   SHIP_MAX_SHIELDS,
   SHIP_MAX_SPEED,
   SHIP_ROTATION_SPEED,
@@ -1147,8 +1148,21 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         ship.vel.x = (ship.vel.x / speed) * maxSpeed
         ship.vel.y = (ship.vel.y / speed) * maxSpeed
       }
-      ship.vel.x *= SHIP_FRICTION
-      ship.vel.y *= SHIP_FRICTION
+
+      // Damp velocity in the ship's local frame: reduce sideways drift more than forward motion.
+      const fx = Math.cos(ship.angle)
+      const fy = Math.sin(ship.angle)
+      const rx = -fy
+      const ry = fx
+
+      const vForward = ship.vel.x * fx + ship.vel.y * fy
+      const vRight = ship.vel.x * rx + ship.vel.y * ry
+
+      const nextForward = vForward * SHIP_FRICTION
+      const nextRight = vRight * SHIP_LATERAL_FRICTION
+
+      ship.vel.x = nextForward * fx + nextRight * rx
+      ship.vel.y = nextForward * fy + nextRight * ry
 
       // Update ship position with wrapping
       ship.pos.x += ship.vel.x * dt

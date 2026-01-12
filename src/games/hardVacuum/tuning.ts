@@ -28,6 +28,7 @@ export const SHIP_ROTATION_SPEED = 5 // Degrees per frame
 export const SHIP_THRUST_ACCELERATION = 300 // Forward acceleration when thrusting
 export const SHIP_MAX_SPEED = 300 // Maximum velocity (speed cap)
 export const SHIP_FRICTION = 0.99 // Velocity damping per frame (0.99 = 1% friction)
+export const SHIP_LATERAL_FRICTION = 0.985 // Stronger damping for sideways drift (lower = grippier)
 
 // --- COMBAT & WEAPONS ---
 export const BULLET_SPEED = 420 // Player bullet velocity

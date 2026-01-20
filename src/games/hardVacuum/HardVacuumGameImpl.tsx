@@ -1665,13 +1665,18 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
           const ux = Math.cos(ship.angle)
           const uy = Math.sin(ship.angle)
+          // Calculate nose position WITHOUT wrapping
+          // Toroidal renderer handles slightly off-screen coordinates correctly
+          const noseOffset = 18 * (ship.radius / 15)
+          const noseX = ship.pos.x + ux * noseOffset
+          const noseY = ship.pos.y + uy * noseOffset
           const len = PHASER_RANGE
-          const endX = wrapX(ship.pos.x + ux * len)
-          const endY = wrapY(ship.pos.y + uy * len)
+          const endX = noseX + ux * len
+          const endY = noseY + uy * len
 
           phaserBeamRef.current = {
             active: true,
-            start: { x: ship.pos.x, y: ship.pos.y },
+            start: { x: noseX, y: noseY },
             end: { x: endX, y: endY },
             energy01: clamp(phaser.energyMs / (PHASER_MAX_FIRE_DURATION * 1000), 0, 1),
           }
@@ -1682,7 +1687,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             let bestT = Infinity
 
             for (const rock of rocksRef.current) {
-              const d = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
+              const d = toroidalDelta(noseX, noseY, rock.pos.x, rock.pos.y, w, h)
               const proj = d.dx * ux + d.dy * uy
               if (proj < 0 || proj > len) continue
               const perpX = d.dx - proj * ux
@@ -1715,8 +1720,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             if (spawnCount > 0) {
               for (let i = 0; i < spawnCount; i++) {
                 const t = 0.6 + Math.random() * 0.4
-                const baseX = wrapX(ship.pos.x + ux * (len * t))
-                const baseY = wrapY(ship.pos.y + uy * (len * t))
+                const baseX = wrapX(noseX + ux * (len * t))
+                const baseY = wrapY(noseY + uy * (len * t))
                 const px = -uy
                 const py = ux
                 const off = (Math.random() * 2 - 1) * (6 + 10 * (1 - t))

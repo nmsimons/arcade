@@ -63,6 +63,11 @@ export const BLUE_ROCK_SPAWN_CHANCE_BASE = 0.12 // Base probability for blue roc
 export const BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL = 0.015 // Additional chance per level
 export const BLUE_ROCK_SPAWN_CHANCE_MAX = 0.3 // Maximum blue rock spawn probability
 
+// Red rock: smallest only. Explodes on shot/collision.
+export const RED_ROCK_SPAWN_CHANCE = 0.08
+export const RED_ROCK_BLAST_RADIUS = 150 // Pixels
+export const RED_ROCK_BLAST_IMPULSE = 900 // Velocity impulse scale
+
 // --- DEBRIS EFFECTS ---
 export const DEBRIS_SPEED_MIN = 50 // Minimum debris particle speed
 export const DEBRIS_SPEED_MAX = 150 // Maximum debris particle speed (min + 100)

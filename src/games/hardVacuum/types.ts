@@ -12,7 +12,7 @@ export interface Ship {
   radius: number
 }
 
-export type RockKind = 'normal' | 'blue'
+export type RockKind = 'normal' | 'blue' | 'red'
 
 export interface Rock {
   pos: Vector2

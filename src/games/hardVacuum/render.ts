@@ -662,6 +662,7 @@ export function drawHardVacuumFrame(args: {
     }
 
     const isBlue = rock.kind === 'blue'
+    const isRed = rock.kind === 'red'
 
     ctx.save()
     ctx.translate(rock.pos.x, rock.pos.y)
@@ -690,9 +691,13 @@ export function drawHardVacuumFrame(args: {
       ctx.restore()
     }
 
-    ctx.shadowBlur = isBlue ? 10 : 0
-    ctx.shadowColor = isBlue ? 'rgba(40, 170, 255, 0.45)' : 'rgba(0, 0, 0, 0)'
-    ctx.strokeStyle = isBlue ? 'rgba(40, 170, 255, 0.95)' : 'rgba(255,255,255,0.9)'
+    ctx.shadowBlur = isBlue || isRed ? 10 : 0
+    ctx.shadowColor = isBlue
+      ? 'rgba(40, 170, 255, 0.45)'
+      : isRed
+        ? 'rgba(255, 68, 68, 0.45)'
+        : 'rgba(0, 0, 0, 0)'
+    ctx.strokeStyle = isBlue ? 'rgba(40, 170, 255, 0.95)' : isRed ? 'rgba(255, 68, 68, 0.95)' : 'rgba(255,255,255,0.9)'
     ctx.lineWidth = 1.4
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'

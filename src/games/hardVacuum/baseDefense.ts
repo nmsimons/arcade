@@ -45,6 +45,7 @@ export function updateBaseDefenseAndProcessing(args: {
   setScore: (updater: (prev: number) => number) => void
   waveCreditsRef: Ref<number>
   createDebris: CreateDebris
+  onRedRockDetonate?: (rock: Rock) => void
 }) {
   const {
     dt,
@@ -63,6 +64,7 @@ export function updateBaseDefenseAndProcessing(args: {
     setScore,
     waveCreditsRef,
     createDebris,
+    onRedRockDetonate,
   } = args
 
   const rocks = rocksRef.current
@@ -146,6 +148,12 @@ export function updateBaseDefenseAndProcessing(args: {
         const a = rocks2[ai]
         const d = toroidalDelta(sh.pos.x, sh.pos.y, a.pos.x, a.pos.y, w, h)
         if (Math.hypot(d.dx, d.dy) <= a.radius + 2) {
+          if (a.kind === 'red') {
+            shots.splice(si, 1)
+            onRedRockDetonate?.(a)
+            break
+          }
+
           // Process rock on hit.
           shots.splice(si, 1)
           rocks2.splice(ai, 1)

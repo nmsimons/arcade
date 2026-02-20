@@ -33,6 +33,8 @@ export function updateBulletsAndPlayerRockCollisions(args: {
 
   sounds: { explosion: (size: 'small' | 'medium' | 'large') => void }
 
+  onRedRockDetonate?: (rock: Rock) => void
+
   createRock: (x: number, y: number, radius: number, velOverride?: Vector2, kind?: RockKind) => Rock
   createDebris: (x: number, y: number, vx: number, vy: number, count: number, life: number, color: string) => void
 
@@ -48,6 +50,8 @@ export function updateBulletsAndPlayerRockCollisions(args: {
   BLUE_ROCK_SPAWN_CHANCE_BASE: number
   BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL: number
   BLUE_ROCK_SPAWN_CHANCE_MAX: number
+
+  RED_ROCK_SPAWN_CHANCE: number
 }) {
   const {
     dt,
@@ -62,6 +66,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     setScore,
     waveCreditsRef,
     sounds,
+    onRedRockDetonate,
     createRock,
     createDebris,
     levelRef,
@@ -73,6 +78,8 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     BLUE_ROCK_SPAWN_CHANCE_BASE,
     BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL,
     BLUE_ROCK_SPAWN_CHANCE_MAX,
+
+    RED_ROCK_SPAWN_CHANCE,
   } = args
 
   // Update bullets with wrapping
@@ -109,6 +116,12 @@ export function updateBulletsAndPlayerRockCollisions(args: {
             rock.vel.x += ux * push
             rock.vel.y += uy * push
           }
+          return false
+        }
+
+        if (rock.kind === 'red') {
+          // Delegate to main simulation for proper AOE damage.
+          onRedRockDetonate?.(rock)
           return false
         }
 
@@ -159,6 +172,10 @@ export function updateBulletsAndPlayerRockCollisions(args: {
                     blueRocksSpawnedThisLevelRef.current += 1
                   }
                 }
+              }
+
+              if (kind === 'normal' && Math.random() < RED_ROCK_SPAWN_CHANCE) {
+                kind = 'red'
               }
             }
 

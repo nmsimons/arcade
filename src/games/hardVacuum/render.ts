@@ -23,6 +23,8 @@ export function drawHardVacuumFrame(args: {
   attractorActive: boolean
   attractorTimer: number
 
+  RED_ROCK_DETONATION_DELAY: number
+
   baseShotsRef: Ref<BaseShot[]>
   rocksRef: Ref<Rock[]>
   bulletsRef: Ref<Bullet[]>
@@ -55,6 +57,7 @@ export function drawHardVacuumFrame(args: {
     miningBaseAngleRef,
     attractorActive,
     attractorTimer,
+    RED_ROCK_DETONATION_DELAY,
     baseShotsRef,
     rocksRef,
     bulletsRef,
@@ -663,6 +666,10 @@ export function drawHardVacuumFrame(args: {
 
     const isBlue = rock.kind === 'blue'
     const isRed = rock.kind === 'red'
+    const isArmedRed = isRed && rock.redFuseS != null
+    const armedT = isArmedRed ? clamp(1 - (rock.redFuseS as number) / Math.max(1e-6, RED_ROCK_DETONATION_DELAY), 0, 1) : 0
+    const now = isArmedRed ? Date.now() : 0
+    const pulse01 = isArmedRed ? 0.5 + 0.5 * Math.sin((now / 1000) * Math.PI * 2 * (3.5 + 2.5 * armedT)) : 0
 
     ctx.save()
     ctx.translate(rock.pos.x, rock.pos.y)
@@ -691,14 +698,18 @@ export function drawHardVacuumFrame(args: {
       ctx.restore()
     }
 
-    ctx.shadowBlur = isBlue || isRed ? 10 : 0
+    ctx.shadowBlur = isBlue || isRed ? (isArmedRed ? 10 + 18 * pulse01 * (0.25 + 0.75 * armedT) : 10) : 0
     ctx.shadowColor = isBlue
       ? 'rgba(40, 170, 255, 0.45)'
       : isRed
-        ? 'rgba(255, 68, 68, 0.45)'
+        ? `rgba(255, 68, 68, ${isArmedRed ? 0.28 + 0.42 * pulse01 : 0.45})`
         : 'rgba(0, 0, 0, 0)'
-    ctx.strokeStyle = isBlue ? 'rgba(40, 170, 255, 0.95)' : isRed ? 'rgba(255, 68, 68, 0.95)' : 'rgba(255,255,255,0.9)'
-    ctx.lineWidth = 1.4
+    ctx.strokeStyle = isBlue
+      ? 'rgba(40, 170, 255, 0.95)'
+      : isRed
+        ? `rgba(255, 68, 68, ${isArmedRed ? 0.55 + 0.45 * pulse01 : 0.95})`
+        : 'rgba(255,255,255,0.9)'
+    ctx.lineWidth = isArmedRed ? 1.4 + 0.9 * pulse01 * (0.25 + 0.75 * armedT) : 1.4
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()

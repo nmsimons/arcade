@@ -49,6 +49,7 @@ import {
   ROCK_SPAWN_AVOID_RADIUS,
   RED_ROCK_BLAST_IMPULSE,
   RED_ROCK_BLAST_RADIUS,
+  RED_ROCK_DETONATION_DELAY,
   RED_ROCK_SPAWN_CHANCE,
   SHIELD_REPAIR_TIME,
   SHIP_FRICTION,
@@ -1140,6 +1141,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       const pendingRedDetonations: Rock[] = []
 
+      const armRedRock = (rock: Rock) => {
+        if (rock.kind !== 'red') return
+        if (rock.redFuseS == null) rock.redFuseS = RED_ROCK_DETONATION_DELAY
+      }
+
       const releaseHarpoonIfAttached = (rock: Rock) => {
         const hp = harpoonRef.current
         if (hp.state === 'attached' && hp.rock === rock) {
@@ -1160,7 +1166,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       const hitRockLikeShipWeapon = (rock: Rock, pushDir?: Vector2) => {
         if (rock.kind === 'red') {
-          pendingRedDetonations.push(rock)
+          armRedRock(rock)
           return
         }
         if (rock.kind === 'blue') {
@@ -1277,7 +1283,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             other.vel.y += ny * kick
 
             if (other.kind === 'red') {
-              pendingRedDetonations.push(other)
+              // Chain reaction arms other red rocks; they detonate after their own fuse.
+              armRedRock(other)
               continue
             }
 
@@ -1576,7 +1583,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         for (let i = 0; i < rocks.length; i++) {
           const a = rocks[i]
           collideWithWalls(a.pos, a.vel, a.radius, 0.85, () => {
-            if (a.kind === 'red') pendingRedDetonations.push(a)
+            if (a.kind === 'red') armRedRock(a)
           })
         }
 
@@ -1597,7 +1604,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           setScore,
           waveCreditsRef,
           createDebris,
-          onRedRockDetonate: (rock) => pendingRedDetonations.push(rock),
+          onRedRockDetonate: (rock) => armRedRock(rock),
         })
         collideWithWalls(ship.pos, ship.vel, ship.radius, 0.55, (impact) => applyImpactShield(impact))
         {
@@ -1664,8 +1671,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const dist2 = dx * dx + dy * dy
           if (dist2 >= rSum * rSum) continue
 
-          if (a.kind === 'red') pendingRedDetonations.push(a)
-          if (b.kind === 'red') pendingRedDetonations.push(b)
+          if (a.kind === 'red') armRedRock(a)
+          if (b.kind === 'red') armRedRock(b)
           if (a.kind === 'red' || b.kind === 'red') continue
 
           const dist = Math.sqrt(Math.max(1e-8, dist2))
@@ -1877,7 +1884,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         setScore,
         waveCreditsRef,
         sounds,
-        onRedRockDetonate: (rock) => pendingRedDetonations.push(rock),
+        onRedRockDetonate: (rock) => armRedRock(rock),
         createRock,
         createDebris,
         levelRef,
@@ -1891,6 +1898,18 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         BLUE_ROCK_SPAWN_CHANCE_MAX,
         RED_ROCK_SPAWN_CHANCE,
       })
+
+      // Tick any armed red rocks and detonate those whose fuse has expired.
+      for (const rock of rocksRef.current) {
+        if (rock.kind !== 'red') continue
+        if (rock.redFuseS == null) continue
+        rock.redFuseS -= dt
+        if (rock.redFuseS <= 0) {
+          pendingRedDetonations.push(rock)
+          // Prevent re-queuing if, for any reason, detonation is deferred.
+          rock.redFuseS = undefined
+        }
+      }
 
       // Resolve any queued red detonations from base/bullets/phaser/rock collisions before ship collision math.
       resolveRedDetonations()
@@ -1906,7 +1925,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           if (dist >= minDist || dist < 1e-6) continue
 
           if (rock.kind === 'red') {
-            pendingRedDetonations.push(rock)
+            armRedRock(rock)
             continue
           }
 
@@ -2001,6 +2020,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         miningBaseAngleRef,
         attractorActive,
         attractorTimer,
+        RED_ROCK_DETONATION_DELAY,
         baseShotsRef,
         rocksRef,
         bulletsRef,

@@ -65,6 +65,9 @@ export const BLUE_ROCK_SPAWN_CHANCE_MAX = 0.3 // Maximum blue rock spawn probabi
 
 // Red rock: smallest only. Explodes on shot/collision.
 export const RED_ROCK_SPAWN_CHANCE = 0.08
+// Delay between a red rock being triggered and actually detonating.
+// (Gives the player a chance to react; also used to drive the arming pulse.)
+export const RED_ROCK_DETONATION_DELAY = 2.0 // seconds
 export const RED_ROCK_BLAST_RADIUS = 150 // Pixels
 export const RED_ROCK_BLAST_IMPULSE = 900 // Velocity impulse scale
 

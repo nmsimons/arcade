@@ -24,6 +24,9 @@ export interface Rock {
   mesh: { verts: V3[]; polys: number[][] }
   kind: RockKind
   inBaseTime?: number
+  // Red rocks can be "armed" and detonate after a short fuse.
+  // Remaining fuse time in seconds; undefined means not armed.
+  redFuseS?: number
 }
 
 export type Harpoon =

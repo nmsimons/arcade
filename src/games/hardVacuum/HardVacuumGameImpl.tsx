@@ -14,6 +14,7 @@ import type {
   V3,
 } from './types'
 import { clamp, makeRockMesh } from './math'
+import { toroidalRayCircleHitDistance, wrapCoordinate } from './phaserGeometry'
 import { sounds } from './sound'
 import {
   ATTRACTOR_BEAM_DURATION,
@@ -200,7 +201,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const phaserBeamRef = useRef<PhaserBeam>({
     active: false,
     start: { x: 0, y: 0 },
-    end: { x: 0, y: 0 },
+    direction: { x: 1, y: 0 },
+    length: 0,
     energy01: 1,
   })
   const phaserParticlesRef = useRef<PhaserParticle[]>([])
@@ -500,7 +502,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     miningBaseAngleRef.current = 0
     miningGunCooldownsRef.current = BASE_GUN_INITIAL_COOLDOWNS
     phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
-    phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, end: { x: 0, y: 0 }, energy01: 1 }
+    phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, direction: { x: 1, y: 0 }, length: 0, energy01: 1 }
     phaserParticlesRef.current = []
     gravityPulseChargesRef.current = 1
     stasisChargesRef.current = 1
@@ -524,7 +526,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     baseShotsRef.current = []
     bulletsRef.current = []
     phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
-    phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, end: { x: 0, y: 0 }, energy01: 1 }
+    phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, direction: { x: 1, y: 0 }, length: 0, energy01: 1 }
     phaserParticlesRef.current = []
     queuedGravityPulseRef.current = false
     queuedStasisRef.current = false
@@ -1128,16 +1130,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       const ship = shipRef.current
 
       const { width: w, height: h } = canvasSizeRef.current
-      const wrapX = (x: number) => {
-        if (x < 0) return x + w
-        if (x > w) return x - w
-        return x
-      }
-      const wrapY = (y: number) => {
-        if (y < 0) return y + h
-        if (y > h) return y - h
-        return y
-      }
+      const wrapX = (x: number) => wrapCoordinate(x, w)
+      const wrapY = (y: number) => wrapCoordinate(y, h)
 
       const pendingRedDetonations: Rock[] = []
 
@@ -1756,13 +1750,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const ux = Math.cos(ship.angle)
           const uy = Math.sin(ship.angle)
           const len = PHASER_RANGE
-          const endX = wrapX(ship.pos.x + ux * len)
-          const endY = wrapY(ship.pos.y + uy * len)
 
           phaserBeamRef.current = {
             active: true,
             start: { x: ship.pos.x, y: ship.pos.y },
-            end: { x: endX, y: endY },
+            direction: { x: ux, y: uy },
+            length: len,
             energy01: clamp(phaser.energyMs / (PHASER_MAX_FIRE_DURATION * 1000), 0, 1),
           }
 
@@ -1772,17 +1765,20 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             let bestT = Infinity
 
             for (const rock of rocksRef.current) {
-              const d = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
-              const proj = d.dx * ux + d.dy * uy
-              if (proj < 0 || proj > len) continue
-              const perpX = d.dx - proj * ux
-              const perpY = d.dy - proj * uy
-              const perpDist = Math.hypot(perpX, perpY)
               const hitR = rock.radius + PHASER_BEAM_RADIUS
-              if (perpDist > hitR) continue
+              const hitDistance = toroidalRayCircleHitDistance(
+                ship.pos,
+                { x: ux, y: uy },
+                len,
+                rock.pos,
+                hitR,
+                w,
+                h,
+              )
+              if (hitDistance == null) continue
 
-              if (proj < bestT) {
-                bestT = proj
+              if (hitDistance < bestT) {
+                bestT = hitDistance
                 bestRock = rock
               }
             }

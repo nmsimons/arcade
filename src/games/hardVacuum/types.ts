@@ -83,7 +83,8 @@ export interface Bullet {
 export interface PhaserBeam {
   active: boolean
   start: Vector2
-  end: Vector2
+  direction: Vector2
+  length: number
   energy01: number
 }
 

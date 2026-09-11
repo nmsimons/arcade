@@ -1,5 +1,6 @@
 import type { BaseShot, Bullet, Debris, Harpoon, PhaserBeam, PhaserParticle, Rock, Ship, Vector2, V3 } from './types'
 import { clamp, cross3, normalize3, rotX, rotY, rotZ } from './math'
+import { getToroidalRayCopies } from './phaserGeometry'
 import type { HardVacuumGameState } from './ui'
 
 type Ref<T> = { current: T }
@@ -788,18 +789,9 @@ export function drawHardVacuumFrame(args: {
       ctx.stroke()
     }
 
-    const drawToroidalWavy = (ax: number, ay: number, bx: number, by: number, draw: (ax2: number, ay2: number, bx2: number, by2: number) => void) => {
-      const dx = bx - ax
-      const dy = by - ay
-      let ox = 0
-      let oy = 0
-      if (dx > width / 2) ox = -width
-      else if (dx < -width / 2) ox = width
-      if (dy > height / 2) oy = -height
-      else if (dy < -height / 2) oy = height
-
-      draw(ax, ay, bx + ox, by + oy)
-      if (ox !== 0 || oy !== 0) draw(ax - ox, ay - oy, bx, by)
+    const rayCopies = getToroidalRayCopies(beam.start, beam.direction, beam.length, width, height)
+    const drawToroidalWavy = (draw: (ax: number, ay: number, bx: number, by: number) => void) => {
+      for (const copy of rayCopies) draw(copy.start.x, copy.start.y, copy.end.x, copy.end.y)
     }
 
     const energyA = clamp(0.25 + 0.75 * beam.energy01, 0.25, 1)
@@ -814,20 +806,20 @@ export function drawHardVacuumFrame(args: {
     // Outer glow (soft fade-out near end-of-reach)
     ctx.shadowBlur = 18
     ctx.shadowColor = `rgba(40, 170, 255, ${0.35 * a})`
-    drawToroidalWavy(beam.start.x, beam.start.y, beam.end.x, beam.end.y, (ax, ay, bx, by) => {
+    drawToroidalWavy((ax, ay, bx, by) => {
       drawWavyGradientStroke(ax, ay, bx, by, '40, 170, 255', 0.14 * a, 0.0, 12, 2.2, 2.2, 0.3)
     })
 
     // Core
     ctx.shadowBlur = 22
     ctx.shadowColor = `rgba(40, 170, 255, ${0.5 * a})`
-    drawToroidalWavy(beam.start.x, beam.start.y, beam.end.x, beam.end.y, (ax, ay, bx, by) => {
+    drawToroidalWavy((ax, ay, bx, by) => {
       drawWavyGradientStroke(ax, ay, bx, by, '40, 170, 255', 0.92 * a, 0.05, 3.8, 1.6, 2.8, 1.1)
     })
 
     // White-hot center
     ctx.shadowBlur = 0
-    drawToroidalWavy(beam.start.x, beam.start.y, beam.end.x, beam.end.y, (ax, ay, bx, by) => {
+    drawToroidalWavy((ax, ay, bx, by) => {
       drawWavyGradientStroke(ax, ay, bx, by, '255,255,255', 0.7 * a, 0.0, 1.5, 0.9, 3.2, 2.7)
     })
 

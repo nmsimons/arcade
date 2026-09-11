@@ -13,11 +13,6 @@ export const CREDITS_BLUE_ROCK_MULTIPLIER = 9 // Blue rocks are worth this times
 export const TIME_BONUS_TARGET_SECONDS = 45 // "Par" time for wave completion
 export const TIME_BONUS_MAX_MULTIPLIER = 3.0 // Max bonus added (2.0x total = 1 + 1.0)
 
-// --- STORE PRICES ---
-export const STORE_PRICE_GRAVITY_PULSE = 1000
-export const STORE_PRICE_STASIS_FIELD = 3000
-export const STORE_PRICE_ATTRACTOR_RECHARGE = 2000
-
 // --- ATTRACTOR BEAM ---
 export const ATTRACTOR_BEAM_STRENGTH = 80000 // Gravity strength applied to rocks
 export const ATTRACTOR_BEAM_RANGE_MULTIPLIER = 3.0 // Range as multiple of base radius

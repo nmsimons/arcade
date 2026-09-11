@@ -30,7 +30,8 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 - Arrows / WASD: move & rotate
 - Space: shoot
-- X: harpoon (toggle reel)
+- F: harpoon (toggle reel)
+- A: attractor beam
 - P: pause
 
 **Final Approach**

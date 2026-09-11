@@ -1,51 +1,33 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import {
-  getToroidalRayCopies,
-  toroidalRayCircleHitDistance,
-  wrapCoordinate,
-} from '../src/games/hardVacuum/phaserGeometry.ts'
+import { rayCircleHitDistance } from '../src/games/hardVacuum/phaserGeometry.ts'
 
-const assertCopiesPointForward = (copies, direction) => {
-  assert.ok(copies.length > 0)
-  for (const copy of copies) {
-    const dx = copy.end.x - copy.start.x
-    const dy = copy.end.y - copy.start.y
-    assert.ok(dx * direction.x + dy * direction.y > 0)
-  }
-}
-
-test('wrapped render copies preserve cardinal firing direction', () => {
-  assertCopiesPointForward(getToroidalRayCopies({ x: 400, y: 300 }, { x: 1, y: 0 }, 520, 800, 600), { x: 1, y: 0 })
-  assertCopiesPointForward(getToroidalRayCopies({ x: 640, y: 360 }, { x: 0, y: -1 }, 520, 1280, 720), { x: 0, y: -1 })
-})
-
-test('diagonal rays expose all wrapped segments', () => {
-  const copies = getToroidalRayCopies({ x: 700, y: 500 }, { x: 0.8, y: 0.6 }, 300, 800, 600)
-  assertCopiesPointForward(copies, { x: 0.8, y: 0.6 })
-  assert.ok(copies.length >= 3)
-})
-
-test('collision finds forward targets beyond the nearest-image half screen', () => {
+test('collision finds the entry point of targets in front of the beam', () => {
   assert.equal(
-    toroidalRayCircleHitDistance({ x: 400, y: 300 }, { x: 1, y: 0 }, 520, { x: 100, y: 300 }, 5, 800, 600),
-    500,
+    rayCircleHitDistance({ x: 400, y: 300 }, { x: 1, y: 0 }, 520, { x: 700, y: 300 }, 5),
+    295,
   )
   assert.equal(
-    toroidalRayCircleHitDistance({ x: 640, y: 360 }, { x: 0, y: -1 }, 520, { x: 640, y: 580 }, 5, 1280, 720),
-    500,
+    rayCircleHitDistance({ x: 640, y: 360 }, { x: 0, y: -1 }, 520, { x: 640, y: 140 }, 5),
+    215,
   )
 })
 
-test('collision rejects targets beyond beam range', () => {
+test('collision rejects targets behind or beyond the beam', () => {
   assert.equal(
-    toroidalRayCircleHitDistance({ x: 400, y: 300 }, { x: 1, y: 0 }, 520, { x: 150, y: 300 }, 5, 800, 600),
+    rayCircleHitDistance({ x: 400, y: 300 }, { x: 1, y: 0 }, 520, { x: 150, y: 300 }, 5),
+    null,
+  )
+  assert.equal(
+    rayCircleHitDistance({ x: 400, y: 300 }, { x: 1, y: 0 }, 520, { x: 1000, y: 300 }, 5),
     null,
   )
 })
 
-test('coordinate wrapping supports multiple crossings', () => {
-  assert.equal(wrapCoordinate(820, 320), 180)
-  assert.equal(wrapCoordinate(-680, 320), 280)
+test('collision includes a circle whose near edge overlaps the beam endpoint', () => {
+  assert.equal(
+    rayCircleHitDistance({ x: 0, y: 0 }, { x: 1, y: 0 }, 520, { x: 525, y: 0 }, 10),
+    515,
+  )
 })

@@ -1,5 +1,6 @@
 import type { Bullet, Harpoon, Rock, RockKind, Ship, Vector2 } from './types'
 import { clamp } from './math'
+import { isInsideCavern } from './worldGeometry'
 
 type Ref<T> = { current: T }
 
@@ -82,18 +83,13 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     RED_ROCK_SPAWN_CHANCE,
   } = args
 
-  // Update bullets with wrapping
+  // Projectiles expire when they strike the cavern boundary.
   bulletsRef.current = bulletsRef.current.filter((bullet) => {
     bullet.pos.x += bullet.vel.x * dt
     bullet.pos.y += bullet.vel.y * dt
     bullet.life -= dt * 1000
 
-    if (bullet.pos.x > w) bullet.pos.x = 0
-    if (bullet.pos.x < 0) bullet.pos.x = w
-    if (bullet.pos.y > h) bullet.pos.y = 0
-    if (bullet.pos.y < 0) bullet.pos.y = h
-
-    return bullet.life > 0
+    return bullet.life > 0 && isInsideCavern(bullet.pos)
   })
 
   // Collision detection: player bullets vs boss/rocks

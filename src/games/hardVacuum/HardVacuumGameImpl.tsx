@@ -14,7 +14,15 @@ import type {
   V3,
 } from './types'
 import { clamp, makeRockMesh } from './math'
-import { toroidalRayCircleHitDistance, wrapCoordinate } from './phaserGeometry'
+import { rayCircleHitDistance } from './phaserGeometry'
+import {
+  WORLD_CENTER,
+  WORLD_HEIGHT,
+  WORLD_WIDTH,
+  isInsideCavern,
+  raycastCavern,
+  resolveCircleInCavern,
+} from './worldGeometry'
 import { sounds } from './sound'
 import {
   ATTRACTOR_BEAM_DURATION,
@@ -59,9 +67,6 @@ import {
   SHIP_MAX_SPEED,
   SHIP_ROTATION_SPEED,
   SHIP_THRUST_ACCELERATION,
-  STORE_PRICE_ATTRACTOR_RECHARGE,
-  STORE_PRICE_GRAVITY_PULSE,
-  STORE_PRICE_STASIS_FIELD,
   TIME_BONUS_MAX_MULTIPLIER,
   TIME_BONUS_TARGET_SECONDS,
 } from './tuning'
@@ -71,7 +76,7 @@ import {
   HardVacuumMenuOverlay,
   HardVacuumPausedOverlay,
   HardVacuumRightHud,
-  HardVacuumStoreOverlay,
+  HardVacuumWaveCompleteOverlay,
   HardVacuumTopCenterHud,
 } from './ui'
 import { drawHardVacuumFrame } from './render'
@@ -82,21 +87,18 @@ import { updateBulletsAndPlayerRockCollisions } from './bullets'
 
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'store' | 'dying' | 'gameOver'>('menu')
+  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'waveComplete' | 'dying' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
   const [shields, setShields] = useState(SHIP_MAX_SHIELDS)
   const shieldsRef = useRef(shields)
   const gameStateRef = useRef(gameState)
   const [level, setLevel] = useState(1)
-  const [gravityCharges, setGravityCharges] = useState(0)
-  const [stasisCharges, setStasisCharges] = useState(0)
   const [attractorActive, setAttractorActive] = useState(false)
   const [attractorTimer, setAttractorTimer] = useState(ATTRACTOR_BEAM_DURATION)
   const attractorActiveRef = useRef(attractorActive)
   const attractorTimerRef = useRef(attractorTimer)
   const [menuIndex, setMenuIndex] = useState(0)
   const [gameOverIndex, setGameOverIndex] = useState(0)
-  const [storeIndex, setStoreIndex] = useState(0)
   
   // Wave timing for bonus multiplier
   const [waveStartTime, setWaveStartTime] = useState(0)
@@ -127,7 +129,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     waveStartTimeRef.current = waveStartTime
   }, [waveStartTime])
 
-  const setGameStateWithRef = useCallback((next: 'menu' | 'playing' | 'paused' | 'store' | 'dying' | 'gameOver') => {
+  const setGameStateWithRef = useCallback((next: 'menu' | 'playing' | 'paused' | 'waveComplete' | 'dying' | 'gameOver') => {
     gameStateRef.current = next
     setGameState(next)
   }, [])
@@ -155,7 +157,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     if (gameState !== 'playing') sounds.stopPhaser()
     if (gameState !== 'playing') sounds.stopAttractor()
 
-    if (gameState === 'store') sounds.startStoreMusic()
+    if (gameState === 'waveComplete') sounds.startStoreMusic()
     else sounds.stopStoreMusic()
 
     return () => {
@@ -212,22 +214,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   const pendingNextWaveRef = useRef<number | null>(null)
 
-  // Powerups: charges carry over; players buy more in the store.
-  const gravityPulseChargesRef = useRef(0)
-  const stasisChargesRef = useRef(0)
-  const queuedGravityPulseRef = useRef(false)
-  const queuedStasisRef = useRef(false)
-
-  const powerPulsesRef = useRef<Array<{ kind: 'gravity' | 'stasis'; at: number }>>([])
-
-  const GRAVITY_PULSE_COST = STORE_PRICE_GRAVITY_PULSE
-  const STASIS_FIELD_COST = STORE_PRICE_STASIS_FIELD
-  const ATTRACTOR_RECHARGE_COST = STORE_PRICE_ATTRACTOR_RECHARGE
-
-  // Cached background starfield (offscreen) so it costs ~one drawImage per frame.
-  const starFieldCanvasRef = useRef<HTMLCanvasElement | null>(null)
-  const starFieldSizeRef = useRef({ width: 0, height: 0 })
-
   // Curated menu “action shot” scene.
   const menuSceneInitializedRef = useRef(false)
 
@@ -266,45 +252,29 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const MINING_ROT_SPEED = 0.18
 
   const toroidalDelta = useCallback((ax: number, ay: number, bx: number, by: number, w: number, h: number) => {
-    // Vector from A -> B under wrapping (shortest).
-    let dx = bx - ax
-    let dy = by - ay
-    if (dx > w / 2) dx -= w
-    else if (dx < -w / 2) dx += w
-    if (dy > h / 2) dy -= h
-    else if (dy < -h / 2) dy += h
-    return { dx, dy }
+    // Legacy callback shape used by the physics helpers; distance is now ordinary world space.
+    void w
+    void h
+    return { dx: bx - ax, dy: by - ay }
   }, [])
 
   const buildRopeBetween = useCallback(
     (ax: number, ay: number, bx: number, by: number, ropeLen: number) => {
-      const { width: w, height: h } = canvasSizeRef.current
-      const wrapX = (x: number) => {
-        if (x < 0) return x + w
-        if (x > w) return x - w
-        return x
-      }
-      const wrapY = (y: number) => {
-        if (y < 0) return y + h
-        if (y > h) return y - h
-        return y
-      }
-
       const segments = clamp(Math.ceil(ropeLen / 14), 10, 44)
       const segLen = ropeLen / segments
-      const d = toroidalDelta(ax, ay, bx, by, w, h)
+      const d = { dx: bx - ax, dy: by - ay }
       const rope: Vector2[] = []
       const ropePrev: Vector2[] = []
       for (let k = 1; k < segments; k++) {
         const t = k / segments
-        const px = wrapX(ax + d.dx * t)
-        const py = wrapY(ay + d.dy * t)
+        const px = ax + d.dx * t
+        const py = ay + d.dy * t
         rope.push({ x: px, y: py })
         ropePrev.push({ x: px, y: py })
       }
       return { rope, ropePrev, segLen }
     },
-    [toroidalDelta],
+    [],
   )
 
   const createRock = useCallback(
@@ -379,83 +349,34 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const spawnRocks = useCallback(
     (count: number, avoidRadius: number = 100, speedMult: number = 1) => {
       const newRocks: Rock[] = []
-      const { width, height } = canvasSizeRef.current
       const ship = shipRef.current
-      const edgeInset = 1.5
-
-      const baseX = width / 2
-      const baseY = height / 2
-
-      const toroidalDistToShip = (x: number, y: number) => {
-        const dxRaw = Math.abs(x - ship.pos.x)
-        const dyRaw = Math.abs(y - ship.pos.y)
-        const dx = Math.min(dxRaw, width - dxRaw)
-        const dy = Math.min(dyRaw, height - dyRaw)
-        return Math.hypot(dx, dy)
-      }
-
-      const toroidalDistToBase = (x: number, y: number) => {
-        const dxRaw = Math.abs(x - baseX)
-        const dyRaw = Math.abs(y - baseY)
-        const dx = Math.min(dxRaw, width - dxRaw)
-        const dy = Math.min(dyRaw, height - dyRaw)
-        return Math.hypot(dx, dy)
-      }
-
-      const sampleEdgeSpawn = () => {
-        const edge = Math.floor(Math.random() * 4)
-        let x = 0
-        let y = 0
-        let inwardDir = 0
-
-        if (edge === 0) {
-          // Left edge -> inward right
-          x = edgeInset
-          y = Math.random() * height
-          inwardDir = 0
-        } else if (edge === 1) {
-          // Right edge -> inward left
-          x = width - edgeInset
-          y = Math.random() * height
-          inwardDir = Math.PI
-        } else if (edge === 2) {
-          // Top edge -> inward down
-          x = Math.random() * width
-          y = edgeInset
-          inwardDir = Math.PI / 2
-        } else {
-          // Bottom edge -> inward up
-          x = Math.random() * width
-          y = height - edgeInset
-          inwardDir = -Math.PI / 2
-        }
-
-        // Bias velocity inward but allow variation.
-        const spread = Math.PI * 0.7
-        const a = inwardDir + (Math.random() - 0.5) * spread
+      const sampleSpawn = () => {
+        const a = Math.random() * Math.PI * 2
+        const distance = 430 + Math.random() * 520
+        const x = ship.pos.x + Math.cos(a) * distance
+        const y = ship.pos.y + Math.sin(a) * distance
+        const travelAngle = a + Math.PI + (Math.random() - 0.5) * Math.PI * 0.85
         const speed = (ROCK_BASE_SPEED_MIN + Math.random() * (ROCK_BASE_SPEED_MAX - ROCK_BASE_SPEED_MIN)) * speedMult
-        const vel: Vector2 = { x: Math.cos(a) * speed, y: Math.sin(a) * speed }
+        const vel: Vector2 = { x: Math.cos(travelAngle) * speed, y: Math.sin(travelAngle) * speed }
         return { x, y, vel }
       }
 
       for (let i = 0; i < count; i++) {
-        let chosen = sampleEdgeSpawn()
-        for (let tries = 0; tries < 40; tries++) {
-          const candidate = sampleEdgeSpawn()
+        const radius = 30 + Math.random() * 15
+        let chosen = { x: WORLD_CENTER.x, y: WORLD_CENTER.y - 450, vel: { x: 0, y: 30 } }
+        for (let tries = 0; tries < 80; tries++) {
+          const candidate = sampleSpawn()
           if (
-            toroidalDistToShip(candidate.x, candidate.y) >= avoidRadius &&
-            toroidalDistToBase(candidate.x, candidate.y) >= MINING_BASE_RADIUS + ROCK_BASE_CLEARANCE
+            isInsideCavern(candidate, radius + 32) &&
+            Math.hypot(candidate.x - ship.pos.x, candidate.y - ship.pos.y) >= avoidRadius &&
+            Math.hypot(candidate.x - WORLD_CENTER.x, candidate.y - WORLD_CENTER.y) >= MINING_BASE_RADIUS + ROCK_BASE_CLEARANCE
           ) {
             chosen = candidate
             break
           }
-          // Keep the best candidate so far if we can't satisfy avoidRadius (e.g., ship hugging an edge).
-          if (toroidalDistToShip(candidate.x, candidate.y) > toroidalDistToShip(chosen.x, chosen.y)) {
-            chosen = candidate
-          }
         }
 
-        newRocks.push(createRock(chosen.x, chosen.y, 30 + Math.random() * 15, chosen.vel))
+        newRocks.push(createRock(chosen.x, chosen.y, radius, chosen.vel))
       }
       rocksRef.current = [...rocksRef.current, ...newRocks]
     },
@@ -475,8 +396,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const startGame = useCallback(() => {
     sounds.init()
     sounds.stopStoreMusic()
-    const { width, height } = canvasSizeRef.current
-    shipRef.current = { pos: { x: width / 2, y: height / 2 }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
+    shipRef.current = { pos: { ...WORLD_CENTER }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
     rocksRef.current = []
     shipRepairTimeRef.current = 0
     bulletsRef.current = []
@@ -504,14 +424,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
     phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, direction: { x: 1, y: 0 }, length: 0, energy01: 1 }
     phaserParticlesRef.current = []
-    gravityPulseChargesRef.current = 1
-    stasisChargesRef.current = 1
-    setGravityCharges(1)
-    setStasisCharges(1)
     setAttractorActiveWithRef(false)
     setAttractorTimerWithRef(ATTRACTOR_BEAM_DURATION)
-    queuedGravityPulseRef.current = false
-    queuedStasisRef.current = false
     pendingNextWaveRef.current = null
     spawnRocks(rockCountForLevel(1), ROCK_SPAWN_AVOID_RADIUS, speedMultForLevel(1))
   }, [spawnRocks, rockCountForLevel, speedMultForLevel, resetBlueRocksForLevel, setGameStateWithRef, setAttractorActiveWithRef, setAttractorTimerWithRef])
@@ -520,7 +434,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     const next = pendingNextWaveRef.current
     if (!next) return
 
-    const { width: w, height: h } = canvasSizeRef.current
     setLevel(next)
     resetBlueRocksForLevel(next)
     baseShotsRef.current = []
@@ -528,15 +441,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
     phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, direction: { x: 1, y: 0 }, length: 0, energy01: 1 }
     phaserParticlesRef.current = []
-    queuedGravityPulseRef.current = false
-    queuedStasisRef.current = false
     shipFullyInBaseRef.current = false
     shipRepairTimeRef.current = 0
     setAttractorActiveWithRef(false)
+    setAttractorTimerWithRef(ATTRACTOR_BEAM_DURATION)
 
-    // Ensure ship stays inside bounds on resume.
-    shipRef.current.pos.x = clamp(shipRef.current.pos.x, 0, w)
-    shipRef.current.pos.y = clamp(shipRef.current.pos.y, 0, h)
+    // Wave transitions cannot leave the ship beyond a cavern wall.
+    resolveCircleInCavern(shipRef.current.pos, shipRef.current.vel, shipRef.current.radius)
 
     spawnRocks(rockCountForLevel(next), ROCK_SPAWN_AVOID_RADIUS, speedMultForLevel(next))
     invulnerableRef.current = INVULNERABILITY_LEVEL_START
@@ -552,59 +463,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     setWaveCreditsEarned(0)
     setWaveTimeBonus(0)
     waveCreditsRef.current = 0
-  }, [resetBlueRocksForLevel, spawnRocks, rockCountForLevel, speedMultForLevel, setGameStateWithRef, setAttractorActiveWithRef])
-
-  const isStoreOptionEnabled = useCallback(
-    (index: number) => {
-      if (index === 0) return score >= GRAVITY_PULSE_COST
-      if (index === 1) return score >= STASIS_FIELD_COST
-      if (index === 2) return score >= ATTRACTOR_RECHARGE_COST && attractorTimer < 30
-      return true // Continue
-    },
-    [score, GRAVITY_PULSE_COST, STASIS_FIELD_COST, ATTRACTOR_RECHARGE_COST, attractorTimer],
-  )
-
-  const firstEnabledStoreIndex = useCallback(() => {
-    if (isStoreOptionEnabled(0)) return 0
-    if (isStoreOptionEnabled(1)) return 1
-    if (isStoreOptionEnabled(2)) return 2
-    return 3
-  }, [isStoreOptionEnabled])
-
-  const buyGravityPulse = useCallback(() => {
-    // Keep this handler side-effect free w.r.t. React state updaters.
-    // In React StrictMode, updater functions may be invoked more than once in dev.
-    if (score < GRAVITY_PULSE_COST) return
-    setScore((s) => s - GRAVITY_PULSE_COST)
-    setGravityCharges((c) => c + 1)
-  }, [score, GRAVITY_PULSE_COST])
-
-  const buyStasisField = useCallback(() => {
-    if (score < STASIS_FIELD_COST) return
-    setScore((s) => s - STASIS_FIELD_COST)
-    setStasisCharges((c) => c + 1)
-  }, [score, STASIS_FIELD_COST])
-
-  const buyAttractorRecharge = useCallback(() => {
-    if (score < ATTRACTOR_RECHARGE_COST) return
-    setScore((s) => s - ATTRACTOR_RECHARGE_COST)
-    setAttractorTimerWithRef(30)
-  }, [score, ATTRACTOR_RECHARGE_COST, setAttractorTimerWithRef])
-
-  useEffect(() => {
-    if (gameState !== 'store') return
-    if (!isStoreOptionEnabled(storeIndex)) {
-      queueMicrotask(() => setStoreIndex(firstEnabledStoreIndex()))
-    }
-  }, [gameState, score, storeIndex, isStoreOptionEnabled, firstEnabledStoreIndex])
-
-  useEffect(() => {
-    gravityPulseChargesRef.current = gravityCharges
-  }, [gravityCharges])
-
-  useEffect(() => {
-    stasisChargesRef.current = stasisCharges
-  }, [stasisCharges])
+  }, [resetBlueRocksForLevel, spawnRocks, rockCountForLevel, speedMultForLevel, setGameStateWithRef, setAttractorActiveWithRef, setAttractorTimerWithRef])
 
   useEffect(() => {
     levelRef.current = level
@@ -616,8 +475,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     // Menu should be an enticing action shot that is still consistent with game mechanics.
     // We stage a deterministic-ish scene (ship + bullets + harpoon + base processing) and keep
     // rock *positions* static so nothing drifts into ugly overlaps.
-    const { width, height } = canvasSizeRef.current
-
     // Avoid rebuilding the scene repeatedly while staying on the menu.
     if (menuSceneInitializedRef.current) return
     menuSceneInitializedRef.current = true
@@ -629,12 +486,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     debrisRef.current = []
 
     // Place ship in a dramatic but plausible position.
-    const baseX = width / 2
-    const baseY = height / 2
+    const baseX = WORLD_CENTER.x
+    const baseY = WORLD_CENTER.y
     shipRef.current = {
-      pos: { x: width * 0.28, y: height * 0.62 },
+      pos: { x: baseX - 330, y: baseY + 145 },
       vel: { x: 0, y: 0 },
-      angle: Math.atan2(baseY - height * 0.62, baseX - width * 0.28),
+      angle: Math.atan2(-145, 330),
       radius: SHIP_RADIUS,
     }
 
@@ -646,46 +503,19 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     // Mark it as “in base long enough” so base-gun shots make sense visually.
     ;(processingRock as Rock & { inBaseTime?: number }).inBaseTime = 3
 
-    const toroidalDist = (ax: number, ay: number, bx: number, by: number) => {
-      const dxRaw = Math.abs(ax - bx)
-      const dyRaw = Math.abs(ay - by)
-      const dx = Math.min(dxRaw, width - dxRaw)
-      const dy = Math.min(dyRaw, height - dyRaw)
-      return Math.hypot(dx, dy)
-    }
+    const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(bx - ax, by - ay)
 
     // Additional spaced rocks around the arena for an “in-progress” feel.
     const levelForShot = 5
     const speedMult = speedMultForLevel(levelForShot)
     const count = clamp(rockCountForLevel(levelForShot), 5, 7)
 
-    const edgeInset = 1.5
-    const sampleEdgeSpawn = () => {
-      const edge = Math.floor(Math.random() * 4)
-      let x = 0
-      let y = 0
-      let inwardDir = 0
-
-      if (edge === 0) {
-        x = edgeInset
-        y = Math.random() * height
-        inwardDir = 0
-      } else if (edge === 1) {
-        x = width - edgeInset
-        y = Math.random() * height
-        inwardDir = Math.PI
-      } else if (edge === 2) {
-        x = Math.random() * width
-        y = edgeInset
-        inwardDir = Math.PI / 2
-      } else {
-        x = Math.random() * width
-        y = height - edgeInset
-        inwardDir = -Math.PI / 2
-      }
-
-      const spread = Math.PI * 0.7
-      const a = inwardDir + (Math.random() - 0.5) * spread
+    const sampleSpawn = () => {
+      const angle = Math.random() * Math.PI * 2
+      const distanceFromShip = 360 + Math.random() * 500
+      const x = shipRef.current.pos.x + Math.cos(angle) * distanceFromShip
+      const y = shipRef.current.pos.y + Math.sin(angle) * distanceFromShip
+      const a = angle + Math.PI + (Math.random() - 0.5) * Math.PI * 0.7
       const speed = (20 + Math.random() * 30) * speedMult
       return { x, y, vel: { x: Math.cos(a) * speed, y: Math.sin(a) * speed } as Vector2 }
     }
@@ -693,18 +523,19 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     const nextRocks: Rock[] = [processingRock]
     for (let i = 0; i < count; i++) {
       const radius = 30 + Math.random() * 15
-      let chosen = sampleEdgeSpawn()
+      let chosen = sampleSpawn()
 
       for (let tries = 0; tries < 120; tries++) {
-        const candidate = sampleEdgeSpawn()
-        const distToShip = toroidalDist(candidate.x, candidate.y, shipRef.current.pos.x, shipRef.current.pos.y)
-        const distToBase = toroidalDist(candidate.x, candidate.y, baseX, baseY)
+        const candidate = sampleSpawn()
+        if (!isInsideCavern(candidate, radius + 30)) continue
+        const distToShip = distance(candidate.x, candidate.y, shipRef.current.pos.x, shipRef.current.pos.y)
+        const distToBase = distance(candidate.x, candidate.y, baseX, baseY)
         if (distToShip < 140) continue
         if (distToBase < MINING_BASE_RADIUS + 190) continue
 
         let ok = true
         for (const r of nextRocks) {
-          const d = toroidalDist(candidate.x, candidate.y, r.pos.x, r.pos.y)
+          const d = distance(candidate.x, candidate.y, r.pos.x, r.pos.y)
           if (d < (radius + r.radius) * 1.2) {
             ok = false
             break
@@ -786,70 +617,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         setGameState('playing')
       }
 
-      // Store keyboard navigation
-      if (gameState === 'store') {
-        if (e.key === 'ArrowUp') {
-          e.preventDefault()
-          setStoreIndex((current) => {
-            // Move up in 2x2 grid (subtract 2 to go up a row)
-            let next = current >= 2 ? current - 2 : current + 2
-            // If disabled, try the other option in the same row
-            if (!isStoreOptionEnabled(next)) {
-              next = next % 2 === 0 ? next + 1 : next - 1
-            }
-            // If still disabled, stay where we are
-            if (!isStoreOptionEnabled(next)) return current
-            return next
-          })
-        }
-        if (e.key === 'ArrowDown') {
-          e.preventDefault()
-          setStoreIndex((current) => {
-            // Move down in 2x2 grid (add 2 to go down a row)
-            let next = current < 2 ? current + 2 : current - 2
-            // If disabled, try the other option in the same row
-            if (!isStoreOptionEnabled(next)) {
-              next = next % 2 === 0 ? next + 1 : next - 1
-            }
-            // If still disabled, stay where we are
-            if (!isStoreOptionEnabled(next)) return current
-            return next
-          })
-        }
-        if (e.key === 'ArrowLeft') {
-          e.preventDefault()
-          setStoreIndex((current) => {
-            // Move left in 2x2 grid
-            let next = current % 2 === 1 ? current - 1 : current + 1
-            // If disabled, try moving up or down in the same column
-            if (!isStoreOptionEnabled(next)) {
-              next = current < 2 ? current + 2 : current - 2
-            }
-            // If still disabled, stay where we are
-            if (!isStoreOptionEnabled(next)) return current
-            return next
-          })
-        }
-        if (e.key === 'ArrowRight') {
-          e.preventDefault()
-          setStoreIndex((current) => {
-            // Move right in 2x2 grid
-            let next = current % 2 === 0 ? current + 1 : current - 1
-            // If disabled, try moving up or down in the same column
-            if (!isStoreOptionEnabled(next)) {
-              next = current < 2 ? current + 2 : current - 2
-            }
-            // If still disabled, stay where we are
-            if (!isStoreOptionEnabled(next)) return current
-            return next
-          })
-        }
+      if (gameState === 'waveComplete') {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          if (storeIndex === 0) buyGravityPulse()
-          else if (storeIndex === 1) buyStasisField()
-          else if (storeIndex === 2) buyAttractorRecharge()
-          else continueToNextWave()
+          continueToNextWave()
         }
       }
 
@@ -937,25 +708,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
       }
 
-      // Powerups: D = demolition pulse, S = stasis field, A = attractor beam.
-      if (!e.repeat && e.key.toLowerCase() === 'd' && gameState === 'playing') {
-        if (gravityPulseChargesRef.current > 0 && !queuedGravityPulseRef.current) {
-          gravityPulseChargesRef.current -= 1
-          setGravityCharges(gravityPulseChargesRef.current)
-          queuedGravityPulseRef.current = true
-          powerPulsesRef.current.push({ kind: 'gravity', at: Date.now() })
-        }
-      }
-
-      if (!e.repeat && e.key.toLowerCase() === 's' && gameState === 'playing') {
-        if (stasisChargesRef.current > 0 && !queuedStasisRef.current) {
-          stasisChargesRef.current -= 1
-          setStasisCharges(stasisChargesRef.current)
-          queuedStasisRef.current = true
-          powerPulsesRef.current.push({ kind: 'stasis', at: Date.now() })
-        }
-      }
-
+      // Attractor beam remains the single auxiliary system.
       if (!e.repeat && e.key.toLowerCase() === 'a' && gameState === 'playing') {
         setAttractorActiveWithRef((active) => {
           if (!active && attractorTimerRef.current > 0) return true
@@ -1011,7 +764,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, storeIndex, startGame, onExit, continueToNextWave, buyGravityPulse, buyStasisField, buyAttractorRecharge, isStoreOptionEnabled, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, setAttractorActiveWithRef])
+  }, [gameState, menuIndex, gameOverIndex, startGame, onExit, continueToNextWave, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, setAttractorActiveWithRef])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1024,18 +777,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       const newWidth = window.innerWidth
       const newHeight = window.innerHeight
       
-      // Only reset starfield if size actually changed
-      const sizeChanged = canvas.width !== newWidth || canvas.height !== newHeight
-      
       canvas.width = newWidth
       canvas.height = newHeight
       canvasSizeRef.current = { width: newWidth, height: newHeight }
-
-      // Force starfield regeneration only when size actually changes
-      if (sizeChanged) {
-        starFieldCanvasRef.current = null
-        starFieldSizeRef.current = { width: 0, height: 0 }
-      }
     }
 
     resize()
@@ -1085,7 +829,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       // Menu: animate the action shot without moving rocks (prevents overlap drift).
       if (gameState === 'menu') {
-        const { width: w, height: h } = canvasSizeRef.current
         miningBaseAngleRef.current += dt * MINING_ROT_SPEED
 
         // Tumble rocks in place (no translation).
@@ -1095,27 +838,18 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           rock.rot[2] += rock.angVel[2] * dt
         }
 
-        // Loop bullets with wrapping.
+        // Let staged projectiles cross the camera naturally; the menu is rebuilt when revisited.
         if (bulletsRef.current.length > 0) {
           for (const b of bulletsRef.current) {
             b.pos.x += b.vel.x * dt
             b.pos.y += b.vel.y * dt
-            if (b.pos.x > w) b.pos.x = 0
-            if (b.pos.x < 0) b.pos.x = w
-            if (b.pos.y > h) b.pos.y = 0
-            if (b.pos.y < 0) b.pos.y = h
           }
         }
 
-        // Loop base shots with wrapping.
         if (baseShotsRef.current.length > 0) {
           for (const s of baseShotsRef.current) {
             s.pos.x += s.vel.x * dt
             s.pos.y += s.vel.y * dt
-            if (s.pos.x > w) s.pos.x = 0
-            if (s.pos.x < 0) s.pos.x = w
-            if (s.pos.y > h) s.pos.y = 0
-            if (s.pos.y < 0) s.pos.y = h
           }
         }
 
@@ -1129,9 +863,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       const ship = shipRef.current
 
-      const { width: w, height: h } = canvasSizeRef.current
-      const wrapX = (x: number) => wrapCoordinate(x, w)
-      const wrapY = (y: number) => wrapCoordinate(y, h)
+      const w = WORLD_WIDTH
+      const h = WORLD_HEIGHT
+      // Physics helpers retain this callback shape, but the finite world never wraps.
+      const wrapX = (x: number) => x
+      const wrapY = (y: number) => y
 
       const pendingRedDetonations: Rock[] = []
 
@@ -1370,23 +1106,18 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       ship.vel.x = nextForward * fx + nextRight * rx
       ship.vel.y = nextForward * fy + nextRight * ry
 
-      // Update ship position with wrapping
+      // Update ship in persistent world coordinates.
       ship.pos.x += ship.vel.x * dt
       ship.pos.y += ship.vel.y * dt
-
-      // Wrap ship position at window edges
-      const { width, height } = canvasSizeRef.current
-      if (ship.pos.x > width) ship.pos.x = 0
-      if (ship.pos.x < 0) ship.pos.x = width
-      if (ship.pos.y > height) ship.pos.y = 0
-      if (ship.pos.y < 0) ship.pos.y = height
+      const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42)
+      if (shipWallHit.maxImpactSpeed > 0) applyImpactShield(shipWallHit.maxImpactSpeed)
 
       // Update invulnerability
       if (invulnerableRef.current > 0) {
         invulnerableRef.current -= dt * 1000
       }
 
-      // Update rocks with wrapping
+      // Update rocks and bounce them off the cavern boundary.
       rocksRef.current.forEach((rock) => {
         rock.pos.x += rock.vel.x * dt
         rock.pos.y += rock.vel.y * dt
@@ -1396,10 +1127,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         rock.rot[1] += rock.angVel[1] * dt
         rock.rot[2] += rock.angVel[2] * dt
 
-        if (rock.pos.x > w) rock.pos.x = 0
-        if (rock.pos.x < 0) rock.pos.x = w
-        if (rock.pos.y > h) rock.pos.y = 0
-        if (rock.pos.y < 0) rock.pos.y = h
+        const wallHit = resolveCircleInCavern(rock.pos, rock.vel, rock.radius, 0.82)
+        if (wallHit.collided && rock.kind === 'red') armRedRock(rock)
       })
 
       // Force field collision: prevent rocks from exiting base through doors when attractor is active
@@ -1444,34 +1173,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
       }
 
-      // Rock-rock collisions (treat as circles in a wrapped/toroidal space)
+      // Rock-rock collisions in ordinary world space.
       // This uses a simple impulse + positional correction so rocks "bump" off each other.
       const rocks = rocksRef.current
       const restitution = 0.9
-
-      // Powerups: process queued activations inside the simulation step.
-      // Demolition Pulse: hits each asteroid once as if shot by the ship.
-      // Stasis Field: removes all momentum from all asteroids.
-      if (queuedStasisRef.current) {
-        queuedStasisRef.current = false
-        for (const rock of rocksRef.current) {
-          rock.vel.x = 0
-          rock.vel.y = 0
-        }
-      }
-
-      if (queuedGravityPulseRef.current) {
-        queuedGravityPulseRef.current = false
-
-        const originX = shipRef.current.pos.x
-        const originY = shipRef.current.pos.y
-        const targets = [...rocksRef.current]
-        for (const rock of targets) {
-          if (rocksRef.current.indexOf(rock) === -1) continue
-          const d = toroidalDelta(originX, originY, rock.pos.x, rock.pos.y, w, h)
-          hitRockLikeShipWeapon(rock, { x: d.dx, y: d.dy })
-        }
-      }
 
       // Mining base interaction: a flat-topped hex with 3 door gaps.
       // Anything inside the hex is processed (rocks) or repaired (ship).
@@ -1648,18 +1353,21 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         HARPOON_REEL_MIN_LEN,
       })
 
+      const updatedHarpoon = harpoonRef.current
+      if (updatedHarpoon.state === 'flying' || updatedHarpoon.state === 'deployed') {
+        const hookWallHit = resolveCircleInCavern(updatedHarpoon.pos, updatedHarpoon.vel, HARPOON_HOOK_RADIUS, 0.15)
+        if (hookWallHit.collided && updatedHarpoon.state === 'flying') {
+          harpoonRef.current = { ...updatedHarpoon, state: 'deployed' }
+        }
+      }
+
       for (let i = 0; i < rocks.length; i++) {
         const a = rocks[i]
         for (let j = i + 1; j < rocks.length; j++) {
           const b = rocks[j]
 
-          // Shortest vector under wrapping.
-          let dx = a.pos.x - b.pos.x
-          let dy = a.pos.y - b.pos.y
-          if (dx > w / 2) dx -= w
-          else if (dx < -w / 2) dx += w
-          if (dy > h / 2) dy -= h
-          else if (dy < -h / 2) dy += h
+          const dx = a.pos.x - b.pos.x
+          const dy = a.pos.y - b.pos.y
 
           const rSum = a.radius + b.radius
           const dist2 = dx * dx + dy * dy
@@ -1749,7 +1457,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
           const ux = Math.cos(ship.angle)
           const uy = Math.sin(ship.angle)
-          const len = PHASER_RANGE
+          const len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE)
 
           phaserBeamRef.current = {
             active: true,
@@ -1760,20 +1468,18 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
 
           if (phaser.hitCooldownMs <= 0) {
-            // Find nearest rock intersecting the beam in toroidal space.
+            // Find the nearest rock before the beam meets the cavern wall.
             let bestRock: Rock | null = null
             let bestT = Infinity
 
             for (const rock of rocksRef.current) {
               const hitR = rock.radius + PHASER_BEAM_RADIUS
-              const hitDistance = toroidalRayCircleHitDistance(
+              const hitDistance = rayCircleHitDistance(
                 ship.pos,
                 { x: ux, y: uy },
                 len,
                 rock.pos,
                 hitR,
-                w,
-                h,
               )
               if (hitDistance == null) continue
 
@@ -1801,13 +1507,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             if (spawnCount > 0) {
               for (let i = 0; i < spawnCount; i++) {
                 const t = 0.6 + Math.random() * 0.4
-                const baseX = wrapX(ship.pos.x + ux * (len * t))
-                const baseY = wrapY(ship.pos.y + uy * (len * t))
+                const baseX = ship.pos.x + ux * (len * t)
+                const baseY = ship.pos.y + uy * (len * t)
                 const px = -uy
                 const py = ux
                 const off = (Math.random() * 2 - 1) * (6 + 10 * (1 - t))
-                const x = wrapX(baseX + px * off)
-                const y = wrapY(baseY + py * off)
+                const x = baseX + px * off
+                const y = baseY + py * off
 
                 const jitterAng = Math.random() * Math.PI * 2
                 const jitterSpd = 40 + Math.random() * 120
@@ -1849,12 +1555,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       // Update phaser particles
       if (phaserParticlesRef.current.length > 0) {
         phaserParticlesRef.current = phaserParticlesRef.current.filter((p) => {
-          p.pos.x = wrapX(p.pos.x + p.vel.x * dt)
-          p.pos.y = wrapY(p.pos.y + p.vel.y * dt)
+          p.pos.x += p.vel.x * dt
+          p.pos.y += p.vel.y * dt
           p.vel.x *= 0.95
           p.vel.y *= 0.95
           p.life -= dt * 1000
-          return p.life > 0
+          return p.life > 0 && isInsideCavern(p.pos)
         })
       }
 
@@ -1962,16 +1668,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         levelingUpRef.current = true
         const nextLevel = levelRef.current + 1
 
-        // Prepare to open the store before spawning the next wave,
+        // Prepare the wave-complete summary before spawning the next wave,
         // but wait until the final explosion/debris animation finishes.
-        queuedGravityPulseRef.current = false
-        queuedStasisRef.current = false
-
         pendingNextWaveRef.current = nextLevel
         waitingForWaveEndFxRef.current = true
       }
 
-      // If the wave is clear, don't show the store until the wave-ending animation completes.
+      // If the wave is clear, wait for the wave-ending animation before showing the summary.
       if (
         gameState === 'playing' &&
         levelingUpRef.current &&
@@ -1994,8 +1697,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         setWaveTimeBonus(bonus)
         setScore((s) => s + bonus) // Apply bonus only here, not during gameplay
         
-        setStoreIndex(firstEnabledStoreIndex())
-        setGameState('store')
+        setAttractorActiveWithRef(false)
+        setAttractorTimerWithRef(ATTRACTOR_BEAM_DURATION)
+        setGameStateWithRef('waveComplete')
         waitingForWaveEndFxRef.current = false
       }
     }
@@ -2009,8 +1713,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         ctx,
         gameState,
         canvasSizeRef,
-        starFieldCanvasRef,
-        starFieldSizeRef,
         MINING_BASE_RADIUS,
         MINING_DOOR_TRIM,
         miningBaseAngleRef,
@@ -2025,7 +1727,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         debrisRef,
         harpoonRef,
         shipRef,
-        powerPulsesRef,
         keysRef,
         shields: shieldsRef.current,
         shieldsRef,
@@ -2057,13 +1758,26 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (rafId != null) cancelAnimationFrame(rafId)
       sounds.stopRepairHum(true)
     }
-  }, [createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, firstEnabledStoreIndex, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, calculateTimeMultiplier, setGameStateWithRef, setAttractorActiveWithRef, setAttractorTimerWithRef])
+  }, [createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, calculateTimeMultiplier, setGameStateWithRef, setAttractorActiveWithRef, setAttractorTimerWithRef])
 
   const exitToGameSelect = () => {
     sounds.stopThrust()
     sounds.stopStoreMusic()
     onExit()
   }
+
+  const setVirtualKey = (key: string, pressed: boolean) => {
+    if (pressed) keysRef.current.add(key)
+    else keysRef.current.delete(key)
+  }
+
+  const tapVirtualKey = (key: string) => {
+    window.dispatchEvent(new KeyboardEvent('keydown', { key }))
+    window.dispatchEvent(new KeyboardEvent('keyup', { key }))
+  }
+
+  const holdButtonClass =
+    'touch-none select-none min-w-16 h-16 rounded-full border-2 border-white/45 bg-black/65 text-white text-xl font-bold active:border-[#00ff88] active:bg-[#00ff88]/30'
 
   return (
     <div className="relative w-screen h-screen overflow-hidden font-mono">
@@ -2081,27 +1795,93 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       {HardVacuumRightHud({
         gameState,
-        gravityCharges,
-        stasisCharges,
         attractorTimer,
       })}
 
-      {HardVacuumStoreOverlay({
+      {gameState === 'playing' && (
+        <div className="absolute inset-x-0 bottom-4 z-30 flex items-end justify-between px-4 lg:hidden pointer-events-none">
+          <div className="flex items-end gap-2 pointer-events-auto">
+            <button
+              type="button"
+              aria-label="Rotate left"
+              className={holdButtonClass}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.currentTarget.setPointerCapture(event.pointerId)
+                setVirtualKey('arrowleft', true)
+              }}
+              onPointerUp={() => setVirtualKey('arrowleft', false)}
+              onPointerCancel={() => setVirtualKey('arrowleft', false)}
+            >
+              ↶
+            </button>
+            <button
+              type="button"
+              aria-label="Thrust"
+              className={`${holdButtonClass} mb-12`}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.currentTarget.setPointerCapture(event.pointerId)
+                setVirtualKey('arrowup', true)
+              }}
+              onPointerUp={() => setVirtualKey('arrowup', false)}
+              onPointerCancel={() => setVirtualKey('arrowup', false)}
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              aria-label="Rotate right"
+              className={holdButtonClass}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.currentTarget.setPointerCapture(event.pointerId)
+                setVirtualKey('arrowright', true)
+              }}
+              onPointerUp={() => setVirtualKey('arrowright', false)}
+              onPointerCancel={() => setVirtualKey('arrowright', false)}
+            >
+              ↷
+            </button>
+          </div>
+
+          <div className="flex items-end gap-3 pointer-events-auto">
+            <button
+              type="button"
+              aria-label="Fire harpoon"
+              className={`${holdButtonClass} text-xs text-[#00ff88]`}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                tapVirtualKey('f')
+              }}
+            >
+              HOOK
+            </button>
+            <button
+              type="button"
+              aria-label="Fire laser"
+              className={`${holdButtonClass} mb-12 text-xs text-[#44aaff]`}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.currentTarget.setPointerCapture(event.pointerId)
+                setVirtualKey(' ', true)
+              }}
+              onPointerUp={() => setVirtualKey(' ', false)}
+              onPointerCancel={() => setVirtualKey(' ', false)}
+            >
+              LASER
+            </button>
+          </div>
+        </div>
+      )}
+
+      {HardVacuumWaveCompleteOverlay({
         gameState,
         level,
-        score,
-        storeIndex,
-        attractorTimer,
         waveCompletionTime,
         waveCreditsEarned,
         waveTimeBonus,
-        GRAVITY_PULSE_COST,
-        STASIS_FIELD_COST,
-        ATTRACTOR_RECHARGE_COST,
         calculateTimeMultiplier,
-        buyGravityPulse,
-        buyStasisField,
-        buyAttractorRecharge,
         continueToNextWave,
       })}
 

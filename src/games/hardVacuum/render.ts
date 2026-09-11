@@ -1,20 +1,33 @@
 import type { BaseShot, Bullet, Debris, Harpoon, PhaserBeam, PhaserParticle, Rock, Ship, Vector2, V3 } from './types'
 import { clamp, cross3, normalize3, rotX, rotY, rotZ } from './math'
-import { getToroidalRayCopies } from './phaserGeometry'
 import type { HardVacuumGameState } from './ui'
+import { CAVERN_POINTS, WORLD_CENTER, WORLD_HEIGHT, WORLD_WIDTH } from './worldGeometry'
+import { drawHardVacuumMinimap } from './minimap'
 
 type Ref<T> = { current: T }
 
 type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => { dx: number; dy: number }
 
-type PowerPulse = { kind: 'gravity' | 'stasis'; at: number }
+const seededUnit = (index: number, salt: number) => {
+  const value = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453
+  return value - Math.floor(value)
+}
+
+// Muted, angular mineral scratches fixed to the cavern floor. These provide
+// local motion reference without resembling luminous stars or a regular grid.
+const CAVERN_FLOOR_MARKS = Array.from({ length: 340 }, (_, index) => ({
+  x: 100 + seededUnit(index, 1) * (WORLD_WIDTH - 200),
+  y: 100 + seededUnit(index, 2) * (WORLD_HEIGHT - 200),
+  angle: seededUnit(index, 3) * Math.PI * 2,
+  length: 8 + seededUnit(index, 4) * 20,
+  bend: (seededUnit(index, 5) - 0.5) * 8,
+  alpha: 0.07 + seededUnit(index, 6) * 0.085,
+}))
 
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
   gameState: HardVacuumGameState
   canvasSizeRef: Ref<{ width: number; height: number }>
-  starFieldCanvasRef: Ref<HTMLCanvasElement | null>
-  starFieldSizeRef: Ref<{ width: number; height: number }>
 
   MINING_BASE_RADIUS: number
   MINING_DOOR_TRIM: number
@@ -36,7 +49,6 @@ export function drawHardVacuumFrame(args: {
   harpoonRef: Ref<Harpoon>
   shipRef: Ref<Ship>
 
-  powerPulsesRef: Ref<PowerPulse[]>
   keysRef: Ref<Set<string>>
 
   shields: number
@@ -51,8 +63,6 @@ export function drawHardVacuumFrame(args: {
     ctx,
     gameState,
     canvasSizeRef,
-    starFieldCanvasRef,
-    starFieldSizeRef,
     MINING_BASE_RADIUS,
     MINING_DOOR_TRIM,
     miningBaseAngleRef,
@@ -67,7 +77,6 @@ export function drawHardVacuumFrame(args: {
     debrisRef,
     harpoonRef,
     shipRef,
-    powerPulsesRef,
     keysRef,
     shields,
     shieldsRef,
@@ -80,55 +89,77 @@ export function drawHardVacuumFrame(args: {
   const width = canvasSizeRef.current.width
   const height = canvasSizeRef.current.height
 
-  const ensureStarField = () => {
-    const w = canvasSizeRef.current.width
-    const h = canvasSizeRef.current.height
-
-    if (starFieldCanvasRef.current && starFieldSizeRef.current.width === w && starFieldSizeRef.current.height === h) {
-      return
-    }
-
-    const off = document.createElement('canvas')
-    off.width = w
-    off.height = h
-    const sctx = off.getContext('2d')
-    if (!sctx) return
-
-    const area = w * h
-    const count = clamp(Math.round(area / 5000), 200, 600)
-    for (let i = 0; i < count; i++) {
-      const x = Math.random() * w
-      const y = Math.random() * h
-      const r = Math.random()
-      const size = r < 0.08 ? 2 : 1
-      const alpha = r < 0.08 ? 0.35 : 0.18
-      sctx.fillStyle = `rgba(255,255,255,${alpha})`
-      sctx.fillRect(x, y, size, size)
-    }
-
-    starFieldCanvasRef.current = off
-    starFieldSizeRef.current = { width: w, height: h }
-  }
-
   // Clear
-  ctx.fillStyle = '#0a0a0a'
+  ctx.fillStyle = '#050808'
   ctx.fillRect(0, 0, width, height)
 
-  // Starfield background (behind everything).
-  if (gameState !== 'menu') {
-    ensureStarField()
-    if (starFieldCanvasRef.current) {
-      ctx.save()
-      ctx.globalAlpha = 1
-      ctx.drawImage(starFieldCanvasRef.current, 0, 0)
-      ctx.restore()
-    }
+  const shipPosition = shipRef.current.pos
+  const cameraZoom = clamp(Math.min(width / 900, height / 620), 0.58, 1)
+  ctx.save()
+  ctx.translate(width / 2, height / 2)
+  ctx.scale(cameraZoom, cameraZoom)
+  ctx.translate(-shipPosition.x, -shipPosition.y)
+
+  const traceCavern = () => {
+    ctx.beginPath()
+    CAVERN_POINTS.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y)
+      else ctx.lineTo(point.x, point.y)
+    })
+    ctx.closePath()
   }
+
+  // The cavern is the actual world boundary, not a decorative viewport edge.
+  traceCavern()
+  ctx.fillStyle = '#081211'
+  ctx.fill()
+  ctx.save()
+  traceCavern()
+  ctx.clip()
+
+  // Fixed cave-floor detail makes translation readable even between nearby objects.
+  ctx.save()
+  ctx.lineCap = 'round'
+  for (const mark of CAVERN_FLOOR_MARKS) {
+    ctx.save()
+    ctx.translate(mark.x, mark.y)
+    ctx.rotate(mark.angle)
+    ctx.strokeStyle = `rgba(84, 128, 108, ${mark.alpha})`
+    ctx.lineWidth = 1.25
+    ctx.beginPath()
+    ctx.moveTo(-mark.length / 2, 0)
+    ctx.lineTo(mark.length * 0.08, mark.bend)
+    ctx.lineTo(mark.length / 2, mark.bend * 0.35)
+    if (mark.length > 17) {
+      ctx.moveTo(mark.length * 0.08, mark.bend)
+      ctx.lineTo(mark.length * 0.28, mark.bend + 5)
+    }
+    ctx.stroke()
+    ctx.restore()
+  }
+
+  ctx.strokeStyle = 'rgba(80, 150, 120, 0.09)'
+  ctx.lineWidth = 2.25
+  const seams: readonly (readonly Vector2[])[] = [
+    [{ x: 310, y: 760 }, { x: 650, y: 680 }, { x: 910, y: 790 }, { x: 1190, y: 700 }],
+    [{ x: 1780, y: 390 }, { x: 2030, y: 520 }, { x: 2250, y: 430 }, { x: 2580, y: 610 }],
+    [{ x: 420, y: 1530 }, { x: 730, y: 1410 }, { x: 970, y: 1570 }, { x: 1260, y: 1490 }],
+    [{ x: 1810, y: 1740 }, { x: 2070, y: 1600 }, { x: 2380, y: 1740 }, { x: 2680, y: 1570 }],
+  ]
+  for (const seam of seams) {
+    ctx.beginPath()
+    seam.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y)
+      else ctx.lineTo(point.x, point.y)
+    })
+    ctx.stroke()
+  }
+  ctx.restore()
 
   // Draw mining base (center) behind rocks.
   if (gameState !== 'menu') {
-    const cx = width / 2
-    const cy = height / 2
+    const cx = WORLD_CENTER.x
+    const cy = WORLD_CENTER.y
     const R = MINING_BASE_RADIUS
 
     const baseAng = miningBaseAngleRef.current
@@ -413,8 +444,8 @@ export function drawHardVacuumFrame(args: {
 
   // Draw Attractor Beam UI
   if (gameState !== 'menu') {
-    const cx = width / 2
-    const cy = height / 2
+    const cx = WORLD_CENTER.x
+    const cy = WORLD_CENTER.y
     const hexRadius = 20
 
     ctx.save()
@@ -789,9 +820,9 @@ export function drawHardVacuumFrame(args: {
       ctx.stroke()
     }
 
-    const rayCopies = getToroidalRayCopies(beam.start, beam.direction, beam.length, width, height)
-    const drawToroidalWavy = (draw: (ax: number, ay: number, bx: number, by: number) => void) => {
-      for (const copy of rayCopies) draw(copy.start.x, copy.start.y, copy.end.x, copy.end.y)
+    const beamEnd = {
+      x: beam.start.x + beam.direction.x * beam.length,
+      y: beam.start.y + beam.direction.y * beam.length,
     }
 
     const energyA = clamp(0.25 + 0.75 * beam.energy01, 0.25, 1)
@@ -806,29 +837,22 @@ export function drawHardVacuumFrame(args: {
     // Outer glow (soft fade-out near end-of-reach)
     ctx.shadowBlur = 18
     ctx.shadowColor = `rgba(40, 170, 255, ${0.35 * a})`
-    drawToroidalWavy((ax, ay, bx, by) => {
-      drawWavyGradientStroke(ax, ay, bx, by, '40, 170, 255', 0.14 * a, 0.0, 12, 2.2, 2.2, 0.3)
-    })
+    drawWavyGradientStroke(beam.start.x, beam.start.y, beamEnd.x, beamEnd.y, '40, 170, 255', 0.14 * a, 0.0, 12, 2.2, 2.2, 0.3)
 
     // Core
     ctx.shadowBlur = 22
     ctx.shadowColor = `rgba(40, 170, 255, ${0.5 * a})`
-    drawToroidalWavy((ax, ay, bx, by) => {
-      drawWavyGradientStroke(ax, ay, bx, by, '40, 170, 255', 0.92 * a, 0.05, 3.8, 1.6, 2.8, 1.1)
-    })
+    drawWavyGradientStroke(beam.start.x, beam.start.y, beamEnd.x, beamEnd.y, '40, 170, 255', 0.92 * a, 0.05, 3.8, 1.6, 2.8, 1.1)
 
     // White-hot center
     ctx.shadowBlur = 0
-    drawToroidalWavy((ax, ay, bx, by) => {
-      drawWavyGradientStroke(ax, ay, bx, by, '255,255,255', 0.7 * a, 0.0, 1.5, 0.9, 3.2, 2.7)
-    })
+    drawWavyGradientStroke(beam.start.x, beam.start.y, beamEnd.x, beamEnd.y, '255,255,255', 0.7 * a, 0.0, 1.5, 0.9, 3.2, 2.7)
 
     ctx.restore()
   }
 
   // Phaser particles (player)
   if (gameState === 'playing' && phaserParticlesRef.current.length > 0) {
-    const { width: w2, height: h2 } = canvasSizeRef.current
     for (const p of phaserParticlesRef.current) {
       const a = clamp(p.life / 280, 0, 1)
       ctx.save()
@@ -836,13 +860,9 @@ export function drawHardVacuumFrame(args: {
       ctx.shadowBlur = 10
       ctx.shadowColor = `rgba(40, 170, 255, ${0.55 * a})`
       ctx.fillStyle = `rgba(255,255,255,${0.85 * a})`
-      for (const ox of [-w2, 0, w2]) {
-        for (const oy of [-h2, 0, h2]) {
-          ctx.beginPath()
-          ctx.arc(p.pos.x + ox, p.pos.y + oy, 1.5, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
+      ctx.beginPath()
+      ctx.arc(p.pos.x, p.pos.y, 1.5, 0, Math.PI * 2)
+      ctx.fill()
       ctx.restore()
     }
   }
@@ -862,33 +882,16 @@ export function drawHardVacuumFrame(args: {
     ctx.restore()
   })
 
-  // Draw harpoon + tether (wrap-aware)
+  // Draw harpoon + tether in continuous world space.
   const hp = harpoonRef.current
   if (hp.state !== 'idle' && gameState === 'playing') {
-    const { width: w2, height: h2 } = canvasSizeRef.current
     const ship = shipRef.current
 
-    const drawToroidalLine = (ax: number, ay: number, bx: number, by: number) => {
-      const dx = bx - ax
-      const dy = by - ay
-      let ox = 0
-      let oy = 0
-      if (dx > w2 / 2) ox = -w2
-      else if (dx < -w2 / 2) ox = w2
-      if (dy > h2 / 2) oy = -h2
-      else if (dy < -h2 / 2) oy = h2
-
+    const drawRopeLine = (ax: number, ay: number, bx: number, by: number) => {
       ctx.beginPath()
       ctx.moveTo(ax, ay)
-      ctx.lineTo(bx + ox, by + oy)
+      ctx.lineTo(bx, by)
       ctx.stroke()
-
-      if (ox !== 0 || oy !== 0) {
-        ctx.beginPath()
-        ctx.moveTo(ax - ox, ay - oy)
-        ctx.lineTo(bx, by)
-        ctx.stroke()
-      }
     }
 
     ctx.strokeStyle = 'rgba(255,255,255,0.55)'
@@ -897,7 +900,7 @@ export function drawHardVacuumFrame(args: {
     if (hp.state === 'attached') {
       const pts: Vector2[] = [ship.pos, ...hp.rope, hp.rock.pos]
       for (let i = 0; i < pts.length - 1; i++) {
-        drawToroidalLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
+        drawRopeLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
       }
 
       ctx.fillStyle = 'rgba(255,255,255,0.9)'
@@ -907,7 +910,7 @@ export function drawHardVacuumFrame(args: {
     } else {
       const pts: Vector2[] = [ship.pos, ...hp.rope, hp.pos]
       for (let i = 0; i < pts.length - 1; i++) {
-        drawToroidalLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
+        drawRopeLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
       }
 
       ctx.fillStyle = 'rgba(255,255,255,0.9)'
@@ -918,54 +921,15 @@ export function drawHardVacuumFrame(args: {
   }
 
   // Draw ship
-  if (gameState === 'playing' || gameState === 'store' || gameState === 'menu') {
+  if (gameState === 'playing' || gameState === 'waveComplete' || gameState === 'menu') {
     const ship = shipRef.current
 
     let isHealing = false
 
-    // Powerup activation pulses (visible)
-    {
-      const now = Date.now()
-      const durationMs = 520
-      powerPulsesRef.current = powerPulsesRef.current.filter((p) => now - p.at < durationMs)
-
-      if (powerPulsesRef.current.length > 0) {
-        const drawWrappedRing = (cx: number, cy: number, r: number) => {
-          for (const ox of [-width, 0, width]) {
-            for (const oy of [-height, 0, height]) {
-              ctx.beginPath()
-              ctx.arc(cx + ox, cy + oy, r, 0, Math.PI * 2)
-              ctx.stroke()
-            }
-          }
-        }
-
-        for (const p of powerPulsesRef.current) {
-          const t = clamp((now - p.at) / durationMs, 0, 1)
-          const r = ship.radius + 12 + t * 360
-          const a = (1 - t) * 0.75
-
-          ctx.save()
-          ctx.globalAlpha = 1
-          ctx.lineWidth = 3.2 - 1.8 * t
-          if (p.kind === 'stasis') {
-            ctx.strokeStyle = `rgba(0,255,136,${a})`
-            ctx.shadowColor = `rgba(0,255,136,${0.55 * a})`
-          } else {
-            ctx.strokeStyle = `rgba(255,68,68,${a})`
-            ctx.shadowColor = `rgba(255,68,68,${0.55 * a})`
-          }
-          ctx.shadowBlur = 18
-          drawWrappedRing(ship.pos.x, ship.pos.y, r)
-          ctx.restore()
-        }
-      }
-    }
-
     // Healing halo
     {
-      const baseX = width / 2
-      const baseY = height / 2
+      const baseX = WORLD_CENTER.x
+      const baseY = WORLD_CENTER.y
       const baseAng = miningBaseAngleRef.current
       const hexVerts: Vector2[] = Array.from({ length: 6 }, (_, i) => {
         const a = baseAng + (i / 6) * Math.PI * 2
@@ -1208,6 +1172,40 @@ export function drawHardVacuumFrame(args: {
     }
 
     ctx.restore()
+  }
+
+  ctx.restore() // cavern clip
+
+  // A narrow mineral edge marks the boundary without creating an inner black band.
+  ctx.save()
+  ctx.lineJoin = 'round'
+  traceCavern()
+  ctx.strokeStyle = 'rgba(70, 112, 96, 0.62)'
+  ctx.lineWidth = 7
+  ctx.shadowBlur = 7
+  ctx.shadowColor = 'rgba(0, 255, 136, 0.12)'
+  ctx.stroke()
+  traceCavern()
+  ctx.strokeStyle = 'rgba(180, 220, 200, 0.4)'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.restore()
+  ctx.restore() // camera
+
+  // World-space navigation and asteroid tracking.
+  if (gameState === 'playing') {
+    drawHardVacuumMinimap({
+      ctx,
+      viewportWidth: width,
+      viewportHeight: height,
+      cameraZoom,
+      worldWidth: WORLD_WIDTH,
+      worldHeight: WORLD_HEIGHT,
+      boundary: CAVERN_POINTS,
+      basePosition: WORLD_CENTER,
+      ship: shipRef.current,
+      rocks: rocksRef.current,
+    })
   }
 
   // Subtle scanline haze

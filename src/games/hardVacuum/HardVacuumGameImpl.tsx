@@ -19,6 +19,7 @@ import {
   WORLD_CENTER,
   WORLD_HEIGHT,
   WORLD_WIDTH,
+  getCavernMap,
   isInsideCavern,
   raycastCavern,
   resolveCircleInCavern,
@@ -350,33 +351,50 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     (count: number, avoidRadius: number = 100, speedMult: number = 1) => {
       const newRocks: Rock[] = []
       const ship = shipRef.current
-      const sampleSpawn = () => {
+      const cavernMap = getCavernMap(levelRef.current)
+      const withVelocity = (x: number, y: number) => {
+        const angleToBase = Math.atan2(WORLD_CENTER.y - y, WORLD_CENTER.x - x)
+        const travelAngle = angleToBase + (Math.random() - 0.5) * Math.PI * 0.85
+        const speed = (ROCK_BASE_SPEED_MIN + Math.random() * (ROCK_BASE_SPEED_MAX - ROCK_BASE_SPEED_MIN)) * speedMult
+        return { x, y, vel: { x: Math.cos(travelAngle) * speed, y: Math.sin(travelAngle) * speed } }
+      }
+      const sampleNearShip = () => {
         const a = Math.random() * Math.PI * 2
         const distance = 430 + Math.random() * 520
         const x = ship.pos.x + Math.cos(a) * distance
         const y = ship.pos.y + Math.sin(a) * distance
-        const travelAngle = a + Math.PI + (Math.random() - 0.5) * Math.PI * 0.85
-        const speed = (ROCK_BASE_SPEED_MIN + Math.random() * (ROCK_BASE_SPEED_MAX - ROCK_BASE_SPEED_MIN)) * speedMult
-        const vel: Vector2 = { x: Math.cos(travelAngle) * speed, y: Math.sin(travelAngle) * speed }
-        return { x, y, vel }
+        return withVelocity(x, y)
+      }
+      const isValidSpawn = (candidate: Vector2, radius: number) => {
+        if (!isInsideCavern(candidate, radius + 32, cavernMap)) return false
+        if (Math.hypot(candidate.x - ship.pos.x, candidate.y - ship.pos.y) < avoidRadius) return false
+        if (Math.hypot(candidate.x - WORLD_CENTER.x, candidate.y - WORLD_CENTER.y) < MINING_BASE_RADIUS + ROCK_BASE_CLEARANCE) {
+          return false
+        }
+        return [...rocksRef.current, ...newRocks].every(
+          (rock) => Math.hypot(candidate.x - rock.pos.x, candidate.y - rock.pos.y) >= radius + rock.radius + 24,
+        )
       }
 
       for (let i = 0; i < count; i++) {
         const radius = 30 + Math.random() * 15
-        let chosen = { x: WORLD_CENTER.x, y: WORLD_CENTER.y - 450, vel: { x: 0, y: 30 } }
-        for (let tries = 0; tries < 80; tries++) {
-          const candidate = sampleSpawn()
-          if (
-            isInsideCavern(candidate, radius + 32) &&
-            Math.hypot(candidate.x - ship.pos.x, candidate.y - ship.pos.y) >= avoidRadius &&
-            Math.hypot(candidate.x - WORLD_CENTER.x, candidate.y - WORLD_CENTER.y) >= MINING_BASE_RADIUS + ROCK_BASE_CLEARANCE
-          ) {
+        let chosen: { x: number; y: number; vel: Vector2 } | null = null
+        for (let tries = 0; tries < 100; tries++) {
+          const candidate = sampleNearShip()
+          if (isValidSpawn(candidate, radius)) {
             chosen = candidate
             break
           }
         }
 
-        newRocks.push(createRock(chosen.x, chosen.y, radius, chosen.vel))
+        // Tight later maps may not have enough room in the ship-centered ring.
+        // Fall back to the whole cavern so every wave still receives its quota.
+        for (let tries = 0; !chosen && tries < 240; tries++) {
+          const candidate = withVelocity(170 + Math.random() * (WORLD_WIDTH - 340), 150 + Math.random() * (WORLD_HEIGHT - 300))
+          if (isValidSpawn(candidate, radius)) chosen = candidate
+        }
+
+        if (chosen) newRocks.push(createRock(chosen.x, chosen.y, radius, chosen.vel))
       }
       rocksRef.current = [...rocksRef.current, ...newRocks]
     },
@@ -443,11 +461,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     phaserParticlesRef.current = []
     shipFullyInBaseRef.current = false
     shipRepairTimeRef.current = 0
+    harpoonRef.current = { state: 'idle' }
     setAttractorActiveWithRef(false)
     setAttractorTimerWithRef(ATTRACTOR_BEAM_DURATION)
 
     // Wave transitions cannot leave the ship beyond a cavern wall.
-    resolveCircleInCavern(shipRef.current.pos, shipRef.current.vel, shipRef.current.radius)
+    const nextMap = getCavernMap(next)
+    resolveCircleInCavern(shipRef.current.pos, shipRef.current.vel, shipRef.current.radius, 0.55, nextMap)
+    if (!isInsideCavern(shipRef.current.pos, shipRef.current.radius, nextMap)) {
+      shipRef.current = { ...shipRef.current, pos: { ...WORLD_CENTER }, vel: { x: 0, y: 0 } }
+    }
 
     spawnRocks(rockCountForLevel(next), ROCK_SPAWN_AVOID_RADIUS, speedMultForLevel(next))
     invulnerableRef.current = INVULNERABILITY_LEVEL_START
@@ -527,7 +550,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       for (let tries = 0; tries < 120; tries++) {
         const candidate = sampleSpawn()
-        if (!isInsideCavern(candidate, radius + 30)) continue
+        if (!isInsideCavern(candidate, radius + 30, getCavernMap(1))) continue
         const distToShip = distance(candidate.x, candidate.y, shipRef.current.pos.x, shipRef.current.pos.y)
         const distToBase = distance(candidate.x, candidate.y, baseX, baseY)
         if (distToShip < 140) continue
@@ -862,6 +885,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (gameState !== 'playing') return
 
       const ship = shipRef.current
+      const cavernMap = getCavernMap(levelRef.current)
 
       const w = WORLD_WIDTH
       const h = WORLD_HEIGHT
@@ -1109,7 +1133,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       // Update ship in persistent world coordinates.
       ship.pos.x += ship.vel.x * dt
       ship.pos.y += ship.vel.y * dt
-      const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42)
+      const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
       if (shipWallHit.maxImpactSpeed > 0) applyImpactShield(shipWallHit.maxImpactSpeed)
 
       // Update invulnerability
@@ -1127,7 +1151,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         rock.rot[1] += rock.angVel[1] * dt
         rock.rot[2] += rock.angVel[2] * dt
 
-        const wallHit = resolveCircleInCavern(rock.pos, rock.vel, rock.radius, 0.82)
+        const wallHit = resolveCircleInCavern(rock.pos, rock.vel, rock.radius, 0.82, cavernMap)
         if (wallHit.collided && rock.kind === 'red') armRedRock(rock)
       })
 
@@ -1355,7 +1379,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       const updatedHarpoon = harpoonRef.current
       if (updatedHarpoon.state === 'flying' || updatedHarpoon.state === 'deployed') {
-        const hookWallHit = resolveCircleInCavern(updatedHarpoon.pos, updatedHarpoon.vel, HARPOON_HOOK_RADIUS, 0.15)
+        const hookWallHit = resolveCircleInCavern(
+          updatedHarpoon.pos,
+          updatedHarpoon.vel,
+          HARPOON_HOOK_RADIUS,
+          0.15,
+          cavernMap,
+        )
         if (hookWallHit.collided && updatedHarpoon.state === 'flying') {
           harpoonRef.current = { ...updatedHarpoon, state: 'deployed' }
         }
@@ -1457,7 +1487,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
           const ux = Math.cos(ship.angle)
           const uy = Math.sin(ship.angle)
-          const len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE)
+          const len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE, cavernMap)
 
           phaserBeamRef.current = {
             active: true,
@@ -1560,7 +1590,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           p.vel.x *= 0.95
           p.vel.y *= 0.95
           p.life -= dt * 1000
-          return p.life > 0 && isInsideCavern(p.pos)
+          return p.life > 0 && isInsideCavern(p.pos, 0, cavernMap)
         })
       }
 
@@ -1581,6 +1611,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         rocksRef,
         harpoonRef,
         shipRef,
+        cavernMap,
         toroidalDelta,
         buildRopeBetween,
         setScore,
@@ -1712,6 +1743,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       drawHardVacuumFrame({
         ctx,
         gameState,
+        level: levelRef.current,
         canvasSizeRef,
         MINING_BASE_RADIUS,
         MINING_DOOR_TRIM,

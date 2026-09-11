@@ -9,6 +9,9 @@ export function drawHardVacuumMinimap(args: {
   worldWidth: number
   worldHeight: number
   boundary: readonly Vector2[]
+  obstacles: readonly (readonly Vector2[])[]
+  mapId: number
+  mapName: string
   basePosition: Vector2
   ship: Ship
   rocks: readonly Rock[]
@@ -21,6 +24,9 @@ export function drawHardVacuumMinimap(args: {
     worldWidth,
     worldHeight,
     boundary,
+    obstacles,
+    mapId,
+    mapName,
     basePosition,
     ship,
     rocks,
@@ -70,7 +76,8 @@ export function drawHardVacuumMinimap(args: {
   ctx.textBaseline = 'middle'
   ctx.fillStyle = 'rgba(0, 255, 136, 0.72)'
   ctx.textAlign = 'left'
-  ctx.fillText('LOCAL SCAN', panelX + pad, panelY + headerHeight / 2)
+  const mapLabel = `${compact ? 'M' : 'MAP '}${mapId} ${mapName.toUpperCase()}`
+  ctx.fillText(mapLabel, panelX + pad, panelY + headerHeight / 2)
   ctx.fillStyle = 'rgba(220, 238, 230, 0.62)'
   ctx.textAlign = 'right'
   ctx.fillText(`${rocks.length} ROCK${rocks.length === 1 ? '' : 'S'}`, panelX + panelWidth - pad, panelY + headerHeight / 2)
@@ -93,6 +100,22 @@ export function drawHardVacuumMinimap(args: {
   ctx.strokeStyle = 'rgba(120, 166, 146, 0.72)'
   ctx.lineWidth = compact ? 1 : 1.4
   ctx.stroke()
+
+  // Solid cavern formations are filled so routes and blind corners are legible.
+  ctx.fillStyle = 'rgba(3, 9, 8, 0.94)'
+  ctx.strokeStyle = 'rgba(120, 166, 146, 0.62)'
+  ctx.lineWidth = compact ? 0.8 : 1.1
+  for (const obstacle of obstacles) {
+    ctx.beginPath()
+    obstacle.forEach((point, index) => {
+      const p = project(point)
+      if (index === 0) ctx.moveTo(p.x, p.y)
+      else ctx.lineTo(p.x, p.y)
+    })
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+  }
 
   // The current camera footprint makes the extra scan coverage explicit.
   const viewTopLeft = project({

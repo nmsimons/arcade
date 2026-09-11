@@ -1,7 +1,7 @@
 import type { BaseShot, Bullet, Debris, Harpoon, PhaserBeam, PhaserParticle, Rock, Ship, Vector2, V3 } from './types'
 import { clamp, cross3, normalize3, rotX, rotY, rotZ } from './math'
 import type { HardVacuumGameState } from './ui'
-import { CAVERN_POINTS, WORLD_CENTER, WORLD_HEIGHT, WORLD_WIDTH } from './worldGeometry'
+import { WORLD_CENTER, WORLD_HEIGHT, WORLD_WIDTH, getCavernMap } from './worldGeometry'
 import { drawHardVacuumMinimap } from './minimap'
 
 type Ref<T> = { current: T }
@@ -27,6 +27,7 @@ const CAVERN_FLOOR_MARKS = Array.from({ length: 340 }, (_, index) => ({
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
   gameState: HardVacuumGameState
+  level: number
   canvasSizeRef: Ref<{ width: number; height: number }>
 
   MINING_BASE_RADIUS: number
@@ -62,6 +63,7 @@ export function drawHardVacuumFrame(args: {
   const {
     ctx,
     gameState,
+    level,
     canvasSizeRef,
     MINING_BASE_RADIUS,
     MINING_DOOR_TRIM,
@@ -88,6 +90,7 @@ export function drawHardVacuumFrame(args: {
 
   const width = canvasSizeRef.current.width
   const height = canvasSizeRef.current.height
+  const cavernMap = getCavernMap(gameState === 'menu' ? 1 : level)
 
   // Clear
   ctx.fillStyle = '#050808'
@@ -102,7 +105,7 @@ export function drawHardVacuumFrame(args: {
 
   const traceCavern = () => {
     ctx.beginPath()
-    CAVERN_POINTS.forEach((point, index) => {
+    cavernMap.boundary.forEach((point, index) => {
       if (index === 0) ctx.moveTo(point.x, point.y)
       else ctx.lineTo(point.x, point.y)
     })
@@ -154,7 +157,41 @@ export function drawHardVacuumFrame(args: {
     })
     ctx.stroke()
   }
-  ctx.restore()
+  ctx.restore() // floor-detail styling
+
+  // Interior formations define the routes through later maps. They are drawn
+  // as solid cavern mass, then added as holes in the gameplay clip below.
+  ctx.lineJoin = 'round'
+  for (const obstacle of cavernMap.obstacles) {
+    ctx.beginPath()
+    obstacle.forEach((point, index) => {
+      if (index === 0) ctx.moveTo(point.x, point.y)
+      else ctx.lineTo(point.x, point.y)
+    })
+    ctx.closePath()
+    ctx.fillStyle = '#030706'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(70, 112, 96, 0.72)'
+    ctx.lineWidth = 7
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(180, 220, 200, 0.38)'
+    ctx.lineWidth = 2
+    ctx.stroke()
+  }
+
+  // Hide ships, rocks, beams, and debris when they pass behind solid rock.
+  ctx.beginPath()
+  cavernMap.boundary.forEach((point, index) => {
+    if (index === 0) ctx.moveTo(point.x, point.y)
+    else ctx.lineTo(point.x, point.y)
+  })
+  ctx.closePath()
+  for (const obstacle of cavernMap.obstacles) {
+    ctx.moveTo(obstacle[0].x, obstacle[0].y)
+    for (let index = 1; index < obstacle.length; index++) ctx.lineTo(obstacle[index].x, obstacle[index].y)
+    ctx.closePath()
+  }
+  ctx.clip('evenodd')
 
   // Draw mining base (center) behind rocks.
   if (gameState !== 'menu') {
@@ -1201,7 +1238,10 @@ export function drawHardVacuumFrame(args: {
       cameraZoom,
       worldWidth: WORLD_WIDTH,
       worldHeight: WORLD_HEIGHT,
-      boundary: CAVERN_POINTS,
+      boundary: cavernMap.boundary,
+      obstacles: cavernMap.obstacles,
+      mapId: cavernMap.id,
+      mapName: cavernMap.name,
       basePosition: WORLD_CENTER,
       ship: shipRef.current,
       rocks: rocksRef.current,

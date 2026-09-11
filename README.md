@@ -11,7 +11,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 ## Included Games
 
-- **Hard Vacuum** — classic ship + shooting, plus a harpoon mechanic
+- **Hard Vacuum** — ship combat, laser and harpoon mechanics, and a ten-map cavern progression
 - **Final Approach** — land gently on the pad (difficulty selectable)
 - **No Exit** — arena shooter with force-field bounces
 - **Urban Fire** — top-down combat with tanks + helicopters

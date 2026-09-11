@@ -1,6 +1,6 @@
 import type { Bullet, Harpoon, Rock, RockKind, Ship, Vector2 } from './types'
 import { clamp } from './math'
-import { isInsideCavern } from './worldGeometry'
+import { isInsideCavern, type CavernMap } from './worldGeometry'
 
 type Ref<T> = { current: T }
 
@@ -25,6 +25,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
   rocksRef: Ref<Rock[]>
   harpoonRef: Ref<Harpoon>
   shipRef: Ref<Ship>
+  cavernMap: CavernMap
 
   toroidalDelta: ToroidalDelta
   buildRopeBetween: BuildRopeBetween
@@ -62,6 +63,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     rocksRef,
     harpoonRef,
     shipRef,
+    cavernMap,
     toroidalDelta,
     buildRopeBetween,
     setScore,
@@ -89,7 +91,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     bullet.pos.y += bullet.vel.y * dt
     bullet.life -= dt * 1000
 
-    return bullet.life > 0 && isInsideCavern(bullet.pos)
+    return bullet.life > 0 && isInsideCavern(bullet.pos, 0, cavernMap)
   })
 
   // Collision detection: player bullets vs boss/rocks

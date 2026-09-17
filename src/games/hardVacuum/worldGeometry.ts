@@ -203,22 +203,7 @@ export const worldDelta = (ax: number, ay: number, bx: number, by: number) => ({
   dy: by - ay,
 })
 
-const inwardNormal = (a: Vector2, b: Vector2) => {
-  const ex = b.x - a.x
-  const ey = b.y - a.y
-  const length = Math.max(1e-9, Math.hypot(ex, ey))
-  let nx = -ey / length
-  let ny = ex / length
-  const midpointX = (a.x + b.x) / 2
-  const midpointY = (a.y + b.y) / 2
-  if ((WORLD_CENTER.x - midpointX) * nx + (WORLD_CENTER.y - midpointY) * ny < 0) {
-    nx = -nx
-    ny = -ny
-  }
-  return { nx, ny }
-}
-
-const pointInPolygon = (point: Vector2, polygon: readonly Vector2[]) => {
+export const pointInPolygon = (point: Vector2, polygon: readonly Vector2[]) => {
   let inside = false
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const a = polygon[i]
@@ -240,29 +225,38 @@ const closestPointOnSegment = (point: Vector2, a: Vector2, b: Vector2) => {
   return { x: a.x + dx * t, y: a.y + dy * t }
 }
 
+const polygonBounds = new WeakMap<readonly Vector2[], { x:number; y:number; right:number; bottom:number }>()
+const boundsOf = (polygon: readonly Vector2[]) => {
+  let bounds = polygonBounds.get(polygon)
+  if (!bounds) {
+    bounds = { x:Math.min(...polygon.map(p => p.x)),y:Math.min(...polygon.map(p => p.y)),right:Math.max(...polygon.map(p => p.x)),bottom:Math.max(...polygon.map(p => p.y)) }
+    polygonBounds.set(polygon,bounds)
+  }
+  return bounds
+}
+const boundsDistanceSquared = (p: Vector2, polygon: readonly Vector2[]) => {
+  const b = boundsOf(polygon), dx = Math.max(0,b.x-p.x,p.x-b.right), dy = Math.max(0,b.y-p.y,p.y-b.bottom)
+  return dx*dx+dy*dy
+}
 const nearestPolygonPoint = (point: Vector2, polygon: readonly Vector2[]) => {
   let nearest = { x: polygon[0].x, y: polygon[0].y }
   let distance = Infinity
+  let edgeIndex = 0
   for (let i = 0; i < polygon.length; i++) {
     const candidate = closestPointOnSegment(point, polygon[i], polygon[(i + 1) % polygon.length])
-    const candidateDistance = Math.hypot(point.x - candidate.x, point.y - candidate.y)
+    const candidateDistance = (point.x - candidate.x)**2 + (point.y - candidate.y)**2
     if (candidateDistance < distance) {
       nearest = candidate
       distance = candidateDistance
+      edgeIndex = i
     }
   }
-  return { point: nearest, distance }
+  return { point: nearest, distance:Math.sqrt(distance), edgeIndex }
 }
 
 const distanceToOuterBoundary = (point: Vector2, map: CavernMap) => {
-  let nearest = Infinity
-  for (let i = 0; i < map.boundary.length; i++) {
-    const a = map.boundary[i]
-    const b = map.boundary[(i + 1) % map.boundary.length]
-    const { nx, ny } = inwardNormal(a, b)
-    nearest = Math.min(nearest, (point.x - a.x) * nx + (point.y - a.y) * ny)
-  }
-  return nearest
+  const nearest = nearestPolygonPoint(point, map.boundary).distance
+  return pointInPolygon(point, map.boundary) ? nearest : -nearest
 }
 
 export const distanceToCavernWall = (point: Vector2, map: CavernMap = CAVERN_MAPS[0]) => {
@@ -270,6 +264,7 @@ export const distanceToCavernWall = (point: Vector2, map: CavernMap = CAVERN_MAP
   if (nearest < 0) return nearest
 
   for (const obstacle of map.obstacles) {
+    if (boundsDistanceSquared(point,obstacle) > nearest*nearest) continue
     const obstacleDistance = nearestPolygonPoint(point, obstacle).distance
     if (pointInPolygon(point, obstacle)) return -obstacleDistance
     nearest = Math.min(nearest, obstacleDistance)
@@ -311,22 +306,24 @@ export const resolveCircleInCavern = (
   for (let pass = 0; pass < 6; pass++) {
     let adjusted = false
 
-    for (let i = 0; i < map.boundary.length; i++) {
-      const a = map.boundary[i]
-      const b = map.boundary[(i + 1) % map.boundary.length]
-      const { nx, ny } = inwardNormal(a, b)
-      const distance = (pos.x - a.x) * nx + (pos.y - a.y) * ny
-      if (distance >= radius) continue
-
-      maxImpactSpeed = Math.max(
-        maxImpactSpeed,
-        applyCollisionResponse(pos, vel, nx, ny, radius - distance, restitution),
-      )
-      collided = true
-      adjusted = true
+    const boundary = nearestPolygonPoint(pos, map.boundary)
+    const insideBoundary = pointInPolygon(pos, map.boundary)
+    if (!insideBoundary || boundary.distance < radius) {
+      const sign = insideBoundary ? 1 : -1
+      let nx = (pos.x - boundary.point.x) * sign, ny = (pos.y - boundary.point.y) * sign
+      let length = Math.hypot(nx, ny)
+      if (length < 1e-9) {
+        // A body exactly on an edge still needs an inward collision normal.
+        const a = map.boundary[boundary.edgeIndex], b = map.boundary[(boundary.edgeIndex + 1) % map.boundary.length]
+        nx = a.y - b.y; ny = b.x - a.x; length = Math.hypot(nx, ny)
+        if (!pointInPolygon({ x: pos.x + nx / length * 0.01, y: pos.y + ny / length * 0.01 }, map.boundary)) { nx = -nx; ny = -ny }
+      }
+      maxImpactSpeed = Math.max(maxImpactSpeed, applyCollisionResponse(pos, vel, nx / length, ny / length, insideBoundary ? radius - boundary.distance : radius + boundary.distance, restitution))
+      collided = true; adjusted = true
     }
 
     for (const obstacle of map.obstacles) {
+      if (boundsDistanceSquared(pos,obstacle) > radius*radius) continue
       const nearest = nearestPolygonPoint(pos, obstacle)
       const inside = pointInPolygon(pos, obstacle)
       if (!inside && nearest.distance >= radius) continue

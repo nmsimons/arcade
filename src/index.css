@@ -13,3 +13,10 @@ body {
   width: 100vw;
   height: 100vh;
 }
+
+.hard-vacuum button:focus-visible {
+  outline: 2px solid #00ff88;
+  outline-offset: 3px;
+  background-color: #10372c;
+  color: #e0fff0;
+}

@@ -14,19 +14,33 @@ export interface Ship {
 
 export type RockKind = 'normal' | 'blue' | 'red'
 
-export interface Rock {
+export interface TetherBody {
   pos: Vector2
   vel: Vector2
   radius: number
+  mass?: number
+  cargoId?: string
+  kind?: RockKind
+  tethered?: boolean
+  sourceId?: string
+  socketId?: string
+}
+
+export interface Rock extends TetherBody {
   points: Vector2[]
   rot: V3
   angVel: V3
   mesh: { verts: V3[]; polys: number[][] }
   kind: RockKind
   inBaseTime?: number
+  laserGlow?: number
   // Red rocks can be "armed" and detonate after a short fuse.
   // Remaining fuse time in seconds; undefined means not armed.
   redFuseS?: number
+  // Expedition cargo remembers that the player retrieved it with the tether.
+  tethered?: boolean
+  sourceId?: string
+  socketId?: string
 }
 
 export type Harpoon =
@@ -55,7 +69,7 @@ export type Harpoon =
     }
   | {
       state: 'attached'
-      rock: Rock
+      rock: TetherBody
       ropeLength: number
       maxLength: number
       segLen: number

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import type { ButtonHTMLAttributes } from 'react'
 import type {
   BaseShot,
   Bullet,
@@ -26,9 +27,6 @@ import {
 } from './worldGeometry'
 import { sounds } from './sound'
 import {
-  ATTRACTOR_BEAM_DURATION,
-  ATTRACTOR_BEAM_RANGE_MULTIPLIER,
-  ATTRACTOR_BEAM_STRENGTH,
   BASE_GUN_INITIAL_COOLDOWNS,
   BASE_SHOT_SPEED,
   BLUE_ROCK_SPAWN_CHANCE_BASE,
@@ -38,25 +36,21 @@ import {
   COLLISION_DAMAGE_FAST,
   COLLISION_DAMAGE_MEDIUM,
   COLLISION_DAMAGE_SLOW,
-  CREDITS_SHOOTING_ROCK_DIVISOR,
   DEBRIS_LIFETIME_MAX,
   DEBRIS_LIFETIME_MIN,
   DEBRIS_SPEED_MAX,
   DEBRIS_SPEED_MIN,
   DYING_ANIMATION_DURATION,
+  HARPOON_CABLE_LENGTH,
   INVULNERABILITY_AFTER_HIT,
   INVULNERABILITY_GAME_START,
-  INVULNERABILITY_LEVEL_START,
   INVULNERABILITY_MIN_AFTER_REPAIR,
+  MINING_BASE_RADIUS,
   PHASER_BEAM_RADIUS,
   PHASER_COOLDOWN,
-  PHASER_HIT_INTERVAL,
-  PHASER_MAX_FIRE_DURATION,
   PHASER_RANGE,
-  ROCK_BASE_CLEARANCE,
   ROCK_BASE_SPEED_MAX,
   ROCK_BASE_SPEED_MIN,
-  ROCK_SPAWN_AVOID_RADIUS,
   RED_ROCK_BLAST_IMPULSE,
   RED_ROCK_BLAST_RADIUS,
   RED_ROCK_DETONATION_DELAY,
@@ -68,47 +62,66 @@ import {
   SHIP_MAX_SPEED,
   SHIP_ROTATION_SPEED,
   SHIP_THRUST_ACCELERATION,
-  TIME_BONUS_MAX_MULTIPLIER,
-  TIME_BONUS_TARGET_SECONDS,
 } from './tuning'
-import {
-  HardVacuumGameOverOverlay,
-  HardVacuumLeftHud,
-  HardVacuumMenuOverlay,
-  HardVacuumPausedOverlay,
-  HardVacuumRightHud,
-  HardVacuumWaveCompleteOverlay,
-  HardVacuumTopCenterHud,
-} from './ui'
+import { ExpeditionHud, ExpeditionOverlay } from './expeditionUi'
+import { bumpTraffic, collideHaven } from './havenGeometry'
+import { coreReleased, havenPose, havenPosition, havenReady, moveHaven, stepHaven } from './campaign'
+import type { BerthId } from './campaignWorld'
+import type { HardVacuumGameState } from './ui'
+import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, freshExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, readExpedition, releasePort, saveExpedition, SOCKETS, sectorAt, snapshotCargo, stepExpedition, teleportToHaven, visibleBetween } from './expedition'
+import { BLASTER_BLAST_RADIUS, fireBlaster, pulverizeAsteroid, stepBlaster } from './blaster'
+import type { BlasterVisuals } from './blaster'
+import { angleDelta, applyNoseThrust, bumpCargo, dockingReadiness, repelBlueBody } from './expeditionPhysics'
+import { laserImpactMs, stepLaserContact } from './laser'
+import type { LaserContact } from './laser'
+import { freshRadiationFeedback, stepRadiation, stepRadiationFeedback } from './radiation'
+import { activateRemoteRecharge, needsRecharge, purchaseSupply, restoreShipSystems, stepRemoteRecharge } from './supplies'
+import type { SupplyPurchase } from './supplies'
+import { creditAsteroidDestruction } from './oreCredits'
+import { debrisField } from './debrisField'
+import { laserCapacityMs, tetherReachMultiplier, upgradeOffer } from './upgrades'
+import type { ShopUpgrade } from './upgrades'
 import { drawHardVacuumFrame } from './render'
 import { updateBaseDefenseAndProcessing } from './baseDefense'
 import { updateHarpoon } from './harpoon'
-import { updateAttractorBeam } from './attractor'
 import { updateBulletsAndPlayerRockCollisions } from './bullets'
 
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'waveComplete' | 'dying' | 'gameOver'>('menu')
-  const [score, setScore] = useState(0)
+  const [gameState, setGameState] = useState<HardVacuumGameState>('menu')
+  const [initialSave] = useState(readExpedition)
+  const [expedition, setExpedition] = useState(() => initialSave ?? freshExpedition())
+  const expeditionRef = useRef(expedition)
+  const runtimeRef = useRef(freshRuntime())
+  const [hud, setHud] = useState({ room: 'Haven', prompt: '', message: '', towing: '', radio: '', grappleHint: '' })
+  const [hasSave, setHasSave] = useState(initialSave !== null)
+  const [saveAvailable, setSaveAvailable] = useState(true)
+  const [lostCredits, setLostCredits] = useState(0)
+  const hudTimerRef = useRef(0)
+  const saveTimerRef = useRef(0)
+  const mapOpenRef = useRef(false)
+  const [mapOpen, setMapOpen] = useState(false)
+  const mapOverviewRef = useRef(false)
+  const [mapOverview, setMapOverview] = useState(false)
+  const [journalOpen, setJournalOpen] = useState(false)
+  const toggleOverview = useCallback(() => {
+    mapOverviewRef.current = !mapOverviewRef.current
+    setMapOverview(mapOverviewRef.current)
+  }, [])
+  const publishExpedition = useCallback((message?: string) => {
+    if (message) {
+      runtimeRef.current.message = message
+      runtimeRef.current.messageTime = 2.5
+    }
+    setExpedition({ ...expeditionRef.current, upgrades: [...expeditionRef.current.upgrades] })
+    const saved = saveExpedition(expeditionRef.current)
+    setSaveAvailable(saved)
+    if (saved) setHasSave(true)
+  }, [])
   const [shields, setShields] = useState(SHIP_MAX_SHIELDS)
   const shieldsRef = useRef(shields)
   const gameStateRef = useRef(gameState)
-  const [level, setLevel] = useState(1)
-  const [attractorActive, setAttractorActive] = useState(false)
-  const [attractorTimer, setAttractorTimer] = useState(ATTRACTOR_BEAM_DURATION)
-  const attractorActiveRef = useRef(attractorActive)
-  const attractorTimerRef = useRef(attractorTimer)
-  const [menuIndex, setMenuIndex] = useState(0)
-  const [gameOverIndex, setGameOverIndex] = useState(0)
-  
-  // Wave timing for bonus multiplier
-  const [waveStartTime, setWaveStartTime] = useState(0)
-  const [waveElapsedTime, setWaveElapsedTime] = useState(0) // Updated each frame during gameplay
-  const [waveCompletionTime, setWaveCompletionTime] = useState(0)
-  const [waveCreditsEarned, setWaveCreditsEarned] = useState(0)
-  const [waveTimeBonus, setWaveTimeBonus] = useState(0)
   const waveCreditsRef = useRef(0)
-  const waveStartTimeRef = useRef(waveStartTime)
 
   useEffect(() => {
     shieldsRef.current = shields
@@ -118,37 +131,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     gameStateRef.current = gameState
   }, [gameState])
 
-  useEffect(() => {
-    attractorActiveRef.current = attractorActive
-  }, [attractorActive])
-
-  useEffect(() => {
-    attractorTimerRef.current = attractorTimer
-  }, [attractorTimer])
-
-  useEffect(() => {
-    waveStartTimeRef.current = waveStartTime
-  }, [waveStartTime])
-
-  const setGameStateWithRef = useCallback((next: 'menu' | 'playing' | 'paused' | 'waveComplete' | 'dying' | 'gameOver') => {
+  const setGameStateWithRef = useCallback((next: HardVacuumGameState) => {
     gameStateRef.current = next
     setGameState(next)
-  }, [])
-
-  const setAttractorActiveWithRef = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
-    setAttractorActive((prev) => {
-      const next = typeof value === 'function' ? (value as (p: boolean) => boolean)(prev) : value
-      attractorActiveRef.current = next
-      return next
-    })
-  }, [])
-
-  const setAttractorTimerWithRef = useCallback((value: number | ((prev: number) => number)) => {
-    setAttractorTimer((prev) => {
-      const next = typeof value === 'function' ? (value as (p: number) => number)(prev) : value
-      attractorTimerRef.current = next
-      return next
-    })
   }, [])
 
   useEffect(() => {
@@ -156,9 +141,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     if (gameState !== 'playing') sounds.stopThrust()
     if (gameState !== 'playing') sounds.stopRepairHum()
     if (gameState !== 'playing') sounds.stopPhaser()
-    if (gameState !== 'playing') sounds.stopAttractor()
+    if (gameState !== 'playing') sounds.stopRadiation()
 
-    if (gameState === 'waveComplete') sounds.startStoreMusic()
+    if (gameState === 'docked') sounds.startStoreMusic()
     else sounds.stopStoreMusic()
 
     return () => {
@@ -167,7 +152,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       sounds.stopStoreMusic()
       sounds.stopRepairHum()
       sounds.stopPhaser(true)
-      sounds.stopAttractor(true)
+      sounds.stopRadiation()
     }
   }, [gameState])
 
@@ -180,6 +165,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const blueRocksSpawnedThisLevelRef = useRef(0)
   const shipRepairTimeRef = useRef(0)
   const bulletsRef = useRef<Bullet[]>([])
+  const blasterRef = useRef<BlasterVisuals>({ shots: [], bursts: [] })
+  const laserContactRef = useRef<LaserContact>({ elapsedMs: 0 })
   const baseShotsRef = useRef<BaseShot[]>([])
   const debrisRef = useRef<Debris[]>([])
   const keysRef = useRef<Set<string>>(new Set())
@@ -189,16 +176,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const lastShieldRechargeAtRef = useRef(0)
   const dyingTimerRef = useRef(0)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
-  const levelingUpRef = useRef(false)
-  const waitingForWaveEndFxRef = useRef(false)
   const harpoonRef = useRef<Harpoon>({ state: 'idle' })
   const miningBaseAngleRef = useRef(0)
   const miningGunCooldownsRef = useRef<[number, number, number]>(BASE_GUN_INITIAL_COOLDOWNS)
 
-  const phaserStateRef = useRef<{ energyMs: number; cooldownMs: number; hitCooldownMs: number; particleCarry: number }>({
-    energyMs: PHASER_MAX_FIRE_DURATION * 1000,
+  const phaserStateRef = useRef<{ energyMs: number; cooldownMs: number; particleCarry: number }>({
+    energyMs: laserCapacityMs(expedition),
     cooldownMs: 0,
-    hitCooldownMs: 0,
     particleCarry: 0,
   })
   const phaserBeamRef = useRef<PhaserBeam>({
@@ -213,13 +197,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   // Updated each frame while playing.
   const shipFullyInBaseRef = useRef(false)
 
-  const pendingNextWaveRef = useRef<number | null>(null)
 
   // Curated menu “action shot” scene.
   const menuSceneInitializedRef = useRef(false)
 
-  // Harpoon cable is a fixed-length tether. The fired hook cannot exceed this distance.
-  const HARPOON_CABLE_LENGTH = 130
   const HARPOON_REEL_SPEED = 440
   // Visual-only slack so the cable can look weighty/curvy even when fully extended.
   const HARPOON_VISUAL_SLACK = 1.18
@@ -227,29 +208,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const HARPOON_HOOK_MASS = Math.max(0.2, (HARPOON_HOOK_RADIUS / 18) * (HARPOON_HOOK_RADIUS / 18))
   const HARPOON_REEL_MIN_LEN = SHIP_RADIUS + HARPOON_HOOK_RADIUS + 2
 
-  // Central mining base (ore hopper)
-  const MINING_BASE_RADIUS = 118
-
-  const blueRockQuotaForLevel = useCallback((lvl: number) => {
-    // Ensure some levels require base processing to finish.
-    return lvl >= 3 && lvl % 3 === 0 ? 1 : 0
-  }, [])
-
-  const calculateTimeMultiplier = useCallback((completionTimeSeconds: number) => {
-    // Exponential decay: rewards speed significantly
-    // Fast completion = high multiplier, slow completion approaches 1.0x (no bonus)
-    return 1 + TIME_BONUS_MAX_MULTIPLIER * Math.exp(-completionTimeSeconds / TIME_BONUS_TARGET_SECONDS)
-  }, [])
-
-  const resetBlueRocksForLevel = useCallback(
-    (lvl: number) => {
-      levelRef.current = lvl
-      blueRockQuotaRef.current = blueRockQuotaForLevel(lvl)
-      blueRocksSpawnedThisLevelRef.current = 0
-    },
-    [blueRockQuotaForLevel],
-  )
-  const MINING_DOOR_TRIM = 44
   const MINING_ROT_SPEED = 0.18
 
   const toroidalDelta = useCallback((ax: number, ay: number, bx: number, by: number, w: number, h: number) => {
@@ -347,150 +305,172 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     [],
   )
 
-  const spawnRocks = useCallback(
-    (count: number, avoidRadius: number = 100, speedMult: number = 1) => {
-      const newRocks: Rock[] = []
-      const ship = shipRef.current
-      const cavernMap = getCavernMap(levelRef.current)
-      const withVelocity = (x: number, y: number) => {
-        const angleToBase = Math.atan2(WORLD_CENTER.y - y, WORLD_CENTER.x - x)
-        const travelAngle = angleToBase + (Math.random() - 0.5) * Math.PI * 0.85
-        const speed = (ROCK_BASE_SPEED_MIN + Math.random() * (ROCK_BASE_SPEED_MAX - ROCK_BASE_SPEED_MIN)) * speedMult
-        return { x, y, vel: { x: Math.cos(travelAngle) * speed, y: Math.sin(travelAngle) * speed } }
+  const populateExpedition = useCallback(() => {
+    rocksRef.current = debrisField(expeditionRef.current).map(({ pos, radius, vel, kind }) => createRock(pos.x, pos.y, radius, vel, kind))
+    for (const socket of SOCKETS) {
+      if (Object.values(expeditionRef.current.power).includes(socket.id)) continue
+      const port = releasePort(socket.source)
+      const rock = createRock(port.x, port.y, 20, { x: 0, y: 0 }, 'blue')
+      rock.sourceId = socket.id
+      rocksRef.current.push(rock)
+    }
+    const state = expeditionRef.current
+    for (const rock of rocksRef.current) {
+      const saved = rock.sourceId ? state.cargo?.[rock.sourceId] : undefined
+      if (saved && isInsideCavern(saved.pos, rock.radius, expeditionMap(state))) {
+        rock.pos = { ...saved.pos }; rock.vel = { ...saved.vel }; rock.tethered = saved.tethered
       }
-      const sampleNearShip = () => {
-        const a = Math.random() * Math.PI * 2
-        const distance = 430 + Math.random() * 520
-        const x = ship.pos.x + Math.cos(a) * distance
-        const y = ship.pos.y + Math.sin(a) * distance
-        return withVelocity(x, y)
-      }
-      const isValidSpawn = (candidate: Vector2, radius: number) => {
-        if (!isInsideCavern(candidate, radius + 32, cavernMap)) return false
-        if (Math.hypot(candidate.x - ship.pos.x, candidate.y - ship.pos.y) < avoidRadius) return false
-        if (Math.hypot(candidate.x - WORLD_CENTER.x, candidate.y - WORLD_CENTER.y) < MINING_BASE_RADIUS + ROCK_BASE_CLEARANCE) {
-          return false
-        }
-        return [...rocksRef.current, ...newRocks].every(
-          (rock) => Math.hypot(candidate.x - rock.pos.x, candidate.y - rock.pos.y) >= radius + rock.radius + 24,
-        )
-      }
+    }
+    cargoBodies(state, runtimeRef.current)
+  }, [createRock])
 
-      for (let i = 0; i < count; i++) {
-        const radius = 30 + Math.random() * 15
-        let chosen: { x: number; y: number; vel: Vector2 } | null = null
-        for (let tries = 0; tries < 100; tries++) {
-          const candidate = sampleNearShip()
-          if (isValidSpawn(candidate, radius)) {
-            chosen = candidate
-            break
-          }
-        }
-
-        // Tight later maps may not have enough room in the ship-centered ring.
-        // Fall back to the whole cavern so every wave still receives its quota.
-        for (let tries = 0; !chosen && tries < 240; tries++) {
-          const candidate = withVelocity(170 + Math.random() * (WORLD_WIDTH - 340), 150 + Math.random() * (WORLD_HEIGHT - 300))
-          if (isValidSpawn(candidate, radius)) chosen = candidate
-        }
-
-        if (chosen) newRocks.push(createRock(chosen.x, chosen.y, radius, chosen.vel))
-      }
-      rocksRef.current = [...rocksRef.current, ...newRocks]
-    },
-    [createRock],
-  )
-
-  const speedMultForLevel = useCallback((lvl: number) => {
-    // Noticeable but not explosive. Caps keep later levels playable.
-    return clamp(1 + (lvl - 1) * 0.085, 1, 2.25)
-  }, [])
-
-  const rockCountForLevel = useCallback((lvl: number) => {
-    // Ramps faster than the old “every 3 levels” behavior.
-    return 2 + Math.floor((lvl - 1) * 0.8)
-  }, [])
-
-  const startGame = useCallback(() => {
+  const startGame = useCallback((fresh = false) => {
+    if (fresh) expeditionRef.current = freshExpedition()
+    runtimeRef.current = freshRuntime()
+    blasterRef.current = { shots: [], bursts: [] }
+    laserContactRef.current = { elapsedMs: 0 }
+    mapOpenRef.current = false
+    setMapOpen(false)
+    keysRef.current.clear()
     sounds.init()
     sounds.stopStoreMusic()
-    shipRef.current = { pos: { ...WORLD_CENTER }, vel: { x: 0, y: 0 }, angle: -Math.PI / 2, radius: 15 }
+    const savedPosition = expeditionRef.current.position
+    const spawn = isInsideCavern(savedPosition, 15, expeditionMap(expeditionRef.current)) ? { ...savedPosition } : checkpointPosition(expeditionRef.current)
+    shipRef.current = { pos: spawn, vel: { x: 0, y: 0 }, angle: Math.PI, radius: 15 }
     rocksRef.current = []
     shipRepairTimeRef.current = 0
     bulletsRef.current = []
     baseShotsRef.current = []
-    setScore(0)
-    shieldsRef.current = SHIP_MAX_SHIELDS
-    setShields(SHIP_MAX_SHIELDS)
-    setLevel(1)
-    resetBlueRocksForLevel(1)
+    shieldsRef.current = Math.min(maxShields(expeditionRef.current), expeditionRef.current.shields)
+    setShields(shieldsRef.current)
     setGameStateWithRef('playing')
     invulnerableRef.current = INVULNERABILITY_GAME_START
-    const now = Date.now()
-    waveStartTimeRef.current = now
-    setWaveStartTime(now)
-    setWaveElapsedTime(0)
-    setWaveCompletionTime(0)
-    setWaveCreditsEarned(0)
-    setWaveTimeBonus(0)
     waveCreditsRef.current = 0
     debrisRef.current = []
-    levelingUpRef.current = false
     harpoonRef.current = { state: 'idle' }
-    miningBaseAngleRef.current = 0
+    miningBaseAngleRef.current = expeditionRef.current.campaign.havenAngle
     miningGunCooldownsRef.current = BASE_GUN_INITIAL_COOLDOWNS
-    phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
+    phaserStateRef.current = { energyMs: laserCapacityMs(expeditionRef.current), cooldownMs: 0, particleCarry: 0 }
     phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, direction: { x: 1, y: 0 }, length: 0, energy01: 1 }
     phaserParticlesRef.current = []
-    setAttractorActiveWithRef(false)
-    setAttractorTimerWithRef(ATTRACTOR_BEAM_DURATION)
-    pendingNextWaveRef.current = null
-    spawnRocks(rockCountForLevel(1), ROCK_SPAWN_AVOID_RADIUS, speedMultForLevel(1))
-  }, [spawnRocks, rockCountForLevel, speedMultForLevel, resetBlueRocksForLevel, setGameStateWithRef, setAttractorActiveWithRef, setAttractorTimerWithRef])
+    populateExpedition()
+    publishExpedition()
+  }, [populateExpedition, publishExpedition, setGameStateWithRef])
 
-  const continueToNextWave = useCallback(() => {
-    const next = pendingNextWaveRef.current
-    if (!next) return
-
-    setLevel(next)
-    resetBlueRocksForLevel(next)
-    baseShotsRef.current = []
-    bulletsRef.current = []
-    phaserStateRef.current = { energyMs: PHASER_MAX_FIRE_DURATION * 1000, cooldownMs: 0, hitCooldownMs: 0, particleCarry: 0 }
-    phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, direction: { x: 1, y: 0 }, length: 0, energy01: 1 }
-    phaserParticlesRef.current = []
-    shipFullyInBaseRef.current = false
-    shipRepairTimeRef.current = 0
-    harpoonRef.current = { state: 'idle' }
-    setAttractorActiveWithRef(false)
-    setAttractorTimerWithRef(ATTRACTOR_BEAM_DURATION)
-
-    // Wave transitions cannot leave the ship beyond a cavern wall.
-    const nextMap = getCavernMap(next)
-    resolveCircleInCavern(shipRef.current.pos, shipRef.current.vel, shipRef.current.radius, 0.55, nextMap)
-    if (!isInsideCavern(shipRef.current.pos, shipRef.current.radius, nextMap)) {
-      shipRef.current = { ...shipRef.current, pos: { ...WORLD_CENTER }, vel: { x: 0, y: 0 } }
+  const shootBlaster = useCallback(() => {
+    if (gameStateRef.current !== 'playing' || mapOpenRef.current || expeditionRef.current.campaign.journey?.riding || !expeditionRef.current.blasterInstalled) return
+    const shot = fireBlaster(expeditionRef.current, runtimeRef.current, shipRef.current)
+    if (!shot) {
+      if (expeditionRef.current.blasterCharges <= 0) publishExpedition('Blaster empty')
+      return
     }
+    blasterRef.current.shots.push(shot)
+    shipRepairTimeRef.current = 0
+    sounds.blaster()
+    publishExpedition()
+  }, [publishExpedition])
 
-    spawnRocks(rockCountForLevel(next), ROCK_SPAWN_AVOID_RADIUS, speedMultForLevel(next))
-    invulnerableRef.current = INVULNERABILITY_LEVEL_START
-    levelingUpRef.current = false
-    waitingForWaveEndFxRef.current = false
-    pendingNextWaveRef.current = null
-    setGameStateWithRef('playing')
-    const now = Date.now()
-    waveStartTimeRef.current = now
-    setWaveStartTime(now)
-    setWaveElapsedTime(0)
-    setWaveCompletionTime(0)
-    setWaveCreditsEarned(0)
-    setWaveTimeBonus(0)
-    waveCreditsRef.current = 0
-  }, [resetBlueRocksForLevel, spawnRocks, rockCountForLevel, speedMultForLevel, setGameStateWithRef, setAttractorActiveWithRef, setAttractorTimerWithRef])
+  const rechargeRemotely = useCallback(() => {
+    if (gameStateRef.current !== 'playing' || mapOpenRef.current) return
+    expeditionRef.current.shields = shieldsRef.current
+    if (!activateRemoteRecharge(expeditionRef.current)) return
+    runtimeRef.current.recharging = true
+    runtimeRef.current.rechargeProgress = 0
+    publishExpedition()
+  }, [publishExpedition])
 
-  useEffect(() => {
-    levelRef.current = level
-  }, [level])
+  const teleportHome = useCallback(() => {
+    if (gameStateRef.current !== 'playing' || mapOpenRef.current) return
+    const ship = shipRef.current, state = expeditionRef.current, rt = runtimeRef.current
+    const from = { ...ship.pos }
+    if (!teleportToHaven(state, ship)) return
+    // Teleport the ship only. Released cargo stays in the world for later recovery.
+    harpoonRef.current = { state: 'idle' }
+    rt.towing = undefined
+    rt.teleport = { from, time: 0.6 }
+    rt.radiation = freshRadiationFeedback()
+    shipRepairTimeRef.current = 0
+    keysRef.current.clear()
+    phaserBeamRef.current.active = false
+    laserContactRef.current = { elapsedMs: 0 }
+    sounds.stopThrust(); sounds.stopPhaser(); sounds.stopRadiation()
+    sounds.teleport()
+    snapshotCargo(state, rt, rocksRef.current)
+    publishExpedition()
+  }, [publishExpedition])
+
+  const retractTether = useCallback(() => {
+    const hp = harpoonRef.current
+    if (hp.state === 'idle' || hp.state === 'reeling') return
+    const end = hp.state === 'attached' ? hp.rock.pos : hp.pos
+    const ship = shipRef.current
+    const reelLength = Math.hypot(end.x - ship.pos.x, end.y - ship.pos.y)
+    const ropeLength = reelLength * HARPOON_VISUAL_SLACK
+    harpoonRef.current = { state: 'reeling', pos: { ...end }, reelSpeed: HARPOON_REEL_SPEED, reelLength, ropeLength, ...buildRopeBetween(ship.pos.x, ship.pos.y, end.x, end.y, ropeLength) }
+  }, [buildRopeBetween])
+
+  const resumeFlight = useCallback(() => {
+    setJournalOpen(false)
+    keysRef.current.clear()
+    if (gameStateRef.current !== 'docked' && gameStateRef.current !== 'complete') {
+      setGameStateWithRef('playing')
+      return
+    }
+    const ship = shipRef.current
+    const heading = miningBaseAngleRef.current + Math.PI
+    const distance = 62
+    runtimeRef.current.docking = { id: expeditionRef.current.checkpoint, phase: 'out', time: 0, from: { ...ship.pos }, to: { x: ship.pos.x + Math.cos(heading) * distance, y: ship.pos.y + Math.sin(heading) * distance }, angle: ship.angle, targetAngle: heading, finish: false }
+    setGameStateWithRef('docking')
+  }, [setGameStateWithRef])
+
+  const interact = useCallback(() => {
+    if (gameStateRef.current !== 'playing' || mapOpenRef.current) return
+    const state = expeditionRef.current
+    const action = interaction(state, shipRef.current)
+    if (!action) return
+    if (action.kind === 'recall' && action.ready) {
+      if (moveHaven(state, action.id as BerthId, false, expeditionMap(state), miningBaseAngleRef.current)) {
+        baseShotsRef.current = []; sounds.collect(); publishExpedition('Haven en route')
+      } else publishExpedition('Haven’s service route is still obstructed')
+      return
+    }
+    if (action.kind === 'dock' || action.kind === 'finish') {
+      if (!action.ready) return
+      const ship = shipRef.current
+      const dock = havenPosition(state)
+      runtimeRef.current.docking = { id: action.id, phase: 'in', time: 0, from: { ...ship.pos }, to: { ...dock }, angle: ship.angle, targetAngle: action.id === 'haven' ? ship.angle : -Math.PI / 2, finish: action.kind === 'finish' }
+      keysRef.current.clear()
+      retractTether()
+      phaserBeamRef.current.active = false
+      setGameStateWithRef('docking')
+
+    }
+  }, [retractTether, setGameStateWithRef, publishExpedition])
+
+  const relocateHaven = useCallback((destination: BerthId) => {
+    const state = expeditionRef.current
+    if (gameStateRef.current !== 'docked' || !moveHaven(state, destination, true, expeditionMap(state), miningBaseAngleRef.current)) return
+    retractTether(); harpoonRef.current = { state:'idle' }; baseShotsRef.current = []
+    keysRef.current.clear(); phaserBeamRef.current.active = false
+    setGameStateWithRef('playing'); publishExpedition('Haven departing')
+  }, [retractTether, setGameStateWithRef, publishExpedition])
+
+  const buyUpgrade = useCallback((id: ShopUpgrade) => {
+    const offer = upgradeOffer(expeditionRef.current, id)
+    if (gameStateRef.current !== 'docked' || !purchaseUpgrade(expeditionRef.current, id)) return
+    shieldsRef.current = maxShields(expeditionRef.current)
+    setShields(shieldsRef.current)
+    expeditionRef.current.shields = shieldsRef.current
+    sounds.collect()
+    phaserStateRef.current.energyMs = laserCapacityMs(expeditionRef.current)
+    publishExpedition(`${offer.name} installed.`)
+  }, [publishExpedition])
+
+  const buySupply = useCallback((id: SupplyPurchase) => {
+    if (gameStateRef.current !== 'docked' || !purchaseSupply(expeditionRef.current, id)) return
+    sounds.collect()
+    publishExpedition()
+  }, [publishExpedition])
 
   useEffect(() => {
     if (gameState !== 'menu') return
@@ -505,7 +485,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     // Reset visuals.
     shieldsRef.current = 2
     queueMicrotask(() => setShields(2))
-    miningBaseAngleRef.current = 0
+    miningBaseAngleRef.current = expeditionRef.current.campaign.havenAngle
     debrisRef.current = []
 
     // Place ship in a dramatic but plausible position.
@@ -529,9 +509,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(bx - ax, by - ay)
 
     // Additional spaced rocks around the arena for an “in-progress” feel.
-    const levelForShot = 5
-    const speedMult = speedMultForLevel(levelForShot)
-    const count = clamp(rockCountForLevel(levelForShot), 5, 7)
+    const speedMult = 1.3
+    const count = 6
 
     const sampleSpawn = () => {
       const angle = Math.random() * Math.PI * 2
@@ -612,7 +591,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         life: 1e9,
       }
     })
-  }, [gameState, SHIP_RADIUS, MINING_BASE_RADIUS, createRock, rockCountForLevel, speedMultForLevel])
+  }, [gameState, SHIP_RADIUS, createRock])
 
   useEffect(() => {
     if (gameState !== 'menu') {
@@ -622,29 +601,61 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      keysRef.current.add(e.key.toLowerCase())
-
-      if (e.key === 'Escape') {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
+      const key = e.key.toLowerCase()
+      // Dialogs handle their own focused buttons before the event reaches here.
+      if (key === 'escape' || key === 'p') {
+        if (gameState !== 'playing' && gameState !== 'paused') return
         e.preventDefault()
-        onExit()
+        if (e.repeat) return
+        keysRef.current.clear()
+        if (mapOpenRef.current) {
+          mapOpenRef.current = false
+          setMapOpen(false)
+          if (key === 'escape') return
+        }
+        setGameStateWithRef(gameState === 'playing' ? 'paused' : 'playing')
         return
       }
-
-      if (e.key === ' ' && gameState === 'playing') {
-        // Primary fire is handled in the update loop for hold-to-fire behavior.
+      if (gameState !== 'playing') return
+      if (key === 'j' && !mapOpenRef.current) {
+        e.preventDefault(); if (e.repeat) return
+        keysRef.current.clear(); setJournalOpen(true); setGameStateWithRef('paused')
+        return
+      }
+      if (key === 'o' && mapOpenRef.current) { e.preventDefault(); if (!e.repeat) toggleOverview(); return }
+      if (key === 'm') {
         e.preventDefault()
+        if (e.repeat) return
+        mapOpenRef.current = !mapOpenRef.current
+        setMapOpen(mapOpenRef.current)
+        keysRef.current.clear()
+        sounds.stopThrust(); sounds.stopPhaser(); sounds.stopRepairHum(); sounds.stopRadiation()
+        return
       }
-      if (e.key.toLowerCase() === 'p' && gameState === 'playing') {
-        setGameState('paused')
-      } else if (e.key.toLowerCase() === 'p' && gameState === 'paused') {
-        setGameState('playing')
+      if (mapOpenRef.current || expeditionRef.current.campaign.journey?.riding) return
+      // Tab and native button activation are UI input, never ship input.
+      if (e.target instanceof HTMLElement && e.target.closest('button, input, a')) {
+        if (['enter', ' ', 'tab', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'home', 'end'].includes(key)) return
       }
-
-      if (gameState === 'waveComplete') {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          continueToNextWave()
-        }
+      if (key === 'e') {
+        e.preventDefault()
+        if (!e.repeat) interact()
+        return
+      }
+      if (key === 'g') {
+        e.preventDefault()
+        if (!e.repeat) shootBlaster()
+        return
+      }
+      if (key === 'r' || key === 't') {
+        e.preventDefault()
+        if (!e.repeat) { if (key === 'r') rechargeRemotely(); else teleportHome() }
+        return
+      }
+      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', ' '].includes(key)) {
+        e.preventDefault()
+        keysRef.current.add(key)
       }
 
       // Harpoon grapple (F): fire / release.
@@ -670,7 +681,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const hookVx = shipV0x + dirX * speedRel * (mShip / mSum)
           const hookVy = shipV0y + dirY * speedRel * (mShip / mSum)
 
-          const ropeLength = HARPOON_CABLE_LENGTH * HARPOON_VISUAL_SLACK
+          const cableLength = HARPOON_CABLE_LENGTH * tetherReachMultiplier(expeditionRef.current)
+          const ropeLength = cableLength * HARPOON_VISUAL_SLACK
           const seedX = ship.pos.x + Math.cos(ship.angle) * Math.min(ropeLength, 16)
           const seedY = ship.pos.y + Math.sin(ship.angle) * Math.min(ropeLength, 16)
           const seed = buildRopeBetween(ship.pos.x, ship.pos.y, seedX, seedY, ropeLength)
@@ -684,7 +696,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             // Long enough to reach maxLength at the given speed.
             life: 1200,
             traveled: 0,
-            maxLength: HARPOON_CABLE_LENGTH,
+            maxLength: cableLength,
             ropeLength,
             segLen: seed.segLen,
             rope: seed.rope,
@@ -731,63 +743,27 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
       }
 
-      // Attractor beam remains the single auxiliary system.
-      if (!e.repeat && e.key.toLowerCase() === 'a' && gameState === 'playing') {
-        setAttractorActiveWithRef((active) => {
-          if (!active && attractorTimerRef.current > 0) return true
-          if (active) return false
-          return active
-        })
-      }
-      
-      // Menu keyboard navigation
-      if (gameState === 'menu') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setMenuIndex((i) => (i > 0 ? i - 1 : 1))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setMenuIndex((i) => (i < 1 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (menuIndex === 0) startGame()
-          else onExit()
-        }
-      }
-      
-      // Game Over keyboard navigation
-      if (gameState === 'gameOver') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i > 0 ? i - 1 : 2))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i < 2 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (gameOverIndex === 0) startGame()
-          else if (gameOverIndex === 1) setGameState('menu')
-          else onExit()
-        }
-      }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
       keysRef.current.delete(e.key.toLowerCase())
+      if (e.key === ' ') laserContactRef.current = { elapsedMs: 0 }
     }
 
+    const handleBlur = () => {
+      keysRef.current.clear()
+      if (gameStateRef.current === 'playing') setGameStateWithRef('paused')
+    }
+    window.addEventListener('blur', handleBlur)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
 
     return () => {
+      window.removeEventListener('blur', handleBlur)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, startGame, onExit, continueToNextWave, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, setAttractorActiveWithRef])
+  }, [gameState, interact, shootBlaster, rechargeRemotely, teleportHome, setGameStateWithRef, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, toggleOverview])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -810,26 +786,74 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
     const update = (dt: number) => {
       const gameState = gameStateRef.current
-      const waveStartTime = waveStartTimeRef.current
-      const attractorActive = attractorActiveRef.current
-      const attractorTimer = attractorTimerRef.current
 
+      if (gameState === 'paused' || gameState === 'docked' || gameState === 'complete' || mapOpenRef.current) return
+      const riding = gameState === 'playing' && !!expeditionRef.current.campaign.journey?.riding
+      const previousHaven = havenPose(expeditionRef.current, miningBaseAngleRef.current)
+      let havenArrived = false
+      if (gameState === 'playing' && expeditionRef.current.campaign.journey) {
+        havenArrived = stepHaven(expeditionRef.current,dt)
+        miningBaseAngleRef.current = expeditionRef.current.campaign.havenAngle
+        if (riding) {
+          keysRef.current.clear()
+          shipRef.current.pos = { ...havenPosition(expeditionRef.current) }
+          shipRef.current.vel = { x:0,y:0 }
+          shipRef.current.angle = miningBaseAngleRef.current
+          sounds.stopRadiation()
+        }
+        if (havenArrived && !riding) publishExpedition('Haven secured at the service berth')
+      }
+      if (gameState === 'docking') {
+        const rt = runtimeRef.current, dock = rt.docking!, ship = shipRef.current
+        rt.elapsed += dt
+        dock.time += dt
+        const t = Math.min(1, dock.time / 0.7), ease = t * t * (3 - 2 * t)
+        ship.pos = { x: dock.from.x + (dock.to.x - dock.from.x) * ease, y: dock.from.y + (dock.to.y - dock.from.y) * ease }
+        ship.angle = dock.angle + angleDelta(dock.angle, dock.targetAngle) * ease
+        ship.vel = { x: 0, y: 0 }
+        const hook = harpoonRef.current
+        if (hook.state === 'reeling') {
+          const dx = hook.pos.x - ship.pos.x, dy = hook.pos.y - ship.pos.y
+          const length = Math.max(0, Math.hypot(dx, dy) - hook.reelSpeed * dt)
+          if (length < HARPOON_REEL_MIN_LEN) harpoonRef.current = { state: 'idle' }
+          else {
+            const angle = Math.atan2(dy, dx)
+            hook.pos = { x: ship.pos.x + Math.cos(angle) * length, y: ship.pos.y + Math.sin(angle) * length }
+            hook.reelLength = length; hook.ropeLength = length * HARPOON_VISUAL_SLACK
+            Object.assign(hook, buildRopeBetween(ship.pos.x, ship.pos.y, hook.pos.x, hook.pos.y, hook.ropeLength))
+          }
+        }
+        if (t < 1) return
+        if (dock.phase === 'out') {
+          ship.vel = { x: Math.cos(ship.angle) * 45, y: Math.sin(ship.angle) * 45 }
+          rt.docking = undefined
+          setGameStateWithRef('playing')
+        } else {
+          const state = expeditionRef.current
+          const deposited = bankAtCheckpoint(state, dock.id)
+          shieldsRef.current = maxShields(state)
+          setShields(shieldsRef.current)
+          state.position = { ...ship.pos }; state.shields = shieldsRef.current
+          if (dock.finish) state.complete = true
+          sounds.collect()
+          setGameStateWithRef(dock.finish ? 'complete' : 'docked')
+          publishExpedition(dock.finish ? 'Station restored' : deposited > 0 ? `+${deposited} banked` : 'Haven')
+        }
+        return
+      }
       const phaser = phaserStateRef.current
+      const phaserCapacity = laserCapacityMs(expeditionRef.current)
 
       // Phaser timers tick even if we aren't actively playing (so cooldowns don't get stuck).
       if (phaser.cooldownMs > 0) {
         phaser.cooldownMs -= dt * 1000
         if (phaser.cooldownMs <= 0) {
           phaser.cooldownMs = 0
-          phaser.energyMs = PHASER_MAX_FIRE_DURATION * 1000
+          phaser.energyMs = phaserCapacity
         }
       }
 
-      // Update wave timer display
-      if (gameState === 'playing' && waveStartTime > 0) {
-        setWaveElapsedTime((Date.now() - waveStartTime) / 1000)
-      }
-      
+
       // Always update debris so explosions can play during transitions/menus.
       if (debrisRef.current.length > 0) {
         debrisRef.current = debrisRef.current.filter((d) => {
@@ -879,13 +903,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         return
       }
 
-      // Keep the base alive even when not playing.
-      miningBaseAngleRef.current += dt * MINING_ROT_SPEED
+      // The deployed ring idles; transit keeps the tender's actual heading.
+      if (havenReady(expeditionRef.current) && !havenArrived) miningBaseAngleRef.current += dt * MINING_ROT_SPEED
+      expeditionRef.current.campaign.havenAngle = miningBaseAngleRef.current
 
       if (gameState !== 'playing') return
 
       const ship = shipRef.current
-      const cavernMap = getCavernMap(levelRef.current)
+      const cavernMap = expeditionMap(expeditionRef.current)
 
       const w = WORLD_WIDTH
       const h = WORLD_HEIGHT
@@ -894,6 +919,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       const wrapY = (y: number) => y
 
       const pendingRedDetonations: Rock[] = []
+      const initialBanked = expeditionRef.current.banked
+      let asteroidRewarded = false
+      const rewardAsteroid = (rock: Rock) => {
+        if (gameStateRef.current !== 'playing') return
+        const credits = creditAsteroidDestruction(expeditionRef.current, rock, { pos:havenPosition(expeditionRef.current), radius:havenReady(expeditionRef.current) ? MINING_BASE_RADIUS : 0 })
+        waveCreditsRef.current += credits
+        asteroidRewarded ||= credits > 0
+      }
 
       const armRedRock = (rock: Rock) => {
         if (rock.kind !== 'red') return
@@ -923,29 +956,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           armRedRock(rock)
           return
         }
-        if (rock.kind === 'blue') {
-          // Blue smallest rocks cannot be destroyed by ship weapons; they only get pushed.
-          const ux = pushDir ? pushDir.x : 0
-          const uy = pushDir ? pushDir.y : 0
-          const dl = Math.hypot(ux, uy)
-          if (dl > 1e-6) {
-            const px = ux / dl
-            const py = uy / dl
-            const push = 170
-            rock.vel.x += px * push
-            rock.vel.y += py * push
-          }
-          return
-        }
+        if (repelBlueBody(rock, pushDir)) return
 
         releaseHarpoonIfAttached(rock)
 
         const idx = rocksRef.current.indexOf(rock)
         if (idx === -1) return
         rocksRef.current.splice(idx, 1)
-        const credits = Math.floor(CREDITS_SHOOTING_ROCK_DIVISOR / rock.radius)
-        setScore((s) => s + credits)
-        waveCreditsRef.current += credits
+        rewardAsteroid(rock)
 
         const explosionSize = rock.radius > 35 ? 'large' : rock.radius > 20 ? 'medium' : 'small'
         sounds.explosion(explosionSize)
@@ -999,6 +1017,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const idx = rocksRef.current.indexOf(source)
           if (idx === -1) continue
           rocksRef.current.splice(idx, 1)
+          rewardAsteroid(source)
 
           sounds.explosion('large')
           createDebris(source.pos.x, source.pos.y, source.vel.x, source.vel.y, 26, 1.4, '255, 80, 80')
@@ -1007,7 +1026,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           {
             const d = toroidalDelta(source.pos.x, source.pos.y, ship.pos.x, ship.pos.y, w, h)
             const dist = Math.hypot(d.dx, d.dy)
-            if (dist < RED_ROCK_BLAST_RADIUS) {
+            if (!riding && dist < RED_ROCK_BLAST_RADIUS) {
               const t = clamp(1 - dist / RED_ROCK_BLAST_RADIUS, 0, 1)
               const impactSpeed = 60 + t * 340
               applyImpactShield(impactSpeed)
@@ -1025,14 +1044,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           const affected = [...rocksRef.current]
           for (const other of affected) {
             if (rocksRef.current.indexOf(other) === -1) continue
+            if (other.socketId) continue
             const d = toroidalDelta(source.pos.x, source.pos.y, other.pos.x, other.pos.y, w, h)
             const dist = Math.hypot(d.dx, d.dy)
-            if (dist >= RED_ROCK_BLAST_RADIUS || dist < 1e-6) continue
+            if (dist >= RED_ROCK_BLAST_RADIUS || !visibleBetween(source.pos, other.pos, cavernMap)) continue
 
             const t = clamp(1 - dist / RED_ROCK_BLAST_RADIUS, 0, 1)
-            const nx = d.dx / dist
-            const ny = d.dy / dist
+            const nx = dist > 1e-6 ? d.dx / dist : 1
+            const ny = dist > 1e-6 ? d.dy / dist : 0
             const kick = (RED_ROCK_BLAST_IMPULSE * t) / Math.max(0.8, other.radius / 16)
+            if (repelBlueBody(other, { x: nx, y: ny }, kick)) continue
             other.vel.x += nx * kick
             other.vel.y += ny * kick
 
@@ -1047,8 +1068,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
       }
 
+      const loseShip = () => {
+        createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 18, 1.2, '255, 255, 255')
+        sounds.explosion('large'); sounds.stopThrust(); sounds.stopRadiation()
+        keysRef.current.clear()
+        dyingTimerRef.current = DYING_ANIMATION_DURATION
+        setLostCredits(crashExpedition(expeditionRef.current))
+        publishExpedition()
+        setGameStateWithRef('dying')
+      }
       const applyImpactShield = (impactSpeed: number) => {
-        if (invulnerableRef.current > 0) return
+        if (riding || invulnerableRef.current > 0 || gameStateRef.current !== 'playing') return
         // Calibrated for gameplay feel (ship max speed ~300):
         // very slow -> 0, slow -> 1, medium -> 2, fast -> 3.
         // User-calibrated collision thresholds (relative speed):
@@ -1060,81 +1090,70 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         if (amt <= 0) return
         invulnerableRef.current = INVULNERABILITY_AFTER_HIT
 
-        // Guard against React StrictMode double-invoking state updaters in dev.
-        let shieldSoundPlayed = false
-        setShields((s) => {
-          // Shields are a visual indicator only; collision math stays unchanged.
-          // Starts at 2 and ticks down (by the same impact amounts as the old damage system).
-          // Once shields are gone, the next hit destroys the ship.
-          if (s <= 0) {
-            shieldsRef.current = 0
-            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 18, 1.2, '255, 255, 255')
-            createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 10, 1.0, '255, 170, 0')
-            sounds.explosion('large')
-            sounds.stopThrust()
-            keysRef.current.clear()
-            dyingTimerRef.current = DYING_ANIMATION_DURATION
-            setGameState('dying')
-            return 0
-          }
-
-          const next = Math.max(0, s - amt)
-          shieldsRef.current = next
-          if (next < s) {
-            lastShieldHitAtRef.current = Date.now()
-            if (!shieldSoundPlayed) {
-              shieldSoundPlayed = true
-              sounds.shieldHit(next)
-            }
-          }
-          return next
-        })
+        const current = shieldsRef.current
+        if (current <= 0) {
+          loseShip()
+          return
+        }
+        const next = Math.max(0, current - amt)
+        shieldsRef.current = next
+        setShields(next)
+        lastShieldHitAtRef.current = Date.now()
+        sounds.shieldHit(next)
       }
 
-      // Ship controls
-      if (keysRef.current.has('arrowleft')) {
-        ship.angle -= SHIP_ROTATION_SPEED * dt
-      }
-      if (keysRef.current.has('arrowright')) {
-        ship.angle += SHIP_ROTATION_SPEED * dt
-      }
-      const isThrusting = keysRef.current.has('arrowup')
-      if (isThrusting) {
-        ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt
-        ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt
-        sounds.startThrust()
-      } else {
-        sounds.stopThrust()
-      }
+      // Passengers remain secured inside the tender while the world keeps moving.
+      if (!riding) {
+        // Ship controls
+        if (keysRef.current.has('arrowleft') || keysRef.current.has('a')) {
+          ship.angle -= SHIP_ROTATION_SPEED * dt
+        }
+        if (keysRef.current.has('arrowright') || keysRef.current.has('d')) {
+          ship.angle += SHIP_ROTATION_SPEED * dt
+        }
+        const isThrusting = (keysRef.current.has('arrowup') || keysRef.current.has('w'))
+        const noseThrusting = keysRef.current.has('arrowdown') || keysRef.current.has('s')
+        if (isThrusting) {
+          ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt
+          ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt
+        }
+        if (noseThrusting) applyNoseThrust(ship, dt)
+        if (isThrusting || noseThrusting) sounds.startThrust()
+        else sounds.stopThrust()
+        const maxSpeed = SHIP_MAX_SPEED
+        const speed = Math.hypot(ship.vel.x, ship.vel.y)
+        if (speed > maxSpeed) {
+          ship.vel.x = (ship.vel.x / speed) * maxSpeed
+          ship.vel.y = (ship.vel.y / speed) * maxSpeed
+        }
 
-      // Apply friction and speed limit
-      const maxSpeed = SHIP_MAX_SPEED
-      const speed = Math.hypot(ship.vel.x, ship.vel.y)
-      if (speed > maxSpeed) {
-        ship.vel.x = (ship.vel.x / speed) * maxSpeed
-        ship.vel.y = (ship.vel.y / speed) * maxSpeed
-      }
+        // Damp velocity in the ship's local frame: reduce sideways drift more than forward motion.
+        const fx = Math.cos(ship.angle)
+        const fy = Math.sin(ship.angle)
+        const rx = -fy
+        const ry = fx
 
-      // Damp velocity in the ship's local frame: reduce sideways drift more than forward motion.
-      const fx = Math.cos(ship.angle)
-      const fy = Math.sin(ship.angle)
-      const rx = -fy
-      const ry = fx
+        const vForward = ship.vel.x * fx + ship.vel.y * fy
+        const vRight = ship.vel.x * rx + ship.vel.y * ry
 
-      const vForward = ship.vel.x * fx + ship.vel.y * fy
-      const vRight = ship.vel.x * rx + ship.vel.y * ry
+        const nextForward = vForward * SHIP_FRICTION
+        const nextRight = vRight * SHIP_LATERAL_FRICTION
 
-      const nextForward = vForward * SHIP_FRICTION
-      const nextRight = vRight * SHIP_LATERAL_FRICTION
+        ship.vel.x = nextForward * fx + nextRight * rx
+        ship.vel.y = nextForward * fy + nextRight * ry
 
-      ship.vel.x = nextForward * fx + nextRight * rx
-      ship.vel.y = nextForward * fy + nextRight * ry
-
-      // Update ship in persistent world coordinates.
-      ship.pos.x += ship.vel.x * dt
-      ship.pos.y += ship.vel.y * dt
-      const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
-      if (shipWallHit.maxImpactSpeed > 0) applyImpactShield(shipWallHit.maxImpactSpeed)
+        // Update ship in persistent world coordinates.
+        ship.pos.x += ship.vel.x * dt
+        ship.pos.y += ship.vel.y * dt
+        const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
+        if (shipWallHit.maxImpactSpeed > 0) applyImpactShield(shipWallHit.maxImpactSpeed)
+        if (gameStateRef.current !== 'playing') return
+        const radiationDose = stepRadiation(expeditionRef.current, ship.pos, dt, cavernMap)
+        const radiationFeedback = stepRadiationFeedback(runtimeRef.current.radiation, radiationDose, expeditionRef.current, dt)
+        if (radiationDose.failed) { loseShip(); return }
+        if (radiationFeedback.stopped) sounds.stopRadiation()
+        if (radiationFeedback.tick) sounds.radiationTick(radiationFeedback.urgency, runtimeRef.current.radiation.unprotected)
+      } else sounds.stopThrust()
 
       // Update invulnerability
       if (invulnerableRef.current > 0) {
@@ -1142,7 +1161,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Update rocks and bounce them off the cavern boundary.
+      const activeRock = (rock: Rock) => Math.hypot(rock.pos.x-ship.pos.x,rock.pos.y-ship.pos.y) < 1400 || Math.hypot(rock.pos.x-havenPosition(expeditionRef.current).x,rock.pos.y-havenPosition(expeditionRef.current).y) < 450
       rocksRef.current.forEach((rock) => {
+        if (!activeRock(rock)) return
+        rock.laserGlow = (rock.laserGlow ?? 0) * Math.exp(-5 * dt)
+        if (rock.socketId) return
         rock.pos.x += rock.vel.x * dt
         rock.pos.y += rock.vel.y * dt
 
@@ -1155,162 +1178,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         if (wallHit.collided && rock.kind === 'red') armRedRock(rock)
       })
 
-      // Force field collision: prevent rocks from exiting base through doors when attractor is active
-      if (attractorActive && attractorTimer > 0) {
-        const baseX = w / 2
-        const baseY = h / 2
-        const baseAng = miningBaseAngleRef.current
-        const doorVertices = [1, 3, 5]
-        
-        for (const rock of rocksRef.current) {
-          // Check if rock is near base using toroidal distance
-          const d = toroidalDelta(baseX, baseY, rock.pos.x, rock.pos.y, w, h)
-          const distToBase = Math.hypot(d.dx, d.dy)
-          
-          // Only check rocks that are inside the base
-          if (distToBase > MINING_BASE_RADIUS - rock.radius) continue
-          
-          // Check each door - if rock is trying to exit through a door, bounce it back
-          for (const vertIdx of doorVertices) {
-            const doorAngle = baseAng + (vertIdx / 6) * Math.PI * 2
-            
-            // Check if rock is near this door
-            const angleToRock = Math.atan2(d.dy, d.dx)
-            let angleDiff = angleToRock - doorAngle
-            while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
-            while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
-            
-            // If rock is heading towards this door (within 30 degrees)
-            if (Math.abs(angleDiff) < Math.PI / 6) {
-              // Check if it's trying to leave
-              if (distToBase > MINING_BASE_RADIUS - rock.radius - 5) {
-                // Bounce the rock back towards center
-                const velDot = rock.vel.x * d.dx / distToBase + rock.vel.y * d.dy / distToBase
-                
-                if (velDot > 0) { // Moving outward
-                  rock.vel.x -= 1.8 * velDot * d.dx / distToBase
-                  rock.vel.y -= 1.8 * velDot * d.dy / distToBase
-                }
-              }
-            }
-          }
-        }
-      }
-
       // Rock-rock collisions in ordinary world space.
       // This uses a simple impulse + positional correction so rocks "bump" off each other.
-      const rocks = rocksRef.current
+      const rocks = rocksRef.current.filter(activeRock)
       const restitution = 0.9
 
-      // Mining base interaction: a flat-topped hex with 3 door gaps.
-      // Anything inside the hex is processed (rocks) or repaired (ship).
-      // Only the visible wall segments collide.
+      // Processing and repairs work only while the recovery ring is deployed.
       {
-        const baseX = w / 2
-        const baseY = h / 2
+        const baseX = havenPosition(expeditionRef.current).x
+        const baseY = havenPosition(expeditionRef.current).y
 
-        const baseAng = miningBaseAngleRef.current
-
-        const hexVerts: Vector2[] = Array.from({ length: 6 }, (_, i) => {
-          const a = baseAng + (i / 6) * Math.PI * 2
-          return { x: Math.cos(a) * MINING_BASE_RADIUS, y: Math.sin(a) * MINING_BASE_RADIUS }
-        })
-
-        const doorCorners = new Set([1, 3, 5]) // remove every other segment starting at ~1 o'clock
-        const wallSegments: Array<{ a: Vector2; b: Vector2 }> = []
-        for (let i = 0; i < 6; i++) {
-          const a0 = hexVerts[i]
-          const b0 = hexVerts[(i + 1) % 6]
-          const ex = b0.x - a0.x
-          const ey = b0.y - a0.y
-          const len = Math.hypot(ex, ey)
-          if (len < 1e-6) continue
-          const startT = doorCorners.has(i) ? MINING_DOOR_TRIM / len : 0
-          const endT = doorCorners.has((i + 1) % 6) ? 1 - MINING_DOOR_TRIM / len : 1
-          if (startT >= endT - 1e-6) continue
-          wallSegments.push({
-            a: { x: a0.x + ex * startT, y: a0.y + ey * startT },
-            b: { x: a0.x + ex * endT, y: a0.y + ey * endT },
-          })
-        }
-
-        const circleFullyInHex = (px: number, py: number, radius: number) => {
-          // Hex is CCW; inside is to the left of each directed edge.
-          for (let i = 0; i < 6; i++) {
-            const a = hexVerts[i]
-            const b = hexVerts[(i + 1) % 6]
-            const ex = b.x - a.x
-            const ey = b.y - a.y
-            const len = Math.hypot(ex, ey)
-            if (len < 1e-6) continue
-            // Left normal (points inward for CCW polygon)
-            const nx = -ey / len
-            const ny = ex / len
-            const dist = (px - a.x) * nx + (py - a.y) * ny
-            if (dist < radius) return false
-          }
-          return true
-        }
-
-        const collideWithWalls = (
-          pos: Vector2,
-          vel: Vector2,
-          radius: number,
-          restitutionK: number,
-          onImpact?: (impactSpeed: number) => void,
-        ) => {
-          const d = toroidalDelta(baseX, baseY, pos.x, pos.y, w, h)
-          let px = d.dx
-          let py = d.dy
-          let touched = false
-
-          for (let i = 0; i < wallSegments.length; i++) {
-            const seg = wallSegments[i]
-            const ax = seg.a.x
-            const ay = seg.a.y
-            const bx = seg.b.x
-            const by = seg.b.y
-            const vx = bx - ax
-            const vy = by - ay
-            const denom = vx * vx + vy * vy
-            if (denom < 1e-6) continue
-            const t = clamp(((px - ax) * vx + (py - ay) * vy) / denom, 0, 1)
-            const qx = ax + vx * t
-            const qy = ay + vy * t
-            const dx = px - qx
-            const dy = py - qy
-            const dist = Math.hypot(dx, dy)
-            if (dist >= radius || dist < 1e-6) continue
-
-            const nx = dx / dist
-            const ny = dy / dist
-            const push = radius - dist
-            px += nx * push
-            py += ny * push
-            touched = true
-
-            const vAlong = vel.x * nx + vel.y * ny
-            if (vAlong < 0) {
-              onImpact?.(Math.hypot(vel.x, vel.y))
-              vel.x -= (1 + restitutionK) * vAlong * nx
-              vel.y -= (1 + restitutionK) * vAlong * ny
-            }
-          }
-
-          if (touched) {
-            pos.x = wrapX(baseX + px)
-            pos.y = wrapY(baseY + py)
-          }
-        }
-
-        for (let i = 0; i < rocks.length; i++) {
-          const a = rocks[i]
-          collideWithWalls(a.pos, a.vel, a.radius, 0.85, () => {
-            if (a.kind === 'red') armRedRock(a)
-          })
-        }
-
-        updateBaseDefenseAndProcessing({
+        if (havenReady(expeditionRef.current)) updateBaseDefenseAndProcessing({
           dt,
           w,
           h,
@@ -1324,15 +1202,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           wrapX,
           wrapY,
           toroidalDelta,
-          setScore,
+          expedition: expeditionRef.current,
           waveCreditsRef,
           createDebris,
           onRedRockDetonate: (rock) => armRedRock(rock),
         })
-        collideWithWalls(ship.pos, ship.vel, ship.radius, 0.55, (impact) => applyImpactShield(impact))
+        if (gameStateRef.current !== 'playing') return
         {
-          const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, w, h)
-          const fullyInside = circleFullyInHex(d.dx, d.dy, ship.radius)
+          const state = expeditionRef.current, rt = runtimeRef.current
+          state.shields = shieldsRef.current
+          const fullyInside = !riding && havenReady(state) && dockingReadiness(ship, havenPosition(state)) === 'ready'
           shipFullyInBaseRef.current = fullyInside
           if (!fullyInside) {
             shipRepairTimeRef.current = 0
@@ -1341,22 +1220,31 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             if (shipRepairTimeRef.current >= SHIELD_REPAIR_TIME) {
               shipRepairTimeRef.current = SHIELD_REPAIR_TIME
 
-              // Guard against React StrictMode double-invoking state updaters in dev.
-              let shieldChargePlayed = false
-              setShields((s) => {
-                if (s >= SHIP_MAX_SHIELDS) return s
+              if (restoreShipSystems(state)) {
+                shieldsRef.current = state.shields
+                setShields(shieldsRef.current)
                 lastShieldRechargeAtRef.current = Date.now()
-                if (!shieldChargePlayed) {
-                  shieldChargePlayed = true
-                  sounds.shieldCharge()
-                }
-                shieldsRef.current = SHIP_MAX_SHIELDS
-                return SHIP_MAX_SHIELDS
-              })
+                sounds.shieldCharge()
+                publishExpedition()
+              }
+              if (state.credits > 0) {
+                const deposited = bankCarriedCredits(state)
+                sounds.collect()
+                publishExpedition(`+${deposited} banked`)
+              }
               if (invulnerableRef.current < INVULNERABILITY_MIN_AFTER_REPAIR) invulnerableRef.current = INVULNERABILITY_MIN_AFTER_REPAIR
             }
           }
-
+          if (stepRemoteRecharge(state, dt)) {
+            shieldsRef.current = state.shields
+            setShields(shieldsRef.current)
+            lastShieldRechargeAtRef.current = Date.now()
+            sounds.shieldCharge()
+            invulnerableRef.current = Math.max(invulnerableRef.current, INVULNERABILITY_MIN_AFTER_REPAIR)
+            publishExpedition()
+          }
+          rt.recharging = state.remoteRechargeRemaining > 0 || (fullyInside && needsRecharge(state) && shipRepairTimeRef.current < SHIELD_REPAIR_TIME)
+          rt.rechargeProgress = state.remoteRechargeRemaining > 0 ? 1 - state.remoteRechargeRemaining / SHIELD_REPAIR_TIME : shipRepairTimeRef.current / SHIELD_REPAIR_TIME
         }
       }
 
@@ -1366,7 +1254,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         h,
         ship,
         shipRef,
-        rocks,
+        rocks: [...rocks.filter(rock => !rock.socketId), ...cargoBodies(expeditionRef.current, runtimeRef.current).filter(body => body.cargoId !== 'core' || coreReleased(expeditionRef.current))].filter(body => Math.hypot(ship.pos.x-body.pos.x,ship.pos.y-body.pos.y) < 700 && visibleBetween(ship.pos, body.pos, cavernMap)),
         harpoonRef,
         wrapX,
         wrapY,
@@ -1377,6 +1265,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         HARPOON_REEL_MIN_LEN,
       })
 
+      resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
+      for (const rock of rocks) if (!rock.socketId) resolveCircleInCavern(rock.pos, rock.vel, rock.radius, 0.5, cavernMap)
       const updatedHarpoon = harpoonRef.current
       if (updatedHarpoon.state === 'flying' || updatedHarpoon.state === 'deployed') {
         const hookWallHit = resolveCircleInCavern(
@@ -1408,16 +1298,17 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           if (a.kind === 'red' || b.kind === 'red') continue
 
           const dist = Math.sqrt(Math.max(1e-8, dist2))
-          const nx = dx / dist
-          const ny = dy / dist
+          const nx = dist2 > 1e-8 ? dx / dist : 1
+          const ny = dist2 > 1e-8 ? dy / dist : 0
           const penetration = rSum - dist
 
           // Mass proportional to area.
           const mA = a.radius * a.radius
           const mB = b.radius * b.radius
-          const invA = 1 / mA
-          const invB = 1 / mB
+          const invA = a.socketId ? 0 : 1 / mA
+          const invB = b.socketId ? 0 : 1 / mB
           const invSum = invA + invB
+          if (invSum === 0) continue
 
           // Positional correction to resolve overlap.
           const moveA = penetration * (invA / invSum)
@@ -1443,63 +1334,43 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
       }
 
-      updateAttractorBeam({
-        dt,
-        w,
-        h,
-        attractorActive,
-        attractorTimer,
-        setAttractorTimer: setAttractorTimerWithRef,
-        setAttractorActive: setAttractorActiveWithRef,
-        miningBaseAngle: miningBaseAngleRef.current,
-        rocksRef,
-        toroidalDelta,
-        MINING_BASE_RADIUS,
-        ATTRACTOR_BEAM_RANGE_MULTIPLIER,
-        ATTRACTOR_BEAM_STRENGTH,
-      })
-
-      // Attractor beam sound
-      if (attractorActive && attractorTimer > 0) sounds.startAttractor()
-      else sounds.stopAttractor()
-
       // Phaser (SPACE): hold-to-fire beam with energy + cooldown.
       {
         const wantFire = keysRef.current.has(' ')
 
         // Recharge while not firing (unless in cooldown).
-        if (phaser.cooldownMs <= 0 && !wantFire && phaser.energyMs < PHASER_MAX_FIRE_DURATION * 1000) {
-          phaser.energyMs = Math.min(PHASER_MAX_FIRE_DURATION * 1000, phaser.energyMs + dt * 1000)
+        if (phaser.cooldownMs <= 0 && !wantFire && phaser.energyMs < phaserCapacity) {
+          phaser.energyMs = Math.min(phaserCapacity, phaser.energyMs + dt * 1000)
         }
 
         const canFire = wantFire && phaser.cooldownMs <= 0 && phaser.energyMs > 0
-        const justStarted = canFire && !phaserBeamRef.current.active
-
-        if (justStarted) {
-          sounds.startPhaser()
-          phaser.hitCooldownMs = 0
-        }
-
         if (canFire) {
           if (!phaserBeamRef.current.active) sounds.startPhaser()
           phaser.energyMs = Math.max(0, phaser.energyMs - dt * 1000)
-          phaser.hitCooldownMs = Math.max(0, phaser.hitCooldownMs - dt * 1000)
 
           const ux = Math.cos(ship.angle)
           const uy = Math.sin(ship.angle)
-          const len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE, cavernMap)
+          let len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE, cavernMap)
+          for (const body of cargoBodies(expeditionRef.current, runtimeRef.current)) {
+            const hit = rayCircleHitDistance(ship.pos, { x: ux, y: uy }, len, body.pos, body.radius + PHASER_BEAM_RADIUS)
+            if (hit != null) len = Math.min(len, hit)
+          }
+          for (const rock of rocksRef.current) {
+            const hit = rayCircleHitDistance(ship.pos, { x: ux, y: uy }, len, rock.pos, rock.radius + PHASER_BEAM_RADIUS)
+            if (hit != null) len = Math.min(len, hit)
+          }
 
           phaserBeamRef.current = {
             active: true,
             start: { x: ship.pos.x, y: ship.pos.y },
             direction: { x: ux, y: uy },
             length: len,
-            energy01: clamp(phaser.energyMs / (PHASER_MAX_FIRE_DURATION * 1000), 0, 1),
+            energy01: clamp(phaser.energyMs / (phaserCapacity), 0, 1),
           }
 
-          if (phaser.hitCooldownMs <= 0) {
+          {
             // Find the nearest rock before the beam meets the cavern wall.
-            let bestRock: Rock | null = null
+            let bestRock: Rock | undefined
             let bestT = Infinity
 
             for (const rock of rocksRef.current) {
@@ -1519,12 +1390,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               }
             }
 
-            if (bestRock) {
+            const impactMs = laserImpactMs(expeditionRef.current)
+            if (stepLaserContact(laserContactRef.current, bestRock, dt, impactMs) && bestRock) {
               hitRockLikeShipWeapon(bestRock, { x: ux, y: uy })
-              phaser.hitCooldownMs = PHASER_HIT_INTERVAL * 1000
-            } else {
-              // Still throttle targeting work a bit even if we didn't hit.
-              phaser.hitCooldownMs = Math.min(phaser.hitCooldownMs + 1, PHASER_HIT_INTERVAL * 1000)
             }
           }
 
@@ -1573,11 +1441,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           }
         } else {
           // Not firing.
+          stepLaserContact(laserContactRef.current, undefined, 0, laserImpactMs(expeditionRef.current))
           sounds.stopPhaser()
           phaserBeamRef.current = {
             ...phaserBeamRef.current,
             active: false,
-            energy01: clamp(phaser.energyMs / (PHASER_MAX_FIRE_DURATION * 1000), 0, 1),
+            energy01: clamp(phaser.energyMs / (phaserCapacity), 0, 1),
           }
         }
       }
@@ -1595,13 +1464,34 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       // Drive the repair hum from simulation state (not rendering).
-      const isHealing =
-        shipFullyInBaseRef.current &&
-        shieldsRef.current < SHIP_MAX_SHIELDS &&
-        shipRepairTimeRef.current > 0 &&
-        shipRepairTimeRef.current < 2
+      const isHealing = runtimeRef.current.recharging
       if (isHealing) sounds.startRepairHum()
       else sounds.stopRepairHum()
+
+      blasterRef.current.bursts = blasterRef.current.bursts.filter(burst => { burst.life -= dt; return burst.life > 0 })
+      const blasterStep = stepBlaster(blasterRef.current.shots, dt, cavernMap, [...rocksRef.current, ...cargoBodies(expeditionRef.current, runtimeRef.current)])
+      blasterRef.current.shots = blasterStep.shots
+      for (const impact of blasterStep.impacts) {
+        blasterRef.current.bursts.push({ pos: impact.pos, life: 0.28 })
+        createDebris(impact.pos.x, impact.pos.y, 0, 0, 18, 0.7, '255, 76, 64')
+        sounds.explosion('medium')
+        if (blastGate(expeditionRef.current, impact.pos, BLASTER_BLAST_RADIUS)) publishExpedition('Blast door breached.')
+        const impactMap = expeditionMap(expeditionRef.current)
+        for (const rock of [...rocksRef.current]) {
+          if (rock.socketId) continue
+          const distance = Math.hypot(rock.pos.x - impact.pos.x, rock.pos.y - impact.pos.y)
+          if (rock === impact.target || (distance < BLASTER_BLAST_RADIUS + rock.radius && visibleBetween(impact.pos, rock.pos, impactMap))) {
+            const direction = distance > 1e-6 ? { x: rock.pos.x - impact.pos.x, y: rock.pos.y - impact.pos.y } : impact.direction
+            const push = 320 * Math.max(0.25, 1 - distance / (BLASTER_BLAST_RADIUS + rock.radius))
+            if (rock.sourceId) repelBlueBody(rock, direction, push)
+            else if (pulverizeAsteroid(rocksRef.current, rock)) {
+              rewardAsteroid(rock)
+              releaseHarpoonIfAttached(rock)
+              createDebris(rock.pos.x, rock.pos.y, rock.vel.x, rock.vel.y, 18, 0.6, rock.kind === 'blue' ? '80, 160, 255' : '200, 200, 190')
+            }
+          }
+        }
+      }
 
       updateBulletsAndPlayerRockCollisions({
         dt,
@@ -1614,16 +1504,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         cavernMap,
         toroidalDelta,
         buildRopeBetween,
-        setScore,
-        waveCreditsRef,
         sounds,
         onRedRockDetonate: (rock) => armRedRock(rock),
+        onAsteroidDestroyed: rewardAsteroid,
         createRock,
         createDebris,
         levelRef,
         blueRocksSpawnedThisLevelRef,
         blueRockQuotaRef,
-        CREDITS_SHOOTING_ROCK_DIVISOR,
         SMALLEST_ROCK_RADIUS,
         HARPOON_VISUAL_SLACK,
         BLUE_ROCK_SPAWN_CHANCE_BASE,
@@ -1648,10 +1536,15 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       resolveRedDetonations()
 
       // Collision detection: ship vs rocks (bounce + shield loss based on impact speed)
-      {
+      if (!riding) {
         const shipMass = 1
         for (let i = 0; i < rocksRef.current.length; i++) {
           const rock = rocksRef.current[i]
+          if (rock.socketId || (rock.sourceId && rock.kind !== 'blue')) {
+            const impact = bumpCargo(ship, rock)
+            if (impact > 0) applyImpactShield(impact)
+            continue
+          }
           const d = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
           const dist = Math.hypot(d.dx, d.dy)
           const minDist = ship.radius + rock.radius
@@ -1694,66 +1587,90 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       // Ship collisions can queue detonations; resolve them now.
       resolveRedDetonations()
 
-      // Check if all rocks destroyed
-      if (rocksRef.current.length === 0 && gameState === 'playing' && !levelingUpRef.current) {
-        levelingUpRef.current = true
-        const nextLevel = levelRef.current + 1
-
-        // Prepare the wave-complete summary before spawning the next wave,
-        // but wait until the final explosion/debris animation finishes.
-        pendingNextWaveRef.current = nextLevel
-        waitingForWaveEndFxRef.current = true
+      if (gameStateRef.current !== 'playing') return
+      const previousRadio = runtimeRef.current.radio?.id
+      const events = stepExpedition(expeditionRef.current, runtimeRef.current, {
+        dt, ship, rocks: rocksRef.current, harpoon: harpoonRef.current, beam: phaserBeamRef.current, aboard:riding,
+      })
+      if (runtimeRef.current.radio && runtimeRef.current.radio.id !== previousRadio && !events.length) sounds.collect()
+      const rt = runtimeRef.current, state = expeditionRef.current
+      rt.havenImpact = Math.max(0,(rt.havenImpact ?? 0)-dt*4)
+      rt.havenImpactCooldown = Math.max(0,(rt.havenImpactCooldown ?? 0)-dt)
+      const pose = havenPose(state,miningBaseAngleRef.current)
+      const trafficRocks = rocksRef.current.filter(rock=>!rock.socketId && Math.hypot(rock.pos.x-pose.pos.x,rock.pos.y-pose.pos.y)<400)
+      const trafficCargo = cargoBodies(state,rt).filter(body=>(body.cargoId!=='core'||coreReleased(state)) && Math.hypot(body.pos.x-pose.pos.x,body.pos.y-pose.pos.y)<400)
+      // Loose cargo transfers impacts to debris too, including during a ride.
+      for (let i=0;i<trafficCargo.length;i++) {
+        const a=trafficCargo[i]
+        for (const b of [...trafficRocks,...trafficCargo.slice(i+1)]) bumpTraffic(a,b)
       }
-
-      // If the wave is clear, wait for the wave-ending animation before showing the summary.
-      if (
-        gameState === 'playing' &&
-        levelingUpRef.current &&
-        waitingForWaveEndFxRef.current &&
-        rocksRef.current.length === 0 &&
-        debrisRef.current.length === 0
-      ) {
-        baseShotsRef.current = []
-        
-        // Calculate time bonus ONCE at wave completion
-        // The multiplier is applied to ALL credits earned during the wave
-        // Credits are tracked in waveCreditsRef.current throughout gameplay
-        const completionTime = (Date.now() - waveStartTime) / 1000
-        const multiplier = calculateTimeMultiplier(completionTime)
-        const creditsEarned = waveCreditsRef.current
-        const bonus = Math.floor(creditsEarned * (multiplier - 1))
-        
-        setWaveCompletionTime(completionTime)
-        setWaveCreditsEarned(creditsEarned)
-        setWaveTimeBonus(bonus)
-        setScore((s) => s + bonus) // Apply bonus only here, not during gameplay
-        
-        setAttractorActiveWithRef(false)
-        setAttractorTimerWithRef(ATTRACTOR_BEAM_DURATION)
-        setGameStateWithRef('waveComplete')
-        waitingForWaveEndFxRef.current = false
+      const traffic = [...trafficRocks,...trafficCargo,...(riding ? [] : [ship])]
+      for (const body of traffic) {
+        const contact=collideHaven(body,previousHaven,pose,dt)
+        if (contact.hit) {
+          if (body === ship) applyImpactShield(contact.speed)
+          if ('angVel' in body && contact.speed>20) {
+            const rock=body as Rock
+            armRedRock(rock)
+            rock.angVel[2]+=Math.max(-.7,Math.min(.7,((contact.point.x-rock.pos.x)*rock.vel.y-(contact.point.y-rock.pos.y)*rock.vel.x)/Math.max(1,rock.radius*rock.radius)*.02))
+          }
+          if (contact.speed>22) {
+            rt.havenImpact=Math.min(1,contact.speed/180)
+            if (state.campaign.journey) state.campaign.journey.speed=Math.max(0,state.campaign.journey.speed-Math.min(9,contact.speed*.035))
+            if (!rt.havenImpactCooldown && Math.hypot(ship.pos.x-pose.pos.x,ship.pos.y-pose.pos.y)<800) {
+              sounds.havenImpact(contact.speed)
+              createDebris(contact.point.x,contact.point.y,body.vel.x*.2,body.vel.y*.2,3,.22,'185, 205, 190')
+              rt.havenImpactCooldown=.16
+            }
+          }
+          resolveCircleInCavern(body.pos,body.vel,body.radius,.6,cavernMap)
+        }
       }
+      if (riding) {
+        ship.pos={...havenPosition(state)};ship.vel={x:0,y:0}
+        if (havenArrived) {
+          bankAtCheckpoint(state,'haven');shieldsRef.current=state.shields;setShields(state.shields)
+          setGameStateWithRef('docked');publishExpedition('Haven secured')
+        }
+      }
+      const tether = harpoonRef.current
+      if (tether.state === 'attached' && (tether.rock.socketId || ![...rocksRef.current, ...cargoBodies(expeditionRef.current, runtimeRef.current)].some(body => body === tether.rock))) retractTether()
+      if (runtimeRef.current.impactSpeed > 0) applyImpactShield(runtimeRef.current.impactSpeed)
+      resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
+      if (gameStateRef.current !== 'playing' && !(riding && havenArrived)) return
+      expeditionRef.current.position = { ...ship.pos }
+      expeditionRef.current.shields = shieldsRef.current
+      snapshotCargo(expeditionRef.current, runtimeRef.current, rocksRef.current)
+      if (events.length) { sounds.collect(); publishExpedition(events[events.length - 1]) }
+      else if (asteroidRewarded || expeditionRef.current.banked !== initialBanked) publishExpedition()
+      hudTimerRef.current += dt
+      saveTimerRef.current += dt
+      if (hudTimerRef.current >= 0.15) {
+        hudTimerRef.current = 0
+        setHud({ room: riding ? 'Haven · in transit' : sectorAt(ship.pos)?.name ?? 'Transit tunnels', prompt: interaction(expeditionRef.current, ship)?.label ?? '', message: runtimeRef.current.messageTime > 0 ? runtimeRef.current.message : '', towing: runtimeRef.current.towing ?? '', radio:runtimeRef.current.radio?.id ?? '', grappleHint:runtimeRef.current.grappleHint ?? '' })
+        setExpedition({ ...expeditionRef.current })
+      }
+      if (saveTimerRef.current > 3) { saveTimerRef.current = 0; setSaveAvailable(saveExpedition(expeditionRef.current)) }
     }
 
     const draw = () => {
       const gameState = gameStateRef.current
-      const attractorActive = attractorActiveRef.current
-      const attractorTimer = attractorTimerRef.current
 
       drawHardVacuumFrame({
         ctx,
         gameState,
         level: levelRef.current,
+        expedition: expeditionRef.current,
+        expeditionRuntime: runtimeRef.current,
+        mapOpen: mapOpenRef.current,
+        mapOverview: mapOverviewRef.current,
         canvasSizeRef,
-        MINING_BASE_RADIUS,
-        MINING_DOOR_TRIM,
         miningBaseAngleRef,
-        attractorActive,
-        attractorTimer,
         RED_ROCK_DETONATION_DELAY,
         baseShotsRef,
         rocksRef,
         bulletsRef,
+        blasterRef,
         phaserBeamRef,
         phaserParticlesRef,
         debrisRef,
@@ -1761,8 +1678,6 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         shipRef,
         keysRef,
         shields: shieldsRef.current,
-        shieldsRef,
-        shipRepairTimeRef,
         lastShieldHitAtRef,
         lastShieldRechargeAtRef,
         toroidalDelta,
@@ -1773,7 +1688,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     let disposed = false
     const animate = (timestamp: number) => {
       if (disposed) return
-      const dt = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1)
+      const dt = Math.min((timestamp - lastTimeRef.current) / 1000, 1 / 30)
       lastTimeRef.current = timestamp
 
       update(dt)
@@ -1789,18 +1704,29 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       window.removeEventListener('resize', resize)
       if (rafId != null) cancelAnimationFrame(rafId)
       sounds.stopRepairHum(true)
+      sounds.stopRadiation()
     }
-  }, [createRock, createDebris, spawnRocks, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, calculateTimeMultiplier, setGameStateWithRef, setAttractorActiveWithRef, setAttractorTimerWithRef])
+  }, [createRock, createDebris, publishExpedition, retractTether, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, setGameStateWithRef])
+
+  useEffect(() => {
+    if (gameState === 'playing' && !mapOpen) canvasRef.current?.focus({ preventScroll: true })
+    keysRef.current.clear()
+  }, [gameState, mapOpen])
 
   const exitToGameSelect = () => {
+    saveExpedition(expeditionRef.current)
     sounds.stopThrust()
     sounds.stopStoreMusic()
+    sounds.stopRadiation()
     onExit()
   }
 
   const setVirtualKey = (key: string, pressed: boolean) => {
     if (pressed) keysRef.current.add(key)
-    else keysRef.current.delete(key)
+    else {
+      keysRef.current.delete(key)
+      if (key === ' ') laserContactRef.current = { elapsedMs: 0 }
+    }
   }
 
   const tapVirtualKey = (key: string) => {
@@ -1808,84 +1734,85 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     window.dispatchEvent(new KeyboardEvent('keyup', { key }))
   }
 
+  const holdControl = (key: string): ButtonHTMLAttributes<HTMLButtonElement> => ({
+    onPointerDown: event => {
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      setVirtualKey(key, true)
+    },
+    onPointerUp: () => setVirtualKey(key, false),
+    onPointerCancel: () => setVirtualKey(key, false),
+    onLostPointerCapture: () => setVirtualKey(key, false),
+    onKeyDown: event => {
+      if (event.key !== ' ' && event.key !== 'Enter') return
+      event.preventDefault()
+      setVirtualKey(key, true)
+    },
+    onKeyUp: event => {
+      if (event.key !== ' ' && event.key !== 'Enter') return
+      event.preventDefault()
+      setVirtualKey(key, false)
+    },
+    onBlur: () => setVirtualKey(key, false),
+  })
+
   const holdButtonClass =
-    'touch-none select-none min-w-16 h-16 rounded-full border-2 border-white/45 bg-black/65 text-white text-xl font-bold active:border-[#00ff88] active:bg-[#00ff88]/30'
+    'touch-none select-none min-w-12 w-12 h-12 sm:min-w-16 sm:w-16 sm:h-16 rounded-full border-2 border-white/45 bg-black/65 text-white text-xl font-bold active:border-[#00ff88] active:bg-[#00ff88]/30'
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden font-mono">
-      <canvas ref={canvasRef} className="absolute inset-0" />
+    <div className="hard-vacuum relative w-screen h-screen overflow-hidden font-mono">
+      <canvas ref={canvasRef} tabIndex={-1} aria-label="Hard Vacuum flight controls: WASD or arrows to fly, Space for laser, G for blaster, F to tether, R to recharge, T to teleport, E to dock, M for map, P to pause" className="absolute inset-0 outline-none" />
 
-      {HardVacuumTopCenterHud({
-        gameState,
-        level,
-        waveStartTime,
-        waveElapsedTime,
-        calculateTimeMultiplier,
-      })}
+      <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} mapOverview={mapOverview} onOverview={toggleOverview} onJournal={() => tapVirtualKey('j')} onMap={() => tapVirtualKey('m')} onInteract={interact} onBlaster={shootBlaster} onRecharge={rechargeRemotely} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />
 
-      {HardVacuumLeftHud({ gameState, score })}
-
-      {HardVacuumRightHud({
-        gameState,
-        attractorTimer,
-      })}
-
-      {gameState === 'playing' && (
+      {gameState === 'playing' && !mapOpen && (
         <div className="absolute inset-x-0 bottom-4 z-30 flex items-end justify-between px-4 lg:hidden pointer-events-none">
           <div className="flex items-end gap-2 pointer-events-auto">
             <button
               type="button"
               aria-label="Rotate left"
               className={holdButtonClass}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                event.currentTarget.setPointerCapture(event.pointerId)
-                setVirtualKey('arrowleft', true)
-              }}
-              onPointerUp={() => setVirtualKey('arrowleft', false)}
-              onPointerCancel={() => setVirtualKey('arrowleft', false)}
+              {...holdControl('arrowleft')}
             >
               ↶
             </button>
+            <div className="flex flex-col gap-2">
             <button
               type="button"
               aria-label="Thrust"
-              className={`${holdButtonClass} mb-12`}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                event.currentTarget.setPointerCapture(event.pointerId)
-                setVirtualKey('arrowup', true)
-              }}
-              onPointerUp={() => setVirtualKey('arrowup', false)}
-              onPointerCancel={() => setVirtualKey('arrowup', false)}
+              className={holdButtonClass}
+              {...holdControl('arrowup')}
             >
               ↑
             </button>
             <button
               type="button"
+              aria-label="Nose thruster / brake"
+              className={`${holdButtonClass} text-xs`}
+              {...holdControl('arrowdown')}
+            >
+              ↓
+            </button>
+            </div>
+            <button
+              type="button"
               aria-label="Rotate right"
               className={holdButtonClass}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                event.currentTarget.setPointerCapture(event.pointerId)
-                setVirtualKey('arrowright', true)
-              }}
-              onPointerUp={() => setVirtualKey('arrowright', false)}
-              onPointerCancel={() => setVirtualKey('arrowright', false)}
+              {...holdControl('arrowright')}
             >
               ↷
             </button>
           </div>
 
           <div className="flex items-end gap-3 pointer-events-auto">
+            {expedition.blasterInstalled && <button type="button" aria-label={`Fire blaster, ${expedition.blasterCharges} of 3 charges`} className={`${holdButtonClass} text-[10px] text-[#ff665e] border-[#ff665e]/70`} onClick={shootBlaster}>
+              BLAST<br />{expedition.blasterCharges}/3
+            </button>}
             <button
               type="button"
               aria-label="Fire harpoon"
               className={`${holdButtonClass} text-xs text-[#00ff88]`}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                tapVirtualKey('f')
-              }}
+              onClick={() => tapVirtualKey('f')}
             >
               HOOK
             </button>
@@ -1893,13 +1820,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               type="button"
               aria-label="Fire laser"
               className={`${holdButtonClass} mb-12 text-xs text-[#44aaff]`}
-              onPointerDown={(event) => {
-                event.preventDefault()
-                event.currentTarget.setPointerCapture(event.pointerId)
-                setVirtualKey(' ', true)
-              }}
-              onPointerUp={() => setVirtualKey(' ', false)}
-              onPointerCancel={() => setVirtualKey(' ', false)}
+              {...holdControl(' ')}
             >
               LASER
             </button>
@@ -1907,38 +1828,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         </div>
       )}
 
-      {HardVacuumWaveCompleteOverlay({
-        gameState,
-        level,
-        waveCompletionTime,
-        waveCreditsEarned,
-        waveTimeBonus,
-        calculateTimeMultiplier,
-        continueToNextWave,
-      })}
-
-      {HardVacuumMenuOverlay({
-        gameState,
-        menuIndex,
-        startGame,
-        exitToGameSelect,
-      })}
-
-      {HardVacuumPausedOverlay({
-        gameState,
-        resume: () => setGameState('playing'),
-        exitToGameSelect,
-      })}
-
-      {HardVacuumGameOverOverlay({
-        gameState,
-        score,
-        level,
-        gameOverIndex,
-        startGame,
-        mainMenu: () => setGameState('menu'),
-        exitToGameSelect,
-      })}
+      <ExpeditionOverlay
+        gameState={gameState} state={expedition} hasSave={hasSave} saveAvailable={saveAvailable}
+        lostCredits={lostCredits}
+        onStart={() => startGame(false)} onNew={() => startGame(true)} onBuy={buyUpgrade}
+        onBuySupply={buySupply}
+        onRelocate={relocateHaven}
+        journalOpen={journalOpen} onJournal={() => setJournalOpen(true)} onCloseJournal={() => setJournalOpen(false)}
+        onResume={resumeFlight}
+        onMenu={() => setGameStateWithRef('menu')} onExit={exitToGameSelect}
+      />
     </div>
   )
 }

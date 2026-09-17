@@ -4,26 +4,27 @@
 // Adjust these values to tweak game mechanics and difficulty
 
 // --- CREDITS / SCORE REWARDS ---
-export const CREDITS_SHOOTING_ROCK_DIVISOR = 100 // Credits = DIVISOR / rock radius
-export const CREDITS_BASE_PROCESSING_BASE = 100 // Base credits for processing rocks in mining base
-export const CREDITS_BASE_PROCESSING_SIZE_BONUS = 15 // Bonus per unit of rock radius above 20
-export const CREDITS_BLUE_ROCK_MULTIPLIER = 9 // Blue rocks are worth this times normal value
+export const CREDITS_ASTEROID_BASE = 10 // Modest field payout for ordinary asteroids
+export const CREDITS_ASTEROID_SIZE_BONUS = 1.5 // Per unit of rock radius above 20
+export const CREDITS_BLUE_ROCK_MULTIPLIER = 10
+export const CREDITS_BASE_PROCESSING_MULTIPLIER = 10
+export const MINING_BASE_RADIUS = 118
 
 // --- TIME-BASED BONUS MULTIPLIER ---
 export const TIME_BONUS_TARGET_SECONDS = 45 // "Par" time for wave completion
 export const TIME_BONUS_MAX_MULTIPLIER = 3.0 // Max bonus added (2.0x total = 1 + 1.0)
 
-// --- ATTRACTOR BEAM ---
-export const ATTRACTOR_BEAM_STRENGTH = 80000 // Gravity strength applied to rocks
-export const ATTRACTOR_BEAM_RANGE_MULTIPLIER = 3.0 // Range as multiple of base radius
-export const ATTRACTOR_BEAM_DURATION = 30 // Seconds of operation per charge
-
 // --- SHIP PHYSICS & CONTROLS ---
 export const SHIP_ROTATION_SPEED = 5 // Degrees per frame
 export const SHIP_THRUST_ACCELERATION = 300 // Forward acceleration when thrusting
+export const SHIP_NOSE_THRUST_ACCELERATION = SHIP_THRUST_ACCELERATION * 0.25 // Nose jet: one quarter of rear thrust
 export const SHIP_MAX_SPEED = 300 // Maximum velocity (speed cap)
 export const SHIP_FRICTION = 0.99 // Velocity damping per frame (0.99 = 1% friction)
 export const SHIP_LATERAL_FRICTION = 0.985 // Stronger damping for sideways drift (lower = grippier)
+
+// Upgrades extend the hook's reach; attached cargo settles back to this towing length.
+export const HARPOON_CABLE_LENGTH = 130
+export const HARPOON_TOW_REEL_SPEED = 195 // Fully upgraded cable retracts from 325 to 130 pixels in one second
 
 // --- COMBAT & WEAPONS ---
 export const BULLET_SPEED = 420 // Player bullet velocity
@@ -36,7 +37,6 @@ export const PHASER_MAX_FIRE_DURATION = 0.5 // Seconds of continuous firing befo
 export const PHASER_COOLDOWN = 0.5 // Seconds locked out after overheat
 export const PHASER_RANGE = 520 // Pixels
 export const PHASER_BEAM_RADIUS = 6 // Collision radius around the beam line
-export const PHASER_HIT_INTERVAL = 0.09 // Seconds between damage ticks while holding
 
 // --- SHIELDS & DAMAGE ---
 export const SHIP_MAX_SHIELDS = 2 // Starting/maximum shield count

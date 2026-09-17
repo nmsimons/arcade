@@ -2,6 +2,8 @@
 export class SoundSystem {
   private ctx: AudioContext | null = null
   private initialized = false
+  private radiationNoise: AudioBuffer | null = null
+  private radiationVoices = new Set<{ source: AudioBufferSourceNode; filter: BiquadFilterNode; gain: GainNode }>()
   private thrustGain: GainNode | null = null
   private thrustNoise: AudioBufferSourceNode | null = null
   private thrusting = false
@@ -16,15 +18,6 @@ export class SoundSystem {
   private phaserLfoGain: GainNode | null = null
   private phaserAmpLfo: OscillatorNode | null = null
   private phaserAmpLfoGain: GainNode | null = null
-
-  private attractorPlaying = false
-  private attractorReady = false
-  private attractorOsc: OscillatorNode | null = null
-  private attractorNoise: AudioBufferSourceNode | null = null
-  private attractorFilter: BiquadFilterNode | null = null
-  private attractorGain: GainNode | null = null
-  private attractorLfo: OscillatorNode | null = null
-  private attractorLfoGain: GainNode | null = null
 
   private repairHumPlaying = false
   private repairHumReady = false
@@ -55,11 +48,11 @@ export class SoundSystem {
   shutdown() {
     // Best-effort cleanup (useful for dev/HMR and leaving the game).
     try {
-      this.stopAttractor(true)
       this.stopPhaser(true)
       this.stopRepairHum(true)
       this.stopThrust()
       this.stopStoreMusic()
+      this.stopRadiation()
     } catch {
       // Ignore.
     }
@@ -69,7 +62,58 @@ export class SoundSystem {
       // Ignore.
     }
     this.ctx = null
+    this.radiationNoise = null
     this.initialized = false
+  }
+
+  teleport() {
+    const ctx = this.ctx
+    if (!ctx) return
+    const osc = ctx.createOscillator(), gain = ctx.createGain(), now = ctx.currentTime
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(160, now)
+    osc.frequency.exponentialRampToValueAtTime(1500, now + 0.12)
+    osc.frequency.exponentialRampToValueAtTime(240, now + 0.45)
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.linearRampToValueAtTime(0.11, now + 0.03)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5)
+    osc.connect(gain); gain.connect(ctx.destination)
+    osc.onended = () => { osc.disconnect(); gain.disconnect() }
+    osc.start(now); osc.stop(now + 0.5)
+  }
+
+  radiationTick(urgency: number, unprotected = false) {
+    const ctx = this.ctx
+    if (!ctx) return
+    if (!this.radiationNoise) {
+      this.radiationNoise = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.045), ctx.sampleRate)
+      const samples = this.radiationNoise.getChannelData(0)
+      for (let i = 0; i < samples.length; i++) samples[i] = Math.random() * 2 - 1
+    }
+    const source = ctx.createBufferSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain()
+    const now = ctx.currentTime, duration = unprotected ? 0.045 : 0.025
+    source.buffer = this.radiationNoise
+    filter.type = 'bandpass'; filter.frequency.value = unprotected ? 1250 : 2600; filter.Q.value = unprotected ? 4 : 0.7
+    gain.gain.setValueAtTime(0, now)
+    gain.gain.linearRampToValueAtTime(0.10 + Math.max(0, Math.min(1, urgency)) * 0.14, now + 0.002)
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration)
+    source.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
+    const voice = { source, filter, gain }
+    this.radiationVoices.add(voice)
+    source.onended = () => {
+      source.disconnect(); filter.disconnect(); gain.disconnect()
+      this.radiationVoices.delete(voice)
+    }
+    source.start(now); source.stop(now + duration)
+  }
+
+  stopRadiation() {
+    for (const voice of this.radiationVoices) {
+      voice.source.onended = null
+      voice.source.stop()
+      voice.source.disconnect(); voice.filter.disconnect(); voice.gain.disconnect()
+    }
+    this.radiationVoices.clear()
   }
 
   startRepairHum() {
@@ -406,6 +450,20 @@ export class SoundSystem {
     osc.stop(this.ctx.currentTime + 0.1)
   }
 
+  blaster() {
+    if (!this.ctx) return
+    const ctx = this.ctx, t = ctx.currentTime
+    const body = ctx.createOscillator(), crack = ctx.createOscillator()
+    const filter = ctx.createBiquadFilter(), gain = ctx.createGain()
+    body.type = 'sawtooth'; body.frequency.setValueAtTime(230, t); body.frequency.exponentialRampToValueAtTime(42, t + 0.22)
+    crack.type = 'square'; crack.frequency.setValueAtTime(720, t); crack.frequency.exponentialRampToValueAtTime(90, t + 0.07)
+    filter.type = 'lowpass'; filter.frequency.setValueAtTime(2200, t); filter.frequency.exponentialRampToValueAtTime(180, t + 0.22)
+    gain.gain.setValueAtTime(0.22, t); gain.gain.exponentialRampToValueAtTime(0.001, t + 0.24)
+    body.connect(filter); crack.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
+    body.start(t); crack.start(t); crack.stop(t + 0.07); body.stop(t + 0.25)
+    body.onended = () => { body.disconnect(); crack.disconnect(); filter.disconnect(); gain.disconnect() }
+  }
+
   startPhaser() {
     if (!this.ctx) return
 
@@ -579,139 +637,6 @@ export class SoundSystem {
     this.phaserAmpLfo = null
     this.phaserAmpLfoGain = null
     this.phaserReady = false
-  }
-
-  startAttractor() {
-    if (!this.ctx) return
-
-    if (!this.attractorReady) {
-      const ctx = this.ctx
-      const t0 = ctx.currentTime
-
-      // Low, warbly hum + filtered noise (distinct from thrust/repair).
-      const osc = ctx.createOscillator()
-      osc.type = 'sine'
-      osc.frequency.setValueAtTime(92, t0)
-
-      const lfo = ctx.createOscillator()
-      lfo.type = 'sine'
-      lfo.frequency.setValueAtTime(0.9, t0)
-      const lfoGain = ctx.createGain()
-      lfoGain.gain.setValueAtTime(0, t0)
-      lfo.connect(lfoGain)
-      lfoGain.connect(osc.frequency)
-
-      const bufferSize = Math.floor(ctx.sampleRate * 2)
-      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate)
-      const output = noiseBuffer.getChannelData(0)
-      for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1
-
-      const noise = ctx.createBufferSource()
-      noise.buffer = noiseBuffer
-      noise.loop = true
-
-      const filter = ctx.createBiquadFilter()
-      filter.type = 'lowpass'
-      filter.frequency.setValueAtTime(520, t0)
-      filter.Q.setValueAtTime(0.35, t0)
-
-      const gain = ctx.createGain()
-      gain.gain.setValueAtTime(0, t0)
-
-      osc.connect(filter)
-      noise.connect(filter)
-      filter.connect(gain)
-      gain.connect(ctx.destination)
-
-      osc.start(t0)
-      noise.start(t0)
-      lfo.start(t0)
-
-      this.attractorOsc = osc
-      this.attractorNoise = noise
-      this.attractorFilter = filter
-      this.attractorGain = gain
-      this.attractorLfo = lfo
-      this.attractorLfoGain = lfoGain
-      this.attractorReady = true
-    }
-
-    if (this.attractorPlaying) return
-    this.attractorPlaying = true
-
-    const t = this.ctx.currentTime
-    if (this.attractorGain) {
-      const g = this.attractorGain.gain
-      g.cancelScheduledValues(t)
-      g.setValueAtTime(0, t)
-      g.linearRampToValueAtTime(0.03, t + 0.18)
-    }
-    if (this.attractorLfoGain) {
-      const lg = this.attractorLfoGain.gain
-      lg.cancelScheduledValues(t)
-      lg.setValueAtTime(0, t)
-      lg.linearRampToValueAtTime(18, t + 0.25)
-    }
-  }
-
-  stopAttractor(immediate = false) {
-    if (!this.ctx || !this.attractorReady || !this.attractorGain) return
-    this.attractorPlaying = false
-
-    const t = this.ctx.currentTime
-    const g = this.attractorGain.gain
-    g.cancelScheduledValues(t)
-    if (immediate) {
-      g.setValueAtTime(0, t)
-    } else {
-      g.setValueAtTime(g.value, t)
-      g.setTargetAtTime(0, t, 0.06)
-    }
-
-    if (this.attractorLfoGain) {
-      const lg = this.attractorLfoGain.gain
-      lg.cancelScheduledValues(t)
-      if (immediate) lg.setValueAtTime(0, t)
-      else {
-        lg.setValueAtTime(lg.value, t)
-        lg.setTargetAtTime(0, t, 0.08)
-      }
-    }
-
-    if (!immediate) return
-
-    const stopAt = t + 0.02
-    try {
-      this.attractorOsc?.stop(stopAt)
-    } catch {
-      // Ignore.
-    }
-    try {
-      this.attractorNoise?.stop(stopAt)
-    } catch {
-      // Ignore.
-    }
-    try {
-      this.attractorLfo?.stop(stopAt)
-    } catch {
-      // Ignore.
-    }
-
-    try {
-      this.attractorLfoGain?.disconnect()
-      this.attractorFilter?.disconnect()
-      this.attractorGain?.disconnect()
-    } catch {
-      // Ignore.
-    }
-
-    this.attractorOsc = null
-    this.attractorNoise = null
-    this.attractorFilter = null
-    this.attractorGain = null
-    this.attractorLfo = null
-    this.attractorLfoGain = null
-    this.attractorReady = false
   }
 
   collect() {
@@ -921,6 +846,18 @@ export class SoundSystem {
       this.thrustNoise = null
       this.thrustGain = null
     }, 150)
+  }
+
+  havenImpact(speed: number) {
+    if (!this.ctx) return
+    const at=this.ctx.currentTime, oscillator=this.ctx.createOscillator(), gain=this.ctx.createGain()
+    oscillator.type='triangle'
+    oscillator.frequency.setValueAtTime(76,at)
+    oscillator.frequency.exponentialRampToValueAtTime(27,at+.2)
+    gain.gain.setValueAtTime(Math.min(.18,.04+speed/1400),at)
+    gain.gain.exponentialRampToValueAtTime(.001,at+.24)
+    oscillator.connect(gain);gain.connect(this.ctx.destination)
+    oscillator.start(at);oscillator.stop(at+.25)
   }
 
   death() {

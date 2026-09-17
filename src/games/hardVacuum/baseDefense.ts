@@ -1,11 +1,9 @@
 import type { BaseShot, Rock } from './types'
-import { sounds } from './sound'
-import {
-  BASE_GUN_FIRE_COOLDOWN,
-  CREDITS_BASE_PROCESSING_BASE,
-  CREDITS_BASE_PROCESSING_SIZE_BONUS,
-  CREDITS_BLUE_ROCK_MULTIPLIER,
-} from './tuning'
+import type { Expedition } from './expedition'
+import { sounds } from './sound.ts'
+import { repelBlueBody } from './expeditionPhysics.ts'
+import { BASE_GUN_FIRE_COOLDOWN } from './tuning.ts'
+import { creditAsteroidDestruction, inOreProcessingZone } from './oreCredits.ts'
 
 type Ref<T> = { current: T }
 
@@ -42,7 +40,7 @@ export function updateBaseDefenseAndProcessing(args: {
   wrapY: Wrap
   toroidalDelta: ToroidalDelta
 
-  setScore: (updater: (prev: number) => number) => void
+  expedition: Pick<Expedition, 'banked' | 'credits'>
   waveCreditsRef: Ref<number>
   createDebris: CreateDebris
   onRedRockDetonate?: (rock: Rock) => void
@@ -61,13 +59,14 @@ export function updateBaseDefenseAndProcessing(args: {
     wrapX,
     wrapY,
     toroidalDelta,
-    setScore,
+    expedition,
     waveCreditsRef,
     createDebris,
     onRedRockDetonate,
   } = args
 
   const rocks = rocksRef.current
+  const base = { pos: { x: baseX, y: baseY }, radius: MINING_BASE_RADIUS }
 
   // Track how long each rock has been fully inside the base.
   // Processing is handled by base guns (shots), not automatically.
@@ -75,10 +74,10 @@ export function updateBaseDefenseAndProcessing(args: {
   let targetDist = Infinity
   for (let i = 0; i < rocks.length; i++) {
     const a = rocks[i]
+    // Power cells stay intact; blue asteroids are valuable ore.
+    if (a.sourceId || a.socketId) continue
     const d = toroidalDelta(baseX, baseY, a.pos.x, a.pos.y, w, h)
-    // Check if rock is inside: center must be far enough from edge that rock can't be outside
-    const distFromCenter = Math.hypot(d.dx, d.dy)
-    const isInProcessingZone = distFromCenter < MINING_BASE_RADIUS - a.radius * 0.7
+    const isInProcessingZone = inOreProcessingZone(a, base)
     if (!isInProcessingZone) {
       a.inBaseTime = 0
       continue
@@ -148,6 +147,11 @@ export function updateBaseDefenseAndProcessing(args: {
         const a = rocks2[ai]
         const d = toroidalDelta(sh.pos.x, sh.pos.y, a.pos.x, a.pos.y, w, h)
         if (Math.hypot(d.dx, d.dy) <= a.radius + 2) {
+          if (a.sourceId || a.socketId) {
+            repelBlueBody(a, sh.vel)
+            shots.splice(si, 1)
+            break
+          }
           if (a.kind === 'red') {
             shots.splice(si, 1)
             onRedRockDetonate?.(a)
@@ -158,16 +162,7 @@ export function updateBaseDefenseAndProcessing(args: {
           shots.splice(si, 1)
           rocks2.splice(ai, 1)
 
-          // Base score increases with rock size
-          const sizeBonus = Math.max(0, Math.round((a.radius - 20) * CREDITS_BASE_PROCESSING_SIZE_BONUS))
-          const basePoints = CREDITS_BASE_PROCESSING_BASE + sizeBonus
-
-          // Blue rocks are worth double
-          const multiplier = a.kind === 'blue' ? CREDITS_BLUE_ROCK_MULTIPLIER : 1
-          const totalPoints = basePoints * multiplier
-
-          setScore((s) => s + totalPoints)
-          waveCreditsRef.current += totalPoints
+          waveCreditsRef.current += creditAsteroidDestruction(expedition, a, base)
           createDebris(wrapX(a.pos.x), wrapY(a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
           sounds.collect()
           break

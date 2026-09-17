@@ -1,4 +1,5 @@
-import type { Harpoon, Rock, Ship, Vector2 } from './types'
+import type { Harpoon, TetherBody, Ship, Vector2 } from './types'
+import { HARPOON_CABLE_LENGTH, HARPOON_TOW_REEL_SPEED } from './tuning.ts'
 
 type Ref<T> = { current: T }
 
@@ -21,7 +22,7 @@ export function updateHarpoon(args: {
 
   ship: Ship
   shipRef: Ref<Ship>
-  rocks: Rock[]
+  rocks: TetherBody[]
 
   harpoonRef: Ref<Harpoon>
 
@@ -169,7 +170,7 @@ export function updateHarpoon(args: {
         const { dx, dy } = toroidalDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y, w, h)
         const dist = Math.hypot(dx, dy)
         if (dist < a.radius) {
-          // Fixed-length cable: latch uses the full cable length.
+          // Start at full reach; attached updates gently take up the extra cable.
           const ropeLen = hp0.maxLength
 
           // Build a segmented rope for slack visuals.
@@ -351,6 +352,10 @@ export function updateHarpoon(args: {
       }
     } else {
       const rock = hp0.rock
+      if (hp0.ropeLength > HARPOON_CABLE_LENGTH) {
+        hp0.ropeLength = Math.max(HARPOON_CABLE_LENGTH, hp0.ropeLength - HARPOON_TOW_REEL_SPEED * dt)
+        hp0.segLen = hp0.ropeLength / (hp0.rope.length + 1)
+      }
       const { dx, dy } = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
       const dist = Math.hypot(dx, dy)
       const L = hp0.ropeLength
@@ -363,7 +368,7 @@ export function updateHarpoon(args: {
 
         // Mass: larger rock = heavier. Ship is always light.
         const invShip = 1
-        const mRock = Math.max(1, (rock.radius / 18) * (rock.radius / 18))
+        const mRock = rock.mass ?? Math.max(1, (rock.radius / 18) * (rock.radius / 18))
         const invRock = 1 / mRock
         const invSum = invShip + invRock
 

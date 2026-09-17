@@ -1,48 +1,41 @@
 import type { BaseShot, Bullet, Debris, Harpoon, PhaserBeam, PhaserParticle, Rock, Ship, Vector2, V3 } from './types'
 import { clamp, cross3, normalize3, rotX, rotY, rotZ } from './math'
 import type { HardVacuumGameState } from './ui'
-import { WORLD_CENTER, WORLD_HEIGHT, WORLD_WIDTH, getCavernMap } from './worldGeometry'
-import { drawHardVacuumMinimap } from './minimap'
+import { getCavernMap } from './worldGeometry'
+import { havenDeployment, havenPose } from './campaign'
+import { drawHaven } from './havenRender'
+import { expeditionMap, maxShields } from './expedition'
+import type { Expedition, ExpeditionRuntime } from './expedition'
+import { drawExpeditionWorld, drawExpeditionMap, drawExpeditionWalls } from './expeditionRender'
+import { drawPowerCell } from './objectModels'
+import { drawRadiationShield } from './radiationRender'
+import { drawTeleporter } from './teleportRender'
+import type { BlasterVisuals } from './blaster'
 
 type Ref<T> = { current: T }
 
 type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => { dx: number; dy: number }
 
-const seededUnit = (index: number, salt: number) => {
-  const value = Math.sin((index + 1) * 12.9898 + salt * 78.233) * 43758.5453
-  return value - Math.floor(value)
-}
-
-// Muted, angular mineral scratches fixed to the cavern floor. These provide
-// local motion reference without resembling luminous stars or a regular grid.
-const CAVERN_FLOOR_MARKS = Array.from({ length: 340 }, (_, index) => ({
-  x: 100 + seededUnit(index, 1) * (WORLD_WIDTH - 200),
-  y: 100 + seededUnit(index, 2) * (WORLD_HEIGHT - 200),
-  angle: seededUnit(index, 3) * Math.PI * 2,
-  length: 8 + seededUnit(index, 4) * 20,
-  bend: (seededUnit(index, 5) - 0.5) * 8,
-  alpha: 0.07 + seededUnit(index, 6) * 0.085,
-}))
-
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
   gameState: HardVacuumGameState
   level: number
+  expedition: Expedition
+  expeditionRuntime: ExpeditionRuntime
+  mapOpen: boolean
+  mapOverview?: boolean
   canvasSizeRef: Ref<{ width: number; height: number }>
 
-  MINING_BASE_RADIUS: number
-  MINING_DOOR_TRIM: number
 
   miningBaseAngleRef: Ref<number>
 
-  attractorActive: boolean
-  attractorTimer: number
 
   RED_ROCK_DETONATION_DELAY: number
 
   baseShotsRef: Ref<BaseShot[]>
   rocksRef: Ref<Rock[]>
   bulletsRef: Ref<Bullet[]>
+  blasterRef: Ref<BlasterVisuals>
   phaserBeamRef: Ref<PhaserBeam>
   phaserParticlesRef: Ref<PhaserParticle[]>
   debrisRef: Ref<Debris[]>
@@ -53,8 +46,6 @@ export function drawHardVacuumFrame(args: {
   keysRef: Ref<Set<string>>
 
   shields: number
-  shieldsRef: Ref<number>
-  shipRepairTimeRef: Ref<number>
   lastShieldHitAtRef: Ref<number>
   lastShieldRechargeAtRef: Ref<number>
 
@@ -64,16 +55,16 @@ export function drawHardVacuumFrame(args: {
     ctx,
     gameState,
     level,
+    expedition,
+    expeditionRuntime,
+    mapOpen,
     canvasSizeRef,
-    MINING_BASE_RADIUS,
-    MINING_DOOR_TRIM,
     miningBaseAngleRef,
-    attractorActive,
-    attractorTimer,
     RED_ROCK_DETONATION_DELAY,
     baseShotsRef,
     rocksRef,
     bulletsRef,
+    blasterRef,
     phaserBeamRef,
     phaserParticlesRef,
     debrisRef,
@@ -81,16 +72,13 @@ export function drawHardVacuumFrame(args: {
     shipRef,
     keysRef,
     shields,
-    shieldsRef,
-    shipRepairTimeRef,
     lastShieldHitAtRef,
     lastShieldRechargeAtRef,
-    toroidalDelta,
   } = args
 
   const width = canvasSizeRef.current.width
   const height = canvasSizeRef.current.height
-  const cavernMap = getCavernMap(gameState === 'menu' ? 1 : level)
+  const cavernMap = gameState === 'menu' ? getCavernMap(level) : expeditionMap(expedition)
 
   // Clear
   ctx.fillStyle = '#050808'
@@ -120,45 +108,6 @@ export function drawHardVacuumFrame(args: {
   traceCavern()
   ctx.clip()
 
-  // Fixed cave-floor detail makes translation readable even between nearby objects.
-  ctx.save()
-  ctx.lineCap = 'round'
-  for (const mark of CAVERN_FLOOR_MARKS) {
-    ctx.save()
-    ctx.translate(mark.x, mark.y)
-    ctx.rotate(mark.angle)
-    ctx.strokeStyle = `rgba(84, 128, 108, ${mark.alpha})`
-    ctx.lineWidth = 1.25
-    ctx.beginPath()
-    ctx.moveTo(-mark.length / 2, 0)
-    ctx.lineTo(mark.length * 0.08, mark.bend)
-    ctx.lineTo(mark.length / 2, mark.bend * 0.35)
-    if (mark.length > 17) {
-      ctx.moveTo(mark.length * 0.08, mark.bend)
-      ctx.lineTo(mark.length * 0.28, mark.bend + 5)
-    }
-    ctx.stroke()
-    ctx.restore()
-  }
-
-  ctx.strokeStyle = 'rgba(80, 150, 120, 0.09)'
-  ctx.lineWidth = 2.25
-  const seams: readonly (readonly Vector2[])[] = [
-    [{ x: 310, y: 760 }, { x: 650, y: 680 }, { x: 910, y: 790 }, { x: 1190, y: 700 }],
-    [{ x: 1780, y: 390 }, { x: 2030, y: 520 }, { x: 2250, y: 430 }, { x: 2580, y: 610 }],
-    [{ x: 420, y: 1530 }, { x: 730, y: 1410 }, { x: 970, y: 1570 }, { x: 1260, y: 1490 }],
-    [{ x: 1810, y: 1740 }, { x: 2070, y: 1600 }, { x: 2380, y: 1740 }, { x: 2680, y: 1570 }],
-  ]
-  for (const seam of seams) {
-    ctx.beginPath()
-    seam.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point.x, point.y)
-      else ctx.lineTo(point.x, point.y)
-    })
-    ctx.stroke()
-  }
-  ctx.restore() // floor-detail styling
-
   // Interior formations define the routes through later maps. They are drawn
   // as solid cavern mass, then added as holes in the gameplay clip below.
   ctx.lineJoin = 'round'
@@ -171,6 +120,7 @@ export function drawHardVacuumFrame(args: {
     ctx.closePath()
     ctx.fillStyle = '#030706'
     ctx.fill()
+    if (gameState !== 'menu') continue
     ctx.strokeStyle = 'rgba(70, 112, 96, 0.72)'
     ctx.lineWidth = 7
     ctx.stroke()
@@ -178,6 +128,10 @@ export function drawHardVacuumFrame(args: {
     ctx.lineWidth = 2
     ctx.stroke()
   }
+
+  if (gameState !== 'menu') drawExpeditionWalls(ctx)
+
+  if (gameState !== 'menu') drawExpeditionWorld(ctx, expedition, expeditionRuntime, shipRef.current)
 
   // Hide ships, rocks, beams, and debris when they pass behind solid rock.
   ctx.beginPath()
@@ -193,434 +147,9 @@ export function drawHardVacuumFrame(args: {
   }
   ctx.clip('evenodd')
 
-  // Draw mining base (center) behind rocks.
-  if (gameState !== 'menu') {
-    const cx = WORLD_CENTER.x
-    const cy = WORLD_CENTER.y
-    const R = MINING_BASE_RADIUS
-
-    const baseAng = miningBaseAngleRef.current
-
-    const poly = (r: number, n: number, rot: number) => {
-      const pts: Vector2[] = []
-      for (let i = 0; i < n; i++) {
-        const a = rot + (i / n) * Math.PI * 2
-        pts.push({ x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r })
-      }
-      return pts
-    }
-
-    ctx.save()
-    ctx.lineWidth = 3
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)'
-
-    // Flat-topped hex (flats north/south).
-    const doorCorners = new Set([1, 3, 5])
-
-    const drawHexWithDoorGaps = (verts: Vector2[]) => {
-      const segs: Array<{ ax: number; ay: number; bx: number; by: number; edge: number }> = []
-      for (let i = 0; i < 6; i++) {
-        const a0 = verts[i]
-        const b0 = verts[(i + 1) % 6]
-        const ex = b0.x - a0.x
-        const ey = b0.y - a0.y
-        const len = Math.hypot(ex, ey)
-        if (len < 1e-6) continue
-        const startT = doorCorners.has(i) ? MINING_DOOR_TRIM / len : 0
-        const endT = doorCorners.has((i + 1) % 6) ? 1 - MINING_DOOR_TRIM / len : 1
-        if (startT >= endT - 1e-6) continue
-        const ax = a0.x + ex * startT
-        const ay = a0.y + ey * startT
-        const bx = a0.x + ex * endT
-        const by = a0.y + ey * endT
-
-        ctx.beginPath()
-        ctx.moveTo(ax, ay)
-        ctx.lineTo(bx, by)
-        ctx.stroke()
-
-        segs.push({ ax, ay, bx, by, edge: i })
-      }
-
-      return segs
-    }
-
-    const outer = poly(R, 6, baseAng)
-
-    // Opaque base panels (match background) so stars don't show through the base.
-    ctx.save()
-    ctx.globalAlpha = 1
-    ctx.shadowBlur = 0
-    ctx.shadowColor = 'rgba(0, 0, 0, 0)'
-    ctx.fillStyle = '#0a0a0a'
-    ctx.beginPath()
-    ctx.moveTo(outer[0].x, outer[0].y)
-    for (let i = 1; i < outer.length; i++) ctx.lineTo(outer[i].x, outer[i].y)
-    ctx.closePath()
-    ctx.fill()
-    ctx.restore()
-
-    const outerSegs = drawHexWithDoorGaps(outer)
-
-    // Extend short lines inward from segment endpoints (about 1/5 to center).
-    ctx.save()
-    ctx.globalAlpha = 0.55
-    ctx.lineWidth = 1.6
-    for (const s of outerSegs) {
-      const ax2 = s.ax + (cx - s.ax) * 0.2
-      const ay2 = s.ay + (cy - s.ay) * 0.2
-      const bx2 = s.bx + (cx - s.bx) * 0.2
-      const by2 = s.by + (cy - s.by) * 0.2
-
-      // Second interior layer
-      const innerFrac = 0.12
-      const ax3 = ax2 + (cx - ax2) * innerFrac
-      const ay3 = ay2 + (cy - ay2) * innerFrac
-      const bx3 = bx2 + (cx - bx2) * innerFrac
-      const by3 = by2 + (cy - by2) * innerFrac
-
-      // Third interior layer
-      const innerFrac2 = 0.08
-      const ax4 = ax3 + (cx - ax3) * innerFrac2
-      const ay4 = ay3 + (cy - ay3) * innerFrac2
-      const bx4 = bx3 + (cx - bx3) * innerFrac2
-      const by4 = by3 + (cy - by3) * innerFrac2
-
-      // Inward extensions.
-      ctx.beginPath()
-      ctx.moveTo(s.ax, s.ay)
-      ctx.lineTo(ax2, ay2)
-      ctx.stroke()
-
-      ctx.beginPath()
-      ctx.moveTo(s.bx, s.by)
-      ctx.lineTo(bx2, by2)
-      ctx.stroke()
-
-      // Connect inner endpoints
-      ctx.beginPath()
-      ctx.moveTo(ax2, ay2)
-      ctx.lineTo(bx2, by2)
-      ctx.stroke()
-
-      // Repeat from the interior segment ends toward center
-      ctx.save()
-      ctx.globalAlpha = 0.42
-      ctx.lineWidth = 1.2
-
-      ctx.beginPath()
-      ctx.moveTo(ax2, ay2)
-      ctx.lineTo(ax3, ay3)
-      ctx.stroke()
-
-      ctx.beginPath()
-      ctx.moveTo(bx2, by2)
-      ctx.lineTo(bx3, by3)
-      ctx.stroke()
-
-      ctx.beginPath()
-      ctx.moveTo(ax3, ay3)
-      ctx.lineTo(bx3, by3)
-      ctx.stroke()
-
-      ctx.restore()
-
-      // Repeat one more time
-      ctx.save()
-      ctx.globalAlpha = 0.32
-      ctx.lineWidth = 1
-
-      ctx.beginPath()
-      ctx.moveTo(ax3, ay3)
-      ctx.lineTo(ax4, ay4)
-      ctx.stroke()
-
-      ctx.beginPath()
-      ctx.moveTo(bx3, by3)
-      ctx.lineTo(bx4, by4)
-      ctx.stroke()
-
-      ctx.beginPath()
-      ctx.moveTo(ax4, ay4)
-      ctx.lineTo(bx4, by4)
-      ctx.stroke()
-
-      ctx.restore()
-
-      const isArmPanel = s.edge === 0 || s.edge === 2 || s.edge === 4
-      const isNeighborPanel = s.edge === 1 || s.edge === 3 || s.edge === 5
-      if (isArmPanel || isNeighborPanel) {
-        const sx = s.bx - s.ax
-        const sy = s.by - s.ay
-        const sl = Math.hypot(sx, sy)
-        if (sl > 1e-6) {
-          const tx = sx / sl
-          const ty = sy / sl
-
-          const alongSign = isArmPanel ? 1 : -1
-          const t = isArmPanel ? 0.42 : 0.58
-          const inset = 8
-          const p0x = s.ax + sx * t
-          const p0y = s.ay + sy * t
-          const rx0 = cx - p0x
-          const ry0 = cy - p0y
-          const rl = Math.hypot(rx0, ry0)
-          if (rl < 1e-6) continue
-          const rx = rx0 / rl
-          const ry = ry0 / rl
-
-          const px = p0x + rx * inset
-          const py = p0y + ry * inset
-
-          const raySegHitT = (
-            ox: number,
-            oy: number,
-            dx: number,
-            dy: number,
-            ax: number,
-            ay: number,
-            bx: number,
-            by: number,
-          ) => {
-            const sx2 = bx - ax
-            const sy2 = by - ay
-            const denom = dx * sy2 - dy * sx2
-            if (Math.abs(denom) < 1e-6) return null
-            const qpx = ax - ox
-            const qpy = ay - oy
-            const tRay = (qpx * sy2 - qpy * sx2) / denom
-            const uSeg = (qpx * dy - qpy * dx) / denom
-            if (tRay > 1e-3 && uSeg >= 0 && uSeg <= 1) return tRay
-            return null
-          }
-
-          const rayHitNth = (
-            ox: number,
-            oy: number,
-            dx: number,
-            dy: number,
-            segs: Array<[number, number, number, number]>,
-            n: number,
-          ) => {
-            const hits: number[] = []
-            for (const seg of segs) {
-              const tHit = raySegHitT(ox, oy, dx, dy, seg[0], seg[1], seg[2], seg[3])
-              if (tHit == null) continue
-              hits.push(tHit)
-            }
-            if (hits.length === 0) return null
-            hits.sort((a, b) => a - b)
-            return hits[Math.min(n, hits.length - 1)]
-          }
-
-          ctx.save()
-          ctx.globalAlpha = 0.45
-          ctx.lineWidth = 1.3
-
-          const tdx = tx * alongSign
-          const tdy = ty * alongSign
-          const useB = alongSign > 0
-          const tangentTargets: Array<[number, number, number, number]> = useB
-            ? [
-                [s.bx, s.by, bx2, by2],
-                [bx2, by2, bx3, by3],
-                [bx3, by3, bx4, by4],
-              ]
-            : [
-                [s.ax, s.ay, ax2, ay2],
-                [ax2, ay2, ax3, ay3],
-                [ax3, ay3, ax4, ay4],
-              ]
-          const alongT = rayHitNth(px, py, tdx, tdy, tangentTargets, 1)
-
-          const radialTargets: Array<[number, number, number, number]> = [
-            [ax2, ay2, bx2, by2],
-            [ax3, ay3, bx3, by3],
-            [ax4, ay4, bx4, by4],
-          ]
-          const upT = rayHitNth(px, py, rx, ry, radialTargets, 1)
-
-          const along = (alongT ?? 10) * 0.98
-          const up = (upT ?? 7) * 0.98
-          ctx.beginPath()
-          ctx.moveTo(px, py)
-          ctx.lineTo(px + tdx * along, py + tdy * along)
-          ctx.stroke()
-
-          ctx.beginPath()
-          ctx.moveTo(px, py)
-          ctx.lineTo(px + rx * up, py + ry * up)
-          ctx.stroke()
-
-          ctx.restore()
-        }
-      }
-    }
-    ctx.restore()
-
-    ctx.restore()
-
-    // Draw base guns as simple dots
-    {
-      const gunRadius = MINING_BASE_RADIUS * 0.63
-      const gunAngles = [baseAng + 0, baseAng + (2 * Math.PI) / 3, baseAng + (4 * Math.PI) / 3]
-      ctx.save()
-      ctx.fillStyle = 'rgba(255,255,255,0.85)'
-      for (let gi = 0; gi < 3; gi++) {
-        const gx = cx + Math.cos(gunAngles[gi]) * gunRadius
-        const gy = cy + Math.sin(gunAngles[gi]) * gunRadius
-        ctx.beginPath()
-        ctx.arc(gx, gy, 2.2, 0, Math.PI * 2)
-        ctx.fill()
-      }
-      ctx.restore()
-    }
-  }
-
-  // Draw Attractor Beam UI
-  if (gameState !== 'menu') {
-    const cx = WORLD_CENTER.x
-    const cy = WORLD_CENTER.y
-    const hexRadius = 20
-
-    ctx.save()
-    ctx.strokeStyle = 'rgba(0, 136, 255, 0.8)'
-    ctx.lineWidth = 2
-    ctx.fillStyle = 'rgba(0, 136, 255, 0.15)'
-
-    ctx.beginPath()
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2
-      const x = cx + Math.cos(a) * hexRadius
-      const y = cy + Math.sin(a) * hexRadius
-      if (i === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
-    }
-    ctx.closePath()
-    ctx.stroke()
-    ctx.fill()
-
-    ctx.fillStyle = attractorActive ? 'rgba(0, 136, 255, 1)' : 'rgba(255, 255, 255, 0.6)'
-    ctx.font = '20px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(Math.ceil(attractorTimer).toString(), cx, cy + 2)
-    ctx.restore()
-
-    if (attractorActive && attractorTimer > 0) {
-      const baseAng = miningBaseAngleRef.current
-      const attractorRange = MINING_BASE_RADIUS * 2.5
-      const doorVertices = [1, 3, 5]
-      const fanAngleSpread = Math.PI / 5
-
-      ctx.save()
-      const pulsePhase = ((Date.now() / 1000) / 3) % 1
-
-      for (const vertIdx of doorVertices) {
-        const gateAngle = baseAng + (vertIdx / 6) * Math.PI * 2
-        const arcStartAngle = gateAngle - fanAngleSpread / 2
-        const arcEndAngle = gateAngle + fanAngleSpread / 2
-
-        const gradient = ctx.createRadialGradient(cx, cy, MINING_BASE_RADIUS, cx, cy, attractorRange)
-        gradient.addColorStop(0, 'rgba(0, 136, 255, 0.25)')
-        gradient.addColorStop(1, 'rgba(0, 136, 255, 0.02)')
-
-        ctx.fillStyle = gradient
-        ctx.beginPath()
-        ctx.moveTo(cx, cy)
-        ctx.arc(cx, cy, attractorRange, arcStartAngle, arcEndAngle)
-        ctx.closePath()
-        ctx.fill()
-
-        for (let waveIdx = 0; waveIdx < 4; waveIdx++) {
-          const waveT = (pulsePhase + waveIdx * 0.25) % 1
-          const waveRadius = attractorRange * (1 - waveT)
-          const progress = waveT
-          const alpha = 0.15 + progress * 0.6
-          const lineWidth = 1.5 + progress * 2.5
-          ctx.strokeStyle = `rgba(0, 136, 255, ${alpha})`
-          ctx.lineWidth = lineWidth
-          ctx.beginPath()
-          ctx.arc(cx, cy, waveRadius, arcStartAngle, arcEndAngle)
-          ctx.stroke()
-        }
-      }
-
-      ctx.restore()
-    }
-
-    // Draw force field barriers over doors when attractor is active
-    if (attractorActive && attractorTimer > 0) {
-      ctx.save()
-      const baseAng = miningBaseAngleRef.current
-      const doorVertices = [1, 3, 5]
-
-      const verts: Vector2[] = []
-      for (let i = 0; i < 6; i++) {
-        const a = baseAng + (i / 6) * Math.PI * 2
-        verts.push({ x: cx + Math.cos(a) * MINING_BASE_RADIUS, y: cy + Math.sin(a) * MINING_BASE_RADIUS })
-      }
-
-      for (const vertIdx of doorVertices) {
-        const prevEdgeIdx = (vertIdx - 1 + 6) % 6
-
-        const prevStart = verts[prevEdgeIdx]
-        const prevEnd = verts[vertIdx]
-        const prevDx = prevEnd.x - prevStart.x
-        const prevDy = prevEnd.y - prevStart.y
-        const prevLen = Math.hypot(prevDx, prevDy)
-
-        const door1x = prevStart.x + prevDx * (1 - MINING_DOOR_TRIM / prevLen)
-        const door1y = prevStart.y + prevDy * (1 - MINING_DOOR_TRIM / prevLen)
-
-        const nextStart = verts[vertIdx]
-        const nextEnd = verts[(vertIdx + 1) % 6]
-        const nextDx = nextEnd.x - nextStart.x
-        const nextDy = nextEnd.y - nextStart.y
-        const nextLen = Math.hypot(nextDx, nextDy)
-
-        const door2x = nextStart.x + nextDx * (MINING_DOOR_TRIM / nextLen)
-        const door2y = nextStart.y + nextDy * (MINING_DOOR_TRIM / nextLen)
-
-        const shimmer = Math.sin(Date.now() * 0.008 + vertIdx) * 0.2 + 0.8
-        const gradient = ctx.createLinearGradient(door1x, door1y, door2x, door2y)
-        gradient.addColorStop(0, `rgba(0, 136, 255, ${0.3 * shimmer})`)
-        gradient.addColorStop(0.5, `rgba(100, 200, 255, ${0.7 * shimmer})`)
-        gradient.addColorStop(1, `rgba(0, 136, 255, ${0.3 * shimmer})`)
-
-        ctx.strokeStyle = gradient
-        ctx.lineWidth = 5
-        ctx.beginPath()
-        ctx.moveTo(door1x, door1y)
-        ctx.lineTo(door2x, door2y)
-        ctx.stroke()
-
-        ctx.strokeStyle = `rgba(100, 200, 255, ${0.3 * shimmer})`
-        ctx.lineWidth = 10
-        ctx.globalAlpha = 0.3
-        ctx.beginPath()
-        ctx.moveTo(door1x, door1y)
-        ctx.lineTo(door2x, door2y)
-        ctx.stroke()
-        ctx.globalAlpha = 1
-
-        for (let i = 0; i < 4; i++) {
-          const t = ((Date.now() / 600 + i * 0.25 + vertIdx * 0.2) % 1)
-          const px = door1x + (door2x - door1x) * t
-          const py = door1y + (door2y - door1y) * t
-          const particleAlpha = Math.sin(t * Math.PI) * 0.8
-
-          ctx.fillStyle = `rgba(150, 220, 255, ${particleAlpha})`
-          ctx.beginPath()
-          ctx.arc(px, py, 3, 0, Math.PI * 2)
-          ctx.fill()
-        }
-      }
-      ctx.restore()
-    }
-  }
+  // The same rigid leaves supply rendering and collision geometry.
+  if (gameState !== 'menu') drawHaven(ctx, havenPose(expedition, miningBaseAngleRef.current), expeditionRuntime.elapsed,
+    (expedition.campaign.journey?.speed ?? 0) / 210, expeditionRuntime.havenImpact ?? 0)
 
   // Draw base shots
   if (gameState !== 'menu' && baseShotsRef.current.length > 0) {
@@ -640,6 +169,11 @@ export function drawHardVacuumFrame(args: {
 
   // Draw rocks
   rocksRef.current.forEach((rock) => {
+    if (Math.abs(rock.pos.x-shipPosition.x) > width/(2*cameraZoom)+150 || Math.abs(rock.pos.y-shipPosition.y) > height/(2*cameraZoom)+150) return
+    if (rock.sourceId && rock.kind === 'blue') {
+      drawPowerCell(ctx, rock.pos, rock.rot, rock.laserGlow ?? 0)
+      return
+    }
     const { verts, polys } = rock.mesh
 
     const rx = rock.rot[0]
@@ -734,6 +268,7 @@ export function drawHardVacuumFrame(args: {
     }
 
     const isBlue = rock.kind === 'blue'
+    const laserGlow = clamp(rock.laserGlow ?? 0, 0, 1)
     const isRed = rock.kind === 'red'
     const isArmedRed = isRed && rock.redFuseS != null
     const armedT = isArmedRed ? clamp(1 - (rock.redFuseS as number) / Math.max(1e-6, RED_ROCK_DETONATION_DELAY), 0, 1) : 0
@@ -748,7 +283,7 @@ export function drawHardVacuumFrame(args: {
       ctx.globalAlpha = 1
       ctx.shadowBlur = 0
       ctx.shadowColor = 'rgba(0, 0, 0, 0)'
-      ctx.fillStyle = '#0a0a0a'
+      ctx.fillStyle = `rgb(${10 + laserGlow * 24}, ${10 + laserGlow * 54}, ${10 + laserGlow * 72})`
 
       const facesFill = [...faces2].sort((a, b) => a.z - b.z)
       for (const f2 of facesFill) {
@@ -767,7 +302,7 @@ export function drawHardVacuumFrame(args: {
       ctx.restore()
     }
 
-    ctx.shadowBlur = isBlue || isRed ? (isArmedRed ? 10 + 18 * pulse01 * (0.25 + 0.75 * armedT) : 10) : 0
+    ctx.shadowBlur = isArmedRed ? 10 + 18 * pulse01 * (0.25 + 0.75 * armedT) : isBlue ? 10 : 0
     ctx.shadowColor = isBlue
       ? 'rgba(40, 170, 255, 0.45)'
       : isRed
@@ -776,9 +311,14 @@ export function drawHardVacuumFrame(args: {
     ctx.strokeStyle = isBlue
       ? 'rgba(40, 170, 255, 0.95)'
       : isRed
-        ? `rgba(255, 68, 68, ${isArmedRed ? 0.55 + 0.45 * pulse01 : 0.95})`
+        ? isArmedRed ? `rgba(255, 68, 68, ${0.55 + 0.45 * pulse01})` : 'rgba(192, 145, 130, 0.9)'
         : 'rgba(255,255,255,0.9)'
     ctx.lineWidth = isArmedRed ? 1.4 + 0.9 * pulse01 * (0.25 + 0.75 * armedT) : 1.4
+    if (laserGlow > 0.01) {
+      ctx.shadowBlur = Math.max(ctx.shadowBlur, 20 * laserGlow)
+      ctx.shadowColor = `rgba(135, 210, 255, ${laserGlow * 0.8})`
+      ctx.lineWidth += laserGlow * 0.65
+    }
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()
@@ -796,6 +336,21 @@ export function drawHardVacuumFrame(args: {
     }
 
     ctx.stroke()
+    if (isRed && !isArmedRed) {
+      // Idle mineral fissures tumble with the faces. Once armed, the entire
+      // asteroid uses the original accelerating red warning pulse above.
+      ctx.strokeStyle = 'rgba(255, 88, 65, 0.7)'
+      ctx.shadowColor = '#ff6650'; ctx.shadowBlur = 3
+      ctx.lineWidth = 1
+      for (let i = 0; i < faces2.length; i++) {
+        const face = faces2[i]
+        if (!face.isFront || i % 3 !== 0) continue
+        const a = proj2[face.idxs[0]], b = proj2[face.idxs[1]], c = proj2[face.idxs[face.idxs.length - 1]]
+        ctx.beginPath(); ctx.moveTo(a.x * 0.6 + b.x * 0.4, a.y * 0.6 + b.y * 0.4)
+        ctx.lineTo(a.x * 0.22 + b.x * 0.43 + c.x * 0.35, a.y * 0.22 + b.y * 0.43 + c.y * 0.35)
+        ctx.lineTo(a.x * 0.4 + c.x * 0.6, a.y * 0.4 + c.y * 0.6); ctx.stroke()
+      }
+    }
     ctx.restore()
   })
 
@@ -806,6 +361,30 @@ export function drawHardVacuumFrame(args: {
     ctx.arc(bullet.pos.x, bullet.pos.y, 2, 0, Math.PI * 2)
     ctx.fill()
   })
+
+  // Discrete red bolts: a hard-edged body and short exhaust trail.
+  if (gameState !== 'menu') {
+    for (const shot of blasterRef.current.shots) {
+      ctx.save(); ctx.translate(shot.pos.x, shot.pos.y); ctx.rotate(Math.atan2(shot.vel.y, shot.vel.x))
+      ctx.strokeStyle = '#ff665e'; ctx.lineWidth = 2; ctx.fillStyle = '#741e23'
+      ctx.shadowColor = 'rgba(255,70,60,0.3)'; ctx.shadowBlur = 6
+      ctx.beginPath(); ctx.moveTo(13, 0); ctx.lineTo(3, -5); ctx.lineTo(-12, -4); ctx.lineTo(-17, 0); ctx.lineTo(-12, 4); ctx.lineTo(3, 5); ctx.closePath(); ctx.fill(); ctx.stroke()
+      ctx.strokeStyle = '#ffbbb2'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(8, 0); ctx.stroke()
+      ctx.strokeStyle = '#ff665e80'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-28, 0); ctx.lineTo(-18, 0); ctx.stroke()
+      ctx.restore()
+    }
+    for (const burst of blasterRef.current.bursts) {
+      const progress = 1 - burst.life / 0.28, radius = 10 + progress * 72
+      ctx.save(); ctx.strokeStyle = `rgba(255,88,75,${1 - progress})`; ctx.lineWidth = 2.5 * (1 - progress)
+      ctx.beginPath()
+      for (let i = 0; i < 8; i++) {
+        const angle = i * Math.PI / 4
+        const x = burst.pos.x + Math.cos(angle) * radius, y = burst.pos.y + Math.sin(angle) * radius
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+      }
+      ctx.closePath(); ctx.stroke(); ctx.restore()
+    }
+  }
 
   // Draw phaser beam (player)
   if (gameState === 'playing' && phaserBeamRef.current.active) {
@@ -957,46 +536,12 @@ export function drawHardVacuumFrame(args: {
     }
   }
 
+  if (gameState !== 'menu') drawTeleporter(ctx, expedition, expeditionRuntime)
   // Draw ship
-  if (gameState === 'playing' || gameState === 'waveComplete' || gameState === 'menu') {
+  if ((!expedition.campaign.journey?.riding || havenDeployment(expedition) > .3) && (gameState !== 'dying' && gameState !== 'gameOver')) {
     const ship = shipRef.current
 
-    let isHealing = false
-
-    // Healing halo
-    {
-      const baseX = WORLD_CENTER.x
-      const baseY = WORLD_CENTER.y
-      const baseAng = miningBaseAngleRef.current
-      const hexVerts: Vector2[] = Array.from({ length: 6 }, (_, i) => {
-        const a = baseAng + (i / 6) * Math.PI * 2
-        return { x: Math.cos(a) * MINING_BASE_RADIUS, y: Math.sin(a) * MINING_BASE_RADIUS }
-      })
-
-      const circleFullyInHexLocal = (px: number, py: number, radius: number) => {
-        for (let i = 0; i < 6; i++) {
-          const a = hexVerts[i]
-          const b = hexVerts[(i + 1) % 6]
-          const ex = b.x - a.x
-          const ey = b.y - a.y
-          const len = Math.hypot(ex, ey)
-          if (len < 1e-6) continue
-          const nx = -ey / len
-          const ny = ex / len
-          const dist = (px - a.x) * nx + (py - a.y) * ny
-          if (dist < radius) return false
-        }
-        return true
-      }
-
-      const d = toroidalDelta(baseX, baseY, ship.pos.x, ship.pos.y, width, height)
-      const fullyInside = circleFullyInHexLocal(d.dx, d.dy, ship.radius)
-      isHealing =
-        fullyInside &&
-        shieldsRef.current < 2 &&
-        shipRepairTimeRef.current > 0 &&
-        shipRepairTimeRef.current < 2
-    }
+    const isHealing = expeditionRuntime.recharging
 
     ctx.save()
     ctx.translate(ship.pos.x, ship.pos.y)
@@ -1042,7 +587,7 @@ export function drawHardVacuumFrame(args: {
           return { x: p.x * k, y: p.y * k }
         })
 
-      const healT = clamp(shipRepairTimeRef.current / 2, 0, 1)
+      const healT = clamp(expeditionRuntime.rechargeProgress, 0, 1)
       const intensity = 0.4 + 0.35 * healT
       const now = Date.now() / 1000
 
@@ -1084,7 +629,7 @@ export function drawHardVacuumFrame(args: {
     }
 
     if (shields > 0) {
-      const shieldFrac = clamp(shields / 2, 0, 1)
+      const shieldFrac = clamp(shields / maxShields(expedition), 0, 1)
       const gap = 6
       const shieldNoseX = noseX + 4 * s
       const shieldNotchX = tailX + 6 * s
@@ -1100,7 +645,7 @@ export function drawHardVacuumFrame(args: {
 
       const shieldColor = shieldDamaged ? '#ffaa00' : '#00ff88'
       const shieldGlow = shieldDamaged ? 'rgba(255, 170, 0, 0.7)' : 'rgba(0, 255, 136, 0.75)'
-      const shieldLow = shields < 2
+      const shieldLow = shields < maxShields(expedition)
       const shieldLineWidth = shieldDamaged ? 1.4 : shieldLow ? 1.7 : 2.2
       const shieldBlur = (shieldDamaged ? 8 : shieldLow ? 12 : 14) + shieldFrac * (shieldDamaged ? 10 : 14)
       const hull: Vector2[] = [
@@ -1185,6 +730,14 @@ export function drawHardVacuumFrame(args: {
       ctx.stroke()
     }
 
+    if (keysRef.current.has('arrowdown') || keysRef.current.has('s')) {
+      ctx.save(); ctx.strokeStyle = '#ffb86b'; ctx.lineWidth = 2
+      ctx.shadowColor = 'rgba(255, 160, 60, 0.4)'; ctx.shadowBlur = 6
+      const jet = (9 + Math.random() * 7) * s
+      ctx.beginPath(); ctx.moveTo(noseX, -2.5 * s); ctx.lineTo(noseX + jet, 0); ctx.lineTo(noseX, 2.5 * s); ctx.stroke()
+      ctx.strokeStyle = '#fff0d0'; ctx.lineWidth = 1.3
+      ctx.beginPath(); ctx.moveTo(noseX + 1, 0); ctx.lineTo(noseX + jet * 0.5, 0); ctx.stroke(); ctx.restore()
+    }
     if (keysRef.current.has('arrowup') || keysRef.current.has('w')) {
       ctx.save()
       ctx.globalAlpha = 1
@@ -1211,6 +764,7 @@ export function drawHardVacuumFrame(args: {
     ctx.restore()
   }
 
+  if (gameState === 'playing' && !expedition.campaign.journey?.riding) drawRadiationShield(ctx, shipRef.current, expeditionRuntime.radiation, expeditionRuntime.elapsed)
   ctx.restore() // cavern clip
 
   // A narrow mineral edge marks the boundary without creating an inner black band.
@@ -1229,32 +783,8 @@ export function drawHardVacuumFrame(args: {
   ctx.restore()
   ctx.restore() // camera
 
-  // World-space navigation and asteroid tracking.
-  if (gameState === 'playing') {
-    drawHardVacuumMinimap({
-      ctx,
-      viewportWidth: width,
-      viewportHeight: height,
-      cameraZoom,
-      worldWidth: WORLD_WIDTH,
-      worldHeight: WORLD_HEIGHT,
-      boundary: cavernMap.boundary,
-      obstacles: cavernMap.obstacles,
-      mapId: cavernMap.id,
-      mapName: cavernMap.name,
-      basePosition: WORLD_CENTER,
-      ship: shipRef.current,
-      rocks: rocksRef.current,
-    })
+  if (gameState === 'playing' && mapOpen) {
+    drawExpeditionMap(ctx, expedition, shipRef.current, width, height, mapOpen, args.mapOverview)
   }
 
-  // Subtle scanline haze
-  ctx.save()
-  ctx.globalAlpha = 0.06
-  ctx.fillStyle = '#00ff88'
-  const scanY = ((Date.now() / 1000) * 60) % 12
-  for (let y = -12; y < height + 12; y += 12) {
-    ctx.fillRect(0, y + scanY, width, 1)
-  }
-  ctx.restore()
 }

@@ -10,8 +10,10 @@ const trace = (ctx: CanvasRenderingContext2D, points: Vector2[]) => {
   ctx.closePath()
 }
 
-export function drawRadiationFields(ctx: CanvasRenderingContext2D, map: CavernMap, time: number) {
+export function drawRadiationFields(ctx: CanvasRenderingContext2D, map: CavernMap, time: number, ship: Ship) {
   for (const source of RADIATION_SOURCES) {
+    if (map.containedRadiation?.includes(source.id)) continue
+    if (Math.hypot(ship.pos.x-source.pos.x,ship.pos.y-source.pos.y)>source.range+Math.hypot(ctx.canvas.width,ctx.canvas.height)*.65) continue
     ctx.save()
     trace(ctx, radiationFootprint(source, map)); ctx.clip()
     const field = ctx.createRadialGradient(source.pos.x, source.pos.y, source.bodyRadius, source.pos.x, source.pos.y, source.range)
@@ -30,13 +32,17 @@ export function drawRadiationFields(ctx: CanvasRenderingContext2D, map: CavernMa
   }
 }
 
-export function drawRadiationSources(ctx: CanvasRenderingContext2D, ship: Ship, time: number) {
+export function drawRadiationSources(ctx: CanvasRenderingContext2D, ship: Ship, time: number, map: CavernMap) {
   for (const source of RADIATION_SOURCES) {
-    drawExpeditionObject(ctx, 'emitter', source.pos, { time, scale: source.bodyRadius / 30 })
-    if (Math.hypot(ship.pos.x - source.pos.x, ship.pos.y - source.pos.y) > source.range + 40) continue
+    const contained = map.containedRadiation?.includes(source.id)
+    const distance=Math.hypot(ship.pos.x-source.pos.x,ship.pos.y-source.pos.y)
+    if (distance>source.range+Math.hypot(ctx.canvas.width,ctx.canvas.height)*.65) continue
+    drawExpeditionObject(ctx, 'emitter', source.pos, { time, scale: source.bodyRadius / 30, active: !contained })
+    if (source.id.startsWith('tube:')) continue
+    if (distance>source.range+40) continue
     ctx.save(); ctx.textAlign = 'center'; ctx.font = '9px monospace'; ctx.fillStyle = '#c1adff'
     ctx.fillText(source.name, source.pos.x, source.pos.y - 47)
-    ctx.fillStyle = '#a091c7'; ctx.fillText('RADIATION SOURCE', source.pos.x, source.pos.y + 47)
+    ctx.fillStyle = contained ? '#65ab91' : '#a091c7'; ctx.fillText(contained ? 'CONTAINMENT RESTORED' : 'RADIATION SOURCE', source.pos.x, source.pos.y + 47)
     ctx.restore()
   }
 }

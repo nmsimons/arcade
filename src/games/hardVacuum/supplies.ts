@@ -28,8 +28,9 @@ export function purchaseSupply(s: Expedition, id: SupplyPurchase): boolean {
 }
 export const needsRecharge = (s: Expedition) => s.shields < upgradeValue(s, 'hull') || (s.blasterInstalled && s.blasterCharges < BLASTER_CAPACITY) ||
   (s.upgrades.includes('radiation') && s.radiationCharge < RADIATION_CAPACITY)
+export const needsRemoteRecharge = (s: Expedition) => s.shields < upgradeValue(s, 'hull') || (s.blasterInstalled && s.blasterCharges < BLASTER_CAPACITY)
 
-/** Shared by Haven and remote packs, including an installed radiation shield. */
+/** Haven restores every system, including an installed radiation shield. */
 export function restoreShipSystems(s: Expedition): boolean {
   const changed = needsRecharge(s)
   s.shields = upgradeValue(s, 'hull')
@@ -38,7 +39,7 @@ export function restoreShipSystems(s: Expedition): boolean {
   return changed
 }
 export function activateRemoteRecharge(s: Expedition): boolean {
-  if (s.rechargePacks <= 0 || s.remoteRechargeRemaining > 0 || !needsRecharge(s)) return false
+  if (s.rechargePacks <= 0 || s.remoteRechargeRemaining > 0 || !needsRemoteRecharge(s)) return false
   s.rechargePacks--
   s.remoteRechargeRemaining = SHIELD_REPAIR_TIME
   return true
@@ -48,6 +49,7 @@ export function stepRemoteRecharge(s: Expedition, dt: number): boolean {
   s.remoteRechargeRemaining = Math.max(0, s.remoteRechargeRemaining - dt)
   if (s.remoteRechargeRemaining > 1e-9) return false
   s.remoteRechargeRemaining = 0
-  restoreShipSystems(s)
+  s.shields = upgradeValue(s, 'hull')
+  s.blasterCharges = s.blasterInstalled ? BLASTER_CAPACITY : 0
   return true
 }

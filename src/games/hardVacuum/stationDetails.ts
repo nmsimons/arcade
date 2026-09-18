@@ -22,4 +22,12 @@ export function drawStationInfrastructure(ctx: CanvasRenderingContext2D, state: 
     for (const p of contacts.values()) ctx.fillRect(p.x-1.5,p.y-1.5,3,3)
   }
   ctx.restore()
+  // Stencils mark the real cargo hold and the two shared electrical buses.
+  ctx.save();ctx.font='10px monospace';ctx.textAlign='center';ctx.fillStyle='#829a824d'
+  ctx.fillText('EVACUATION RESERVE / O₂',8840,670)
+  ctx.fillText('DEPARTURES 012 / ARRIVALS 000',8000,270)
+  ctx.fillText('BERTH + SECURITY / SHARED BUS',4900,950)
+  ctx.fillStyle=state.power.heart ? '#65ab9166' : '#b2a1c466'
+  ctx.fillText(state.power.heart ? 'CONTAINMENT / HOLD' : 'CONTAINMENT / AUXILIARY FEED',2510,1910)
+  ctx.restore()
 }

@@ -25,6 +25,7 @@ import { SHIELD_REPAIR_TIME } from './tuning.ts'
 
 import { SHOP, UPGRADE_COSTS, upgradeOffer, upgradeValue } from './upgrades.ts'
 import type { ShopUpgrade, UpgradeLevels } from './upgrades'
+import { BOT_STATIONS, botGarageObstacles, stepBotGarages } from './stationBots.ts'
 
 export type Upgrade = 'radiation' | 'focus2' | ShopUpgrade
 export interface Expedition {
@@ -38,6 +39,8 @@ export interface Expedition {
   caches: string[]
   visited: string[]
   surveyed: number[]
+  disabledBots: string[]
+  botDoors?: Record<string, number>
   checkpoint: string
   credits: number
   banked: number
@@ -87,18 +90,18 @@ export const GATES = [
   { id: 'shortcut', kind: 'socket', label: 'POWER OFF · HAVEN RELAY', x: 1400, y: 690, w: 200, h: 30, color: '#b8a0ff' },
   { id: 'reactor', kind: 'socket', label: 'POWER OFF · HAVEN RELAY', x: 1990, y: 1000, w: 30, h: 200, color: '#ffbd69' },
   { id: 'blast', kind: 'blast', label: 'BLAST DOOR', x: 1400, y: 1490, w: 200, h: 30, color: '#ff665e' },
-  { id: 'drive', kind: 'blast', label: 'BLAST DOOR', x: 1990, y: 1700, w: 30, h: 200, color: '#ff665e' },
+  { id: 'drive', kind: 'socket', label: 'ENGINE RETURN / NO POWER', x: 1990, y: 1700, w: 30, h: 200, color: '#65baff' },
   ...CAMPAIGN_GATES,
 ] as const
 export const gateCenter = (g: typeof GATES[number]): Vector2 => ({ x: g.x + g.w / 2, y: g.y + g.h / 2 })
 export const SOCKETS = [
   { id: 'foundry', pos: { x: 460, y: 920 }, source: { x: 1660, y: 920 }, label: 'FOUNDRY DOOR', gates: ['foundry'] },
-  { id: 'heart', pos: { x: 2480, y: 1780 }, source: { x: 2520, y: 1180 }, label: 'ENGINE POWER', gates: ['heart', 'refuge-link'] },
+  { id: 'heart', pos: { x: 2480, y: 1780 }, source: { x: 2735, y: 1110 }, label: 'CONTAINMENT / ENGINE RETURN', gates: ['heart', 'refuge-link', 'drive'] },
   { id: 'relay', pos: { x: 1660, y: 1280 }, source: { x: 340, y: 340 }, label: 'ARCHIVE / REACTOR / SHORTCUT', gates: ['archive', 'reactor', 'shortcut'] },
   ...CAMPAIGN_SOCKETS,
 ] as const
 export const PICKUPS: { id: Upgrade; pos: Vector2; label: string; detail: string; sector: string }[] = [
-  { id: 'radiation', pos: { x: 1650, y: 350 }, label: 'Radiation shield', detail: 'Adds a separate radiation reserve. Eight seconds at peak exposure; distance and rock cover reduce the dose. Recharge at Haven.', sector: 'archive' },
+  { id: 'radiation', pos: { x: 7130, y: 1290 }, label: 'Radiation shield', detail: 'Adds a separate radiation reserve. Eight seconds at peak exposure; distance and rock cover reduce the dose. Recharge at Haven.', sector: 'stores' },
 ]
 export const CACHES = [
   { id: 'wreck-cache', pos: { x: 290, y: 1260 }, value: 100, sector: 'salvage' },
@@ -110,7 +113,8 @@ export const CACHES = [
 export const CORE_POSITION = IGNITION_POSITION
 export const BASE_POSITION = { x: 1500, y: 1100 }
 export const SAVE_KEY = 'hard-vacuum-expedition-v1'
-export const freshExpedition = (berth: BerthId = 'breach'): Expedition => ({ version: 1, campaign:freshCampaign(berth), upgrades: [], upgradeLevels: {}, gates: [], power: {}, doors: {}, caches: [], visited: [BERTHS.find(b => b.id === berth)!.room], surveyed: [], checkpoint: 'haven', credits: 0, banked: 0, core: false, complete: false, position: { ...BERTHS.find(b => b.id === berth)!.pos }, shields: 2, blasterInstalled: false, blasterCharges: 0, radiationCharge: 0, radiationExposure: 0, ...freshSupplies() })
+const untouchedArchiveModule = (body: {pos:Vector2;tethered?:boolean}) => !body.tethered && body.pos.x>=1100 && body.pos.x<=1900 && body.pos.y>=150 && body.pos.y<=650
+export const freshExpedition = (berth: BerthId = 'breach'): Expedition => ({ version: 1, campaign:freshCampaign(berth), upgrades: [], upgradeLevels: {}, gates: [], power: {}, doors: {}, caches: [], visited: [BERTHS.find(b => b.id === berth)!.room], surveyed: [], disabledBots: [], botDoors: {}, checkpoint: 'haven', credits: 0, banked: 0, core: false, complete: false, position: { ...BERTHS.find(b => b.id === berth)!.pos }, shields: 2, blasterInstalled: false, blasterCharges: 0, radiationCharge: 0, radiationExposure: 0, ...freshSupplies() })
 export function parseExpedition(raw: string | null): Expedition | null {
   try {
     const s = JSON.parse(raw ?? 'null')
@@ -132,6 +136,8 @@ export function parseExpedition(raw: string | null): Expedition | null {
       (s.radiationExposure !== undefined && (!Number.isFinite(s.radiationExposure) || s.radiationExposure < 0 || s.radiationExposure > 2))) return null
     s.upgradeLevels ??= {}
     if (s.surveyed === undefined) s.surveyed = []
+    s.disabledBots ??= []
+    if (!Array.isArray(s.disabledBots) || s.disabledBots.length > BOT_STATIONS.length || s.disabledBots.some((id: unknown) => !BOT_STATIONS.some(bot => bot.id === id))) return null
     if (!Array.isArray(s.surveyed) || s.surveyed.length > SURVEY_LIMIT || s.surveyed.some((id: unknown) => typeof id !== 'number' || !Number.isInteger(id) || id < 0 || id >= SURVEY_LIMIT)) return null
     if (s.campaign === undefined) {
       s.surveyed = migrateSurvey(s.surveyed)
@@ -189,6 +195,8 @@ export function parseExpedition(raw: string | null): Expedition | null {
       s.power.relay ??= 'relay'
       for (const id of ['archive', 'reactor', 'shortcut']) if (!s.gates.includes(id)) s.gates.push(id)
     }
+    s.botDoors ??= {}
+    if (typeof s.botDoors !== 'object' || Array.isArray(s.botDoors) || Object.entries(s.botDoors).some(([id,progress])=>!BOT_STATIONS.some(bot=>bot.id===id && s.power[bot.power]) || typeof progress!=='number' || !Number.isFinite(progress) || progress<0 || progress>1)) return null
     if (s.cargo !== undefined) {
       if (!s.cargo || typeof s.cargo !== 'object' || Array.isArray(s.cargo)) return null
       const ids = [...PICKUPS.map(p => p.id), ...CACHES.map(c => c.id), ...SOCKETS.map(p => p.id), 'core', 'ore', 'access', 'cutter', 'thermal', 'drive']
@@ -201,6 +209,9 @@ export function parseExpedition(raw: string | null): Expedition | null {
       if (s.cargo.cutter || s.cargo.access) s.cargo.relay = s.cargo.access ?? s.cargo.cutter
       if (s.cargo.thermal) s.cargo.radiation = s.cargo.thermal
       for (const id of ['ore', 'access', 'cutter', 'thermal', 'drive']) delete s.cargo[id]
+      // Move an unrecovered archive module ahead of the newly irradiated transfer tubes.
+      const module = s.cargo.radiation
+      if (module && untouchedArchiveModule(module)) delete s.cargo.radiation
       // Move untouched legacy cells to their new rooms, keeping player-moved cargo.
       for (const [id, x, y] of [['foundry', 660, 1258], ['heart', 2340, 1938]] as const) {
         const cargo = s.cargo[id]
@@ -231,10 +242,10 @@ const machineObstacles = [
 export function expeditionMap(s: Expedition): CavernMap {
   const key = [...s.gates].sort().join(',') + '|' + Object.keys(s.power).sort().join(',')
   const existing = mapCache.get(key)
-  const animating = Object.keys(s.doors).length > 0
+  const animating = Object.keys(s.doors).length > 0 || Object.keys(s.botDoors ?? {}).length > 0
   if (existing && !animating) return existing
   const installedCells = SOCKETS.filter(socket=>s.power[socket.id]).map(socket=>rectangle(socket.pos.x-10,socket.pos.y-15,20,30))
-  const map = { id: 0, name: 'Station survey', boundary: STATION_TERRAIN.boundary, obstacles: [...STATION_TERRAIN.islands, ...machineObstacles, ...installedCells, ...GATES.flatMap(g => doorPanels(g, doorProgress(s, g.id)))] }
+  const map = { id: 0, name: 'Station survey', boundary: STATION_TERRAIN.boundary, obstacles: [...STATION_TERRAIN.islands, ...machineObstacles, ...installedCells, ...botGarageObstacles(s), ...GATES.flatMap(g => doorPanels(g, doorProgress(s, g.id)))], containedRadiation: s.power.heart ? ['reactor-breach','fuel-unit'] : [] }
   if (!animating) { if (mapCache.size > 40) mapCache.clear(); mapCache.set(key, map) }
   return map
 }
@@ -351,6 +362,10 @@ export const objectBody = (rt: ExpeditionRuntime, id: string, position: Vector2)
   const body = rt.objects[id] ??= { pos: { ...position }, vel: initialCargoVelocity(position), radius, cargoId: id, capture: 0 }
   // Live development updates may retain bodies created by the older collector.
   body.radius = radius; body.mass = id === 'core' ? 1.8 : 0.65; body.cargoId = id
+  // A development hot reload can retain the old archive body without parsing a save.
+  if (id==='radiation' && !body.retrieving && untouchedArchiveModule(body)) {
+    body.pos={...position}; body.vel=initialCargoVelocity(position)
+  }
   if (![body.pos.x, body.pos.y, body.vel.x, body.vel.y].every(Number.isFinite)) {
     body.pos = { ...position }; body.vel = { x: 0, y: 0 }; body.capture = 0
   }
@@ -436,6 +451,7 @@ export function powerReceiver(s: Expedition, id: string, source: string): boolea
   const socket = SOCKETS.find(p => p.id === id)
   if (!socket || s.power[id] || !SOCKETS.some(p => p.id === source) || Object.values(s.power).includes(source)) return false
   s.power[id] = source
+  for (const bot of BOT_STATIONS) if (bot.power===id) (s.botDoors ??= {})[bot.id]=0
   for (const gate of socket.gates) {
     if (openGate(s, gate) && GATES.some(g => g.id === gate)) s.doors[gate] = 0
   }
@@ -457,7 +473,7 @@ export function blastGate(s: Expedition, pos: Vector2, radius = BLASTER_BLAST_RA
   return opened
 }
 export function stepExpedition(s: Expedition, rt: ExpeditionRuntime, args: {
-  dt: number; ship: Ship; rocks: Rock[]; harpoon: Harpoon; beam: PhaserBeam; aboard?: boolean; havenMotion?: HavenMotion; onContact?: (contact: WorldContact) => void
+  dt: number; ship: Ship; rocks: Rock[]; harpoon: Harpoon; beam: PhaserBeam; aboard?: boolean; havenMotion?: HavenMotion; onContact?: (contact: WorldContact) => void; extraBodies?: import('./types').TetherBody[]
 }): string[] {
   const { dt, ship, rocks, harpoon } = args
   const events: string[] = []
@@ -468,6 +484,7 @@ export function stepExpedition(s: Expedition, rt: ExpeditionRuntime, args: {
   rt.surveyIn = (rt.surveyIn ?? 0) - dt
   if (rt.surveyIn <= 0) { recordSurvey(s.surveyed, ship.pos, expeditionMap(s)); rt.surveyIn = 0.3 }
   if (rt.teleport && (rt.teleport.time -= dt) <= 0) delete rt.teleport
+  stepBotGarages(s,dt)
   for (const id of Object.keys(s.doors)) {
     s.doors[id] = Math.min(1, s.doors[id] + dt / DOOR_OPEN_SECONDS)
     if (s.doors[id] >= 1) delete s.doors[id]
@@ -498,7 +515,7 @@ export function stepExpedition(s: Expedition, rt: ExpeditionRuntime, args: {
   const cargo = cargoBodies(s,rt).filter(active)
   for (const body of cargo) driftCargo(body,dt)
   events.push(...stepCargoRecovery(s,rt,dt))
-  resolveWorldContacts([...rocks.filter(active),...cargo.filter(b=>!(rt.recovery?.id===b.cargoId&&rt.recovery.secured)),...(args.aboard ? [] : [ship])],map,contact=>{
+  resolveWorldContacts([...rocks.filter(active),...cargo.filter(b=>!(rt.recovery?.id===b.cargoId&&rt.recovery.secured)),...(args.extraBodies ?? []).filter(active),...(args.aboard ? [] : [ship])],map,contact=>{
     if (contact.body === ship || contact.other === ship) rt.impactSpeed=Math.max(rt.impactSpeed,contact.speed)
     args.onContact?.(contact)
   },args.havenMotion)

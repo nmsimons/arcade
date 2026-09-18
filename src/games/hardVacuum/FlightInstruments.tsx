@@ -4,7 +4,7 @@ import { expeditionMap, maxShields, near } from './expedition'
 import { havenPosition, havenReady } from './campaign'
 import { BLASTER_CAPACITY } from './blaster'
 import { radiationAt, RADIATION_HULL_LIMIT } from './radiation'
-import { needsRecharge, RECHARGE_PACK_LIMIT } from './supplies'
+import { needsRemoteRecharge, RECHARGE_PACK_LIMIT } from './supplies'
 import { SHIELD_REPAIR_TIME } from './tuning'
 import './flightHud.css'
 
@@ -74,7 +74,7 @@ export function FlightInstruments({ state, shields, room, mapOpen, onMap, onJour
         </div>}
       </div>}
       {(hasRecharge || state.teleporterInstalled) && <div className="hud-equipment" aria-label="Ship equipment">
-        {hasRecharge && <EquipmentButton label={recharging ? 'Remote recharge in progress' : `Remote recharge, ${state.rechargePacks} of ${RECHARGE_PACK_LIMIT} packs`} shortcut="R" onClick={onRecharge} disabled={mapOpen || state.rechargePacks === 0 || recharging || !needsRecharge(state)}>
+        {hasRecharge && <EquipmentButton label={recharging ? 'Remote recharge in progress' : `Remote recharge, ${state.rechargePacks} of ${RECHARGE_PACK_LIMIT} packs`} shortcut="R" onClick={onRecharge} disabled={mapOpen || state.rechargePacks === 0 || recharging || !needsRemoteRecharge(state)}>
           <span>{recharging ? 'Charging' : <><span className="underline underline-offset-2">R</span>echarge</>}</span><span className="hud-equipment-count">{state.rechargePacks}</span>
           {recharging && <span className="hud-recharge-progress" role="progressbar" aria-label="Remote recharge" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - state.remoteRechargeRemaining / SHIELD_REPAIR_TIME) * 100)} style={{ width: `${(1 - state.remoteRechargeRemaining / SHIELD_REPAIR_TIME) * 100}%` }} />}
         </EquipmentButton>}

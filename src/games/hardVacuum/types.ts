@@ -28,6 +28,8 @@ export interface TetherBody {
   anchored?: boolean
   retrieving?: boolean
   terminalId?: string
+  botId?: string
+  laserGlow?: number
 }
 
 export interface Rock extends TetherBody {
@@ -36,6 +38,7 @@ export interface Rock extends TetherBody {
   angVel: V3
   mesh: { verts: V3[]; polys: number[][] }
   kind: RockKind
+  fragmentRates?: { red: number; blue: number }
   inBaseTime?: number
   laserGlow?: number
   // Red rocks can be "armed" and detonate after a short fuse.

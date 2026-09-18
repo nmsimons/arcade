@@ -33,6 +33,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
 
   onRedRockDetonate?: (rock: Rock) => void
   onAsteroidDestroyed?: (rock: Rock) => void
+  fragmentKind?: (rock: Rock, roll: number) => RockKind
 
   createRock: (x: number, y: number, radius: number, velOverride?: Vector2, kind?: RockKind) => Rock
   createDebris: (x: number, y: number, vx: number, vy: number, count: number, life: number, color: string) => void
@@ -65,6 +66,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     sounds,
     onRedRockDetonate,
     onAsteroidDestroyed,
+    fragmentKind,
     createRock,
     createDebris,
     levelRef,
@@ -134,7 +136,8 @@ export function updateBulletsAndPlayerRockCollisions(args: {
           const newRadius = rock.radius / 2
           for (let j = 0; j < 2; j++) {
             let kind: RockKind = 'normal'
-            if (newRadius <= SMALLEST_ROCK_RADIUS) {
+            if (newRadius <= SMALLEST_ROCK_RADIUS && fragmentKind) kind=fragmentKind(rock,Math.random())
+            else if (newRadius <= SMALLEST_ROCK_RADIUS) {
               if (levelRef.current >= 3) {
                 if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
                   kind = 'blue'
@@ -157,7 +160,9 @@ export function updateBulletsAndPlayerRockCollisions(args: {
               }
             }
 
-            rocksRef.current.push(createRock(rock.pos.x, rock.pos.y, newRadius, undefined, kind))
+            const fragment=createRock(rock.pos.x,rock.pos.y,newRadius,undefined,kind)
+            fragment.fragmentRates=rock.fragmentRates
+            rocksRef.current.push(fragment)
           }
         } else {
           // Smallest rock destroyed - create particle debris

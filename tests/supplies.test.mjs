@@ -38,7 +38,7 @@ test('buying the teleporter permanently unlocks it without a charge purchase', (
   assert.equal(poor.teleporterInstalled, false); assert.equal(poor.banked, TELEPORTER_COST - 1)
 })
 
-test('remote recharge uses one pack and restores the same ship systems as Haven after the same delay', () => {
+test('remote recharge restores shields and blaster on the Haven timer, leaving radiation reserve unchanged', () => {
   const state = loaded()
   Object.assign(state, { rechargePacks: 3, upgrades: ['hull', 'radiation'], upgradeLevels: { hull: 5 }, shields: 1, blasterInstalled: true, blasterCharges: 0, radiationCharge: 12, radiationExposure: 0.8, credits: 421 })
   const atBase = structuredClone(state)
@@ -49,7 +49,9 @@ test('remote recharge uses one pack and restores the same ship systems as Haven 
   assert.equal(stepRemoteRecharge(state, SHIELD_REPAIR_TIME - 0.01), false)
   assert.deepEqual([state.shields, state.blasterCharges, state.radiationCharge], [1, 0, 12])
   assert.ok(stepRemoteRecharge(state, 0.01))
-  for (const key of ['shields', 'blasterCharges', 'radiationCharge', 'radiationExposure']) assert.equal(state[key], atBase[key])
+  for (const key of ['shields', 'blasterCharges']) assert.equal(state[key], atBase[key])
+  assert.equal(state.radiationCharge,12);assert.equal(state.radiationExposure,.8)
+  assert.equal(atBase.radiationCharge,100);assert.equal(atBase.radiationExposure,0)
   assert.equal(state.credits, 421); assert.equal(state.banked, 10000, 'remote recharge does not bank credits')
   assert.equal(stepRemoteRecharge(state, 10), false)
   assert.equal(activateRemoteRecharge(state), false, 'full systems do not waste a pack')

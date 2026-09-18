@@ -99,7 +99,7 @@ test('spent charges survive saving; older saves require purchase without losing 
 
 test('a purchased blaster breaches either blast door with a single swept hit', () => {
   const blastDoors = GATES.filter(gate => gate.kind === 'blast')
-  assert.deepEqual(blastDoors.map(gate => gate.id), ['blast', 'drive', 'baggage-door', 'tool-door', 'store-door', 'field-door'])
+  assert.deepEqual(blastDoors.map(gate => gate.id), ['blast', 'baggage-door', 'tool-door', 'store-door', 'field-door'])
   for (const gate of blastDoors) {
     const state = equipped(), runtime = freshRuntime()
     const ship = gate.h > gate.w ? shipAt(gate.x + gate.w + 160, gate.y + gate.h / 2, Math.PI) : shipAt(gate.x + gate.w / 2, gate.y - 160)
@@ -153,7 +153,7 @@ test('the former hopper location is open space with no invisible machinery', () 
 test('objectives follow restored circuits through the refuge to the final core', () => {
   const state = freshExpedition('ring')
   for (const id of ['breach-power','freight-power','dispatch-power','works-power','ring-power','foundry','relay']) state.power[id] = id
-  assert.equal(objective(state).title, 'Restore refuge access')
+  assert.equal(objective(state).title, 'Restore reactor containment')
   state.power.heart = 'heart'; state.gates.push('heart','refuge-link')
   assert.equal(objective(state).title, 'Restore medical transfer')
   state.gates.push('ignition-ready')

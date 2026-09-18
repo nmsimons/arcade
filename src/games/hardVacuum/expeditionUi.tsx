@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { SHIP_UPGRADES, upgradeOffer } from './upgrades'
 import type { ShipUpgrade } from './upgrades'
 import type { Expedition } from './expedition'
@@ -14,19 +14,40 @@ import type { SupplyPurchase } from './supplies'
 
 const button = 'border border-[#00ff88]/60 px-5 py-3 text-sm uppercase tracking-widest text-[#00ff88] hover:bg-[#00ff88]/15 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00ff88] transition-colors'
 
-export function ExpeditionHud({ state, gameState, shields, hud, mapOpen, mapOverview, onOverview, onJournal, onMap, onInteract, onBlaster, onRecharge, onTeleport, onPause }: {
+export function StationSurveyControls({ overview, zoom, onZoom, onPan, onOverview, onClose }: {
+  overview: boolean; zoom: number; onZoom: () => void; onPan: (dx:number,dy:number) => void; onOverview: () => void; onClose: () => void
+}) {
+  const dragging = useRef<{x:number;y:number} | undefined>(undefined)
+  return <div className="absolute inset-0 touch-none select-none" onKeyDownCapture={event=>{
+    const direction: Record<string,[number,number]> = {ArrowLeft:[-64,0],ArrowRight:[64,0],ArrowUp:[0,-64],ArrowDown:[0,64],a:[-64,0],d:[64,0],w:[0,-64],s:[0,64]}
+    const delta = direction[event.key]
+    if (zoom>1 && delta && !event.altKey && !event.ctrlKey && !event.metaKey) { event.preventDefault();event.stopPropagation();onPan(...delta) }
+  }} onPointerDown={event=>{
+    if (zoom===1 || (event.target as HTMLElement).closest('button')) return
+    event.currentTarget.setPointerCapture(event.pointerId);dragging.current={x:event.clientX,y:event.clientY}
+  }} onPointerMove={event=>{
+    if (!dragging.current) return
+    onPan(dragging.current.x-event.clientX,dragging.current.y-event.clientY);dragging.current={x:event.clientX,y:event.clientY}
+  }} onPointerUp={()=>{dragging.current=undefined}} onPointerCancel={()=>{dragging.current=undefined}}>
+    <KeyboardDialog label="Station survey" focusKey="map" onClose={onClose} className="absolute inset-0 pointer-events-none flex items-end justify-center pb-5">
+      <div className="flex flex-col items-center gap-2">
+        {zoom>1 && <span className="text-[10px] text-[#99c9bd] bg-black/90 px-2">Pan · arrows / WASD / drag</span>}
+        <div className="flex flex-wrap justify-center gap-2 pointer-events-auto"><button className={`${button} bg-black/95`} onClick={onOverview} aria-keyshortcuts="O">{overview ? 'Local survey' : 'Station overview'} · O</button><button className={`${button} bg-black/95`} onClick={onZoom} aria-keyshortcuts="Z"><span className="underline underline-offset-2">Z</span>oom · {zoom===1 ? '2×' : 'Fit'}</button><button className={`${button} bg-black/95`} onClick={onClose} aria-keyshortcuts="M Escape">Close · M / Esc</button></div>
+      </div>
+    </KeyboardDialog>
+  </div>
+}
+
+export function ExpeditionHud({ state, gameState, shields, hud, mapOpen, onJournal, onMap, onInteract, onBlaster, onRecharge, onTeleport, onPause }: {
   state: Expedition; gameState: HardVacuumGameState; shields: number
   hud: { room: string; prompt: string; message: string; towing: string; radio: string; grappleHint: string }; mapOpen: boolean
-  mapOverview: boolean; onOverview: () => void; onJournal: () => void
+  onJournal: () => void
   onMap: () => void; onInteract: () => void; onBlaster: () => void; onRecharge: () => void; onTeleport: () => void; onPause: () => void
 }) {
   if (gameState !== 'playing') return null
   const radio = RECORDS.find(r => r.id === hud.radio)
   return <>
     <FlightInstruments state={state} shields={shields} room={hud.room} mapOpen={mapOpen} onMap={onMap} onJournal={onJournal} onPause={onPause} onBlaster={onBlaster} onRecharge={onRecharge} onTeleport={onTeleport} />
-    {mapOpen && <KeyboardDialog label="Station survey" focusKey="map" onClose={onMap} className="absolute inset-0 pointer-events-none flex items-end justify-center pb-5">
-      <div className="flex flex-wrap justify-center gap-2 pointer-events-auto"><button className={`${button} bg-black/95`} onClick={onOverview} aria-keyshortcuts="O">{mapOverview ? 'Local survey' : 'Station overview'} · O</button><button className={`${button} bg-black/95`} onClick={onMap} aria-keyshortcuts="M Escape">Close · M / Esc</button></div>
-    </KeyboardDialog>}
     {!mapOpen && <>
       {hud.grappleHint && <div role="status" className="absolute bottom-48 lg:bottom-24 left-4 max-w-[min(32rem,calc(100%-2rem))] border-l border-[#8bd2d6]/60 bg-[#050d0d]/95 px-3 py-3 text-xs text-[#c2e2df] pointer-events-none"><span className="block text-[9px] tracking-widest text-[#83afa1] mb-2">HAVEN · TETHER LINK</span><span className="leading-relaxed">{hud.grappleHint}</span></div>}
       {radio && !hud.grappleHint && !state.campaign.journey?.riding && <button onClick={onJournal} aria-label={`Read recording: ${radio.title}`} aria-keyshortcuts="L" className="absolute bottom-48 lg:bottom-24 left-4 max-w-[min(32rem,calc(100%-2rem))] text-left border-l border-[#93b7a9]/50 bg-[#050d0d]/90 px-3 py-3 text-xs text-[#c2d1c8]">

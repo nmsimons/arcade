@@ -22,7 +22,7 @@ test('all six dev jumps reach a playable region with its first circuit still uns
     assert.ok(!berth.power || state.power[berth.power], 'Haven is at a powered berth')
     assert.ok(state.campaign.berths.includes(berth.id))
     assert.equal(state.blasterInstalled, index >= 2)
-    assert.equal(state.upgrades.includes('radiation'), index >= 4)
+    assert.equal(state.upgrades.includes('radiation'), index >= 2)
     assert.equal(state.shields, maxShields(state))
     assert.equal(powerCellSpawns(state).length + Object.keys(state.power).length, SOCKETS.length)
     assert.deepEqual(parseExpedition(JSON.stringify(state)), state)

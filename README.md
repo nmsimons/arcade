@@ -40,9 +40,9 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   to refill. Impacts pulverize asteroids of every color into dust and award credits,
   leaving no fragments. Rock barriers and blast doors can only be cleared with B.
 - R: use a remote recharge pack. Carry up to three; buy each at Haven for 500 credits.
-  Shields (including installed radiation shielding) and blaster refill after the
+  Physical shields and blaster refill after the
   same one-second cycle, green hull ripples and repair sound used at Haven.
-  Remote recharging does not bank credits. Packs are consumed on activation;
+  Radiation shielding recharges only at Haven. Remote recharging does not bank credits. Packs are consumed on activation;
   an active recharge resumes after saving, and pausing also pauses the cycle.
 - T: return to Haven and bank all carried credits after installing its teleporter
   for 3,000 credits. Teleporting is then free and unlimited. Grappled cargo stays
@@ -75,7 +75,8 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   back to Haven, then dock to connect the refuge’s awakening bus.
 - M: survey map (pauses the simulation). Records nearby visible terrain as you
   explore; walls and sealed doors block scanning. Discovered terrain is saved.
-  O switches between the local survey and the station overview.
+  O switches between the local survey and the station overview. Z toggles 2× zoom;
+  while zoomed, pan with arrows, WASD or dragging. The map uses the available screen.
 - L: log / flight recorder. Read discovered station records and the current objective.
   Available in flight, while paused, or docked at Haven.
 - Fixed recording terminals have live data displays and blue cable sockets that
@@ -117,9 +118,13 @@ action after a purchase. Escape closes the survey map and returns to flight.
 During local development (`npm run dev`), press backtick / tilde to open the
 developer panel. Jump to any of the six campaign regions or add 100,000 banked
 credits per press. Jumps complete earlier prerequisites, supply the blaster from
-the Works onward and radiation shielding from the Refuge onward, and recharge
+the Works onward, also supply radiation shielding from the Works onward, and recharge
 the ship. Existing upgrades, credits, completed puzzles and cargo are preserved;
 Haven stays at the latest powered berth. These changes use the normal save.
+Show whole map immediately opens the station overview with all terrain, labels
+and berths revealed. It works from flight, pause, the outfitter and the main menu;
+M or Escape closes the map and returns to the previous screen. M reopens it and O
+switches views. Reveal lasts for the session and does not change exploration progress.
 The panel pauses simulation and supports arrows, Tab, Enter and Space; tilde or
 Escape closes it. The panel is unavailable in production builds.
 
@@ -145,7 +150,10 @@ to Haven for credits, or clear a path with the blaster. In the Broken Ring,
 power cells are interchangeable: tow one from Haven to the Wreckwater
 receiver to open the Foundry. Bring another from the Foundry to the Haven relay
 to power the Archive, Reactor and shortcut doors. The cell in Ember Lung powers
-the engine receiver. Doors slide open over 1.2 seconds, and collision follows the
+the engine receiver, restoring containment around the reactor and fuel unit and
+opening the western return door. This exposed towing run requires radiation shielding
+and prompt traversal; containment creates a permanent safe route afterward.
+Doors slide open over 1.2 seconds, and collision follows the
 moving panels. Connected cells stay installed; there are no inventory keys. Passage
 rubble and blast doors require the blaster; lasers and asteroid
 explosions do not open them. Ore comes from asteroids, with no ore hoppers.
@@ -156,14 +164,38 @@ Destruction inside Haven pays exactly 10× the field reward directly into the
 bank, including kills from ship weapons. Base guns process blue asteroids too;
 mission power cells remain intact and never pay credits. Docking is not required.
 
-Tow the violet module from the Archive back to Haven to install a separate
+Restoring power opens armored robot garages and wakes the station's machinery.
+Their walls and animated doors physically protect dormant bots; each unit leaves
+its garage before patrolling. Maintenance tugs pursue at 185 units/second and
+alternate between grappling the ship, hauling asteroids into its projected path,
+and stealing towed cargo. Their jaws signal a launch before a physical hook flies;
+dodging, cover, distance or damaging the tug breaks the attack. Ship tows last at
+most three seconds, and Haven's repair area is safe. Away from the pilot, tugs
+continue sorting loose cargo. The Works, Reactor and Heart have security units that charge a visible
+targeting beam before firing three-round bursts. Walls, debris and Haven's hull
+block their shots. Both types collide, can be grappled, and take damage from focused
+laser fire, blasters, explosions and hard impacts. Destroyed units stay destroyed.
+Debris density, speed and the share of red and blue asteroids rise in deeper regions;
+Refuge deliberately provides a quieter interval. Mining white asteroids also exposes
+more volatile red fragments: each small fragment has a 0/10/20/28/5/42% red chance
+across Breach, Freight, Works, Ring, Refuge and Heart respectively. Blue chances are
+0/6/10/15/12/20%. Rocks and their fragments retain their origin's mineral odds when
+towed elsewhere. The opening Breach has no red or blue asteroids.
+Oxygen reserves, evacuation records and shared power buses connect
+the encounters to the station's abandoned evacuation.
+
+Tow the violet module from Freight Stores back to Haven to install a separate
 radiation shield bar. A breached reactor and damaged fuel unit emit violet,
 radial fields that weaken with distance and are blocked by solid cavern walls.
 Their visible footprints match the actual exposure. At peak exposure the
 100-point reserve drains at 12.5 points per second; recharge at Haven. Violet
 arcs pulse around the ship and Geiger clicks sound while exposed, growing more
 urgent near a source or with a low reserve. The HUD shows the current drain rate
-and warns when protection fails. The original shield only absorbs physical
+and warns when protection fails. Long transfer tunnels after the first Breach-to-Freight
+crossing contain fractured isotope conduits. Their weaker overlapping fields create
+traversal pressure while keeping the central route clear for towing and Haven.
+The first departure stays radiation-free; the module is reachable before the first
+required irradiated crossing. The original shield only absorbs physical
 impacts. Without radiation protection, two seconds at peak exposure destroys
 the ship; leaving the field lets that exposure recover.
 

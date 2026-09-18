@@ -875,6 +875,20 @@ export class SoundSystem {
     oscillator.start(at);oscillator.stop(at+.25)
   }
 
+  botCue(kind: 'wake' | 'lock' | 'shot' | 'grab' | 'hook') {
+    const ctx = this.ctx
+    if (!ctx) return
+    const osc = ctx.createOscillator(), gain = ctx.createGain(), now = ctx.currentTime
+    const duration = kind === 'wake' ? .55 : kind === 'lock' ? .3 : .12
+    osc.type = kind === 'shot' || kind === 'hook' ? 'triangle' : 'sine'
+    osc.frequency.setValueAtTime(kind === 'wake' ? 110 : kind === 'lock' ? 420 : kind === 'grab' ? 180 : kind === 'hook' ? 330 : 750,now)
+    osc.frequency.exponentialRampToValueAtTime(kind === 'wake' ? 290 : kind === 'lock' ? 800 : 90,now+duration)
+    gain.gain.setValueAtTime(0,now); gain.gain.linearRampToValueAtTime(kind === 'shot' ? .08 : .04,now+.012)
+    gain.gain.exponentialRampToValueAtTime(.001,now+duration)
+    osc.connect(gain);gain.connect(ctx.destination);osc.onended=()=>{osc.disconnect();gain.disconnect()}
+    osc.start(now);osc.stop(now+duration)
+  }
+
   havenRecovery(cue: RecoveryCue) {
     const ctx=this.ctx
     if(!ctx) return

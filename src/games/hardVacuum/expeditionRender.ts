@@ -1,9 +1,10 @@
 import type { Expedition, ExpeditionRuntime } from './expedition'
-import { CACHES, CORE_POSITION, EXPEDITION_WALLS, GATES, PICKUPS, SECTORS, SOCKETS, doorProgress, expeditionMap, sectorAt } from './expedition'
-import { coreReleased, havenPosition, havenReady, regionForRoom } from './campaign'
-import { BERTHS, REGIONS, STATION_HEIGHT, STATION_WIDTH, WARD_BANKS } from './campaignWorld'
+import { CACHES, CORE_POSITION, EXPEDITION_WALLS, GATES, PICKUPS, SECTORS, SOCKETS, doorProgress, expeditionMap } from './expedition'
+import { coreReleased, havenPosition, havenReady } from './campaign'
+import { BERTHS, REGIONS, WARD_BANKS } from './campaignWorld'
 import type { Ship, Vector2 } from './types'
 import { drawExpeditionObject } from './objectModels'
+import { drawCargo } from './cargoRender'
 import { drawGateFoundations, drawGateObject } from './gateRender'
 import { RADIATION_SOURCES, radiationFootprint } from './radiation'
 import { drawRadiationFields, drawRadiationSources } from './radiationRender'
@@ -11,6 +12,7 @@ import { drawStationInfrastructure } from './stationDetails'
 import { SURVEY_CELL, surveyPoint } from './survey'
 import { RECEIVER_HALF_GAP } from './receivers'
 import { drawTerminals } from './terminalRender'
+import { surveyView } from './surveyView'
 
 const LABEL_POSITIONS: Record<string, Vector2> = {
   ...Object.fromEntries(SECTORS.map(r => [r.id,{ x:r.x+r.w/2,y:r.y+r.h*.27 }])),
@@ -71,7 +73,7 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     for (let i=0;i<3;i++) ctx.fillRect(x+11+i*14,y+15,3,8)
     ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('078',bank.x,y+39)
   }
-  drawRadiationFields(ctx, expeditionMap(s), rt.elapsed)
+  drawRadiationFields(ctx, expeditionMap(s), rt.elapsed, ship)
   if (rt.docking?.id === 'haven') {
     const docking = rt.docking, t = Math.min(1, docking.time / 0.7)
     const reach = 10 + 25 * (docking.phase === 'out' ? t : 1 - t)
@@ -101,7 +103,7 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     ctx.restore()
   }
   drawTerminals(ctx,s,rt,ship)
-  drawRadiationSources(ctx, ship, rt.elapsed)
+  drawRadiationSources(ctx, ship, rt.elapsed, expeditionMap(s))
   for (const gate of GATES) {
     const progress = doorProgress(s, gate.id)
     if (progress >= 1 && gate.kind === 'rubble') continue
@@ -115,37 +117,33 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
   for (const item of PICKUPS) {
     if (s.upgrades.includes(item.id) || rt.recovery?.id === item.id) continue
     const pos = rt.objects[item.id]?.pos ?? item.pos
-    if (item.id === 'radiation') drawExpeditionObject(ctx, item.id, pos, {time:rt.elapsed})
+    drawCargo(ctx,item.id,pos,{time:rt.elapsed})
   }
-  CACHES.forEach((cache, variant) => {
+  CACHES.forEach(cache => {
     if (s.caches.includes(cache.id) || rt.recovery?.id === cache.id) return
     const pos = rt.objects[cache.id]?.pos ?? cache.pos
-    drawExpeditionObject(ctx, 'cache', pos, { variant, time:rt.elapsed })
+    drawCargo(ctx,cache.id,pos,{time:rt.elapsed})
   })
   if (!s.core && rt.recovery?.id !== 'core') {
     const pos = rt.objects.core?.pos ?? CORE_POSITION
-    drawExpeditionObject(ctx, 'core', pos, { active: coreReleased(s), time:rt.elapsed })
+    drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.elapsed})
   }
   if (s.core && !s.complete && rt.recovery?.id !== 'core') {
-    drawExpeditionObject(ctx, 'core', { x: havenPosition(s).x, y: havenPosition(s).y - 48 }, { active: true, scale: 0.6, time: rt.elapsed })
+    drawCargo(ctx,'core',{x:havenPosition(s).x,y:havenPosition(s).y-48},{active:true,scale:.6,time:rt.elapsed})
   }
   ctx.restore()
 }
 
-export function drawExpeditionMap(ctx: CanvasRenderingContext2D, s: Expedition, ship: Ship, width: number, height: number, expanded: boolean, overview = false) {
+export function drawExpeditionMap(ctx: CanvasRenderingContext2D, s: Expedition, ship: Ship, width: number, height: number, expanded: boolean, overview = false, revealed = false, zoom = 1, focus?: Vector2) {
   const compact = width < 700
-  const region = regionForRoom(sectorAt(ship.pos)?.id) ?? [...REGIONS].sort((a,b) => Math.hypot(ship.pos.x-a.bounds[0]-a.bounds[2]/2,ship.pos.y-a.bounds[1]-a.bounds[3]/2)-Math.hypot(ship.pos.x-b.bounds[0]-b.bounds[2]/2,ship.pos.y-b.bounds[1]-b.bounds[3]/2))[0]
-  const bounds = overview ? [0,0,STATION_WIDTH,STATION_HEIGHT] : region.bounds
-  const w = Math.min(width-24,960), availableHeight = Math.max(150,height-240)
-  const scale = Math.min((w-20)/bounds[2],(availableHeight-35)/bounds[3])
-  const h = bounds[3]*scale+35, x = (width-w)/2, y = Math.max(150,(height-h)/2)
-  const point = (p: Vector2) => ({ x:width/2+(p.x-bounds[0]-bounds[2]/2)*scale,y:y+26+(p.y-bounds[1])*scale })
+  const { region,w,h,x,y,scale,point } = surveyView(ship.pos,width,height,overview,zoom,focus)
   ctx.save()
   if (expanded) { ctx.fillStyle = '#000b'; ctx.fillRect(0, 0, width, height) }
   ctx.fillStyle = '#040e10ed'; ctx.fillRect(x, y, w, h)
   ctx.strokeStyle = '#377669'; ctx.lineWidth = 1; ctx.strokeRect(x, y, w, h)
   ctx.fillStyle = '#99c9bd'; ctx.textAlign = 'left'; ctx.font = `${expanded ? 12 : 9}px monospace`
-  ctx.fillText(overview ? 'ORISON / STATION SURVEY' : region.name.toUpperCase(), x + 10, y + 16)
+  const title = overview ? 'ORISON / STATION SURVEY' : region.name.toUpperCase()
+  ctx.fillText(revealed ? `${title} / DEV REVEAL` : title, x + 10, y + 16)
   ctx.beginPath(); ctx.rect(x+1,y+23,w-2,h-24); ctx.clip()
   const map = expeditionMap(s)
   const trace = (shape: readonly Vector2[]) => {
@@ -153,12 +151,15 @@ export function drawExpeditionMap(ctx: CanvasRenderingContext2D, s: Expedition, 
   }
   // Round survey footprints reveal actual traversed geometry, with no room
   // boxes, route graph or hints about unseen rooms behind closed passages.
-  ctx.save(); ctx.beginPath()
-  for (const id of s.surveyed ?? []) {
-    const p = point(surveyPoint(id)), radius = SURVEY_CELL * 1.25 * scale
-    ctx.moveTo(p.x + radius, p.y); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2)
+  ctx.save()
+  if (!revealed) {
+    ctx.beginPath()
+    for (const id of s.surveyed ?? []) {
+      const p = point(surveyPoint(id)), radius = SURVEY_CELL * 1.25 * scale
+      ctx.moveTo(p.x + radius, p.y); ctx.arc(p.x, p.y, radius, 0, Math.PI * 2)
+    }
+    ctx.clip()
   }
-  ctx.clip()
   ctx.beginPath(); trace(map.boundary)
   ctx.fillStyle = '#10241c'; ctx.fill()
   ctx.strokeStyle = '#668d7d'; ctx.lineWidth = 1.2; ctx.stroke()
@@ -167,6 +168,7 @@ export function drawExpeditionMap(ctx: CanvasRenderingContext2D, s: Expedition, 
     ctx.strokeStyle = '#668d7d'; ctx.lineWidth = 1; ctx.stroke()
   }
   for (const source of RADIATION_SOURCES) {
+    if (map.containedRadiation?.includes(source.id)) continue
     const footprint = radiationFootprint(source, map).map(point)
     ctx.beginPath(); footprint.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)); ctx.closePath()
     ctx.fillStyle = '#b8a0ff40'; ctx.fill()
@@ -174,17 +176,18 @@ export function drawExpeditionMap(ctx: CanvasRenderingContext2D, s: Expedition, 
     ctx.beginPath(); ctx.moveTo(p.x, p.y - 4); ctx.lineTo(p.x + 4, p.y); ctx.lineTo(p.x, p.y + 4); ctx.lineTo(p.x - 4, p.y); ctx.closePath(); ctx.stroke()
   }
   for (const berth of BERTHS) {
-    if (!s.campaign.berths.includes(berth.id)) continue
-    const p = point(berth.pos); ctx.strokeStyle = '#65ab91'; ctx.strokeRect(p.x-3,p.y-3,6,6)
+    const active = s.campaign.berths.includes(berth.id)
+    if (!revealed && !active) continue
+    const p = point(berth.pos); ctx.strokeStyle = active ? '#65ab91' : '#394b47'; ctx.strokeRect(p.x-3,p.y-3,6,6)
   }
   ctx.restore()
   if (expanded && !overview) for (const room of SECTORS) {
-    if (!s.visited.includes(room.id)) continue
+    if (!revealed && !s.visited.includes(room.id)) continue
     const p = point(LABEL_POSITIONS[room.id]); ctx.fillStyle = room.color
     ctx.font = `${compact ? 8 : 10}px monospace`; ctx.textAlign = 'center'; ctx.fillText(room.name.toUpperCase(), p.x, p.y)
   }
   if (overview) for (const region of REGIONS) {
-    if (!region.rooms.some(id => s.visited.includes(id))) continue
+    if (!revealed && !region.rooms.some(id => s.visited.includes(id))) continue
     const p = point({x:region.bounds[0]+region.bounds[2]/2,y:region.bounds[1]+80})
     ctx.fillStyle='#8ab8a7'; ctx.font=`${compact ? 8 : 11}px monospace`; ctx.textAlign='center'; ctx.fillText(region.name.toUpperCase(),p.x,p.y)
   }

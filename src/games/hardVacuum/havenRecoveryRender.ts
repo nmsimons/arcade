@@ -1,12 +1,11 @@
-import { havenPanels, posePoint } from './havenGeometry'
+import { havenPanels, posePoint } from './havenGeometry.ts'
 import type { HavenPose } from './havenGeometry'
-import { RECOVERY_END, RECOVERY_GRIP, RECOVERY_HAUL, RECOVERY_REACH, RECOVERY_SEAL, recoveryBay, recoveryEase } from './havenRecovery'
+import { RECOVERY_END, RECOVERY_GRIP, RECOVERY_HAUL, RECOVERY_REACH, RECOVERY_SEAL, recoveryBay, recoveryEase } from './havenRecovery.ts'
 import type { HavenRecovery } from './havenRecovery'
-import { drawExpeditionObject } from './objectModels'
-import type { ObjectKind } from './objectModels'
+import { drawCargo } from './cargoRender.ts'
 import type { TetherBody } from './types'
 
-export function drawHavenRecovery(ctx:CanvasRenderingContext2D,pose:HavenPose,recovery:HavenRecovery,body:TetherBody,time:number,kind:ObjectKind,variant=0) {
+export function drawHavenRecovery(ctx:CanvasRenderingContext2D,pose:HavenPose,recovery:HavenRecovery,body:TetherBody,time:number) {
   const t=recovery.time,reach=recoveryEase(t/RECOVERY_REACH),grip=recoveryEase((t-RECOVERY_REACH)/(RECOVERY_GRIP-RECOVERY_REACH))
   const closing=recoveryEase((t-RECOVERY_HAUL)/(RECOVERY_SEAL-RECOVERY_HAUL))
   const stow=recoveryEase((t-RECOVERY_SEAL)/(RECOVERY_END-RECOVERY_SEAL))
@@ -43,7 +42,7 @@ export function drawHavenRecovery(ctx:CanvasRenderingContext2D,pose:HavenPose,re
     if(t>=RECOVERY_HAUL) {
       ctx.translate(bay.x,bay.y);ctx.rotate(angle);ctx.beginPath();ctx.rect(-37,-37,74,74);ctx.clip();ctx.rotate(-angle);ctx.translate(-bay.x,-bay.y)
     }
-    drawExpeditionObject(ctx,kind,body.pos,{active:true,variant,time:t<RECOVERY_GRIP ? time : recovery.cargoTime})
+    drawCargo(ctx,recovery.id,body.pos,{active:true,time:t<RECOVERY_GRIP ? time : recovery.cargoTime})
     ctx.restore()
   }
   // Opposed wrists close around the unchanged cargo silhouette.

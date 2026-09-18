@@ -10,7 +10,7 @@ import {
 const reactor = RADIATION_SOURCES[0]
 const at = (x, y = 0) => ({ x: reactor.pos.x + x, y: reactor.pos.y + y })
 const rectangle = (x, y, w, h) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }]
-const openMap = { id: 99, name: 'Radiation test', boundary: rectangle(0, 0, 4000, 3000), obstacles: RADIATION_HOUSINGS }
+const openMap = { id: 99, name: 'Radiation test', boundary: rectangle(0, 0, 4000, 3000), obstacles: RADIATION_HOUSINGS, containedRadiation: RADIATION_SOURCES.filter(s=>s!==reactor).map(s=>s.id) }
 const wall = rectangle(reactor.pos.x + 100, reactor.pos.y - 70, 20, 140)
 const coveredMap = { ...openMap, obstacles: [...RADIATION_HOUSINGS, wall] }
 const protectedState = () => ({ ...freshExpedition(), upgrades: ['radiation'], radiationCharge: 100 })
@@ -44,9 +44,11 @@ test('radiation source housings occupy real navigable space and collide with the
   for (const source of RADIATION_SOURCES) {
     assert.ok(isInsideCavern(source.pos, source.bodyRadius + 2, withoutSources), source.id)
     assert.equal(isInsideCavern(source.pos, 15, map), false)
-    const pos = { x: source.pos.x - source.bodyRadius - 10, y: source.pos.y }
+    const direction=Array.from({length:8},(_,i)=>({x:Math.cos(i*Math.PI/4),y:Math.sin(i*Math.PI/4)})).find(v=>isInsideCavern({x:source.pos.x+v.x*(source.bodyRadius+25),y:source.pos.y+v.y*(source.bodyRadius+25)},15,map))
+    assert.ok(direction,source.id)
+    const pos = { x: source.pos.x + direction.x*(source.bodyRadius+10), y: source.pos.y + direction.y*(source.bodyRadius+10) }
     assert.equal(resolveCircleInCavern(pos, { x: 20, y: 0 }, 15, 0.4, map).collided, true)
-    assert.ok(radiationAt({ x: source.pos.x - source.bodyRadius - 25, y: source.pos.y }, map).intensity > 0, 'housing must not block its own radiation')
+    assert.ok(radiationAt({ x: source.pos.x + direction.x*(source.bodyRadius+25), y: source.pos.y + direction.y*(source.bodyRadius+25) }, map).intensity > 0, 'housing must not block its own radiation')
   }
 })
 

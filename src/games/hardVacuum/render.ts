@@ -5,7 +5,7 @@ import { getCavernMap } from './worldGeometry'
 import { havenDeployment, havenPose } from './campaign'
 import { drawHaven } from './havenRender'
 import { drawHavenRecovery } from './havenRecoveryRender'
-import { CACHES, expeditionMap, maxShields } from './expedition'
+import { expeditionMap, maxShields } from './expedition'
 import type { Expedition, ExpeditionRuntime } from './expedition'
 import { drawExpeditionWorld, drawExpeditionMap, drawExpeditionWalls, drawExpeditionDoorFoundations } from './expeditionRender'
 import { drawPowerCell } from './objectModels'
@@ -14,6 +14,8 @@ import type { ShipAppearance } from './shipRender'
 import { drawRadiationShield } from './radiationRender'
 import { drawTeleporter } from './teleportRender'
 import type { BlasterVisuals } from './blaster'
+import { drawStationBots } from './stationBotRender'
+import type { BotRuntime } from './stationBots'
 
 type Ref<T> = { current: T }
 
@@ -27,6 +29,9 @@ export function drawHardVacuumFrame(args: {
   expeditionRuntime: ExpeditionRuntime
   mapOpen: boolean
   mapOverview?: boolean
+  mapRevealed?: boolean
+  mapZoom?: number
+  mapFocus?: Vector2
   canvasSizeRef: Ref<{ width: number; height: number }>
 
 
@@ -37,6 +42,7 @@ export function drawHardVacuumFrame(args: {
 
   baseShotsRef: Ref<BaseShot[]>
   rocksRef: Ref<Rock[]>
+  bots: BotRuntime
   bulletsRef: Ref<Bullet[]>
   blasterRef: Ref<BlasterVisuals>
   phaserBeamRef: Ref<PhaserBeam>
@@ -155,8 +161,7 @@ export function drawHardVacuumFrame(args: {
     (expedition.campaign.journey?.speed ?? 0) / 210, expeditionRuntime.havenImpact ?? 0)
   const recovery=expeditionRuntime.recovery
   if (gameState !== 'menu' && recovery && expeditionRuntime.objects[recovery.id]) {
-    drawHavenRecovery(ctx,havenPose(expedition,miningBaseAngleRef.current),recovery,expeditionRuntime.objects[recovery.id],expeditionRuntime.elapsed,
-      recovery.id==='core' ? 'core' : recovery.id==='radiation' ? 'radiation' : 'cache',Math.max(0,CACHES.findIndex(c=>c.id===recovery.id)))
+    drawHavenRecovery(ctx,havenPose(expedition,miningBaseAngleRef.current),recovery,expeditionRuntime.objects[recovery.id],expeditionRuntime.elapsed)
   }
 
   // Draw base shots
@@ -174,6 +179,8 @@ export function drawHardVacuumFrame(args: {
     }
     ctx.restore()
   }
+
+  if (gameState !== 'menu') drawStationBots(ctx,args.bots,expedition,expeditionRuntime.elapsed)
 
   // Draw rocks
   rocksRef.current.forEach((rock) => {
@@ -587,8 +594,9 @@ export function drawHardVacuumFrame(args: {
   if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition)
   ctx.restore() // camera
 
-  if (gameState === 'playing' && mapOpen) {
-    drawExpeditionMap(ctx, expedition, shipRef.current, width, height, mapOpen, args.mapOverview)
+  if (mapOpen) {
+    const mapShip = gameState === 'menu' ? { ...shipRef.current, pos: expedition.position } : shipRef.current
+    drawExpeditionMap(ctx, expedition, mapShip, width, height, true, args.mapOverview, args.mapRevealed,args.mapZoom,args.mapFocus)
   }
 
 }

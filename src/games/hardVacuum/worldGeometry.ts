@@ -5,6 +5,7 @@ export const WORLD_HEIGHT = 2200
 export const WORLD_CENTER: Vector2 = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 }
 
 export interface CavernMap {
+  containedRadiation?: readonly string[]
   id: number
   name: string
   boundary: readonly Vector2[]

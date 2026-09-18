@@ -44,7 +44,7 @@ const corridor = (rooms: string[], points: number[][], gate?: string) => points.
   const nx = -dy / len * 100, ny = dx / len * 100
   // A small longitudinal overlap seals angled joins without square props.
   const ex = dx / len * 45, ey = dy / len * 45
-  return { rooms, gate, shape: poly([[start[0]-ex+nx,start[1]-ey+ny],[end[0]+ex+nx,end[1]+ey+ny],[end[0]+ex-nx,end[1]+ey-ny],[start[0]-ex-nx,start[1]-ey-ny]]) }
+  return { rooms, gate, centerline: [p(start[0],start[1]),p(end[0],end[1])], shape: poly([[start[0]-ex+nx,start[1]-ey+ny],[end[0]+ex+nx,end[1]+ey+ny],[end[0]+ex-nx,end[1]+ey-ny],[start[0]-ex-nx,start[1]-ey-ny]]) }
 })
 export const CAMPAIGN_PASSAGES = [
   ...corridor(['breach','rescue'], [[7600,3550],[7300,3620],[7200,3560]]),

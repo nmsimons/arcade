@@ -1,17 +1,19 @@
 import type { Vector2 } from './types'
 import { raycastCavern } from './worldGeometry.ts'
 import type { CavernMap } from './worldGeometry'
+import { TRANSFER_RADIATION_SOURCES } from './transferRadiation.ts'
 
 export const RADIATION_CAPACITY = 100
 export const RADIATION_DRAIN = 12.5
 export const RADIATION_HULL_LIMIT = 2
-export const RADIATION_SOURCES = [
+export interface RadiationSource { id: string; name: string; pos: Vector2; bodyRadius: number; coreRange: number; range: number; strength?: number }
+export const RADIATION_SOURCES: readonly RadiationSource[] = [
   { id: 'reactor-breach', name: 'BREACHED REACTOR', pos: { x: 2630, y: 1130 }, bodyRadius: 30, coreRange: 90, range: 280 },
   { id: 'fuel-unit', name: 'DAMAGED FUEL UNIT', pos: { x: 2550, y: 1510 }, bodyRadius: 26, coreRange: 70, range: 210 },
   { id: 'field-containment', name: 'FRACTURED FIELD CASING', pos: { x: 5470, y: 3370 }, bodyRadius: 30, coreRange: 70, range: 240 },
   { id: 'ignition-feed', name: 'EXPOSED IGNITION FEED', pos: { x: 5060, y: 4310 }, bodyRadius: 26, coreRange: 75, range: 240 },
-] as const
-export type RadiationSource = typeof RADIATION_SOURCES[number]
+  ...TRANSFER_RADIATION_SOURCES,
+]
 export const RADIATION_HOUSINGS = RADIATION_SOURCES.map(source => Array.from({ length: 8 }, (_, i) => {
   const angle = i * Math.PI / 4
   return { x: source.pos.x + Math.cos(angle) * source.bodyRadius, y: source.pos.y + Math.sin(angle) * source.bodyRadius }
@@ -30,11 +32,12 @@ export function radiationAt(pos: Vector2, map?: CavernMap) {
   let intensity = 0, strongest = 0
   let source: RadiationSource | undefined
   for (const emitter of RADIATION_SOURCES) {
+    if (map?.containedRadiation?.includes(emitter.id)) continue
     const dx = pos.x - emitter.pos.x, dy = pos.y - emitter.pos.y
     const distance = Math.hypot(dx, dy)
     if (distance >= emitter.range || distance > radiationReach(emitter, Math.atan2(dy, dx), map) + 0.01) continue
     const falloff = Math.max(0, (distance - emitter.coreRange) / (emitter.range - emitter.coreRange))
-    const strength = 1 - falloff * falloff * (3 - 2 * falloff)
+    const strength = (1 - falloff * falloff * (3 - 2 * falloff)) * (emitter.strength ?? 1)
     intensity += strength
     if (strength > strongest) { strongest = strength; source = emitter }
   }

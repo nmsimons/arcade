@@ -35,7 +35,7 @@ export function advanceDevelopmentLevel(state: Expedition, id: BerthId): boolean
     discoverCampaign(state, room)
   }
   if (index >= 2) state.blasterInstalled = true
-  if (index >= 4 && !state.upgrades.includes('radiation')) state.upgrades.push('radiation')
+  if (index >= 2 && !state.upgrades.includes('radiation')) state.upgrades.push('radiation')
   // Keep Haven at a powered berth, so arriving in a new region leaves its
   // first receiver puzzle intact (especially Refuge Approach's airlock).
   const berth = [...BERTHS.slice(0, index + 1)].reverse().find(b => !b.power || state.power[b.power])!

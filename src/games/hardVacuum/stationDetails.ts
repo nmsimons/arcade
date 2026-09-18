@@ -1,26 +1,25 @@
 import type { Expedition } from './expedition'
+import { powerConduits, powerTraces } from './powerWiring'
 
-// Recessed service conduits physically connect receivers to their mechanisms.
-// Their state follows the same power circuits as the doors.
-const CIRCUITS = [
-  { source: 'foundry', path: [[460,920],[385,940],[355,875],[435,790],[440,705]] },
-  { source: 'relay', path: [[1660,1280],[1735,1325],[1760,1250],[1755,1125],[1810,1080],[1880,1005],[1950,1030],[2005,1030]] },
-  { source: 'relay', path: [[1660,1280],[1740,1250],[1755,1000],[1730,855],[1615,820],[1565,760],[1570,705]] },
-  { source: 'relay', path: [[1570,705],[1570,610],[1680,550],[1760,440],[1750,350],[1670,275],[1555,275],[1415,250],[1320,275],[1240,350],[1120,300],[1040,340],[1005,340]] },
-  { source: 'heart', path: [[2480,1780],[2500,1875],[2660,1900],[2720,1805],[2670,1740]] },
-]
-export function drawStationInfrastructure(ctx: CanvasRenderingContext2D, state: Expedition) {
-  ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  for (const circuit of CIRCUITS) {
-    const powered = !!state.power[circuit.source]
+export function drawStationInfrastructure(ctx: CanvasRenderingContext2D, state: Expedition, time: number) {
+  const circuits = powerConduits()
+  ctx.save(); ctx.lineJoin='bevel'; ctx.lineCap='butt'; ctx.shadowBlur=0
+  for (const source of new Set(circuits.map(c=>c.source))) {
+    const branches=circuits.filter(c=>c.source===source),powered=!!state.power[source]
     ctx.beginPath()
-    circuit.path.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))
-    ctx.strokeStyle = '#0a1212'; ctx.lineWidth = 5; ctx.stroke()
-    ctx.strokeStyle = powered ? '#32624d' : '#263b3c'; ctx.lineWidth = 2; ctx.stroke()
-    // Flush contact collars read as cable hardware, not navigation arrows.
-    for (const [x, y] of [circuit.path[0], circuit.path[circuit.path.length - 1]]) {
-      ctx.fillStyle = powered ? '#65efb2' : '#668b8b'; ctx.fillRect(x - 2, y - 2, 4, 4)
+    for (const trace of powerTraces().filter(c=>c.source===source)) { ctx.moveTo(trace.a.x,trace.a.y); ctx.lineTo(trace.b.x,trace.b.y) }
+    ctx.strokeStyle=powered ? 'rgba(91,173,133,.30)' : 'rgba(97,135,133,.20)'
+    ctx.lineWidth=1; ctx.stroke()
+    if (powered) {
+      // Dim traveling current distinguishes a live cable without competing
+      // with the ship, receiver arcs or the doorway itself.
+      ctx.setLineDash([7,85]); ctx.lineDashOffset=-time*38
+      ctx.strokeStyle='rgba(128,231,184,.42)'; ctx.lineWidth=1.2; ctx.stroke()
+      ctx.setLineDash([])
     }
+    ctx.fillStyle=powered ? 'rgba(101,239,178,.45)' : 'rgba(102,139,139,.30)'
+    const contacts=new Map(branches.flatMap(c=>[c.start,c.end]).map(p=>[`${p.x},${p.y}`,p]))
+    for (const p of contacts.values()) ctx.fillRect(p.x-1.5,p.y-1.5,3,3)
   }
   ctx.restore()
 }

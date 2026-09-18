@@ -1,4 +1,5 @@
 // Sound system using Web Audio API
+import type { RecoveryCue } from './havenRecovery'
 export class SoundSystem {
   private ctx: AudioContext | null = null
   private initialized = false
@@ -7,6 +8,7 @@ export class SoundSystem {
   private thrustGain: GainNode | null = null
   private thrustNoise: AudioBufferSourceNode | null = null
   private thrusting = false
+  private thrustLevel = 0
 
   private phaserPlaying = false
   private phaserReady = false
@@ -796,9 +798,21 @@ export class SoundSystem {
     thump.stop(this.ctx.currentTime + duration * 0.5)
   }
 
-  startThrust() {
-    if (!this.ctx || this.thrusting) return
+  startThrust(level = 1) {
+    if (!this.ctx) return
+    level = Math.max(0, Math.min(1, level))
+    if (level === 0) { this.stopThrust(); return }
+    const now = this.ctx.currentTime
+    if (this.thrusting && this.thrustGain) {
+      if (this.thrustLevel !== level) {
+        this.thrustGain.gain.cancelAndHoldAtTime(now)
+        this.thrustGain.gain.linearRampToValueAtTime(0.2 * level, now + 0.05)
+        this.thrustLevel = level
+      }
+      return
+    }
     this.thrusting = true
+    this.thrustLevel = level
 
     // Create a looping noise buffer
     const bufferSize = this.ctx.sampleRate * 2 // 2 seconds of noise
@@ -821,31 +835,32 @@ export class SoundSystem {
     // Master gain with fade in
     this.thrustGain = this.ctx.createGain()
     this.thrustGain.gain.setValueAtTime(0, this.ctx.currentTime)
-    this.thrustGain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + 0.05)
+    this.thrustGain.gain.linearRampToValueAtTime(0.2 * level, this.ctx.currentTime + 0.05)
 
     // Connect noise path
     this.thrustNoise.connect(filter)
     filter.connect(this.thrustGain)
     this.thrustGain.connect(this.ctx.destination)
 
+    const source = this.thrustNoise, gain = this.thrustGain
+    source.onended = () => { source.disconnect(); filter.disconnect(); gain.disconnect() }
     this.thrustNoise.start()
   }
 
   stopThrust() {
     if (!this.ctx || !this.thrusting) return
     this.thrusting = false
+    this.thrustLevel = 0
+    const source = this.thrustNoise, gain = this.thrustGain, now = this.ctx.currentTime
+    this.thrustNoise = null
+    this.thrustGain = null
 
-    // Fade out
-    if (this.thrustGain) {
-      this.thrustGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1)
+    if (gain) {
+      gain.gain.cancelAndHoldAtTime(now)
+      gain.gain.linearRampToValueAtTime(0, now + 0.1)
     }
-
-    // Stop after fade
-    setTimeout(() => {
-      this.thrustNoise?.stop()
-      this.thrustNoise = null
-      this.thrustGain = null
-    }, 150)
+    // Stop this voice only; a quick release/repress may already start another.
+    source?.stop(now + 0.1)
   }
 
   havenImpact(speed: number) {
@@ -858,6 +873,22 @@ export class SoundSystem {
     gain.gain.exponentialRampToValueAtTime(.001,at+.24)
     oscillator.connect(gain);gain.connect(this.ctx.destination)
     oscillator.start(at);oscillator.stop(at+.25)
+  }
+
+  havenRecovery(cue: RecoveryCue) {
+    const ctx=this.ctx
+    if(!ctx) return
+    const at=ctx.currentTime,osc=ctx.createOscillator(),gain=ctx.createGain(),filter=ctx.createBiquadFilter()
+    const duration=cue==='reach' ? .38 : cue==='grip' ? .24 : .3
+    osc.type=cue==='reach' ? 'sawtooth' : 'triangle'
+    osc.frequency.setValueAtTime(cue==='reach' ? 85 : cue==='grip' ? 210 : 125,at)
+    osc.frequency.exponentialRampToValueAtTime(cue==='reach' ? 145 : 38,at+duration)
+    filter.type='lowpass';filter.frequency.value=cue==='reach' ? 470 : 950
+    gain.gain.setValueAtTime(.001,at);gain.gain.linearRampToValueAtTime(cue==='reach' ? .055 : .14,at+.012)
+    gain.gain.exponentialRampToValueAtTime(.001,at+duration)
+    osc.connect(filter);filter.connect(gain);gain.connect(ctx.destination)
+    osc.onended=()=>{osc.disconnect();filter.disconnect();gain.disconnect()}
+    osc.start(at);osc.stop(at+duration)
   }
 
   death() {

@@ -369,7 +369,7 @@ export function updateHarpoon(args: {
         // Mass: larger rock = heavier. Ship is always light.
         const invShip = 1
         const mRock = rock.mass ?? Math.max(1, (rock.radius / 18) * (rock.radius / 18))
-        const invRock = 1 / mRock
+        const invRock = rock.anchored ? 0 : 1 / mRock
         const invSum = invShip + invRock
 
         // Position correction to remove stretch.

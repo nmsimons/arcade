@@ -28,22 +28,26 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 **Hard Vacuum**
 
-- A/D or Left/Right arrows: rotate; W / Up: thrust; S / Down: nose thruster
+- A/D or Left/Right arrows: rotate; W / Up: thrust; S / Down: nose thruster.
+  Turning fires a tiny lateral jet near the nose and a fainter jet on the opposite
+  rear corner, with a quiet hiss at one quarter of the main engine's audio gain.
+  Steering responds quickly; on release, the jets stop and the ship coasts through
+  a little rotation before settling (about 14 degrees from full turn speed).
 - Space: fire the laser (hold to mine or cut)
-- G: fire the red blaster after buying it at Haven for 750 banked credits.
-  Installation is permanent, survives death, and includes three shots. Existing
-  saves also require this purchase. Three shots per charge; dock or recharge at Haven
+- B: fire the red blaster after buying it under Haven's Ship upgrades for 750 banked credits.
+  Installation is permanent, survives death, and includes three shots.
+  Three shots per charge; dock or recharge at Haven
   to refill. Impacts pulverize asteroids of every color into dust and award credits,
-  leaving no fragments. Rock barriers and blast doors can only be cleared with G.
+  leaving no fragments. Rock barriers and blast doors can only be cleared with B.
 - R: use a remote recharge pack. Carry up to three; buy each at Haven for 500 credits.
   Shields (including installed radiation shielding) and blaster refill after the
   same one-second cycle, green hull ripples and repair sound used at Haven.
   Remote recharging does not bank credits. Packs are consumed on activation;
   an active recharge resumes after saving, and pausing also pauses the cycle.
-- T: use a teleport charge to return to Haven and bank all carried credits.
-  Install Haven's teleporter for 3,000 credits, then buy single-use charges for
-  750 credits each. Carry one charge. Grappled cargo stays where it was released.
-  Haven recharges the arrived ship normally. A charge cannot be spent at Haven.
+- T: return to Haven and bank all carried credits after installing its teleporter
+  for 3,000 credits. Teleporting is then free and unlimited. Grappled cargo stays
+  where it was released. Haven recharges the arrived ship normally.
+  Teleporting is unavailable during Haven's relocation or when already at Haven.
 - F: fire tether / release and reel in
 - Down / S: fire the nose thruster to brake forward motion or reverse. Its force
   is opposite the ship's heading, with a visible forward exhaust jet.
@@ -52,21 +56,34 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - Point the ship's nose at an object and press F to grapple it. Fly to tow;
   press F again to release. Contextual guidance explains the first connection,
   then fades; the opening recording and Controls retain these instructions.
-  Winch upgrades extend the hook's reach.
-  Once attached, the cable retracts at 195 pixels per second to its original
-  130-pixel towing length: one second at maximum reach, less for shorter upgrades.
+  The single Longline winch upgrade doubles the hook's reach.
+  Once attached, the cable retracts at 130 pixels per second to its original
+  130-pixel towing length: one second at maximum reach, less for closer attachments.
   It then stays at towing length and never reels cargo into the ship;
   modules, salvage and the core must be towed to Haven for recovery.
   Touching the ship never collects cargo. F releases the cable.
+  Loose cells, modules, salvage and the core start with gentle drift. Power cells
+  float on their own; their former dispenser markers and solid housings are gone.
   Lasers, explosions, and collisions push loose blue objects. Blasters destroy blue
-  asteroids, while shaped mission cells survive and are pushed. Push or tow cells near receivers for automatic connection;
-  connected cells stay anchored. Modules, salvage, and the core still need the grapple.
+  asteroids, while shaped mission cells survive and are pushed. Guide a cell
+  between a receiver's plates to connect it; nearby cells are not pulled in.
+  Connected cells stay anchored. Modules, salvage, and the core still need the grapple for recovery.
+  Ships, all asteroid types, cells, modules, salvage and the core collide and
+  transfer momentum everywhere. Receiver plates, installed cells, recording
+  terminals, doors, walls and Haven's hull are solid too.
   Cargo cannot be recalled remotely. Tow the ignition core
   back to Haven, then dock to connect the refuge’s awakening bus.
 - M: survey map (pauses the simulation). Records nearby visible terrain as you
   explore; walls and sealed doors block scanning. Discovered terrain is saved.
   O switches between the local survey and the station overview.
-- J: flight recorder. Read discovered station records and the current objective.
+- L: log / flight recorder. Read discovered station records and the current objective.
+  Available in flight, while paused, or docked at Haven.
+- Fixed recording terminals have live data displays and blue cable sockets that
+  stay active after reading. Aim and grapple with F to
+  download their recordings; flying nearby does not read them. The terminal stays
+  bolted down while the ship tethers to it, and the connection pulses with data.
+  A contextual hint retires after the first download. F disconnects; downloaded
+  records remain in the flight recorder, and reconnecting replays them.
 - The laser needs 400 ms of uninterrupted contact on one asteroid before impact.
   The asteroid itself brightens during contact and its glow fades if interrupted.
   Losing the target or releasing SPACE resets contact. Buy staged Laser focus upgrades
@@ -75,22 +92,43 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 All menus support Arrow keys or Tab / Shift+Tab to move focus, Enter or Space
 to activate, and Escape to go back. Home / End jump to the first / last action.
-The flight HUD shows resources, carried equipment and nearby docking actions.
+The flight HUD groups location and credits on the left. A compact ship panel
+aligns shield, radiation and blaster meters, with equipment controls and warnings
+in the same panel. On narrow screens the meters sit side by side. Map, log and
+pause remain keyboard-accessible; nearby docking actions stay beside the flight view.
+Actions underline their shortcut letter when it appears in the label; other keys
+are shown beside the action. Map, Log, Pause, Recharge, Teleport and Blaster use
+M, L, P, R, T and B respectively.
 Persistent control hints, objective walkthroughs and object instructions are removed;
 open Controls from the menu or pause screen for key bindings. Area labels remain.
 The scanline overlay has been removed from the game.
-Hull, beam capacitor, tether reach and laser focus each have five upgrade stages.
+Hull, beam capacitor and laser focus each have five upgrade stages.
 Each stage costs 750, 1,500, 3,000, 6,000, then 10,000 credits. Each track occupies
 one shop row that advances after purchase and shows its next effect and cost.
-Existing purchases retain their effects at the equivalent stage.
+Longline winch is a single 750-credit upgrade that doubles tether reach. The
+750-credit blaster is also a permanent ship upgrade. Existing staged tether
+purchases become the double-length winch, and existing blasters stay installed.
+Teleporter installations become unlimited; unused legacy charges are refunded
+their 750-credit purchase price once when the save is migrated.
 
 The checkpoint shop skips unavailable upgrades and keeps focus on an available
 action after a purchase. Escape closes the survey map and returns to flight.
 
+During local development (`npm run dev`), press backtick / tilde to open the
+developer panel. Jump to any of the six campaign regions or add 100,000 banked
+credits per press. Jumps complete earlier prerequisites, supply the blaster from
+the Works onward and radiation shielding from the Refuge onward, and recharge
+the ship. Existing upgrades, credits, completed puzzles and cargo are preserved;
+Haven stays at the latest powered berth. These changes use the normal save.
+The panel pauses simulation and supports arrows, Tab, Enter and Space; tilde or
+Escape closes it. The panel is unavailable in production builds.
+
 The campaign’s 26 chambers use asymmetric outlines joined by bent passages;
 their continuous contours define rendering, collision, laser paths and the map.
-Service conduits connect receivers to their mechanisms and follow receiver
-power state. Scattered background marks, decorative wall facets and structural
+Faint circuit traces connect every receiver to its powered doors, berths and
+equipment through the station passages using horizontal, vertical and 45-degree
+runs. They turn green with traveling current
+when powered; loose cells and blast barriers have no wiring. Scattered background marks, decorative wall facets and structural
 sketches have been removed; environmental details communicate working systems
 or meaningful damage.
 Packed rubble and torn blast-door seams replace red X markers. The scattered

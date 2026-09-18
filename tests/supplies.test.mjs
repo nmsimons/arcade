@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { bankAtCheckpoint, BASE_POSITION, crashExpedition, freshExpedition, parseExpedition, teleportToHaven } from '../src/games/hardVacuum/expedition.ts'
-import { activateRemoteRecharge, freshSupplies, purchaseSupply, RECHARGE_PACK_COST, stepRemoteRecharge, supplyOffers, TELEPORTER_COST, TELEPORT_CHARGE_COST } from '../src/games/hardVacuum/supplies.ts'
+import { activateRemoteRecharge, freshSupplies, purchaseSupply, RECHARGE_PACK_COST, stepRemoteRecharge, supplyOffers, TELEPORTER_COST } from '../src/games/hardVacuum/supplies.ts'
 import { SHIELD_REPAIR_TIME } from '../src/games/hardVacuum/tuning.ts'
 
 const loaded = () => ({ ...freshExpedition('ring'), banked: 10000 })
@@ -21,17 +21,21 @@ test('recharge packs cost banked credits, cap at three, and refill a freed inven
   assert.equal(purchaseSupply(poor, 'recharge'), false); assert.deepEqual(poor, before)
 })
 
-test('teleport charges require the permanent base upgrade and have one carried slot', () => {
+test('buying the teleporter permanently unlocks it without a charge purchase', () => {
   const state = loaded()
+  assert.equal(teleportToHaven(state, shipAt({ x: 2500, y: 1150 })), false)
+  assert.deepEqual(supplyOffers(state).map(item => item.id), ['recharge', 'teleporter'])
   assert.equal(purchaseSupply(state, 'teleport'), false)
+  assert.equal(purchaseSupply(state, 'blaster'), false)
   assert.ok(purchaseSupply(state, 'teleporter')); assert.equal(state.banked, 10000 - TELEPORTER_COST)
-  assert.equal(state.teleportCharges, 0)
-  assert.equal(purchaseSupply(state, 'teleporter'), false)
-  assert.ok(supplyOffers(state).some(item => item.id === 'teleport'))
-  assert.ok(purchaseSupply(state, 'teleport'))
-  assert.equal(state.banked, 10000 - TELEPORTER_COST - TELEPORT_CHARGE_COST)
+  assert.equal(state.teleporterInstalled, true)
+  assert.ok(supplyOffers(state).find(item => item.id === 'teleporter').full)
   const before = structuredClone(state)
+  assert.equal(purchaseSupply(state, 'teleporter'), false); assert.deepEqual(state, before)
   assert.equal(purchaseSupply(state, 'teleport'), false); assert.deepEqual(state, before)
+  const poor = loaded(); poor.banked = TELEPORTER_COST - 1; poor.credits = 10000
+  assert.equal(purchaseSupply(poor, 'teleporter'), false)
+  assert.equal(poor.teleporterInstalled, false); assert.equal(poor.banked, TELEPORTER_COST - 1)
 })
 
 test('remote recharge uses one pack and restores the same ship systems as Haven after the same delay', () => {
@@ -53,18 +57,25 @@ test('remote recharge uses one pack and restores the same ship systems as Haven 
   stepRemoteRecharge(state, 2); assert.equal(state.blasterCharges, 3)
 })
 
-test('teleporting consumes once, banks every carried credit, and leaves cargo at its saved position', () => {
+test('teleporting is reusable for free, banks every carried credit, and leaves cargo at its saved position', () => {
   const state = loaded(), origin = { x: 2500, y: 1150 }, ship = shipAt(origin)
-  Object.assign(state, { teleporterInstalled: true, teleportCharges: 1, credits: 789, shields: 0, blasterCharges: 0, cargo: { radiation: { pos: { x: 2480, y: 1200 }, vel: { x: 2, y: 1 }, tethered: true } } })
+  ship.angularVelocity = 3
+  Object.assign(state, { teleporterInstalled: true, credits: 789, shields: 0, blasterCharges: 0, cargo: { radiation: { pos: { x: 2480, y: 1200 }, vel: { x: 2, y: 1 }, tethered: true } } })
   const cargo = structuredClone(state.cargo)
   assert.ok(teleportToHaven(state, ship))
   assert.deepEqual(ship.pos, BASE_POSITION); assert.deepEqual(ship.vel, { x: 0, y: 0 }); assert.deepEqual(state.position, BASE_POSITION)
-  assert.equal(state.credits, 0); assert.equal(state.banked, 10789); assert.equal(state.teleportCharges, 0)
+  assert.equal(ship.angularVelocity, 0, 'arrival stops rotational momentum as well as linear momentum')
+  assert.equal(state.credits, 0); assert.equal(state.banked, 10789); assert.equal(state.teleporterInstalled, true)
   assert.equal(state.shields, 0); assert.equal(state.blasterCharges, 0, 'normal base recharge runs after arrival')
   assert.deepEqual(state.cargo, cargo)
   assert.equal(teleportToHaven(state, ship), false)
-  state.teleportCharges = 1
-  assert.equal(teleportToHaven(state, ship), false); assert.equal(state.teleportCharges, 1, 'already at Haven does not waste a charge')
+  ship.pos = { ...origin }; state.credits = 100
+  assert.ok(teleportToHaven(state, ship), 'a second trip needs no additional purchase')
+  assert.equal(state.credits, 0); assert.equal(state.banked, 10889)
+  assert.deepEqual(ship.pos, BASE_POSITION); assert.deepEqual(state.cargo, cargo)
+  ship.pos = { ...origin }; state.banked = 0
+  assert.ok(teleportToHaven(state, ship), 'teleport remains available without any credits')
+  assert.equal(state.banked, 0)
 })
 
 test('older saves gain empty supplies, purchases survive reloads, and active recharge resumes without re-consuming', () => {
@@ -73,21 +84,34 @@ test('older saves gain empty supplies, purchases survive reloads, and active rec
   const migrated = parseExpedition(JSON.stringify(old))
   for (const [key, value] of Object.entries(freshSupplies())) assert.equal(migrated[key], value)
   const state = loaded()
-  for (const id of ['recharge', 'teleporter', 'teleport']) assert.ok(purchaseSupply(state, id))
+  for (const id of ['recharge', 'teleporter']) assert.ok(purchaseSupply(state, id))
   state.shields = 0; activateRemoteRecharge(state); stepRemoteRecharge(state, 0.4)
   const restored = parseExpedition(JSON.stringify(state))
   assert.deepEqual(restored, state)
   assert.equal(restored.rechargePacks, 0); assert.ok(stepRemoteRecharge(restored, 0.6))
-  assert.equal(restored.shields, 2); assert.equal(restored.teleportCharges, 1)
+  assert.equal(restored.shields, 2); assert.equal(restored.teleporterInstalled, true)
   const invalid = [{ rechargePacks: 4 }, { rechargePacks: -1 }, { rechargePacks: 1.5 }, { rechargePacks: null }, { teleportCharges: 2 }, { teleportCharges: '1' }, { teleportCharges: 1, teleporterInstalled: false }, { teleporterInstalled: 1 }, { remoteRechargeRemaining: -1 }, { remoteRechargeRemaining: 1.1 }, { remoteRechargeRemaining: null }]
   for (const data of invalid) assert.equal(parseExpedition(JSON.stringify({ ...state, ...data })), null)
 })
 
+test('old teleporter installations become unlimited and unused charge purchases are refunded once', () => {
+  for (const charges of [0, 1]) {
+    const old = loaded(); old.teleporterInstalled = true; old.teleportCharges = charges
+    const restored = parseExpedition(JSON.stringify(old))
+    assert.equal(restored.banked, old.banked + charges * 750)
+    assert.equal('teleportCharges' in restored, false)
+    assert.equal(restored.teleporterInstalled, true)
+    const reloaded = parseExpedition(JSON.stringify(restored))
+    assert.deepEqual(reloaded, restored, 'a save can only refund its old charge once')
+    assert.ok(teleportToHaven(reloaded, shipAt({ x: 2500, y: 1150 })))
+  }
+})
+
 test('crashing keeps unused supplies and the teleporter installation but cancels a consumed recharge', () => {
   const state = loaded()
-  Object.assign(state, { rechargePacks: 3, teleporterInstalled: true, teleportCharges: 1, shields: 0 })
+  Object.assign(state, { rechargePacks: 3, teleporterInstalled: true, shields: 0 })
   activateRemoteRecharge(state)
   crashExpedition(state)
-  assert.equal(state.rechargePacks, 2); assert.equal(state.teleportCharges, 1); assert.equal(state.teleporterInstalled, true)
+  assert.equal(state.rechargePacks, 2); assert.equal(state.teleporterInstalled, true)
   assert.equal(state.remoteRechargeRemaining, 0)
 })

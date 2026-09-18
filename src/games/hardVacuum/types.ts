@@ -9,6 +9,7 @@ export interface Ship {
   pos: Vector2
   vel: Vector2
   angle: number
+  angularVelocity?: number
   radius: number
 }
 
@@ -24,6 +25,9 @@ export interface TetherBody {
   tethered?: boolean
   sourceId?: string
   socketId?: string
+  anchored?: boolean
+  retrieving?: boolean
+  terminalId?: string
 }
 
 export interface Rock extends TetherBody {
@@ -122,6 +126,7 @@ export interface Debris {
   life: number
   length: number
   color: string
+  spark?: boolean
 }
 
 export type HardVacuumGameProps = {

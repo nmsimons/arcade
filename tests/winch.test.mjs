@@ -20,7 +20,7 @@ const setup = (length, state = 'attached', mass = 1) => {
 }
 
 test('extended winches retract smoothly within one second, independent of frame rate', () => {
-  for (const length of [162.5, 195, 227.5, 260, 325]) for (const fps of [30, 60, 120]) {
+  for (const length of [162.5, 195, 227.5, 260]) for (const fps of [30, 60, 120]) {
     const { ship, body, hook, step } = setup(length, 'attached', 2)
     const centerOfMass = (ship.pos.x + 2 * body.pos.x) / 3
     for (let i = 0; i < fps * 2; i++) {
@@ -30,8 +30,8 @@ test('extended winches retract smoothly within one second, independent of frame 
       assert.ok(previous - cable.ropeLength <= HARPOON_TOW_REEL_SPEED / fps + 1e-7, 'no instantaneous shortening')
       assert.ok(body.pos.x <= previousBodyX + 1e-7)
       assert.ok(previousBodyX - body.pos.x <= HARPOON_TOW_REEL_SPEED / fps + 1e-7, 'cargo moves smoothly at the reel rate')
-      if (length === 325 && i + 1 === fps / 2) assert.equal(cable.ropeLength, 227.5, 'maximum reach is halfway retracted at half a second')
-      if (i + 1 === fps) assert.equal(cable.ropeLength, HARPOON_CABLE_LENGTH, 'retraction finishes within one second')
+      if (length === 260 && i + 1 === fps / 2) assert.ok(Math.abs(cable.ropeLength - 195) < 1e-7, 'maximum reach is halfway retracted at half a second')
+      if (i + 1 === fps) assert.ok(Math.abs(cable.ropeLength - HARPOON_CABLE_LENGTH) < 1e-7, 'retraction finishes within one second')
       assert.ok(Math.abs(cable.segLen * (cable.rope.length + 1) - cable.ropeLength) < 1e-7, 'visible rope shortens with physical cable')
       assert.ok(Math.abs((ship.pos.x + 2 * body.pos.x) / 3 - centerOfMass) < 1e-7, 'winch pulls ship and cargo according to mass')
     }
@@ -45,15 +45,15 @@ test('extended winches retract smoothly within one second, independent of frame 
 })
 
 test('retraction starts only after attachment, including a hook that latches after deployment', () => {
-  const { hook, body, step } = setup(325, 'deployed')
+  const { hook, body, step } = setup(260, 'deployed')
   body.pos.y += 70
   for (let i = 0; i < 60; i++) step(1 / 60)
-  assert.equal(hook.current.state, 'deployed'); assert.equal(hook.current.ropeLength, 325)
+  assert.equal(hook.current.state, 'deployed'); assert.equal(hook.current.ropeLength, 260)
   body.pos = { ...hook.current.pos }
   step(1 / 60)
-  assert.equal(hook.current.state, 'attached'); assert.equal(hook.current.ropeLength, 325)
+  assert.equal(hook.current.state, 'attached'); assert.equal(hook.current.ropeLength, 260)
   step(1 / 60)
-  assert.equal(hook.current.ropeLength, 321.75)
+  assert.equal(hook.current.ropeLength, 260 - HARPOON_TOW_REEL_SPEED / 60)
 })
 
 test('the standard winch keeps its length, and slack cable never pushes cargo away', () => {
@@ -61,7 +61,7 @@ test('the standard winch keeps its length, and slack cable never pushes cargo aw
   base.step(5)
   assert.equal(base.hook.current.ropeLength, 130)
   assert.equal(base.body.pos.x - base.ship.pos.x, 130)
-  const extended = setup(325)
+  const extended = setup(260)
   extended.body.pos.x = extended.ship.pos.x + 80
   const initial = structuredClone([extended.ship.pos, extended.body.pos])
   for (let i = 0; i < 600; i++) extended.step(1 / 60)

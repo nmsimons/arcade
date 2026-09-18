@@ -3,7 +3,7 @@ import test from 'node:test'
 import { BLASTER_BLAST_RADIUS, BLASTER_CAPACITY, BLASTER_COST, fireBlaster, stepBlaster } from '../src/games/hardVacuum/blaster.ts'
 import { bankAtCheckpoint, blastGate, crashExpedition, expeditionMap, freshExpedition, freshRuntime, GATES, objective, parseExpedition, purchaseUpgrade, sectorAt, stepExpedition } from '../src/games/hardVacuum/expedition.ts'
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
-import { activateRemoteRecharge, needsRecharge, purchaseSupply, restoreShipSystems, stepRemoteRecharge } from '../src/games/hardVacuum/supplies.ts'
+import { activateRemoteRecharge, needsRecharge, restoreShipSystems, stepRemoteRecharge } from '../src/games/hardVacuum/supplies.ts'
 import { debrisField } from '../src/games/hardVacuum/debrisField.ts'
 import { creditAsteroidDestruction } from '../src/games/hardVacuum/oreCredits.ts'
 
@@ -12,24 +12,24 @@ const rectangle = (x, y, w, h) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y +
 const map = { boundary: rectangle(-100, -100, 1000, 1000), obstacles: [] }
 const equipped = () => {
   const state = freshExpedition('ring'); state.banked = BLASTER_COST
-  assert.ok(purchaseSupply(state, 'blaster'))
+  assert.ok(purchaseUpgrade(state, 'blaster'))
   return state
 }
 
-test('the blaster is a permanent purchase using banked credits, supplied with three shots', () => {
+test('the blaster is a permanent ship upgrade using banked credits, supplied with three shots', () => {
   const state = freshExpedition('ring')
   assert.equal(state.blasterInstalled, false); assert.equal(state.blasterCharges, 0)
   assert.equal(fireBlaster(state, freshRuntime(), shipAt()), null)
   state.banked = BLASTER_COST - 1; state.credits = 10000
   const before = structuredClone(state)
-  assert.equal(purchaseSupply(state, 'blaster'), false); assert.deepEqual(state, before)
+  assert.equal(purchaseUpgrade(state, 'blaster'), false); assert.deepEqual(state, before)
   state.banked++
-  assert.ok(purchaseSupply(state, 'blaster'))
+  assert.ok(purchaseUpgrade(state, 'blaster'))
   assert.equal(state.banked, 0); assert.equal(state.credits, 10000)
   assert.equal(state.blasterInstalled, true); assert.equal(state.blasterCharges, BLASTER_CAPACITY)
   state.banked = BLASTER_COST; state.blasterCharges = 1
   const installed = structuredClone(state)
-  assert.equal(purchaseSupply(state, 'blaster'), false); assert.deepEqual(state, installed)
+  assert.equal(purchaseUpgrade(state, 'blaster'), false); assert.deepEqual(state, installed)
   assert.deepEqual(parseExpedition(JSON.stringify(state)), state)
 })
 
@@ -54,7 +54,7 @@ test('processing Haven starter asteroids can fund the first blaster without leav
   const rocks = debrisField(state).filter(rock => sectorAt(rock.pos)?.id === 'haven')
   for (const rock of rocks) creditAsteroidDestruction(state, { ...rock, pos: { x: 1500, y: 1100 } })
   assert.ok(state.banked >= BLASTER_COST)
-  assert.ok(purchaseSupply(state, 'blaster'))
+  assert.ok(purchaseUpgrade(state, 'blaster'))
 })
 
 test('the red blaster fires three discrete shots, with recoil and no charge spent during cooldown', () => {

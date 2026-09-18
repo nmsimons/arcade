@@ -1,13 +1,16 @@
 import type { Expedition, ExpeditionRuntime } from './expedition'
 import { CACHES, CORE_POSITION, EXPEDITION_WALLS, GATES, PICKUPS, SECTORS, SOCKETS, doorProgress, expeditionMap, sectorAt } from './expedition'
-import { coreReleased, havenPosition, havenReady, RECORDS, regionForRoom } from './campaign'
+import { coreReleased, havenPosition, havenReady, regionForRoom } from './campaign'
 import { BERTHS, REGIONS, STATION_HEIGHT, STATION_WIDTH, WARD_BANKS } from './campaignWorld'
 import type { Ship, Vector2 } from './types'
-import { drawExpeditionObject, drawGateObject } from './objectModels'
+import { drawExpeditionObject } from './objectModels'
+import { drawGateFoundations, drawGateObject } from './gateRender'
 import { RADIATION_SOURCES, radiationFootprint } from './radiation'
 import { drawRadiationFields, drawRadiationSources } from './radiationRender'
 import { drawStationInfrastructure } from './stationDetails'
 import { SURVEY_CELL, surveyPoint } from './survey'
+import { RECEIVER_HALF_GAP } from './receivers'
+import { drawTerminals } from './terminalRender'
 
 const LABEL_POSITIONS: Record<string, Vector2> = {
   ...Object.fromEntries(SECTORS.map(r => [r.id,{ x:r.x+r.w/2,y:r.y+r.h*.27 }])),
@@ -25,10 +28,40 @@ export function drawExpeditionWalls(ctx: CanvasRenderingContext2D) {
   ctx.restore()
 }
 
-export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition, rt: ExpeditionRuntime, ship: Ship) {
-  const bodyOptions = (id: string) => ({ time: rt.elapsed, scale: 1 - Math.min(1, (rt.objects[id]?.capture ?? 0) / 0.55) * 0.45 })
+export function drawExpeditionDoorFoundations(ctx: CanvasRenderingContext2D, state: Expedition) {
+  for (const gate of GATES) drawGateFoundations(ctx, gate, doorProgress(state, gate.id))
+}
+
+function drawReceiverCurrent(ctx: CanvasRenderingContext2D, pos: Vector2, time: number) {
   ctx.save()
-  drawStationInfrastructure(ctx, s)
+  ctx.translate(pos.x, pos.y)
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  for (const side of [-1, 1]) {
+    const phase = time + side * 1.7 + pos.x * 0.013 + pos.y * 0.009
+    // The contacts stay fixed while a narrow electrical arc moves between them.
+    ctx.beginPath()
+    for (let i = 0; i <= 16; i++) {
+      const u = i / 16
+      const x = side * (12 + (RECEIVER_HALF_GAP - 12) * u)
+      const y = Math.sin(Math.PI * u) * (Math.sin(u * 39 - phase * 14) * 2.3 + Math.sin(u * 73 + phase * 21) * 1.2)
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
+    }
+    ctx.strokeStyle = '#65efb230'; ctx.lineWidth = 3; ctx.stroke()
+    const pulse = (phase * 0.8) % 1
+    const current = ctx.createLinearGradient(side * 12, 0, side * RECEIVER_HALF_GAP, 0)
+    current.addColorStop(0, '#65efb2b0')
+    current.addColorStop(Math.max(0, pulse - 0.18), '#65efb2b0')
+    current.addColorStop(pulse, '#dcfff0')
+    current.addColorStop(Math.min(1, pulse + 0.18), '#65efb2b0')
+    current.addColorStop(1, '#65efb2b0')
+    ctx.strokeStyle = current; ctx.lineWidth = 1.1; ctx.stroke()
+  }
+  ctx.restore()
+}
+
+export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition, rt: ExpeditionRuntime, ship: Ship) {
+  ctx.save()
+  drawStationInfrastructure(ctx, s, rt.elapsed)
   for (const bank of WARD_BANKS) {
     const x = bank.x-bank.w/2, y = bank.y-bank.h/2
     ctx.fillStyle='#081310'; ctx.strokeStyle='#708f82'; ctx.lineWidth=1.2
@@ -67,46 +100,33 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     }
     ctx.restore()
   }
-  for (const record of RECORDS) {
-    if (!record.pos) continue
-    const {x,y} = record.pos, heard = s.campaign.records.includes(record.id)
-    ctx.strokeStyle = heard ? '#637e77' : '#b9d1c2'; ctx.lineWidth = 1.2
-    ctx.beginPath(); ctx.moveTo(x-9,y+7); ctx.lineTo(x-9,y-7); ctx.lineTo(x+6,y-7); ctx.lineTo(x+10,y-3); ctx.lineTo(x+10,y+7); ctx.closePath(); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(x,y-7); ctx.lineTo(x,y-19); ctx.stroke()
-    ctx.fillStyle = heard ? '#637e77' : '#b6e6d2'; ctx.fillRect(x-2,y-2,4,4)
-  }
+  drawTerminals(ctx,s,rt,ship)
   drawRadiationSources(ctx, ship, rt.elapsed)
   for (const gate of GATES) {
     const progress = doorProgress(s, gate.id)
-    if (progress >= 1 && gate.kind !== 'socket') continue
+    if (progress >= 1 && gate.kind === 'rubble') continue
     drawGateObject(ctx, gate, progress)
   }
   for (const socket of SOCKETS) {
     const powered = !!s.power[socket.id]
     drawExpeditionObject(ctx, 'socket', socket.pos, { active: powered, time: rt.elapsed })
-    if (powered) {
-      ctx.strokeStyle = '#65efb2'; ctx.lineWidth = 1.2
-      ctx.beginPath()
-      for (const sign of [-1, 1]) { ctx.moveTo(socket.pos.x + sign * 66, socket.pos.y); ctx.lineTo(socket.pos.x + sign * 12, socket.pos.y) }
-      ctx.stroke()
-    }
-    drawExpeditionObject(ctx, 'dispenser', socket.source, { time: rt.elapsed })
+    if (powered) drawReceiverCurrent(ctx, socket.pos, rt.elapsed)
   }
   for (const item of PICKUPS) {
-    if (s.upgrades.includes(item.id)) continue
+    if (s.upgrades.includes(item.id) || rt.recovery?.id === item.id) continue
     const pos = rt.objects[item.id]?.pos ?? item.pos
-    if (item.id === 'radiation') drawExpeditionObject(ctx, item.id, pos, bodyOptions(item.id))
+    if (item.id === 'radiation') drawExpeditionObject(ctx, item.id, pos, {time:rt.elapsed})
   }
   CACHES.forEach((cache, variant) => {
-    if (s.caches.includes(cache.id)) return
+    if (s.caches.includes(cache.id) || rt.recovery?.id === cache.id) return
     const pos = rt.objects[cache.id]?.pos ?? cache.pos
-    drawExpeditionObject(ctx, 'cache', pos, { variant, ...bodyOptions(cache.id) })
+    drawExpeditionObject(ctx, 'cache', pos, { variant, time:rt.elapsed })
   })
-  if (!s.core) {
+  if (!s.core && rt.recovery?.id !== 'core') {
     const pos = rt.objects.core?.pos ?? CORE_POSITION
-    drawExpeditionObject(ctx, 'core', pos, { active: coreReleased(s), ...bodyOptions('core') })
+    drawExpeditionObject(ctx, 'core', pos, { active: coreReleased(s), time:rt.elapsed })
   }
-  if (s.core && !s.complete) {
+  if (s.core && !s.complete && rt.recovery?.id !== 'core') {
     drawExpeditionObject(ctx, 'core', { x: havenPosition(s).x, y: havenPosition(s).y - 48 }, { active: true, scale: 0.6, time: rt.elapsed })
   }
   ctx.restore()

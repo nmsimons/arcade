@@ -3,7 +3,7 @@ import test from 'node:test'
 import {
   bankAtCheckpoint, blastGate, CACHES, checkpointPosition, CORE_POSITION, crashExpedition,
   expeditionMap, freshExpedition, freshRuntime, GATES, interaction, maxShields, objective,
-  objectBody, openGate, powerReceiver, releasePort, parseExpedition, PICKUPS, purchaseUpgrade, SECTORS, SOCKETS, stepExpedition,
+  objectBody, openGate, powerReceiver, parseExpedition, PICKUPS, purchaseUpgrade, SECTORS, SOCKETS, stepExpedition,
 } from '../src/games/hardVacuum/expedition.ts'
 import { isInsideCavern, raycastCavern, resolveCircleInCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 
@@ -46,14 +46,14 @@ test('the expedition physically gates its critical path and reconnects through s
   const s = freshExpedition('ring')
   let canReach = reachable(s)
   assert.equal(canReach(SOCKETS[0].pos), false)
-  assert.equal(canReach(releasePort(SOCKETS[2].source)), false)
+  assert.equal(canReach(SOCKETS[2].source), false)
   openGate(s, 'rubble')
   canReach = reachable(s)
   assert.equal(canReach(SOCKETS[0].pos), true)
-  assert.equal(canReach(releasePort(SOCKETS[2].source)), false)
+  assert.equal(canReach(SOCKETS[2].source), false)
   openGate(s, 'foundry')
   canReach = reachable(s)
-  assert.equal(canReach(releasePort(SOCKETS[2].source)), true)
+  assert.equal(canReach(SOCKETS[2].source), true)
   assert.equal(canReach(PICKUPS[0].pos), false)
   openGate(s, 'archive')
   canReach = reachable(s)
@@ -119,8 +119,8 @@ test('receivers accept blue cells delivered without a tether, connect once, and 
   for (let tick = 0; tick < 10; tick++) step(s, rt, { ship: coreShip })
   assert.equal(s.core, false, 'touching the core must not collect it')
   const core = objectBody(rt, 'core', CORE_POSITION)
-  core.pos = { x: 1550, y: 1100 }; core.vel = { x: 0, y: 0 }
-  for (let tick = 0; tick < 8; tick++) step(s, rt, { harpoon: { state: 'attached', rock: core } })
+  core.pos = { x: 1368, y: 1100 }; core.vel = { x: 0, y: 0 }
+  for (let tick = 0; tick < 30; tick++) step(s, rt, { harpoon: { state: 'attached', rock: core } })
   assert.equal(s.core, true)
   assert.equal(objective(s).title, 'Bring the refuge online')
   assert.equal(interaction(s, shipAt({ x: 1500, y: 1100 })).kind, 'finish')
@@ -179,9 +179,9 @@ test('discoveries reward once, salvage must return to Haven, and doors have no k
   const cache = objectBody(rt, CACHES[0].id, CACHES[0].pos)
   for (let tick = 0; tick < 12; tick++) step(s, rt, { ship, harpoon: { state: 'attached', rock: cache } })
   assert.equal(s.credits, 0); assert.equal(s.caches.length, 0)
-  cache.pos = { x: 1500, y: 1200 }; cache.vel = { x: 0, y: 0 }
-  for (let tick = 0; tick < 12; tick++) step(s, rt, { harpoon: { state: 'attached', rock: cache } })
-  assert.equal(s.credits, 100); assert.equal(s.caches.length, 1)
+  cache.pos = { x: 1368, y: 1100 }; cache.vel = { x: 0, y: 0 }
+  for (let tick = 0; tick < 30; tick++) step(s, rt, { harpoon: { state: 'attached', rock: cache } })
+  assert.equal(s.credits, 0); assert.equal(s.banked, 100); assert.equal(s.caches.length, 1)
   assert.equal(s.visited.filter(id => id === 'salvage').length, 1)
   assert.equal(interaction(s, shipAt({ x: 1500, y: 750 })), null)
   assert.equal(interaction(s, shipAt({ x: 1500, y: 640 })), null)

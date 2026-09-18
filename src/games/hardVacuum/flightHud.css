@@ -1,0 +1,117 @@
+.flight-hud {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px;
+  color: #b8d1c8;
+  pointer-events: none;
+  font-size: 10px;
+  line-height: 1.4;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-location {
+  min-width: 0;
+  padding: 4px 0 12px;
+  text-shadow: 0 1px 5px #000, 0 0 12px #000;
+}
+
+.hud-room {
+  color: #9bd4bf;
+  font-size: 12px;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+}
+
+.hud-credits { display: flex; gap: 28px; margin-top: 14px; }
+.hud-credits dt { color: #91a59d; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.hud-credits dd { margin: 3px 0 0; color: #e2c99c; font-size: 15px; }
+.hud-credits > div:last-child dd { color: #b0d4c3; }
+
+.hud-console {
+  width: 296px;
+  flex-shrink: 0;
+  border: 1px solid #83afa12e;
+  background: #050d0deb;
+  box-shadow: 0 4px 20px #0003;
+}
+
+.hud-console-nav { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid #83afa124; }
+.hud-console-nav button {
+  min-height: 30px;
+  color: #9cb5ac;
+  font-size: 10px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  pointer-events: auto;
+}
+.hud-console-nav button + button { border-left: 1px solid #83afa124; }
+.hud-console button:not(:disabled):hover { background: #83afa110; color: #dcf6eb; }
+.hud-meters { padding: 8px 10px; }
+.hud-instrument {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 34px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 29px;
+  padding: 2px;
+  text-align: left;
+}
+button.hud-instrument { pointer-events: auto; }
+.hud-meter-label { color: #b0c2ba; font-size: 10px; letter-spacing: .07em; text-transform: uppercase; white-space: nowrap; }
+.hud-meter-value { font-size: 11px; text-align: right; white-space: nowrap; }
+.hud-meter-track { display: flex; gap: 3px; height: 6px; }
+.hud-meter-segment { flex: 1; background: #91a59d20; }
+.hud-meter-segment.is-filled { background: currentColor; box-shadow: 0 0 5px color-mix(in srgb, currentColor 18%, transparent); }
+.hud-meter-continuous { width: 100%; background: #91a59d20; }
+.hud-meter-continuous > span { display: block; height: 100%; background: currentColor; transition: width .15s linear; }
+
+.hud-equipment { display: flex; border-top: 1px solid #83afa124; }
+.hud-equipment-button {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 37px;
+  padding: 8px 10px;
+  color: #b2d3c6;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  pointer-events: auto;
+}
+.hud-equipment-button + .hud-equipment-button { border-left: 1px solid #83afa124; }
+.hud-equipment-button:disabled { color: #718b80; }
+.hud-equipment-count { color: #e0efe8; }
+.hud-recharge-progress { position: absolute; height: 2px; bottom: 0; left: 0; background: #69dbab; transition: width .15s linear; }
+.hud-warnings { display: grid; gap: 6px; margin: 0 12px; padding: 7px 0 10px; border-top: 1px solid #83afa124; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+.hud-hull-warning { color: #ff927c; }
+.hud-warning-detail { margin-top: 3px; color: #aeb4b0; font-size: 9px; }
+
+@media (max-width: 639px) {
+  .flight-hud { flex-direction: column; gap: 10px; padding: 12px; }
+  .hud-location { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; width: 100%; padding: 0; }
+  .hud-room { max-width: 47%; font-size: 10px; padding-top: 2px; }
+  .hud-credits { margin-top: 0; gap: 16px; text-align: right; }
+  .hud-credits dt { font-size: 8px; }
+  .hud-credits dd { margin-top: 2px; font-size: 12px; }
+  .hud-console { width: 100%; }
+  .hud-console-nav button { min-height: 28px; }
+  .hud-meters { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; padding: 10px; }
+  .hud-instrument { grid-template-columns: minmax(0, 1fr) auto; gap: 7px 4px; padding: 0; }
+  .hud-meter-label { font-size: 9px; letter-spacing: 0; }
+  .hud-meter-value { font-size: 10px; grid-column: 2; grid-row: 1; }
+  .hud-meter-track { grid-column: 1 / -1; grid-row: 2; }
+  .hud-warnings { padding: 7px 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-meter-continuous > span, .hud-recharge-progress { transition: none; }
+}

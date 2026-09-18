@@ -1,7 +1,7 @@
 import type { Expedition } from './expedition'
 import type { Vector2 } from './types'
 import type { CavernMap } from './worldGeometry'
-import { isInsideCavern, raycastCavern } from './worldGeometry.ts'
+import { isInsideCavern } from './worldGeometry.ts'
 import { BERTHS, REGIONS, SERVICE_ROUTES } from './campaignWorld.ts'
 import type { BerthId } from './campaignWorld'
 import { HAVEN_FOLDED_CLEARANCE, HAVEN_FOLD_SECONDS } from './havenGeometry.ts'
@@ -22,13 +22,14 @@ export interface Campaign {
   haven: Vector2
   havenAngle: number
   grappleLearned: boolean
+  terminalLinked: boolean
   berths: BerthId[]
   journey?: HavenJourney
   records: string[]
   playedSeconds: number
   deaths: number
 }
-export const freshCampaign = (berth: BerthId = 'breach'): Campaign => ({ version:1, berth, haven:{ ...BERTHS.find(b => b.id === berth)!.pos }, havenAngle:0, grappleLearned:false, berths:[berth], records:['contract'], playedSeconds:0, deaths:0 })
+export const freshCampaign = (berth: BerthId = 'breach'): Campaign => ({ version:1, berth, haven:{ ...BERTHS.find(b => b.id === berth)!.pos }, havenAngle:0, grappleLearned:false, terminalLinked:false, berths:[berth], records:['contract'], playedSeconds:0, deaths:0 })
 export const havenPosition = (s: Expedition): Vector2 => s.campaign.haven
 export const havenReady = (s: Expedition) => !s.campaign.journey
 export const havenDeployment = (s: Expedition) => {
@@ -142,10 +143,10 @@ export const RECORDS: StationRecord[] = [
   { id:'core-free',gate:'ignition-ready',title:'Ready to come home',speaker:'IVO SEN · MAINTENANCE',text:'The cradle is unlocked. This is the last thing I can do from here. Haven, keep a light on.' },
   { id:'core-home',core:true,title:'All accounted for',speaker:'HAVEN · SERVICE MEMORY',text:'Ignition core secured. Refuge circuits stable. Dock to connect the awakening bus. Recovery contract suspended: persons aboard.' },
 ]
-export function discoverCampaign(s: Expedition, room: string | undefined, pos: Vector2, map?: CavernMap): string[] {
+export function discoverCampaign(s: Expedition, room: string | undefined, connectedTerminal?: string): string[] {
   for (const berth of BERTHS) if (!s.campaign.berths.includes(berth.id) && (!berth.power || s.power[berth.power]) && s.visited.includes(berth.room)) s.campaign.berths.push(berth.id)
   const found = RECORDS.filter(r => !s.campaign.records.includes(r.id) && (
-    r.room === room && room !== undefined || r.power && !!s.power[r.power] || r.gate && s.gates.includes(r.gate) || r.core && s.core || r.pos && Math.hypot(pos.x-r.pos.x,pos.y-r.pos.y) < 135 && (!map || raycastCavern(pos,{x:r.pos.x-pos.x,y:r.pos.y-pos.y},135,map) >= Math.hypot(pos.x-r.pos.x,pos.y-r.pos.y)-1)
+    r.room === room && room !== undefined || r.power && !!s.power[r.power] || r.gate && s.gates.includes(r.gate) || r.core && s.core || r.pos && r.id === connectedTerminal
   )).map(r => r.id)
   s.campaign.records.push(...found)
   return found

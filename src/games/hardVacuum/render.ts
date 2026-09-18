@@ -4,10 +4,13 @@ import type { HardVacuumGameState } from './ui'
 import { getCavernMap } from './worldGeometry'
 import { havenDeployment, havenPose } from './campaign'
 import { drawHaven } from './havenRender'
-import { expeditionMap, maxShields } from './expedition'
+import { drawHavenRecovery } from './havenRecoveryRender'
+import { CACHES, expeditionMap, maxShields } from './expedition'
 import type { Expedition, ExpeditionRuntime } from './expedition'
-import { drawExpeditionWorld, drawExpeditionMap, drawExpeditionWalls } from './expeditionRender'
+import { drawExpeditionWorld, drawExpeditionMap, drawExpeditionWalls, drawExpeditionDoorFoundations } from './expeditionRender'
 import { drawPowerCell } from './objectModels'
+import { drawPlayerShip } from './shipRender'
+import type { ShipAppearance } from './shipRender'
 import { drawRadiationShield } from './radiationRender'
 import { drawTeleporter } from './teleportRender'
 import type { BlasterVisuals } from './blaster'
@@ -42,8 +45,8 @@ export function drawHardVacuumFrame(args: {
 
   harpoonRef: Ref<Harpoon>
   shipRef: Ref<Ship>
+  shipAppearance: ShipAppearance
 
-  keysRef: Ref<Set<string>>
 
   shields: number
   lastShieldHitAtRef: Ref<number>
@@ -70,7 +73,7 @@ export function drawHardVacuumFrame(args: {
     debrisRef,
     harpoonRef,
     shipRef,
-    keysRef,
+    shipAppearance,
     shields,
     lastShieldHitAtRef,
     lastShieldRechargeAtRef,
@@ -150,6 +153,11 @@ export function drawHardVacuumFrame(args: {
   // The same rigid leaves supply rendering and collision geometry.
   if (gameState !== 'menu') drawHaven(ctx, havenPose(expedition, miningBaseAngleRef.current), expeditionRuntime.elapsed,
     (expedition.campaign.journey?.speed ?? 0) / 210, expeditionRuntime.havenImpact ?? 0)
+  const recovery=expeditionRuntime.recovery
+  if (gameState !== 'menu' && recovery && expeditionRuntime.objects[recovery.id]) {
+    drawHavenRecovery(ctx,havenPose(expedition,miningBaseAngleRef.current),recovery,expeditionRuntime.objects[recovery.id],expeditionRuntime.elapsed,
+      recovery.id==='core' ? 'core' : recovery.id==='radiation' ? 'radiation' : 'cache',Math.max(0,CACHES.findIndex(c=>c.id===recovery.id)))
+  }
 
   // Draw base shots
   if (gameState !== 'menu' && baseShotsRef.current.length > 0) {
@@ -274,6 +282,7 @@ export function drawHardVacuumFrame(args: {
     const armedT = isArmedRed ? clamp(1 - (rock.redFuseS as number) / Math.max(1e-6, RED_ROCK_DETONATION_DELAY), 0, 1) : 0
     const now = isArmedRed ? Date.now() : 0
     const pulse01 = isArmedRed ? 0.5 + 0.5 * Math.sin((now / 1000) * Math.PI * 2 * (3.5 + 2.5 * armedT)) : 0
+    const surfaceColor: V3 = isBlue ? [40, 170, 255] : isRed ? [192, 145, 130] : [255, 255, 255]
 
     ctx.save()
     ctx.translate(rock.pos.x, rock.pos.y)
@@ -283,11 +292,14 @@ export function drawHardVacuumFrame(args: {
       ctx.globalAlpha = 1
       ctx.shadowBlur = 0
       ctx.shadowColor = 'rgba(0, 0, 0, 0)'
-      ctx.fillStyle = `rgb(${10 + laserGlow * 24}, ${10 + laserGlow * 54}, ${10 + laserGlow * 72})`
 
       const facesFill = [...faces2].sort((a, b) => a.z - b.z)
       for (const f2 of facesFill) {
         if (!f2.isFront) continue
+        // A little mineral color and directional light give the facets mass
+        // while keeping the bright vector edges dominant.
+        const brightness = 0.07 + f2.shade * 0.18
+        ctx.fillStyle = `rgb(${4 + surfaceColor[0] * brightness + laserGlow * 24}, ${4 + surfaceColor[1] * brightness + laserGlow * 54}, ${4 + surfaceColor[2] * brightness + laserGlow * 72})`
         ctx.beginPath()
         const p0 = proj2[f2.idxs[0]]
         ctx.moveTo(p0.x, p0.y)
@@ -485,10 +497,11 @@ export function drawHardVacuumFrame(args: {
 
   // Draw debris
   debrisRef.current.forEach((d) => {
-    const alpha = d.life / 2000
-    ctx.strokeStyle = `rgba(${d.color}, ${alpha})`
-    ctx.lineWidth = 2
+    const alpha = clamp(d.life / (d.spark ? 400 : 2000),0,1)
     ctx.save()
+    ctx.strokeStyle = `rgba(${d.color}, ${alpha})`
+    ctx.lineWidth = d.spark ? 1.3 : 2
+    if (d.spark) { ctx.shadowColor=`rgba(${d.color}, ${alpha*.5})`; ctx.shadowBlur=4 }
     ctx.translate(d.pos.x, d.pos.y)
     ctx.rotate(d.angle)
     ctx.beginPath()
@@ -519,6 +532,13 @@ export function drawHardVacuumFrame(args: {
         drawRopeLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
       }
 
+      if (hp.rock.terminalId) {
+        ctx.save(); ctx.strokeStyle='#83eac1'; ctx.lineWidth=1.8
+        ctx.setLineDash([3,19]); ctx.lineDashOffset=expeditionRuntime.elapsed*36
+        ctx.beginPath(); pts.forEach((p,i)=>i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y)); ctx.stroke()
+        ctx.restore()
+      }
+
       ctx.fillStyle = 'rgba(255,255,255,0.9)'
       ctx.beginPath()
       ctx.arc(hp.rock.pos.x, hp.rock.pos.y, 3, 0, Math.PI * 2)
@@ -539,229 +559,12 @@ export function drawHardVacuumFrame(args: {
   if (gameState !== 'menu') drawTeleporter(ctx, expedition, expeditionRuntime)
   // Draw ship
   if ((!expedition.campaign.journey?.riding || havenDeployment(expedition) > .3) && (gameState !== 'dying' && gameState !== 'gameOver')) {
-    const ship = shipRef.current
-
-    const isHealing = expeditionRuntime.recharging
-
-    ctx.save()
-    ctx.translate(ship.pos.x, ship.pos.y)
-    ctx.rotate(ship.angle)
-    const s = ship.radius / 15
-
-    const shipColor = '#ffffff'
-
-    ctx.strokeStyle = shipColor
-    ctx.lineWidth = 2.4
-    ctx.lineJoin = 'round'
-    ctx.lineCap = 'round'
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.28)'
-    ctx.shadowBlur = 8
-
-    const noseX = 18 * s
-    const midX = -1 * s
-    const tailX = -18 * s
-    const bodyHalf = 10 * s
-    const podOutY = 9 * s
-    const podRearY = 4.5 * s
-
-    if (isHealing) {
-      const haloGap = 24
-      const haloNoseX = noseX + 4 * s
-      const haloNotchX = tailX + 6 * s
-      const haloHull: Vector2[] = [
-        { x: haloNoseX, y: 0 },
-        { x: midX, y: -bodyHalf },
-        { x: -10 * s, y: -podOutY },
-        { x: tailX, y: -podRearY },
-        { x: haloNotchX, y: 0 },
-        { x: tailX, y: podRearY },
-        { x: -10 * s, y: podOutY },
-        { x: midX, y: bodyHalf },
-      ]
-
-      const expandHullByGap = (gap: number) =>
-        haloHull.map((p) => {
-          const len = Math.hypot(p.x, p.y)
-          if (len < 1e-6) return p
-          const k = 1 + gap / len
-          return { x: p.x * k, y: p.y * k }
-        })
-
-      const healT = clamp(expeditionRuntime.rechargeProgress, 0, 1)
-      const intensity = 0.4 + 0.35 * healT
-      const now = Date.now() / 1000
-
-      const base = expandHullByGap(haloGap)
-      ctx.save()
-      ctx.strokeStyle = '#00ff88'
-      ctx.lineJoin = 'round'
-      ctx.lineCap = 'round'
-      ctx.shadowColor = 'rgba(0, 255, 136, 0.55)'
-      ctx.shadowBlur = 9
-      ctx.globalAlpha = 0.09 * intensity
-      ctx.lineWidth = 1.6
-      ctx.beginPath()
-      ctx.moveTo(base[0].x, base[0].y)
-      for (let i = 1; i < base.length; i++) ctx.lineTo(base[i].x, base[i].y)
-      ctx.closePath()
-      ctx.stroke()
-
-      const rippleCount = 2
-      const cycleSec = 0.85
-      const outerExtra = 58
-      for (let i = 0; i < rippleCount; i++) {
-        const t = ((now / cycleSec) + i / rippleCount) % 1
-        const rippleGap = haloGap + outerExtra * (1 - t)
-        const progress = t
-        const ring = expandHullByGap(rippleGap)
-
-        ctx.shadowBlur = 6 + 12 * progress
-        ctx.globalAlpha = (0.035 + 0.18 * progress) * intensity
-        ctx.lineWidth = 0.9 + 2.2 * progress
-        ctx.beginPath()
-        ctx.moveTo(ring[0].x, ring[0].y)
-        for (let j = 1; j < ring.length; j++) ctx.lineTo(ring[j].x, ring[j].y)
-        ctx.closePath()
-        ctx.stroke()
-      }
-
-      ctx.restore()
-    }
-
-    if (shields > 0) {
-      const shieldFrac = clamp(shields / maxShields(expedition), 0, 1)
-      const gap = 6
-      const shieldNoseX = noseX + 4 * s
-      const shieldNotchX = tailX + 6 * s
-
-      const shieldDamaged = shields <= 0
-      const hitAgeMs = Date.now() - lastShieldHitAtRef.current
-      const flashActive = hitAgeMs >= 0 && hitAgeMs < 220
-      const flashAlpha = flashActive ? (Math.floor(hitAgeMs / 60) % 2 === 0 ? 1 : 0.18) : 1
-
-      const rechargeAgeMs = Date.now() - lastShieldRechargeAtRef.current
-      const rechargeFadeAlpha =
-        !shieldDamaged && rechargeAgeMs >= 0 && rechargeAgeMs < 160 ? clamp(rechargeAgeMs / 160, 0, 1) : 1
-
-      const shieldColor = shieldDamaged ? '#ffaa00' : '#00ff88'
-      const shieldGlow = shieldDamaged ? 'rgba(255, 170, 0, 0.7)' : 'rgba(0, 255, 136, 0.75)'
-      const shieldLow = shields < maxShields(expedition)
-      const shieldLineWidth = shieldDamaged ? 1.4 : shieldLow ? 1.7 : 2.2
-      const shieldBlur = (shieldDamaged ? 8 : shieldLow ? 12 : 14) + shieldFrac * (shieldDamaged ? 10 : 14)
-      const hull: Vector2[] = [
-        { x: shieldNoseX, y: 0 },
-        { x: midX, y: -bodyHalf },
-        { x: -10 * s, y: -podOutY },
-        { x: tailX, y: -podRearY },
-        { x: shieldNotchX, y: 0 },
-        { x: tailX, y: podRearY },
-        { x: -10 * s, y: podOutY },
-        { x: midX, y: bodyHalf },
-      ]
-
-      const expanded = hull.map((p) => {
-        const len = Math.hypot(p.x, p.y)
-        if (len < 1e-6) return p
-        const k = 1 + gap / len
-        return { x: p.x * k, y: p.y * k }
-      })
-
-      ctx.save()
-      ctx.globalAlpha = (0.25 + 0.55 * shieldFrac) * flashAlpha * rechargeFadeAlpha
-      ctx.strokeStyle = flashActive && shieldDamaged ? '#00ff88' : shieldColor
-      ctx.lineWidth = flashActive && shieldDamaged ? 2.2 : shieldLineWidth
-      ctx.lineJoin = 'round'
-      ctx.lineCap = 'round'
-      ctx.shadowColor = flashActive && shieldDamaged ? 'rgba(0, 255, 136, 0.75)' : shieldGlow
-      ctx.shadowBlur = flashActive && shieldDamaged ? 14 + shieldFrac * 14 : shieldBlur
-      ctx.beginPath()
-      ctx.moveTo(expanded[0].x, expanded[0].y)
-      for (let i = 1; i < expanded.length; i++) ctx.lineTo(expanded[i].x, expanded[i].y)
-      ctx.closePath()
-      ctx.stroke()
-      ctx.restore()
-    }
-
-    ctx.beginPath()
-    ctx.moveTo(noseX, 0)
-    ctx.lineTo(midX, -bodyHalf)
-    ctx.lineTo(-10 * s, -podOutY)
-    ctx.lineTo(tailX, -podRearY)
-    ctx.lineTo(-9 * s, 0)
-    ctx.lineTo(tailX, podRearY)
-    ctx.lineTo(-10 * s, podOutY)
-    ctx.lineTo(midX, bodyHalf)
-    ctx.closePath()
-
-    ctx.save()
-    ctx.globalAlpha = 1
-    ctx.shadowBlur = 0
-    ctx.shadowColor = 'rgba(0, 0, 0, 0)'
-    ctx.fillStyle = '#0a0a0a'
-    ctx.fill()
-    ctx.restore()
-
-    ctx.stroke()
-
-    ctx.shadowBlur = 0
-    ctx.globalAlpha = 0.9
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    ctx.moveTo(noseX - 2 * s, 0)
-    ctx.lineTo(-3 * s, -6.5 * s)
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(noseX - 2 * s, 0)
-    ctx.lineTo(-3 * s, 6.5 * s)
-    ctx.stroke()
-
-    ctx.globalAlpha = 0.85
-    ctx.lineWidth = 1.6
-    for (const sign of [-1, 1]) {
-      const px = -12.5 * s
-      const py = sign * 6.2 * s
-      ctx.beginPath()
-      ctx.moveTo(px, py)
-      ctx.lineTo(px + 3.2 * s, py)
-      ctx.stroke()
-      ctx.beginPath()
-      ctx.moveTo(px, py + sign * 2.2 * s)
-      ctx.lineTo(px + 2.2 * s, py + sign * 2.2 * s)
-      ctx.stroke()
-    }
-
-    if (keysRef.current.has('arrowdown') || keysRef.current.has('s')) {
-      ctx.save(); ctx.strokeStyle = '#ffb86b'; ctx.lineWidth = 2
-      ctx.shadowColor = 'rgba(255, 160, 60, 0.4)'; ctx.shadowBlur = 6
-      const jet = (9 + Math.random() * 7) * s
-      ctx.beginPath(); ctx.moveTo(noseX, -2.5 * s); ctx.lineTo(noseX + jet, 0); ctx.lineTo(noseX, 2.5 * s); ctx.stroke()
-      ctx.strokeStyle = '#fff0d0'; ctx.lineWidth = 1.3
-      ctx.beginPath(); ctx.moveTo(noseX + 1, 0); ctx.lineTo(noseX + jet * 0.5, 0); ctx.stroke(); ctx.restore()
-    }
-    if (keysRef.current.has('arrowup') || keysRef.current.has('w')) {
-      ctx.save()
-      ctx.globalAlpha = 1
-      ctx.strokeStyle = '#ff6600'
-      ctx.shadowColor = 'rgba(255, 102, 0, 0.25)'
-      ctx.shadowBlur = 6
-      ctx.lineWidth = 2.6
-
-      for (const sign of [-1, 1]) {
-        const ex = tailX + 1.5 * s
-        const ey = sign * 2.7 * s
-        const flame = (8 + Math.random() * 7) * s
-        const flare = 2.8 * s
-        ctx.beginPath()
-        ctx.moveTo(ex, ey - flare)
-        ctx.lineTo(ex - flame, ey)
-        ctx.lineTo(ex, ey + flare)
-        ctx.stroke()
-      }
-
-      ctx.restore()
-    }
-
-    ctx.restore()
+    drawPlayerShip(ctx,shipRef.current,shipAppearance,{
+      time:expeditionRuntime.elapsed,shields,maxShields:maxShields(expedition),
+      hitAge:Date.now()-lastShieldHitAtRef.current,rechargeAge:Date.now()-lastShieldRechargeAtRef.current,
+      recharging:expeditionRuntime.recharging,rechargeProgress:expeditionRuntime.rechargeProgress,
+      laser:phaserBeamRef.current.active,
+    })
   }
 
   if (gameState === 'playing' && !expedition.campaign.journey?.riding) drawRadiationShield(ctx, shipRef.current, expeditionRuntime.radiation, expeditionRuntime.elapsed)
@@ -781,6 +584,7 @@ export function drawHardVacuumFrame(args: {
   ctx.lineWidth = 2
   ctx.stroke()
   ctx.restore()
+  if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition)
   ctx.restore() // camera
 
   if (gameState === 'playing' && mapOpen) {

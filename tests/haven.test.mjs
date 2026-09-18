@@ -1,6 +1,7 @@
 import test from 'node:test'
+import { collideBodies } from '../src/games/hardVacuum/bodyCollisions.ts'
 import assert from 'node:assert/strict'
-import { bumpTraffic, collideHaven, havenColliders, havenPanels, HAVEN_FOLDED_CLEARANCE } from '../src/games/hardVacuum/havenGeometry.ts'
+import { collideHaven, havenColliders, havenPanels, HAVEN_FOLDED_CLEARANCE } from '../src/games/hardVacuum/havenGeometry.ts'
 import { freshExpedition, freshRuntime, expeditionMap, parseExpedition } from '../src/games/hardVacuum/expedition.ts'
 import { stepGrappleGuide } from '../src/games/hardVacuum/grappleGuide.ts'
 
@@ -53,7 +54,7 @@ test('folding and opening push loose objects even when Haven stays at one positi
 
 test('loose cargo passes a tender impact on to nearby debris',()=>{
   const cargo=body(0,0,{mass:1,vel:{x:100,y:0}}),rock=body(26,0,{mass:2})
-  bumpTraffic(cargo,rock)
+  collideBodies(cargo,rock)
   assert.ok(rock.vel.x>0);assert.ok(cargo.vel.x<100)
   assert.ok(Math.hypot(cargo.pos.x-rock.pos.x,cargo.pos.y-rock.pos.y)>=30-.001)
 })

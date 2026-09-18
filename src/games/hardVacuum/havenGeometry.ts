@@ -79,16 +79,3 @@ export function collideHaven(body: TetherBody, previous: HavenPose, current: Hav
   }
   return result
 }
-
-export function bumpTraffic(a:TetherBody,b:TetherBody) {
-  if (a.socketId || b.socketId) return
-  const dx=b.pos.x-a.pos.x,dy=b.pos.y-a.pos.y,d=Math.hypot(dx,dy),overlap=a.radius+b.radius-d
-  if (overlap<=0) return
-  const nx=d>.001 ? dx/d : 1,ny=d>.001 ? dy/d : 0
-  const ia=1/(a.mass ?? Math.max(.6,a.radius*a.radius/500)),ib=1/(b.mass ?? Math.max(.6,b.radius*b.radius/500)),sum=ia+ib
-  a.pos.x-=nx*overlap*ia/sum;a.pos.y-=ny*overlap*ia/sum;b.pos.x+=nx*overlap*ib/sum;b.pos.y+=ny*overlap*ib/sum
-  const approach=(b.vel.x-a.vel.x)*nx+(b.vel.y-a.vel.y)*ny
-  if (approach>=0) return
-  const impulse=-1.55*approach/sum
-  a.vel.x-=nx*impulse*ia;a.vel.y-=ny*impulse*ia;b.vel.x+=nx*impulse*ib;b.vel.y+=ny*impulse*ib
-}

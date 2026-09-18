@@ -1,11 +1,32 @@
 import type { Ship, TetherBody, Vector2 } from './types'
-import { SHIP_NOSE_THRUST_ACCELERATION } from './tuning.ts'
+import { SHIP_NOSE_THRUST_ACCELERATION, SHIP_ROTATION_SPEED, SHIP_TURN_DAMPING, SHIP_TURN_RESPONSE } from './tuning.ts'
 
 export interface FloatingBody extends TetherBody { cargoId: string; capture: number }
+
+export const initialCargoVelocity = (position: Vector2): Vector2 => ({ x: Math.sin(position.x) * 3, y: Math.cos(position.y) * 3 })
+
+export function driftCargo(body: TetherBody, dt: number) {
+  if (body.retrieving) return
+  const damping = Math.exp(-0.35 * dt)
+  body.vel.x *= damping; body.vel.y *= damping
+  body.pos.x += body.vel.x * dt; body.pos.y += body.vel.y * dt
+}
 
 export function applyNoseThrust(ship: Ship, dt: number) {
   ship.vel.x -= Math.cos(ship.angle) * SHIP_NOSE_THRUST_ACCELERATION * dt
   ship.vel.y -= Math.sin(ship.angle) * SHIP_NOSE_THRUST_ACCELERATION * dt
+}
+
+/** A responsive turn with a small, frame-rate-independent coast on release. */
+export function stepShipTurn(ship: Ship, input: number, dt: number) {
+  if (dt <= 0) return
+  const target = Math.max(-1, Math.min(1, input)) * SHIP_ROTATION_SPEED
+  const rate = input === 0 ? SHIP_TURN_DAMPING : SHIP_TURN_RESPONSE
+  const previous = ship.angularVelocity ?? 0, decay = Math.exp(-rate * dt)
+  const velocity = target + (previous - target) * decay
+  // Integrate the easing curve so the same input covers the same angle at any FPS.
+  ship.angle += target * dt + (previous - target) * (1 - decay) / rate
+  ship.angularVelocity = input === 0 && Math.abs(velocity) < .01 ? 0 : velocity
 }
 
 /** Blue bodies absorb damage as momentum; connected cells remain anchored. */
@@ -17,22 +38,6 @@ export function repelBlueBody(body: TetherBody, direction?: Vector2, impulse = 1
     body.vel.y += direction.y / length * impulse
   }
   return true
-}
-
-/** Cargo deflects the hull; pushing it is reserved for the grapple's tension. */
-export function bumpCargo(ship: Ship, body: TetherBody): number {
-  const dx = body.pos.x - ship.pos.x, dy = body.pos.y - ship.pos.y
-  const distance = Math.hypot(dx, dy), overlap = ship.radius + body.radius - distance
-  if (overlap <= 0) return 0
-  const nx = distance > 0.001 ? dx / distance : Math.cos(ship.angle)
-  const ny = distance > 0.001 ? dy / distance : Math.sin(ship.angle)
-  ship.pos.x -= nx * overlap
-  ship.pos.y -= ny * overlap
-  const approach = (body.vel.x - ship.vel.x) * nx + (body.vel.y - ship.vel.y) * ny
-  if (approach >= 0) return 0
-  const impulse = -approach * 1.35
-  ship.vel.x -= impulse * nx; ship.vel.y -= impulse * ny
-  return -approach
 }
 
 export const angleDelta = (from: number, to: number) => Math.atan2(Math.sin(to - from), Math.cos(to - from))

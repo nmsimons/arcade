@@ -15,7 +15,9 @@ export const TIME_BONUS_TARGET_SECONDS = 45 // "Par" time for wave completion
 export const TIME_BONUS_MAX_MULTIPLIER = 3.0 // Max bonus added (2.0x total = 1 + 1.0)
 
 // --- SHIP PHYSICS & CONTROLS ---
-export const SHIP_ROTATION_SPEED = 5 // Degrees per frame
+export const SHIP_ROTATION_SPEED = 5 // Maximum radians per second
+export const SHIP_TURN_RESPONSE = 30 // Fast acceleration and direction changes
+export const SHIP_TURN_DAMPING = 20 // Short coast: about 14 degrees from full turn speed
 export const SHIP_THRUST_ACCELERATION = 300 // Forward acceleration when thrusting
 export const SHIP_NOSE_THRUST_ACCELERATION = SHIP_THRUST_ACCELERATION * 0.25 // Nose jet: one quarter of rear thrust
 export const SHIP_MAX_SPEED = 300 // Maximum velocity (speed cap)
@@ -24,7 +26,7 @@ export const SHIP_LATERAL_FRICTION = 0.985 // Stronger damping for sideways drif
 
 // Upgrades extend the hook's reach; attached cargo settles back to this towing length.
 export const HARPOON_CABLE_LENGTH = 130
-export const HARPOON_TOW_REEL_SPEED = 195 // Fully upgraded cable retracts from 325 to 130 pixels in one second
+export const HARPOON_TOW_REEL_SPEED = HARPOON_CABLE_LENGTH // Double-length cable retracts from 260 to 130 pixels in one second
 
 // --- COMBAT & WEAPONS ---
 export const BULLET_SPEED = 420 // Player bullet velocity

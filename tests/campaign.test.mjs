@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { bankAtCheckpoint, CACHES, CORE_POSITION, crashExpedition, expeditionMap, freshExpedition, freshRuntime, GATES, interaction, objectBody, parseExpedition, powerReceiver, releasePort, SECTORS, SOCKETS, stepExpedition, teleportToHaven } from '../src/games/hardVacuum/expedition.ts'
+import { bankAtCheckpoint, CACHES, CORE_POSITION, crashExpedition, expeditionMap, freshExpedition, freshRuntime, GATES, interaction, objectBody, parseExpedition, powerReceiver, SECTORS, SOCKETS, stepExpedition, teleportToHaven } from '../src/games/hardVacuum/expedition.ts'
 import { BERTHS, REGIONS, SERVICE_ROUTES } from '../src/games/hardVacuum/campaignWorld.ts'
-import { campaignObjective, coreReleased, discoverCampaign, havenDeployment, havenPosition, havenReady, moveHaven, RECORDS, routeClear, serviceRoute, stepHaven } from '../src/games/hardVacuum/campaign.ts'
+import { campaignObjective, coreReleased, discoverCampaign, havenDeployment, havenPosition, havenReady, moveHaven, routeClear, serviceRoute, stepHaven } from '../src/games/hardVacuum/campaign.ts'
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import { creditAsteroidDestruction } from '../src/games/hardVacuum/oreCredits.ts'
 import { surveyPoint } from '../src/games/hardVacuum/survey.ts'
@@ -28,7 +28,7 @@ test('campaign begins at the stranded tender in a simple cavern, with six distin
   assert.equal(REGIONS.length,6);assert.equal(REGIONS[3].rooms.length,7)
   assert.equal(s.blasterInstalled,false);assert.deepEqual(s.campaign.berths,['breach'])
   const reachable=flood(s)
-  assert.ok(reachable(releasePort(SOCKETS.find(p=>p.id==='breach-power').source)))
+  assert.ok(reachable(SOCKETS.find(p=>p.id==='breach-power').source))
   assert.ok(!reachable(BERTHS[1].pos));assert.ok(!reachable(CORE_POSITION))
   assert.match(campaignObjective(s).title,/freight/i)
 })
@@ -43,7 +43,7 @@ test('the complete powered route is solvable in order with cargo clearance and n
   for(const [id,barrier] of stages) {
     if(barrier) s.gates.push(barrier)
     const socket=SOCKETS.find(p=>p.id===id), reachable=flood(s)
-    assert.ok(reachable(releasePort(socket.source)),`${id}: reserve must be reachable before powering its circuit`)
+    assert.ok(reachable(socket.source),`${id}: reserve must be reachable before powering its circuit`)
     assert.ok(reachable(socket.pos),`${id}: receiver must be reachable`)
     assert.ok(!coreReleased(s),'core remains held until the final circuit')
     assert.ok(powerReceiver(s,id,id));s.doors={}
@@ -85,9 +85,9 @@ test('folded Haven fits every authored service route and travels continuously wi
 
 test('a berth needs power and discovery, and a blocked route cannot dispatch the tender',()=>{
   const s=freshExpedition();s.visited.push('freight')
-  discoverCampaign(s,'freight',BERTHS[1].pos);assert.equal(s.campaign.berths.includes('freight'),false)
+  discoverCampaign(s,'freight');assert.equal(s.campaign.berths.includes('freight'),false)
   powerReceiver(s,'freight-power','freight-power');s.doors={}
-  discoverCampaign(s,'freight',BERTHS[1].pos);assert.ok(s.campaign.berths.includes('freight'))
+  discoverCampaign(s,'freight');assert.ok(s.campaign.berths.includes('freight'))
   assert.equal(moveHaven(s,'freight',false,expeditionMap(s)),false,'freight transit is still sealed')
   powerReceiver(s,'breach-power','breach-power')
   assert.equal(moveHaven(s,'freight',false,expeditionMap(s)),false,'wait until physical door panels retract')
@@ -102,14 +102,14 @@ test('recovery, banking, cargo and teleporter all follow the single relocated Ha
   s.credits=54;assert.equal(bankAtCheckpoint(s,'breach'),0);assert.equal(bankAtCheckpoint(s,'haven'),54)
   const rock={kind:'blue',radius:20,pos:{...havenPosition(s)}}
   assert.equal(creditAsteroidDestruction(s,rock,{pos:havenPosition(s),radius:118}),1000)
-  s.teleporterInstalled=true;s.teleportCharges=1;s.credits=78
+  s.teleporterInstalled=true;s.credits=78
   const ship=shipAt(BERTHS[0].pos);assert.ok(teleportToHaven(s,ship));assert.deepEqual(ship.pos,BERTHS[2].pos);assert.equal(s.credits,0)
   const rt=freshRuntime(), cache=objectBody(rt,CACHES[0].id,CACHES[0].pos)
   cache.pos={...BERTHS[0].pos};cache.tethered=true
   for(let i=0;i<10;i++) tick(s,rt,shipAt(cache.pos))
   assert.equal(s.caches.length,0,'empty berth cannot collect cargo')
-  cache.pos={x:havenPosition(s).x,y:havenPosition(s).y+70};cache.vel={x:0,y:0}
-  for(let i=0;i<10;i++) tick(s,rt,shipAt(havenPosition(s)))
+  cache.pos={x:havenPosition(s).x-132,y:havenPosition(s).y};cache.vel={x:0,y:0}
+  for(let i=0;i<30;i++) tick(s,rt,shipAt(havenPosition(s)))
   assert.ok(s.caches.includes(CACHES[0].id))
   s.credits=500;assert.equal(crashExpedition(s),500);assert.deepEqual(s.position,BERTHS[2].pos)
 })
@@ -117,25 +117,26 @@ test('recovery, banking, cargo and teleporter all follow the single relocated Ha
 test('transit disables services, resumes on reload, and recovery settles the existing tender',()=>{
   const s=freshExpedition();openAll(s)
   moveHaven(s,'freight',false,expeditionMap(s));stepHaven(s,3)
-  s.credits=70;s.teleporterInstalled=true;s.teleportCharges=1
+  s.credits=70;s.teleporterInstalled=true
   assert.equal(bankAtCheckpoint(s,'haven'),0)
-  assert.equal(teleportToHaven(s,shipAt(BERTHS[2].pos)),false);assert.equal(s.teleportCharges,1)
+  assert.equal(teleportToHaven(s,shipAt(BERTHS[2].pos)),false);assert.equal(s.credits,70);assert.equal(s.teleporterInstalled,true)
   const restored=parseExpedition(JSON.stringify(s));assert.deepEqual(restored.campaign.journey,s.campaign.journey)
   crashExpedition(restored);assert.equal(restored.campaign.berth,'freight');assert.ok(havenReady(restored));assert.deepEqual(restored.position,BERTHS[1].pos)
 })
 
-test('the story is discovered once, optional records need proximity, and the finale needs the delivered core',()=>{
+test('the story is discovered once, terminal records need a connection, and the finale needs the delivered core',()=>{
   const s=freshExpedition(),rt=freshRuntime(),ship=shipAt(s.position)
   tick(s,rt,ship);assert.ok(s.campaign.records.includes('first-light'))
   const count=s.campaign.records.length;tick(s,rt,ship);assert.equal(s.campaign.records.length,count)
   assert.ok(!s.campaign.records.includes('rescue-note'))
-  discoverCampaign(s,'rescue',RECORDS.find(r=>r.id==='rescue-note').pos)
+  discoverCampaign(s,'rescue');assert.ok(!s.campaign.records.includes('rescue-note'))
+  discoverCampaign(s,'rescue','rescue-note')
   assert.ok(s.campaign.records.includes('rescue-note'))
-  const core=objectBody(rt,'core',CORE_POSITION);core.pos={x:ship.pos.x,y:ship.pos.y+65};core.vel={x:0,y:0};core.tethered=true
+  const core=objectBody(rt,'core',CORE_POSITION);core.pos={x:ship.pos.x-132,y:ship.pos.y};core.vel={x:0,y:0};core.tethered=true
   for(let i=0;i<10;i++) tick(s,rt,ship)
   assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
   s.gates.push('ignition-ready')
-  for(let i=0;i<10;i++) tick(s,rt,ship)
+  for(let i=0;i<30;i++) tick(s,rt,ship)
   assert.equal(s.core,true);assert.equal(interaction(s,ship).kind,'finish')
 })
 

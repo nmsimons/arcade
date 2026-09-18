@@ -2,11 +2,44 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { laserImpactMs, stepLaserContact } from '../src/games/hardVacuum/laser.ts'
 import { RADIATION_CAPACITY, inRadiation, stepRadiation } from '../src/games/hardVacuum/radiation.ts'
-import { bankAtCheckpoint, blastGate, expeditionMap, freshExpedition, freshRuntime, parseExpedition, purchaseUpgrade, releasePort, sectorAt, SOCKETS, stepExpedition } from '../src/games/hardVacuum/expedition.ts'
+import { bankAtCheckpoint, blastGate, expeditionMap, freshExpedition, freshRuntime, parseExpedition, purchaseUpgrade, sectorAt, SOCKETS, stepExpedition } from '../src/games/hardVacuum/expedition.ts'
 import { debrisField } from '../src/games/hardVacuum/debrisField.ts'
 import { pulverizeAsteroid } from '../src/games/hardVacuum/blaster.ts'
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
-import { applyNoseThrust } from '../src/games/hardVacuum/expeditionPhysics.ts'
+import { applyNoseThrust, stepShipTurn } from '../src/games/hardVacuum/expeditionPhysics.ts'
+
+test('turning responds quickly, coasts a little on release, and stays symmetric across frame rates', () => {
+  const results = []
+  for (const fps of [30, 60, 120]) for (const direction of [-1, 1]) {
+    const ship = { angle: 0, vel: { x: 13, y: -7 } }, dt = 1 / fps
+    for (let i = 0; i < fps / 2; i++) stepShipTurn(ship, direction, dt)
+    const heldAngle = ship.angle, heldSpeed = ship.angularVelocity
+    assert.ok(Math.abs(heldSpeed - direction * 5) < .00001, 'sustained turning retains the original maximum speed')
+    stepShipTurn(ship, 0, dt)
+    assert.ok(ship.angularVelocity * direction > 0 && Math.abs(ship.angularVelocity) < Math.abs(heldSpeed))
+    assert.ok((ship.angle - heldAngle) * direction > 0, 'rotation continues briefly after release')
+    for (let i = 1; i < fps; i++) stepShipTurn(ship, 0, dt)
+    const coast = (ship.angle - heldAngle) * direction
+    assert.ok(coast > .24 && coast < .26, 'coast adds about fourteen degrees from full turn speed')
+    assert.equal(ship.angularVelocity, 0)
+    const stopped = ship.angle; stepShipTurn(ship, 0, 1); assert.equal(ship.angle, stopped)
+    assert.deepEqual(ship.vel, { x: 13, y: -7 }, 'turning does not change linear momentum')
+    results.push(ship.angle * direction)
+  }
+  assert.ok(Math.max(...results) - Math.min(...results) < .001, '30, 60 and 120 FPS cover the same angle')
+})
+
+test('opposite steering arrests a turn quickly without snapping angular velocity', () => {
+  const ship = { angle: 0 }
+  stepShipTurn(ship, 1, .2)
+  const before = ship.angularVelocity
+  stepShipTurn(ship, -1, 1 / 60)
+  assert.ok(ship.angularVelocity > 0 && ship.angularVelocity < before, 'the first reversing frame brakes the existing turn')
+  stepShipTurn(ship, -1, 1 / 60)
+  assert.ok(ship.angularVelocity < 0, 'opposite steering takes control within two frames')
+  const unchanged = structuredClone(ship)
+  stepShipTurn(ship, 0, 0); assert.deepEqual(ship, unchanged)
+})
 
 test('nose thrust brakes along the heading, preserves lateral momentum, and can reverse', () => {
   const ship = { angle: 0, vel: { x: 100, y: 70 } }
@@ -76,7 +109,7 @@ test('power cells start in other rooms from receivers, and ordinary blue ore can
   const state = freshExpedition('ring'), rt = freshRuntime()
   for (const socket of SOCKETS) {
     assert.notEqual(sectorAt(socket.source).id, sectorAt(socket.pos).id)
-    assert.ok(isInsideCavern(releasePort(socket.source), 20, expeditionMap(state)))
+    assert.ok(isInsideCavern(socket.source, 20, expeditionMap(state)))
     const ore = { kind: 'blue', pos: { ...socket.pos }, vel: { x: 0, y: 0 }, radius: 20, rot: [0, 0, 0] }
     const args = { dt: 1, ship: { pos: { x: 1500, y: 1100 }, vel: { x: 0, y: 0 }, radius: 15, angle: 0 }, rocks: [ore], harpoon: { state: 'idle' }, beam: { active: false } }
     stepExpedition(state, rt, args)

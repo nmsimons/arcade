@@ -42,3 +42,13 @@ Gameplay randomness uses a resettable seeded stream. Cosmetic meshes, debris and
 sparks use a separate source. `tests/gameSession.test.mjs` exercises the actual
 production path at 30/60/120/144 Hz, with identical gameplay state at equal ticks,
 and checks hitches, suspension, snapshots, audio isolation and publication cadence.
+
+## Retained demonstration geometry
+
+The ten prototype arenas remain as `getDemoCavernMap`/`DEMO_*`, for the menu and
+geometry regression fixtures only. Campaign collision geometry comes from
+`expeditionMap`. The tracked old implementation backup and unused minimap were
+removed (recoverable in Git history), along with wave quotas, time bonuses and
+identity wrapping callbacks. Helpers now use ordinary four-coordinate
+`worldDelta`; viewport dimensions cannot affect physics. Save compatibility lives
+only in the migration pipeline, not obsolete runtime mechanics.

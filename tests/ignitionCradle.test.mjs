@@ -132,7 +132,7 @@ test('interrupted installation resumes as physical cargo, and completed saves ke
 })
 
 test('old banked cores become towable beside Haven, and old core releases open the new return',()=>{
-  const old=freshExpedition('heart');;old.version=1;delete old.finaleVersion
+  const old=freshExpedition('heart');old.version=1;delete old.finaleVersion
   powerReceiver(old,'ignition-power','ignition-power');old.gates=old.gates.filter(id=>id!=='breach-return');old.gates.push(...old.flags);delete old.flags;old.doors={};old.core=true;old.banked=4321
   const loaded=parseExpedition(JSON.stringify(old))
   assert.equal(loaded.core,false);assert.equal(loaded.banked,4321);assert.equal(loaded.finaleVersion,2)

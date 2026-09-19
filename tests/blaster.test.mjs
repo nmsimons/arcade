@@ -86,7 +86,7 @@ test('Haven restores the magazine; other locations and shop purchases cannot rel
 test('spent charges survive saving; older saves require purchase without losing other progress', () => {
   const state = equipped(); state.blasterCharges = 0; state.gates = ['blast', 'drive']; state.banked = 180
   assert.equal(parseExpedition(JSON.stringify(state)).blasterCharges, 0)
-  const legacy = { ...state, blasterCharges: 3 };;legacy.version=1; delete legacy.blasterInstalled
+  const legacy = { ...state, blasterCharges: 3 };legacy.version=1; delete legacy.blasterInstalled
   legacy.cargo = { ore: { pos: { x: 1660, y: 1300 }, vel: { x: 0, y: 0 } } }
   const migrated = parseExpedition(JSON.stringify(legacy))
   assert.equal(migrated.blasterCharges, 0); assert.equal(migrated.blasterInstalled, false); assert.equal(migrated.banked, 180)

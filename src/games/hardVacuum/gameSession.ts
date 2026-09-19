@@ -1,3 +1,4 @@
+import { worldDelta } from './worldDelta.ts'
 import type {
   BaseShot,
   Bullet,
@@ -15,10 +16,9 @@ import type {
 import { clamp, makeRockMesh } from './math.ts'
 import { rayCircleHitDistance } from './phaserGeometry.ts'
 import {
-  WORLD_CENTER,
-  WORLD_HEIGHT,
-  WORLD_WIDTH,
-  getCavernMap,
+  DEMO_CENTER,
+
+  getDemoCavernMap,
   isInsideCavern,
   raycastCavern,
   resolveCircleInCavern,
@@ -27,9 +27,7 @@ import type { sounds as BrowserSounds } from './sound.ts'
 import {
   BASE_GUN_INITIAL_COOLDOWNS,
   BASE_SHOT_SPEED,
-  BLUE_ROCK_SPAWN_CHANCE_BASE,
-  BLUE_ROCK_SPAWN_CHANCE_MAX,
-  BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL,
+
   BULLET_SPEED,
   COLLISION_DAMAGE_FAST,
   COLLISION_DAMAGE_MEDIUM,
@@ -52,7 +50,7 @@ import {
   RED_ROCK_BLAST_IMPULSE,
   RED_ROCK_BLAST_RADIUS,
   RED_ROCK_DETONATION_DELAY,
-  RED_ROCK_SPAWN_CHANCE,
+  
   SHIELD_REPAIR_TIME,
 } from './tuning.ts'
 import { addDevelopmentCredits, advanceDevelopmentLevel } from './development.ts'
@@ -109,7 +107,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const runtimeRef = cell(freshRuntime())
   const gameStateRef = cell<HardVacuumGameState>('menu')
   const shieldsRef = { get current() { return expeditionRef.current.shields }, set current(value: number) { expeditionRef.current.shields = value } }
-  const waveCreditsRef = cell(0)
+  
   const simulationClock = new SimulationClock()
   const random = seededRandom(options.seed ?? 1)
   const cosmeticRandom = options.cosmeticRandom ?? Math.random
@@ -160,9 +158,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const shipRef = cell<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: SHIP_RADIUS })
   const rocksRef = cell<Rock[]>([])
   const botsRef = cell(freshBots(expedition))
-  const levelRef = cell(1)
-  const blueRockQuotaRef = cell(0)
-  const blueRocksSpawnedThisLevelRef = cell(0)
+
   const shipRepairTimeRef = cell(0)
   const bulletsRef = cell<Bullet[]>([])
   const blasterRef = cell<BlasterVisuals>({ shots: [], bursts: [] })
@@ -174,7 +170,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const lastShieldHitAtRef = cell(0)
   const lastShieldRechargeAtRef = cell(0)
   const dyingTimerRef = cell(0)
-  const canvasSizeRef = cell({ width: 800, height: 600 })
+  
   const harpoonRef = cell<Harpoon>({ state: 'idle' })
   const miningBaseAngleRef = cell(0)
   const shipAppearanceRef = cell(freshShipAppearance())
@@ -193,12 +189,6 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   })
   const phaserParticlesRef = cell<PhaserParticle[]>([])
   const shipFullyInBaseRef = cell(false)
-  const toroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => {
-    // Legacy callback shape used by the physics helpers; distance is now ordinary world space.
-    void w
-    void h
-    return { dx: bx - ax, dy: by - ay }
-  }
 
   const buildRopeBetween = (ax: number, ay: number, bx: number, by: number, ropeLen: number) => {
       const segments = clamp(Math.ceil(ropeLen / 14), 10, 44)
@@ -431,7 +421,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     
     setGameStateWithRef(expeditionRef.current.complete ? 'complete' : 'playing')
     invulnerableRef.current = INVULNERABILITY_GAME_START
-    waveCreditsRef.current = 0
+    
     debrisRef.current = []
     harpoonRef.current = { state: 'idle' }
     miningBaseAngleRef.current = expeditionRef.current.campaign.havenAngle
@@ -448,8 +438,8 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     debrisRef.current = []
 
     // Place ship in a dramatic but plausible position.
-    const baseX = WORLD_CENTER.x
-    const baseY = WORLD_CENTER.y
+    const baseX = DEMO_CENTER.x
+    const baseY = DEMO_CENTER.y
     shipRef.current = {
       pos: { x: baseX - 330, y: baseY + 145 },
       vel: { x: 0, y: 0 },
@@ -488,7 +478,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
       for (let tries = 0; tries < 120; tries++) {
         const candidate = sampleSpawn()
-        if (!isInsideCavern(candidate, radius + 30, getCavernMap(1))) continue
+        if (!isInsideCavern(candidate, radius + 30, getDemoCavernMap(1))) continue
         const distToShip = distance(candidate.x, candidate.y, shipRef.current.pos.x, shipRef.current.pos.y)
         const distToBase = distance(candidate.x, candidate.y, baseX, baseY)
         if (distToShip < 140) continue
@@ -599,8 +589,8 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         } else if (hp.state === 'attached') {
           // Reel-in detaches.
           const ship = shipRef.current
-          const { width: w, height: h } = canvasSizeRef.current
-          const d0 = toroidalDelta(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y, w, h)
+          
+          const d0 = worldDelta(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y)
           const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
           const ropeLength = reelLength * HARPOON_VISUAL_SLACK
           const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y, ropeLength)
@@ -617,8 +607,8 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         } else {
           // Any other non-idle state (flying/deployed): reel in.
           const ship = shipRef.current
-          const { width: w, height: h } = canvasSizeRef.current
-          const d0 = toroidalDelta(ship.pos.x, ship.pos.y, hp.pos.x, hp.pos.y, w, h)
+          
+          const d0 = worldDelta(ship.pos.x, ship.pos.y, hp.pos.x, hp.pos.y)
           const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
           const ropeLength = reelLength * HARPOON_VISUAL_SLACK
           const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp.pos.x, hp.pos.y, ropeLength)
@@ -717,7 +707,6 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         }
       }
 
-
       // Always update debris so explosions can play during transitions/menus.
       if (debrisRef.current.length > 0) {
         debrisRef.current = debrisRef.current.filter((d) => {
@@ -775,12 +764,6 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
       const ship = shipRef.current
       const cavernMap = expeditionMap(expeditionRef.current)
-
-      const w = WORLD_WIDTH
-      const h = WORLD_HEIGHT
-      // Physics helpers retain this callback shape, but the finite world never wraps.
-      const wrapX = (x: number) => x
-      const wrapY = (y: number) => y
 
       const pendingRedDetonations: Rock[] = []
       const initialBanked = expeditionRef.current.banked
@@ -882,7 +865,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
           // AOE: ship
           {
-            const d = toroidalDelta(source.pos.x, source.pos.y, ship.pos.x, ship.pos.y, w, h)
+            const d = worldDelta(source.pos.x, source.pos.y, ship.pos.x, ship.pos.y)
             const dist = Math.hypot(d.dx, d.dy)
             if (!riding && dist < RED_ROCK_BLAST_RADIUS) {
               const t = clamp(1 - dist / RED_ROCK_BLAST_RADIUS, 0, 1)
@@ -903,7 +886,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           for (const other of affected) {
             if (rocksRef.current.indexOf(other) === -1) continue
             if (other.socketId) continue
-            const d = toroidalDelta(source.pos.x, source.pos.y, other.pos.x, other.pos.y, w, h)
+            const d = worldDelta(source.pos.x, source.pos.y, other.pos.x, other.pos.y)
             const dist = Math.hypot(d.dx, d.dy)
             if (dist >= RED_ROCK_BLAST_RADIUS || !visibleBetween(source.pos, other.pos, cavernMap)) continue
 
@@ -1025,8 +1008,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         if (havenReady(expeditionRef.current)) updateBaseDefenseAndProcessing({
           dt,
           sounds,
-          w,
-          h,
+
           baseX,
           baseY,
           MINING_BASE_RADIUS,
@@ -1034,11 +1016,9 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           miningGunCooldownsRef,
           baseShotsRef,
           rocksRef,
-          wrapX,
-          wrapY,
-          toroidalDelta,
+
           expedition: expeditionRef.current,
-          waveCreditsRef,
+          
           createDebris,
           onRedRockDetonate: (rock) => armRedRock(rock),
         })
@@ -1085,15 +1065,12 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
       updateHarpoon({
         dt,
-        w,
-        h,
+
         ship,
         shipRef,
         rocks: [...rocks.filter(rock => !rock.socketId), ...cargoBodies(expeditionRef.current, runtimeRef.current).filter(body => !body.retrieving && (body.cargoId !== 'core' || coreReleased(expeditionRef.current))), ...botBodies.filter(bot=>bot.health>0 && !bot.anchored), ...TERMINALS].filter(body => Math.hypot(ship.pos.x-body.pos.x,ship.pos.y-body.pos.y) < 700 && (body.terminalId ? terminalVisible(ship.pos,body,cavernMap) : visibleBetween(ship.pos, body.pos, cavernMap))),
         harpoonRef,
-        wrapX,
-        wrapY,
-        toroidalDelta,
+
         buildRopeBetween,
         HARPOON_HOOK_MASS,
         HARPOON_VISUAL_SLACK,
@@ -1279,14 +1256,13 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
       updateBulletsAndPlayerRockCollisions({
         dt,
-        w,
-        h,
+
         bulletsRef,
         rocksRef,
         harpoonRef,
         shipRef,
         cavernMap,
-        toroidalDelta,
+        
         buildRopeBetween,
         sounds,
         onRedRockDetonate: (rock) => armRedRock(rock),
@@ -1295,15 +1271,10 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         random,
         createRock,
         createDebris,
-        levelRef,
-        blueRocksSpawnedThisLevelRef,
-        blueRockQuotaRef,
+
         SMALLEST_ROCK_RADIUS,
         HARPOON_VISUAL_SLACK,
-        BLUE_ROCK_SPAWN_CHANCE_BASE,
-        BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL,
-        BLUE_ROCK_SPAWN_CHANCE_MAX,
-        RED_ROCK_SPAWN_CHANCE,
+
       })
 
       // Tick any armed red rocks and detonate those whose fuse has expired.
@@ -1436,7 +1407,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     get mode() { return gameStateRef.current },
     randomState: random.state,
     createRock,
-    refs: { expeditionRef, runtimeRef, gameStateRef, shieldsRef, shipRef, rocksRef, botsRef, levelRef, blueRockQuotaRef, blueRocksSpawnedThisLevelRef, shipRepairTimeRef, bulletsRef, blasterRef, laserContactRef, baseShotsRef, debrisRef, keysRef, invulnerableRef, lastShieldHitAtRef, lastShieldRechargeAtRef, dyingTimerRef, harpoonRef, miningBaseAngleRef, shipAppearanceRef, miningGunCooldownsRef, phaserStateRef, phaserBeamRef, phaserParticlesRef, shipFullyInBaseRef },
+    refs: { expeditionRef, runtimeRef, gameStateRef, shieldsRef, shipRef, rocksRef, botsRef,    shipRepairTimeRef, bulletsRef, blasterRef, laserContactRef, baseShotsRef, debrisRef, keysRef, invulnerableRef, lastShieldHitAtRef, lastShieldRechargeAtRef, dyingTimerRef, harpoonRef, miningBaseAngleRef, shipAppearanceRef, miningGunCooldownsRef, phaserStateRef, phaserBeamRef, phaserParticlesRef, shipFullyInBaseRef },
   }
 }
 export type GameSession = ReturnType<typeof createGameSession>

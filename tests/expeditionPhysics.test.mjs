@@ -127,7 +127,7 @@ test('the actual grapple holds a fixed cable and never reels modules into the sh
   const hook = { current: { state: 'flying', pos: { ...ship.pos }, vel: { x: 720, y: 0 }, life: 1200, traveled: 0, maxLength: 130, ropeLength: 130, ...rope(ship.pos.x, ship.pos.y, body.pos.x, body.pos.y, 130) } }
   const initialX = body.pos.x
   for (let frame = 0; frame < 150 && !state.upgrades.includes('radiation'); frame++) {
-    updateHarpoon({ dt: 1 / 60, w: 3000, h: 2200, ship, shipRef: { current: ship }, rocks: [body], harpoonRef: hook, wrapX: x => x, wrapY: y => y, toroidalDelta: (ax, ay, bx, by) => ({ dx: bx - ax, dy: by - ay }), buildRopeBetween: rope, HARPOON_HOOK_MASS: 0.2, HARPOON_VISUAL_SLACK: 1.18, HARPOON_REEL_MIN_LEN: 22 })
+    updateHarpoon({ dt: 1 / 60, w: 3000, h: 2200, ship, shipRef: { current: ship }, rocks: [body], harpoonRef: hook,    buildRopeBetween: rope, HARPOON_HOOK_MASS: 0.2, HARPOON_VISUAL_SLACK: 1.18, HARPOON_REEL_MIN_LEN: 22 })
     step(state, rt, ship, [], hook.current)
   }
   assert.ok(Math.abs(body.pos.x - initialX) < 1, 'a slack tether must not winch the module toward the ship')

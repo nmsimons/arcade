@@ -144,7 +144,7 @@ test('the story is discovered once, terminal records need a connection, and the 
 })
 
 test('prototype saves enter the Ring without losing equipment, funds or the meaning of surveyed cells',()=>{
-  const old=freshExpedition('ring');;old.version=1;delete old.campaign
+  const old=freshExpedition('ring');old.version=1;delete old.campaign
   old.banked=4321;old.blasterInstalled=true;old.blasterCharges=2;old.upgrades=['radiation'];old.surveyed=[921,922];old.gates=['rubble']
   const s=parseExpedition(JSON.stringify(old))
   assert.equal(s.campaign.berth,'ring');assert.equal(s.banked,4321);assert.equal(s.blasterCharges,2)

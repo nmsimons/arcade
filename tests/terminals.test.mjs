@@ -50,7 +50,7 @@ test('the terminal lesson is contextual, respects walls, and retires after the f
   assert.equal(terminalVisible(ship.pos,terminal,blocked),false)
   stepGrappleGuide(s,rt,ship,{state:'idle'},[],blocked,.1);assert.equal(rt.grappleHint,'')
   s.campaign.terminalLinked=true;hint();assert.equal(rt.grappleHint,'')
-  const legacy=freshExpedition();;legacy.version=1;delete legacy.campaign.terminalLinked
+  const legacy=freshExpedition();legacy.version=1;delete legacy.campaign.terminalLinked
   assert.equal(parseExpedition(JSON.stringify(legacy)).campaign.terminalLinked,false)
   legacy.campaign.terminalLinked='yes';assert.equal(parseExpedition(JSON.stringify(legacy)),null)
 })
@@ -60,7 +60,7 @@ test('hooks latch onto terminals from every direction at different frame rates w
   for(const fps of [30,60,120]) for(let i=0;i<8;i++) {
     const angle=i*Math.PI/4,ship=shipAt({x:fixture.pos.x-Math.cos(angle)*110,y:fixture.pos.y-Math.sin(angle)*110})
     const hook={current:{state:'flying',pos:{...ship.pos},vel:{x:Math.cos(angle)*650,y:Math.sin(angle)*650},life:1200,traveled:0,maxLength:325,ropeLength:325,...rope(ship.pos.x,ship.pos.y,fixture.pos.x,fixture.pos.y,325)}}
-    const args={w:9600,h:5100,ship,shipRef:{current:ship},rocks:[fixture],harpoonRef:hook,wrapX:x=>x,wrapY:y=>y,toroidalDelta:(ax,ay,bx,by)=>({dx:bx-ax,dy:by-ay}),buildRopeBetween:rope,HARPOON_HOOK_MASS:.2,HARPOON_VISUAL_SLACK:1.18,HARPOON_REEL_MIN_LEN:22}
+    const args={w:9600,h:5100,ship,shipRef:{current:ship},rocks:[fixture],harpoonRef:hook,buildRopeBetween:rope,HARPOON_HOOK_MASS:.2,HARPOON_VISUAL_SLACK:1.18,HARPOON_REEL_MIN_LEN:22}
     for(let frame=0;frame<fps/2;frame++)updateHarpoon({...args,dt:1/fps})
     assert.equal(hook.current.state,'attached')
     ship.pos.x=fixture.pos.x-325;ship.pos.y=fixture.pos.y;ship.vel.x=-100

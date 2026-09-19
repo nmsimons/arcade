@@ -1,7 +1,7 @@
 import type { BaseShot, Bullet, Debris, Harpoon, PhaserBeam, PhaserParticle, Rock, Ship, Vector2, V3 } from './types'
 import { clamp, cross3, normalize3, rotX, rotY, rotZ } from './math'
 import type { HardVacuumGameState } from './ui'
-import { getCavernMap } from './worldGeometry'
+import { getDemoCavernMap } from './worldGeometry'
 import { havenDeployment, havenPose } from './campaign'
 import { drawHaven } from './havenRender'
 import { drawHavenRecovery } from './havenRecoveryRender'
@@ -19,13 +19,11 @@ import type { BotRuntime } from './stationBots'
 
 type Ref<T> = { current: T }
 
-type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => { dx: number; dy: number }
-
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
   gameState: HardVacuumGameState
   nowMs: number
-  level: number
+  
   expedition: Expedition
   expeditionRuntime: ExpeditionRuntime
   mapOpen: boolean
@@ -35,9 +33,7 @@ export function drawHardVacuumFrame(args: {
   mapFocus?: Vector2
   canvasSizeRef: Ref<{ width: number; height: number }>
 
-
   miningBaseAngleRef: Ref<number>
-
 
   RED_ROCK_DETONATION_DELAY: number
 
@@ -54,17 +50,15 @@ export function drawHardVacuumFrame(args: {
   shipRef: Ref<Ship>
   shipAppearance: ShipAppearance
 
-
   shields: number
   lastShieldHitAtRef: Ref<number>
   lastShieldRechargeAtRef: Ref<number>
 
-  toroidalDelta: ToroidalDelta
 }) {
   const {
     ctx,
     gameState,
-    level,
+    
     expedition,
     expeditionRuntime,
     mapOpen,
@@ -88,7 +82,7 @@ export function drawHardVacuumFrame(args: {
 
   const width = canvasSizeRef.current.width
   const height = canvasSizeRef.current.height
-  const cavernMap = gameState === 'menu' ? getCavernMap(level) : expeditionMap(expedition)
+  const cavernMap = gameState === 'menu' ? getDemoCavernMap(1) : expeditionMap(expedition)
 
   // Clear
   ctx.fillStyle = '#050808'

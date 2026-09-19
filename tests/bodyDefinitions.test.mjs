@@ -31,7 +31,7 @@ test('shared cargo weights determine collision and both player/bot tow momentum'
     const center=mass*260/(1+mass)
     const rope={rope:[],ropePrev:[],segLen:260}
     const hp={current:{state:'attached',rock:body,ropeLength:260,maxLength:260,...rope}}
-    updateHarpoon({dt:1/60,w:3000,h:2200,ship,shipRef:{current:ship},rocks:[body],harpoonRef:hp,wrapX:x=>x,wrapY:y=>y,toroidalDelta:(ax,ay,bx,by)=>({dx:bx-ax,dy:by-ay}),buildRopeBetween:()=>rope,HARPOON_HOOK_MASS:.2,HARPOON_VISUAL_SLACK:1.18,HARPOON_REEL_MIN_LEN:22})
+    updateHarpoon({dt:1/60,w:3000,h:2200,ship,shipRef:{current:ship},rocks:[body],harpoonRef:hp,buildRopeBetween:()=>rope,HARPOON_HOOK_MASS:.2,HARPOON_VISUAL_SLACK:1.18,HARPOON_REEL_MIN_LEN:22})
     assert.ok(body.pos.x<260&&ship.pos.x>0)
     assert.ok(Math.abs((ship.pos.x+mass*body.pos.x)/(1+mass)-center)<1e-10)
     const bot={pos:{x:0,y:0},vel:{x:0,y:0},mass:1.8}

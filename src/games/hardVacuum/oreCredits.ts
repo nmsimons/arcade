@@ -1,10 +1,10 @@
 import type { Rock, Vector2 } from './types'
-import { WORLD_CENTER } from './worldGeometry.ts'
+import { BASE_POSITION } from './stationDefinitions.ts'
 import { CREDITS_ASTEROID_BASE, CREDITS_ASTEROID_SIZE_BONUS, CREDITS_BASE_PROCESSING_MULTIPLIER, CREDITS_BLUE_ROCK_MULTIPLIER, MINING_BASE_RADIUS } from './tuning.ts'
 
 type Ore = Pick<Rock, 'kind' | 'radius' | 'sourceId' | 'socketId'>
 type PositionedOre = Ore & { pos: Vector2 }
-const haven = { pos: WORLD_CENTER, radius: MINING_BASE_RADIUS }
+const haven = { pos: BASE_POSITION, radius: MINING_BASE_RADIUS }
 
 export function asteroidFieldCredits(rock: Ore): number {
   if (rock.sourceId || rock.socketId) return 0

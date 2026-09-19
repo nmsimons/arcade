@@ -3,9 +3,9 @@ import test from 'node:test'
 
 import {
   CAVERN_MAPS,
-  WORLD_CENTER,
+  DEMO_CENTER,
   distanceToCavernWall,
-  getCavernMap,
+  getDemoCavernMap,
   isInsideCavern,
   raycastCavern,
   resolveCircleInCavern,
@@ -33,9 +33,9 @@ const polygonIsConvex = (polygon) => {
 }
 
 test('the cavern contains its center and rejects distant points', () => {
-  assert.equal(isInsideCavern(WORLD_CENTER, 100), true)
-  assert.equal(isInsideCavern({ x: -10, y: WORLD_CENTER.y }), false)
-  assert.ok(distanceToCavernWall(WORLD_CENTER) > 900)
+  assert.equal(isInsideCavern(DEMO_CENTER, 100), true)
+  assert.equal(isInsideCavern({ x: -10, y: DEMO_CENTER.y }), false)
+  assert.ok(distanceToCavernWall(DEMO_CENTER) > 900)
 })
 
 test('cavern collision pushes a body inward and reflects outward velocity', () => {
@@ -50,7 +50,7 @@ test('cavern collision pushes a body inward and reflects outward velocity', () =
 })
 
 test('cavern raycasts stop lasers at a physical wall', () => {
-  const hit = raycastCavern(WORLD_CENTER, { x: 1, y: 0 }, 5000)
+  const hit = raycastCavern(DEMO_CENTER, { x: 1, y: 0 }, 5000)
   assert.ok(hit > 1200)
   assert.ok(hit < 1500)
 })
@@ -70,13 +70,13 @@ test('ten named maps increase formation complexity and clamp after map ten', () 
   for (let index = 1; index < CAVERN_MAPS.length; index++) {
     assert.ok(CAVERN_MAPS[index].obstacles.length > CAVERN_MAPS[index - 1].obstacles.length)
   }
-  assert.equal(getCavernMap(0), CAVERN_MAPS[0])
-  assert.equal(getCavernMap(999), CAVERN_MAPS[9])
+  assert.equal(getDemoCavernMap(0), CAVERN_MAPS[0])
+  assert.equal(getDemoCavernMap(999), CAVERN_MAPS[9])
 })
 
 test('every map keeps a clear base, convex formations, and ample asteroid spawn space', () => {
   for (const map of CAVERN_MAPS) {
-    assert.equal(isInsideCavern(WORLD_CENTER, 360, map), true, `${map.name} crowds the mining base`)
+    assert.equal(isInsideCavern(DEMO_CENTER, 360, map), true, `${map.name} crowds the mining base`)
 
     for (const obstacle of map.obstacles) {
       assert.equal(polygonIsConvex(obstacle), true, `${map.name} has a non-convex formation`)
@@ -88,7 +88,7 @@ test('every map keeps a clear base, convex formations, and ample asteroid spawn 
     let spawnCells = 0
     for (let y = 150; y <= 2050; y += 100) {
       for (let x = 150; x <= 2850; x += 100) {
-        const distanceFromBase = Math.hypot(x - WORLD_CENTER.x, y - WORLD_CENTER.y)
+        const distanceFromBase = Math.hypot(x - DEMO_CENTER.x, y - DEMO_CENTER.y)
         if (distanceFromBase >= 430 && distanceFromBase <= 950 && isInsideCavern({ x, y }, 78, map)) spawnCells++
       }
     }
@@ -109,7 +109,7 @@ test('the navigable space remains connected through all ten maps', () => {
       }
     }
 
-    const start = `${WORLD_CENTER.x},${WORLD_CENTER.y}`
+    const start = `${DEMO_CENTER.x},${DEMO_CENTER.y}`
     assert.equal(navigable.has(start), true, `${map.name} blocks the start`)
     const visited = new Set([start])
     const queue = [start]
@@ -131,11 +131,11 @@ test('formations block lasers and push circles back into navigable space', () =>
   const map = CAVERN_MAPS[1]
   const obstacleCenter = polygonCenter(map.obstacles[0])
   const direction = {
-    x: obstacleCenter.x - WORLD_CENTER.x,
-    y: obstacleCenter.y - WORLD_CENTER.y,
+    x: obstacleCenter.x - DEMO_CENTER.x,
+    y: obstacleCenter.y - DEMO_CENTER.y,
   }
   const targetDistance = Math.hypot(direction.x, direction.y)
-  const laserHit = raycastCavern(WORLD_CENTER, direction, 5000, map)
+  const laserHit = raycastCavern(DEMO_CENTER, direction, 5000, map)
   assert.ok(laserHit > 0 && laserHit < targetDistance)
 
   const pos = { ...obstacleCenter }

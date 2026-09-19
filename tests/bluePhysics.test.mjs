@@ -8,26 +8,26 @@ import { creditAsteroidDestruction } from '../src/games/hardVacuum/oreCredits.ts
 
 const body = extra => ({ kind: 'blue', pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, radius: 20, ...extra })
 const ref = current => ({ current })
-const delta = (ax, ay, bx, by) => ({ dx: bx - ax, dy: by - ay })
+
 const unexpectedDamage = () => assert.fail('Blue objects must not be mined, split, or destroyed')
 const map = { boundary: [{ x: -500, y: -500 }, { x: 3500, y: -500 }, { x: 3500, y: 3500 }, { x: -500, y: 3500 }], obstacles: [] }
 const bulletArgs = rock => ({
   dt: 0, w: 1000, h: 1000, cavernMap: map,
   bulletsRef: ref([]), rocksRef: ref([rock]), harpoonRef: ref({ state: 'idle' }),
   shipRef: ref({ pos: { x: -100, y: 0 }, vel: { x: 0, y: 0 }, radius: 15, angle: 0 }),
-  toroidalDelta: delta, buildRopeBetween: unexpectedDamage, onAsteroidDestroyed: unexpectedDamage,
-  waveCreditsRef: ref(0), sounds: { explosion: unexpectedDamage },
+   buildRopeBetween: unexpectedDamage, onAsteroidDestroyed: unexpectedDamage,
+   sounds: { explosion: unexpectedDamage },
   createRock: unexpectedDamage, createDebris: unexpectedDamage,
-  levelRef: ref(1), blueRocksSpawnedThisLevelRef: ref(0), blueRockQuotaRef: ref(0),
-  CREDITS_SHOOTING_ROCK_DIVISOR: 100, SMALLEST_ROCK_RADIUS: 20,
-  HARPOON_VISUAL_SLACK: 1.18, BLUE_ROCK_SPAWN_CHANCE_BASE: 0,
-  BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL: 0, BLUE_ROCK_SPAWN_CHANCE_MAX: 0, RED_ROCK_SPAWN_CHANCE: 0,
+    
+   SMALLEST_ROCK_RADIUS: 20,
+  HARPOON_VISUAL_SLACK: 1.18, 
+    
 })
 const baseArgs = rock => ({
   dt: 0, w: 1000, h: 1000, baseX: 0, baseY: 0, MINING_BASE_RADIUS: 118,
   miningBaseAngleRef: ref(0), miningGunCooldownsRef: ref([0, 0, 0]),
-  baseShotsRef: ref([]), rocksRef: ref([rock]), wrapX: x => x, wrapY: y => y,
-  toroidalDelta: delta, expedition: freshExpedition(), waveCreditsRef: ref(0), createDebris: unexpectedDamage,
+  baseShotsRef: ref([]), rocksRef: ref([rock]),  
+   expedition: freshExpedition(),  createDebris: unexpectedDamage,
 })
 
 test('repeated projectile hits repel both mined blue rocks and mission cells without damage or credits', () => {
@@ -40,7 +40,7 @@ test('repeated projectile hits repel both mined blue rocks and mission cells wit
       assert.ok(rock.vel.x > before)
       assert.equal(args.bulletsRef.current.length, 0)
       assert.deepEqual(args.rocksRef.current, [rock]); assert.equal(rock.radius, 20)
-      assert.equal(args.waveCreditsRef.current, 0)
+      
     }
   }
 })
@@ -65,7 +65,7 @@ test('base guns never target or process power cells; intercepted rounds only rep
     args.baseShotsRef.current.push({ pos: { x: -10, y: 0 }, vel: { x: 520, y: 0 }, life: 0.9 })
     updateBaseDefenseAndProcessing(args)
     assert.equal(args.baseShotsRef.current.length, 0)
-    assert.deepEqual(args.rocksRef.current, [rock]); assert.equal(args.waveCreditsRef.current, 0)
+    assert.deepEqual(args.rocksRef.current, [rock]); 
     assert.equal(args.expedition.banked, 0)
     assert.equal(rock.vel.x > 0, !rock.socketId)
   }
@@ -79,7 +79,7 @@ test('base guns target blue asteroids and bank their full processing bonus exact
   assert.equal(args.rocksRef.current.length, 0)
   assert.equal(args.expedition.banked, 1000)
   assert.equal(args.expedition.credits, 0)
-  assert.equal(args.waveCreditsRef.current, 1000)
+  assert.equal(args.expedition.banked, 1000)
 })
 
 test('player projectile destruction awards field credits once per asteroid', () => {

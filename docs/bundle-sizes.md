@@ -1,19 +1,20 @@
 # Route loading measurement
 
-Production build, September 19, 2026, Vite 7.3.0. Decimal kB; JavaScript only.
-Before splitting (after correctness refactors): **611.55 kB / 191.52 kB gzip**,
-downloaded by every route. Review baseline was 601.80 / 189.02.
+Production build, September 19, 2026, Node 24.21.0, Vite 7.3.0. Decimal kB; JS only.
+Before splitting (`72d2c2e`, rebuilt on Node 24): **611.55 kB / 192.56 kB gzip**,
+downloaded by every route. The original review recorded 601.80 / 189.02; gzip
+also varies slightly with Node's compression library.
 
 | Route chunk | Raw kB | Gzip kB |
 |---|---:|---:|
-| Selector + shared React/router | 235.94 | 75.45 |
-| Hard Vacuum | 227.03 | 77.41 |
-| Hello World | 3.17 | 1.39 |
-| Final Approach | 16.57 | 4.93 |
-| No Exit | 19.83 | 5.24 |
-| Sling Load | 30.34 | 9.73 |
-| Bumper Ball | 32.44 | 10.48 |
-| Urban Fire | 43.27 | 11.76 |
+| Selector + shared React/router | 235.94 | 75.59 |
+| Hard Vacuum | 227.74 | 78.26 |
+| Hello World | 3.17 | 1.40 |
+| Final Approach | 16.57 | 4.97 |
+| No Exit | 19.83 | 5.25 |
+| Sling Load | 30.34 | 9.80 |
+| Bumper Ball | 32.44 | 10.59 |
+| Urban Fire | 43.27 | 11.85 |
 
 The selector downloads no game implementation (61% less raw JS). A direct Hard
 Vacuum visit downloads the shared entry and Hard Vacuum, not six unrelated games.

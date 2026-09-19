@@ -207,12 +207,12 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         refs.debrisRef.current.push(...stepHullSparks(appearance, refs.shipRef.current, session.expedition.shields, dt))
       } else { appearance.turn = 0; sounds.stopThrust(); stepShipAppearance(appearance, new Set(), dt); appearance.sparkDelay = 0 }
       drawHardVacuumFrame({
-        ...refs, ctx, gameState: session.mode, nowMs: session.timeMs, 
+        ...refs, ctx, gameState: session.mode, nowMs: session.timeMs,
         expedition: session.expedition, expeditionRuntime: refs.runtimeRef.current,
         mapOpen: mapOpenRef.current, mapOverview: mapOverviewRef.current, mapZoom: mapZoomRef.current, mapFocus: mapFocusRef.current,
         mapRevealed: import.meta.env.DEV && devMapRevealed, canvasSizeRef, RED_ROCK_DETONATION_DELAY,
         bots: refs.botsRef.current, shipAppearance: appearance, shields: session.expedition.shields,
-        
+
       })
       rafId = requestAnimationFrame(animate)
     }

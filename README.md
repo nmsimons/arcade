@@ -308,13 +308,14 @@ npm run dev      # Start dev server
 npm run build    # Type-check + production build to dist/
 npm run preview  # Preview the production build locally
 npm run lint     # Run ESLint
-npm test         # Geometry, progression, checkpoint, and save tests
-npm run test:browser # Save recovery and keyboard flows against the production build
+npm test         # Mechanics, full sessions, geometry, progression, and save tests
+npm run test:browser # Production routes/recovery/controls + development panel
+npm run benchmark # Isolated browser performance fixtures; JSON report in /tmp
 ```
 
 For browser tests, run `npx playwright install chromium` once, then
 `npm run build && npm run test:browser`. Playwright starts its own production
-preview on port 4175 and uses isolated browser storage; it never touches your
+preview on port 4175 and a development server on 4176, with isolated storage; it never touches your
 normal browser's expedition. On Linux CI, install Chromium with
 `npx playwright install --with-deps chromium`.
 
@@ -332,8 +333,9 @@ the previous validated slot in `hard-vacuum-expedition-v1-backup` (the first
 save initializes both). Recovering or deliberately replacing an unreadable
 slot first preserves its bytes in `hard-vacuum-expedition-v1-unreadable`.
 Invalid runtime data never replaces a good save or backup. Existing migrations
-still run through `parseExpedition`; the schema and gameplay reset rules are
-unchanged. If backup/archive writes fail, the primary slot is not replaced.
+run through explicit ordered migrations to schema 2. The storage key stays stable;
+gameplay reset rules are documented in [the save format](docs/save-format.md).
+If backup/archive writes fail, the primary slot is not replaced.
 
 Storage errors appear during flight and in menus. A failed Save & exit stays
 in the game, with Retry save & exit and an explicit Exit without saving action.
@@ -356,10 +358,18 @@ public/          # Static assets
 ## Adding a Game
 
 1. Create a new component in `src/games/` that accepts `{ onExit: () => void }`.
-2. Import it in `src/App.tsx` and add it to:
-   - the `GameId` union
-   - the `GAMES` list (for menu order)
-   - the render switch that returns the game component
+2. Add a lazy import and route in `src/App.tsx`, wrapped in `GameRoute`.
+3. Add an entry to `GameSelector.tsx` if it should appear in the selector.
+4. Extend the direct-route, exit and compatibility tests in `tests/browser/routes.spec.mjs`.
+
+### Architecture and regression guides
+
+- [Authoritative game session and timing](docs/game-session.md)
+- [Save versions, migrations and persistence matrix](docs/save-format.md)
+- [Station authoring and reference validation](docs/station-authoring.md)
+- [Deterministic sessions and browser testing](docs/testing.md)
+- [Route bundle measurements](docs/bundle-sizes.md)
+- [Runtime performance fixtures and results](docs/performance.md)
 
 ## Deployment (Azure Static Web Apps)
 
@@ -371,7 +381,7 @@ This repo includes a GitHub Actions workflow for Azure Static Web Apps deploymen
 
 Pushes to `main` and pull requests targeting `main` run the **Validate and deploy**
 check: Node 24, `npm ci`, `npm test`, `npm run lint`, `npm run build`, and browser
-save-recovery tests. Every validation step must succeed before deployment.
+route, save-recovery and control tests. Every validation step must succeed before deployment.
 Azure uploads that same `dist/` using
 [`skip_app_build`](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration#skip-building-front-end-app)
 instead of rebuilding. Pushes to `main` deploy to production; same-repository

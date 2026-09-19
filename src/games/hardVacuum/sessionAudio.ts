@@ -23,4 +23,3 @@ export function playSessionAudio(event: SessionAudioEvent) {
     case 'havenImpact': sounds.havenImpact(...event.args); break
   }
 }
-

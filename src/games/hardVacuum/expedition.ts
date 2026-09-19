@@ -1,3 +1,4 @@
+import { profileStart, profileEnd } from './profiling.ts'
 import { SECTORS, GATES, SOCKETS, PICKUPS, CACHES, CORE_POSITION, BASE_POSITION } from './stationDefinitions.ts'
 export { SECTORS, GATES, SOCKETS, PICKUPS, CACHES, CORE_POSITION, BASE_POSITION, SAVE_KEY, gateCenter } from './stationDefinitions.ts'
 export type { Sector } from './stationDefinitions'
@@ -83,14 +84,17 @@ const machineObstacles = [
   ...SOCKETS.flatMap(socket=>receiverPlates(socket.pos)),
 ]
 export function expeditionMap(s: Expedition): CavernMap {
-  const key = [...s.gates].sort().join(',') + '|' + Object.keys(s.power).sort().join(',') + '|' + Number(s.core)
-  const existing = mapCache.get(key)
-  const animating = Object.keys(s.doors).length > 0 || Object.keys(s.botDoors ?? {}).length > 0
-  if (existing && !animating) return existing
-  const installedCells = SOCKETS.filter(socket=>s.power[socket.id]).map(socket=>rectangle(socket.pos.x-10,socket.pos.y-15,20,30))
-  const map = { id: 0, name: 'Station survey', boundary: STATION_TERRAIN.boundary, obstacles: [...STATION_TERRAIN.islands, ...machineObstacles, ...(s.core ? [INSTALLED_CORE_HOUSING] : []), ...installedCells, ...botGarageObstacles(s), ...GATES.flatMap(g => doorPanels(g, doorProgress(s, g.id)))], containedRadiation: s.power.heart ? ['reactor-breach','fuel-unit'] : [] }
-  if (!animating) { if (mapCache.size > 40) mapCache.clear(); mapCache.set(key, map) }
-  return map
+  const profileTime = profileStart()
+  try {
+    const key = [...s.gates].sort().join(',') + '|' + Object.keys(s.power).sort().join(',') + '|' + Number(s.core)
+    const existing = mapCache.get(key)
+    const animating = Object.keys(s.doors).length > 0 || Object.keys(s.botDoors ?? {}).length > 0
+    if (existing && !animating) return existing
+    const installedCells = SOCKETS.filter(socket=>s.power[socket.id]).map(socket=>rectangle(socket.pos.x-10,socket.pos.y-15,20,30))
+    const map = { id: 0, name: 'Station survey', boundary: STATION_TERRAIN.boundary, obstacles: [...STATION_TERRAIN.islands, ...machineObstacles, ...(s.core ? [INSTALLED_CORE_HOUSING] : []), ...installedCells, ...botGarageObstacles(s), ...GATES.flatMap(g => doorPanels(g, doorProgress(s, g.id)))], containedRadiation: s.power.heart ? ['reactor-breach','fuel-unit'] : [] }
+    if (!animating) { if (mapCache.size > 40) mapCache.clear(); mapCache.set(key, map) }
+    return map
+  } finally { profileEnd('geometry', profileTime) }
 }
 export function objective(s: Expedition, towing: string | boolean = false): { title: string; detail: string; target: Vector2 } {
   if (towing==='core' || towing===true) return { title:'Return to the first cradle',detail:'Tow the core through the lower return tunnel, then east to the Ignition Cradle.',target:IGNITION_CRADLE }
@@ -187,14 +191,10 @@ export function powerCellSpawns(s: Expedition) {
   return SOCKETS.filter(socket => !used.has(socket.id)).map(socket => {
     const saved = s.cargo?.[socket.id]
     const restored = saved && isInsideCavern(saved.pos, 20, map) ? saved : undefined
-    // Older untouched cells stood still below a dispenser. Preserve their
-    // saved location, but let them start drifting like other loose cargo.
-    const stationaryLegacyCell = restored && !restored.tethered && Math.hypot(restored.vel.x, restored.vel.y) < 0.0001 &&
-      Math.hypot(restored.pos.x - socket.source.x, restored.pos.y - socket.source.y - 48) < 0.01
     return {
       sourceId: socket.id,
       pos: { ...(restored?.pos ?? socket.source) },
-      vel: restored && !stationaryLegacyCell ? { ...restored.vel } : initialCargoVelocity(socket.source),
+      vel: restored ? { ...restored.vel } : initialCargoVelocity(socket.source),
       tethered: !!restored?.tethered,
     }
   })
@@ -208,11 +208,10 @@ export const objectBody = (rt: ExpeditionRuntime, id: string, position: Vector2)
   const kind = id === 'core' ? 'core' : CACHES.some(c => c.id === id) ? 'salvage' : 'module'
   const { radius } = CARGO_PHYSICS[kind]
   const body = rt.objects[id] ??= { pos: { ...position }, vel: initialCargoVelocity(position), radius, cargoId: id, capture: 0 }
-  // Live development updates may retain bodies created by the older collector.
-  identifyBody(body, { type: 'cargo', id, kind })
   if (![body.pos.x, body.pos.y, body.vel.x, body.vel.y].every(Number.isFinite)) {
     body.pos = { ...position }; body.vel = { x: 0, y: 0 }; body.capture = 0
   }
+  identifyBody(body, { type: 'cargo', id, kind })
   return body
 }
 export function cargoBodies(s: Expedition, rt: ExpeditionRuntime): FloatingBody[] {

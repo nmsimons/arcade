@@ -1,3 +1,4 @@
+import { profileStart, profileEnd } from './profiling.ts'
 import type { Vector2 } from './types'
 import { raycastCavern } from './worldGeometry.ts'
 import type { CavernMap } from './worldGeometry'
@@ -31,42 +32,70 @@ export function radiationReach(source: RadiationSource, angle: number, map?: Cav
 }
 
 export function radiationAt(pos: Vector2, map?: CavernMap) {
-  let intensity = 0, strongest = 0
-  let source: RadiationSource | undefined
-  for (const emitter of RADIATION_SOURCES) {
-    if (map?.containedRadiation?.includes(emitter.id)) continue
-    const dx = pos.x - emitter.pos.x, dy = pos.y - emitter.pos.y
-    const distance = Math.hypot(dx, dy)
-    if (distance >= emitter.range || distance > radiationReach(emitter, Math.atan2(dy, dx), map) + 0.01) continue
-    const falloff = Math.max(0, (distance - emitter.coreRange) / (emitter.range - emitter.coreRange))
-    const strength = (1 - falloff * falloff * (3 - 2 * falloff)) * (emitter.strength ?? 1)
-    intensity += strength
-    if (strength > strongest) { strongest = strength; source = emitter }
-  }
-  return { intensity: Math.min(1, intensity), source }
+  const profileTime = profileStart()
+  try {
+    let intensity = 0, strongest = 0
+    let source: RadiationSource | undefined
+    for (const emitter of RADIATION_SOURCES) {
+      if (map?.containedRadiation?.includes(emitter.id)) continue
+      const dx = pos.x - emitter.pos.x, dy = pos.y - emitter.pos.y
+      const distance = Math.hypot(dx, dy)
+      if (distance >= emitter.range || distance > radiationReach(emitter, Math.atan2(dy, dx), map) + 0.01) continue
+      const falloff = Math.max(0, (distance - emitter.coreRange) / (emitter.range - emitter.coreRange))
+      const strength = (1 - falloff * falloff * (3 - 2 * falloff)) * (emitter.strength ?? 1)
+      intensity += strength
+      if (strength > strongest) { strongest = strength; source = emitter }
+    }
+    return { intensity: Math.min(1, intensity), source }
+  } finally { profileEnd('radiation-dose', profileTime) }
 }
 export const inRadiation = (pos: Vector2, map?: CavernMap) => radiationAt(pos, map).intensity > 0
 
 const footprintCache = new WeakMap<CavernMap, Map<string, Vector2[]>>()
+const localFootprintCache = new WeakMap<readonly Vector2[], Map<string, { signature: string; points: Vector2[] }>>()
+/** Maps are immutable geometry snapshots. A distant moving door cannot affect
+ * these rays; retain the last local footprint across fresh map identities. */
+function footprintSignature(source: RadiationSource, map: CavernMap, sourceKey: string) {
+  const reach=source.range+1,left=source.pos.x-reach,right=source.pos.x+reach,top=source.pos.y-reach,bottom=source.pos.y+reach
+  let signature=sourceKey
+  for(const polygon of map.obstacles) {
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity
+    for(const p of polygon){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)}
+    // AABB overlap is conservative, including long edges with no nearby vertex.
+    if(maxX<left||minX>right||maxY<top||minY>bottom)continue
+    signature+='|'+polygon.map(p=>`${p.x},${p.y}`).join(';')
+  }
+  return signature
+}
 /** Use the same wall raycasts for the visible footprint and the actual dose. */
 export function radiationFootprint(source: RadiationSource, map: CavernMap): Vector2[] {
-  let cached = footprintCache.get(map)
-  if (!cached) { cached = new Map(); footprintCache.set(map, cached) }
-  const existing = cached.get(source.id)
-  if (existing) return existing
-  const angles = Array.from({ length: 96 }, (_, i) => i * Math.PI / 48 - Math.PI)
-  for (const point of [...map.boundary, ...map.obstacles.flat()]) {
-    if (Math.hypot(point.x - source.pos.x, point.y - source.pos.y) > source.range + 1) continue
-    const angle = Math.atan2(point.y - source.pos.y, point.x - source.pos.x)
-    angles.push(angle - 0.0001, angle, angle + 0.0001)
-  }
-  angles.sort((a, b) => a - b)
-  const points = angles.map(angle => {
-    const distance = radiationReach(source, angle, map)
-    return { x: source.pos.x + Math.cos(angle) * distance, y: source.pos.y + Math.sin(angle) * distance }
-  })
-  cached.set(source.id, points)
-  return points
+  const profileTime = profileStart()
+  try {
+    let cached = footprintCache.get(map)
+    if (!cached) { cached = new Map(); footprintCache.set(map, cached) }
+    const sourceKey=`${source.id}:${source.pos.x},${source.pos.y},${source.bodyRadius},${source.range}`
+    const existing = cached.get(sourceKey)
+    if (existing) return existing
+    let local=localFootprintCache.get(map.boundary)
+    if(!local){local=new Map();localFootprintCache.set(map.boundary,local)}
+    const signature=footprintSignature(source,map,sourceKey),previous=local.get(source.id)
+    if(previous?.signature===signature){cached.set(sourceKey,previous.points);return previous.points}
+    const angles = Array.from({ length: 96 }, (_, i) => i * Math.PI / 48 - Math.PI)
+    for (const point of [...map.boundary, ...map.obstacles.flat()]) {
+      if (Math.hypot(point.x - source.pos.x, point.y - source.pos.y) > source.range + 1) continue
+      const angle = Math.atan2(point.y - source.pos.y, point.x - source.pos.x)
+      angles.push(angle - 0.0001, angle, angle + 0.0001)
+    }
+    angles.sort((a, b) => a - b)
+    const points = angles.map(angle => {
+      const distance = radiationReach(source, angle, map)
+      return { x: source.pos.x + Math.cos(angle) * distance, y: source.pos.y + Math.sin(angle) * distance }
+    })
+    cached.set(sourceKey, points)
+    // One entry per emitter per boundary, not one per door animation frame.
+    local.set(source.id,{signature,points})
+    return points
+  } finally { profileEnd('radiation-footprint', profileTime) }
 }
 
 export interface RadiationFeedback { intensity: number; draining: boolean; unprotected: boolean; pulse: number; tickIn: number; source?: RadiationSource }

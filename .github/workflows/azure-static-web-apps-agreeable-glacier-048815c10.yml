@@ -38,7 +38,7 @@ jobs:
         run: npm run build
       - name: Install browser
         run: npx playwright install --with-deps chromium
-      - name: Test save recovery in the production build
+      - name: Test browser routes, recovery and controls
         run: npm run test:browser
       - name: Deploy validated build
         if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')

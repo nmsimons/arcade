@@ -104,11 +104,14 @@ test('every fresh power cell, module, salvage crate and core starts drifting in 
 
 test('cell saves preserve moved cargo and used cells, while untouched legacy cells gain initial drift', () => {
   const state = freshExpedition(), socket = SOCKETS.find(s=>s.id==='breach-power')
+  state.version = 1
   const position = { x:socket.source.x, y:socket.source.y+48 }
   state.cargo = { [socket.id]:{pos:position,vel:{x:0,y:0},tethered:false} }
   const restored = powerCellSpawns(parseExpedition(JSON.stringify(state))).find(cell=>cell.sourceId===socket.id)
   assert.deepEqual(restored.pos, position)
   assert.ok(Math.hypot(restored.vel.x, restored.vel.y) > .1)
+  state.version = 2
+  assert.deepEqual(powerCellSpawns(parseExpedition(JSON.stringify(state))).find(cell=>cell.sourceId===socket.id).vel,{x:0,y:0},'current saves never repeat dispenser migration')
   state.cargo[socket.id].tethered = true
   const moved = powerCellSpawns(state).find(cell=>cell.sourceId===socket.id)
   assert.deepEqual(moved.pos, position);assert.deepEqual(moved.vel, {x:0,y:0})

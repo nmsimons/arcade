@@ -23,7 +23,7 @@ export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
   gameState: HardVacuumGameState
   nowMs: number
-  
+
   expedition: Expedition
   expeditionRuntime: ExpeditionRuntime
   mapOpen: boolean
@@ -58,7 +58,7 @@ export function drawHardVacuumFrame(args: {
   const {
     ctx,
     gameState,
-    
+
     expedition,
     expeditionRuntime,
     mapOpen,

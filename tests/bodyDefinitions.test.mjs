@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { bodyMass, CARGO_PHYSICS, identifyBody, isImmovable } from '../src/games/hardVacuum/bodyDefinitions.ts'
-import { cargoBodies, freshExpedition, freshRuntime, looseObjects, parseExpedition, snapshotCargo } from '../src/games/hardVacuum/expedition.ts'
+import { cargoBodies, freshExpedition, freshRuntime, looseObjects, parseExpedition, snapshotCargo, objectBody } from '../src/games/hardVacuum/expedition.ts'
 import { collideBodies } from '../src/games/hardVacuum/bodyCollisions.ts'
 import { pullBotCable } from '../src/games/hardVacuum/maintenanceBots.ts'
 import { updateHarpoon } from '../src/games/hardVacuum/harpoon.ts'
@@ -52,4 +52,8 @@ test('constructors enforce stable identity and immovable capabilities',()=>{
   body.socketId='foundry';assert.ok(isImmovable(body))
   const fixture=identifyBody({...body},{type:'terminal',id:'log'})
   assert.equal(fixture.sourceId,undefined);assert.ok(isImmovable(fixture))
+  const rt=freshRuntime(),cargo=objectBody(rt,'rescue-cache',{x:7900,y:3500})
+  cargo.vel.x=NaN
+  assert.equal(objectBody(rt,'rescue-cache',{x:7900,y:3500}),cargo)
+  assert.deepEqual(cargo.vel,{x:0,y:0})
 })

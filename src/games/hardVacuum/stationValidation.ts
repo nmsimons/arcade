@@ -25,7 +25,7 @@ export function validateStation(data = STATION_AUTHORING): string[] {
     return seen
   }
   const rooms=unique('room',data.rooms.map(r=>r.id)),gates=unique('gate',data.gates.map(g=>g.id)),circuits=unique('circuit',data.circuits.map(c=>c.id))
-  const entities=unique('entity',[...data.caches.map(c=>c.id),...data.pickups.map(p=>p.id),...data.bots.map(b=>b.id),...data.circuits.map(c=>c.id),'core'])
+  unique('entity',[...data.caches.map(c=>c.id),...data.pickups.map(p=>p.id),...data.bots.map(b=>b.id),...data.circuits.map(c=>c.id),'core'])
   unique('record',data.records.map(r=>r.id)); unique('objective',data.steps.map(s=>s.id))
   const catalogs: readonly (readonly [readonly string[], ReadonlySet<string>, string])[] = [[ROOM_IDS,rooms,'room'],[GATE_IDS,gates,'gate'],[CIRCUIT_IDS,circuits,'circuit'],[CACHE_IDS,new Set(data.caches.map(c=>c.id)),'cache'],[BOT_IDS,new Set(data.bots.map(b=>b.id)),'bot']]
   for(const [catalog,actual,label] of catalogs) {
@@ -41,7 +41,7 @@ export function validateStation(data = STATION_AUTHORING): string[] {
     for(const gate of circuit.gates)require(gates.has(gate),`Circuit ${circuit.id} targets gate: ${gate}`)
     for(const flag of circuit.flags??[])require(PROGRESSION_IDS.includes(flag),`Circuit ${circuit.id} targets flag: ${flag}`)
   }
-  const regionIds=new Set(data.regions.map(r=>r.id)),berthIds=new Set(data.berths.map(b=>b.id))
+  const regionIds=unique('region',data.regions.map(r=>r.id)),berthIds=unique('berth',data.berths.map(b=>b.id))
   for(const region of data.regions)for(const room of region.rooms)require(rooms.has(room),`Region ${region.id} references room: ${room}`)
   for(const step of data.steps) {
     require(circuits.has(step.id),`Objective references circuit: ${step.id}`)
@@ -67,9 +67,10 @@ export function validateStation(data = STATION_AUTHORING): string[] {
   unique('power connection',data.loads.map(load=>`${load.circuit}/${load.target}`))
   for(const load of data.loads) {
     require(circuits.has(load.circuit),`Power connection references circuit: ${load.circuit}`)
-    const valid=load.kind==='door' ? gates.has(load.gate)&&load.target===load.gate
-      : load.kind==='core' ? load.target==='ignition-ready'
-      : load.kind==='bot' ? entities.has(load.target.slice(4))
+    const circuit=data.circuits.find(c=>c.id===load.circuit)
+    const valid=load.kind==='door' ? gates.has(load.gate)&&load.target===load.gate&&circuit?.gates.includes(load.gate)
+      : load.kind==='core' ? load.target==='ignition-ready'&&circuit?.flags?.includes('ignition-ready')
+      : load.kind==='bot' ? data.bots.some(b=>load.target===`bot:${b.id}`&&b.power===load.circuit)
       : load.kind==='berth' ? data.berths.some(b=>load.target===`berth:${b.id}`&&b.power===load.circuit)
       : /^ward:[0-3]$/.test(load.target)&&load.circuit==='ward-power'
     require(valid,`Invalid power target: ${load.circuit}/${load.target}`)
@@ -77,7 +78,7 @@ export function validateStation(data = STATION_AUTHORING): string[] {
   const open=freshExpedition();open.gates=data.gates.map(g=>g.id)
   const map=expeditionMap(open)
   const clear=(id:string,pos:Vector2,radius:number)=>require(isInsideCavern(pos,radius,map),`Invalid spawn/receiver placement: ${id}`)
-  for(const circuit of data.circuits) { clear(`${circuit.id} source`,circuit.source,20);clear(`${circuit.id} receiver`,circuit.pos,0) }
+  for(const circuit of data.circuits) { clear(`${circuit.id} source`,circuit.source,20);clear(`${circuit.id} receiver`,circuit.pos,20) }
   for(const cache of data.caches) { require(rooms.has(cache.sector),`Cache ${cache.id} references room: ${cache.sector}`);clear(cache.id,cache.pos,22) }
   for(const pickup of data.pickups) { require(rooms.has(pickup.sector),`Pickup ${pickup.id} references room: ${pickup.sector}`);clear(pickup.id,pickup.pos,23) }
   for(const bot of data.bots) { require(circuits.has(bot.power),`Bot ${bot.id} references circuit: ${bot.power}`);clear(bot.id,bot.home,bot.kind==='tug'?21:19) }

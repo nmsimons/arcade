@@ -50,7 +50,7 @@ import {
   RED_ROCK_BLAST_IMPULSE,
   RED_ROCK_BLAST_RADIUS,
   RED_ROCK_DETONATION_DELAY,
-  
+
   SHIELD_REPAIR_TIME,
 } from './tuning.ts'
 import { addDevelopmentCredits, advanceDevelopmentLevel } from './development.ts'
@@ -107,7 +107,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const runtimeRef = cell(freshRuntime())
   const gameStateRef = cell<HardVacuumGameState>('menu')
   const shieldsRef = { get current() { return expeditionRef.current.shields }, set current(value: number) { expeditionRef.current.shields = value } }
-  
+
   const simulationClock = new SimulationClock()
   const random = seededRandom(options.seed ?? 1)
   const cosmeticRandom = options.cosmeticRandom ?? Math.random
@@ -170,7 +170,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const lastShieldHitAtRef = cell(0)
   const lastShieldRechargeAtRef = cell(0)
   const dyingTimerRef = cell(0)
-  
+
   const harpoonRef = cell<Harpoon>({ state: 'idle' })
   const miningBaseAngleRef = cell(0)
   const shipAppearanceRef = cell(freshShipAppearance())
@@ -335,7 +335,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   }
 
   const resumeFlight = () => {
-    
+
     keysRef.current.clear()
     if (gameStateRef.current !== 'docked') {
       setGameStateWithRef('playing')
@@ -384,7 +384,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     const offer = upgradeOffer(expeditionRef.current, id)
     if (gameStateRef.current !== 'docked' || !purchaseUpgrade(expeditionRef.current, id)) return
     shieldsRef.current = maxShields(expeditionRef.current)
-    
+
     expeditionRef.current.shields = shieldsRef.current
     sounds.collect()
     phaserStateRef.current.energyMs = laserCapacityMs(expeditionRef.current)
@@ -418,10 +418,10 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     bulletsRef.current = []
     baseShotsRef.current = []
     shieldsRef.current = Math.min(maxShields(expeditionRef.current), expeditionRef.current.shields)
-    
+
     setGameStateWithRef(expeditionRef.current.complete ? 'complete' : 'playing')
     invulnerableRef.current = INVULNERABILITY_GAME_START
-    
+
     debrisRef.current = []
     harpoonRef.current = { state: 'idle' }
     miningBaseAngleRef.current = expeditionRef.current.campaign.havenAngle
@@ -589,7 +589,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         } else if (hp.state === 'attached') {
           // Reel-in detaches.
           const ship = shipRef.current
-          
+
           const d0 = worldDelta(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y)
           const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
           const ropeLength = reelLength * HARPOON_VISUAL_SLACK
@@ -607,7 +607,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         } else {
           // Any other non-idle state (flying/deployed): reel in.
           const ship = shipRef.current
-          
+
           const d0 = worldDelta(ship.pos.x, ship.pos.y, hp.pos.x, hp.pos.y)
           const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
           const ropeLength = reelLength * HARPOON_VISUAL_SLACK
@@ -687,7 +687,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           const state = expeditionRef.current
           const deposited = bankAtCheckpoint(state, dock.id)
           shieldsRef.current = maxShields(state)
-          
+
           state.position = { ...ship.pos }; state.shields = shieldsRef.current
           sounds.collect()
           setGameStateWithRef('docked')
@@ -938,7 +938,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         }
         const next = Math.max(0, current - amt)
         shieldsRef.current = next
-        
+
         lastShieldHitAtRef.current = timeMs
         sounds.shieldHit(next)
       }
@@ -1018,7 +1018,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           rocksRef,
 
           expedition: expeditionRef.current,
-          
+
           createDebris,
           onRedRockDetonate: (rock) => armRedRock(rock),
         })
@@ -1037,7 +1037,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
               if (restoreShipSystems(state)) {
                 shieldsRef.current = state.shields
-                
+
                 lastShieldRechargeAtRef.current = timeMs
                 sounds.shieldCharge()
                 publishExpedition()
@@ -1052,7 +1052,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           }
           if (stepRemoteRecharge(state, dt)) {
             shieldsRef.current = state.shields
-            
+
             lastShieldRechargeAtRef.current = timeMs
             sounds.shieldCharge()
             invulnerableRef.current = Math.max(invulnerableRef.current, INVULNERABILITY_MIN_AFTER_REPAIR)
@@ -1262,7 +1262,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         harpoonRef,
         shipRef,
         cavernMap,
-        
+
         buildRopeBetween,
         sounds,
         onRedRockDetonate: (rock) => armRedRock(rock),

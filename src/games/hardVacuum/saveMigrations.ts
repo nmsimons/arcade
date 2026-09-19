@@ -14,6 +14,7 @@ import { freshSupplies, RECHARGE_PACK_LIMIT } from './supplies.ts'
 import { SHIELD_REPAIR_TIME } from './tuning.ts'
 import { BOT_STATIONS } from './stationBots.ts'
 import { PROGRESSION_IDS } from './stationIds.ts'
+import { initialCargoVelocity } from './expeditionPhysics.ts'
 
 export const SAVE_SCHEMA_VERSION = 2
 const untouchedArchiveModule = (body: {pos:Vector2;tethered?:boolean}) => !body.tethered && body.pos.x>=1100 && body.pos.x<=1900 && body.pos.y>=150 && body.pos.y<=650
@@ -158,6 +159,12 @@ export function parseExpedition(raw: string | null): Expedition | null {
       for (const [id, x, y] of [['foundry', 660, 1258], ['heart', 2340, 1938]] as const) {
         const cargo = s.cargo[id]
         if (cargo && !cargo.tethered && Math.hypot(cargo.pos.x - x, cargo.pos.y - y) < 5) delete s.cargo[id]
+      }
+      // Dispenser-era cells gain drift once on migration, never on a v2 reload.
+      for (const socket of SOCKETS) {
+        const cargo = s.cargo[socket.id]
+        if (cargo && !cargo.tethered && Math.hypot(cargo.vel.x,cargo.vel.y)<.0001 &&
+          Math.hypot(cargo.pos.x-socket.source.x,cargo.pos.y-socket.source.y-48)<.01) cargo.vel=initialCargoVelocity(socket.source)
       }
     }
     }

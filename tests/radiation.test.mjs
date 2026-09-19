@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { expeditionMap, freshExpedition } from '../src/games/hardVacuum/expedition.ts'
+import { expeditionMap, freshExpedition, GATES, SOCKETS, powerReceiver } from '../src/games/hardVacuum/expedition.ts'
 import { isInsideCavern, resolveCircleInCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import {
   RADIATION_HOUSINGS, RADIATION_SOURCES, freshRadiationFeedback, radiationAt,
@@ -14,6 +14,36 @@ const openMap = { id: 99, name: 'Radiation test', boundary: rectangle(0, 0, 4000
 const wall = rectangle(reactor.pos.x + 100, reactor.pos.y - 70, 20, 140)
 const coveredMap = { ...openMap, obstacles: [...RADIATION_HOUSINGS, wall] }
 const protectedState = () => ({ ...freshExpedition(), upgrades: ['radiation'], radiationCharge: 100 })
+
+test('distant geometry changes reuse footprints while nearby long edges invalidate them',()=>{
+  const distant=rectangle(reactor.pos.x+500,reactor.pos.y,30,30)
+  const a={...openMap,obstacles:[...openMap.obstacles,distant]}
+  const first=radiationFootprint(reactor,a)
+  const b={...a,obstacles:[...openMap.obstacles,distant.map(p=>({...p,x:p.x+10}))]}
+  assert.equal(radiationFootprint(reactor,b),first)
+  // Neither end is in range, but this edge still blocks rays and dose.
+  const longWall=rectangle(reactor.pos.x+100,reactor.pos.y-1000,20,2000)
+  const c={...b,obstacles:[...b.obstacles,longWall]},blocked=radiationFootprint(reactor,c)
+  assert.notEqual(blocked,first)
+  assert.deepEqual(blocked,radiationFootprint(reactor,{...c,boundary:[...c.boundary]}))
+  assert.equal(radiationAt(at(180),c).intensity,0)
+  assert.ok(radiationAt(at(180),b).intensity>0)
+  assert.notDeepEqual(radiationFootprint({...reactor,range:150},b),first)
+})
+
+test('cached visual outlines exactly match fresh raycasts throughout station door animations',()=>{
+  const state=freshExpedition()
+  for(const socket of SOCKETS)powerReceiver(state,socket.id,socket.id)
+  state.gates=GATES.map(g=>g.id)
+  for(const progress of [0,.25,.5,.75,1]) {
+    state.doors=Object.fromEntries(GATES.filter(g=>g.kind==='socket').map(g=>[g.id,progress]))
+    const map=expeditionMap(state)
+    for(const source of RADIATION_SOURCES) {
+      const cached=radiationFootprint(source,map)
+      assert.deepEqual(cached,radiationFootprint(source,{...map,boundary:[...map.boundary]}),`${source.id} progress=${progress}`)
+    }
+  }
+})
 
 test('radiation falls off radially instead of filling a bounding rectangle', () => {
   assert.equal(radiationAt(at(60), openMap).intensity, 1)

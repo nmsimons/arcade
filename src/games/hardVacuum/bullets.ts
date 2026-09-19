@@ -48,7 +48,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     harpoonRef,
     shipRef,
     cavernMap,
-    
+
     buildRopeBetween,
     sounds,
     onRedRockDetonate,

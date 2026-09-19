@@ -23,3 +23,5 @@ salvage 22/.65, core 27/1.8 (radius/mass). These preserve effective gameplay wei
 not the unused older .8/1.4/2 values. Validated constructors attach explicit body
 identities; collision and both player/bot tether solvers share mass/capability
 helpers. Rendering/save ID fields remain compatibility adapters.
+The player winch retains its historical minimum inertia of 1 for tiny asteroids;
+this does not override cargo weights or collision/maintenance-bot mass.

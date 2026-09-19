@@ -32,7 +32,7 @@ export function updateBaseDefenseAndProcessing(args: {
   rocksRef: Ref<Rock[]>
 
   expedition: Pick<Expedition, 'banked' | 'credits'>
-  
+
   createDebris: CreateDebris
   onRedRockDetonate?: (rock: Rock) => void
   sounds?: { collect: () => void }
@@ -49,7 +49,7 @@ export function updateBaseDefenseAndProcessing(args: {
     rocksRef,
 
     expedition,
-    
+
     createDebris,
     onRedRockDetonate,
   } = args

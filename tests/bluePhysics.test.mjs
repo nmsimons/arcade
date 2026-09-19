@@ -18,15 +18,15 @@ const bulletArgs = rock => ({
    buildRopeBetween: unexpectedDamage, onAsteroidDestroyed: unexpectedDamage,
    sounds: { explosion: unexpectedDamage },
   createRock: unexpectedDamage, createDebris: unexpectedDamage,
-    
+
    SMALLEST_ROCK_RADIUS: 20,
-  HARPOON_VISUAL_SLACK: 1.18, 
-    
+  HARPOON_VISUAL_SLACK: 1.18,
+
 })
 const baseArgs = rock => ({
   dt: 0, w: 1000, h: 1000, baseX: 0, baseY: 0, MINING_BASE_RADIUS: 118,
   miningBaseAngleRef: ref(0), miningGunCooldownsRef: ref([0, 0, 0]),
-  baseShotsRef: ref([]), rocksRef: ref([rock]),  
+  baseShotsRef: ref([]), rocksRef: ref([rock]),
    expedition: freshExpedition(),  createDebris: unexpectedDamage,
 })
 
@@ -40,7 +40,7 @@ test('repeated projectile hits repel both mined blue rocks and mission cells wit
       assert.ok(rock.vel.x > before)
       assert.equal(args.bulletsRef.current.length, 0)
       assert.deepEqual(args.rocksRef.current, [rock]); assert.equal(rock.radius, 20)
-      
+
     }
   }
 })
@@ -65,7 +65,7 @@ test('base guns never target or process power cells; intercepted rounds only rep
     args.baseShotsRef.current.push({ pos: { x: -10, y: 0 }, vel: { x: 520, y: 0 }, life: 0.9 })
     updateBaseDefenseAndProcessing(args)
     assert.equal(args.baseShotsRef.current.length, 0)
-    assert.deepEqual(args.rocksRef.current, [rock]); 
+    assert.deepEqual(args.rocksRef.current, [rock]);
     assert.equal(args.expedition.banked, 0)
     assert.equal(rock.vel.x > 0, !rock.socketId)
   }

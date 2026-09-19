@@ -27,5 +27,8 @@ export function identifyBody<T extends TetherBody>(body: T, identity: BodyIdenti
 
 export const isImmovable = (body: TetherBody) => !!(body.socketId || body.anchored || body.retrieving)
 export const bodyMass = (body: TetherBody) => body.mass ?? (body.identity?.type === 'ship' || 'angle' in body ? 1 : Math.max(.25, (body.radius / 18) ** 2))
+// The player winch historically floors small asteroid inertia at 1. Cargo and
+// cells keep their authored mass; collision and maintenance-bot mass is unchanged.
+export const playerTetherMass = (body: TetherBody) => isAsteroid(body) ? Math.max(1, bodyMass(body)) : bodyMass(body)
 export const isAsteroid = (body: TetherBody) => body.identity ? body.identity.type === 'asteroid' : !!body.kind && !body.sourceId
 export const isRock = (body: TetherBody): body is Rock => 'mesh' in body && 'angVel' in body && 'points' in body

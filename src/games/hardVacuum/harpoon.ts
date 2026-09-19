@@ -357,7 +357,7 @@ export function updateHarpoon(args: {
 
         // Mass: larger rock = heavier. Ship is always light.
         const invShip = 1
-        const mRock = bodyMass(rock)
+        const mRock = playerTetherMass(rock)
         const invRock = isImmovable(rock) ? 0 : 1 / mRock
         const invSum = invShip + invRock
 
@@ -519,4 +519,4 @@ export function updateHarpoon(args: {
     }
   }
 }
-import { bodyMass, isImmovable } from './bodyDefinitions.ts'
+import { playerTetherMass, isImmovable } from './bodyDefinitions.ts'

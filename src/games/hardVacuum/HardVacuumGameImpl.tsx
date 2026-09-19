@@ -57,11 +57,7 @@ import {
   RED_ROCK_DETONATION_DELAY,
   RED_ROCK_SPAWN_CHANCE,
   SHIELD_REPAIR_TIME,
-  SHIP_FRICTION,
-  SHIP_LATERAL_FRICTION,
   SHIP_MAX_SHIELDS,
-  SHIP_MAX_SPEED,
-  SHIP_THRUST_ACCELERATION,
 } from './tuning'
 import { ExpeditionHud, ExpeditionOverlay, StationSurveyControls } from './expeditionUi'
 import { DevelopmentPanel } from './DevelopmentPanel'
@@ -75,7 +71,8 @@ import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpoin
 import { createExpeditionSaveSession } from './expeditionSave'
 import { BLASTER_BLAST_RADIUS, fireBlaster, pulverizeAsteroid, stepBlaster } from './blaster'
 import type { BlasterVisuals } from './blaster'
-import { angleDelta, applyNoseThrust, dockingReadiness, driftCargo, repelBlueBody, stepShipTurn } from './expeditionPhysics'
+import { angleDelta, dockingReadiness, driftCargo, repelBlueBody, stepShipMovement } from './expeditionPhysics'
+import { SimulationClock } from './simulationClock'
 import { laserImpactMs, stepLaserContact } from './laser'
 import type { LaserContact } from './laser'
 import { freshRadiationFeedback, stepRadiation, stepRadiationFeedback } from './radiation'
@@ -111,6 +108,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [lostCredits, setLostCredits] = useState(0)
   const hudTimerRef = useRef(0)
   const saveTimerRef = useRef(0)
+  const [simulationClock] = useState(() => new SimulationClock())
   const mapOpenRef = useRef(false)
   const [mapOpen, setMapOpen] = useState(false)
   const mapOverviewRef = useRef(false)
@@ -158,9 +156,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   }, [gameState])
 
   const setGameStateWithRef = useCallback((next: HardVacuumGameState) => {
+    simulationClock.reset()
     gameStateRef.current = next
     setGameState(next)
-  }, [])
+  }, [simulationClock])
 
   useEffect(() => {
     // Ensure continuous audio loops don't get stuck across state transitions.
@@ -396,6 +395,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   }
 
   const setDevelopmentOpen = useCallback((open: boolean) => {
+    simulationClock.reset()
     devOpenRef.current = open
     setDevOpen(open)
     keysRef.current.clear()
@@ -403,7 +403,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       phaserBeamRef.current.active = false
       laserContactRef.current = { elapsedMs: 0 }
     }
-  }, [])
+  }, [simulationClock])
 
   const jumpToDevelopmentLevel = useCallback((id: BerthId) => {
     if (!import.meta.env.DEV) return
@@ -421,6 +421,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   }, [publishExpedition])
 
   const setSurveyOpen = useCallback((open: boolean) => {
+    simulationClock.reset()
     mapOpenRef.current = open
     setMapOpen(open)
     keysRef.current.clear()
@@ -433,7 +434,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
       sounds.stopThrust(); sounds.stopPhaser(); sounds.stopRepairHum(); sounds.stopRadiation()
     }
-  }, [devMapRevealed])
+  }, [devMapRevealed, simulationClock])
 
   const toggleMapZoom = useCallback(() => {
     mapZoomRef.current = mapZoomRef.current === 1 ? 2 : 1
@@ -1236,39 +1237,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       // Passengers remain secured inside the tender while the world keeps moving.
       if (!riding) {
-        // Ship controls
-        const {left:turningLeft,right:turningRight,forward:isThrusting,reverse:noseThrusting}=flightInput(keysRef.current)
-        stepShipTurn(ship, Number(turningRight) - Number(turningLeft), dt)
-        if (isThrusting) {
-          ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt
-          ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt
-        }
-        if (noseThrusting) applyNoseThrust(ship, dt)
-        const maxSpeed = SHIP_MAX_SPEED
-        const speed = Math.hypot(ship.vel.x, ship.vel.y)
-        if (speed > maxSpeed) {
-          ship.vel.x = (ship.vel.x / speed) * maxSpeed
-          ship.vel.y = (ship.vel.y / speed) * maxSpeed
-        }
-
-        // Damp velocity in the ship's local frame: reduce sideways drift more than forward motion.
-        const fx = Math.cos(ship.angle)
-        const fy = Math.sin(ship.angle)
-        const rx = -fy
-        const ry = fx
-
-        const vForward = ship.vel.x * fx + ship.vel.y * fy
-        const vRight = ship.vel.x * rx + ship.vel.y * ry
-
-        const nextForward = vForward * SHIP_FRICTION
-        const nextRight = vRight * SHIP_LATERAL_FRICTION
-
-        ship.vel.x = nextForward * fx + nextRight * rx
-        ship.vel.y = nextForward * fy + nextRight * ry
-
-        // Update ship in persistent world coordinates.
-        ship.pos.x += ship.vel.x * dt
-        ship.pos.y += ship.vel.y * dt
+        stepShipMovement(ship, keysRef.current, dt)
         const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
         if (shipWallHit.maxImpactSpeed > 0) applyImpactShield(shipWallHit.maxImpactSpeed)
         if (gameStateRef.current !== 'playing') return
@@ -1736,7 +1705,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       const dt = Math.min((timestamp - lastTimeRef.current) / 1000, 1 / 30)
       lastTimeRef.current = timestamp
 
-      update(dt)
+      simulationClock.advance(timestamp, !devOpenRef.current && !mapOpenRef.current && gameStateRef.current !== 'paused' && gameStateRef.current !== 'complete', update)
       if (!devOpenRef.current && gameStateRef.current === 'playing' && !mapOpenRef.current && !expeditionRef.current.campaign.journey?.riding) {
         stepShipAppearance(shipAppearanceRef.current,keysRef.current,dt,shipRef.current.angularVelocity)
         const controls=flightInput(keysRef.current)
@@ -1766,7 +1735,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       sounds.stopRepairHum(true)
       sounds.stopRadiation()
     }
-  }, [createRock, createDebris, publishExpedition, persistExpedition, retractTether, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, setGameStateWithRef, devMapRevealed])
+  }, [createRock, createDebris, publishExpedition, persistExpedition, retractTether, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, setGameStateWithRef, devMapRevealed, simulationClock])
 
   useEffect(() => {
     if (gameState === 'playing' && !mapOpen && !devOpen) canvasRef.current?.focus({ preventScroll: true })

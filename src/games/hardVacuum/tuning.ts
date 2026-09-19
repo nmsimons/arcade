@@ -21,7 +21,7 @@ export const SHIP_TURN_DAMPING = 20 // Short coast: about 14 degrees from full t
 export const SHIP_THRUST_ACCELERATION = 300 // Forward acceleration when thrusting
 export const SHIP_NOSE_THRUST_ACCELERATION = SHIP_THRUST_ACCELERATION * 0.25 // Nose jet: one quarter of rear thrust
 export const SHIP_MAX_SPEED = 300 // Maximum velocity (speed cap)
-export const SHIP_FRICTION = 0.99 // Velocity damping per frame (0.99 = 1% friction)
+export const SHIP_FRICTION = 0.99 // Velocity damping per 1/60-second simulation step
 export const SHIP_LATERAL_FRICTION = 0.985 // Stronger damping for sideways drift (lower = grippier)
 
 // Upgrades extend the hook's reach; attached cargo settles back to this towing length.

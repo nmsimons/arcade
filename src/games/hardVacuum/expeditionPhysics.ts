@@ -1,5 +1,6 @@
 import type { Ship, TetherBody, Vector2 } from './types'
-import { SHIP_NOSE_THRUST_ACCELERATION, SHIP_ROTATION_SPEED, SHIP_TURN_DAMPING, SHIP_TURN_RESPONSE } from './tuning.ts'
+import { SHIP_FRICTION, SHIP_LATERAL_FRICTION, SHIP_MAX_SPEED, SHIP_THRUST_ACCELERATION, SHIP_NOSE_THRUST_ACCELERATION, SHIP_ROTATION_SPEED, SHIP_TURN_DAMPING, SHIP_TURN_RESPONSE } from './tuning.ts'
+import { flightInput } from './flightInput.ts'
 
 export interface FloatingBody extends TetherBody { cargoId: string; capture: number }
 
@@ -15,6 +16,27 @@ export function driftCargo(body: TetherBody, dt: number) {
 export function applyNoseThrust(ship: Ship, dt: number) {
   ship.vel.x -= Math.cos(ship.angle) * SHIP_NOSE_THRUST_ACCELERATION * dt
   ship.vel.y -= Math.sin(ship.angle) * SHIP_NOSE_THRUST_ACCELERATION * dt
+}
+
+/** Production flight integration. Constants retain the original 60 Hz feel. */
+export function stepShipMovement(ship: Ship, keys: Set<string>, dt: number) {
+  const { left, right, forward, reverse } = flightInput(keys)
+  stepShipTurn(ship, Number(right) - Number(left), dt)
+  if (forward) {
+    ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt
+    ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt
+  }
+  if (reverse) applyNoseThrust(ship, dt)
+  const speed = Math.hypot(ship.vel.x, ship.vel.y)
+  if (speed > SHIP_MAX_SPEED) {
+    ship.vel.x *= SHIP_MAX_SPEED / speed; ship.vel.y *= SHIP_MAX_SPEED / speed
+  }
+  const fx = Math.cos(ship.angle), fy = Math.sin(ship.angle)
+  const forwardSpeed = (ship.vel.x * fx + ship.vel.y * fy) * Math.pow(SHIP_FRICTION, dt * 60)
+  const rightSpeed = (-ship.vel.x * fy + ship.vel.y * fx) * Math.pow(SHIP_LATERAL_FRICTION, dt * 60)
+  ship.vel.x = forwardSpeed * fx - rightSpeed * fy
+  ship.vel.y = forwardSpeed * fy + rightSpeed * fx
+  ship.pos.x += ship.vel.x * dt; ship.pos.y += ship.vel.y * dt
 }
 
 /** A responsive turn with a small, frame-rate-independent coast on release. */

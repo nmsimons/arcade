@@ -221,8 +221,8 @@ export function updateHarpoon(args: {
     hp0.pos.y = wrapY(hp0.pos.y + hp0.vel.y * dt)
 
     // Mild damping for stability (feels like a small object with some drag).
-    hp0.vel.x *= 0.996
-    hp0.vel.y *= 0.996
+    hp0.vel.x *= Math.pow(0.996, dt * 60)
+    hp0.vel.y *= Math.pow(0.996, dt * 60)
 
     // Enforce the cable max length (tension-only) with hook mass.
     {

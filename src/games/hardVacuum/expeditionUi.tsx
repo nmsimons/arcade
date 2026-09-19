@@ -11,6 +11,7 @@ import { KeyboardDialog } from './KeyboardDialog'
 import { FlightInstruments } from './FlightInstruments'
 import { supplyOffers } from './supplies'
 import type { SupplyPurchase } from './supplies'
+import type { SaveLoadResult } from './expeditionSave'
 
 const button = 'border border-[#00ff88]/60 px-5 py-3 text-sm uppercase tracking-widest text-[#00ff88] hover:bg-[#00ff88]/15 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00ff88] transition-colors'
 
@@ -59,8 +60,10 @@ export function ExpeditionHud({ state, gameState, shields, hud, mapOpen, onJourn
   </>
 }
 
-export function ExpeditionOverlay({ gameState, state, hasSave, saveAvailable, lostCredits, onStart, onNew, onBuy, onBuySupply, onRelocate, journalOpen, onJournal, onCloseJournal, onResume, onMenu, onExit }: {
-  gameState: HardVacuumGameState; state: Expedition; hasSave: boolean; saveAvailable: boolean
+export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, loadStatus, loadBlocked, hasBackup, onRecover, exitSaveFailed, onExitWithoutSaving, lostCredits, onStart, onNew, onBuy, onBuySupply, onRelocate, journalOpen, onJournal, onCloseJournal, onResume, onMenu, onExit }: {
+  gameState: HardVacuumGameState; state: Expedition; hasSave: boolean; saveIssue: string
+  loadStatus: SaveLoadResult['status']; loadBlocked: boolean; hasBackup: boolean; onRecover: () => void
+  exitSaveFailed: boolean; onExitWithoutSaving: () => void
   lostCredits: number
   onStart: () => void; onNew: () => void; onBuy: (id: ShipUpgrade) => void; onResume: () => void; onMenu: () => void; onExit: () => void
   onBuySupply: (id: SupplyPurchase) => void
@@ -102,11 +105,17 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveAvailable, lo
         <p className="text-[10px] tracking-[0.35em] text-[#ffcf85] mb-4 uppercase">The Last Shift</p>
         <h1 className="text-4xl sm:text-6xl tracking-wider text-[#00ff88] uppercase">Hard Vacuum</h1>
         <p className="text-white/70 text-sm leading-relaxed mt-5 max-w-lg">Orison went silent nine years ago. Your contract says it was evacuated. Find the stranded maintenance tender Haven, restore a route through the station, and recover its ignition core.</p>
+        {loadBlocked && <p role="alert" className="mt-5 text-sm text-[#ffbd69]">{loadStatus === 'unsupported'
+          ? 'This expedition was saved by a newer version of the game. Your save has been preserved.'
+          : loadStatus === 'storage-unavailable'
+            ? 'Browser storage could not be read. Any existing save has been left untouched.'
+            : 'The saved expedition could not be read. Your original save has been preserved.'} {hasBackup ? 'You can restore the last working backup or deliberately start a new expedition.' : 'Reload to try again, or deliberately start a new expedition.'}</p>}
         <div className="flex flex-wrap gap-3 mt-7">
-          <button className={button} data-initial-focus onClick={onStart}>{hasSave ? 'Continue expedition' : 'Launch expedition'}</button>
+          {!loadBlocked && <button className={button} data-initial-focus onClick={onStart}>{hasSave ? 'Continue expedition' : 'Launch expedition'}</button>}
+          {!hasSave && hasBackup && <button className={button} data-initial-focus={loadBlocked || undefined} onClick={onRecover}>Restore backup</button>}
           <button className={button} onClick={onExit} aria-keyshortcuts="Escape">Back · Esc</button>
         </div>
-        {hasSave && <button className={`${button} mt-4 text-xs`} onClick={() => setConfirmNew(true)}>Start a new expedition…</button>}
+        {(hasSave || loadBlocked) && <button className={`${button} mt-4 text-xs`} onClick={() => setConfirmNew(true)}>Start a new expedition…</button>}
       </>}
       {gameState === 'menu' && confirmNew && <>
         <h2 className="text-2xl text-[#ffcf85]">Start a new expedition?</h2>
@@ -171,7 +180,11 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveAvailable, lo
           <span>F · Grapple / release · Connect to terminals</span><span>E · Dock / call Haven</span><span>R · Remote recharge</span><span>T · Teleport</span><span>M · Map</span><span>G · Log</span><span>P / Esc · Pause</span>
         </div>}
       </>}
-      {!saveAvailable && <p className="mt-4 text-xs text-[#ffbd69]">Browser storage is unavailable. Progress is kept for this session only.</p>}
+      {saveIssue && <p role="alert" className="mt-4 text-xs text-[#ffbd69]">{saveIssue}</p>}
+      {exitSaveFailed && <div className="mt-4 border-t border-[#ffbd69]/40 pt-4">
+        <p className="text-xs text-[#ffbd69]">Your latest progress is still only in this tab.</p>
+        <div className="flex flex-wrap gap-3 mt-3"><button className={button} onClick={onExit}>Retry save & exit</button><button className={button} onClick={onExitWithoutSaving}>Exit without saving</button></div>
+      </div>}
     </div>
   </KeyboardDialog>
 }

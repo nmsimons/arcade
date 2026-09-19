@@ -286,10 +286,11 @@ Note: browsers often require a user gesture (key press/click) before audio can s
 
 ## Development
 
-Install dependencies:
+Use Node.js 24 (see `.nvmrc`) so Node can run the TypeScript gameplay modules
+directly in the regression tests. Install the locked dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 Start the dev server:
@@ -308,7 +309,36 @@ npm run build    # Type-check + production build to dist/
 npm run preview  # Preview the production build locally
 npm run lint     # Run ESLint
 npm test         # Geometry, progression, checkpoint, and save tests
+npm run test:browser # Save recovery and keyboard flows against the production build
 ```
+
+For browser tests, run `npx playwright install chromium` once, then
+`npm run build && npm run test:browser`. Playwright starts its own production
+preview on port 4175 and uses isolated browser storage; it never touches your
+normal browser's expedition. On Linux CI, install Chromium with
+`npx playwright install --with-deps chromium`.
+
+### Save recovery
+
+Opening Hard Vacuum's title menu and leaving without starting never writes a save. Missing,
+valid, malformed, newer-version, and inaccessible saves are distinct outcomes.
+An unreadable save blocks Continue; the menu offers a working backup when one
+exists and a confirmed New expedition action. Canceling New or leaving the
+menu preserves the original bytes.
+
+The active slot remains `hard-vacuum-expedition-v1`. Each successful save keeps
+the previous validated slot in `hard-vacuum-expedition-v1-backup` (the first
+save initializes both). Recovering or deliberately replacing an unreadable
+slot first preserves its bytes in `hard-vacuum-expedition-v1-unreadable`.
+Invalid runtime data never replaces a good save or backup. Existing migrations
+still run through `parseExpedition`; the schema and gameplay reset rules are
+unchanged. If backup/archive writes fail, the primary slot is not replaced.
+
+Storage errors appear during flight and in menus. A failed Save & exit stays
+in the game, with Retry save & exit and an explicit Exit without saving action.
+If another tab changes the save, autosaving stops and asks you to reload.
+Backups share the browser's storage and cannot protect against clearing site
+data or browser eviction.
 
 ## Project Structure
 
@@ -334,8 +364,24 @@ public/          # Static assets
 
 This repo includes a GitHub Actions workflow for Azure Static Web Apps deployment.
 
-- Workflow: [.github/workflows/azure-static-web-apps-ambitious-stone-04a8a9c10.yml](.github/workflows/azure-static-web-apps-ambitious-stone-04a8a9c10.yml)
+- Workflow: [.github/workflows/azure-static-web-apps-agreeable-glacier-048815c10.yml](.github/workflows/azure-static-web-apps-agreeable-glacier-048815c10.yml)
 - Build output: `dist/`
-- Required secret: `AZURE_STATIC_WEB_APPS_API_TOKEN_AMBITIOUS_STONE_04A8A9C10`
+- Required secret: `AZURE_STATIC_WEB_APPS_API_TOKEN_AGREEABLE_GLACIER_048815C10`
 
-Pushes to `main` deploy automatically; pull requests create preview environments.
+Pushes to `main` and pull requests targeting `main` run the **Validate and deploy**
+check: Node 24, `npm ci`, `npm test`, `npm run lint`, `npm run build`, and browser
+save-recovery tests. Every validation step must succeed before deployment.
+Azure uploads that same `dist/` using
+[`skip_app_build`](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration#skip-building-front-end-app)
+instead of rebuilding. Pushes to `main` deploy to production; same-repository
+pull requests deploy previews, which are removed when the PR closes. Fork and
+Dependabot PRs run validation without using deployment secrets.
+
+To prevent merging failed checks, configure a `main` branch rule requiring a
+pull request and the **Validate and deploy** status check (and require the branch
+to be up to date). Adding the workflow does not enable branch protection.
+As checked on September 19, 2026, GitHub rejects branch-protection and ruleset
+access for this private repository with “Upgrade to GitHub Pro or make this
+repository public to enable this feature.” Until the repository has a plan
+that supports this setting, enforce green checks during review; the workflow
+still blocks its own deployments after validation failures.

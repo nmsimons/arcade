@@ -71,7 +71,8 @@ import { coreReleased, havenPose, havenPosition, havenReady, moveHaven, regionFo
 import type { BerthId } from './campaignWorld'
 import { IGNITION_CRADLE } from './campaignWorld'
 import type { HardVacuumGameState } from './ui'
-import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, freshExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, readExpedition, powerCellSpawns, saveExpedition, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition'
+import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, freshExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, powerCellSpawns, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition'
+import { createExpeditionSaveSession } from './expeditionSave'
 import { BLASTER_BLAST_RADIUS, fireBlaster, pulverizeAsteroid, stepBlaster } from './blaster'
 import type { BlasterVisuals } from './blaster'
 import { angleDelta, applyNoseThrust, dockingReadiness, driftCargo, repelBlueBody, stepShipTurn } from './expeditionPhysics'
@@ -98,13 +99,15 @@ import { updateBulletsAndPlayerRockCollisions } from './bullets'
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<HardVacuumGameState>('menu')
-  const [initialSave] = useState(readExpedition)
-  const [expedition, setExpedition] = useState(() => initialSave ?? freshExpedition())
+  const [saveSession] = useState(createExpeditionSaveSession)
+  const [expedition, setExpedition] = useState(() => saveSession.load.status === 'valid' ? saveSession.load.expedition : freshExpedition())
   const expeditionRef = useRef(expedition)
   const runtimeRef = useRef(freshRuntime())
   const [hud, setHud] = useState({ room: 'Haven', prompt: '', message: '', towing: '', radio: '', grappleHint: '' })
-  const [hasSave, setHasSave] = useState(initialSave !== null)
-  const [saveAvailable, setSaveAvailable] = useState(true)
+  const [hasSave, setHasSave] = useState(saveSession.load.status === 'valid')
+  const [saveIssue, setSaveIssue] = useState('')
+  const [exitSaveFailed, setExitSaveFailed] = useState(false)
+  const [loadBlocked, setLoadBlocked] = useState(!['valid', 'missing'].includes(saveSession.load.status))
   const [lostCredits, setLostCredits] = useState(0)
   const hudTimerRef = useRef(0)
   const saveTimerRef = useRef(0)
@@ -124,16 +127,23 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     mapOverviewRef.current = !mapOverviewRef.current
     setMapOverview(mapOverviewRef.current)
   }, [])
+  const persistExpedition = useCallback(() => {
+    const result = saveSession.save(expeditionRef.current)
+    if (result.status === 'saved') {
+      setSaveIssue('')
+      setExitSaveFailed(false)
+      setHasSave(true)
+    } else if ('message' in result) setSaveIssue(result.message)
+    return result.status === 'saved' || result.status === 'inactive'
+  }, [saveSession])
   const publishExpedition = useCallback((message?: string) => {
     if (message) {
       runtimeRef.current.message = message
       runtimeRef.current.messageTime = 2.5
     }
     setExpedition({ ...expeditionRef.current, upgrades: [...expeditionRef.current.upgrades] })
-    const saved = saveExpedition(expeditionRef.current)
-    setSaveAvailable(saved)
-    if (saved) setHasSave(true)
-  }, [])
+    persistExpedition()
+  }, [persistExpedition])
   const [shields, setShields] = useState(SHIP_MAX_SHIELDS)
   const shieldsRef = useRef(shields)
   const gameStateRef = useRef(gameState)
@@ -336,7 +346,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   }, [createRock])
 
   const startGame = useCallback((fresh = false) => {
-    if (fresh) expeditionRef.current = freshExpedition()
+    if (fresh) {
+      saveSession.startNew()
+      expeditionRef.current = freshExpedition()
+    } else if (!saveSession.activate()) return
+    setLoadBlocked(false)
+    setHasSave(true)
+    setExitSaveFailed(false)
     botsRef.current = freshBots(expeditionRef.current)
     runtimeRef.current = freshRuntime()
     shipAppearanceRef.current = freshShipAppearance()
@@ -370,7 +386,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     phaserParticlesRef.current = []
     populateExpedition()
     publishExpedition()
-  }, [populateExpedition, publishExpedition, setGameStateWithRef])
+  }, [populateExpedition, publishExpedition, setGameStateWithRef, saveSession])
+
+  const recoverSave = () => {
+    const result = saveSession.recoverBackup()
+    if (result.status === 'failed') { setSaveIssue(result.message); return }
+    expeditionRef.current = result.expedition
+    startGame()
+  }
 
   const setDevelopmentOpen = useCallback((open: boolean) => {
     devOpenRef.current = open
@@ -1666,7 +1689,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         setHud({ room: riding ? 'Haven · in transit' : sectorAt(ship.pos)?.name ?? 'Transit tunnels', prompt: interaction(expeditionRef.current, ship)?.label ?? '', message: runtimeRef.current.messageTime > 0 ? runtimeRef.current.message : '', towing: runtimeRef.current.towing ?? '', radio:runtimeRef.current.radio?.id ?? '', grappleHint:runtimeRef.current.grappleHint ?? '' })
         setExpedition({ ...expeditionRef.current })
       }
-      if (saveTimerRef.current > 3) { saveTimerRef.current = 0; setSaveAvailable(saveExpedition(expeditionRef.current)) }
+      if (saveTimerRef.current > 3) { saveTimerRef.current = 0; persistExpedition() }
     }
 
     const draw = () => {
@@ -1743,19 +1766,23 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       sounds.stopRepairHum(true)
       sounds.stopRadiation()
     }
-  }, [createRock, createDebris, publishExpedition, retractTether, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, setGameStateWithRef, devMapRevealed])
+  }, [createRock, createDebris, publishExpedition, persistExpedition, retractTether, buildRopeBetween, toroidalDelta, HARPOON_HOOK_MASS, HARPOON_REEL_MIN_LEN, setGameStateWithRef, devMapRevealed])
 
   useEffect(() => {
     if (gameState === 'playing' && !mapOpen && !devOpen) canvasRef.current?.focus({ preventScroll: true })
     keysRef.current.clear()
   }, [gameState, mapOpen, devOpen])
 
-  const exitToGameSelect = () => {
-    saveExpedition(expeditionRef.current)
+  const leaveGame = () => {
     sounds.stopThrust()
     sounds.stopStoreMusic()
     sounds.stopRadiation()
     onExit()
+  }
+
+  const exitToGameSelect = () => {
+    if (!persistExpedition()) { setExitSaveFailed(true); return }
+    leaveGame()
   }
 
   const setVirtualKey = (key: string, pressed: boolean) => {
@@ -1874,7 +1901,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
       <div hidden={mapOpen} inert={mapOpen}>
       <ExpeditionOverlay
-        gameState={gameState} state={expedition} hasSave={hasSave} saveAvailable={saveAvailable}
+        gameState={gameState} state={expedition} hasSave={hasSave} saveIssue={saveIssue}
+        loadStatus={saveSession.load.status} loadBlocked={loadBlocked} hasBackup={saveSession.backup.status === 'valid'} onRecover={recoverSave}
+        exitSaveFailed={exitSaveFailed} onExitWithoutSaving={leaveGame}
         lostCredits={lostCredits}
         onStart={() => startGame(false)} onNew={() => startGame(true)} onBuy={buyUpgrade}
         onBuySupply={buySupply}
@@ -1884,6 +1913,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         onMenu={() => setGameStateWithRef('menu')} onExit={exitToGameSelect}
       />
       </div>
+      {saveIssue && gameState === 'playing' && !mapOpen && <div role="alert" className="absolute top-24 inset-x-4 mx-auto max-w-xl border border-[#ffbd69]/60 bg-black/95 p-3 text-xs text-[#ffbd69]">{saveIssue}</div>}
       {mapOpen && <StationSurveyControls overview={mapOverview} zoom={mapZoom} onZoom={toggleMapZoom} onPan={panSurvey} onOverview={toggleOverview} onClose={() => setSurveyOpen(false)} />}
       </div>
       {import.meta.env.DEV && devOpen && <DevelopmentPanel current={regionForRoom(sectorAt(expedition.position)?.id)?.id} banked={expedition.banked} mapRevealed={devMapRevealed}

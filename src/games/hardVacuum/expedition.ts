@@ -241,12 +241,6 @@ export function parseExpedition(raw: string | null): Expedition | null {
     return { ...s, checkpoint: 'haven', blasterInstalled: s.blasterInstalled ?? false, blasterCharges: s.blasterInstalled ? s.blasterCharges ?? BLASTER_CAPACITY : 0, radiationCharge: s.radiationCharge ?? (s.upgrades.includes('radiation') ? radiationCapacity(s) : 0), radiationExposure: s.radiationExposure ?? 0 } as Expedition
   } catch { return null }
 }
-export const readExpedition = (): Expedition | null => {
-  try { return parseExpedition(localStorage.getItem(SAVE_KEY)) } catch { return null }
-}
-export const saveExpedition = (s: Expedition): boolean => {
-  try { localStorage.setItem(SAVE_KEY, JSON.stringify(s)); return true } catch { return false }
-}
 export const sectorAt = (p: Vector2) => SECTORS.find(s => pointInPolygon(p, CHAMBERS[s.id]))
 export const checkpointPosition = (s?: Expedition) => ({ ...(s ? havenPosition(s) : BASE_POSITION) })
 export const maxShields = (s: Expedition) => upgradeValue(s, 'hull')

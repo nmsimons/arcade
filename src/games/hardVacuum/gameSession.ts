@@ -1378,7 +1378,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         return
       case 'suspend': suspended = command.suspended; simulationClock.reset(); keysRef.current.clear(); phaserBeamRef.current.active = false; laserContactRef.current = { elapsedMs: 0 }; return
       case 'pause': if (gameStateRef.current !== 'playing') return; keysRef.current.clear(); setGameStateWithRef('paused'); break
-      case 'resume': if (gameStateRef.current !== 'paused' && gameStateRef.current !== 'docked') return; resumeFlight(); break
+      case 'resume': if (gameStateRef.current !== 'paused' && gameStateRef.current !== 'docked' && gameStateRef.current !== 'complete') return; resumeFlight(); break
       case 'menu': keysRef.current.clear(); phaserBeamRef.current.active = false; setGameStateWithRef('menu'); break
       case 'blaster': shootBlaster(); break
       case 'recharge': rechargeRemotely(); break
@@ -1400,7 +1400,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   stageMenuScene()
   return {
     command, step, snapshot, clock: simulationClock,
-    advance: (timestamp: number) => simulationClock.advance(timestamp, !suspended && gameStateRef.current !== 'paused' && gameStateRef.current !== 'complete', step),
+    advance: (timestamp: number, beforeStep?: () => void) => simulationClock.advance(timestamp, !suspended && gameStateRef.current !== 'paused' && gameStateRef.current !== 'complete', () => { beforeStep?.(); step() }),
     drainEvents: () => events.splice(0),
     get timeMs() { return timeMs },
     get expedition() { return expeditionRef.current },

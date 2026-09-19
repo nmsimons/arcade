@@ -1,15 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom'
-import { HardVacuumGame } from './games/HardVacuumGame'
-import { HelloWorldGame } from './games/HelloWorldGame'
-import { KickballGame } from './games/KickballGame'
-import { FinalApproachGame } from './games/FinalApproachGame'
-import { NoExitGame } from './games/NoExitGame'
-import { SlingLoadGame } from './games/SlingLoadGame'
-import { UrbanFireGame } from './games/UrbanFireGame'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { GameLoadBoundary, GameLoading, GameViewport } from './GameRoute'
+
+const HardVacuumGame = lazy(() => import('./games/HardVacuumGame').then(m => ({ default: m.HardVacuumGame })))
+const HelloWorldGame = lazy(() => import('./games/HelloWorldGame').then(m => ({ default: m.HelloWorldGame })))
+const KickballGame = lazy(() => import('./games/KickballGame').then(m => ({ default: m.KickballGame })))
+const FinalApproachGame = lazy(() => import('./games/FinalApproachGame').then(m => ({ default: m.FinalApproachGame })))
+const NoExitGame = lazy(() => import('./games/NoExitGame').then(m => ({ default: m.NoExitGame })))
+const SlingLoadGame = lazy(() => import('./games/SlingLoadGame').then(m => ({ default: m.SlingLoadGame })))
+const UrbanFireGame = lazy(() => import('./games/UrbanFireGame').then(m => ({ default: m.UrbanFireGame })))
 
 export default function App() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const menuButtons = useRef<(HTMLButtonElement | null)[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
 
   const games = useMemo(
@@ -26,9 +30,10 @@ export default function App() {
 
   useEffect(() => {
     // Only handle menu keys on the home route.
-    if (window.location.pathname !== '/') return
+    if (pathname !== '/') return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
       if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
         e.preventDefault()
         setSelectedIndex((i) => (i > 0 ? i - 1 : games.length - 1))
@@ -45,9 +50,16 @@ export default function App() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [games, navigate, selectedIndex])
+  }, [games, navigate, pathname, selectedIndex])
+
+  useEffect(() => {
+    if (pathname === '/') menuButtons.current[selectedIndex]?.focus({ preventScroll: true })
+  }, [pathname, selectedIndex])
+  const onExit = () => navigate('/', { replace: true })
 
   return (
+    <GameLoadBoundary key={pathname} onExit={onExit}>
+    <Suspense fallback={<GameLoading onExit={onExit} />}>
     <Routes>
       <Route
         path="/"
@@ -76,6 +88,8 @@ export default function App() {
                   {games.map((g, i) => (
                     <button
                       key={g.id}
+                      ref={element => { menuButtons.current[i] = element }}
+                      onFocus={() => setSelectedIndex(i)}
                       onClick={() => navigate(g.path)}
                       className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
                         selectedIndex === i
@@ -94,13 +108,13 @@ export default function App() {
         }
       />
 
-      <Route path="/hard-vacuum" element={<HardVacuumGame onExit={() => navigate('/', { replace: true })} />} />
-      <Route path="/final-approach" element={<FinalApproachGame onExit={() => navigate('/', { replace: true })} />} />
-      <Route path="/no-exit" element={<NoExitGame onExit={() => navigate('/', { replace: true })} />} />
-      <Route path="/urban-fire" element={<UrbanFireGame onExit={() => navigate('/', { replace: true })} />} />
-      <Route path="/bumper-ball" element={<KickballGame onExit={() => navigate('/', { replace: true })} />} />
-      <Route path="/sling-load" element={<SlingLoadGame onExit={() => navigate('/', { replace: true })} />} />
-      <Route path="/hello-world" element={<HelloWorldGame onExit={() => navigate('/', { replace: true })} />} />
+      <Route path="/hard-vacuum" element={<GameViewport><HardVacuumGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
+      <Route path="/final-approach" element={<GameViewport><FinalApproachGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
+      <Route path="/no-exit" element={<GameViewport><NoExitGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
+      <Route path="/urban-fire" element={<GameViewport><UrbanFireGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
+      <Route path="/bumper-ball" element={<GameViewport><KickballGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
+      <Route path="/sling-load" element={<GameViewport><SlingLoadGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
+      <Route path="/hello-world" element={<GameViewport><HelloWorldGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
 
       {/* Back-compat redirects */}
       <Route path="/games/hard-vacuum" element={<Navigate to="/hard-vacuum" replace />} />
@@ -113,5 +127,7 @@ export default function App() {
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </Suspense>
+    </GameLoadBoundary>
   )
 }

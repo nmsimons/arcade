@@ -6,6 +6,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [react()],
+    build: { manifest: true },
     base: env.VITE_BASE ?? '/',
   }
 })

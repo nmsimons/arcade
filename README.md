@@ -324,7 +324,8 @@ Opening Hard Vacuum's title menu and leaving without starting never writes a sav
 valid, malformed, newer-version, and inaccessible saves are distinct outcomes.
 An unreadable save blocks Continue; the menu offers a working backup when one
 exists and a confirmed New expedition action. Canceling New or leaving the
-menu preserves the original bytes.
+menu preserves the original bytes. If the active slot is missing but a working
+backup exists, the menu defaults to recovery and requires confirmation to start fresh.
 
 The active slot remains `hard-vacuum-expedition-v1`. Each successful save keeps
 the previous validated slot in `hard-vacuum-expedition-v1-backup` (the first

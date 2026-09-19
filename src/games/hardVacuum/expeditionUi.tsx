@@ -107,9 +107,11 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, loadSt
         <p className="text-white/70 text-sm leading-relaxed mt-5 max-w-lg">Orison went silent nine years ago. Your contract says it was evacuated. Find the stranded maintenance tender Haven, restore a route through the station, and recover its ignition core.</p>
         {loadBlocked && <p role="alert" className="mt-5 text-sm text-[#ffbd69]">{loadStatus === 'unsupported'
           ? 'This expedition was saved by a newer version of the game. Your save has been preserved.'
-          : loadStatus === 'storage-unavailable'
-            ? 'Browser storage could not be read. Any existing save has been left untouched.'
-            : 'The saved expedition could not be read. Your original save has been preserved.'} {hasBackup ? 'You can restore the last working backup or deliberately start a new expedition.' : 'Reload to try again, or deliberately start a new expedition.'}</p>}
+          : loadStatus === 'missing'
+            ? 'The saved expedition is missing, but a working backup is available.'
+            : loadStatus === 'storage-unavailable'
+              ? 'Browser storage could not be read. Any existing save has been left untouched.'
+              : 'The saved expedition could not be read. Your original save has been preserved.'} {hasBackup ? 'You can restore the last working backup or deliberately start a new expedition.' : 'Reload to try again, or deliberately start a new expedition.'}</p>}
         <div className="flex flex-wrap gap-3 mt-7">
           {!loadBlocked && <button className={button} data-initial-focus onClick={onStart}>{hasSave ? 'Continue expedition' : 'Launch expedition'}</button>}
           {!hasSave && hasBackup && <button className={button} data-initial-focus={loadBlocked || undefined} onClick={onRecover}>Restore backup</button>}

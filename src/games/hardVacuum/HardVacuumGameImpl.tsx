@@ -107,7 +107,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [hasSave, setHasSave] = useState(saveSession.load.status === 'valid')
   const [saveIssue, setSaveIssue] = useState('')
   const [exitSaveFailed, setExitSaveFailed] = useState(false)
-  const [loadBlocked, setLoadBlocked] = useState(!['valid', 'missing'].includes(saveSession.load.status))
+  const [loadBlocked, setLoadBlocked] = useState(!['valid', 'missing'].includes(saveSession.load.status) || (saveSession.load.status === 'missing' && saveSession.backup.status === 'valid'))
   const [lostCredits, setLostCredits] = useState(0)
   const hudTimerRef = useRef(0)
   const saveTimerRef = useRef(0)

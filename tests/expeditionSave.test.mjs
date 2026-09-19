@@ -79,6 +79,7 @@ test('backup recovery preserves malformed and unsupported primary bytes and the 
     const backup = saved(900), m = memory([[SAVE_BACKUP_KEY, backup], ...(raw === null ? [] : [[SAVE_KEY, raw]])])
     const session = createExpeditionSaveSession(m.storage)
     assert.equal(session.backup.status, 'valid')
+    assert.equal(session.activate(), false, 'an existing backup requires recovery or confirmed New, even with no primary slot')
     assert.deepEqual(m.writes, [], 'loading must not automatically restore a backup')
     const recovered = session.recoverBackup()
     assert.equal(recovered.status, 'recovered')

@@ -84,7 +84,7 @@ export function createExpeditionSaveSession(storage: StorageProvider = browserSt
     load,
     backup,
     activate() {
-      if (!active && load.status !== 'valid' && load.status !== 'missing') return false
+      if (!active && load.status !== 'valid' && !(load.status === 'missing' && backup.status !== 'valid')) return false
       active = true
       return true
     },

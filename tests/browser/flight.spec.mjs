@@ -1,6 +1,21 @@
 import { test, expect } from '@playwright/test'
 import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 
+test('radiation HUD refills away from Haven without repairing hull or ammo and saves the charge',async({page})=>{
+  const state=freshExpedition();state.position={x:7600,y:3490};state.upgrades=['radiation'];state.radiationCharge=20
+  state.shields=1;state.blasterInstalled=true;state.blasterCharges=1;state.credits=25
+  await page.addInitScript(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:SAVE_KEY,state})
+  await page.goto('/hard-vacuum')
+  await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
+  await expect(page.getByRole('meter',{name:'Radiation',exact:true})).toHaveAttribute('aria-valuenow','100')
+  await expect(page.getByRole('meter',{name:'Shields',exact:true})).toHaveAttribute('aria-valuenow','1')
+  await expect(page.getByRole('button',{name:'Fire blaster, 1 of 3 charges',exact:true})).toBeVisible()
+  await page.keyboard.press('p')
+  await page.getByRole('button',{name:'Save & exit',exact:true}).press('Enter')
+  const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY)
+  expect(saved.radiationCharge).toBe(100);expect(saved.credits).toBe(25);expect(saved.banked).toBe(0)
+})
+
 test('keyboard flight, map, recorder, pause, saving and HUD stay synchronized',async({page})=>{
   const state=freshExpedition();state.position={x:7800,y:3490};state.banked=12345;state.blasterInstalled=true;state.blasterCharges=3
   await page.addInitScript(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:SAVE_KEY,state})

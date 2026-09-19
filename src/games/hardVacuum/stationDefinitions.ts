@@ -43,7 +43,7 @@ export const SOCKETS: readonly CircuitDefinition[] = [
   ...CAMPAIGN_SOCKETS,
 ] as const
 export const PICKUPS: { id: Upgrade; pos: Vector2; label: string; detail: string; sector: RoomId }[] = [
-  { id: 'radiation', pos: { x: 7130, y: 1290 }, label: 'Radiation shield', detail: 'Adds a separate radiation reserve. Eight seconds at peak exposure; distance and rock cover reduce the dose. Recharge at Haven.', sector: 'stores' },
+  { id: 'radiation', pos: { x: 7130, y: 1290 }, label: 'Radiation shield', detail: 'Adds a separate radiation reserve. Eight seconds at peak exposure; distance and rock cover reduce the dose. Recharges automatically outside radiation.', sector: 'stores' },
 ]
 export const CACHES: readonly { id: CacheId; pos: Vector2; value: number; sector: RoomId }[] = [
   { id: 'wreck-cache', pos: { x: 290, y: 1260 }, value: 100, sector: 'salvage' },

@@ -1,10 +1,48 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createGameSession } from '../src/games/hardVacuum/gameSession.ts'
-import { freshExpedition, powerReceiver } from '../src/games/hardVacuum/expedition.ts'
+import { freshExpedition, powerReceiver, parseExpedition, expeditionMap } from '../src/games/hardVacuum/expedition.ts'
+import { moveHaven } from '../src/games/hardVacuum/campaign.ts'
 import { bodyMass, playerTetherMass, identifyBody } from '../src/games/hardVacuum/bodyDefinitions.ts'
 
 const seed = 90210
+test('passengers can passively recharge in a clear field while Haven services are offline for departure', () => {
+  const state=freshExpedition();state.campaign.berths.push('freight')
+  powerReceiver(state,'breach-power','breach-power');state.doors={}
+  state.upgrades=['radiation'];state.radiationCharge=20;state.shields=1;state.credits=25
+  assert.ok(moveHaven(state,'freight',true,expeditionMap(state)))
+  const s=createGameSession(state,{seed});s.command({type:'start'})
+  for(let tick=0;tick<30;tick++)s.step()
+  assert.ok(Math.abs(s.expedition.radiationCharge-70)<1e-8)
+  assert.ok(s.expedition.campaign.journey?.riding)
+  assert.equal(s.expedition.shields,1);assert.equal(s.expedition.credits,25)
+})
+test('radiation reserve refills in flight away from Haven at every render rate without repairing other systems', () => {
+  for(const hz of [30,60,120,144]) {
+    const state=freshExpedition();state.position={x:7600,y:3490};state.upgrades=['radiation'];state.radiationCharge=0
+    state.shields=1;state.blasterInstalled=true;state.blasterCharges=1;state.credits=25
+    const s=createGameSession(state,{seed});s.command({type:'start'})
+    s.refs.rocksRef.current=[];s.command({type:'key',key:'w',pressed:true})
+    s.advance(0)
+    for(let frame=1;frame<=hz/2;frame++)s.advance(frame*1000/hz)
+    assert.ok(Math.abs(s.expedition.radiationCharge-50)<1e-8,`hz=${hz}`)
+    assert.ok(Math.hypot(s.refs.shipRef.current.pos.x-state.position.x,s.refs.shipRef.current.pos.y-state.position.y)>20)
+    const saved=parseExpedition(JSON.stringify(s.expedition));assert.equal(saved.radiationCharge,s.expedition.radiationCharge)
+    s.command({type:'pause'});s.advance(300000)
+    assert.equal(s.expedition.radiationCharge,saved.radiationCharge)
+    s.command({type:'resume'});s.advance(600000)
+    assert.equal(s.expedition.radiationCharge,saved.radiationCharge,'no offline recharge on resume')
+    s.advance(900000)
+    assert.ok(Math.abs(s.expedition.radiationCharge-saved.radiationCharge-10)<1e-8,'a hitch admits only six recharge ticks')
+    s.command({type:'suspend',suspended:true});const suspendedCharge=s.expedition.radiationCharge
+    s.advance(1200000);assert.equal(s.expedition.radiationCharge,suspendedCharge)
+    s.command({type:'load',expedition:saved});s.advance(0)
+    for(let frame=1;frame<=hz;frame++)s.advance(frame*1000/hz)
+    assert.equal(s.expedition.radiationCharge,100)
+    assert.equal(s.expedition.shields,1);assert.equal(s.expedition.blasterCharges,1)
+    assert.equal(s.expedition.credits,25);assert.equal(s.expedition.banked,0)
+  }
+})
 test('small asteroid winch inertia retains its original floor without rebalancing cargo', () => {
   const body=identifyBody({pos:{x:0,y:0},vel:{x:0,y:0},radius:9,kind:'normal'},{type:'asteroid'})
   assert.equal(bodyMass(body),.25);assert.equal(playerTetherMass(body),1)

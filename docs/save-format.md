@@ -51,3 +51,8 @@ restarts recovery from the saved cargo position. New game requires confirmation
 when replacing progress. These are the existing gameplay policies, not new
 difficulty changes. Historical live hot-reload repair hacks have been retired;
 load an old save through the migration service instead.
+
+Follow-up gameplay change: an installed radiation shield now refills gradually
+whenever exposure is zero during active flight (one full reserve per second).
+Its current charge still saves normally; reload and paused/offline time do not
+grant a refill. Haven servicing and remote hull/blaster recharge are unchanged.

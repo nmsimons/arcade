@@ -66,7 +66,7 @@ import { angleDelta, dockingReadiness, driftCargo, repelBlueBody, stepShipMoveme
 import { SimulationClock } from './simulationClock.ts'
 import { laserImpactMs, stepLaserContact } from './laser.ts'
 import type { LaserContact } from './laser.ts'
-import { freshRadiationFeedback, stepRadiation, stepRadiationFeedback } from './radiation.ts'
+import { freshRadiationFeedback, inRadiation, stepRadiation, stepRadiationFeedback, stepRadiationRecharge } from './radiation.ts'
 import { activateRemoteRecharge, needsRecharge, purchaseSupply, restoreShipSystems, stepRemoteRecharge } from './supplies.ts'
 import type { SupplyPurchase } from './supplies.ts'
 import { creditAsteroidDestruction } from './oreCredits.ts'
@@ -954,7 +954,11 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         if (radiationDose.failed) { loseShip(); return }
         if (radiationFeedback.stopped) sounds.stopRadiation()
         if (radiationFeedback.tick) sounds.radiationTick(radiationFeedback.urgency, runtimeRef.current.radiation.unprotected)
-      } else ship.angularVelocity=0
+      } else {
+        ship.angularVelocity=0
+        // Passengers retain Haven's protection; passive refill still requires a clear field.
+        if (!inRadiation(ship.pos, cavernMap)) stepRadiationRecharge(expeditionRef.current, dt)
+      }
 
       // Update invulnerability
       if (invulnerableRef.current > 0) {

@@ -6,6 +6,9 @@ no CPU throttling. Raw measurements: [before](performance-before.json) and
 [after](performance-after.json) the local radiation-footprint cache change.
 Timing runs had no concurrent project builds/tests. An earlier allocation-profiled
 timing run was discarded: allocation sampling measurably changes frame timings.
+These measurements cover the review-fix implementation at `e0395cd`, before the
+subsequently requested automatic radiation-recharge change. The committed harness
+can be rerun against current gameplay.
 
 ## Reproduce
 

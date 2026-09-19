@@ -46,25 +46,27 @@ const finalRoute=[[4100,3570],[4370,3500],[5050,3500],[5100,3450],[5320,3450],[5
 function runReturn(speed,shield=true,pause=0) {
   const {s}=ready(),map=expeditionMap(s)
   if(!shield){s.upgrades=[];s.radiationCharge=0}
-  let failed=false
+  let failed=false,drained=0
   for(let i=1;i<finalRoute.length;i++) {
     const [ax,ay]=finalRoute[i-1],[bx,by]=finalRoute[i],length=Math.hypot(bx-ax,by-ay),steps=Math.ceil(length/6)
     for(let j=1;j<=steps;j++) {
       const pos={x:ax+(bx-ax)*j/steps,y:ay+(by-ay)*j/steps}
       assert.ok(isInsideCavern(pos,28,map),`core route blocked at ${JSON.stringify(pos)}`)
       const travelSpeed=i<=8 ? 220 : speed // Unladen approach, then tow the core.
-      failed=stepRadiation(s,pos,length/steps/travelSpeed,map).failed||failed
+      const dose=stepRadiation(s,pos,length/steps/travelSpeed,map)
+      failed=dose.failed||failed;drained+=dose.drained
     }
     if(i===9&&pause)failed=stepRadiation(s,{x:6600,y:4630},pause,map).failed||failed
   }
-  return {s,failed}
+  return {s,failed,drained}
 }
-test('a full reserve covers Haven to core to cradle at towing speed, while unshielded or stalled runs fail',()=>{
+test('the core return drains in radiation and refills on the safe cradle approach, while unshielded or stalled runs fail',()=>{
   const run=runReturn(135)
   assert.equal(run.failed,false)
-  assert.ok(run.s.radiationCharge>10&&run.s.radiationCharge<60,`remaining reserve: ${run.s.radiationCharge}`)
+  assert.ok(run.drained>40&&run.drained<90,`radiation dose unchanged: ${run.drained}`)
+  assert.equal(run.s.radiationCharge,100,'safe final approach refills without returning to Haven')
   assert.equal(runReturn(135,false).failed,true)
-  assert.equal(runReturn(135,true,45).failed,true)
+  assert.equal(runReturn(135,true,120).failed,true,'remaining indefinitely in radiation is still lethal despite earlier safe-area recharge')
 })
 
 test('the final tube has moving white and blue debris, with Heart mineral contents and no loose red spawns',()=>{

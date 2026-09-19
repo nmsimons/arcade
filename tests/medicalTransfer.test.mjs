@@ -55,24 +55,26 @@ const route=[[1490,3600],[1130,3540],[900,3510],[750,3510],[530,3510],[510,3430]
 function traverse(speed,shield=true,pause=0) {
   const state=arrival(),map=expeditionMap(state)
   if(!shield){state.upgrades=[];state.radiationCharge=0}
-  let failed=false
+  let failed=false,drained=0
   for(let i=1;i<route.length;i++) {
     const [ax,ay]=route[i-1],[bx,by]=route[i],length=Math.hypot(bx-ax,by-ay),steps=Math.ceil(length/5)
     for(let j=1;j<=steps;j++) {
       const pos={x:ax+(bx-ax)*j/steps,y:ay+(by-ay)*j/steps}
       assert.ok(isInsideCavern(pos,23,map),`cell route blocked at ${JSON.stringify(pos)}`)
-      failed=stepRadiation(state,pos,length/steps/speed,map).failed||failed
+      const dose=stepRadiation(state,pos,length/steps/speed,map)
+      failed=dose.failed||failed;drained+=dose.drained
     }
     if(i===9&&pause)failed=stepRadiation(state,{x:1500,y:4090},pause,map).failed||failed
   }
-  return {state,failed}
+  return {state,failed,drained}
 }
-test('one charge covers the medical cell run at towing speed, but unshielded or stalled passage is lethal',()=>{
+test('passive recharge supports the medical cell run, but unshielded or stalled exposure is still lethal',()=>{
   const run=traverse(135)
   assert.equal(run.failed,false)
-  assert.ok(run.state.radiationCharge>10&&run.state.radiationCharge<65,`reserve margin: ${run.state.radiationCharge}`)
+  assert.ok(run.drained>35&&run.drained<90,`radiation dose unchanged: ${run.drained}`)
+  assert.ok(run.state.radiationCharge>100-run.drained&&run.state.radiationCharge<=100,'safe sections refill the reserve')
   assert.equal(traverse(135,false).failed,true)
-  assert.equal(traverse(135,true,30).failed,true)
+  assert.equal(traverse(135,true,120).failed,true,'remaining indefinitely in radiation is still lethal despite earlier safe-area recharge')
 })
 
 test('existing saves gain access to the bypass without losing their ward progress or cargo',()=>{

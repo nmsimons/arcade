@@ -4,7 +4,7 @@ import { expeditionMap, freshExpedition, GATES, SOCKETS, powerReceiver } from '.
 import { isInsideCavern, resolveCircleInCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import {
   RADIATION_HOUSINGS, RADIATION_SOURCES, freshRadiationFeedback, radiationAt,
-  radiationFootprint, stepRadiation, stepRadiationFeedback,
+  radiationFootprint, stepRadiation, stepRadiationFeedback, RADIATION_RECHARGE_TIME,
 } from '../src/games/hardVacuum/radiation.ts'
 
 const reactor = RADIATION_SOURCES[0]
@@ -82,19 +82,37 @@ test('radiation source housings occupy real navigable space and collide with the
   }
 })
 
-test('weaker exposure drains more slowly and cover stops draining without refilling the reserve', () => {
+test('weaker exposure drains more slowly and radiation-blocking cover automatically refills the reserve', () => {
   const state = protectedState()
   const dose = stepRadiation(state, at(185), 2, openMap)
   assert.equal(dose.drained, 12.5)
   assert.equal(state.radiationCharge, 87.5)
   assert.equal(state.shields, 2)
   assert.equal(state.radiationExposure, 0)
+  stepRadiation(state, at(185), RADIATION_RECHARGE_TIME / 16, coveredMap)
+  assert.equal(state.radiationCharge, 93.75)
   stepRadiation(state, at(185), 4, coveredMap)
-  assert.equal(state.radiationCharge, 87.5)
+  assert.equal(state.radiationCharge, 100)
   state.radiationCharge = 3.125
   stepRadiation(state, at(185), 1, openMap)
   assert.equal(state.radiationCharge, 0)
   assert.equal(state.radiationExposure, 0.25, 'only the unprotected half second contributes half-strength exposure')
+})
+
+test('passive recharge is gradual, capacity-aware and never grants an uninstalled shield', () => {
+  for (const [level,capacity] of [[0,100],[1,150],[2,200],[3,250]]) {
+    const state=protectedState();state.upgradeLevels.radiationReserve=level;state.radiationCharge=0
+    stepRadiation(state,at(reactor.range+100),RADIATION_RECHARGE_TIME/4,openMap)
+    assert.equal(state.radiationCharge,capacity/4)
+    stepRadiation(state,at(reactor.range+100),RADIATION_RECHARGE_TIME*5,openMap)
+    assert.equal(state.radiationCharge,capacity)
+    const dose=stepRadiation(state,at(185),.5,openMap)
+    assert.equal(state.radiationCharge,capacity-3.125,'any nonzero exposure stops recharge')
+    assert.equal(dose.drained,3.125)
+  }
+  const absent=freshExpedition()
+  stepRadiation(absent,at(reactor.range+100),10,openMap)
+  assert.equal(absent.radiationCharge,0)
 })
 
 test('detector cadence increases with dose and low reserve; reaching cover resets feedback', () => {

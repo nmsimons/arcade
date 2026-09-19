@@ -1,6 +1,8 @@
 # Route loading measurement
 
 Production build, September 19, 2026, Node 24.21.0, Vite 7.3.0. Decimal kB; JS only.
+Post-split figures are the review-fix snapshot at `e0395cd`; rerun the script below
+for subsequent gameplay changes.
 Before splitting (`72d2c2e`, rebuilt on Node 24): **611.55 kB / 192.56 kB gzip**,
 downloaded by every route. The original review recorded 601.80 / 189.02; gzip
 also varies slightly with Node's compression library.

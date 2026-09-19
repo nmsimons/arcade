@@ -97,18 +97,18 @@ test('every later long transfer tube is irradiated, while the first departure an
   for(const tunnel of IRRADIATED_TUNNELS) {
     assert.ok(TRANSFER_RADIATION_SOURCES.some(s=>s.id.startsWith(`tube:${tunnel.id}:`)),tunnel.id)
     const reserve={upgrades:['radiation'],radiationCharge:100,radiationExposure:0}
-    let exposed=0,failed=false
+    let exposed=0,failed=false,drained=0
     for(const passage of tunnel.parts) {
       const [a,b]=passage.centerline,length=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.ceil(length/8)
       for(let i=1;i<=steps;i++) {
         const pos={x:a.x+(b.x-a.x)*i/steps,y:a.y+(b.y-a.y)*i/steps}
         const dose=stepRadiation(reserve,pos,length/steps/150,map)
-        if(dose.exposed)exposed++;failed ||= dose.failed
+        if(dose.exposed)exposed++;failed ||= dose.failed;drained+=dose.drained
       }
     }
     assert.ok(exposed>10,tunnel.id)
     assert.equal(failed,false,`${tunnel.id}: a prompt shielded crossing must be possible`)
-    assert.ok(reserve.radiationCharge<95,tunnel.id)
+    assert.ok(drained>5,tunnel.id) // Safe tube exits may refill the bar, but exposure must still drain it.
   }
   const legacy=freshExpedition();legacy.version=1;legacy.cargo={radiation:{pos:{x:1650,y:350},vel:{x:1,y:1},tethered:false}}
   assert.equal(parseExpedition(JSON.stringify(legacy)).cargo.radiation,undefined)

@@ -48,14 +48,17 @@ test('production controls fly the irradiated medical bypass without teleporting 
   const state=freshExpedition('refuge');powerReceiver(state,'refuge-power','refuge-power');state.doors={}
   state.upgrades=['radiation'];state.radiationCharge=100;state.position={x:750,y:4090}
   const r=controlled(replay(state)),s=r.session
-  let previous={...s.refs.shipRef.current.pos},distance=0
+  let previous={...s.refs.shipRef.current.pos},distance=0,drained=0
   for(let i=0;i<1200&&s.refs.shipRef.current.pos.x<2220&&s.mode==='playing';i++) {
+    const charge=s.expedition.radiationCharge
     r.step(()=>r.fly({x:2250,y:4090},200))
+    drained+=Math.max(0,charge-s.expedition.radiationCharge)
     const pos=s.refs.shipRef.current.pos,delta=Math.hypot(pos.x-previous.x,pos.y-previous.y)
     assert.ok(delta<12,`nonphysical jump: ${delta}; ${r.diagnostic()}`);distance+=delta;previous={...pos}
   }
   assert.equal(s.mode,'playing',r.diagnostic());assert.ok(s.refs.shipRef.current.pos.x>2220,r.diagnostic())
-  assert.ok(distance>1470&&s.expedition.radiationCharge>40&&s.expedition.radiationCharge<90,r.diagnostic())
+  assert.ok(distance>1470&&drained>10&&drained<60,r.diagnostic())
+  assert.ok(s.expedition.radiationCharge>100-drained&&s.expedition.radiationCharge<=100,'safe stretches refill without a base visit')
 })
 
 test('actual blaster hits defeat security; reload preserves defeat while death respawns the enemy',()=>{

@@ -79,13 +79,13 @@ test('laser focus advances through five stages of faster impacts on one upgrade 
   }
 })
 
-test('radiation drains only its own reserve, does not regenerate away from Haven, and threatens unprotected hulls', () => {
+test('radiation drains only its own reserve, recharges outside exposure, and threatens unprotected hulls', () => {
   const state = freshExpedition('ring'); state.upgrades.push('radiation'); state.radiationCharge = 100
   const hot = { x: 2500, y: 1480 }, safe = { x: 1500, y: 1300 }
   assert.ok(inRadiation(hot)); assert.equal(inRadiation(safe), false)
   for (let i = 0; i < 50; i++) assert.equal(stepRadiation(state, hot, 0.1).failed, false)
   assert.equal(state.radiationCharge, 37.5); assert.equal(state.shields, 2)
-  stepRadiation(state, safe, 20); assert.equal(state.radiationCharge, 37.5)
+  stepRadiation(state, safe, 20); assert.equal(state.radiationCharge, 100)
   state.radiationCharge = 1.25
   stepRadiation(state, hot, 0.2); assert.ok(Math.abs(state.radiationExposure - 0.1) < 1e-7)
   assert.equal(stepRadiation(state, hot, 1.91).failed, true); assert.equal(state.shields, 2)

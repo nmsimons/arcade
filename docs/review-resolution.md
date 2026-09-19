@@ -29,3 +29,16 @@ React layout/audio; it is not a guarantee for mobile GPUs. GitHub currently requ
 a plan upgrade to enforce branch protection on this private repository; deployment
 validation is enforced regardless. No repository-plan or production-merge changes
 are made by this work.
+
+## Requested follow-up: automatic radiation recharge
+
+After the review fixes, the user requested a gameplay change: installed radiation
+shielding now refills gradually whenever local radiation exposure is zero, including
+while moving or behind cover, without returning to Haven. Full refill takes one
+second at every reserve upgrade level. Exposure stops the refill immediately;
+pause/survey and offline time do not recharge it. Current charge still saves normally.
+Passengers can also refill in clear areas while Haven's services are offline.
+Hull shields, blaster ammunition, recharge packs and banking rules are unchanged.
+Follow-up validation: 225 Node tests, 22 browser checks, lint and production build
+passed on Node 24.21.0, including frame schedules, hitches, pause/survey, saved
+partial charge, capacity upgrades, cover and the visible radiation meter.

@@ -43,7 +43,8 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - R: use a remote recharge pack. Carry up to three; buy each at Haven for 500 credits.
   Physical shields and blaster refill after the
   same one-second cycle, green hull ripples and repair sound used at Haven.
-  Radiation shielding recharges only at Haven. Remote recharging does not bank credits. Packs are consumed on activation;
+  Radiation shielding recharges automatically outside radiation, without a pack or a base visit.
+  Remote recharging does not bank credits. Packs are consumed on activation;
   an active recharge resumes after saving, and pausing also pauses the cycle.
 - T: return to Haven and bank all carried credits after installing its teleporter
   for 3,000 credits. Teleporting is then free and unlimited. Grappled cargo stays
@@ -113,7 +114,8 @@ one shop row that advances after purchase and shows its next effect and cost.
 After recovering the radiation shield, Radiation reserve offers three expensive
 stages: 1.5×, 2× and 2.5× capacity for 6,000, 12,000 and 24,000 credits.
 That gives 12, 16 and 20 seconds at peak exposure, compared with the original eight.
-Haven recharges the full upgraded reserve; the HUD shows its remaining percentage.
+The full upgraded reserve recharges automatically in one second outside radiation;
+Haven still restores it as part of normal servicing. The HUD shows its remaining percentage.
 Longline winch is a single 750-credit upgrade that doubles tether reach. The
 750-credit blaster is also a permanent ship upgrade. Existing staged tether
 purchases become the double-length winch, and existing blasters stay installed.
@@ -202,7 +204,11 @@ Tow the violet module from Freight Stores back to Haven to install a separate
 radiation shield bar. A breached reactor and damaged fuel unit emit violet,
 radial fields that weaken with distance and are blocked by solid cavern walls.
 Their visible footprints match the actual exposure. At peak exposure the
-100-point reserve drains at 12.5 points per second; recharge at Haven. Violet
+100-point reserve drains at 12.5 points per second. Whenever exposure is zero,
+including behind radiation-blocking cover, it refills gradually at one full reserve
+per second. No docking, braking or recharge pack is needed. Any radiation stops
+the refill immediately; pausing also pauses recharge. Hull shields and blaster ammo
+still require Haven or a remote recharge pack. Violet
 arcs pulse around the ship and Geiger clicks sound while exposed, growing more
 urgent near a source or with a low reserve. The HUD shows the current drain rate
 and warns when protection fails. Long transfer tunnels after the first Breach-to-Freight

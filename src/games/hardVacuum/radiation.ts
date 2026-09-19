@@ -5,9 +5,12 @@ import type { CavernMap } from './worldGeometry'
 import { TRANSFER_RADIATION_SOURCES } from './transferRadiation.ts'
 import { upgradeValue } from './upgrades.ts'
 import type { UpgradeLevels } from './upgrades'
+import { SHIELD_REPAIR_TIME } from './tuning.ts'
 
 export const RADIATION_CAPACITY = 100
 export const RADIATION_DRAIN = 12.5
+// Preserve Haven's full-refill time, now also available anywhere without exposure.
+export const RADIATION_RECHARGE_TIME = SHIELD_REPAIR_TIME
 export const RADIATION_HULL_LIMIT = 2
 export interface RadiationSource { id: string; name: string; pos: Vector2; bodyRadius: number; coreRange: number; range: number; strength?: number }
 export const RADIATION_SOURCES: readonly RadiationSource[] = [
@@ -107,12 +110,18 @@ export function rechargeRadiation(state: RadiationState) {
   state.radiationCharge = state.upgrades.includes('radiation') ? radiationCapacity(state) : 0
   state.radiationExposure = 0
 }
+export function stepRadiationRecharge(state: RadiationState, dt: number) {
+  if (!state.upgrades.includes('radiation') || dt <= 0) return
+  const capacity = radiationCapacity(state)
+  state.radiationCharge = Math.min(capacity, state.radiationCharge + capacity * dt / RADIATION_RECHARGE_TIME)
+}
 export function stepRadiation(state: RadiationState, pos: Vector2, dt: number, map?: CavernMap) {
   state.radiationCharge ??= state.upgrades.includes('radiation') ? radiationCapacity(state) : 0
   state.radiationExposure ??= 0
   const { intensity, source } = radiationAt(pos, map)
   const exposed = intensity > 0
   if (!exposed) {
+    stepRadiationRecharge(state, dt)
     state.radiationExposure = Math.max(0, state.radiationExposure - dt)
     return { exposed, intensity, source, drained: 0, failed: false }
   }

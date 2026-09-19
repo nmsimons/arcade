@@ -1,6 +1,5 @@
 import type { BaseShot, Rock } from './types'
 import type { Expedition } from './expedition'
-import { sounds } from './sound.ts'
 import { repelBlueBody } from './expeditionPhysics.ts'
 import { BASE_GUN_FIRE_COOLDOWN } from './tuning.ts'
 import { creditAsteroidDestruction, inOreProcessingZone } from './oreCredits.ts'
@@ -44,6 +43,7 @@ export function updateBaseDefenseAndProcessing(args: {
   waveCreditsRef: Ref<number>
   createDebris: CreateDebris
   onRedRockDetonate?: (rock: Rock) => void
+  sounds?: { collect: () => void }
 }) {
   const {
     dt,
@@ -164,7 +164,7 @@ export function updateBaseDefenseAndProcessing(args: {
 
           waveCreditsRef.current += creditAsteroidDestruction(expedition, a, base)
           createDebris(wrapX(a.pos.x), wrapY(a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
-          sounds.collect()
+          args.sounds?.collect()
           break
         }
       }

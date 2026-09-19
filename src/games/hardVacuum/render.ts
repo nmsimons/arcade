@@ -24,6 +24,7 @@ type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number,
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
   gameState: HardVacuumGameState
+  nowMs: number
   level: number
   expedition: Expedition
   expeditionRuntime: ExpeditionRuntime
@@ -568,7 +569,7 @@ export function drawHardVacuumFrame(args: {
   if ((!expedition.campaign.journey?.riding || havenDeployment(expedition) > .3) && (gameState !== 'dying' && gameState !== 'gameOver')) {
     drawPlayerShip(ctx,shipRef.current,shipAppearance,{
       time:expeditionRuntime.elapsed,shields,maxShields:maxShields(expedition),
-      hitAge:Date.now()-lastShieldHitAtRef.current,rechargeAge:Date.now()-lastShieldRechargeAtRef.current,
+      hitAge:args.nowMs-lastShieldHitAtRef.current,rechargeAge:args.nowMs-lastShieldRechargeAtRef.current,
       recharging:expeditionRuntime.recharging,rechargeProgress:expeditionRuntime.rechargeProgress,
       laser:phaserBeamRef.current.active,
     })

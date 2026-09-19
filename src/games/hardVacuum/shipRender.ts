@@ -5,8 +5,9 @@ import type { Debris, Ship, V3, Vector2 } from './types'
 import { SHIP_ROTATION_SPEED } from './tuning'
 import { flightInput } from './flightInput'
 
-export interface ShipAppearance { bank: number; turn: number; thrust: number; nose: number; sparkDelay: number }
-export const freshShipAppearance = (): ShipAppearance => ({ bank:0,turn:0,thrust:0,nose:0,sparkDelay:0 })
+import type { ShipAppearance } from './shipAppearance'
+export type { ShipAppearance } from './shipAppearance'
+export { freshShipAppearance } from './shipAppearance'
 
 /** Presentation only: attitude settles smoothly without changing flight physics. */
 export function stepShipAppearance(appearance: ShipAppearance, keys: Set<string>, dt: number, angularVelocity?: number) {

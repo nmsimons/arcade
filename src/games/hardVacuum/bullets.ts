@@ -34,6 +34,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
   onRedRockDetonate?: (rock: Rock) => void
   onAsteroidDestroyed?: (rock: Rock) => void
   fragmentKind?: (rock: Rock, roll: number) => RockKind
+  random?: () => number
 
   createRock: (x: number, y: number, radius: number, velOverride?: Vector2, kind?: RockKind) => Rock
   createDebris: (x: number, y: number, vx: number, vy: number, count: number, life: number, color: string) => void
@@ -67,6 +68,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     onRedRockDetonate,
     onAsteroidDestroyed,
     fragmentKind,
+    random = Math.random,
     createRock,
     createDebris,
     levelRef,
@@ -136,7 +138,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
           const newRadius = rock.radius / 2
           for (let j = 0; j < 2; j++) {
             let kind: RockKind = 'normal'
-            if (newRadius <= SMALLEST_ROCK_RADIUS && fragmentKind) kind=fragmentKind(rock,Math.random())
+            if (newRadius <= SMALLEST_ROCK_RADIUS && fragmentKind) kind=fragmentKind(rock,random())
             else if (newRadius <= SMALLEST_ROCK_RADIUS) {
               if (levelRef.current >= 3) {
                 if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
@@ -148,14 +150,14 @@ export function updateBulletsAndPlayerRockCollisions(args: {
                     BLUE_ROCK_SPAWN_CHANCE_BASE,
                     BLUE_ROCK_SPAWN_CHANCE_MAX,
                   )
-                  if (Math.random() < p) {
+                  if (random() < p) {
                     kind = 'blue'
                     blueRocksSpawnedThisLevelRef.current += 1
                   }
                 }
               }
 
-              if (kind === 'normal' && Math.random() < RED_ROCK_SPAWN_CHANCE) {
+              if (kind === 'normal' && random() < RED_ROCK_SPAWN_CHANCE) {
                 kind = 'red'
               }
             }

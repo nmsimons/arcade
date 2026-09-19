@@ -84,6 +84,8 @@ import { updateHarpoon } from './harpoon.ts'
 import { updateBulletsAndPlayerRockCollisions } from './bullets.ts'
 
 import { seededRandom } from './random.ts'
+import { identifyBody, isRock } from './bodyDefinitions.ts'
+import { isStationBot } from './stationBots.ts'
 import type { Expedition } from './expedition.ts'
 type SessionAudio = Pick<typeof BrowserSounds, 'blaster' | 'stopThrust' | 'stopPhaser' | 'stopRadiation' | 'teleport' | 'collect' | 'init' | 'stopStoreMusic' | 'havenRecovery' | 'explosion' | 'shieldHit' | 'radiationTick' | 'botCue' | 'shieldCharge' | 'startPhaser' | 'startRepairHum' | 'stopRepairHum' | 'havenImpact'>
 export type SessionAudioEvent = { [K in keyof SessionAudio]: { type: 'audio'; name: K; args: Parameters<SessionAudio[K]> } }[keyof SessionAudio]
@@ -239,7 +241,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       (cosmeticRandom() - 0.5) * spinBase,
     ]
 
-    return {
+    return identifyBody<Rock>({
       pos: { x, y },
       vel: velOverride ?? { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
       radius,
@@ -249,7 +251,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       mesh: makeRockMesh(radius, seed),
       kind,
       fragmentRates: fragmentProfileAt({x,y}),
-    }
+    }, { type: 'asteroid' })
     }
 
   const createDebris = (
@@ -283,7 +285,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     const state = expeditionRef.current
     for (const cell of powerCellSpawns(state)) {
       const rock = createRock(cell.pos.x, cell.pos.y, 20, cell.vel, 'blue')
-      rock.sourceId = cell.sourceId; rock.tethered = cell.tethered
+      identifyBody(rock, { type: 'cell', id: cell.sourceId }); rock.tethered = cell.tethered
       rocksRef.current.push(rock)
     }
     cargoBodies(state, runtimeRef.current)
@@ -420,7 +422,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     sounds.stopStoreMusic()
     const savedPosition = expeditionRef.current.position
     const spawn = isInsideCavern(savedPosition, 15, expeditionMap(expeditionRef.current)) ? { ...savedPosition } : checkpointPosition(expeditionRef.current)
-    shipRef.current = { pos: spawn, vel: { x: 0, y: 0 }, angle: Math.PI, angularVelocity: 0, radius: 15 }
+    shipRef.current = identifyBody({ pos: spawn, vel: { x: 0, y: 0 }, angle: Math.PI, angularVelocity: 0, radius: 15 }, { type: 'ship' })
     rocksRef.current = []
     shipRepairTimeRef.current = 0
     bulletsRef.current = []
@@ -461,7 +463,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       y: 0,
     })
     // Mark it as “in base long enough” so base-gun shots make sense visually.
-    ;(processingRock as Rock & { inBaseTime?: number }).inBaseTime = 3
+    processingRock.inBaseTime = 3
 
     const distance = (ax: number, ay: number, bx: number, by: number) => Math.hypot(bx - ax, by - ay)
 
@@ -1007,8 +1009,8 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       for (const impact of stepSecurityShots(botsRef.current,dt,securityMap,[...(riding ? [] : [ship]),...rocksRef.current,...cargoBodies(expeditionRef.current,runtimeRef.current),...botBodies])) {
         createDebris(impact.pos.x,impact.pos.y,0,0,3,.2,'255, 162, 125')
         if (impact.target === ship) applyImpactShield(80)
-        else if (impact.target?.botId) hitBot(impact.target as StationBot,1)
-        else if (impact.target && rocksRef.current.includes(impact.target as Rock)) hitRockLikeShipWeapon(impact.target as Rock,impact.direction)
+        else if (impact.target && isStationBot(impact.target)) hitBot(impact.target,1)
+        else if (impact.target && isRock(impact.target) && rocksRef.current.includes(impact.target)) hitRockLikeShipWeapon(impact.target,impact.direction)
         else if (impact.target && !impact.target.anchored && !impact.target.retrieving) {
           impact.target.vel.x += impact.direction.x*45; impact.target.vel.y += impact.direction.y*45
         }
@@ -1172,8 +1174,8 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
             const impactMs = laserImpactMs(expeditionRef.current)
             if (stepLaserContact(laserContactRef.current, bestRock, dt, impactMs) && bestRock) {
-              if (bestRock.botId) hitBot(bestRock as StationBot,BOT_LASER_DAMAGE)
-              else hitRockLikeShipWeapon(bestRock as Rock, { x: ux, y: uy })
+              if (isStationBot(bestRock)) hitBot(bestRock,BOT_LASER_DAMAGE)
+              else if (isRock(bestRock)) hitRockLikeShipWeapon(bestRock, { x: ux, y: uy })
             }
           }
 
@@ -1331,12 +1333,12 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         extraBodies: botBodies.filter(bot=>bot.health>0 && !bot.anchored),
         havenMotion:{ previous:previousHaven,current:pose,dt },
         onContact: contact => {
-          for (const body of [contact.body,contact.other]) if (body?.kind === 'red') armRedRock(body as Rock)
-          for (const body of [contact.body,contact.other]) if (body?.botId && contact.speed>115 && (body as StationBot).stun<=0) hitBot(body as StationBot,contact.speed>230 ? 2 : 1)
+          for (const body of [contact.body,contact.other]) if (body && isRock(body) && body.kind === 'red') armRedRock(body)
+          for (const body of [contact.body,contact.other]) if (body && isStationBot(body) && contact.speed>115 && body.stun<=0) hitBot(body,contact.speed>230 ? 2 : 1)
           if (contact.surface !== 'haven') return
           const body=contact.body,point=contact.point!
-          if ('angVel' in body && contact.speed>20) {
-            const rock=body as Rock
+          if (isRock(body) && contact.speed>20) {
+            const rock=body
             rock.angVel[2]+=Math.max(-.7,Math.min(.7,((point.x-rock.pos.x)*rock.vel.y-(point.y-rock.pos.y)*rock.vel.x)/Math.max(1,rock.radius*rock.radius)*.02))
           }
           if (contact.speed>22) {

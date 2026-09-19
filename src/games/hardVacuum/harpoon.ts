@@ -368,8 +368,8 @@ export function updateHarpoon(args: {
 
         // Mass: larger rock = heavier. Ship is always light.
         const invShip = 1
-        const mRock = rock.mass ?? Math.max(1, (rock.radius / 18) * (rock.radius / 18))
-        const invRock = rock.anchored ? 0 : 1 / mRock
+        const mRock = bodyMass(rock)
+        const invRock = isImmovable(rock) ? 0 : 1 / mRock
         const invSum = invShip + invRock
 
         // Position correction to remove stretch.
@@ -530,3 +530,4 @@ export function updateHarpoon(args: {
     }
   }
 }
+import { bodyMass, isImmovable } from './bodyDefinitions.ts'

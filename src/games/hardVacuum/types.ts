@@ -6,6 +6,7 @@ export interface Vector2 {
 export type V3 = [number, number, number]
 
 export interface Ship {
+  identity?: BodyIdentity
   pos: Vector2
   vel: Vector2
   angle: number
@@ -15,7 +16,13 @@ export interface Ship {
 
 export type RockKind = 'normal' | 'blue' | 'red'
 
+export type BodyIdentity =
+  | { type: 'ship' | 'asteroid' }
+  | { type: 'cargo'; id: string; kind: 'module' | 'salvage' | 'core' }
+  | { type: 'cell' | 'terminal' | 'bot'; id: string }
+
 export interface TetherBody {
+  identity?: BodyIdentity
   pos: Vector2
   vel: Vector2
   radius: number

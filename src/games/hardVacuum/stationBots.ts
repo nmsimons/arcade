@@ -50,13 +50,14 @@ export interface StationBot extends TetherBody {
 export interface SecurityShot { pos: Vector2; vel: Vector2; life: number; owner: string }
 export interface BotRuntime { units: StationBot[]; shots: SecurityShot[] }
 export const freshBots = (state: Pick<Expedition, 'disabledBots' | 'power' | 'botDoors'>): BotRuntime => ({
-  units: BOT_STATIONS.filter(spec => !state.disabledBots.includes(spec.id)).map(spec => ({
+  units: BOT_STATIONS.filter(spec => !state.disabledBots.includes(spec.id)).map(spec => identifyBody<StationBot>({
     botId: spec.id, botKind: spec.kind, pos: { ...spec.home }, vel: { x: 0, y: 0 }, radius: spec.kind === 'tug' ? 21 : 19,
     mass: spec.kind === 'tug' ? 1.8 : 1.2, angle: 0, health: BOT_MAX_HEALTH,
     anchored: !state.power[spec.power] || botGarageProgress(state,spec)<1,
     phase: state.power[spec.power] ? botGarageProgress(state,spec)<1 ? 'boot' : 'deploy' : 'offline', timer: 2.2, stun: 0, flash: 0, shotCount: 0, aim: 0, returning: false,
-  })), shots: [],
+  }, { type: 'bot', id: spec.id })), shots: [],
 })
+export const isStationBot = (body: TetherBody): body is StationBot => !!body.botId && 'health' in body && 'phase' in body && 'stun' in body
 const distance = (a: Vector2, b: Vector2) => Math.hypot(a.x - b.x, a.y - b.y)
 const sight = (a: Vector2, b: Vector2, map: CavernMap) => raycastCavern(a, { x: b.x - a.x, y: b.y - a.y }, distance(a, b), map) >= distance(a, b) - .1
 const turn = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a))
@@ -180,3 +181,4 @@ export function stepSecurityShots(runtime: BotRuntime, dt: number, map: CavernMa
   })
   return impacts
 }
+import { identifyBody } from './bodyDefinitions.ts'

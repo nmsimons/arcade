@@ -3,8 +3,9 @@ import type { CavernMap } from './worldGeometry'
 import { resolveCircleInCavern } from './worldGeometry.ts'
 import { collideHaven } from './havenGeometry.ts'
 import type { HavenPose } from './havenGeometry'
+import { bodyMass, isImmovable, isAsteroid } from './bodyDefinitions.ts'
 
-const inverseMass = (body: TetherBody) => body.socketId || body.anchored || body.retrieving ? 0 : 1 / (body.mass ?? ('angle' in body ? 1 : Math.max(.25, (body.radius / 18) ** 2)))
+const inverseMass = (body: TetherBody) => isImmovable(body) ? 0 : 1 / bodyMass(body)
 
 /** All free bodies exchange momentum. A connected cell is a solid anchored
  * body: it deflects incoming objects without being pulled out of its receiver. */
@@ -44,18 +45,18 @@ export function resolveWorldContacts(bodies: readonly TetherBody[], map: CavernM
     for (let i=0;i<active.length;i++) for (let j=i+1;j<active.length;j++) {
       const a=active[i], b=active[j]
       if (Math.abs(a.pos.x-b.pos.x)>=a.radius+b.radius || Math.abs(a.pos.y-b.pos.y)>=a.radius+b.radius) continue
-      const orePair=a.kind && b.kind && !a.sourceId && !b.sourceId
+      const orePair=isAsteroid(a) && isAsteroid(b)
       const contact=collideBodies(a,b,orePair ? .9 : .55)
       if (!contact.hit) continue
       touched=true;onContact({body:a,other:b,surface:'body',speed:contact.speed})
     }
     for (const body of active) {
-      if (body.socketId || body.anchored || body.retrieving) continue
+      if (isImmovable(body)) continue
       if (haven) {
         const contact=collideHaven(body,haven.previous,haven.current,haven.dt)
         if (contact.hit) { touched=true;onContact({body,surface:'haven',speed:contact.speed,point:contact.point}) }
       }
-      const contact=resolveCircleInCavern(body.pos,body.vel,body.radius,body.kind && !body.sourceId ? .82 : .5,map)
+      const contact=resolveCircleInCavern(body.pos,body.vel,body.radius,isAsteroid(body) ? .82 : .5,map)
       if (contact.collided) { touched=true;onContact({body,surface:'wall',speed:contact.maxImpactSpeed}) }
     }
     if (!touched) break

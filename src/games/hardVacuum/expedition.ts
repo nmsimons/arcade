@@ -371,15 +371,16 @@ export function powerCellSpawns(s: Expedition) {
   })
 }
 export const looseObjects = (s: Expedition) => [
-  ...PICKUPS.filter(item => !s.upgrades.includes(item.id)).map(item => ({ ...item, radius: 23, mass: 0.8, kind: item.id, available: true })),
-  ...CACHES.filter(item => !s.caches.includes(item.id)).map(item => ({ ...item, radius: 22, mass: 1.4, kind: 'cache', available: true })),
-  ...(!s.core ? [{ id: 'core', pos: CORE_POSITION, radius: 27, mass: 2, kind: 'core', available: coreReleased(s) }] : []),
+  ...PICKUPS.filter(item => !s.upgrades.includes(item.id)).map(item => ({ ...item, ...CARGO_PHYSICS.module, kind: item.id, available: true })),
+  ...CACHES.filter(item => !s.caches.includes(item.id)).map(item => ({ ...item, ...CARGO_PHYSICS.salvage, kind: 'cache', available: true })),
+  ...(!s.core ? [{ id: 'core', pos: CORE_POSITION, ...CARGO_PHYSICS.core, kind: 'core', available: coreReleased(s) }] : []),
 ]
 export const objectBody = (rt: ExpeditionRuntime, id: string, position: Vector2): FloatingBody => {
-  const radius = id === 'core' ? 27 : CACHES.some(c => c.id === id) ? 22 : 23
+  const kind = id === 'core' ? 'core' : CACHES.some(c => c.id === id) ? 'salvage' : 'module'
+  const { radius } = CARGO_PHYSICS[kind]
   const body = rt.objects[id] ??= { pos: { ...position }, vel: initialCargoVelocity(position), radius, cargoId: id, capture: 0 }
   // Live development updates may retain bodies created by the older collector.
-  body.radius = radius; body.mass = id === 'core' ? 1.8 : 0.65; body.cargoId = id
+  identifyBody(body, { type: 'cargo', id, kind })
   // A development hot reload can retain the old archive body without parsing a save.
   if (id==='radiation' && !body.retrieving && untouchedArchiveModule(body)) {
     body.pos={...position}; body.vel=initialCargoVelocity(position)
@@ -582,3 +583,4 @@ export function visibleBetween(a: Vector2, b: Vector2, map: CavernMap): boolean 
   const distance = Math.hypot(b.x - a.x, b.y - a.y)
   return raycastCavern(a, { x: b.x - a.x, y: b.y - a.y }, distance, map) >= distance - 1
 }
+import { CARGO_PHYSICS, identifyBody } from './bodyDefinitions.ts'

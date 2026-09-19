@@ -110,7 +110,7 @@ test('every later long transfer tube is irradiated, while the first departure an
     assert.equal(failed,false,`${tunnel.id}: a prompt shielded crossing must be possible`)
     assert.ok(reserve.radiationCharge<95,tunnel.id)
   }
-  const legacy=freshExpedition();legacy.cargo={radiation:{pos:{x:1650,y:350},vel:{x:1,y:1},tethered:false}}
+  const legacy=freshExpedition();;legacy.version=1;legacy.cargo={radiation:{pos:{x:1650,y:350},vel:{x:1,y:1},tethered:false}}
   assert.equal(parseExpedition(JSON.stringify(legacy)).cargo.radiation,undefined)
 })
 

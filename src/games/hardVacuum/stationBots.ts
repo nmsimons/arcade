@@ -1,6 +1,7 @@
 import type { Expedition } from './expedition'
 import type { Debris, Ship, TetherBody, Vector2 } from './types'
 import type { CavernMap } from './worldGeometry'
+import type { BotId, CircuitId } from './stationIds'
 import { raycastCavern, resolveCircleInCavern } from './worldGeometry.ts'
 import { rayCircleHitDistance } from './phaserGeometry.ts'
 import { MAINTENANCE_SPEED, stepMaintenanceBot } from './maintenanceBots.ts'
@@ -15,7 +16,7 @@ export const BOT_STATIONS = [
   { id: 'heart-watch', kind: 'security', power: 'heart-power', home: { x: 4300, y: 3440 }, patrol: { x: 3860, y: 3610 } },
   { id: 'field-watch', kind: 'security', power: 'heart-power', home: { x: 5190, y: 3530 }, patrol: { x: 5340, y: 3340 } },
   { id: 'coil-tug', kind: 'tug', power: 'coil-power', home: { x: 4050, y: 4570 }, patrol: { x: 4360, y: 4430 } },
-] as const
+] as const satisfies readonly { id: BotId; kind: 'tug' | 'security'; power: CircuitId; home: Vector2; patrol: Vector2 }[]
 export type StationBotKind = typeof BOT_STATIONS[number]['kind']
 // Both chassis take two blaster hits or five completed asteroid laser contacts.
 export const BOT_MAX_HEALTH = 10

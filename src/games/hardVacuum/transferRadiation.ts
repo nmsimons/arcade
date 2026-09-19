@@ -1,6 +1,7 @@
 import { CAMPAIGN_CHAMBERS, CAMPAIGN_GATES, CAMPAIGN_PASSAGES, SERVICE_ROUTES } from './campaignWorld.ts'
 import { pointInPolygon } from './worldGeometry.ts'
 import type { Vector2 } from './types'
+import { TRANSFER_RULES } from './stationExceptions.ts'
 
 const length = (a: Vector2,b: Vector2) => Math.hypot(b.x-a.x,b.y-a.y)
 const segmentGap = (p: Vector2,a: Vector2,b: Vector2) => {
@@ -15,7 +16,7 @@ for (const passage of CAMPAIGN_PASSAGES) {
 /** Long transfer tubes carry damaged isotope-powered service conduits.
  * The first expedition out of the Breach deliberately remains safe. */
 export const IRRADIATED_TUNNELS = [...groups.entries()].filter(([,parts])=>
-  parts[0].gate!=='breach-link' && parts.reduce((n,p)=>n+length(p.centerline[0],p.centerline[1]),0)>=600,
+  parts[0].gate!==TRANSFER_RULES.safeIntroGate && parts.reduce((n,p)=>n+length(p.centerline[0],p.centerline[1]),0)>=TRANSFER_RULES.minimumTubeLength,
 ).map(([id,parts])=>({id,parts}))
 
 export const TRANSFER_RADIATION_SOURCES = IRRADIATED_TUNNELS.flatMap(tunnel=>tunnel.parts.flatMap((part,index)=>{
@@ -25,14 +26,14 @@ export const TRANSFER_RADIATION_SOURCES = IRRADIATED_TUNNELS.flatMap(tunnel=>tun
     for (const side of [1,-1]) {
       const pos={x:center.x-(b.y-a.y)/d*87*side,y:center.y+(b.x-a.x)/d*87*side}
       // Keep leaking equipment on the Heart side of the sealed return door.
-      if (part.gate==='breach-return' && center.x>8000 && center.y<4080) continue
+      if (part.gate===TRANSFER_RULES.finalReturnGate && center.x>TRANSFER_RULES.finalReturnQuietArea.minX && center.y<TRANSFER_RULES.finalReturnQuietArea.maxY) continue
       if (Object.values(CAMPAIGN_CHAMBERS).some(shape=>pointInPolygon(pos,shape))) continue
       if (CAMPAIGN_GATES.some(g=>Math.hypot(pos.x-Math.max(g.x,Math.min(g.x+g.w,pos.x)),pos.y-Math.max(g.y,Math.min(g.y+g.h,pos.y)))<42)) continue
       if (SERVICE_ROUTES.some(route=>route.points.slice(1).some((q,j)=>segmentGap(pos,route.points[j],q)<82))) continue
-      const early=tunnel.parts[0].rooms.some(room=>room==='stores'||room==='works')
-      const finalReturn=part.gate==='breach-return'
+      const early=tunnel.parts[0].rooms.some(room=>TRANSFER_RULES.earlyRooms.includes(room))
+      const finalReturn=part.gate===TRANSFER_RULES.finalReturnGate
       // The final tow follows an already irradiated trip from the Heart berth.
-      return {id:`tube:${tunnel.id}:${index}:${i}`,name:'FRACTURED ISOTOPE CONDUIT',pos,bodyRadius:10,coreRange:95,range:370,strength:finalReturn ? .12 : early ? .24 : .36}
+      return {id:`tube:${tunnel.id}:${index}:${i}`,name:'FRACTURED ISOTOPE CONDUIT',pos,bodyRadius:10,coreRange:95,range:370,strength:finalReturn ? TRANSFER_RULES.strength.finalReturn : early ? TRANSFER_RULES.strength.early : TRANSFER_RULES.strength.late}
     }
     return undefined
   }).filter(source=>source!==undefined)

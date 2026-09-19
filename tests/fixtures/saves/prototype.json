@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "upgrades": [
+    "access",
+    "thermal",
+    "drive"
+  ],
+  "upgradeLevels": {},
+  "gates": [
+    "heart",
+    "crag-0",
+    "thermal"
+  ],
+  "power": {},
+  "doors": {},
+  "caches": [],
+  "visited": [
+    "haven"
+  ],
+  "surveyed": [],
+  "disabledBots": [],
+  "botDoors": {},
+  "checkpoint": "reactor",
+  "credits": 87,
+  "banked": 12345,
+  "core": false,
+  "complete": false,
+  "position": {
+    "x": 1500,
+    "y": 1100
+  },
+  "shields": 2,
+  "blasterInstalled": false,
+  "blasterCharges": 0,
+  "radiationCharge": 0,
+  "radiationExposure": 0,
+  "rechargePacks": 0,
+  "teleporterInstalled": false,
+  "remoteRechargeRemaining": 0,
+  "cargo": {
+    "cutter": {
+      "pos": {
+        "x": 1400,
+        "y": 1100
+      },
+      "vel": {
+        "x": 3,
+        "y": 2
+      },
+      "tethered": true
+    },
+    "thermal": {
+      "pos": {
+        "x": 1650,
+        "y": 350
+      },
+      "vel": {
+        "x": 0,
+        "y": 0
+      }
+    },
+    "foundry": {
+      "pos": {
+        "x": 660,
+        "y": 1258
+      },
+      "vel": {
+        "x": 0,
+        "y": 0
+      }
+    }
+  }
+}

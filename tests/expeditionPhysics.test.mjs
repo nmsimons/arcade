@@ -69,7 +69,7 @@ test('Haven is the only docking, banking and recharge location', () => {
 })
 
 test('power-cell origins are empty space while receivers retain their physical contacts', () => {
-  const state = freshExpedition('ring'); state.gates.push('rubble', 'foundry', 'archive', 'reactor', 'thermal')
+  const state = freshExpedition('ring'); state.gates.push('rubble', 'foundry', 'archive', 'reactor')
   const map = expeditionMap(state)
   for (const socket of SOCKETS) {
     assert.ok(isInsideCavern(socket.source, 20, map))
@@ -139,7 +139,7 @@ test('the actual grapple holds a fixed cable and never reels modules into the sh
 })
 
 test('the core stays on the cable until delivered to the Ignition Cradle, and Haven cannot collect it', () => {
-  const state = freshExpedition('ring'), rt = freshRuntime(); state.gates.push('ignition-ready')
+  const state = freshExpedition('ring'), rt = freshRuntime(); state.flags.push('ignition-ready')
   const core = cargoBodies(state, rt).find(body => body.cargoId === 'core')
   const ship = shipAt({ x: core.pos.x - 80, y: core.pos.y })
   const hook = { state: 'attached', rock: core }

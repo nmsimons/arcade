@@ -25,7 +25,7 @@ test('bot defeats survive docking and save reloads but reset when the pilot resp
   crashExpedition(state)
   assert.deepEqual(state.disabledBots,[])
   assert.equal(freshBots(parseExpedition(JSON.stringify(state))).units.find(b=>b.botId===bot.botId).health,BOT_MAX_HEALTH)
-  const old = freshExpedition(); delete old.disabledBots
+  const old = freshExpedition();;old.version=1; delete old.disabledBots
   assert.deepEqual(parseExpedition(JSON.stringify(old)).disabledBots,[])
   assert.equal(parseExpedition(JSON.stringify({...old,disabledBots:['missing']})),null)
 })

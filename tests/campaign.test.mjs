@@ -9,7 +9,7 @@ import { surveyPoint } from '../src/games/hardVacuum/survey.ts'
 
 const shipAt = pos => ({ pos:{ ...pos },vel:{ x:0,y:0 },radius:15,angle:0 })
 const tick = (s,rt,ship,rocks=[],dt=.1) => stepExpedition(s,rt,{ dt,ship,rocks,harpoon:{ state:'idle' },beam:{ active:false } })
-const openAll = s => { s.gates = [...GATES.map(g=>g.id),'heart','ignition-ready']; s.doors = {}; s.campaign.berths = BERTHS.map(b=>b.id); s.visited = SECTORS.map(r=>r.id) }
+const openAll = s => { s.flags=['heart','ignition-ready'];s.gates = GATES.map(g=>g.id); s.doors = {}; s.campaign.berths = BERTHS.map(b=>b.id); s.visited = SECTORS.map(r=>r.id) }
 
 // Flood circle-clear geometry, including the actual doors and machine housings.
 function flood(s, origin=s.position) {
@@ -135,7 +135,7 @@ test('the story is discovered once, terminal records need a connection, and the 
   const core=objectBody(rt,'core',CORE_POSITION);core.pos={x:ship.pos.x-132,y:ship.pos.y};core.vel={x:0,y:0};core.tethered=true
   for(let i=0;i<10;i++) tick(s,rt,ship)
   assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
-  s.gates.push('ignition-ready')
+  s.flags.push('ignition-ready')
   for(let i=0;i<30;i++) tick(s,rt,ship)
   assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
   core.pos={...IGNITION_CRADLE};core.vel={x:0,y:0}
@@ -144,7 +144,7 @@ test('the story is discovered once, terminal records need a connection, and the 
 })
 
 test('prototype saves enter the Ring without losing equipment, funds or the meaning of surveyed cells',()=>{
-  const old=freshExpedition('ring');delete old.campaign
+  const old=freshExpedition('ring');;old.version=1;delete old.campaign
   old.banked=4321;old.blasterInstalled=true;old.blasterCharges=2;old.upgrades=['radiation'];old.surveyed=[921,922];old.gates=['rubble']
   const s=parseExpedition(JSON.stringify(old))
   assert.equal(s.campaign.berth,'ring');assert.equal(s.banked,4321);assert.equal(s.blasterCharges,2)

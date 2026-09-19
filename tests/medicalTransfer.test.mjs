@@ -76,7 +76,7 @@ test('one charge covers the medical cell run at towing speed, but unshielded or 
 })
 
 test('existing saves gain access to the bypass without losing their ward progress or cargo',()=>{
-  const state=arrival();state.gates=state.gates.filter(id=>id!=='medical-return')
+  const state=arrival();state.version=1;state.gates=state.gates.filter(id=>id!=='medical-return')
   state.cargo={'ward-power':{pos:{x:1650,y:3470},vel:{x:2,y:1},tethered:true}}
   const restored=parseExpedition(JSON.stringify(state))
   assert.ok(restored.gates.includes('medical-return'));assert.ok(!restored.gates.includes('ward-link'))

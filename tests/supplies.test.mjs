@@ -81,7 +81,7 @@ test('teleporting is reusable for free, banks every carried credit, and leaves c
 })
 
 test('older saves gain empty supplies, purchases survive reloads, and active recharge resumes without re-consuming', () => {
-  const old = loaded()
+  const old = loaded();old.version=1;
   for (const key of Object.keys(freshSupplies())) delete old[key]
   const migrated = parseExpedition(JSON.stringify(old))
   for (const [key, value] of Object.entries(freshSupplies())) assert.equal(migrated[key], value)
@@ -98,7 +98,7 @@ test('older saves gain empty supplies, purchases survive reloads, and active rec
 
 test('old teleporter installations become unlimited and unused charge purchases are refunded once', () => {
   for (const charges of [0, 1]) {
-    const old = loaded(); old.teleporterInstalled = true; old.teleportCharges = charges
+    const old = loaded();;old.version=1; old.teleporterInstalled = true; old.teleportCharges = charges
     const restored = parseExpedition(JSON.stringify(old))
     assert.equal(restored.banked, old.banked + charges * 750)
     assert.equal('teleportCharges' in restored, false)

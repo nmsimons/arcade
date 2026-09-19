@@ -4,23 +4,20 @@ import { discoverCampaign } from './campaign.ts'
 import { openGate, powerReceiver, SOCKETS } from './expedition.ts'
 import type { Expedition } from './expedition'
 import { restoreShipSystems } from './supplies.ts'
+import { CIRCUIT_STEPS } from './stationProgression.ts'
 
 export const DEV_CREDITS = 100_000
 export const DEV_LEVELS = REGIONS.map((region, index) => ({
   id: region.id, name: region.name, number: index + 1,
   entry: region.id === 'refuge' ? { x: 1500, y: 2740 } : { ...BERTHS[index].pos },
 }))
-const completedCircuits = [
-  ['breach-power'], ['freight-power', 'dispatch-power'], ['works-power', 'ring-power'],
-  ['foundry', 'relay', 'heart'], ['refuge-power', 'ward-power', 'heart-route'],
-]
-const completedBarriers = [[], [], ['tool-door', 'store-door'], ['rubble', 'blast'], []]
 
 /** Advance prerequisites, preserving completed puzzles, equipment and cargo. */
 export function advanceDevelopmentLevel(state: Expedition, id: BerthId): boolean {
   const index = DEV_LEVELS.findIndex(level => level.id === id)
   if (index < 0) return false
-  for (const circuit of completedCircuits.slice(0, index).flat()) {
+  const prerequisites = CIRCUIT_STEPS.filter(step => REGIONS.findIndex(region => region.id === step.region) < index)
+  for (const { id: circuit } of prerequisites) {
     if (state.power[circuit]) continue
     const used = new Set(Object.values(state.power))
     // Any cell can have been used in any receiver during actual play.
@@ -28,7 +25,7 @@ export function advanceDevelopmentLevel(state: Expedition, id: BerthId): boolean
     powerReceiver(state, circuit, source)
     if (state.cargo) delete state.cargo[source]
   }
-  for (const gate of completedBarriers.slice(0, index).flat()) openGate(state, gate)
+  for (const gate of prerequisites.flatMap(step => step.barriers)) openGate(state, gate)
   for (const gate of Object.keys(state.doors)) state.doors[gate] = 1
   for (const region of REGIONS.slice(0, index)) for (const room of region.rooms) {
     if (!state.visited.includes(room)) state.visited.push(room)

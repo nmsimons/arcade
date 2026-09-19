@@ -61,7 +61,7 @@ test('newly launched games create a validated backup and later saves keep the pr
 })
 
 test('legacy saves migrate through the normal parser and refunds apply exactly once', () => {
-  const legacy = { ...freshExpedition('ring'), banked: 100, teleporterInstalled: true, teleportCharges: 1 }
+  const legacy = { ...freshExpedition('ring'), banked: 100, teleporterInstalled: true, teleportCharges: 1 };legacy.version=1;
   delete legacy.finaleVersion
   const raw = JSON.stringify(legacy), m = memory([[SAVE_KEY, raw]])
   const session = createExpeditionSaveSession(m.storage)

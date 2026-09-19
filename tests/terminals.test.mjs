@@ -50,7 +50,7 @@ test('the terminal lesson is contextual, respects walls, and retires after the f
   assert.equal(terminalVisible(ship.pos,terminal,blocked),false)
   stepGrappleGuide(s,rt,ship,{state:'idle'},[],blocked,.1);assert.equal(rt.grappleHint,'')
   s.campaign.terminalLinked=true;hint();assert.equal(rt.grappleHint,'')
-  const legacy=freshExpedition();delete legacy.campaign.terminalLinked
+  const legacy=freshExpedition();;legacy.version=1;delete legacy.campaign.terminalLinked
   assert.equal(parseExpedition(JSON.stringify(legacy)).campaign.terminalLinked,false)
   legacy.campaign.terminalLinked='yes';assert.equal(parseExpedition(JSON.stringify(legacy)),null)
 })

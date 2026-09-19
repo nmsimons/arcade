@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "finaleVersion": 2,
+  "campaign": {
+    "version": 1,
+    "berth": "works",
+    "haven": {
+      "x": 4910,
+      "y": 1240
+    },
+    "havenAngle": 0,
+    "grappleLearned": false,
+    "terminalLinked": false,
+    "berths": [
+      "works"
+    ],
+    "records": [
+      "contract"
+    ],
+    "playedSeconds": 0,
+    "deaths": 0
+  },
+  "upgrades": [
+    "winch"
+  ],
+  "upgradeLevels": {
+    "winch": 4
+  },
+  "gates": [],
+  "power": {},
+  "doors": {},
+  "caches": [],
+  "visited": [
+    "works"
+  ],
+  "surveyed": [],
+  "disabledBots": [],
+  "botDoors": {},
+  "checkpoint": "haven",
+  "credits": 0,
+  "banked": 1700,
+  "core": false,
+  "complete": false,
+  "position": {
+    "x": 4910,
+    "y": 1240
+  },
+  "shields": 2,
+  "blasterInstalled": false,
+  "blasterCharges": 0,
+  "radiationCharge": 0,
+  "radiationExposure": 0,
+  "rechargePacks": 0,
+  "teleporterInstalled": true,
+  "remoteRechargeRemaining": 0,
+  "teleportCharges": 1
+}

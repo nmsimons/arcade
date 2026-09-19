@@ -98,7 +98,7 @@ test('radiation drains only its own reserve, does not regenerate away from Haven
 test('radiation reserve and exposure persist, and legacy upgrades migrate without resetting progress', () => {
   const state = freshExpedition('ring'); state.upgrades = ['radiation']; state.radiationCharge = 0; state.radiationExposure = 0.9
   assert.deepEqual(parseExpedition(JSON.stringify(state)), state)
-  const old = { ...state, upgrades: ['cutter', 'thermal', 'drive'], banked: 90 }
+  const old = { ...state, upgrades: ['cutter', 'thermal', 'drive'], banked: 90 };old.version=1;
   delete old.radiationCharge; delete old.radiationExposure
   const migrated = parseExpedition(JSON.stringify(old))
   assert.deepEqual(migrated.upgrades, ['radiation', 'focus']); assert.equal(migrated.radiationCharge, 100); assert.equal(migrated.banked, 90)
@@ -151,7 +151,7 @@ test('removed formations leave navigable space without invisible collision or bl
 test('retired formation flags migrate without losing saved progress', () => {
   const state = freshExpedition('ring')
   Object.assign(state, { gates: ['rubble', 'blast'], banked: 4321, credits: 87, blasterInstalled: true, blasterCharges: 1, visited: ['haven', 'vault'], surveyed: [921, 922], upgrades: ['focus'], upgradeLevels: { focus: 2 } })
-  const legacy = { ...state, gates: [...state.gates, ...Array.from({ length: 6 }, (_, i) => `crag-${i}`)] }
+  const legacy = { ...state, gates: [...state.gates, ...Array.from({ length: 6 }, (_, i) => `crag-${i}`)] };legacy.version=1;
   assert.deepEqual(parseExpedition(JSON.stringify(legacy)), state)
   assert.equal(parseExpedition(JSON.stringify({ ...state, gates: ['crag-6'] })), null)
 })

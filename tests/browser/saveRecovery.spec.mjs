@@ -76,7 +76,7 @@ test('a missing slot stays empty on menu exit and is saved only after launch', a
   await page.goto('/hard-vacuum')
   await activate(page, 'Launch expedition')
   await expect.poll(() => readSlot(page)).not.toBeNull()
-  expect(JSON.parse(await readSlot(page, SAVE_BACKUP_KEY)).version).toBe(1)
+  expect(JSON.parse(await readSlot(page, SAVE_BACKUP_KEY)).version).toBe(2)
 })
 
 test('a missing primary with a working backup defaults to recovery, not a fresh launch', async ({ page }) => {
@@ -101,7 +101,7 @@ test('confirming New deliberately replaces an unreadable save', async ({ page })
   await page.keyboard.press('ArrowRight')
   await expect(page.getByRole('button', { name: 'Start fresh', exact: true })).toBeFocused()
   await page.keyboard.press('Enter')
-  await expect.poll(async () => JSON.parse(await readSlot(page)).version).toBe(1)
+  await expect.poll(async () => JSON.parse(await readSlot(page)).version).toBe(2)
   expect(JSON.parse(await readSlot(page)).banked).toBe(0)
   expect(await readSlot(page, SAVE_RECOVERY_KEY)).toBe(raw)
 })

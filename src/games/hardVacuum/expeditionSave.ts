@@ -1,4 +1,5 @@
-import { parseExpedition, SAVE_KEY } from './expedition.ts'
+import { SAVE_KEY } from './stationDefinitions.ts'
+import { parseExpedition, SAVE_SCHEMA_VERSION } from './saveMigrations.ts'
 import type { Expedition } from './expedition'
 
 export const SAVE_BACKUP_KEY = `${SAVE_KEY}-backup`
@@ -23,7 +24,7 @@ export function parseSave(raw: string | null): SaveLoadResult {
   if (raw === null) return { status: 'missing', raw }
   try {
     const value = JSON.parse(raw)
-    const versions = [[value?.version, 1], [value?.campaign?.version, 1], [value?.finaleVersion, 2]]
+    const versions = [[value?.version, SAVE_SCHEMA_VERSION], [value?.campaign?.version, 1], [value?.finaleVersion, 2]]
     if (versions.some(([version, supported]) => Number.isInteger(version) && version > supported)) {
       return { status: 'unsupported', raw }
     }

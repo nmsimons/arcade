@@ -38,18 +38,18 @@ test('every cargo model keeps its silhouette, facets and colors throughout the r
   assert.ok(medical.length>crate.length*2,'the oxygen canisters retain their individual cylinders')
 })
 
-test('unclaimed archive shields migrate to Freight, including live old bodies, without moving player-towed cargo',()=>{
+test('legacy archive shields migrate to Freight without moving towed cargo or current runtime bodies',()=>{
   const module=PICKUPS.find(p=>p.id==='radiation')
   for(const pos of [{x:1650,y:350},{x:1430,y:540}]) {
     for(const tethered of [false,true]) {
       const state=freshExpedition(),old={pos:{...pos},vel:{x:2,y:1},tethered}
-      state.cargo={radiation:structuredClone(old)}
+      state.version=1;state.cargo={radiation:structuredClone(old)}
       const loaded=parseExpedition(JSON.stringify(state)),runtime=freshRuntime()
       const restored=cargoBodies(loaded,runtime).find(b=>b.cargoId==='radiation')
       assert.deepEqual(restored.pos,tethered ? pos : module.pos)
       const live=freshRuntime();live.objects.radiation={...structuredClone(old),radius:23,cargoId:'radiation',capture:0}
       const hotReloaded=cargoBodies(freshExpedition(),live).find(b=>b.cargoId==='radiation')
-      assert.deepEqual(hotReloaded.pos,tethered ? pos : module.pos)
+      assert.deepEqual(hotReloaded.pos,pos)
     }
   }
   const installed=freshExpedition();installed.upgrades.push('radiation')

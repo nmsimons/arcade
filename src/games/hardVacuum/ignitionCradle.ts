@@ -18,7 +18,7 @@ export const INSTALLED_CORE_HOUSING = rect(-27,-27,54,54)
 
 /** The core must enter the cradle before its clamps take custody. */
 export function stepIgnitionCradle(s: Expedition,rt: ExpeditionRuntime,dt: number): boolean {
-  if (s.core || s.complete || !s.gates.includes('ignition-ready')) return false
+  if (s.core || s.complete || !s.flags.includes('ignition-ready')) return false
   const body=rt.objects.core
   if (!body) return false
   if (!rt.coreLatch) {

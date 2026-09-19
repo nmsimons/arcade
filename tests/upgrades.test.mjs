@@ -55,7 +55,7 @@ test('every stage changes actual shield, firing duration, cable reach, and laser
 })
 
 test('legacy purchases keep their original benefits and offer the appropriate next stage', () => {
-  const legacy = { ...freshExpedition(), upgrades: ['hull', 'capacitor', 'winch', 'focus'], shields: 4 }
+  const legacy = { ...freshExpedition(), upgrades: ['hull', 'capacitor', 'winch', 'focus'], shields: 4 };legacy.version=1;
   delete legacy.upgradeLevels
   const state = parseExpedition(JSON.stringify(legacy))
   assert.deepEqual([maxShields(state), laserCapacityMs(state), tetherReachMultiplier(state), laserImpactMs(state)], [4, 1000, 2, 250])
@@ -72,7 +72,7 @@ test('legacy purchases keep their original benefits and offer the appropriate ne
 
 test('the single winch purchase doubles reach and replaces every previously purchased tether stage', () => {
   for (let level = 0; level <= 5; level++) {
-    const old = freshExpedition()
+    const old = freshExpedition();old.version=1;
     old.upgradeLevels.winch = level
     if (level) old.upgrades.push('winch')
     const state = parseExpedition(JSON.stringify(old))

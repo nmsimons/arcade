@@ -89,7 +89,7 @@ test('an interrupted recovery survives saving as physical cargo and cannot dupli
 
 test('Haven installs modules but leaves the ignition core outside at different frame rates',()=>{
   for(const dt of [1/30,1/60,1/144]) {
-    const {s,rt,body}=setup('radiation');s.gates.push('ignition-ready')
+    const {s,rt,body}=setup('radiation');s.flags.push('ignition-ready')
     const core=cargoBodies(s,rt).find(b=>b.cargoId==='core')
     core.pos={x:s.campaign.haven.x+66,y:s.campaign.haven.y+114.32};core.vel={x:0,y:0};core.tethered=true
     advance(s,rt,RECOVERY_GRIP-.05,dt);assert.equal(s.upgrades.length,0);assert.equal(s.core,false)

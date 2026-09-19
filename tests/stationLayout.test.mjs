@@ -59,7 +59,7 @@ test('survey records visible terrain, stops at sealed doors, expands after passa
   recordSurvey(state.surveyed, origin, expeditionMap(state))
   assert.ok(state.surveyed.some(id => surveyPoint(id).x < 990))
   assert.deepEqual(parseExpedition(JSON.stringify(state)).surveyed, state.surveyed)
-  const legacy = { ...state }; delete legacy.surveyed
+  const legacy = { ...state };;legacy.version=1; delete legacy.surveyed
   const restored = parseExpedition(JSON.stringify(legacy))
   assert.deepEqual(restored.surveyed, []); assert.deepEqual(restored.gates, ['rubble'])
   for (const surveyed of [null, {}, [-1], [SURVEY_LIMIT], [1.5], ['4']]) assert.equal(parseExpedition(JSON.stringify({ ...state, surveyed })), null)

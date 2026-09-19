@@ -3,7 +3,7 @@ import type { Expedition } from './expedition'
 import { expeditionMap, maxShields, near } from './expedition'
 import { havenPosition, havenReady } from './campaign'
 import { BLASTER_CAPACITY } from './blaster'
-import { radiationAt, RADIATION_HULL_LIMIT } from './radiation'
+import { radiationAt, radiationCapacity, radiationFraction, RADIATION_HULL_LIMIT } from './radiation'
 import { needsRemoteRecharge, RECHARGE_PACK_LIMIT } from './supplies'
 import { SHIELD_REPAIR_TIME } from './tuning'
 import './flightHud.css'
@@ -43,10 +43,11 @@ export function FlightInstruments({ state, shields, room, mapOpen, onMap, onJour
   const radiation = radiationAt(state.position, expeditionMap(state)), exposed = radiation.intensity > 0
   const radiationInstalled = state.upgrades.includes('radiation')
   const protectedFromRadiation = radiationInstalled && state.radiationCharge > 0
-  const radiationColor = exposed && (!protectedFromRadiation || state.radiationCharge < 30) ? '#ff927c' : '#c1adff'
+  const radiationLow = radiationFraction(state) < .3
+  const radiationColor = exposed && (!protectedFromRadiation || radiationLow) ? '#ff927c' : '#c1adff'
   const recharging = state.remoteRechargeRemaining > 0
   const hasRecharge = state.rechargePacks > 0 || recharging
-  const radiationWarning = !protectedFromRadiation ? 'Radiation · Leave now' : state.radiationCharge < 30 ? 'Radiation reserve low' : 'Radiation exposure'
+  const radiationWarning = !protectedFromRadiation ? 'Radiation · Leave now' : radiationLow ? 'Radiation reserve low' : 'Radiation exposure'
   return <div className="flight-hud">
     <div className="hud-location">
       <div className="hud-room">{room}</div>
@@ -58,12 +59,12 @@ export function FlightInstruments({ state, shields, room, mapOpen, onMap, onJour
     <section className="hud-console" aria-label="Ship systems">
       {!mapOpen && <nav className="hud-console-nav" aria-label="Flight tools">
         <button onClick={onMap} aria-label="Station map" aria-keyshortcuts="M" title="Station map · M"><span className="underline underline-offset-2">M</span>ap</button>
-        <button onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="L" title="Log · L"><span className="underline underline-offset-2">L</span>og</button>
+        <button onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="G" title="Log · G">Lo<span className="underline underline-offset-2">g</span></button>
         <button onClick={onPause} aria-label="Pause game" aria-keyshortcuts="P Escape" title="Pause · P / Esc"><span className="underline underline-offset-2">P</span>ause</button>
       </nav>}
       <div className="hud-meters">
         <Meter label="Shields" value={shields} max={maxShields(state)} color={shields === 0 ? '#ff927c' : '#69dbab'} segmented />
-        {(radiationInstalled || exposed) && <Meter label="Radiation" value={radiationInstalled ? Math.round(state.radiationCharge) : 0} max={100} valueText={radiationInstalled ? `${Math.ceil(state.radiationCharge)}%` : '—'} color={radiationColor} />}
+        {(radiationInstalled || exposed) && <Meter label="Radiation" value={radiationInstalled ? Math.round(state.radiationCharge) : 0} max={radiationCapacity(state)} valueText={radiationInstalled ? `${Math.ceil(radiationFraction(state)*100)}%` : '—'} color={radiationColor} />}
         {state.blasterInstalled && <Meter label="Blaster" value={state.blasterCharges} max={BLASTER_CAPACITY} color="#ff8278" segmented shortcut="B" onClick={onBlaster} disabled={mapOpen || state.blasterCharges === 0} />}
       </div>
       {!mapOpen && (shields === 0 || exposed) && <div className="hud-warnings">

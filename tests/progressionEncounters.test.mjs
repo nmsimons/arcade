@@ -8,15 +8,15 @@ import { radiationAt, stepRadiation } from '../src/games/hardVacuum/radiation.ts
 import { surveyView } from '../src/games/hardVacuum/surveyView.ts'
 import { IRRADIATED_TUNNELS, TRANSFER_RADIATION_SOURCES } from '../src/games/hardVacuum/transferRadiation.ts'
 
-test('red and blue debris escalate through the station, with a deliberate quiet refuge',()=>{
+test('blue debris and speed escalate, while every initial red hazard stays enclosed in white rock',()=>{
   const field=debrisField(freshExpedition())
   const counts=Object.fromEntries(REGIONS.map(region=>{
     const rocks=field.filter(r=>region.rooms.some(id=>id===sectorAt(r.pos)?.id))
     return [region.id,{blue:rocks.filter(r=>r.kind==='blue').length/region.rooms.length,red:rocks.filter(r=>r.kind==='red').length/region.rooms.length,speed:rocks.reduce((n,r)=>n+Math.hypot(r.vel.x,r.vel.y),0)/rocks.length}]
   }))
   assert.equal(counts.breach.red,0);assert.equal(counts.breach.blue,0)
+  assert.ok(field.every(rock=>rock.kind!=='red'),'red asteroids only appear as fragments of white asteroids')
   for(const [earlier,later] of [['freight','works'],['works','ring'],['ring','heart']]) {
-    assert.ok(counts[later].red>counts[earlier].red,JSON.stringify(counts))
     assert.ok(counts[later].blue>counts[earlier].blue,JSON.stringify(counts))
   }
   assert.equal(counts.refuge.red,0)

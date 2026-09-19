@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { IGNITION_CRADLE } from '../src/games/hardVacuum/campaignWorld.ts'
 import { collideBodies } from '../src/games/hardVacuum/bodyCollisions.ts'
 import { betweenReceiverPlates } from '../src/games/hardVacuum/receivers.ts'
 import { dockingReadiness, driftCargo } from '../src/games/hardVacuum/expeditionPhysics.ts'
@@ -137,7 +138,7 @@ test('the actual grapple holds a fixed cable and never reels modules into the sh
   assert.ok(state.upgrades.includes('radiation')); assert.equal(state.radiationCharge, 100)
 })
 
-test('the core stays on the cable until towed home; touching it does not collect it outside Haven', () => {
+test('the core stays on the cable until delivered to the Ignition Cradle, and Haven cannot collect it', () => {
   const state = freshExpedition('ring'), rt = freshRuntime(); state.gates.push('ignition-ready')
   const core = cargoBodies(state, rt).find(body => body.cargoId === 'core')
   const ship = shipAt({ x: core.pos.x - 80, y: core.pos.y })
@@ -148,7 +149,11 @@ test('the core stays on the cable until towed home; touching it does not collect
   for (let i = 0; i < 30; i++) step(state, rt, ship)
   assert.equal(state.core, false)
   for (let i = 0; i < 150; i++) step(state, rt, ship, [], hook)
+  assert.equal(state.core, false)
+  core.pos = { ...IGNITION_CRADLE }; core.vel = { x: 0, y: 0 }; ship.pos = { x: IGNITION_CRADLE.x, y: IGNITION_CRADLE.y + 100 }
+  for (let i = 0; i < 190; i++) step(state, rt, ship)
   assert.equal(state.core, true)
+  assert.equal(state.complete, true)
 })
 
 test('cargo positions and delivery history survive saves without remote recall', () => {

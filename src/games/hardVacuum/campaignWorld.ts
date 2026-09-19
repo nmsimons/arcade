@@ -4,13 +4,16 @@ export const STATION_WIDTH = 9600
 export const STATION_HEIGHT = 5100
 const p = (x: number, y: number): Vector2 => ({ x, y })
 const poly = (points: number[][]) => points.map(([x, y]) => p(x, y))
+export const IGNITION_CRADLE = p(9100,3550)
+export const IGNITION_CRADLE_ANGLE = -Math.PI/2
+export const CORE_RETURN_ROUTE = [[6090,4490],[6400,4630],[7060,4630],[7620,4270],[8180,4270],[8180,3840]].map(([x,y])=>p(x,y))
 
 // Bays follow the original excavation. Their dimensions come from the work
 // performed there: a wide freight turn, narrow service galleries, refuge spurs.
 const bays = [
   ['breach', 'The Breach', 8000, 3550, 1120, 820],
   ['rescue', 'Rescue locker', 7040, 3560, 480, 460],
-  ['baggage', 'Lost baggage', 9080, 3550, 440, 440],
+  ['baggage', 'Ignition Cradle', 9080, 3550, 440, 440],
   ['freight', 'Freight Galleries', 8000, 1250, 1040, 700],
   ['stores', 'Freight stores', 7010, 1160, 680, 640],
   ['dispatch', 'Dispatch', 8000, 410, 860, 540],
@@ -69,6 +72,7 @@ export const CAMPAIGN_PASSAGES = [
   ...corridor(['heart-hub','heart-coils'], [[4100,3800],[4100,4210]], 'coil-link'),
   ...corridor(['heart-coils','ignition'], [[4450,4350],[5430,4350]], 'well-link'),
   ...corridor(['heart-control','ignition'], [[5320,3650],[5750,3800],[5750,4160]], 'heart-return'),
+  ...corridor(['ignition','breach'], CORE_RETURN_ROUTE.map(p=>[p.x,p.y]), 'breach-return'),
 ]
 const gate = (id: string, x: number, y: number, vertical = false, blast = false) => ({ id, kind: blast ? 'blast' : 'socket', label: blast ? 'SEALED BULKHEAD' : 'POWER OFF', x, y, w: vertical ? 30 : 200, h: vertical ? 200 : 30, color: blast ? '#ff665e' : '#65baff' })
 export const CAMPAIGN_GATES = [
@@ -79,6 +83,7 @@ export const CAMPAIGN_GATES = [
   gate('ward-link',2010,3400,true), gate('heart-link',3110,3400,true),
   gate('field-door',4710,3400,true,true), gate('coil-link',4000,3980), gate('well-link',4820,4250,true),
   gate('freight-return',7410,310,true), gate('medical-return',1690,3990,true), gate('heart-return',5650,3900),
+  gate('breach-return',8080,4000),
 ]
 const socket = (id: string, label: string, x: number, y: number, sx: number, sy: number, gates: string[]) => ({ id, label, pos: p(x,y), source: p(sx,sy), gates })
 export const CAMPAIGN_SOCKETS = [
@@ -87,16 +92,18 @@ export const CAMPAIGN_SOCKETS = [
   socket('dispatch-power','WORKS FEED / FREIGHT RETURN',7870,420,8860,470,['freight-link','freight-return']),
   socket('works-power','MAINTENANCE BUS',4730,1000,5900,600,['works-bus']),
   socket('ring-power','RING DISTRIBUTION',3990,1300,5000,1840,['ring-link']),
-  socket('refuge-power','MEDICAL TRANSFER',1640,2760,1300,1820,['refuge-air']),
-  socket('ward-power','SUSPENSION WARD / MEDICAL RETURN',1660,3420,510,3430,['ward-link','medical-return']),
+  socket('refuge-power','MEDICAL TRANSFER / SERVICE ACCESS',1640,2760,1300,1820,['refuge-air','medical-return']),
+  // The isolation door is controlled from inside the ward. Reach its receiver
+  // through the irradiated service tube, then reopen the short route to Haven.
+  socket('ward-power','WARD BUS / TRANSFER RETURN',2350,3640,510,3430,['ward-link']),
   socket('heart-route','IGNITION ACCESS',2590,3310,1430,3770,['heart-link']),
   socket('heart-power','INDUCTION / SERVICE BERTH',4260,3320,2520,3690,['coil-link']),
   socket('coil-power','IGNITION WELL / FIELD RETURN',4140,4320,5320,3370,['well-link','heart-return']),
-  socket('ignition-power','CORE RELEASE',5590,4480,3930,4540,['ignition-ready']),
+  socket('ignition-power','CORE RELEASE / BREACH RETURN',5590,4480,3930,4540,['ignition-ready','breach-return']),
 ]
 export const CAMPAIGN_CACHES = [
   { id:'rescue-cache',pos:p(6950,3610),value:250,sector:'rescue' },
-  { id:'baggage-cache',pos:p(9150,3550),value:1500,sector:'baggage' },
+  { id:'baggage-cache',pos:p(9050,3410),value:1500,sector:'baggage' },
   { id:'manifest-cache',pos:p(8970,600),value:1800,sector:'manifest' },
   { id:'tools-cache',pos:p(6030,700),value:2200,sector:'service' },
   { id:'store-cache',pos:p(4750,1920),value:2500,sector:'capacitors' },

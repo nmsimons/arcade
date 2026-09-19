@@ -13,6 +13,7 @@ import { SURVEY_CELL, surveyPoint } from './survey'
 import { RECEIVER_HALF_GAP } from './receivers'
 import { drawTerminals } from './terminalRender'
 import { surveyView } from './surveyView'
+import { drawIgnitionCradle } from './ignitionCradleRender'
 
 const LABEL_POSITIONS: Record<string, Vector2> = {
   ...Object.fromEntries(SECTORS.map(r => [r.id,{ x:r.x+r.w/2,y:r.y+r.h*.27 }])),
@@ -114,6 +115,7 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     drawExpeditionObject(ctx, 'socket', socket.pos, { active: powered, time: rt.elapsed })
     if (powered) drawReceiverCurrent(ctx, socket.pos, rt.elapsed)
   }
+  drawIgnitionCradle(ctx,s,rt)
   for (const item of PICKUPS) {
     if (s.upgrades.includes(item.id) || rt.recovery?.id === item.id) continue
     const pos = rt.objects[item.id]?.pos ?? item.pos
@@ -124,12 +126,9 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     const pos = rt.objects[cache.id]?.pos ?? cache.pos
     drawCargo(ctx,cache.id,pos,{time:rt.elapsed})
   })
-  if (!s.core && rt.recovery?.id !== 'core') {
+  if (!s.core) {
     const pos = rt.objects.core?.pos ?? CORE_POSITION
-    drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.elapsed})
-  }
-  if (s.core && !s.complete && rt.recovery?.id !== 'core') {
-    drawCargo(ctx,'core',{x:havenPosition(s).x,y:havenPosition(s).y-48},{active:true,scale:.6,time:rt.elapsed})
+    drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.coreLatch?.cargoTime ?? rt.elapsed})
   }
   ctx.restore()
 }

@@ -50,8 +50,8 @@ export function ExpeditionHud({ state, gameState, shields, hud, mapOpen, onJourn
     <FlightInstruments state={state} shields={shields} room={hud.room} mapOpen={mapOpen} onMap={onMap} onJournal={onJournal} onPause={onPause} onBlaster={onBlaster} onRecharge={onRecharge} onTeleport={onTeleport} />
     {!mapOpen && <>
       {hud.grappleHint && <div role="status" className="absolute bottom-48 lg:bottom-24 left-4 max-w-[min(32rem,calc(100%-2rem))] border-l border-[#8bd2d6]/60 bg-[#050d0d]/95 px-3 py-3 text-xs text-[#c2e2df] pointer-events-none"><span className="block text-[9px] tracking-widest text-[#83afa1] mb-2">HAVEN · TETHER LINK</span><span className="leading-relaxed">{hud.grappleHint}</span></div>}
-      {radio && !hud.grappleHint && !state.campaign.journey?.riding && <button onClick={onJournal} aria-label={`Read recording: ${radio.title}`} aria-keyshortcuts="L" className="absolute bottom-48 lg:bottom-24 left-4 max-w-[min(32rem,calc(100%-2rem))] text-left border-l border-[#93b7a9]/50 bg-[#050d0d]/90 px-3 py-3 text-xs text-[#c2d1c8]">
-        <span className="flex justify-between gap-4 text-[9px] tracking-widest text-[#83afa1] mb-2"><span>{radio.speaker}</span><span><span className="underline underline-offset-2">L</span>og</span></span><span className="leading-relaxed">{radio.text}</span>
+      {radio && !hud.grappleHint && !state.campaign.journey?.riding && <button onClick={onJournal} aria-label={`Read recording: ${radio.title}`} aria-keyshortcuts="G" className="absolute bottom-48 lg:bottom-24 left-4 max-w-[min(32rem,calc(100%-2rem))] text-left border-l border-[#93b7a9]/50 bg-[#050d0d]/90 px-3 py-3 text-xs text-[#c2d1c8]">
+        <span className="flex justify-between gap-4 text-[9px] tracking-widest text-[#83afa1] mb-2"><span>{radio.speaker}</span><span>Lo<span className="underline underline-offset-2">g</span></span></span><span className="leading-relaxed">{radio.text}</span>
       </button>}
       {hud.message && <div role="status" className="absolute bottom-44 lg:bottom-5 left-4 max-w-[85%] bg-black/75 px-3 py-2 text-[10px] text-[#ffdfa9] pointer-events-none">{hud.message}</div>}
       {hud.prompt && <button onClick={onInteract} aria-keyshortcuts="E" className="absolute bottom-36 lg:bottom-14 left-1/2 -translate-x-1/2 max-w-[90%] border border-[#00ff88]/60 bg-black/90 px-4 py-2 text-xs text-[#00ff88]">{hud.prompt}</button>}
@@ -128,7 +128,7 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveAvailable, lo
         {outfitterPage === 'upgrades' && <div className="space-y-3 mt-3">{SHIP_UPGRADES.map(id => {
           const item = upgradeOffer(state, id), staged = item.maxLevel > 1
           const stageLabel = !item.maxed && staged ? `Stage ${item.stage}/${item.maxLevel} · ` : ''
-          return <button key={item.id} aria-label={`${item.name}, ${item.maxed ? 'installed' : `${stageLabel}${item.cost} credits`}, ${item.detail}`} onClick={() => onBuy(item.id)} disabled={item.maxed || state.banked < item.cost} className="w-full text-left border border-[#00ff88]/25 p-3 enabled:hover:bg-[#00ff88]/10 disabled:opacity-45 flex justify-between gap-4">
+          return <button key={item.id} aria-label={`${item.name}, ${item.maxed ? 'installed' : `${stageLabel}${item.cost} credits`}, ${item.detail}`} onClick={() => onBuy(item.id)} disabled={item.maxed || item.locked || state.banked < item.cost} className="w-full text-left border border-[#00ff88]/25 p-3 enabled:hover:bg-[#00ff88]/10 disabled:opacity-45 flex justify-between gap-4">
             <span><span className="block text-sm text-[#b8ddcf]">{item.name}</span><span className="block text-xs text-white/50 mt-1">{stageLabel}{item.detail}</span></span>
             <span className="text-xs text-[#00ff88] whitespace-nowrap">{item.maxed ? staged ? 'MAXED' : 'INSTALLED' : `${item.cost.toLocaleString()} CR`}</span>
           </button>
@@ -140,14 +140,14 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveAvailable, lo
             return <button key={berth.id} disabled={here || !ready} onClick={() => onRelocate(berth.id)} className="text-left border border-[#8ee5e8]/30 p-3 text-xs text-[#b8ddcf] disabled:opacity-40">{berth.name}<span className="block text-[10px] text-white/50 mt-1">{here ? 'DOCKED' : ready ? 'RELOCATE HAVEN' : 'SERVICE ROUTE OBSTRUCTED'}</span></button>
           })}</div>
         </div>}
-        <div className="flex flex-wrap gap-2 mt-5"><button className={button} data-initial-focus onClick={onResume} aria-keyshortcuts="Escape">Undock · Esc</button><button className={button} onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="L"><span className="underline underline-offset-2">L</span>og</button></div>
+        <div className="flex flex-wrap gap-2 mt-5"><button className={button} data-initial-focus onClick={onResume} aria-keyshortcuts="Escape">Undock · Esc</button><button className={button} onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="G">Lo<span className="underline underline-offset-2">g</span></button></div>
       </>}
       {gameState === 'paused' && <>
         <p className="text-xs text-[#00ff88] tracking-widest uppercase">Expedition paused</p>
         <h2 className="text-3xl mt-3">Hard Vacuum</h2>
         <p className="mt-5 text-[#b8ddcf]">{goal.title}</p><p className="mt-2 text-sm text-white/60 leading-relaxed">{goal.detail}</p>
         <p className="mt-4 text-xs text-[#ffcf85]">Respawn: {checkpoint} · {state.credits} credits at risk · {state.banked} banked</p>
-        <div className="flex flex-wrap gap-3 mt-7"><button className={button} onClick={onResume} aria-keyshortcuts="P Escape">Resume · P / Esc</button><button className={button} onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="L"><span className="underline underline-offset-2">L</span>og</button><button className={button} onClick={onExit}>Save & exit</button></div>
+        <div className="flex flex-wrap gap-3 mt-7"><button className={button} onClick={onResume} aria-keyshortcuts="P Escape">Resume · P / Esc</button><button className={button} onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="G">Lo<span className="underline underline-offset-2">g</span></button><button className={button} onClick={onExit}>Save & exit</button></div>
       </>}
       {gameState === 'gameOver' && <>
         <p className="text-xs text-[#ff7962] tracking-widest uppercase">Ship lost / recovery beacon active</p>
@@ -159,7 +159,7 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveAvailable, lo
       {gameState === 'complete' && <>
         <p className="text-xs text-[#ffcf85] tracking-[0.3em] uppercase">Expedition complete</p>
         <h2 className="text-4xl text-[#00ff88] mt-4">The route is clear.</h2>
-        <p className="mt-5 text-sm text-white/65 leading-relaxed">Haven bridges the awakening bus. Across Orison, three hundred and twelve suspension units begin their return cycle. For the first time in nine years, the open channel carries a living voice.</p>
+        <p className="mt-5 text-sm text-white/65 leading-relaxed">The Ignition Cradle comes alive. Its isolated bus starts Orison without interrupting the wards. Three hundred and twelve suspension units begin their return cycle. For the first time in nine years, the open channel carries a living voice.</p>
         <blockquote className="border-l border-[#00ff88]/50 pl-4 mt-6 text-[#c0e7d6]">“Haven? We’ve got your lights. Is the route clear?”</blockquote>
         <div className="flex flex-wrap gap-4 mt-6 text-xs text-[#ffcf85]"><span>{REGIONS.filter(r => r.rooms.some(id => state.visited.includes(id))).length}/6 regions explored</span><span>{state.caches.length}/{CACHES.length} cargo recovered</span><span>{state.campaign.records.length}/{RECORDS.length} recordings</span><span>{Math.floor(state.campaign.playedSeconds/60)} minutes in flight</span></div>
         <div className="flex gap-3 mt-7"><button className={button} onClick={onResume} aria-keyshortcuts="Escape">Keep exploring · Esc</button><button className={button} onClick={onExit}>Save & exit</button></div>
@@ -167,8 +167,8 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveAvailable, lo
       {(gameState === 'menu' || gameState === 'paused') && <>
         <button className="mt-5 text-xs text-white/50 hover:text-white" aria-expanded={showControls} onClick={() => setShowControls(!showControls)}>Controls</button>
         {showControls && <div className="grid grid-cols-2 gap-3 mt-4 text-xs text-white/60">
-          <span>A / D · Rotate</span><span>W / S · Rear / nose thruster</span><span>Space · Laser</span><span>B · Blaster</span>
-          <span>F · Grapple / release · Connect to terminals</span><span>E · Dock / call Haven</span><span>R · Remote recharge</span><span>T · Teleport</span><span>M · Map</span><span>L · Log</span><span>P / Esc · Pause</span>
+          <span>A / D or K / ; · Rotate</span><span>W / S or O / L · Rear / nose thruster</span><span>Space · Laser</span><span>B · Blaster</span>
+          <span>F · Grapple / release · Connect to terminals</span><span>E · Dock / call Haven</span><span>R · Remote recharge</span><span>T · Teleport</span><span>M · Map</span><span>G · Log</span><span>P / Esc · Pause</span>
         </div>}
       </>}
       {!saveAvailable && <p className="mt-4 text-xs text-[#ffbd69]">Browser storage is unavailable. Progress is kept for this session only.</p>}

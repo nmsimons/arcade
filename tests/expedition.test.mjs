@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { IGNITION_CRADLE } from '../src/games/hardVacuum/campaignWorld.ts'
 import {
   bankAtCheckpoint, blastGate, CACHES, checkpointPosition, CORE_POSITION, crashExpedition,
   expeditionMap, freshExpedition, freshRuntime, GATES, interaction, maxShields, objective,
@@ -121,9 +122,13 @@ test('receivers accept blue cells delivered without a tether, connect once, and 
   const core = objectBody(rt, 'core', CORE_POSITION)
   core.pos = { x: 1368, y: 1100 }; core.vel = { x: 0, y: 0 }
   for (let tick = 0; tick < 30; tick++) step(s, rt, { harpoon: { state: 'attached', rock: core } })
+  assert.equal(s.core, false, 'Haven cannot install the ignition core')
+  core.pos = { ...IGNITION_CRADLE }; core.vel = { x: 0, y: 0 }
+  for (let tick = 0; tick < 35; tick++) step(s, rt, { ship: shipAt({ x: IGNITION_CRADLE.x, y: IGNITION_CRADLE.y + 100 }) })
   assert.equal(s.core, true)
-  assert.equal(objective(s).title, 'Bring the refuge online')
-  assert.equal(interaction(s, shipAt({ x: 1500, y: 1100 })).kind, 'finish')
+  assert.equal(s.complete, true)
+  assert.equal(objective(s).title, 'The route is clear')
+  assert.equal(interaction(s, shipAt({ x: 1500, y: 1100 })).kind, 'dock')
 })
 
 test('radiation passages are physically open, while blast doors need a blaster impact', () => {

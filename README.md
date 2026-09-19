@@ -29,6 +29,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 **Hard Vacuum**
 
 - A/D or Left/Right arrows: rotate; W / Up: thrust; S / Down: nose thruster.
+  O/K/L/; also work: O thrusts, K turns left, L fires the nose thruster, and ; turns right.
   Turning fires a tiny lateral jet near the nose and a fainter jet on the opposite
   rear corner, with a quiet hiss at one quarter of the main engine's audio gain.
   Steering responds quickly; on release, the jets stop and the ship coasts through
@@ -60,7 +61,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   Once attached, the cable retracts at 130 pixels per second to its original
   130-pixel towing length: one second at maximum reach, less for closer attachments.
   It then stays at towing length and never reels cargo into the ship;
-  modules, salvage and the core must be towed to Haven for recovery.
+  modules and salvage must be towed to Haven for recovery.
   Touching the ship never collects cargo. F releases the cable.
   Loose cells, modules, salvage and the core start with gentle drift. Power cells
   float on their own; their former dispenser markers and solid housings are gone.
@@ -71,13 +72,16 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   Ships, all asteroid types, cells, modules, salvage and the core collide and
   transfer momentum everywhere. Receiver plates, installed cells, recording
   terminals, doors, walls and Haven's hull are solid too.
-  Cargo cannot be recalled remotely. Tow the ignition core
-  back to Haven, then dock to connect the refuge’s awakening bus.
+  Cargo cannot be recalled remotely. Tow the ignition core through the irradiated
+  commissioning tube from the Ignition Well back to the Breach, then east to the
+  Ignition Cradle.
+  Releasing the core powers the tube's door from the Heart side. Seat the core
+  between the cradle's contacts to start the independent awakening bus.
 - M: survey map (pauses the simulation). Records nearby visible terrain as you
   explore; walls and sealed doors block scanning. Discovered terrain is saved.
   O switches between the local survey and the station overview. Z toggles 2× zoom;
   while zoomed, pan with arrows, WASD or dragging. The map uses the available screen.
-- L: log / flight recorder. Read discovered station records and the current objective.
+- G: log / flight recorder. Read discovered station records and the current objective.
   Available in flight, while paused, or docked at Haven.
 - Fixed recording terminals have live data displays and blue cable sockets that
   stay active after reading. Aim and grapple with F to
@@ -99,13 +103,17 @@ in the same panel. On narrow screens the meters sit side by side. Map, log and
 pause remain keyboard-accessible; nearby docking actions stay beside the flight view.
 Actions underline their shortcut letter when it appears in the label; other keys
 are shown beside the action. Map, Log, Pause, Recharge, Teleport and Blaster use
-M, L, P, R, T and B respectively.
+M, G, P, R, T and B respectively.
 Persistent control hints, objective walkthroughs and object instructions are removed;
 open Controls from the menu or pause screen for key bindings. Area labels remain.
 The scanline overlay has been removed from the game.
 Hull, beam capacitor and laser focus each have five upgrade stages.
 Each stage costs 750, 1,500, 3,000, 6,000, then 10,000 credits. Each track occupies
 one shop row that advances after purchase and shows its next effect and cost.
+After recovering the radiation shield, Radiation reserve offers three expensive
+stages: 1.5×, 2× and 2.5× capacity for 6,000, 12,000 and 24,000 credits.
+That gives 12, 16 and 20 seconds at peak exposure, compared with the original eight.
+Haven recharges the full upgraded reserve; the HUD shows its remaining percentage.
 Longline winch is a single 750-credit upgrade that doubles tether reach. The
 750-credit blaster is also a permanent ship upgrade. Existing staged tether
 purchases become the double-length winch, and existing blasters stay installed.
@@ -174,9 +182,15 @@ most three seconds, and Haven's repair area is safe. Away from the pilot, tugs
 continue sorting loose cargo. The Works, Reactor and Heart have security units that charge a visible
 targeting beam before firing three-round bursts. Walls, debris and Haven's hull
 block their shots. Both types collide, can be grappled, and take damage from focused
-laser fire, blasters, explosions and hard impacts. Destroyed units stay destroyed.
-Debris density, speed and the share of red and blue asteroids rise in deeper regions;
-Refuge deliberately provides a quieter interval. Mining white asteroids also exposes
+laser fire, blasters, explosions and hard impacts. Both types take two blaster hits
+or five asteroid-length laser contacts (2 seconds of effective contact with the
+starting laser, 0.5 seconds at full focus). Damaged armor cracks, sensors flicker
+at half health, and electrical sparks shed from the breach. Destroyed units stay
+down through docking and save reloads; all enemies return at full health when the
+pilot respawns, with powered bots leaving their garages and unpowered bots dormant.
+Debris density, speed and the share of blue asteroids rise in deeper regions;
+Refuge deliberately provides a quieter interval. Red asteroids never spawn loose:
+they only emerge when white asteroids break apart. Mining deeper white asteroids exposes
 more volatile red fragments: each small fragment has a 0/10/20/28/5/42% red chance
 across Breach, Freight, Works, Ring, Refuge and Heart respectively. Blue chances are
 0/6/10/15/12/20%. Rocks and their fragments retain their origin's mineral odds when
@@ -195,7 +209,11 @@ and warns when protection fails. Long transfer tunnels after the first Breach-to
 crossing contain fractured isotope conduits. Their weaker overlapping fields create
 traversal pressure while keeping the central route clear for towing and Haven.
 The first departure stays radiation-free; the module is reachable before the first
-required irradiated crossing. The original shield only absorbs physical
+required irradiated crossing. In Medical Transfer, restoring approach power opens the lower
+service tube while the ward isolation door stays shut. Tow the Triage reserve
+through the irradiated bypass to the receiver inside the Suspension Ward; powering
+it opens the short, safe return to Haven. Previously opened doors remain open in saves.
+The original shield only absorbs physical
 impacts. Without radiation protection, two seconds at peak exposure destroys
 the ship; leaving the field lets that exposure recover.
 

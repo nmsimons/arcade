@@ -3,6 +3,7 @@ import { drawModel } from './objectModels'
 import type { Part } from './objectModels'
 import type { Debris, Ship, V3, Vector2 } from './types'
 import { SHIP_ROTATION_SPEED } from './tuning'
+import { flightInput } from './flightInput'
 
 export interface ShipAppearance { bank: number; turn: number; thrust: number; nose: number; sparkDelay: number }
 export const freshShipAppearance = (): ShipAppearance => ({ bank:0,turn:0,thrust:0,nose:0,sparkDelay:0 })
@@ -10,13 +11,13 @@ export const freshShipAppearance = (): ShipAppearance => ({ bank:0,turn:0,thrust
 /** Presentation only: attitude settles smoothly without changing flight physics. */
 export function stepShipAppearance(appearance: ShipAppearance, keys: Set<string>, dt: number, angularVelocity?: number) {
   const ease=1-Math.exp(-10*dt)
-  const left=keys.has('a')||keys.has('arrowleft'),right=keys.has('d')||keys.has('arrowright')
+  const {left,right,forward,reverse}=flightInput(keys)
   // Jets follow input; banking follows the ship's actual rotation as it coasts.
   appearance.turn=Number(right)-Number(left)
   const bank=angularVelocity===undefined ? appearance.turn : clamp(angularVelocity/SHIP_ROTATION_SPEED,-1,1)
   appearance.bank+=(bank-appearance.bank)*ease
-  appearance.thrust+=(Number(keys.has('w')||keys.has('arrowup'))-appearance.thrust)*ease
-  appearance.nose+=(Number(keys.has('s')||keys.has('arrowdown'))-appearance.nose)*ease
+  appearance.thrust+=(Number(forward)-appearance.thrust)*ease
+  appearance.nose+=(Number(reverse)-appearance.nose)*ease
 }
 
 /** Short electrical bursts leave the hull with its velocity, then drift freely. */

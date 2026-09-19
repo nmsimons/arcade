@@ -1,5 +1,5 @@
 import { box, drawModel, prism } from './objectModels'
-import { BOT_STATIONS, botGarageDoors, botGarageProgress, botGarageWalls } from './stationBots'
+import { BOT_MAX_HEALTH, BOT_STATIONS, botGarageDoors, botGarageProgress, botGarageWalls } from './stationBots'
 import type { BotRuntime } from './stationBots'
 import type { Expedition } from './expedition'
 import { expeditionMap } from './expedition'
@@ -9,6 +9,7 @@ const tugHull = prism([[-19,-11],[-10,-17],[8,-15],[14,-8],[14,8],[8,15],[-10,17
 const watchHull = prism([[-18,-6],[-9,-17],[10,-13],[19,0],[10,13],[-9,17],[-18,6]], 12, '#c4a697')
 const tugDrive = box(7, 19, 9, [-20,0,0], '#8dbbaa')
 const watchDrive = box(6, 13, 8, [-19,0,0], '#8dbbaa')
+const armorBreach = prism([[-10,-11],[-3,-6],[-6,-1],[1,5],[-1,11],[-5,5],[-10,0],[-7,-5]],1,'#ce8856',[-2,0,-8])
 
 export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRuntime, state: Expedition, time: number) {
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.shadowBlur = 0
@@ -30,6 +31,7 @@ export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRunti
   for (const bot of runtime.units) {
     if (bot.health <= 0) continue
     const active = bot.phase !== 'offline', tug = bot.botKind === 'tug'
+    const damaged=bot.health<BOT_MAX_HEALTH,critical=bot.health<=BOT_MAX_HEALTH/2
     const rig=bot.maintenance,hook=rig?.hook
     if (bot.target || hook) {
       const end=bot.target?.pos ?? hook!.pos,dx=end.x-bot.pos.x,dy=end.y-bot.pos.y,d=Math.max(1,Math.hypot(dx,dy))
@@ -60,12 +62,16 @@ export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRunti
     }
     ctx.restore()
     const jaw = bot.target || hook ? 8 : rig?.windup!==undefined ? 17 : 14
-    const parts = tug ? [tugHull, tugDrive,
+    const hull=tug ? tugHull : watchHull
+    const armor=damaged ? {...hull,color:critical ? '#8e7b67' : '#af9876'} : hull
+    const parts = tug ? [armor, tugDrive,
       box(17,4,5,[18,-jaw,0],'#c4ac7d'),box(17,4,5,[18,jaw,0],'#c4ac7d'),
       box(4,9,5,[26,-jaw+3,0],'#c4ac7d'),box(4,9,5,[26,jaw-3,0],'#c4ac7d'),
-    ] : [watchHull,watchDrive,box(12,6,5,[17,0,-2],'#c4a697')]
+    ] : [armor,watchDrive,box(12,6,5,[17,0,-2],'#c4a697')]
+    if (damaged) parts.push(armorBreach)
     const sensor = !active ? '#4a5a54' : bot.phase === 'boot' ? '#cbb679' : bot.phase === 'charge' || bot.phase === 'burst' ? '#ff795f' : tug ? '#e4c17d' : '#eaa183'
-    parts.push(box(4,tug ? 11 : 7,2,[tug ? 3 : 8,0,-8],sensor,active))
+    const flicker=critical && Math.sin(time*23+bot.botId.length)*Math.sin(time*7)>.35
+    parts.push(box(4,tug ? 11 : 7,2,[tug ? 3 : 8,0,-8],flicker ? '#655342' : sensor,active&&!flicker))
     ctx.save(); ctx.globalAlpha=active ? 1 : .55
     drawModel(ctx,bot.pos,parts,[.1,Math.sin(time*1.2+bot.pos.x)*.07,bot.angle],time,1,Math.max(bot.flash,bot.laserGlow ?? 0))
     ctx.restore()

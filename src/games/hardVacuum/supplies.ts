@@ -1,7 +1,7 @@
 import type { Expedition } from './expedition'
 import { upgradeValue } from './upgrades.ts'
 import { BLASTER_CAPACITY } from './blaster.ts'
-import { RADIATION_CAPACITY, rechargeRadiation } from './radiation.ts'
+import { radiationCapacity, rechargeRadiation } from './radiation.ts'
 import { SHIELD_REPAIR_TIME } from './tuning.ts'
 
 export const RECHARGE_PACK_COST = 500
@@ -27,7 +27,7 @@ export function purchaseSupply(s: Expedition, id: SupplyPurchase): boolean {
   return true
 }
 export const needsRecharge = (s: Expedition) => s.shields < upgradeValue(s, 'hull') || (s.blasterInstalled && s.blasterCharges < BLASTER_CAPACITY) ||
-  (s.upgrades.includes('radiation') && s.radiationCharge < RADIATION_CAPACITY)
+  (s.upgrades.includes('radiation') && s.radiationCharge < radiationCapacity(s))
 export const needsRemoteRecharge = (s: Expedition) => s.shields < upgradeValue(s, 'hull') || (s.blasterInstalled && s.blasterCharges < BLASTER_CAPACITY)
 
 /** Haven restores every system, including an installed radiation shield. */

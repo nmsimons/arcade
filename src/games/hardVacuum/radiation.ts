@@ -2,6 +2,8 @@ import type { Vector2 } from './types'
 import { raycastCavern } from './worldGeometry.ts'
 import type { CavernMap } from './worldGeometry'
 import { TRANSFER_RADIATION_SOURCES } from './transferRadiation.ts'
+import { upgradeValue } from './upgrades.ts'
+import type { UpgradeLevels } from './upgrades'
 
 export const RADIATION_CAPACITY = 100
 export const RADIATION_DRAIN = 12.5
@@ -69,13 +71,15 @@ export function radiationFootprint(source: RadiationSource, map: CavernMap): Vec
 
 export interface RadiationFeedback { intensity: number; draining: boolean; unprotected: boolean; pulse: number; tickIn: number; source?: RadiationSource }
 export const freshRadiationFeedback = (): RadiationFeedback => ({ intensity: 0, draining: false, unprotected: false, pulse: 0, tickIn: 0 })
-export interface RadiationState { upgrades: readonly string[]; radiationCharge: number; radiationExposure: number }
+export interface RadiationState { upgrades: readonly string[]; upgradeLevels?: UpgradeLevels; radiationCharge: number; radiationExposure: number }
+export const radiationCapacity = (state: Pick<RadiationState,'upgrades'|'upgradeLevels'>) => upgradeValue(state,'radiationReserve')
+export const radiationFraction = (state: RadiationState) => state.radiationCharge / radiationCapacity(state)
 export function rechargeRadiation(state: RadiationState) {
-  state.radiationCharge = state.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0
+  state.radiationCharge = state.upgrades.includes('radiation') ? radiationCapacity(state) : 0
   state.radiationExposure = 0
 }
 export function stepRadiation(state: RadiationState, pos: Vector2, dt: number, map?: CavernMap) {
-  state.radiationCharge ??= state.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0
+  state.radiationCharge ??= state.upgrades.includes('radiation') ? radiationCapacity(state) : 0
   state.radiationExposure ??= 0
   const { intensity, source } = radiationAt(pos, map)
   const exposed = intensity > 0
@@ -103,7 +107,7 @@ export function stepRadiationFeedback(feedback: RadiationFeedback, dose: ReturnT
     feedback.pulse = 0; feedback.tickIn = 0
     return { tick: false, stopped: wasExposed, urgency: 0 }
   }
-  const lowReserve = Math.max(0, 1 - state.radiationCharge / 30)
+  const lowReserve = Math.max(0, 1 - radiationFraction(state) / .3)
   const urgency = Math.min(1, dose.intensity * 0.65 + lowReserve * 0.35)
   feedback.pulse *= Math.exp(-8 * dt)
   feedback.tickIn -= dt

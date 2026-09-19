@@ -1,5 +1,5 @@
 import type { Expedition } from './expedition'
-import type { Ship, TetherBody, Vector2 } from './types'
+import type { Debris, Ship, TetherBody, Vector2 } from './types'
 import type { CavernMap } from './worldGeometry'
 import { raycastCavern, resolveCircleInCavern } from './worldGeometry.ts'
 import { rayCircleHitDistance } from './phaserGeometry.ts'
@@ -17,6 +17,10 @@ export const BOT_STATIONS = [
   { id: 'coil-tug', kind: 'tug', power: 'coil-power', home: { x: 4050, y: 4570 }, patrol: { x: 4360, y: 4430 } },
 ] as const
 export type StationBotKind = typeof BOT_STATIONS[number]['kind']
+// Both chassis take two blaster hits or five completed asteroid laser contacts.
+export const BOT_MAX_HEALTH = 10
+export const BOT_BLASTER_DAMAGE = 5
+export const BOT_LASER_DAMAGE = 2
 type BotStation = typeof BOT_STATIONS[number]
 type GarageState = Pick<Expedition, 'power' | 'botDoors'>
 export const GARAGE_OPEN_SECONDS = 1.8
@@ -41,13 +45,14 @@ export interface StationBot extends TetherBody {
   timer: number; stun: number; flash: number; shotCount: number; aim: number; returning: boolean
   target?: TetherBody
   maintenance?: MaintenanceRig
+  sparkDelay?: number
 }
 export interface SecurityShot { pos: Vector2; vel: Vector2; life: number; owner: string }
 export interface BotRuntime { units: StationBot[]; shots: SecurityShot[] }
 export const freshBots = (state: Pick<Expedition, 'disabledBots' | 'power' | 'botDoors'>): BotRuntime => ({
   units: BOT_STATIONS.filter(spec => !state.disabledBots.includes(spec.id)).map(spec => ({
     botId: spec.id, botKind: spec.kind, pos: { ...spec.home }, vel: { x: 0, y: 0 }, radius: spec.kind === 'tug' ? 21 : 19,
-    mass: spec.kind === 'tug' ? 1.8 : 1.2, angle: 0, health: spec.kind === 'tug' ? 2 : 3,
+    mass: spec.kind === 'tug' ? 1.8 : 1.2, angle: 0, health: BOT_MAX_HEALTH,
     anchored: !state.power[spec.power] || botGarageProgress(state,spec)<1,
     phase: state.power[spec.power] ? botGarageProgress(state,spec)<1 ? 'boot' : 'deploy' : 'offline', timer: 2.2, stun: 0, flash: 0, shotCount: 0, aim: 0, returning: false,
   })), shots: [],
@@ -56,7 +61,7 @@ const distance = (a: Vector2, b: Vector2) => Math.hypot(a.x - b.x, a.y - b.y)
 const sight = (a: Vector2, b: Vector2, map: CavernMap) => raycastCavern(a, { x: b.x - a.x, y: b.y - a.y }, distance(a, b), map) >= distance(a, b) - .1
 const turn = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a))
 
-/** Defeated units stay defeated across docking, death and save reloads. */
+/** Defeats persist through docking and reloads until the pilot respawns. */
 export function damageBot(state: Pick<Expedition, 'disabledBots'>, bot: StationBot, damage: number) {
   if (bot.health <= 0 || damage <= 0 || bot.phase === 'offline' || bot.phase === 'boot') return false
   bot.health = Math.max(0, bot.health - damage)
@@ -65,6 +70,22 @@ export function damageBot(state: Pick<Expedition, 'disabledBots'>, bot: StationB
   if (bot.health) return false
   if (!state.disabledBots.includes(bot.botId)) state.disabledBots.push(bot.botId)
   return true
+}
+
+/** Electrical fragments shed from the breached armor and inherit body motion. */
+export function stepBotSparks(bot: StationBot, dt: number): Debris[] {
+  if (dt<=0 || bot.health<=0 || bot.health>=BOT_MAX_HEALTH || bot.phase==='offline' || bot.phase==='boot') return []
+  bot.sparkDelay=(bot.sparkDelay ?? 0)-dt
+  if (bot.sparkDelay>0) return []
+  const damage=1-bot.health/BOT_MAX_HEALTH
+  bot.sparkDelay=1.15-damage*.8+Math.random()*.35
+  const origin={x:bot.pos.x-Math.cos(bot.angle)*10,y:bot.pos.y-Math.sin(bot.angle)*10}
+  return Array.from({length:damage>=.5 ? 3 : 2},(_,i)=>{
+    const angle=bot.angle+Math.PI+(Math.random()-.5)*2.6,speed=25+Math.random()*40
+    return {pos:{...origin},vel:{x:bot.vel.x+Math.cos(angle)*speed,y:bot.vel.y+Math.sin(angle)*speed},
+      angle,rotSpeed:(Math.random()-.5)*4,life:240+Math.random()*130,length:2+Math.random()*2,
+      color:i===0 ? '255, 235, 192' : '255, 165, 80',spark:true}
+  })
 }
 
 export function stepBots(runtime: BotRuntime, state: GarageState, args: {

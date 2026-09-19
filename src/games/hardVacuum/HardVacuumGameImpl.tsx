@@ -69,6 +69,7 @@ import { addDevelopmentCredits, advanceDevelopmentLevel } from './development'
 import { TERMINALS, terminalVisible } from './terminals'
 import { coreReleased, havenPose, havenPosition, havenReady, moveHaven, regionForRoom, stepHaven } from './campaign'
 import type { BerthId } from './campaignWorld'
+import { IGNITION_CRADLE } from './campaignWorld'
 import type { HardVacuumGameState } from './ui'
 import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, freshExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, readExpedition, powerCellSpawns, saveExpedition, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition'
 import { BLASTER_BLAST_RADIUS, fireBlaster, pulverizeAsteroid, stepBlaster } from './blaster'
@@ -81,12 +82,13 @@ import { activateRemoteRecharge, needsRecharge, purchaseSupply, restoreShipSyste
 import type { SupplyPurchase } from './supplies'
 import { creditAsteroidDestruction } from './oreCredits'
 import { debrisField, fragmentKindFor, fragmentProfileAt } from './debrisField'
-import { damageBot, freshBots, stepBots, stepSecurityShots } from './stationBots'
+import { BOT_BLASTER_DAMAGE, BOT_LASER_DAMAGE, damageBot, freshBots, stepBots, stepBotSparks, stepSecurityShots } from './stationBots'
 import type { StationBot } from './stationBots'
 import { surveyView } from './surveyView'
 import { havenColliders } from './havenGeometry'
 import { laserCapacityMs, tetherReachMultiplier, upgradeOffer } from './upgrades'
 import type { ShipUpgrade } from './upgrades'
+import { FLIGHT_KEYS, flightInput } from './flightInput'
 import { drawHardVacuumFrame } from './render'
 import { freshShipAppearance, stepShipAppearance, stepHullSparks } from './shipRender'
 import { updateBaseDefenseAndProcessing } from './baseDefense'
@@ -504,14 +506,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const resumeFlight = useCallback(() => {
     setJournalOpen(false)
     keysRef.current.clear()
-    if (gameStateRef.current !== 'docked' && gameStateRef.current !== 'complete') {
+    if (gameStateRef.current !== 'docked') {
       setGameStateWithRef('playing')
       return
     }
     const ship = shipRef.current
     const heading = miningBaseAngleRef.current + Math.PI
     const distance = 62
-    runtimeRef.current.docking = { id: expeditionRef.current.checkpoint, phase: 'out', time: 0, from: { ...ship.pos }, to: { x: ship.pos.x + Math.cos(heading) * distance, y: ship.pos.y + Math.sin(heading) * distance }, angle: ship.angle, targetAngle: heading, finish: false }
+    runtimeRef.current.docking = { id: expeditionRef.current.checkpoint, phase: 'out', time: 0, from: { ...ship.pos }, to: { x: ship.pos.x + Math.cos(heading) * distance, y: ship.pos.y + Math.sin(heading) * distance }, angle: ship.angle, targetAngle: heading }
     setGameStateWithRef('docking')
   }, [setGameStateWithRef])
 
@@ -526,11 +528,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       } else publishExpedition('Haven’s service route is still obstructed')
       return
     }
-    if (action.kind === 'dock' || action.kind === 'finish') {
+    if (action.kind === 'dock') {
       if (!action.ready) return
       const ship = shipRef.current
       const dock = havenPosition(state)
-      runtimeRef.current.docking = { id: action.id, phase: 'in', time: 0, from: { ...ship.pos }, to: { ...dock }, angle: ship.angle, targetAngle: action.id === 'haven' ? ship.angle : -Math.PI / 2, finish: action.kind === 'finish' }
+      runtimeRef.current.docking = { id: action.id, phase: 'in', time: 0, from: { ...ship.pos }, to: { ...dock }, angle: ship.angle, targetAngle: ship.angle }
       keysRef.current.clear()
       retractTether()
       phaserBeamRef.current.active = false
@@ -695,7 +697,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (devOpenRef.current) return
       if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
-      const key = e.key.toLowerCase()
+      const key = e.code === 'Semicolon' ? ';' : e.key.toLowerCase()
       // Dialogs handle their own focused buttons before the event reaches here.
       // The developer map can be inspected without leaving menus or undocking.
       if (mapOpenRef.current) {
@@ -719,7 +721,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         setGameStateWithRef(gameState === 'playing' ? 'paused' : 'playing')
         return
       }
-      if (key === 'l' && !mapOpenRef.current && (gameState === 'playing' || gameState === 'paused' || gameState === 'docked')) {
+      if (key === 'g' && !mapOpenRef.current && (gameState === 'playing' || gameState === 'paused' || gameState === 'docked')) {
         e.preventDefault(); if (e.repeat) return
         keysRef.current.clear(); setJournalOpen(true)
         if (gameState === 'playing') setGameStateWithRef('paused')
@@ -751,7 +753,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         if (!e.repeat) { if (key === 'r') rechargeRemotely(); else teleportHome() }
         return
       }
-      if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'w', 'a', 's', 'd', ' '].includes(key)) {
+      if ([...FLIGHT_KEYS, ' '].includes(key)) {
         e.preventDefault()
         keysRef.current.add(key)
       }
@@ -844,7 +846,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      keysRef.current.delete(e.key.toLowerCase())
+      keysRef.current.delete(e.code === 'Semicolon' ? ';' : e.key.toLowerCase())
       if (e.key === ' ') laserContactRef.current = { elapsedMs: 0 }
     }
 
@@ -888,7 +890,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (devOpenRef.current || gameState === 'paused' || gameState === 'complete' || mapOpenRef.current) return
       const playRecoveryCues = () => {
         const rt=runtimeRef.current,base=havenPosition(expeditionRef.current),ship=shipRef.current
-        if(Math.hypot(ship.pos.x-base.x,ship.pos.y-base.y)<800) for(const cue of rt.recoveryCues ?? []) sounds.havenRecovery(cue)
+        if(Math.hypot(ship.pos.x-base.x,ship.pos.y-base.y)<800 || rt.coreLatch && Math.hypot(ship.pos.x-IGNITION_CRADLE.x,ship.pos.y-IGNITION_CRADLE.y)<800) for(const cue of rt.recoveryCues ?? []) sounds.havenRecovery(cue)
         rt.recoveryCues=[]
       }
       // Haven finishes handling a load while the pilot is in the service menu.
@@ -947,10 +949,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           shieldsRef.current = maxShields(state)
           setShields(shieldsRef.current)
           state.position = { ...ship.pos }; state.shields = shieldsRef.current
-          if (dock.finish) state.complete = true
           sounds.collect()
-          setGameStateWithRef(dock.finish ? 'complete' : 'docked')
-          publishExpedition(dock.finish ? 'Station restored' : deposited > 0 ? `+${deposited} banked` : 'Haven')
+          setGameStateWithRef('docked')
+          publishExpedition(deposited > 0 ? `+${deposited} banked` : 'Haven')
         }
         return
       }
@@ -1065,7 +1066,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
 
       const hitBot = (bot: StationBot, damage: number) => {
-        if (bot.health <= 0) return
+        // A death resets the encounter. Remaining impacts in this frame must
+        // not mark enemies defeated again after that reset.
+        if (bot.health <= 0 || gameStateRef.current !== 'playing') return
         const destroyed = damageBot(expeditionRef.current, bot, damage)
         createDebris(bot.pos.x, bot.pos.y, bot.vel.x, bot.vel.y, destroyed ? 18 : 4, destroyed ? .9 : .25, '225, 171, 114')
         if (destroyed) {
@@ -1211,11 +1214,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       // Passengers remain secured inside the tender while the world keeps moving.
       if (!riding) {
         // Ship controls
-        const turningLeft = keysRef.current.has('arrowleft') || keysRef.current.has('a')
-        const turningRight = keysRef.current.has('arrowright') || keysRef.current.has('d')
+        const {left:turningLeft,right:turningRight,forward:isThrusting,reverse:noseThrusting}=flightInput(keysRef.current)
         stepShipTurn(ship, Number(turningRight) - Number(turningLeft), dt)
-        const isThrusting = (keysRef.current.has('arrowup') || keysRef.current.has('w'))
-        const noseThrusting = keysRef.current.has('arrowdown') || keysRef.current.has('s')
         if (isThrusting) {
           ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt
           ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt
@@ -1288,6 +1288,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         shipSafe: riding || (havenReady(expeditionRef.current) && Math.hypot(ship.pos.x-havenPosition(expeditionRef.current).x,ship.pos.y-havenPosition(expeditionRef.current).y)<MINING_BASE_RADIUS),
       })
       for (const cue of botCues) if (Math.hypot(cue.pos.x-ship.pos.x,cue.pos.y-ship.pos.y)<650) sounds.botCue(cue.kind)
+      for (const bot of botBodies) if (Math.hypot(bot.pos.x-ship.pos.x,bot.pos.y-ship.pos.y)<750) debrisRef.current.push(...stepBotSparks(bot,dt))
       for (const impact of stepSecurityShots(botsRef.current,dt,securityMap,[...(riding ? [] : [ship]),...rocksRef.current,...cargoBodies(expeditionRef.current,runtimeRef.current),...botBodies])) {
         createDebris(impact.pos.x,impact.pos.y,0,0,3,.2,'255, 162, 125')
         if (impact.target === ship) applyImpactShield(80)
@@ -1455,7 +1456,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
             const impactMs = laserImpactMs(expeditionRef.current)
             if (stepLaserContact(laserContactRef.current, bestRock, dt, impactMs) && bestRock) {
-              if (bestRock.botId) hitBot(bestRock as StationBot,1)
+              if (bestRock.botId) hitBot(bestRock as StationBot,BOT_LASER_DAMAGE)
               else hitRockLikeShipWeapon(bestRock as Rock, { x: ux, y: uy })
             }
           }
@@ -1541,7 +1542,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         sounds.explosion('medium')
         if (blastGate(expeditionRef.current, impact.pos, BLASTER_BLAST_RADIUS)) publishExpedition('Blast door breached.')
         const impactMap = expeditionMap(expeditionRef.current)
-        for (const bot of botBodies) if (bot.health > 0 && (bot === impact.target || (Math.hypot(bot.pos.x-impact.pos.x,bot.pos.y-impact.pos.y)<BLASTER_BLAST_RADIUS+bot.radius && visibleBetween(impact.pos,bot.pos,impactMap)))) hitBot(bot,3)
+        for (const bot of botBodies) if (bot.health > 0 && (bot === impact.target || (Math.hypot(bot.pos.x-impact.pos.x,bot.pos.y-impact.pos.y)<BLASTER_BLAST_RADIUS+bot.radius && visibleBetween(impact.pos,bot.pos,impactMap)))) hitBot(bot,BOT_BLASTER_DAMAGE)
         for (const rock of [...rocksRef.current]) {
           if (rock.socketId) continue
           const distance = Math.hypot(rock.pos.x - impact.pos.x, rock.pos.y - impact.pos.y)
@@ -1607,6 +1608,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       rt.havenImpactCooldown = Math.max(0,(rt.havenImpactCooldown ?? 0)-dt)
       const pose = havenPose(state,miningBaseAngleRef.current)
       const previousRadio = rt.radio?.id
+      const wasComplete = state.complete
       const events = stepExpedition(state, rt, {
         dt, ship, rocks: rocksRef.current, harpoon: harpoonRef.current, beam: phaserBeamRef.current, aboard:riding,
         extraBodies: botBodies.filter(bot=>bot.health>0 && !bot.anchored),
@@ -1648,6 +1650,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       expeditionRef.current.position = { ...ship.pos }
       expeditionRef.current.shields = shieldsRef.current
       snapshotCargo(expeditionRef.current, runtimeRef.current, rocksRef.current)
+      if (!wasComplete && state.complete) {
+        keysRef.current.clear();retractTether()
+        phaserBeamRef.current.active=false
+        sounds.stopThrust();sounds.stopPhaser();sounds.stopRadiation();sounds.collect()
+        setGameStateWithRef('complete');publishExpedition('Orison awakening bus online')
+        return
+      }
       if (events.length) { sounds.collect(); publishExpedition(events[events.length - 1]) }
       else if (asteroidRewarded || expeditionRef.current.banked !== initialBanked) publishExpedition()
       hudTimerRef.current += dt
@@ -1707,8 +1716,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       update(dt)
       if (!devOpenRef.current && gameStateRef.current === 'playing' && !mapOpenRef.current && !expeditionRef.current.campaign.journey?.riding) {
         stepShipAppearance(shipAppearanceRef.current,keysRef.current,dt,shipRef.current.angularVelocity)
-        const keys=keysRef.current
-        if (keys.has('w')||keys.has('arrowup')||keys.has('s')||keys.has('arrowdown')) sounds.startThrust()
+        const controls=flightInput(keysRef.current)
+        if (controls.forward||controls.reverse) sounds.startThrust()
         else if (shipAppearanceRef.current.turn!==0) sounds.startThrust(0.25)
         else sounds.stopThrust()
         debrisRef.current.push(...stepHullSparks(shipAppearanceRef.current,shipRef.current,shieldsRef.current,dt))
@@ -1789,10 +1798,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
 
   return (
     <div className="hard-vacuum relative w-screen h-screen overflow-hidden font-mono">
-      <canvas ref={canvasRef} tabIndex={-1} aria-label="Hard Vacuum flight controls: WASD or arrows to fly, Space for laser, B for blaster, F to tether, R to recharge, T to teleport, E to dock, M for map, L for log, P to pause" className="absolute inset-0 outline-none" />
+      <canvas ref={canvasRef} tabIndex={-1} aria-label="Hard Vacuum flight controls: WASD, O K L semicolon, or arrows to fly, Space for laser, B for blaster, F to tether, R to recharge, T to teleport, E to dock, M for map, G for log, P to pause" className="absolute inset-0 outline-none" />
 
       <div hidden={devOpen} inert={devOpen}>
-      <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} onJournal={() => tapVirtualKey('l')} onMap={() => setSurveyOpen(!mapOpenRef.current)} onInteract={interact} onBlaster={shootBlaster} onRecharge={rechargeRemotely} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />
+      <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} onJournal={() => tapVirtualKey('g')} onMap={() => setSurveyOpen(!mapOpenRef.current)} onInteract={interact} onBlaster={shootBlaster} onRecharge={rechargeRemotely} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />
 
       {gameState === 'playing' && !mapOpen && (
         <div className="absolute inset-x-0 bottom-4 z-30 flex items-end justify-between px-4 lg:hidden pointer-events-none">
@@ -1800,7 +1809,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             <button
               type="button"
               aria-label="Rotate left"
-              aria-keyshortcuts="A ArrowLeft"
+              aria-keyshortcuts="A K ArrowLeft"
               className={holdButtonClass}
               {...holdControl('arrowleft')}
             >
@@ -1810,7 +1819,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             <button
               type="button"
               aria-label="Thrust"
-              aria-keyshortcuts="W ArrowUp"
+              aria-keyshortcuts="W O ArrowUp"
               className={holdButtonClass}
               {...holdControl('arrowup')}
             >
@@ -1819,7 +1828,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             <button
               type="button"
               aria-label="Nose thruster / brake"
-              aria-keyshortcuts="S ArrowDown"
+              aria-keyshortcuts="S L ArrowDown"
               className={`${holdButtonClass} text-xs`}
               {...holdControl('arrowdown')}
             >
@@ -1829,7 +1838,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
             <button
               type="button"
               aria-label="Rotate right"
-              aria-keyshortcuts="D ArrowRight"
+              aria-keyshortcuts="D ; ArrowRight"
               className={holdButtonClass}
               {...holdControl('arrowright')}
             >

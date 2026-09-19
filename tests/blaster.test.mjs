@@ -157,6 +157,6 @@ test('objectives follow restored circuits through the refuge to the final core',
   state.power.heart = 'heart'; state.gates.push('heart','refuge-link')
   assert.equal(objective(state).title, 'Restore medical transfer')
   state.gates.push('ignition-ready')
-  assert.equal(objective(state).title, 'Bring the ignition core home')
-  assert.equal(objective(state, true).title, 'Tow the core home')
+  assert.equal(objective(state).title, 'Return to the first cradle')
+  assert.equal(objective(state, true).title, 'Return to the first cradle')
 })

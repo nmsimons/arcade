@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { bankAtCheckpoint, CACHES, CORE_POSITION, crashExpedition, expeditionMap, freshExpedition, freshRuntime, GATES, interaction, objectBody, parseExpedition, powerReceiver, SECTORS, SOCKETS, stepExpedition, teleportToHaven } from '../src/games/hardVacuum/expedition.ts'
-import { BERTHS, REGIONS, SERVICE_ROUTES } from '../src/games/hardVacuum/campaignWorld.ts'
+import { BERTHS, IGNITION_CRADLE, REGIONS, SERVICE_ROUTES } from '../src/games/hardVacuum/campaignWorld.ts'
 import { campaignObjective, coreReleased, discoverCampaign, havenDeployment, havenPosition, havenReady, moveHaven, routeClear, serviceRoute, stepHaven } from '../src/games/hardVacuum/campaign.ts'
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import { creditAsteroidDestruction } from '../src/games/hardVacuum/oreCredits.ts'
@@ -137,7 +137,10 @@ test('the story is discovered once, terminal records need a connection, and the 
   assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
   s.gates.push('ignition-ready')
   for(let i=0;i<30;i++) tick(s,rt,ship)
-  assert.equal(s.core,true);assert.equal(interaction(s,ship).kind,'finish')
+  assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
+  core.pos={...IGNITION_CRADLE};core.vel={x:0,y:0}
+  for(let i=0;i<35;i++) tick(s,rt,shipAt({x:IGNITION_CRADLE.x,y:IGNITION_CRADLE.y+100}))
+  assert.equal(s.core,true);assert.equal(s.complete,true)
 })
 
 test('prototype saves enter the Ring without losing equipment, funds or the meaning of surveyed cells',()=>{

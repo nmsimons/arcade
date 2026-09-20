@@ -30,6 +30,8 @@ screenshots and traces under the ignored `test-results` directory.
 
 Bot-model checks validate mesh winding, mirrored grabber poses, garage clearance,
 powered/damaged states, and presentation-only rendering without physics writes.
+Healthy models are limited to four functional parts and 52 vertices; damage and
+exhaust attachment checks keep the simplified silhouettes intact.
 Combat checks require four blaster hits or fifty completed laser contacts, verify
 five seconds of effective contact at maximum focus (twenty seconds stock), and
 cover fractional-damage rounding, stock-capacitor bursts and mixed-weapon finishes.
@@ -37,7 +39,7 @@ Damage checks verify accumulating breaches and increasing
 spark count, frequency, reach and lifetime at 30/60/120 Hz, including paused,
 powered-off and destroyed craft.
 A development-only canvas comparison draws the actual ship and bot renderers at
-native and enlarged scales, saving `bot-models.png` under `test-results` for visual
+native and enlarged scales, including powered rest, saving `bot-models.png` under `test-results` for visual
 inspection. The `bot-towing` benchmark exercises the same models in live gameplay.
 
 Controller checks sample the same standard-layout input reader and production

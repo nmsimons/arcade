@@ -236,7 +236,11 @@ mission power cells remain intact and never pay credits. Docking is not required
 
 Restoring power opens armored robot garages and wakes the station's machinery.
 Their walls and animated doors physically protect dormant bots; each unit leaves
-its garage before patrolling. Maintenance tugs pursue at 185 units/second and
+its garage before patrolling.
+Bot models share the pilot ship's restrained bevels and clean outlines: a compact
+fork-jawed tug and a broad arrowhead security craft, each with one sensor and an
+unbroken main hull. Thrusters are inset into the shell rather than separate pods.
+Maintenance tugs pursue at 185 units/second and
 alternate between grappling the ship, hauling asteroids into its projected path,
 and stealing towed cargo. Their jaws signal a launch before a physical hook flies;
 dodging, cover, distance or damaging the tug breaks the attack. Ship tows last at

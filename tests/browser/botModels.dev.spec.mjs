@@ -9,7 +9,7 @@ test('bot models match the ship’s faceted rendering at native and inspection s
       import('/src/games/hardVacuum/stationBotModels.ts'), import('/src/games/hardVacuum/stationBots.ts'),
       import('/src/games/hardVacuum/expedition.ts'), import('/src/games/hardVacuum/shipRender.ts'),
     ])
-    const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 1080
+    const canvas = document.createElement('canvas'); canvas.width = 1200; canvas.height = 1325
     canvas.setAttribute('aria-label', 'Ship and bot model comparison')
     canvas.style.cssText = 'display:block;max-width:100%;height:auto;margin:0 auto'
     document.body.replaceChildren(canvas)
@@ -21,9 +21,9 @@ test('bot models match the ship’s faceted rendering at native and inspection s
     }
     label('ORISON / CRAFT MODEL STUDY', 32, 34, '#d8e9e0', 18)
     label('SHARED BEVELED HULLS / NATIVE SCALE BELOW EACH MODEL', 32, 59)
-    const rows = ['OFFLINE / AT REST', 'UNDER WAY', 'TOOLS ACTIVE', 'DAMAGED']
+    const rows = ['OFFLINE / AT REST', 'POWERED / AT REST', 'UNDER WAY', 'TOOLS ACTIVE', 'DAMAGED']
     const counts = []
-    for (let row = 0; row < 4; row++) for (let column = 0; column < 3; column++) {
+    for (let row = 0; row < rows.length; row++) for (let column = 0; column < 3; column++) {
       const x = column * 400, y = 85 + row * 245
       ctx.strokeStyle = '#243b33'; ctx.lineWidth = 1; ctx.strokeRect(x + 16, y, 368, 228)
       label(['PILOT SHIP', 'MAINTENANCE TUG', 'SECURITY WATCH'][column], x + 30, y + 24, '#d4ddd4')
@@ -31,14 +31,14 @@ test('bot models match the ship’s faceted rendering at native and inspection s
       const draw = scale => {
         ctx.save(); ctx.translate(x + 200, y + (scale === 1 ? 197 : 119)); ctx.scale(scale, scale)
         if (column === 0) {
-          const appearance = { ...freshShipAppearance(), thrust: row === 1 ? .8 : 0, bank: row === 1 ? .4 : 0 }
+          const appearance = { ...freshShipAppearance(), thrust: row === 2 ? .8 : 0, bank: row === 2 ? .4 : 0 }
           drawPlayerShip(ctx, { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, radius: 15, angle: -.3 }, appearance,
-            { time: 1.2, shields: 0, maxShields: 0, hitAge: Infinity, rechargeAge: Infinity, recharging: false, rechargeProgress: 0, laser: row === 2 })
+            { time: 1.2, shields: 0, maxShields: 0, hitAge: Infinity, rechargeAge: Infinity, recharging: false, rechargeProgress: 0, laser: row === 3 })
         } else {
           const bot = { ...bots.find(bot => bot.botKind === (column === 1 ? 'tug' : 'security')),
-            pos: { x: 0, y: 0 }, angle: -.3, anchored: false, phase: row === 0 ? 'offline' : row === 2 && column === 2 ? 'charge' : 'watch',
-            vel: row === 1 ? { x: 135, y: 0 } : { x: 0, y: 0 }, health: row === 3 ? BOT_MAX_HEALTH*.2 : BOT_MAX_HEALTH,
-            maintenance: row === 2 && column === 1 ? { windup: .3 } : undefined }
+            pos: { x: 0, y: 0 }, angle: -.3, anchored: false, phase: row === 0 ? 'offline' : row === 3 && column === 2 ? 'charge' : 'watch',
+            vel: row === 2 ? { x: 135, y: 0 } : { x: 0, y: 0 }, health: row === 4 ? BOT_MAX_HEALTH*.2 : BOT_MAX_HEALTH,
+            maintenance: row === 3 && column === 1 ? { windup: .3 } : undefined }
           drawStationBotModel(ctx, bot, 1.2)
         }
         ctx.restore()
@@ -51,10 +51,13 @@ test('bot models match the ship’s faceted rendering at native and inspection s
     }
     return counts
   })
-  expect(stats).toHaveLength(12)
+  expect(stats).toHaveLength(15)
   expect(stats.every(count => count > 200)).toBe(true)
   expect(errors).toEqual([])
   await page.screenshot({ path: testInfo.outputPath('bot-models.png'), fullPage: true })
+  const bounds = await page.locator('canvas').boundingBox(), scale = bounds.width / 1200
+  await page.screenshot({ path: testInfo.outputPath('bot-models-preview.png'),
+    clip: { x: bounds.x, y: bounds.y + 330 * scale, width: bounds.width, height: 245 * scale } })
 })
 
 test('both bot chassis accumulate hull damage and progressively heavier spark showers', async ({ page }, testInfo) => {

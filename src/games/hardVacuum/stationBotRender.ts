@@ -36,10 +36,10 @@ export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRunti
       ctx.beginPath();ctx.moveTo(-7,-5);ctx.lineTo(2,-5);ctx.lineTo(5,0);ctx.lineTo(2,5);ctx.lineTo(-7,5);ctx.stroke();ctx.restore()
     }
     if (rig?.windup!==undefined) {
-      // The jaws charge at the actual launch socket, without a targeting HUD.
+      // Light the short jaws' inner tips, not a second outline around the tool.
       ctx.save();ctx.translate(bot.pos.x,bot.pos.y);ctx.rotate(bot.angle)
       ctx.strokeStyle=`rgba(255,213,144,${.55+.4*Math.sin(time*32)**2})`;ctx.lineWidth=2
-      ctx.beginPath();ctx.moveTo(17,-10);ctx.lineTo(28,-6);ctx.moveTo(17,10);ctx.lineTo(28,6);ctx.stroke();ctx.restore()
+      ctx.beginPath();ctx.moveTo(21,-15);ctx.lineTo(23,-9);ctx.moveTo(21,15);ctx.lineTo(23,9);ctx.stroke();ctx.restore()
     }
     if (bot.phase === 'charge' || bot.phase === 'burst') {
       const direction = { x: Math.cos(bot.aim), y: Math.sin(bot.aim) }, length = raycastCavern(bot.pos,direction,490,expeditionMap(state))

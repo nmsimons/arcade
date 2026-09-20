@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { drawStationBotModel, stationBotAppearance } from '../src/games/hardVacuum/stationBotModels.ts'
-import { BOT_MAX_HEALTH, freshBots } from '../src/games/hardVacuum/stationBots.ts'
+import { BOT_DAMAGE_SITES, BOT_MAX_HEALTH, freshBots } from '../src/games/hardVacuum/stationBots.ts'
 import { freshExpedition } from '../src/games/hardVacuum/expedition.ts'
 import { rotZ } from '../src/games/hardVacuum/math.ts'
+import { pointInPolygon } from '../src/games/hardVacuum/worldGeometry.ts'
 
 const botOf = kind => ({ ...freshBots(freshExpedition()).units.find(bot => bot.botKind === kind), phase: 'watch', anchored: false })
 const localVertices = part => part.verts.map(v => rotZ(v, part.rotation?.[2] ?? 0).map((n, i) => n + part.at[i]))
@@ -18,7 +19,8 @@ for (const kind of ['tug', 'security']) {
     for (const phase of ['offline', 'boot', 'watch', 'charge', 'burst', 'cooldown']) {
       bot.phase = phase
       const parts = stationBotAppearance(bot, 1).parts
-      assert.ok(parts.length >= 10)
+      assert.equal(parts.length, kind === 'tug' ? 4 : 3, 'only a main shell, sensor and functional tool geometry')
+      assert.ok(parts.reduce((sum, part) => sum + part.verts.length, 0) <= 52, 'simple silhouettes stay comparable to the pilot ship')
       for (const part of parts) {
         assert.ok(part.edges.length > 0, 'facets use the ship’s quiet-seam treatment')
         assert.ok(area(part.faces[0].map(i => part.verts[i])) > 0)
@@ -47,6 +49,17 @@ for (const kind of ['tug', 'security']) {
       if (phase === 'offline') assert.ok(parked.parts.every(part => !part.glow))
     }
     assert.deepEqual(bot, before)
+  })
+
+  test(`${kind} damage and exhaust stay attached to the simplified shell`, () => {
+    const appearance = stationBotAppearance(botOf(kind), 0), hull = appearance.parts[0]
+    const outline = face => face.map(i => ({ x: hull.verts[i][0], y: hull.verts[i][1] }))
+    for (const { point: [x, y] } of BOT_DAMAGE_SITES) {
+      assert.ok(pointInPolygon({ x, y }, outline(hull.faces[1])), 'sparks originate on the main armor surface')
+    }
+    for (const side of [-1, 1]) {
+      assert.ok(pointInPolygon({ x: appearance.engineX + .1, y: side * appearance.engineY }, outline(hull.faces[0])), 'exhaust mouths remain on the hull')
+    }
   })
 }
 

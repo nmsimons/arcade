@@ -24,10 +24,10 @@ export const BOT_BLASTER_DAMAGE = 5
 export const BOT_LASER_DAMAGE = BOT_MAX_HEALTH / 50
 // Visible breaches and emitted sparks share these local hull locations.
 export const BOT_DAMAGE_SITES = [
-  { point: [-8, 0, -9], angle: 0 },
-  { point: [-13, 12, -4], angle: -.4 },
-  { point: [0, -8, -5], angle: 1.4 },
-  { point: [7, 2, -8], angle: -.9 },
+  { point: [-10, 0, -4.5], angle: 0 },
+  { point: [-12, 7, -4.5], angle: -.4 },
+  { point: [-5, -7, -4.5], angle: 1.4 },
+  { point: [0, 5, -4.5], angle: -.9 },
 ] as const
 
 export function botDamage(health: number) {

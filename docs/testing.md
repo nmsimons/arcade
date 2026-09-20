@@ -27,6 +27,16 @@ exercises developer credits, map reveal and level jumps; production verifies the
 developer shortcut is unavailable. Tests use public UI and browser storage,
 never React internals or dependencies from another checkout. Failures retain
 screenshots and traces under the ignored `test-results` directory.
+CI uploads those diagnostics, including save/visibility state, for seven days.
+
+Long recovery and departure checks pause the browser clock between actions and
+advance it in 100 ms batches. This draws at 10 Hz while retaining all 60 Hz
+physics steps within the six-step catch-up limit, instead of spending the test
+timeout drawing thousands of intermediate frames. Short input/animation checks
+still use normal frame pacing. A browser check verifies elapsed gameplay, and
+unit replays compare 10 Hz with the existing 30/60/120/144 Hz schedules. No test
+timeouts, assertions, or gameplay durations are relaxed. To reproduce slow-machine
+conditions locally, prefix the browser command with `HV_TEST_CPU_RATE=6`.
 
 Bot-model checks validate mesh winding, mirrored grabber poses, garage clearance,
 powered/damaged states, and presentation-only rendering without physics writes.

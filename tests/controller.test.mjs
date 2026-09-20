@@ -288,9 +288,9 @@ test('pause, survey suspension, load and a new launch clear controller flight st
   s.command({type:'load',expedition:saved});assert.deepEqual(s.refs.controllerRef.current,neutralController())
 })
 
-test('controller-driven flight, braking, strafing and laser agree at 30, 60, 120 and 144 render Hz',()=>{
+test('controller-driven flight, braking, strafing and laser agree at 10, 30, 60, 120 and 144 render Hz',()=>{
   let expected
-  for(const hz of [60,30,120,144]) {
+  for(const hz of [60,10,30,120,144]) {
     const s=launch();let tick=0
     s.advance(0)
     for(let frame=1;frame<=hz*1.5;frame++)s.advance(frame*1000/hz,()=>{

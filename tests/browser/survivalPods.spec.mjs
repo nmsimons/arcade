@@ -3,6 +3,7 @@ import { freshExpedition, SAVE_KEY, powerReceiver } from '../../src/games/hardVa
 import { SURVIVAL_PODS } from '../../src/games/hardVacuum/survivalPods.ts'
 import { ARRIVAL_POSITION, DEPARTURE_ROUTE } from '../../src/games/hardVacuum/campaignWorld.ts'
 import { setup, tap } from './helpers/controller.mjs'
+import { advanceSimulation, pauseSimulation } from './helpers/simulation.mjs'
 
 async function start(page,state) {
   await page.clock.install()
@@ -10,6 +11,8 @@ async function start(page,state) {
     if(!localStorage.getItem(key))localStorage.setItem(key,JSON.stringify(state))
   },{key:SAVE_KEY,state})
   await page.goto('/hard-vacuum')
+  await expect(page.getByRole('button',{name:'Continue expedition',exact:true})).toBeVisible()
+  await pauseSimulation(page)
   await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
 }
 const atHaven=tethered=>({pos:{x:7868,y:3560},vel:{x:0,y:0},tethered})
@@ -29,7 +32,7 @@ test('pod rescue banks and persists without counters or duplicate payments',asyn
   const state=freshExpedition();state.cargo={'survival-01':atHaven(true)}
   await start(page,state)
   await expect(page.locator('.hud-rescue-count')).toHaveCount(0)
-  await page.clock.runFor(4000)
+  await advanceSimulation(page,4000)
   await expect(page.getByRole('status')).toHaveCount(0)
   await expect(page.locator('.hud-credits')).toContainText('1,000')
   await page.keyboard.press('e');await page.clock.runFor(1000)
@@ -38,15 +41,18 @@ test('pod rescue banks and persists without counters or duplicate payments',asyn
   const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY)
   expect(saved.rescuedPods).toEqual(['survival-01']);expect(saved.banked).toBe(1000)
   expect(saved.cargo['survival-01']).toBeUndefined()
-  await page.reload();await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
-  await page.clock.runFor(4000)
+  await page.clock.resume();await page.reload()
+  await expect(page.getByRole('button',{name:'Continue expedition',exact:true})).toBeVisible()
+  await pauseSimulation(page)
+  await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
+  await advanceSimulation(page,4000)
   await expect(page.locator('.hud-rescue-count')).toHaveCount(0)
   await expect(page.locator('.hud-credits')).toContainText('1,000')
 })
 
 test('a pod floating against Haven is not rescued without a prior tether recovery',async({page})=>{
   const state=freshExpedition();state.cargo={'survival-01':atHaven(false)}
-  await start(page,state);await page.clock.runFor(4000)
+  await start(page,state);await advanceSimulation(page,4000)
   expect(await page.evaluate(key=>JSON.parse(localStorage.getItem(key)).rescuedPods,SAVE_KEY)).toEqual([])
   await expect(page.locator('.hud-credits')).not.toContainText('1,000')
 })
@@ -58,12 +64,12 @@ test('the last docked rescue enables launch, and keyboard launch wins only after
   state.cargo={'survival-01':atHaven(true)}
   await start(page,state)
   await expect(page.getByRole('dialog',{name:'Expedition complete',exact:true})).toHaveCount(0)
-  await page.keyboard.press('e');await page.clock.runFor(4000)
+  await page.keyboard.press('e');await advanceSimulation(page,4000)
   await expect(page.getByRole('dialog',{name:'Expedition complete',exact:true})).toHaveCount(0)
   const launch=page.getByRole('button',{name:'Launch Haven',exact:true})
   await expect(launch).toBeEnabled();await launch.focus();await page.keyboard.press('Enter')
   await expect(page.getByRole('dialog',{name:'Expedition complete',exact:true})).toHaveCount(0)
-  await page.clock.runFor(30000)
+  await advanceSimulation(page,30000)
   await expect(page.getByRole('dialog',{name:'Expedition complete',exact:true})).toBeVisible()
   await expect(page.getByRole('heading',{name:'Everyone is coming home.',exact:true})).toBeVisible()
   await expect(page.getByText(/12\/12/)).toHaveCount(0)
@@ -90,7 +96,7 @@ test('a controller can select and authorize Haven departure',async({page})=>{
   await expect(launch).toBeEnabled()
   for(let i=0;i<8&&!(await launch.evaluate(el=>el===document.activeElement));i++)await tap(page,12)
   await expect(launch).toBeFocused();await tap(page,0)
-  await page.clock.runFor(30000)
+  await advanceSimulation(page,30000)
   await expect(page.getByRole('heading',{name:'Everyone is coming home.',exact:true})).toBeVisible()
 })
 

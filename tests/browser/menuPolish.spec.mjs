@@ -3,6 +3,7 @@ import { RECORDS, RETIRED_RECORD_IDS } from '../../src/games/hardVacuum/campaign
 import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 import { SURVIVAL_PODS } from '../../src/games/hardVacuum/survivalPods.ts'
 import { setup, tap, hold, armed } from './helpers/controller.mjs'
+import { advanceSimulation } from './helpers/simulation.mjs'
 
 test('Tab wraps in reading order, Home/End work, and focus cannot escape the dialog', async ({ page }) => {
   await setup(page)
@@ -130,7 +131,7 @@ test('completion screen supports keyboard wrap, controller selection and back to
 test('ship recovery supports keyboard focus and controller return to the main menu', async ({ page }, testInfo) => {
   const state = freshExpedition(); state.position = { x: 1500, y: 4090 }; state.credits = 81
   await setup(page, state); await tap(page, 0)
-  await page.clock.runFor(12000)
+  await advanceSimulation(page,12000)
   const dialog = page.getByRole('dialog', { name: 'Ship recovery', exact: true })
   await expect(dialog).toBeVisible()
   await expect(page.getByRole('button', { name: 'Respawn', exact: true })).toBeFocused()

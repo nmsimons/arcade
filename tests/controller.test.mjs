@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { CONTROLLER, controllerHavenAction, createControllerReader, stickAxis, triggerPressure } from '../src/games/hardVacuum/controllerInput.ts'
-import { flightInput, neutralController } from '../src/games/hardVacuum/flightInput.ts'
+import { flightInput, neutralController, sanitizeController } from '../src/games/hardVacuum/flightInput.ts'
+import { lateralJetDemand } from '../src/games/hardVacuum/shipAppearance.ts'
+import { SHIP_MAX_SPEED, SHIP_STRAFE_ACCELERATION } from '../src/games/hardVacuum/tuning.ts'
 import { stepShipMovement } from '../src/games/hardVacuum/expeditionPhysics.ts'
 import { freshShipAppearance, stepShipAppearance } from '../src/games/hardVacuum/shipRender.ts'
 import { createGameSession } from '../src/games/hardVacuum/gameSession.ts'
@@ -19,7 +21,7 @@ const run = (s,ticks=1) => {for(let i=0;i<ticks;i++)s.step()}
 
 test('left stick only rotates; RT thrusts, LT reverses, X tethers, A lasers and B blasts',()=>{
   const p=pad(),reader=createControllerReader();reader.sample([null,p],'flight',0)
-  assert.deepEqual(CONTROLLER,{confirm:0,back:1,mapOverview:3,mapZoom:2,laser:0,tether:2,blaster:1,interact:3,journal:4,reverse:6,teleport:3,thrust:7,map:8,pause:9})
+  assert.deepEqual(CONTROLLER,{confirm:0,back:1,mapOverview:3,mapZoom:2,laser:0,tether:2,blaster:1,interact:3,journal:11,reverse:6,teleport:3,thrust:7,strafeLeft:4,strafeRight:5,map:8,pause:9})
   for(const y of [-1,1,0]) {
     p.axes[1]=y
     assert.deepEqual(reader.sample([p],'flight',16).flight,neutralController())
@@ -35,6 +37,65 @@ test('left stick only rotates; RT thrusts, LT reverses, X tethers, A lasers and 
   assert.equal(reverse.reverse,1);assert.equal(reverse.thrust,0)
   p.axes[0]=0;button(p,0,0);button(p,6,0)
   assert.deepEqual(reader.sample([p],'flight',64).flight,neutralController())
+})
+
+test('bumpers strafe continuously, cancel when held together, and honor layout remapping',()=>{
+  for(const layout of [DEFAULT_CONTROLLER_LAYOUT,{...DEFAULT_CONTROLLER_LAYOUT,buttons:{...CONTROLLER,strafeLeft:10,strafeRight:11,journal:4}}]) {
+    const p=pad(),reader=createControllerReader(layout);reader.sample([p],'flight',0)
+    const {strafeLeft:left,strafeRight:right}=layout.buttons
+    button(p,left,1)
+    for(const time of [16,32,500])assert.equal(reader.sample([p],'flight',time).flight.strafe,-1)
+    button(p,right,1);assert.equal(reader.sample([p],'flight',516).flight.strafe,0)
+    button(p,left,0);assert.equal(reader.sample([p],'flight',532).flight.strafe,1)
+    button(p,right,0);assert.deepEqual(reader.sample([p],'flight',548).flight,neutralController())
+  }
+})
+
+test('held bumpers stay neutral across connection, menus, focus loss and disconnection',()=>{
+  for(const index of [CONTROLLER.strafeLeft,CONTROLLER.strafeRight]) {
+    const p=pad(),reader=createControllerReader();button(p,index,1)
+    assert.deepEqual(reader.sample([p],'flight',0).flight,neutralController())
+    for(const [screen,focused] of [['menu:pause',true],['flight',false]]) {
+      button(p,index,0);reader.sample([p],'flight',16)
+      button(p,index,1);assert.notEqual(reader.sample([p],'flight',32).flight.strafe,0)
+      assert.deepEqual(reader.sample([p],screen,48,focused).flight,neutralController())
+      assert.deepEqual(reader.sample([p],'flight',64).flight,neutralController())
+    }
+    assert.deepEqual(reader.sample([],'flight',80).flight,neutralController())
+    assert.deepEqual(reader.sample([p],'flight',96).flight,neutralController())
+  }
+})
+
+test('strafe input is bounded and malformed or missing input is neutral',()=>{
+  for(const strafe of [undefined,NaN,Infinity,-Infinity])assert.equal(sanitizeController({...neutralController(),strafe}).strafe,0)
+  for(const strafe of [-4,-1,-.5,0,.5,1,4])assert.equal(sanitizeController({...neutralController(),strafe}).strafe,Math.max(-1,Math.min(1,strafe)))
+  assert.equal(flightInput(new Set()).strafe,0)
+})
+
+test('side thrusters translate in ship-relative directions without rotation and share the speed cap',()=>{
+  for(const angle of [0,Math.PI/2,Math.PI,Math.PI*1.5])for(const strafe of [-1,1]) {
+    const ship={pos:{x:0,y:0},vel:{x:0,y:0},angle,radius:15}
+    stepShipMovement(ship,new Set(),1/60,{...neutralController(),strafe})
+    assert.equal(ship.angle,angle);assert.equal(ship.angularVelocity,0)
+    const right=ship.vel.x*-Math.sin(angle)+ship.vel.y*Math.cos(angle)
+    const forward=ship.vel.x*Math.cos(angle)+ship.vel.y*Math.sin(angle)
+    assert.ok(Math.abs(forward)<1e-9)
+    assert.ok(right*strafe>0 && right*strafe<=SHIP_STRAFE_ACCELERATION/60)
+    for(let i=0;i<600;i++)stepShipMovement(ship,new Set(),1/60,{...neutralController(),thrust:1,strafe})
+    assert.ok(Math.hypot(ship.vel.x,ship.vel.y)<=SHIP_MAX_SPEED)
+  }
+})
+
+test('side jets oppose the strafe force, combine with turning, and stop on release',()=>{
+  for(const strafe of [-1,1])assert.deepEqual(lateralJetDemand(0,strafe),{bow:-strafe,stern:-strafe})
+  assert.deepEqual(lateralJetDemand(1,0),{bow:-1,stern:.72})
+  assert.deepEqual(lateralJetDemand(-1,0),{bow:1,stern:-.72})
+  for(const strafe of [-1,0,1])for(const turn of [-1,0,1])for(const demand of Object.values(lateralJetDemand(turn,strafe)))assert.ok(Number.isFinite(demand)&&Math.abs(demand)<=1)
+  const appearance=freshShipAppearance()
+  stepShipAppearance(appearance,new Set(),1/60,0,{...neutralController(),strafe:1})
+  assert.equal(appearance.strafe,1);assert.equal(appearance.bank,0)
+  stepShipAppearance(appearance,new Set(),1/60,0,neutralController())
+  assert.equal(appearance.strafe,0)
 })
 
 test('stick dead zone rejects drift and invalid data and rescales the remaining travel',()=>{
@@ -212,7 +273,7 @@ test('controller release cannot cancel a held keyboard laser or reset its mining
 test('pause, survey suspension, load and a new launch clear controller flight state without saving it',()=>{
   const s=launch()
   for(const command of [{type:'pause'},{type:'suspend',suspended:true},{type:'start'}]) {
-    input(s,{turn:1,thrust:1,laser:true});s.command(command)
+    input(s,{turn:1,thrust:1,strafe:1,laser:true});s.command(command)
     assert.deepEqual(s.refs.controllerRef.current,neutralController())
     if(command.type!=='start') {
       input(s,{thrust:1});assert.deepEqual(s.refs.controllerRef.current,neutralController())
@@ -227,13 +288,13 @@ test('pause, survey suspension, load and a new launch clear controller flight st
   s.command({type:'load',expedition:saved});assert.deepEqual(s.refs.controllerRef.current,neutralController())
 })
 
-test('controller-driven flight, braking and laser agree at 30, 60, 120 and 144 render Hz',()=>{
+test('controller-driven flight, braking, strafing and laser agree at 30, 60, 120 and 144 render Hz',()=>{
   let expected
   for(const hz of [60,30,120,144]) {
     const s=launch();let tick=0
     s.advance(0)
     for(let frame=1;frame<=hz*1.5;frame++)s.advance(frame*1000/hz,()=>{
-      input(s,{turn:tick<30?.3:0,thrust:tick<30?.75:0,reverse:tick>=30&&tick<60?.5:0,laser:tick>=60});tick++
+      input(s,{turn:tick<30?.3:0,thrust:tick<30?.75:0,reverse:tick>=30&&tick<60?.5:0,strafe:tick<15?-1:tick<45?1:0,laser:tick>=60});tick++
     })
     const actual=structuredClone({ship:s.refs.shipRef.current,state:s.expedition,energy:s.refs.phaserStateRef.current})
     if(expected)assert.deepEqual(actual,expected,`hz=${hz}`);else expected=actual

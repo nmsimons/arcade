@@ -44,7 +44,8 @@ inspection. The `bot-towing` benchmark exercises the same models in live gamepla
 
 Controller checks sample the same standard-layout input reader and production
 flight session, including turn-only stick steering, proportional RT thrust and
-LT reverse, X tether, contextual Y dock/call/teleport, dead zones, held-action safety,
+LT reverse, LB/RB strafing, X tether, contextual Y dock/call/teleport, right-stick
+click for the recorder, dead zones, held-action safety,
 keyboard overlap, 30/60/120/144 Hz simulation, and neutral
 input after screen/focus/device changes. Browser tests inject a virtual Gamepad
 through `navigator.getGamepads` and exercise launch, flight, weapons, tether,

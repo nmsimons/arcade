@@ -70,6 +70,7 @@ export function drawTrainingFloor(ctx: CanvasRenderingContext2D, rt: TrainingRun
   floorText(ctx,500,290,'01 / FLIGHT HANDLING',[
     `${hint('turnLeft','A')} / ${hint('turnRight','D')}  ROTATE`,
     `${hint('thrust','W')}  THRUST     ${hint('reverse','S')}  REVERSE`,
+    ...(hint('strafeLeft','') ? [`${hint('strafeLeft','')} / ${hint('strafeRight','')}  STRAFE LEFT / RIGHT`] : []),
     'Use short burns. Coast between corrections.',
     'Nose thrusters push aft; they do not cancel drift.',
     'Face your drift, then reverse to brake.',

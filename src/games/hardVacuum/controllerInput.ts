@@ -90,7 +90,8 @@ export function createControllerReader(layout: ControllerLayout = DEFAULT_CONTRO
         pressed, navigation, direction,
         scroll: focused && !scrollBlocked && screen.startsWith('menu:') ? scrollAxis : 0,
         flight: screen === 'flight' && focused && !disconnected
-          ? { turn: axisBlocked ? 0 : x, thrust: held(CONTROLLER.thrust) ? thrust : 0, reverse: held(CONTROLLER.reverse) ? reverse : 0, laser: held(CONTROLLER.laser) }
+          ? { turn: axisBlocked ? 0 : x, thrust: held(CONTROLLER.thrust) ? thrust : 0, reverse: held(CONTROLLER.reverse) ? reverse : 0,
+            strafe: Number(held(CONTROLLER.strafeRight))-Number(held(CONTROLLER.strafeLeft)), laser: held(CONTROLLER.laser) }
           : neutralController(),
       }
     },

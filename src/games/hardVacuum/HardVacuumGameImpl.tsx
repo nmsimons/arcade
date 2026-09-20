@@ -309,6 +309,7 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
         stepShipAppearance(appearance, refs.keysRef.current, dt, refs.shipRef.current.angularVelocity, refs.controllerRef.current)
         const controls = flightInput(refs.keysRef.current, refs.controllerRef.current)
         if (controls.forward || controls.reverse) sounds.startThrust()
+        else if (controls.strafe !== 0) sounds.startThrust(.5)
         else if (appearance.turn !== 0) sounds.startThrust(.25)
         else sounds.stopThrust()
         refs.debrisRef.current.push(...stepHullSparks(appearance, refs.shipRef.current, session.expedition.shields, dt, session.expedition.impactShieldInstalled))

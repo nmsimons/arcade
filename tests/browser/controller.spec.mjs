@@ -30,12 +30,37 @@ test('controller-only launch, RT thrust, turn-only stick, pause, map and recorde
   await expect(page.getByRole('button',{name:'Local survey · Y / △',exact:true})).toBeVisible()
   await tap(page,15);await tap(page,1)
   await expect(page.getByRole('dialog',{name:'Station survey',exact:true})).toHaveCount(0)
-  await tap(page,4)
+  await tap(page,11)
   await expect(page.getByRole('dialog',{name:'Flight recorder',exact:true})).toBeVisible()
   await tap(page,1)
   await expect(page.getByRole('dialog',{name:'Expedition paused',exact:true})).toBeVisible()
   await tap(page,1)
   await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+for(const [bumper,name,direction] of [[4,'LB',1],[5,'RB',-1]])test(`${name} strafes without turning or opening the recorder, and held input cannot leak through menus`,async({page},testInfo)=>{
+  const state=armed();await setup(page,state)
+  await hold(page,bumper,1);await tap(page,0);await page.clock.runFor(200);await tap(page,9)
+  expect((await saved(page)).position).toEqual(state.position,'a bumper held at launch must remain neutral')
+  await hold(page,bumper,0);await tap(page,9)
+  await hold(page,bumper,1,350)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.screenshot({path:testInfo.outputPath(`${name}-side-thrusters.png`)})
+  await tap(page,9)
+  const moved=await saved(page)
+  expect((moved.position.y-state.position.y)*direction).toBeGreaterThan(5)
+  expect(moved.position.x).toBeCloseTo(state.position.x,5)
+  await tap(page,9);await page.clock.runFor(800)
+  // Resuming with a held bumper leaves only the existing coast, not new input.
+  await tap(page,9)
+  expect(((await saved(page)).position.y-moved.position.y)*direction).toBeLessThan(45)
+})
+
+test('holding both bumpers cancels strafing',async({page})=>{
+  const state=armed();await setup(page,state);await tap(page,0)
+  await page.evaluate(()=>{for(const index of [4,5])window.testPad.buttons[index]={pressed:true,value:1}})
+  await page.clock.runFor(350);await tap(page,9)
+  expect((await saved(page)).position).toEqual(state.position)
 })
 
 for(const [trigger,name] of [[7,'RT'],[6,'LT']]) test(`LT reverses, but partial ${name} held through a menu stays neutral until released`,async({page})=>{

@@ -3,6 +3,7 @@ import { CHAMBERS, PASSAGES } from './stationLayout.ts'
 import { isInsideCavern } from './worldGeometry.ts'
 import type { Vector2 } from './types'
 import { CIRCUIT_LOADS } from './stationProgression.ts'
+import { POWER_PATHS } from './powerPaths.ts'
 
 export const WIRE_CLEARANCE = 24
 export const WIRE_WALL_CLEARANCE = 28
@@ -88,10 +89,19 @@ const parallelBlocked = (a: Vector2,b: Vector2,source: string,trace: PowerTrace)
   return !(source===trace.source&&collinear&&gap<.001)&&gap<WIRE_CLEARANCE-.001
 }
 let cached: (PowerConnection & { path: Vector2[] })[] | undefined
+let authored: (PowerConnection & { path: Vector2[] })[] | undefined
 
-/** Route fixed cable through the authored passages, even while doors are shut.
- * Build once; doors, moving cargo and restored power never move the cables. */
+/** Fixed cable geometry is authored ahead of time, not searched on the first
+ * flight frame. Doors, moving cargo and restored power never move the cables. */
 export function powerConduits() {
+  return authored ??= POWER_CONNECTIONS.map(connection=>({
+    ...connection,
+    path:POWER_PATHS[`${connection.source}/${connection.target}`].map(([x,y])=>({x,y})),
+  }))
+}
+
+/** Authoring/test tool. Run npm run generate:power after changing the station. */
+export function routePowerConduits() {
   if (cached) return cached
   const nodes: Vector2[] = []
   const add = (point: Vector2) => {

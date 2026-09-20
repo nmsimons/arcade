@@ -2,9 +2,13 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { BERTHS, WARD_BANKS } from '../src/games/hardVacuum/campaignWorld.ts'
 import { GATES, SOCKETS, expeditionMap, freshExpedition } from '../src/games/hardVacuum/expedition.ts'
-import { POWER_CONNECTIONS, powerConduits, powerTraces, WIRE_CLEARANCE, WIRE_WALL_CLEARANCE } from '../src/games/hardVacuum/powerWiring.ts'
+import { POWER_CONNECTIONS, powerConduits, powerTraces, routePowerConduits, WIRE_CLEARANCE, WIRE_WALL_CLEARANCE } from '../src/games/hardVacuum/powerWiring.ts'
 import { STATION_TERRAIN } from '../src/games/hardVacuum/stationLayout.ts'
 import { isInsideCavern, raycastCavern } from '../src/games/hardVacuum/worldGeometry.ts'
+
+test('authored power paths exactly match the station router without searching during flight',()=>{
+  assert.deepEqual(powerConduits(),routePowerConduits(),'Station geometry changed: run npm run generate:power')
+})
 
 test('every powered door, service berth, ward bank and core release has a wire from its actual receiver', () => {
   const connected = (source, target) => POWER_CONNECTIONS.some(c => c.source === source && c.target === target)

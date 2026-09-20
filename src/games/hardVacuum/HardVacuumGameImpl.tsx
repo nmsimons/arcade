@@ -63,9 +63,9 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
   const [devOpen, setDevOpen] = useState(false)
   const devOpenRef = useRef(false)
   const [devMapRevealed, setDevMapRevealed] = useState(false)
-  const persistExpedition = useCallback(() => {
+  const persistExpedition = useCallback((state = session.expedition) => {
     if (training) return true
-    const result = saveSession.save(session.expedition)
+    const result = saveSession.save(state)
     if (result.status === 'saved') {
       setSaveIssue(''); setExitSaveFailed(false); setHasSave(true)
     } else if ('message' in result) setSaveIssue(result.message)
@@ -78,8 +78,13 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
       else if (event.type === 'persist') persist = true
       else publish = true
     }
-    if (publish) setView(session.snapshot())
-    if (persist) persistExpedition()
+    if (publish || persist) {
+      // A committed transition must never leave the HUD on an older snapshot,
+      // even if it falls between the ordinary HUD refresh ticks.
+      const next = session.snapshot()
+      setView(next)
+      if (persist) persistExpedition(next.expedition)
+    }
   }, [session, persistExpedition])
   const dispatch = useCallback((command: GameCommand) => {
     session.command(command)

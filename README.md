@@ -440,6 +440,7 @@ npm run preview  # Preview the production build locally
 npm run lint     # Run ESLint
 npm test         # Mechanics, full sessions, geometry, progression, and save tests
 npm run test:browser # Production routes/recovery/controls + development panel
+npm run generate:power # Regenerate fixed cable paths after changing station geometry
 npm run benchmark # Isolated browser performance fixtures; JSON report in /tmp
 ```
 

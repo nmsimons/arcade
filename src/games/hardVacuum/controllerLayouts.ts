@@ -10,7 +10,7 @@ export interface ControllerLayout {
 // displayed flight bindings all use the selected layout, not hard-coded indices.
 export const CONTROLLER_LAYOUTS: readonly ControllerLayout[] = [{
   id: 'trigger-flight', name: 'Trigger flight',
-  buttons: { confirm: 0, back: 1, mapOverview: 3, mapZoom: 2, laser: 0, tether: 5, blaster: 1, interact: 3, journal: 4, reverse: 6, teleport: 2, thrust: 7, map: 8, pause: 9 },
+  buttons: { confirm: 0, back: 1, mapOverview: 3, mapZoom: 2, laser: 0, tether: 2, blaster: 1, interact: 3, journal: 4, reverse: 6, teleport: 3, thrust: 7, map: 8, pause: 9 },
   axes: { turn: 0, menuX: 0, menuY: 1, scroll: 3 },
 }]
 export const DEFAULT_CONTROLLER_LAYOUT = CONTROLLER_LAYOUTS[0]
@@ -30,3 +30,9 @@ export const CONTROLLER_FLIGHT_HELP: readonly { action: ControllerAction; label:
   { action: 'teleport', label: 'Teleport' }, { action: 'journal', label: 'Log' },
   { action: 'map', label: 'Map' }, { action: 'pause', label: 'Pause' },
 ]
+
+export function controllerFlightHelp(layout: ControllerLayout) {
+  if (layout.buttons.interact !== layout.buttons.teleport) return CONTROLLER_FLIGHT_HELP
+  return CONTROLLER_FLIGHT_HELP.filter(({action})=>action!=='teleport').map(entry=>
+    entry.action==='interact' ? {...entry,label:'Dock / call Haven nearby; teleport elsewhere'} : entry)
+}

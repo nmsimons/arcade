@@ -39,7 +39,7 @@ boost gates, ore hoppers, destructible background crags or additional checkpoint
 
 The Access Tunnel's outer door has sealed behind the pilot. Haven begins dormant
 at the Breach. The first lesson is to aim at her blue center socket and connect
-the tether (F / RB); entering the ring does not activate her. Her lights come up,
+the tether (F / X); entering the ring does not activate her. Her lights come up,
 services start, and the pilot's recovery link is registered and saved.
 Haven speaks through the same pinned message panel as a connected log terminal,
 with data pulses along the cable. Her center connector stays deployed until the

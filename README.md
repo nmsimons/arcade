@@ -117,8 +117,10 @@ then press a button while the game is focused.
 - Left stick left/right: rotate only; up/down does not thrust or reverse.
   Turning is proportional, with a small dead zone to prevent drift.
 - RT: proportional thrust; LT: proportional nose thrust to brake or reverse.
-- RB: grapple / release; A: hold laser; B: blaster, one shot per press.
-- X: teleport; Y: dock / call Haven; LB: log; View/Back: map; Menu/Start: pause.
+- X: grapple / release; A: hold laser; B: blaster, one shot per press.
+- Y: dock at Haven, call it from an available berth, or teleport when neither
+  nearby action applies (after installing the teleporter).
+  LB: log; View/Back: map; Menu/Start: pause.
 - Menus: stick or D-pad navigates, A confirms, B goes back; these menu actions
   never fire the laser or blaster. Right stick scrolls long dialogs.
 - Map: D-pad selects buttons and A activates the highlighted button. X is a

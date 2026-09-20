@@ -55,6 +55,7 @@ test('controller enters training, updates floor bindings, navigates reset and le
   await expect(page.locator('.hud-room')).toHaveText('Flight training')
   expect(await page.evaluate(()=>window.floorWords)).toContain('HOLD A / ×  CUTTING LASER')
   expect(await page.evaluate(()=>window.floorWords)).toContain('RT / R2  THRUST     LT / L2  REVERSE')
+  expect(await page.evaluate(()=>window.floorWords)).toContain('TAP X / □  TETHER / RELEASE')
   await tap(page,9);await expect(page.getByRole('dialog',{name:'Training paused'})).toBeVisible()
   await tap(page,15);await expect(page.getByRole('button',{name:'Restart simulation'})).toBeFocused()
   await tap(page,0);await expect(page.locator('canvas')).toBeFocused()

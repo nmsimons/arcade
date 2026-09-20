@@ -20,8 +20,8 @@ import { RED_ROCK_DETONATION_DELAY } from './tuning'
 import { FLIGHT_KEYS, flightInput } from './flightInput'
 import { drawHardVacuumFrame, flightCameraZoom } from './render'
 import { stepShipAppearance, stepHullSparks } from './shipRender'
-import { createControllerReader } from './controllerInput'
-import { CONTROLLER_FLIGHT_HELP, controllerButtonLabel, controllerTurnLabel } from './controllerLayouts'
+import { controllerHavenAction, createControllerReader } from './controllerInput'
+import { controllerFlightHelp, controllerButtonLabel, controllerTurnLabel } from './controllerLayouts'
 import { controllerDialog, controlDialog, scrollDialog } from './controllerUi'
 import { ControlHintsContext, controlHint } from './controlHints'
 import { ControlPrompt } from './ControlPrompt'
@@ -219,8 +219,8 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
       else if (pressed(CONTROLLER.map)) setSurveyOpen(true)
       else if (pressed(CONTROLLER.journal)) { setJournalOpen(true); dispatch({ type: 'pause' }) }
       else {
-        if (pressed(CONTROLLER.interact)) dispatch({ type: 'interact' })
-        if (pressed(CONTROLLER.teleport)) dispatch({ type: 'teleport' })
+        const havenAction=controllerHavenAction(input.pressed,!!interaction(session.expedition,session.refs.shipRef.current),controller.layout)
+        if (havenAction) dispatch({ type: havenAction })
         if (pressed(CONTROLLER.tether)) dispatch({ type: 'tether' })
         if (pressed(CONTROLLER.blaster)) dispatch({ type: 'blaster' })
       }
@@ -380,7 +380,7 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
     <div ref={rootRef} data-controller-connected={controllerConnected} className="hard-vacuum relative w-screen h-screen overflow-hidden font-mono"
       onPointerDownCapture={event => { if (event.nativeEvent.isTrusted) sounds.init() }}
       onKeyDownCapture={event => { if (event.nativeEvent.isTrusted) sounds.init() }}>
-      <canvas ref={canvasRef} tabIndex={-1} onPointerDown={interactWithFloor} aria-label={`Hard Vacuum flight controls: keyboard or controller. WASD or arrows to fly. Controller: ${controllerTurnLabel(controller.layout)}. ${CONTROLLER_FLIGHT_HELP.map(({action,label}) => `${controllerButtonLabel(CONTROLLER[action])}: ${label}`).join('. ')}.`} className="absolute inset-0 outline-none" />
+      <canvas ref={canvasRef} tabIndex={-1} onPointerDown={interactWithFloor} aria-label={`Hard Vacuum flight controls: keyboard or controller. WASD or arrows to fly. Controller: ${controllerTurnLabel(controller.layout)}. ${controllerFlightHelp(controller.layout).map(({action,label}) => `${controllerButtonLabel(CONTROLLER[action])}: ${label}`).join('. ')}.`} className="absolute inset-0 outline-none" />
 
       <div hidden={devOpen} inert={devOpen}>
       {training ? gameState==='playing' && <TrainingHud credits={expedition.credits+expedition.banked} connected={!!hud.radio} onPause={()=>tapVirtualKey('p')} onLog={()=>tapVirtualKey('g')} /> : <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} saveIssue={saveIssue} onJournal={() => tapVirtualKey('g')} onMap={() => setSurveyOpen(!mapOpenRef.current)} onBlaster={shootBlaster} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />}

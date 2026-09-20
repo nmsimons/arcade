@@ -12,7 +12,7 @@ import { FlightInstruments } from './FlightInstruments'
 import { TetherInfo } from './TetherInfo'
 import type { SaveLoadResult } from './expeditionSave'
 import { ControllerHelp } from './ControllerHelp'
-import { CONTROLLER_FLIGHT_HELP, controllerButtonLabel, controllerMenuHelp, controllerTurnLabel, DEFAULT_CONTROLLER_LAYOUT } from './controllerLayouts'
+import { controllerFlightHelp, controllerButtonLabel, controllerMenuHelp, controllerTurnLabel, DEFAULT_CONTROLLER_LAYOUT } from './controllerLayouts'
 import type { ControllerLayout } from './controllerLayouts'
 import { useControlHints } from './controlHints'
 
@@ -203,7 +203,7 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, contro
         {connected && <><h3 className="text-xs text-[#8ee5e8]">Controller · {controllerLayout.name} · Xbox / PlayStation</h3>
         <div className="grid grid-cols-2 gap-3 mt-3 text-xs text-white/60">
           <span>{controllerTurnLabel(controllerLayout)}</span>
-          {CONTROLLER_FLIGHT_HELP.map(({action,label}) => <span key={action}>{controllerButtonLabel(controllerLayout.buttons[action])} · {label}</span>)}
+          {controllerFlightHelp(controllerLayout).map(({action,label}) => <span key={action}>{controllerButtonLabel(controllerLayout.buttons[action])} · {label}</span>)}
         </div>
         <p className="mt-3 text-xs text-white/50">Menus: {controllerMenuHelp(controllerLayout)}. Map: {controllerMenuHelp(controllerLayout, true)}.</p></>}
         <p className="mt-2 text-xs text-white/50">Standard-layout controllers supported. Connect by USB or Bluetooth and press a button. If audio is silent, click the game or press a keyboard key once.</p>

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { CONTROLLER, createControllerReader, stickAxis, triggerPressure } from '../src/games/hardVacuum/controllerInput.ts'
+import { CONTROLLER, controllerHavenAction, createControllerReader, stickAxis, triggerPressure } from '../src/games/hardVacuum/controllerInput.ts'
 import { flightInput, neutralController } from '../src/games/hardVacuum/flightInput.ts'
 import { stepShipMovement } from '../src/games/hardVacuum/expeditionPhysics.ts'
 import { freshShipAppearance, stepShipAppearance } from '../src/games/hardVacuum/shipRender.ts'
 import { createGameSession } from '../src/games/hardVacuum/gameSession.ts'
 import { freshExpedition } from '../src/games/hardVacuum/expedition.ts'
-import { DEFAULT_CONTROLLER_LAYOUT, controllerButtonLabel } from '../src/games/hardVacuum/controllerLayouts.ts'
+import { DEFAULT_CONTROLLER_LAYOUT, controllerButtonLabel, controllerFlightHelp } from '../src/games/hardVacuum/controllerLayouts.ts'
 
 const pad = (index=0,id='Test controller') => ({index,id,mapping:'standard',connected:true,axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))})
 const button = (p,index,value) => {p.buttons[index]={pressed:value>=.5,value}}
@@ -17,19 +17,19 @@ const launch = () => {
 const input = (s,patch) => s.command({type:'controller',input:{...neutralController(),...patch}})
 const run = (s,ticks=1) => {for(let i=0;i<ticks;i++)s.step()}
 
-test('left stick only rotates; RT thrusts, LT reverses, RB tethers, A lasers and B blasts',()=>{
+test('left stick only rotates; RT thrusts, LT reverses, X tethers, A lasers and B blasts',()=>{
   const p=pad(),reader=createControllerReader();reader.sample([null,p],'flight',0)
-  assert.deepEqual(CONTROLLER,{confirm:0,back:1,mapOverview:3,mapZoom:2,laser:0,tether:5,blaster:1,interact:3,journal:4,reverse:6,teleport:2,thrust:7,map:8,pause:9})
+  assert.deepEqual(CONTROLLER,{confirm:0,back:1,mapOverview:3,mapZoom:2,laser:0,tether:2,blaster:1,interact:3,journal:4,reverse:6,teleport:3,thrust:7,map:8,pause:9})
   for(const y of [-1,1,0]) {
     p.axes[1]=y
     assert.deepEqual(reader.sample([p],'flight',16).flight,neutralController())
   }
-  p.axes[0]=.59;button(p,7,.525);button(p,0,1);button(p,1,1);button(p,5,1)
+  p.axes[0]=.59;button(p,7,.525);button(p,0,1);button(p,1,1);button(p,2,1)
   const frame=reader.sample([p],'flight',32)
   assert.ok(Math.abs(frame.flight.turn-.5)<1e-9)
   assert.ok(Math.abs(frame.flight.thrust-.5)<1e-9)
   assert.equal(frame.flight.reverse,0);assert.equal(frame.flight.laser,true)
-  assert.deepEqual(frame.pressed,[0,1,5,7])
+  assert.deepEqual(frame.pressed,[0,1,2,7])
   button(p,7,0);button(p,6,1)
   const reverse=reader.sample([p],'flight',48).flight
   assert.equal(reverse.reverse,1);assert.equal(reverse.thrust,0)
@@ -57,15 +57,34 @@ test('both trigger pressures reject resting noise and invalid values, and scale 
   }
 })
 
-test('B blasts, RB tethers and X teleports only once per press, never repeatedly while held',()=>{
+test('B blasts, X tethers and Y interacts only once per press, never repeatedly while held',()=>{
   const p=pad(),reader=createControllerReader();reader.sample([p],'flight',0)
-  for(const index of [1,2,5])button(p,index,1)
-  assert.deepEqual(reader.sample([p],'flight',32).pressed,[1,2,5])
+  for(const index of [1,2,3])button(p,index,1)
+  assert.deepEqual(reader.sample([p],'flight',32).pressed,[1,2,3])
   for(const time of [100,200,300,1000])assert.deepEqual(reader.sample([p],'flight',time).pressed,[])
-  for(const index of [1,2,5])button(p,index,0)
+  for(const index of [1,2,3])button(p,index,0)
   reader.sample([p],'flight',1100)
-  for(const index of [1,2,5])button(p,index,1)
-  assert.deepEqual(reader.sample([p],'flight',1200).pressed,[1,2,5])
+  for(const index of [1,2,3])button(p,index,1)
+  assert.deepEqual(reader.sample([p],'flight',1200).pressed,[1,2,3])
+})
+
+test('the shared Haven button prefers nearby interactions and otherwise teleports',()=>{
+  assert.equal(controllerHavenAction([3],true),'interact')
+  assert.equal(controllerHavenAction([3],false),'teleport')
+  for(const pressed of [[],[2],[5]])for(const nearby of [false,true])assert.equal(controllerHavenAction(pressed,nearby),undefined)
+  const help=controllerFlightHelp(DEFAULT_CONTROLLER_LAYOUT)
+  assert.match(help.find(entry=>entry.action==='interact').label,/Dock.*call Haven.*teleport/)
+  assert.equal(help.some(entry=>entry.action==='teleport'),false,'one help entry for the shared button')
+})
+
+test('future layouts can separate dock and teleport without contextual overrides',()=>{
+  const layout={...DEFAULT_CONTROLLER_LAYOUT,buttons:{...CONTROLLER,teleport:5}}
+  for(const nearby of [false,true]) {
+    assert.equal(controllerHavenAction([3],nearby,layout),'interact')
+    assert.equal(controllerHavenAction([5],nearby,layout),'teleport')
+  }
+  assert.equal(controllerHavenAction([3,5],true,layout),'interact','simultaneous buttons still perform only one Haven action')
+  assert.ok(controllerFlightHelp(layout).some(entry=>entry.action==='teleport'))
 })
 
 test('connection, screen changes and lost focus require held controls to be released before reuse',()=>{

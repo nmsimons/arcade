@@ -1,5 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
-import { freshExpedition } from '../../src/games/hardVacuum/expedition.ts'
+import { freshExpedition, powerReceiver } from '../../src/games/hardVacuum/expedition.ts'
+import { BERTHS } from '../../src/games/hardVacuum/campaignWorld.ts'
 import { setup, hold, tap, saved, armed } from './helpers/controller.mjs'
 
 test('controller-only launch, RT thrust, turn-only stick, pause, map and recorder work without menu input leaking into flight',async({page})=>{
@@ -57,27 +58,29 @@ test('B blasts once per press and A holds the real laser, while equipment stays 
   const afterLaser=await saved(page)
   expect(afterLaser.cargo['rescue-cache'].vel.x).toBeLessThan(-50)
   expect(afterLaser.cargo['rescue-cache'].tethered).toBe(false)
-  await tap(page,9);await tap(page,2);await tap(page,9)
-  expect((await saved(page)).teleporterInstalled).toBe(false,'X cannot grant a missing teleporter')
+  await tap(page,9);await tap(page,3);await tap(page,9)
+  expect((await saved(page)).teleporterInstalled).toBe(false,'Y cannot grant a missing teleporter')
 })
 
-test('RB connects and releases a cargo cable; closing the pause menu with B cannot fire the blaster',async({page})=>{
+test('X connects and releases a cargo cable; RB and closing the pause menu cannot fire it',async({page})=>{
   const state=armed()
   state.cargo={'rescue-cache':{pos:{x:7710,y:3490},vel:{x:0,y:0},tethered:false}}
   await setup(page,state);await tap(page,0);await tap(page,9)
   await hold(page,1,1,400);await hold(page,1,0);await tap(page,9)
   expect((await saved(page)).cargo['rescue-cache'].tethered).toBe(false)
   expect((await saved(page)).blasterCharges).toBe(3)
-  await tap(page,9);await tap(page,5);await page.clock.runFor(400)
+  await tap(page,9);await tap(page,5);await page.clock.runFor(400);await tap(page,9)
+  expect((await saved(page)).cargo['rescue-cache'].tethered).toBe(false,'RB no longer fires the tether')
+  await tap(page,9);await tap(page,2);await page.clock.runFor(400)
   await tap(page,9)
   expect((await saved(page)).cargo['rescue-cache'].tethered).toBe(true)
-  await tap(page,9);await tap(page,5);await page.clock.runFor(200)
+  await tap(page,9);await tap(page,2);await page.clock.runFor(200)
   // The saved tethered flag records cargo claimed by the pilot, not a live cable.
   await expect(page.getByRole('status').filter({hasText:'Cable released.'})).toHaveCount(0)
 })
 
 test('Y docks; menus skip locked upgrades and B undocks',async({page})=>{
-  const state=freshExpedition();state.banked=10000
+  const state=freshExpedition();state.banked=10000;state.teleporterInstalled=true
   await setup(page,state);await tap(page,0);await tap(page,3);await page.clock.runFor(800)
   await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toBeVisible()
   await expect(page.getByRole('button',{name:'Undock · B / ○',exact:true})).toBeFocused()
@@ -88,12 +91,33 @@ test('Y docks; menus skip locked upgrades and B undocks',async({page})=>{
   await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toHaveCount(0)
 })
 
-test('X teleports home only after installation and banks carried credits',async({page})=>{
+test('Y teleports home, banks credits and does not also dock until released and pressed again',async({page})=>{
   const state=armed();state.teleporterInstalled=true;state.credits=123
-  await setup(page,state);await tap(page,0);await tap(page,2);await tap(page,9)
+  await setup(page,state);await tap(page,0);await hold(page,3,1,500)
+  await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toHaveCount(0)
   const home=await saved(page)
   expect(home.position).toEqual(freshExpedition().position)
   expect(home.credits).toBe(0);expect(home.banked).toBe(123)
+  await hold(page,3,0);await tap(page,3);await page.clock.runFor(800)
+  await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toBeVisible()
+})
+
+for(const blocked of [false,true])test(`Y calls Haven instead of teleporting from a berth${blocked ? ' even when the route is blocked' : ''}`,async({page})=>{
+  const state=armed();state.teleporterInstalled=true;state.credits=123
+  const berth=BERTHS.find(berth=>berth.id==='freight')
+  state.position={...berth.pos};state.visited.push('freight');state.campaign.berths.push('freight')
+  powerReceiver(state,'freight-power','freight-power')
+  if(!blocked)powerReceiver(state,'breach-power','breach-power')
+  state.doors={}
+  await setup(page,state);await tap(page,0);await hold(page,3,1,300);await hold(page,3,0);await tap(page,9)
+  const called=await saved(page)
+  expect(called.position).toEqual(berth.pos)
+  expect(called.credits).toBe(123)
+  if(blocked)expect(called.campaign.journey).toBeUndefined()
+  else {
+    expect(called.campaign.journey.destination).toBe('freight')
+    expect(called.campaign.journey.riding).toBe(false)
+  }
 })
 
 test('disconnect and loss of focus pause safely; reconnection cannot activate a held A button',async({page})=>{

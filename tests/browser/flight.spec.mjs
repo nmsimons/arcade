@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/test.mjs'
 import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 
 test('radiation HUD refills away from Haven without repairing hull or ammo and saves the charge',async({page})=>{
@@ -24,6 +24,7 @@ test('keyboard flight, map, recorder, pause, saving and HUD stay synchronized',a
   await expect(page.locator('canvas')).toBeFocused()
   await expect(page.getByRole('meter',{name:'Shields',exact:true})).toHaveAttribute('aria-valuenow','2')
   await expect(page.locator('.hud-credits')).toContainText('12,345')
+  await expect(page.locator('.hud-room')).toHaveText('The Breach')
   await page.keyboard.press('b')
   await expect(page.getByRole('button',{name:'Fire blaster, 2 of 3 charges',exact:true})).toBeVisible()
   // Use a short input, then pause to persist it. Holding thrust until the
@@ -38,7 +39,7 @@ test('keyboard flight, map, recorder, pause, saving and HUD stay synchronized',a
   await page.keyboard.press('o')
   await expect(page.getByRole('button',{name:'Local survey · O',exact:true})).toBeVisible()
   await page.keyboard.press('z')
-  await expect(page.getByText('Pan · arrows / WASD / drag',{exact:true})).toBeVisible()
+  await expect(page.getByText('Pan · WASD / drag',{exact:true})).toBeVisible()
   await page.keyboard.press('ArrowRight');await page.keyboard.press('Escape')
   await expect(page.locator('canvas')).toBeFocused()
   await page.keyboard.press('g')

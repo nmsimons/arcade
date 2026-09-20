@@ -159,7 +159,7 @@ test('transit disables services, resumes on reload, and recovery settles the exi
 
 test('the story is discovered once, terminal records need a connection, and the finale needs the delivered core',()=>{
   const s=freshExpedition(),rt=freshRuntime(),ship=shipAt(s.position)
-  tick(s,rt,ship);assert.ok(s.campaign.records.includes('first-light'))
+  tick(s,rt,ship);assert.ok(!s.campaign.records.includes('first-light'),'being near Haven does not read a log')
   const count=s.campaign.records.length;tick(s,rt,ship);assert.equal(s.campaign.records.length,count)
   assert.ok(!s.campaign.records.includes('rescue-note'))
   discoverCampaign(s,'rescue');assert.ok(!s.campaign.records.includes('rescue-note'))
@@ -173,7 +173,7 @@ test('the story is discovered once, terminal records need a connection, and the 
   assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
   core.pos={...IGNITION_CRADLE};core.vel={x:0,y:0}
   for(let i=0;i<35;i++) tick(s,rt,shipAt({x:IGNITION_CRADLE.x,y:IGNITION_CRADLE.y+100}))
-  assert.equal(s.core,true);assert.equal(s.complete,true)
+  assert.equal(s.core,true);assert.equal(s.complete,false,'the twelve pods still need rescuing')
 })
 
 test('prototype saves enter the Ring without losing equipment, funds or the meaning of surveyed cells',()=>{

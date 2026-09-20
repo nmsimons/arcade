@@ -1,14 +1,21 @@
 import { Component, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { KeyboardDialog } from './games/hardVacuum/KeyboardDialog'
+import { useControlHints } from './games/hardVacuum/controlHints'
 
 function RouteMessage({ failed, onExit }: { failed?: boolean; onExit: () => void }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => { ref.current?.focus() }, [])
-  return <div ref={ref} tabIndex={-1} role={failed ? 'alert' : 'status'} aria-live="polite" className="min-h-screen bg-black text-[#00ff88] font-mono flex flex-col items-center justify-center gap-6 outline-none">
-    <h1>{failed ? 'This game could not be loaded' : 'Loading game…'}</h1>
-    {failed && <><p>Check your connection, then reload to try again.</p><button className="border-2 p-3" onClick={() => window.location.reload()}>Reload game</button></>}
-    <button className="border-2 p-3" onClick={onExit}>Back to game selector</button>
-  </div>
+  const { hint } = useControlHints()
+  return <KeyboardDialog label={failed ? 'Game unavailable' : 'Loading game'} focusKey={failed ? 'load-failed' : 'loading'} globalMenu onClose={onExit}>
+    <div className="menu-surface max-w-lg space-y-5">
+      <h1 role={failed ? 'alert' : 'status'} className="text-xl">{failed ? 'This game could not be loaded' : 'Loading game…'}</h1>
+      {failed && <p className="text-sm text-white/60">Check your connection, then reload to try again.</p>}
+      <div className="flex flex-wrap gap-3">
+        {failed && <button className="menu-button" onClick={() => window.location.reload()}>Reload game</button>}
+        <button className="menu-button" onClick={onExit}>Back to game selector</button>
+      </div>
+      <p className="menu-help">{hint('back', 'Esc')} <span>Back</span></p>
+    </div>
+  </KeyboardDialog>
 }
 export const GameLoading = ({ onExit }: { onExit: () => void }) => <RouteMessage onExit={onExit} />
 

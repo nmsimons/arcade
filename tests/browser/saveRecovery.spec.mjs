@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './helpers/test.mjs'
 import { SAVE_SCHEMA_VERSION } from '../../src/games/hardVacuum/saveMigrations.ts'
 import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 import { SAVE_BACKUP_KEY, SAVE_RECOVERY_KEY } from '../../src/games/hardVacuum/expeditionSave.ts'

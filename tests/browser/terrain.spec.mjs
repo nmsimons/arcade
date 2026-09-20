@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/test.mjs'
 import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 import { STATION_TERRAIN } from '../../src/games/hardVacuum/stationLayout.ts'
 import { getDemoCavernMap } from '../../src/games/hardVacuum/worldGeometry.ts'

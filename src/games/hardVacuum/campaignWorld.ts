@@ -1,5 +1,6 @@
 import type { RoomId, GateId, CircuitId, CacheId, ProgressionId } from './stationIds'
 import type { Vector2 } from './types'
+import { doorPanels } from './doors.ts'
 
 export const STATION_WIDTH = 9600
 export const STATION_HEIGHT = 5100
@@ -7,6 +8,12 @@ const p = (x: number, y: number): Vector2 => ({ x, y })
 const poly = (points: number[][]) => points.map(([x, y]) => p(x, y))
 export const IGNITION_CRADLE = p(9100,3550)
 export const IGNITION_CRADLE_ANGLE = -Math.PI/2
+// The access lock seals behind the pilot. Only Haven's authorized launch opens it.
+export const ARRIVAL_POSITION = p(9140,2900)
+export const DEPARTURE_ROUTE = [[8000,3560],[8230,3450],[8400,3250],[8720,2900],[9500,2900]].map(([x,y])=>p(x,y))
+export const OUTER_LOCK = { id:'outer-lock',kind:'socket',label:'OUTER LOCK',x:9360,y:2800,w:24,h:200,color:'#65baff' }
+export const OUTER_LOCK_PANELS = doorPanels(OUTER_LOCK,0)
+export const outerLockProgress = (departing: boolean) => departing ? 1 : 0
 export const CORE_RETURN_ROUTE = [[6090,4490],[6400,4630],[7060,4630],[7620,4270],[8180,4270],[8180,3840]].map(([x,y])=>p(x,y))
 
 // Bays follow the original excavation. Their dimensions come from the work
@@ -26,11 +33,12 @@ const bays = [
   ['refuge-entry', 'Refuge Approach', 1500, 2740, 860, 600],
   ['refuge', 'Medical transfer', 1500, 3590, 1020, 740],
   ['infirmary', 'Triage', 530, 3510, 640, 650],
-  ['transfer', 'Suspension ward', 2530, 3530, 700, 680],
+  ['transfer', 'Suspension ward', 2530, 3530, 850, 800],
   ['heart-hub', 'The Heart', 4100, 3540, 1000, 780],
   ['heart-control', 'Field control', 5320, 3480, 760, 640],
   ['heart-coils', 'Induction gallery', 4100, 4430, 1000, 580],
   ['ignition', 'Ignition well', 5750, 4400, 900, 720],
+  ['arrival', 'Access Tunnel', 9180, 2900, 820, 200],
 ] as const
 export const CAMPAIGN_SECTORS = bays.map(([id, name, x, y, w, h]) => ({ id, name, x: x - w / 2, y: y - h / 2, w, h, color: id.startsWith('heart') || id === 'ignition' ? '#ffc977' : id === 'refuge' || id === 'transfer' ? '#b8a0ff' : '#8cbdac', subtitle: '' }))
 const fractures = [
@@ -40,6 +48,7 @@ const fractures = [
   [[-.5,-.21],[-.35,-.28],[-.23,-.46],[.13,-.5],[.35,-.35],[.48,-.14],[.46,.12],[.35,.23],[.24,.49],[-.13,.47],[-.33,.27],[-.5,.20]],
 ]
 export const CAMPAIGN_CHAMBERS = Object.fromEntries(bays.map(([id, , x, y, w, h], i) => [id, poly(fractures[i % fractures.length].map(([a,b]) => [x + a * w, y + b * h]))]))
+CAMPAIGN_CHAMBERS.arrival = poly([[8670,2800],[9590,2800],[9590,3000],[8670,3000]])
 
 // A bent passage is the union of its swept segments. Gate sections are always
 // exactly 200 wide; they close the actual tunnel, not an invisible room edge.
@@ -74,6 +83,7 @@ export const CAMPAIGN_PASSAGES = [
   ...corridor(['heart-coils','ignition'], [[4450,4350],[5430,4350]], 'well-link'),
   ...corridor(['heart-control','ignition'], [[5320,3650],[5750,3800],[5750,4160]], 'heart-return'),
   ...corridor(['ignition','breach'], CORE_RETURN_ROUTE.map(p=>[p.x,p.y]), 'breach-return'),
+  ...corridor(['breach','arrival'], DEPARTURE_ROUTE.slice(0,4).map(p=>[p.x,p.y])),
 ]
 const gate = (id: GateId, x: number, y: number, vertical = false, blast = false) => ({ id, kind: blast ? 'blast' : 'socket', label: blast ? 'SEALED BULKHEAD' : 'POWER OFF', x, y, w: vertical ? 30 : 200, h: vertical ? 200 : 30, color: blast ? '#ff665e' : '#65baff' })
 export const CAMPAIGN_GATES = [
@@ -99,8 +109,8 @@ export const CAMPAIGN_SOCKETS = [
   // The isolation door is controlled from inside the ward. Reach its receiver
   // through the irradiated service tube, then reopen the short route to Haven.
   socket('ward-power','WARD BUS / TRANSFER RETURN',2350,3640,510,3430,['ward-link']),
-  socket('heart-route','IGNITION ACCESS',2590,3310,1430,3770,['heart-link']),
-  socket('heart-power','INDUCTION / SERVICE BERTH',4260,3320,2520,3690,['coil-link']),
+  socket('heart-route','IGNITION ACCESS',2560,3230,1430,3770,['heart-link']),
+  socket('heart-power','INDUCTION / SERVICE BERTH',4260,3320,2510,3580,['coil-link']),
   socket('coil-power','IGNITION WELL / FIELD RETURN',4140,4320,5320,3370,['well-link','heart-return']),
   socket('ignition-power','CORE RELEASE / BREACH RETURN',5590,4480,3930,4540,['breach-return'],['ignition-ready']),
 ]
@@ -116,11 +126,9 @@ export const CAMPAIGN_CACHES: readonly { id: CacheId; pos: Vector2; value: numbe
   { id:'medical-cache',pos:p(1910,4080),value:4000,sector:'refuge' },
 ]
 export const IGNITION_POSITION = p(5930,4370)
-// Four medical banks, 78 suspension circuits each. They are solid equipment,
-// with telemetry connected to the ward bus, not scenery scattered in space.
-export const WARD_BANKS = [2380,2490,2600,2710].map(x => ({ x,y:3410,w:60,h:48 }))
+export { WARD_POD_BERTHS as WARD_BANKS } from './survivalPods.ts'
 export const REGIONS = [
-  { id:'breach',name:'The Breach',rooms:['breach','rescue','baggage'],bounds:[6700,3000,2750,1200] },
+  { id:'breach',name:'The Breach',rooms:['breach','rescue','baggage','arrival'],bounds:[6700,2650,2900,1550] },
   { id:'freight',name:'Freight Galleries',rooms:['freight','stores','dispatch','manifest'],bounds:[6300,70,3100,1700] },
   { id:'works',name:'The Works',rooms:['works','service','workshop','capacitors'],bounds:[3200,200,3100,2100] },
   { id:'ring',name:'The Broken Ring',rooms:['haven','salvage','foundry','archive','reactor','engine','vault'],bounds:[80,80,2850,2130] },

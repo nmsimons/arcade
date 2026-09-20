@@ -3,7 +3,7 @@ import type { GATES } from './expedition'
 
 /** Door leaves share the map's plane and the collider's exact bounds.
  * Depth comes from inset edges, never a projected or floating silhouette. */
-export function drawGateObject(ctx: CanvasRenderingContext2D, gate: typeof GATES[number], progress = 0) {
+export function drawGateObject(ctx: CanvasRenderingContext2D, gate: Omit<typeof GATES[number], 'id'>, progress = 0) {
   const vertical = gate.h > gate.w
   const length = vertical ? gate.h : gate.w, thickness = vertical ? gate.w : gate.h
   const half = length / 2, depth = thickness / 2
@@ -64,7 +64,7 @@ export function drawGateObject(ctx: CanvasRenderingContext2D, gate: typeof GATES
 }
 
 /** Draw after the cavern mask: foundations are recessed into the solid wall. */
-export function drawGateFoundations(ctx: CanvasRenderingContext2D, gate: typeof GATES[number], progress = 0) {
+export function drawGateFoundations(ctx: CanvasRenderingContext2D, gate: Omit<typeof GATES[number], 'id'>, progress = 0) {
   if (gate.kind === 'rubble') return
   const vertical = gate.h > gate.w
   const length = vertical ? gate.h : gate.w, thickness = vertical ? gate.w : gate.h

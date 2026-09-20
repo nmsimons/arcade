@@ -51,7 +51,7 @@ test('Medical Transfer requires the lower bypass before the ward receiver can op
   assert.equal(radiationAt(center,expeditionMap(state)).intensity,0)
 })
 
-const route=[[1490,3600],[1130,3540],[900,3510],[750,3510],[530,3510],[510,3430],[530,3510],[530,3700],[700,4090],[2300,4090],[2530,3770],[2530,3700],[2350,3700],[2350,3640]]
+const route=[[1490,3600],[1130,3540],[900,3510],[750,3510],[530,3510],[510,3430],[530,3510],[530,3700],[700,4090],[2300,4090],[2530,3830],[2530,3690],[2350,3690],[2350,3640]]
 function traverse(speed,shield=true,pause=0) {
   const state=arrival(),map=expeditionMap(state)
   if(!shield){state.upgrades=[];state.radiationCharge=0}

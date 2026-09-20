@@ -55,11 +55,12 @@ import {
 } from './tuning.ts'
 import { addDevelopmentCredits, advanceDevelopmentLevel } from './development.ts'
 import { TERMINALS, terminalVisible } from './terminals.ts'
-import { coreReleased, havenPose, havenPosition, havenReady, moveHaven, stepHaven } from './campaign.ts'
+import { coreReleased, havenPose, havenPosition, havenReady, launchHaven, moveHaven, settleHaven, stepHaven } from './campaign.ts'
+import { havenLinkTargets, retireHavenLink, stepHavenLinkRetraction } from './havenActivation.ts'
 import type { BerthId } from './campaignWorld.ts'
 import { IGNITION_CRADLE } from './campaignWorld.ts'
 import type { HardVacuumGameState } from './ui.ts'
-import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, freshExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, powerCellSpawns, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition.ts'
+import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, newExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, powerCellSpawns, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition.ts'
 import { BLASTER_BLAST_RADIUS, fireBlaster, pulverizeAsteroid, stepBlaster } from './blaster.ts'
 import type { BlasterVisuals } from './blaster.ts'
 import { angleDelta, dockingReadiness, driftCargo, repelBody, repelBlueBody, stepShipMovement } from './expeditionPhysics.ts'
@@ -86,6 +87,8 @@ import { isStationBot } from './stationBots.ts'
 import type { Expedition } from './expedition.ts'
 import { neutralController, sanitizeController } from './flightInput.ts'
 import type { ControllerFlightInput } from './flightInput'
+import { freshTraining, populateTraining, stepTraining, stepTrainingEmitter, trainingExpedition, trainingMap, TRAINING_LOG } from './training.ts'
+import { resolveWorldContacts } from './bodyCollisions.ts'
 type SessionAudio = Pick<typeof BrowserSounds, 'blaster' | 'stopThrust' | 'stopPhaser' | 'stopRadiation' | 'teleport' | 'collect' | 'init' | 'stopStoreMusic' | 'havenRecovery' | 'explosion' | 'shieldHit' | 'radiationTick' | 'botCue' | 'shieldCharge' | 'startPhaser' | 'startRepairHum' | 'stopRepairHum' | 'havenImpact'>
 export type SessionAudioEvent = { [K in keyof SessionAudio]: { type: 'audio'; name: K; args: Parameters<SessionAudio[K]> } }[keyof SessionAudio]
 
@@ -96,16 +99,22 @@ export type GameCommand =
   | { type: 'key'; key: string; pressed: boolean }
   | { type: 'controller'; input: ControllerFlightInput }
   | { type: 'suspend'; suspended: boolean }
-  | { type: 'pause' | 'resume' | 'menu' | 'blaster' | 'teleport' | 'tether' | 'interact' | 'credits' }
+  | { type: 'pause' | 'resume' | 'menu' | 'blaster' | 'teleport' | 'tether' | 'interact' | 'credits' | 'launch' }
   | { type: 'jump' | 'relocate'; berth: BerthId }
   | { type: 'upgrade'; id: ShipUpgrade }
 const cell = <T>(current: T) => ({ current })
 
 /** Authoritative state, transitions, commands and update order, independent of browser services. */
-export function createGameSession(initial: Expedition = freshExpedition(), options: { seed?: number; cosmeticRandom?: () => number } = {}) {
-  const expedition = structuredClone(initial)
+export function createGameSession(initial: Expedition = newExpedition(), options: { seed?: number; cosmeticRandom?: () => number; training?: boolean } = {}) {
+  const training = !!options.training
+  const trainingRef = cell(freshTraining())
+  const expedition = training ? trainingExpedition() : structuredClone(initial)
   const expeditionRef = cell(expedition)
   const runtimeRef = cell(freshRuntime())
+  const worldMap = () => training ? trainingMap(trainingRef.current.door) : expeditionMap(expeditionRef.current)
+  const worldCargo = () => training ? [] : cargoBodies(expeditionRef.current, runtimeRef.current)
+  const worldLinks = () => training ? [] : havenLinkTargets(expeditionRef.current, runtimeRef.current)
+  const worldTerminals = () => training ? [trainingRef.current.terminal] : TERMINALS
   const gameStateRef = cell<HardVacuumGameState>('menu')
   const shieldsRef = { get current() { return expeditionRef.current.shields }, set current(value: number) { expeditionRef.current.shields = value } }
 
@@ -121,7 +130,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     gameStateRef.current = next
     events.push({ type: 'state' })
     if (next === 'menu') stageMenuScene()
-    else events.push({ type: 'persist' })
+    else if (!training) events.push({ type: 'persist' })
   }
   const publishExpedition = (message?: string) => {
     if (message) {
@@ -274,6 +283,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     }
 
   const populateExpedition = () => {
+    if (training) { rocksRef.current=populateTraining(createRock); return }
     rocksRef.current = debrisField(expeditionRef.current).map(({ pos, radius, vel, kind }) => createRock(pos.x, pos.y, radius, vel, kind))
     const state = expeditionRef.current
     for (const cell of powerCellSpawns(state)) {
@@ -287,6 +297,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const retractTether = () => {
     const hp = harpoonRef.current
     if (hp.state === 'idle' || hp.state === 'reeling') return
+    if (hp.state==='attached' && hp.rock===runtimeRef.current.havenLink && retireHavenLink(expeditionRef.current,runtimeRef.current)) events.push({type:'persist'})
     const end = hp.state === 'attached' ? hp.rock.pos : hp.pos
     const ship = shipRef.current
     const reelLength = Math.hypot(end.x - ship.pos.x, end.y - ship.pos.y)
@@ -313,6 +324,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     const from = { ...ship.pos }
     if (!teleportToHaven(state, ship)) return
     // Teleport the ship only. Released cargo stays in the world for later recovery.
+    retractTether()
     harpoonRef.current = { state: 'idle' }
     rt.towing = undefined
     rt.teleport = { from, time: 0.6 }
@@ -332,6 +344,12 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const resumeFlight = () => {
 
     keysRef.current.clear()
+    if (gameStateRef.current === 'complete' && expeditionRef.current.campaign.journey?.departure) {
+      settleHaven(expeditionRef.current)
+      shipRef.current.pos={...havenPosition(expeditionRef.current)}
+      shipRef.current.vel={x:0,y:0}
+      expeditionRef.current.position={...shipRef.current.pos}
+    }
     if (gameStateRef.current !== 'docked') {
       setGameStateWithRef('playing')
       return
@@ -344,6 +362,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   }
 
   const interact = () => {
+    if (training) return
     if (gameStateRef.current !== 'playing' || suspended) return
     const state = expeditionRef.current
     const action = interaction(state, shipRef.current)
@@ -388,10 +407,12 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   }
 
   const startGame = (fresh = false) => {
-    if (fresh) expeditionRef.current = freshExpedition()
+    if (training) { expeditionRef.current=trainingExpedition();trainingRef.current=freshTraining() }
+    else if (fresh) expeditionRef.current = newExpedition()
     random.reset()
     suspended = false
     botsRef.current = freshBots(expeditionRef.current)
+    if (training) botsRef.current.units=[]
     runtimeRef.current = freshRuntime()
     shipAppearanceRef.current = freshShipAppearance()
     lastShieldHitAtRef.current = -Infinity
@@ -402,8 +423,9 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     sounds.init()
     sounds.stopStoreMusic()
     const savedPosition = expeditionRef.current.position
-    const spawn = isInsideCavern(savedPosition, 15, expeditionMap(expeditionRef.current)) ? { ...savedPosition } : checkpointPosition(expeditionRef.current)
+    const spawn = isInsideCavern(savedPosition, 15, worldMap()) ? { ...savedPosition } : checkpointPosition(expeditionRef.current)
     shipRef.current = identifyBody({ pos: spawn, vel: { x: 0, y: 0 }, angle: Math.PI, angularVelocity: 0, radius: 15 }, { type: 'ship' })
+    if (training) shipRef.current.angle=0
     rocksRef.current = []
     shipRepairTimeRef.current = 0
     bulletsRef.current = []
@@ -578,23 +600,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         } else if (hp.state === 'reeling') {
           // Ignore while reeling; you can't fire again until it's fully in.
         } else if (hp.state === 'attached') {
-          // Reel-in detaches.
-          const ship = shipRef.current
-
-          const d0 = worldDelta(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y)
-          const reelLength = Math.min(hp.maxLength, Math.hypot(d0.dx, d0.dy))
-          const ropeLength = reelLength * HARPOON_VISUAL_SLACK
-          const seed = buildRopeBetween(ship.pos.x, ship.pos.y, hp.rock.pos.x, hp.rock.pos.y, ropeLength)
-          harpoonRef.current = {
-            state: 'reeling',
-            pos: { x: hp.rock.pos.x, y: hp.rock.pos.y },
-            reelSpeed: HARPOON_REEL_SPEED,
-            reelLength,
-            ropeLength,
-            segLen: seed.segLen,
-            rope: seed.rope,
-            ropePrev: seed.ropePrev,
-          }
+          retractTether()
         } else {
           // Any other non-idle state (flying/deployed): reel in.
           const ship = shipRef.current
@@ -645,6 +651,15 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           shipRef.current.vel = { x:0,y:0 }
           shipRef.current.angle = miningBaseAngleRef.current
           sounds.stopRadiation()
+        }
+        if (havenArrived && expeditionRef.current.complete && expeditionRef.current.campaign.journey?.departure) {
+          const state=expeditionRef.current
+          state.position={...shipRef.current.pos}
+          keysRef.current.clear();retractTether();phaserBeamRef.current.active=false
+          sounds.stopThrust();sounds.stopPhaser();sounds.stopRadiation();sounds.collect()
+          snapshotCargo(state,runtimeRef.current,rocksRef.current)
+          setGameStateWithRef('complete');publishExpedition('Haven clear of Orison · everyone is coming home')
+          return
         }
         if (havenArrived && !riding) publishExpedition('Haven secured at the service berth')
       }
@@ -714,7 +729,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       // Let the death explosion play before showing Game Over.
       if (gameState === 'dying') {
         dyingTimerRef.current -= dt * 1000
-        if (dyingTimerRef.current <= 0) setGameStateWithRef('gameOver')
+        if (dyingTimerRef.current <= 0) { if (training) startGame(); else setGameStateWithRef('gameOver') }
         return
       }
 
@@ -756,7 +771,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       if (gameState !== 'playing') return
 
       const ship = shipRef.current
-      const cavernMap = expeditionMap(expeditionRef.current)
+      const cavernMap = worldMap()
 
       const pendingRedDetonations: Rock[] = []
       const initialBanked = expeditionRef.current.banked
@@ -907,7 +922,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         sounds.explosion('large'); sounds.stopThrust(); sounds.stopRadiation()
         keysRef.current.clear()
         dyingTimerRef.current = DYING_ANIMATION_DURATION
-        setLostCredits(crashExpedition(expeditionRef.current))
+        setLostCredits(training ? 0 : crashExpedition(expeditionRef.current))
         publishExpedition()
         setGameStateWithRef('dying')
       }
@@ -942,11 +957,13 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
         if (shipWallHit.maxImpactSpeed > 0) applyImpactShield(shipWallHit.maxImpactSpeed)
         if (gameStateRef.current !== 'playing') return
-        const radiationDose = stepRadiation(expeditionRef.current, ship.pos, dt, cavernMap)
-        const radiationFeedback = stepRadiationFeedback(runtimeRef.current.radiation, radiationDose, expeditionRef.current, dt)
-        if (radiationDose.failed) { loseShip(); return }
-        if (radiationFeedback.stopped) sounds.stopRadiation()
-        if (radiationFeedback.tick) sounds.radiationTick(radiationFeedback.urgency, runtimeRef.current.radiation.unprotected)
+        if (!training) {
+          const radiationDose = stepRadiation(expeditionRef.current, ship.pos, dt, cavernMap)
+          const radiationFeedback = stepRadiationFeedback(runtimeRef.current.radiation, radiationDose, expeditionRef.current, dt)
+          if (radiationDose.failed) { loseShip(); return }
+          if (radiationFeedback.stopped) sounds.stopRadiation()
+          if (radiationFeedback.tick) sounds.radiationTick(radiationFeedback.urgency, runtimeRef.current.radiation.unprotected)
+        }
       } else {
         ship.angularVelocity=0
         // Passengers retain Haven's protection; passive refill still requires a clear field.
@@ -959,7 +976,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       }
 
       // Update rocks and bounce them off the cavern boundary.
-      const activeRock = (rock: Rock) => Math.hypot(rock.pos.x-ship.pos.x,rock.pos.y-ship.pos.y) < 1400 || Math.hypot(rock.pos.x-havenPosition(expeditionRef.current).x,rock.pos.y-havenPosition(expeditionRef.current).y) < 450
+      const activeRock = (rock: Rock) => training || Math.hypot(rock.pos.x-ship.pos.x,rock.pos.y-ship.pos.y) < 1400 || Math.hypot(rock.pos.x-havenPosition(expeditionRef.current).x,rock.pos.y-havenPosition(expeditionRef.current).y) < 450
       rocksRef.current.forEach((rock) => {
         if (!activeRock(rock)) return
         rock.laserGlow = (rock.laserGlow ?? 0) * Math.exp(-5 * dt)
@@ -979,14 +996,14 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       const rocks = rocksRef.current.filter(activeRock)
       const botBodies = botsRef.current.units.filter(bot => bot.health > 0)
       const securityMap = { ...cavernMap, obstacles: [...cavernMap.obstacles, ...havenColliders(havenPose(expeditionRef.current))] }
-      const botCues = stepBots(botsRef.current, expeditionRef.current, {
-        dt, ship, map: securityMap, bodies: [...rocksRef.current, ...cargoBodies(expeditionRef.current,runtimeRef.current)],
+      const botCues = training ? [] : stepBots(botsRef.current, expeditionRef.current, {
+        dt, ship, map: securityMap, bodies: [...rocksRef.current, ...worldCargo()],
         towed: harpoonRef.current.state === 'attached' ? harpoonRef.current.rock : undefined,
         shipSafe: riding || (havenReady(expeditionRef.current) && Math.hypot(ship.pos.x-havenPosition(expeditionRef.current).x,ship.pos.y-havenPosition(expeditionRef.current).y)<MINING_BASE_RADIUS),
       })
       for (const cue of botCues) if (Math.hypot(cue.pos.x-ship.pos.x,cue.pos.y-ship.pos.y)<650) sounds.botCue(cue.kind)
       for (const bot of botBodies) if (Math.hypot(bot.pos.x-ship.pos.x,bot.pos.y-ship.pos.y)<750) debrisRef.current.push(...stepBotSparks(bot,dt))
-      for (const impact of stepSecurityShots(botsRef.current,dt,securityMap,[...(riding ? [] : [ship]),...rocksRef.current,...cargoBodies(expeditionRef.current,runtimeRef.current),...botBodies])) {
+      for (const impact of stepSecurityShots(botsRef.current,dt,securityMap,[...(riding ? [] : [ship]),...rocksRef.current,...worldCargo(),...botBodies])) {
         createDebris(impact.pos.x,impact.pos.y,0,0,3,.2,'255, 162, 125')
         if (impact.target === ship) applyImpactShield(80)
         else if (impact.target && isStationBot(impact.target)) hitBot(impact.target,1)
@@ -1057,7 +1074,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
         ship,
         shipRef,
-        rocks: [...rocks.filter(rock => !rock.socketId), ...cargoBodies(expeditionRef.current, runtimeRef.current).filter(body => !body.retrieving && (body.cargoId !== 'core' || coreReleased(expeditionRef.current))), ...botBodies.filter(bot=>bot.health>0 && !bot.anchored), ...TERMINALS].filter(body => Math.hypot(ship.pos.x-body.pos.x,ship.pos.y-body.pos.y) < 700 && (body.terminalId ? terminalVisible(ship.pos,body,cavernMap) : visibleBetween(ship.pos, body.pos, cavernMap))),
+        rocks: [...worldLinks(), ...rocks.filter(rock => !rock.socketId), ...worldCargo().filter(body => !body.anchored && !body.retrieving && (body.cargoId !== 'core' || coreReleased(expeditionRef.current))), ...botBodies.filter(bot=>bot.health>0 && !bot.anchored), ...worldTerminals()].filter(body => Math.hypot(ship.pos.x-body.pos.x,ship.pos.y-body.pos.y) < 700 && (body.terminalId ? terminalVisible(ship.pos,body,cavernMap) : visibleBetween(ship.pos, body.pos, cavernMap))),
         harpoonRef,
 
         buildRopeBetween,
@@ -1103,7 +1120,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           let nearest = Infinity
           // Beam blocking and hit response use the same nearest body. Cargo
           // absorbs the hit as momentum instead of shielding an unhit target.
-          for (const body of [...cargoBodies(expeditionRef.current, runtimeRef.current), ...rocksRef.current, ...botBodies.filter(bot=>bot.health>0 && !bot.anchored)]) {
+          for (const body of [...worldLinks(), ...worldCargo(), ...rocksRef.current, ...botBodies.filter(bot=>bot.health>0 && !bot.anchored)]) {
             const hit = rayCircleHitDistance(ship.pos, { x: ux, y: uy }, len, body.pos, body.radius + PHASER_BEAM_RADIUS)
             if (hit != null && hit < nearest) { len = hit; nearest = hit; target = body }
           }
@@ -1191,7 +1208,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       }
 
       blasterRef.current.bursts = blasterRef.current.bursts.filter(burst => { burst.life -= dt; return burst.life > 0 })
-      const blasterStep = stepBlaster(blasterRef.current.shots, dt, cavernMap, [...rocksRef.current, ...cargoBodies(expeditionRef.current, runtimeRef.current),...botBodies.filter(bot=>bot.health>0 && !bot.anchored)])
+      const blasterStep = stepBlaster(blasterRef.current.shots, dt, cavernMap, [...rocksRef.current, ...worldCargo(),...botBodies.filter(bot=>bot.health>0 && !bot.anchored)])
       blasterRef.current.shots = blasterStep.shots
       for (const impact of blasterStep.impacts) {
         blasterRef.current.bursts.push({ pos: impact.pos, life: 0.28 })
@@ -1256,11 +1273,30 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
       if (gameStateRef.current !== 'playing') return
       const rt = runtimeRef.current, state = expeditionRef.current
+      if (training) {
+        rt.elapsed+=dt
+        resolveWorldContacts([...rocksRef.current,ship],cavernMap,contact=>{
+          if (contact.body===ship || contact.other===ship) applyImpactShield(contact.speed)
+          for (const body of [contact.body,contact.other]) if (body && isRock(body)) armRedRock(body)
+        })
+        if (gameStateRef.current!=='playing') return
+        const removed=stepTraining(trainingRef.current,state,rocksRef.current,harpoonRef.current,dt)
+        baseShotsRef.current=trainingRef.current.hoppers.flatMap(hopper=>hopper.shots.current)
+        for (const rock of removed) {
+          releaseHarpoonIfAttached(rock)
+          createDebris(rock.pos.x,rock.pos.y,0,0,12,.8,rock.sourceId ? '100, 190, 255' : '0, 255, 136')
+          sounds.collect()
+        }
+        const hook=harpoonRef.current
+        if(hook.state==='attached' && hook.rock.socketId) retractTether()
+        stepTrainingEmitter(trainingRef.current,rocksRef.current,ship,createRock,dt)
+        state.position={...ship.pos}
+        return
+      }
       rt.havenImpact = Math.max(0,(rt.havenImpact ?? 0)-dt*4)
       rt.havenImpactCooldown = Math.max(0,(rt.havenImpactCooldown ?? 0)-dt)
       const pose = havenPose(state,miningBaseAngleRef.current)
       const previousRadio = rt.radio?.id
-      const wasComplete = state.complete
       const events = stepExpedition(state, rt, {
         dt, ship, rocks: rocksRef.current, harpoon: harpoonRef.current, beam: phaserBeamRef.current, aboard:riding,
         extraBodies: botBodies.filter(bot=>bot.health>0 && !bot.anchored),
@@ -1295,35 +1331,31 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         }
       }
       const tether = harpoonRef.current
-      if (tether.state === 'attached' && (tether.rock.socketId || tether.rock.retrieving || ![...rocksRef.current, ...cargoBodies(expeditionRef.current, runtimeRef.current), ...botBodies.filter(bot=>bot.health>0 && !bot.anchored), ...TERMINALS].some(body => body === tether.rock))) retractTether()
+      if (tether.state === 'attached' && (tether.rock.socketId || tether.rock.retrieving || ![...havenLinkTargets(state,rt), ...rocksRef.current, ...cargoBodies(expeditionRef.current, runtimeRef.current), ...botBodies.filter(bot=>bot.health>0 && !bot.anchored), ...TERMINALS].some(body => body === tether.rock))) retractTether()
       if (runtimeRef.current.impactSpeed > 0) applyImpactShield(runtimeRef.current.impactSpeed)
       resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
       if (gameStateRef.current !== 'playing' && !(riding && havenArrived)) return
       expeditionRef.current.position = { ...ship.pos }
       expeditionRef.current.shields = shieldsRef.current
       snapshotCargo(expeditionRef.current, runtimeRef.current, rocksRef.current)
-      if (!wasComplete && state.complete) {
-        keysRef.current.clear();retractTether()
-        phaserBeamRef.current.active=false
-        sounds.stopThrust();sounds.stopPhaser();sounds.stopRadiation();sounds.collect()
-        setGameStateWithRef('complete');publishExpedition('Orison awakening bus online')
-        return
-      }
       if (events.length) { sounds.collect(); publishExpedition(events[events.length - 1]) }
       else if (asteroidRewarded || expeditionRef.current.banked !== initialBanked) publishExpedition()
 
     }
   const snapshot = () => ({
     gameState: gameStateRef.current, expedition: structuredClone(expeditionRef.current), shields: shieldsRef.current, lostCredits,
-    hud: { room: expeditionRef.current.campaign.journey?.riding ? 'Haven · in transit' : sectorAt(shipRef.current.pos)?.name ?? 'Transit tunnels', prompt: interaction(expeditionRef.current, shipRef.current)?.label ?? '', message: runtimeRef.current.messageTime > 0 ? runtimeRef.current.message : '', towing: runtimeRef.current.towing ?? '', radio: runtimeRef.current.radio?.id ?? '', grappleHint: runtimeRef.current.grappleHint ?? '' },
+    hud: { room: training ? 'Flight training' : expeditionRef.current.campaign.journey?.riding ? 'Haven · in transit' : sectorAt(shipRef.current.pos)?.name ?? 'Transit tunnels', prompt: training ? '' : interaction(expeditionRef.current, shipRef.current)?.label ?? '', message: runtimeRef.current.messageTime > 0 ? runtimeRef.current.message : '', towing: runtimeRef.current.towing ?? '', radio: training ? trainingRef.current.connected ? TRAINING_LOG.id : '' : runtimeRef.current.radio?.id ?? '', grappleHint: '' },
   })
   const step = () => {
     if (suspended || gameStateRef.current === 'paused' || gameStateRef.current === 'complete') return
     const dt = 1 / 60
     timeMs += dt * 1000
     const hadImpactShield = expeditionRef.current.impactShieldInstalled
+    const hadRecoveryLink = expeditionRef.current.campaign.havenActivated
     update(dt)
+    if (!hadRecoveryLink && expeditionRef.current.campaign.havenActivated) events.push({type:'persist'})
     const rt = runtimeRef.current, mode = gameStateRef.current
+    if (mode!=='menu') stepHavenLinkRetraction(rt,dt)
     // Installation already supplies its two charges. Play the full recharge
     // feedback separately, even if Haven's service timer was already full.
     if (!hadImpactShield && expeditionRef.current.impactShieldInstalled) rt.shieldInstallRecharge = 0
@@ -1341,12 +1373,13 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     else sounds.stopRepairHum()
     hudElapsed += dt
     if (hudElapsed >= .15) { hudElapsed = 0; events.push({ type: 'hud' }) }
-    if (gameStateRef.current !== 'menu') {
+    if (!training && gameStateRef.current !== 'menu') {
       saveElapsed += dt
       if (saveElapsed >= 3) { saveElapsed = 0; events.push({ type: 'persist' }) }
     }
   }
   const command = (command: GameCommand) => {
+    if (training && ['load','jump','credits','upgrade','launch','relocate','teleport','blaster','interact'].includes(command.type)) return
     switch (command.type) {
       case 'start': startGame(command.fresh); hudElapsed = 0; saveElapsed = 0; break
       case 'load': expeditionRef.current = structuredClone(command.expedition); startGame(); break
@@ -1370,6 +1403,14 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       case 'tether': if (gameStateRef.current === 'playing' && !suspended && !expeditionRef.current.campaign.journey?.riding) toggleTether(); break
       case 'interact': interact(); break
       case 'relocate': relocateHaven(command.berth); break
+      case 'launch': {
+        if (gameStateRef.current !== 'docked' || runtimeRef.current.recovery || !launchHaven(expeditionRef.current,expeditionMap(expeditionRef.current),miningBaseAngleRef.current)) return
+        retractTether();harpoonRef.current={state:'idle'};baseShotsRef.current=[]
+        keysRef.current.clear();controllerRef.current=neutralController();phaserBeamRef.current.active=false
+        sounds.stopThrust();sounds.stopPhaser()
+        setGameStateWithRef('playing');publishExpedition('Everyone aboard · Haven departing through the Access Tunnel')
+        break
+      }
       case 'upgrade': buyUpgrade(command.id); break
       case 'credits': addDevelopmentCredits(expeditionRef.current); publishExpedition(); break
       case 'jump':
@@ -1378,9 +1419,9 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         break
     }
     events.push({ type: 'hud' })
-    if (command.type !== 'menu' && command.type !== 'tether' && command.type !== 'blaster') events.push({ type: 'persist' })
+    if (!training && command.type !== 'menu' && command.type !== 'tether' && command.type !== 'blaster') events.push({ type: 'persist' })
   }
-  stageMenuScene()
+  if (training) startGame(); else stageMenuScene()
   return {
     command, step, snapshot, clock: simulationClock,
     advance: (timestamp: number, beforeStep?: () => void) => simulationClock.advance(timestamp, !suspended && gameStateRef.current !== 'paused' && gameStateRef.current !== 'complete', () => { beforeStep?.(); step() }),
@@ -1388,6 +1429,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     get timeMs() { return timeMs },
     get expedition() { return expeditionRef.current },
     get mode() { return gameStateRef.current },
+    get training() { return training ? trainingRef.current : undefined },
     randomState: random.state,
     createRock,
     refs: { expeditionRef, runtimeRef, gameStateRef, shieldsRef, shipRef, rocksRef, botsRef,    shipRepairTimeRef, bulletsRef, blasterRef, laserContactRef, baseShotsRef, debrisRef, keysRef, controllerRef, invulnerableRef, lastShieldHitAtRef, lastShieldRechargeAtRef, dyingTimerRef, harpoonRef, miningBaseAngleRef, shipAppearanceRef, miningGunCooldownsRef, phaserStateRef, phaserBeamRef, phaserParticlesRef, shipFullyInBaseRef },

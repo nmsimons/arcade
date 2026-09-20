@@ -1,7 +1,7 @@
 # Save compatibility and reset policy
 
 The browser slot remains `hard-vacuum-expedition-v1` so existing installations are
-found. Its **payload schema is now version 7**. Campaign version 1 and finale
+found. Its **payload schema is now version 11**. Campaign version 1 and finale
 version 2 are retained as historical content markers. Physical door IDs live in
 `gates`; abstract `heart`, `ignition-ready`, and retired `thermal` milestones live
 in `flags`. Flags never create collision geometry.
@@ -17,6 +17,9 @@ are visible; exit without saving is a separate deliberate choice.
 
 1. Normalize removed/renamed equipment and retired crag IDs; validate inventory.
 2. Add the campaign to prototype Ring saves; validate Haven, journeys and records.
+   Retired walkthrough IDs remain accepted and stored, but are not shown in the
+   journal or counted among the current story recordings. Unknown IDs still fail
+   validation; retiring a recording does not reset the expedition.
 3. Supply defaults and equipment validation; collapse old winch tiers and refund
    the unused teleport charge, deleting that field so it cannot pay twice.
 4. Validate power/cell uniqueness and doors; restore old relay/medical/return access.
@@ -84,7 +87,70 @@ shields retain their charges, and towed modules or modules moved outside that
 area keep their saved position and velocity. All other cargo and progress stay
 unchanged. Set schema 7 so this relocation never repeats on current saves.
 
+## Ordered schema 7 → 8 migration
+
+Add an empty `rescuedPods` manifest. Keep equipment, credits, powered circuits,
+installed cores and exploration. Reopen an old completed expedition for the new
+rescue objective; an installed core still supplies escape power, but no survivor
+or rescue credit is fabricated. Relocate only the untouched, never-towed ward
+reserve from its former position into the central service lane.
+
+Current saves require unique known pod IDs. A rescued pod cannot also exist as
+loose cargo, and completion requires an installed core plus all twelve IDs.
+Locked medical pods ignore saved motion until ward power releases them. Rescues
+and their 1,000-credit payments commit together at recovery-shutter seal. Reload,
+death, teleport, berth travel and developer jumps preserve that manifest. No
+operation other than a new expedition resets it.
+The reduced reward applies to future rescues; previously banked credits are retained.
+
+## Ordered schema 8 → 9 migration
+
+Preserve every rescued pod, credit, installed core, cargo position and berth.
+Reopen automatic rescue victories for the physical departure from the Breach.
+New expeditions begin in the Access Tunnel; this migration does not move the pilot.
+
+An optional `campaign.journey.departure` identifies the final crewed flight along
+the authored escape route. Validation requires all pods, core power, the Breach
+berth, the exact route, and a riding pilot. Departure folds and transits but never
+deploys at another berth. `complete` is set when Haven clears the outer lock.
+The terminal journey retains the folded pose for the ending and reload. Optional
+free exploration settles Haven back at the Breach while retaining victory.
+
+## Ordered schema 9 → 10 migration
+
+Move the former Breach pod to Refuge Approach, so Freight hold six is the first
+survivor encounter. Delete only its never-towed saved body still in the Breach
+region; the next cargo load uses its new authored position. Towed or already
+rescued pods stay put, rewards are unchanged, and a completed departure remains
+complete. Current saves do not repeat this relocation.
+
+## Ordered schema 10 → 11 migration
+
+Add the persistent boolean `campaign.havenActivated`. Existing expeditions keep
+recovery; only untouched Access Tunnel starts enter the new tether lesson.
+New games begin with Haven dormant. Her anchored center socket must actually
+catch the tether to activate services and register the pilot; proximity, docking
+attempts and weapons cannot substitute. The connection is saved immediately.
+Invalid activation values or dormant Haven journeys are rejected.
+
+The optional `campaign.havenLinkPending` flag retains the commissioning socket
+after activation until the pilot disconnects. While attached, Haven's recording
+stays pinned like a log-terminal message. Disconnect commits retirement immediately
+and plays a 1.2-second retract-and-close animation; reload and respawn cannot
+restore the socket. Reload before disconnect keeps it available for reconnecting.
+Older active saves without this optional flag keep their connector retired.
+
+The outer lock is now fully sealed until an authorized Haven departure. Old
+pilots saved inside its leaves or in the exterior pocket move just inside it;
+all other saved positions, progress and completed departures are preserved.
+
 ## What persists and resets
+
+Before Haven activation, death resets **all** expedition state and Start again
+returns to the Access Tunnel. After activation, the policies below apply:
+reconstruction takes a long time in the story, allowing station bots to be
+rebuilt and loose debris to drift back. No long real-time wait is imposed.
+Developer jumps activate Haven explicitly; ordinary save/reload retains its state.
 
 Blaster capacity uses the optional `upgradeLevels.magazine` track (0–5), for
 three through eight shots. No migration is needed: existing saves without this
@@ -101,7 +167,8 @@ that capacity, while reload preserves spent ammunition.
 | Carried/banked credits | Both retained | Carried lost; bank retained | Zero | Retained; debug grant is explicit |
 | Upgrades/ammunition | Installation and remaining charges retained | Installed impact shield and blaster refilled | No recovered modules or upgrades | Existing upgrades retained, impact shield granted from Freight onward, other required equipment granted, systems restored |
 | Power/doors/exploration | Retained, including opening-door progress | Retained | Unpowered/unexplored | Prior-region prerequisites added, doors settled |
-| Haven | Position, angle, berth, journey path/phase/speed retained | Existing journey settles at destination | Breach berth | Nearest unlocked service berth, journey canceled |
+| Haven | Activation, position, angle, berth, journey path/phase/speed retained | Existing journey settles at destination; recovery link retained | Dormant at Breach berth | Active at nearest unlocked service berth, journey canceled |
+| Survivors | Rescued IDs and berth lights retained; no repeat payment | Safe aboard Haven | Four loose pods, eight locked in Medical | Manifest retained; medical clamps follow ward power |
 | Finale | Released/moved core and completion retained; unsealed latch animation restarts | Core/world progress retained | Unreleased | Existing finale progress retained |
 
 Docking and teleport bank carried credits. Teleport moves only the ship, not

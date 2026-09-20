@@ -1,5 +1,5 @@
 /** Stable authored identifiers. Renaming one requires an explicit save migration. */
-export const ROOM_IDS = ['haven','salvage','foundry','archive','reactor','engine','vault','breach','rescue','baggage','freight','stores','dispatch','manifest','works','service','workshop','capacitors','refuge-entry','refuge','infirmary','transfer','heart-hub','heart-control','heart-coils','ignition'] as const
+export const ROOM_IDS = ['haven','salvage','foundry','archive','reactor','engine','vault','breach','rescue','baggage','freight','stores','dispatch','manifest','works','service','workshop','capacitors','refuge-entry','refuge','infirmary','transfer','heart-hub','heart-control','heart-coils','ignition','arrival'] as const
 export type RoomId = typeof ROOM_IDS[number]
 export const GATE_IDS = ['rubble','foundry','archive','shortcut','reactor','blast','drive','breach-link','baggage-door','freight-lift','freight-link','tool-door','works-bus','store-door','ring-link','refuge-link','refuge-air','ward-link','heart-link','field-door','coil-link','well-link','freight-return','medical-return','heart-return','breach-return'] as const
 export type GateId = typeof GATE_IDS[number]

@@ -1,0 +1,111 @@
+/* One selection language for pointer, keyboard and controller. Focus is not
+   the same as a selected tab, a toggled option, or an unavailable upgrade. */
+.game-dialog {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #d9e7e1;
+  outline: none;
+  scroll-padding: 24px;
+  overscroll-behavior: contain;
+  scrollbar-color: #45665a #0b1513;
+  scrollbar-width: thin;
+}
+.menu-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow-y: auto;
+  background: rgb(3 9 8 / 91%);
+}
+.menu-surface {
+  width: 100%;
+  margin-block: auto;
+  padding: 32px;
+  border: 1px solid #31473f;
+  border-radius: 12px;
+  background: linear-gradient(145deg, #101e19, #09120f 75%);
+  box-shadow: 0 20px 70px #0008;
+}
+.arcade-menu { max-width: 480px; }
+.menu-outfitter { padding-block: 24px; }
+.menu-outfitter .menu-item { padding: 10px 14px; }
+.menu-outfitter .menu-help { margin-top: 16px; padding-top: 12px; }
+.menu-eyebrow { color: #9ab1a6; font-size: 10px; letter-spacing: .16em; }
+.game-dialog button {
+  position: relative;
+  min-height: 42px;
+  border-radius: 5px;
+  scroll-margin: 16px;
+  cursor: pointer;
+  transition: background-color 100ms ease, border-color 100ms ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-button, .menu-item {
+  border: 1px solid #344e42;
+  background: #101d18;
+  color: #c5dfd1;
+  padding: 12px 18px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.menu-button { letter-spacing: .04em; }
+.menu-item { text-align: left; }
+.arcade-choice { text-align: left; padding: 15px 20px; font-size: 15px; }
+.game-dialog button:hover:not(:disabled) { background-color: #192b23; border-color: #527b65; }
+.game-dialog button[aria-pressed="true"] {
+  border-color: #698b7b;
+  color: #d8e9df;
+  box-shadow: inset 0 -2px #739b88;
+}
+/* :focus (not only :focus-visible) keeps controller selection visible after
+   using a mouse. Preserve child text colours and price/status hierarchy. */
+.game-dialog button:focus:not(:disabled) {
+  outline: 1px solid #a6d5bc;
+  outline-offset: 2px;
+  border-color: #719d83;
+  background-color: #20382b;
+  color: #ecf5ef;
+  box-shadow: inset 3px 0 #b0e8c7;
+  transition: none;
+}
+.game-dialog button:focus:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: -3px;
+  height: 10px; width: 3px;
+  transform: translateY(-50%);
+  background: #c9f4d9;
+  border-radius: 2px;
+}
+.game-dialog button:disabled {
+  cursor: not-allowed;
+  opacity: .65;
+  background-color: #0b1410;
+  border-color: #2b3b33;
+}
+.game-dialog .menu-danger { color: #f1b69c; border-color: #735143; }
+.menu-help {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #ffffff17;
+  color: #b8cfc3;
+  font-size: 10px;
+  line-height: 1.9;
+}
+.menu-help span { color: #8a9e94; }
+.menu-controls { padding: 16px; border: 1px solid #31473f; border-radius: 6px; background: #08110e; }
+.menu-map-bar { max-width: 760px; padding: 14px 18px; background: #08110ff5; border: 1px solid #3f5c50; border-radius: 10px; }
+.menu-map-bar .menu-help { margin-top: 12px; padding-top: 10px; text-align: center; }
+@media (max-width: 600px), (max-height: 500px) {
+  .menu-overlay { padding: 16px; }
+  .menu-surface { padding: 22px; border-radius: 8px; }
+  .menu-map-bar { margin-inline: 12px; padding: 10px; }
+  .menu-button { padding: 10px 14px; }
+}
+@media (max-width: 420px) {
+  .menu-outfitter .menu-item { flex-direction: column; gap: 8px; }
+  .menu-outfitter .menu-item > span:last-child { text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { .game-dialog button { transition: none; } }

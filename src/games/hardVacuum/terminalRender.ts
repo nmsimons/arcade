@@ -1,9 +1,10 @@
 import type { Expedition, ExpeditionRuntime } from './expedition'
 import type { Ship } from './types'
 import { TERMINALS, TERMINAL_OUTLINE } from './terminals'
+import { recordAvailable } from './campaign'
 
-export function drawTerminals(ctx: CanvasRenderingContext2D, s: Expedition, rt: ExpeditionRuntime, ship: Ship) {
-  for (const terminal of TERMINALS) {
+export function drawTerminals(ctx: CanvasRenderingContext2D, s: Expedition, rt: Pick<ExpeditionRuntime,'connectedTerminal'|'elapsed'>, ship: Pick<Ship,'pos'>, terminals=TERMINALS) {
+  for (const terminal of terminals) {
     const connected = rt.connectedTerminal === terminal.terminalId
     const heard = s.campaign.records.includes(terminal.terminalId!)
     const color = connected ? '#65efb2' : '#6bcaff'
@@ -51,5 +52,11 @@ export function drawTerminals(ctx: CanvasRenderingContext2D, s: Expedition, rt: 
       ctx.fillStyle=color; ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill()
     }
     ctx.restore()
+    // Availability is useful equipment status; tether controls belong in training.
+    if(terminal.terminalId!=='training-log' && !recordAvailable(s,terminal.terminalId!)) {
+      ctx.save();ctx.font='10px monospace';ctx.textAlign='center';ctx.fillStyle='#7b9eab'
+      ctx.fillText('OFFLINE',terminal.pos.x,terminal.pos.y+49)
+      ctx.restore()
+    }
   }
 }

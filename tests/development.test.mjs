@@ -14,6 +14,7 @@ test('all six dev jumps reach a playable region with its first circuit still uns
     assert.deepEqual(state.position, level.entry)
     if(index===0)assert.equal(campaignObjective(state).module,'impact')
     else if(index===2)assert.equal(campaignObjective(state).module,'blaster')
+    else if(index===5)assert.ok(campaignObjective(state).pod,'released medical pods are still available for rescue after a dev jump')
     else assert.equal(campaignObjective(state).circuit, first[index])
     assert.equal(state.impactShieldInstalled,index>=1)
     assert.equal(state.power[first[index]], undefined)

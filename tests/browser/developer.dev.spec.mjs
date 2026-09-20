@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/test.mjs'
 import { setup, tap, armed } from './helpers/controller.mjs'
 
 test('developer toggles pause simulation, reveal the map, publish credits and jump through shared prerequisites',async({page})=>{
@@ -35,7 +35,21 @@ test('controller targets the visible developer dialog above a map and respects g
   await tap(page,1)
   await expect(panel).toHaveCount(0)
   await expect(page.getByRole('dialog',{name:'Station survey',exact:true})).toBeVisible()
-  await expect(page.getByRole('button',{name:'Station overview · O',exact:true})).toBeFocused()
+  await expect(page.getByRole('button',{name:'Station overview · Y / △',exact:true})).toBeFocused()
   await tap(page,1)
   await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('Tab follows grid reading order while arrows follow its columns and Escape restores the map', async ({ page }) => {
+  await setup(page, armed()); await tap(page, 0); await tap(page, 8)
+  await page.keyboard.press('Backquote')
+  const panel = page.getByRole('dialog', { name: 'Developer panel', exact: true })
+  const levels = panel.locator('[data-menu-grid] button')
+  await page.keyboard.press('Home'); await expect(levels.nth(0)).toBeFocused()
+  await page.keyboard.press('Tab'); await expect(levels.nth(1)).toBeFocused()
+  await page.keyboard.press('Tab'); await expect(levels.nth(2)).toBeFocused()
+  await page.keyboard.press('Shift+Tab'); await expect(levels.nth(1)).toBeFocused()
+  await page.keyboard.press('ArrowDown'); await expect(levels.nth(3)).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Station overview · Y / △', exact: true })).toBeFocused()
 })

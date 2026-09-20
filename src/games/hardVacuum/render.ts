@@ -4,6 +4,13 @@ import type { HardVacuumGameState } from './ui'
 import { getDemoCavernMap } from './worldGeometry'
 import { havenDeployment, havenPose } from './campaign'
 import { drawHaven } from './havenRender'
+import { TRAINING_GATE, TRAINING_WALLS, trainingMap } from './training'
+import { drawGateFoundations } from './gateRender'
+import type { TrainingRuntime } from './training'
+import { drawTrainingFloor } from './trainingRender'
+import type { FloorHint } from './trainingRender'
+import { drawCampaignFloor } from './campaignFloor'
+import { havenLinkDeployment } from './havenActivation'
 import { drawHavenRecovery } from './havenRecoveryRender'
 import { expeditionMap, maxShields } from './expedition'
 import type { Expedition, ExpeditionRuntime } from './expedition'
@@ -21,6 +28,7 @@ import { drawDebris } from './debrisRender'
 import type { BotRuntime } from './stationBots'
 
 type Ref<T> = { current: T }
+export const flightCameraZoom=(width:number,height:number)=>clamp(Math.min(width/900,height/620),.58,1)
 
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
@@ -28,6 +36,8 @@ export function drawHardVacuumFrame(args: {
   nowMs: number
 
   expedition: Expedition
+  training?: TrainingRuntime
+  floorHint?: FloorHint
   expeditionRuntime: ExpeditionRuntime
   mapOpen: boolean
   mapOverview?: boolean
@@ -85,14 +95,14 @@ export function drawHardVacuumFrame(args: {
 
   const width = canvasSizeRef.current.width
   const height = canvasSizeRef.current.height
-  const cavernMap = gameState === 'menu' ? getDemoCavernMap(1) : expeditionMap(expedition)
+  const cavernMap = args.training ? trainingMap(args.training.door) : gameState === 'menu' ? getDemoCavernMap(1) : expeditionMap(expedition)
 
   // Clear
   ctx.fillStyle = '#050808'
   ctx.fillRect(0, 0, width, height)
 
   const shipPosition = shipRef.current.pos
-  const cameraZoom = clamp(Math.min(width / 900, height / 620), 0.58, 1)
+  const cameraZoom = flightCameraZoom(width,height)
   ctx.save()
   ctx.translate(width / 2, height / 2)
   ctx.scale(cameraZoom, cameraZoom)
@@ -129,7 +139,11 @@ export function drawHardVacuumFrame(args: {
     ctx.fill()
   }
 
-  if (gameState !== 'menu') drawExpeditionWorld(ctx, expedition, expeditionRuntime, shipRef.current)
+  if (args.training) drawTrainingFloor(ctx,args.training,args.floorHint ?? ((_action,key)=>key),expedition,shipRef.current)
+  else if (gameState !== 'menu') {
+    drawCampaignFloor(ctx,expedition,args.floorHint ?? ((_action,key)=>key),expeditionRuntime)
+    drawExpeditionWorld(ctx, expedition, expeditionRuntime, shipRef.current)
+  }
 
   // Hide ships, rocks, beams, and debris when they pass behind solid rock.
   ctx.beginPath()
@@ -146,8 +160,9 @@ export function drawHardVacuumFrame(args: {
   ctx.clip('evenodd')
 
   // The same rigid leaves supply rendering and collision geometry.
-  if (gameState !== 'menu') drawHaven(ctx, havenPose(expedition, miningBaseAngleRef.current), expeditionRuntime.elapsed,
-    (expedition.campaign.journey?.speed ?? 0) / 210, expeditionRuntime.havenImpact ?? 0)
+  if (gameState !== 'menu' && !args.training) drawHaven(ctx, havenPose(expedition, miningBaseAngleRef.current), expeditionRuntime.elapsed,
+    (expedition.campaign.journey?.speed ?? 0) / 210, expeditionRuntime.havenImpact ?? 0, expedition.rescuedPods.length, expedition.campaign.havenActivated, expeditionRuntime.havenActivation ?? 0,
+    {deployment:havenLinkDeployment(expedition,expeditionRuntime),connected:expeditionRuntime.connectedTerminal==='first-light'})
   const recovery=expeditionRuntime.recovery
   if (gameState !== 'menu' && recovery && expeditionRuntime.objects[recovery.id]) {
     drawHavenRecovery(ctx,havenPose(expedition,miningBaseAngleRef.current),recovery,expeditionRuntime.objects[recovery.id],expeditionRuntime.elapsed)
@@ -169,7 +184,7 @@ export function drawHardVacuumFrame(args: {
     ctx.restore()
   }
 
-  if (gameState !== 'menu') drawStationBots(ctx,args.bots,expedition,expeditionRuntime.elapsed)
+  if (gameState !== 'menu' && !args.training) drawStationBots(ctx,args.bots,expedition,expeditionRuntime.elapsed)
 
   // Draw rocks
   rocksRef.current.forEach((rock) => {
@@ -514,7 +529,7 @@ export function drawHardVacuumFrame(args: {
         drawRopeLine(pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y)
       }
 
-      if (hp.rock.terminalId) {
+      if (hp.rock.terminalId || hp.rock.identity?.type==='haven-link') {
         ctx.save(); ctx.strokeStyle='#83eac1'; ctx.lineWidth=1.8
         ctx.setLineDash([3,19]); ctx.lineDashOffset=expeditionRuntime.elapsed*36
         ctx.beginPath(); pts.forEach((p,i)=>i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y)); ctx.stroke()
@@ -552,8 +567,9 @@ export function drawHardVacuumFrame(args: {
   if (gameState === 'playing' && !expedition.campaign.journey?.riding) drawRadiationShield(ctx, shipRef.current, expeditionRuntime.radiation, expeditionRuntime.elapsed)
   ctx.restore() // cavern clip
 
-  drawTerrainWalls(ctx, cavernMap.boundary, gameState === 'menu' ? cavernMap.obstacles : STATION_TERRAIN.islands)
-  if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition)
+  drawTerrainWalls(ctx, cavernMap.boundary, args.training ? TRAINING_WALLS : gameState === 'menu' ? cavernMap.obstacles : STATION_TERRAIN.islands)
+  if (args.training) drawGateFoundations(ctx,TRAINING_GATE,args.training.door)
+  else if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition)
   ctx.restore() // camera
 
   if (mapOpen) {

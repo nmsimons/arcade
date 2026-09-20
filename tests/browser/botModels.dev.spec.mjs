@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/test.mjs'
 
 test('bot models match the ship’s faceted rendering at native and inspection scales', async ({ page }, testInfo) => {
   const errors = []

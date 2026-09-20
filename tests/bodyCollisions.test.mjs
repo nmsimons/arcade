@@ -82,6 +82,7 @@ test('installed power cells and recording terminal housings stay solid',()=>{
   assert.ok(resolveCircleInCavern(cell.pos,cell.vel,cell.radius,.55,expeditionMap(state)).collided)
   assert.ok(cell.vel.x<0)
   for(const record of RECORDS.filter(r=>r.pos)) {
+    if(record.floorMounted) { assert.equal(isInsideCavern(record.pos,0,expeditionMap(state)),true);continue }
     assert.equal(isInsideCavern(record.pos,0,expeditionMap(state)),false)
     const ship=object(record.pos.x+25,record.pos.y,{radius:15,vel:{x:-80,y:0}})
     assert.ok(resolveCircleInCavern(ship.pos,ship.vel,ship.radius,.55,expeditionMap(state)).collided)

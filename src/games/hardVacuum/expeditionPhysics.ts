@@ -9,7 +9,7 @@ export interface FloatingBody extends TetherBody { cargoId: string; capture: num
 export const initialCargoVelocity = (position: Vector2): Vector2 => ({ x: Math.sin(position.x) * 3, y: Math.cos(position.y) * 3 })
 
 export function driftCargo(body: TetherBody, dt: number) {
-  if (body.retrieving) return
+  if (isImmovable(body)) return
   const damping = Math.exp(-0.35 * dt)
   body.vel.x *= damping; body.vel.y *= damping
   body.pos.x += body.vel.x * dt; body.pos.y += body.vel.y * dt

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/test.mjs'
 import { SAVE_SCHEMA_VERSION } from '../../src/games/hardVacuum/saveMigrations.ts'
 import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 
@@ -12,16 +12,16 @@ async function launch(page,state) {
   await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
 }
 
-test('new pilots see the impact-shield lesson and cannot buy protection before recovering it',async({page})=>{
+test('new pilots see hull exposure without tutorial cards and cannot buy protection before recovering it',async({page})=>{
   const state=freshExpedition();state.banked=10000
   await launch(page,state)
   await expect(page.getByText('Impact shield not installed',{exact:true})).toHaveCount(0)
   await expect(page.getByRole('meter',{name:'Shields',exact:true})).toHaveCount(0)
   await expect(page.locator('.hud-meters')).toHaveCount(0)
   await expect(page.getByRole('alert').filter({hasText:'Hull exposed'})).toBeVisible()
-  await expect(page.getByRole('status')).toContainText('impact shield is in the rescue locker')
+  await expect(page.getByRole('status').filter({hasText:'impact shield is in the rescue locker'})).toHaveCount(0)
   await page.keyboard.press('p')
-  await expect(page.getByText('Install your impact shield',{exact:true})).toBeVisible()
+  await expect(page.getByText('Install your impact shield',{exact:true})).toHaveCount(0)
   await page.getByRole('button',{name:'Resume · P / Esc',exact:true}).press('Enter')
   await page.keyboard.press('e')
   const hull=page.getByRole('button',{name:/Reinforced hull I,/})
@@ -33,7 +33,7 @@ test('new pilots see the impact-shield lesson and cannot buy protection before r
   await expect(page.getByText('Impact shield not installed',{exact:true})).toHaveCount(0)
   await expect(page.getByRole('meter',{name:'Shields',exact:true})).toHaveCount(0)
   await expect(page.getByRole('alert').filter({hasText:'Hull exposed'})).toBeVisible()
-  await expect(page.getByRole('status')).toContainText('impact shield is in the rescue locker')
+  await expect(page.getByRole('status').filter({hasText:'impact shield is in the rescue locker'})).toHaveCount(0)
 })
 
 test('impact-shield delivery animates recharge and activates its meter, with no replay after reload',async({page})=>{
@@ -55,8 +55,8 @@ test('impact-shield delivery animates recharge and activates its meter, with no 
   state.cargo={impact:{pos:{x:state.position.x-132,y:state.position.y},vel:{x:0,y:0},tethered:true}}
   await launch(page,state)
   const meter=page.getByRole('meter',{name:'Shields',exact:true})
-  await expect(page.getByRole('status')).toContainText('Haven is installing the impact shield')
   await expect(meter).toHaveAttribute('aria-valuenow','2',{timeout:10000})
+  await expect(page.getByRole('status')).toHaveCount(0)
   await expect(meter).toHaveAttribute('aria-valuemax','2')
   await expect(page.getByText('Impact shield not installed',{exact:true})).toHaveCount(0)
   await expect(page.getByRole('alert').filter({hasText:'Hull exposed'})).toHaveCount(0)

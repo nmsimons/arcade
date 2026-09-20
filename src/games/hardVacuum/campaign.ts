@@ -3,12 +3,15 @@ import type { Expedition } from './expedition'
 import type { Vector2 } from './types'
 import type { CavernMap } from './worldGeometry'
 import { isInsideCavern } from './worldGeometry.ts'
-import { BERTHS, REGIONS, SERVICE_ROUTES } from './campaignWorld.ts'
+import { BERTHS, DEPARTURE_ROUTE, OUTER_LOCK_PANELS, REGIONS, SERVICE_ROUTES } from './campaignWorld.ts'
+import { havenLinkPosition } from './havenActivation.ts'
 import type { BerthId } from './campaignWorld'
 import { HAVEN_FOLDED_CLEARANCE, HAVEN_FOLD_SECONDS } from './havenGeometry.ts'
 import type { HavenPose } from './havenGeometry'
+import { POD_RESCUE_CREDITS_LABEL, SURVIVAL_PODS, allSurvivorsAboard, completeEvacuation, podReleased } from './survivalPods.ts'
 
 export interface HavenJourney {
+  departure?: boolean
   destination: BerthId
   points: Vector2[]
   index: number
@@ -22,6 +25,9 @@ export interface Campaign {
   berth: BerthId
   haven: Vector2
   havenAngle: number
+  havenActivated: boolean
+  // An activated commissioning link remains available until its first disconnect.
+  havenLinkPending?: boolean
   grappleLearned: boolean
   terminalLinked: boolean
   berths: BerthId[]
@@ -30,9 +36,10 @@ export interface Campaign {
   playedSeconds: number
   deaths: number
 }
-export const freshCampaign = (berth: BerthId = 'breach'): Campaign => ({ version:1, berth, haven:{ ...BERTHS.find(b => b.id === berth)!.pos }, havenAngle:0, grappleLearned:false, terminalLinked:false, berths:[berth], records:['contract'], playedSeconds:0, deaths:0 })
+export const freshCampaign = (berth: BerthId = 'breach'): Campaign => ({ version:1, berth, haven:{ ...BERTHS.find(b => b.id === berth)!.pos }, havenAngle:0, havenActivated:true, grappleLearned:false, terminalLinked:false, berths:[berth], records:[], playedSeconds:0, deaths:0 })
 export const havenPosition = (s: Expedition): Vector2 => s.campaign.haven
-export const havenReady = (s: Expedition) => !s.campaign.journey
+export const havenReady = (s: Expedition) => s.campaign.havenActivated && !s.campaign.journey
+export const outerLockOpen = (s: Expedition) => !!s.campaign.journey?.departure || s.complete
 export const havenDeployment = (s: Expedition) => {
   const j = s.campaign.journey
   return !j ? 1 : j.phase === 'folding' ? 1 - j.progress : j.phase === 'deploying' ? j.progress : 0
@@ -43,6 +50,7 @@ export const regionForRoom = (room?: string) => REGIONS.find(r => r.rooms.some(i
 export const coreReleased = (s: Expedition) => s.flags.includes('ignition-ready')
 
 export function serviceRoute(s: Expedition, destination: string): Vector2[] | null {
+  if (!s.campaign.havenActivated) return null
   if (!s.campaign.berths.some(id => id === destination) || destination === s.campaign.berth) return null
   const queue: { id: string; points: Vector2[] }[] = [{ id:s.campaign.berth, points:[] }]
   const seen = new Set([s.campaign.berth as string])
@@ -74,7 +82,25 @@ export function moveHaven(s: Expedition, destination: BerthId, riding: boolean, 
   s.campaign.journey = { destination, points, index:0, phase:'folding', progress:0, riding, speed:0 }
   return true
 }
+export function departureBlocker(s: Expedition): string | undefined {
+  if (s.complete) return 'Evacuation complete.'
+  if (!s.campaign.havenActivated) return 'Haven offline.'
+  if (!havenReady(s)) return 'Haven is in transit.'
+  if (!allSurvivorsAboard(s)) return 'Passengers missing.'
+  if (!s.core) return 'Escape power offline.'
+  if (s.campaign.berth !== 'breach') return 'Launch berth: The Breach.'
+}
+export function launchHaven(s: Expedition, map: CavernMap, angle=s.campaign.havenAngle): boolean {
+  // Preflight the authorized route with only the outer lock retracted. All
+  // other obstructions still count; the live map opens after launch commits.
+  const departureMap={...map,obstacles:map.obstacles.filter(p=>!OUTER_LOCK_PANELS.some(panel=>panel===p))}
+  if (departureBlocker(s) || !routeClear(DEPARTURE_ROUTE,departureMap)) return false
+  s.campaign.havenAngle=angle
+  s.campaign.journey={destination:'breach',points:DEPARTURE_ROUTE.map(p=>({...p})),index:0,phase:'folding',progress:0,riding:true,speed:0,departure:true}
+  return true
+}
 export function stepHaven(s: Expedition, dt: number): boolean {
+  if (s.complete && s.campaign.journey?.departure) return false
   // Substeps keep saves and long frames on the same articulated flight path.
   while (dt > .000001 && s.campaign.journey) {
     const step=Math.min(dt,.05); dt-=step
@@ -93,7 +119,10 @@ export function stepHaven(s: Expedition, dt: number): boolean {
     }
     const pos=s.campaign.haven
     while (j.index<j.points.length && Math.hypot(j.points[j.index].x-pos.x,j.points[j.index].y-pos.y)<.01) j.index++
-    if (j.index===j.points.length) {j.phase='deploying';j.progress=0;j.speed=0;continue}
+    if (j.index===j.points.length) {
+      if (j.departure) { j.speed=0; return completeEvacuation(s) }
+      j.phase='deploying';j.progress=0;j.speed=0;continue
+    }
     const target=j.points[j.index],distance=Math.hypot(target.x-pos.x,target.y-pos.y)
     const heading=Math.atan2(target.y-pos.y,target.x-pos.x)
     const turn=Math.atan2(Math.sin(heading-s.campaign.havenAngle),Math.cos(heading-s.campaign.havenAngle))
@@ -116,45 +145,49 @@ export function settleHaven(s: Expedition) {
   delete s.campaign.journey
 }
 
-type RecordTrigger = { room?:import('./stationIds').RoomId; power?:import('./stationIds').CircuitId; flag?:import('./stationIds').ProgressionId; pos?:Vector2; core?:boolean }
-export interface StationRecord extends RecordTrigger { id:string; title:string; speaker:string; text:string; optional?:boolean }
-export const RECORDS: StationRecord[] = [
-  { id:'contract',title:'Recovery contract',speaker:'SALVAGE AUTHORITY · PRESENT DAY',text:'Station Orison. Evacuated nine years ago. Establish a foothold, recover the ignition core, and return it for payment. The maintenance tender Haven is still transmitting from the breach. Its accounts and repair systems are yours to use.' },
-  { id:'first-light',room:'breach',title:'A ship left running',speaker:'HAVEN · SERVICE MEMORY',text:'Emergency watch: year nine. If your impact shield is not installed, recover the green module from the rescue locker, through the passage west of my Breach berth. Approach slowly, point your nose at it and press F to grapple. Tow it back for installation. With your shield installed, bring the rescue-locker cell to the blue receiver to open freight transit.' },
-  { id:'rescue-note',pos:{x:6930,y:3480},optional:true,title:'Small enough to fit',speaker:'IVO SEN · MAINTENANCE',text:'Haven folds down to a tug for the service tunnels. We cut these berths so she could bring tools right to the work. Clear a passage, restore its bus, and call her through. Keep the freight turns clear.' },
-  { id:'breach-restored',power:'breach-power',title:'The first door',speaker:'MARA VALE · DISPATCH',text:'Freight transit is back. Send Haven through after the freight service bus is restored. We are moving people now. Everything with a cargo number can wait.' },
-  { id:'freight-arrival',room:'freight',title:'Departure ledger',speaker:'MARA VALE · DISPATCH',text:'Outbound departures: twelve. Confirmed arrivals: zero. They keep asking me to close the manifest. I cannot write “evacuated” next to a ship nobody has heard from.' },
-  { id:'freight-lit',power:'freight-power',title:'A working berth',speaker:'HAVEN · SERVICE MEMORY',text:'Freight berth energized. I can come through now. The sorting tug has resumed its nine-year-old return order. There is a radiation module in stores; tow it back to me before entering the long tunnel north of Stores. Its far door into Dispatch is now open. The direct lift is locked from inside. Supply Dispatch from cargo hold six to open that shortcut and the Works exit.' },
-  { id:'manifest-note',pos:{x:8960,y:420},optional:true,title:'What we carried',speaker:'MARA VALE · DISPATCH',text:'Hold six: blankets, oxygen, the school kitchen. No ore. The tug keeps returning our reserves to stores. We pulled its bus until the transports left. I entered the oxygen under industrial consumables. Perhaps someone looking for a profitable wreck will open this hold first.' },
-  { id:'works-open',power:'dispatch-power',title:'The closed account',speaker:'MARA VALE · DISPATCH',text:'The freight lift and Works exit are open. The company closed our rescue account at 04:10. I left Haven’s refinery on local credit. Whoever comes next can still repair a ship. Take the ore to her. The rock is worth more than the paperwork says.' },
-  { id:'works-arrival',room:'works',title:'A deliberate break',speaker:'IVO SEN · MAINTENANCE',text:'Those bulkheads were welded shut from this side. I did it. I left a blaster module in the southeast of the main bay, outside the seals. Tow it back to Haven for installation. The tool crib still has a cell behind the eastern seal. The maintenance bus feeds the berth and the security cradle. I could not separate them. When you restore one, you restore both.' },
-  { id:'works-lit',power:'works-power',title:'Maintenance watch',speaker:'HAVEN · SERVICE MEMORY',text:'Maintenance berth available. Security watch is booting on the same bus. It does not recognize your ship. Find cover before its targeting light settles. The capacitor store below holds the ring reserve and a teleporter module. Tow the module back to me for installation; it can return your ship here, but not your cargo. Maintenance control is west.' },
-  { id:'tools-note',pos:{x:6030,y:580},optional:true,title:'The last repair',speaker:'IVO SEN · MAINTENANCE',text:'Six spare clamps, one usable torch, and a tender that still answers. Mara wants me on the next transport. I told her I would follow after the ring was stable. She knows that means I am staying.' },
-  { id:'ring-open',power:'ring-power',title:'The Broken Ring',speaker:'IVO SEN · MAINTENANCE',text:'The western Foundry holds the relay reserve. Let radiation shielding recharge outside the field before entering the reactor. Its last cell is beside the breach. Get that cell south to the reserve engine and the containment circuit can finally hold again.' },
-  { id:'ring-lit',power:'relay',title:'Nine years of silence',speaker:'DR. ADA REN · REFUGE',text:'I requested the shutdown. Not evacuation. Shutdown. We can sustain suspension on a fraction of station power, but not while the damaged ring is drawing against us. Ivo understands. The official channel must remain silent.' },
-  { id:'archive-note',pos:{x:1720,y:440},optional:true,title:'Consent',speaker:'DR. ADA REN · REFUGE',text:'There are three hundred and twelve names on the refuge list. Each signed for a temporary suspension until rescue. I was the last awake. If you can hear this, please read their names as people waiting, not a loss report.' },
-  { id:'refuge-route',power:'heart',title:'A quiet reactor',speaker:'HAVEN · SERVICE MEMORY',text:'Containment restored. Radiation falling to background. The engine return passage is opening west, into the vault. You made a safe route through. Refuge access is powered beyond it. I can follow when its berth is ready.' },
-  { id:'refuge-arrival',room:'refuge-entry',title:'A different contract',speaker:'HAVEN · MEDICAL TELEMETRY',text:'Suspension reserve detected. Three hundred and twelve occupied units. Local circulation active. Awakening bus offline. Ignition core required. The refuge is still here.' },
-  { id:'refuge-lit',power:'refuge-power',title:'Keep the lights low',speaker:'DR. ADA REN · REFUGE',text:'Bring the tender in. I isolated the ward door from inside; restoring transfer will only open the service route below triage. Its isotope lines are leaking. Take the western triage reserve through that tube to the receiver inside the ward. Then you can open the short way home.' },
-  { id:'triage-note',pos:{x:430,y:3370},optional:true,title:'A place for everyone',speaker:'DR. ADA REN · REFUGE',text:'We converted the freight cradles into suspension racks. Every spare line runs through this room. The small ones are not children’s units; they are the parts we could not afford to throw away. I left the reserve here for Ivo. The service tube below us is the only way back into the ward.' },
-  { id:'ward-lit',power:'ward-power',title:'An answer, almost',speaker:'HAVEN · MEDICAL TELEMETRY',text:'Ward bus stable. All units holding. Isolation door opening from the ward side. The direct return to medical transfer is clear; come back to me to recharge. The awakening controller is still waiting for ignition. Reserve cells are in the transfer room and the ward service recess.' },
-  { id:'heart-open',power:'heart-route',title:'What the core was for',speaker:'IVO SEN · MAINTENANCE',text:'The Ignition Cradle, east of the breach, is on a separate bus. I built it so we could restart Orison without drawing from the occupied wards. That is where the ignition core belongs. Not in a buyer’s warehouse. You passed the way to wake them before you knew they were here.' },
-  { id:'heart-lit',power:'heart-power',title:'The last shift',speaker:'MARA VALE · DISPATCH',text:'Ivo has gone to isolate the core. Ada is closing the ward. I am leaving this channel open. If someone gets here after us: we did not lose the station. We left as much of it as we could for you.' },
-  { id:'coil-lit',power:'coil-power',title:'Cold start',speaker:'HAVEN · SERVICE MEMORY',text:'Ignition well accessible. The release supply is in the lower gallery. Recharge here before collecting the core. The old commissioning tube leaves the well to the southeast and returns to the Breach. Its conduits have fractured, and loose rock is moving through it. I cannot carry the core for you.' },
-  { id:'core-free',flag:'ignition-ready',title:'The way back',speaker:'IVO SEN · MAINTENANCE',text:'Core released. The commissioning door at the Breach is opening; its only feed is here, on the Heart side. Follow the lower tube back, then tow east into the Ignition Cradle. The amber contacts are waiting there. Haven, keep a light on.' },
-  { id:'core-home',core:true,title:'All accounted for',speaker:'HAVEN · SERVICE MEMORY',text:'Ignition core seated in the cradle. Independent bus stable. Awakening sequence started. Recovery contract suspended: persons aboard.' },
+type RecordTrigger = { room?:import('./stationIds').RoomId; power?:import('./stationIds').CircuitId; flag?:import('./stationIds').ProgressionId; pos?:Vector2; core?:boolean; activated?:boolean }
+export interface StationRecord extends RecordTrigger { id:string; title:string; speaker:string; text:string; optional?:boolean; floorMounted?:boolean }
+// Retired walkthrough recordings remain valid save IDs, but have no reader or
+// journal entry. Do not delete old downloads or invalidate an existing expedition.
+export const RETIRED_RECORD_IDS: readonly string[] = [
+  'breach-restored','freight-arrival','freight-lit','works-open','works-arrival',
+  'works-lit','ring-open','ring-lit','refuge-route','refuge-arrival','refuge-lit',
+  'ward-lit','heart-open','coil-lit','core-free','core-home',
 ]
-export function discoverCampaign(s: Expedition, room: string | undefined, connectedTerminal?: string): string[] {
+export const RECORDS: StationRecord[] = [
+  { id:'contract',pos:{x:8280,y:3690},floorMounted:true,title:'Recovery contract',speaker:'SALVAGE AUTHORITY · PRESENT DAY',text:'Station Orison. Declared evacuated nine years ago. Recovery authorized for one ignition core. The station registry lists no surviving crew.' },
+  { id:'first-light',activated:true,title:'A link to come back to',speaker:'HAVEN · RECOVERY SYSTEM',text:'I’m Haven. It has been a long time since anyone answered. Recovery link established. If your ship is lost, I can reconstruct you here. It takes a long time. Meanwhile, the station repairs bots and debris accumulates.' },
+  { id:'rescue-note',pos:{x:6930,y:3480},optional:true,title:'Small enough to fit',speaker:'IVO SEN · MAINTENANCE',text:'The registry still calls Haven a maintenance tender. Six hull sections, twelve life-support connections. I know what we built her to carry.' },
+  { id:'manifest-note',pos:{x:8960,y:420},optional:true,title:'What we carried',speaker:'MARA VALE · DISPATCH',text:'Hold six: blankets, oxygen, one occupied survival pod. No ore. They closed our account at 04:10. The emergency recovery reserve remains untouched.' },
+  { id:'tools-note',pos:{x:6030,y:580},optional:true,title:'The last repair',speaker:'IVO SEN · MAINTENANCE',text:'Six spare clamps, one usable torch. Mara wants me in my pod. I told her I would follow after the last repair. Keep my place aboard Haven.' },
+  { id:'archive-note',pos:{x:1720,y:440},optional:true,title:'Consent',speaker:'DR. ADA REN · REFUGE',text:'Twelve signatures. Temporary suspension, pending rescue. I requested a shutdown, not an evacuation. The distinction never reached the official channel. I was the last awake.' },
+  { id:'triage-note',pos:{x:430,y:3370},optional:true,title:'A place for everyone',speaker:'DR. ADA REN · REFUGE',text:'Four pods left before the power failed. Their empty cradles are not casualties. I locked the remaining eight against decompression.' },
+  { id:'heart-lit',pos:{x:4360,y:3440},floorMounted:true,power:'heart-power',title:'The last shift',speaker:'MARA VALE · DISPATCH',text:'Ivo has isolated the core. Ada is closing the ward. I am leaving this channel open before I seal my own pod. We did not save the station. We left enough of it working to hope.' },
+]
+export function recordAvailable(s: Expedition, id: string) {
+  const r=RECORDS.find(r=>r.id===id)
+  return !!r && (!r.power || !!s.power[r.power]) && (!r.flag || s.flags.includes(r.flag)) && (!r.core || s.core) && (!r.activated || s.campaign.havenActivated)
+}
+export function discoverCampaign(s: Expedition, _room: string | undefined, connectedTerminal?: string): string[] {
   for (const berth of BERTHS) if (!s.campaign.berths.includes(berth.id) && (!berth.power || s.power[berth.power]) && s.visited.includes(berth.room)) s.campaign.berths.push(berth.id)
-  const found = RECORDS.filter(r => !s.campaign.records.includes(r.id) && (
-    r.room === room && room !== undefined || r.power && !!s.power[r.power] || r.flag && s.flags.includes(r.flag) || r.core && s.core || r.pos && r.id === connectedTerminal
-  )).map(r => r.id)
+  const found = RECORDS.filter(r => !s.campaign.records.includes(r.id) && r.id===connectedTerminal && recordAvailable(s,r.id)).map(r => r.id)
   s.campaign.records.push(...found)
   return found
 }
-export function campaignObjective(s: Expedition): { title:string; detail:string; circuit?:string; module?:'impact' | 'blaster' | 'radiation' } {
-  if (s.complete) return { title:'The route is clear',detail:'The refuge is awake. Haven remains available while you explore the station.' }
-  if (s.core) return { title:'The awakening bus is online',detail:'The core is installed in the Ignition Cradle.' }
+export function campaignObjective(s: Expedition): { title:string; detail:string; circuit?:string; module?:'impact' | 'blaster' | 'radiation'; pod?:string; target?:Vector2 } {
+  if (s.complete) return { title:'Everyone is coming home',detail:'Haven has carried everyone out through the Access Tunnel. Free exploration resumes before departure.' }
+  if (!s.campaign.havenActivated) return { title:s.visited.includes('breach') ? 'Activate Haven' : 'Find Haven',detail:'Follow the Access Tunnel to the Breach. Point your nose at the blue socket in Haven’s center and press F to connect your tether. This wakes Haven and establishes your recovery link. Until then, death restarts the expedition.',target:havenLinkPosition(s) }
+  if (s.campaign.journey?.departure) return { title:'Haven departing',detail:'Everyone is safe aboard. The outer lock is open; follow the Access Tunnel home.',target:DEPARTURE_ROUTE.at(-1)! }
+  if (s.core && allSurvivorsAboard(s)) return { title:s.campaign.berth==='breach' ? 'Take Haven home' : 'Return Haven to the Breach',detail:'Everyone is safely aboard and escape power is online. Bring Haven to the Breach anchorage, dock, then choose Launch Haven. She will leave by the tunnel you arrived through.',target:havenPosition(s) }
+  const waiting = SURVIVAL_PODS.filter(pod => !s.rescuedPods.includes(pod.id) && podReleased(s,pod.id) && (s.core || pod.locked))
+    .sort((a,b) => {
+      const pa=s.cargo?.[a.id]?.pos ?? a.pos,pb=s.cargo?.[b.id]?.pos ?? b.pos
+      return Math.hypot(pa.x-s.position.x,pa.y-s.position.y)-Math.hypot(pb.x-s.position.x,pb.y-s.position.y)
+    })
+  if (waiting.length) return { title:'Rescue the survivors',detail:s.core
+    ? 'Escape power is ready, but Haven will not leave anyone behind. Recover the remaining pods. Four were dispatched to Freight hold six, the Works, the Ring archive and Refuge Approach; eight began in Medical.'
+    : `Ward clamps released. Call Haven to Medical transfer and tow each pod through the open ward door. Rescue pays ${POD_RESCUE_CREDITS_LABEL} credits per pod; the berth lights show who is safely aboard.`,pod:waiting[0].id }
+  if (s.core && !allSurvivorsAboard(s)) return { title:'Release the remaining survivors',detail:'Escape power is online. Restore the ward bus to unlock the remaining pods.',circuit:'ward-power' }
   if (coreReleased(s)) return { title:'Return to the first cradle',detail:'Tow the core through the irradiated lower return tube from the Ignition Well. Continue east through the Breach to the Ignition Cradle.' }
   if (!s.impactShieldInstalled) return { title:'Install your impact shield',detail:'Fly through the passage west of Haven to the rescue locker. Find the green shield module, point the ship’s nose at it and press F to grapple, then tow it back for installation. New equipment must be recovered before the dock can upgrade it.',module:'impact' }
   const step = CIRCUIT_STEPS.find(step => !s.power[step.id]) ?? CIRCUIT_STEPS[CIRCUIT_STEPS.length-1]

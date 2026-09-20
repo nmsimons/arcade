@@ -5,6 +5,8 @@ import { expeditionMap, freshExpedition, freshRuntime, parseExpedition, snapshot
 import { stepGrappleGuide } from '../src/games/hardVacuum/grappleGuide.ts'
 import { updateHarpoon } from '../src/games/hardVacuum/harpoon.ts'
 import { collideBodies } from '../src/games/hardVacuum/bodyCollisions.ts'
+import { RECORDS } from '../src/games/hardVacuum/campaign.ts'
+import { CIRCUIT_IDS, GATE_IDS } from '../src/games/hardVacuum/stationIds.ts'
 
 const shipAt=pos=>({pos:{...pos},vel:{x:0,y:0},radius:15,angle:0})
 const tick=(s,rt,ship,harpoon={state:'idle'},dt=1/60)=>stepExpedition(s,rt,{dt,ship,harpoon,rocks:[],beam:{active:false}})
@@ -16,12 +18,13 @@ const rope=(ax,ay,bx,by,length)=>{
 test('every terminal requires a real tether, plays immediately, and can be reconnected without duplicating its record',()=>{
   for (const terminal of TERMINALS) {
     const s=freshExpedition(),rt=freshRuntime(),ship=shipAt({x:terminal.pos.x+75,y:terminal.pos.y})
+    s.power=Object.fromEntries(CIRCUIT_IDS.map(id=>[id,id]));s.flags=['heart','ignition-ready'];s.gates=[...GATE_IDS];s.core=true
     for(let i=0;i<120;i++)tick(s,rt,ship)
     assert.equal(s.campaign.records.includes(terminal.terminalId),false,'flying nearby never reads a terminal')
     rt.radio={id:'first-light',time:16};rt.grappleLesson={remaining:12,cell:true}
     const hook={state:'attached',rock:terminal}
     tick(s,rt,ship,hook)
-    assert.ok(s.campaign.records.includes(terminal.terminalId));assert.equal(rt.radio.id,terminal.terminalId)
+    assert.ok(s.campaign.records.includes(terminal.terminalId),terminal.terminalId);assert.equal(rt.radio.id,terminal.terminalId)
     assert.equal(rt.connectedTerminal,terminal.terminalId);assert.equal(rt.grappleHint,'')
     assert.equal(s.campaign.terminalLinked,true);assert.equal(s.campaign.grappleLearned,false,'data connection does not skip the towing lesson')
     for(let i=0;i<20;i++)tick(s,rt,ship,hook,1)
@@ -35,6 +38,17 @@ test('every terminal requires a real tether, plays immediately, and can be recon
     const restored=parseExpedition(JSON.stringify(s))
     assert.equal(restored.campaign.terminalLinked,true);assert.ok(restored.campaign.records.includes(terminal.terminalId))
   }
+})
+
+test('the final shift recording remains offline until its circuit is live, then needs a tether; no automatic story or tutorial cards',()=>{
+  const s=freshExpedition(),rt=freshRuntime(),terminal=TERMINALS.find(t=>t.terminalId==='heart-lit')
+  const ship=shipAt({x:terminal.pos.x+75,y:terminal.pos.y}),hook={state:'attached',rock:terminal}
+  tick(s,rt,ship,hook);assert.equal(rt.radio,undefined);assert.equal(s.campaign.records.length,0)
+  s.power['heart-power']='heart-power'
+  tick(s,rt,ship);assert.equal(rt.radio,undefined);assert.equal(rt.grappleHint,'')
+  tick(s,rt,ship,hook);assert.equal(rt.radio.id,terminal.terminalId)
+  tick(s,rt,ship);assert.equal(rt.radio,undefined)
+  assert.ok(RECORDS.every(r=>r.pos || r.id==='first-light'),'every story entry has a physical reader')
 })
 
 test('the terminal lesson is contextual, respects walls, and retires after the first data connection',()=>{

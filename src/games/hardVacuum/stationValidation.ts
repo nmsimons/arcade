@@ -8,6 +8,7 @@ import { CHAMBERS, PASSAGES, STATION_TERRAIN } from './stationLayout.ts'
 import { expeditionMap, freshExpedition } from './expedition.ts'
 import { isInsideCavern } from './worldGeometry.ts'
 import type { Vector2 } from './types'
+import { SURVIVAL_PODS, WARD_POD_BERTHS } from './survivalPods.ts'
 
 export const STATION_AUTHORING = {
   rooms: SECTORS, gates: GATES, circuits: SOCKETS, caches: CACHES, pickups: PICKUPS,
@@ -72,7 +73,7 @@ export function validateStation(data = STATION_AUTHORING): string[] {
       : load.kind==='core' ? load.target==='ignition-ready'&&circuit?.flags?.includes('ignition-ready')
       : load.kind==='bot' ? data.bots.some(b=>load.target===`bot:${b.id}`&&b.power===load.circuit)
       : load.kind==='berth' ? data.berths.some(b=>load.target===`berth:${b.id}`&&b.power===load.circuit)
-      : /^ward:[0-3]$/.test(load.target)&&load.circuit==='ward-power'
+      : WARD_POD_BERTHS.some((_,i)=>load.target===`ward:${i}`)&&load.circuit==='ward-power'
     require(valid,`Invalid power target: ${load.circuit}/${load.target}`)
   }
   const open=freshExpedition();open.gates=data.gates.map(g=>g.id)
@@ -85,5 +86,8 @@ export function validateStation(data = STATION_AUTHORING): string[] {
   for(const berth of data.berths) { require(rooms.has(berth.room)&&(!berth.power||circuits.has(berth.power)),`Invalid berth: ${berth.id}`);clear(berth.id,berth.pos,15) }
   for(const record of data.records)if(record.pos)require(isInsideCavern(record.pos,40,{id:0,name:'Authored terrain',boundary:STATION_TERRAIN.boundary,obstacles:STATION_TERRAIN.islands}),`Invalid terminal placement: ${record.id}`)
   clear('core',CORE_POSITION,27)
+  unique('pod',SURVIVAL_PODS.map(pod=>pod.id))
+  require(SURVIVAL_PODS.length===12 && SURVIVAL_PODS.filter(pod=>pod.locked).length===8,'Expected twelve pods, eight locked in Medical')
+  for (const pod of SURVIVAL_PODS) { require(rooms.has(pod.sector),`Pod ${pod.id} references room: ${pod.sector}`);clear(pod.id,pod.pos,24) }
   return errors
 }

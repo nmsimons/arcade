@@ -126,8 +126,8 @@ test('receivers accept blue cells delivered without a tether, connect once, and 
   core.pos = { ...IGNITION_CRADLE }; core.vel = { x: 0, y: 0 }
   for (let tick = 0; tick < 35; tick++) step(s, rt, { ship: shipAt({ x: IGNITION_CRADLE.x, y: IGNITION_CRADLE.y + 100 }) })
   assert.equal(s.core, true)
-  assert.equal(s.complete, true)
-  assert.equal(objective(s).title, 'The route is clear')
+  assert.equal(s.complete, false)
+  assert.match(objective(s).title, /Rescue the survivors/)
   assert.equal(interaction(s, shipAt({ x: 1500, y: 1100 })).kind, 'dock')
 })
 

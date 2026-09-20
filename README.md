@@ -23,7 +23,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 **Arcade menu**
 
-- Up/Down (or W/S): select a game
+- Arrows / WASD or Tab / Shift+Tab: select a game; Home / End: first / last
 - Enter/Space: launch
 - Controller: stick or D-pad selects a game; A launches it.
 
@@ -56,8 +56,12 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - E: dock at Haven, or call it to an energized empty service berth
 - Brake inside Haven to recharge and bank carried credits automatically. Press E to dock and upgrade.
 - Point the ship's nose at an object and press F to grapple it. Fly to tow;
-  press F again to release. Contextual guidance explains the first connection,
-  then fades; the opening recording and Controls retain these instructions.
+  press F again to release. Flight training teaches the controls with floor
+  markings and hands-on practice; the expedition has no automatic tutorial cards.
+  The training bay is a mining-pilot induction simulator with an automatic white-rock
+  dispenser. It replenishes used stock through a visible chute, waits for a clear
+  outlet, and limits the amount of loose debris. Red material is never placed or
+  dispensed directly: it appears only inside fragments cut from white asteroids.
   The single Longline winch upgrade doubles the hook's reach.
   Once attached, the cable retracts at 130 pixels per second to its original
   130-pixel towing length: one second at maximum reach, less for closer attachments.
@@ -81,18 +85,24 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   commissioning tube from the Ignition Well back to the Breach, then east to the
   Ignition Cradle.
   Releasing the core powers the tube's door from the Heart side. Seat the core
-  between the cradle's contacts to start the independent awakening bus.
+  between the cradle's contacts to power the station’s escape bus. Victory also
+  requires all twelve survival pods safely aboard Haven, the station’s lifeboat.
+  Bring Haven back to the Breach, dock and choose Launch Haven. She folds and
+  leaves through the same outer tunnel where a new expedition begins.
 - M: survey map (pauses the simulation). Records nearby visible terrain as you
   explore; walls and sealed doors block scanning. Discovered terrain is saved.
   O switches between the local survey and the station overview. Z toggles 2× zoom;
-  while zoomed, pan with arrows, WASD or dragging. The map uses the available screen.
-- G: log / flight recorder. Read discovered station records and the current objective.
+  while zoomed, pan with WASD or dragging. Arrows select map buttons at any zoom.
+  The map uses the available screen.
+- G: log / flight recorder. Re-read recordings downloaded through tether connections.
   Available in flight, while paused, or docked at Haven.
 - Fixed recording terminals have live data displays and blue cable sockets that
   stay active after reading. Aim and grapple with F to
-  download their recordings; flying nearby does not read them. The terminal stays
+  download their recordings; flying nearby does not read them. Seven short story
+  recordings remain, alongside Haven's commissioning greeting. They describe
+  Orison's people and history, not puzzle solutions or equipment locations. The terminal stays
   bolted down while the ship tethers to it, and the connection pulses with data.
-  A contextual hint retires after the first download. F disconnects; downloaded
+  Only the nearest reachable reader shows a brief button/action hint. F disconnects; downloaded
   records remain in the flight recorder, and reconnecting replays them.
 - The laser needs 400 ms of uninterrupted contact on one asteroid before impact.
   The asteroid itself brightens during contact and its glow fades if interrupted.
@@ -123,11 +133,24 @@ keyboard key once to enable audio.
 
 All menus support Arrow keys or Tab / Shift+Tab to move focus, Enter or Space
 to activate, and Escape to go back. Home / End jump to the first / last action.
-Focused dialog buttons have a filled mint highlight and outline for mouse,
-keyboard and controller alike. Disabled or hidden choices are skipped, selected
-actions scroll into view, grids respect visual columns, and closing a sub-dialog
-restores the previous selection. Destructive confirmations always open on Cancel.
-Controller hints appear in dialogs when a standard-layout controller is connected.
+Focused dialog buttons use a restrained green tint, crisp border and small leading
+marker for mouse, keyboard and controller alike, without recolouring descriptions
+or prices. Disabled or hidden choices are skipped; selected actions scroll into
+view. Arrows follow grid columns while Tab follows reading order. Focus stays
+inside the active dialog, and closing a sub-dialog restores the previous selection.
+Destructive confirmations always open on Cancel. Page Up / Page Down scroll long
+dialogs and recorder text; the controller's right stick does the same. On-screen
+hints show controller bindings while a supported pad is connected, and keyboard
+bindings otherwise. This switches live in menus, buttons, the HUD, map, Controls
+guide and tutorial copy without changing focus or disabling keyboard input.
+Unsupported controllers keep keyboard hints. Prompt labels use the selected
+controller layout, so future presets share the same hint system.
+On the map, arrows always navigate buttons, even when zoomed; WASD or dragging
+pans the zoomed survey. Held keys must be released after changing screens, just
+like held controller buttons. Shortcuts cannot act through a nested dialog.
+The arcade selector and loading/error screens share the same navigation and style.
+Menu presentation lives in `src/menu.css`; `KeyboardDialog` owns focus and keyboard
+behavior, with `dialogNavigation.ts` shared by keyboard and controller navigation.
 
 Controller layouts live in `src/games/hardVacuum/controllerLayouts.ts`. The single
 shipped preset, Trigger flight, defines button assignments and stick axes; both
@@ -138,12 +161,19 @@ code. There is no preset-selection UI or change to saved expeditions yet.
 The flight HUD groups location and credits on the left. A compact ship panel
 aligns shield, radiation and blaster meters, with equipment controls and warnings
 in the same panel. On narrow screens the meters sit side by side. Map, log and
-pause remain keyboard-accessible; nearby docking actions stay beside the flight view.
+pause remain keyboard-accessible. Dock is stenciled in Haven's center after its
+commissioning socket retracts; the stencil also accepts mouse/touch input.
 Actions underline their shortcut letter when it appears in the label; other keys
 are shown beside the action. Map, Log, Pause, Teleport and Blaster use
 M, G, P, T and B respectively.
-Persistent control hints, objective walkthroughs and object instructions are removed;
-open Controls from the menu or pause screen for key bindings. Area labels remain.
+Floating control hints, automatic status toasts and objective walkthroughs are removed;
+open Controls from the menu or pause screen for key bindings. Large entrance signs and
+sparse industrial stencils remain, with floor bindings for docking and calling
+Haven, not logs or tether links; the main map has no floor lessons. Tethered logs and Haven share one
+information-card treatment. Small room-name labels appear only on the map and HUD,
+not on the floor, and every log has the same recorder model. Training
+keeps its full instructions. Retired walkthrough downloads remain valid in saves,
+but are hidden from the journal and excluded from the recording count.
 The scanline overlay has been removed from the game.
 Hull, beam capacitor, laser focus and blaster magazine each have five upgrade stages.
 Each stage costs 750, 1,500, 3,000, 6,000, then 10,000 credits. Each track occupies
@@ -260,6 +290,13 @@ as damage mounts. A stock three-shot blaster needs mixed weapons or a reload
 against a full-health bot; magazine upgrades provide up to eight shots. Destroyed units stay
 down through docking and save reloads; all enemies return at full health when the
 pilot respawns, with powered bots leaving their garages and unpowered bots dormant.
+Recovery first requires activating Haven: aim at her blue center socket and
+connect the tether. Before that, death starts the entire expedition again in the
+Access Tunnel. After activation, Haven reconstructs the pilot over a long interval;
+station maintenance rebuilds bots and debris drifts back while the pilot is gone.
+Banked credits, rescued passengers, equipment and restored circuits remain safe.
+Stay tethered to hear Haven's first message, just like a log terminal. Disconnect
+when ready: the center socket retracts permanently, and the message stays in the log.
 Debris density, speed and the share of blue asteroids rise in deeper regions;
 Refuge deliberately provides a quieter interval. Red asteroids never spawn loose:
 they only emerge when white asteroids break apart. Mining deeper white asteroids exposes
@@ -288,7 +325,24 @@ The first departure stays radiation-free; the module is reachable before the fir
 required irradiated crossing. In Medical Transfer, restoring approach power opens the lower
 service tube while the ward isolation door stays shut. Tow the Triage reserve
 through the irradiated bypass to the receiver inside the Suspension Ward; powering
-it opens the short, safe return to Haven. Previously opened doors remain open in saves.
+it opens the short, safe return to Haven and releases eight survival pods.
+The ward has twelve numbered cradles, with four empty: those pods are loose in
+Cargo hold 6, the Works, the Ring archive and Refuge Approach. The first survivor
+encounter is in Freight, after the opening equipment recovery. Tow each pod to Haven.
+When her recovery shutters seal, its occupant is rescued and 1,000 credits are
+banked exactly once. Pods cannot be destroyed; lasers repel released pods like
+other durable cargo. Two lights on each of Haven’s six hull sections show the
+twelve rescues and remain attached as she folds. Rescued survivors stay aboard
+through travel, reload and ship loss. There is no survivor counter in the HUD,
+outfitter, objectives or rescue messages; Haven’s physical lights are the manifest.
+Surveyed pods appear on the map. Restore the ignition core **and** recover all
+twelve pods, in either order, then bring Haven to the Breach anchorage. Dock and
+choose Launch Haven to fly out through the Access Tunnel. Its outer door remains
+sealed until that authorized departure. The last rescue alone
+never launches her, and departure is unavailable while anyone is missing or cargo
+is still being secured. Older completed saves retain their restored power and
+earnings but reopen the missing rescue/departure step without inventing rewards.
+Previously opened doors remain open in saves.
 The original shield only absorbs physical
 impacts. Without radiation protection, two seconds at peak exposure destroys
 the ship; leaving the field lets that exposure recover.
@@ -414,7 +468,9 @@ gameplay reset rules are documented in [the save format](docs/save-format.md).
 If backup/archive writes fail, the primary slot is not replaced.
 
 Storage errors appear during flight and in menus. A failed Save & exit stays
-in the game, with Retry save & exit and an explicit Exit without saving action.
+in the game, in a separate dialog with Go back selected by default, Retry save &
+exit and an explicit Exit without saving action. Escape / controller B dismisses
+that dialog and restores the previous selection without leaving the game.
 If another tab changes the save, autosaving stops and asks you to reload.
 Backups share the browser's storage and cannot protect against clearing site
 data or browser eviction.

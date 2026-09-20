@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/test.mjs'
 import { freshExpedition } from '../../src/games/hardVacuum/expedition.ts'
 import { setup, hold, tap, saved, armed } from './helpers/controller.mjs'
 
@@ -22,11 +22,11 @@ test('controller-only launch, RT thrust, turn-only stick, pause, map and recorde
   await tap(page,9);await tap(page,8)
   await expect(page.getByRole('dialog',{name:'Station survey',exact:true})).toBeVisible()
   await tap(page,15)
-  await expect(page.getByRole('button',{name:'Zoom · 2×',exact:true})).toBeFocused()
+  await expect(page.getByRole('button',{name:'Zoom · 2× · X / □',exact:true})).toBeFocused()
   await tap(page,0)
-  await expect(page.getByText('Pan · arrows / WASD / drag',{exact:true})).toBeVisible()
+  await expect(page.getByText('Pan · Left stick',{exact:true})).toBeVisible()
   await tap(page,3)
-  await expect(page.getByRole('button',{name:'Local survey · O',exact:true})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Local survey · Y / △',exact:true})).toBeVisible()
   await tap(page,15);await tap(page,1)
   await expect(page.getByRole('dialog',{name:'Station survey',exact:true})).toHaveCount(0)
   await tap(page,4)
@@ -73,14 +73,14 @@ test('RB connects and releases a cargo cable; closing the pause menu with B cann
   expect((await saved(page)).cargo['rescue-cache'].tethered).toBe(true)
   await tap(page,9);await tap(page,5);await page.clock.runFor(200)
   // The saved tethered flag records cargo claimed by the pilot, not a live cable.
-  await expect(page.getByRole('status').filter({hasText:'Cable released.'})).toBeVisible()
+  await expect(page.getByRole('status').filter({hasText:'Cable released.'})).toHaveCount(0)
 })
 
 test('Y docks; menus skip locked upgrades and B undocks',async({page})=>{
   const state=freshExpedition();state.banked=10000
   await setup(page,state);await tap(page,0);await tap(page,3);await page.clock.runFor(800)
   await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toBeVisible()
-  await expect(page.getByRole('button',{name:'Undock · Esc',exact:true})).toBeFocused()
+  await expect(page.getByRole('button',{name:'Undock · B / ○',exact:true})).toBeFocused()
   await tap(page,12)
   const active=await page.evaluate(()=>({tag:document.activeElement.tagName,disabled:document.activeElement.disabled}))
   expect(active).toEqual({tag:'BUTTON',disabled:false})
@@ -118,11 +118,11 @@ test('disconnect and loss of focus pause safely; reconnection cannot activate a 
 test('D-pad navigation and held confirmation cannot overwrite a save; unsupported controllers leave the keyboard usable',async({page})=>{
   const state=freshExpedition();state.banked=4321
   await setup(page,state)
-  await tap(page,13);await tap(page,13)
+  await tap(page,13);await tap(page,13);await tap(page,13)
   await expect(page.getByRole('button',{name:'Start a new expedition…',exact:true})).toBeFocused()
   await hold(page,0,1,500)
   await expect(page.getByRole('alertdialog',{name:'Replace saved expedition',exact:true})).toBeVisible()
-  await expect(page.getByRole('button',{name:'Cancel · Esc',exact:true})).toBeFocused()
+  await expect(page.getByRole('button',{name:'Cancel · B / ○',exact:true})).toBeFocused()
   expect((await saved(page)).banked).toBe(4321)
   await hold(page,0,0);await tap(page,13);await tap(page,1)
   await expect(page.getByRole('alertdialog')).toHaveCount(0)

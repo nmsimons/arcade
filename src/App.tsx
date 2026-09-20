@@ -1,7 +1,12 @@
-import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { GameLoadBoundary, GameLoading, GameViewport } from './GameRoute'
 import { createControllerReader } from './games/hardVacuum/controllerInput'
+import { KeyboardDialog } from './games/hardVacuum/KeyboardDialog'
+import { topDialog } from './games/hardVacuum/dialogNavigation'
+import { controlDialog, scrollDialog } from './games/hardVacuum/controllerUi'
+import { createKeyboardGate } from './games/hardVacuum/keyboardGate'
+import { ControlHintsContext, controlHint } from './games/hardVacuum/controlHints'
 
 const HardVacuumGame = lazy(() => import('./games/HardVacuumGame').then(m => ({ default: m.HardVacuumGame })))
 const HelloWorldGame = lazy(() => import('./games/HelloWorldGame').then(m => ({ default: m.HelloWorldGame })))
@@ -14,9 +19,10 @@ const UrbanFireGame = lazy(() => import('./games/UrbanFireGame').then(m => ({ de
 export default function App() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const menuButtons = useRef<(HTMLButtonElement | null)[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [controller] = useState(createControllerReader)
+  const [keyboard] = useState(createKeyboardGate)
+  const [controllerConnected, setControllerConnected] = useState(false)
 
   const games = useMemo(
     () =>
@@ -30,52 +36,34 @@ export default function App() {
     [],
   )
 
-  useEffect(() => {
-    // Only handle menu keys on the home route.
-    if (pathname !== '/') return
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
-      if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-        e.preventDefault()
-        setSelectedIndex((i) => (i > 0 ? i - 1 : games.length - 1))
-      }
-      if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-        e.preventDefault()
-        setSelectedIndex((i) => (i < games.length - 1 ? i + 1 : 0))
-      }
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        navigate(games[selectedIndex].path)
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [games, navigate, pathname, selectedIndex])
-
-  useEffect(() => {
-    if (pathname === '/') menuButtons.current[selectedIndex]?.focus({ preventScroll: true })
-  }, [pathname, selectedIndex])
   const pollMenuController = useEffectEvent((now: number) => {
+    const dialog = topDialog()
+    keyboard.enter(`${pathname}:${dialog?.dataset.dialogScreen ?? 'game'}`)
+    if (!dialog?.dataset.globalMenu) { controller.reset(); return }
     let pads: (Gamepad | null)[] = []
     try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Keyboard remains available. */ }
-    const input = controller.sample(pads, 'menu:arcade', now, document.hasFocus() && document.visibilityState !== 'hidden')
-    const active = menuButtons.current.indexOf(document.activeElement as HTMLButtonElement)
-    if (input.pressed.includes(controller.layout.buttons.confirm)) {
-      if (active >= 0) menuButtons.current[active]?.click()
-      else menuButtons.current[selectedIndex]?.focus()
-    } else if (input.navigation) {
-      const delta = input.navigation === 'up' || input.navigation === 'left' ? -1 : 1
-      setSelectedIndex(((active >= 0 ? active : selectedIndex) + delta + games.length) % games.length)
-    }
+    const input = controller.sample(pads, `menu:${dialog.dataset.dialogScreen}`, now, document.hasFocus() && document.visibilityState !== 'hidden')
+    if (input.connected !== controllerConnected) setControllerConnected(input.connected)
+    if (input.pressed.includes(controller.layout.buttons.back)) controlDialog(dialog, 'back')
+    else if (input.pressed.includes(controller.layout.buttons.confirm)) controlDialog(dialog, 'confirm')
+    else if (input.navigation) controlDialog(dialog, input.navigation)
+    scrollDialog(dialog, input.scroll * 8)
   })
   useEffect(() => {
-    if (pathname !== '/') return
     controller.reset()
     let frame: number
     const poll = (now: number) => { pollMenuController(now); frame = requestAnimationFrame(poll) }
-    const reset = () => controller.reset()
+    const reset = () => { controller.reset(); keyboard.reset() }
+    const keyDown = (event: KeyboardEvent) => {
+      // Controller-generated Escape events have no keyup and are not physical keys.
+      if (!event.isTrusted || event.altKey || event.ctrlKey || event.metaKey) return
+      const screen = `${window.location.pathname}:${topDialog()?.dataset.dialogScreen ?? 'game'}`
+      if (!keyboard.press(event.code || event.key, screen, event.repeat)) {
+        event.preventDefault(); event.stopImmediatePropagation()
+      }
+    }
+    const keyUp = (event: KeyboardEvent) => { if (event.isTrusted) keyboard.release(event.code || event.key) }
+    window.addEventListener('keydown', keyDown, true); window.addEventListener('keyup', keyUp, true)
     window.addEventListener('blur', reset); window.addEventListener('focus', reset)
     document.addEventListener('visibilitychange', reset)
     frame = requestAnimationFrame(poll)
@@ -83,58 +71,42 @@ export default function App() {
       cancelAnimationFrame(frame)
       window.removeEventListener('blur', reset); window.removeEventListener('focus', reset)
       document.removeEventListener('visibilitychange', reset)
+      window.removeEventListener('keydown', keyDown, true); window.removeEventListener('keyup', keyUp, true)
     }
-  }, [controller, pathname])
+  }, [controller, keyboard])
   const onExit = () => navigate('/', { replace: true })
 
   return (
+    <ControlHintsContext.Provider value={{ connected: controllerConnected, layout: controller.layout }}>
     <GameLoadBoundary key={pathname} onExit={onExit}>
     <Suspense fallback={<GameLoading onExit={onExit} />}>
     <Routes>
       <Route
         path="/"
         element={
-          <div className="relative w-screen h-screen overflow-hidden font-mono bg-[#0a0a0a]">
-            {/* Scanline effect */}
-            <div
-              className="pointer-events-none absolute inset-0 z-10"
-              style={{
-                background:
-                  'repeating-linear-gradient(0deg, transparent, transparent 11px, rgba(0, 255, 136, 0.06) 11px, rgba(0, 255, 136, 0.06) 12px)',
-                animation: 'scanline 0.2s linear infinite',
-              }}
-            />
-            <style>{`
-              @keyframes scanline {
-                0% { background-position: 0 0; }
-                100% { background-position: 0 12px; }
-              }
-            `}</style>
-
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="border-2 border-[#00ff88] bg-black p-8 max-w-md w-full">
-                <h1 className="text-4xl text-[#00ff88] mb-8 text-center tracking-[0.3em] uppercase">Select Game</h1>
+          <KeyboardDialog label="Arcade" focusKey="arcade" globalMenu onClose={() => {}}>
+              <div className="menu-surface arcade-menu">
+                <p className="menu-eyebrow">SIMULATION ARCHIVE / 05 TITLES</p>
+                <h1 className="text-3xl text-[#d9eee5] mt-3 mb-7 tracking-wider">Select Game</h1>
                 <div className="flex flex-col gap-3">
                   {games.map((g, i) => (
                     <button
                       key={g.id}
-                      ref={element => { menuButtons.current[i] = element }}
+                      data-menu-id={g.id}
+                      data-initial-focus={selectedIndex === i || undefined}
                       onFocus={() => setSelectedIndex(i)}
                       onClick={() => navigate(g.path)}
-                      className={`w-full border-2 py-3 uppercase tracking-widest transition-colors ${
-                        selectedIndex === i
-                          ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                          : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                      }`}
+                      className="menu-button arcade-choice"
                     >
                       {g.label}
                     </button>
                   ))}
                 </div>
-                <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ / stick / D-pad to select • Enter / A to play</p>
+                <div className="menu-help">{controllerConnected
+                  ? <p>Stick / D-pad <span>Choose</span> · {controlHint(true, 'confirm', '', controller.layout)} <span>Play</span></p>
+                  : <p>↑ ↓ / Tab <span>Choose</span> · Enter <span>Play</span></p>}</div>
               </div>
-            </div>
-          </div>
+          </KeyboardDialog>
         }
       />
 
@@ -159,5 +131,6 @@ export default function App() {
     </Routes>
     </Suspense>
     </GameLoadBoundary>
+    </ControlHintsContext.Provider>
   )
 }

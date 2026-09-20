@@ -3,8 +3,8 @@ import test from 'node:test'
 import { SimulationClock, SIMULATION_STEP, MAX_CATCH_UP_STEPS } from '../src/games/hardVacuum/simulationClock.ts'
 import { stepShipMovement } from '../src/games/hardVacuum/expeditionPhysics.ts'
 
-test('production movement and coasting match at 30, 60, 120, and 144 render Hz', () => {
-  const runs = [30, 60, 120, 144].map(hz => {
+test('production movement and coasting match at 10, 30, 60, 120, and 144 render Hz', () => {
+  const runs = [10, 30, 60, 120, 144].map(hz => {
     const clock = new SimulationClock(), ship = { pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: 15 }
     let tick = 0, thrustDistance = 0
     for (let frame = 0; frame <= hz * 15; frame++) clock.advance(frame * 1000 / hz, true, dt => {

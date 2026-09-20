@@ -1,8 +1,9 @@
 import type { Expedition, ExpeditionRuntime } from './expedition'
 import { CACHES, CORE_POSITION, GATES, PICKUPS, SECTORS, SOCKETS, doorProgress, expeditionMap } from './expedition'
 import { moduleInstalled } from './equipment'
-import { coreReleased, havenPosition, havenReady } from './campaign'
-import { BERTHS, REGIONS, WARD_BANKS } from './campaignWorld'
+import { coreReleased, havenPosition, havenReady, outerLockOpen } from './campaign'
+import { BERTHS, OUTER_LOCK, REGIONS, outerLockProgress } from './campaignWorld'
+import { SURVIVAL_PODS, WARD_POD_BERTHS, WARD_POD_HOUSINGS, podReleased } from './survivalPods'
 import type { Ship, Vector2 } from './types'
 import { drawExpeditionObject } from './objectModels'
 import { drawCargo } from './cargoRender'
@@ -11,12 +12,13 @@ import { RADIATION_SOURCES, radiationFootprint } from './radiation'
 import { drawRadiationFields, drawRadiationSources } from './radiationRender'
 import { drawStationInfrastructure } from './stationDetails'
 import { SURVEY_CELL, surveyPoint } from './survey'
-import { RECEIVER_HALF_GAP } from './receivers'
+import { drawReceiverCurrent } from './powerRender'
 import { drawTerminals } from './terminalRender'
 import { surveyView } from './surveyView'
 import { drawIgnitionCradle } from './ignitionCradleRender'
+import { drawAccessTunnel } from './accessTunnelRender'
 
-const LABEL_POSITIONS: Record<string, Vector2> = {
+const SURVEY_LABEL_POSITIONS: Record<string, Vector2> = {
   ...Object.fromEntries(SECTORS.map(r => [r.id,{ x:r.x+r.w/2,y:r.y+r.h*.27 }])),
   haven: { x: 1470, y: 945 }, salvage: { x: 490, y: 1230 }, foundry: { x: 500, y: 430 },
   archive: { x: 1470, y: 400 }, reactor: { x: 2480, y: 1280 }, engine: { x: 2500, y: 1940 }, vault: { x: 1430, y: 1910 },
@@ -24,46 +26,25 @@ const LABEL_POSITIONS: Record<string, Vector2> = {
 
 export function drawExpeditionDoorFoundations(ctx: CanvasRenderingContext2D, state: Expedition) {
   for (const gate of GATES) drawGateFoundations(ctx, gate, doorProgress(state, gate.id))
-}
-
-function drawReceiverCurrent(ctx: CanvasRenderingContext2D, pos: Vector2, time: number) {
-  ctx.save()
-  ctx.translate(pos.x, pos.y)
-  ctx.lineJoin = 'round'; ctx.lineCap = 'round'
-  for (const side of [-1, 1]) {
-    const phase = time + side * 1.7 + pos.x * 0.013 + pos.y * 0.009
-    // The contacts stay fixed while a narrow electrical arc moves between them.
-    ctx.beginPath()
-    for (let i = 0; i <= 16; i++) {
-      const u = i / 16
-      const x = side * (12 + (RECEIVER_HALF_GAP - 12) * u)
-      const y = Math.sin(Math.PI * u) * (Math.sin(u * 39 - phase * 14) * 2.3 + Math.sin(u * 73 + phase * 21) * 1.2)
-      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y)
-    }
-    ctx.strokeStyle = '#65efb230'; ctx.lineWidth = 3; ctx.stroke()
-    const pulse = (phase * 0.8) % 1
-    const current = ctx.createLinearGradient(side * 12, 0, side * RECEIVER_HALF_GAP, 0)
-    current.addColorStop(0, '#65efb2b0')
-    current.addColorStop(Math.max(0, pulse - 0.18), '#65efb2b0')
-    current.addColorStop(pulse, '#dcfff0')
-    current.addColorStop(Math.min(1, pulse + 0.18), '#65efb2b0')
-    current.addColorStop(1, '#65efb2b0')
-    ctx.strokeStyle = current; ctx.lineWidth = 1.1; ctx.stroke()
-  }
-  ctx.restore()
+  drawGateFoundations(ctx,OUTER_LOCK,outerLockProgress(outerLockOpen(state)))
 }
 
 export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition, rt: ExpeditionRuntime, ship: Ship) {
   ctx.save()
   drawStationInfrastructure(ctx, s, rt.elapsed)
-  for (const bank of WARD_BANKS) {
-    const x = bank.x-bank.w/2, y = bank.y-bank.h/2
-    ctx.fillStyle='#081310'; ctx.strokeStyle='#708f82'; ctx.lineWidth=1.2
-    ctx.beginPath(); ctx.moveTo(x,y+6); ctx.lineTo(x+6,y); ctx.lineTo(x+bank.w-6,y); ctx.lineTo(x+bank.w,y+6); ctx.lineTo(x+bank.w,y+bank.h); ctx.lineTo(x,y+bank.h); ctx.closePath(); ctx.fill(); ctx.stroke()
-    ctx.beginPath(); ctx.moveTo(x+6,y+6); ctx.lineTo(x+bank.w-6,y+6); ctx.lineTo(x+bank.w-6,y+bank.h-6); ctx.stroke()
-    ctx.fillStyle=s.complete ? '#a5ffe0' : s.power['ward-power'] ? '#65be9f' : '#827c55'
-    for (let i=0;i<3;i++) ctx.fillRect(x+11+i*14,y+15,3,8)
-    ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('078',bank.x,y+39)
+  drawAccessTunnel(ctx,outerLockOpen(s))
+  for (const housing of WARD_POD_HOUSINGS) {
+    ctx.fillStyle='#0b1712';ctx.strokeStyle='#708f82';ctx.lineWidth=1
+    ctx.beginPath();housing.forEach((p,i)=>i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y));ctx.closePath();ctx.fill();ctx.stroke()
+  }
+  for (const [i,berth] of WARD_POD_BERTHS.entries()) {
+    const locked = !podReleased(s,berth.id) && !s.rescuedPods.includes(berth.id)
+    ctx.strokeStyle=locked ? '#c4ac74' : '#547d6b';ctx.lineWidth=1.5
+    for(const side of [-1,1]) {
+      ctx.beginPath();ctx.moveTo(berth.x+side*29,berth.y);ctx.lineTo(berth.x+side*(locked ? 16 : 28),berth.y);ctx.stroke()
+    }
+    ctx.font='8px monospace';ctx.textAlign='center';ctx.fillStyle=locked ? '#c4ac74' : '#789b89'
+    ctx.fillText(String(i+1).padStart(2,'0'),berth.x,berth.y-berth.facing*44+3)
   }
   drawRadiationFields(ctx, expeditionMap(s), rt.elapsed, ship)
   if (rt.docking?.id === 'haven') {
@@ -74,11 +55,6 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     ctx.beginPath()
     for (const sign of [-1, 1]) { ctx.moveTo(-9, sign * reach); ctx.lineTo(4, sign * reach); ctx.lineTo(4, sign * (reach + 6)) }
     ctx.stroke(); ctx.restore()
-  }
-  for (const room of SECTORS) {
-    const label = LABEL_POSITIONS[room.id]
-    ctx.fillStyle = room.color + '55'; ctx.font = '13px monospace'; ctx.textAlign = 'center'
-    ctx.fillText(room.name.toUpperCase(), label.x, label.y)
   }
   for (const berth of BERTHS) {
     if (berth.id === s.campaign.berth && havenReady(s)) continue
@@ -117,6 +93,11 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     const pos = rt.objects[cache.id]?.pos ?? cache.pos
     drawCargo(ctx,cache.id,pos,{time:rt.elapsed,laserGlow:rt.objects[cache.id]?.laserGlow})
   })
+  for (const pod of SURVIVAL_PODS) {
+    if (s.rescuedPods.includes(pod.id) || rt.recovery?.id===pod.id) continue
+    const body=rt.objects[pod.id], released=podReleased(s,pod.id)
+    drawCargo(ctx,pod.id,body?.pos ?? pod.pos,{time:released ? rt.elapsed : 0,laserGlow:body?.laserGlow})
+  }
   if (!s.core) {
     const pos = rt.objects.core?.pos ?? CORE_POSITION
     drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.coreLatch?.cargoTime ?? rt.elapsed,laserGlow:rt.objects.core?.laserGlow})
@@ -170,10 +151,18 @@ export function drawExpeditionMap(ctx: CanvasRenderingContext2D, s: Expedition, 
     if (!revealed && !active) continue
     const p = point(berth.pos); ctx.strokeStyle = active ? '#65ab91' : '#394b47'; ctx.strokeRect(p.x-3,p.y-3,6,6)
   }
+  // These contacts respect the same survey clip as the walls; never reveal an
+  // unexplored room, but make a missed pod recognizable when returning later.
+  for (const pod of SURVIVAL_PODS) {
+    if (s.rescuedPods.includes(pod.id)) continue
+    const p=point(s.cargo?.[pod.id]?.pos ?? pod.pos)
+    ctx.strokeStyle=podReleased(s,pod.id) ? '#a0ffd0' : '#c4ac74';ctx.lineWidth=1
+    ctx.strokeRect(p.x-2,p.y-3,4,6)
+  }
   ctx.restore()
   if (expanded && !overview) for (const room of SECTORS) {
     if (!revealed && !s.visited.includes(room.id)) continue
-    const p = point(LABEL_POSITIONS[room.id]); ctx.fillStyle = room.color
+    const p = point(SURVEY_LABEL_POSITIONS[room.id]); ctx.fillStyle = room.color
     ctx.font = `${compact ? 8 : 10}px monospace`; ctx.textAlign = 'center'; ctx.fillText(room.name.toUpperCase(), p.x, p.y)
   }
   if (overview) for (const region of REGIONS) {

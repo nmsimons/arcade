@@ -10,7 +10,7 @@ test('authored, spawned and restored cargo use the same effective radius and mas
   const state=freshExpedition(),rt=freshRuntime(),bodies=cargoBodies(state,rt)
   for(const spec of looseObjects(state)) {
     const body=bodies.find(b=>b.cargoId===spec.id)
-    assert.equal(body.mass,spec.id==='core'?1.8:.65)
+    assert.equal(body.mass,CARGO_PHYSICS[body.identity.kind].mass)
     assert.equal(body.mass,spec.mass);assert.equal(body.radius,spec.radius)
     assert.equal(body.identity.type,'cargo')
   }

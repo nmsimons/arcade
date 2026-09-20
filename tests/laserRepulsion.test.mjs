@@ -6,11 +6,13 @@ import { identifyBody } from '../src/games/hardVacuum/bodyDefinitions.ts'
 import { repelBody, repelBlueBody } from '../src/games/hardVacuum/expeditionPhysics.ts'
 import { TERMINALS } from '../src/games/hardVacuum/terminals.ts'
 import { replay } from './helpers/sessionReplay.mjs'
+import { SURVIVAL_PODS } from '../src/games/hardVacuum/survivalPods.ts'
 
 // A clear section of the real Breach, with unrelated ore removed only at setup.
 const origin={x:7770,y:3560},targetPosition={x:7650,y:3560}
 function scene(id='impact',focus=0,capacitor=0) {
   const state=freshExpedition();state.position={...origin};state.flags=['ignition-ready']
+  powerReceiver(state,'ward-power','ward-power');state.doors={}
   state.upgradeLevels={focus,capacitor}
   state.cargo={[id]:{pos:{...targetPosition},vel:{x:0,y:0},tethered:false}}
   const r=replay(state),s=r.session
@@ -19,7 +21,7 @@ function scene(id='impact',focus=0,capacitor=0) {
   return {r,s,body}
 }
 
-for(const id of [...PICKUPS.map(item=>item.id),...CACHES.map(item=>item.id),'core']) {
+for(const id of [...PICKUPS.map(item=>item.id),...CACHES.map(item=>item.id),...SURVIVAL_PODS.map(item=>item.id),'core']) {
   test(`the real laser repels ${id} without damage, collection, installation or credits`,()=>{
     const {r,s,body}=scene(id)
     r.key(' ',true);r.run(23)

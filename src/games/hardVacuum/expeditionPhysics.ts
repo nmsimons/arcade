@@ -1,5 +1,5 @@
 import type { Ship, TetherBody, Vector2 } from './types'
-import { SHIP_FRICTION, SHIP_LATERAL_FRICTION, SHIP_MAX_SPEED, SHIP_THRUST_ACCELERATION, SHIP_NOSE_THRUST_ACCELERATION, SHIP_ROTATION_SPEED, SHIP_TURN_DAMPING, SHIP_TURN_RESPONSE } from './tuning.ts'
+import { SHIP_FRICTION, SHIP_LATERAL_FRICTION, SHIP_MAX_SPEED, SHIP_THRUST_ACCELERATION, SHIP_NOSE_THRUST_ACCELERATION, SHIP_STRAFE_ACCELERATION, SHIP_ROTATION_SPEED, SHIP_TURN_DAMPING, SHIP_TURN_RESPONSE } from './tuning.ts'
 import { flightInput } from './flightInput.ts'
 import type { ControllerFlightInput } from './flightInput'
 import { isImmovable } from './bodyDefinitions.ts'
@@ -9,7 +9,7 @@ export interface FloatingBody extends TetherBody { cargoId: string; capture: num
 export const initialCargoVelocity = (position: Vector2): Vector2 => ({ x: Math.sin(position.x) * 3, y: Math.cos(position.y) * 3 })
 
 export function driftCargo(body: TetherBody, dt: number) {
-  if (body.retrieving) return
+  if (isImmovable(body)) return
   const damping = Math.exp(-0.35 * dt)
   body.vel.x *= damping; body.vel.y *= damping
   body.pos.x += body.vel.x * dt; body.pos.y += body.vel.y * dt
@@ -22,13 +22,17 @@ export function applyNoseThrust(ship: Ship, dt: number) {
 
 /** Production flight integration. Constants retain the original 60 Hz feel. */
 export function stepShipMovement(ship: Ship, keys: Set<string>, dt: number, controller?: ControllerFlightInput) {
-  const { turn, forward, reverse } = flightInput(keys, controller)
+  const { turn, forward, reverse, strafe } = flightInput(keys, controller)
   stepShipTurn(ship, turn, dt)
   if (forward) {
     ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt * forward
     ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt * forward
   }
   if (reverse) applyNoseThrust(ship, dt * reverse)
+  // Ship-relative translation, independent of heading control. Positive is
+  // starboard/right; the existing damping and shared speed cap still apply.
+  ship.vel.x -= Math.sin(ship.angle) * SHIP_STRAFE_ACCELERATION * dt * strafe
+  ship.vel.y += Math.cos(ship.angle) * SHIP_STRAFE_ACCELERATION * dt * strafe
   const speed = Math.hypot(ship.vel.x, ship.vel.y)
   if (speed > SHIP_MAX_SPEED) {
     ship.vel.x *= SHIP_MAX_SPEED / speed; ship.vel.y *= SHIP_MAX_SPEED / speed

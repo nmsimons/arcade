@@ -17,8 +17,8 @@ export interface Ship {
 export type RockKind = 'normal' | 'blue' | 'red'
 
 export type BodyIdentity =
-  | { type: 'ship' | 'asteroid' }
-  | { type: 'cargo'; id: string; kind: 'module' | 'salvage' | 'core' }
+  | { type: 'ship' | 'asteroid' | 'haven-link' }
+  | { type: 'cargo'; id: string; kind: 'module' | 'salvage' | 'pod' | 'core' }
   | { type: 'cell' | 'terminal' | 'bot'; id: string }
 
 export interface TetherBody {

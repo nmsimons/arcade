@@ -2,8 +2,8 @@ import type { Expedition } from './expedition'
 import type { Campaign } from './campaign'
 import type { Vector2 } from './types'
 import { SECTORS, GATES, SOCKETS, PICKUPS, CACHES, CORE_POSITION } from './stationDefinitions.ts'
-import { BERTHS, CAMPAIGN_SOCKETS } from './campaignWorld.ts'
-import { freshCampaign, RECORDS, havenPosition } from './campaign.ts'
+import { BERTHS, CAMPAIGN_SOCKETS, DEPARTURE_ROUTE, OUTER_LOCK } from './campaignWorld.ts'
+import { freshCampaign, RECORDS, RETIRED_RECORD_IDS, havenPosition } from './campaign.ts'
 import { expeditionMap } from './expedition.ts'
 import { isInsideCavern } from './worldGeometry.ts'
 import { migrateSurvey, SURVEY_LIMIT } from './survey.ts'
@@ -13,8 +13,9 @@ import { SHIELD_REPAIR_TIME } from './tuning.ts'
 import { BOT_STATIONS } from './stationBots.ts'
 import { PROGRESSION_IDS } from './stationIds.ts'
 import { initialCargoVelocity } from './expeditionPhysics.ts'
+import { SURVIVAL_PODS, allSurvivorsAboard } from './survivalPods.ts'
 
-export const SAVE_SCHEMA_VERSION = 7
+export const SAVE_SCHEMA_VERSION = 11
 // Historical prices/capacities belong to migration, not the live upgrade shop.
 const RETIRED_RADIATION_COSTS = [6000, 12000, 24000]
 const RETIRED_RADIATION_CAPACITIES = [100, 150, 200, 250]
@@ -31,7 +32,7 @@ export function parseExpedition(raw: string | null): Expedition | null {
     }
 
     function validateInventory() {
-    if (!s || ![1, 2, 3, 4, 5, 6, SAVE_SCHEMA_VERSION].includes(s.version) || (s.finaleVersion!==undefined && s.finaleVersion!==2) || !Number.isFinite(s.credits) || s.credits < 0 || !Number.isFinite(s.banked) || s.banked < 0 ||
+    if (!s || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, SAVE_SCHEMA_VERSION].includes(s.version) || (s.finaleVersion!==undefined && s.finaleVersion!==2) || !Number.isFinite(s.credits) || s.credits < 0 || !Number.isFinite(s.banked) || s.banked < 0 ||
       !Array.isArray(s.upgrades) || !s.upgrades.every((id: unknown) => (id === 'focus2' || id === 'radiation' || (s.version < 4 && id === 'radiationReserve') || SHOP.some(p => p.id === id))) ||
       !Array.isArray(s.gates) || !s.gates.every((id: unknown) => id === 'heart' || id === 'ignition-ready' || id === 'thermal' || GATES.some(g => g.id === id)) ||
       !Array.isArray(s.caches) || !s.caches.every((id: unknown) => CACHES.some(c => c.id === id)) ||
@@ -75,17 +76,30 @@ export function parseExpedition(raw: string | null): Expedition | null {
     const validPoint = (p: Vector2) => p && Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= 0 && p.x <= 9600 && p.y >= 0 && p.y <= 5100
     if (!c || c.version !== 1 || !BERTHS.some(b => b.id === c.berth) || !validPoint(c.haven) ||
       !Array.isArray(c.berths) || !c.berths.includes(c.berth) || c.berths.some(id => !BERTHS.some(b => b.id === id)) ||
-      !Array.isArray(c.records) || c.records.some(id => !RECORDS.some(r => r.id === id)) ||
+      !Array.isArray(c.records) || c.records.some(id => !RECORDS.some(r => r.id === id) && !RETIRED_RECORD_IDS.includes(id)) ||
       !Number.isFinite(c.playedSeconds) || c.playedSeconds < 0 || !Number.isInteger(c.deaths) || c.deaths < 0) return false
     c.havenAngle ??= 0
     c.grappleLearned ??= Object.keys(s.power ?? {}).length > 0 || s.caches.length > 0
     c.terminalLinked ??= false
-    if (!Number.isFinite(c.havenAngle) || typeof c.grappleLearned !== 'boolean' || typeof c.terminalLinked !== 'boolean') return false
+    if (s.version < 11 && c.havenActivated === undefined) {
+      // Preserve the recovery link for existing expeditions. Only an untouched
+      // Access Tunnel start joins the new activation lesson.
+      c.havenActivated = !(s.visited.length===1 && s.visited[0]==='arrival' &&
+        c.records.every(id=>id==='contract') && c.deaths===0 && !c.journey &&
+        !s.banked && !s.credits && !s.core && !s.complete && !s.impactShieldInstalled &&
+        !s.blasterInstalled && !s.teleporterInstalled && !s.upgrades.length && !s.gates.length &&
+        !s.caches.length && !s.rescuedPods?.length && !Object.keys(s.power ?? {}).length)
+    }
+    if (!Number.isFinite(c.havenAngle) || typeof c.grappleLearned !== 'boolean' || typeof c.terminalLinked !== 'boolean' || typeof c.havenActivated !== 'boolean') return false
+    if (c.havenLinkPending!==undefined && (typeof c.havenLinkPending!=='boolean' || c.havenLinkPending && !c.havenActivated)) return false
+    if (!c.havenActivated && (c.journey || c.berth!=='breach' || s.complete)) return false
     if (c.journey) {
       const j = c.journey
       j.speed ??= 0
       if (!Number.isFinite(j.speed) || j.speed < 0 || j.speed > 210) return false
       if (!c.berths.includes(j.destination) || !Array.isArray(j.points) || !j.points.length || j.points.length > 100 || !j.points.every(validPoint) || !Number.isInteger(j.index) || j.index < 0 || j.index > j.points.length || !['folding','transit','deploying'].includes(j.phase) || !Number.isFinite(j.progress) || j.progress < 0 || j.progress > 1 || typeof j.riding !== 'boolean') return false
+      if (j.departure !== undefined && typeof j.departure !== 'boolean') return false
+      if (j.departure && (s.version < 9 || !s.core || !Array.isArray(s.rescuedPods) || !allSurvivorsAboard(s) || c.berth !== 'breach' || j.destination !== 'breach' || !j.riding || j.phase === 'deploying' || j.points.length !== DEPARTURE_ROUTE.length || j.points.some((p,i)=>p.x!==DEPARTURE_ROUTE[i].x || p.y!==DEPARTURE_ROUTE[i].y))) return false
     } else if (Math.hypot(c.haven.x-BERTHS.find(b => b.id === c.berth)!.pos.x,c.haven.y-BERTHS.find(b => b.id === c.berth)!.pos.y) > 1) return false
       return true
     }
@@ -149,7 +163,7 @@ export function parseExpedition(raw: string | null): Expedition | null {
     if (typeof s.botDoors !== 'object' || Array.isArray(s.botDoors) || Object.entries(s.botDoors).some(([id,progress])=>!BOT_STATIONS.some(bot=>bot.id===id && s.power[bot.power]) || typeof progress!=='number' || !Number.isFinite(progress) || progress<0 || progress>1)) return false
     if (s.cargo !== undefined) {
       if (!s.cargo || typeof s.cargo !== 'object' || Array.isArray(s.cargo)) return false
-      const ids = [...PICKUPS.map(p => p.id), ...CACHES.map(c => c.id), ...SOCKETS.map(p => p.id), 'core', 'ore', 'access', 'cutter', 'thermal', 'drive']
+      const ids = [...PICKUPS.map(p => p.id), ...CACHES.map(c => c.id), ...SOCKETS.map(p => p.id), ...SURVIVAL_PODS.map(p => p.id), 'core', 'ore', 'access', 'cutter', 'thermal', 'drive']
       for (const [id, cargo] of Object.entries(s.cargo)) {
         const body = cargo as { pos?: Vector2; vel?: Vector2; tethered?: boolean }
         if (!ids.includes(id) || !body || !body.pos || !body.vel || ![body.pos.x, body.pos.y, body.vel.x, body.vel.y].every(Number.isFinite) || (body.tethered !== undefined && typeof body.tethered !== 'boolean')) return false
@@ -241,18 +255,48 @@ export function parseExpedition(raw: string | null): Expedition | null {
       const body = s.cargo?.impact
       if (!s.impactShieldInstalled && body && !body.tethered &&
         body.pos.x >= 7440 && body.pos.x <= 8560 && body.pos.y >= 3140 && body.pos.y <= 3960) delete s.cargo.impact
-      s.version = SAVE_SCHEMA_VERSION
+      s.version = 7
+    }
+    function migrateSurvivors() {
+      // Earlier victories restored the core but never recovered people. Keep
+      // that power and every earned credit; reopen only the new rescue objective.
+      s.rescuedPods = []
+      if (s.complete) s.campaign.records = s.campaign.records.filter((id: string) => id !== 'core-home')
+      s.complete = false
+      const cell = s.cargo?.['heart-power']
+      if (cell && !cell.tethered && Math.hypot(cell.pos.x-2520,cell.pos.y-3690)<5) delete s.cargo['heart-power']
+      s.version = 8
+    }
+    function migrateDeparture() {
+      // Earlier rescues ended wherever the last requirement was met. Keep all
+      // people, credits and power, but let the player take Haven out physically.
+      s.complete = false
+      s.version = 9
+    }
+    function migrateFirstPod() {
+      // Freight's hold-six pod is now the first survivor encounter. Relocate
+      // only the never-towed Breach pod; rescues and player-handled cargo stay.
+      const pod = s.cargo?.['survival-01']
+      if (!s.rescuedPods.includes('survival-01') && pod && !pod.tethered &&
+        pod.pos.x >= 6700 && pod.pos.x <= 9600 && pod.pos.y >= 2650 && pod.pos.y <= 4200) delete s.cargo['survival-01']
+      s.version = 10
+    }
+    function validateSurvivors() {
+      return Array.isArray(s.rescuedPods) && new Set(s.rescuedPods).size === s.rescuedPods.length
+        && s.rescuedPods.every((id: unknown) => SURVIVAL_PODS.some(pod => pod.id === id))
+        && (!s.complete || s.core && allSurvivorsAboard(s))
+        && !s.rescuedPods.some((id: string) => s.cargo?.[id])
     }
     function validateCurrent() {
       return s.finaleVersion === 2 && Array.isArray(s.flags) && s.flags.every((id: unknown) => PROGRESSION_IDS.some(flag => flag === id))
         && s.gates.every((id: unknown) => GATES.some(g => g.id === id))
         && (s.upgradeLevels.winch ?? 0) <= 1 && s.teleportCharges === undefined
-        && (!s.cargo || Object.keys(s.cargo).every(id => id === 'core' || [...PICKUPS,...CACHES,...SOCKETS].some(item => item.id === id)))
+        && (!s.cargo || Object.keys(s.cargo).every(id => id === 'core' || [...PICKUPS,...CACHES,...SOCKETS,...SURVIVAL_PODS].some(item => item.id === id)))
     }
     // Version 1 accumulated historical subformats. The ordered stages below
     // migrate them exactly once, then advance through each newer schema in order.
     const legacy = s?.version === 1
-    if (!legacy && s?.version !== 2 && s?.version !== 3 && s?.version !== 4 && s?.version !== 5 && s?.version !== 6 && s?.version !== SAVE_SCHEMA_VERSION) return null
+    if (!legacy && s?.version !== 2 && s?.version !== 3 && s?.version !== 4 && s?.version !== 5 && s?.version !== 6 && s?.version !== 7 && s?.version !== 8 && s?.version !== 9 && s?.version !== 10 && s?.version !== SAVE_SCHEMA_VERSION) return null
     if (legacy) migrateLegacyNames()
     if (!validateInventory()) return null
     if (legacy) migratePrototypeCampaign()
@@ -268,6 +312,18 @@ export function parseExpedition(raw: string | null): Expedition | null {
     if (s.version === 4) migrateImpactShield()
     if (s.version === 5) migrateWorksBlaster()
     if (s.version === 6) migrateRescueShield()
+    if (s.version === 7) migrateSurvivors()
+    if (!validateSurvivors()) return null
+    if (s.version === 8) migrateDeparture()
+    if (s.version === 9) migrateFirstPod()
+    if (s.version === 10) {
+      // The old pilot aperture is now sealed. Don't strand a continued ship
+      // inside the leaves or in the small exterior pocket behind them.
+      if (!s.complete && !s.campaign.journey?.departure && s.position.x>OUTER_LOCK.x-15 &&
+        s.position.y>=OUTER_LOCK.y-15 && s.position.y<=OUTER_LOCK.y+OUTER_LOCK.h+15)
+        s.position={x:OUTER_LOCK.x-50,y:OUTER_LOCK.y+OUTER_LOCK.h/2}
+      s.version = SAVE_SCHEMA_VERSION
+    }
     // Migrate former outpost checkpoints without discarding earned progress.
     return { ...s, checkpoint: 'haven', blasterInstalled: s.blasterInstalled ?? false, blasterCharges: s.blasterInstalled ? s.blasterCharges ?? blasterCapacity(s) : 0, radiationCharge: s.radiationCharge ?? (s.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0), radiationExposure: s.radiationExposure ?? 0 } as Expedition
   } catch { return null }

@@ -7,6 +7,7 @@ import { flightInput } from './flightInput.ts'
 import type { ControllerFlightInput } from './flightInput'
 
 import type { ShipAppearance } from './shipAppearance'
+import { lateralJetDemand } from './shipAppearance.ts'
 export type { ShipAppearance } from './shipAppearance'
 export { freshShipAppearance } from './shipAppearance.ts'
 
@@ -20,9 +21,10 @@ export function shieldRechargeAppearance(runtime: { recharging: boolean; recharg
 /** Presentation only: attitude settles smoothly without changing flight physics. */
 export function stepShipAppearance(appearance: ShipAppearance, keys: Set<string>, dt: number, angularVelocity?: number, controller?: ControllerFlightInput) {
   const ease=1-Math.exp(-10*dt)
-  const {turn,forward,reverse}=flightInput(keys,controller)
+  const {turn,forward,reverse,strafe}=flightInput(keys,controller)
   // Jets follow input; banking follows the ship's actual rotation as it coasts.
   appearance.turn=turn
+  appearance.strafe=strafe
   const bank=angularVelocity===undefined ? appearance.turn : clamp(angularVelocity/SHIP_ROTATION_SPEED,-1,1)
   appearance.bank+=(bank-appearance.bank)*ease
   appearance.thrust+=(Number(forward)-appearance.thrust)*ease
@@ -122,18 +124,19 @@ export function drawPlayerShip(ctx: CanvasRenderingContext2D, ship: Ship, appear
   for(const side of [-1,1])jet([-18,side*8.5,0],{x:-1,y:0},appearance.thrust,side*1.7,21,2.1)
   jet([18,0,0],{x:1,y:0},appearance.nose,0,8,1.4)
 
-  // Opposite exhaust directions make a turning couple: starboard bow and port
-  // stern turn left; the mirrored pair turns right. Ports sit on the hull edge.
-  const bowSide=-appearance.turn
-  const turnPorts: { origin:V3; side:number; strength:number }[]=appearance.turn===0 ? [] : [
-    {origin:[10,bowSide*5.1,0],side:bowSide,strength:1},
-    {origin:[-14,-bowSide*11.3,0],side:-bowSide,strength:.72},
+  // Turning uses opposing jets; strafing fires both jets on the opposite side.
+  // Combine the demands so simultaneous rotation and translation stay coherent.
+  const demand=lateralJetDemand(appearance.turn,appearance.strafe)
+  const lateralPorts: { origin:V3; side:number; strength:number }[]=[
+    {origin:[10,Math.sign(demand.bow)*5.1,0],side:Math.sign(demand.bow),strength:Math.abs(demand.bow)},
+    {origin:[-14,Math.sign(demand.stern)*11.3,0],side:Math.sign(demand.stern),strength:Math.abs(demand.stern)},
   ]
-  for(const port of turnPorts)jet(port.origin,{x:0,y:port.side},port.strength,port.origin[0]*.3,7,.85)
+  for(const port of lateralPorts)jet(port.origin,{x:0,y:port.side},port.strength,port.origin[0]*.3,7,.85)
 
   drawModel(ctx,{x:0,y:0},SHIP_PARTS,angles,options.time,scale)
   // A small lit nozzle connects each plume to the banked, projected hull.
-  for(const port of turnPorts) {
+  for(const port of lateralPorts) {
+    if(port.strength<.025)continue
     const [x,y,z]=port.origin
     trace([project([x-.65,y,z]),project([x+.65,y,z])],false)
     ctx.strokeStyle=port.strength===1 ? '#ffe1ad' : '#c8b597';ctx.lineWidth=1;ctx.stroke()

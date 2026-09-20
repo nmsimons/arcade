@@ -7,8 +7,9 @@ at the breach.
 
 Three people left the route the player discovers: freight dispatcher Mara Vale,
 maintenance chief Ivo Sen, and refuge medic Ada Ren. Their records reveal that
-the shutdown isolated damage and preserved 312 people in medical suspension.
-The core is needed to wake them without draining their remaining reserves.
+the shutdown preserved twelve people in portable survival pods. Haven is their
+lifeboat, with two pod berths in each of her six hull sections. The core must
+restore the station’s escape bus so she can leave with everyone aboard.
 
 ## Progression and pacing
 
@@ -21,18 +22,35 @@ the target.
 | Region | Intended time | Main work | Haven and discoveries |
 | --- | --- | --- | --- |
 | The Breach | 8 min | Learn movement and hauling by recovering the impact shield from the rescue locker, then learn mining and bring the locker’s reserve to freight transit. | Haven begins here. An optional sealed baggage bay rewards a return with the blaster. |
-| Freight Galleries | 11 min | Power the gallery receiver from western stores; install radiation shielding and enter Dispatch through the long radioactive tunnel. Carry a hold-six reserve to the receiver inside. | Gallery power opens the far tunnel door and Haven’s berth. Dispatch opens the safe lift shortcut back out and the Works exit. The evacuation ledger does not add up. |
+| Freight Galleries | 11 min | Power the gallery receiver from western stores; install radiation shielding and enter Dispatch through the long radioactive tunnel. Carry a hold-six reserve to the receiver inside. | Gallery power opens the far tunnel door and Haven’s berth. Dispatch opens the safe lift shortcut back out and the Works exit. The first survivor pod is in hold six; there are none in the opening Breach. The evacuation ledger does not add up. |
 | The Works | 12 min | Find the blaster in the main bay and tow it back to Freight Haven for installation. Breach the tool crib, recover its supply, restore maintenance, then feed the Ring from the capacitor store. | Maintenance power enables the berth. Welded bulkheads reveal deliberate damage containment. |
 | The Broken Ring | 17 min | Clear the west passage, power the Foundry and relay, recover radiation shielding, then restore the reserve engine. | The original seven-room map. The relay enables Haven’s berth. The engine opens Refuge Approach south of the vault. |
-| Refuge Approach | 12 min | Restore medical transfer from the vault reserve; connect the ward from Triage; restore ignition access. | Medical transfer enables Haven’s berth. Ward power opens the southern return passage. Four 78-circuit medical banks confirm the survivors. |
-| The Heart | 10 min | Supply induction from the ward, ground the field, release the core and tow it into Haven. | Induction power enables the final berth. Grounding opens a second route to the well. Dock to connect the awakening bus. |
+| Refuge Approach | Re-measure with eight rescues | Restore medical transfer from the vault reserve; carry the Triage cell through the radioactive service bypass; power the ward and tow its eight released pods to Haven. | Transfer power opens the service bypass and Haven’s berth. Ward power opens the direct safe return. Twelve cradles have four empty slots for the earlier pods. Keep the central towing and service lanes clear. |
+| The Heart | 10 min | Supply induction from the ward, ground the field, release the core and tow it through the lower return to the Ignition Cradle east of the Breach. | Ignition restores station escape power, not a rescue count. Haven leaves only when all twelve pods are aboard. |
 
-Main route target: approximately 70 minutes, with 10–15 minutes of optional
-cargo recovery, recordings and return visits. Navigation and recovery use the
+The previous main-route target was approximately 70 minutes. Twelve required
+pod recoveries change both pacing and upgrade income; re-measure with human
+playtesting before quoting a revised duration. Optional cargo, recordings and
+return visits remain. Navigation and recovery use the
 existing ship, laser, blaster, grapple and shields. There are no inventory keys,
 boost gates, ore hoppers, destructible background crags or additional checkpoints.
 
 ## One mobile Haven
+
+The Access Tunnel's outer door has sealed behind the pilot. Haven begins dormant
+at the Breach. The first lesson is to aim at her blue center socket and connect
+the tether (F / X); entering the ring does not activate her. Her lights come up,
+services start, and the pilot's recovery link is registered and saved.
+Haven speaks through the same pinned message panel as a connected log terminal,
+with data pulses along the cable. Her center connector stays deployed until the
+pilot disconnects, then lowers into its hub and closes permanently. The message
+remains in the flight recorder. Saving before disconnect permits reconnection;
+saving after disconnect never brings the connector back.
+Until that moment, ship loss ends the expedition and Start again resets everything
+at the Access Tunnel. Afterward, Haven reconstructs the pilot. The story jumps
+forward: station maintenance has rebuilt the bots and debris has drifted back,
+while installed equipment, restored circuits, banked credits and rescued pods
+persist. The player does not wait through that long reconstruction in real time.
 
 Haven travels between six fixed service berths. A berth needs its power circuit
 and discovery. The vessel also needs open bulkheads along the service route.
@@ -42,7 +60,9 @@ restored locations stay available for backtracking.
 
 All permanent services move with this vessel: credit banking, asteroid
 processing, recharging, outfitting, cargo recovery, respawning and the teleporter
-destination. Cargo is released before departure. Empty mounting shoes offer no
+destination. Loose cargo is released before travel; rescued pods remain safely
+aboard and keep their berth lights through folding, transit, reload and death.
+Empty mounting shoes offer no
 services. There is no relocation fee or fuel inventory. Travel cannot duplicate
 the base; its path and position persist across reloads. The folded transport
 shell deflects debris without processing it. Six rigid leaves fold on service
@@ -51,14 +71,55 @@ leaves push loose cells, salvage, asteroids and the free ship. Body impacts and
 red asteroid fuses continue during passenger travel. Authored service lanes
 leave clearance for the whole folded hull, including its rear extrusion.
 
-Haven's opening recording introduces the green impact-shield module in the rescue
-locker, through the passage west of Haven. The first objective and contextual
-prompts teach flying to the locker, nose aiming, F to grapple, S to brake/reverse, towing home, and waiting
-for the recovery shutters to seal. Prompts persist through misses, release and
-reload until installation. The installed shield supplies two charges and unlocks
-hull upgrades; the next objective is the rescue-locker cell and first door.
-Haven holds its opening steady until installation, allowing time to read and aim.
-The lesson takes temporary priority over recordings without skipping their text.
+Exposition is deliberately sparse: seven short physical story recordings and
+Haven's brief, tether-requested greeting. Logs reveal the people and history of
+Orison, never equipment locations, puzzle solutions or routes. Sixteen former
+walkthrough recordings have been retired. Their IDs remain valid in existing
+saves, but they no longer appear as fixtures or journal entries.
+Floor text is limited to destination signs and a few industrial labels. Six matching
+destination signs mark the main approaches: Breach Anchorage, Freight Galleries,
+The Works, The Broken Ring, Refuge Approach and The Heart. They share the
+anchorage sign's bold lettering and painted arrow. Room names remain on the map
+and HUD, not repeated on the floor. These are wayfinding, not puzzle instructions. Logs and Haven's
+tether link have no control hints; training covers them. Haven's center reads Dock once its link
+socket is fully retracted; empty discovered berths carry Call Haven. Bindings
+follow the connected input device. All logs use one recorder model and one
+tethered information-card treatment, including training. There are no floating
+control prompts, automatic status toasts, receiver lessons,
+installation instructions, route directions, automatic tutorial cards or
+instructional objective paragraphs in pause/the recorder. Basic mechanics belong
+in flight training. Haven holds its opening steady until shield installation.
+
+## Flight training
+
+The main menu offers a separate 2,400 × 2,400 practice area with a faint,
+world-locked grid. Its four floor-marked sections cover inertia/thrust/reverse,
+level-one laser mining and fragment colors, tether towing/release and two fixed
+blue-ore hoppers, then a real cell/receiver/door and a tether-readable practice log.
+The floor placards and instructor recording frame these exercises as a mining-pilot
+induction simulator: flight handling, extraction, ore handling and auxiliary systems.
+It has no Haven, shields, blaster, teleporter, bots, radiation or upgrade shop.
+The circular hoppers have three wide openings and stationary mining guns. After
+blue ore spends one second inside, the same small lasers used by Haven fire at it;
+only a shot impact consumes the ore and awards the usual refinery credit value.
+They cannot consume power cells. The practice door, its moving collision leaves,
+power wiring and receiver current share the expedition's visuals and behavior.
+All practice instructions and recordings refer only to exercises in this room.
+White rocks split using the same
+laser and physics as the expedition, with training-specific red/blue/white yields.
+No red asteroids are placed at startup or dispensed; they appear only as volatile
+inclusions exposed by breaking white rock. An automatic rock dispenser in the
+extraction range replenishes white parent stock through a solid, open guide chute.
+It visibly charges for 1.2 seconds, launches slowly, then waits six seconds between
+feeds. It aims for five parent rocks or at least eight loose asteroids, with an
+18-asteroid feed cutoff. The ship and cargo interlock the outlet, including during
+charging; existing fragments are never removed to make room. Training debris stays
+active across the whole bay so the dispenser clears even while the pilot is away.
+Practice credits never enter the expedition economy. Death plays the explosion
+and automatically resets the entire area. Pause offers reset and leave, via
+keyboard or controller. Training uses an isolated session, cannot activate the
+save writer, and is available even when an expedition save cannot be read.
+Floor control labels follow the connected controller's selected layout live.
 
 ## Economy and equipment
 
@@ -67,8 +128,10 @@ After installation, five dock upgrades each add one shot, reaching eight.
 They cost 750 / 1,500 / 3,000 / 6,000 / 10,000 credits and fill the new magazine;
 shot damage and firing speed stay unchanged.
 The opening is solvable without it. Mining regular asteroids provides small
-field returns; bringing blue asteroids to Haven provides the strongest early
-purchase opportunity. Optional recovered cargo increases from 250 to 4,000
+field returns. Survival pods pay 1,000 banked credits at shutter seal, once per
+pod (12,000 total). Four loose pods—Cargo hold 6, Works, Ring archive and Refuge Approach—
+fund gradual upgrades before the ward rescue. Locked equipment still has to be
+found and installed; money cannot skip that progression. Optional cargo pays 250 to 4,000
 credits in later regions. Mining inside Haven retains its 10× banked payout.
 
 Hull, capacitor, laser focus and blaster magazine have five stages; the winch has one upgrade.
@@ -87,20 +150,40 @@ adds damaged containment housings whose visible fields match physical exposure.
 
 ## Presentation and ending
 
-Short archival transcripts play as regions and systems are discovered. Optional
-recorders require proximity and line of sight. J opens the flight recorder with
-discovered records and the current objective. M opens the saved survey, and O
+All archival transcripts require a grapple connection and line of sight; proximity,
+entering rooms and powering systems never read them automatically. The final shift
+recording is available only after its circuit is powered. Current story downloads
+remain available; retired walkthrough IDs are preserved in saves but hidden.
+G opens the flight recorder with downloaded records. M opens the saved survey, and O
 switches local/overall scale. Flight retains a restrained resource HUD. Dialogs,
 outfitter pages, berth commands and the recorder support keyboard navigation.
 
-After delivering the released ignition core and docking, Haven bridges the
-awakening bus. The last message is live:
+Pods use the same faceted pressure-shell aesthetic as the ship and other cargo,
+with a single life-support window and a medical cross. Eight are anchored in
+numbered ward cradles until ward power releases the clamps; four matching
+cradles start empty. The first loose pod is in Freight, after the opening equipment
+recovery. Pod recovery is left to discovery, without floor lessons or instructional
+logs. Surveyed map contacts identify pods without an on-board counter. Haven lights one of
+twelve physical lamps when custody commits, two per moving hull panel.
 
-> “Haven? We’ve got your lights. Is the route clear?”
+Departure needs both all twelve rescues and the installed ignition core. Either
+can happen first. Power alone never claims the missing people are aboard; all
+rescues without power still require the final core run. Neither completes the
+game automatically. Bring Haven back to the Breach, dock, wait for any recovery
+shutters to finish, then choose Launch Haven. Her folded hull follows the same
+Access Tunnel where the pilot arrived. The outer door stays sealed even with
+ignition power, opening only for the authorized launch. Victory follows the physical escape,
+not the button press. Saved departures resume their fold or flight.
 
-The player can continue exploring afterward. Prototype saves migrate into the
+> “Everyone aboard. Outer lock clear. We’re going home.”
+
+Optional free exploration returns to the moment before departure, with victory
+retained. Pre-pod completed saves keep their core, equipment and credits but
+reopen the rescue objective without inventing rescues or rewards. Prototype saves migrate into the
 Broken Ring, retaining funds, equipment and survey coordinates. A new expedition
-starts at the Breach.
+starts in the Access Tunnel, facing inward toward the Breach. Existing
+in-progress saves retain their positions. Pre-departure rescue victories retain
+every rescued pod and credit but reopen the final journey home.
 
 ## Validation
 

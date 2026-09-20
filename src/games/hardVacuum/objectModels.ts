@@ -13,6 +13,9 @@ export interface Part {
   glow?: boolean
   // Optional interior seams: vertex pair and opacity. Silhouette edges stay crisp.
   edges?: readonly (readonly [number, number, number])[]
+  // Coplanar details belong to a specific hull face, not the assembly's
+  // average-depth sort. They inherit that face's projection and visibility.
+  markings?: { face: number; verts: V3[]; color: string; glow?: boolean }[]
 }
 const STEEL = '#a7c3c3'
 const GREEN = '#65efb2'
@@ -80,17 +83,23 @@ const rgb = (color: string): V3 => {
  * Sort faces across the whole assembly, so struts and inset machinery occlude
  * one another correctly instead of looking like stacked flat icons. */
 export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: readonly Part[], angles: V3, time: number, scale = 1, illumination = 0) {
-  const faces: { points: Vector2[]; z: number; color: V3; shade: number; glow: boolean; edges?: number[] }[] = []
+  type Marking = { points: Vector2[]; color: V3; glow: boolean }
+  const faces: { points: Vector2[]; z: number; color: V3; shade: number; glow: boolean; edges?: number[]; markings: Marking[] }[] = []
   const light: V3 = [0.25, -0.45, -0.86]
+  const project = (p: V3): Vector2 => {
+    const perspective=420/(420+p[2])
+    return {x:p[0]*perspective*scale,y:p[1]*perspective*scale}
+  }
   for (const part of parts) {
     const edgeKey = (a:number,b:number) => `${Math.min(a,b)}:${Math.max(a,b)}`
     const edges = part.edges && new Map(part.edges.map(([a,b,opacity])=>[edgeKey(a,b),opacity]))
     const local = part.rotation ?? [0, 0, 0]
-    const vertices = part.verts.map(v => {
+    const transform = (v: V3) => {
       const p = rotate(v, [local[0], local[1], local[2] + time * (part.spin ?? 0)])
       return rotate([p[0] + part.at[0], p[1] + part.at[1], p[2] + part.at[2]], angles)
-    })
-    const visibleFaces = part.faces.flatMap(face => {
+    }
+    const vertices = part.verts.map(transform)
+    const visibleFaces = part.faces.flatMap((face, index) => {
       // Newell's normal uses the whole polygon. Beveled quads can be slightly
       // twisted; using their first triangle makes mirrored faces disagree.
       const normal = normalize3(face.reduce<V3>((sum, index, i) => {
@@ -99,7 +108,7 @@ export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: re
           sum[1] + (a[2] - b[2]) * (a[0] + b[0]),
           sum[2] + (a[0] - b[0]) * (a[1] + b[1])]
       }, [0, 0, 0]))
-      return normal[2] > 0.02 ? [] : [{ face, normal }]
+      return normal[2] > 0.02 ? [] : [{ face, normal, index }]
     })
     const visibleEdges = new Map<string, number>()
     if (edges) {
@@ -108,12 +117,10 @@ export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: re
         visibleEdges.set(key, (visibleEdges.get(key) ?? 0) + 1)
       }
     }
-    for (const { face, normal } of visibleFaces) {
-      const points = face.map(i => {
-        const p = vertices[i], perspective = 420 / (420 + p[2])
-        return { x: p[0] * perspective * scale, y: p[1] * perspective * scale }
-      })
+    for (const { face, normal, index } of visibleFaces) {
+      const points = face.map(i => project(vertices[i]))
       faces.push({ points, z: face.reduce((sum, i) => sum + vertices[i][2], 0) / face.length, color: rgb(part.color), shade: Math.max(0, normal[0] * light[0] + normal[1] * light[1] + normal[2] * light[2]), glow: !!part.glow,
+        markings:(part.markings ?? []).filter(marking=>marking.face===index).map(marking=>({points:marking.verts.map(v=>project(transform(v))),color:rgb(marking.color),glow:!!marking.glow})),
         // An edge shared by two visible faces is a seam; with only one it is
         // the silhouette, even when banking exposes the quieter upper rim.
         edges:edges && face.map((a,i)=>{
@@ -147,6 +154,18 @@ export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: re
         ctx.beginPath();ctx.moveTo(start.x,start.y);ctx.lineTo(end.x,end.y);ctx.stroke()
       })
     } else ctx.stroke()
+    for (const marking of face.markings) {
+      ctx.beginPath()
+      marking.points.forEach((p,i)=>i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y))
+      ctx.closePath()
+      const brightness=(marking.glow ? .55+face.shade*.25 : .08+face.shade*.12)+illumination*.25
+      const [r,g,b]=marking.color
+      ctx.fillStyle=`rgb(${Math.round(r*brightness)},${Math.round(g*brightness)},${Math.round(b*brightness)})`
+      ctx.shadowBlur=marking.glow ? 2 : 0
+      ctx.shadowColor=`rgba(${r},${g},${b},.3)`
+      ctx.fill()
+      ctx.strokeStyle=`rgba(${r},${g},${b},.8)`;ctx.lineWidth=.8;ctx.stroke()
+    }
   }
   ctx.restore()
 }
@@ -200,15 +219,29 @@ const CORE: Part[] = [
   { ...crystal(19, '#ffe7ad'), rotation: [0.3, 0.5, 0], spin: -0.45 },
 ]
 
-export type ObjectKind = 'checkpoint' | 'socket' | 'impact' | 'radiation' | 'blaster' | 'teleporter' | 'emitter' | 'cache' | 'core'
+// A quiet pressure shell. Glass and badge are attached to its front face;
+// separate shallow meshes can sort behind their own hull as the pod rocks.
+const podMarking = (outline: Outline, color: string, glow=false) => ({face:1,verts:outline.map(([x,y]): V3=>[x,y,-5]),color,glow})
+const SURVIVAL_POD: Part[] = [
+  { ...bevel([[-10,-22],[10,-22],[15,-14],[15,14],[9,22],[-9,22],[-15,14],[-15,-14]],
+    [[-8,-19],[8,-19],[12,-12],[12,12],[7,19],[-7,19],[-12,12],[-12,-12]], '#bbd8ca', 5, -5),
+    markings:[
+      podMarking([[-6,-15],[6,-15],[8,-10],[8,1],[5,5],[-5,5],[-8,1],[-8,-10]],'#50786f'),
+      podMarking([[-4,-13],[4,-13],[6,-9],[6,0],[4,3],[-4,3],[-6,0],[-6,-9]],'#80d8c2',true),
+      podMarking([[-1.5,7.5],[1.5,7.5],[1.5,10.5],[4.5,10.5],[4.5,13.5],[1.5,13.5],[1.5,16.5],[-1.5,16.5],[-1.5,13.5],[-4.5,13.5],[-4.5,10.5],[-1.5,10.5]],GREEN,true),
+    ],
+  },
+]
+
+export type ObjectKind = 'checkpoint' | 'socket' | 'impact' | 'radiation' | 'blaster' | 'teleporter' | 'emitter' | 'cache' | 'pod' | 'core'
 export function drawExpeditionObject(ctx: CanvasRenderingContext2D, kind: ObjectKind, pos: Vector2, options: { active?: boolean; variant?: number; scale?: number; time?: number; latch?: number; medical?: boolean; laserGlow?: number } = {}) {
   const t = options.time ?? performance.now() / 1000
-  const floating = ['impact', 'radiation', 'blaster', 'teleporter', 'cache', 'core'].includes(kind)
+  const floating = ['impact', 'radiation', 'blaster', 'teleporter', 'cache', 'pod', 'core'].includes(kind)
   // Seed the gentle tumble from stable object identity, never world position.
   // Using moving coordinates as phase made towed cargo twitch with every pixel.
-  const phase = { checkpoint: 0, socket: 0.5, impact: .75, radiation: 1.5, blaster: 1, teleporter: 3.5, cache: 2, core: 2.5, emitter: 3 }[kind] + (options.variant ?? 0) * 1.7
+  const phase = { checkpoint: 0, socket: 0.5, impact: .75, radiation: 1.5, blaster: 1, teleporter: 3.5, cache: 2, pod: 1, core: 2.5, emitter: 3 }[kind] + (options.variant ?? 0) * 1.7
   const at = pos
-  const models = { checkpoint: CHECKPOINT, socket: SOCKET, impact: IMPACT, radiation: RADIATION, blaster: BLASTER, teleporter: TELEPORTER, emitter: EMITTER, cache: CACHES[(options.variant ?? 0) % 4], core: CORE }
+  const models = { checkpoint: CHECKPOINT, socket: SOCKET, impact: IMPACT, radiation: RADIATION, blaster: BLASTER, teleporter: TELEPORTER, emitter: EMITTER, cache: CACHES[(options.variant ?? 0) % 4], pod:SURVIVAL_POD, core: CORE }
   let parts = models[kind]
   if (kind === 'socket' && options.active) parts = [...SOCKET.map(p => ({ ...p, color: GREEN })), ...CELL.map(p => ({ ...p, verts: p.verts.map(v => v.map(n => n * 0.64) as V3), color: GREEN }))]
   if (kind === 'checkpoint' && options.latch) {
@@ -224,7 +257,10 @@ export function drawExpeditionObject(ctx: CanvasRenderingContext2D, kind: Object
     ]),box(5,4,2,[0,0,-4],'#96d6b5',true),
   ]
   if (kind === 'emitter' && options.active === false) parts = EMITTER.map(p => ({ ...p, color: '#77988a', glow: false, spin: 0 }))
-  drawModel(ctx, at, parts, floating ? [0.32 + Math.sin(t * 0.4 + phase) * 0.22, -0.32 + Math.sin(t * 0.28 + phase) * 0.42, Math.sin(t * 0.3 + phase) * 0.16] : [0.2 + Math.sin(t * 0.7 + phase) * 0.025, -0.16, 0], t, options.scale ?? 1, options.laserGlow ?? 0)
+  const angles: V3 = kind === 'pod'
+    ? [.16 + Math.sin(t*.4+phase)*.08, -.28 + Math.sin(t*.28+phase)*.16, Math.sin(t*.3+phase)*.12]
+    : floating ? [0.32 + Math.sin(t * 0.4 + phase) * 0.22, -0.32 + Math.sin(t * 0.28 + phase) * 0.42, Math.sin(t * 0.3 + phase) * 0.16] : [0.2 + Math.sin(t * 0.7 + phase) * 0.025, -0.16, 0]
+  drawModel(ctx, at, parts, angles, t, options.scale ?? 1, options.laserGlow ?? 0)
 }
 export function drawPowerCell(ctx: CanvasRenderingContext2D, pos: Vector2, rotation: V3, laserGlow = 0) {
   drawModel(ctx, pos, CELL, rotation, 0, 0.64, laserGlow)

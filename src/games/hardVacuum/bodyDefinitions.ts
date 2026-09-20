@@ -4,6 +4,7 @@ import type { BodyIdentity, TetherBody, Rock } from './types'
 export const CARGO_PHYSICS = {
   module: { radius: 23, mass: .65 },
   salvage: { radius: 22, mass: .65 },
+  pod: { radius: 24, mass: .9 },
   core: { radius: 27, mass: 1.8 },
 } as const
 export type CargoKind = keyof typeof CARGO_PHYSICS
@@ -17,6 +18,7 @@ export function identifyBody<T extends TetherBody>(body: T, identity: BodyIdenti
     case 'cargo': Object.assign(body, CARGO_PHYSICS[identity.kind]); body.cargoId = identity.id; break
     case 'cell': body.sourceId = identity.id; body.kind = 'blue'; body.mass = (body.radius / 18) ** 2; break
     case 'terminal': body.terminalId = identity.id; body.anchored = true; break
+    case 'haven-link': body.anchored = true; break
     case 'bot': body.botId = identity.id; break
     case 'ship': body.mass = 1; break
     case 'asteroid': body.mass = Math.max(.25, (body.radius / 18) ** 2); break

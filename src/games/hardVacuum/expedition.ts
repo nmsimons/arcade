@@ -7,13 +7,14 @@ import type { CavernMap } from './worldGeometry'
 import { isInsideCavern, pointInPolygon, raycastCavern } from './worldGeometry.ts'
 import { CHAMBERS, STATION_TERRAIN } from './stationLayout.ts'
 import { recordSurvey } from './survey.ts'
-import { BERTHS, IGNITION_CRADLE, WARD_BANKS } from './campaignWorld.ts'
+import { ARRIVAL_POSITION, BERTHS, IGNITION_CRADLE, OUTER_LOCK_PANELS } from './campaignWorld.ts'
+import { POD_RESCUE_CREDITS_LABEL, SURVIVAL_PODS, WARD_POD_HOUSINGS, podReleased, rescuePod, survivalPod } from './survivalPods.ts'
 import type { BerthId } from './campaignWorld'
-import { campaignObjective, coreReleased, discoverCampaign, freshCampaign, havenPose, havenPosition, havenReady, settleHaven } from './campaign.ts'
+import { campaignObjective, coreReleased, discoverCampaign, freshCampaign, havenPose, havenPosition, havenReady, outerLockOpen, recordAvailable, settleHaven } from './campaign.ts'
+import { havenLinkTargets } from './havenActivation.ts'
 import { RECOVERY_END, RECOVERY_GRIP, RECOVERY_SEAL, recoveryPath, recoveryPosition } from './havenRecovery.ts'
 import type { HavenRecovery, RecoveryCue } from './havenRecovery'
 import type { Campaign } from './campaign'
-import { stepGrappleGuide } from './grappleGuide.ts'
 import { dockingReadiness, driftCargo, initialCargoVelocity } from './expeditionPhysics.ts'
 import type { FloatingBody } from './expeditionPhysics'
 import { resolveWorldContacts } from './bodyCollisions.ts'
@@ -35,7 +36,7 @@ import type { CoreLatch } from './ignitionCradle'
 
 export type Upgrade = 'radiation' | 'focus2' | ShopUpgrade
 export interface Expedition {
-  version: 7
+  version: 11
   flags: import('./stationIds').ProgressionId[]
   finaleVersion?: 2
   campaign: Campaign
@@ -45,6 +46,7 @@ export interface Expedition {
   power: Record<string, string>
   doors: Record<string, number>
   caches: string[]
+  rescuedPods: string[]
   visited: string[]
   surveyed: number[]
   disabledBots: string[]
@@ -69,16 +71,18 @@ const rectangle = (x: number, y: number, w: number, h: number): Vector2[] => [
 ]
 export const EXPEDITION_WALLS = STATION_TERRAIN.walls
 
-export const freshExpedition = (berth: BerthId = 'breach'): Expedition => ({ version: 7, flags: [], finaleVersion:2, campaign:freshCampaign(berth), upgrades: [], upgradeLevels: {}, gates: [], power: {}, doors: {}, caches: [], visited: [BERTHS.find(b => b.id === berth)!.room], surveyed: [], disabledBots: [], botDoors: {}, checkpoint: 'haven', credits: 0, banked: 0, core: false, complete: false, position: { ...BERTHS.find(b => b.id === berth)!.pos }, shields: 0, impactShieldInstalled: false, blasterInstalled: false, blasterCharges: 0, radiationCharge: 0, radiationExposure: 0, teleporterInstalled: false })
+export const freshExpedition = (berth: BerthId = 'breach'): Expedition => ({ version: 11, flags: [], finaleVersion:2, campaign:freshCampaign(berth), upgrades: [], upgradeLevels: {}, gates: [], power: {}, doors: {}, caches: [], rescuedPods: [], visited: [BERTHS.find(b => b.id === berth)!.room], surveyed: [], disabledBots: [], botDoors: {}, checkpoint: 'haven', credits: 0, banked: 0, core: false, complete: false, position: { ...BERTHS.find(b => b.id === berth)!.pos }, shields: 0, impactShieldInstalled: false, blasterInstalled: false, blasterCharges: 0, radiationCharge: 0, radiationExposure: 0, teleporterInstalled: false })
+/** A new campaign arrives from outside; berth starts remain useful for development and staging. */
+export const newExpedition = (): Expedition => ({ ...freshExpedition(), campaign:{...freshCampaign(),havenActivated:false}, position:{...ARRIVAL_POSITION}, visited:['arrival'] })
 export { parseExpedition } from './saveMigrations.ts'
 export const sectorAt = (p: Vector2) => SECTORS.find(s => pointInPolygon(p, CHAMBERS[s.id]))
-export const checkpointPosition = (s?: Expedition) => ({ ...(s ? havenPosition(s) : BASE_POSITION) })
+export const checkpointPosition = (s?: Expedition) => ({ ...(s ? s.campaign.havenActivated ? havenPosition(s) : ARRIVAL_POSITION : BASE_POSITION) })
 export const maxShields = impactShieldCapacity
 export const near = (a: Vector2, b: Vector2, radius: number) => Math.hypot(a.x - b.x, a.y - b.y) < radius
 const mapCache = new Map<string, CavernMap>()
 const machineObstacles = [
   ...IGNITION_HOUSINGS,
-  ...WARD_BANKS.map(b => rectangle(b.x-b.w/2,b.y-b.h/2,b.w,b.h)),
+  ...WARD_POD_HOUSINGS,
   ...TERMINAL_HOUSINGS,
   ...RADIATION_HOUSINGS,
   ...SOCKETS.flatMap(socket=>receiverPlates(socket.pos)),
@@ -86,20 +90,27 @@ const machineObstacles = [
 export function expeditionMap(s: Expedition): CavernMap {
   const profileTime = profileStart()
   try {
-    const key = [...s.gates].sort().join(',') + '|' + Object.keys(s.power).sort().join(',') + '|' + Number(s.core)
+    const key = [...s.gates].sort().join(',') + '|' + Object.keys(s.power).sort().join(',') + '|' + Number(s.core) + '|' + Number(outerLockOpen(s))
     const existing = mapCache.get(key)
     const animating = Object.keys(s.doors).length > 0 || Object.keys(s.botDoors ?? {}).length > 0
     if (existing && !animating) return existing
     const installedCells = SOCKETS.filter(socket=>s.power[socket.id]).map(socket=>rectangle(socket.pos.x-10,socket.pos.y-15,20,30))
-    const map = { id: 0, name: 'Station survey', boundary: STATION_TERRAIN.boundary, obstacles: [...STATION_TERRAIN.islands, ...machineObstacles, ...(s.core ? [INSTALLED_CORE_HOUSING] : []), ...installedCells, ...botGarageObstacles(s), ...GATES.flatMap(g => doorPanels(g, doorProgress(s, g.id)))], containedRadiation: s.power.heart ? ['reactor-breach','fuel-unit'] : [] }
+    const map = { id: 0, name: 'Station survey', boundary: STATION_TERRAIN.boundary, obstacles: [...STATION_TERRAIN.islands, ...machineObstacles, ...(outerLockOpen(s) ? [] : OUTER_LOCK_PANELS), ...(s.core ? [INSTALLED_CORE_HOUSING] : []), ...installedCells, ...botGarageObstacles(s), ...GATES.flatMap(g => doorPanels(g, doorProgress(s, g.id)))], containedRadiation: s.power.heart ? ['reactor-breach','fuel-unit'] : [] }
     if (!animating) { if (mapCache.size > 40) mapCache.clear(); mapCache.set(key, map) }
     return map
   } finally { profileEnd('geometry', profileTime) }
 }
 export function objective(s: Expedition, towing: string | boolean = false): { title: string; detail: string; target: Vector2 } {
-  if (towing==='core' || towing===true) return { title:'Return to the first cradle',detail:'Tow the core through the lower return tunnel, then east to the Ignition Cradle.',target:IGNITION_CRADLE }
-  if (towing) return { title:'Tow cargo home', detail:'Bring the object inside Haven for recovery.', target:havenPosition(s) }
   const goal = campaignObjective(s)
+  if (!s.campaign.havenActivated) return {title:goal.title,detail:goal.detail,target:goal.target!}
+  if (towing==='core' || towing===true) return { title:'Return to the first cradle',detail:'Tow the core through the lower return tunnel, then east to the Ignition Cradle.',target:IGNITION_CRADLE }
+  if (typeof towing === 'string' && survivalPod(towing)) return { title:'Bring this survivor to Haven', detail:`Tow the pod close and slow; rescue and ${POD_RESCUE_CREDITS_LABEL} credits are secured when Haven’s shutters seal.`, target:havenPosition(s) }
+  if (towing) return { title:'Tow cargo home', detail:'Bring the object inside Haven for recovery.', target:havenPosition(s) }
+  if (goal.target) return { title:goal.title,detail:goal.detail,target:goal.target }
+  if (goal.pod) {
+    const pod = survivalPod(goal.pod)!
+    return { title:goal.title, detail:goal.detail, target:s.cargo?.[pod.id]?.pos ?? pod.pos }
+  }
   if (goal.module) {
     const item = PICKUPS.find(item => item.id === goal.module)!
     return { title: goal.title, detail: goal.detail, target: s.cargo?.[item.id]?.tethered ? havenPosition(s) : s.cargo?.[item.id]?.pos ?? item.pos }
@@ -145,6 +156,13 @@ export function teleportToHaven(s: Expedition, ship: Ship): boolean {
 }
 export function crashExpedition(s: Expedition): number {
   const lost = s.credits
+  if (!s.campaign.havenActivated) {
+    // No registered pilot means no reconstruction. Reset even handled cargo,
+    // exploration and station changes, rather than granting a free checkpoint.
+    delete s.cargo
+    Object.assign(s,newExpedition())
+    return lost
+  }
   s.credits = 0
   s.checkpoint = 'haven'
   settleHaven(s)
@@ -162,6 +180,9 @@ export interface ExpeditionRuntime {
   radioQueue?: string[]
   havenImpact?: number
   havenImpactCooldown?: number
+  havenLink?: import('./types').TetherBody
+  havenActivation?: number
+  havenLinkRetraction?: number
   recovery?: HavenRecovery
   coreLatch?: CoreLatch
   recoveryCues?: RecoveryCue[]
@@ -200,10 +221,11 @@ export function powerCellSpawns(s: Expedition) {
 export const looseObjects = (s: Expedition) => [
   ...PICKUPS.filter(item => !moduleInstalled(s, item.id)).map(item => ({ ...item, ...CARGO_PHYSICS.module, kind: item.id, available: true })),
   ...CACHES.filter(item => !s.caches.includes(item.id)).map(item => ({ ...item, ...CARGO_PHYSICS.salvage, kind: 'cache', available: true })),
+  ...SURVIVAL_PODS.filter(item => !s.rescuedPods.includes(item.id)).map(item => ({ ...item, ...CARGO_PHYSICS.pod, kind: 'pod', available: podReleased(s,item.id) })),
   ...(!s.core ? [{ id: 'core', pos: CORE_POSITION, ...CARGO_PHYSICS.core, kind: 'core', available: coreReleased(s) }] : []),
 ]
 export const objectBody = (rt: ExpeditionRuntime, id: string, position: Vector2): FloatingBody => {
-  const kind = id === 'core' ? 'core' : CACHES.some(c => c.id === id) ? 'salvage' : 'module'
+  const kind = id === 'core' ? 'core' : survivalPod(id) ? 'pod' : CACHES.some(c => c.id === id) ? 'salvage' : 'module'
   const { radius } = CARGO_PHYSICS[kind]
   const body = rt.objects[id] ??= { pos: { ...position }, vel: initialCargoVelocity(position), radius, cargoId: id, capture: 0 }
   if (![body.pos.x, body.pos.y, body.vel.x, body.vel.y].every(Number.isFinite)) {
@@ -219,6 +241,12 @@ export function cargoBodies(s: Expedition, rt: ExpeditionRuntime): FloatingBody[
     if (!existing) {
       const saved = s.cargo?.[item.id]
       if (saved && isInsideCavern(saved.pos, body.radius, expeditionMap(s))) { body.pos = { ...saved.pos }; body.vel = { ...saved.vel }; body.tethered = saved.tethered }
+    }
+    if (survivalPod(item.id)) {
+      const wasLocked = body.anchored
+      body.anchored = !item.available
+      if (body.anchored) { body.pos = { ...item.pos }; body.vel = { x:0,y:0 }; body.tethered = false }
+      else if (wasLocked) body.vel = { x:0,y:item.pos.y < 3500 ? 7 : -7 }
     }
     return rt.objects[item.id]
   })
@@ -282,6 +310,7 @@ export function stepCargoRecovery(s: Expedition,rt: ExpeditionRuntime,dt: number
     const upgrade=PICKUPS.find(p=>p.id===recovery.id),cache=CACHES.find(p=>p.id===recovery.id)
     if(upgrade && installModule(s,upgrade.id)) events.push(`${upgrade.label} installed`)
     else if(cache) { s.caches.push(cache.id); s.banked+=cache.value; events.push(`Salvage +${cache.value} banked`) }
+    else if(rescuePod(s,recovery.id)) events.push(`Survivor rescued · +${POD_RESCUE_CREDITS_LABEL} banked`)
     ;(rt.recoveryCues ??= []).push('seal')
   }
   if(recovery.time>=RECOVERY_END) { delete rt.objects[recovery.id]; delete rt.recovery }
@@ -337,20 +366,33 @@ export function stepExpedition(s: Expedition, rt: ExpeditionRuntime, args: {
   const room = sectorAt(ship.pos)
   if (room && !s.visited.includes(room.id)) { s.visited.push(room.id); events.push(`Discovered ${room.name}`) }
   rt.radioQueue ??= []
+  if (rt.havenActivation !== undefined) rt.havenActivation=Math.max(0,rt.havenActivation-dt)
+  const link=havenLinkTargets(s,rt)[0]
+  const linkConnected=!args.aboard && link && harpoon.state==='attached' && harpoon.rock===link &&
+    near(ship.pos,link.pos,700) && visibleBetween(ship.pos,link.pos,expeditionMap(s))
+  if (linkConnected && !s.campaign.havenActivated) {
+    s.campaign.havenActivated=true
+    s.campaign.havenLinkPending=true
+    s.campaign.grappleLearned=true
+    rt.havenActivation=10
+    events.push('Haven online · recovery link established')
+  }
   const terminal = !args.aboard && harpoon.state === 'attached' && harpoon.rock.terminalId &&
     TERMINALS.includes(harpoon.rock) && terminalVisible(ship.pos,harpoon.rock,expeditionMap(s)) ? harpoon.rock : undefined
-  rt.radioQueue.push(...discoverCampaign(s, room?.id, terminal?.terminalId).filter(id=>id!==terminal?.terminalId))
-  if (terminal && rt.connectedTerminal !== terminal.terminalId) {
-    s.campaign.terminalLinked = true
+  const connectedRecord=linkConnected ? 'first-light' : terminal?.terminalId && recordAvailable(s,terminal.terminalId) ? terminal.terminalId : undefined
+  discoverCampaign(s, room?.id, connectedRecord)
+  if (connectedRecord && rt.connectedTerminal !== connectedRecord) {
+    if (terminal) s.campaign.terminalLinked = true
     delete rt.grappleLesson
-    rt.radio = { id:terminal.terminalId!,time:16 }
-    rt.radioQueue = rt.radioQueue.filter(id=>id!==terminal.terminalId)
+    rt.radio = { id:connectedRecord,time:16 }
+    rt.radioQueue = rt.radioQueue.filter(id=>id!==connectedRecord)
   }
-  rt.connectedTerminal = terminal?.terminalId
-  stepGrappleGuide(s,rt,ship,harpoon,[...rocks,...cargoBodies(s,rt).filter(b=>b.cargoId!=='core'||coreReleased(s))],expeditionMap(s),dt,args.aboard)
-  if (rt.radio && rt.radio.id !== rt.connectedTerminal && !rt.grappleHint && !args.aboard) { rt.radio.time -= dt; if (rt.radio.time <= 0) delete rt.radio }
-  if (!rt.radio && rt.radioQueue.length) rt.radio = { id:rt.radioQueue.shift()!,time:16 }
-  if (harpoon.state === 'attached' && !harpoon.rock.anchored) harpoon.rock.tethered = true
+  rt.connectedTerminal = connectedRecord
+  // Exposition is requested with a cable, never broadcast over the flight HUD.
+  rt.grappleHint=''
+  rt.radioQueue=[]
+  if (!connectedRecord) delete rt.radio
+  if (harpoon.state === 'attached' && !harpoon.rock.anchored) { harpoon.rock.tethered = true; s.campaign.grappleLearned = true }
   const map = expeditionMap(s)
   const active = (body: {pos:Vector2}) => near(body.pos,ship.pos,1500) || near(body.pos,havenPosition(s),450)
   const cargo = cargoBodies(s,rt).filter(active)
@@ -359,7 +401,7 @@ export function stepExpedition(s: Expedition, rt: ExpeditionRuntime, args: {
     driftCargo(body,dt)
   }
   events.push(...stepCargoRecovery(s,rt,dt))
-  resolveWorldContacts([...rocks.filter(active),...cargo.filter(b=>!(rt.recovery?.id===b.cargoId&&rt.recovery.secured)),...(args.extraBodies ?? []).filter(active),...(args.aboard ? [] : [ship])],map,contact=>{
+  resolveWorldContacts([...rocks.filter(active),...cargo.filter(b=>!(rt.recovery?.id===b.cargoId&&rt.recovery.secured)),...havenLinkTargets(s,rt),...(args.extraBodies ?? []).filter(active),...(args.aboard ? [] : [ship])],map,contact=>{
     if (contact.body === ship || contact.other === ship) rt.impactSpeed=Math.max(rt.impactSpeed,contact.speed)
     args.onContact?.(contact)
   },args.havenMotion)
@@ -389,8 +431,8 @@ export function stepExpedition(s: Expedition, rt: ExpeditionRuntime, args: {
     events.push(`${socket.label} online`)
   }
   if (stepIgnitionCradle(s,rt,dt)) {
-    events.push('Orison awakening bus online')
-    rt.radioQueue.push(...discoverCampaign(s,room?.id))
+    events.push('Station escape bus online')
+    discoverCampaign(s,room?.id)
   }
   return events
 }

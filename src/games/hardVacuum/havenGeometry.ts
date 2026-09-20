@@ -32,6 +32,15 @@ export function havenPanels(pose: HavenPose): HavenPanel[] {
     return { vertices:vertices.map(transform),hinge:transform({x:(p.x+q.x)*.325,y:(p.y+q.y)*.325}),anchor:posePoint({x:Math.cos((i+.5)*Math.PI/3)*23,y:Math.sin((i+.5)*Math.PI/3)*23},pose) }
   })
 }
+/** Two occupancy lamps belong to each physical leaf, including while folding. */
+export function havenRescueMarkers(pose: HavenPose, rescued: number) {
+  return havenPanels(pose).flatMap((panel, i) => [.3,.7].map((u, j) => {
+    const [a,b,c,d] = panel.vertices
+    const outer = { x:mix(a.x,b.x,u), y:mix(a.y,b.y,u) }
+    const inner = { x:mix(d.x,c.x,u), y:mix(d.y,c.y,u) }
+    return { panel:i, lit:i*2+j < rescued, pos:{ x:mix(outer.x,inner.x,.52),y:mix(outer.y,inner.y,.52) } }
+  }))
+}
 export function havenColliders(pose: HavenPose): Vector2[][] {
   const panels=havenPanels(pose).map(p=>p.vertices)
   // The passenger sits inside this cradle; other bodies collide with its shell.

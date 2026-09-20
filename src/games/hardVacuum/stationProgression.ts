@@ -36,6 +36,6 @@ export const CIRCUIT_LOADS: readonly CircuitLoad[] = SOCKETS.flatMap(socket => {
   if (socket.flags?.includes('ignition-ready')) loads.push({circuit:socket.id,target:'ignition-ready',kind:'core',end:{x:CORE_POSITION.x-33,y:CORE_POSITION.y},exit:{x:CORE_POSITION.x-65,y:CORE_POSITION.y}})
   for(const berth of BERTHS) if(berth.power===socket.id) loads.push({circuit:socket.id,target:'berth:'+berth.id,kind:'berth',end:{x:berth.pos.x,y:berth.pos.y-145},exit:{x:berth.pos.x,y:berth.pos.y-177}})
   for(const bot of BOT_STATIONS) if(bot.power===socket.id) loads.push({circuit:socket.id,target:'bot:'+bot.id,kind:'bot',end:{x:bot.home.x-35,y:bot.home.y},exit:{x:bot.home.x-67,y:bot.home.y}})
-  if(socket.id==='ward-power') WARD_BANKS.forEach((bank,i)=>loads.push({circuit:socket.id,target:'ward:'+i,kind:'ward',end:{x:bank.x,y:bank.y+bank.h/2},exit:{x:bank.x,y:bank.y+bank.h/2+32}}))
+  if(socket.id==='ward-power') WARD_BANKS.forEach((bank,i)=>loads.push({circuit:socket.id,target:'ward:'+i,kind:'ward',end:{x:bank.x,y:bank.y-bank.facing*30},exit:{x:bank.x,y:bank.y-bank.facing*62}}))
   return loads
 })

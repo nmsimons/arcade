@@ -3,6 +3,7 @@ import { CHAMBERS, PASSAGES } from './stationLayout.ts'
 import { isInsideCavern } from './worldGeometry.ts'
 import type { Vector2 } from './types'
 import { CIRCUIT_LOADS } from './stationProgression.ts'
+import { POWER_PATHS } from './powerPaths.ts'
 
 export const WIRE_CLEARANCE = 24
 export const WIRE_WALL_CLEARANCE = 28
@@ -32,7 +33,11 @@ export const POWER_CONNECTIONS: PowerConnection[] = SOCKETS.flatMap(socket => {
         {end:{x:gate.x+gate.w/2,y:gate.y+gate.h-4},exit:{x:gate.x+gate.w/2,y:gate.y+gate.h-36}}]
     return {target:load.target,...ends.filter(p=>isInsideCavern(p.exit,WIRE_WALL_CLEARANCE,terrain)).sort((a,b)=>distance(a.exit,socket.pos)-distance(b.exit,socket.pos))[0]}
   })
-  return targets.map(({target,end,exit})=>({source:socket.id,target,...ports(socket.pos).sort((a,b)=>distance(a.entry,exit)-distance(b.entry,exit))[0],end,exit}))
+  return targets.map(({target,end,exit})=>({source:socket.id,target,...ports(socket.pos).sort((a,b)=>
+    // The twelve pod cradles share one west-facing ward feed. Picking a new
+    // receiver port per cradle produces competing leads across the tow lane.
+    target.startsWith('ward:') ? distance(a.entry,{x:socket.pos.x-110,y:socket.pos.y})-distance(b.entry,{x:socket.pos.x-110,y:socket.pos.y})
+      : distance(a.entry,exit)-distance(b.entry,exit))[0],end,exit}))
 })
 
 const pointGap = (p: Vector2, a: Vector2, b: Vector2) => {
@@ -84,10 +89,19 @@ const parallelBlocked = (a: Vector2,b: Vector2,source: string,trace: PowerTrace)
   return !(source===trace.source&&collinear&&gap<.001)&&gap<WIRE_CLEARANCE-.001
 }
 let cached: (PowerConnection & { path: Vector2[] })[] | undefined
+let authored: (PowerConnection & { path: Vector2[] })[] | undefined
 
-/** Route fixed cable through the authored passages, even while doors are shut.
- * Build once; doors, moving cargo and restored power never move the cables. */
+/** Fixed cable geometry is authored ahead of time, not searched on the first
+ * flight frame. Doors, moving cargo and restored power never move the cables. */
 export function powerConduits() {
+  return authored ??= POWER_CONNECTIONS.map(connection=>({
+    ...connection,
+    path:POWER_PATHS[`${connection.source}/${connection.target}`].map(([x,y])=>({x,y})),
+  }))
+}
+
+/** Authoring/test tool. Run npm run generate:power after changing the station. */
+export function routePowerConduits() {
   if (cached) return cached
   const nodes: Vector2[] = []
   const add = (point: Vector2) => {
@@ -102,6 +116,10 @@ export function powerConduits() {
     const length=distance(lead.a,lead.b)
     addClear({x:lead.b.x+(lead.b.x-lead.a.x)*32/length,y:lead.b.y+(lead.b.y-lead.a.y)*32/length})
   }
+  // Branch the dense ward harness in its central service aisle. These are
+  // junctions, not collision exceptions: addClear enforces ordinary clearance.
+  addClear({x:2562,y:3584})
+  addClear({x:2562,y:3812})
   for (const shape of [...Object.values(CHAMBERS),...PASSAGES.map(p=>p.shape)]) {
     const center=shape.reduce((p,q)=>({x:p.x+q.x/shape.length,y:p.y+q.y/shape.length}),{x:0,y:0})
     addClear(center)

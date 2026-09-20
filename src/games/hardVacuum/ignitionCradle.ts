@@ -36,7 +36,7 @@ export function stepIgnitionCradle(s: Expedition,rt: ExpeditionRuntime,dt: numbe
   body.pos={x:latch.from.x+(IGNITION_CRADLE.x-latch.from.x)*ease,y:latch.from.y+(IGNITION_CRADLE.y-latch.from.y)*ease}
   body.vel={x:0,y:0}
   if (latch.time<IGNITION_START_SECONDS) return false
-  s.core=true;s.complete=true
+  s.core=true
   delete rt.objects.core
   if (s.cargo) delete s.cargo.core
   ;(rt.recoveryCues ??= []).push('seal')

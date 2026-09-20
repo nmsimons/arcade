@@ -40,6 +40,14 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test browser routes, recovery and controls
         run: npm run test:browser
+      - name: Retain browser failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failures
+          path: test-results/
+          retention-days: 7
+          if-no-files-found: ignore
       - name: Deploy validated build
         if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         id: builddeploy

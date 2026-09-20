@@ -16,6 +16,8 @@ export const DEV_LEVELS = REGIONS.map((region, index) => ({
 export function advanceDevelopmentLevel(state: Expedition, id: BerthId): boolean {
   const index = DEV_LEVELS.findIndex(level => level.id === id)
   if (index < 0) return false
+  state.campaign.havenActivated = true
+  delete state.campaign.havenLinkPending
   const prerequisites = CIRCUIT_STEPS.filter(step => REGIONS.findIndex(region => region.id === step.region) < index)
   for (const { id: circuit } of prerequisites) {
     if (state.power[circuit]) continue

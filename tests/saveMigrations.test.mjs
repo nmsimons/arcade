@@ -28,7 +28,7 @@ for(const name of ['prototype','pre-supplies-medical','teleporter-refund','banke
     if(name==='teleporter-refund') { assert.equal(state.upgradeLevels.winch,1);assert.equal(state.teleportCharges,undefined) }
     if(name==='banked-core') { assert.equal(state.core,false);assert.ok(state.cargo.core.tethered);assert.ok(state.flags.includes('ignition-ready'));assert.ok(state.gates.includes('breach-return')) }
     if(name==='journey') { assert.deepEqual(state.campaign.journey,before.campaign.journey);assert.deepEqual(state.cargo,before.cargo);assert.equal(state.blasterCharges,1);assert.equal(state.remoteRechargeRemaining,undefined) }
-    if(name==='completed')assert.ok(state.complete&&state.core)
+    if(name==='completed') { assert.ok(state.core);assert.equal(state.complete,false);assert.deepEqual(state.rescuedPods,[]) }
   })
 }
 test('current saves never repeat legacy rewards or cargo relocations, and newer schemas are preserved',()=>{

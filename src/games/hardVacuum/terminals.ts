@@ -8,7 +8,8 @@ export const TERMINAL_OUTLINE = [[-17,-30],[17,-30],[24,-23],[24,23],[17,30],[-1
 export const TERMINALS: TetherBody[] = RECORDS.filter(record => record.pos).map(record => identifyBody({
   pos: { ...record.pos! }, vel: { x:0, y:0 }, radius:40, anchored:true, terminalId:record.id,
 }, { type: 'terminal', id: record.id }))
-export const TERMINAL_HOUSINGS = TERMINALS.map(body => TERMINAL_OUTLINE.map(([x,y]) => ({ x:body.pos.x+x,y:body.pos.y+y })))
+// Service-bus recorders are flush floor plates, not obstacles in cargo lanes.
+export const TERMINAL_HOUSINGS = TERMINALS.filter(body=>!RECORDS.find(r=>r.id===body.terminalId)?.floorMounted).map(body => TERMINAL_OUTLINE.map(([x,y]) => ({ x:body.pos.x+x,y:body.pos.y+y })))
 
 export function terminalVisible(from: Vector2, body: TetherBody, map: CavernMap) {
   const dx=body.pos.x-from.x,dy=body.pos.y-from.y,distance=Math.hypot(dx,dy)

@@ -6,12 +6,14 @@ import { cradlePoint, IGNITION_START_SECONDS, stepIgnitionCradle } from '../src/
 import { debrisField, FRAGMENT_PROFILES, fragmentProfileAt } from '../src/games/hardVacuum/debrisField.ts'
 import { radiationAt, stepRadiation } from '../src/games/hardVacuum/radiation.ts'
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
+import { SURVIVAL_PODS } from '../src/games/hardVacuum/survivalPods.ts'
 
 const shipAt=pos=>({pos:{...pos},vel:{x:0,y:0},radius:15,angle:0})
 const tick=(s,rt,dt=1/60)=>stepExpedition(s,rt,{dt,ship:shipAt({x:IGNITION_CRADLE.x,y:IGNITION_CRADLE.y+100}),rocks:[],harpoon:{state:'idle'},beam:{active:false}})
 function ready() {
   const s=freshExpedition('heart'),rt=freshRuntime()
   s.flags=['ignition-ready'];s.gates=GATES.map(g=>g.id);s.upgrades=['radiation'];s.radiationCharge=100
+  s.rescuedPods=SURVIVAL_PODS.map(pod=>pod.id)
   const core=cargoBodies(s,rt).find(b=>b.cargoId==='core')
   core.pos={...IGNITION_CRADLE};core.vel={x:0,y:0};core.tethered=true
   return {s,rt,core}
@@ -80,7 +82,7 @@ test('the final tube has moving white and blue debris, with Heart mineral conten
   for(const r of rocks)assert.deepEqual(fragmentProfileAt(r.pos),FRAGMENT_PROFILES.heart)
 })
 
-test('only a released, towed core seated between the contacts starts the three-second awakening',()=>{
+test('only a released, towed core seated between the contacts starts the escape bus after everyone is aboard',()=>{
   for(const dt of [1/30,1/60,1/144]) {
     const {s,rt,core}=ready();s.gates=[];s.flags=[]
     stepIgnitionCradle(s,rt,4);assert.equal(rt.coreLatch,undefined)
@@ -98,8 +100,8 @@ test('only a released, towed core seated between the contacts starts the three-s
       tick(s,rt,dt);assert.equal(s.complete,false);assert.equal(core.radius,27)
     }
     for(let i=0;i<3;i++)tick(s,rt,dt)
-    assert.equal(s.core,true);assert.equal(s.complete,true);assert.equal(rt.objects.core,undefined)
-    assert.ok(s.campaign.records.includes('core-home'))
+    assert.equal(s.core,true);assert.equal(s.complete,false);assert.equal(rt.objects.core,undefined)
+    assert.ok(!s.campaign.records.includes('core-home'),'the service memory must be tethered to read')
     assert.deepEqual(core.pos,IGNITION_CRADLE)
     assert.equal(stepIgnitionCradle(s,rt,10),false,'the sequence cannot award completion twice')
     assert.equal(isInsideCavern(IGNITION_CRADLE,15,expeditionMap(s)),false,'installed core remains a solid object')
@@ -128,9 +130,9 @@ test('interrupted installation resumes as physical cargo, and completed saves ke
   for(let i=0;i<190;i++)tick(loaded,runtime)
   snapshotCargo(loaded,runtime,[])
   const completed=parseExpedition(JSON.stringify(loaded))
-  assert.ok(completed.core&&completed.complete)
+  assert.ok(completed.core);assert.equal(completed.complete,false)
   assert.ok(!cargoBodies(completed,freshRuntime()).some(b=>b.cargoId==='core'))
-  assert.deepEqual(objective(completed).target,IGNITION_CRADLE)
+  assert.deepEqual(objective(completed).target,completed.campaign.haven)
 })
 
 test('old banked cores become towable beside Haven, and old core releases open the new return',()=>{
@@ -143,5 +145,5 @@ test('old banked cores become towable beside Haven, and old core releases open t
   assert.notDeepEqual(loaded.cargo.core.pos,CORE_POSITION)
   old.complete=true
   const completed=parseExpedition(JSON.stringify(old))
-  assert.ok(completed.core&&completed.complete)
+  assert.ok(completed.core);assert.equal(completed.complete,false);assert.deepEqual(completed.rescuedPods,[])
 })

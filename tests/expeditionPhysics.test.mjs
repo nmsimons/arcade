@@ -85,13 +85,14 @@ test('power-cell origins are empty space while receivers retain their physical c
   for (const pos of [{ x: 703, y: 460 }, { x: 2723, y: 950 }]) assert.ok(isInsideCavern(pos, 15, map), 'former checkpoint arms are removed')
 })
 
-test('every fresh power cell, module, salvage crate and core starts drifting in clear space', () => {
+test('every free cargo body starts drifting in clear space while medical pods remain locked', () => {
   const state = freshExpedition(), map = expeditionMap(state)
   const bodies = [...powerCellSpawns(state).map(cell => ({ ...cell, radius:20 })), ...cargoBodies(state, freshRuntime())]
   assert.equal(powerCellSpawns(state).length, SOCKETS.length)
   for (const body of bodies) {
     const before = { ...body.pos }
     assert.ok(isInsideCavern(body.pos, body.radius, map), body.sourceId ?? body.cargoId)
+    if(body.anchored) { driftCargo(body,2);assert.deepEqual(body.pos,before);assert.deepEqual(body.vel,{x:0,y:0});continue }
     assert.ok(Math.hypot(body.vel.x, body.vel.y) > 0.1)
     for (let i=0;i<120;i++) {
       driftCargo(body, 1/60)
@@ -156,7 +157,7 @@ test('the core stays on the cable until delivered to the Ignition Cradle, and Ha
   core.pos = { ...IGNITION_CRADLE }; core.vel = { x: 0, y: 0 }; ship.pos = { x: IGNITION_CRADLE.x, y: IGNITION_CRADLE.y + 100 }
   for (let i = 0; i < 190; i++) step(state, rt, ship)
   assert.equal(state.core, true)
-  assert.equal(state.complete, true)
+  assert.equal(state.complete, false, 'ignition power alone cannot evacuate the survivors')
 })
 
 test('cargo positions and delivery history survive saves without remote recall', () => {

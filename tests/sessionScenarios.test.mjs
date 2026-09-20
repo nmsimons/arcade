@@ -5,6 +5,7 @@ import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import { expeditionMap } from '../src/games/hardVacuum/expedition.ts'
 import { replay } from './helpers/sessionReplay.mjs'
 import { BOT_MAX_HEALTH } from '../src/games/hardVacuum/stationBots.ts'
+import { SURVIVAL_PODS } from '../src/games/hardVacuum/survivalPods.ts'
 
 // Controlled scenes remove unrelated ore, not simulation systems or collisions.
 const controlled=r=>{r.session.refs.rocksRef.current=r.session.refs.rocksRef.current.filter(b=>b.sourceId);return r}
@@ -105,15 +106,21 @@ test('teleport releases an actually attached cargo body and saves it where it wa
   const restored=parseExpedition(JSON.stringify(s.expedition));assert.deepEqual(restored.cargo['rescue-cache'].pos,pos)
 })
 
-test('actual core towing seats the Ignition Cradle and completion survives a session reload',()=>{
+test('actual core towing powers escape, then a docked launch completes and survives a session reload',()=>{
   const state=freshExpedition();state.gates=['baggage-door','breach-return'];state.flags=['ignition-ready']
+  state.rescuedPods=SURVIVAL_PODS.map(pod=>pod.id)
+  state.teleporterInstalled=true
   state.position={x:9080,y:3550};state.cargo={core:cargo(9000,3550)}
   const r=controlled(replay(state)),s=r.session
   r.command({type:'tether'});r.run(25)
   assert.equal(s.refs.harpoonRef.current.state,'attached',r.diagnostic())
-  for(let i=0;i<1000&&s.mode==='playing';i++)r.step(()=>r.fly({x:9230,y:3550},65))
+  for(let i=0;i<1000&&!s.expedition.core&&s.mode==='playing';i++)r.step(()=>r.fly({x:9230,y:3550},65))
+  assert.equal(s.mode,'playing');assert.ok(s.expedition.core);assert.equal(s.expedition.complete,false)
+  r.stop();r.command({type:'teleport'});r.command({type:'interact'});r.run(60)
+  assert.equal(s.mode,'docked');r.command({type:'launch'})
+  for(let i=0;i<2400&&s.mode==='playing';i++)r.step()
   assert.equal(s.mode,'complete',r.diagnostic());assert.ok(s.expedition.core&&s.expedition.complete)
-  assert.ok(s.expedition.campaign.records.includes('core-home'))
+  assert.ok(!s.expedition.campaign.records.includes('core-home'),'launch does not auto-download recordings')
   const restored=parseExpedition(JSON.stringify(s.expedition));assert.ok(restored,r.diagnostic())
   r.command({type:'load',expedition:restored});assert.equal(s.mode,'complete')
   r.command({type:'resume'});r.step();assert.equal(s.mode,'playing');assert.ok(s.expedition.complete)

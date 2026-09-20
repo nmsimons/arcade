@@ -16,7 +16,7 @@ for (const passage of CAMPAIGN_PASSAGES) {
 /** Long transfer tubes carry damaged isotope-powered service conduits.
  * The first expedition out of the Breach deliberately remains safe. */
 export const IRRADIATED_TUNNELS = [...groups.entries()].filter(([,parts])=>
-  parts[0].gate!==TRANSFER_RULES.safeIntroGate && parts.reduce((n,p)=>n+length(p.centerline[0],p.centerline[1]),0)>=TRANSFER_RULES.minimumTubeLength,
+  parts[0].gate!==TRANSFER_RULES.safeIntroGate && !parts[0].rooms.includes(TRANSFER_RULES.safeArrivalRoom) && parts.reduce((n,p)=>n+length(p.centerline[0],p.centerline[1]),0)>=TRANSFER_RULES.minimumTubeLength,
 ).map(([id,parts])=>({id,parts}))
 
 export const TRANSFER_RADIATION_SOURCES = IRRADIATED_TUNNELS.flatMap(tunnel=>tunnel.parts.flatMap((part,index)=>{

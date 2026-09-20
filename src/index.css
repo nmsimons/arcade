@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./menu.css";
 
 html,
 body,
@@ -19,29 +20,4 @@ body {
   outline-offset: 3px;
   background-color: #10372c;
   color: #e0fff0;
-}
-
-/* Controller focus is programmatic: :focus-visible alone disappears after a
-   pointer click. The selected action must remain obvious for every input mode. */
-.game-dialog { scroll-padding: 16px; }
-.game-dialog button { scroll-margin: 10px; }
-.game-dialog button[aria-pressed="true"] { box-shadow: inset 0 -2px #8ee5e8; }
-.game-dialog button:focus:not(:disabled) {
-  transition: none;
-  outline: 2px solid #bdffe4;
-  outline-offset: 3px;
-  border-color: #8ceac0;
-  background-color: #8ceac0;
-  color: #041b11;
-  box-shadow: inset 4px 0 #041b11, 0 0 0 2px #041b11;
-}
-.game-dialog button:focus:not(:disabled) * { color: #041b11; }
-.dialog-controller-help { display: none; }
-.hard-vacuum[data-controller-connected="true"] .dialog-controller-help {
-  display: block;
-  margin-top: 1.25rem;
-  color: #a5c7bb;
-  font-size: .7rem;
-  line-height: 1.6;
-  white-space: pre-wrap;
 }

@@ -1,11 +1,13 @@
 import type { HavenPose } from './havenGeometry'
-import { havenPanels, posePoint } from './havenGeometry'
+import { havenPanels, havenRescueMarkers, posePoint } from './havenGeometry'
 import type { Vector2 } from './types'
+import { drawHavenLink } from './havenLinkRender'
 
-export function drawHaven(ctx:CanvasRenderingContext2D,pose:HavenPose,time:number,thrust:number,impact=0) {
+export function drawHaven(ctx:CanvasRenderingContext2D,pose:HavenPose,time:number,thrust:number,impact=0,rescued=0,active=true,activation=0,link={deployment:active ? 0 : 1,connected:false}) {
   const panels=havenPanels(pose), fold=1-pose.deployment
   const trace=(points:Vector2[])=>{ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath()}
   ctx.save();ctx.lineJoin='round';ctx.lineCap='round'
+  ctx.globalAlpha=active ? .45+.55*Math.min(1,(10-activation)/1.8) : .45
   if (fold>.02) {
     // Hinges, knuckles and actuators remain attached throughout the sequence.
     for (const panel of panels) {
@@ -37,9 +39,17 @@ export function drawHaven(ctx:CanvasRenderingContext2D,pose:HavenPose,time:numbe
     }
     ctx.beginPath();ctx.arc(panel.hinge.x,panel.hinge.y,2,0,Math.PI*2);ctx.stroke()
   }
-  if (pose.deployment>.95) {
+  if (active && pose.deployment>.95) {
     ctx.fillStyle='#cdd9d1'
     for(let i=0;i<3;i++){const p=posePoint({x:Math.cos(i*Math.PI*2/3)*74.34,y:Math.sin(i*Math.PI*2/3)*74.34},pose);ctx.beginPath();ctx.arc(p.x,p.y,2.2,0,Math.PI*2);ctx.fill()}
   }
+  for (const marker of havenRescueMarkers(pose,rescued)) {
+    ctx.beginPath();ctx.arc(marker.pos.x,marker.pos.y,3.2,0,Math.PI*2)
+    ctx.fillStyle=marker.lit ? '#a0ffd0' : '#14251e'
+    ctx.strokeStyle=marker.lit ? '#c4ffe3' : '#587363';ctx.lineWidth=.9
+    ctx.shadowColor='#65efb2';ctx.shadowBlur=marker.lit ? 7 : 0
+    ctx.fill();ctx.stroke()
+  }
   ctx.restore()
+  drawHavenLink(ctx,pose.pos,time,link.deployment,link.connected)
 }

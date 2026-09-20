@@ -18,6 +18,14 @@ export function triggerPressure(value = 0) {
   return Number.isFinite(value) ? Math.max(0, Math.min(1, (value - TRIGGER_DEAD_ZONE) / (1 - TRIGGER_DEAD_ZONE))) : 0
 }
 
+/** A shared Haven button performs exactly one action. A nearby interaction
+ * wins even while unavailable, so a blocked call never teleports the pilot. */
+export function controllerHavenAction(pressed: readonly number[], hasInteraction: boolean, layout: ControllerLayout = DEFAULT_CONTROLLER_LAYOUT): 'interact' | 'teleport' | undefined {
+  const {interact,teleport}=layout.buttons
+  if (pressed.includes(interact) && (hasInteraction || interact!==teleport)) return 'interact'
+  if (pressed.includes(teleport)) return 'teleport'
+}
+
 /** Pure frame sampler: no browser, storage, game-state or audio dependencies. */
 export function createControllerReader(layout: ControllerLayout = DEFAULT_CONTROLLER_LAYOUT) {
   const CONTROLLER = layout.buttons
@@ -82,7 +90,8 @@ export function createControllerReader(layout: ControllerLayout = DEFAULT_CONTRO
         pressed, navigation, direction,
         scroll: focused && !scrollBlocked && screen.startsWith('menu:') ? scrollAxis : 0,
         flight: screen === 'flight' && focused && !disconnected
-          ? { turn: axisBlocked ? 0 : x, thrust: held(CONTROLLER.thrust) ? thrust : 0, reverse: held(CONTROLLER.reverse) ? reverse : 0, laser: held(CONTROLLER.laser) }
+          ? { turn: axisBlocked ? 0 : x, thrust: held(CONTROLLER.thrust) ? thrust : 0, reverse: held(CONTROLLER.reverse) ? reverse : 0,
+            strafe: Number(held(CONTROLLER.strafeRight))-Number(held(CONTROLLER.strafeLeft)), laser: held(CONTROLLER.laser) }
           : neutralController(),
       }
     },

@@ -4,11 +4,12 @@ export function isVisibleControl(element: HTMLElement) {
   return !element.closest('[hidden], [inert]') && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
 }
 export const dialogButtons = (root: HTMLElement) => [...root.querySelectorAll<HTMLButtonElement>('button')]
-  .filter(button => !button.disabled && button.getAttribute('aria-disabled') !== 'true' && isVisibleControl(button))
+  .filter(button => !button.disabled && button.getAttribute('aria-disabled') !== 'true' && isVisibleControl(button) && button.closest('.game-dialog') === root)
+export const topDialog = (root: ParentNode = document) => [...root.querySelectorAll<HTMLElement>('.game-dialog')].filter(isVisibleControl).at(-1)
 export const dialogButtonKey = (button: HTMLButtonElement) => button.dataset.menuId ?? button.getAttribute('aria-label') ?? button.textContent ?? ''
 export function focusDialogButton(button: HTMLButtonElement) {
   button.focus({ preventScroll: true })
-  button.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
 }
 export function restoreDialogSelection(root: HTMLElement, key = root.dataset.selectionKey, previous?: HTMLButtonElement | null) {
   const buttons = dialogButtons(root)
@@ -23,13 +24,13 @@ export function restoreDialogSelection(root: HTMLElement, key = root.dataset.sel
 }
 
 /** Linear menus visit every action. Explicit grids also respect their visual columns. */
-export function moveDialogSelection(root: HTMLElement, direction: ControllerNavigation | 'first' | 'last') {
+export function moveDialogSelection(root: HTMLElement, direction: ControllerNavigation | 'first' | 'last' | 'next' | 'previous') {
   const buttons = dialogButtons(root), current = document.activeElement as HTMLButtonElement
   if (!buttons.length) return
   if (direction === 'first' || direction === 'last') { focusDialogButton(buttons[direction === 'first' ? 0 : buttons.length - 1]); return }
   if (!buttons.includes(current)) { restoreDialogSelection(root); return }
   const grid = current.closest('[data-menu-grid]')
-  if (grid && root.contains(grid)) {
+  if (grid && root.contains(grid) && direction !== 'next' && direction !== 'previous') {
     const from = current.getBoundingClientRect(), vertical = direction === 'up' || direction === 'down'
     const sign = direction === 'up' || direction === 'left' ? -1 : 1
     const candidates = buttons.filter(button => button !== current && grid.contains(button)).map(button => {
@@ -39,14 +40,14 @@ export function moveDialogSelection(root: HTMLElement, direction: ControllerNavi
       .sort((a, b) => a.advance + a.offset * 3 - b.advance - b.offset * 3)
     if (candidates[0]) { focusDialogButton(candidates[0].button); return }
   }
-  const step = direction === 'up' || direction === 'left' ? -1 : 1
+  const step = direction === 'up' || direction === 'left' || direction === 'previous' ? -1 : 1
   focusDialogButton(buttons[(buttons.indexOf(current) + step + buttons.length) % buttons.length])
 }
 
 export function scrollDialog(root: HTMLElement, delta: number) {
   if (!delta) return
   const nested = [...root.querySelectorAll<HTMLElement>('[data-controller-scroll]')]
-  for (const element of [root, ...nested]) {
+  for (const element of [...nested, root]) {
     const remaining = delta > 0 ? element.scrollHeight - element.clientHeight - element.scrollTop : element.scrollTop
     if (isVisibleControl(element) && remaining > 1) { element.scrollBy({ top: delta, behavior: 'instant' }); return }
   }

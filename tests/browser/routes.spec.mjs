@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './helpers/test.mjs'
 
 const games=[['hard-vacuum','Hard Vacuum'],['bumper-ball','BUMPER BALL'],['no-exit','No Exit'],['final-approach','Final Approach'],['urban-fire','Urban Fire'],['sling-load','Sling Load'],['hello-world',null]]
 for(const [path,title]of games) test(`${path}: direct route, compatibility redirect, rendering and exit`,async({page})=>{
@@ -50,7 +50,7 @@ test('slow chunk loading is announced and failed chunks have working reload reco
   await page.route('**/assets/HardVacuumGame-*.js',async route=>{await gate;await route.abort('failed')})
   const navigation=page.goto('/hard-vacuum')
   await expect(page.getByRole('status')).toContainText('Loading game')
-  await expect(page.getByRole('status')).toBeFocused()
+  await expect(page.getByRole('button',{name:'Back to game selector',exact:true})).toBeFocused()
   release();await navigation
   await expect(page.getByRole('alert')).toContainText('This game could not be loaded')
   await page.unroute('**/assets/HardVacuumGame-*.js')

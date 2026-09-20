@@ -1,14 +1,16 @@
 import { useEffect, useEffectEvent, useRef, useState, useCallback } from 'react'
-import type { ButtonHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, PointerEvent } from 'react'
 import type { HardVacuumGameProps, Vector2 } from './types'
 import type { BerthId } from './campaignWorld'
+import { BERTHS } from './campaignWorld'
 import type { ShipUpgrade } from './upgrades'
 import { blasterCapacity } from './upgrades'
 import { sounds } from './sound'
 import { ExpeditionHud, ExpeditionOverlay, StationSurveyControls } from './expeditionUi'
 import { DevelopmentPanel } from './DevelopmentPanel'
-import { regionForRoom } from './campaign'
-import { freshExpedition, sectorAt } from './expedition'
+import { havenPosition, regionForRoom } from './campaign'
+import { interaction, newExpedition, sectorAt } from './expedition'
+import { havenDockStencilVisible } from './campaignFloor'
 import { createExpeditionSaveSession } from './expeditionSave'
 import { createGameSession } from './gameSession'
 import type { GameCommand } from './gameSession'
@@ -16,14 +18,22 @@ import { playSessionAudio } from './sessionAudio'
 import { surveyView } from './surveyView'
 import { RED_ROCK_DETONATION_DELAY } from './tuning'
 import { FLIGHT_KEYS, flightInput } from './flightInput'
-import { drawHardVacuumFrame } from './render'
+import { drawHardVacuumFrame, flightCameraZoom } from './render'
 import { stepShipAppearance, stepHullSparks } from './shipRender'
-import { createControllerReader } from './controllerInput'
-import { CONTROLLER_FLIGHT_HELP, controllerButtonLabel, controllerTurnLabel } from './controllerLayouts'
+import { controllerHavenAction, createControllerReader } from './controllerInput'
+import { controllerFlightHelp, controllerButtonLabel, controllerTurnLabel } from './controllerLayouts'
 import { controllerDialog, controlDialog, scrollDialog } from './controllerUi'
+import { ControlHintsContext, controlHint } from './controlHints'
+import { ControlPrompt } from './ControlPrompt'
+import { TrainingHud, TrainingOverlay } from './TrainingUi'
 
 /** Browser adapter: focus, input, menus, snapshots, audio, storage and presentation only. */
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
+  const [training,setTraining]=useState(false)
+  return <HardVacuumFlight key={String(training)} onExit={training ? ()=>setTraining(false) : onExit} training={training} onTraining={()=>setTraining(true)} />
+}
+
+function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps & {training:boolean;onTraining:()=>void}) {
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [controller] = useState(createControllerReader)
@@ -31,10 +41,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [controllerConnected, setControllerConnected] = useState(false)
   const [controllerStatus, setControllerStatus] = useState('Press a button on your controller to connect.')
   const controllerWasConnectedRef = useRef(false)
+  const controllerConnectedRef = useRef(false)
   const focusedRef = useRef(true)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const [saveSession] = useState(createExpeditionSaveSession)
-  const [session] = useState(() => createGameSession(saveSession.load.status === 'valid' ? saveSession.load.expedition : freshExpedition(), { seed: Date.now() >>> 0 }))
+  const [session] = useState(() => createGameSession(saveSession.load.status === 'valid' ? saveSession.load.expedition : newExpedition(), { seed: Date.now() >>> 0, training }))
   const [view, setView] = useState(() => session.snapshot())
   const { gameState, expedition, shields, hud, lostCredits } = view
   const [hasSave, setHasSave] = useState(saveSession.load.status === 'valid')
@@ -52,13 +63,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const [devOpen, setDevOpen] = useState(false)
   const devOpenRef = useRef(false)
   const [devMapRevealed, setDevMapRevealed] = useState(false)
-  const persistExpedition = useCallback(() => {
-    const result = saveSession.save(session.expedition)
+  const persistExpedition = useCallback((state = session.expedition) => {
+    if (training) return true
+    const result = saveSession.save(state)
     if (result.status === 'saved') {
       setSaveIssue(''); setExitSaveFailed(false); setHasSave(true)
     } else if ('message' in result) setSaveIssue(result.message)
     return result.status === 'saved' || result.status === 'inactive'
-  }, [saveSession, session])
+  }, [saveSession, session, training])
   const flushEvents = useCallback(() => {
     let publish = false, persist = false
     for (const event of session.drainEvents()) {
@@ -66,8 +78,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       else if (event.type === 'persist') persist = true
       else publish = true
     }
-    if (publish) setView(session.snapshot())
-    if (persist) persistExpedition()
+    if (publish || persist) {
+      // A committed transition must never leave the HUD on an older snapshot,
+      // even if it falls between the ordinary HUD refresh ticks.
+      const next = session.snapshot()
+      setView(next)
+      if (persist) persistExpedition(next.expedition)
+    }
   }, [session, persistExpedition])
   const dispatch = useCallback((command: GameCommand) => {
     session.command(command)
@@ -89,13 +106,29 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   const resumeFlight = () => { setJournalOpen(false); dispatch({ type: 'resume' }) }
   const shootBlaster = () => dispatch({ type: 'blaster' })
   const teleportHome = () => dispatch({ type: 'teleport' })
-  const interact = () => dispatch({ type: 'interact' })
+  const interactWithFloor = (event: PointerEvent<HTMLCanvasElement>) => {
+    if (event.button !== 0 || training || session.mode !== 'playing' || mapOpenRef.current || devOpenRef.current) return
+    const state = session.expedition, ship = session.refs.shipRef.current
+    const action = interaction(state, ship)
+    if (!action?.ready || (action.kind === 'dock' && !havenDockStencilVisible(state, session.refs.runtimeRef.current))) return
+    const target = action.kind === 'dock' ? havenPosition(state) : BERTHS.find(berth => berth.id === action.id)?.pos
+    if (!target) return
+    const bounds = event.currentTarget.getBoundingClientRect(), { width, height } = canvasSizeRef.current
+    const zoom = flightCameraZoom(width, height)
+    const x = ship.pos.x + ((event.clientX - bounds.left) * width / bounds.width - width / 2) / zoom
+    const y = ship.pos.y + ((event.clientY - bounds.top) * height / bounds.height - height / 2) / zoom
+    if (Math.abs(x - target.x) <= 75 && Math.abs(y - target.y) <= 24 / zoom) {
+      event.currentTarget.focus({ preventScroll: true })
+      dispatch({ type: 'interact' })
+    }
+  }
   const buyUpgrade = (id: ShipUpgrade) => dispatch({ type: 'upgrade', id })
   const relocateHaven = (berth: BerthId) => dispatch({ type: 'relocate', berth })
   const setDevelopmentOpen = useCallback((open: boolean) => {
+    if (training) return
     devOpenRef.current = open; setDevOpen(open)
     dispatch({ type: 'suspend', suspended: open || mapOpenRef.current })
-  }, [dispatch])
+  }, [dispatch, training])
   const jumpToDevelopmentLevel = (berth: BerthId) => {
     if (!import.meta.env.DEV || !saveSession.activate()) return
     setJournalOpen(false); mapOpenRef.current = false; setMapOpen(false)
@@ -110,6 +143,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     setMapOverview(mapOverviewRef.current)
   }, [])
   const setSurveyOpen = useCallback((open: boolean) => {
+    if (training) return
     mapOpenRef.current = open; setMapOpen(open)
     dispatch({ type: 'suspend', suspended: open || devOpenRef.current })
     if (open) {
@@ -117,7 +151,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       if (import.meta.env.DEV && devMapRevealed) { mapOverviewRef.current = true; setMapOverview(true) }
       sounds.stopThrust(); sounds.stopPhaser(); sounds.stopRepairHum(); sounds.stopRadiation()
     }
-  }, [dispatch, devMapRevealed])
+  }, [dispatch, devMapRevealed, training])
   const toggleMapZoom = useCallback(() => {
     mapZoomRef.current = mapZoomRef.current === 1 ? 2 : 1
     mapFocusRef.current = undefined; setMapZoom(mapZoomRef.current)
@@ -149,6 +183,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     const focused = focusedRef.current && document.hasFocus() && document.visibilityState !== 'hidden'
     const input = controller.sample(pads, screen, timestamp, focused)
     if (input.connected !== controllerConnected) setControllerConnected(input.connected)
+    controllerConnectedRef.current=input.connected
     if (input.connected) controllerWasConnectedRef.current = true
     const status = !available ? 'Controller access unavailable. Keyboard controls still work.'
       : input.unsupported ? 'Controller detected without a standard layout. Use keyboard controls.'
@@ -184,8 +219,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       else if (pressed(CONTROLLER.map)) setSurveyOpen(true)
       else if (pressed(CONTROLLER.journal)) { setJournalOpen(true); dispatch({ type: 'pause' }) }
       else {
-        if (pressed(CONTROLLER.interact)) dispatch({ type: 'interact' })
-        if (pressed(CONTROLLER.teleport)) dispatch({ type: 'teleport' })
+        const havenAction=controllerHavenAction(input.pressed,!!interaction(session.expedition,session.refs.shipRef.current),controller.layout)
+        if (havenAction) dispatch({ type: havenAction })
         if (pressed(CONTROLLER.tether)) dispatch({ type: 'tether' })
         if (pressed(CONTROLLER.blaster)) dispatch({ type: 'blaster' })
       }
@@ -216,6 +251,10 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         }
         return
       }
+      // Shortcuts belong to the visible screen, not the paused flight behind
+      // a recorder, confirmation, or failed-save dialog.
+      const dialog = controllerDialog(rootRef.current)
+      if (dialog && !['paused-false', 'docked-false', ...(import.meta.env.DEV ? ['menu-false'] : [])].includes(dialog.dataset.dialogScreen ?? '')) return
       if (key === 'escape' || key === 'p') {
         if (mode !== 'playing' && mode !== 'paused') return
         e.preventDefault(); if (!e.repeat) dispatch({ type: mode === 'playing' ? 'pause' : 'resume' }); return
@@ -270,6 +309,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
         stepShipAppearance(appearance, refs.keysRef.current, dt, refs.shipRef.current.angularVelocity, refs.controllerRef.current)
         const controls = flightInput(refs.keysRef.current, refs.controllerRef.current)
         if (controls.forward || controls.reverse) sounds.startThrust()
+        else if (controls.strafe !== 0) sounds.startThrust(.5)
         else if (appearance.turn !== 0) sounds.startThrust(.25)
         else sounds.stopThrust()
         refs.debrisRef.current.push(...stepHullSparks(appearance, refs.shipRef.current, session.expedition.shields, dt, session.expedition.impactShieldInstalled))
@@ -277,6 +317,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       drawHardVacuumFrame({
         ...refs, ctx, gameState: session.mode, nowMs: session.timeMs,
         expedition: session.expedition, expeditionRuntime: refs.runtimeRef.current,
+        training: session.training, floorHint: (action,key)=>controlHint(controllerConnectedRef.current,action,key,controller.layout),
         mapOpen: mapOpenRef.current, mapOverview: mapOverviewRef.current, mapZoom: mapZoomRef.current, mapFocus: mapFocusRef.current,
         mapRevealed: import.meta.env.DEV && devMapRevealed, canvasSizeRef, RED_ROCK_DETONATION_DELAY,
         bots: refs.botsRef.current, shipAppearance: appearance, shields: session.expedition.shields,
@@ -286,7 +327,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     }
     rafId = requestAnimationFrame(animate)
     return () => { cancelAnimationFrame(rafId); window.removeEventListener('resize', resize); sounds.stopRepairHum(true); sounds.stopRadiation() }
-  }, [session, flushEvents, devMapRevealed])
+  }, [session, flushEvents, devMapRevealed, controller])
   useEffect(() => {
     if (gameState === 'playing' && !mapOpen && !devOpen) canvasRef.current?.focus({ preventScroll: true })
   }, [gameState, mapOpen, devOpen])
@@ -336,13 +377,14 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     'touch-none select-none min-w-12 w-12 h-12 sm:min-w-16 sm:w-16 sm:h-16 rounded-full border-2 border-white/45 bg-black/65 text-white text-xl font-bold active:border-[#00ff88] active:bg-[#00ff88]/30'
 
   return (
+    <ControlHintsContext.Provider value={{ connected: controllerConnected, layout: controller.layout }}>
     <div ref={rootRef} data-controller-connected={controllerConnected} className="hard-vacuum relative w-screen h-screen overflow-hidden font-mono"
       onPointerDownCapture={event => { if (event.nativeEvent.isTrusted) sounds.init() }}
       onKeyDownCapture={event => { if (event.nativeEvent.isTrusted) sounds.init() }}>
-      <canvas ref={canvasRef} tabIndex={-1} aria-label={`Hard Vacuum flight controls: keyboard or controller. WASD or arrows to fly. Controller: ${controllerTurnLabel(controller.layout)}. ${CONTROLLER_FLIGHT_HELP.map(({action,label}) => `${controllerButtonLabel(CONTROLLER[action])}: ${label}`).join('. ')}.`} className="absolute inset-0 outline-none" />
+      <canvas ref={canvasRef} tabIndex={-1} onPointerDown={interactWithFloor} aria-label={`Hard Vacuum flight controls: keyboard or controller. WASD or arrows to fly. Controller: ${controllerTurnLabel(controller.layout)}. ${controllerFlightHelp(controller.layout).map(({action,label}) => `${controllerButtonLabel(CONTROLLER[action])}: ${label}`).join('. ')}.`} className="absolute inset-0 outline-none" />
 
       <div hidden={devOpen} inert={devOpen}>
-      <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} onJournal={() => tapVirtualKey('g')} onMap={() => setSurveyOpen(!mapOpenRef.current)} onInteract={interact} onBlaster={shootBlaster} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />
+      {training ? gameState==='playing' && <TrainingHud credits={expedition.credits+expedition.banked} connected={!!hud.radio} onPause={()=>tapVirtualKey('p')} onLog={()=>tapVirtualKey('g')} /> : <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} saveIssue={saveIssue} onJournal={() => tapVirtualKey('g')} onMap={() => setSurveyOpen(!mapOpenRef.current)} onBlaster={shootBlaster} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />}
 
       {gameState === 'playing' && !mapOpen && (
         <div className="absolute inset-x-0 bottom-4 z-30 flex items-end justify-between px-4 lg:hidden pointer-events-none">
@@ -354,7 +396,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               className={holdButtonClass}
               {...holdControl('arrowleft')}
             >
-              ↶<kbd className="block text-[9px] leading-3 font-normal">A</kbd>
+              ↶<kbd className="block text-[9px] leading-3 font-normal"><ControlPrompt action="turnLeft" keyboard="A" /></kbd>
             </button>
             <div className="flex flex-col gap-2">
             <button
@@ -364,7 +406,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               className={holdButtonClass}
               {...holdControl('arrowup')}
             >
-              ↑<kbd className="block text-[9px] leading-3 font-normal">W</kbd>
+              ↑<kbd className="block text-[9px] leading-3 font-normal"><ControlPrompt action="thrust" keyboard="W" /></kbd>
             </button>
             <button
               type="button"
@@ -373,7 +415,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               className={`${holdButtonClass} text-xs`}
               {...holdControl('arrowdown')}
             >
-              ↓<kbd className="block text-[9px] leading-3 font-normal">S</kbd>
+              ↓<kbd className="block text-[9px] leading-3 font-normal"><ControlPrompt action="reverse" keyboard="S" /></kbd>
             </button>
             </div>
             <button
@@ -383,13 +425,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               className={holdButtonClass}
               {...holdControl('arrowright')}
             >
-              ↷<kbd className="block text-[9px] leading-3 font-normal">D</kbd>
+              ↷<kbd className="block text-[9px] leading-3 font-normal"><ControlPrompt action="turnRight" keyboard="D" /></kbd>
             </button>
           </div>
 
           <div className="flex items-end gap-3 pointer-events-auto">
             {expedition.blasterInstalled && <button type="button" aria-label={`Fire blaster, ${expedition.blasterCharges} of ${blasterCapacity(expedition)} charges`} aria-keyshortcuts="B" className={`${holdButtonClass} text-[10px] text-[#ff665e] border-[#ff665e]/70`} onClick={shootBlaster}>
-              <span className="underline underline-offset-2">B</span>LAST<br />{expedition.blasterCharges}/{blasterCapacity(expedition)}
+              BLAST<br /><ControlPrompt action="blaster" keyboard="B" /> · {expedition.blasterCharges}/{blasterCapacity(expedition)}
             </button>}
             <button
               type="button"
@@ -398,7 +440,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               className={`${holdButtonClass} text-xs text-[#00ff88]`}
               onClick={() => tapVirtualKey('f')}
             >
-              HOOK<kbd className="block text-[9px] leading-3 font-normal">F</kbd>
+              HOOK<kbd className="block text-[9px] leading-3 font-normal"><ControlPrompt action="tether" keyboard="F" /></kbd>
             </button>
             <button
               type="button"
@@ -407,31 +449,33 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
               className={`${holdButtonClass} mb-12 text-xs text-[#44aaff]`}
               {...holdControl(' ')}
             >
-              LASER<kbd className="block text-[9px] leading-3 font-normal">Space</kbd>
+              LASER<kbd className="block text-[9px] leading-3 font-normal"><ControlPrompt action="laser" keyboard="Space" /></kbd>
             </button>
           </div>
         </div>
       )}
 
       <div hidden={mapOpen} inert={mapOpen}>
-      <ExpeditionOverlay
+      {training ? <TrainingOverlay mode={gameState} training={session.training!} journalOpen={journalOpen} onCloseJournal={()=>setJournalOpen(false)} onResume={resumeFlight} onReset={()=>dispatch({type:'start'})} onExit={leaveGame} /> : <ExpeditionOverlay
         gameState={gameState} state={expedition} hasSave={hasSave} saveIssue={saveIssue}
         controllerStatus={controllerStatus} controllerLayout={controller.layout}
         loadStatus={saveSession.load.status} loadBlocked={loadBlocked} hasBackup={saveSession.backup.status === 'valid'} onRecover={recoverSave}
-        exitSaveFailed={exitSaveFailed} onExitWithoutSaving={leaveGame}
+        exitSaveFailed={exitSaveFailed} onCancelExit={() => setExitSaveFailed(false)} onExitWithoutSaving={leaveGame}
         lostCredits={lostCredits}
-        onStart={() => startGame(false)} onNew={() => startGame(true)} onBuy={buyUpgrade}
+        onStart={() => startGame(false)} onNew={() => startGame(true)} onBuy={buyUpgrade} onTraining={onTraining}
         onRelocate={relocateHaven}
+        onLaunch={() => dispatch({ type:'launch' })}
+        launchBusy={!!session.refs.runtimeRef.current.recovery}
         journalOpen={journalOpen} onJournal={() => setJournalOpen(true)} onCloseJournal={() => setJournalOpen(false)}
         onResume={resumeFlight}
         onMenu={() => dispatch({ type: 'menu' })} onExit={exitToGameSelect}
-      />
+      />}
       </div>
-      {saveIssue && gameState === 'playing' && !mapOpen && <div role="alert" className="absolute top-24 inset-x-4 mx-auto max-w-xl border border-[#ffbd69]/60 bg-black/95 p-3 text-xs text-[#ffbd69]">{saveIssue}</div>}
       {mapOpen && <StationSurveyControls controllerLayout={controller.layout} overview={mapOverview} zoom={mapZoom} onZoom={toggleMapZoom} onPan={panSurvey} onOverview={toggleOverview} onClose={() => setSurveyOpen(false)} />}
       </div>
       {import.meta.env.DEV && devOpen && <DevelopmentPanel current={regionForRoom(sectorAt(expedition.position)?.id)?.id} banked={expedition.banked} mapRevealed={devMapRevealed}
         onLevel={jumpToDevelopmentLevel} onCredits={grantDevelopmentCredits} onRevealMap={toggleDevelopmentMap} onClose={() => setDevelopmentOpen(false)} />}
     </div>
+    </ControlHintsContext.Provider>
   )
 }

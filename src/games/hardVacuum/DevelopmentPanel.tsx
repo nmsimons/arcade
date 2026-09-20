@@ -1,6 +1,7 @@
 import { KeyboardDialog } from './KeyboardDialog'
 import { DEV_CREDITS, DEV_LEVELS } from './development'
 import type { BerthId } from './campaignWorld'
+import { ControllerHelp } from './ControllerHelp'
 
 const button = 'border border-[#00ff88]/35 p-3 text-left text-sm text-[#c1e9d9] hover:bg-[#00ff88]/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00ff88]'
 
@@ -13,7 +14,7 @@ export function DevelopmentPanel({ current, banked, mapRevealed, onLevel, onCred
       <div className="flex items-center justify-between gap-4"><h2 className="text-xl text-[#00ff88]">Developer panel</h2><span className="text-xs text-white/45">SIMULATION PAUSED</span></div>
       <h3 className="mt-6 text-xs uppercase tracking-widest text-white/60">Jump to level</h3>
       <p className="mt-2 text-xs leading-relaxed text-white/50">Completes earlier routes and supplies required gear. Existing progress and equipment are kept. Haven stays at the latest powered berth.</p>
-      <div className="grid sm:grid-cols-2 gap-2 mt-4">{DEV_LEVELS.map(level => <button key={level.id} className={button} data-initial-focus={current === level.id || undefined} onClick={() => onLevel(level.id)}>
+      <div data-menu-grid className="grid sm:grid-cols-2 gap-2 mt-4">{DEV_LEVELS.map(level => <button key={level.id} className={button} data-initial-focus={current === level.id || undefined} onClick={() => onLevel(level.id)}>
         <span className="text-[#00ff88] mr-2">{level.number}.</span>{level.name}{current === level.id && <span className="block mt-1 text-[10px] text-white/45">CURRENT REGION</span>}
       </button>)}</div>
       <div className="mt-6 border-t border-white/15 pt-5">
@@ -27,6 +28,7 @@ export function DevelopmentPanel({ current, banked, mapRevealed, onLevel, onCred
         <button className={`${button} mt-3 w-full`} onClick={onCredits}>Add {DEV_CREDITS.toLocaleString()} banked credits</button>
       </div>
       <button className={`${button} mt-6`} onClick={onClose} aria-keyshortcuts="` ~ Escape">Close · ~ / Esc</button>
+      <ControllerHelp />
     </div>
   </KeyboardDialog>
 }

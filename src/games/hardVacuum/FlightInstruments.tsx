@@ -3,9 +3,7 @@ import type { Expedition } from './expedition'
 import { expeditionMap, maxShields, near } from './expedition'
 import { havenPosition, havenReady } from './campaign'
 import { BLASTER_CAPACITY } from './blaster'
-import { radiationAt, radiationCapacity, radiationFraction, RADIATION_HULL_LIMIT } from './radiation'
-import { needsRemoteRecharge, RECHARGE_PACK_LIMIT } from './supplies'
-import { SHIELD_REPAIR_TIME } from './tuning'
+import { radiationAt, RADIATION_CAPACITY, radiationFraction, RADIATION_HULL_LIMIT } from './radiation'
 import './flightHud.css'
 
 function Meter({ label, value, max, color, segmented = false, valueText, shortcut, onClick, disabled }: {
@@ -35,19 +33,18 @@ function EquipmentButton({ label, shortcut, onClick, disabled, children }: {
   </button>
 }
 
-export function FlightInstruments({ state, shields, room, mapOpen, onMap, onJournal, onPause, onBlaster, onRecharge, onTeleport }: {
+export function FlightInstruments({ state, shields, room, mapOpen, onMap, onJournal, onPause, onBlaster, onTeleport }: {
   state: Expedition; shields: number; room: string; mapOpen: boolean
   onMap: () => void; onJournal: () => void; onPause: () => void
-  onBlaster: () => void; onRecharge: () => void; onTeleport: () => void
+  onBlaster: () => void; onTeleport: () => void
 }) {
   const radiation = radiationAt(state.position, expeditionMap(state)), exposed = radiation.intensity > 0
   const radiationInstalled = state.upgrades.includes('radiation')
   const protectedFromRadiation = radiationInstalled && state.radiationCharge > 0
   const radiationLow = radiationFraction(state) < .3
   const radiationColor = exposed && (!protectedFromRadiation || radiationLow) ? '#ff927c' : '#c1adff'
-  const recharging = state.remoteRechargeRemaining > 0
-  const hasRecharge = state.rechargePacks > 0 || recharging
   const radiationWarning = !protectedFromRadiation ? 'Radiation · Leave now' : radiationLow ? 'Radiation reserve low' : 'Radiation exposure'
+  const hullExposed = !state.impactShieldInstalled || shields === 0
   return <div className="flight-hud">
     <div className="hud-location">
       <div className="hud-room">{room}</div>
@@ -62,23 +59,19 @@ export function FlightInstruments({ state, shields, room, mapOpen, onMap, onJour
         <button onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="G" title="Log · G">Lo<span className="underline underline-offset-2">g</span></button>
         <button onClick={onPause} aria-label="Pause game" aria-keyshortcuts="P Escape" title="Pause · P / Esc"><span className="underline underline-offset-2">P</span>ause</button>
       </nav>}
-      <div className="hud-meters">
-        <Meter label="Shields" value={shields} max={maxShields(state)} color={shields === 0 ? '#ff927c' : '#69dbab'} segmented />
-        {(radiationInstalled || exposed) && <Meter label="Radiation" value={radiationInstalled ? Math.round(state.radiationCharge) : 0} max={radiationCapacity(state)} valueText={radiationInstalled ? `${Math.ceil(radiationFraction(state)*100)}%` : '—'} color={radiationColor} />}
+      {(state.impactShieldInstalled || radiationInstalled || exposed || state.blasterInstalled) && <div className="hud-meters">
+        {state.impactShieldInstalled && <Meter label="Shields" value={shields} max={maxShields(state)} color={shields === 0 ? '#ff927c' : '#69dbab'} segmented />}
+        {(radiationInstalled || exposed) && <Meter label="Radiation" value={radiationInstalled ? Math.round(state.radiationCharge) : 0} max={RADIATION_CAPACITY} valueText={radiationInstalled ? `${Math.ceil(radiationFraction(state)*100)}%` : '—'} color={radiationColor} />}
         {state.blasterInstalled && <Meter label="Blaster" value={state.blasterCharges} max={BLASTER_CAPACITY} color="#ff8278" segmented shortcut="B" onClick={onBlaster} disabled={mapOpen || state.blasterCharges === 0} />}
-      </div>
-      {!mapOpen && (shields === 0 || exposed) && <div className="hud-warnings">
-        {shields === 0 && <div role="alert" className="hud-hull-warning">Hull exposed</div>}
+      </div>}
+      {!mapOpen && (hullExposed || exposed) && <div className="hud-warnings">
+        {hullExposed && <div role="alert" className="hud-hull-warning">Hull exposed</div>}
         {exposed && <div role="alert" style={{ color: radiationColor }}>
           <div>{radiationWarning}</div>
           <div className="hud-warning-detail">{protectedFromRadiation ? radiation.source?.name : `${(Math.max(0, RADIATION_HULL_LIMIT - state.radiationExposure) / radiation.intensity).toFixed(1)}s at current dose`}</div>
         </div>}
       </div>}
-      {(hasRecharge || state.teleporterInstalled) && <div className="hud-equipment" aria-label="Ship equipment">
-        {hasRecharge && <EquipmentButton label={recharging ? 'Remote recharge in progress' : `Remote recharge, ${state.rechargePacks} of ${RECHARGE_PACK_LIMIT} packs`} shortcut="R" onClick={onRecharge} disabled={mapOpen || state.rechargePacks === 0 || recharging || !needsRemoteRecharge(state)}>
-          <span>{recharging ? 'Charging' : <><span className="underline underline-offset-2">R</span>echarge</>}</span><span className="hud-equipment-count">{state.rechargePacks}</span>
-          {recharging && <span className="hud-recharge-progress" role="progressbar" aria-label="Remote recharge" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((1 - state.remoteRechargeRemaining / SHIELD_REPAIR_TIME) * 100)} style={{ width: `${(1 - state.remoteRechargeRemaining / SHIELD_REPAIR_TIME) * 100}%` }} />}
-        </EquipmentButton>}
+      {state.teleporterInstalled && <div className="hud-equipment" aria-label="Ship equipment">
         {state.teleporterInstalled && <EquipmentButton label="Teleport to Haven" shortcut="T" onClick={onTeleport} disabled={mapOpen || !havenReady(state) || near(state.position, havenPosition(state), 130)}><span><span className="underline underline-offset-2">T</span>eleport</span></EquipmentButton>}
       </div>}
     </section>

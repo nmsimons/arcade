@@ -1,5 +1,5 @@
 import { SECTORS, GATES, SOCKETS, PICKUPS, CACHES, CORE_POSITION } from './stationDefinitions.ts'
-import { ROOM_IDS, GATE_IDS, CIRCUIT_IDS, PROGRESSION_IDS, CACHE_IDS, BOT_IDS } from './stationIds.ts'
+import { ROOM_IDS, GATE_IDS, CIRCUIT_IDS, PROGRESSION_IDS, CACHE_IDS, BOT_IDS, MODULE_IDS } from './stationIds.ts'
 import { CIRCUIT_STEPS, CIRCUIT_LOADS, CIRCUIT_PREREQUISITES } from './stationProgression.ts'
 import { BERTHS, REGIONS, SERVICE_ROUTES } from './campaignWorld.ts'
 import { BOT_STATIONS } from './stationBots.ts'
@@ -27,7 +27,7 @@ export function validateStation(data = STATION_AUTHORING): string[] {
   const rooms=unique('room',data.rooms.map(r=>r.id)),gates=unique('gate',data.gates.map(g=>g.id)),circuits=unique('circuit',data.circuits.map(c=>c.id))
   unique('entity',[...data.caches.map(c=>c.id),...data.pickups.map(p=>p.id),...data.bots.map(b=>b.id),...data.circuits.map(c=>c.id),'core'])
   unique('record',data.records.map(r=>r.id)); unique('objective',data.steps.map(s=>s.id))
-  const catalogs: readonly (readonly [readonly string[], ReadonlySet<string>, string])[] = [[ROOM_IDS,rooms,'room'],[GATE_IDS,gates,'gate'],[CIRCUIT_IDS,circuits,'circuit'],[CACHE_IDS,new Set(data.caches.map(c=>c.id)),'cache'],[BOT_IDS,new Set(data.bots.map(b=>b.id)),'bot']]
+  const catalogs: readonly (readonly [readonly string[], ReadonlySet<string>, string])[] = [[ROOM_IDS,rooms,'room'],[GATE_IDS,gates,'gate'],[CIRCUIT_IDS,circuits,'circuit'],[CACHE_IDS,new Set(data.caches.map(c=>c.id)),'cache'],[BOT_IDS,new Set(data.bots.map(b=>b.id)),'bot'],[MODULE_IDS,new Set(data.pickups.map(p=>p.id)),'module']]
   for(const [catalog,actual,label] of catalogs) {
     for(const id of catalog)require(actual.has(id),`Missing ${label}: ${id}`)
     for(const id of actual)require(catalog.some(known=>known===id),`Unknown ${label}: ${id}`)

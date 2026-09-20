@@ -9,7 +9,7 @@ const seed = 90210
 test('passengers can passively recharge in a clear field while Haven services are offline for departure', () => {
   const state=freshExpedition();state.campaign.berths.push('freight')
   powerReceiver(state,'breach-power','breach-power');state.doors={}
-  state.upgrades=['radiation'];state.radiationCharge=20;state.shields=1;state.credits=25
+  state.upgrades=['radiation'];state.radiationCharge=20;state.impactShieldInstalled=true;state.shields=1;state.credits=25
   assert.ok(moveHaven(state,'freight',true,expeditionMap(state)))
   const s=createGameSession(state,{seed});s.command({type:'start'})
   for(let tick=0;tick<30;tick++)s.step()
@@ -20,7 +20,7 @@ test('passengers can passively recharge in a clear field while Haven services ar
 test('radiation reserve refills in flight away from Haven at every render rate without repairing other systems', () => {
   for(const hz of [30,60,120,144]) {
     const state=freshExpedition();state.position={x:7600,y:3490};state.upgrades=['radiation'];state.radiationCharge=0
-    state.shields=1;state.blasterInstalled=true;state.blasterCharges=1;state.credits=25
+    state.impactShieldInstalled=true;state.shields=1;state.blasterInstalled=true;state.blasterCharges=1;state.credits=25
     const s=createGameSession(state,{seed});s.command({type:'start'})
     s.refs.rocksRef.current=[];s.command({type:'key',key:'w',pressed:true})
     s.advance(0)
@@ -65,7 +65,8 @@ test('irradiated sessions never accumulate dose while paused or catch up a backg
 })
 const gameplay = s => ({ mode:s.mode, expedition:s.expedition, ship:s.refs.shipRef.current, random:s.randomState(), rocks:s.refs.rocksRef.current.map(({pos,vel,radius,kind,redFuseS})=>({pos,vel,radius,kind,redFuseS})) })
 const launch = cosmeticRandom => {
-  const session = createGameSession(freshExpedition(), {seed,cosmeticRandom})
+  const state=freshExpedition();state.impactShieldInstalled=true;state.shields=2
+  const session = createGameSession(state, {seed,cosmeticRandom})
   session.command({type:'start'})
   session.drainEvents()
   return session

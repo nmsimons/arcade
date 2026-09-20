@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { setup, tap, armed } from './helpers/controller.mjs'
 
 test('developer toggles pause simulation, reveal the map, publish credits and jump through shared prerequisites',async({page})=>{
   await page.goto('/hard-vacuum')
@@ -17,9 +18,24 @@ test('developer toggles pause simulation, reveal the map, publish credits and ju
   await panel.getByRole('button',{name:/3\.The Works|3\. The Works/}).click()
   await expect(panel).toHaveCount(0)
   await expect(page.locator('.hud-room')).toContainText('The Works')
-  await expect(page.getByRole('button',{name:'Fire blaster, 3 of 3 charges',exact:true})).toBeVisible()
+  await expect(page.getByRole('button',{name:/Fire blaster/})).toHaveCount(0)
   await page.keyboard.press('Backquote')
   await expect(panel.getByRole('button',{name:'Show whole map',exact:true})).toHaveAttribute('aria-pressed','true')
   await page.keyboard.press('Escape')
   await expect(page.locator('canvas')).toBeFocused()
+})
+
+test('controller targets the visible developer dialog above a map and respects grid columns',async({page})=>{
+  await setup(page,armed());await tap(page,0);await tap(page,8)
+  await page.keyboard.press('Backquote');await page.clock.runFor(64)
+  const panel=page.getByRole('dialog',{name:'Developer panel',exact:true})
+  await expect(panel).toBeVisible()
+  await tap(page,13)
+  await expect(panel.getByRole('button',{name:/3\.The Works|3\. The Works/})).toBeFocused()
+  await tap(page,1)
+  await expect(panel).toHaveCount(0)
+  await expect(page.getByRole('dialog',{name:'Station survey',exact:true})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Station overview · O',exact:true})).toBeFocused()
+  await tap(page,1)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })

@@ -1,6 +1,8 @@
 import type { Ship, TetherBody, Vector2 } from './types'
 import { SHIP_FRICTION, SHIP_LATERAL_FRICTION, SHIP_MAX_SPEED, SHIP_THRUST_ACCELERATION, SHIP_NOSE_THRUST_ACCELERATION, SHIP_ROTATION_SPEED, SHIP_TURN_DAMPING, SHIP_TURN_RESPONSE } from './tuning.ts'
 import { flightInput } from './flightInput.ts'
+import type { ControllerFlightInput } from './flightInput'
+import { isImmovable } from './bodyDefinitions.ts'
 
 export interface FloatingBody extends TetherBody { cargoId: string; capture: number }
 
@@ -19,14 +21,14 @@ export function applyNoseThrust(ship: Ship, dt: number) {
 }
 
 /** Production flight integration. Constants retain the original 60 Hz feel. */
-export function stepShipMovement(ship: Ship, keys: Set<string>, dt: number) {
-  const { left, right, forward, reverse } = flightInput(keys)
-  stepShipTurn(ship, Number(right) - Number(left), dt)
+export function stepShipMovement(ship: Ship, keys: Set<string>, dt: number, controller?: ControllerFlightInput) {
+  const { turn, forward, reverse } = flightInput(keys, controller)
+  stepShipTurn(ship, turn, dt)
   if (forward) {
-    ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt
-    ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt
+    ship.vel.x += Math.cos(ship.angle) * SHIP_THRUST_ACCELERATION * dt * forward
+    ship.vel.y += Math.sin(ship.angle) * SHIP_THRUST_ACCELERATION * dt * forward
   }
-  if (reverse) applyNoseThrust(ship, dt)
+  if (reverse) applyNoseThrust(ship, dt * reverse)
   const speed = Math.hypot(ship.vel.x, ship.vel.y)
   if (speed > SHIP_MAX_SPEED) {
     ship.vel.x *= SHIP_MAX_SPEED / speed; ship.vel.y *= SHIP_MAX_SPEED / speed
@@ -51,14 +53,19 @@ export function stepShipTurn(ship: Ship, input: number, dt: number) {
   ship.angularVelocity = input === 0 && Math.abs(velocity) < .01 ? 0 : velocity
 }
 
+/** Laser-proof loose objects share the same push; fixtures and secured cargo stay put. */
+export function repelBody(body: TetherBody, direction?: Vector2, impulse = 170): boolean {
+  const length = direction ? Math.hypot(direction.x, direction.y) : 0
+  if (isImmovable(body) || !direction || length <= 1e-6 || !Number.isFinite(length)) return false
+  body.vel.x += direction.x / length * impulse
+  body.vel.y += direction.y / length * impulse
+  return true
+}
+
 /** Blue bodies absorb damage as momentum; connected cells remain anchored. */
 export function repelBlueBody(body: TetherBody, direction?: Vector2, impulse = 170): boolean {
   if (body.kind !== 'blue') return false
-  const length = direction ? Math.hypot(direction.x, direction.y) : 0
-  if (!body.socketId && direction && length > 1e-6) {
-    body.vel.x += direction.x / length * impulse
-    body.vel.y += direction.y / length * impulse
-  }
+  repelBody(body, direction, impulse)
   return true
 }
 

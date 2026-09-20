@@ -24,7 +24,7 @@ function cargoFaces(draw,position) {
 
 test('every cargo model keeps its silhouette, facets and colors throughout the retrieval handoff',()=>{
   const state=freshExpedition(),pose=havenPose(state),pos={x:pose.pos.x-132,y:pose.pos.y}
-  for(const id of [...CACHES.map(c=>c.id),'radiation','core']) {
+  for(const id of [...CACHES.map(c=>c.id),...PICKUPS.map(p=>p.id),'core']) {
     for(const time of [.01,.4,.8,1.3]) {
       const recovery={id,bay:Math.PI,time,path:[pos,pose.pos],cargoTime:4.75,secured:false}
       const displayTime=time<RECOVERY_GRIP ? 5.25 : recovery.cargoTime
@@ -54,4 +54,14 @@ test('legacy archive shields migrate to Freight without moving towed cargo or cu
   }
   const installed=freshExpedition();installed.upgrades.push('radiation')
   assert.equal(cargoBodies(installed,freshRuntime()).some(b=>b.cargoId==='radiation'),false)
+})
+
+test('laser contact lights every cargo model without altering its shape or pose',()=>{
+  const pos={x:7800,y:3560}
+  for(const id of [...PICKUPS.map(item=>item.id),...CACHES.map(item=>item.id),'core']) {
+    const draw=laserGlow=>cargoFaces(ctx=>drawCargo(ctx,id,pos,{time:3,active:true,laserGlow}),pos)
+    const resting=draw(0),lit=draw(1)
+    assert.deepEqual(lit.map(face=>face.points),resting.map(face=>face.points),id)
+    assert.notDeepEqual(lit.map(face=>face.fill),resting.map(face=>face.fill),id)
+  }
 })

@@ -1,20 +1,28 @@
-import { clamp, rotX, rotY, rotZ } from './math'
-import { drawModel } from './objectModels'
-import type { Part } from './objectModels'
+import { clamp, rotX, rotY, rotZ } from './math.ts'
+import { bevel, drawModel } from './objectModels.ts'
+import type { Outline } from './objectModels'
 import type { Debris, Ship, V3, Vector2 } from './types'
-import { SHIP_ROTATION_SPEED } from './tuning'
-import { flightInput } from './flightInput'
+import { SHIELD_REPAIR_TIME, SHIP_ROTATION_SPEED } from './tuning.ts'
+import { flightInput } from './flightInput.ts'
+import type { ControllerFlightInput } from './flightInput'
 
 import type { ShipAppearance } from './shipAppearance'
 export type { ShipAppearance } from './shipAppearance'
-export { freshShipAppearance } from './shipAppearance'
+export { freshShipAppearance } from './shipAppearance.ts'
+
+export function shieldRechargeAppearance(runtime: { recharging: boolean; rechargeProgress: number; shieldInstallRecharge?: number }) {
+  return {
+    recharging: runtime.recharging || runtime.shieldInstallRecharge !== undefined,
+    rechargeProgress: runtime.shieldInstallRecharge !== undefined ? runtime.shieldInstallRecharge / SHIELD_REPAIR_TIME : runtime.rechargeProgress,
+  }
+}
 
 /** Presentation only: attitude settles smoothly without changing flight physics. */
-export function stepShipAppearance(appearance: ShipAppearance, keys: Set<string>, dt: number, angularVelocity?: number) {
+export function stepShipAppearance(appearance: ShipAppearance, keys: Set<string>, dt: number, angularVelocity?: number, controller?: ControllerFlightInput) {
   const ease=1-Math.exp(-10*dt)
-  const {left,right,forward,reverse}=flightInput(keys)
+  const {turn,forward,reverse}=flightInput(keys,controller)
   // Jets follow input; banking follows the ship's actual rotation as it coasts.
-  appearance.turn=Number(right)-Number(left)
+  appearance.turn=turn
   const bank=angularVelocity===undefined ? appearance.turn : clamp(angularVelocity/SHIP_ROTATION_SPEED,-1,1)
   appearance.bank+=(bank-appearance.bank)*ease
   appearance.thrust+=(Number(forward)-appearance.thrust)*ease
@@ -22,8 +30,8 @@ export function stepShipAppearance(appearance: ShipAppearance, keys: Set<string>
 }
 
 /** Short electrical bursts leave the hull with its velocity, then drift freely. */
-export function stepHullSparks(appearance: ShipAppearance, ship: Ship, shields: number, dt: number): Debris[] {
-  if (shields>0) { appearance.sparkDelay=0; return [] }
+export function stepHullSparks(appearance: ShipAppearance, ship: Ship, shields: number, dt: number, installed = true): Debris[] {
+  if (!installed || shields>0) { appearance.sparkDelay=0; return [] }
   appearance.sparkDelay-=dt
   if (appearance.sparkDelay>0) return []
   appearance.sparkDelay=.16+Math.random()*.3
@@ -38,22 +46,6 @@ export function stepHullSparks(appearance: ShipAppearance, ship: Ship, shields: 
       angle,rotSpeed:(Math.random()-.5)*5,life:220+Math.random()*180,length:2+Math.random()*3,
       color:i===0 ? '255, 239, 193' : '255, 170, 75',spark:true}
   })
-}
-
-type Outline = readonly (readonly [number,number])[]
-function bevel(lower: Outline, upper: Outline, color: string, bottom=3, top=-3, glow=false): Part {
-  const n=lower.length
-  return {
-    verts:[...lower.map(([x,y]):V3=>[x,y,bottom]),...upper.map(([x,y]):V3=>[x,y,top])],
-    faces:[Array.from({length:n},(_,i)=>i),Array.from({length:n},(_,i)=>2*n-i-1),
-      ...lower.map((_,i)=>[i,n+i,n+(i+1)%n,(i+1)%n])],
-    color,at:[0,0,0],glow,
-    // Keep a crisp silhouette, quiet the inset rim, and let shading describe
-    // the bevels instead of outlining every small corner and glass facet.
-    edges:lower.flatMap((_,i):[number,number,number][]=>[
-      [i,(i+1)%n,1],[n+i,n+(i+1)%n,glow ? 0 : .25],
-    ]),
-  }
 }
 
 const HULL=bevel(
@@ -90,7 +82,7 @@ export function drawPlayerShip(ctx: CanvasRenderingContext2D, ship: Ship, appear
   })
   ctx.save();ctx.translate(ship.pos.x,ship.pos.y);ctx.lineJoin='round';ctx.lineCap='round';ctx.shadowBlur=0
 
-  if (options.recharging) {
+  if (options.maxShields>0 && options.recharging) {
     const intensity=.4+.35*clamp(options.rechargeProgress,0,1)
     ctx.save();ctx.strokeStyle='#00ff88';ctx.shadowColor='#00ff8860'
     for(let i=0;i<2;i++) {
@@ -106,7 +98,7 @@ export function drawPlayerShip(ctx: CanvasRenderingContext2D, ship: Ship, appear
   const charged=options.shields>0&&options.rechargeAge>=0&&options.rechargeAge<400
     ? .35*Math.pow(1-options.rechargeAge/400,2) : 0
   const shieldActivity=Math.max(impact,charged)
-  if (shieldActivity>0) {
+  if (options.maxShields>0 && shieldActivity>0) {
     const strength=clamp(options.shields/options.maxShields,0,1)
     ctx.save();ctx.globalAlpha=(.65+.25*strength)*shieldActivity
     ctx.strokeStyle='#00ff88';ctx.shadowColor='#00ff8880';ctx.shadowBlur=6+10*shieldActivity

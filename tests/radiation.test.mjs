@@ -13,7 +13,7 @@ const rectangle = (x, y, w, h) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y +
 const openMap = { id: 99, name: 'Radiation test', boundary: rectangle(0, 0, 4000, 3000), obstacles: RADIATION_HOUSINGS, containedRadiation: RADIATION_SOURCES.filter(s=>s!==reactor).map(s=>s.id) }
 const wall = rectangle(reactor.pos.x + 100, reactor.pos.y - 70, 20, 140)
 const coveredMap = { ...openMap, obstacles: [...RADIATION_HOUSINGS, wall] }
-const protectedState = () => ({ ...freshExpedition(), upgrades: ['radiation'], radiationCharge: 100 })
+const protectedState = () => ({ ...freshExpedition(), impactShieldInstalled: true, shields: 2, upgrades: ['radiation'], radiationCharge: 100 })
 
 test('distant geometry changes reuse footprints while nearby long edges invalidate them',()=>{
   const distant=rectangle(reactor.pos.x+500,reactor.pos.y,30,30)
@@ -99,9 +99,11 @@ test('weaker exposure drains more slowly and radiation-blocking cover automatica
   assert.equal(state.radiationExposure, 0.25, 'only the unprotected half second contributes half-strength exposure')
 })
 
-test('passive recharge is gradual, capacity-aware and never grants an uninstalled shield', () => {
-  for (const [level,capacity] of [[0,100],[1,150],[2,200],[3,250]]) {
+test('passive recharge is gradual at the fixed capacity and never grants an uninstalled shield', () => {
+  for (const level of [0,1,2,3]) {
+    // Even stale in-memory upgrade metadata cannot grant extra capacity.
     const state=protectedState();state.upgradeLevels.radiationReserve=level;state.radiationCharge=0
+    const capacity=100
     stepRadiation(state,at(reactor.range+100),RADIATION_RECHARGE_TIME/4,openMap)
     assert.equal(state.radiationCharge,capacity/4)
     stepRadiation(state,at(reactor.range+100),RADIATION_RECHARGE_TIME*5,openMap)

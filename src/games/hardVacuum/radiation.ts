@@ -3,8 +3,6 @@ import type { Vector2 } from './types'
 import { raycastCavern } from './worldGeometry.ts'
 import type { CavernMap } from './worldGeometry'
 import { TRANSFER_RADIATION_SOURCES } from './transferRadiation.ts'
-import { upgradeValue } from './upgrades.ts'
-import type { UpgradeLevels } from './upgrades'
 import { SHIELD_REPAIR_TIME } from './tuning.ts'
 
 export const RADIATION_CAPACITY = 100
@@ -103,20 +101,19 @@ export function radiationFootprint(source: RadiationSource, map: CavernMap): Vec
 
 export interface RadiationFeedback { intensity: number; draining: boolean; unprotected: boolean; pulse: number; tickIn: number; source?: RadiationSource }
 export const freshRadiationFeedback = (): RadiationFeedback => ({ intensity: 0, draining: false, unprotected: false, pulse: 0, tickIn: 0 })
-export interface RadiationState { upgrades: readonly string[]; upgradeLevels?: UpgradeLevels; radiationCharge: number; radiationExposure: number }
-export const radiationCapacity = (state: Pick<RadiationState,'upgrades'|'upgradeLevels'>) => upgradeValue(state,'radiationReserve')
-export const radiationFraction = (state: RadiationState) => state.radiationCharge / radiationCapacity(state)
+export interface RadiationState { upgrades: readonly string[]; radiationCharge: number; radiationExposure: number }
+export const radiationFraction = (state: RadiationState) => state.radiationCharge / RADIATION_CAPACITY
 export function rechargeRadiation(state: RadiationState) {
-  state.radiationCharge = state.upgrades.includes('radiation') ? radiationCapacity(state) : 0
+  state.radiationCharge = state.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0
   state.radiationExposure = 0
 }
 export function stepRadiationRecharge(state: RadiationState, dt: number) {
   if (!state.upgrades.includes('radiation') || dt <= 0) return
-  const capacity = radiationCapacity(state)
+  const capacity = RADIATION_CAPACITY
   state.radiationCharge = Math.min(capacity, state.radiationCharge + capacity * dt / RADIATION_RECHARGE_TIME)
 }
 export function stepRadiation(state: RadiationState, pos: Vector2, dt: number, map?: CavernMap) {
-  state.radiationCharge ??= state.upgrades.includes('radiation') ? radiationCapacity(state) : 0
+  state.radiationCharge ??= state.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0
   state.radiationExposure ??= 0
   const { intensity, source } = radiationAt(pos, map)
   const exposed = intensity > 0

@@ -9,14 +9,16 @@ import type { BerthId } from './campaignWorld'
 import type { HardVacuumGameState } from './ui'
 import { KeyboardDialog } from './KeyboardDialog'
 import { FlightInstruments } from './FlightInstruments'
-import { supplyOffers } from './supplies'
-import type { SupplyPurchase } from './supplies'
 import type { SaveLoadResult } from './expeditionSave'
+import { ControllerHelp } from './ControllerHelp'
+import { CONTROLLER_FLIGHT_HELP, controllerButtonLabel, controllerMenuHelp, controllerTurnLabel, DEFAULT_CONTROLLER_LAYOUT } from './controllerLayouts'
+import type { ControllerLayout } from './controllerLayouts'
 
 const button = 'border border-[#00ff88]/60 px-5 py-3 text-sm uppercase tracking-widest text-[#00ff88] hover:bg-[#00ff88]/15 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00ff88] transition-colors'
 
-export function StationSurveyControls({ overview, zoom, onZoom, onPan, onOverview, onClose }: {
+export function StationSurveyControls({ overview, zoom, onZoom, onPan, onOverview, onClose, controllerLayout = DEFAULT_CONTROLLER_LAYOUT }: {
   overview: boolean; zoom: number; onZoom: () => void; onPan: (dx:number,dy:number) => void; onOverview: () => void; onClose: () => void
+  controllerLayout?: ControllerLayout
 }) {
   const dragging = useRef<{x:number;y:number} | undefined>(undefined)
   return <div className="absolute inset-0 touch-none select-none" onKeyDownCapture={event=>{
@@ -30,25 +32,26 @@ export function StationSurveyControls({ overview, zoom, onZoom, onPan, onOvervie
     if (!dragging.current) return
     onPan(dragging.current.x-event.clientX,dragging.current.y-event.clientY);dragging.current={x:event.clientX,y:event.clientY}
   }} onPointerUp={()=>{dragging.current=undefined}} onPointerCancel={()=>{dragging.current=undefined}}>
-    <KeyboardDialog label="Station survey" focusKey="map" onClose={onClose} className="absolute inset-0 pointer-events-none flex items-end justify-center pb-5">
+    <KeyboardDialog label="Station survey" focusKey="map" controllerMode="map" onClose={onClose} className="absolute inset-0 pointer-events-none flex items-end justify-center pb-5">
       <div className="flex flex-col items-center gap-2">
         {zoom>1 && <span className="text-[10px] text-[#99c9bd] bg-black/90 px-2">Pan · arrows / WASD / drag</span>}
         <div className="flex flex-wrap justify-center gap-2 pointer-events-auto"><button className={`${button} bg-black/95`} onClick={onOverview} aria-keyshortcuts="O">{overview ? 'Local survey' : 'Station overview'} · O</button><button className={`${button} bg-black/95`} onClick={onZoom} aria-keyshortcuts="Z"><span className="underline underline-offset-2">Z</span>oom · {zoom===1 ? '2×' : 'Fit'}</button><button className={`${button} bg-black/95`} onClick={onClose} aria-keyshortcuts="M Escape">Close · M / Esc</button></div>
+        <ControllerHelp layout={controllerLayout} map />
       </div>
     </KeyboardDialog>
   </div>
 }
 
-export function ExpeditionHud({ state, gameState, shields, hud, mapOpen, onJournal, onMap, onInteract, onBlaster, onRecharge, onTeleport, onPause }: {
+export function ExpeditionHud({ state, gameState, shields, hud, mapOpen, onJournal, onMap, onInteract, onBlaster, onTeleport, onPause }: {
   state: Expedition; gameState: HardVacuumGameState; shields: number
   hud: { room: string; prompt: string; message: string; towing: string; radio: string; grappleHint: string }; mapOpen: boolean
   onJournal: () => void
-  onMap: () => void; onInteract: () => void; onBlaster: () => void; onRecharge: () => void; onTeleport: () => void; onPause: () => void
+  onMap: () => void; onInteract: () => void; onBlaster: () => void; onTeleport: () => void; onPause: () => void
 }) {
   if (gameState !== 'playing') return null
   const radio = RECORDS.find(r => r.id === hud.radio)
   return <>
-    <FlightInstruments state={state} shields={shields} room={hud.room} mapOpen={mapOpen} onMap={onMap} onJournal={onJournal} onPause={onPause} onBlaster={onBlaster} onRecharge={onRecharge} onTeleport={onTeleport} />
+    <FlightInstruments state={state} shields={shields} room={hud.room} mapOpen={mapOpen} onMap={onMap} onJournal={onJournal} onPause={onPause} onBlaster={onBlaster} onTeleport={onTeleport} />
     {!mapOpen && <>
       {hud.grappleHint && <div role="status" className="absolute bottom-48 lg:bottom-24 left-4 max-w-[min(32rem,calc(100%-2rem))] border-l border-[#8bd2d6]/60 bg-[#050d0d]/95 px-3 py-3 text-xs text-[#c2e2df] pointer-events-none"><span className="block text-[9px] tracking-widest text-[#83afa1] mb-2">HAVEN · TETHER LINK</span><span className="leading-relaxed">{hud.grappleHint}</span></div>}
       {radio && !hud.grappleHint && !state.campaign.journey?.riding && <button onClick={onJournal} aria-label={`Read recording: ${radio.title}`} aria-keyshortcuts="G" className="absolute bottom-48 lg:bottom-24 left-4 max-w-[min(32rem,calc(100%-2rem))] text-left border-l border-[#93b7a9]/50 bg-[#050d0d]/90 px-3 py-3 text-xs text-[#c2d1c8]">
@@ -60,20 +63,21 @@ export function ExpeditionHud({ state, gameState, shields, hud, mapOpen, onJourn
   </>
 }
 
-export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, loadStatus, loadBlocked, hasBackup, onRecover, exitSaveFailed, onExitWithoutSaving, lostCredits, onStart, onNew, onBuy, onBuySupply, onRelocate, journalOpen, onJournal, onCloseJournal, onResume, onMenu, onExit }: {
+export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, controllerStatus, controllerLayout = DEFAULT_CONTROLLER_LAYOUT, loadStatus, loadBlocked, hasBackup, onRecover, exitSaveFailed, onExitWithoutSaving, lostCredits, onStart, onNew, onBuy, onRelocate, journalOpen, onJournal, onCloseJournal, onResume, onMenu, onExit }: {
   gameState: HardVacuumGameState; state: Expedition; hasSave: boolean; saveIssue: string
+  controllerStatus: string
+  controllerLayout?: ControllerLayout
   loadStatus: SaveLoadResult['status']; loadBlocked: boolean; hasBackup: boolean; onRecover: () => void
   exitSaveFailed: boolean; onExitWithoutSaving: () => void
   lostCredits: number
   onStart: () => void; onNew: () => void; onBuy: (id: ShipUpgrade) => void; onResume: () => void; onMenu: () => void; onExit: () => void
-  onBuySupply: (id: SupplyPurchase) => void
   onRelocate: (id: BerthId) => void
   journalOpen: boolean; onJournal: () => void; onCloseJournal: () => void
 }) {
   const [confirmNew, setConfirmNew] = useState(false)
   const [showControls, setShowControls] = useState(false)
   const [selectedRecord, setSelectedRecord] = useState('')
-  const [outfitterPage, setOutfitterPage] = useState<'supplies' | 'upgrades' | 'berths'>('supplies')
+  const [outfitterPage, setOutfitterPage] = useState<'upgrades' | 'berths'>('upgrades')
   if (gameState === 'playing' || gameState === 'dying') return null
   if (gameState === 'docking') return <div role="status" className="absolute bottom-16 inset-x-0 text-center text-xs tracking-widest text-[#00ff88] pointer-events-none">DOCKING CLAMPS</div>
   const checkpoint = `Haven / ${currentBerth(state).name}`
@@ -87,9 +91,10 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, loadSt
         <h2 className="text-xl mt-3">{goal.title}</h2><p className="text-sm text-white/60 mt-2 leading-relaxed">{goal.detail}</p>
         <div className="grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] gap-5 mt-6">
           <div className="max-h-44 sm:max-h-80 overflow-y-auto space-y-1">{records.map(record => <button key={record.id} aria-pressed={selected?.id === record.id} onClick={() => setSelectedRecord(record.id)} className={`w-full text-left p-2 text-xs border ${selected?.id === record.id ? 'border-[#82b6a1] text-[#c1e9d9]' : 'border-transparent text-white/50'}`}>{record.title}</button>)}</div>
-          {selected && <article className="border-t sm:border-t-0 sm:border-l border-white/15 pt-4 sm:pt-0 sm:pl-5"><p className="text-[10px] text-[#8aa99b] tracking-wider">{selected.speaker}</p><h3 className="text-xl mt-3">{selected.title}</h3><p className="text-sm text-white/70 leading-relaxed mt-4">{selected.text}</p></article>}
+          {selected && <article data-controller-scroll className="max-h-80 overflow-y-auto border-t sm:border-t-0 sm:border-l border-white/15 pt-4 sm:pt-0 sm:pl-5"><p className="text-[10px] text-[#8aa99b] tracking-wider">{selected.speaker}</p><h3 className="text-xl mt-3">{selected.title}</h3><p className="text-sm text-white/70 leading-relaxed mt-4">{selected.text}</p></article>}
         </div>
         <button className={`${button} mt-6`} data-initial-focus onClick={onCloseJournal} aria-keyshortcuts="Escape">Back · Esc</button>
+        <ControllerHelp layout={controllerLayout} />
       </div>
     </KeyboardDialog>
   }
@@ -131,11 +136,8 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, loadSt
         <p className="text-[10px] tracking-[0.3em] text-[#00ff88] uppercase">{checkpoint}</p>
         <h2 className="text-3xl mt-3">Haven outfitter</h2>
         <div className="my-5 flex justify-between items-baseline border-y border-white/10 py-3"><span className="text-xs uppercase text-white/50">Banked credits</span><span className="text-2xl text-[#00ff88]">{state.banked}</span></div>
-        <nav aria-label="Haven services" className="flex flex-wrap gap-2 mb-4">{(['supplies','upgrades','berths'] as const).map(page => <button key={page} aria-pressed={outfitterPage===page} onClick={() => setOutfitterPage(page)} className={`px-3 py-2 text-xs border ${outfitterPage===page ? 'border-[#8ee5e8] text-[#bce0d3]' : 'border-white/15 text-white/50'}`}>{page==='supplies' ? 'Supplies' : page==='upgrades' ? 'Ship upgrades' : 'Service berths'}</button>)}</nav>
-        {outfitterPage === 'supplies' && <div className="space-y-3">{supplyOffers(state).map(item => <button key={item.slot} aria-label={`${item.name}, ${item.full && item.id === 'teleporter' ? 'installed' : `${item.cost} credits`}, ${item.detail}`} onClick={() => onBuySupply(item.id)} disabled={item.full || state.banked < item.cost} className="w-full text-left border border-[#8ee5e8]/25 p-3 enabled:hover:bg-[#8ee5e8]/10 disabled:opacity-45 flex justify-between gap-4">
-          <span><span className="block text-sm text-[#b8ddcf]">{item.name}</span><span className="block text-xs text-white/50 mt-1">{item.detail}</span></span>
-          <span className="text-xs text-[#8ee5e8] whitespace-nowrap">{item.full ? item.id === 'teleporter' ? 'INSTALLED' : 'FULL' : `${item.cost.toLocaleString()} CR`}</span>
-        </button>)}</div>}
+        <nav aria-label="Haven services" className="flex flex-wrap gap-2 mb-4">{(['upgrades','berths'] as const).map(page => <button key={page} aria-pressed={outfitterPage===page} onClick={() => setOutfitterPage(page)} className={`px-3 py-2 text-xs border ${outfitterPage===page ? 'border-[#8ee5e8] text-[#bce0d3]' : 'border-white/15 text-white/50'}`}>{page==='upgrades' ? 'Ship upgrades' : 'Service berths'}</button>)}</nav>
+        <p className="text-xs text-white/50 mb-4">Upgrade installed systems here. Find new equipment in the station and tow it to Haven for installation.</p>
         {outfitterPage === 'upgrades' && <div className="space-y-3 mt-3">{SHIP_UPGRADES.map(id => {
           const item = upgradeOffer(state, id), staged = item.maxLevel > 1
           const stageLabel = !item.maxed && staged ? `Stage ${item.stage}/${item.maxLevel} · ` : ''
@@ -146,7 +148,7 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, loadSt
         })}</div>}
         {outfitterPage === 'berths' && <div className="border-t border-white/15 pt-5 mt-5"><h3 className="text-xs tracking-widest text-[#8ee5e8]">HAVEN / SERVICE ROUTE</h3>
           <p className="text-xs text-white/45 mt-2">Travel aboard Haven to an energized berth. Cargo stays behind.</p>
-          <div className="grid sm:grid-cols-2 gap-2 mt-3">{BERTHS.filter(b => state.campaign.berths.includes(b.id)).map(berth => {
+          <div data-menu-grid className="grid sm:grid-cols-2 gap-2 mt-3">{BERTHS.filter(b => state.campaign.berths.includes(b.id)).map(berth => {
             const here = berth.id === state.campaign.berth, ready = !!serviceRoute(state,berth.id)
             return <button key={berth.id} disabled={here || !ready} onClick={() => onRelocate(berth.id)} className="text-left border border-[#8ee5e8]/30 p-3 text-xs text-[#b8ddcf] disabled:opacity-40">{berth.name}<span className="block text-[10px] text-white/50 mt-1">{here ? 'DOCKED' : ready ? 'RELOCATE HAVEN' : 'SERVICE ROUTE OBSTRUCTED'}</span></button>
           })}</div>
@@ -176,17 +178,28 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, loadSt
         <div className="flex gap-3 mt-7"><button className={button} onClick={onResume} aria-keyshortcuts="Escape">Keep exploring · Esc</button><button className={button} onClick={onExit}>Save & exit</button></div>
       </>}
       {(gameState === 'menu' || gameState === 'paused') && <>
+        <p className="mt-4 text-xs text-white/50" aria-live="polite">{controllerStatus}</p>
         <button className="mt-5 text-xs text-white/50 hover:text-white" aria-expanded={showControls} onClick={() => setShowControls(!showControls)}>Controls</button>
-        {showControls && <div className="grid grid-cols-2 gap-3 mt-4 text-xs text-white/60">
+        {showControls && <>
+        <div className="grid grid-cols-2 gap-3 mt-4 text-xs text-white/60">
           <span>A / D or K / ; · Rotate</span><span>W / S or O / L · Rear / nose thruster</span><span>Space · Laser</span><span>B · Blaster</span>
-          <span>F · Grapple / release · Connect to terminals</span><span>E · Dock / call Haven</span><span>R · Remote recharge</span><span>T · Teleport</span><span>M · Map</span><span>G · Log</span><span>P / Esc · Pause</span>
-        </div>}
+          <span>F · Grapple / release · Connect to terminals</span><span>E · Dock / call Haven</span><span>T · Teleport</span><span>M · Map</span><span>G · Log</span><span>P / Esc · Pause</span>
+        </div>
+        <h3 className="mt-5 text-xs text-[#8ee5e8]">Controller · {controllerLayout.name} · Xbox / PlayStation</h3>
+        <div className="grid grid-cols-2 gap-3 mt-3 text-xs text-white/60">
+          <span>{controllerTurnLabel(controllerLayout)}</span>
+          {CONTROLLER_FLIGHT_HELP.map(({action,label}) => <span key={action}>{controllerButtonLabel(controllerLayout.buttons[action])} · {label}</span>)}
+        </div>
+        <p className="mt-3 text-xs text-white/50">Menus: {controllerMenuHelp(controllerLayout)}. Map: {controllerMenuHelp(controllerLayout, true)}.</p>
+        <p className="mt-2 text-xs text-white/50">Standard-layout controllers supported. Connect by USB or Bluetooth and press a button. If audio is silent, click the game or press a keyboard key once.</p>
+        </>}
       </>}
       {saveIssue && <p role="alert" className="mt-4 text-xs text-[#ffbd69]">{saveIssue}</p>}
       {exitSaveFailed && <div className="mt-4 border-t border-[#ffbd69]/40 pt-4">
         <p className="text-xs text-[#ffbd69]">Your latest progress is still only in this tab.</p>
         <div className="flex flex-wrap gap-3 mt-3"><button className={button} onClick={onExit}>Retry save & exit</button><button className={button} onClick={onExitWithoutSaving}>Exit without saving</button></div>
       </div>}
+      <ControllerHelp layout={controllerLayout} />
     </div>
   </KeyboardDialog>
 }

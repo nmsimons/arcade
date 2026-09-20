@@ -80,7 +80,7 @@ test('laser focus advances through five stages of faster impacts on one upgrade 
 })
 
 test('radiation drains only its own reserve, recharges outside exposure, and threatens unprotected hulls', () => {
-  const state = freshExpedition('ring'); state.upgrades.push('radiation'); state.radiationCharge = 100
+  const state = freshExpedition('ring'); state.impactShieldInstalled = true; state.shields = 2; state.upgrades.push('radiation'); state.radiationCharge = 100
   const hot = { x: 2500, y: 1480 }, safe = { x: 1500, y: 1300 }
   assert.ok(inRadiation(hot)); assert.equal(inRadiation(safe), false)
   for (let i = 0; i < 50; i++) assert.equal(stepRadiation(state, hot, 0.1).failed, false)
@@ -122,7 +122,7 @@ test('the debris field contains many moving asteroids with valid, separated spaw
   assert.ok(field.length >= 35, `expected a dense field, got ${field.length}`)
   assert.ok(field.some(r => r.kind === 'blue'))
   for (const rock of field) {
-    assert.ok(Math.hypot(rock.vel.x, rock.vel.y) >= 28)
+    assert.ok(Math.hypot(rock.vel.x, rock.vel.y) >= 28 - 1e-10, 'allow floating-point rounding of a 28-unit velocity')
     assert.ok(isInsideCavern(rock.pos, rock.radius, map))
     assert.ok(Math.hypot(rock.pos.x - state.position.x, rock.pos.y - state.position.y) > 175)
   }
@@ -150,7 +150,7 @@ test('removed formations leave navigable space without invisible collision or bl
 
 test('retired formation flags migrate without losing saved progress', () => {
   const state = freshExpedition('ring')
-  Object.assign(state, { gates: ['rubble', 'blast'], banked: 4321, credits: 87, blasterInstalled: true, blasterCharges: 1, visited: ['haven', 'vault'], surveyed: [921, 922], upgrades: ['focus'], upgradeLevels: { focus: 2 } })
+  Object.assign(state, { impactShieldInstalled: true, gates: ['rubble', 'blast'], banked: 4321, credits: 87, blasterInstalled: true, blasterCharges: 1, visited: ['haven', 'vault'], surveyed: [921, 922], upgrades: ['focus'], upgradeLevels: { focus: 2 } })
   const legacy = { ...state, gates: [...state.gates, ...Array.from({ length: 6 }, (_, i) => `crag-${i}`)] };legacy.version=1;
   assert.deepEqual(parseExpedition(JSON.stringify(legacy)), state)
   assert.equal(parseExpedition(JSON.stringify({ ...state, gates: ['crag-6'] })), null)

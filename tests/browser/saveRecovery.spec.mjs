@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { SAVE_SCHEMA_VERSION } from '../../src/games/hardVacuum/saveMigrations.ts'
 import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 import { SAVE_BACKUP_KEY, SAVE_RECOVERY_KEY } from '../../src/games/hardVacuum/expeditionSave.ts'
 
@@ -76,7 +77,7 @@ test('a missing slot stays empty on menu exit and is saved only after launch', a
   await page.goto('/hard-vacuum')
   await activate(page, 'Launch expedition')
   await expect.poll(() => readSlot(page)).not.toBeNull()
-  expect(JSON.parse(await readSlot(page, SAVE_BACKUP_KEY)).version).toBe(2)
+  expect(JSON.parse(await readSlot(page, SAVE_BACKUP_KEY)).version).toBe(SAVE_SCHEMA_VERSION)
 })
 
 test('a missing primary with a working backup defaults to recovery, not a fresh launch', async ({ page }) => {
@@ -101,7 +102,7 @@ test('confirming New deliberately replaces an unreadable save', async ({ page })
   await page.keyboard.press('ArrowRight')
   await expect(page.getByRole('button', { name: 'Start fresh', exact: true })).toBeFocused()
   await page.keyboard.press('Enter')
-  await expect.poll(async () => JSON.parse(await readSlot(page)).version).toBe(2)
+  await expect.poll(async () => JSON.parse(await readSlot(page)).version).toBe(SAVE_SCHEMA_VERSION)
   expect(JSON.parse(await readSlot(page)).banked).toBe(0)
   expect(await readSlot(page, SAVE_RECOVERY_KEY)).toBe(raw)
 })
@@ -120,7 +121,7 @@ test('quota failures show an in-flight warning and require an explicit exit with
   const raw = goodSave()
   await seed(page, { raw, denyWrite: true })
   await activate(page, 'Continue expedition')
-  await expect(page.getByRole('alert')).toContainText('Progress could not be saved')
+  await expect(page.getByRole('alert').filter({ hasText: 'Progress could not be saved' })).toBeVisible()
   await page.keyboard.press('p')
   await activate(page, 'Save & exit')
   await expect(page).toHaveURL(/\/hard-vacuum$/)

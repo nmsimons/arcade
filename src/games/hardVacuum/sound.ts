@@ -42,9 +42,13 @@ export class SoundSystem {
   private storePlaying = false
 
   init() {
-    if (this.initialized) return
-    this.ctx = new AudioContext()
-    this.initialized = true
+    if (!this.initialized) {
+      this.ctx = new AudioContext()
+      this.initialized = true
+    }
+    // A controller can launch before the browser permits audio. A later real
+    // click/key gesture retries the existing context instead of leaving it silent.
+    if (this.ctx?.state === 'suspended') void this.ctx.resume().catch(() => {})
   }
 
   shutdown() {

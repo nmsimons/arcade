@@ -4,6 +4,7 @@ import { freshExpedition, powerReceiver, parseExpedition } from '../src/games/ha
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import { expeditionMap } from '../src/games/hardVacuum/expedition.ts'
 import { replay } from './helpers/sessionReplay.mjs'
+import { BOT_MAX_HEALTH } from '../src/games/hardVacuum/stationBots.ts'
 
 // Controlled scenes remove unrelated ore, not simulation systems or collisions.
 const controlled=r=>{r.session.refs.rocksRef.current=r.session.refs.rocksRef.current.filter(b=>b.sourceId);return r}
@@ -12,7 +13,7 @@ const cargo=(x,y,tethered=false)=>({pos:{x,y},vel:{x:0,y:0},tethered})
 test('recorded flight and grapple commands tow a cell into a receiver and open its physical door at every render rate',()=>{
   let expected
   for(const hz of [60,30,120,144]) {
-    const state=freshExpedition();state.position={x:8150,y:3430}
+    const state=freshExpedition();state.impactShieldInstalled=true;state.shields=2;state.position={x:8150,y:3430}
     state.cargo={'breach-power':cargo(8150,3510)}
     const r=controlled(replay(state,90210,()=>hz/150)),s=r.session
     r.frames(hz,10,()=>{
@@ -45,7 +46,7 @@ test('Haven recovery and docking bank a released load and carried credits exactl
 })
 
 test('production controls fly the irradiated medical bypass without teleporting or replacing movement',()=>{
-  const state=freshExpedition('refuge');powerReceiver(state,'refuge-power','refuge-power');state.doors={}
+  const state=freshExpedition('refuge');state.impactShieldInstalled=true;state.shields=2;powerReceiver(state,'refuge-power','refuge-power');state.doors={}
   state.upgrades=['radiation'];state.radiationCharge=100;state.position={x:750,y:4090}
   const r=controlled(replay(state)),s=r.session
   let previous={...s.refs.shipRef.current.pos},distance=0,drained=0
@@ -61,27 +62,32 @@ test('production controls fly the irradiated medical bypass without teleporting 
   assert.ok(s.expedition.radiationCharge>100-drained&&s.expedition.radiationCharge<=100,'safe stretches refill without a base visit')
 })
 
-test('actual blaster hits defeat security; reload preserves defeat while death respawns the enemy',()=>{
+test('actual blaster and laser hits defeat tougher security; reload preserves defeat while death respawns the enemy',()=>{
   const state=freshExpedition('works');powerReceiver(state,'works-power','works-power');state.doors={};state.botDoors={}
   state.position={x:5250,y:1030};state.blasterInstalled=true;state.blasterCharges=3
+  state.impactShieldInstalled=true;state.shields=2
+  state.upgradeLevels={focus:5,capacitor:5}
   const r=controlled(replay(state)),s=r.session;let shots=0,last=-100
-  for(let i=0;i<600&&!s.expedition.disabledBots.includes('works-watch');i++)r.step(()=>{
+  for(let i=0;i<600&&s.mode==='playing'&&!s.expedition.disabledBots.includes('works-watch');i++)r.step(()=>{
     const bot=s.refs.botsRef.current.units.find(b=>b.botId==='works-watch'),ship=s.refs.shipRef.current
     const error=r.face(Math.atan2(bot.pos.y-ship.pos.y,bot.pos.x-ship.pos.x))
     if(Math.abs(error)<.08&&r.tick-last>60&&shots<3){r.command({type:'blaster'});last=r.tick;shots++}
+    r.key(' ',shots===3&&r.tick-last>30&&Math.abs(error)<.08)
   })
-  assert.ok(s.expedition.disabledBots.includes('works-watch'),r.diagnostic());assert.equal(shots,2)
+  assert.ok(s.expedition.disabledBots.includes('works-watch'),r.diagnostic());assert.equal(shots,3)
+  assert.equal(s.expedition.blasterCharges,0,'the magazine is unchanged; the laser finishes the damaged bot')
   const restored=parseExpedition(JSON.stringify(s.expedition));r.command({type:'load',expedition:restored})
   assert.ok(!s.refs.botsRef.current.units.some(b=>b.botId==='works-watch'),r.diagnostic())
   // A separate saved encounter starts unprotected in the medical conduit.
   restored.position={x:1500,y:4090};restored.credits=81;restored.banked=800;restored.shields=0
   powerReceiver(restored,'refuge-power','refuge-power');restored.doors={}
   r.command({type:'load',expedition:restored})
+  controlled(r) // Reload repopulates ore; keep passive Haven mining out of this death/save check.
   for(let i=0;i<1800&&s.mode!=='gameOver';i++)r.step()
   assert.equal(s.mode,'gameOver',r.diagnostic());assert.equal(s.snapshot().lostCredits,81)
   assert.equal(s.expedition.banked,800);assert.equal(s.expedition.campaign.deaths,1)
   r.command({type:'start'})
-  assert.equal(s.refs.botsRef.current.units.find(b=>b.botId==='works-watch').health,10,r.diagnostic())
+  assert.equal(s.refs.botsRef.current.units.find(b=>b.botId==='works-watch').health,BOT_MAX_HEALTH,r.diagnostic())
   assert.deepEqual(s.refs.shipRef.current.pos,s.expedition.campaign.haven)
 })
 

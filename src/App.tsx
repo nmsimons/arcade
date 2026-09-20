@@ -1,6 +1,7 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { GameLoadBoundary, GameLoading, GameViewport } from './GameRoute'
+import { createControllerReader } from './games/hardVacuum/controllerInput'
 
 const HardVacuumGame = lazy(() => import('./games/HardVacuumGame').then(m => ({ default: m.HardVacuumGame })))
 const HelloWorldGame = lazy(() => import('./games/HelloWorldGame').then(m => ({ default: m.HelloWorldGame })))
@@ -15,6 +16,7 @@ export default function App() {
   const { pathname } = useLocation()
   const menuButtons = useRef<(HTMLButtonElement | null)[]>([])
   const [selectedIndex, setSelectedIndex] = useState(0)
+  const [controller] = useState(createControllerReader)
 
   const games = useMemo(
     () =>
@@ -55,6 +57,34 @@ export default function App() {
   useEffect(() => {
     if (pathname === '/') menuButtons.current[selectedIndex]?.focus({ preventScroll: true })
   }, [pathname, selectedIndex])
+  const pollMenuController = useEffectEvent((now: number) => {
+    let pads: (Gamepad | null)[] = []
+    try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Keyboard remains available. */ }
+    const input = controller.sample(pads, 'menu:arcade', now, document.hasFocus() && document.visibilityState !== 'hidden')
+    const active = menuButtons.current.indexOf(document.activeElement as HTMLButtonElement)
+    if (input.pressed.includes(controller.layout.buttons.confirm)) {
+      if (active >= 0) menuButtons.current[active]?.click()
+      else menuButtons.current[selectedIndex]?.focus()
+    } else if (input.navigation) {
+      const delta = input.navigation === 'up' || input.navigation === 'left' ? -1 : 1
+      setSelectedIndex(((active >= 0 ? active : selectedIndex) + delta + games.length) % games.length)
+    }
+  })
+  useEffect(() => {
+    if (pathname !== '/') return
+    controller.reset()
+    let frame: number
+    const poll = (now: number) => { pollMenuController(now); frame = requestAnimationFrame(poll) }
+    const reset = () => controller.reset()
+    window.addEventListener('blur', reset); window.addEventListener('focus', reset)
+    document.addEventListener('visibilitychange', reset)
+    frame = requestAnimationFrame(poll)
+    return () => {
+      cancelAnimationFrame(frame)
+      window.removeEventListener('blur', reset); window.removeEventListener('focus', reset)
+      document.removeEventListener('visibilitychange', reset)
+    }
+  }, [controller, pathname])
   const onExit = () => navigate('/', { replace: true })
 
   return (
@@ -101,7 +131,7 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ to select • Enter to play</p>
+                <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ / stick / D-pad to select • Enter / A to play</p>
               </div>
             </div>
           </div>

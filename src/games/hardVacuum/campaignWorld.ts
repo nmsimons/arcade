@@ -89,8 +89,10 @@ export const CAMPAIGN_GATES = [
 const socket = (id: CircuitId, label: string, x: number, y: number, sx: number, sy: number, gates: GateId[], flags: ProgressionId[] = []) => ({ id, label, pos: p(x,y), source: p(sx,sy), gates, flags })
 export const CAMPAIGN_SOCKETS = [
   socket('breach-power','FREIGHT TRANSIT',8150,3310,7040,3460,['breach-link']),
-  socket('freight-power','FREIGHT LIFT / SERVICE BERTH',8100,1080,7020,1080,['freight-lift']),
-  socket('dispatch-power','WORKS FEED / FREIGHT RETURN',7870,420,8860,470,['freight-link','freight-return']),
+  // Enter Dispatch through the irradiated Stores tube first. Its own receiver
+  // unlocks the short lift home and the onward Works route from the far side.
+  socket('freight-power','DISPATCH SERVICE ACCESS / BERTH',8100,1080,7020,1080,['freight-return']),
+  socket('dispatch-power','FREIGHT LIFT / WORKS EXIT',7870,420,8860,470,['freight-lift','freight-link']),
   socket('works-power','MAINTENANCE BUS',4730,1000,5900,600,['works-bus']),
   socket('ring-power','RING DISTRIBUTION',3990,1300,5000,1840,['ring-link']),
   socket('refuge-power','MEDICAL TRANSFER / SERVICE ACCESS',1640,2760,1300,1820,['refuge-air','medical-return']),

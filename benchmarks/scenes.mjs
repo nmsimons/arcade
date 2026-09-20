@@ -15,7 +15,7 @@ export function createScene(name, density=1) {
   for(const socket of SOCKETS)powerReceiver(state,socket.id,socket.id)
   state.gates=GATES.map(g=>g.id);state.doors={};state.botDoors={}
   state.campaign.berths=BERTHS.map(b=>b.id)
-  state.upgrades=['radiation'];state.upgradeLevels={hull:4,radiationReserve:3};state.shields=8;state.radiationCharge=250
+  state.upgrades=['radiation'];state.upgradeLevels={hull:5};state.impactShieldInstalled=true;state.shields=8;state.radiationCharge=100
   if(name==='radiation-flight')state.position={x:750,y:4090}
   if(name==='opening-doors') {
     state.position={x:5310,y:3310}

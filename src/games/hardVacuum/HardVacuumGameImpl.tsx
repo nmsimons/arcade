@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, useCallback } from 'react'
 import type { ButtonHTMLAttributes } from 'react'
 import type { HardVacuumGameProps, Vector2 } from './types'
 import type { BerthId } from './campaignWorld'
 import type { ShipUpgrade } from './upgrades'
-import type { SupplyPurchase } from './supplies'
 import { sounds } from './sound'
 import { ExpeditionHud, ExpeditionOverlay, StationSurveyControls } from './expeditionUi'
 import { DevelopmentPanel } from './DevelopmentPanel'
@@ -18,10 +17,20 @@ import { RED_ROCK_DETONATION_DELAY } from './tuning'
 import { FLIGHT_KEYS, flightInput } from './flightInput'
 import { drawHardVacuumFrame } from './render'
 import { stepShipAppearance, stepHullSparks } from './shipRender'
+import { createControllerReader } from './controllerInput'
+import { CONTROLLER_FLIGHT_HELP, controllerButtonLabel, controllerTurnLabel } from './controllerLayouts'
+import { controllerDialog, controlDialog, scrollDialog } from './controllerUi'
 
 /** Browser adapter: focus, input, menus, snapshots, audio, storage and presentation only. */
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
+  const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [controller] = useState(createControllerReader)
+  const CONTROLLER = controller.layout.buttons
+  const [controllerConnected, setControllerConnected] = useState(false)
+  const [controllerStatus, setControllerStatus] = useState('Press a button on your controller to connect.')
+  const controllerWasConnectedRef = useRef(false)
+  const focusedRef = useRef(true)
   const canvasSizeRef = useRef({ width: 800, height: 600 })
   const [saveSession] = useState(createExpeditionSaveSession)
   const [session] = useState(() => createGameSession(saveSession.load.status === 'valid' ? saveSession.load.expedition : freshExpedition(), { seed: Date.now() >>> 0 }))
@@ -78,11 +87,9 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
   }
   const resumeFlight = () => { setJournalOpen(false); dispatch({ type: 'resume' }) }
   const shootBlaster = () => dispatch({ type: 'blaster' })
-  const rechargeRemotely = () => dispatch({ type: 'recharge' })
   const teleportHome = () => dispatch({ type: 'teleport' })
   const interact = () => dispatch({ type: 'interact' })
   const buyUpgrade = (id: ShipUpgrade) => dispatch({ type: 'upgrade', id })
-  const buySupply = (id: SupplyPurchase) => dispatch({ type: 'supply', id })
   const relocateHaven = (berth: BerthId) => dispatch({ type: 'relocate', berth })
   const setDevelopmentOpen = useCallback((open: boolean) => {
     devOpenRef.current = open; setDevOpen(open)
@@ -129,6 +136,60 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       setSurveyOpen(true); setDevelopmentOpen(false)
     }
   }
+  const pollController = useEffectEvent((timestamp: number, dt: number) => {
+    let pads: (Gamepad | null)[] = [], available = true
+    try { if (navigator.getGamepads) pads = [...navigator.getGamepads()]; else available = false }
+    catch { available = false }
+    const dialog = controllerDialog(rootRef.current)
+    const isMap = dialog?.dataset.controllerMode === 'map'
+    const screen = dialog ? `${isMap ? 'map' : 'menu'}:${dialog.dataset.dialogScreen}`
+      : mapOpenRef.current ? 'inactive:map'
+      : session.mode === 'playing' && !devOpenRef.current ? 'flight' : `inactive:${session.mode}`
+    const focused = focusedRef.current && document.hasFocus() && document.visibilityState !== 'hidden'
+    const input = controller.sample(pads, screen, timestamp, focused)
+    if (input.connected !== controllerConnected) setControllerConnected(input.connected)
+    if (input.connected) controllerWasConnectedRef.current = true
+    const status = !available ? 'Controller access unavailable. Keyboard controls still work.'
+      : input.unsupported ? 'Controller detected without a standard layout. Use keyboard controls.'
+      : input.connected ? 'Controller connected · A selects · B goes back · Menu pauses.'
+      : controllerWasConnectedRef.current ? 'Controller disconnected. Reconnect or use keyboard controls.'
+      : 'Press a button on your controller to connect.'
+    if (status !== controllerStatus) setControllerStatus(status)
+    session.command({ type: 'controller', input: input.flight })
+    if (input.disconnected && session.mode === 'playing') {
+      if (mapOpenRef.current) setSurveyOpen(false)
+      dispatch({ type: 'pause' }); return
+    }
+    if (!focused) return
+    const pressed = (button: number) => input.pressed.includes(button)
+    if (isMap && dialog) {
+      if (pressed(CONTROLLER.back) || pressed(CONTROLLER.map) || pressed(CONTROLLER.pause)) {
+        setSurveyOpen(false)
+        if (pressed(CONTROLLER.pause) && session.mode === 'playing') dispatch({ type: 'pause' })
+      } else {
+        if (pressed(CONTROLLER.confirm)) controlDialog(dialog, 'confirm')
+        else if (input.navigation) controlDialog(dialog, input.navigation)
+        if (pressed(CONTROLLER.mapZoom)) toggleMapZoom()
+        if (pressed(CONTROLLER.mapOverview)) toggleOverview()
+        panSurvey(input.direction.x * 300 * dt, input.direction.y * 300 * dt)
+      }
+    } else if (dialog) {
+      if (pressed(CONTROLLER.back) || (pressed(CONTROLLER.pause) && screen.startsWith('menu:paused-'))) controlDialog(dialog, 'back')
+      else if (pressed(CONTROLLER.confirm)) controlDialog(dialog, 'confirm')
+      else if (input.navigation) controlDialog(dialog, input.navigation)
+      scrollDialog(dialog, input.scroll * 450 * dt)
+    } else if (screen === 'flight') {
+      if (pressed(CONTROLLER.pause)) dispatch({ type: 'pause' })
+      else if (pressed(CONTROLLER.map)) setSurveyOpen(true)
+      else if (pressed(CONTROLLER.journal)) { setJournalOpen(true); dispatch({ type: 'pause' }) }
+      else {
+        if (pressed(CONTROLLER.interact)) dispatch({ type: 'interact' })
+        if (pressed(CONTROLLER.teleport)) dispatch({ type: 'teleport' })
+        if (pressed(CONTROLLER.tether)) dispatch({ type: 'tether' })
+        if (pressed(CONTROLLER.blaster)) dispatch({ type: 'blaster' })
+      }
+    }
+  })
   useEffect(() => {
     if (!import.meta.env.DEV) return
     const toggle = (event: KeyboardEvent) => {
@@ -167,21 +228,26 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       }
       if (mode !== 'playing' || session.expedition.campaign.journey?.riding) return
       if (e.target instanceof HTMLElement && e.target.closest('button, input, a') && ['enter',' ','tab','arrowup','arrowdown','arrowleft','arrowright','home','end'].includes(key)) return
-      const actions = { e: 'interact', b: 'blaster', r: 'recharge', t: 'teleport', f: 'tether' } as const
+      const actions = { e: 'interact', b: 'blaster', t: 'teleport', f: 'tether' } as const
       if (key in actions) {
         e.preventDefault(); if (!e.repeat) dispatch({ type: actions[key as keyof typeof actions] }); return
       }
       if ([...FLIGHT_KEYS, ' '].includes(key)) { e.preventDefault(); dispatch({ type: 'key', key, pressed: true }) }
     }
     const handleKeyUp = (e: KeyboardEvent) => dispatch({ type: 'key', key: e.code === 'Semicolon' ? ';' : e.key.toLowerCase(), pressed: false })
-    const handleBlur = () => { if (session.mode === 'playing') dispatch({ type: 'pause' }) }
+    const handleBlur = () => { focusedRef.current = false; controller.reset(); if (session.mode === 'playing') dispatch({ type: 'pause' }) }
+    const handleFocus = () => { focusedRef.current = true; controller.reset() }
+    const handleVisibility = () => { if (document.visibilityState === 'hidden') handleBlur(); else handleFocus() }
     window.addEventListener('blur', handleBlur)
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibility)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('keyup', handleKeyUp)
     return () => {
       window.removeEventListener('blur', handleBlur); window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('focus', handleFocus); document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [session, dispatch, devMapRevealed, toggleOverview, toggleMapZoom, setSurveyOpen])
+  }, [session, dispatch, controller, devMapRevealed, toggleOverview, toggleMapZoom, setSurveyOpen])
   useEffect(() => {
     if (gameState !== 'playing' || devOpen || mapOpen) { sounds.stopThrust(); sounds.stopRepairHum(); sounds.stopPhaser(); sounds.stopRadiation() }
     if (gameState === 'docked' && !devOpen && !mapOpen) sounds.startStoreMusic()
@@ -196,15 +262,16 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     let rafId = 0, lastTime = 0
     const animate = (timestamp: number) => {
       const dt = Math.min(lastTime ? (timestamp - lastTime) / 1000 : 0, 1 / 30); lastTime = timestamp
+      pollController(timestamp, dt)
       session.advance(timestamp); flushEvents()
       const refs = session.refs, appearance = refs.shipAppearanceRef.current
       if (!devOpenRef.current && !mapOpenRef.current && session.mode === 'playing' && !session.expedition.campaign.journey?.riding) {
-        stepShipAppearance(appearance, refs.keysRef.current, dt, refs.shipRef.current.angularVelocity)
-        const controls = flightInput(refs.keysRef.current)
+        stepShipAppearance(appearance, refs.keysRef.current, dt, refs.shipRef.current.angularVelocity, refs.controllerRef.current)
+        const controls = flightInput(refs.keysRef.current, refs.controllerRef.current)
         if (controls.forward || controls.reverse) sounds.startThrust()
         else if (appearance.turn !== 0) sounds.startThrust(.25)
         else sounds.stopThrust()
-        refs.debrisRef.current.push(...stepHullSparks(appearance, refs.shipRef.current, session.expedition.shields, dt))
+        refs.debrisRef.current.push(...stepHullSparks(appearance, refs.shipRef.current, session.expedition.shields, dt, session.expedition.impactShieldInstalled))
       } else { appearance.turn = 0; sounds.stopThrust(); stepShipAppearance(appearance, new Set(), dt); appearance.sparkDelay = 0 }
       drawHardVacuumFrame({
         ...refs, ctx, gameState: session.mode, nowMs: session.timeMs,
@@ -268,11 +335,13 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
     'touch-none select-none min-w-12 w-12 h-12 sm:min-w-16 sm:w-16 sm:h-16 rounded-full border-2 border-white/45 bg-black/65 text-white text-xl font-bold active:border-[#00ff88] active:bg-[#00ff88]/30'
 
   return (
-    <div className="hard-vacuum relative w-screen h-screen overflow-hidden font-mono">
-      <canvas ref={canvasRef} tabIndex={-1} aria-label="Hard Vacuum flight controls: WASD, O K L semicolon, or arrows to fly, Space for laser, B for blaster, F to tether, R to recharge, T to teleport, E to dock, M for map, G for log, P to pause" className="absolute inset-0 outline-none" />
+    <div ref={rootRef} data-controller-connected={controllerConnected} className="hard-vacuum relative w-screen h-screen overflow-hidden font-mono"
+      onPointerDownCapture={event => { if (event.nativeEvent.isTrusted) sounds.init() }}
+      onKeyDownCapture={event => { if (event.nativeEvent.isTrusted) sounds.init() }}>
+      <canvas ref={canvasRef} tabIndex={-1} aria-label={`Hard Vacuum flight controls: keyboard or controller. WASD or arrows to fly. Controller: ${controllerTurnLabel(controller.layout)}. ${CONTROLLER_FLIGHT_HELP.map(({action,label}) => `${controllerButtonLabel(CONTROLLER[action])}: ${label}`).join('. ')}.`} className="absolute inset-0 outline-none" />
 
       <div hidden={devOpen} inert={devOpen}>
-      <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} onJournal={() => tapVirtualKey('g')} onMap={() => setSurveyOpen(!mapOpenRef.current)} onInteract={interact} onBlaster={shootBlaster} onRecharge={rechargeRemotely} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />
+      <ExpeditionHud state={expedition} gameState={gameState} shields={shields} hud={hud} mapOpen={mapOpen} onJournal={() => tapVirtualKey('g')} onMap={() => setSurveyOpen(!mapOpenRef.current)} onInteract={interact} onBlaster={shootBlaster} onTeleport={teleportHome} onPause={() => tapVirtualKey('p')} />
 
       {gameState === 'playing' && !mapOpen && (
         <div className="absolute inset-x-0 bottom-4 z-30 flex items-end justify-between px-4 lg:hidden pointer-events-none">
@@ -346,11 +415,11 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       <div hidden={mapOpen} inert={mapOpen}>
       <ExpeditionOverlay
         gameState={gameState} state={expedition} hasSave={hasSave} saveIssue={saveIssue}
+        controllerStatus={controllerStatus} controllerLayout={controller.layout}
         loadStatus={saveSession.load.status} loadBlocked={loadBlocked} hasBackup={saveSession.backup.status === 'valid'} onRecover={recoverSave}
         exitSaveFailed={exitSaveFailed} onExitWithoutSaving={leaveGame}
         lostCredits={lostCredits}
         onStart={() => startGame(false)} onNew={() => startGame(true)} onBuy={buyUpgrade}
-        onBuySupply={buySupply}
         onRelocate={relocateHaven}
         journalOpen={journalOpen} onJournal={() => setJournalOpen(true)} onCloseJournal={() => setJournalOpen(false)}
         onResume={resumeFlight}
@@ -358,7 +427,7 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
       />
       </div>
       {saveIssue && gameState === 'playing' && !mapOpen && <div role="alert" className="absolute top-24 inset-x-4 mx-auto max-w-xl border border-[#ffbd69]/60 bg-black/95 p-3 text-xs text-[#ffbd69]">{saveIssue}</div>}
-      {mapOpen && <StationSurveyControls overview={mapOverview} zoom={mapZoom} onZoom={toggleMapZoom} onPan={panSurvey} onOverview={toggleOverview} onClose={() => setSurveyOpen(false)} />}
+      {mapOpen && <StationSurveyControls controllerLayout={controller.layout} overview={mapOverview} zoom={mapZoom} onZoom={toggleMapZoom} onPan={panSurvey} onOverview={toggleOverview} onClose={() => setSurveyOpen(false)} />}
       </div>
       {import.meta.env.DEV && devOpen && <DevelopmentPanel current={regionForRoom(sectorAt(expedition.position)?.id)?.id} banked={expedition.banked} mapRevealed={devMapRevealed}
         onLevel={jumpToDevelopmentLevel} onCredits={grantDevelopmentCredits} onRevealMap={toggleDevelopmentMap} onClose={() => setDevelopmentOpen(false)} />}

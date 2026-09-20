@@ -62,19 +62,18 @@ import type { HardVacuumGameState } from './ui.ts'
 import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, freshExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, powerCellSpawns, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition.ts'
 import { BLASTER_BLAST_RADIUS, fireBlaster, pulverizeAsteroid, stepBlaster } from './blaster.ts'
 import type { BlasterVisuals } from './blaster.ts'
-import { angleDelta, dockingReadiness, driftCargo, repelBlueBody, stepShipMovement } from './expeditionPhysics.ts'
+import { angleDelta, dockingReadiness, driftCargo, repelBody, repelBlueBody, stepShipMovement } from './expeditionPhysics.ts'
 import { SimulationClock } from './simulationClock.ts'
 import { laserImpactMs, stepLaserContact } from './laser.ts'
 import type { LaserContact } from './laser.ts'
 import { freshRadiationFeedback, inRadiation, stepRadiation, stepRadiationFeedback, stepRadiationRecharge } from './radiation.ts'
-import { activateRemoteRecharge, needsRecharge, purchaseSupply, restoreShipSystems, stepRemoteRecharge } from './supplies.ts'
-import type { SupplyPurchase } from './supplies.ts'
+import { needsRecharge, restoreShipSystems } from './supplies.ts'
 import { creditAsteroidDestruction } from './oreCredits.ts'
 import { debrisField, fragmentKindFor, fragmentProfileAt } from './debrisField.ts'
 import { BOT_BLASTER_DAMAGE, BOT_LASER_DAMAGE, damageBot, freshBots, stepBots, stepBotSparks, stepSecurityShots } from './stationBots.ts'
 import type { StationBot } from './stationBots.ts'
 import { havenColliders } from './havenGeometry.ts'
-import { laserCapacityMs, tetherReachMultiplier, upgradeOffer } from './upgrades.ts'
+import { laserCapacityMs, tetherReachMultiplier, upgradeOffer, SHIP_UPGRADES } from './upgrades.ts'
 import type { ShipUpgrade } from './upgrades.ts'
 import { freshShipAppearance } from './shipAppearance.ts'
 import { updateBaseDefenseAndProcessing } from './baseDefense.ts'
@@ -85,6 +84,8 @@ import { seededRandom } from './random.ts'
 import { identifyBody, isRock } from './bodyDefinitions.ts'
 import { isStationBot } from './stationBots.ts'
 import type { Expedition } from './expedition.ts'
+import { neutralController, sanitizeController } from './flightInput.ts'
+import type { ControllerFlightInput } from './flightInput'
 type SessionAudio = Pick<typeof BrowserSounds, 'blaster' | 'stopThrust' | 'stopPhaser' | 'stopRadiation' | 'teleport' | 'collect' | 'init' | 'stopStoreMusic' | 'havenRecovery' | 'explosion' | 'shieldHit' | 'radiationTick' | 'botCue' | 'shieldCharge' | 'startPhaser' | 'startRepairHum' | 'stopRepairHum' | 'havenImpact'>
 export type SessionAudioEvent = { [K in keyof SessionAudio]: { type: 'audio'; name: K; args: Parameters<SessionAudio[K]> } }[keyof SessionAudio]
 
@@ -93,11 +94,11 @@ export type GameCommand =
   | { type: 'start'; fresh?: boolean }
   | { type: 'load'; expedition: Expedition }
   | { type: 'key'; key: string; pressed: boolean }
+  | { type: 'controller'; input: ControllerFlightInput }
   | { type: 'suspend'; suspended: boolean }
-  | { type: 'pause' | 'resume' | 'menu' | 'blaster' | 'recharge' | 'teleport' | 'tether' | 'interact' | 'credits' }
+  | { type: 'pause' | 'resume' | 'menu' | 'blaster' | 'teleport' | 'tether' | 'interact' | 'credits' }
   | { type: 'jump' | 'relocate'; berth: BerthId }
   | { type: 'upgrade'; id: ShipUpgrade }
-  | { type: 'supply'; id: SupplyPurchase }
 const cell = <T>(current: T) => ({ current })
 
 /** Authoritative state, transitions, commands and update order, independent of browser services. */
@@ -115,6 +116,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   let timeMs = 0, hudElapsed = 0, saveElapsed = 0, lostCredits = 0, suspended = false
   const setLostCredits = (value: number) => { lostCredits = value }
   const setGameStateWithRef = (next: HardVacuumGameState) => {
+    controllerRef.current = neutralController()
     simulationClock.reset()
     gameStateRef.current = next
     events.push({ type: 'state' })
@@ -166,9 +168,10 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   const baseShotsRef = cell<BaseShot[]>([])
   const debrisRef = cell<Debris[]>([])
   const keysRef = cell<Set<string>>(new Set())
+  const controllerRef = cell(neutralController())
   const invulnerableRef = cell(0)
-  const lastShieldHitAtRef = cell(0)
-  const lastShieldRechargeAtRef = cell(0)
+  const lastShieldHitAtRef = cell(-Infinity)
+  const lastShieldRechargeAtRef = cell(-Infinity)
   const dyingTimerRef = cell(0)
 
   const harpoonRef = cell<Harpoon>({ state: 'idle' })
@@ -304,15 +307,6 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     publishExpedition()
   }
 
-  const rechargeRemotely = () => {
-    if (gameStateRef.current !== 'playing' || suspended) return
-    expeditionRef.current.shields = shieldsRef.current
-    if (!activateRemoteRecharge(expeditionRef.current)) return
-    runtimeRef.current.recharging = true
-    runtimeRef.current.rechargeProgress = 0
-    publishExpedition()
-  }
-
   const teleportHome = () => {
     if (gameStateRef.current !== 'playing' || suspended) return
     const ship = shipRef.current, state = expeditionRef.current, rt = runtimeRef.current
@@ -326,6 +320,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     shipRepairTimeRef.current = 0
     keysRef.current.clear()
     phaserBeamRef.current.active = false
+    controllerRef.current = neutralController()
     laserContactRef.current = { elapsedMs: 0 }
     sounds.stopThrust(); sounds.stopPhaser(); sounds.stopRadiation()
     shipAppearanceRef.current.turn=0
@@ -381,8 +376,9 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
   }
 
   const buyUpgrade = (id: ShipUpgrade) => {
+    if (gameStateRef.current !== 'docked' || !SHIP_UPGRADES.includes(id)) return
     const offer = upgradeOffer(expeditionRef.current, id)
-    if (gameStateRef.current !== 'docked' || !purchaseUpgrade(expeditionRef.current, id)) return
+    if (!purchaseUpgrade(expeditionRef.current, id)) return
     shieldsRef.current = maxShields(expeditionRef.current)
 
     expeditionRef.current.shields = shieldsRef.current
@@ -391,11 +387,6 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     publishExpedition(`${offer.name} installed.`)
   }
 
-  const buySupply = (id: SupplyPurchase) => {
-    if (gameStateRef.current !== 'docked' || !purchaseSupply(expeditionRef.current, id)) return
-    sounds.collect()
-    publishExpedition()
-  }
   const startGame = (fresh = false) => {
     if (fresh) expeditionRef.current = freshExpedition()
     random.reset()
@@ -756,8 +747,10 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
         return
       }
 
-      // The deployed ring idles; transit keeps the tender's actual heading.
-      if (havenReady(expeditionRef.current) && !havenArrived && !runtimeRef.current.recovery) miningBaseAngleRef.current += dt * MINING_ROT_SPEED
+      // Keep the first lesson's approach open while a new pilot reads or aims.
+      // After installation the deployed ring idles; transit keeps its heading.
+      const teachingImpactShield = !expeditionRef.current.impactShieldInstalled && expeditionRef.current.campaign.berth === 'breach'
+      if (!teachingImpactShield && havenReady(expeditionRef.current) && !havenArrived && !runtimeRef.current.recovery) miningBaseAngleRef.current += dt * MINING_ROT_SPEED
       expeditionRef.current.campaign.havenAngle = miningBaseAngleRef.current
 
       if (gameState !== 'playing') return
@@ -945,7 +938,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
       // Passengers remain secured inside the tender while the world keeps moving.
       if (!riding) {
-        stepShipMovement(ship, keysRef.current, dt)
+        stepShipMovement(ship, keysRef.current, dt, controllerRef.current)
         const shipWallHit = resolveCircleInCavern(ship.pos, ship.vel, ship.radius, 0.42, cavernMap)
         if (shipWallHit.maxImpactSpeed > 0) applyImpactShield(shipWallHit.maxImpactSpeed)
         if (gameStateRef.current !== 'playing') return
@@ -1054,16 +1047,8 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
               if (invulnerableRef.current < INVULNERABILITY_MIN_AFTER_REPAIR) invulnerableRef.current = INVULNERABILITY_MIN_AFTER_REPAIR
             }
           }
-          if (stepRemoteRecharge(state, dt)) {
-            shieldsRef.current = state.shields
-
-            lastShieldRechargeAtRef.current = timeMs
-            sounds.shieldCharge()
-            invulnerableRef.current = Math.max(invulnerableRef.current, INVULNERABILITY_MIN_AFTER_REPAIR)
-            publishExpedition()
-          }
-          rt.recharging = state.remoteRechargeRemaining > 0 || (fullyInside && needsRecharge(state) && shipRepairTimeRef.current < SHIELD_REPAIR_TIME)
-          rt.rechargeProgress = state.remoteRechargeRemaining > 0 ? 1 - state.remoteRechargeRemaining / SHIELD_REPAIR_TIME : shipRepairTimeRef.current / SHIELD_REPAIR_TIME
+          rt.recharging = fullyInside && needsRecharge(state) && shipRepairTimeRef.current < SHIELD_REPAIR_TIME
+          rt.rechargeProgress = shipRepairTimeRef.current / SHIELD_REPAIR_TIME
         }
       }
 
@@ -1099,7 +1084,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
 
       // Phaser (SPACE): hold-to-fire beam with energy + cooldown.
       {
-        const wantFire = keysRef.current.has(' ')
+        const wantFire = keysRef.current.has(' ') || controllerRef.current.laser
 
         // Recharge while not firing (unless in cooldown).
         if (phaser.cooldownMs <= 0 && !wantFire && phaser.energyMs < phaserCapacity) {
@@ -1114,13 +1099,13 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           const ux = Math.cos(ship.angle)
           const uy = Math.sin(ship.angle)
           let len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE, cavernMap)
-          for (const body of cargoBodies(expeditionRef.current, runtimeRef.current)) {
+          let target: TetherBody | undefined
+          let nearest = Infinity
+          // Beam blocking and hit response use the same nearest body. Cargo
+          // absorbs the hit as momentum instead of shielding an unhit target.
+          for (const body of [...cargoBodies(expeditionRef.current, runtimeRef.current), ...rocksRef.current, ...botBodies.filter(bot=>bot.health>0 && !bot.anchored)]) {
             const hit = rayCircleHitDistance(ship.pos, { x: ux, y: uy }, len, body.pos, body.radius + PHASER_BEAM_RADIUS)
-            if (hit != null) len = Math.min(len, hit)
-          }
-          for (const rock of [...rocksRef.current,...botBodies.filter(bot=>bot.health>0 && !bot.anchored)]) {
-            const hit = rayCircleHitDistance(ship.pos, { x: ux, y: uy }, len, rock.pos, rock.radius + PHASER_BEAM_RADIUS)
-            if (hit != null) len = Math.min(len, hit)
+            if (hit != null && hit < nearest) { len = hit; nearest = hit; target = body }
           }
 
           phaserBeamRef.current = {
@@ -1131,33 +1116,11 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
             energy01: clamp(phaser.energyMs / (phaserCapacity), 0, 1),
           }
 
-          {
-            // Find the nearest rock before the beam meets the cavern wall.
-            let bestRock: TetherBody | undefined
-            let bestT = Infinity
-
-            for (const rock of [...rocksRef.current,...botBodies.filter(bot=>bot.health>0 && !bot.anchored)]) {
-              const hitR = rock.radius + PHASER_BEAM_RADIUS
-              const hitDistance = rayCircleHitDistance(
-                ship.pos,
-                { x: ux, y: uy },
-                len,
-                rock.pos,
-                hitR,
-              )
-              if (hitDistance == null) continue
-
-              if (hitDistance < bestT) {
-                bestT = hitDistance
-                bestRock = rock
-              }
-            }
-
-            const impactMs = laserImpactMs(expeditionRef.current)
-            if (stepLaserContact(laserContactRef.current, bestRock, dt, impactMs) && bestRock) {
-              if (isStationBot(bestRock)) hitBot(bestRock,BOT_LASER_DAMAGE)
-              else if (isRock(bestRock)) hitRockLikeShipWeapon(bestRock, { x: ux, y: uy })
-            }
+          const impactMs = laserImpactMs(expeditionRef.current)
+          if (stepLaserContact(laserContactRef.current, target, dt, impactMs) && target) {
+            if (isStationBot(target)) hitBot(target,BOT_LASER_DAMAGE)
+            else if (isRock(target)) hitRockLikeShipWeapon(target, { x: ux, y: uy })
+            else repelBody(target, { x: ux, y: uy })
           }
 
           // Particle effects around the beam (biased toward the far end).
@@ -1226,11 +1189,6 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
           return p.life > 0 && isInsideCavern(p.pos, 0, cavernMap)
         })
       }
-
-      // Drive the repair hum from simulation state (not rendering).
-      const isHealing = runtimeRef.current.recharging
-      if (isHealing) sounds.startRepairHum()
-      else sounds.stopRepairHum()
 
       blasterRef.current.bursts = blasterRef.current.bursts.filter(burst => { burst.life -= dt; return burst.life > 0 })
       const blasterStep = stepBlaster(blasterRef.current.shots, dt, cavernMap, [...rocksRef.current, ...cargoBodies(expeditionRef.current, runtimeRef.current),...botBodies.filter(bot=>bot.health>0 && !bot.anchored)])
@@ -1363,7 +1321,24 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     if (suspended || gameStateRef.current === 'paused' || gameStateRef.current === 'complete') return
     const dt = 1 / 60
     timeMs += dt * 1000
+    const hadImpactShield = expeditionRef.current.impactShieldInstalled
     update(dt)
+    const rt = runtimeRef.current, mode = gameStateRef.current
+    // Installation already supplies its two charges. Play the full recharge
+    // feedback separately, even if Haven's service timer was already full.
+    if (!hadImpactShield && expeditionRef.current.impactShieldInstalled) rt.shieldInstallRecharge = 0
+    if (mode !== 'playing' && mode !== 'docking' && mode !== 'docked') delete rt.shieldInstallRecharge
+    if (rt.shieldInstallRecharge !== undefined) {
+      rt.shieldInstallRecharge += dt
+      if (rt.shieldInstallRecharge + 1e-7 >= SHIELD_REPAIR_TIME) {
+        delete rt.shieldInstallRecharge
+        if (lastShieldRechargeAtRef.current !== timeMs) sounds.shieldCharge()
+        lastShieldRechargeAtRef.current = timeMs
+      }
+    }
+    // Drive both servicing and first-install audio from the same fixed clock.
+    if (rt.shieldInstallRecharge !== undefined || (mode === 'playing' && rt.recharging)) sounds.startRepairHum()
+    else sounds.stopRepairHum()
     hudElapsed += dt
     if (hudElapsed >= .15) { hudElapsed = 0; events.push({ type: 'hud' }) }
     if (gameStateRef.current !== 'menu') {
@@ -1378,20 +1353,24 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
       case 'key':
         if (command.pressed && gameStateRef.current === 'playing' && !suspended) keysRef.current.add(command.key)
         else keysRef.current.delete(command.key)
-        if (command.key === ' ' && !command.pressed) laserContactRef.current = { elapsedMs: 0 }
+        if (command.key === ' ' && !command.pressed && !controllerRef.current.laser) laserContactRef.current = { elapsedMs: 0 }
         return
-      case 'suspend': suspended = command.suspended; simulationClock.reset(); keysRef.current.clear(); phaserBeamRef.current.active = false; laserContactRef.current = { elapsedMs: 0 }; return
+      case 'controller': {
+        const input = gameStateRef.current === 'playing' && !suspended && !expeditionRef.current.campaign.journey?.riding ? sanitizeController(command.input) : neutralController()
+        if (controllerRef.current.laser && !input.laser && !keysRef.current.has(' ')) laserContactRef.current = { elapsedMs: 0 }
+        controllerRef.current = input
+        return
+      }
+      case 'suspend': suspended = command.suspended; simulationClock.reset(); keysRef.current.clear(); controllerRef.current = neutralController(); phaserBeamRef.current.active = false; laserContactRef.current = { elapsedMs: 0 }; return
       case 'pause': if (gameStateRef.current !== 'playing') return; keysRef.current.clear(); setGameStateWithRef('paused'); break
       case 'resume': if (gameStateRef.current !== 'paused' && gameStateRef.current !== 'docked' && gameStateRef.current !== 'complete') return; resumeFlight(); break
       case 'menu': keysRef.current.clear(); phaserBeamRef.current.active = false; setGameStateWithRef('menu'); break
       case 'blaster': shootBlaster(); break
-      case 'recharge': rechargeRemotely(); break
       case 'teleport': teleportHome(); break
       case 'tether': if (gameStateRef.current === 'playing' && !suspended && !expeditionRef.current.campaign.journey?.riding) toggleTether(); break
       case 'interact': interact(); break
       case 'relocate': relocateHaven(command.berth); break
       case 'upgrade': buyUpgrade(command.id); break
-      case 'supply': buySupply(command.id); break
       case 'credits': addDevelopmentCredits(expeditionRef.current); publishExpedition(); break
       case 'jump':
         if (gameStateRef.current !== 'menu') snapshotCargo(expeditionRef.current, runtimeRef.current, rocksRef.current)
@@ -1411,7 +1390,7 @@ export function createGameSession(initial: Expedition = freshExpedition(), optio
     get mode() { return gameStateRef.current },
     randomState: random.state,
     createRock,
-    refs: { expeditionRef, runtimeRef, gameStateRef, shieldsRef, shipRef, rocksRef, botsRef,    shipRepairTimeRef, bulletsRef, blasterRef, laserContactRef, baseShotsRef, debrisRef, keysRef, invulnerableRef, lastShieldHitAtRef, lastShieldRechargeAtRef, dyingTimerRef, harpoonRef, miningBaseAngleRef, shipAppearanceRef, miningGunCooldownsRef, phaserStateRef, phaserBeamRef, phaserParticlesRef, shipFullyInBaseRef },
+    refs: { expeditionRef, runtimeRef, gameStateRef, shieldsRef, shipRef, rocksRef, botsRef,    shipRepairTimeRef, bulletsRef, blasterRef, laserContactRef, baseShotsRef, debrisRef, keysRef, controllerRef, invulnerableRef, lastShieldHitAtRef, lastShieldRechargeAtRef, dyingTimerRef, harpoonRef, miningBaseAngleRef, shipAppearanceRef, miningGunCooldownsRef, phaserStateRef, phaserBeamRef, phaserParticlesRef, shipFullyInBaseRef },
   }
 }
 export type GameSession = ReturnType<typeof createGameSession>

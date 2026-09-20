@@ -1,5 +1,6 @@
 import type { Expedition, ExpeditionRuntime } from './expedition'
-import { CACHES, CORE_POSITION, EXPEDITION_WALLS, GATES, PICKUPS, SECTORS, SOCKETS, doorProgress, expeditionMap } from './expedition'
+import { CACHES, CORE_POSITION, GATES, PICKUPS, SECTORS, SOCKETS, doorProgress, expeditionMap } from './expedition'
+import { moduleInstalled } from './equipment'
 import { coreReleased, havenPosition, havenReady } from './campaign'
 import { BERTHS, REGIONS, WARD_BANKS } from './campaignWorld'
 import type { Ship, Vector2 } from './types'
@@ -19,16 +20,6 @@ const LABEL_POSITIONS: Record<string, Vector2> = {
   ...Object.fromEntries(SECTORS.map(r => [r.id,{ x:r.x+r.w/2,y:r.y+r.h*.27 }])),
   haven: { x: 1470, y: 945 }, salvage: { x: 490, y: 1230 }, foundry: { x: 500, y: 430 },
   archive: { x: 1470, y: 400 }, reactor: { x: 2480, y: 1280 }, engine: { x: 2500, y: 1940 }, vault: { x: 1430, y: 1910 },
-}
-
-export function drawExpeditionWalls(ctx: CanvasRenderingContext2D) {
-  ctx.save()
-  ctx.beginPath()
-  for (const [a, b] of EXPEDITION_WALLS) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y) }
-  ctx.lineJoin = 'round'
-  ctx.strokeStyle = 'rgba(70, 100, 86, 0.4)'; ctx.lineWidth = 5; ctx.stroke()
-  ctx.strokeStyle = 'rgba(174, 197, 181, 0.52)'; ctx.lineWidth = 1.4; ctx.stroke()
-  ctx.restore()
 }
 
 export function drawExpeditionDoorFoundations(ctx: CanvasRenderingContext2D, state: Expedition) {
@@ -117,18 +108,18 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
   }
   drawIgnitionCradle(ctx,s,rt)
   for (const item of PICKUPS) {
-    if (s.upgrades.includes(item.id) || rt.recovery?.id === item.id) continue
+    if (moduleInstalled(s, item.id) || rt.recovery?.id === item.id) continue
     const pos = rt.objects[item.id]?.pos ?? item.pos
-    drawCargo(ctx,item.id,pos,{time:rt.elapsed})
+    drawCargo(ctx,item.id,pos,{time:rt.elapsed,laserGlow:rt.objects[item.id]?.laserGlow})
   }
   CACHES.forEach(cache => {
     if (s.caches.includes(cache.id) || rt.recovery?.id === cache.id) return
     const pos = rt.objects[cache.id]?.pos ?? cache.pos
-    drawCargo(ctx,cache.id,pos,{time:rt.elapsed})
+    drawCargo(ctx,cache.id,pos,{time:rt.elapsed,laserGlow:rt.objects[cache.id]?.laserGlow})
   })
   if (!s.core) {
     const pos = rt.objects.core?.pos ?? CORE_POSITION
-    drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.coreLatch?.cargoTime ?? rt.elapsed})
+    drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.coreLatch?.cargoTime ?? rt.elapsed,laserGlow:rt.objects.core?.laserGlow})
   }
   ctx.restore()
 }

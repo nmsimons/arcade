@@ -9,14 +9,16 @@ import { isInsideCavern } from './worldGeometry.ts'
 import { migrateSurvey, SURVEY_LIMIT } from './survey.ts'
 import { SHOP, UPGRADE_COSTS } from './upgrades.ts'
 import { BLASTER_CAPACITY } from './blaster.ts'
-import { radiationCapacity } from './radiation.ts'
-import { freshSupplies, RECHARGE_PACK_LIMIT } from './supplies.ts'
+import { RADIATION_CAPACITY } from './radiation.ts'
 import { SHIELD_REPAIR_TIME } from './tuning.ts'
 import { BOT_STATIONS } from './stationBots.ts'
 import { PROGRESSION_IDS } from './stationIds.ts'
 import { initialCargoVelocity } from './expeditionPhysics.ts'
 
-export const SAVE_SCHEMA_VERSION = 2
+export const SAVE_SCHEMA_VERSION = 7
+// Historical prices/capacities belong to migration, not the live upgrade shop.
+const RETIRED_RADIATION_COSTS = [6000, 12000, 24000]
+const RETIRED_RADIATION_CAPACITIES = [100, 150, 200, 250]
 const untouchedArchiveModule = (body: {pos:Vector2;tethered?:boolean}) => !body.tethered && body.pos.x>=1100 && body.pos.x<=1900 && body.pos.y>=150 && body.pos.y<=650
 
 export function parseExpedition(raw: string | null): Expedition | null {
@@ -30,14 +32,15 @@ export function parseExpedition(raw: string | null): Expedition | null {
     }
 
     function validateInventory() {
-    if (!s || ![1, SAVE_SCHEMA_VERSION].includes(s.version) || (s.finaleVersion!==undefined && s.finaleVersion!==2) || !Number.isFinite(s.credits) || s.credits < 0 || !Number.isFinite(s.banked) || s.banked < 0 ||
-      !Array.isArray(s.upgrades) || !s.upgrades.every((id: unknown) => (id === 'focus2' || [...PICKUPS, ...SHOP].some(p => p.id === id))) ||
+    if (!s || ![1, 2, 3, 4, 5, 6, SAVE_SCHEMA_VERSION].includes(s.version) || (s.finaleVersion!==undefined && s.finaleVersion!==2) || !Number.isFinite(s.credits) || s.credits < 0 || !Number.isFinite(s.banked) || s.banked < 0 ||
+      !Array.isArray(s.upgrades) || !s.upgrades.every((id: unknown) => (id === 'focus2' || id === 'radiation' || (s.version < 4 && id === 'radiationReserve') || SHOP.some(p => p.id === id))) ||
       !Array.isArray(s.gates) || !s.gates.every((id: unknown) => id === 'heart' || id === 'ignition-ready' || id === 'thermal' || GATES.some(g => g.id === id)) ||
       !Array.isArray(s.caches) || !s.caches.every((id: unknown) => CACHES.some(c => c.id === id)) ||
       !Array.isArray(s.visited) || !s.visited.every((id: unknown) => SECTORS.some(r => r.id === id)) ||
       !['haven', 'foundry', 'reactor'].includes(s.checkpoint) || typeof s.core !== 'boolean' || typeof s.complete !== 'boolean' ||
       !s.position || !Number.isFinite(s.position.x) || !Number.isFinite(s.position.y) ||
       !Number.isInteger(s.shields) || s.shields < 0 || s.shields > 8 ||
+      (s.version >= 5 && typeof s.impactShieldInstalled !== 'boolean') ||
       (s.blasterInstalled !== undefined && typeof s.blasterInstalled !== 'boolean') ||
       (s.blasterCharges !== undefined && (!Number.isInteger(s.blasterCharges) || s.blasterCharges < 0 || s.blasterCharges > BLASTER_CAPACITY)) ||
       (s.radiationCharge !== undefined && (!Number.isFinite(s.radiationCharge) || s.radiationCharge < 0)) ||
@@ -88,14 +91,21 @@ export function parseExpedition(raw: string | null): Expedition | null {
       return true
     }
 
-    function validateSupplies() {
-    for (const [key, value] of Object.entries(freshSupplies())) if (s[key] === undefined) s[key] = value
-    if (!Number.isInteger(s.rechargePacks) || s.rechargePacks < 0 || s.rechargePacks > RECHARGE_PACK_LIMIT ||
-      typeof s.teleporterInstalled !== 'boolean' ||
-      !Number.isFinite(s.remoteRechargeRemaining) || s.remoteRechargeRemaining < 0 || s.remoteRechargeRemaining > SHIELD_REPAIR_TIME) return false
+    function validateEquipment() {
+    if (s.teleporterInstalled === undefined) s.teleporterInstalled = false
+    if (typeof s.teleporterInstalled !== 'boolean') return false
+    if (s.version < 3) {
+      if (s.rechargePacks === undefined) s.rechargePacks = 0
+      if (s.remoteRechargeRemaining === undefined) s.remoteRechargeRemaining = 0
+      if (!Number.isInteger(s.rechargePacks) || s.rechargePacks < 0 || s.rechargePacks > 3 ||
+        !Number.isFinite(s.remoteRechargeRemaining) || s.remoteRechargeRemaining < 0 || s.remoteRechargeRemaining > SHIELD_REPAIR_TIME) return false
+    } else if (s.rechargePacks !== undefined || s.remoteRechargeRemaining !== undefined) return false
     if (!s.upgradeLevels || typeof s.upgradeLevels !== 'object' || Array.isArray(s.upgradeLevels) ||
-      Object.entries(s.upgradeLevels).some(([id, level]) => !SHOP.some(item => item.id === id) || typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level > UPGRADE_COSTS.length)) return false
-    if ((s.upgradeLevels.radiationReserve ?? 0)>3 || (s.radiationCharge !== undefined && s.radiationCharge>radiationCapacity(s))) return false
+      Object.entries(s.upgradeLevels).some(([id, level]) => !(SHOP.some(item => item.id === id) || (s.version < 4 && id === 'radiationReserve')) || typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level > UPGRADE_COSTS.length)) return false
+    const reserveLevel = s.upgradeLevels.radiationReserve ?? 0
+    if (s.version >= 5 && !s.impactShieldInstalled && (s.shields > 0 || s.upgrades.includes('hull') || (s.upgradeLevels.hull ?? 0) > 0)) return false
+    const capacity = s.version < 4 ? RETIRED_RADIATION_CAPACITIES[reserveLevel] : RADIATION_CAPACITY
+    if (reserveLevel > 3 || (s.radiationCharge !== undefined && s.radiationCharge > capacity)) return false
       return true
     }
 
@@ -185,6 +195,51 @@ export function parseExpedition(raw: string | null): Expedition | null {
     function migrateProgressionFlags() {
       s.flags = [...new Set(s.gates.filter((id: string) => PROGRESSION_IDS.some(flag => flag === id)))]
       s.gates = s.gates.filter((id: string) => GATES.some(g => g.id === id))
+      s.version = 2
+    }
+    function retireRemoteRecharge() {
+      // Unused packs are refunded once. A consumed/in-progress pack is canceled,
+      // never completed on load. Previously installed equipment stays installed.
+      s.banked += s.rechargePacks * 500
+      delete s.rechargePacks
+      delete s.remoteRechargeRemaining
+      s.version = 3
+    }
+    function migrateFreightAndRadiation() {
+      const level = s.upgradeLevels.radiationReserve ?? 0
+      s.banked += RETIRED_RADIATION_COSTS.slice(0, level).reduce((sum, cost) => sum + cost, 0)
+      delete s.upgradeLevels.radiationReserve
+      s.upgrades = s.upgrades.filter((id: string) => id !== 'radiationReserve')
+      if (s.radiationCharge !== undefined) s.radiationCharge = Math.min(s.radiationCharge, RADIATION_CAPACITY)
+      // Keep previously opened doors and in-progress animations. A restored bus
+      // gains its newly connected doors without stranding a player or their cargo.
+      for (const id of ['freight-power', 'dispatch-power']) if (s.power[id]) {
+        for (const gate of SOCKETS.find(socket => socket.id === id)!.gates) {
+          if (!s.gates.includes(gate)) s.gates.push(gate)
+        }
+      }
+      s.version = 4
+    }
+    function migrateImpactShield() {
+      // All earlier ships had a built-in impact shield. Keep its ownership and
+      // upgrades without refilling depleted charges or adding a duplicate pickup.
+      s.impactShieldInstalled = true
+      s.version = 5
+    }
+    function migrateWorksBlaster() {
+      // Relocate unclaimed Freight-era modules once. Never take installed gear
+      // or move a module that the player has already towed out of its old home.
+      const body = s.cargo?.blaster
+      if (!s.blasterInstalled && body && !body.tethered &&
+        body.pos.x >= 6300 && body.pos.x <= 9400 && body.pos.y >= 70 && body.pos.y <= 1770) delete s.cargo.blaster
+      s.version = 6
+    }
+    function migrateRescueShield() {
+      // Only move the unclaimed opening module from its old Breach spawn area.
+      // Installed shields and any previously towed module keep their progress.
+      const body = s.cargo?.impact
+      if (!s.impactShieldInstalled && body && !body.tethered &&
+        body.pos.x >= 7440 && body.pos.x <= 8560 && body.pos.y >= 3140 && body.pos.y <= 3960) delete s.cargo.impact
       s.version = SAVE_SCHEMA_VERSION
     }
     function validateCurrent() {
@@ -194,20 +249,25 @@ export function parseExpedition(raw: string | null): Expedition | null {
         && (!s.cargo || Object.keys(s.cargo).every(id => id === 'core' || [...PICKUPS,...CACHES,...SOCKETS].some(item => item.id === id)))
     }
     // Version 1 accumulated historical subformats. The ordered stages below
-    // migrate them exactly once; version 2 passes only the validation boundaries.
+    // migrate them exactly once, then advance through each newer schema in order.
     const legacy = s?.version === 1
-    if (!legacy && s?.version !== SAVE_SCHEMA_VERSION) return null
+    if (!legacy && s?.version !== 2 && s?.version !== 3 && s?.version !== 4 && s?.version !== 5 && s?.version !== 6 && s?.version !== SAVE_SCHEMA_VERSION) return null
     if (legacy) migrateLegacyNames()
     if (!validateInventory()) return null
     if (legacy) migratePrototypeCampaign()
-    if (!validateCampaign() || !validateSupplies()) return null
+    if (!validateCampaign() || !validateEquipment()) return null
     if (legacy && !migratePurchases()) return null
     if (!validatePower()) return null
     if (legacy) migrateMedicalAccess()
     if (!validateCargo()) return null
     if (legacy) { migrateCargo(); migrateFinale(); migrateProgressionFlags() }
     if (!validateCurrent()) return null
+    if (s.version === 2) retireRemoteRecharge()
+    if (s.version === 3) migrateFreightAndRadiation()
+    if (s.version === 4) migrateImpactShield()
+    if (s.version === 5) migrateWorksBlaster()
+    if (s.version === 6) migrateRescueShield()
     // Migrate former outpost checkpoints without discarding earned progress.
-    return { ...s, checkpoint: 'haven', blasterInstalled: s.blasterInstalled ?? false, blasterCharges: s.blasterInstalled ? s.blasterCharges ?? BLASTER_CAPACITY : 0, radiationCharge: s.radiationCharge ?? (s.upgrades.includes('radiation') ? radiationCapacity(s) : 0), radiationExposure: s.radiationExposure ?? 0 } as Expedition
+    return { ...s, checkpoint: 'haven', blasterInstalled: s.blasterInstalled ?? false, blasterCharges: s.blasterInstalled ? s.blasterCharges ?? BLASTER_CAPACITY : 0, radiationCharge: s.radiationCharge ?? (s.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0), radiationExposure: s.radiationExposure ?? 0 } as Expedition
   } catch { return null }
 }

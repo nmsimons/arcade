@@ -7,10 +7,10 @@ import type { Vector2 } from './types'
 
 export const CIRCUIT_STEPS: readonly { id: CircuitId; title: string; detail: string; region: BerthId; barriers: readonly GateId[] }[] = [
   { id:'breach-power',title:'Restore freight transit',detail:'Tow the rescue-locker cell to the receiver in the Breach.',region:'breach',barriers:[] },
-  { id:'freight-power',title:'Restore the freight lift',detail:'The reserve cell is in the western freight stores. Its receiver is in the main gallery.',region:'freight',barriers:[] },
-  { id:'dispatch-power',title:'Reconnect the Works',detail:'Supply Dispatch from cargo hold six. Recover the radiation module in Freight Stores before crossing the contaminated transfer tube.',region:'freight',barriers:[] },
-  { id:'works-power',title:'Wake the Works',detail:'Buy a blaster at Haven. Breach the eastern tool crib and return its cell to the Works receiver. The bus supplies both Haven’s berth and security.',region:'works',barriers:["tool-door"] },
-  { id:'ring-power',title:'Reach the Broken Ring',detail:'Open the capacitor store below the Works. Tow its cell to Maintenance control in the west.',region:'works',barriers:["store-door"] },
+  { id:'freight-power',title:'Open the Dispatch service route',detail:'Bring the Freight Stores cell to the gallery receiver. It opens the far end of the radioactive Stores tunnel and powers Haven’s berth, not the direct lift. Recover the radiation module before crossing.',region:'freight',barriers:[] },
+  { id:'dispatch-power',title:'Open the shortcut and Works exit',detail:'Reach Dispatch through the radioactive tunnel from Stores. Supply its receiver from Cargo hold 6 to open the short lift back to Freight and the Works exit.',region:'freight',barriers:[] },
+  { id:'works-power',title:'Wake the Works',detail:'Use the recovered blaster to breach the eastern tool crib and return its cell to the Works receiver. The bus supplies both Haven’s berth and security.',region:'works',barriers:["tool-door"] },
+  { id:'ring-power',title:'Reach the Broken Ring',detail:'Blast open the capacitor store below the Works. Tow its cell to Maintenance control in the west. A teleporter module is also stored there; tow it to Haven to install.',region:'works',barriers:["store-door"] },
   { id:'foundry',title:'Reach the Foundry',detail:'Clear the western barrier in the Ring. A cell in the service hub powers the Foundry entrance from Wreckwater.',region:'ring',barriers:["rubble"] },
   { id:'relay',title:'Restore the ring relay',detail:'Tow the Foundry reserve back to the relay in the service hub.',region:'ring',barriers:[] },
   { id:'heart',title:'Restore reactor containment',detail:'Let radiation shielding recharge outside the field. Retrieve the eastern reactor cell and tow it south to the engine before the reserve runs out. Power opens the safe western return.',region:'ring',barriers:["blast"] },

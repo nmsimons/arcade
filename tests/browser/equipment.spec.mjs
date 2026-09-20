@@ -124,7 +124,10 @@ test('the dock opens on upgrades and cannot sell devices or remote recharge',asy
   await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toBeVisible()
   await expect(page.getByRole('button',{name:'Ship upgrades',exact:true})).toHaveAttribute('aria-pressed','true')
   await expect(page.getByRole('button',{name:'Supplies',exact:true})).toHaveCount(0)
-  await expect(page.getByRole('button',{name:/Blaster|Haven teleporter|Remote recharge|Radiation reserve/i})).toHaveCount(0)
+  await expect(page.getByRole('button',{name:/Haven teleporter|Remote recharge|Radiation reserve/i})).toHaveCount(0)
+  const magazine=page.getByRole('button',{name:/Blaster magazine I,/})
+  await expect(magazine).toBeDisabled()
+  await expect(magazine).toContainText('Recover and install the blaster first.')
   await page.getByRole('button',{name:/Reinforced hull I,/}).press('Enter')
   await expect(page.getByRole('button',{name:/Reinforced hull II,/})).toBeVisible()
   await expect.poll(()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).banked,SAVE_KEY)).toBe(9250)
@@ -144,6 +147,31 @@ for(const id of ['blaster','teleporter']) test(`delivering the ${id} unlocks its
   await page.reload()
   await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
   await expect(page.getByRole('button',{name:label,exact:true})).toBeVisible()
+})
+
+for(const width of [1280,620]) test(`upgraded blaster HUD and controls retain spent ammunition after reload at ${width}px`,async({page},testInfo)=>{
+  await page.setViewportSize({width,height:800})
+  const state=freshExpedition();state.position={x:7600,y:3490};state.impactShieldInstalled=true;state.shields=2
+  state.blasterInstalled=true;state.blasterCharges=6;state.upgradeLevels.magazine=5;state.upgrades=['magazine']
+  await launch(page,state)
+  const hud=page.locator('.hud-instrument').filter({hasText:'Blaster'})
+  await expect(hud).toHaveAttribute('aria-label','Fire blaster, 6 of 8 charges')
+  await expect(hud.locator('.hud-meter-segment')).toHaveCount(8)
+  await expect(hud.locator('.is-filled')).toHaveCount(6)
+  if(width<1024) {
+    const touch=page.getByRole('button',{name:'Fire blaster, 6 of 8 charges',exact:true}).filter({hasText:/^BLAST/})
+    await expect(touch).toContainText('6/8')
+    await touch.click()
+  } else await hud.click()
+  await expect(hud).toHaveAttribute('aria-label','Fire blaster, 5 of 8 charges')
+  await page.keyboard.press('p')
+  await expect(page.getByRole('button',{name:'Resume · P / Esc',exact:true})).toBeVisible()
+  await page.reload()
+  await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
+  await expect(hud).toHaveAttribute('aria-label','Fire blaster, 5 of 8 charges')
+  await expect(hud.locator('.is-filled')).toHaveCount(5)
+  if(width<1024) await expect(page.getByRole('button',{name:'Fire blaster, 5 of 8 charges',exact:true}).filter({hasText:/^BLAST/})).toContainText('5/8')
+  await page.screenshot({path:testInfo.outputPath('upgraded-blaster-hud.png')})
 })
 
 test('old packs are refunded with no recharge button or R-key repair',async({page})=>{

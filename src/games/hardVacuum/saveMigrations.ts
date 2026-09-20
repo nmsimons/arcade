@@ -7,8 +7,7 @@ import { freshCampaign, RECORDS, havenPosition } from './campaign.ts'
 import { expeditionMap } from './expedition.ts'
 import { isInsideCavern } from './worldGeometry.ts'
 import { migrateSurvey, SURVEY_LIMIT } from './survey.ts'
-import { SHOP, UPGRADE_COSTS } from './upgrades.ts'
-import { BLASTER_CAPACITY } from './blaster.ts'
+import { SHOP, UPGRADE_COSTS, blasterCapacity, upgradeValue } from './upgrades.ts'
 import { RADIATION_CAPACITY } from './radiation.ts'
 import { SHIELD_REPAIR_TIME } from './tuning.ts'
 import { BOT_STATIONS } from './stationBots.ts'
@@ -42,7 +41,7 @@ export function parseExpedition(raw: string | null): Expedition | null {
       !Number.isInteger(s.shields) || s.shields < 0 || s.shields > 8 ||
       (s.version >= 5 && typeof s.impactShieldInstalled !== 'boolean') ||
       (s.blasterInstalled !== undefined && typeof s.blasterInstalled !== 'boolean') ||
-      (s.blasterCharges !== undefined && (!Number.isInteger(s.blasterCharges) || s.blasterCharges < 0 || s.blasterCharges > BLASTER_CAPACITY)) ||
+      (s.blasterCharges !== undefined && (!Number.isInteger(s.blasterCharges) || s.blasterCharges < 0)) ||
       (s.radiationCharge !== undefined && (!Number.isFinite(s.radiationCharge) || s.radiationCharge < 0)) ||
       (s.radiationExposure !== undefined && (!Number.isFinite(s.radiationExposure) || s.radiationExposure < 0 || s.radiationExposure > 2))) return false
     s.upgradeLevels ??= {}
@@ -104,6 +103,8 @@ export function parseExpedition(raw: string | null): Expedition | null {
       Object.entries(s.upgradeLevels).some(([id, level]) => !(SHOP.some(item => item.id === id) || (s.version < 4 && id === 'radiationReserve')) || typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level > UPGRADE_COSTS.length)) return false
     const reserveLevel = s.upgradeLevels.radiationReserve ?? 0
     if (s.version >= 5 && !s.impactShieldInstalled && (s.shields > 0 || s.upgrades.includes('hull') || (s.upgradeLevels.hull ?? 0) > 0)) return false
+    if (!s.blasterInstalled && (s.upgrades.includes('magazine') || (s.upgradeLevels.magazine ?? 0) > 0)) return false
+    if (s.blasterCharges !== undefined && s.blasterCharges > upgradeValue(s, 'magazine')) return false
     const capacity = s.version < 4 ? RETIRED_RADIATION_CAPACITIES[reserveLevel] : RADIATION_CAPACITY
     if (reserveLevel > 3 || (s.radiationCharge !== undefined && s.radiationCharge > capacity)) return false
       return true
@@ -268,6 +269,6 @@ export function parseExpedition(raw: string | null): Expedition | null {
     if (s.version === 5) migrateWorksBlaster()
     if (s.version === 6) migrateRescueShield()
     // Migrate former outpost checkpoints without discarding earned progress.
-    return { ...s, checkpoint: 'haven', blasterInstalled: s.blasterInstalled ?? false, blasterCharges: s.blasterInstalled ? s.blasterCharges ?? BLASTER_CAPACITY : 0, radiationCharge: s.radiationCharge ?? (s.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0), radiationExposure: s.radiationExposure ?? 0 } as Expedition
+    return { ...s, checkpoint: 'haven', blasterInstalled: s.blasterInstalled ?? false, blasterCharges: s.blasterInstalled ? s.blasterCharges ?? blasterCapacity(s) : 0, radiationCharge: s.radiationCharge ?? (s.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0), radiationExposure: s.radiationExposure ?? 0 } as Expedition
   } catch { return null }
 }

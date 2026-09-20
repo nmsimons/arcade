@@ -86,6 +86,13 @@ unchanged. Set schema 7 so this relocation never repeats on current saves.
 
 ## What persists and resets
 
+Blaster capacity uses the optional `upgradeLevels.magazine` track (0–5), for
+three through eight shots. No migration is needed: existing saves without this
+track retain their original three-shot capacity and remaining ammunition.
+Magazine upgrades require an installed blaster; saves reject upgrades without
+ownership or ammunition above the purchased capacity. Haven and respawn refill
+that capacity, while reload preserves spent ammunition.
+
 | State | Reload/continue | Death and respawn | New expedition | Developer jump |
 |---|---|---|---|---|
 | Cargo/cells | Saved positions, velocity, tethered history; invalid physical positions fall back to authored spawn | Loose positions retained; cable released | Authored spawns | Existing cargo retained, prerequisite cells consumed |

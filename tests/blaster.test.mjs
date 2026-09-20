@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BLASTER_BLAST_RADIUS, BLASTER_CAPACITY, fireBlaster, stepBlaster } from '../src/games/hardVacuum/blaster.ts'
+import { BLASTER_BLAST_RADIUS, fireBlaster, stepBlaster } from '../src/games/hardVacuum/blaster.ts'
 import { bankAtCheckpoint, blastGate, crashExpedition, expeditionMap, freshExpedition, freshRuntime, GATES, objective, parseExpedition, purchaseUpgrade, stepExpedition } from '../src/games/hardVacuum/expedition.ts'
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import { needsRecharge, restoreShipSystems } from '../src/games/hardVacuum/supplies.ts'
 import { installModule } from '../src/games/hardVacuum/equipment.ts'
+import { UPGRADE_COSTS, blasterCapacity, upgradeOffer } from '../src/games/hardVacuum/upgrades.ts'
 
 const shipAt = (x = 1500, y = 1300, angle = Math.PI / 2) => ({ pos: { x, y }, vel: { x: 0, y: 0 }, angle, radius: 15 })
 const rectangle = (x, y, w, h) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }]
@@ -25,7 +26,7 @@ test('the blaster must be recovered, never bought, and installation supplies thr
   assert.equal(purchaseUpgrade(state, 'blaster'), false); assert.deepEqual(state, before)
   assert.ok(installModule(state, 'blaster'))
   assert.equal(state.banked, 10000)
-  assert.equal(state.blasterInstalled, true); assert.equal(state.blasterCharges, BLASTER_CAPACITY)
+  assert.equal(state.blasterInstalled, true); assert.equal(state.blasterCharges, 3)
   state.blasterCharges = 1
   assert.equal(installModule(state, 'blaster'), false); assert.equal(state.blasterCharges, 1)
   assert.deepEqual(parseExpedition(JSON.stringify(state)), state)
@@ -45,7 +46,7 @@ test('Haven and respawn cannot grant an unrecovered blaster', () => {
 
 test('the red blaster fires three discrete shots, with recoil and no charge spent during cooldown', () => {
   const state = equipped(), runtime = freshRuntime(), ship = shipAt()
-  for (let i = 0; i < BLASTER_CAPACITY; i++) {
+  for (let i = 0; i < 3; i++) {
     runtime.blasterCooldown = 0
     const shot = fireBlaster(state, runtime, ship)
     assert.ok(shot); assert.ok(shot.vel.y > 500); assert.ok(ship.vel.y < 0)
@@ -59,7 +60,7 @@ test('the red blaster fires three discrete shots, with recoil and no charge spen
   assert.equal(state.blasterCharges, 0, 'charges do not regenerate away from Haven')
 })
 
-test('Haven restores the magazine; other locations and shop purchases cannot reload it', () => {
+test('Haven restores the magazine; other locations and unrelated shop purchases cannot reload it', () => {
   const state = equipped(); state.blasterCharges = 0; state.banked = 2000
   bankAtCheckpoint(state, 'foundry'); assert.equal(state.blasterCharges, 0)
   bankAtCheckpoint(state, 'reactor'); assert.equal(state.blasterCharges, 0)
@@ -67,6 +68,78 @@ test('Haven restores the magazine; other locations and shop purchases cannot rel
   bankAtCheckpoint(state, 'haven'); assert.equal(state.blasterCharges, 3)
   state.blasterCharges = 0; crashExpedition(state)
   assert.equal(state.blasterCharges, 3); assert.equal(state.blasterInstalled, true); assert.deepEqual(state.position, { x: 1500, y: 1100 })
+})
+
+test('recovered blasters gain one shot per magazine upgrade, up to eight, with matching recharge and respawn capacity', () => {
+  const state = freshExpedition(), runtime = freshRuntime(), ship = shipAt()
+  state.banked = 100000
+  assert.equal(blasterCapacity(state), 0)
+  assert.equal(upgradeOffer(state, 'magazine').locked, true)
+  assert.equal(upgradeOffer(state, 'magazine').detail, 'Recover and install the blaster first.')
+  const uninstalled = structuredClone(state)
+  assert.equal(purchaseUpgrade(state, 'magazine'), false)
+  assert.deepEqual(state, uninstalled)
+  installModule(state, 'blaster')
+  for (let stage = 1; stage <= 5; stage++) {
+    const capacity = stage + 3
+    assert.equal(upgradeOffer(state, 'magazine').detail, `${capacity - 1} shots → ${capacity} shots`)
+    state.blasterCharges = 0; state.banked = UPGRADE_COSTS[stage - 1] - 1; state.credits = 100000
+    const unaffordable = structuredClone(state)
+    assert.equal(purchaseUpgrade(state, 'magazine'), false)
+    assert.deepEqual(state, unaffordable)
+    state.banked++
+    assert.ok(purchaseUpgrade(state, 'magazine'))
+    assert.equal(state.banked, 0); assert.equal(state.credits, 100000)
+    assert.equal(blasterCapacity(state), capacity); assert.equal(state.blasterCharges, capacity)
+    assert.equal(needsRecharge(state), false)
+    for (let shot = 0; shot < capacity; shot++) {
+      runtime.blasterCooldown = 0
+      assert.ok(fireBlaster(state, runtime, ship))
+      assert.equal(state.blasterCharges, capacity - shot - 1)
+      assert.equal(fireBlaster(state, runtime, ship), null, 'upgrades do not remove cooldown')
+    }
+    runtime.blasterCooldown = 0
+    assert.equal(fireBlaster(state, runtime, ship), null)
+    assert.equal(needsRecharge(state), true)
+    assert.ok(restoreShipSystems(state)); assert.equal(state.blasterCharges, capacity)
+    assert.equal(restoreShipSystems(state), false)
+    state.blasterCharges = 1
+    assert.deepEqual(parseExpedition(JSON.stringify(state)), state, 'reload preserves partial ammunition')
+    bankAtCheckpoint(state, 'haven'); assert.equal(state.blasterCharges, capacity)
+    state.blasterCharges = 0
+    crashExpedition(state); assert.equal(state.blasterCharges, capacity)
+    assert.equal(state.upgradeLevels.magazine, stage)
+  }
+  assert.equal(upgradeOffer(state, 'magazine').detail, '8 shots · All 5 stages installed.')
+  state.banked = 100000; state.blasterCharges = 1
+  const maxed = structuredClone(state)
+  assert.equal(purchaseUpgrade(state, 'magazine'), false)
+  assert.deepEqual(state, maxed, 'a maxed purchase cannot spend credits or refill ammo')
+})
+
+test('saves validate ammunition against the purchased magazine and retain old three-shot capacity', () => {
+  const state = equipped()
+  assert.equal(blasterCapacity(parseExpedition(JSON.stringify(state))), 3)
+  delete state.blasterCharges
+  assert.equal(parseExpedition(JSON.stringify(state)).blasterCharges, 3)
+  for (let level = 0; level <= 5; level++) {
+    state.upgradeLevels.magazine = level
+    const capacity = level + 3
+    assert.equal(parseExpedition(JSON.stringify(state)).blasterCharges, capacity)
+    for (const charges of [0, 1, capacity]) {
+      const saved = { ...state, blasterCharges: charges }
+      assert.deepEqual(parseExpedition(JSON.stringify(saved)), saved)
+    }
+    for (const charges of [-1, capacity + 1, 1.5, '3']) {
+      assert.equal(parseExpedition(JSON.stringify({ ...state, blasterCharges: charges })), null)
+    }
+  }
+  for (const level of [-1, 6, 1.5, '2']) {
+    assert.equal(parseExpedition(JSON.stringify({ ...state, upgradeLevels: { magazine: level } })), null)
+  }
+  for (const extra of [{ upgradeLevels: { magazine: 1 } }, { upgrades: ['magazine'] }]) {
+    assert.equal(parseExpedition(JSON.stringify({ ...freshExpedition(), ...extra })), null)
+  }
 })
 
 test('spent charges survive saving; older saves require recovery without losing other progress', () => {

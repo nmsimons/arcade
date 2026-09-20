@@ -62,13 +62,16 @@ The lesson takes temporary priority over recordings without skipping their text.
 
 ## Economy and equipment
 
-The recovered blaster has a three-shot magazine, refilled at Haven.
+The recovered blaster starts with a three-shot magazine, refilled at Haven.
+After installation, five dock upgrades each add one shot, reaching eight.
+They cost 750 / 1,500 / 3,000 / 6,000 / 10,000 credits and fill the new magazine;
+shot damage and firing speed stay unchanged.
 The opening is solvable without it. Mining regular asteroids provides small
 field returns; bringing blue asteroids to Haven provides the strongest early
 purchase opportunity. Optional recovered cargo increases from 250 to 4,000
 credits in later regions. Mining inside Haven retains its 10× banked payout.
 
-Hull, capacitor and laser focus retain five stages; the winch has one upgrade.
+Hull, capacitor, laser focus and blaster magazine have five stages; the winch has one upgrade.
 Radiation shielding has a fixed 100-point reserve, no upgrades, and eight seconds
 of protection at peak exposure. It refills in one second outside radiation.
 The Freight Stores radiation module remains a separate defensive reserve.

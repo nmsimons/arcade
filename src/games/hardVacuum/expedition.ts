@@ -21,13 +21,13 @@ import type { HavenMotion, WorldContact } from './bodyCollisions'
 import { betweenReceiverPlates, receiverPlates } from './receivers.ts'
 import { TERMINALS, TERMINAL_HOUSINGS, terminalVisible } from './terminals.ts'
 import type { Harpoon, PhaserBeam, Rock, Ship, Vector2 } from './types'
-import { BLASTER_BLAST_RADIUS, BLASTER_CAPACITY } from './blaster.ts'
+import { BLASTER_BLAST_RADIUS } from './blaster.ts'
 import { RADIATION_HOUSINGS, freshRadiationFeedback, rechargeRadiation } from './radiation.ts'
 import type { RadiationFeedback } from './radiation'
 import { restoreShipSystems } from './supplies.ts'
 import { installModule, moduleInstalled } from './equipment.ts'
 
-import { SHOP, upgradeOffer, impactShieldCapacity } from './upgrades.ts'
+import { SHOP, upgradeOffer, impactShieldCapacity, blasterCapacity } from './upgrades.ts'
 import type { ShopUpgrade, UpgradeLevels } from './upgrades'
 import { BOT_STATIONS, botGarageObstacles, stepBotGarages } from './stationBots.ts'
 import { IGNITION_HOUSINGS, INSTALLED_CORE_HOUSING, stepIgnitionCradle } from './ignitionCradle.ts'
@@ -118,6 +118,7 @@ export function purchaseUpgrade(s: Expedition, id: Upgrade): boolean {
   s.upgradeLevels ??= {}
   s.upgradeLevels[track.id] = item.stage
   if (!s.upgrades.includes(track.id)) s.upgrades.push(track.id)
+  if (track.id === 'magazine') s.blasterCharges = blasterCapacity(s)
   return true
 }
 export function bankCarriedCredits(s: Expedition): number {
@@ -151,7 +152,7 @@ export function crashExpedition(s: Expedition): number {
   s.disabledBots = []
   s.position = checkpointPosition(s)
   s.shields = maxShields(s)
-  s.blasterCharges = s.blasterInstalled ? BLASTER_CAPACITY : 0
+  s.blasterCharges = blasterCapacity(s)
   rechargeRadiation(s)
   return lost
 }

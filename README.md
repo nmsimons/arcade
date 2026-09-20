@@ -39,7 +39,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - B: fire the red blaster after finding its module in the southeast of the Works main bay
   and towing it to Haven for installation.
   Installation is permanent, survives death, and includes three shots.
-  Three shots per charge; dock or recharge at Haven
+  Upgrade its magazine at Haven from three to eight shots; dock or recharge there
   to refill. Impacts pulverize asteroids of every color into dust and award credits,
   leaving no fragments. Rock barriers and blast doors can only be cleared with B.
 - T: return to Haven and bank all carried credits after finding the teleporter module
@@ -145,7 +145,7 @@ M, G, P, T and B respectively.
 Persistent control hints, objective walkthroughs and object instructions are removed;
 open Controls from the menu or pause screen for key bindings. Area labels remain.
 The scanline overlay has been removed from the game.
-Hull, beam capacitor and laser focus each have five upgrade stages.
+Hull, beam capacitor, laser focus and blaster magazine each have five upgrade stages.
 Each stage costs 750, 1,500, 3,000, 6,000, then 10,000 credits. Each track occupies
 one shop row that advances after purchase and shows its next effect and cost.
 The recovered radiation shield has a fixed 100-point reserve: eight seconds at
@@ -154,6 +154,10 @@ outside radiation; Haven also restores it during servicing. The HUD shows its
 remaining percentage. Removed capacity upgrades refund their original cumulative
 purchase costs once on migration; existing charge is capped at 100, never refilled.
 Longline winch is a single 750-credit upgrade that doubles tether reach.
+Blaster magazine upgrades unlock after recovering and installing the blaster.
+Each adds one shot (3 → 4 → 5 → 6 → 7 → 8) and fills the new magazine;
+damage and firing speed are unchanged. Haven servicing and respawn refill the
+purchased capacity; saving preserves both the upgrade and remaining ammunition.
 The dock shop only improves existing systems; new equipment must be found and
 recovered. Impact shielding, radiation shielding, the blaster and the teleporter use the same
 physical tow-and-install handoff at Haven, at no credit cost. The blaster becomes
@@ -248,8 +252,8 @@ This armor resistance only reduces laser damage to bots, not mining speed or
 blaster damage. Armor progressively darkens and develops
 up to four breaches as health falls. Sensors increasingly flicker, and each hit
 vents sparks; ongoing spark showers grow more frequent, numerous and energetic
-as damage mounts. The three-shot blaster magazine is unchanged, so a full-health
-bot needs mixed weapons or a reload. Destroyed units stay
+as damage mounts. A stock three-shot blaster needs mixed weapons or a reload
+against a full-health bot; magazine upgrades provide up to eight shots. Destroyed units stay
 down through docking and save reloads; all enemies return at full health when the
 pilot respawns, with powered bots leaving their garages and unpowered bots dormant.
 Debris density, speed and the share of blue asteroids rise in deeper regions;

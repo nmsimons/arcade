@@ -3,6 +3,7 @@ import type { ButtonHTMLAttributes } from 'react'
 import type { HardVacuumGameProps, Vector2 } from './types'
 import type { BerthId } from './campaignWorld'
 import type { ShipUpgrade } from './upgrades'
+import { blasterCapacity } from './upgrades'
 import { sounds } from './sound'
 import { ExpeditionHud, ExpeditionOverlay, StationSurveyControls } from './expeditionUi'
 import { DevelopmentPanel } from './DevelopmentPanel'
@@ -387,8 +388,8 @@ export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
           </div>
 
           <div className="flex items-end gap-3 pointer-events-auto">
-            {expedition.blasterInstalled && <button type="button" aria-label={`Fire blaster, ${expedition.blasterCharges} of 3 charges`} aria-keyshortcuts="B" className={`${holdButtonClass} text-[10px] text-[#ff665e] border-[#ff665e]/70`} onClick={shootBlaster}>
-              <span className="underline underline-offset-2">B</span>LAST<br />{expedition.blasterCharges}/3
+            {expedition.blasterInstalled && <button type="button" aria-label={`Fire blaster, ${expedition.blasterCharges} of ${blasterCapacity(expedition)} charges`} aria-keyshortcuts="B" className={`${holdButtonClass} text-[10px] text-[#ff665e] border-[#ff665e]/70`} onClick={shootBlaster}>
+              <span className="underline underline-offset-2">B</span>LAST<br />{expedition.blasterCharges}/{blasterCapacity(expedition)}
             </button>}
             <button
               type="button"

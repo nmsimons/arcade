@@ -4,7 +4,6 @@ import { rayCircleHitDistance } from './phaserGeometry.ts'
 import { raycastCavern } from './worldGeometry.ts'
 import type { CavernMap } from './worldGeometry'
 
-export const BLASTER_CAPACITY = 3
 export const BLASTER_BLAST_RADIUS = 95
 export interface BlasterShot { pos: Vector2; vel: Vector2; life: number }
 export interface BlasterVisuals {

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import type { Expedition } from './expedition'
 import { expeditionMap, maxShields, near } from './expedition'
 import { havenPosition, havenReady } from './campaign'
-import { BLASTER_CAPACITY } from './blaster'
+import { blasterCapacity } from './upgrades'
 import { radiationAt, RADIATION_CAPACITY, radiationFraction, RADIATION_HULL_LIMIT } from './radiation'
 import './flightHud.css'
 
@@ -62,7 +62,7 @@ export function FlightInstruments({ state, shields, room, mapOpen, onMap, onJour
       {(state.impactShieldInstalled || radiationInstalled || exposed || state.blasterInstalled) && <div className="hud-meters">
         {state.impactShieldInstalled && <Meter label="Shields" value={shields} max={maxShields(state)} color={shields === 0 ? '#ff927c' : '#69dbab'} segmented />}
         {(radiationInstalled || exposed) && <Meter label="Radiation" value={radiationInstalled ? Math.round(state.radiationCharge) : 0} max={RADIATION_CAPACITY} valueText={radiationInstalled ? `${Math.ceil(radiationFraction(state)*100)}%` : '—'} color={radiationColor} />}
-        {state.blasterInstalled && <Meter label="Blaster" value={state.blasterCharges} max={BLASTER_CAPACITY} color="#ff8278" segmented shortcut="B" onClick={onBlaster} disabled={mapOpen || state.blasterCharges === 0} />}
+        {state.blasterInstalled && <Meter label="Blaster" value={state.blasterCharges} max={blasterCapacity(state)} color="#ff8278" segmented shortcut="B" onClick={onBlaster} disabled={mapOpen || state.blasterCharges === 0} />}
       </div>}
       {!mapOpen && (hullExposed || exposed) && <div className="hud-warnings">
         {hullExposed && <div role="alert" className="hud-hull-warning">Hull exposed</div>}

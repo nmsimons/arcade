@@ -1,6 +1,7 @@
 import type { Expedition } from './expedition'
 import type { Debris, Ship, TetherBody, Vector2 } from './types'
 import type { CavernMap } from './worldGeometry'
+import type { BotId, CircuitId } from './stationIds'
 import { raycastCavern, resolveCircleInCavern } from './worldGeometry.ts'
 import { rayCircleHitDistance } from './phaserGeometry.ts'
 import { MAINTENANCE_SPEED, stepMaintenanceBot } from './maintenanceBots.ts'
@@ -15,12 +16,24 @@ export const BOT_STATIONS = [
   { id: 'heart-watch', kind: 'security', power: 'heart-power', home: { x: 4300, y: 3440 }, patrol: { x: 3860, y: 3610 } },
   { id: 'field-watch', kind: 'security', power: 'heart-power', home: { x: 5190, y: 3530 }, patrol: { x: 5340, y: 3340 } },
   { id: 'coil-tug', kind: 'tug', power: 'coil-power', home: { x: 4050, y: 4570 }, patrol: { x: 4360, y: 4430 } },
-] as const
+] as const satisfies readonly { id: BotId; kind: 'tug' | 'security'; power: CircuitId; home: Vector2; patrol: Vector2 }[]
 export type StationBotKind = typeof BOT_STATIONS[number]['kind']
-// Both chassis take two blaster hits or five completed asteroid laser contacts.
-export const BOT_MAX_HEALTH = 10
+// Four blaster hits, or 50 laser contacts: 5 seconds on target at maximum focus.
+export const BOT_MAX_HEALTH = 20
 export const BOT_BLASTER_DAMAGE = 5
-export const BOT_LASER_DAMAGE = 2
+export const BOT_LASER_DAMAGE = BOT_MAX_HEALTH / 50
+// Visible breaches and emitted sparks share these local hull locations.
+export const BOT_DAMAGE_SITES = [
+  { point: [-10, 0, -4.5], angle: 0 },
+  { point: [-12, 7, -4.5], angle: -.4 },
+  { point: [-5, -7, -4.5], angle: 1.4 },
+  { point: [0, 5, -4.5], angle: -.9 },
+] as const
+
+export function botDamage(health: number) {
+  const amount = Math.max(0, Math.min(1, 1 - health / BOT_MAX_HEALTH))
+  return { amount, stage: Math.ceil(amount * BOT_DAMAGE_SITES.length) }
+}
 type BotStation = typeof BOT_STATIONS[number]
 type GarageState = Pick<Expedition, 'power' | 'botDoors'>
 export const GARAGE_OPEN_SECONDS = 1.8
@@ -50,13 +63,14 @@ export interface StationBot extends TetherBody {
 export interface SecurityShot { pos: Vector2; vel: Vector2; life: number; owner: string }
 export interface BotRuntime { units: StationBot[]; shots: SecurityShot[] }
 export const freshBots = (state: Pick<Expedition, 'disabledBots' | 'power' | 'botDoors'>): BotRuntime => ({
-  units: BOT_STATIONS.filter(spec => !state.disabledBots.includes(spec.id)).map(spec => ({
+  units: BOT_STATIONS.filter(spec => !state.disabledBots.includes(spec.id)).map(spec => identifyBody<StationBot>({
     botId: spec.id, botKind: spec.kind, pos: { ...spec.home }, vel: { x: 0, y: 0 }, radius: spec.kind === 'tug' ? 21 : 19,
     mass: spec.kind === 'tug' ? 1.8 : 1.2, angle: 0, health: BOT_MAX_HEALTH,
     anchored: !state.power[spec.power] || botGarageProgress(state,spec)<1,
     phase: state.power[spec.power] ? botGarageProgress(state,spec)<1 ? 'boot' : 'deploy' : 'offline', timer: 2.2, stun: 0, flash: 0, shotCount: 0, aim: 0, returning: false,
-  })), shots: [],
+  }, { type: 'bot', id: spec.id })), shots: [],
 })
+export const isStationBot = (body: TetherBody): body is StationBot => !!body.botId && 'health' in body && 'phase' in body && 'stun' in body
 const distance = (a: Vector2, b: Vector2) => Math.hypot(a.x - b.x, a.y - b.y)
 const sight = (a: Vector2, b: Vector2, map: CavernMap) => raycastCavern(a, { x: b.x - a.x, y: b.y - a.y }, distance(a, b), map) >= distance(a, b) - .1
 const turn = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a))
@@ -64,7 +78,10 @@ const turn = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - 
 /** Defeats persist through docking and reloads until the pilot respawns. */
 export function damageBot(state: Pick<Expedition, 'disabledBots'>, bot: StationBot, damage: number) {
   if (bot.health <= 0 || damage <= 0 || bot.phase === 'offline' || bot.phase === 'boot') return false
-  bot.health = Math.max(0, bot.health - damage)
+  // Fractional laser chips must reach zero on the intended hit, not leave a
+  // floating-point sliver of armor that requires one extra contact.
+  bot.health = Math.max(0, Math.round((bot.health - damage) * 1000) / 1000)
+  bot.sparkDelay = 0 // A new hit immediately vents sparks; ongoing damage keeps sputtering.
   bot.flash = 1; bot.stun = .65; bot.target = undefined; bot.maintenance = undefined
   bot.phase = 'cooldown'; bot.timer = 1.5
   if (bot.health) return false
@@ -73,18 +90,20 @@ export function damageBot(state: Pick<Expedition, 'disabledBots'>, bot: StationB
 }
 
 /** Electrical fragments shed from the breached armor and inherit body motion. */
-export function stepBotSparks(bot: StationBot, dt: number): Debris[] {
+export function stepBotSparks(bot: StationBot, dt: number, random: () => number = Math.random): Debris[] {
   if (dt<=0 || bot.health<=0 || bot.health>=BOT_MAX_HEALTH || bot.phase==='offline' || bot.phase==='boot') return []
   bot.sparkDelay=(bot.sparkDelay ?? 0)-dt
   if (bot.sparkDelay>0) return []
-  const damage=1-bot.health/BOT_MAX_HEALTH
-  bot.sparkDelay=1.15-damage*.8+Math.random()*.35
-  const origin={x:bot.pos.x-Math.cos(bot.angle)*10,y:bot.pos.y-Math.sin(bot.angle)*10}
-  return Array.from({length:damage>=.5 ? 3 : 2},(_,i)=>{
-    const angle=bot.angle+Math.PI+(Math.random()-.5)*2.6,speed=25+Math.random()*40
+  const { amount: damage, stage } = botDamage(bot.health)
+  bot.sparkDelay=1.05-damage*.9+random()*.12
+  return Array.from({length:2+Math.floor(damage*7)},(_,i)=>{
+    const [x,y]=BOT_DAMAGE_SITES[Math.floor(random()*stage)].point
+    const origin={x:bot.pos.x+x*Math.cos(bot.angle)-y*Math.sin(bot.angle),y:bot.pos.y+x*Math.sin(bot.angle)+y*Math.cos(bot.angle)}
+    const angle=bot.angle+Math.atan2(y,x)+(random()-.5)*(2.2+damage*1.6)
+    const speed=25+damage*60+random()*(20+damage*30)
     return {pos:{...origin},vel:{x:bot.vel.x+Math.cos(angle)*speed,y:bot.vel.y+Math.sin(angle)*speed},
-      angle,rotSpeed:(Math.random()-.5)*4,life:240+Math.random()*130,length:2+Math.random()*2,
-      color:i===0 ? '255, 235, 192' : '255, 165, 80',spark:true}
+      angle,rotSpeed:(random()-.5)*4,life:200+damage*180+random()*90,length:1.5+damage*3+random()*2,
+      color:i===0 || (damage>=.5 && i%3===0) ? '255, 245, 210' : '255, 175, 78',spark:true}
   })
 }
 
@@ -180,3 +199,4 @@ export function stepSecurityShots(runtime: BotRuntime, dt: number, map: CavernMa
   })
   return impacts
 }
+import { identifyBody } from './bodyDefinitions.ts'

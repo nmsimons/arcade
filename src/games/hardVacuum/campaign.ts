@@ -1,3 +1,4 @@
+import { CIRCUIT_STEPS } from './stationProgression.ts'
 import type { Expedition } from './expedition'
 import type { Vector2 } from './types'
 import type { CavernMap } from './worldGeometry'
@@ -39,7 +40,7 @@ export const havenDeployment = (s: Expedition) => {
 export const havenPose = (s: Expedition, angle=s.campaign.havenAngle): HavenPose => ({ pos:{...havenPosition(s)}, angle, deployment:havenDeployment(s) })
 export const currentBerth = (s: Expedition) => BERTHS.find(b => b.id === s.campaign.berth)!
 export const regionForRoom = (room?: string) => REGIONS.find(r => r.rooms.some(id => id === room))
-export const coreReleased = (s: Expedition) => s.gates.includes('ignition-ready')
+export const coreReleased = (s: Expedition) => s.flags.includes('ignition-ready')
 
 export function serviceRoute(s: Expedition, destination: string): Vector2[] | null {
   if (!s.campaign.berths.some(id => id === destination) || destination === s.campaign.berth) return null
@@ -115,21 +116,21 @@ export function settleHaven(s: Expedition) {
   delete s.campaign.journey
 }
 
-type RecordTrigger = { room?:string; power?:string; gate?:string; pos?:Vector2; core?:boolean }
+type RecordTrigger = { room?:import('./stationIds').RoomId; power?:import('./stationIds').CircuitId; flag?:import('./stationIds').ProgressionId; pos?:Vector2; core?:boolean }
 export interface StationRecord extends RecordTrigger { id:string; title:string; speaker:string; text:string; optional?:boolean }
 export const RECORDS: StationRecord[] = [
   { id:'contract',title:'Recovery contract',speaker:'SALVAGE AUTHORITY · PRESENT DAY',text:'Station Orison. Evacuated nine years ago. Establish a foothold, recover the ignition core, and return it for payment. The maintenance tender Haven is still transmitting from the breach. Its accounts and repair systems are yours to use.' },
-  { id:'first-light',room:'breach',title:'A ship left running',speaker:'HAVEN · SERVICE MEMORY',text:'Emergency watch: year nine. Docking clamps available. Last operator instruction: keep the rescue route open. Freight transit has no power. A reserve cell remains in the rescue locker west of this anchorage. Point your ship’s nose at it and press F to grapple. Tow it back to the blue receiver here; F releases the cable.' },
+  { id:'first-light',room:'breach',title:'A ship left running',speaker:'HAVEN · SERVICE MEMORY',text:'Emergency watch: year nine. If your impact shield is not installed, recover the green module from the rescue locker, through the passage west of my Breach berth. Approach slowly, point your nose at it and press F to grapple. Tow it back for installation. With your shield installed, bring the rescue-locker cell to the blue receiver to open freight transit.' },
   { id:'rescue-note',pos:{x:6930,y:3480},optional:true,title:'Small enough to fit',speaker:'IVO SEN · MAINTENANCE',text:'Haven folds down to a tug for the service tunnels. We cut these berths so she could bring tools right to the work. Clear a passage, restore its bus, and call her through. Keep the freight turns clear.' },
-  { id:'breach-restored',power:'breach-power',title:'The first door',speaker:'MARA VALE · DISPATCH',text:'Freight transit is back. Send Haven through after the lift bus is restored. We are moving people now. Everything with a cargo number can wait.' },
+  { id:'breach-restored',power:'breach-power',title:'The first door',speaker:'MARA VALE · DISPATCH',text:'Freight transit is back. Send Haven through after the freight service bus is restored. We are moving people now. Everything with a cargo number can wait.' },
   { id:'freight-arrival',room:'freight',title:'Departure ledger',speaker:'MARA VALE · DISPATCH',text:'Outbound departures: twelve. Confirmed arrivals: zero. They keep asking me to close the manifest. I cannot write “evacuated” next to a ship nobody has heard from.' },
-  { id:'freight-lit',power:'freight-power',title:'A working berth',speaker:'HAVEN · SERVICE MEMORY',text:'Freight berth energized. I can come through now. The sorting tug has resumed its nine-year-old return order. There is a radiation module in stores; tow it back to me before taking the Works tube. The old isotope conduits have cracked. Dispatch is above the lift; its reserve is in cargo hold six.' },
+  { id:'freight-lit',power:'freight-power',title:'A working berth',speaker:'HAVEN · SERVICE MEMORY',text:'Freight berth energized. I can come through now. The sorting tug has resumed its nine-year-old return order. There is a radiation module in stores; tow it back to me before entering the long tunnel north of Stores. Its far door into Dispatch is now open. The direct lift is locked from inside. Supply Dispatch from cargo hold six to open that shortcut and the Works exit.' },
   { id:'manifest-note',pos:{x:8960,y:420},optional:true,title:'What we carried',speaker:'MARA VALE · DISPATCH',text:'Hold six: blankets, oxygen, the school kitchen. No ore. The tug keeps returning our reserves to stores. We pulled its bus until the transports left. I entered the oxygen under industrial consumables. Perhaps someone looking for a profitable wreck will open this hold first.' },
-  { id:'works-open',power:'dispatch-power',title:'The closed account',speaker:'MARA VALE · DISPATCH',text:'The company closed our rescue account at 04:10. I left Haven’s refinery on local credit. Whoever comes next can still repair a ship. Take the ore to her. The rock is worth more than the paperwork says.' },
-  { id:'works-arrival',room:'works',title:'A deliberate break',speaker:'IVO SEN · MAINTENANCE',text:'Those bulkheads were welded shut from this side. I did it. The tool crib still has a cell behind the eastern seal. The maintenance bus feeds the berth and the security cradle. I could not separate them. When you restore one, you restore both.' },
-  { id:'works-lit',power:'works-power',title:'Maintenance watch',speaker:'HAVEN · SERVICE MEMORY',text:'Maintenance berth available. Security watch is booting on the same bus. It does not recognize your ship. Find cover before its targeting light settles. The capacitor store below holds the ring reserve; maintenance control is west.' },
+  { id:'works-open',power:'dispatch-power',title:'The closed account',speaker:'MARA VALE · DISPATCH',text:'The freight lift and Works exit are open. The company closed our rescue account at 04:10. I left Haven’s refinery on local credit. Whoever comes next can still repair a ship. Take the ore to her. The rock is worth more than the paperwork says.' },
+  { id:'works-arrival',room:'works',title:'A deliberate break',speaker:'IVO SEN · MAINTENANCE',text:'Those bulkheads were welded shut from this side. I did it. I left a blaster module in the southeast of the main bay, outside the seals. Tow it back to Haven for installation. The tool crib still has a cell behind the eastern seal. The maintenance bus feeds the berth and the security cradle. I could not separate them. When you restore one, you restore both.' },
+  { id:'works-lit',power:'works-power',title:'Maintenance watch',speaker:'HAVEN · SERVICE MEMORY',text:'Maintenance berth available. Security watch is booting on the same bus. It does not recognize your ship. Find cover before its targeting light settles. The capacitor store below holds the ring reserve and a teleporter module. Tow the module back to me for installation; it can return your ship here, but not your cargo. Maintenance control is west.' },
   { id:'tools-note',pos:{x:6030,y:580},optional:true,title:'The last repair',speaker:'IVO SEN · MAINTENANCE',text:'Six spare clamps, one usable torch, and a tender that still answers. Mara wants me on the next transport. I told her I would follow after the ring was stable. She knows that means I am staying.' },
-  { id:'ring-open',power:'ring-power',title:'The Broken Ring',speaker:'IVO SEN · MAINTENANCE',text:'The western Foundry holds the relay reserve. Recharge radiation shielding at Haven before entering the reactor. Its last cell is beside the breach. Get that cell south to the reserve engine and the containment circuit can finally hold again.' },
+  { id:'ring-open',power:'ring-power',title:'The Broken Ring',speaker:'IVO SEN · MAINTENANCE',text:'The western Foundry holds the relay reserve. Let radiation shielding recharge outside the field before entering the reactor. Its last cell is beside the breach. Get that cell south to the reserve engine and the containment circuit can finally hold again.' },
   { id:'ring-lit',power:'relay',title:'Nine years of silence',speaker:'DR. ADA REN · REFUGE',text:'I requested the shutdown. Not evacuation. Shutdown. We can sustain suspension on a fraction of station power, but not while the damaged ring is drawing against us. Ivo understands. The official channel must remain silent.' },
   { id:'archive-note',pos:{x:1720,y:440},optional:true,title:'Consent',speaker:'DR. ADA REN · REFUGE',text:'There are three hundred and twelve names on the refuge list. Each signed for a temporary suspension until rescue. I was the last awake. If you can hear this, please read their names as people waiting, not a loss report.' },
   { id:'refuge-route',power:'heart',title:'A quiet reactor',speaker:'HAVEN · SERVICE MEMORY',text:'Containment restored. Radiation falling to background. The engine return passage is opening west, into the vault. You made a safe route through. Refuge access is powered beyond it. I can follow when its berth is ready.' },
@@ -140,37 +141,25 @@ export const RECORDS: StationRecord[] = [
   { id:'heart-open',power:'heart-route',title:'What the core was for',speaker:'IVO SEN · MAINTENANCE',text:'The Ignition Cradle, east of the breach, is on a separate bus. I built it so we could restart Orison without drawing from the occupied wards. That is where the ignition core belongs. Not in a buyer’s warehouse. You passed the way to wake them before you knew they were here.' },
   { id:'heart-lit',power:'heart-power',title:'The last shift',speaker:'MARA VALE · DISPATCH',text:'Ivo has gone to isolate the core. Ada is closing the ward. I am leaving this channel open. If someone gets here after us: we did not lose the station. We left as much of it as we could for you.' },
   { id:'coil-lit',power:'coil-power',title:'Cold start',speaker:'HAVEN · SERVICE MEMORY',text:'Ignition well accessible. The release supply is in the lower gallery. Recharge here before collecting the core. The old commissioning tube leaves the well to the southeast and returns to the Breach. Its conduits have fractured, and loose rock is moving through it. I cannot carry the core for you.' },
-  { id:'core-free',gate:'ignition-ready',title:'The way back',speaker:'IVO SEN · MAINTENANCE',text:'Core released. The commissioning door at the Breach is opening; its only feed is here, on the Heart side. Follow the lower tube back, then tow east into the Ignition Cradle. The amber contacts are waiting there. Haven, keep a light on.' },
+  { id:'core-free',flag:'ignition-ready',title:'The way back',speaker:'IVO SEN · MAINTENANCE',text:'Core released. The commissioning door at the Breach is opening; its only feed is here, on the Heart side. Follow the lower tube back, then tow east into the Ignition Cradle. The amber contacts are waiting there. Haven, keep a light on.' },
   { id:'core-home',core:true,title:'All accounted for',speaker:'HAVEN · SERVICE MEMORY',text:'Ignition core seated in the cradle. Independent bus stable. Awakening sequence started. Recovery contract suspended: persons aboard.' },
 ]
 export function discoverCampaign(s: Expedition, room: string | undefined, connectedTerminal?: string): string[] {
   for (const berth of BERTHS) if (!s.campaign.berths.includes(berth.id) && (!berth.power || s.power[berth.power]) && s.visited.includes(berth.room)) s.campaign.berths.push(berth.id)
   const found = RECORDS.filter(r => !s.campaign.records.includes(r.id) && (
-    r.room === room && room !== undefined || r.power && !!s.power[r.power] || r.gate && s.gates.includes(r.gate) || r.core && s.core || r.pos && r.id === connectedTerminal
+    r.room === room && room !== undefined || r.power && !!s.power[r.power] || r.flag && s.flags.includes(r.flag) || r.core && s.core || r.pos && r.id === connectedTerminal
   )).map(r => r.id)
   s.campaign.records.push(...found)
   return found
 }
-export function campaignObjective(s: Expedition): { title:string; detail:string; circuit?:string } {
+export function campaignObjective(s: Expedition): { title:string; detail:string; circuit?:string; module?:'impact' | 'blaster' | 'radiation' } {
   if (s.complete) return { title:'The route is clear',detail:'The refuge is awake. Haven remains available while you explore the station.' }
   if (s.core) return { title:'The awakening bus is online',detail:'The core is installed in the Ignition Cradle.' }
   if (coreReleased(s)) return { title:'Return to the first cradle',detail:'Tow the core through the irradiated lower return tube from the Ignition Well. Continue east through the Breach to the Ignition Cradle.' }
-  const steps = [
-    ['breach-power','Restore freight transit','Tow the rescue-locker cell to the receiver in the Breach.'],
-    ['freight-power','Restore the freight lift','The reserve cell is in the western freight stores. Its receiver is in the main gallery.'],
-    ['dispatch-power','Reconnect the Works','Supply Dispatch from cargo hold six. Recover the radiation module in Freight Stores before crossing the contaminated transfer tube.'],
-    ['works-power','Wake the Works','Buy a blaster at Haven. Breach the eastern tool crib and return its cell to the Works receiver. The bus supplies both Haven’s berth and security.'],
-    ['ring-power','Reach the Broken Ring','Open the capacitor store below the Works. Tow its cell to Maintenance control in the west.'],
-    ['foundry','Reach the Foundry','Clear the western barrier in the Ring. A cell in the service hub powers the Foundry entrance from Wreckwater.'],
-    ['relay','Restore the ring relay','Tow the Foundry reserve back to the relay in the service hub.'],
-    ['heart','Restore reactor containment','Recharge radiation shielding at Haven. Retrieve the eastern reactor cell and tow it south to the engine before the reserve runs out. Power opens the safe western return.'],
-    ['refuge-power','Restore medical transfer','Tow the vault reserve to the receiver in Refuge Approach.'],
-    ['ward-power','Reach the ward from behind','Recharge radiation shielding at Haven. Tow the triage reserve through the irradiated service tunnel below Triage to the receiver inside the ward. Power it to open the safe return to Medical transfer.'],
-    ['heart-route','Reach the ignition system','Bring a transfer-room cell to the ward’s eastern access receiver.'],
-    ['heart-power','Restore the induction bus','Bring the ward service reserve to the Heart’s receiver. Haven can then move to the ignition berth.'],
-    ['coil-power','Ground the ignition field','Open Field control to the east. Deliver its cell to the lower induction gallery.'],
-    ['ignition-power','Release the ignition core','Bring the lower gallery’s reserve cell into the ignition well.'],
-  ]
-  const step = steps.find(([id]) => !s.power[id]) ?? steps[steps.length-1]
-  return { title:step[1],detail:step[2],circuit:step[0] }
+  if (!s.impactShieldInstalled) return { title:'Install your impact shield',detail:'Fly through the passage west of Haven to the rescue locker. Find the green shield module, point the ship’s nose at it and press F to grapple, then tow it back for installation. New equipment must be recovered before the dock can upgrade it.',module:'impact' }
+  const step = CIRCUIT_STEPS.find(step => !s.power[step.id]) ?? CIRCUIT_STEPS[CIRCUIT_STEPS.length-1]
+  if (step.id === 'dispatch-power' && !s.upgrades.includes('radiation')) return { title:'Prepare for the Dispatch tunnel',detail:'Tow the radiation module from Freight Stores to Haven for installation. The direct lift stays locked until you power Dispatch from inside; enter by the radioactive Stores tunnel.',module:'radiation' }
+  if (step.id === 'works-power' && !s.upgrades.includes('radiation')) return { title:'Recover radiation shielding',detail:'Tow the radiation module from Freight Stores to Haven before crossing the contaminated Works transfer tube.',module:'radiation' }
+  if (step.id === 'works-power' && !s.blasterInstalled) return { title:'Recover the blaster',detail:'Find the blaster module in the southeast of the Works main bay, outside the sealed tool crib. Tow it back to Haven for installation before breaching the crib.',module:'blaster' }
+  return { title:step.title,detail:step.detail,circuit:step.id }
 }

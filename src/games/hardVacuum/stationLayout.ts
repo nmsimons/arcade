@@ -1,4 +1,5 @@
 import type { Vector2 } from './types'
+import type { RoomId, GateId } from './stationIds'
 import { pointInPolygon } from './worldGeometry.ts'
 import { CAMPAIGN_CHAMBERS, CAMPAIGN_PASSAGES } from './campaignWorld.ts'
 
@@ -16,7 +17,7 @@ export const CHAMBERS: Record<string, Vector2[]> = {
   engine: polygon([[2390,1590],[2580,1565],[2690,1625],[2805,1785],[2800,1905],[2740,1970],[2540,2035],[2350,2000],[2210,1870],[2175,1740],[2280,1650]]),
   vault: polygon([[1350,1595],[1510,1550],[1700,1620],[1830,1760],[1780,1905],[1620,1990],[1420,2020],[1220,1910],[1165,1780],[1220,1680]]),
 }
-export const PASSAGES = [
+export const PASSAGES: { rooms: readonly RoomId[]; gate?: GateId; shape: Vector2[] }[] = [
   ...CAMPAIGN_PASSAGES,
   { rooms: ['salvage', 'haven'], gate: 'rubble', shape: polygon([[760,1030],[870,1000],[950,1000],[1020,1000],[1120,975],[1250,1010],[1260,1160],[1130,1210],[1020,1200],[950,1200],[860,1160],[770,1180]]) },
   { rooms: ['foundry', 'salvage'], gate: 'foundry', shape: polygon([[405,580],[590,580],[600,660],[600,720],[645,775],[625,880],[475,875],[450,790],[400,720],[400,660]]) },

@@ -1,34 +1,39 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
-
-const enabledButtons = (root: HTMLElement) => Array.from(root.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'))
+import { dialogButtons, dialogButtonKey, isVisibleControl, moveDialogSelection, restoreDialogSelection } from './dialogNavigation'
 
 /** Use actual DOM focus as the selection, shared by mouse, Tab and arrow keys. */
-export function KeyboardDialog({ children, label, focusKey, onClose, className, confirmation = false }: {
+export function KeyboardDialog({ children, label, focusKey, onClose, className, confirmation = false, controllerMode = 'menu' }: {
   children: ReactNode
   label: string
   focusKey: string
   onClose: () => void
   className: string
   confirmation?: boolean
+  controllerMode?: 'menu' | 'map'
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const lastScreenRef = useRef('')
+  const selections = useRef(new Map<string, string>())
+  const lastFocused = useRef<HTMLButtonElement | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const root = rootRef.current
-    if (!root) return
+    if (!root || !isVisibleControl(root)) return
+    const scope = root.closest('.hard-vacuum') ?? root.parentElement
+    const top = [...scope?.querySelectorAll<HTMLElement>('.game-dialog') ?? []].filter(isVisibleControl).at(-1)
+    if (top && top !== root) return
     const changed = lastScreenRef.current !== focusKey
     const active = document.activeElement
     // A purchase can disable the focused button. Move to another available
     // action immediately instead of leaving keyboard input on a dead control.
-    if (changed || !root.contains(active) || (active instanceof HTMLButtonElement && active.disabled)) {
-      const buttons = enabledButtons(root)
-      const initial = changed ? root.querySelector<HTMLButtonElement>('[data-initial-focus]:not(:disabled)') : null
-      ;(initial ?? buttons[0])?.focus({ preventScroll: true })
+    if (changed || !dialogButtons(root).includes(active as HTMLButtonElement)) {
+      // Reopening a destructive confirmation always defaults to Cancel, even
+      // if the pilot highlighted the destructive choice on an earlier visit.
+      restoreDialogSelection(root, changed && confirmation ? '' : selections.current.get(focusKey), changed ? undefined : lastFocused.current)
     }
     lastScreenRef.current = focusKey
-  }, [focusKey, children])
+  }, [focusKey, children, confirmation])
 
   const navigate = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return
@@ -46,14 +51,17 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className, 
     const forward = ['arrowdown', 'arrowright', 's'].includes(key) || (key === 'tab' && !event.shiftKey)
     if (!backward && !forward && key !== 'home' && key !== 'end') return
     event.preventDefault(); event.stopPropagation()
-    const buttons = enabledButtons(event.currentTarget)
-    if (!buttons.length) return
-    const index = buttons.indexOf(document.activeElement as HTMLButtonElement)
-    const next = key === 'home' ? 0 : key === 'end' ? buttons.length - 1 : (index + (backward ? -1 : 1) + buttons.length) % buttons.length
-    buttons[next].focus()
+    moveDialogSelection(event.currentTarget, key === 'home' ? 'first' : key === 'end' ? 'last'
+      : key === 'arrowleft' ? 'left' : key === 'arrowright' ? 'right' : backward ? 'up' : 'down')
   }
 
-  return <div ref={rootRef} role={confirmation ? 'alertdialog' : 'dialog'} aria-modal="true" aria-label={label} className={className} onKeyDown={navigate}>
+  return <div ref={rootRef} role={confirmation ? 'alertdialog' : 'dialog'} aria-modal="true" aria-label={label}
+    data-dialog-screen={focusKey} data-controller-mode={controllerMode} className={`game-dialog ${className}`} onKeyDown={navigate}
+    onFocusCapture={event => {
+      if (!(event.target instanceof HTMLButtonElement)) return
+      const key = dialogButtonKey(event.target)
+      selections.current.set(focusKey, key); event.currentTarget.dataset.selectionKey = key; lastFocused.current = event.target
+    }}>
     {children}
   </div>
 }

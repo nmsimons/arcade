@@ -1,0 +1,99 @@
+{
+  "version": 1,
+  "finaleVersion": 2,
+  "campaign": {
+    "version": 1,
+    "berth": "breach",
+    "haven": {
+      "x": 8000,
+      "y": 2800
+    },
+    "havenAngle": 0,
+    "grappleLearned": false,
+    "terminalLinked": false,
+    "berths": [
+      "breach",
+      "freight"
+    ],
+    "records": [
+      "contract"
+    ],
+    "playedSeconds": 0,
+    "deaths": 0,
+    "journey": {
+      "destination": "freight",
+      "points": [
+        {
+          "x": 8000,
+          "y": 2600
+        },
+        {
+          "x": 8010,
+          "y": 1350
+        }
+      ],
+      "index": 0,
+      "phase": "transit",
+      "progress": 0.4,
+      "riding": true,
+      "speed": 117
+    }
+  },
+  "upgrades": [],
+  "upgradeLevels": {},
+  "gates": [
+    "breach-link"
+  ],
+  "power": {
+    "breach-power": "foundry"
+  },
+  "doors": {},
+  "caches": [],
+  "visited": [
+    "breach"
+  ],
+  "surveyed": [],
+  "disabledBots": [],
+  "botDoors": {},
+  "checkpoint": "haven",
+  "credits": 0,
+  "banked": 0,
+  "core": false,
+  "complete": false,
+  "position": {
+    "x": 8000,
+    "y": 3560
+  },
+  "shields": 2,
+  "blasterInstalled": true,
+  "blasterCharges": 1,
+  "radiationCharge": 0,
+  "radiationExposure": 0,
+  "rechargePacks": 0,
+  "teleporterInstalled": false,
+  "remoteRechargeRemaining": 0.5,
+  "cargo": {
+    "radiation": {
+      "pos": {
+        "x": 7130,
+        "y": 1250
+      },
+      "vel": {
+        "x": 7,
+        "y": -4
+      },
+      "tethered": true
+    },
+    "rescue-cache": {
+      "pos": {
+        "x": 7110,
+        "y": 3540
+      },
+      "vel": {
+        "x": 4,
+        "y": 3
+      },
+      "tethered": true
+    }
+  }
+}

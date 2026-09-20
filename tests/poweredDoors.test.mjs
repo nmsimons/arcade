@@ -40,7 +40,7 @@ test('powered doors animate their physical aperture for ship, cargo and laser, a
 })
 
 test('legacy keys become powered routes without resetting upgrades or moved cargo', () => {
-  const old = { ...freshExpedition('ring'), upgrades: ['access', 'radiation'], gates: ['rubble', 'foundry'], banked: 175 }
+  const old = { ...freshExpedition('ring'), upgrades: ['access', 'radiation'], gates: ['rubble', 'foundry'], banked: 175 };old.version=1;
   delete old.power; delete old.doors
   const state = parseExpedition(JSON.stringify(old))
   assert.deepEqual(state.upgrades, ['radiation'])

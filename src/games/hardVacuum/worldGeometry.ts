@@ -1,8 +1,10 @@
 import type { Vector2 } from './types'
 
-export const WORLD_WIDTH = 3000
-export const WORLD_HEIGHT = 2200
-export const WORLD_CENTER: Vector2 = { x: WORLD_WIDTH / 2, y: WORLD_HEIGHT / 2 }
+// Retained prototype arenas are menu demonstrations and geometry test fixtures.
+// Campaign dimensions/topology live in campaignWorld.ts and stationLayout.ts.
+export const DEMO_WIDTH = 3000
+export const DEMO_HEIGHT = 2200
+export const DEMO_CENTER: Vector2 = { x: DEMO_WIDTH / 2, y: DEMO_HEIGHT / 2 }
 
 export interface CavernMap {
   containedRadiation?: readonly string[]
@@ -65,8 +67,8 @@ const pillar = (
 const ringBarrier = (angle: number): readonly Vector2[] => {
   const radius = 660
   return barrier(
-    WORLD_CENTER.x + Math.cos(angle) * radius,
-    WORLD_CENTER.y + Math.sin(angle) * radius,
+    DEMO_CENTER.x + Math.cos(angle) * radius,
+    DEMO_CENTER.y + Math.sin(angle) * radius,
     350,
     130,
     angle + Math.PI / 2,
@@ -194,7 +196,7 @@ export const CAVERN_MAPS: readonly CavernMap[] = [
   },
 ]
 
-export const getCavernMap = (level: number) => {
+export const getDemoCavernMap = (level: number) => {
   const index = Math.min(CAVERN_MAPS.length - 1, Math.max(0, Math.floor(level) - 1))
   return CAVERN_MAPS[index]
 }

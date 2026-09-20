@@ -79,13 +79,13 @@ test('laser focus advances through five stages of faster impacts on one upgrade 
   }
 })
 
-test('radiation drains only its own reserve, does not regenerate away from Haven, and threatens unprotected hulls', () => {
-  const state = freshExpedition('ring'); state.upgrades.push('radiation'); state.radiationCharge = 100
+test('radiation drains only its own reserve, recharges outside exposure, and threatens unprotected hulls', () => {
+  const state = freshExpedition('ring'); state.impactShieldInstalled = true; state.shields = 2; state.upgrades.push('radiation'); state.radiationCharge = 100
   const hot = { x: 2500, y: 1480 }, safe = { x: 1500, y: 1300 }
   assert.ok(inRadiation(hot)); assert.equal(inRadiation(safe), false)
   for (let i = 0; i < 50; i++) assert.equal(stepRadiation(state, hot, 0.1).failed, false)
   assert.equal(state.radiationCharge, 37.5); assert.equal(state.shields, 2)
-  stepRadiation(state, safe, 20); assert.equal(state.radiationCharge, 37.5)
+  stepRadiation(state, safe, 20); assert.equal(state.radiationCharge, 100)
   state.radiationCharge = 1.25
   stepRadiation(state, hot, 0.2); assert.ok(Math.abs(state.radiationExposure - 0.1) < 1e-7)
   assert.equal(stepRadiation(state, hot, 1.91).failed, true); assert.equal(state.shields, 2)
@@ -98,7 +98,7 @@ test('radiation drains only its own reserve, does not regenerate away from Haven
 test('radiation reserve and exposure persist, and legacy upgrades migrate without resetting progress', () => {
   const state = freshExpedition('ring'); state.upgrades = ['radiation']; state.radiationCharge = 0; state.radiationExposure = 0.9
   assert.deepEqual(parseExpedition(JSON.stringify(state)), state)
-  const old = { ...state, upgrades: ['cutter', 'thermal', 'drive'], banked: 90 }
+  const old = { ...state, upgrades: ['cutter', 'thermal', 'drive'], banked: 90 };old.version=1;
   delete old.radiationCharge; delete old.radiationExposure
   const migrated = parseExpedition(JSON.stringify(old))
   assert.deepEqual(migrated.upgrades, ['radiation', 'focus']); assert.equal(migrated.radiationCharge, 100); assert.equal(migrated.banked, 90)
@@ -122,7 +122,7 @@ test('the debris field contains many moving asteroids with valid, separated spaw
   assert.ok(field.length >= 35, `expected a dense field, got ${field.length}`)
   assert.ok(field.some(r => r.kind === 'blue'))
   for (const rock of field) {
-    assert.ok(Math.hypot(rock.vel.x, rock.vel.y) >= 28)
+    assert.ok(Math.hypot(rock.vel.x, rock.vel.y) >= 28 - 1e-10, 'allow floating-point rounding of a 28-unit velocity')
     assert.ok(isInsideCavern(rock.pos, rock.radius, map))
     assert.ok(Math.hypot(rock.pos.x - state.position.x, rock.pos.y - state.position.y) > 175)
   }
@@ -150,8 +150,8 @@ test('removed formations leave navigable space without invisible collision or bl
 
 test('retired formation flags migrate without losing saved progress', () => {
   const state = freshExpedition('ring')
-  Object.assign(state, { gates: ['rubble', 'blast'], banked: 4321, credits: 87, blasterInstalled: true, blasterCharges: 1, visited: ['haven', 'vault'], surveyed: [921, 922], upgrades: ['focus'], upgradeLevels: { focus: 2 } })
-  const legacy = { ...state, gates: [...state.gates, ...Array.from({ length: 6 }, (_, i) => `crag-${i}`)] }
+  Object.assign(state, { impactShieldInstalled: true, gates: ['rubble', 'blast'], banked: 4321, credits: 87, blasterInstalled: true, blasterCharges: 1, visited: ['haven', 'vault'], surveyed: [921, 922], upgrades: ['focus'], upgradeLevels: { focus: 2 } })
+  const legacy = { ...state, gates: [...state.gates, ...Array.from({ length: 6 }, (_, i) => `crag-${i}`)] };legacy.version=1;
   assert.deepEqual(parseExpedition(JSON.stringify(legacy)), state)
   assert.equal(parseExpedition(JSON.stringify({ ...state, gates: ['crag-6'] })), null)
 })

@@ -97,20 +97,20 @@ test('every later long transfer tube is irradiated, while the first departure an
   for(const tunnel of IRRADIATED_TUNNELS) {
     assert.ok(TRANSFER_RADIATION_SOURCES.some(s=>s.id.startsWith(`tube:${tunnel.id}:`)),tunnel.id)
     const reserve={upgrades:['radiation'],radiationCharge:100,radiationExposure:0}
-    let exposed=0,failed=false
+    let exposed=0,failed=false,drained=0
     for(const passage of tunnel.parts) {
       const [a,b]=passage.centerline,length=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.ceil(length/8)
       for(let i=1;i<=steps;i++) {
         const pos={x:a.x+(b.x-a.x)*i/steps,y:a.y+(b.y-a.y)*i/steps}
         const dose=stepRadiation(reserve,pos,length/steps/150,map)
-        if(dose.exposed)exposed++;failed ||= dose.failed
+        if(dose.exposed)exposed++;failed ||= dose.failed;drained+=dose.drained
       }
     }
     assert.ok(exposed>10,tunnel.id)
     assert.equal(failed,false,`${tunnel.id}: a prompt shielded crossing must be possible`)
-    assert.ok(reserve.radiationCharge<95,tunnel.id)
+    assert.ok(drained>5,tunnel.id) // Safe tube exits may refill the bar, but exposure must still drain it.
   }
-  const legacy=freshExpedition();legacy.cargo={radiation:{pos:{x:1650,y:350},vel:{x:1,y:1},tethered:false}}
+  const legacy=freshExpedition();legacy.version=1;legacy.cargo={radiation:{pos:{x:1650,y:350},vel:{x:1,y:1},tethered:false}}
   assert.equal(parseExpedition(JSON.stringify(legacy)).cargo.radiation,undefined)
 })
 
@@ -126,4 +126,27 @@ test('one full radiation reserve covers leaving Freight, retrieving the Works ce
     }
   }
   assert.ok(state.radiationCharge>10,`leave some margin for grappling and opening the barrier: ${state.radiationCharge}`)
+})
+
+test('the first mandatory Freight tunnel is survivable with the original shield but not unprotected',()=>{
+  const run=protectedShip=>{
+    const state=freshExpedition()
+    powerReceiver(state,'breach-power','breach-power');powerReceiver(state,'freight-power','freight-power');state.doors={}
+    if(protectedShip) {state.upgrades=['radiation'];state.radiationCharge=100}
+    const map=expeditionMap(state),parts=CAMPAIGN_PASSAGES.filter(p=>p.gate==='freight-return')
+    let failed=false,drained=0
+    for(const passage of parts) {
+      const [a,b]=passage.centerline,length=Math.hypot(b.x-a.x,b.y-a.y),steps=Math.ceil(length/4)
+      for(let i=1;i<=steps;i++) {
+        const pos={x:a.x+(b.x-a.x)*i/steps,y:a.y+(b.y-a.y)*i/steps}
+        assert.ok(isInsideCavern(pos,15,map),'opened distant door leaves a continuous physical approach')
+        const dose=stepRadiation(state,pos,length/steps/150,map)
+        failed ||= dose.failed;drained+=dose.drained
+      }
+    }
+    return {failed,drained}
+  }
+  const shielded=run(true)
+  assert.equal(shielded.failed,false);assert.ok(shielded.drained>5,'the long approach spends the fixed reserve')
+  assert.equal(run(false).failed,true,'recovering the shield matters before crossing')
 })

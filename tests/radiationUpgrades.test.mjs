@@ -1,54 +1,71 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { bankAtCheckpoint, crashExpedition, freshExpedition, parseExpedition, purchaseUpgrade } from '../src/games/hardVacuum/expedition.ts'
-import { radiationCapacity, radiationFraction, rechargeRadiation, stepRadiation, freshRadiationFeedback, stepRadiationFeedback } from '../src/games/hardVacuum/radiation.ts'
+import { RADIATION_CAPACITY, radiationFraction, rechargeRadiation, stepRadiation, freshRadiationFeedback, stepRadiationFeedback } from '../src/games/hardVacuum/radiation.ts'
 import { needsRecharge, restoreShipSystems } from '../src/games/hardVacuum/supplies.ts'
-import { upgradeOffer } from '../src/games/hardVacuum/upgrades.ts'
+import { SHIP_UPGRADES } from '../src/games/hardVacuum/upgrades.ts'
+import { SAVE_SCHEMA_VERSION } from '../src/games/hardVacuum/saveMigrations.ts'
+import { createGameSession } from '../src/games/hardVacuum/gameSession.ts'
 
-test('radiation upgrades require the recovered module and banked funds, with one advancing shop entry',()=>{
-  const s=freshExpedition();s.banked=100000;s.credits=100000
-  assert.equal(upgradeOffer(s,'radiationReserve').locked,true)
-  assert.equal(purchaseUpgrade(s,'radiationReserve'),false);assert.equal(s.banked,100000)
-  s.upgrades.push('radiation')
-  for(const [stage,cost,capacity] of [[1,6000,150],[2,12000,200],[3,24000,250]]) {
-    s.banked=cost-1;assert.equal(purchaseUpgrade(s,'radiationReserve'),false)
-    const offer=upgradeOffer(s,'radiationReserve');assert.equal(offer.cost,cost);assert.equal(offer.stage,stage)
-    s.banked++;assert.ok(purchaseUpgrade(s,'radiationReserve'));assert.equal(s.banked,0);assert.equal(s.credits,100000)
-    assert.equal(radiationCapacity(s),capacity);assert.equal(s.radiationCharge,capacity)
-    assert.equal(s.upgrades.filter(id=>id==='radiationReserve').length,1)
-    assert.deepEqual(parseExpedition(JSON.stringify(s)),s)
-  }
-  assert.ok(upgradeOffer(s,'radiationReserve').maxed);assert.equal(purchaseUpgrade(s,'radiationReserve'),false)
-})
-
-test('capacity upgrades extend actual exposure time and all Haven recovery paths refill the larger reserve',()=>{
-  const pos={x:2670,y:1130}
-  for(const [stage,capacity,seconds] of [[0,100,8],[1,150,12],[2,200,16],[3,250,20]]) {
-    const s=freshExpedition();s.upgrades=['radiation'];s.upgradeLevels.radiationReserve=stage
-    rechargeRadiation(s);assert.equal(s.radiationCharge,capacity)
-    const dose=stepRadiation(s,pos,seconds-.1)
-    assert.equal(dose.failed,false);assert.ok(s.radiationCharge>0&&s.radiationCharge<2)
-    stepRadiation(s,pos,.2);assert.equal(s.radiationCharge,0)
-    assert.ok(stepRadiation(s,pos,2).failed,'upgrades extend the timer, not immunity')
-    assert.ok(needsRecharge(s));assert.ok(restoreShipSystems(s));assert.equal(s.radiationCharge,capacity)
-    assert.equal(needsRecharge(s),false)
-    s.radiationCharge=100;assert.equal(needsRecharge(s),capacity>100,'a formerly full bar still needs its extra capacity filled')
-    bankAtCheckpoint(s,'haven');assert.equal(s.radiationCharge,capacity)
-    s.radiationCharge=0;crashExpedition(s);assert.equal(s.radiationCharge,capacity)
-    assert.equal(s.radiationExposure,0)
+test('radiation shielding has no upgrade or purchase path, even after the module is installed',()=>{
+  assert.ok(!SHIP_UPGRADES.includes('radiationReserve'))
+  for(const upgrades of [[],['radiation']]) {
+    const state=freshExpedition();state.banked=100000;state.upgrades=upgrades
+    const before=structuredClone(state)
+    assert.equal(purchaseUpgrade(state,'radiationReserve'),false);assert.deepEqual(state,before)
+    const session=createGameSession(state);session.command({type:'start'});session.command({type:'interact'})
+    for(let i=0;i<120;i++)session.step()
+    assert.equal(session.mode,'docked')
+    session.command({type:'upgrade',id:'radiationReserve'})
+    assert.equal(session.expedition.banked,100000)
+    assert.equal(session.expedition.upgradeLevels.radiationReserve,undefined)
   }
 })
 
-test('save validation, percentages and low-reserve warnings use the purchased capacity',()=>{
-  const s=freshExpedition();s.upgrades=['radiation'];s.upgradeLevels.radiationReserve=3;s.radiationCharge=125
-  assert.equal(radiationFraction(s),.5);assert.deepEqual(parseExpedition(JSON.stringify(s)),s)
-  for(const [level,charge] of [[0,101],[1,151],[2,201],[3,251],[4,100]]) {
-    s.upgradeLevels.radiationReserve=level;s.radiationCharge=charge
-    assert.equal(parseExpedition(JSON.stringify(s)),null)
+test('the original reserve lasts eight seconds at peak exposure and every Haven recovery path refills 100',()=>{
+  const state=freshExpedition();state.upgrades=['radiation']
+  rechargeRadiation(state);assert.equal(state.radiationCharge,RADIATION_CAPACITY)
+  const pos={x:2670,y:1130},dose=stepRadiation(state,pos,7.9)
+  assert.equal(dose.failed,false);assert.ok(state.radiationCharge>0&&state.radiationCharge<2)
+  stepRadiation(state,pos,.2);assert.equal(state.radiationCharge,0)
+  assert.ok(stepRadiation(state,pos,2).failed)
+  assert.ok(needsRecharge(state));assert.ok(restoreShipSystems(state));assert.equal(state.radiationCharge,100)
+  assert.equal(needsRecharge(state),false)
+  state.radiationCharge=0;bankAtCheckpoint(state,'haven');assert.equal(state.radiationCharge,100)
+  state.radiationCharge=0;crashExpedition(state);assert.equal(state.radiationCharge,100);assert.equal(state.radiationExposure,0)
+})
+
+test('all historical radiation stages refund their full cost exactly once and clamp without refilling',()=>{
+  for(const version of [1,2,3]) for(const [level,capacity,refund] of [[0,100,0],[1,150,6000],[2,200,18000],[3,250,42000]]) {
+    for(const charge of [0,45,capacity]) {
+      const state={...freshExpedition(),version,banked:4321,credits:81,upgrades:['radiation','hull',...(level?['radiationReserve']:[])],upgradeLevels:{hull:2,radiationReserve:level},radiationCharge:charge}
+      const migrated=parseExpedition(JSON.stringify(state))
+      assert.ok(migrated);assert.equal(migrated.version,SAVE_SCHEMA_VERSION)
+      assert.equal(migrated.banked,4321+refund);assert.equal(migrated.credits,81)
+      assert.equal(migrated.radiationCharge,Math.min(charge,100))
+      assert.deepEqual(migrated.upgradeLevels,{hull:2});assert.deepEqual(migrated.upgrades,['radiation','hull'])
+      assert.deepEqual(parseExpedition(JSON.stringify(migrated)),migrated)
+    }
   }
-  const urgency=level=>{
-    const state=freshExpedition();state.upgrades=['radiation'];state.upgradeLevels.radiationReserve=level;state.radiationCharge=radiationCapacity(state)*.2
-    return stepRadiationFeedback(freshRadiationFeedback(),{intensity:.5,exposed:true,drained:1},state,.01).urgency
+})
+
+test('legacy radiation fields are validated before refund; current saves cannot reintroduce the upgrade',()=>{
+  for(const version of [1,2,3]) {
+    const old={...freshExpedition(),version,upgrades:['radiation','radiationReserve']}
+    for(const level of [-1,4,1.5,null,'2']) assert.equal(parseExpedition(JSON.stringify({...old,upgradeLevels:{radiationReserve:level}})),null)
+    for(const [level,charge] of [[0,101],[1,151],[2,201],[3,251]]) assert.equal(parseExpedition(JSON.stringify({...old,upgradeLevels:{radiationReserve:level},radiationCharge:charge})),null)
   }
-  assert.equal(urgency(0),urgency(3))
+  const current=freshExpedition()
+  assert.equal(parseExpedition(JSON.stringify({...current,upgrades:['radiationReserve']})),null)
+  assert.equal(parseExpedition(JSON.stringify({...current,upgradeLevels:{radiationReserve:0}})),null)
+  assert.equal(parseExpedition(JSON.stringify({...current,radiationCharge:101})),null)
+})
+
+test('radiation percentages and warnings use only the fixed original reserve',()=>{
+  const state=freshExpedition();state.upgrades=['radiation'];state.radiationCharge=50
+  assert.equal(radiationFraction(state),.5)
+  const dose={intensity:.5,exposed:true,drained:1}
+  const normal=stepRadiationFeedback(freshRadiationFeedback(),dose,state,.01).urgency
+  state.radiationCharge=20
+  assert.ok(stepRadiationFeedback(freshRadiationFeedback(),dose,state,.01).urgency>normal)
 })

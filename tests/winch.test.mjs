@@ -13,7 +13,7 @@ const setup = (length, state = 'attached', mass = 1) => {
   const hook = { current: { state, rock: body, pos: { ...body.pos }, vel: { x: 0, y: 0 }, maxLength: length, ropeLength: length, ...rope(1000, 1000, body.pos.x, body.pos.y, length) } }
   const args = {
     w: 3000, h: 2200, ship, shipRef: { current: ship }, rocks: [body], harpoonRef: hook,
-    wrapX: x => x, wrapY: y => y, toroidalDelta: (ax, ay, bx, by) => ({ dx: bx - ax, dy: by - ay }),
+
     buildRopeBetween: rope, HARPOON_HOOK_MASS: 0.2, HARPOON_VISUAL_SLACK: 1.18, HARPOON_REEL_MIN_LEN: 22,
   }
   return { ship, body, hook, step: dt => updateHarpoon({ ...args, dt }) }

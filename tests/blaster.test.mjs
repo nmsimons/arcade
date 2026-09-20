@@ -1,65 +1,52 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BLASTER_BLAST_RADIUS, BLASTER_CAPACITY, BLASTER_COST, fireBlaster, stepBlaster } from '../src/games/hardVacuum/blaster.ts'
-import { bankAtCheckpoint, blastGate, crashExpedition, expeditionMap, freshExpedition, freshRuntime, GATES, objective, parseExpedition, purchaseUpgrade, sectorAt, stepExpedition } from '../src/games/hardVacuum/expedition.ts'
+import { BLASTER_BLAST_RADIUS, fireBlaster, stepBlaster } from '../src/games/hardVacuum/blaster.ts'
+import { bankAtCheckpoint, blastGate, crashExpedition, expeditionMap, freshExpedition, freshRuntime, GATES, objective, parseExpedition, purchaseUpgrade, stepExpedition } from '../src/games/hardVacuum/expedition.ts'
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
-import { activateRemoteRecharge, needsRecharge, restoreShipSystems, stepRemoteRecharge } from '../src/games/hardVacuum/supplies.ts'
-import { debrisField } from '../src/games/hardVacuum/debrisField.ts'
-import { creditAsteroidDestruction } from '../src/games/hardVacuum/oreCredits.ts'
+import { needsRecharge, restoreShipSystems } from '../src/games/hardVacuum/supplies.ts'
+import { installModule } from '../src/games/hardVacuum/equipment.ts'
+import { UPGRADE_COSTS, blasterCapacity, upgradeOffer } from '../src/games/hardVacuum/upgrades.ts'
 
 const shipAt = (x = 1500, y = 1300, angle = Math.PI / 2) => ({ pos: { x, y }, vel: { x: 0, y: 0 }, angle, radius: 15 })
 const rectangle = (x, y, w, h) => [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }]
 const map = { boundary: rectangle(-100, -100, 1000, 1000), obstacles: [] }
 const equipped = () => {
-  const state = freshExpedition('ring'); state.banked = BLASTER_COST
-  assert.ok(purchaseUpgrade(state, 'blaster'))
+  const state = freshExpedition('ring')
+  assert.ok(installModule(state, 'blaster'))
+  assert.ok(installModule(state, 'impact'))
   return state
 }
 
-test('the blaster is a permanent ship upgrade using banked credits, supplied with three shots', () => {
+test('the blaster must be recovered, never bought, and installation supplies three shots', () => {
   const state = freshExpedition('ring')
   assert.equal(state.blasterInstalled, false); assert.equal(state.blasterCharges, 0)
   assert.equal(fireBlaster(state, freshRuntime(), shipAt()), null)
-  state.banked = BLASTER_COST - 1; state.credits = 10000
+  state.banked = 10000
   const before = structuredClone(state)
   assert.equal(purchaseUpgrade(state, 'blaster'), false); assert.deepEqual(state, before)
-  state.banked++
-  assert.ok(purchaseUpgrade(state, 'blaster'))
-  assert.equal(state.banked, 0); assert.equal(state.credits, 10000)
-  assert.equal(state.blasterInstalled, true); assert.equal(state.blasterCharges, BLASTER_CAPACITY)
-  state.banked = BLASTER_COST; state.blasterCharges = 1
-  const installed = structuredClone(state)
-  assert.equal(purchaseUpgrade(state, 'blaster'), false); assert.deepEqual(state, installed)
+  assert.ok(installModule(state, 'blaster'))
+  assert.equal(state.banked, 10000)
+  assert.equal(state.blasterInstalled, true); assert.equal(state.blasterCharges, 3)
+  state.blasterCharges = 1
+  assert.equal(installModule(state, 'blaster'), false); assert.equal(state.blasterCharges, 1)
   assert.deepEqual(parseExpedition(JSON.stringify(state)), state)
 })
 
-test('Haven, remote recharge and respawn cannot grant an unpurchased blaster', () => {
+test('Haven and respawn cannot grant an unrecovered blaster', () => {
   const state = freshExpedition('ring'), runtime = freshRuntime(), ship = shipAt()
   assert.equal(needsRecharge(state), false, 'an empty weapon slot does not need recharging')
-  state.rechargePacks = 1
-  assert.equal(activateRemoteRecharge(state), false); assert.equal(state.rechargePacks, 1)
   state.blasterCharges = 3
   assert.equal(fireBlaster(state, runtime, ship), null, 'ammo cannot bypass ownership')
   assert.equal(runtime.blasterCooldown, 0); assert.deepEqual(ship.vel, { x: 0, y: 0 })
   restoreShipSystems(state)
   assert.equal(state.blasterCharges, 0)
-  state.shields = 0; assert.ok(activateRemoteRecharge(state)); stepRemoteRecharge(state, 1)
-  assert.equal(state.shields, 2); assert.equal(state.blasterCharges, 0)
   bankAtCheckpoint(state, 'haven'); assert.equal(state.blasterCharges, 0)
   crashExpedition(state); assert.equal(state.blasterCharges, 0); assert.equal(state.blasterInstalled, false)
 })
 
-test('processing Haven starter asteroids can fund the first blaster without leaving the room', () => {
-  const state = freshExpedition('ring')
-  const rocks = debrisField(state).filter(rock => sectorAt(rock.pos)?.id === 'haven')
-  for (const rock of rocks) creditAsteroidDestruction(state, { ...rock, pos: { x: 1500, y: 1100 } })
-  assert.ok(state.banked >= BLASTER_COST)
-  assert.ok(purchaseUpgrade(state, 'blaster'))
-})
-
 test('the red blaster fires three discrete shots, with recoil and no charge spent during cooldown', () => {
   const state = equipped(), runtime = freshRuntime(), ship = shipAt()
-  for (let i = 0; i < BLASTER_CAPACITY; i++) {
+  for (let i = 0; i < 3; i++) {
     runtime.blasterCooldown = 0
     const shot = fireBlaster(state, runtime, ship)
     assert.ok(shot); assert.ok(shot.vel.y > 500); assert.ok(ship.vel.y < 0)
@@ -73,7 +60,7 @@ test('the red blaster fires three discrete shots, with recoil and no charge spen
   assert.equal(state.blasterCharges, 0, 'charges do not regenerate away from Haven')
 })
 
-test('Haven restores the magazine; other locations and shop purchases cannot reload it', () => {
+test('Haven restores the magazine; other locations and unrelated shop purchases cannot reload it', () => {
   const state = equipped(); state.blasterCharges = 0; state.banked = 2000
   bankAtCheckpoint(state, 'foundry'); assert.equal(state.blasterCharges, 0)
   bankAtCheckpoint(state, 'reactor'); assert.equal(state.blasterCharges, 0)
@@ -83,10 +70,82 @@ test('Haven restores the magazine; other locations and shop purchases cannot rel
   assert.equal(state.blasterCharges, 3); assert.equal(state.blasterInstalled, true); assert.deepEqual(state.position, { x: 1500, y: 1100 })
 })
 
-test('spent charges survive saving; older saves require purchase without losing other progress', () => {
+test('recovered blasters gain one shot per magazine upgrade, up to eight, with matching recharge and respawn capacity', () => {
+  const state = freshExpedition(), runtime = freshRuntime(), ship = shipAt()
+  state.banked = 100000
+  assert.equal(blasterCapacity(state), 0)
+  assert.equal(upgradeOffer(state, 'magazine').locked, true)
+  assert.equal(upgradeOffer(state, 'magazine').detail, 'Recover and install the blaster first.')
+  const uninstalled = structuredClone(state)
+  assert.equal(purchaseUpgrade(state, 'magazine'), false)
+  assert.deepEqual(state, uninstalled)
+  installModule(state, 'blaster')
+  for (let stage = 1; stage <= 5; stage++) {
+    const capacity = stage + 3
+    assert.equal(upgradeOffer(state, 'magazine').detail, `${capacity - 1} shots → ${capacity} shots`)
+    state.blasterCharges = 0; state.banked = UPGRADE_COSTS[stage - 1] - 1; state.credits = 100000
+    const unaffordable = structuredClone(state)
+    assert.equal(purchaseUpgrade(state, 'magazine'), false)
+    assert.deepEqual(state, unaffordable)
+    state.banked++
+    assert.ok(purchaseUpgrade(state, 'magazine'))
+    assert.equal(state.banked, 0); assert.equal(state.credits, 100000)
+    assert.equal(blasterCapacity(state), capacity); assert.equal(state.blasterCharges, capacity)
+    assert.equal(needsRecharge(state), false)
+    for (let shot = 0; shot < capacity; shot++) {
+      runtime.blasterCooldown = 0
+      assert.ok(fireBlaster(state, runtime, ship))
+      assert.equal(state.blasterCharges, capacity - shot - 1)
+      assert.equal(fireBlaster(state, runtime, ship), null, 'upgrades do not remove cooldown')
+    }
+    runtime.blasterCooldown = 0
+    assert.equal(fireBlaster(state, runtime, ship), null)
+    assert.equal(needsRecharge(state), true)
+    assert.ok(restoreShipSystems(state)); assert.equal(state.blasterCharges, capacity)
+    assert.equal(restoreShipSystems(state), false)
+    state.blasterCharges = 1
+    assert.deepEqual(parseExpedition(JSON.stringify(state)), state, 'reload preserves partial ammunition')
+    bankAtCheckpoint(state, 'haven'); assert.equal(state.blasterCharges, capacity)
+    state.blasterCharges = 0
+    crashExpedition(state); assert.equal(state.blasterCharges, capacity)
+    assert.equal(state.upgradeLevels.magazine, stage)
+  }
+  assert.equal(upgradeOffer(state, 'magazine').detail, '8 shots · All 5 stages installed.')
+  state.banked = 100000; state.blasterCharges = 1
+  const maxed = structuredClone(state)
+  assert.equal(purchaseUpgrade(state, 'magazine'), false)
+  assert.deepEqual(state, maxed, 'a maxed purchase cannot spend credits or refill ammo')
+})
+
+test('saves validate ammunition against the purchased magazine and retain old three-shot capacity', () => {
+  const state = equipped()
+  assert.equal(blasterCapacity(parseExpedition(JSON.stringify(state))), 3)
+  delete state.blasterCharges
+  assert.equal(parseExpedition(JSON.stringify(state)).blasterCharges, 3)
+  for (let level = 0; level <= 5; level++) {
+    state.upgradeLevels.magazine = level
+    const capacity = level + 3
+    assert.equal(parseExpedition(JSON.stringify(state)).blasterCharges, capacity)
+    for (const charges of [0, 1, capacity]) {
+      const saved = { ...state, blasterCharges: charges }
+      assert.deepEqual(parseExpedition(JSON.stringify(saved)), saved)
+    }
+    for (const charges of [-1, capacity + 1, 1.5, '3']) {
+      assert.equal(parseExpedition(JSON.stringify({ ...state, blasterCharges: charges })), null)
+    }
+  }
+  for (const level of [-1, 6, 1.5, '2']) {
+    assert.equal(parseExpedition(JSON.stringify({ ...state, upgradeLevels: { magazine: level } })), null)
+  }
+  for (const extra of [{ upgradeLevels: { magazine: 1 } }, { upgrades: ['magazine'] }]) {
+    assert.equal(parseExpedition(JSON.stringify({ ...freshExpedition(), ...extra })), null)
+  }
+})
+
+test('spent charges survive saving; older saves require recovery without losing other progress', () => {
   const state = equipped(); state.blasterCharges = 0; state.gates = ['blast', 'drive']; state.banked = 180
   assert.equal(parseExpedition(JSON.stringify(state)).blasterCharges, 0)
-  const legacy = { ...state, blasterCharges: 3 }; delete legacy.blasterInstalled
+  const legacy = { ...state, blasterCharges: 3 };legacy.version=1; delete legacy.blasterInstalled
   legacy.cargo = { ore: { pos: { x: 1660, y: 1300 }, vel: { x: 0, y: 0 } } }
   const migrated = parseExpedition(JSON.stringify(legacy))
   assert.equal(migrated.blasterCharges, 0); assert.equal(migrated.blasterInstalled, false); assert.equal(migrated.banked, 180)
@@ -97,7 +156,7 @@ test('spent charges survive saving; older saves require purchase without losing 
   assert.equal(parseExpedition(JSON.stringify(legacy)).blasterCharges, 0)
 })
 
-test('a purchased blaster breaches either blast door with a single swept hit', () => {
+test('a recovered blaster breaches either blast door with a single swept hit', () => {
   const blastDoors = GATES.filter(gate => gate.kind === 'blast')
   assert.deepEqual(blastDoors.map(gate => gate.id), ['blast', 'baggage-door', 'tool-door', 'store-door', 'field-door'])
   for (const gate of blastDoors) {
@@ -151,12 +210,12 @@ test('the former hopper location is open space with no invisible machinery', () 
 })
 
 test('objectives follow restored circuits through the refuge to the final core', () => {
-  const state = freshExpedition('ring')
+  const state = freshExpedition('ring'); state.impactShieldInstalled = true
   for (const id of ['breach-power','freight-power','dispatch-power','works-power','ring-power','foundry','relay']) state.power[id] = id
   assert.equal(objective(state).title, 'Restore reactor containment')
-  state.power.heart = 'heart'; state.gates.push('heart','refuge-link')
+  state.power.heart = 'heart'; state.flags.push('heart');state.gates.push('refuge-link')
   assert.equal(objective(state).title, 'Restore medical transfer')
-  state.gates.push('ignition-ready')
+  state.flags.push('ignition-ready')
   assert.equal(objective(state).title, 'Return to the first cradle')
   assert.equal(objective(state, true).title, 'Return to the first cradle')
 })

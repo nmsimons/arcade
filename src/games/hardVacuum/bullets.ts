@@ -1,11 +1,10 @@
+import { worldDelta } from './worldDelta.ts'
+import { fragmentKindFor } from './debrisField.ts'
 import type { Bullet, Harpoon, Rock, RockKind, Ship, Vector2 } from './types'
-import { clamp } from './math.ts'
 import { isInsideCavern, type CavernMap } from './worldGeometry.ts'
 import { repelBlueBody } from './expeditionPhysics.ts'
 
 type Ref<T> = { current: T }
-
-type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => { dx: number; dy: number }
 
 type BuildRopeBetween = (
   ax: number,
@@ -17,8 +16,6 @@ type BuildRopeBetween = (
 
 export function updateBulletsAndPlayerRockCollisions(args: {
   dt: number
-  w: number
-  h: number
 
   bulletsRef: Ref<Bullet[]>
   rocksRef: Ref<Rock[]>
@@ -26,7 +23,6 @@ export function updateBulletsAndPlayerRockCollisions(args: {
   shipRef: Ref<Ship>
   cavernMap: CavernMap
 
-  toroidalDelta: ToroidalDelta
   buildRopeBetween: BuildRopeBetween
 
   sounds: { explosion: (size: 'small' | 'medium' | 'large') => void }
@@ -34,51 +30,37 @@ export function updateBulletsAndPlayerRockCollisions(args: {
   onRedRockDetonate?: (rock: Rock) => void
   onAsteroidDestroyed?: (rock: Rock) => void
   fragmentKind?: (rock: Rock, roll: number) => RockKind
+  random?: () => number
 
   createRock: (x: number, y: number, radius: number, velOverride?: Vector2, kind?: RockKind) => Rock
   createDebris: (x: number, y: number, vx: number, vy: number, count: number, life: number, color: string) => void
-
-  levelRef: Ref<number>
-  blueRocksSpawnedThisLevelRef: Ref<number>
-  blueRockQuotaRef: Ref<number>
 
   SMALLEST_ROCK_RADIUS: number
 
   HARPOON_VISUAL_SLACK: number
 
-  BLUE_ROCK_SPAWN_CHANCE_BASE: number
-  BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL: number
-  BLUE_ROCK_SPAWN_CHANCE_MAX: number
-
-  RED_ROCK_SPAWN_CHANCE: number
 }) {
   const {
     dt,
-    w,
-    h,
+
     bulletsRef,
     rocksRef,
     harpoonRef,
     shipRef,
     cavernMap,
-    toroidalDelta,
+
     buildRopeBetween,
     sounds,
     onRedRockDetonate,
     onAsteroidDestroyed,
-    fragmentKind,
+    fragmentKind = fragmentKindFor,
+    random = Math.random,
     createRock,
     createDebris,
-    levelRef,
-    blueRocksSpawnedThisLevelRef,
-    blueRockQuotaRef,
+
     SMALLEST_ROCK_RADIUS,
     HARPOON_VISUAL_SLACK,
-    BLUE_ROCK_SPAWN_CHANCE_BASE,
-    BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL,
-    BLUE_ROCK_SPAWN_CHANCE_MAX,
 
-    RED_ROCK_SPAWN_CHANCE,
   } = args
 
   // Projectiles expire when they strike the cavern boundary.
@@ -90,13 +72,13 @@ export function updateBulletsAndPlayerRockCollisions(args: {
     return bullet.life > 0 && isInsideCavern(bullet.pos, 0, cavernMap)
   })
 
-  // Collision detection: player bullets vs boss/rocks
+  // Collision detection: demonstration bullets vs asteroids
   bulletsRef.current = bulletsRef.current.filter((bullet) => {
     if (bullet.isEnemy) return true
 
     for (let i = 0; i < rocksRef.current.length; i++) {
       const rock = rocksRef.current[i]
-      const d = toroidalDelta(bullet.pos.x, bullet.pos.y, rock.pos.x, rock.pos.y, w, h)
+      const d = worldDelta(bullet.pos.x, bullet.pos.y, rock.pos.x, rock.pos.y)
       const dist = Math.hypot(d.dx, d.dy)
       if (dist <= rock.radius + 2) {
         if (repelBlueBody(rock, bullet.vel)) return false
@@ -136,29 +118,7 @@ export function updateBulletsAndPlayerRockCollisions(args: {
           const newRadius = rock.radius / 2
           for (let j = 0; j < 2; j++) {
             let kind: RockKind = 'normal'
-            if (newRadius <= SMALLEST_ROCK_RADIUS && fragmentKind) kind=fragmentKind(rock,Math.random())
-            else if (newRadius <= SMALLEST_ROCK_RADIUS) {
-              if (levelRef.current >= 3) {
-                if (blueRocksSpawnedThisLevelRef.current < blueRockQuotaRef.current) {
-                  kind = 'blue'
-                  blueRocksSpawnedThisLevelRef.current += 1
-                } else {
-                  const p = clamp(
-                    BLUE_ROCK_SPAWN_CHANCE_BASE + (levelRef.current - 1) * BLUE_ROCK_SPAWN_CHANCE_PER_LEVEL,
-                    BLUE_ROCK_SPAWN_CHANCE_BASE,
-                    BLUE_ROCK_SPAWN_CHANCE_MAX,
-                  )
-                  if (Math.random() < p) {
-                    kind = 'blue'
-                    blueRocksSpawnedThisLevelRef.current += 1
-                  }
-                }
-              }
-
-              if (kind === 'normal' && Math.random() < RED_ROCK_SPAWN_CHANCE) {
-                kind = 'red'
-              }
-            }
+            if (newRadius <= SMALLEST_ROCK_RADIUS && fragmentKind) kind=fragmentKind(rock,random())
 
             const fragment=createRock(rock.pos.x,rock.pos.y,newRadius,undefined,kind)
             fragment.fragmentRates=rock.fragmentRates

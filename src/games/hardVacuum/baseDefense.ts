@@ -1,15 +1,11 @@
+import { worldDelta } from './worldDelta.ts'
 import type { BaseShot, Rock } from './types'
 import type { Expedition } from './expedition'
-import { sounds } from './sound.ts'
 import { repelBlueBody } from './expeditionPhysics.ts'
 import { BASE_GUN_FIRE_COOLDOWN } from './tuning.ts'
 import { creditAsteroidDestruction, inOreProcessingZone } from './oreCredits.ts'
 
 type Ref<T> = { current: T }
-
-type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => { dx: number; dy: number }
-
-type Wrap = (x: number) => number
 
 type CreateDebris = (
   x: number,
@@ -23,8 +19,7 @@ type CreateDebris = (
 
 export function updateBaseDefenseAndProcessing(args: {
   dt: number
-  w: number
-  h: number
+
   baseX: number
   baseY: number
 
@@ -36,19 +31,15 @@ export function updateBaseDefenseAndProcessing(args: {
   baseShotsRef: Ref<BaseShot[]>
   rocksRef: Ref<Rock[]>
 
-  wrapX: Wrap
-  wrapY: Wrap
-  toroidalDelta: ToroidalDelta
-
   expedition: Pick<Expedition, 'banked' | 'credits'>
-  waveCreditsRef: Ref<number>
+
   createDebris: CreateDebris
   onRedRockDetonate?: (rock: Rock) => void
+  sounds?: { collect: () => void }
 }) {
   const {
     dt,
-    w,
-    h,
+
     baseX,
     baseY,
     MINING_BASE_RADIUS,
@@ -56,11 +47,9 @@ export function updateBaseDefenseAndProcessing(args: {
     miningGunCooldownsRef,
     baseShotsRef,
     rocksRef,
-    wrapX,
-    wrapY,
-    toroidalDelta,
+
     expedition,
-    waveCreditsRef,
+
     createDebris,
     onRedRockDetonate,
   } = args
@@ -76,7 +65,7 @@ export function updateBaseDefenseAndProcessing(args: {
     const a = rocks[i]
     // Power cells stay intact; blue asteroids are valuable ore.
     if (a.sourceId || a.socketId) continue
-    const d = toroidalDelta(baseX, baseY, a.pos.x, a.pos.y, w, h)
+    const d = worldDelta(baseX, baseY, a.pos.x, a.pos.y)
     const isInProcessingZone = inOreProcessingZone(a, base)
     if (!isInProcessingZone) {
       a.inBaseTime = 0
@@ -112,10 +101,10 @@ export function updateBaseDefenseAndProcessing(args: {
       for (let gi = 0; gi < 3; gi++) {
         if (cds[gi] > 0) continue
 
-        const gx = wrapX(baseX + Math.cos(gunAngles[gi]) * gunRadius)
-        const gy = wrapY(baseY + Math.sin(gunAngles[gi]) * gunRadius)
+        const gx = (baseX + Math.cos(gunAngles[gi]) * gunRadius)
+        const gy = (baseY + Math.sin(gunAngles[gi]) * gunRadius)
 
-        const td = toroidalDelta(gx, gy, target.pos.x, target.pos.y, w, h)
+        const td = worldDelta(gx, gy, target.pos.x, target.pos.y)
         const tl = Math.hypot(td.dx, td.dy)
         if (tl < 1e-6) continue
         const vx = (td.dx / tl) * shotSpeed
@@ -130,8 +119,8 @@ export function updateBaseDefenseAndProcessing(args: {
   // Update base shots.
   baseShotsRef.current = baseShotsRef.current
     .map((s) => {
-      s.pos.x = wrapX(s.pos.x + s.vel.x * dt)
-      s.pos.y = wrapY(s.pos.y + s.vel.y * dt)
+      s.pos.x = (s.pos.x + s.vel.x * dt)
+      s.pos.y = (s.pos.y + s.vel.y * dt)
       s.life -= dt
       return s
     })
@@ -145,7 +134,7 @@ export function updateBaseDefenseAndProcessing(args: {
       const sh = shots[si]
       for (let ai = rocks2.length - 1; ai >= 0; ai--) {
         const a = rocks2[ai]
-        const d = toroidalDelta(sh.pos.x, sh.pos.y, a.pos.x, a.pos.y, w, h)
+        const d = worldDelta(sh.pos.x, sh.pos.y, a.pos.x, a.pos.y)
         if (Math.hypot(d.dx, d.dy) <= a.radius + 2) {
           if (a.sourceId || a.socketId) {
             repelBlueBody(a, sh.vel)
@@ -162,9 +151,9 @@ export function updateBaseDefenseAndProcessing(args: {
           shots.splice(si, 1)
           rocks2.splice(ai, 1)
 
-          waveCreditsRef.current += creditAsteroidDestruction(expedition, a, base)
-          createDebris(wrapX(a.pos.x), wrapY(a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
-          sounds.collect()
+          creditAsteroidDestruction(expedition, a, base)
+          createDebris((a.pos.x), (a.pos.y), 0, 0, 12, 0.8, '0, 255, 136')
+          args.sounds?.collect()
           break
         }
       }

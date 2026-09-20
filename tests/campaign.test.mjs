@@ -6,17 +6,21 @@ import { campaignObjective, coreReleased, discoverCampaign, havenDeployment, hav
 import { isInsideCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import { creditAsteroidDestruction } from '../src/games/hardVacuum/oreCredits.ts'
 import { surveyPoint } from '../src/games/hardVacuum/survey.ts'
+import { radiationAt } from '../src/games/hardVacuum/radiation.ts'
+import { PICKUPS } from '../src/games/hardVacuum/stationDefinitions.ts'
+import { CIRCUIT_LOADS } from '../src/games/hardVacuum/stationProgression.ts'
 
 const shipAt = pos => ({ pos:{ ...pos },vel:{ x:0,y:0 },radius:15,angle:0 })
 const tick = (s,rt,ship,rocks=[],dt=.1) => stepExpedition(s,rt,{ dt,ship,rocks,harpoon:{ state:'idle' },beam:{ active:false } })
-const openAll = s => { s.gates = [...GATES.map(g=>g.id),'heart','ignition-ready']; s.doors = {}; s.campaign.berths = BERTHS.map(b=>b.id); s.visited = SECTORS.map(r=>r.id) }
+const openAll = s => { s.flags=['heart','ignition-ready'];s.gates = GATES.map(g=>g.id); s.doors = {}; s.campaign.berths = BERTHS.map(b=>b.id); s.visited = SECTORS.map(r=>r.id) }
 
 // Flood circle-clear geometry, including the actual doors and machine housings.
-function flood(s, origin=s.position) {
+function flood(s, origin=s.position, radiationFree=false) {
   const map=expeditionMap(s), size=40, queue=[{x:Math.round(origin.x/size)*size,y:Math.round(origin.y/size)*size}], seen=new Set([`${queue[0].x},${queue[0].y}`])
   for(let i=0;i<queue.length;i++) for(const [dx,dy] of [[size,0],[-size,0],[0,size],[0,-size]]) {
     const from=queue[i], p={x:from.x+dx,y:from.y+dy}, key=`${p.x},${p.y}`
     if(seen.has(key)||!isInsideCavern(p,23,map)||!isInsideCavern({x:from.x+dx/2,y:from.y+dy/2},23,map)) continue
+    if(radiationFree && [p,{x:from.x+dx/2,y:from.y+dy/2}].some(point=>radiationAt(point,map).intensity>0)) continue
     seen.add(key);queue.push(p)
   }
   return p => queue.some(q=>Math.hypot(q.x-p.x,q.y-p.y)<58 && Array.from({length:7},(_,i)=>i/6).every(t=>isInsideCavern({x:q.x+(p.x-q.x)*t,y:q.y+(p.y-q.y)*t},20,map)))
@@ -30,7 +34,7 @@ test('campaign begins at the stranded tender in a simple cavern, with six distin
   const reachable=flood(s)
   assert.ok(reachable(SOCKETS.find(p=>p.id==='breach-power').source))
   assert.ok(!reachable(BERTHS[1].pos));assert.ok(!reachable(CORE_POSITION))
-  assert.match(campaignObjective(s).title,/freight/i)
+  assert.equal(campaignObjective(s).module,'impact')
 })
 
 test('the complete powered route is solvable in order with cargo clearance and no locked-away cells',()=>{
@@ -54,6 +58,35 @@ test('the complete powered route is solvable in order with cargo clearance and n
   const all=flood(s)
   for(const cache of CACHES) assert.ok(all(cache.pos),cache.id)
   for(const berth of BERTHS) assert.ok(all(berth.pos),berth.id)
+})
+
+test('Freight requires the radioactive approach before Dispatch opens its safe shortcut and Works exit',()=>{
+  const state=freshExpedition(),freight=BERTHS.find(b=>b.id==='freight').pos
+  const dispatch=SOCKETS.find(s=>s.id==='dispatch-power'),shield=PICKUPS.find(p=>p.id==='radiation')
+  const blaster=PICKUPS.find(p=>p.id==='blaster')
+  assert.deepEqual(SOCKETS.find(s=>s.id==='breach-power').gates,['breach-link'],'the introduction is unchanged')
+  powerReceiver(state,'breach-power','breach-power');state.doors={}
+  assert.ok(flood(state,freight,true)(shield.pos),'recover shielding before the first radiation run')
+  assert.ok(!flood(state,freight)(dispatch.source),'Dispatch stays inaccessible before the gallery receiver')
+  assert.ok(!flood(state,freight)(blaster.pos),'the blaster cannot be recovered on arrival in Freight')
+  powerReceiver(state,'freight-power','freight-power');state.doors={}
+  assert.ok(state.gates.includes('freight-return'))
+  assert.ok(!state.gates.includes('freight-lift'));assert.ok(!state.gates.includes('freight-link'))
+  const approach=flood(state,freight)
+  assert.ok(approach(dispatch.pos));assert.ok(approach(dispatch.source))
+  assert.ok(!approach(blaster.pos),'opening Dispatch does not expose an early blaster in Cargo hold 6')
+  assert.ok(!flood(state,freight,true)(dispatch.source),'the still-locked lift cannot bypass the radioactive tube')
+  state.impactShieldInstalled=true
+  assert.equal(campaignObjective(state).module,'radiation')
+  state.upgrades.push('radiation')
+  assert.equal(campaignObjective(state).circuit,'dispatch-power')
+  powerReceiver(state,'dispatch-power','dispatch-power');state.doors={}
+  assert.ok(state.gates.includes('freight-lift'));assert.ok(state.gates.includes('freight-link'))
+  assert.ok(flood(state,freight,true)(dispatch.source),'inside power creates a safe return for the cell and salvage')
+  assert.ok(flood(state,freight)(blaster.pos),'the Works pickup is reachable once Dispatch opens the Works exit, before any blast door')
+  for(const [circuit,gates] of [['freight-power',['freight-return']],['dispatch-power',['freight-lift','freight-link']]]) {
+    assert.deepEqual(CIRCUIT_LOADS.filter(l=>l.circuit===circuit&&l.kind==='door').map(l=>l.gate),gates,'visible wires follow the new circuit targets')
+  }
 })
 
 test('folded Haven fits every authored service route and travels continuously with saved progress',()=>{
@@ -135,7 +168,7 @@ test('the story is discovered once, terminal records need a connection, and the 
   const core=objectBody(rt,'core',CORE_POSITION);core.pos={x:ship.pos.x-132,y:ship.pos.y};core.vel={x:0,y:0};core.tethered=true
   for(let i=0;i<10;i++) tick(s,rt,ship)
   assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
-  s.gates.push('ignition-ready')
+  s.flags.push('ignition-ready')
   for(let i=0;i<30;i++) tick(s,rt,ship)
   assert.equal(s.core,false);assert.equal(interaction(s,ship).kind,'dock')
   core.pos={...IGNITION_CRADLE};core.vel={x:0,y:0}
@@ -144,7 +177,7 @@ test('the story is discovered once, terminal records need a connection, and the 
 })
 
 test('prototype saves enter the Ring without losing equipment, funds or the meaning of surveyed cells',()=>{
-  const old=freshExpedition('ring');delete old.campaign
+  const old=freshExpedition('ring');old.version=1;delete old.campaign
   old.banked=4321;old.blasterInstalled=true;old.blasterCharges=2;old.upgrades=['radiation'];old.surveyed=[921,922];old.gates=['rubble']
   const s=parseExpedition(JSON.stringify(old))
   assert.equal(s.campaign.berth,'ring');assert.equal(s.banked,4321);assert.equal(s.blasterCharges,2)

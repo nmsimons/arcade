@@ -69,7 +69,7 @@ test('Haven is the only docking, banking and recharge location', () => {
 })
 
 test('power-cell origins are empty space while receivers retain their physical contacts', () => {
-  const state = freshExpedition('ring'); state.gates.push('rubble', 'foundry', 'archive', 'reactor', 'thermal')
+  const state = freshExpedition('ring'); state.gates.push('rubble', 'foundry', 'archive', 'reactor')
   const map = expeditionMap(state)
   for (const socket of SOCKETS) {
     assert.ok(isInsideCavern(socket.source, 20, map))
@@ -104,11 +104,14 @@ test('every fresh power cell, module, salvage crate and core starts drifting in 
 
 test('cell saves preserve moved cargo and used cells, while untouched legacy cells gain initial drift', () => {
   const state = freshExpedition(), socket = SOCKETS.find(s=>s.id==='breach-power')
+  state.version = 1
   const position = { x:socket.source.x, y:socket.source.y+48 }
   state.cargo = { [socket.id]:{pos:position,vel:{x:0,y:0},tethered:false} }
   const restored = powerCellSpawns(parseExpedition(JSON.stringify(state))).find(cell=>cell.sourceId===socket.id)
   assert.deepEqual(restored.pos, position)
   assert.ok(Math.hypot(restored.vel.x, restored.vel.y) > .1)
+  state.version = 2
+  assert.deepEqual(powerCellSpawns(parseExpedition(JSON.stringify(state))).find(cell=>cell.sourceId===socket.id).vel,{x:0,y:0},'current saves never repeat dispenser migration')
   state.cargo[socket.id].tethered = true
   const moved = powerCellSpawns(state).find(cell=>cell.sourceId===socket.id)
   assert.deepEqual(moved.pos, position);assert.deepEqual(moved.vel, {x:0,y:0})
@@ -127,7 +130,7 @@ test('the actual grapple holds a fixed cable and never reels modules into the sh
   const hook = { current: { state: 'flying', pos: { ...ship.pos }, vel: { x: 720, y: 0 }, life: 1200, traveled: 0, maxLength: 130, ropeLength: 130, ...rope(ship.pos.x, ship.pos.y, body.pos.x, body.pos.y, 130) } }
   const initialX = body.pos.x
   for (let frame = 0; frame < 150 && !state.upgrades.includes('radiation'); frame++) {
-    updateHarpoon({ dt: 1 / 60, w: 3000, h: 2200, ship, shipRef: { current: ship }, rocks: [body], harpoonRef: hook, wrapX: x => x, wrapY: y => y, toroidalDelta: (ax, ay, bx, by) => ({ dx: bx - ax, dy: by - ay }), buildRopeBetween: rope, HARPOON_HOOK_MASS: 0.2, HARPOON_VISUAL_SLACK: 1.18, HARPOON_REEL_MIN_LEN: 22 })
+    updateHarpoon({ dt: 1 / 60, w: 3000, h: 2200, ship, shipRef: { current: ship }, rocks: [body], harpoonRef: hook,    buildRopeBetween: rope, HARPOON_HOOK_MASS: 0.2, HARPOON_VISUAL_SLACK: 1.18, HARPOON_REEL_MIN_LEN: 22 })
     step(state, rt, ship, [], hook.current)
   }
   assert.ok(Math.abs(body.pos.x - initialX) < 1, 'a slack tether must not winch the module toward the ship')
@@ -139,7 +142,7 @@ test('the actual grapple holds a fixed cable and never reels modules into the sh
 })
 
 test('the core stays on the cable until delivered to the Ignition Cradle, and Haven cannot collect it', () => {
-  const state = freshExpedition('ring'), rt = freshRuntime(); state.gates.push('ignition-ready')
+  const state = freshExpedition('ring'), rt = freshRuntime(); state.flags.push('ignition-ready')
   const core = cargoBodies(state, rt).find(body => body.cargoId === 'core')
   const ship = shipAt({ x: core.pos.x - 80, y: core.pos.y })
   const hook = { state: 'attached', rock: core }

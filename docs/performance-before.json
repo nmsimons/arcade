@@ -1,0 +1,1681 @@
+{
+  "label": "before-local-footprint-cache",
+  "recordedAt": "2026-09-19T16:23:44.155Z",
+  "seed": 713,
+  "hardware": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "release": "25.5.0",
+    "cpu": "Apple M5 Pro",
+    "logicalCPUs": 18,
+    "memoryGiB": 24
+  },
+  "browser": "153.0.8010.12",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/153.0.8010.12 Safari/537.36",
+  "viewport": {
+    "width": 1280,
+    "height": 800,
+    "dpr": 1
+  },
+  "headless": true,
+  "cpuThrottle": 1,
+  "results": [
+    {
+      "name": "late-field",
+      "density": 1,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 16.666,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 16.8
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 1.431,
+          "p50": 1.3,
+          "p95": 2.1,
+          "p99": 2.4,
+          "max": 4.6
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 1.798,
+          "p50": 1.7,
+          "p95": 2.2,
+          "p99": 2.5,
+          "max": 3.4
+        },
+        "work": {
+          "samples": 540,
+          "mean": 3.236,
+          "p50": 3.1,
+          "p95": 3.9,
+          "p99": 4.3,
+          "max": 7.7
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 0.597,
+          "p50": 0.4,
+          "p95": 1.3,
+          "p99": 1.4,
+          "max": 1.6
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.02,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.002,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.045,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.167,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        }
+      },
+      "minimums": {
+        "bodies": 327,
+        "nearby": 18,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 327,
+        "nearby": 20,
+        "particles": 3,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0.36
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 947013464,
+        "sampledBytesPerFrame": 7891778.867,
+        "heapBefore": 3549388,
+        "heapBeforeGC": 4654544,
+        "heapAfterGC": 3942364,
+        "retainedDelta": 392976
+      }
+    },
+    {
+      "name": "late-field",
+      "density": 3,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 22.777,
+          "p50": 16.7,
+          "p95": 33.4,
+          "p99": 33.4,
+          "max": 33.4
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 5.841,
+          "p50": 5.8,
+          "p95": 6.2,
+          "p99": 7.3,
+          "max": 9.5
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 2.389,
+          "p50": 2.3,
+          "p95": 2.9,
+          "p99": 3.8,
+          "max": 7.3
+        },
+        "work": {
+          "samples": 540,
+          "mean": 8.239,
+          "p50": 8.1,
+          "p95": 9,
+          "p99": 11.6,
+          "max": 13.1
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 3.69,
+          "p50": 3.7,
+          "p95": 3.9,
+          "p99": 4.1,
+          "max": 5.4
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.025,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.3
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.002,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.05,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.167,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        }
+      },
+      "minimums": {
+        "bodies": 937,
+        "nearby": 58,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 937,
+        "nearby": 61,
+        "particles": 4,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0.541
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 3352341708,
+        "sampledBytesPerFrame": 27936180.9,
+        "heapBefore": 3954840,
+        "heapBeforeGC": 19100652,
+        "heapAfterGC": 4004372,
+        "retainedDelta": 49532
+      }
+    },
+    {
+      "name": "red-chain",
+      "density": 1,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 16.666,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 16.8
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 1.757,
+          "p50": 1.6,
+          "p95": 2.6,
+          "p99": 2.9,
+          "max": 4.3
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 2.009,
+          "p50": 1.9,
+          "p95": 2.5,
+          "p99": 2.9,
+          "max": 3
+        },
+        "work": {
+          "samples": 540,
+          "mean": 3.774,
+          "p50": 3.6,
+          "p95": 4.8,
+          "p99": 5.4,
+          "max": 7.2
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 0.741,
+          "p50": 0.5,
+          "p95": 1.6,
+          "p99": 1.7,
+          "max": 1.8
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.023,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.04,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.2,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        }
+      },
+      "minimums": {
+        "bodies": 327,
+        "nearby": 19,
+        "particles": 0,
+        "armedRed": 5,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 336,
+        "nearby": 29,
+        "particles": 264,
+        "armedRed": 8,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 1
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 31.451,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 31.451,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 31.451,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 1129386952,
+        "sampledBytesPerFrame": 9411557.933,
+        "heapBefore": 4052836,
+        "heapBeforeGC": 7524348,
+        "heapAfterGC": 4190452,
+        "retainedDelta": 137616
+      }
+    },
+    {
+      "name": "red-chain",
+      "density": 3,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 25.401,
+          "p50": 33.2,
+          "p95": 33.4,
+          "p99": 33.4,
+          "max": 33.4
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 6.756,
+          "p50": 6.8,
+          "p95": 7.2,
+          "p99": 8.7,
+          "max": 10.1
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 2.699,
+          "p50": 2.6,
+          "p95": 3.5,
+          "p99": 5.6,
+          "max": 8.2
+        },
+        "work": {
+          "samples": 540,
+          "mean": 9.464,
+          "p50": 9.4,
+          "p95": 10.6,
+          "p99": 13.1,
+          "max": 15.3
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 4.304,
+          "p50": 4.3,
+          "p95": 4.6,
+          "p99": 4.8,
+          "max": 7.3
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.025,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.043,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.233,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.3
+        }
+      },
+      "minimums": {
+        "bodies": 937,
+        "nearby": 59,
+        "particles": 0,
+        "armedRed": 7,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 952,
+        "nearby": 75,
+        "particles": 384,
+        "armedRed": 14,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 1
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 0
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 3711703124,
+        "sampledBytesPerFrame": 30930859.367,
+        "heapBefore": 4195412,
+        "heapBeforeGC": 18707376,
+        "heapAfterGC": 4155472,
+        "retainedDelta": -39940
+      }
+    },
+    {
+      "name": "bot-towing",
+      "density": 1,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 16.666,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 16.8
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 1.538,
+          "p50": 1.4,
+          "p95": 2.5,
+          "p99": 2.6,
+          "max": 2.8
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 1.891,
+          "p50": 1.8,
+          "p95": 2.2,
+          "p99": 2.7,
+          "max": 5.8
+        },
+        "work": {
+          "samples": 540,
+          "mean": 3.438,
+          "p50": 3.2,
+          "p95": 4.4,
+          "p99": 4.6,
+          "max": 8.6
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 0.603,
+          "p50": 0.4,
+          "p95": 1.6,
+          "p99": 1.7,
+          "max": 1.8
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.021,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.3
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.014,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.007,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0.1,
+          "max": 3
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.052,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.2,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.3
+        }
+      },
+      "minimums": {
+        "bodies": 326,
+        "nearby": 11,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 326,
+        "nearby": 17,
+        "particles": 6,
+        "armedRed": 0,
+        "botTethers": 1,
+        "openingDoors": 0,
+        "havenImpact": 0.36
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 12.187
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 12.187
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 12.187
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 1071422376,
+        "sampledBytesPerFrame": 8928519.8,
+        "heapBefore": 4137912,
+        "heapBeforeGC": 6835456,
+        "heapAfterGC": 4238912,
+        "retainedDelta": 101000
+      }
+    },
+    {
+      "name": "bot-towing",
+      "density": 3,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 21.573,
+          "p50": 16.7,
+          "p95": 33.4,
+          "p99": 33.4,
+          "max": 33.4
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 7.096,
+          "p50": 7,
+          "p95": 7.4,
+          "p99": 9.1,
+          "max": 10.5
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 2.379,
+          "p50": 2.3,
+          "p95": 2.9,
+          "p99": 3.7,
+          "max": 6.9
+        },
+        "work": {
+          "samples": 540,
+          "mean": 9.486,
+          "p50": 9.4,
+          "p95": 10.3,
+          "p99": 13.3,
+          "max": 14.3
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 4.669,
+          "p50": 4.7,
+          "p95": 4.9,
+          "p99": 5.1,
+          "max": 7.5
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.027,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.3
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.01,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.062,
+          "p50": 0.1,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.2,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        }
+      },
+      "minimums": {
+        "bodies": 934,
+        "nearby": 39,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 934,
+        "nearby": 51,
+        "particles": 6,
+        "armedRed": 0,
+        "botTethers": 1,
+        "openingDoors": 0,
+        "havenImpact": 0.541
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 72.719,
+          "havenDistance": 0,
+          "chargeUsed": 12.998
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 72.719,
+          "havenDistance": 0,
+          "chargeUsed": 12.998
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 72.719,
+          "havenDistance": 0,
+          "chargeUsed": 12.998
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 3868226424,
+        "sampledBytesPerFrame": 32235220.2,
+        "heapBefore": 4247412,
+        "heapBeforeGC": 12147724,
+        "heapAfterGC": 4272760,
+        "retainedDelta": 25348
+      }
+    },
+    {
+      "name": "moving-haven",
+      "density": 1,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 16.666,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 16.8
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 1.858,
+          "p50": 1.6,
+          "p95": 2.7,
+          "p99": 2.9,
+          "max": 3.7
+        },
+        "saving": {
+          "samples": 6,
+          "mean": 0.2,
+          "p50": 0.2,
+          "p95": 0.3,
+          "p99": 0.3,
+          "max": 0.3
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 1.854,
+          "p50": 1.8,
+          "p95": 2.3,
+          "p99": 2.6,
+          "max": 2.9
+        },
+        "work": {
+          "samples": 540,
+          "mean": 3.723,
+          "p50": 3.5,
+          "p95": 4.7,
+          "p99": 5.5,
+          "max": 6.5
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 0.889,
+          "p50": 0.7,
+          "p95": 1.7,
+          "p99": 1.8,
+          "max": 2.4
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.023,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.002,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.9
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.072,
+          "p50": 0.1,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        }
+      },
+      "minimums": {
+        "bodies": 335,
+        "nearby": 24,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 335,
+        "nearby": 28,
+        "particles": 8,
+        "armedRed": 0,
+        "botTethers": 1,
+        "openingDoors": 0,
+        "havenImpact": 1
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 431.779,
+          "havenDistance": 431.779,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 431.779,
+          "havenDistance": 431.779,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 431.779,
+          "havenDistance": 431.779,
+          "chargeUsed": 0
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 2173217192,
+        "sampledBytesPerFrame": 18110143.267,
+        "heapBefore": 4225204,
+        "heapBeforeGC": 15826772,
+        "heapAfterGC": 4322784,
+        "retainedDelta": 97580
+      }
+    },
+    {
+      "name": "moving-haven",
+      "density": 3,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 24.906,
+          "p50": 16.8,
+          "p95": 33.4,
+          "p99": 33.4,
+          "max": 33.5
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 6.159,
+          "p50": 6.3,
+          "p95": 6.8,
+          "p99": 7,
+          "max": 11
+        },
+        "saving": {
+          "samples": 6,
+          "mean": 0.25,
+          "p50": 0.2,
+          "p95": 0.3,
+          "p99": 0.3,
+          "max": 0.3
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 2.448,
+          "p50": 2.4,
+          "p95": 2.7,
+          "p99": 4,
+          "max": 7
+        },
+        "work": {
+          "samples": 540,
+          "mean": 8.618,
+          "p50": 8.7,
+          "p95": 9.4,
+          "p99": 11.8,
+          "max": 14.8
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 3.94,
+          "p50": 4.1,
+          "p95": 4.5,
+          "p99": 4.6,
+          "max": 7.8
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.022,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.001,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.045,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.1
+        }
+      },
+      "minimums": {
+        "bodies": 955,
+        "nearby": 65,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 955,
+        "nearby": 79,
+        "particles": 10,
+        "armedRed": 0,
+        "botTethers": 1,
+        "openingDoors": 0,
+        "havenImpact": 1
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 398.907,
+          "havenDistance": 398.907,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 398.907,
+          "havenDistance": 398.907,
+          "chargeUsed": 0
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 398.907,
+          "havenDistance": 398.907,
+          "chargeUsed": 0
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 7669415728,
+        "sampledBytesPerFrame": 63911797.733,
+        "heapBefore": 4297984,
+        "heapBeforeGC": 23674784,
+        "heapAfterGC": 4346544,
+        "retainedDelta": 48560
+      }
+    },
+    {
+      "name": "opening-doors",
+      "density": 1,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 19.968,
+          "p50": 16.7,
+          "p95": 33.4,
+          "p99": 33.4,
+          "max": 33.5
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 1.633,
+          "p50": 1.5,
+          "p95": 2.6,
+          "p99": 2.8,
+          "max": 4.8
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 6.266,
+          "p50": 2.2,
+          "p95": 13,
+          "p99": 13.3,
+          "max": 15.4
+        },
+        "work": {
+          "samples": 540,
+          "mean": 7.908,
+          "p50": 4.1,
+          "p95": 15.2,
+          "p99": 16.3,
+          "max": 18.8
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 0.669,
+          "p50": 0.4,
+          "p95": 1.6,
+          "p99": 1.7,
+          "max": 3.8
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.045,
+          "p50": 0,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.3
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.011,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.2
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 4.231,
+          "p50": 0,
+          "p95": 10.8,
+          "p99": 11,
+          "max": 12.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.052,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.2,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        }
+      },
+      "minimums": {
+        "bodies": 319,
+        "nearby": 18,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 319,
+        "nearby": 19,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 20,
+        "havenImpact": 0.36
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 13.557
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 13.557
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 13.557
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 1173196556,
+        "sampledBytesPerFrame": 9776637.967,
+        "heapBefore": 4332304,
+        "heapBeforeGC": 11049128,
+        "heapAfterGC": 4384328,
+        "retainedDelta": 52024
+      }
+    },
+    {
+      "name": "opening-doors",
+      "density": 3,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 27.406,
+          "p50": 33.3,
+          "p95": 33.4,
+          "p99": 50,
+          "max": 50.1
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 6.71,
+          "p50": 6.6,
+          "p95": 7.3,
+          "p99": 8.4,
+          "max": 10
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 6.768,
+          "p50": 2.5,
+          "p95": 13.6,
+          "p99": 14.6,
+          "max": 17.9
+        },
+        "work": {
+          "samples": 540,
+          "mean": 13.488,
+          "p50": 9,
+          "p95": 20.7,
+          "p99": 23.3,
+          "max": 25
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 4.445,
+          "p50": 4.4,
+          "p95": 4.7,
+          "p99": 5,
+          "max": 6.1
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.047,
+          "p50": 0,
+          "p95": 0.2,
+          "p99": 0.3,
+          "max": 0.4
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.013,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.2
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 4.275,
+          "p50": 0,
+          "p95": 11,
+          "p99": 11.2,
+          "max": 13.8
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.055,
+          "p50": 0,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.233,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.3
+        }
+      },
+      "minimums": {
+        "bodies": 913,
+        "nearby": 54,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 913,
+        "nearby": 55,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 20,
+        "havenImpact": 0.36
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 13.557
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 13.557
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 0,
+          "havenDistance": 0,
+          "chargeUsed": 13.557
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 3804728860,
+        "sampledBytesPerFrame": 31706073.833,
+        "heapBefore": 4380784,
+        "heapBeforeGC": 32659252,
+        "heapAfterGC": 4465928,
+        "retainedDelta": 85144
+      }
+    },
+    {
+      "name": "radiation-flight",
+      "density": 1,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 16.697,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 33.3
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 0.431,
+          "p50": 0.4,
+          "p95": 0.6,
+          "p99": 0.7,
+          "max": 1.2
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 1.582,
+          "p50": 1.5,
+          "p95": 1.9,
+          "p99": 2.1,
+          "max": 6.3
+        },
+        "work": {
+          "samples": 540,
+          "mean": 2.023,
+          "p50": 2,
+          "p95": 2.3,
+          "p99": 2.7,
+          "max": 7.5
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 0.069,
+          "p50": 0.1,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.4
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.019,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.2
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.024,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0.01,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0.1,
+          "max": 3.8
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.05,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.167,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.2
+        }
+      },
+      "minimums": {
+        "bodies": 327,
+        "nearby": 2,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 327,
+        "nearby": 6,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 413.136,
+          "havenDistance": 0,
+          "chargeUsed": 17.746
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 413.136,
+          "havenDistance": 0,
+          "chargeUsed": 17.746
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 413.136,
+          "havenDistance": 0,
+          "chargeUsed": 17.746
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 464246772,
+        "sampledBytesPerFrame": 3868723.1,
+        "heapBefore": 4420208,
+        "heapBeforeGC": 6152076,
+        "heapAfterGC": 4428268,
+        "retainedDelta": 8060
+      }
+    },
+    {
+      "name": "radiation-flight",
+      "density": 3,
+      "frames": 180,
+      "episodes": 3,
+      "stats": {
+        "frameInterval": {
+          "samples": 540,
+          "mean": 16.666,
+          "p50": 16.7,
+          "p95": 16.7,
+          "p99": 16.8,
+          "max": 16.8
+        },
+        "simulation": {
+          "samples": 540,
+          "mean": 1.301,
+          "p50": 1.3,
+          "p95": 1.6,
+          "p99": 1.8,
+          "max": 2.5
+        },
+        "drawing": {
+          "samples": 540,
+          "mean": 1.656,
+          "p50": 1.6,
+          "p95": 1.9,
+          "p99": 2.4,
+          "max": 2.6
+        },
+        "work": {
+          "samples": 540,
+          "mean": 2.967,
+          "p50": 2.9,
+          "p95": 3.4,
+          "p99": 3.8,
+          "max": 5.1
+        },
+        "collisions": {
+          "samples": 540,
+          "mean": 0.652,
+          "p50": 0.6,
+          "p95": 0.9,
+          "p99": 1,
+          "max": 1.4
+        },
+        "geometry": {
+          "samples": 540,
+          "mean": 0.02,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.2
+        },
+        "radiation-dose": {
+          "samples": 540,
+          "mean": 0.021,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.2
+        },
+        "radiation-footprint": {
+          "samples": 540,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "snapshot": {
+          "samples": 60,
+          "mean": 0.05,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.1,
+          "max": 0.2
+        },
+        "saving": {
+          "samples": 3,
+          "mean": 0.2,
+          "p50": 0.2,
+          "p95": 0.2,
+          "p99": 0.2,
+          "max": 0.3
+        }
+      },
+      "minimums": {
+        "bodies": 937,
+        "nearby": 6,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "peaks": {
+        "bodies": 937,
+        "nearby": 15,
+        "particles": 0,
+        "armedRed": 0,
+        "botTethers": 0,
+        "openingDoors": 0,
+        "havenImpact": 0
+      },
+      "outcomes": [
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 413.136,
+          "havenDistance": 0,
+          "chargeUsed": 17.746
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 413.136,
+          "havenDistance": 0,
+          "chargeUsed": 17.746
+        },
+        {
+          "mode": "playing",
+          "ticks": 180,
+          "shipDistance": 413.136,
+          "havenDistance": 0,
+          "chargeUsed": 17.746
+        }
+      ],
+      "memory": {
+        "allocationFrames": 120,
+        "sampledAllocatedBytes": 892150732,
+        "sampledBytesPerFrame": 7434589.433,
+        "heapBefore": 4515656,
+        "heapBeforeGC": 11221104,
+        "heapAfterGC": 4521308,
+        "retainedDelta": 5652
+      }
+    }
+  ],
+  "memoryMethod": "Separate 120-frame allocation pass at 32 KiB sampling; includes fixture setup and, for moving-haven, 180 pre-transit ticks. CPU timings are not allocation-profiled."
+}

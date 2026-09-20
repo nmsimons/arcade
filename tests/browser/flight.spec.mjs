@@ -1,0 +1,57 @@
+import { test, expect } from '@playwright/test'
+import { freshExpedition, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
+
+test('radiation HUD refills away from Haven without repairing hull or ammo and saves the charge',async({page})=>{
+  const state=freshExpedition();state.position={x:7600,y:3490};state.upgrades=['radiation'];state.radiationCharge=20
+  state.impactShieldInstalled=true;state.shields=1;state.blasterInstalled=true;state.blasterCharges=1;state.credits=25
+  await page.addInitScript(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:SAVE_KEY,state})
+  await page.goto('/hard-vacuum')
+  await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
+  await expect(page.getByRole('meter',{name:'Radiation',exact:true})).toHaveAttribute('aria-valuenow','100')
+  await expect(page.getByRole('meter',{name:'Shields',exact:true})).toHaveAttribute('aria-valuenow','1')
+  await expect(page.getByRole('button',{name:'Fire blaster, 1 of 3 charges',exact:true})).toBeVisible()
+  await page.keyboard.press('p')
+  await page.getByRole('button',{name:'Save & exit',exact:true}).press('Enter')
+  const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY)
+  expect(saved.radiationCharge).toBe(100);expect(saved.credits).toBe(25);expect(saved.banked).toBe(0)
+})
+
+test('keyboard flight, map, recorder, pause, saving and HUD stay synchronized',async({page})=>{
+  const state=freshExpedition();state.position={x:7800,y:3490};state.banked=12345;state.impactShieldInstalled=true;state.shields=2;state.blasterInstalled=true;state.blasterCharges=3
+  await page.addInitScript(({key,state})=>localStorage.setItem(key,JSON.stringify(state)),{key:SAVE_KEY,state})
+  await page.goto('/hard-vacuum')
+  await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
+  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.getByRole('meter',{name:'Shields',exact:true})).toHaveAttribute('aria-valuenow','2')
+  await expect(page.locator('.hud-credits')).toContainText('12,345')
+  await page.keyboard.press('b')
+  await expect(page.getByRole('button',{name:'Fire blaster, 2 of 3 charges',exact:true})).toBeVisible()
+  // Use a short input, then pause to persist it. Holding thrust until the
+  // periodic autosave can drive into a wall before the UI checks even begin.
+  await page.keyboard.press('w',{delay:150})
+  await page.keyboard.press('p')
+  await expect(page.getByRole('button',{name:'Resume · P / Esc',exact:true})).toBeVisible()
+  await expect.poll(()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).position,SAVE_KEY)).not.toEqual(state.position)
+  await page.getByRole('button',{name:'Resume · P / Esc',exact:true}).press('Enter')
+  await page.keyboard.press('m')
+  await expect(page.getByRole('dialog',{name:'Station survey',exact:true})).toBeVisible()
+  await page.keyboard.press('o')
+  await expect(page.getByRole('button',{name:'Local survey · O',exact:true})).toBeVisible()
+  await page.keyboard.press('z')
+  await expect(page.getByText('Pan · arrows / WASD / drag',{exact:true})).toBeVisible()
+  await page.keyboard.press('ArrowRight');await page.keyboard.press('Escape')
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.press('g')
+  await expect(page.getByRole('dialog',{name:'Flight recorder',exact:true})).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button',{name:'Resume · P / Esc',exact:true})).toBeVisible()
+  await page.getByRole('button',{name:'Resume · P / Esc',exact:true}).press('Enter')
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.press('Backquote')
+  await expect(page.getByRole('dialog',{name:'Developer panel',exact:true})).toHaveCount(0)
+  await page.keyboard.press('p')
+  await page.getByRole('button',{name:'Save & exit',exact:true}).press('Enter')
+  await expect(page.getByRole('heading',{name:'Select Game'})).toBeVisible()
+  const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY)
+  expect(saved.blasterCharges).toBe(2);expect(saved.banked).toBe(12345)
+})

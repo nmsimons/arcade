@@ -24,7 +24,7 @@ function cargoFaces(draw,position) {
 
 test('every cargo model keeps its silhouette, facets and colors throughout the retrieval handoff',()=>{
   const state=freshExpedition(),pose=havenPose(state),pos={x:pose.pos.x-132,y:pose.pos.y}
-  for(const id of [...CACHES.map(c=>c.id),'radiation','core']) {
+  for(const id of [...CACHES.map(c=>c.id),...PICKUPS.map(p=>p.id),'core']) {
     for(const time of [.01,.4,.8,1.3]) {
       const recovery={id,bay:Math.PI,time,path:[pos,pose.pos],cargoTime:4.75,secured:false}
       const displayTime=time<RECOVERY_GRIP ? 5.25 : recovery.cargoTime
@@ -38,20 +38,30 @@ test('every cargo model keeps its silhouette, facets and colors throughout the r
   assert.ok(medical.length>crate.length*2,'the oxygen canisters retain their individual cylinders')
 })
 
-test('unclaimed archive shields migrate to Freight, including live old bodies, without moving player-towed cargo',()=>{
+test('legacy archive shields migrate to Freight without moving towed cargo or current runtime bodies',()=>{
   const module=PICKUPS.find(p=>p.id==='radiation')
   for(const pos of [{x:1650,y:350},{x:1430,y:540}]) {
     for(const tethered of [false,true]) {
       const state=freshExpedition(),old={pos:{...pos},vel:{x:2,y:1},tethered}
-      state.cargo={radiation:structuredClone(old)}
+      state.version=1;state.cargo={radiation:structuredClone(old)}
       const loaded=parseExpedition(JSON.stringify(state)),runtime=freshRuntime()
       const restored=cargoBodies(loaded,runtime).find(b=>b.cargoId==='radiation')
       assert.deepEqual(restored.pos,tethered ? pos : module.pos)
       const live=freshRuntime();live.objects.radiation={...structuredClone(old),radius:23,cargoId:'radiation',capture:0}
       const hotReloaded=cargoBodies(freshExpedition(),live).find(b=>b.cargoId==='radiation')
-      assert.deepEqual(hotReloaded.pos,tethered ? pos : module.pos)
+      assert.deepEqual(hotReloaded.pos,pos)
     }
   }
   const installed=freshExpedition();installed.upgrades.push('radiation')
   assert.equal(cargoBodies(installed,freshRuntime()).some(b=>b.cargoId==='radiation'),false)
+})
+
+test('laser contact lights every cargo model without altering its shape or pose',()=>{
+  const pos={x:7800,y:3560}
+  for(const id of [...PICKUPS.map(item=>item.id),...CACHES.map(item=>item.id),'core']) {
+    const draw=laserGlow=>cargoFaces(ctx=>drawCargo(ctx,id,pos,{time:3,active:true,laserGlow}),pos)
+    const resting=draw(0),lit=draw(1)
+    assert.deepEqual(lit.map(face=>face.points),resting.map(face=>face.points),id)
+    assert.notDeepEqual(lit.map(face=>face.fill),resting.map(face=>face.fill),id)
+  }
 })

@@ -1,9 +1,8 @@
-import { BERTHS, WARD_BANKS } from './campaignWorld.ts'
-import { CORE_POSITION, GATES, SOCKETS, expeditionMap, freshExpedition } from './expedition.ts'
+import { GATES, SOCKETS, expeditionMap, freshExpedition } from './expedition.ts'
 import { CHAMBERS, PASSAGES } from './stationLayout.ts'
 import { isInsideCavern } from './worldGeometry.ts'
 import type { Vector2 } from './types'
-import { BOT_STATIONS } from './stationBots.ts'
+import { CIRCUIT_LOADS } from './stationProgression.ts'
 
 export const WIRE_CLEARANCE = 24
 export const WIRE_WALL_CLEARANCE = 28
@@ -23,19 +22,16 @@ const ports = (pos: Vector2) => [-1,1].flatMap(side=>[
 
 /** Fixed equipment only: loose reserve cells never have trailing power wires. */
 export const POWER_CONNECTIONS: PowerConnection[] = SOCKETS.flatMap(socket => {
-  const targets = socket.gates.flatMap(id => {
-    const gate = GATES.find(g => g.id === id)
-    if (!gate) return id === 'ignition-ready' ? [{target:id,end:{x:CORE_POSITION.x-33,y:CORE_POSITION.y},exit:{x:CORE_POSITION.x-65,y:CORE_POSITION.y}}] : []
+  const targets = CIRCUIT_LOADS.filter(load => load.circuit === socket.id).map(load => {
+    if (load.kind !== 'door') return load
+    const gate = GATES.find(g => g.id === load.gate)!
     const ends = gate.w > gate.h
       ? [{end:{x:gate.x+4,y:gate.y+gate.h/2},exit:{x:gate.x+36,y:gate.y+gate.h/2}},
         {end:{x:gate.x+gate.w-4,y:gate.y+gate.h/2},exit:{x:gate.x+gate.w-36,y:gate.y+gate.h/2}}]
       : [{end:{x:gate.x+gate.w/2,y:gate.y+4},exit:{x:gate.x+gate.w/2,y:gate.y+36}},
         {end:{x:gate.x+gate.w/2,y:gate.y+gate.h-4},exit:{x:gate.x+gate.w/2,y:gate.y+gate.h-36}}]
-    return [{target:id,...ends.filter(p=>isInsideCavern(p.exit,WIRE_WALL_CLEARANCE,terrain)).sort((a,b)=>distance(a.exit,socket.pos)-distance(b.exit,socket.pos))[0]}]
+    return {target:load.target,...ends.filter(p=>isInsideCavern(p.exit,WIRE_WALL_CLEARANCE,terrain)).sort((a,b)=>distance(a.exit,socket.pos)-distance(b.exit,socket.pos))[0]}
   })
-  for (const berth of BERTHS) if (berth.power === socket.id) targets.push({target:`berth:${berth.id}`,end:{x:berth.pos.x,y:berth.pos.y-145},exit:{x:berth.pos.x,y:berth.pos.y-177}})
-  for (const bot of BOT_STATIONS) if (bot.power === socket.id) targets.push({target:`bot:${bot.id}`,end:{x:bot.home.x-35,y:bot.home.y},exit:{x:bot.home.x-67,y:bot.home.y}})
-  if (socket.id === 'ward-power') WARD_BANKS.forEach((bank,i)=>targets.push({target:`ward:${i}`,end:{x:bank.x,y:bank.y+bank.h/2},exit:{x:bank.x,y:bank.y+bank.h/2+32}}))
   return targets.map(({target,end,exit})=>({source:socket.id,target,...ports(socket.pos).sort((a,b)=>distance(a.entry,exit)-distance(b.entry,exit))[0],end,exit}))
 })
 

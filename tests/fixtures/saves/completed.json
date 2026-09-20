@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "finaleVersion": 2,
+  "campaign": {
+    "version": 1,
+    "berth": "heart",
+    "haven": {
+      "x": 4100,
+      "y": 3570
+    },
+    "havenAngle": 0,
+    "grappleLearned": false,
+    "terminalLinked": false,
+    "berths": [
+      "heart"
+    ],
+    "records": [
+      "contract",
+      "core-home"
+    ],
+    "playedSeconds": 0,
+    "deaths": 0
+  },
+  "upgrades": [],
+  "upgradeLevels": {},
+  "gates": [
+    "ignition-ready",
+    "breach-return"
+  ],
+  "power": {},
+  "doors": {},
+  "caches": [],
+  "visited": [
+    "heart-hub"
+  ],
+  "surveyed": [],
+  "disabledBots": [],
+  "botDoors": {},
+  "checkpoint": "haven",
+  "credits": 0,
+  "banked": 8000,
+  "core": true,
+  "complete": true,
+  "position": {
+    "x": 4100,
+    "y": 3570
+  },
+  "shields": 2,
+  "blasterInstalled": false,
+  "blasterCharges": 0,
+  "radiationCharge": 0,
+  "radiationExposure": 0,
+  "rechargePacks": 0,
+  "teleporterInstalled": false,
+  "remoteRechargeRemaining": 0
+}

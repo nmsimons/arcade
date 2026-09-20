@@ -11,7 +11,7 @@ const shipAt=pos=>({pos:{...pos},vel:{x:0,y:0},radius:15,angle:0})
 const tick=(s,rt,dt=1/60)=>stepExpedition(s,rt,{dt,ship:shipAt({x:IGNITION_CRADLE.x,y:IGNITION_CRADLE.y+100}),rocks:[],harpoon:{state:'idle'},beam:{active:false}})
 function ready() {
   const s=freshExpedition('heart'),rt=freshRuntime()
-  s.gates=[...GATES.map(g=>g.id),'ignition-ready'];s.upgrades=['radiation'];s.radiationCharge=100
+  s.flags=['ignition-ready'];s.gates=GATES.map(g=>g.id);s.upgrades=['radiation'];s.radiationCharge=100
   const core=cargoBodies(s,rt).find(b=>b.cargoId==='core')
   core.pos={...IGNITION_CRADLE};core.vel={x:0,y:0};core.tethered=true
   return {s,rt,core}
@@ -35,7 +35,7 @@ test('the Ignition Cradle is solid, accessible through its barrier and safe; onl
   const rt=freshRuntime(),socket=SOCKETS.find(s=>s.id==='ignition-power')
   const cell={kind:'blue',sourceId:socket.id,pos:{...socket.pos},vel:{x:0,y:0},radius:20,rot:[0,0,0]},rocks=[cell]
   for(let i=0;i<15&&!s.gates.includes('breach-return');i++)stepExpedition(s,rt,{dt:.1,ship:shipAt({x:socket.pos.x,y:socket.pos.y+90}),rocks,harpoon:{state:'idle'},beam:{active:false}})
-  assert.ok(s.gates.includes('ignition-ready'));assert.ok(s.gates.includes('breach-return'))
+  assert.ok(s.flags.includes('ignition-ready'));assert.ok(s.gates.includes('breach-return'))
   assert.equal(s.doors['breach-return'],0)
   assert.equal(isInsideCavern(door,15,expeditionMap(s)),false)
   for(let i=0;i<25;i++)tick(s,rt,.1)
@@ -46,25 +46,27 @@ const finalRoute=[[4100,3570],[4370,3500],[5050,3500],[5100,3450],[5320,3450],[5
 function runReturn(speed,shield=true,pause=0) {
   const {s}=ready(),map=expeditionMap(s)
   if(!shield){s.upgrades=[];s.radiationCharge=0}
-  let failed=false
+  let failed=false,drained=0
   for(let i=1;i<finalRoute.length;i++) {
     const [ax,ay]=finalRoute[i-1],[bx,by]=finalRoute[i],length=Math.hypot(bx-ax,by-ay),steps=Math.ceil(length/6)
     for(let j=1;j<=steps;j++) {
       const pos={x:ax+(bx-ax)*j/steps,y:ay+(by-ay)*j/steps}
       assert.ok(isInsideCavern(pos,28,map),`core route blocked at ${JSON.stringify(pos)}`)
       const travelSpeed=i<=8 ? 220 : speed // Unladen approach, then tow the core.
-      failed=stepRadiation(s,pos,length/steps/travelSpeed,map).failed||failed
+      const dose=stepRadiation(s,pos,length/steps/travelSpeed,map)
+      failed=dose.failed||failed;drained+=dose.drained
     }
     if(i===9&&pause)failed=stepRadiation(s,{x:6600,y:4630},pause,map).failed||failed
   }
-  return {s,failed}
+  return {s,failed,drained}
 }
-test('a full reserve covers Haven to core to cradle at towing speed, while unshielded or stalled runs fail',()=>{
+test('the core return drains in radiation and refills on the safe cradle approach, while unshielded or stalled runs fail',()=>{
   const run=runReturn(135)
   assert.equal(run.failed,false)
-  assert.ok(run.s.radiationCharge>10&&run.s.radiationCharge<60,`remaining reserve: ${run.s.radiationCharge}`)
+  assert.ok(run.drained>40&&run.drained<90,`radiation dose unchanged: ${run.drained}`)
+  assert.equal(run.s.radiationCharge,100,'safe final approach refills without returning to Haven')
   assert.equal(runReturn(135,false).failed,true)
-  assert.equal(runReturn(135,true,45).failed,true)
+  assert.equal(runReturn(135,true,120).failed,true,'remaining indefinitely in radiation is still lethal despite earlier safe-area recharge')
 })
 
 test('the final tube has moving white and blue debris, with Heart mineral contents and no loose red spawns',()=>{
@@ -80,9 +82,9 @@ test('the final tube has moving white and blue debris, with Heart mineral conten
 
 test('only a released, towed core seated between the contacts starts the three-second awakening',()=>{
   for(const dt of [1/30,1/60,1/144]) {
-    const {s,rt,core}=ready();s.gates=[]
+    const {s,rt,core}=ready();s.gates=[];s.flags=[]
     stepIgnitionCradle(s,rt,4);assert.equal(rt.coreLatch,undefined)
-    s.gates.push('ignition-ready');core.tethered=false
+    s.flags.push('ignition-ready');core.tethered=false
     stepIgnitionCradle(s,rt,4);assert.equal(rt.coreLatch,undefined)
     core.tethered=true
     for(const [dx,dy] of [[0,60],[45,0],[-45,0],[0,-45]]) {
@@ -132,8 +134,8 @@ test('interrupted installation resumes as physical cargo, and completed saves ke
 })
 
 test('old banked cores become towable beside Haven, and old core releases open the new return',()=>{
-  const old=freshExpedition('heart');delete old.finaleVersion
-  powerReceiver(old,'ignition-power','ignition-power');old.gates=old.gates.filter(id=>id!=='breach-return');old.doors={};old.core=true;old.banked=4321
+  const old=freshExpedition('heart');old.version=1;delete old.finaleVersion
+  powerReceiver(old,'ignition-power','ignition-power');old.gates=old.gates.filter(id=>id!=='breach-return');old.gates.push(...old.flags);delete old.flags;old.doors={};old.core=true;old.banked=4321
   const loaded=parseExpedition(JSON.stringify(old))
   assert.equal(loaded.core,false);assert.equal(loaded.banked,4321);assert.equal(loaded.finaleVersion,2)
   assert.ok(loaded.gates.includes('breach-return'));assert.ok(loaded.cargo.core.tethered)

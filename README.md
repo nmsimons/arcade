@@ -25,6 +25,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 - Up/Down (or W/S): select a game
 - Enter/Space: launch
+- Controller: stick or D-pad selects a game; A launches it.
 
 **Hard Vacuum**
 
@@ -35,21 +36,21 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   Steering responds quickly; on release, the jets stop and the ship coasts through
   a little rotation before settling (about 14 degrees from full turn speed).
 - Space: fire the laser (hold to mine or cut)
-- B: fire the red blaster after buying it under Haven's Ship upgrades for 750 banked credits.
+- B: fire the red blaster after finding its module in the southeast of the Works main bay
+  and towing it to Haven for installation.
   Installation is permanent, survives death, and includes three shots.
-  Three shots per charge; dock or recharge at Haven
+  Upgrade its magazine at Haven from three to eight shots; dock or recharge there
   to refill. Impacts pulverize asteroids of every color into dust and award credits,
   leaving no fragments. Rock barriers and blast doors can only be cleared with B.
-- R: use a remote recharge pack. Carry up to three; buy each at Haven for 500 credits.
-  Physical shields and blaster refill after the
-  same one-second cycle, green hull ripples and repair sound used at Haven.
-  Radiation shielding recharges only at Haven. Remote recharging does not bank credits. Packs are consumed on activation;
-  an active recharge resumes after saving, and pausing also pauses the cycle.
-- T: return to Haven and bank all carried credits after installing its teleporter
-  for 3,000 credits. Teleporting is then free and unlimited. Grappled cargo stays
+- T: return to Haven and bank all carried credits after finding the teleporter module
+  in the Capacitor store below the Works and towing it to Haven for installation.
+  Teleporting is free and unlimited. Grappled cargo stays
   where it was released. Haven recharges the arrived ship normally.
   Teleporting is unavailable during Haven's relocation or when already at Haven.
-- F: fire tether / release and reel in
+- F: fire tether / release and reel in. The opening lesson recovers the green
+  impact-shield module in the rescue locker, through the passage west of Haven. New ships have no impact protection;
+  tow it home and wait for Haven's shutters to seal to install two shield charges.
+  Installation unlocks hull upgrades and persists through saves and death.
 - Down / S: fire the nose thruster to brake forward motion or reverse. Its force
   is opposite the ship's heading, with a visible forward exhaust jet.
 - E: dock at Haven, or call it to an energized empty service berth
@@ -65,6 +66,10 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   Touching the ship never collects cargo. F releases the cable.
   Loose cells, modules, salvage and the core start with gentle drift. Power cells
   float on their own; their former dispenser markers and solid housings are gone.
+  The laser also repels loose equipment modules, salvage and the ignition core,
+  using the same contact time and push as blue asteroids. Contact glow shows the
+  hit building up; laser hits do not collect, install or award credits for cargo.
+  Installed cells, fixed fixtures and cargo secured by Haven remain anchored.
   Lasers, explosions, and collisions push loose blue objects. Blasters destroy blue
   asteroids, while shaped mission cells survive and are pushed. Guide a cell
   between a receiver's plates to connect it; nearby cells are not pulled in.
@@ -95,39 +100,89 @@ A small retro-style browser arcade: a full-screen game selector that launches se
   at Haven: 300, 250, 200, 150, then 100 ms. Boost has been removed.
 - P / Escape: pause
 
+Hard Vacuum also supports standard-layout game controllers (Xbox names below;
+PlayStation equivalents are shown in Controls). Connect by USB or Bluetooth,
+then press a button while the game is focused.
+
+- Left stick left/right: rotate only; up/down does not thrust or reverse.
+  Turning is proportional, with a small dead zone to prevent drift.
+- RT: proportional thrust; LT: proportional nose thrust to brake or reverse.
+- RB: grapple / release; A: hold laser; B: blaster, one shot per press.
+- X: teleport; Y: dock / call Haven; LB: log; View/Back: map; Menu/Start: pause.
+- Menus: stick or D-pad navigates, A confirms, B goes back; these menu actions
+  never fire the laser or blaster. Right stick scrolls long dialogs.
+- Map: D-pad selects buttons and A activates the highlighted button. X is a
+  zoom shortcut, Y switches overview/local, left stick pans while zoomed,
+  and B or View closes. Menu closes the map and pauses flight.
+
+Disconnecting the active controller pauses flight. Center the stick and release
+held buttons after connecting, resuming or closing a menu before using them again.
+Keyboard controls remain available, including for controllers without a standard
+browser mapping. If controller-only launch is silent, click the game or press a
+keyboard key once to enable audio.
+
 All menus support Arrow keys or Tab / Shift+Tab to move focus, Enter or Space
 to activate, and Escape to go back. Home / End jump to the first / last action.
+Focused dialog buttons have a filled mint highlight and outline for mouse,
+keyboard and controller alike. Disabled or hidden choices are skipped, selected
+actions scroll into view, grids respect visual columns, and closing a sub-dialog
+restores the previous selection. Destructive confirmations always open on Cancel.
+Controller hints appear in dialogs when a standard-layout controller is connected.
+
+Controller layouts live in `src/games/hardVacuum/controllerLayouts.ts`. The single
+shipped preset, Trigger flight, defines button assignments and stick axes; both
+the input reader and displayed bindings consume that definition. Future presets
+can be passed to `createControllerReader(layout)` without changing flight or menu
+code. There is no preset-selection UI or change to saved expeditions yet.
+
 The flight HUD groups location and credits on the left. A compact ship panel
 aligns shield, radiation and blaster meters, with equipment controls and warnings
 in the same panel. On narrow screens the meters sit side by side. Map, log and
 pause remain keyboard-accessible; nearby docking actions stay beside the flight view.
 Actions underline their shortcut letter when it appears in the label; other keys
-are shown beside the action. Map, Log, Pause, Recharge, Teleport and Blaster use
-M, G, P, R, T and B respectively.
+are shown beside the action. Map, Log, Pause, Teleport and Blaster use
+M, G, P, T and B respectively.
 Persistent control hints, objective walkthroughs and object instructions are removed;
 open Controls from the menu or pause screen for key bindings. Area labels remain.
 The scanline overlay has been removed from the game.
-Hull, beam capacitor and laser focus each have five upgrade stages.
+Hull, beam capacitor, laser focus and blaster magazine each have five upgrade stages.
 Each stage costs 750, 1,500, 3,000, 6,000, then 10,000 credits. Each track occupies
 one shop row that advances after purchase and shows its next effect and cost.
-After recovering the radiation shield, Radiation reserve offers three expensive
-stages: 1.5×, 2× and 2.5× capacity for 6,000, 12,000 and 24,000 credits.
-That gives 12, 16 and 20 seconds at peak exposure, compared with the original eight.
-Haven recharges the full upgraded reserve; the HUD shows its remaining percentage.
-Longline winch is a single 750-credit upgrade that doubles tether reach. The
-750-credit blaster is also a permanent ship upgrade. Existing staged tether
-purchases become the double-length winch, and existing blasters stay installed.
-Teleporter installations become unlimited; unused legacy charges are refunded
-their 750-credit purchase price once when the save is migrated.
+The recovered radiation shield has a fixed 100-point reserve: eight seconds at
+peak exposure, with no capacity upgrades. It recharges automatically in one second
+outside radiation; Haven also restores it during servicing. The HUD shows its
+remaining percentage. Removed capacity upgrades refund their original cumulative
+purchase costs once on migration; existing charge is capped at 100, never refilled.
+Longline winch is a single 750-credit upgrade that doubles tether reach.
+Blaster magazine upgrades unlock after recovering and installing the blaster.
+Each adds one shot (3 → 4 → 5 → 6 → 7 → 8) and fills the new magazine;
+damage and firing speed are unchanged. Haven servicing and respawn refill the
+purchased capacity; saving preserves both the upgrade and remaining ammunition.
+The dock shop only improves existing systems; new equipment must be found and
+recovered. Impact shielding, radiation shielding, the blaster and the teleporter use the same
+physical tow-and-install handoff at Haven, at no credit cost. The blaster becomes
+reachable upon entering the Works, outside its sealed tool crib; tow it back to
+Freight Haven before breaching the crib. The teleporter rewards opening the Capacitor store.
+Older saves relocate an unclaimed Freight blaster once, preserving installed or towed modules.
+The impact shield's first installation plays the normal one-second recharge rings,
+hum and finishing flash, including while docked. This feedback never grants an
+extra refill or replays when loading an already-installed shield.
+Remote recharge and its R binding have been removed. Hull shields and blaster ammo
+require Haven servicing after installation. Older saves retain their existing
+impact shield and hull upgrades without refilling charges or spawning a duplicate
+module; start a new expedition to see the opening lesson. Old unused
+recharge packs refund 500 credits each once; an in-progress recharge is canceled
+without repair or refund. Legacy teleport charges still refund 750 credits once.
 
 The checkpoint shop skips unavailable upgrades and keeps focus on an available
 action after a purchase. Escape closes the survey map and returns to flight.
 
 During local development (`npm run dev`), press backtick / tilde to open the
 developer panel. Jump to any of the six campaign regions or add 100,000 banked
-credits per press. Jumps complete earlier prerequisites, supply the blaster from
-the Works onward, also supply radiation shielding from the Works onward, and recharge
-the ship. Existing upgrades, credits, completed puzzles and cargo are preserved;
+credits per press. Jumps complete earlier prerequisites, supply impact shielding
+from Freight onward, radiation shielding from the Works onward, and the blaster
+from the Broken Ring onward, then recharge the ship. A Works jump still requires
+recovering its blaster. Existing upgrades, credits, completed puzzles and cargo are preserved;
 Haven stays at the latest powered berth. These changes use the normal save.
 Show whole map immediately opens the station overview with all terrain, labels
 and berths revealed. It works from flight, pause, the outfitter and the main menu;
@@ -149,6 +204,13 @@ destructible formations have been removed; barriers still seal passages. Volatil
 asteroids have red mineral fissures while idle. Once armed, the whole asteroid
 pulses bright red with an intensifying glow before detonation. The map shows
 surveyed terrain rather than a room graph.
+
+The introductory Breach receiver still opens the first nearby transit door.
+In Freight, the gallery receiver instead opens the far end of the radioactive
+Stores-to-Dispatch tunnel and powers Haven's berth. Recover and install radiation
+shielding first, then cross the long route. The receiver inside Dispatch opens
+the direct lift shortcut back to Freight and the exit toward the Works. Existing
+saves keep previously opened doors; new expeditions enforce the full route.
 
 Explore the Breach, Freight Galleries, the Works, the Broken Ring, Refuge Approach,
 and the Heart. The original seven rooms form the fourth region. The new regions
@@ -174,7 +236,11 @@ mission power cells remain intact and never pay credits. Docking is not required
 
 Restoring power opens armored robot garages and wakes the station's machinery.
 Their walls and animated doors physically protect dormant bots; each unit leaves
-its garage before patrolling. Maintenance tugs pursue at 185 units/second and
+its garage before patrolling.
+Bot models share the pilot ship's restrained bevels and clean outlines: a compact
+fork-jawed tug and a broad arrowhead security craft, each with one sensor and an
+unbroken main hull. Thrusters are inset into the shell rather than separate pods.
+Maintenance tugs pursue at 185 units/second and
 alternate between grappling the ship, hauling asteroids into its projected path,
 and stealing towed cargo. Their jaws signal a launch before a physical hook flies;
 dodging, cover, distance or damaging the tug breaks the attack. Ship tows last at
@@ -182,10 +248,16 @@ most three seconds, and Haven's repair area is safe. Away from the pilot, tugs
 continue sorting loose cargo. The Works, Reactor and Heart have security units that charge a visible
 targeting beam before firing three-round bursts. Walls, debris and Haven's hull
 block their shots. Both types collide, can be grappled, and take damage from focused
-laser fire, blasters, explosions and hard impacts. Both types take two blaster hits
-or five asteroid-length laser contacts (2 seconds of effective contact with the
-starting laser, 0.5 seconds at full focus). Damaged armor cracks, sensors flicker
-at half health, and electrical sparks shed from the breach. Destroyed units stay
+laser fire, blasters, explosions and hard impacts. Both types take four blaster hits
+or fifty asteroid-length laser contacts. Laser focus stages require 20, 15, 12.5,
+10, 7.5 and 5 seconds of effective on-target contact respectively (stock through
+maximum focus); capacitor recharge pauses and incomplete contacts add time.
+This armor resistance only reduces laser damage to bots, not mining speed or
+blaster damage. Armor progressively darkens and develops
+up to four breaches as health falls. Sensors increasingly flicker, and each hit
+vents sparks; ongoing spark showers grow more frequent, numerous and energetic
+as damage mounts. A stock three-shot blaster needs mixed weapons or a reload
+against a full-health bot; magazine upgrades provide up to eight shots. Destroyed units stay
 down through docking and save reloads; all enemies return at full health when the
 pilot respawns, with powered bots leaving their garages and unpowered bots dormant.
 Debris density, speed and the share of blue asteroids rise in deeper regions;
@@ -202,7 +274,11 @@ Tow the violet module from Freight Stores back to Haven to install a separate
 radiation shield bar. A breached reactor and damaged fuel unit emit violet,
 radial fields that weaken with distance and are blocked by solid cavern walls.
 Their visible footprints match the actual exposure. At peak exposure the
-100-point reserve drains at 12.5 points per second; recharge at Haven. Violet
+100-point reserve drains at 12.5 points per second. Whenever exposure is zero,
+including behind radiation-blocking cover, it refills gradually at one full reserve
+per second. No docking or braking is needed. Any radiation stops
+the refill immediately; pausing also pauses recharge. Hull shields and blaster ammo
+still require Haven. Violet
 arcs pulse around the ship and Geiger clicks sound while exposed, growing more
 urgent near a source or with a low reserve. The HUD shows the current drain rate
 and warns when protection fails. Long transfer tunnels after the first Breach-to-Freight
@@ -286,10 +362,11 @@ Note: browsers often require a user gesture (key press/click) before audio can s
 
 ## Development
 
-Install dependencies:
+Use Node.js 24 (see `.nvmrc`) so Node can run the TypeScript gameplay modules
+directly in the regression tests. Install the locked dependencies:
 
 ```bash
-npm install
+npm ci
 ```
 
 Start the dev server:
@@ -307,8 +384,40 @@ npm run dev      # Start dev server
 npm run build    # Type-check + production build to dist/
 npm run preview  # Preview the production build locally
 npm run lint     # Run ESLint
-npm test         # Geometry, progression, checkpoint, and save tests
+npm test         # Mechanics, full sessions, geometry, progression, and save tests
+npm run test:browser # Production routes/recovery/controls + development panel
+npm run benchmark # Isolated browser performance fixtures; JSON report in /tmp
 ```
+
+For browser tests, run `npx playwright install chromium` once, then
+`npm run build && npm run test:browser`. Playwright starts its own production
+preview on port 4175 and a development server on 4176, with isolated storage; it never touches your
+normal browser's expedition. On Linux CI, install Chromium with
+`npx playwright install --with-deps chromium`.
+
+### Save recovery
+
+Opening Hard Vacuum's title menu and leaving without starting never writes a save. Missing,
+valid, malformed, newer-version, and inaccessible saves are distinct outcomes.
+An unreadable save blocks Continue; the menu offers a working backup when one
+exists and a confirmed New expedition action. Canceling New or leaving the
+menu preserves the original bytes. If the active slot is missing but a working
+backup exists, the menu defaults to recovery and requires confirmation to start fresh.
+
+The active slot remains `hard-vacuum-expedition-v1`. Each successful save keeps
+the previous validated slot in `hard-vacuum-expedition-v1-backup` (the first
+save initializes both). Recovering or deliberately replacing an unreadable
+slot first preserves its bytes in `hard-vacuum-expedition-v1-unreadable`.
+Invalid runtime data never replaces a good save or backup. Existing migrations
+run through explicit ordered migrations to schema 2. The storage key stays stable;
+gameplay reset rules are documented in [the save format](docs/save-format.md).
+If backup/archive writes fail, the primary slot is not replaced.
+
+Storage errors appear during flight and in menus. A failed Save & exit stays
+in the game, with Retry save & exit and an explicit Exit without saving action.
+If another tab changes the save, autosaving stops and asks you to reload.
+Backups share the browser's storage and cannot protect against clearing site
+data or browser eviction.
 
 ## Project Structure
 
@@ -325,17 +434,41 @@ public/          # Static assets
 ## Adding a Game
 
 1. Create a new component in `src/games/` that accepts `{ onExit: () => void }`.
-2. Import it in `src/App.tsx` and add it to:
-   - the `GameId` union
-   - the `GAMES` list (for menu order)
-   - the render switch that returns the game component
+2. Add a lazy import and route in `src/App.tsx`, wrapped in `GameRoute`.
+3. Add an entry to `GameSelector.tsx` if it should appear in the selector.
+4. Extend the direct-route, exit and compatibility tests in `tests/browser/routes.spec.mjs`.
+
+### Architecture and regression guides
+
+- [Authoritative game session and timing](docs/game-session.md)
+- [Save versions, migrations and persistence matrix](docs/save-format.md)
+- [Station authoring and reference validation](docs/station-authoring.md)
+- [Deterministic sessions and browser testing](docs/testing.md)
+- [Route bundle measurements](docs/bundle-sizes.md)
+- [Runtime performance fixtures and results](docs/performance.md)
 
 ## Deployment (Azure Static Web Apps)
 
 This repo includes a GitHub Actions workflow for Azure Static Web Apps deployment.
 
-- Workflow: [.github/workflows/azure-static-web-apps-ambitious-stone-04a8a9c10.yml](.github/workflows/azure-static-web-apps-ambitious-stone-04a8a9c10.yml)
+- Workflow: [.github/workflows/azure-static-web-apps-agreeable-glacier-048815c10.yml](.github/workflows/azure-static-web-apps-agreeable-glacier-048815c10.yml)
 - Build output: `dist/`
-- Required secret: `AZURE_STATIC_WEB_APPS_API_TOKEN_AMBITIOUS_STONE_04A8A9C10`
+- Required secret: `AZURE_STATIC_WEB_APPS_API_TOKEN_AGREEABLE_GLACIER_048815C10`
 
-Pushes to `main` deploy automatically; pull requests create preview environments.
+Pushes to `main` and pull requests targeting `main` run the **Validate and deploy**
+check: Node 24, `npm ci`, `npm test`, `npm run lint`, `npm run build`, and browser
+route, save-recovery and control tests. Every validation step must succeed before deployment.
+Azure uploads that same `dist/` using
+[`skip_app_build`](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration#skip-building-front-end-app)
+instead of rebuilding. Pushes to `main` deploy to production; same-repository
+pull requests deploy previews, which are removed when the PR closes. Fork and
+Dependabot PRs run validation without using deployment secrets.
+
+To prevent merging failed checks, configure a `main` branch rule requiring a
+pull request and the **Validate and deploy** status check (and require the branch
+to be up to date). Adding the workflow does not enable branch protection.
+As checked on September 19, 2026, GitHub rejects branch-protection and ruleset
+access for this private repository with “Upgrade to GitHub Pro or make this
+repository public to enable this feature.” Until the repository has a plan
+that supports this setting, enforce green checks during review; the workflow
+still blocks its own deployments after validation failures.

@@ -42,7 +42,7 @@ export function drawHavenRecovery(ctx:CanvasRenderingContext2D,pose:HavenPose,re
     if(t>=RECOVERY_HAUL) {
       ctx.translate(bay.x,bay.y);ctx.rotate(angle);ctx.beginPath();ctx.rect(-37,-37,74,74);ctx.clip();ctx.rotate(-angle);ctx.translate(-bay.x,-bay.y)
     }
-    drawCargo(ctx,recovery.id,body.pos,{active:true,time:t<RECOVERY_GRIP ? time : recovery.cargoTime})
+    drawCargo(ctx,recovery.id,body.pos,{active:true,time:t<RECOVERY_GRIP ? time : recovery.cargoTime,laserGlow:body.laserGlow})
     ctx.restore()
   }
   // Opposed wrists close around the unchanged cargo silhouette.

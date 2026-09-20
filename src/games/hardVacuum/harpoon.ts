@@ -1,11 +1,8 @@
+import { worldDelta } from './worldDelta.ts'
 import type { Harpoon, TetherBody, Ship, Vector2 } from './types'
 import { HARPOON_CABLE_LENGTH, HARPOON_TOW_REEL_SPEED } from './tuning.ts'
 
 type Ref<T> = { current: T }
-
-type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => { dx: number; dy: number }
-
-type Wrap = (x: number) => number
 
 type BuildRopeBetween = (
   ax: number,
@@ -17,8 +14,6 @@ type BuildRopeBetween = (
 
 export function updateHarpoon(args: {
   dt: number
-  w: number
-  h: number
 
   ship: Ship
   shipRef: Ref<Ship>
@@ -26,9 +21,6 @@ export function updateHarpoon(args: {
 
   harpoonRef: Ref<Harpoon>
 
-  wrapX: Wrap
-  wrapY: Wrap
-  toroidalDelta: ToroidalDelta
   buildRopeBetween: BuildRopeBetween
 
   HARPOON_HOOK_MASS: number
@@ -37,32 +29,29 @@ export function updateHarpoon(args: {
 }) {
   const {
     dt,
-    w,
-    h,
+
     ship,
     shipRef,
     rocks,
     harpoonRef,
-    wrapX,
-    wrapY,
-    toroidalDelta,
+
     buildRopeBetween,
     HARPOON_HOOK_MASS,
     HARPOON_VISUAL_SLACK,
     HARPOON_REEL_MIN_LEN,
   } = args
 
-  // Harpoon update (wrap-aware)
+  // Harpoon update in bounded station coordinates
   const hp0 = harpoonRef.current
   if (hp0.state === 'flying') {
-    hp0.pos.x = wrapX(hp0.pos.x + hp0.vel.x * dt)
-    hp0.pos.y = wrapY(hp0.pos.y + hp0.vel.y * dt)
+    hp0.pos.x = (hp0.pos.x + hp0.vel.x * dt)
+    hp0.pos.y = (hp0.pos.y + hp0.vel.y * dt)
     hp0.life -= dt * 1000
 
     // Enforce the cable max length (tension-only) with hook mass.
     // Treat the hook like a tiny rock: tension affects both ship and hook.
     {
-      const sh = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+      const sh = worldDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y)
       const shDist = Math.hypot(sh.dx, sh.dy)
       if (shDist > hp0.maxLength && shDist > 1e-6) {
         const nx = sh.dx / shDist
@@ -76,10 +65,10 @@ export function updateHarpoon(args: {
         const maxCorr = 140
         const corr = Math.min(err, maxCorr)
 
-        ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
-        ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
-        hp0.pos.x = wrapX(hp0.pos.x - nx * (corr * (invHook / invSum)))
-        hp0.pos.y = wrapY(hp0.pos.y - ny * (corr * (invHook / invSum)))
+        ship.pos.x = (ship.pos.x + nx * (corr * (invShip / invSum)))
+        ship.pos.y = (ship.pos.y + ny * (corr * (invShip / invSum)))
+        hp0.pos.x = (hp0.pos.x - nx * (corr * (invHook / invSum)))
+        hp0.pos.y = (hp0.pos.y - ny * (corr * (invHook / invSum)))
 
         const relVx = hp0.vel.x - ship.vel.x
         const relVy = hp0.vel.y - ship.vel.y
@@ -95,7 +84,7 @@ export function updateHarpoon(args: {
     }
 
     // When it reaches full extension without latching, leave it deployed until the player reels it in.
-    const sh2 = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+    const sh2 = worldDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y)
     const sh2Dist = Math.hypot(sh2.dx, sh2.dy)
 
     // Rope simulation for rendering (slack/curve) while unattached.
@@ -115,11 +104,11 @@ export function updateHarpoon(args: {
         const vy = (p.y - pp.y) * damp
         ropePrev[i] = { x: p.x, y: p.y }
         // No gravity in space; curvature comes from inertia + slack.
-        rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy + 0 * dt2) }
+        rope[i] = { x: (p.x + vx), y: (p.y + vy + 0 * dt2) }
       }
 
       const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
-        const d = toroidalDelta(ax, ay, bx, by, w, h)
+        const d = worldDelta(ax, ay, bx, by)
         const dLen = Math.hypot(d.dx, d.dy)
         if (dLen < 1e-6) return { cx: 0, cy: 0 }
         const diff = (dLen - target) / dLen
@@ -131,21 +120,21 @@ export function updateHarpoon(args: {
         // ship -> first
         if (rope.length > 0) {
           const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
-          rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+          rope[0] = { x: (rope[0].x - c.cx), y: (rope[0].y - c.cy) }
         }
         // internal
         for (let i = 0; i < rope.length - 1; i++) {
           const p0 = rope[i]
           const p1 = rope[i + 1]
           const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
-          rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
-          rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+          rope[i] = { x: (p0.x + c.cx * 0.5), y: (p0.y + c.cy * 0.5) }
+          rope[i + 1] = { x: (p1.x - c.cx * 0.5), y: (p1.y - c.cy * 0.5) }
         }
         // last -> hook
         if (rope.length > 0) {
           const last = rope[rope.length - 1]
           const c = solvePair(last.x, last.y, hp0.pos.x, hp0.pos.y, segLen)
-          rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+          rope[rope.length - 1] = { x: (last.x + c.cx), y: (last.y + c.cy) }
         }
       }
     }
@@ -167,7 +156,7 @@ export function updateHarpoon(args: {
       // Try to latch onto a rock.
       for (let i = 0; i < rocks.length; i++) {
         const a = rocks[i]
-        const { dx, dy } = toroidalDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y, w, h)
+        const { dx, dy } = worldDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y)
         const dist = Math.hypot(dx, dy)
         if (dist < a.radius) {
           // Start at full reach; attached updates gently take up the extra cable.
@@ -177,13 +166,13 @@ export function updateHarpoon(args: {
           const segments = Math.max(18, Math.min(60, Math.ceil(ropeLen / 22)))
           const segLen = ropeLen / segments
           const ship0 = shipRef.current
-          const d2 = toroidalDelta(ship0.pos.x, ship0.pos.y, a.pos.x, a.pos.y, w, h)
+          const d2 = worldDelta(ship0.pos.x, ship0.pos.y, a.pos.x, a.pos.y)
           const rope: Vector2[] = []
           const ropePrev: Vector2[] = []
           for (let k = 1; k < segments; k++) {
             const t = k / segments
-            const px = wrapX(ship0.pos.x + d2.dx * t)
-            const py = wrapY(ship0.pos.y + d2.dy * t)
+            const px = (ship0.pos.x + d2.dx * t)
+            const py = (ship0.pos.y + d2.dy * t)
             rope.push({ x: px, y: py })
             ropePrev.push({ x: px, y: py })
           }
@@ -217,16 +206,16 @@ export function updateHarpoon(args: {
     }
   } else if (hp0.state === 'deployed') {
     // Hook is left out in space until the player reels it in.
-    hp0.pos.x = wrapX(hp0.pos.x + hp0.vel.x * dt)
-    hp0.pos.y = wrapY(hp0.pos.y + hp0.vel.y * dt)
+    hp0.pos.x = (hp0.pos.x + hp0.vel.x * dt)
+    hp0.pos.y = (hp0.pos.y + hp0.vel.y * dt)
 
     // Mild damping for stability (feels like a small object with some drag).
-    hp0.vel.x *= 0.996
-    hp0.vel.y *= 0.996
+    hp0.vel.x *= Math.pow(0.996, dt * 60)
+    hp0.vel.y *= Math.pow(0.996, dt * 60)
 
     // Enforce the cable max length (tension-only) with hook mass.
     {
-      const sh = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+      const sh = worldDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y)
       const shDist = Math.hypot(sh.dx, sh.dy)
       if (shDist > hp0.maxLength && shDist > 1e-6) {
         const nx = sh.dx / shDist
@@ -240,10 +229,10 @@ export function updateHarpoon(args: {
         const maxCorr = 140
         const corr = Math.min(err, maxCorr)
 
-        ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
-        ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
-        hp0.pos.x = wrapX(hp0.pos.x - nx * (corr * (invHook / invSum)))
-        hp0.pos.y = wrapY(hp0.pos.y - ny * (corr * (invHook / invSum)))
+        ship.pos.x = (ship.pos.x + nx * (corr * (invShip / invSum)))
+        ship.pos.y = (ship.pos.y + ny * (corr * (invShip / invSum)))
+        hp0.pos.x = (hp0.pos.x - nx * (corr * (invHook / invSum)))
+        hp0.pos.y = (hp0.pos.y - ny * (corr * (invHook / invSum)))
 
         const relVx = hp0.vel.x - ship.vel.x
         const relVy = hp0.vel.y - ship.vel.y
@@ -261,19 +250,19 @@ export function updateHarpoon(args: {
     // If it touches a rock later, it should still latch.
     for (let i = 0; i < rocks.length; i++) {
       const a = rocks[i]
-      const { dx, dy } = toroidalDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y, w, h)
+      const { dx, dy } = worldDelta(hp0.pos.x, hp0.pos.y, a.pos.x, a.pos.y)
       const dist = Math.hypot(dx, dy)
       if (dist < a.radius) {
         const ropeLen = hp0.maxLength
         const segments = Math.max(18, Math.min(60, Math.ceil(ropeLen / 22)))
         const segLen = ropeLen / segments
-        const d2 = toroidalDelta(ship.pos.x, ship.pos.y, a.pos.x, a.pos.y, w, h)
+        const d2 = worldDelta(ship.pos.x, ship.pos.y, a.pos.x, a.pos.y)
         const rope: Vector2[] = []
         const ropePrev: Vector2[] = []
         for (let k = 1; k < segments; k++) {
           const t = k / segments
-          const px = wrapX(ship.pos.x + d2.dx * t)
-          const py = wrapY(ship.pos.y + d2.dy * t)
+          const px = (ship.pos.x + d2.dx * t)
+          const py = (ship.pos.y + d2.dy * t)
           rope.push({ x: px, y: py })
           ropePrev.push({ x: px, y: py })
         }
@@ -304,11 +293,11 @@ export function updateHarpoon(args: {
         const vx = (p.x - pp.x) * damp
         const vy = (p.y - pp.y) * damp
         ropePrev[i] = { x: p.x, y: p.y }
-        rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy + 0 * dt2) }
+        rope[i] = { x: (p.x + vx), y: (p.y + vy + 0 * dt2) }
       }
 
       const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
-        const d = toroidalDelta(ax, ay, bx, by, w, h)
+        const d = worldDelta(ax, ay, bx, by)
         const dLen = Math.hypot(d.dx, d.dy)
         if (dLen < 1e-6) return { cx: 0, cy: 0 }
         const diff = (dLen - target) / dLen
@@ -319,19 +308,19 @@ export function updateHarpoon(args: {
       for (let it = 0; it < iterations; it++) {
         if (rope.length > 0) {
           const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
-          rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+          rope[0] = { x: (rope[0].x - c.cx), y: (rope[0].y - c.cy) }
         }
         for (let i = 0; i < rope.length - 1; i++) {
           const p0 = rope[i]
           const p1 = rope[i + 1]
           const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
-          rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
-          rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+          rope[i] = { x: (p0.x + c.cx * 0.5), y: (p0.y + c.cy * 0.5) }
+          rope[i + 1] = { x: (p1.x - c.cx * 0.5), y: (p1.y - c.cy * 0.5) }
         }
         if (rope.length > 0) {
           const last = rope[rope.length - 1]
           const c = solvePair(last.x, last.y, hp0.pos.x, hp0.pos.y, segLen)
-          rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+          rope[rope.length - 1] = { x: (last.x + c.cx), y: (last.y + c.cy) }
         }
       }
     }
@@ -356,7 +345,7 @@ export function updateHarpoon(args: {
         hp0.ropeLength = Math.max(HARPOON_CABLE_LENGTH, hp0.ropeLength - HARPOON_TOW_REEL_SPEED * dt)
         hp0.segLen = hp0.ropeLength / (hp0.rope.length + 1)
       }
-      const { dx, dy } = toroidalDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y, w, h)
+      const { dx, dy } = worldDelta(ship.pos.x, ship.pos.y, rock.pos.x, rock.pos.y)
       const dist = Math.hypot(dx, dy)
       const L = hp0.ropeLength
 
@@ -368,8 +357,8 @@ export function updateHarpoon(args: {
 
         // Mass: larger rock = heavier. Ship is always light.
         const invShip = 1
-        const mRock = rock.mass ?? Math.max(1, (rock.radius / 18) * (rock.radius / 18))
-        const invRock = rock.anchored ? 0 : 1 / mRock
+        const mRock = playerTetherMass(rock)
+        const invRock = isImmovable(rock) ? 0 : 1 / mRock
         const invSum = invShip + invRock
 
         // Position correction to remove stretch.
@@ -377,10 +366,10 @@ export function updateHarpoon(args: {
         const maxCorr = 140
         const corr = Math.min(err, maxCorr)
 
-        ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
-        ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
-        rock.pos.x = wrapX(rock.pos.x - nx * (corr * (invRock / invSum)))
-        rock.pos.y = wrapY(rock.pos.y - ny * (corr * (invRock / invSum)))
+        ship.pos.x = (ship.pos.x + nx * (corr * (invShip / invSum)))
+        ship.pos.y = (ship.pos.y + ny * (corr * (invShip / invSum)))
+        rock.pos.x = (rock.pos.x - nx * (corr * (invRock / invSum)))
+        rock.pos.y = (rock.pos.y - ny * (corr * (invRock / invSum)))
 
         // Velocity correction: only remove separating motion (keeps it from "rubber banding").
         const relVx = rock.vel.x - ship.vel.x
@@ -409,11 +398,11 @@ export function updateHarpoon(args: {
         const vx = (p.x - pp.x) * damp
         const vy = (p.y - pp.y) * damp
         ropePrev[i] = { x: p.x, y: p.y }
-        rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy) }
+        rope[i] = { x: (p.x + vx), y: (p.y + vy) }
       }
 
       const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
-        const d = toroidalDelta(ax, ay, bx, by, w, h)
+        const d = worldDelta(ax, ay, bx, by)
         const dLen = Math.hypot(d.dx, d.dy)
         if (dLen < 1e-6) return { cx: 0, cy: 0 }
         const diff = (dLen - target) / dLen
@@ -426,7 +415,7 @@ export function updateHarpoon(args: {
         // Segment: ship -> first
         if (rope.length > 0) {
           const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
-          rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+          rope[0] = { x: (rope[0].x - c.cx), y: (rope[0].y - c.cy) }
         }
 
         // Internal segments
@@ -434,15 +423,15 @@ export function updateHarpoon(args: {
           const p0 = rope[i]
           const p1 = rope[i + 1]
           const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
-          rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
-          rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+          rope[i] = { x: (p0.x + c.cx * 0.5), y: (p0.y + c.cy * 0.5) }
+          rope[i + 1] = { x: (p1.x - c.cx * 0.5), y: (p1.y - c.cy * 0.5) }
         }
 
         // Segment: last -> rock
         if (rope.length > 0) {
           const last = rope[rope.length - 1]
           const c = solvePair(last.x, last.y, rock.pos.x, rock.pos.y, segLen)
-          rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+          rope[rope.length - 1] = { x: (last.x + c.cx), y: (last.y + c.cy) }
         }
       }
     }
@@ -453,7 +442,7 @@ export function updateHarpoon(args: {
 
     const targetSegLen = hp0.ropeLength / Math.max(1, hp0.rope.length + 1)
 
-    const d = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+    const d = worldDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y)
     const dist = Math.hypot(d.dx, d.dy)
     if (dist > 1e-6 && dist > hp0.reelLength) {
       const nx = d.dx / dist
@@ -468,16 +457,16 @@ export function updateHarpoon(args: {
       const maxCorr = 220
       const corr = Math.min(err, maxCorr)
 
-      ship.pos.x = wrapX(ship.pos.x + nx * (corr * (invShip / invSum)))
-      ship.pos.y = wrapY(ship.pos.y + ny * (corr * (invShip / invSum)))
-      hp0.pos.x = wrapX(hp0.pos.x - nx * (corr * (invHook / invSum)))
-      hp0.pos.y = wrapY(hp0.pos.y - ny * (corr * (invHook / invSum)))
+      ship.pos.x = (ship.pos.x + nx * (corr * (invShip / invSum)))
+      ship.pos.y = (ship.pos.y + ny * (corr * (invShip / invSum)))
+      hp0.pos.x = (hp0.pos.x - nx * (corr * (invHook / invSum)))
+      hp0.pos.y = (hp0.pos.y - ny * (corr * (invHook / invSum)))
 
       // Reeling state doesn't store velocity; position solve is sufficient and avoids "hook flies into ship" snaps.
     }
 
     // Finished: once the cable is fully in, drop to idle.
-    const d2 = toroidalDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y, w, h)
+    const d2 = worldDelta(ship.pos.x, ship.pos.y, hp0.pos.x, hp0.pos.y)
     const dist2 = Math.hypot(d2.dx, d2.dy)
     if (hp0.reelLength <= HARPOON_REEL_MIN_LEN + 0.5 && dist2 <= HARPOON_REEL_MIN_LEN + 6) {
       harpoonRef.current = { state: 'idle' }
@@ -497,11 +486,11 @@ export function updateHarpoon(args: {
         const vx = (p.x - pp.x) * damp
         const vy = (p.y - pp.y) * damp
         ropePrev[i] = { x: p.x, y: p.y }
-        rope[i] = { x: wrapX(p.x + vx), y: wrapY(p.y + vy + 0 * dt2) }
+        rope[i] = { x: (p.x + vx), y: (p.y + vy + 0 * dt2) }
       }
 
       const solvePair = (ax: number, ay: number, bx: number, by: number, target: number) => {
-        const dd = toroidalDelta(ax, ay, bx, by, w, h)
+        const dd = worldDelta(ax, ay, bx, by)
         const dLen = Math.hypot(dd.dx, dd.dy)
         if (dLen < 1e-6) return { cx: 0, cy: 0 }
         const diff = (dLen - target) / dLen
@@ -512,21 +501,22 @@ export function updateHarpoon(args: {
       for (let it = 0; it < iterations; it++) {
         if (rope.length > 0) {
           const c = solvePair(ship.pos.x, ship.pos.y, rope[0].x, rope[0].y, segLen)
-          rope[0] = { x: wrapX(rope[0].x - c.cx), y: wrapY(rope[0].y - c.cy) }
+          rope[0] = { x: (rope[0].x - c.cx), y: (rope[0].y - c.cy) }
         }
         for (let i = 0; i < rope.length - 1; i++) {
           const p0 = rope[i]
           const p1 = rope[i + 1]
           const c = solvePair(p0.x, p0.y, p1.x, p1.y, segLen)
-          rope[i] = { x: wrapX(p0.x + c.cx * 0.5), y: wrapY(p0.y + c.cy * 0.5) }
-          rope[i + 1] = { x: wrapX(p1.x - c.cx * 0.5), y: wrapY(p1.y - c.cy * 0.5) }
+          rope[i] = { x: (p0.x + c.cx * 0.5), y: (p0.y + c.cy * 0.5) }
+          rope[i + 1] = { x: (p1.x - c.cx * 0.5), y: (p1.y - c.cy * 0.5) }
         }
         if (rope.length > 0) {
           const last = rope[rope.length - 1]
           const c = solvePair(last.x, last.y, hp0.pos.x, hp0.pos.y, segLen)
-          rope[rope.length - 1] = { x: wrapX(last.x + c.cx), y: wrapY(last.y + c.cy) }
+          rope[rope.length - 1] = { x: (last.x + c.cx), y: (last.y + c.cy) }
         }
       }
     }
   }
 }
+import { playerTetherMass, isImmovable } from './bodyDefinitions.ts'

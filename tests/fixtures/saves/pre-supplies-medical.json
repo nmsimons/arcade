@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "finaleVersion": 2,
+  "campaign": {
+    "version": 1,
+    "berth": "freight",
+    "haven": {
+      "x": 8010,
+      "y": 1350
+    },
+    "havenAngle": 0,
+    "grappleLearned": false,
+    "terminalLinked": false,
+    "berths": [
+      "freight"
+    ],
+    "records": [
+      "contract"
+    ],
+    "playedSeconds": 0,
+    "deaths": 0
+  },
+  "upgrades": [],
+  "upgradeLevels": {},
+  "gates": [
+    "refuge-air"
+  ],
+  "power": {
+    "refuge-power": "refuge-power"
+  },
+  "doors": {},
+  "caches": [],
+  "visited": [
+    "freight"
+  ],
+  "surveyed": [],
+  "checkpoint": "haven",
+  "credits": 0,
+  "banked": 1300,
+  "core": false,
+  "complete": false,
+  "position": {
+    "x": 8010,
+    "y": 1350
+  },
+  "shields": 2
+}

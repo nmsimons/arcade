@@ -1,0 +1,127 @@
+import { test, expect } from '@playwright/test'
+import { freshExpedition } from '../../src/games/hardVacuum/expedition.ts'
+import { RECORDS } from '../../src/games/hardVacuum/campaign.ts'
+import { setup, hold, tap, saved, armed } from './helpers/controller.mjs'
+
+test('pointer and controller share one unmistakable selection; cancel restores the initiating button',async({page},testInfo)=>{
+  await setup(page)
+  await page.getByRole('button',{name:'Controls',exact:true}).click()
+  await page.clock.runFor(64)
+  const controls=page.getByRole('button',{name:'Controls',exact:true})
+  await expect(controls).toBeFocused()
+  await expect(controls).toHaveCSS('background-color','rgb(140, 234, 192)')
+  await expect(controls).toHaveCSS('outline-style','solid')
+  await tap(page,13)
+  const launch=page.getByRole('button',{name:'Continue expedition',exact:true})
+  await expect(launch).toBeFocused()
+  await expect(launch).toHaveCSS('background-color','rgb(140, 234, 192)')
+  await expect(page.locator('.game-dialog button:focus')).toHaveCount(1)
+  await tap(page,13);await tap(page,13);await tap(page,0)
+  await expect(page.getByRole('button',{name:'Cancel · Esc',exact:true})).toBeFocused()
+  await tap(page,1)
+  await expect(page.getByRole('button',{name:'Start a new expedition…',exact:true})).toBeFocused()
+  await tap(page,0);await tap(page,15)
+  await expect(page.getByRole('button',{name:'Start fresh',exact:true})).toBeFocused()
+  await tap(page,1);await tap(page,0)
+  await expect(page.getByRole('button',{name:'Cancel · Esc',exact:true})).toBeFocused()
+  await tap(page,1)
+  await page.screenshot({path:testInfo.outputPath('controller-selection.png')})
+})
+
+test('disabled upgrades are skipped, completing a purchase selects a valid action and held A cannot undock',async({page},testInfo)=>{
+  const state=freshExpedition();state.banked=750
+  await setup(page,state);await tap(page,0);await tap(page,3);await page.clock.runFor(800)
+  await expect(page.getByRole('button',{name:/Reinforced hull I,/})).toBeDisabled()
+  await tap(page,12)
+  await expect(page.getByRole('button',{name:/Laser focus I,/})).toBeFocused()
+  await page.screenshot({path:testInfo.outputPath('controller-upgrade.png')})
+  await hold(page,0,1,600)
+  await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Undock · Esc',exact:true})).toBeFocused()
+  expect((await saved(page)).banked).toBe(0)
+  await hold(page,0,0);await tap(page,12)
+  await expect(page.getByRole('button',{name:'Service berths',exact:true})).toBeFocused()
+  await tap(page,15)
+  await expect(page.getByRole('button',{name:'Undock · Esc',exact:true})).toBeFocused()
+})
+
+test('controller purchases all five blaster stages and leaves a maxed eight-shot magazine',async({page},testInfo)=>{
+  const state=freshExpedition();state.banked=100000;state.impactShieldInstalled=true;state.shields=2;state.blasterInstalled=true;state.blasterCharges=3
+  await setup(page,state);await tap(page,0);await tap(page,3);await page.clock.runFor(800)
+  await tap(page,12)
+  let spent=0
+  for(const [index,cost] of [750,1500,3000,6000,10000].entries()) {
+    const magazine=page.getByRole('button',{name:/Blaster magazine/})
+    await expect(magazine).toBeFocused()
+    await expect(magazine).toContainText(`${index+3} shots → ${index+4} shots`)
+    await tap(page,0);spent+=cost
+    const state=await saved(page)
+    expect(state.upgradeLevels.magazine).toBe(index+1)
+    expect(state.blasterCharges).toBe(index+4)
+    expect(state.banked).toBe(100000-spent)
+  }
+  const magazine=page.getByRole('button',{name:/Blaster magazine V,/})
+  await expect(magazine).toBeDisabled()
+  await expect(magazine).toContainText('8 shots · All 5 stages installed.')
+  await expect(magazine).toContainText('MAXED')
+  await expect(page.getByRole('button',{name:'Undock · Esc',exact:true})).toBeFocused()
+  await page.screenshot({path:testInfo.outputPath('blaster-magazine-maxed.png')})
+  await tap(page,1);await page.clock.runFor(800)
+  await expect(page.getByRole('button',{name:'Fire blaster, 8 of 8 charges',exact:true})).toBeVisible()
+  await expect(page.locator('.hud-instrument').filter({hasText:'Blaster'}).locator('.hud-meter-segment')).toHaveCount(8)
+})
+
+test('recorder selection is explicit and Back restores the Log selection in the pause menu',async({page})=>{
+  const state=armed();state.campaign.records=RECORDS.map(record=>record.id)
+  await setup(page,state);await tap(page,0);await tap(page,9);await tap(page,13);await tap(page,0)
+  await expect(page.getByRole('dialog',{name:'Flight recorder',exact:true})).toBeVisible()
+  await tap(page,12)
+  const title=await page.locator('.game-dialog button:focus').textContent()
+  await tap(page,0)
+  await expect(page.getByRole('button',{name:title,exact:true})).toHaveAttribute('aria-pressed','true')
+  await tap(page,1)
+  await expect(page.getByRole('button',{name:'Flight recorder',exact:true})).toBeFocused()
+})
+
+test('map A activates the selected button, D-pad navigates even at 2x, and stick pans without moving selection',async({page})=>{
+  await setup(page,armed());await tap(page,0);await tap(page,8)
+  await expect(page.getByRole('button',{name:'Station overview · O',exact:true})).toBeFocused()
+  await tap(page,0)
+  await expect(page.getByRole('button',{name:'Local survey · O',exact:true})).toBeFocused()
+  await tap(page,15);await tap(page,0)
+  await expect(page.getByRole('button',{name:'Zoom · Fit',exact:true})).toBeFocused()
+  await page.evaluate(()=>{window.testPad.axes[0]=1});await page.clock.runFor(250)
+  await expect(page.getByRole('button',{name:'Zoom · Fit',exact:true})).toBeFocused()
+  await page.evaluate(()=>{window.testPad.axes[0]=0});await tap(page,15)
+  await expect(page.getByRole('button',{name:'Close · M / Esc',exact:true})).toBeFocused()
+  await tap(page,0)
+  await expect(page.getByRole('dialog',{name:'Station survey',exact:true})).toHaveCount(0)
+})
+
+test('right stick scrolls long controls and selecting an offscreen action brings its highlight into view',async({page},testInfo)=>{
+  await page.setViewportSize({width:620,height:400})
+  await setup(page)
+  await page.getByRole('button',{name:'Controls',exact:true}).click();await page.clock.runFor(64)
+  const dialog=page.getByRole('dialog',{name:'Hard Vacuum',exact:true})
+  const before=await dialog.evaluate(element=>element.scrollTop)
+  await page.evaluate(()=>{window.testPad.axes[3]=1});await page.clock.runFor(650)
+  expect(await dialog.evaluate(element=>element.scrollTop)).toBeGreaterThan(before)
+  await page.evaluate(()=>{window.testPad.axes[3]=0});await tap(page,13)
+  const launch=page.getByRole('button',{name:'Continue expedition',exact:true})
+  await expect(launch).toBeFocused();await expect(launch).toBeInViewport()
+  await page.screenshot({path:testInfo.outputPath('controller-small-screen.png')})
+})
+
+test('controller operates the arcade selector and a held launch button cannot start a second screen',async({page})=>{
+  await setup(page,freshExpedition(),'standard','/')
+  await tap(page,13)
+  await expect(page.getByRole('button',{name:'Bumper Ball',exact:true})).toBeFocused()
+  await tap(page,12);await hold(page,0,1,700)
+  await expect(page.getByRole('button',{name:'Continue expedition',exact:true})).toBeFocused()
+  await hold(page,0,0);await tap(page,9)
+  await expect(page.getByRole('dialog',{name:'Hard Vacuum',exact:true})).toBeVisible()
+  await tap(page,1)
+  await expect(page.getByRole('button',{name:'Hard Vacuum',exact:true})).toBeFocused()
+  await tap(page,13);await tap(page,12);await tap(page,0)
+  await expect(page.getByRole('button',{name:'Continue expedition',exact:true})).toBeFocused()
+})

@@ -7,6 +7,7 @@ import { isInsideCavern, pointInPolygon } from './worldGeometry.ts'
 import type { Rock, RockKind, Vector2 } from './types'
 import { RADIATION_SOURCES } from './radiation.ts'
 import { BOT_STATIONS } from './stationBots.ts'
+import { ENCOUNTER_RULES, TRANSFER_RULES } from './stationExceptions.ts'
 
 export const DEBRIS_PROFILES = {
   breach: { count: 6, blue: 0, speed: 28, spread: 12 },
@@ -26,7 +27,7 @@ export const FRAGMENT_PROFILES = {
 } as const
 export function fragmentProfileAt(pos: Vector2) {
   const room = SECTORS.find(r=>pos.x>=r.x && pos.x<=r.x+r.w && pos.y>=r.y && pos.y<=r.y+r.h)
-  if (!room && CAMPAIGN_PASSAGES.some(p=>p.gate==='breach-return'&&pointInPolygon(pos,p.shape))) return FRAGMENT_PROFILES.heart
+  if (!room && CAMPAIGN_PASSAGES.some(p=>p.gate===TRANSFER_RULES.finalReturnGate&&pointInPolygon(pos,p.shape))) return FRAGMENT_PROFILES.heart
   const region=REGIONS.find(r=>r.rooms.some(id=>id===room?.id)) ?? [...REGIONS].sort((a,b)=>
     Math.hypot(pos.x-a.bounds[0]-a.bounds[2]/2,pos.y-a.bounds[1]-a.bounds[3]/2)-Math.hypot(pos.x-b.bounds[0]-b.bounds[2]/2,pos.y-b.bounds[1]-b.bounds[3]/2))[0]
   return FRAGMENT_PROFILES[region.id]
@@ -46,7 +47,7 @@ export function debrisField(state: Expedition) {
   const protectedPoints = [state.position, base, IGNITION_CRADLE, ...BERTHS.map(b => b.pos), ...PICKUPS.map(p => p.pos), ...SOCKETS.flatMap(s => [s.pos, s.source]), ...RADIATION_SOURCES.map(s => s.pos),...BOT_STATIONS.map(b=>b.home)]
   for (const room of SECTORS) {
     const profile = debrisProfile(room.id)
-    const count = room.id === 'haven' ? 5 : ['refuge','infirmary'].includes(room.id) ? 4 : profile.count
+    const count = ENCOUNTER_RULES.roomCounts[room.id] ?? profile.count
     let added = 0
     for (let attempt = 0; attempt < 350 && added < count; attempt++) {
       const radius = 17 + random() * 18
@@ -61,7 +62,7 @@ export function debrisField(state: Expedition) {
   // Slow drifting debris in the transfer tubes makes navigation matter between
   // rooms, without filling the opening cavern with extra threats.
   for (const [i,passage] of PASSAGES.entries()) {
-    if (i % 3 !== 0 || passage.rooms.includes('breach')) continue
+    if (i % 3 !== 0 || passage.rooms.includes(ENCOUNTER_RULES.safeTransitRoom)) continue
     const pos = passage.shape.reduce((p,q) => ({ x:p.x+q.x/passage.shape.length,y:p.y+q.y/passage.shape.length }),{x:0,y:0})
     const radius = 16 + random()*8, angle = random()*Math.PI*2
     if (!isInsideCavern(pos,radius+25,map) || protectedPoints.some(p => Math.hypot(p.x-pos.x,p.y-pos.y)<180) || field.some(r => Math.hypot(r.pos.x-pos.x,r.pos.y-pos.y)<r.radius+radius+30)) continue
@@ -71,14 +72,15 @@ export function debrisField(state: Expedition) {
   // The commissioning tube is the last towing challenge. Small moving rocks
   // leave maneuvering room, with blue hazards and red pockets inside white rock.
   let finalRocks=0
-  for (const passage of CAMPAIGN_PASSAGES.filter(p=>p.gate==='breach-return')) {
+  for (const passage of CAMPAIGN_PASSAGES.filter(p=>p.gate===TRANSFER_RULES.finalReturnGate)) {
     const [a,b]=passage.centerline,dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),count=Math.ceil(length/240)
     let added=0
     for(let attempt=0;attempt<count*18 && added<count;attempt++) {
       const t=.12+random()*.76,offset=(random()-.5)*48
       const pos={x:a.x+dx*t-dy/length*offset,y:a.y+dy*t+dx/length*offset}
       const kind:RockKind=finalRocks%3===1 ? 'blue' : 'normal',radius=kind==='normal' ? 24 : 19
-      if (!isInsideCavern(pos,radius+12,map)||Math.hypot(pos.x-8180,pos.y-4015)<150||RADIATION_SOURCES.some(s=>Math.hypot(s.pos.x-pos.x,s.pos.y-pos.y)<radius+s.bodyRadius+15)||field.some(r=>Math.hypot(r.pos.x-pos.x,r.pos.y-pos.y)<r.radius+radius+60)) continue
+      const clearance=ENCOUNTER_RULES.finalDoorClearance
+      if (!isInsideCavern(pos,radius+12,map)||Math.hypot(pos.x-clearance.x,pos.y-clearance.y)<clearance.radius||RADIATION_SOURCES.some(s=>Math.hypot(s.pos.x-pos.x,s.pos.y-pos.y)<radius+s.bodyRadius+15)||field.some(r=>Math.hypot(r.pos.x-pos.x,r.pos.y-pos.y)<r.radius+radius+60)) continue
       const angle=random()*Math.PI*2,speed=35+random()*22
       field.push({pos,radius,kind,vel:{x:Math.cos(angle)*speed,y:Math.sin(angle)*speed}})
       added++;finalRocks++

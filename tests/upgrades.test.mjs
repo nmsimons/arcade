@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { bankAtCheckpoint, crashExpedition, freshExpedition, maxShields, parseExpedition, purchaseUpgrade } from '../src/games/hardVacuum/expedition.ts'
-import { SHOP, SHIP_UPGRADES, UPGRADE_COSTS, laserCapacityMs, tetherReachMultiplier, upgradeLevel, upgradeOffer } from '../src/games/hardVacuum/upgrades.ts'
+import { SHOP, SHIP_UPGRADES, UPGRADE_COSTS, blasterCapacity, laserCapacityMs, tetherReachMultiplier, upgradeLevel, upgradeOffer } from '../src/games/hardVacuum/upgrades.ts'
 import { laserImpactMs } from '../src/games/hardVacuum/laser.ts'
 
 test('each shop track advances one stage at a time, charges its displayed price, and stops at maximum', () => {
-  assert.deepEqual(SHOP.map(item => item.id), ['hull', 'capacitor', 'winch', 'focus', 'radiationReserve'])
+  assert.deepEqual(SHOP.map(item => item.id), ['hull', 'capacitor', 'winch', 'focus', 'magazine'])
   for (const track of SHOP) {
-    const state = freshExpedition(); state.banked = 100000;state.upgrades=['radiation']
+    const state = freshExpedition(); state.banked = 100000;state.upgrades=['radiation'];state.impactShieldInstalled=true;state.blasterInstalled=true
     for (let stage = 1; stage < track.values.length; stage++) {
       const offer = upgradeOffer(state, track.id), balance = state.banked
       assert.equal(offer.stage, stage); assert.equal(offer.level, stage - 1)
@@ -38,11 +38,11 @@ test('unaffordable stages cannot spend carried credits or advance a track', () =
   }
 })
 
-test('every stage changes actual shield, firing duration, cable reach, and laser contact values', () => {
-  const state = freshExpedition(); state.banked = 200000;state.upgrades=['radiation']
-  const values = () => [maxShields(state), laserCapacityMs(state), tetherReachMultiplier(state), laserImpactMs(state)]
-  assert.deepEqual(values(), [2, 500, 1, 400])
-  const expected = [[3, 750, 2, 300], [4, 1000, 2, 250], [5, 1250, 2, 200], [6, 1500, 2, 150], [8, 2000, 2, 100]]
+test('every stage changes actual shield, firing duration, cable reach, laser contact, and magazine values', () => {
+  const state = freshExpedition(); state.banked = 200000;state.upgrades=['radiation'];state.impactShieldInstalled=true;state.blasterInstalled=true
+  const values = () => [maxShields(state), laserCapacityMs(state), tetherReachMultiplier(state), laserImpactMs(state), blasterCapacity(state)]
+  assert.deepEqual(values(), [2, 500, 1, 400, 3])
+  const expected = [[3, 750, 2, 300, 4], [4, 1000, 2, 250, 5], [5, 1250, 2, 200, 6], [6, 1500, 2, 150, 7], [8, 2000, 2, 100, 8]]
   for (const stage of expected) {
     for (const track of SHOP) if (!upgradeOffer(state, track.id).maxed) assert.ok(purchaseUpgrade(state, track.id))
     assert.deepEqual(values(), stage)
@@ -55,7 +55,7 @@ test('every stage changes actual shield, firing duration, cable reach, and laser
 })
 
 test('legacy purchases keep their original benefits and offer the appropriate next stage', () => {
-  const legacy = { ...freshExpedition(), upgrades: ['hull', 'capacitor', 'winch', 'focus'], shields: 4 }
+  const legacy = { ...freshExpedition(), upgrades: ['hull', 'capacitor', 'winch', 'focus'], shields: 4 };legacy.version=1;
   delete legacy.upgradeLevels
   const state = parseExpedition(JSON.stringify(legacy))
   assert.deepEqual([maxShields(state), laserCapacityMs(state), tetherReachMultiplier(state), laserImpactMs(state)], [4, 1000, 2, 250])
@@ -72,7 +72,7 @@ test('legacy purchases keep their original benefits and offer the appropriate ne
 
 test('the single winch purchase doubles reach and replaces every previously purchased tether stage', () => {
   for (let level = 0; level <= 5; level++) {
-    const old = freshExpedition()
+    const old = freshExpedition();old.version=1;
     old.upgradeLevels.winch = level
     if (level) old.upgrades.push('winch')
     const state = parseExpedition(JSON.stringify(old))
@@ -91,12 +91,10 @@ test('the single winch purchase doubles reach and replaces every previously purc
   }
 })
 
-test('ship upgrades include one permanent blaster and retain previously installed weapons', () => {
-  assert.deepEqual(SHIP_UPGRADES, ['blaster', 'hull', 'capacitor', 'winch', 'focus', 'radiationReserve'])
+test('the shop only upgrades existing systems and never sells equipment', () => {
+  assert.deepEqual(SHIP_UPGRADES, ['hull', 'capacitor', 'winch', 'focus', 'magazine'])
   const state = freshExpedition(); state.banked = 10000
-  assert.equal(upgradeOffer(state, 'blaster').maxed, false)
-  assert.ok(purchaseUpgrade(state, 'blaster'))
-  const restored = parseExpedition(JSON.stringify(state)), offer = upgradeOffer(restored, 'blaster')
-  assert.equal(offer.name, 'Blaster'); assert.equal(offer.maxLevel, 1); assert.ok(offer.maxed)
-  assert.equal(purchaseUpgrade(restored, 'blaster'), false)
+  const before=structuredClone(state)
+  for(const id of ['blaster','magazine','teleporter','radiation','recharge']) assert.equal(purchaseUpgrade(state,id),false)
+  assert.deepEqual(state,before)
 })

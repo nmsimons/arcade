@@ -2,7 +2,7 @@ import { normalize3, rotX, rotY, rotZ } from './math.ts'
 import type { V3, Vector2 } from './types'
 import { RECEIVER_HALF_GAP, RECEIVER_HALF_HEIGHT, RECEIVER_PLATE_WIDTH } from './receivers.ts'
 
-type Outline = readonly (readonly [number, number])[]
+export type Outline = readonly (readonly [number, number])[]
 export interface Part {
   verts: V3[]
   faces: number[][]
@@ -20,6 +20,22 @@ const BLUE = '#6bcaff'
 const AMBER = '#ffc77e'
 const VIOLET = '#c1adff'
 const TAU = Math.PI * 2
+
+/** Sculpted hull plating shared by the pilot ship and station craft. */
+export function bevel(lower: Outline, upper: Outline, color: string, bottom = 3, top = -3, glow = false): Part {
+  const n = lower.length
+  return {
+    verts: [...lower.map(([x, y]): V3 => [x, y, bottom]), ...upper.map(([x, y]): V3 => [x, y, top])],
+    faces: [Array.from({ length: n }, (_, i) => i), Array.from({ length: n }, (_, i) => 2 * n - i - 1),
+      ...lower.map((_, i) => [i, n + i, n + (i + 1) % n, (i + 1) % n])],
+    color, at: [0, 0, 0], glow,
+    // Crisp silhouette, quiet inset rim: shading describes the bevel instead
+    // of outlining every small corner and glass facet.
+    edges: lower.flatMap((_, i): [number, number, number][] => [
+      [i, (i + 1) % n, 1], [n + i, n + (i + 1) % n, glow ? 0 : .25],
+    ]),
+  }
+}
 
 export function prism(outline: Outline, depth: number, color: string, at: V3 = [0, 0, 0], glow = false): Part {
   const n = outline.length
@@ -155,11 +171,25 @@ const RADIATION: Part[] = [
   prism([[0, -32], [27, -16], [21, 15], [0, 33], [-21, 15], [-27, -16]], 10, VIOLET),
   prism([[0, -23], [15, -11], [0, 22], [-15, -11]], 5, STEEL, [0, 0, -9]),
 ]
+const IMPACT: Part[] = [
+  prism([[0,-28],[25,-16],[21,12],[0,29],[-21,12],[-25,-16]],14,GREEN),
+  prism([[0,-18],[14,-10],[11,7],[0,18],[-11,7],[-14,-10]],5,STEEL,[0,0,-10]),
+  box(5,20,3,[0,-1,-14],GREEN,true),
+]
 const EMITTER: Part[] = [
   prism([[-24, -18], [-12, -27], [18, -23], [27, -10], [23, 22], [-20, 25], [-28, 9]], 12, STEEL, [0, 0, 8]),
   box(7, 34, 22, [-20, 0, -4], STEEL),
   prism([[-4, -18], [5, -14], [3, 5], [-4, 10]], 18, STEEL, [19, -6, -3]),
   { ...crystal(11, VIOLET, [0, 0, -10]), rotation: [0.3, 0.1, 0], spin: 0.15 },
+]
+const BLASTER: Part[] = [
+  box(22, 30, 16, [0, 4, 0], STEEL),
+  box(10, 30, 10, [0, -14, 0], '#ff8278', true),
+  box(30, 7, 20, [0, 13, 0], '#ff8278'),
+]
+const TELEPORTER: Part[] = [
+  ring(25, 6, 12, BLUE),
+  { ...crystal(10, BLUE), spin: -.4 },
 ]
 const CACHES: Part[][] = [0, 1, 2, 3].map(i => [
   box(35 + i * 3, 28, 26, [0, 0, 0], '#9dd8ca'),
@@ -170,15 +200,15 @@ const CORE: Part[] = [
   { ...crystal(19, '#ffe7ad'), rotation: [0.3, 0.5, 0], spin: -0.45 },
 ]
 
-export type ObjectKind = 'checkpoint' | 'socket' | 'radiation' | 'emitter' | 'cache' | 'core'
-export function drawExpeditionObject(ctx: CanvasRenderingContext2D, kind: ObjectKind, pos: Vector2, options: { active?: boolean; variant?: number; scale?: number; time?: number; latch?: number; medical?: boolean } = {}) {
+export type ObjectKind = 'checkpoint' | 'socket' | 'impact' | 'radiation' | 'blaster' | 'teleporter' | 'emitter' | 'cache' | 'core'
+export function drawExpeditionObject(ctx: CanvasRenderingContext2D, kind: ObjectKind, pos: Vector2, options: { active?: boolean; variant?: number; scale?: number; time?: number; latch?: number; medical?: boolean; laserGlow?: number } = {}) {
   const t = options.time ?? performance.now() / 1000
-  const floating = ['radiation', 'cache', 'core'].includes(kind)
+  const floating = ['impact', 'radiation', 'blaster', 'teleporter', 'cache', 'core'].includes(kind)
   // Seed the gentle tumble from stable object identity, never world position.
   // Using moving coordinates as phase made towed cargo twitch with every pixel.
-  const phase = { checkpoint: 0, socket: 0.5, radiation: 1.5, cache: 2, core: 2.5, emitter: 3 }[kind] + (options.variant ?? 0) * 1.7
+  const phase = { checkpoint: 0, socket: 0.5, impact: .75, radiation: 1.5, blaster: 1, teleporter: 3.5, cache: 2, core: 2.5, emitter: 3 }[kind] + (options.variant ?? 0) * 1.7
   const at = pos
-  const models = { checkpoint: CHECKPOINT, socket: SOCKET, radiation: RADIATION, emitter: EMITTER, cache: CACHES[(options.variant ?? 0) % 4], core: CORE }
+  const models = { checkpoint: CHECKPOINT, socket: SOCKET, impact: IMPACT, radiation: RADIATION, blaster: BLASTER, teleporter: TELEPORTER, emitter: EMITTER, cache: CACHES[(options.variant ?? 0) % 4], core: CORE }
   let parts = models[kind]
   if (kind === 'socket' && options.active) parts = [...SOCKET.map(p => ({ ...p, color: GREEN })), ...CELL.map(p => ({ ...p, verts: p.verts.map(v => v.map(n => n * 0.64) as V3), color: GREEN }))]
   if (kind === 'checkpoint' && options.latch) {
@@ -194,7 +224,7 @@ export function drawExpeditionObject(ctx: CanvasRenderingContext2D, kind: Object
     ]),box(5,4,2,[0,0,-4],'#96d6b5',true),
   ]
   if (kind === 'emitter' && options.active === false) parts = EMITTER.map(p => ({ ...p, color: '#77988a', glow: false, spin: 0 }))
-  drawModel(ctx, at, parts, floating ? [0.32 + Math.sin(t * 0.4 + phase) * 0.22, -0.32 + Math.sin(t * 0.28 + phase) * 0.42, Math.sin(t * 0.3 + phase) * 0.16] : [0.2 + Math.sin(t * 0.7 + phase) * 0.025, -0.16, 0], t, options.scale ?? 1)
+  drawModel(ctx, at, parts, floating ? [0.32 + Math.sin(t * 0.4 + phase) * 0.22, -0.32 + Math.sin(t * 0.28 + phase) * 0.42, Math.sin(t * 0.3 + phase) * 0.16] : [0.2 + Math.sin(t * 0.7 + phase) * 0.025, -0.16, 0], t, options.scale ?? 1, options.laserGlow ?? 0)
 }
 export function drawPowerCell(ctx: CanvasRenderingContext2D, pos: Vector2, rotation: V3, laserGlow = 0) {
   drawModel(ctx, pos, CELL, rotation, 0, 0.64, laserGlow)

@@ -89,8 +89,6 @@ button.hud-instrument { pointer-events: auto; }
 }
 .hud-equipment-button + .hud-equipment-button { border-left: 1px solid #83afa124; }
 .hud-equipment-button:disabled { color: #718b80; }
-.hud-equipment-count { color: #e0efe8; }
-.hud-recharge-progress { position: absolute; height: 2px; bottom: 0; left: 0; background: #69dbab; transition: width .15s linear; }
 .hud-warnings { display: grid; gap: 6px; margin: 0 12px; padding: 7px 0 10px; border-top: 1px solid #83afa124; font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
 .hud-hull-warning { color: #ff927c; }
 .hud-warning-detail { margin-top: 3px; color: #aeb4b0; font-size: 9px; }
@@ -113,5 +111,5 @@ button.hud-instrument { pointer-events: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hud-meter-continuous > span, .hud-recharge-progress { transition: none; }
+  .hud-meter-continuous > span { transition: none; }
 }

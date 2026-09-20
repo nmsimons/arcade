@@ -1,30 +1,32 @@
 import type { BaseShot, Bullet, Debris, Harpoon, PhaserBeam, PhaserParticle, Rock, Ship, Vector2, V3 } from './types'
 import { clamp, cross3, normalize3, rotX, rotY, rotZ } from './math'
 import type { HardVacuumGameState } from './ui'
-import { getCavernMap } from './worldGeometry'
+import { getDemoCavernMap } from './worldGeometry'
 import { havenDeployment, havenPose } from './campaign'
 import { drawHaven } from './havenRender'
 import { drawHavenRecovery } from './havenRecoveryRender'
 import { expeditionMap, maxShields } from './expedition'
 import type { Expedition, ExpeditionRuntime } from './expedition'
-import { drawExpeditionWorld, drawExpeditionMap, drawExpeditionWalls, drawExpeditionDoorFoundations } from './expeditionRender'
+import { drawExpeditionWorld, drawExpeditionMap, drawExpeditionDoorFoundations } from './expeditionRender'
+import { drawTerrainWalls } from './terrainRender'
+import { STATION_TERRAIN } from './stationLayout'
 import { drawPowerCell } from './objectModels'
-import { drawPlayerShip } from './shipRender'
+import { drawPlayerShip, shieldRechargeAppearance } from './shipRender'
 import type { ShipAppearance } from './shipRender'
 import { drawRadiationShield } from './radiationRender'
 import { drawTeleporter } from './teleportRender'
 import type { BlasterVisuals } from './blaster'
 import { drawStationBots } from './stationBotRender'
+import { drawDebris } from './debrisRender'
 import type { BotRuntime } from './stationBots'
 
 type Ref<T> = { current: T }
 
-type ToroidalDelta = (ax: number, ay: number, bx: number, by: number, w: number, h: number) => { dx: number; dy: number }
-
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D
   gameState: HardVacuumGameState
-  level: number
+  nowMs: number
+
   expedition: Expedition
   expeditionRuntime: ExpeditionRuntime
   mapOpen: boolean
@@ -34,9 +36,7 @@ export function drawHardVacuumFrame(args: {
   mapFocus?: Vector2
   canvasSizeRef: Ref<{ width: number; height: number }>
 
-
   miningBaseAngleRef: Ref<number>
-
 
   RED_ROCK_DETONATION_DELAY: number
 
@@ -53,17 +53,15 @@ export function drawHardVacuumFrame(args: {
   shipRef: Ref<Ship>
   shipAppearance: ShipAppearance
 
-
   shields: number
   lastShieldHitAtRef: Ref<number>
   lastShieldRechargeAtRef: Ref<number>
 
-  toroidalDelta: ToroidalDelta
 }) {
   const {
     ctx,
     gameState,
-    level,
+
     expedition,
     expeditionRuntime,
     mapOpen,
@@ -87,7 +85,7 @@ export function drawHardVacuumFrame(args: {
 
   const width = canvasSizeRef.current.width
   const height = canvasSizeRef.current.height
-  const cavernMap = gameState === 'menu' ? getCavernMap(level) : expeditionMap(expedition)
+  const cavernMap = gameState === 'menu' ? getDemoCavernMap(1) : expeditionMap(expedition)
 
   // Clear
   ctx.fillStyle = '#050808'
@@ -129,16 +127,7 @@ export function drawHardVacuumFrame(args: {
     ctx.closePath()
     ctx.fillStyle = '#030706'
     ctx.fill()
-    if (gameState !== 'menu') continue
-    ctx.strokeStyle = 'rgba(70, 112, 96, 0.72)'
-    ctx.lineWidth = 7
-    ctx.stroke()
-    ctx.strokeStyle = 'rgba(180, 220, 200, 0.38)'
-    ctx.lineWidth = 2
-    ctx.stroke()
   }
-
-  if (gameState !== 'menu') drawExpeditionWalls(ctx)
 
   if (gameState !== 'menu') drawExpeditionWorld(ctx, expedition, expeditionRuntime, shipRef.current)
 
@@ -502,21 +491,7 @@ export function drawHardVacuumFrame(args: {
     }
   }
 
-  // Draw debris
-  debrisRef.current.forEach((d) => {
-    const alpha = clamp(d.life / (d.spark ? 400 : 2000),0,1)
-    ctx.save()
-    ctx.strokeStyle = `rgba(${d.color}, ${alpha})`
-    ctx.lineWidth = d.spark ? 1.3 : 2
-    if (d.spark) { ctx.shadowColor=`rgba(${d.color}, ${alpha*.5})`; ctx.shadowBlur=4 }
-    ctx.translate(d.pos.x, d.pos.y)
-    ctx.rotate(d.angle)
-    ctx.beginPath()
-    ctx.moveTo(-d.length / 2, 0)
-    ctx.lineTo(d.length / 2, 0)
-    ctx.stroke()
-    ctx.restore()
-  })
+  drawDebris(ctx, debrisRef.current)
 
   // Draw harpoon + tether in continuous world space.
   const hp = harpoonRef.current
@@ -568,8 +543,8 @@ export function drawHardVacuumFrame(args: {
   if ((!expedition.campaign.journey?.riding || havenDeployment(expedition) > .3) && (gameState !== 'dying' && gameState !== 'gameOver')) {
     drawPlayerShip(ctx,shipRef.current,shipAppearance,{
       time:expeditionRuntime.elapsed,shields,maxShields:maxShields(expedition),
-      hitAge:Date.now()-lastShieldHitAtRef.current,rechargeAge:Date.now()-lastShieldRechargeAtRef.current,
-      recharging:expeditionRuntime.recharging,rechargeProgress:expeditionRuntime.rechargeProgress,
+      hitAge:args.nowMs-lastShieldHitAtRef.current,rechargeAge:args.nowMs-lastShieldRechargeAtRef.current,
+      ...shieldRechargeAppearance(expeditionRuntime),
       laser:phaserBeamRef.current.active,
     })
   }
@@ -577,20 +552,7 @@ export function drawHardVacuumFrame(args: {
   if (gameState === 'playing' && !expedition.campaign.journey?.riding) drawRadiationShield(ctx, shipRef.current, expeditionRuntime.radiation, expeditionRuntime.elapsed)
   ctx.restore() // cavern clip
 
-  // A narrow mineral edge marks the boundary without creating an inner black band.
-  ctx.save()
-  ctx.lineJoin = 'round'
-  traceCavern()
-  ctx.strokeStyle = 'rgba(70, 112, 96, 0.62)'
-  ctx.lineWidth = 7
-  ctx.shadowBlur = 7
-  ctx.shadowColor = 'rgba(0, 255, 136, 0.12)'
-  ctx.stroke()
-  traceCavern()
-  ctx.strokeStyle = 'rgba(180, 220, 200, 0.4)'
-  ctx.lineWidth = 2
-  ctx.stroke()
-  ctx.restore()
+  drawTerrainWalls(ctx, cavernMap.boundary, gameState === 'menu' ? cavernMap.obstacles : STATION_TERRAIN.islands)
   if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition)
   ctx.restore() // camera
 

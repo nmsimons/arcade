@@ -37,11 +37,11 @@ const heading = (ship: Ship) => Math.hypot(ship.vel.x,ship.vel.y)>35 ? direction
 /** A damped, tension-only cable. Motors pull; attached bodies never snap to a point. */
 export function pullBotCable(bot: StationBot, target: TetherBody, dt: number) {
   const d=distance(bot.pos,target.pos),length=bot.maintenance?.cableLength ?? CABLE_REST_LENGTH
-  if (d<=length || target.anchored || target.socketId || target.retrieving) return
+  if (d<=length || isImmovable(target)) return
   const n=direction(bot.pos,target.pos)
   const relative=(target.vel.x-bot.vel.x)*n.x+(target.vel.y-bot.vel.y)*n.y
   const impulse=Math.max(0,Math.min(480,(d-length)*10+relative*9))*dt
-  const mass=target.mass ?? ('angle' in target ? 1 : Math.max(.5,(target.radius/18)**2))
+  const mass=bodyMass(target)
   target.vel.x-=n.x*impulse/mass;target.vel.y-=n.y*impulse/mass
   bot.vel.x+=n.x*impulse/(bot.mass ?? 1.8);bot.vel.y+=n.y*impulse/(bot.mass ?? 1.8)
 }
@@ -156,3 +156,4 @@ export function stepMaintenanceBot(bot: StationBot, args: Context): { destinatio
   }
   return {aim,cues}
 }
+import { bodyMass, isImmovable } from './bodyDefinitions.ts'

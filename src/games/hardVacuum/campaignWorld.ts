@@ -1,3 +1,4 @@
+import type { RoomId, GateId, CircuitId, CacheId, ProgressionId } from './stationIds'
 import type { Vector2 } from './types'
 
 export const STATION_WIDTH = 9600
@@ -42,7 +43,7 @@ export const CAMPAIGN_CHAMBERS = Object.fromEntries(bays.map(([id, , x, y, w, h]
 
 // A bent passage is the union of its swept segments. Gate sections are always
 // exactly 200 wide; they close the actual tunnel, not an invisible room edge.
-const corridor = (rooms: string[], points: number[][], gate?: string) => points.slice(1).map((end, i) => {
+const corridor = (rooms: RoomId[], points: number[][], gate?: GateId) => points.slice(1).map((end, i) => {
   const start = points[i], dx = end[0] - start[0], dy = end[1] - start[1], len = Math.hypot(dx, dy)
   const nx = -dy / len * 100, ny = dx / len * 100
   // A small longitudinal overlap seals angled joins without square props.
@@ -74,7 +75,7 @@ export const CAMPAIGN_PASSAGES = [
   ...corridor(['heart-control','ignition'], [[5320,3650],[5750,3800],[5750,4160]], 'heart-return'),
   ...corridor(['ignition','breach'], CORE_RETURN_ROUTE.map(p=>[p.x,p.y]), 'breach-return'),
 ]
-const gate = (id: string, x: number, y: number, vertical = false, blast = false) => ({ id, kind: blast ? 'blast' : 'socket', label: blast ? 'SEALED BULKHEAD' : 'POWER OFF', x, y, w: vertical ? 30 : 200, h: vertical ? 200 : 30, color: blast ? '#ff665e' : '#65baff' })
+const gate = (id: GateId, x: number, y: number, vertical = false, blast = false) => ({ id, kind: blast ? 'blast' : 'socket', label: blast ? 'SEALED BULKHEAD' : 'POWER OFF', x, y, w: vertical ? 30 : 200, h: vertical ? 200 : 30, color: blast ? '#ff665e' : '#65baff' })
 export const CAMPAIGN_GATES = [
   gate('breach-link',7900,2780), gate('baggage-door',8700,3450,true,true),
   gate('freight-lift',7900,790), gate('freight-link',6410,1050,true),
@@ -85,11 +86,13 @@ export const CAMPAIGN_GATES = [
   gate('freight-return',7410,310,true), gate('medical-return',1690,3990,true), gate('heart-return',5650,3900),
   gate('breach-return',8080,4000),
 ]
-const socket = (id: string, label: string, x: number, y: number, sx: number, sy: number, gates: string[]) => ({ id, label, pos: p(x,y), source: p(sx,sy), gates })
+const socket = (id: CircuitId, label: string, x: number, y: number, sx: number, sy: number, gates: GateId[], flags: ProgressionId[] = []) => ({ id, label, pos: p(x,y), source: p(sx,sy), gates, flags })
 export const CAMPAIGN_SOCKETS = [
   socket('breach-power','FREIGHT TRANSIT',8150,3310,7040,3460,['breach-link']),
-  socket('freight-power','FREIGHT LIFT / SERVICE BERTH',8100,1080,7020,1080,['freight-lift']),
-  socket('dispatch-power','WORKS FEED / FREIGHT RETURN',7870,420,8860,470,['freight-link','freight-return']),
+  // Enter Dispatch through the irradiated Stores tube first. Its own receiver
+  // unlocks the short lift home and the onward Works route from the far side.
+  socket('freight-power','DISPATCH SERVICE ACCESS / BERTH',8100,1080,7020,1080,['freight-return']),
+  socket('dispatch-power','FREIGHT LIFT / WORKS EXIT',7870,420,8860,470,['freight-lift','freight-link']),
   socket('works-power','MAINTENANCE BUS',4730,1000,5900,600,['works-bus']),
   socket('ring-power','RING DISTRIBUTION',3990,1300,5000,1840,['ring-link']),
   socket('refuge-power','MEDICAL TRANSFER / SERVICE ACCESS',1640,2760,1300,1820,['refuge-air','medical-return']),
@@ -99,9 +102,9 @@ export const CAMPAIGN_SOCKETS = [
   socket('heart-route','IGNITION ACCESS',2590,3310,1430,3770,['heart-link']),
   socket('heart-power','INDUCTION / SERVICE BERTH',4260,3320,2520,3690,['coil-link']),
   socket('coil-power','IGNITION WELL / FIELD RETURN',4140,4320,5320,3370,['well-link','heart-return']),
-  socket('ignition-power','CORE RELEASE / BREACH RETURN',5590,4480,3930,4540,['ignition-ready','breach-return']),
+  socket('ignition-power','CORE RELEASE / BREACH RETURN',5590,4480,3930,4540,['breach-return'],['ignition-ready']),
 ]
-export const CAMPAIGN_CACHES = [
+export const CAMPAIGN_CACHES: readonly { id: CacheId; pos: Vector2; value: number; sector: RoomId }[] = [
   { id:'rescue-cache',pos:p(6950,3610),value:250,sector:'rescue' },
   { id:'baggage-cache',pos:p(9050,3410),value:1500,sector:'baggage' },
   { id:'manifest-cache',pos:p(8970,600),value:1800,sector:'manifest' },

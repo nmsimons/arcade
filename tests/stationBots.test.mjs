@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { BOT_BLASTER_DAMAGE, BOT_LASER_DAMAGE, BOT_MAX_HEALTH, BOT_STATIONS, damageBot, freshBots, pullBotCable, stepBots, stepBotSparks, stepSecurityShots, stepBotGarages, botGarageProgress } from '../src/games/hardVacuum/stationBots.ts'
+import { BOT_BLASTER_DAMAGE, BOT_LASER_DAMAGE, BOT_MAX_HEALTH, BOT_DAMAGE_SITES, BOT_STATIONS, botDamage, damageBot, freshBots, pullBotCable, stepBots, stepBotSparks, stepSecurityShots, stepBotGarages, botGarageProgress } from '../src/games/hardVacuum/stationBots.ts'
+import { seededRandom } from '../src/games/hardVacuum/random.ts'
 import { bankAtCheckpoint, expeditionMap, freshExpedition, parseExpedition, crashExpedition, powerReceiver, visibleBetween } from '../src/games/hardVacuum/expedition.ts'
 import { isInsideCavern, raycastCavern, resolveCircleInCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import { collideBodies } from '../src/games/hardVacuum/bodyCollisions.ts'
 import { laserImpactMs, stepLaserContact } from '../src/games/hardVacuum/laser.ts'
+import { laserCapacityMs } from '../src/games/hardVacuum/upgrades.ts'
 import { stepBlaster } from '../src/games/hardVacuum/blaster.ts'
 
 const rectangle = (x,y,w,h) => [{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}]
@@ -16,8 +18,7 @@ test('bot defeats survive docking and save reloads but reset when the pilot resp
   for (const bot of runtime.units) assert.ok(isInsideCavern(bot.pos,bot.radius,map),bot.botId)
   const bot = runtime.units[0]
   bot.phase='watch';bot.anchored=false
-  assert.equal(damageBot(state,bot,BOT_BLASTER_DAMAGE),false)
-  assert.equal(damageBot(state,bot,BOT_BLASTER_DAMAGE),true)
+  for(let hit=1;hit<=4;hit++) assert.equal(damageBot(state,bot,BOT_BLASTER_DAMAGE),hit===4)
   assert.equal(damageBot(state,bot,BOT_BLASTER_DAMAGE),false)
   assert.deepEqual(state.disabledBots,[bot.botId])
   bankAtCheckpoint(state,'haven')
@@ -25,7 +26,7 @@ test('bot defeats survive docking and save reloads but reset when the pilot resp
   crashExpedition(state)
   assert.deepEqual(state.disabledBots,[])
   assert.equal(freshBots(parseExpedition(JSON.stringify(state))).units.find(b=>b.botId===bot.botId).health,BOT_MAX_HEALTH)
-  const old = freshExpedition(); delete old.disabledBots
+  const old = freshExpedition();old.version=1; delete old.disabledBots
   assert.deepEqual(parseExpedition(JSON.stringify(old)).disabledBots,[])
   assert.equal(parseExpedition(JSON.stringify({...old,disabledBots:['missing']})),null)
 })
@@ -99,32 +100,35 @@ test('bot cables conserve momentum, never push slack cargo, and share normal shi
   assert.ok(collideBodies(ship,bot).hit);assert.ok(bot.vel.x>1)
 })
 
-test('every bot survives one swept blaster impact and is destroyed by the second',()=>{
+test('every bot survives three swept blaster impacts and is destroyed by the fourth',()=>{
   const state=freshExpedition()
   for(const bot of freshBots(state).units) {
     bot.phase='watch';bot.anchored=false
-    for(let hit=1;hit<=2;hit++) {
+    for(let hit=1;hit<=4;hit++) {
       const shot={pos:{x:bot.pos.x-200,y:bot.pos.y},vel:{x:680,y:0},life:1}
       const impact=stepBlaster([shot],.5,open,[bot]).impacts[0]
       assert.equal(impact.target,bot)
-      assert.equal(damageBot(state,impact.target,BOT_BLASTER_DAMAGE),hit===2,bot.botId)
-      assert.equal(bot.health,hit===1 ? BOT_MAX_HEALTH/2 : 0)
+      assert.equal(damageBot(state,impact.target,BOT_BLASTER_DAMAGE),hit===4,bot.botId)
+      assert.equal(bot.health,BOT_MAX_HEALTH-hit*BOT_BLASTER_DAMAGE)
     }
   }
 })
 
-test('both bot types need five asteroid laser contacts at every focus level and frame rate',()=>{
+test('both bot types need fifty laser contacts: five seconds at maximum focus and twenty seconds without upgrades',()=>{
+  const expectedSeconds=[20,15,12.5,10,7.5,5]
   for(const hz of [30,60,120])for(let focus=0;focus<=5;focus++)for(const kind of ['tug','security']) {
     const state=freshExpedition();state.upgradeLevels.focus=focus
     const bot=freshBots(state).units.find(b=>b.botKind===kind),contact={elapsedMs:0},asteroid={}
     bot.phase='watch';bot.anchored=false
     const impactMs=laserImpactMs(state),dt=1/hz,baseline={elapsedMs:0}
+    assert.equal(impactMs*50/1000,expectedSeconds[focus])
     let asteroidFrames=0
     do{asteroidFrames++}while(!stepLaserContact(baseline,asteroid,dt,impactMs))
-    for(let frame=1;frame<=asteroidFrames*5;frame++) {
+    for(let frame=1;frame<=asteroidFrames*50;frame++) {
       if(stepLaserContact(contact,bot,dt,impactMs))damageBot(state,bot,BOT_LASER_DAMAGE)
-      assert.equal(bot.health<=0,frame===asteroidFrames*5,`${kind}, focus ${focus}, ${hz} Hz, frame ${frame}`)
+      assert.equal(bot.health<=0,frame===asteroidFrames*50,`${kind}, focus ${focus}, ${hz} Hz, frame ${frame}`)
     }
+    assert.equal(bot.health,0,'fifty fractional hits must not leave a rounding-error survivor')
     assert.ok(state.disabledBots.includes(bot.botId))
   }
 })
@@ -137,10 +141,26 @@ test('laser and blaster damage accumulate while incomplete laser contacts cannot
     assert.equal(stepLaserContact(contact,bot,.3,400),false)
     stepLaserContact(contact,undefined,0,400)
   }
-  assert.equal(bot.health,5)
-  for(let hit=1;hit<=3;hit++) {
+  assert.equal(bot.health,15)
+  for(let hit=1;hit<=38;hit++) {
     assert.equal(stepLaserContact(contact,bot,.4,400),true)
-    assert.equal(damageBot(state,bot,BOT_LASER_DAMAGE),hit===3)
+    assert.equal(damageBot(state,bot,BOT_LASER_DAMAGE),hit===38)
+  }
+})
+
+test('the starting laser can chip and eventually defeat bots across stock-capacitor bursts',()=>{
+  for(const kind of ['tug','security']) {
+    const state=freshExpedition(),bot=freshBots(state).units.find(b=>b.botKind===kind),contact={elapsedMs:0}
+    bot.phase='watch';bot.anchored=false
+    const dt=1/60,impactMs=laserImpactMs(state),frames=Math.round(laserCapacityMs(state)/1000/dt)
+    assert.ok(impactMs<=laserCapacityMs(state),'a stock beam must last long enough to inflict damage')
+    for(let burst=1;burst<=50;burst++) {
+      for(let frame=0;frame<frames;frame++) if(stepLaserContact(contact,bot,dt,impactMs)) damageBot(state,bot,BOT_LASER_DAMAGE)
+      assert.equal(bot.health,Math.round((BOT_MAX_HEALTH-burst*BOT_LASER_DAMAGE)*1000)/1000)
+      // Recharging clears unfinished contact, but not damage already inflicted.
+      stepLaserContact(contact,undefined,0,impactMs)
+    }
+    assert.ok(state.disabledBots.includes(bot.botId))
   }
 })
 
@@ -177,7 +197,41 @@ test('damaged bots shed brief moving sparks, while healthy, destroyed and dorman
   assert.deepEqual({pos:bot.pos,vel:bot.vel},before)
   assert.deepEqual(stepBotSparks(bot,0),[]);assert.deepEqual(stepBotSparks(bot,1/60),[])
   bot.phase='offline';assert.deepEqual(stepBotSparks(bot,2),[])
-  bot.phase='watch';damageBot(state,bot,BOT_BLASTER_DAMAGE);assert.deepEqual(stepBotSparks(bot,2),[])
+  bot.phase='watch';damageBot(state,bot,BOT_MAX_HEALTH);assert.deepEqual(stepBotSparks(bot,2),[])
+})
+
+test('spark count, frequency, reach and lifetime increase with accumulated damage at every frame rate',()=>{
+  for(const hz of [30,60,120]) {
+    let previous={total:0,count:0,speed:0,life:0,length:0,delay:Infinity}
+    for(const health of [18,15,10,5,2]) {
+      const bot={...freshBots(freshExpedition()).units[0],phase:'watch',health,vel:{x:50,y:10}}
+      const before=structuredClone(bot),first=stepBotSparks(bot,1/hz,()=>.5)
+      const values={count:first.length,delay:bot.sparkDelay,life:first[0].life,length:first[0].length,
+        speed:Math.hypot(first[0].vel.x-bot.vel.x,first[0].vel.y-bot.vel.y),total:first.length}
+      const random=seededRandom(314)
+      for(let frame=1;frame<hz*6;frame++) values.total+=stepBotSparks(bot,1/hz,random).length
+      for(const key of ['count','total','speed','life','length']) assert.ok(values[key]>previous[key],`${hz} Hz, health ${health}, ${key}`)
+      assert.ok(values.delay<previous.delay)
+      assert.deepEqual({...bot,sparkDelay:undefined},{...before,sparkDelay:undefined},'sparks cannot change combat or motion')
+      previous=values
+    }
+  }
+})
+
+test('fresh damage immediately sparks from the active hull breaches and pauses cleanly',()=>{
+  const state=freshExpedition(),bot=freshBots(state).units[0]
+  bot.phase='watch';bot.angle=Math.PI/2;bot.health=3;bot.sparkDelay=1
+  assert.equal(damageBot(state,bot,1),false)
+  assert.equal(bot.sparkDelay,0)
+  const sparks=stepBotSparks(bot,1/60,seededRandom(123))
+  assert.ok(sparks.length>=8)
+  const sites=BOT_DAMAGE_SITES.slice(0,botDamage(bot.health).stage)
+  for(const spark of sparks) assert.ok(sites.some(({point:[x,y]})=>
+    Math.hypot(spark.pos.x-(bot.pos.x-y),spark.pos.y-(bot.pos.y+x))<1e-8))
+  assert.ok(new Set(sparks.map(spark=>`${spark.pos.x},${spark.pos.y}`)).size>1,'critical hulls vent from multiple breaches')
+  const delay=bot.sparkDelay
+  assert.deepEqual(stepBotSparks(bot,0),[]);assert.equal(bot.sparkDelay,delay)
+  bot.phase='boot';assert.deepEqual(stepBotSparks(bot,2),[])
 })
 
 test('closed garages block weapons, grapples and collisions; powered doors open before bots deploy',()=>{

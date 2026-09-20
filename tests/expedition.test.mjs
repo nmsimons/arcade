@@ -146,7 +146,7 @@ test('radiation passages are physically open, while blast doors need a blaster i
 })
 
 test('only Haven banks credits, purchases spend the bank, and crashes return to Haven', () => {
-  const s = freshExpedition('ring')
+  const s = freshExpedition('ring'); s.impactShieldInstalled = true; s.shields = 2
   s.credits = 900
   assert.equal(purchaseUpgrade(s, 'hull'), false, 'carried credits must first be banked')
   assert.equal(bankAtCheckpoint(s, 'salvage'), 0, 'a room without a checkpoint cannot bank')

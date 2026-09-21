@@ -1,458 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { FIELD, JEEP_MAX_HEALTH, JEEP_TUNING } from './urbanFire/types'
+import type { Bullet, Debris, Helicopter, Jeep, RepairKit, Tank, Vector2, Wall } from './urbanFire/types'
+import { ArmorSoundSystem } from './urbanFire/sound'
+import { createBuildings } from './urbanFire/battlefield'
+import { clamp, clear, createNavigator, intersects } from './urbanFire/navigation'
+import { aimTank, createContact, createTankBrain, driveTank, flyHelicopter, observe } from './urbanFire/ai'
+import { drawBattle, drawCity } from './urbanFire/render'
+import { createControllerReader } from './hardVacuum/controllerInput'
+import { neutralController } from './hardVacuum/flightInput'
+import { controllerDialog, controlDialog, scrollDialog } from './hardVacuum/controllerUi'
+import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
+import './urbanFire/urbanFire.css'
 
-// Sound system for Urban Fire
-class ArmorSoundSystem {
-  private ctx: AudioContext | null = null
-  private initialized = false
-  private engineGain: GainNode | null = null
-  private engineOsc: OscillatorNode | null = null
-  private engineRunning = false
-
-  init() {
-    if (this.initialized) return
-    this.ctx = new AudioContext()
-    this.initialized = true
-  }
-
-  startEngine() {
-    if (!this.ctx || this.engineRunning) return
-    this.engineRunning = true
-
-    this.engineOsc = this.ctx.createOscillator()
-    this.engineOsc.type = 'sawtooth'
-    this.engineOsc.frequency.value = 40
-
-    const filter = this.ctx.createBiquadFilter()
-    filter.type = 'lowpass'
-    filter.frequency.value = 100
-
-    this.engineGain = this.ctx.createGain()
-    this.engineGain.gain.setValueAtTime(0.06, this.ctx.currentTime)
-
-    this.engineOsc.connect(filter)
-    filter.connect(this.engineGain)
-    this.engineGain.connect(this.ctx.destination)
-
-    this.engineOsc.start()
-  }
-
-  setEngineSpeed(speed: number) {
-    if (!this.engineOsc || !this.ctx) return
-    const freq = 40 + Math.abs(speed) * 0.3
-    this.engineOsc.frequency.setValueAtTime(freq, this.ctx.currentTime)
-  }
-
-  stopEngine() {
-    if (!this.ctx || !this.engineRunning) return
-    this.engineRunning = false
-
-    if (this.engineGain) {
-      this.engineGain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1)
-    }
-
-    setTimeout(() => {
-      this.engineOsc?.stop()
-      this.engineOsc = null
-      this.engineGain = null
-    }, 150)
-  }
-
-  shoot() {
-    if (!this.ctx) return
-    const osc = this.ctx.createOscillator()
-    const gain = this.ctx.createGain()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(200, this.ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(60, this.ctx.currentTime + 0.1)
-    gain.gain.setValueAtTime(0.2, this.ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1)
-    osc.connect(gain)
-    gain.connect(this.ctx.destination)
-    osc.start()
-    osc.stop(this.ctx.currentTime + 0.1)
-  }
-
-  tankShoot() {
-    if (!this.ctx) return
-    const osc = this.ctx.createOscillator()
-    const gain = this.ctx.createGain()
-    osc.type = 'sawtooth'
-    osc.frequency.setValueAtTime(100, this.ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.2)
-    gain.gain.setValueAtTime(0.25, this.ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2)
-    osc.connect(gain)
-    gain.connect(this.ctx.destination)
-    osc.start()
-    osc.stop(this.ctx.currentTime + 0.2)
-  }
-
-  tankHit() {
-    if (!this.ctx) return
-    const osc = this.ctx.createOscillator()
-    const gain = this.ctx.createGain()
-    osc.type = 'square'
-    osc.frequency.setValueAtTime(150, this.ctx.currentTime)
-    osc.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + 0.15)
-    gain.gain.setValueAtTime(0.3, this.ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15)
-    osc.connect(gain)
-    gain.connect(this.ctx.destination)
-    osc.start()
-    osc.stop(this.ctx.currentTime + 0.15)
-  }
-
-  explosion() {
-    if (!this.ctx) return
-    const duration = 0.5
-
-    const bufferSize = this.ctx.sampleRate * duration
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate)
-    const output = noiseBuffer.getChannelData(0)
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1
-    }
-
-    const noise = this.ctx.createBufferSource()
-    noise.buffer = noiseBuffer
-
-    const noiseFilter = this.ctx.createBiquadFilter()
-    noiseFilter.type = 'lowpass'
-    noiseFilter.frequency.setValueAtTime(800, this.ctx.currentTime)
-    noiseFilter.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + duration)
-
-    const noiseGain = this.ctx.createGain()
-    noiseGain.gain.setValueAtTime(0.4, this.ctx.currentTime)
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration)
-
-    noise.connect(noiseFilter)
-    noiseFilter.connect(noiseGain)
-    noiseGain.connect(this.ctx.destination)
-    noise.start()
-    noise.stop(this.ctx.currentTime + duration)
-  }
-
-  helicopter() {
-    if (!this.ctx) return
-    // Realistic helicopter rotor "whup whup" sound
-    const now = this.ctx.currentTime
-    
-    // Low frequency rotor thump
-    const thump = this.ctx.createOscillator()
-    const thumpGain = this.ctx.createGain()
-    thump.type = 'sine'
-    thump.frequency.setValueAtTime(45, now)
-    thump.frequency.exponentialRampToValueAtTime(25, now + 0.08)
-    thumpGain.gain.setValueAtTime(0.15, now)
-    thumpGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1)
-    thump.connect(thumpGain)
-    thumpGain.connect(this.ctx.destination)
-    thump.start(now)
-    thump.stop(now + 0.1)
-    
-    // Second blade thump (slightly delayed)
-    const thump2 = this.ctx.createOscillator()
-    const thump2Gain = this.ctx.createGain()
-    thump2.type = 'sine'
-    thump2.frequency.setValueAtTime(40, now + 0.07)
-    thump2.frequency.exponentialRampToValueAtTime(22, now + 0.15)
-    thump2Gain.gain.setValueAtTime(0, now)
-    thump2Gain.gain.setValueAtTime(0.12, now + 0.07)
-    thump2Gain.gain.exponentialRampToValueAtTime(0.01, now + 0.17)
-    thump2.connect(thump2Gain)
-    thump2Gain.connect(this.ctx.destination)
-    thump2.start(now)
-    thump2.stop(now + 0.17)
-    
-    // High frequency blade whoosh/air sound
-    const bufferSize = Math.floor(this.ctx.sampleRate * 0.15)
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate)
-    const output = noiseBuffer.getChannelData(0)
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = (Math.random() * 2 - 1) * 0.3
-    }
-    const noise = this.ctx.createBufferSource()
-    noise.buffer = noiseBuffer
-    const noiseFilter = this.ctx.createBiquadFilter()
-    noiseFilter.type = 'bandpass'
-    noiseFilter.frequency.value = 400
-    noiseFilter.Q.value = 2
-    const noiseGain = this.ctx.createGain()
-    noiseGain.gain.setValueAtTime(0.06, now)
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.12)
-    noise.connect(noiseFilter)
-    noiseFilter.connect(noiseGain)
-    noiseGain.connect(this.ctx.destination)
-    noise.start(now)
-    noise.stop(now + 0.15)
-  }
-
-  death() {
-    if (!this.ctx) return
-    const duration = 0.8
-
-    const bufferSize = this.ctx.sampleRate * duration
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate)
-    const output = noiseBuffer.getChannelData(0)
-    for (let i = 0; i < bufferSize; i++) {
-      output[i] = Math.random() * 2 - 1
-    }
-
-    const noise = this.ctx.createBufferSource()
-    noise.buffer = noiseBuffer
-
-    const noiseFilter = this.ctx.createBiquadFilter()
-    noiseFilter.type = 'lowpass'
-    noiseFilter.frequency.setValueAtTime(1500, this.ctx.currentTime)
-    noiseFilter.frequency.exponentialRampToValueAtTime(50, this.ctx.currentTime + duration)
-
-    const noiseGain = this.ctx.createGain()
-    noiseGain.gain.setValueAtTime(0.5, this.ctx.currentTime)
-    noiseGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + duration)
-
-    noise.connect(noiseFilter)
-    noiseFilter.connect(noiseGain)
-    noiseGain.connect(this.ctx.destination)
-    noise.start()
-    noise.stop(this.ctx.currentTime + duration)
-  }
-
-  repairPickup() {
-    if (!this.ctx) return
-    const now = this.ctx.currentTime
-
-    const osc = this.ctx.createOscillator()
-    const gain = this.ctx.createGain()
-    osc.type = 'triangle'
-    osc.frequency.setValueAtTime(740, now)
-    osc.frequency.exponentialRampToValueAtTime(980, now + 0.08)
-    gain.gain.setValueAtTime(0.0001, now)
-    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.01)
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.18)
-
-    osc.connect(gain)
-    gain.connect(this.ctx.destination)
-    osc.start(now)
-    osc.stop(now + 0.2)
-  }
-}
-
-const sounds = new ArmorSoundSystem()
-
-// MinHeap for pathfinding A* algorithm
-class MinHeap {
-  private heap: number[] = []
-  private readonly score: Float32Array
-  constructor(score: Float32Array) {
-    this.score = score
-  }
-  get size() {
-    return this.heap.length
-  }
-  push(i: number) {
-    const h = this.heap
-    h.push(i)
-    let k = h.length - 1
-    while (k > 0) {
-      const p = (k - 1) >> 1
-      if (this.score[h[p]] <= this.score[h[k]]) break
-      ;[h[p], h[k]] = [h[k], h[p]]
-      k = p
-    }
-  }
-  pop(): number | undefined {
-    const h = this.heap
-    if (h.length === 0) return undefined
-    const top = h[0]
-    const last = h.pop()!
-    if (h.length > 0) {
-      h[0] = last
-      let k = 0
-      while (true) {
-        const l = k * 2 + 1
-        const r = l + 1
-        let m = k
-        if (l < h.length && this.score[h[l]] < this.score[h[m]]) m = l
-        if (r < h.length && this.score[h[r]] < this.score[h[m]]) m = r
-        if (m === k) break
-        ;[h[m], h[k]] = [h[k], h[m]]
-        k = m
-      }
-    }
-    return top
-  }
-}
-
-type UrbanFireGameProps = {
-  onExit: () => void
-}
-
-type Vector2 = { x: number; y: number }
-
-const JEEP_MAX_HEALTH = 3
-
-// Gameplay tuning knobs (jeep)
-// Adjust these values to quickly iterate on feel/difficulty.
-const JEEP_TUNING = {
-  // Rotation (radians / second)
-  turnSpeed: 4,
-
-  // Acceleration (pixels / second^2)
-  accelForward: 280,
-  accelReverseFactor: 0.5,
-
-  // Drift/grip
-  driftSpeedThreshold: 10,
-  gripBase: 0.06,
-  gripSpeedFactor: 0.0003,
-  gripMin: 0.015,
-
-  // Friction / speed cap
-  friction: 0.96,
-  maxSpeed: 500,
-
-  // Wheels / visuals
-  wheelSpinFactor: 0.3,
-
-  // Collision / bounds
-  collisionRadius: 12,
-  collisionVelocityDamping: 0.5,
-  screenMargin: 20,
-
-  // Firing
-  maxPlayerBullets: 2,
-  playerBulletSpeed: 400,
-  playerBulletLifeMs: 1500,
-
-  // Pickups
-  repairPickupRadius: 22,
-} as const
-
-// Gameplay tuning knobs (tanks)
-// Adjust these values to quickly iterate on feel/difficulty.
-const TANK_TUNING = {
-  // Rotation (radians / second)
-  hullTurnSpeed: 0.3,
-  turretTurnSpeed: 0.5,
-
-  // Movement (pixels / second)
-  speedApproach: 55,
-  speedFlank: 45,
-  speedHold: 25,
-  tooCloseBackUpSpeed: 30,
-  obstacleSlowFactor: 0.3,
-  holdTooCloseDistPx: 120,
-  moveDistThresholdPx: 150,
-  velocityDamping: 0.9,
-
-  // AI aiming / firing
-  bulletSpeed: 250,
-  fireRangePx: 350,
-  leadPredictionFactor: 0.7,
-  aimToleranceRad: 0.35,
-  reactionTimeMs: 250,
-  enemyBulletCap: 6,
-
-  // Cooldowns (milliseconds)
-  initialShootCooldownMsMin: 2000,
-  initialShootCooldownMsRand: 2000,
-  shootCooldownMsMin: 2200,
-  shootCooldownMsRand: 1700,
-  blockedRetryCooldownMs: 400,
-
-  // Visual / muzzle
-  muzzleDistancePx: 28,
-
-  // Steering smoothing (unitless multipliers)
-  targetAngleBlend: 3,
-} as const
-
-const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
-
-type Jeep = {
-  pos: Vector2
-  vel: Vector2
-  angle: number
-  health: number
-  state: 'active' | 'exploding' | 'dead'
-  explodeTime: number
-  wheelAngle: number
-  hitFlash: number
-}
-
-type Tank = {
-  pos: Vector2
-  vel: Vector2
-  angle: number
-  turretAngle: number
-  health: number
-  state: 'active' | 'exploding'
-  explodeTime: number
-  shootCooldown: number
-  targetAngle: number
-  trackOffset: number
-  stuckTimer: number
-  escapeAngle: number
-  flankAngle: number // Offset angle for flanking behavior
-  tacticalMode: 'approach' | 'flank' | 'hold' // Current tactical behavior
-  modeCommitMs: number
-  losTimeMs: number
-
-  // Navigation (A* pathing on a coarse grid) used when LOS is blocked.
-  navPath: Vector2[]
-  navIndex: number
-  navReplanMs: number
-  navLastGoal: Vector2
-  navLastFrom: Vector2
-}
-
-type Helicopter = {
-  pos: Vector2
-  vel: Vector2
-  angle: number
-  state: 'active' | 'exploding'
-  explodeTime: number
-  shootCooldown: number
-  rotorAngle: number
-  soundTimer: number
-  losTimeMs: number
-}
-
-type Bullet = {
-  pos: Vector2
-  vel: Vector2
-  life: number
-  isEnemy: boolean
-}
-
-type Wall = {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-type Debris = {
-  pos: Vector2
-  vel: Vector2
-  angle: number
-  rotSpeed: number
-  life: number
-  length: number
-}
-
-type RepairKit = {
-  pos: Vector2
-  spawnedAtMs: number
-}
+type UrbanFireGameProps = { onExit: () => void }
+const lineIntersectsRect = (x1: number, y1: number, x2: number, y2: number, x: number, y: number, width: number, height: number) =>
+  intersects({ x: x1, y: y1 }, { x: x2, y: y2 }, { x, y, width, height })
 
 export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
   const [score, setScore] = useState(0)
   const [wave, setWave] = useState(1)
-  const [menuIndex, setMenuIndex] = useState(0)
-  const [gameOverIndex, setGameOverIndex] = useState(0)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [sounds] = useState(() => new ArmorSoundSystem())
+  const [controller] = useState(() => createControllerReader())
+  const controllerInputRef = useRef(neutralController())
+  const [controllerConnected, setControllerConnected] = useState(false)
+  const contactRef = useRef(createContact())
+  const waveDelayRef = useRef(0)
 
   const jeepRef = useRef<Jeep>({
     pos: { x: 0, y: 0 },
@@ -468,31 +43,14 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const helicoptersRef = useRef<Helicopter[]>([])
   const bulletsRef = useRef<Bullet[]>([])
   const wallsRef = useRef<Wall[]>([])
-  const wallsVersionRef = useRef(0)
   const debrisRef = useRef<Debris[]>([])
   const repairKitsRef = useRef<RepairKit[]>([])
   const keysRef = useRef<Set<string>>(new Set())
   const rafRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
-  const canvasSizeRef = useRef({ width: 800, height: 600 })
-  const respawnTimerRef = useRef(0)
-  const waveCompleteRef = useRef(false)
-
-  type NavGrid = {
-    width: number
-    height: number
-    cols: number
-    rows: number
-    cellSize: number
-    clearance: number
-    version: number
-    blocked: Uint8Array
-  }
-
-  const navGridRef = useRef<NavGrid | null>(null)
 
   const spawnRepairKit = useCallback(() => {
-    const { width, height } = canvasSizeRef.current
+    const { width, height } = FIELD
     if (width <= 0 || height <= 0) return
 
     // Only ever allow one repair kit; if it's still on the map, don't spawn another.
@@ -565,106 +123,10 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     debrisRef.current = [...debrisRef.current, ...debris]
   }, [])
 
-  const generateWalls = useCallback(() => {
-    const { width, height } = canvasSizeRef.current
-    const walls: Wall[] = []
-    
-    // Urban Fire style - fortress perimeter with internal structures
-    const margin = 45
-    const bw = Math.min(width, height) * 0.075  // Building size
-    const bh = bw * 1.3
-    const gap = bw * 0.4
-    
-    // === TOP ROW ===
-    walls.push({ x: margin, y: margin, width: bw, height: bh })
-    walls.push({ x: margin + bw + gap, y: margin, width: bw * 0.7, height: bh * 0.5 })
-    
-    walls.push({ x: width * 0.25, y: margin, width: bw, height: bh })
-    walls.push({ x: width * 0.25 + bw, y: margin, width: bw * 0.5, height: bh * 0.6 })
-    
-    walls.push({ x: width * 0.5 - bw * 0.75, y: margin, width: bw * 1.5, height: bh * 0.7 })
-    
-    walls.push({ x: width * 0.75 - bw * 1.5, y: margin, width: bw * 0.5, height: bh * 0.6 })
-    walls.push({ x: width * 0.75 - bw, y: margin, width: bw, height: bh })
-    
-    walls.push({ x: width - margin - bw * 1.7 - gap, y: margin, width: bw * 0.7, height: bh * 0.5 })
-    walls.push({ x: width - margin - bw, y: margin, width: bw, height: bh })
-    
-    // === BOTTOM ROW ===
-    walls.push({ x: margin, y: height - margin - bh, width: bw, height: bh })
-    walls.push({ x: margin + bw + gap, y: height - margin - bh * 0.5, width: bw * 0.7, height: bh * 0.5 })
-    
-    walls.push({ x: width * 0.25, y: height - margin - bh, width: bw, height: bh })
-    walls.push({ x: width * 0.25 + bw, y: height - margin - bh * 0.6, width: bw * 0.5, height: bh * 0.6 })
-    
-    walls.push({ x: width * 0.5 - bw * 0.75, y: height - margin - bh * 0.7, width: bw * 1.5, height: bh * 0.7 })
-    
-    walls.push({ x: width * 0.75 - bw * 1.5, y: height - margin - bh * 0.6, width: bw * 0.5, height: bh * 0.6 })
-    walls.push({ x: width * 0.75 - bw, y: height - margin - bh, width: bw, height: bh })
-    
-    walls.push({ x: width - margin - bw * 1.7 - gap, y: height - margin - bh * 0.5, width: bw * 0.7, height: bh * 0.5 })
-    walls.push({ x: width - margin - bw, y: height - margin - bh, width: bw, height: bh })
-    
-    // === LEFT COLUMN ===
-    walls.push({ x: margin, y: height * 0.25, width: bh, height: bw })
-    walls.push({ x: margin, y: height * 0.25 + bw, width: bh * 0.6, height: bw * 0.5 })
-    
-    walls.push({ x: margin, y: height * 0.5 - bw * 0.5, width: bh * 0.7, height: bw })
-    
-    walls.push({ x: margin, y: height * 0.75 - bw * 1.5, width: bh * 0.6, height: bw * 0.5 })
-    walls.push({ x: margin, y: height * 0.75 - bw, width: bh, height: bw })
-    
-    // === RIGHT COLUMN ===
-    walls.push({ x: width - margin - bh, y: height * 0.25, width: bh, height: bw })
-    walls.push({ x: width - margin - bh * 0.6, y: height * 0.25 + bw, width: bh * 0.6, height: bw * 0.5 })
-    
-    walls.push({ x: width - margin - bh * 0.7, y: height * 0.5 - bw * 0.5, width: bh * 0.7, height: bw })
-    
-    walls.push({ x: width - margin - bh * 0.6, y: height * 0.75 - bw * 1.5, width: bh * 0.6, height: bw * 0.5 })
-    walls.push({ x: width - margin - bh, y: height * 0.75 - bw, width: bh, height: bw })
-    
-    // === INNER RING - creates corridors ===
-    const innerMargin = margin + bh + gap * 2
-    
-    // Inner top-left L
-    walls.push({ x: innerMargin, y: innerMargin, width: bw * 1.2, height: bw * 0.8 })
-    walls.push({ x: innerMargin, y: innerMargin + bw * 0.8, width: bw * 0.6, height: bw })
-    
-    // Inner top-right L
-    walls.push({ x: width - innerMargin - bw * 1.2, y: innerMargin, width: bw * 1.2, height: bw * 0.8 })
-    walls.push({ x: width - innerMargin - bw * 0.6, y: innerMargin + bw * 0.8, width: bw * 0.6, height: bw })
-    
-    // Inner bottom-left L
-    walls.push({ x: innerMargin, y: height - innerMargin - bw * 0.8, width: bw * 1.2, height: bw * 0.8 })
-    walls.push({ x: innerMargin, y: height - innerMargin - bw * 1.8, width: bw * 0.6, height: bw })
-    
-    // Inner bottom-right L
-    walls.push({ x: width - innerMargin - bw * 1.2, y: height - innerMargin - bw * 0.8, width: bw * 1.2, height: bw * 0.8 })
-    walls.push({ x: width - innerMargin - bw * 0.6, y: height - innerMargin - bw * 1.8, width: bw * 0.6, height: bw })
-    
-    // === CENTER STRUCTURE - cross/plus shape ===
-    const cx = width / 2
-    const cy = height / 2
-    const crossArm = bw * 3.6
-    const crossThick = bw * 1.2
-    
-    // Horizontal bar of cross
-    walls.push({ x: cx - crossArm / 2, y: cy - crossThick / 2, width: crossArm, height: crossThick })
-    // Vertical bar of cross
-    walls.push({ x: cx - crossThick / 2, y: cy - crossArm / 2, width: crossThick, height: crossArm })
-    
-    // Mid-field obstacles - diamond arrangement
-    walls.push({ x: width * 0.3, y: height * 0.35, width: bw, height: bw * 0.6 })
-    walls.push({ x: width * 0.7 - bw, y: height * 0.35, width: bw, height: bw * 0.6 })
-    walls.push({ x: width * 0.3, y: height * 0.65 - bw * 0.6, width: bw, height: bw * 0.6 })
-    walls.push({ x: width * 0.7 - bw, y: height * 0.65 - bw * 0.6, width: bw, height: bw * 0.6 })
-
-    wallsRef.current = walls
-    wallsVersionRef.current += 1
-  }, [])
+  const generateWalls = useCallback(() => { wallsRef.current = createBuildings() }, [])
 
   const spawnEnemies = useCallback((waveNum: number) => {
-    const { width, height } = canvasSizeRef.current
+    const { width, height } = FIELD
     const tanks: Tank[] = []
     const helicopters: Helicopter[] = []
 
@@ -727,21 +189,21 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         switch (spawn.side) {
           case 0: // Top edge
             x = width * spawn.pos
-            y = -30
+            y = 32
             angle = Math.PI / 2 + (Math.random() - 0.5) * 0.3
             break
           case 1: // Bottom edge
             x = width * spawn.pos
-            y = height + 30
+            y = height - 32
             angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.3
             break
           case 2: // Left edge
-            x = -30
+            x = 32
             y = height * spawn.pos
             angle = 0 + (Math.random() - 0.5) * 0.3
             break
           default: // Right edge
-            x = width + 30
+            x = width - 32
             y = height * spawn.pos
             angle = Math.PI + (Math.random() - 0.5) * 0.3
         }
@@ -762,29 +224,26 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         switch (side) {
           case 0:
             x = width / 2
-            y = -30
+            y = 32
             angle = Math.PI / 2
             break
           case 1:
             x = width / 2
-            y = height + 30
+            y = height - 32
             angle = -Math.PI / 2
             break
           case 2:
-            x = -30
+            x = 32
             y = height / 2
             angle = 0
             break
           default:
-            x = width + 30
+            x = width - 32
             y = height / 2
             angle = Math.PI
         }
       }
 
-      // Assign flanking angles - distribute tanks around the player
-      const flankAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2, Math.PI / 4, -Math.PI / 4]
-      
       tanks.push({
         pos: { x: x!, y: y! },
         vel: { x: Math.cos(angle!) * 40, y: Math.sin(angle!) * 40 },
@@ -793,21 +252,12 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         health: 2,
         state: 'active',
         explodeTime: 0,
-        shootCooldown: TANK_TUNING.initialShootCooldownMsMin + Math.random() * TANK_TUNING.initialShootCooldownMsRand,
-        targetAngle: 0,
+        shootCooldown: 2000 + Math.random() * 2000,
         trackOffset: 0,
-        stuckTimer: 0,
-        escapeAngle: 0,
-        flankAngle: flankAngles[i % flankAngles.length],
-        tacticalMode: 'approach',
-        modeCommitMs: 0,
         losTimeMs: 0,
-
-        navPath: [],
-        navIndex: 0,
-        navReplanMs: 0,
-        navLastGoal: { x: 0, y: 0 },
-        navLastFrom: { x: 0, y: 0 },
+        role: i,
+        brain: createTankBrain(),
+        recoil: 0,
       })
     }
 
@@ -851,6 +301,8 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         rotorAngle: 0,
         soundTimer: 0,
         losTimeMs: 0,
+        orbit: i % 2 ? -1 : 1,
+        recoil: 0,
       })
     }
 
@@ -859,7 +311,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   }, [])
 
   const resetJeep = useCallback(() => {
-    const { width, height } = canvasSizeRef.current
+    const { width, height } = FIELD
     
     // Find a safe spawn position not inside a wall
     const isInsideWall = (x: number, y: number, radius: number) => {
@@ -913,19 +365,21 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const startGame = useCallback(() => {
     sounds.init()
     sounds.startEngine()
+    keysRef.current.clear()
+    controller.reset()
+    contactRef.current = createContact()
+    waveDelayRef.current = 0
     generateWalls()
     resetJeep()
     bulletsRef.current = []
     debrisRef.current = []
     repairKitsRef.current = []
-    waveCompleteRef.current = false
-    respawnTimerRef.current = 0
     setScore(0)
     setWave(1)
     spawnEnemies(1)
     spawnRepairKit()
     setGameState('playing')
-  }, [generateWalls, resetJeep, spawnEnemies, spawnRepairKit])
+  }, [generateWalls, resetJeep, spawnEnemies, spawnRepairKit, sounds, controller])
 
   useEffect(() => {
     if (gameState !== 'menu') return
@@ -940,139 +394,66 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     }
   }, [gameState, generateWalls, resetJeep, spawnEnemies])
 
+  const pauseGame = useCallback(() => {
+    if (gameState !== 'playing') return
+    keysRef.current.clear(); controller.reset(); sounds.stopEngine(); setGameState('paused')
+  }, [gameState, controller, sounds])
+  const resumeGame = useCallback(() => {
+    keysRef.current.clear(); controller.reset(); sounds.startEngine(); setGameState('playing')
+  }, [controller, sounds])
+  const fire = useCallback(() => {
+    const jeep = jeepRef.current
+    if (gameState !== 'playing' || jeep.state !== 'active' || bulletsRef.current.filter(b => !b.isEnemy).length >= JEEP_TUNING.maxPlayerBullets) return
+    const muzzle = { x: jeep.pos.x + Math.cos(jeep.angle) * 17, y: jeep.pos.y + Math.sin(jeep.angle) * 17 }
+    if (!clear(jeep.pos, muzzle, wallsRef.current)) return
+    bulletsRef.current.push({ pos: muzzle, vel: { x: Math.cos(jeep.angle) * JEEP_TUNING.playerBulletSpeed, y: Math.sin(jeep.angle) * JEEP_TUNING.playerBulletSpeed }, life: JEEP_TUNING.playerBulletLifeMs, isEnemy: false })
+    sounds.shoot()
+  }, [gameState, sounds])
+  const pollController = useEffectEvent((time: number, dt: number) => {
+    let pads: (Gamepad | null)[] = []
+    try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Keyboard remains available. */ }
+    const dialog = controllerDialog(rootRef.current)
+    const focused = document.hasFocus() && document.visibilityState !== 'hidden'
+    const input = controller.sample(pads, dialog ? `menu:urban:${gameState}` : gameState === 'playing' ? 'flight' : gameState, time, focused)
+    controllerInputRef.current = input.flight
+    if (input.connected !== controllerConnected) setControllerConnected(input.connected)
+    if (input.disconnected) { pauseGame(); return false }
+    if (!focused) return false
+    const buttons = controller.layout.buttons, pressed = (b: number) => input.pressed.includes(b)
+    if (dialog) {
+      if (gameState === 'paused' && (pressed(buttons.pause) || pressed(buttons.back))) resumeGame()
+      else if (pressed(buttons.back)) controlDialog(dialog, 'back')
+      else if (pressed(buttons.confirm)) controlDialog(dialog, 'confirm')
+      else if (input.navigation) controlDialog(dialog, input.navigation)
+      scrollDialog(dialog, input.scroll * 450 * dt)
+      return false
+    }
+    if (pressed(buttons.pause)) { pauseGame(); return false }
+    if (pressed(buttons.confirm)) fire()
+    return true
+  })
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      keysRef.current.add(e.key.toLowerCase())
-
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        sounds.stopEngine()
-        onExit()
-        return
-      }
-
-      if (e.key === ' ' && gameState === 'playing') {
-        e.preventDefault()
-        const jeep = jeepRef.current
-        // Cap player bullets so the game stays readable.
-        const playerBullets = bulletsRef.current.filter((b) => !b.isEnemy)
-        if (playerBullets.length < JEEP_TUNING.maxPlayerBullets && jeep.state === 'active') {
-          bulletsRef.current.push({
-            pos: { x: jeep.pos.x, y: jeep.pos.y },
-            vel: {
-              x: Math.cos(jeep.angle) * JEEP_TUNING.playerBulletSpeed,
-              y: Math.sin(jeep.angle) * JEEP_TUNING.playerBulletSpeed,
-            },
-            life: JEEP_TUNING.playerBulletLifeMs,
-            isEnemy: false,
-          })
-          sounds.shoot()
-        }
-      }
-
-      if (e.key === 'p' && gameState === 'playing') {
-        sounds.stopEngine()
-        setGameState('paused')
-      } else if (e.key === 'p' && gameState === 'paused') {
-        sounds.startEngine()
-        setGameState('playing')
-      }
-
-      // Menu navigation
-      if (gameState === 'menu') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setMenuIndex((i) => (i > 0 ? i - 1 : 1))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setMenuIndex((i) => (i < 1 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (menuIndex === 0) startGame()
-          else onExit()
-        }
-      }
-
-      // Game Over navigation
-      if (gameState === 'gameOver') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i > 0 ? i - 1 : 2))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i < 2 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (gameOverIndex === 0) startGame()
-          else if (gameOverIndex === 1) setGameState('menu')
-          else onExit()
-        }
+    if (gameState === 'playing') canvasRef.current?.focus({ preventScroll: true })
+    const down = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
+      const key = e.key.toLowerCase()
+      if (key === 'escape') { e.preventDefault(); sounds.stopEngine(); onExit(); return }
+      if (key === 'p') { e.preventDefault(); if (!e.repeat) { if (gameState === 'paused') resumeGame(); else pauseGame() }; return }
+      if (gameState !== 'playing') return
+      if (['arrowleft','arrowright','arrowup','arrowdown','a','d','w','s',' '].includes(key)) {
+        e.preventDefault(); keysRef.current.add(key)
+        if (key === ' ' && !e.repeat) fire()
       }
     }
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      keysRef.current.delete(e.key.toLowerCase())
-    }
-
-    window.addEventListener('keydown', handleKeyDown)
-    window.addEventListener('keyup', handleKeyUp)
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-      window.removeEventListener('keyup', handleKeyUp)
-    }
-  }, [gameState, menuIndex, gameOverIndex, startGame, onExit])
-
-  // Line-rectangle intersection for bullet collision with walls
-  const lineIntersectsRect = useCallback((
-    x1: number,
-    y1: number,
-    x2: number,
-    y2: number,
-    rx: number,
-    ry: number,
-    rw: number,
-    rh: number,
-  ): boolean => {
-    // Check if line segment intersects rectangle
-    const left = rx
-    const right = rx + rw
-    const top = ry
-    const bottom = ry + rh
-
-    // Check if either endpoint is inside
-    if (x1 >= left && x1 <= right && y1 >= top && y1 <= bottom) return true
-    if (x2 >= left && x2 <= right && y2 >= top && y2 <= bottom) return true
-
-    // Check line intersection with each edge
-    const intersectsLine = (
-      ax: number,
-      ay: number,
-      bx: number,
-      by: number,
-      cx: number,
-      cy: number,
-      dx: number,
-      dy: number,
-    ) => {
-      const denom = (dy - cy) * (bx - ax) - (dx - cx) * (by - ay)
-      if (Math.abs(denom) < 0.0001) return false
-      const ua = ((dx - cx) * (ay - cy) - (dy - cy) * (ax - cx)) / denom
-      const ub = ((bx - ax) * (ay - cy) - (by - ay) * (ax - cx)) / denom
-      return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1
-    }
-
-    return (
-      intersectsLine(x1, y1, x2, y2, left, top, right, top) ||
-      intersectsLine(x1, y1, x2, y2, right, top, right, bottom) ||
-      intersectsLine(x1, y1, x2, y2, right, bottom, left, bottom) ||
-      intersectsLine(x1, y1, x2, y2, left, bottom, left, top)
-    )
-  }, [])
+    const up = (e: KeyboardEvent) => keysRef.current.delete(e.key.toLowerCase())
+    const blur = () => { keysRef.current.clear(); controller.reset(); pauseGame() }
+    const visibility = () => { if (document.visibilityState === 'hidden') blur(); else controller.reset() }
+    window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', blur)
+    document.addEventListener('visibilitychange', visibility)
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', visibility) }
+  }, [gameState, sounds, onExit, pauseGame, resumeGame, fire, controller])
+  useEffect(() => () => sounds.stopEngine(), [sounds])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1084,13 +465,6 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     const resize = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
-      canvasSizeRef.current = { width: canvas.width, height: canvas.height }
-      if (gameState === 'playing') {
-        generateWalls()
-      } else if (gameState === 'menu') {
-        generateWalls()
-        resetJeep()
-      }
     }
 
     resize()
@@ -1116,258 +490,39 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           pushY: (dy / dist) * overlap,
         }
       }
+      if (dist === 0) {
+        const exits = [
+          { pushX: rect.x - radius - x, pushY: 0 },
+          { pushX: rect.x + rect.width + radius - x, pushY: 0 },
+          { pushX: 0, pushY: rect.y - radius - y },
+          { pushX: 0, pushY: rect.y + rect.height + radius - y },
+        ].sort((a, b) => Math.hypot(a.pushX, a.pushY) - Math.hypot(b.pushX, b.pushY))
+        return { collision: true, ...exits[0] }
+      }
       return { collision: false, pushX: 0, pushY: 0 }
     }
 
-    const TANK_NAV_CELL_SIZE = 26
-    const TANK_NAV_CLEARANCE = 34
-
-    const ensureNavGrid = (width: number, height: number) => {
-      const version = wallsVersionRef.current
-      const existing = navGridRef.current
-      if (existing && existing.width === width && existing.height === height && existing.version === version) return existing
-
-      const cellSize = TANK_NAV_CELL_SIZE
-      const cols = Math.max(8, Math.floor(width / cellSize))
-      const rows = Math.max(8, Math.floor(height / cellSize))
-      const blocked = new Uint8Array(cols * rows)
-
-      const clearance = TANK_NAV_CLEARANCE
-      const walls = wallsRef.current
-
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const cx = (c + 0.5) * cellSize
-          const cy = (r + 0.5) * cellSize
-
-          let isBlocked = false
-          if (cx < clearance || cx > width - clearance || cy < clearance || cy > height - clearance) {
-            isBlocked = true
-          } else {
-            for (const wall of walls) {
-              if (
-                cx > wall.x - clearance &&
-                cx < wall.x + wall.width + clearance &&
-                cy > wall.y - clearance &&
-                cy < wall.y + wall.height + clearance
-              ) {
-                isBlocked = true
-                break
-              }
-            }
-          }
-
-          blocked[r * cols + c] = isBlocked ? 1 : 0
-        }
-      }
-
-      const grid: NavGrid = { width, height, cols, rows, cellSize, clearance, version, blocked }
-      navGridRef.current = grid
-      return grid
-    }
-
-    const cellIndex = (c: number, r: number, cols: number) => r * cols + c
-
-    const worldToCell = (x: number, y: number, grid: NavGrid) => {
-      const c = clamp(Math.floor(x / grid.cellSize), 0, grid.cols - 1)
-      const r = clamp(Math.floor(y / grid.cellSize), 0, grid.rows - 1)
-      return { c, r }
-    }
-
-    const cellCenter = (c: number, r: number, grid: NavGrid) => ({
-      x: (c + 0.5) * grid.cellSize,
-      y: (r + 0.5) * grid.cellSize,
-    })
-
-    const findNearestOpen = (c0: number, r0: number, grid: NavGrid) => {
-      const { cols, rows, blocked } = grid
-      const idx0 = cellIndex(c0, r0, cols)
-      if (!blocked[idx0]) return { c: c0, r: r0 }
-
-      const maxRing = 10
-      for (let ring = 1; ring <= maxRing; ring++) {
-        for (let dr = -ring; dr <= ring; dr++) {
-          for (let dc = -ring; dc <= ring; dc++) {
-            if (Math.abs(dc) !== ring && Math.abs(dr) !== ring) continue
-            const c = c0 + dc
-            const r = r0 + dr
-            if (c < 0 || r < 0 || c >= cols || r >= rows) continue
-            const idx = cellIndex(c, r, cols)
-            if (!blocked[idx]) return { c, r }
-          }
-        }
-      }
-      return null
-    }
-
-    const buildPath = (cameFrom: Int32Array, current: number) => {
-      const out: number[] = [current]
-      let cur = current
-      while (cameFrom[cur] !== -1) {
-        cur = cameFrom[cur]
-        out.push(cur)
-      }
-      out.reverse()
-      return out
-    }
-
-    const segmentClear = (ax: number, ay: number, bx: number, by: number, clearance: number) => {
-      for (const wall of wallsRef.current) {
-        const rx = wall.x - clearance
-        const ry = wall.y - clearance
-        const rw = wall.width + clearance * 2
-        const rh = wall.height + clearance * 2
-        if (lineIntersectsRect(ax, ay, bx, by, rx, ry, rw, rh)) return false
-      }
-      return true
-    }
-
-    const smoothPath = (points: Vector2[], clearance: number) => {
-      if (points.length <= 2) return points
-      const out: Vector2[] = [points[0]]
-      let i = 0
-      while (i < points.length - 1) {
-        let j = points.length - 1
-        for (; j > i + 1; j--) {
-          if (segmentClear(points[i].x, points[i].y, points[j].x, points[j].y, clearance)) break
-        }
-        out.push(points[j])
-        i = j
-      }
-      return out
-    }
-
-    const aStarPath = (start: Vector2, goal: Vector2, width: number, height: number): Vector2[] | null => {
-      const grid = ensureNavGrid(width, height)
-      const n = grid.cols * grid.rows
-      const s = worldToCell(start.x, start.y, grid)
-      const g0 = worldToCell(goal.x, goal.y, grid)
-      const g = findNearestOpen(g0.c, g0.r, grid)
-      const s2 = findNearestOpen(s.c, s.r, grid)
-      if (!g || !s2) return null
-
-      const startIdx = cellIndex(s2.c, s2.r, grid.cols)
-      const goalIdx = cellIndex(g.c, g.r, grid.cols)
-      if (startIdx === goalIdx) return [goal]
-
-      const cameFrom = new Int32Array(n)
-      cameFrom.fill(-1)
-      const gScore = new Float32Array(n)
-      const fScore = new Float32Array(n)
-      for (let i = 0; i < n; i++) {
-        gScore[i] = Infinity
-        fScore[i] = Infinity
-      }
-      const closed = new Uint8Array(n)
-
-      const heuristic = (a: number, b: number) => {
-        const ac = a % grid.cols
-        const ar = Math.floor(a / grid.cols)
-        const bc = b % grid.cols
-        const br = Math.floor(b / grid.cols)
-        const dx = Math.abs(ac - bc)
-        const dy = Math.abs(ar - br)
-        const m = Math.min(dx, dy)
-        const M = Math.max(dx, dy)
-        return (M - m) + Math.SQRT2 * m
-      }
-
-      gScore[startIdx] = 0
-      fScore[startIdx] = heuristic(startIdx, goalIdx)
-      const open = new MinHeap(fScore)
-      open.push(startIdx)
-
-      const dirs = [
-        { dc: 1, dr: 0, cost: 1 },
-        { dc: -1, dr: 0, cost: 1 },
-        { dc: 0, dr: 1, cost: 1 },
-        { dc: 0, dr: -1, cost: 1 },
-        { dc: 1, dr: 1, cost: Math.SQRT2 },
-        { dc: 1, dr: -1, cost: Math.SQRT2 },
-        { dc: -1, dr: 1, cost: Math.SQRT2 },
-        { dc: -1, dr: -1, cost: Math.SQRT2 },
-      ]
-
-      const maxIters = Math.min(14000, n * 18)
-      let iters = 0
-      while (open.size > 0 && iters++ < maxIters) {
-        const current = open.pop()!
-        if (closed[current]) continue
-        if (current === goalIdx) {
-          const cells = buildPath(cameFrom, current)
-          const pts: Vector2[] = cells.map((idx) => {
-            const c = idx % grid.cols
-            const r = Math.floor(idx / grid.cols)
-            return cellCenter(c, r, grid)
-          })
-          // Prefer the real tactical goal for the final waypoint.
-          pts[pts.length - 1] = { x: goal.x, y: goal.y }
-          return smoothPath(pts, grid.clearance)
-        }
-
-        closed[current] = 1
-        const cc = current % grid.cols
-        const cr = Math.floor(current / grid.cols)
-
-        for (const d of dirs) {
-          const nc = cc + d.dc
-          const nr = cr + d.dr
-          if (nc < 0 || nr < 0 || nc >= grid.cols || nr >= grid.rows) continue
-          const ni = cellIndex(nc, nr, grid.cols)
-          if (grid.blocked[ni]) continue
-
-          // Prevent diagonal corner-cutting.
-          if (d.dc !== 0 && d.dr !== 0) {
-            const i1 = cellIndex(cc + d.dc, cr, grid.cols)
-            const i2 = cellIndex(cc, cr + d.dr, grid.cols)
-            if (grid.blocked[i1] || grid.blocked[i2]) continue
-          }
-
-          const tentative = gScore[current] + d.cost
-          if (tentative < gScore[ni]) {
-            cameFrom[ni] = current
-            gScore[ni] = tentative
-            fScore[ni] = tentative + heuristic(ni, goalIdx)
-            open.push(ni)
-          }
-        }
-      }
-      return null
-    }
+    const route = createNavigator(wallsRef.current)
+    const city = document.createElement('canvas')
+    city.width = FIELD.width + 24; city.height = FIELD.height + 24
+    const cityContext = city.getContext('2d')!
+    cityContext.translate(12, 12); drawCity(cityContext, wallsRef.current)
 
     const update = (dt: number) => {
       if (gameState !== 'playing') return
 
-      const { width, height } = canvasSizeRef.current
+      const { width, height } = FIELD
       const jeep = jeepRef.current
 
       // Fairness: cap concurrent enemy bullets so difficulty stays readable.
-      const maxEnemyBullets = TANK_TUNING.enemyBulletCap
-
-      // Respawn timer
-      if (respawnTimerRef.current > 0) {
-        respawnTimerRef.current -= dt * 1000
-        if (respawnTimerRef.current <= 0) {
-          resetJeep()
-          sounds.startEngine()
-        }
-        // Update debris
-        debrisRef.current = debrisRef.current.filter((d) => {
-          d.pos.x += d.vel.x * dt
-          d.pos.y += d.vel.y * dt
-          d.angle += d.rotSpeed * dt
-          d.life -= dt * 1000
-          return d.life > 0
-        })
-        return
-      }
+      const maxEnemyBullets = 6
 
       if (jeep.state === 'exploding') {
         jeep.explodeTime -= dt * 1000
         if (jeep.explodeTime <= 0) {
           jeep.state = 'dead'
           sounds.stopEngine()
-          setTimeout(() => setGameState('gameOver'), 500)
+          setGameState('gameOver')
         }
         // Update debris
         debrisRef.current = debrisRef.current.filter((d) => {
@@ -1385,35 +540,28 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         jeep.hitFlash -= dt * 1000
       }
 
-      // Jeep controls
-      if (keysRef.current.has('arrowleft') || keysRef.current.has('a')) {
-        jeep.angle -= JEEP_TUNING.turnSpeed * dt
-      }
-      if (keysRef.current.has('arrowright') || keysRef.current.has('d')) {
-        jeep.angle += JEEP_TUNING.turnSpeed * dt
-      }
-
-      if (keysRef.current.has('arrowup') || keysRef.current.has('w')) {
-        jeep.vel.x += Math.cos(jeep.angle) * JEEP_TUNING.accelForward * dt
-        jeep.vel.y += Math.sin(jeep.angle) * JEEP_TUNING.accelForward * dt
-      }
-      if (keysRef.current.has('arrowdown') || keysRef.current.has('s')) {
-        jeep.vel.x -= Math.cos(jeep.angle) * JEEP_TUNING.accelForward * JEEP_TUNING.accelReverseFactor * dt
-        jeep.vel.y -= Math.sin(jeep.angle) * JEEP_TUNING.accelForward * JEEP_TUNING.accelReverseFactor * dt
-      }
+      // Keyboard and controller share the same steering and acceleration limits.
+      const input = controllerInputRef.current
+      const turn = (Number(keysRef.current.has('arrowright') || keysRef.current.has('d')) - Number(keysRef.current.has('arrowleft') || keysRef.current.has('a'))) || input.turn
+      const forward = keysRef.current.has('arrowup') || keysRef.current.has('w') ? 1 : input.thrust
+      const reverse = keysRef.current.has('arrowdown') || keysRef.current.has('s') ? 1 : input.reverse
+      jeep.angle += turn * JEEP_TUNING.turnSpeed * dt
+      jeep.vel.x += Math.cos(jeep.angle) * JEEP_TUNING.accelForward * (forward - reverse * JEEP_TUNING.accelReverseFactor) * dt
+      jeep.vel.y += Math.sin(jeep.angle) * JEEP_TUNING.accelForward * (forward - reverse * JEEP_TUNING.accelReverseFactor) * dt
 
       // Drift physics - velocity gradually aligns with facing direction
       const speed = Math.hypot(jeep.vel.x, jeep.vel.y)
       if (speed > JEEP_TUNING.driftSpeedThreshold) {
         const velAngle = Math.atan2(jeep.vel.y, jeep.vel.x)
-        let angleDiff = jeep.angle - velAngle
+        const heading = Math.cos(velAngle - jeep.angle) < 0 ? jeep.angle + Math.PI : jeep.angle
+        let angleDiff = heading - velAngle
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
         
         // The faster you go, the more you drift (less grip)
         // Grip factor: 1.0 = instant alignment, lower = more drift
         const gripFactor = Math.max(JEEP_TUNING.gripMin, JEEP_TUNING.gripBase - speed * JEEP_TUNING.gripSpeedFactor)
-        const alignAmount = angleDiff * gripFactor
+        const alignAmount = angleDiff * (1 - Math.pow(1 - gripFactor, dt * 60))
         
         // Rotate velocity toward facing direction
         const newVelAngle = velAngle + alignAmount
@@ -1422,8 +570,8 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       }
 
       // Friction (slightly less when drifting sideways)
-      jeep.vel.x *= JEEP_TUNING.friction
-      jeep.vel.y *= JEEP_TUNING.friction
+      jeep.vel.x *= Math.pow(JEEP_TUNING.friction, dt * 60)
+      jeep.vel.y *= Math.pow(JEEP_TUNING.friction, dt * 60)
 
       // Speed limit
       const maxSpeed = JEEP_TUNING.maxSpeed
@@ -1452,7 +600,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         }
       }
 
-      // Screen bounds
+      // Battlefield bounds
       jeep.pos.x = Math.max(JEEP_TUNING.screenMargin, Math.min(width - JEEP_TUNING.screenMargin, jeep.pos.x))
       jeep.pos.y = Math.max(JEEP_TUNING.screenMargin, Math.min(height - JEEP_TUNING.screenMargin, jeep.pos.y))
 
@@ -1469,480 +617,32 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         }
       }
 
-      // Update tanks
-      tanksRef.current = tanksRef.current.filter((tank) => {
-        if (tank.state === 'exploding') {
-          tank.explodeTime -= dt * 1000
-          return tank.explodeTime > 0
-        }
-
-        const dtMs = dt * 1000
-        const optimalDist = 180
-
-        // AI: Smart navigation with obstacle avoidance + A* routing when LOS is blocked.
-        const dx = jeep.pos.x - tank.pos.x
-        const dy = jeep.pos.y - tank.pos.y
-        const dist = Math.hypot(dx, dy)
-        const directAngle = Math.atan2(dy, dx)
-        
-        // Check if direct path to jeep is blocked
-        let pathBlocked = false
+      observe(contactRef.current, jeep, [...tanksRef.current, ...helicoptersRef.current], wallsRef.current, dt)
+      tanksRef.current = tanksRef.current.filter(tank => {
+        if (tank.state === 'exploding') { tank.explodeTime -= dt * 1000; return tank.explodeTime > 0 }
+        driveTank(tank, tanksRef.current, contactRef.current, wallsRef.current, route, dt)
+        // Physical contacts still constrain the tactical planner.
         for (const wall of wallsRef.current) {
-          if (lineIntersectsRect(tank.pos.x, tank.pos.y, jeep.pos.x, jeep.pos.y, wall.x, wall.y, wall.width, wall.height)) {
-            pathBlocked = true
-            break
-          }
+          const hit = rectCollision(tank.pos.x, tank.pos.y, 28, wall)
+          tank.pos.x += hit.pushX; tank.pos.y += hit.pushY
         }
-
-        // Fairness: require a short, continuous "seeing you" window before accurate fire.
-        if (!pathBlocked) tank.losTimeMs = Math.min(2000, tank.losTimeMs + dtMs)
-        else tank.losTimeMs = 0
-
-        // Reduce tactical dithering.
-        tank.modeCommitMs = Math.max(0, tank.modeCommitMs - dtMs)
-
-        // Keep tactical mode up to date even when pathing.
-        let desiredMode: Tank['tacticalMode'] = tank.tacticalMode
-        if (dist > optimalDist + 120) desiredMode = 'approach'
-        else if (dist < optimalDist - 60 && !pathBlocked) desiredMode = 'hold'
-        else desiredMode = 'flank'
-        if (tank.modeCommitMs <= 0 && desiredMode !== tank.tacticalMode) {
-          tank.tacticalMode = desiredMode
-          tank.modeCommitMs = 500 + Math.random() * 650
+        const dx = jeep.pos.x - tank.pos.x, dy = jeep.pos.y - tank.pos.y, dist = Math.hypot(dx, dy)
+        if (dist > 0 && dist < 40) { jeep.pos.x += dx / dist * (40 - dist); jeep.pos.y += dy / dist * (40 - dist) }
+        const muzzle = aimTank(tank, jeep, tanksRef.current, wallsRef.current, dt)
+        if (muzzle && bulletsRef.current.filter(b => b.isEnemy).length < maxEnemyBullets) {
+          bulletsRef.current.push({ pos: muzzle, vel: { x: Math.cos(tank.turretAngle) * 250, y: Math.sin(tank.turretAngle) * 250 }, life: 2000, isEnemy: true })
+          tank.shootCooldown = 2200 + Math.random() * 1700; tank.recoil = 1; sounds.tankShoot()
         }
-
-        const clampGoal = (p: Vector2) => {
-          const margin = TANK_NAV_CLEARANCE
-          return {
-            x: Math.max(margin, Math.min(width - margin, p.x)),
-            y: Math.max(margin, Math.min(height - margin, p.y)),
-          }
-        }
-
-        const computeTacticalGoal = () => {
-          if (tank.tacticalMode === 'flank') {
-            const side = tank.flankAngle >= 0 ? 1 : -1
-            const around = directAngle + Math.PI + side * (Math.PI / 2)
-            return clampGoal({ x: jeep.pos.x + Math.cos(around) * optimalDist, y: jeep.pos.y + Math.sin(around) * optimalDist })
-          }
-          // Approach/hold: try to stay near optimal distance rather than ramming the jeep.
-          return clampGoal({ x: jeep.pos.x - Math.cos(directAngle) * optimalDist, y: jeep.pos.y - Math.sin(directAngle) * optimalDist })
-        }
-
-        const tryUpdateNav = (goal: Vector2) => {
-          tank.navReplanMs = Math.max(0, tank.navReplanMs - dtMs)
-          const goalMoved = Math.hypot(goal.x - tank.navLastGoal.x, goal.y - tank.navLastGoal.y)
-          const fromMoved = Math.hypot(tank.pos.x - tank.navLastFrom.x, tank.pos.y - tank.navLastFrom.y)
-          const shouldReplan =
-            tank.navPath.length === 0 ||
-            tank.navIndex >= tank.navPath.length ||
-            tank.navReplanMs <= 0 ||
-            goalMoved > TANK_NAV_CELL_SIZE * 0.75 ||
-            fromMoved > TANK_NAV_CELL_SIZE * 1.25
-
-          if (shouldReplan) {
-            const path = aStarPath(tank.pos, goal, width, height)
-            tank.navPath = path ?? []
-            tank.navIndex = 0
-            tank.navLastGoal = { x: goal.x, y: goal.y }
-            tank.navLastFrom = { x: tank.pos.x, y: tank.pos.y }
-            tank.navReplanMs = 450 + Math.random() * 250
-          }
-
-          if (tank.navPath.length === 0) return null
-
-          // Advance waypoints.
-          const advanceDist = TANK_NAV_CELL_SIZE * 0.45
-          while (tank.navIndex < tank.navPath.length) {
-            const wp = tank.navPath[tank.navIndex]
-            if (Math.hypot(wp.x - tank.pos.x, wp.y - tank.pos.y) > advanceDist) break
-            tank.navIndex += 1
-          }
-
-          if (tank.navIndex >= tank.navPath.length) return null
-          const wp = tank.navPath[tank.navIndex]
-          return Math.atan2(wp.y - tank.pos.y, wp.x - tank.pos.x)
-        }
-        
-        // Feeler rays to detect nearby obstacles - check multiple distances
-        const { width, height } = canvasSizeRef.current
-        const checkObstacle = (angle: number, checkDist: number): boolean => {
-          const checkX = tank.pos.x + Math.cos(angle) * checkDist
-          const checkY = tank.pos.y + Math.sin(angle) * checkDist
-          
-          // Check screen edges
-          if (checkX < 30 || checkX > width - 30 || checkY < 30 || checkY > height - 30) {
-            return true
-          }
-          
-          for (const wall of wallsRef.current) {
-            if (
-              checkX > wall.x - 25 && checkX < wall.x + wall.width + 25 &&
-              checkY > wall.y - 25 && checkY < wall.y + wall.height + 25
-            ) {
-              return true
-            }
-          }
-          return false
-        }
-        
-        // Check at multiple distances for better detection
-        const frontBlocked = checkObstacle(tank.angle, 50) || checkObstacle(tank.angle, 80)
-        const frontLeftBlocked = checkObstacle(tank.angle - Math.PI / 6, 60)
-        const frontRightBlocked = checkObstacle(tank.angle + Math.PI / 6, 60)
-        const leftBlocked = checkObstacle(tank.angle - Math.PI / 3, 50)
-        const rightBlocked = checkObstacle(tank.angle + Math.PI / 3, 50)
-        const rearBlocked = checkObstacle(tank.angle + Math.PI, 50)
-        
-        // Count how many directions are blocked
-        const blockedCount = [frontBlocked, frontLeftBlocked, frontRightBlocked, leftBlocked, rightBlocked, rearBlocked].filter(b => b).length
-
-        // A* navigation when LOS is blocked or the local feelers indicate we're boxed in.
-        let navAngle: number | null = null
-        if ((pathBlocked || blockedCount >= 3) && dist > 80) {
-          const goal = computeTacticalGoal()
-          navAngle = tryUpdateNav(goal)
-          if (navAngle != null) {
-            tank.escapeAngle = 0
-            tank.stuckTimer = 0
-          }
-        } else {
-          // If we're not in a blocked situation, don't keep following stale paths.
-          tank.navPath = []
-          tank.navIndex = 0
-        }
-        
-        // Check if near screen edges - if so, bias toward center
-        const nearLeftEdge = tank.pos.x < 80
-        const nearRightEdge = tank.pos.x > width - 80
-        const nearTopEdge = tank.pos.y < 80
-        const nearBottomEdge = tank.pos.y > height - 80
-        
-        // Calculate angle toward center of screen
-        const centerX = width / 2
-        const centerY = height / 2
-        const toCenterAngle = Math.atan2(centerY - tank.pos.y, centerX - tank.pos.x)
-        
-        // Calculate desired angle based on obstacles
-        let desiredAngle = tank.targetAngle
-        
-        // If heavily surrounded, enter escape mode
-        if (blockedCount >= 4) {
-          tank.stuckTimer += dt
-          if (tank.stuckTimer > 0.5) {
-            // Pick an escape angle and commit to it
-            if (tank.escapeAngle === 0 || tank.stuckTimer > 2) {
-              // Try toward center, or pick a random direction
-              tank.escapeAngle = toCenterAngle + (Math.random() - 0.5) * Math.PI
-              tank.stuckTimer = 0.5 // Reset but stay in escape mode
-            }
-            desiredAngle = tank.escapeAngle
-          }
-        } else {
-          // Not stuck anymore, reset timer
-          tank.stuckTimer = Math.max(0, tank.stuckTimer - dt * 2)
-          if (tank.stuckTimer <= 0) {
-            tank.escapeAngle = 0
-          }
-        }
-        
-        // If actively escaping, skip normal navigation
-        if (tank.escapeAngle !== 0) {
-          desiredAngle = tank.escapeAngle
-        } else if (nearLeftEdge || nearRightEdge || nearTopEdge || nearBottomEdge) {
-          // Blend between jeep direction and center direction when near edges
-          let blendedTarget = toCenterAngle
-          
-          // If we can see the jeep, try to angle toward them while escaping edge
-          if (!pathBlocked) {
-            let centerDiff = directAngle - toCenterAngle
-            while (centerDiff > Math.PI) centerDiff -= Math.PI * 2
-            while (centerDiff < -Math.PI) centerDiff += Math.PI * 2
-            // If jeep is somewhat toward center, go that way
-            if (Math.abs(centerDiff) < Math.PI / 2) {
-              blendedTarget = directAngle
-            }
-          }
-          desiredAngle = blendedTarget
-        } else if (frontBlocked || frontLeftBlocked || frontRightBlocked || pathBlocked) {
-          // Need to navigate around obstacle
-          if (!leftBlocked && (rightBlocked || frontRightBlocked)) {
-            // Turn left harder
-            desiredAngle = tank.angle - Math.PI / 2
-          } else if ((leftBlocked || frontLeftBlocked) && !rightBlocked) {
-            // Turn right harder
-            desiredAngle = tank.angle + Math.PI / 2
-          } else if (!leftBlocked && !rightBlocked) {
-            // Both sides clear, pick the one closer to jeep direction
-            let leftAngleDiff = directAngle - (tank.angle - Math.PI / 2)
-            let rightAngleDiff = directAngle - (tank.angle + Math.PI / 2)
-            while (leftAngleDiff > Math.PI) leftAngleDiff -= Math.PI * 2
-            while (leftAngleDiff < -Math.PI) leftAngleDiff += Math.PI * 2
-            while (rightAngleDiff > Math.PI) rightAngleDiff -= Math.PI * 2
-            while (rightAngleDiff < -Math.PI) rightAngleDiff += Math.PI * 2
-            desiredAngle = Math.abs(leftAngleDiff) < Math.abs(rightAngleDiff) 
-              ? tank.angle - Math.PI / 2 
-              : tank.angle + Math.PI / 2
-          } else {
-            // Both sides blocked, reverse
-            desiredAngle = tank.angle + Math.PI
-          }
-        } else {
-          // Smart tactical behavior based on distance and situation
-          if (tank.tacticalMode === 'approach') {
-            // Approach but at an angle to flank
-            desiredAngle = directAngle + tank.flankAngle * 0.3
-          } else if (tank.tacticalMode === 'flank') {
-            // Circle around the player at optimal distance
-            // Move perpendicular to player direction
-            const perpAngle = tank.flankAngle > 0 ? directAngle + Math.PI / 2 : directAngle - Math.PI / 2
-            // Blend between facing player and circling
-            if (dist < optimalDist) {
-              // Too close, back away while circling
-              desiredAngle = directAngle + Math.PI * 0.7 * Math.sign(tank.flankAngle)
-            } else {
-              // At good distance, circle while facing player
-              desiredAngle = perpAngle
-            }
-          } else {
-            // Hold position - face the player
-            desiredAngle = directAngle
-          }
-        }
-
-        if (navAngle != null) {
-          desiredAngle = navAngle
-        }
-        
-        // Smoothly update target angle to prevent jittering
-        // Only change target if the new desired angle is significantly different
-        let targetDiff = desiredAngle - tank.targetAngle
-        while (targetDiff > Math.PI) targetDiff -= Math.PI * 2
-        while (targetDiff < -Math.PI) targetDiff += Math.PI * 2
-        
-        // Gradually blend toward desired angle to smooth out rapid changes
-        tank.targetAngle += targetDiff * dt * TANK_TUNING.targetAngleBlend
-
-        let angleDiff = tank.targetAngle - tank.angle
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
-        tank.angle += angleDiff * dt * TANK_TUNING.hullTurnSpeed // Smooth turning
-
-        // Move tank - speed based on tactical mode
-        const tankSpeed =
-          tank.tacticalMode === 'approach'
-            ? TANK_TUNING.speedApproach
-            : tank.tacticalMode === 'flank'
-              ? TANK_TUNING.speedFlank
-              : TANK_TUNING.speedHold
-        if (frontBlocked || frontLeftBlocked || frontRightBlocked) {
-          // Slow down when obstacle ahead
-          tank.vel.x = Math.cos(tank.angle) * tankSpeed * TANK_TUNING.obstacleSlowFactor
-          tank.vel.y = Math.sin(tank.angle) * tankSpeed * TANK_TUNING.obstacleSlowFactor
-        } else if (tank.tacticalMode === 'hold' && dist < TANK_TUNING.holdTooCloseDistPx && !pathBlocked) {
-          // Back up slowly when too close
-          tank.vel.x = -Math.cos(directAngle) * TANK_TUNING.tooCloseBackUpSpeed
-          tank.vel.y = -Math.sin(directAngle) * TANK_TUNING.tooCloseBackUpSpeed
-        } else if (tank.tacticalMode === 'flank') {
-          // Move at medium speed while flanking
-          tank.vel.x = Math.cos(tank.angle) * tankSpeed
-          tank.vel.y = Math.sin(tank.angle) * tankSpeed
-        } else if (dist > TANK_TUNING.moveDistThresholdPx) {
-          tank.vel.x = Math.cos(tank.angle) * tankSpeed
-          tank.vel.y = Math.sin(tank.angle) * tankSpeed
-        } else {
-          tank.vel.x *= TANK_TUNING.velocityDamping
-          tank.vel.y *= TANK_TUNING.velocityDamping
-        }
-
-        // Animate tracks based on movement
-        const tankSpeed2 = Math.hypot(tank.vel.x, tank.vel.y)
-        tank.trackOffset += tankSpeed2 * dt * 0.5
-
-        tank.pos.x += tank.vel.x * dt
-        tank.pos.y += tank.vel.y * dt
-
-        // Wall collision for tank
-        for (const wall of wallsRef.current) {
-          const { collision, pushX, pushY } = rectCollision(tank.pos.x, tank.pos.y, 28, wall)
-          if (collision) {
-            tank.pos.x += pushX
-            tank.pos.y += pushY
-          }
-        }
-
-        // Screen bounds
-        tank.pos.x = Math.max(25, Math.min(width - 25, tank.pos.x))
-        tank.pos.y = Math.max(25, Math.min(height - 25, tank.pos.y))
-
-        // Tank-to-tank collision
-        for (const otherTank of tanksRef.current) {
-          if (otherTank === tank || otherTank.state === 'exploding') continue
-          const dx = tank.pos.x - otherTank.pos.x
-          const dy = tank.pos.y - otherTank.pos.y
-          const dist = Math.hypot(dx, dy)
-          const minDist = 40 // Both tanks are ~20 radius
-          if (dist < minDist && dist > 0) {
-            const push = (minDist - dist) / 2
-            const nx = dx / dist
-            const ny = dy / dist
-            tank.pos.x += nx * push
-            tank.pos.y += ny * push
-            otherTank.pos.x -= nx * push
-            otherTank.pos.y -= ny * push
-          }
-        }
-
-        // Tank-to-jeep collision
-        if (jeep.state === 'active') {
-          const dx = tank.pos.x - jeep.pos.x
-          const dy = tank.pos.y - jeep.pos.y
-          const dist = Math.hypot(dx, dy)
-          const minDist = 32 // Tank ~20 + jeep ~12
-          if (dist < minDist && dist > 0) {
-            const push = (minDist - dist) / 2
-            const nx = dx / dist
-            const ny = dy / dist
-            tank.pos.x += nx * push
-            tank.pos.y += ny * push
-            jeep.pos.x -= nx * push
-            jeep.pos.y -= ny * push
-          }
-        }
-
-        // Shooting - smart aim with lead prediction
-        tank.shootCooldown -= dt * 1000
-        
-        // Calculate lead shot - predict where jeep will be
-        const bulletSpeed = TANK_TUNING.bulletSpeed
-        const timeToTarget = dist / bulletSpeed
-        const predictedX = jeep.pos.x + jeep.vel.x * timeToTarget * TANK_TUNING.leadPredictionFactor
-        const predictedY = jeep.pos.y + jeep.vel.y * timeToTarget * TANK_TUNING.leadPredictionFactor
-        const leadAngle = Math.atan2(predictedY - tank.pos.y, predictedX - tank.pos.x)
-
-        // Turret rotates independently of the hull; aiming is aligned strictly to the turret.
-        const turretTurnSpeed = TANK_TUNING.turretTurnSpeed
-        let turretDiff = leadAngle - tank.turretAngle
-        while (turretDiff > Math.PI) turretDiff -= Math.PI * 2
-        while (turretDiff < -Math.PI) turretDiff += Math.PI * 2
-        const turretStep = turretTurnSpeed * dt
-        if (turretDiff > turretStep) turretDiff = turretStep
-        else if (turretDiff < -turretStep) turretDiff = -turretStep
-        tank.turretAngle += turretDiff
-        
-        // Check if aimed well enough (comparing turret angle to lead angle)
-        let aimDiff = leadAngle - tank.turretAngle
-        while (aimDiff > Math.PI) aimDiff -= Math.PI * 2
-        while (aimDiff < -Math.PI) aimDiff += Math.PI * 2
-        
-        const enemyBulletCount = bulletsRef.current.reduce((acc, b) => acc + (b.isEnemy ? 1 : 0), 0)
-        const reactionOk = tank.losTimeMs >= TANK_TUNING.reactionTimeMs
-        const aimOk = Math.abs(aimDiff) < TANK_TUNING.aimToleranceRad
-
-        if (tank.shootCooldown <= 0 && reactionOk && aimOk && dist < TANK_TUNING.fireRangePx && enemyBulletCount < maxEnemyBullets) {
-          // Spawn shells from the barrel muzzle (not the tank center).
-          const muzzleX = tank.pos.x + Math.cos(tank.turretAngle) * TANK_TUNING.muzzleDistancePx
-          const muzzleY = tank.pos.y + Math.sin(tank.turretAngle) * TANK_TUNING.muzzleDistancePx
-
-          // Check if wall blocks the shot to predicted position
-          let blocked = false
-          for (const wall of wallsRef.current) {
-            if (lineIntersectsRect(muzzleX, muzzleY, predictedX, predictedY, wall.x, wall.y, wall.width, wall.height)) {
-              blocked = true
-              break
-            }
-          }
-
-          if (!blocked) {
-            // Shoot toward predicted position with slight randomness
-            // Fairness: a little wobble, but not instant "laser" snaps.
-            const shootAngle = tank.turretAngle
-            tank.shootCooldown = TANK_TUNING.shootCooldownMsMin + Math.random() * TANK_TUNING.shootCooldownMsRand
-            bulletsRef.current.push({
-              pos: { x: muzzleX, y: muzzleY },
-              vel: {
-                x: Math.cos(shootAngle) * bulletSpeed,
-                y: Math.sin(shootAngle) * bulletSpeed,
-              },
-              life: 2000,
-              isEnemy: true,
-            })
-            sounds.tankShoot()
-          } else {
-            tank.shootCooldown = TANK_TUNING.blockedRetryCooldownMs // Try again soon
-          }
-        }
-
         return true
       })
-
-      // Update helicopters
-      helicoptersRef.current = helicoptersRef.current.filter((heli) => {
-        if (heli.state === 'exploding') {
-          heli.explodeTime -= dt * 1000
-          return heli.explodeTime > 0
-        }
-
-        // Helicopter sound - faster repetition for realistic rotor sound
+      helicoptersRef.current = helicoptersRef.current.filter(heli => {
+        if (heli.state === 'exploding') { heli.explodeTime -= dt * 1000; return heli.explodeTime > 0 }
         heli.soundTimer -= dt * 1000
-        if (heli.soundTimer <= 0) {
-          heli.soundTimer = 180 // Faster "whup whup" rhythm
-          sounds.helicopter()
+        if (heli.soundTimer <= 0) { heli.soundTimer = 180; sounds.helicopter() }
+        if (flyHelicopter(heli, jeep, contactRef.current, wallsRef.current, dt) && bulletsRef.current.filter(b => b.isEnemy).length < maxEnemyBullets) {
+          bulletsRef.current.push({ pos: { ...heli.pos }, vel: { x: Math.cos(heli.angle) * 220, y: Math.sin(heli.angle) * 220 }, life: 2000, isEnemy: true })
+          heli.shootCooldown = 2400 + Math.random() * 1400; heli.recoil = 1; sounds.tankShoot()
         }
-
-        // Move towards player generally
-        const dx = jeep.pos.x - heli.pos.x
-        const dy = jeep.pos.y - heli.pos.y
-        const dist = Math.hypot(dx, dy)
-
-        // LOS for fairness and effectiveness (don't spam into walls)
-        let heliPathBlocked = false
-        for (const wall of wallsRef.current) {
-          if (lineIntersectsRect(heli.pos.x, heli.pos.y, jeep.pos.x, jeep.pos.y, wall.x, wall.y, wall.width, wall.height)) {
-            heliPathBlocked = true
-            break
-          }
-        }
-        if (!heliPathBlocked) heli.losTimeMs = Math.min(2000, heli.losTimeMs + dt * 1000)
-        else heli.losTimeMs = 0
-
-        if (dist > 50) {
-          const targetVx = (dx / dist) * 60
-          const targetVy = (dy / dist) * 60
-          heli.vel.x += (targetVx - heli.vel.x) * dt * 0.5
-          heli.vel.y += (targetVy - heli.vel.y) * dt * 0.5
-        }
-
-        heli.pos.x += heli.vel.x * dt
-        heli.pos.y += heli.vel.y * dt
-        heli.angle = Math.atan2(heli.vel.y, heli.vel.x)
-        heli.rotorAngle += dt * 20
-
-        // Shooting
-        heli.shootCooldown -= dt * 1000
-        const enemyBulletCount = bulletsRef.current.reduce((acc, b) => acc + (b.isEnemy ? 1 : 0), 0)
-        const heliReactionOk = heli.losTimeMs >= 250
-        if (heli.shootCooldown <= 0 && heliReactionOk && !heliPathBlocked && dist < 320 && dist > 90 && enemyBulletCount < maxEnemyBullets) {
-          heli.shootCooldown = 2400 + Math.random() * 1400
-
-          const bulletSpeed = 220
-          const timeToTarget = dist / bulletSpeed
-          const predictedX = jeep.pos.x + jeep.vel.x * timeToTarget * 0.55
-          const predictedY = jeep.pos.y + jeep.vel.y * timeToTarget * 0.55
-          const bulletAngle = Math.atan2(predictedY - heli.pos.y, predictedX - heli.pos.x) + (Math.random() - 0.5) * 0.18
-
-          bulletsRef.current.push({
-            pos: { x: heli.pos.x, y: heli.pos.y },
-            vel: {
-              x: Math.cos(bulletAngle) * bulletSpeed,
-              y: Math.sin(bulletAngle) * bulletSpeed,
-            },
-            life: 2000,
-            isEnemy: true,
-          })
-          sounds.tankShoot()
-        }
-
         return true
       })
 
@@ -1961,7 +661,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           }
         }
 
-        // Screen bounds
+        // Battlefield bounds
         if (bullet.pos.x < 0 || bullet.pos.x > width || bullet.pos.y < 0 || bullet.pos.y > height) {
           return false
         }
@@ -2062,748 +762,38 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       // Check wave complete
       const activeTanks = tanksRef.current.filter((t) => t.state === 'active').length
       const activeHelis = helicoptersRef.current.filter((h) => h.state === 'active').length
-      if (activeTanks === 0 && activeHelis === 0 && !waveCompleteRef.current && jeep.state === 'active') {
-        waveCompleteRef.current = true
-        setTimeout(() => {
-          setWave((w) => {
-            const newWave = w + 1
-            spawnEnemies(newWave)
-            spawnRepairKit()
-            waveCompleteRef.current = false
-            return newWave
-          })
-        }, 1500)
+      if (activeTanks === 0 && activeHelis === 0 && jeep.state === 'active') {
+        waveDelayRef.current += dt
+        if (waveDelayRef.current >= 1.5) {
+          const nextWave = wave + 1
+          setWave(nextWave); spawnEnemies(nextWave); spawnRepairKit()
+          waveDelayRef.current = 0
+        }
       }
     }
-
-    const draw = () => {
-      const { width, height } = canvasSizeRef.current
-
-      const hashToUnit = (x: number) => {
-        // Deterministic pseudo-random in [0,1) from integer-ish input.
-        // Keeps roof details stable frame-to-frame.
-        let n = x | 0
-        n ^= n << 13
-        n ^= n >>> 17
-        n ^= n << 5
-        return ((n >>> 0) % 10000) / 10000
-      }
-
-      const buildSeed = (x: number, y: number, w: number, h: number) => {
-        const xi = Math.floor(x)
-        const yi = Math.floor(y)
-        const wi = Math.floor(w)
-        const hi = Math.floor(h)
-        return (xi * 73856093) ^ (yi * 19349663) ^ (wi * 83492791) ^ (hi * 2654435761)
-      }
-
-      // Clear
-      ctx.fillStyle = '#0a0a0a'
-      ctx.fillRect(0, 0, width, height)
-
-      // Subtle scanline haze
-      ctx.save()
-      ctx.globalAlpha = 0.06
-      ctx.fillStyle = '#00ff88'
-      const scanY = ((Date.now() / 1000) * 60) % 12
-      for (let y = -12; y < height + 12; y += 12) {
-        ctx.fillRect(0, y + scanY, width, 1)
-      }
-      ctx.restore()
-
-      // City ground: subtle street markings (the "roads" are the empty space between buildings).
-      ctx.save()
-      ctx.strokeStyle = '#004422'
-      ctx.globalAlpha = 0.16
-      ctx.lineWidth = 1
-      ctx.setLineDash([10, 16])
-      const streetGrid = 96
-      for (let x = streetGrid / 2; x < width; x += streetGrid) {
-        ctx.beginPath()
-        ctx.moveTo(x, 0)
-        ctx.lineTo(x, height)
-        ctx.stroke()
-      }
-      for (let y = streetGrid / 2; y < height; y += streetGrid) {
-        ctx.beginPath()
-        ctx.moveTo(0, y)
-        ctx.lineTo(width, y)
-        ctx.stroke()
-      }
-      ctx.restore()
-
-      // Buildings (collision still uses the rectangle; this is visuals only)
-      for (const wall of wallsRef.current) {
-        const seed = buildSeed(wall.x, wall.y, wall.width, wall.height)
-        const r0 = hashToUnit(seed)
-        const r1 = hashToUnit(seed ^ 0x9e3779b9)
-
-        // Roof fill
-        ctx.save()
-        ctx.fillStyle = '#004422'
-        ctx.globalAlpha = 0.35 + r0 * 0.10
-        ctx.fillRect(wall.x, wall.y, wall.width, wall.height)
-        ctx.restore()
-
-        // Sidewalk/parapet outline
-        ctx.save()
-        ctx.strokeStyle = '#00ff88'
-        ctx.lineWidth = 2
-        ctx.globalAlpha = 1
-        ctx.strokeRect(wall.x, wall.y, wall.width, wall.height)
-
-        // Inner parapet
-        const inset = 4
-        if (wall.width > inset * 2 + 8 && wall.height > inset * 2 + 8) {
-          ctx.globalAlpha = 0.35
-          ctx.lineWidth = 1
-          ctx.strokeRect(wall.x + inset, wall.y + inset, wall.width - inset * 2, wall.height - inset * 2)
-        }
-
-        // Roof details clipped to the building footprint
-        ctx.beginPath()
-        ctx.rect(wall.x + inset, wall.y + inset, Math.max(0, wall.width - inset * 2), Math.max(0, wall.height - inset * 2))
-        ctx.clip()
-
-        ctx.strokeStyle = '#00ff88'
-        ctx.globalAlpha = 0.18
-        ctx.lineWidth = 1
-
-        // HVAC units
-        const area = wall.width * wall.height
-        const hvacCount = Math.min(4, Math.max(1, Math.floor(area / 5200)))
-        for (let i = 0; i < hvacCount; i++) {
-          const ri = hashToUnit(seed ^ (i * 0x27d4eb2d))
-          const rj = hashToUnit(seed ^ (i * 0x165667b1) ^ 0x85ebca6b)
-          const rw = 10 + Math.floor(ri * 10)
-          const rh = 6 + Math.floor(rj * 8)
-          const px = wall.x + inset + ri * Math.max(1, wall.width - inset * 2 - rw)
-          const py = wall.y + inset + rj * Math.max(1, wall.height - inset * 2 - rh)
-          ctx.strokeRect(px, py, rw, rh)
-          ctx.beginPath()
-          ctx.moveTo(px + 2, py + rh / 2)
-          ctx.lineTo(px + rw - 2, py + rh / 2)
-          ctx.stroke()
-        }
-
-        // Skylight strips (direction varies per-building)
-        const skylightVertical = r1 > 0.5
-        const stripCount = 2 + Math.floor(r0 * 3)
-        for (let s = 0; s < stripCount; s++) {
-          const t = (s + 1) / (stripCount + 1)
-          ctx.beginPath()
-          if (skylightVertical) {
-            const x = wall.x + inset + (wall.width - inset * 2) * t
-            ctx.moveTo(x, wall.y + inset)
-            ctx.lineTo(x, wall.y + wall.height - inset)
-          } else {
-            const y = wall.y + inset + (wall.height - inset * 2) * t
-            ctx.moveTo(wall.x + inset, y)
-            ctx.lineTo(wall.x + wall.width - inset, y)
-          }
-          ctx.stroke()
-        }
-
-        // Large blocks: visually subdivide into multiple rooftops
-        if (wall.width > 90 && wall.height > 60) {
-          ctx.globalAlpha = 0.16
-          const divs = 1 + Math.floor(r0 * 2)
-          for (let d = 0; d < divs; d++) {
-            const rd = hashToUnit(seed ^ (d * 0x2c1b3c6d))
-            ctx.beginPath()
-            if (wall.width > wall.height) {
-              const x = wall.x + inset + (wall.width - inset * 2) * (0.25 + rd * 0.5)
-              ctx.moveTo(x, wall.y + inset)
-              ctx.lineTo(x, wall.y + wall.height - inset)
-            } else {
-              const y = wall.y + inset + (wall.height - inset * 2) * (0.25 + rd * 0.5)
-              ctx.moveTo(wall.x + inset, y)
-              ctx.lineTo(wall.x + wall.width - inset, y)
-            }
-            ctx.stroke()
-          }
-        }
-
-        ctx.restore()
-      }
-
-      // Draw repair kit (single): medical cross icon, stationary (no spin/bounce).
-      for (const kit of repairKitsRef.current) {
-        ctx.save()
-        ctx.translate(kit.pos.x, kit.pos.y)
-
-        const size = 18
-
-        // White square background
-        ctx.fillStyle = '#ffffff'
-        ctx.fillRect(-size / 2, -size / 2, size, size)
-
-        // Red cross
-        ctx.fillStyle = '#ff4444'
-        const crossThick = size * 0.25
-        const crossLen = size * 0.75
-
-        // Horizontal bar
-        ctx.fillRect(-crossLen / 2, -crossThick / 2, crossLen, crossThick)
-
-        // Vertical bar
-        ctx.fillRect(-crossThick / 2, -crossLen / 2, crossThick, crossLen)
-
-        ctx.restore()
-      }
-
-      // Draw tanks
-      for (const tank of tanksRef.current) {
-        if (tank.state === 'exploding') {
-          // No starburst flash; explosion is represented by debris particles only.
-          continue
-        }
-
-        ctx.save()
-        ctx.translate(tank.pos.x, tank.pos.y)
-        ctx.rotate(tank.angle)
-
-        // Color based on health: white (2), orange (1)
-        const tankColor = tank.health === 2 ? '#ffffff' : '#ffaa00'
-        ctx.strokeStyle = tankColor
-        ctx.lineWidth = 2
-
-        // Opaque fill so pickups don't show under vehicles.
-        ctx.save()
-        ctx.fillStyle = '#0a0a0a'
-        ctx.globalAlpha = 1
-        ctx.shadowBlur = 0
-
-        // Left track fill
-        ctx.beginPath()
-        ctx.moveTo(-20, -16)
-        ctx.lineTo(16, -16)
-        ctx.lineTo(20, -13)
-        ctx.lineTo(20, -9)
-        ctx.lineTo(-18, -9)
-        ctx.lineTo(-22, -12)
-        ctx.closePath()
-        ctx.fill()
-
-        // Right track fill
-        ctx.beginPath()
-        ctx.moveTo(-20, 16)
-        ctx.lineTo(16, 16)
-        ctx.lineTo(20, 13)
-        ctx.lineTo(20, 9)
-        ctx.lineTo(-18, 9)
-        ctx.lineTo(-22, 12)
-        ctx.closePath()
-        ctx.fill()
-
-        // Hull fill
-        ctx.beginPath()
-        ctx.moveTo(-15, -8)
-        ctx.lineTo(10, -8)
-        ctx.lineTo(14, -5)
-        ctx.lineTo(14, 5)
-        ctx.lineTo(10, 8)
-        ctx.lineTo(-15, 8)
-        ctx.lineTo(-18, 5)
-        ctx.lineTo(-18, -5)
-        ctx.closePath()
-        ctx.fill()
-
-        // Turret fill (rotate independently from hull)
-        ctx.save()
-        ctx.rotate(tank.turretAngle - tank.angle)
-
-        // Opaque turret fill (prevents anything underneath from showing through).
-        ctx.save()
-        ctx.fillStyle = '#0a0a0a'
-        ctx.globalAlpha = 1
-        ctx.shadowBlur = 0
-
-        // Turret base
-        ctx.beginPath()
-        ctx.moveTo(-14, -7)
-        ctx.lineTo(6, -7)
-        ctx.lineTo(10, -3)
-        ctx.lineTo(10, 3)
-        ctx.lineTo(6, 7)
-        ctx.lineTo(-14, 7)
-        ctx.lineTo(-17, 3)
-        ctx.lineTo(-17, -3)
-        ctx.closePath()
-        ctx.fill()
-
-        // Turret top
-        ctx.beginPath()
-        ctx.moveTo(-10, -4)
-        ctx.lineTo(2, -4)
-        ctx.lineTo(5, -2)
-        ctx.lineTo(5, 2)
-        ctx.lineTo(2, 4)
-        ctx.lineTo(-10, 4)
-        ctx.lineTo(-12, 2)
-        ctx.lineTo(-12, -2)
-        ctx.closePath()
-        ctx.fill()
-
-        // Cupola
-        ctx.beginPath()
-        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
-        ctx.fill()
-
-        ctx.restore()
-
-        // Turret base
-        ctx.beginPath()
-        ctx.moveTo(-14, -7)
-        ctx.lineTo(6, -7)
-        ctx.lineTo(10, -3)
-        ctx.lineTo(10, 3)
-        ctx.lineTo(6, 7)
-        ctx.lineTo(-14, 7)
-        ctx.lineTo(-17, 3)
-        ctx.lineTo(-17, -3)
-        ctx.closePath()
-        ctx.fill()
-
-        // Turret top
-        ctx.beginPath()
-        ctx.moveTo(-10, -4)
-        ctx.lineTo(2, -4)
-        ctx.lineTo(5, -2)
-        ctx.lineTo(5, 2)
-        ctx.lineTo(2, 4)
-        ctx.lineTo(-10, 4)
-        ctx.lineTo(-12, 2)
-        ctx.lineTo(-12, -2)
-        ctx.closePath()
-        ctx.fill()
-
-        // Cupola
-        ctx.beginPath()
-        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
-        ctx.fill()
-
-        ctx.restore()
-
-        ctx.restore()
-
-        // Left track (outer housing)
-        ctx.beginPath()
-        ctx.moveTo(-20, -16)
-        ctx.lineTo(16, -16)
-        ctx.lineTo(20, -13)
-        ctx.lineTo(20, -9)
-        ctx.lineTo(-18, -9)
-        ctx.lineTo(-22, -12)
-        ctx.closePath()
-        ctx.stroke()
-
-        // Right track (outer housing)
-        ctx.beginPath()
-        ctx.moveTo(-20, 16)
-        ctx.lineTo(16, 16)
-        ctx.lineTo(20, 13)
-        ctx.lineTo(20, 9)
-        ctx.lineTo(-18, 9)
-        ctx.lineTo(-22, 12)
-        ctx.closePath()
-        ctx.stroke()
-
-        // Animated track treads (left)
-        const trackSpacing = 6
-        for (let i = -3; i <= 3; i++) {
-          const xOff = (i * trackSpacing + tank.trackOffset) % (trackSpacing * 7) - trackSpacing * 3.5
-          if (xOff > -20 && xOff < 18) {
-            ctx.beginPath()
-            ctx.moveTo(xOff, -16)
-            ctx.lineTo(xOff, -9)
-            ctx.stroke()
-          }
-        }
-
-        // Animated track treads (right)
-        for (let i = -3; i <= 3; i++) {
-          const xOff = (i * trackSpacing + tank.trackOffset) % (trackSpacing * 7) - trackSpacing * 3.5
-          if (xOff > -20 && xOff < 18) {
-            ctx.beginPath()
-            ctx.moveTo(xOff, 16)
-            ctx.lineTo(xOff, 9)
-            ctx.stroke()
-          }
-        }
-
-        // Hull body (angled armor)
-        ctx.beginPath()
-        ctx.moveTo(-15, -8)
-        ctx.lineTo(10, -8)
-        ctx.lineTo(14, -5)
-        ctx.lineTo(14, 5)
-        ctx.lineTo(10, 8)
-        ctx.lineTo(-15, 8)
-        ctx.lineTo(-18, 5)
-        ctx.lineTo(-18, -5)
-        ctx.closePath()
-        ctx.stroke()
-
-        // Front armor detail
-        ctx.beginPath()
-        ctx.moveTo(10, -6)
-        ctx.lineTo(12, -4)
-        ctx.lineTo(12, 4)
-        ctx.lineTo(10, 6)
-        ctx.stroke()
-
-        ctx.save()
-        ctx.rotate(tank.turretAngle - tank.angle)
-
-        // Opaque turret fill (drawn after hull strokes so the hull can't show through).
-        ctx.save()
-        ctx.fillStyle = '#0a0a0a'
-        ctx.globalAlpha = 1
-        ctx.shadowBlur = 0
-
-        // Turret base
-        ctx.beginPath()
-        ctx.moveTo(-14, -7)
-        ctx.lineTo(6, -7)
-        ctx.lineTo(10, -3)
-        ctx.lineTo(10, 3)
-        ctx.lineTo(6, 7)
-        ctx.lineTo(-14, 7)
-        ctx.lineTo(-17, 3)
-        ctx.lineTo(-17, -3)
-        ctx.closePath()
-        ctx.fill()
-
-        // Turret top
-        ctx.beginPath()
-        ctx.moveTo(-10, -4)
-        ctx.lineTo(2, -4)
-        ctx.lineTo(5, -2)
-        ctx.lineTo(5, 2)
-        ctx.lineTo(2, 4)
-        ctx.lineTo(-10, 4)
-        ctx.lineTo(-12, 2)
-        ctx.lineTo(-12, -2)
-        ctx.closePath()
-        ctx.fill()
-
-        // Cupola
-        ctx.beginPath()
-        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
-        ctx.fill()
-
-        ctx.restore()
-
-        // Turret base
-        ctx.beginPath()
-        ctx.moveTo(-14, -7)
-        ctx.lineTo(6, -7)
-        ctx.lineTo(10, -3)
-        ctx.lineTo(10, 3)
-        ctx.lineTo(6, 7)
-        ctx.lineTo(-14, 7)
-        ctx.lineTo(-17, 3)
-        ctx.lineTo(-17, -3)
-        ctx.closePath()
-        ctx.stroke()
-
-        // Turret top
-        ctx.beginPath()
-        ctx.moveTo(-10, -4)
-        ctx.lineTo(2, -4)
-        ctx.lineTo(5, -2)
-        ctx.lineTo(5, 2)
-        ctx.lineTo(2, 4)
-        ctx.lineTo(-10, 4)
-        ctx.lineTo(-12, 2)
-        ctx.lineTo(-12, -2)
-        ctx.closePath()
-        ctx.stroke()
-
-        // Cupola + hatch line
-        ctx.beginPath()
-        ctx.arc(-6, 0, 2.5, 0, Math.PI * 2)
-        ctx.stroke()
-        ctx.beginPath()
-        ctx.moveTo(-6, -2.5)
-        ctx.lineTo(-6, 2.5)
-        ctx.stroke()
-
-        // Main gun barrel
-        ctx.lineWidth = 3
-        ctx.beginPath()
-        ctx.moveTo(4, 0)
-        ctx.lineTo(26, 0)
-        ctx.stroke()
-
-        // Muzzle brake
-        ctx.lineWidth = 2
-        ctx.beginPath()
-        ctx.moveTo(24, -3)
-        ctx.lineTo(28, -3)
-        ctx.lineTo(28, 3)
-        ctx.lineTo(24, 3)
-        ctx.stroke()
-
-        ctx.restore()
-
-        ctx.restore()
-      }
-
-      // Draw helicopters
-      for (const heli of helicoptersRef.current) {
-        if (heli.state === 'exploding') {
-          // No starburst flash; explosion is represented by debris particles only.
-          continue
-        }
-
-        ctx.save()
-        ctx.translate(heli.pos.x, heli.pos.y)
-        ctx.rotate(heli.angle)
-
-        ctx.strokeStyle = '#ffaa00'
-        ctx.lineWidth = 2
-
-        // Opaque fill so pickups don't show under vehicles.
-        ctx.save()
-        ctx.fillStyle = '#0a0a0a'
-        ctx.globalAlpha = 1
-        ctx.shadowBlur = 0
-
-        // Fuselage fill
-        ctx.beginPath()
-        ctx.moveTo(12, 0)
-        ctx.lineTo(6, -5)
-        ctx.lineTo(-6, -5)
-        ctx.lineTo(-6, 5)
-        ctx.lineTo(6, 5)
-        ctx.closePath()
-        ctx.fill()
-
-        // Tail boom fill
-        ctx.beginPath()
-        ctx.moveTo(-6, -2)
-        ctx.lineTo(-24, -2)
-        ctx.lineTo(-24, 2)
-        ctx.lineTo(-6, 2)
-        ctx.closePath()
-        ctx.fill()
-
-        // Cockpit fill
-        ctx.beginPath()
-        ctx.arc(8, 0, 4, -Math.PI / 2, Math.PI / 2)
-        ctx.closePath()
-        ctx.fill()
-
-        ctx.restore()
-
-        // Simple fuselage body
-        ctx.beginPath()
-        ctx.moveTo(12, 0)
-        ctx.lineTo(6, -5)
-        ctx.lineTo(-6, -5)
-        ctx.lineTo(-6, 5)
-        ctx.lineTo(6, 5)
-        ctx.closePath()
-        ctx.stroke()
-
-        // Cockpit bubble
-        ctx.beginPath()
-        ctx.arc(8, 0, 4, -Math.PI / 2, Math.PI / 2)
-        ctx.stroke()
-
-        // Tail boom
-        ctx.beginPath()
-        ctx.moveTo(-6, -2)
-        ctx.lineTo(-24, -2)
-        ctx.lineTo(-24, 2)
-        ctx.lineTo(-6, 2)
-        ctx.stroke()
-
-        // Tail fin
-        ctx.beginPath()
-        ctx.moveTo(-22, -2)
-        ctx.lineTo(-26, -8)
-        ctx.lineTo(-24, -8)
-        ctx.stroke()
-
-        // Tail rotor
-        const tailRotorAngle = heli.rotorAngle * 1.5
-        ctx.beginPath()
-        ctx.moveTo(-25 + Math.cos(tailRotorAngle) * 4, -8 + Math.sin(tailRotorAngle) * 4)
-        ctx.lineTo(-25 + Math.cos(tailRotorAngle + Math.PI) * 4, -8 + Math.sin(tailRotorAngle + Math.PI) * 4)
-        ctx.stroke()
-
-        // Landing skids
-        ctx.beginPath()
-        ctx.moveTo(-4, 6)
-        ctx.lineTo(8, 6)
-        ctx.moveTo(-4, -6)
-        ctx.lineTo(8, -6)
-        ctx.stroke()
-
-        // Main rotor (2 blades, simple)
-        ctx.beginPath()
-        ctx.moveTo(Math.cos(heli.rotorAngle) * 20, Math.sin(heli.rotorAngle) * 20)
-        ctx.lineTo(Math.cos(heli.rotorAngle + Math.PI) * 20, Math.sin(heli.rotorAngle + Math.PI) * 20)
-        ctx.stroke()
-
-        ctx.restore()
-      }
-
-      // Draw bullets
-      for (const bullet of bulletsRef.current) {
-        ctx.fillStyle = bullet.isEnemy ? '#ff4444' : '#00ff88'
-        ctx.beginPath()
-        ctx.arc(bullet.pos.x, bullet.pos.y, 3, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      // Draw debris
-      for (const d of debrisRef.current) {
-        const alpha = d.life / 1500
-        ctx.strokeStyle = `rgba(255, 100, 100, ${alpha})`
-        ctx.lineWidth = 2
-        ctx.save()
-        ctx.translate(d.pos.x, d.pos.y)
-        ctx.rotate(d.angle)
-        ctx.beginPath()
-        ctx.moveTo(-d.length / 2, 0)
-        ctx.lineTo(d.length / 2, 0)
-        ctx.stroke()
-        ctx.restore()
-      }
-
-      // Draw jeep
-      const jeep = jeepRef.current
-      if (jeep.state === 'active') {
-          ctx.save()
-          ctx.translate(jeep.pos.x, jeep.pos.y)
-          ctx.rotate(jeep.angle)
-
-          // Opaque fill so pickups don't show under the jeep.
-          ctx.save()
-          ctx.fillStyle = '#0a0a0a'
-          ctx.globalAlpha = 1
-          ctx.shadowBlur = 0
-
-          // Tires fill
-          const tireWidthFill = 8
-          const tireHeightFill = 4
-          const fillTire = (tx: number, ty: number) => {
-            ctx.beginPath()
-            ctx.rect(tx - tireWidthFill / 2, ty - tireHeightFill / 2, tireWidthFill, tireHeightFill)
-            ctx.fill()
-          }
-          fillTire(7, -8)
-          fillTire(7, 8)
-          fillTire(-7, -8)
-          fillTire(-7, 8)
-
-          // Body fill
-          ctx.beginPath()
-          ctx.moveTo(12, -6)
-          ctx.lineTo(12, 6)
-          ctx.lineTo(-10, 6)
-          ctx.lineTo(-12, 4)
-          ctx.lineTo(-12, -4)
-          ctx.lineTo(-10, -6)
-          ctx.closePath()
-          ctx.fill()
-
-          ctx.restore()
-
-          // Color based on health: white (3), orange (2), red (1)
-          // Flash when hit
-          if (jeep.hitFlash > 0 && Math.floor(jeep.hitFlash / 50) % 2 === 0) {
-            ctx.strokeStyle = '#ffffff'
-          } else {
-            ctx.strokeStyle = jeep.health === 3 ? '#ffffff' : jeep.health === 2 ? '#ffaa00' : '#ff4444'
-          }
-          ctx.lineWidth = 2
-
-          // Four tires - rectangular from top-down view with tread animation
-          const drawTire = (tx: number, ty: number) => {
-            // Tire outline (rectangle from above)
-            const tireWidth = 8
-            const tireHeight = 4
-            ctx.beginPath()
-            ctx.rect(tx - tireWidth / 2, ty - tireHeight / 2, tireWidth, tireHeight)
-            ctx.stroke()
-            // Animated tread lines
-            const treadSpacing = 3
-            for (let i = -1; i <= 1; i++) {
-              const xOff = ((i * treadSpacing + jeep.wheelAngle * 3) % (treadSpacing * 3)) - treadSpacing * 1.5
-              if (xOff > -tireWidth / 2 && xOff < tireWidth / 2) {
-                ctx.beginPath()
-                ctx.moveTo(tx + xOff, ty - tireHeight / 2)
-                ctx.lineTo(tx + xOff, ty + tireHeight / 2)
-                ctx.stroke()
-              }
-            }
-          }
-
-          drawTire(7, -8)
-          drawTire(7, 8)
-          drawTire(-7, -8)
-          drawTire(-7, 8)
-
-          // Simple jeep body - boxy military style
-          ctx.beginPath()
-          ctx.moveTo(12, -6)
-          ctx.lineTo(12, 6)
-          ctx.lineTo(-10, 6)
-          ctx.lineTo(-12, 4)
-          ctx.lineTo(-12, -4)
-          ctx.lineTo(-10, -6)
-          ctx.closePath()
-          ctx.stroke()
-
-          // Hood/front section line
-          ctx.beginPath()
-          ctx.moveTo(5, -6)
-          ctx.lineTo(5, 6)
-          ctx.stroke()
-
-          // Windshield
-          ctx.beginPath()
-          ctx.moveTo(3, -5)
-          ctx.lineTo(3, 5)
-          ctx.stroke()
-
-          // Gun mount
-          ctx.beginPath()
-          ctx.arc(-2, 0, 2, 0, Math.PI * 2)
-          ctx.stroke()
-
-          // Gun barrel
-          ctx.beginPath()
-          ctx.moveTo(0, 0)
-          ctx.lineTo(16, 0)
-          ctx.stroke()
-
-          ctx.restore()
-      }
-    }
+    const draw = () => drawBattle(ctx, city, {
+      jeep: jeepRef.current, tanks: tanksRef.current, helicopters: helicoptersRef.current,
+      bullets: bulletsRef.current, debris: debrisRef.current, kits: repairKitsRef.current, walls: wallsRef.current,
+    }, canvas.width, canvas.height, score, wave)
 
     const animate = (timestamp: number) => {
-      const dt = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05)
+      const dt = Math.max(0, Math.min((timestamp - lastTimeRef.current) / 1000, 0.05))
       lastTimeRef.current = timestamp
 
-      update(dt)
+      if (pollController(timestamp, dt)) update(dt)
       draw()
 
       rafRef.current = requestAnimationFrame(animate)
     }
 
+    lastTimeRef.current = performance.now()
     rafRef.current = requestAnimationFrame(animate)
 
     return () => {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [gameState, score, wave, generateWalls, resetJeep, spawnEnemies, spawnRepairKit, createDebris, lineIntersectsRect])
+  }, [gameState, score, wave, generateWalls, resetJeep, spawnEnemies, spawnRepairKit, createDebris, sounds])
 
   const exitToGameSelect = () => {
     sounds.stopEngine()
@@ -2811,127 +801,31 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden font-mono">
-      <canvas ref={canvasRef} className="absolute inset-0" />
-
-      {gameState === 'menu' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
-            <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] uppercase">Urban Fire</h1>
-            <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
-              <div className="flex items-center gap-2">
-                <span className="text-white">›</span> Arrow Keys / WASD: Move
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-white">›</span> Space: Fire (max 2 shots)
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[#ff4444]">›</span> <span className="text-[#ff4444]">Tanks need 2 hits</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[#ffaa00]">›</span> <span className="text-[#ffaa00]">Helicopters need 1 hit</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-white">›</span> Use buildings for cover!
-              </div>
-            </div>
-            <div className="flex flex-col gap-3 items-center">
-              <button
-                onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
-              >
-                Start
-              </button>
-              <button
-                onClick={exitToGameSelect}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88]/50 text-[#00ff88]/50 hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
-                }`}
-              >
-                Back
-              </button>
-            </div>
-            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • Enter to confirm • Esc to exit</p>
+    <div ref={rootRef} className="relative w-screen h-screen overflow-hidden font-mono">
+      <canvas ref={canvasRef} tabIndex={-1} role="img" aria-label="Urban Fire battlefield" className="absolute inset-0 outline-none" />
+      {gameState !== 'playing' && <KeyboardDialog label={gameState === 'menu' ? 'Urban Fire' : gameState === 'paused' ? 'Paused' : 'Mission ended'} focusKey={gameState} onClose={gameState === 'paused' ? resumeGame : exitToGameSelect} className="urban-overlay">
+        <div className="urban-menu">
+          <div className="urban-eyebrow">ARMORED RECON / SECTOR 04</div>
+          {gameState === 'menu' ? <>
+            <h1>Urban Fire</h1>
+            <p className="urban-brief">Hold the district. Break the armored advance.<br />Use the buildings for cover and keep moving as enemy units establish crossfire.</p>
+            <div className="urban-actions"><button onClick={startGame}>Deploy</button><button onClick={exitToGameSelect}>Back</button></div>
+          </> : gameState === 'paused' ? <>
+            <h2>PAUSED</h2>
+            <p className="urban-brief">Wave {wave} · {score.toString().padStart(6, '0')} points</p>
+            <div className="urban-actions"><button onClick={resumeGame}>Resume</button><button onClick={exitToGameSelect}>Back</button></div>
+          </> : <>
+            <h2>MISSION ENDED</h2>
+            <p className="urban-brief">Wave {wave} · {score.toString().padStart(6, '0')} points</p>
+            <div className="urban-actions"><button onClick={startGame}>Redeploy</button><button onClick={() => setGameState('menu')}>Main menu</button><button onClick={exitToGameSelect}>Back</button></div>
+          </>}
+          <div className="urban-help">
+            <strong>{controllerConnected ? 'Left stick turns · RT / R2 forward · LT / L2 reverse' : 'Arrow keys / WASD to drive'}</strong><br />
+            {gameState === 'paused' ? 'P / Menu or Esc / B resumes · Back exits' : controllerConnected ? 'A / × fires · Menu / Options pauses' : 'Space fires · P pauses · Esc exits'}<br />
+            Tanks: 2 hits · Helicopters: 1 hit<br />Two shots in flight. Recover field kits to repair armor.
           </div>
         </div>
-      )}
-
-      {gameState === 'paused' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
-            <h2 className="text-4xl text-[#00ff88] mb-4 tracking-[0.3em] uppercase">Paused</h2>
-            <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
-            <div className="flex flex-col gap-3 items-center">
-              <button
-                onClick={() => {
-                  sounds.startEngine()
-                  setGameState('playing')
-                }}
-                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
-              >
-                Resume
-              </button>
-              <button
-                onClick={exitToGameSelect}
-                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
-              >
-                Back
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {gameState === 'gameOver' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
-            <h2 className="text-4xl text-[#ff4444] mb-2 tracking-[0.3em] uppercase">Game Over</h2>
-            <div className="text-center mb-8">
-              <div className="text-[#00ff88] text-2xl mb-2 tracking-wider">{score.toString().padStart(6, '0')}</div>
-              <div className="text-[#00ff88]/70 tracking-wider uppercase">Wave {wave}</div>
-            </div>
-            <div className="flex flex-col gap-3 items-center">
-              <button
-                onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
-              >
-                Play Again
-              </button>
-              <button
-                onClick={() => setGameState('menu')}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88]/50 text-[#00ff88]/50 hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
-                }`}
-              >
-                Main Menu
-              </button>
-              <button
-                onClick={exitToGameSelect}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 2
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#ff4444] text-[#ff4444] hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
-                }`}
-              >
-                Back
-              </button>
-            </div>
-            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • Enter to confirm</p>
-          </div>
-        </div>
-      )}
+      </KeyboardDialog>}
     </div>
   )
 }

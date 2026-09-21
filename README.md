@@ -398,8 +398,17 @@ The region plan and narrative are documented in [the campaign notes](docs/hard-v
 
 **Urban Fire**
 
-- Arrows / WASD: move
-- Space: fire (max 2 shots)
+- Arrows / WASD: steer, accelerate, and reverse the jeep
+- Space: fire (max 2 shots); P: pause/resume; Esc: exit during play
+- Controller: left stick turns, RT / R2 drives forward, LT / L2 reverses,
+  A / × fires, and Menu / Options pauses. Release held controls after deploying
+  or resuming. Losing focus or disconnecting pauses combat.
+- Fixed 1,600 × 1,100 battlefield with a centered camera, proportional zoom on
+  larger displays, and a tactical map. Resizing never moves buildings or units.
+- Tanks establish firing lanes, coordinate attack positions, route around cover,
+  and lead moving targets. Helicopters make passes at standoff range.
+
+See [the battlefield and enemy behavior notes](docs/urban-fire.md) for details and validation scenarios.
 
 **Bumper Ball**
 

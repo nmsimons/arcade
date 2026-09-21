@@ -29,8 +29,6 @@ export default function App() {
       [
         { id: 'hardVacuum', path: '/hard-vacuum', label: 'Hard Vacuum' },
         { id: 'kickball', path: '/bumper-ball', label: 'Bumper Ball' },
-        { id: 'noExit', path: '/no-exit', label: 'No Exit' },
-        { id: 'finalApproach', path: '/final-approach', label: 'Final Approach' },        
         { id: 'urbanFire', path: '/urban-fire', label: 'Urban Fire' },
       ] as const,
     [],
@@ -86,7 +84,7 @@ export default function App() {
         element={
           <KeyboardDialog label="Arcade" focusKey="arcade" globalMenu onClose={() => {}}>
               <div className="menu-surface arcade-menu">
-                <p className="menu-eyebrow">SIMULATION ARCHIVE / 05 TITLES</p>
+                <p className="menu-eyebrow">SIMULATION ARCHIVE / {String(games.length).padStart(2, '0')} TITLES</p>
                 <h1 className="text-3xl text-[#d9eee5] mt-3 mb-7 tracking-wider">Select Game</h1>
                 <div className="flex flex-col gap-3">
                   {games.map((g, i) => (

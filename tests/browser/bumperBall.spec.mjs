@@ -113,6 +113,8 @@ test('larger windows zoom in while preserving the fixed arena, centered player a
 })
 
 for (const [turn, reverse] of [['ArrowLeft', 'ArrowDown'], ['a', 's']]) test(`${turn}/${reverse} drives the centered blue player to the fixed top wall`, async ({ page }) => {
+  // Render the entire drive; the large viewport can exceed 30 seconds on shared CI.
+  test.slow()
   if (turn === 'a') await page.setViewportSize({ width: 2560, height: 1600 })
   await setup(page)
   await page.getByRole('button', { name: 'Play', exact: true }).click()

@@ -1,0 +1,882 @@
+import { segmentDistanceToPoint } from './physics.ts'
+import type { PhysicsWorld, Vehicle, Goal, Bumper, Vector2 } from './physics'
+import { boostLaneClear, createBoost, startBoost, updateBoost } from './boost.ts'
+import type { BoostState } from './boost'
+
+type AiOffenseState = 'orbit' | 'setup' | 'strike'
+
+export type AiMemory = {
+  offenseState: AiOffenseState
+  orbitSideSign: 1 | -1
+  commitMs: number
+  stuckMs: number
+  lastPos: Vector2
+  lastDistToBall: number
+  heldDir: Vector2
+  heldDirMs: number
+  boost: BoostState
+  boostRequested: boolean
+}
+
+export const createAiMemory = (): AiMemory => ({
+  offenseState: 'orbit', orbitSideSign: 1, commitMs: 0, stuckMs: 0,
+  lastPos: { x: 0, y: 0 }, lastDistToBall: Number.POSITIVE_INFINITY,
+  heldDir: { x: 1, y: 0 }, heldDirMs: 0,
+  boost: createBoost(), boostRequested: false,
+})
+
+/** Chooses and executes the computer's controls using only the current world. */
+export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number): boolean {
+  const { field, vehicle1, vehicle2, ball, bumpers, goals } = world
+  // Red computer opponent driving.
+  const accel = 350
+  let isAccelerating = false
+  memory.boostRequested = false
+
+  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+  const normalizeAngle = (a: number) => {
+    let angle = a
+    while (angle > Math.PI) angle -= Math.PI * 2
+    while (angle < -Math.PI) angle += Math.PI * 2
+    return angle
+  }
+
+  const rotate = (v: Vector2, angle: number): Vector2 => {
+    const c = Math.cos(angle)
+    const s = Math.sin(angle)
+    return { x: v.x * c - v.y * s, y: v.x * s + v.y * c }
+  }
+
+  const normalize = (v: Vector2): Vector2 => {
+    const d = Math.hypot(v.x, v.y)
+    if (d <= 0.0001) return { x: 1, y: 0 }
+    return { x: v.x / d, y: v.y / d }
+  }
+
+  // Anticipate rebounds rather than chasing a point beyond a wall or bumper.
+  const predictBallPosition = (seconds: number): Vector2 => {
+    const pos = { ...ball.pos }, vel = { ...ball.vel }
+    const steps = Math.max(1, Math.ceil(seconds * 60)), step = seconds / steps
+    for (let i = 0; i < steps; i++) {
+      const friction = Math.pow(0.995, step * 60)
+      vel.x *= friction; vel.y *= friction
+      pos.x += vel.x * step; pos.y += vel.y * step
+      for (const goal of goals) {
+        const dx = goal.pos.x - pos.x, dy = goal.pos.y - pos.y, distance = Math.hypot(dx, dy)
+        if (distance < goal.radius - ball.radius) return pos
+        if (distance > 0 && distance < goal.gravityRadius) {
+          const pull = 400 * (1 - distance / goal.gravityRadius) * step / distance
+          vel.x += dx * pull; vel.y += dy * pull
+        }
+      }
+      if (pos.x < field.left + ball.radius) { pos.x = field.left + ball.radius; vel.x *= -0.8 }
+      if (pos.x > field.right - ball.radius) { pos.x = field.right - ball.radius; vel.x *= -0.8 }
+      if (pos.y < field.top + ball.radius) { pos.y = field.top + ball.radius; vel.y *= -0.8 }
+      if (pos.y > field.bottom - ball.radius) { pos.y = field.bottom - ball.radius; vel.y *= -0.8 }
+      for (const bumper of bumpers) {
+        const dx = pos.x - bumper.pos.x, dy = pos.y - bumper.pos.y, distance = Math.hypot(dx, dy)
+        const clearance = bumper.radius + ball.radius
+        if (distance > 0 && distance < clearance) {
+          const nx = dx / distance, ny = dy / distance, dot = vel.x * nx + vel.y * ny
+          pos.x += nx * (clearance - distance); pos.y += ny * (clearance - distance)
+          vel.x += nx * (150 - 2.5 * dot); vel.y += ny * (150 - 2.5 * dot)
+        }
+      }
+      const speed = Math.hypot(vel.x, vel.y)
+      if (speed > 600) { vel.x *= 600 / speed; vel.y *= 600 / speed }
+    }
+    return pos
+  }
+
+  const chooseDesiredDir = (
+    ballPos: Vector2,
+    baseDir: Vector2,
+    scoringTarget: Vector2,
+    attackGoal: Goal | undefined,
+    avoidGoal: Goal | undefined,
+  ) => {
+    // Sample candidate directions around baseDir and pick the one that
+    // best converts into a goal (when attacking) while still avoiding hazards.
+    //
+    // Key upgrade vs. pure geometry:
+    // - incorporate goal gravity via a cheap rollout so the AI can intentionally
+    //   "feed" the gravity well rather than only aiming at the goal center.
+    const base = normalize(baseDir)
+    const sampleAngles = [-1.1, -0.85, -0.6, -0.4, -0.25, -0.12, 0, 0.12, 0.25, 0.4, 0.6, 0.85, 1.1]
+    const horizon = 420
+    const ballClear = ball.radius + 14
+    const ballRadius = ball.radius
+
+    const rolloutScore = (dir: Vector2) => {
+      if (!attackGoal) return 0
+
+      // Start from current ball velocity plus a "strike" impulse along dir.
+      const strikeImpulse = 240
+      let vx = ball.vel.x + dir.x * strikeImpulse
+      let vy = ball.vel.y + dir.y * strikeImpulse
+      const v0 = Math.hypot(vx, vy)
+      const maxV0 = 520
+      if (v0 > maxV0) {
+        vx = (vx / v0) * maxV0
+        vy = (vy / v0) * maxV0
+      }
+
+      let px = ballPos.x
+      let py = ballPos.y
+      let bestDistToGoal = Number.POSITIVE_INFINITY
+
+      // ~1.1s horizon at 30Hz is enough to see "capture" by gravity.
+      const dtSim = 1 / 30
+      const steps = 33
+      const frictionPerFrame = 0.995
+
+      for (let i = 0; i < steps; i++) {
+        // Approximate the game's friction (which is applied per frame).
+        const f = Math.pow(frictionPerFrame, dtSim * 60)
+        vx *= f
+        vy *= f
+
+        // Gravity toward the attack goal.
+        const gdx = attackGoal.pos.x - px
+        const gdy = attackGoal.pos.y - py
+        const gdist = Math.hypot(gdx, gdy)
+
+        // Check if fully inside goal at any point in the rollout.
+        if (gdist + ballRadius < attackGoal.radius) {
+          // Strong win signal: earlier is better.
+          return -20000 + i * 180
+        }
+
+        bestDistToGoal = Math.min(bestDistToGoal, gdist)
+
+        if (gdist < attackGoal.gravityRadius && gdist > 0) {
+          const gravityStrength = 400 * (1 - gdist / attackGoal.gravityRadius)
+          const nx = gdx / gdist
+          const ny = gdy / gdist
+          vx += nx * gravityStrength * dtSim
+          vy += ny * gravityStrength * dtSim
+        }
+
+        // Avoid our own goal well during rollout (especially important during clears).
+        if (avoidGoal) {
+          const odx = avoidGoal.pos.x - px
+          const ody = avoidGoal.pos.y - py
+          const od = Math.hypot(odx, ody)
+          if (od < avoidGoal.gravityRadius && od > 0) {
+            const danger = (avoidGoal.gravityRadius - od) / avoidGoal.gravityRadius
+            // Treat this as a large negative outcome even if not yet "scored".
+            return 9000 + danger * 9000 + i * 120
+          }
+        }
+
+        px += vx * dtSim
+        py += vy * dtSim
+
+        // Bumper collisions (approximate the real physics; enough for planning).
+        for (const bumper of bumpers) {
+          const bdx = px - bumper.pos.x
+          const bdy = py - bumper.pos.y
+          const bd = Math.hypot(bdx, bdy)
+          const minDist = bumper.radius + ballRadius
+          if (bd < minDist && bd > 0) {
+            const nx = bdx / bd
+            const ny = bdy / bd
+            const push = minDist - bd
+            px += nx * push
+            py += ny * push
+
+            // Bounce with energy boost (mirrors game behavior).
+            const dot = vx * nx + vy * ny
+            vx -= 2.5 * dot * nx
+            vy -= 2.5 * dot * ny
+            const boostSpeed = 150
+            vx += nx * boostSpeed
+            vy += ny * boostSpeed
+          }
+        }
+
+        // Rough wall bounces (mirrors game physics) so rollouts aren't overly optimistic.
+        if (px < field.left + ballRadius) {
+          px = field.left + ballRadius
+          vx *= -0.8
+        } else if (px > field.right - ballRadius) {
+          px = field.right - ballRadius
+          vx *= -0.8
+        }
+        if (py < field.top + ballRadius) {
+          py = field.top + ballRadius
+          vy *= -0.8
+        } else if (py > field.bottom - ballRadius) {
+          py = field.bottom - ballRadius
+          vy *= -0.8
+        }
+      }
+
+      // No goal during rollout: reward getting deep into the gravity well.
+      // (Using bestDistToGoal is important; end-of-horizon can bounce away.)
+      const wellBonus = attackGoal.gravityRadius > 0
+        ? clamp((attackGoal.gravityRadius - bestDistToGoal) / attackGoal.gravityRadius, 0, 1)
+        : 0
+      return bestDistToGoal - wellBonus * 260
+    }
+
+    let bestDir = base
+    let bestScore = Number.POSITIVE_INFINITY
+
+    for (const a of sampleAngles) {
+      const dir = normalize(rotate(base, a))
+      const endX = ballPos.x + dir.x * horizon
+      const endY = ballPos.y + dir.y * horizon
+
+      // Primary objective: progress toward scoringTarget (goal center for attack, center-ish for defense).
+      const distToTarget = Math.hypot(scoringTarget.x - endX, scoringTarget.y - endY)
+      let score = distToTarget
+
+      // Gravity-aware scoring when attacking.
+      score += rolloutScore(dir)
+
+      // Penalize paths that would clip bumpers.
+      for (const bumper of bumpers) {
+        const d = segmentDistanceToPoint(ballPos.x, ballPos.y, endX, endY, bumper.pos.x, bumper.pos.y)
+        const minSafe = bumper.radius + ballClear
+        if (d < minSafe) {
+          score += (minSafe - d) * 30
+        }
+      }
+
+      // Avoid drifting into our own goal / gravity well.
+      if (avoidGoal) {
+        const d0 = segmentDistanceToPoint(ballPos.x, ballPos.y, endX, endY, avoidGoal.pos.x, avoidGoal.pos.y)
+        if (d0 < avoidGoal.gravityRadius + 30) {
+          score += (avoidGoal.gravityRadius + 30 - d0) * 18
+        }
+        const inner = avoidGoal.radius - ballRadius
+        if (inner > 0 && d0 < inner) {
+          score += 20000
+        }
+      }
+
+      // Penalize hugging walls (makes the ball easy to pin and hard to re-angle).
+      const wallPad = ballRadius + 55
+      const distLeft = endX - field.left
+      const distRight = field.right - endX
+      const distTop = endY - field.top
+      const distBottom = field.bottom - endY
+      const wallMin = Math.min(distLeft, distRight, distTop, distBottom)
+      if (wallMin < wallPad) {
+        score += (wallPad - wallMin) * 8
+      }
+
+      // Mild penalty for aiming away from the base direction (keeps intent consistent).
+      const alignment = dir.x * base.x + dir.y * base.y
+      score += (1 - alignment) * 80
+
+      if (score < bestScore) {
+        bestScore = score
+        bestDir = dir
+      }
+    }
+
+    return bestDir
+  }
+
+  const applyAvoidanceToTarget = (
+    vehicle: Vehicle,
+    opponent: Vehicle,
+    target: Vector2,
+    mode: 'none' | 'hard' | 'soft',
+  ) => {
+    // Walls are always avoided; bumpers/opponent are soft or hard depending on mode.
+    const vehicleRadiusForAvoid = 20
+    let steerAwayX = 0
+    let steerAwayY = 0
+
+    // Hard avoidance is always applied when dangerously close.
+    const hardOnly = mode === 'hard'
+    const doSoft = mode === 'soft'
+
+    for (const bumper of bumpers) {
+      const toBumperX = bumper.pos.x - vehicle.pos.x
+      const toBumperY = bumper.pos.y - vehicle.pos.y
+      const distToBumper = Math.hypot(toBumperX, toBumperY)
+      if (distToBumper <= 0) continue
+
+      const hardDist = bumper.radius + vehicleRadiusForAvoid + 26
+      if (distToBumper < hardDist) {
+        const strength = (hardDist - distToBumper) / hardDist
+        steerAwayX -= (toBumperX / distToBumper) * strength * 380
+        steerAwayY -= (toBumperY / distToBumper) * strength * 380
+        continue
+      }
+
+      if (!hardOnly && doSoft) {
+        const avoidDist = bumper.radius + vehicleRadiusForAvoid + 120
+        if (distToBumper < avoidDist) {
+          const strength = (avoidDist - distToBumper) / avoidDist
+          steerAwayX -= (toBumperX / distToBumper) * strength * 200
+          steerAwayY -= (toBumperY / distToBumper) * strength * 200
+        }
+      }
+    }
+
+    // Opponent avoidance (soft/hard). Hard is only when very close.
+    const toOpponentX = opponent.pos.x - vehicle.pos.x
+    const toOpponentY = opponent.pos.y - vehicle.pos.y
+    const distToOpponent = Math.hypot(toOpponentX, toOpponentY)
+    if (distToOpponent > 0) {
+      const hardDist = 52
+      if (distToOpponent < hardDist) {
+        const strength = (hardDist - distToOpponent) / hardDist
+        steerAwayX -= (toOpponentX / distToOpponent) * strength * 260
+        steerAwayY -= (toOpponentY / distToOpponent) * strength * 260
+      } else if (!hardOnly && doSoft) {
+        const avoidDist = 90
+        if (distToOpponent < avoidDist) {
+          const strength = (avoidDist - distToOpponent) / avoidDist
+          steerAwayX -= (toOpponentX / distToOpponent) * strength * 120
+          steerAwayY -= (toOpponentY / distToOpponent) * strength * 120
+        }
+      }
+    }
+
+    const wallMargin = 60
+    if (vehicle.pos.x < field.left + wallMargin) {
+      steerAwayX += (wallMargin - (vehicle.pos.x - field.left)) * 1.5
+    }
+    if (vehicle.pos.x > field.right - wallMargin) {
+      steerAwayX -= (wallMargin - (field.right - vehicle.pos.x)) * 1.5
+    }
+    if (vehicle.pos.y < field.top + wallMargin) {
+      steerAwayY += (wallMargin - (vehicle.pos.y - field.top)) * 1.5
+    }
+    if (vehicle.pos.y > field.bottom - wallMargin) {
+      steerAwayY -= (wallMargin - (field.bottom - vehicle.pos.y)) * 1.5
+    }
+
+    return { x: target.x + steerAwayX, y: target.y + steerAwayY }
+  }
+
+  const applyAiDriving = (
+    vehicle: Vehicle,
+    moveTarget: Vector2,
+    aimTarget: Vector2,
+    accelMult: number,
+    allowReverse: boolean,
+    allowDetour: boolean,
+    detourSideSign: 1 | -1,
+  ) => {
+    const planDetourAroundBumpers = (from: Vector2, to: Vector2, preferSideSign: 1 | -1) => {
+      const dx = to.x - from.x
+      const dy = to.y - from.y
+      const dist = Math.hypot(dx, dy)
+      if (dist < 120) return to
+
+      const dirX = dx / dist
+      const dirY = dy / dist
+      const perpX = -dirY
+      const perpY = dirX
+
+      // Find the bumper that most threatens the straight-line path.
+      let bestBumper: Bumper | null = null
+      let bestPenetration = 0
+      for (const bumper of bumpers) {
+        const d = segmentDistanceToPoint(from.x, from.y, to.x, to.y, bumper.pos.x, bumper.pos.y)
+        const expanded = bumper.radius + 42 // approx vehicle radius + safety
+        const penetration = expanded - d
+        if (penetration > bestPenetration) {
+          bestPenetration = penetration
+          bestBumper = bumper
+        }
+      }
+      if (!bestBumper) return to
+
+      // Choose detour side: prefer stable orbit side, but also avoid detouring *into* the bumper.
+      const bx = bestBumper.pos.x - from.x
+      const by = bestBumper.pos.y - from.y
+      const cross = dirX * by - dirY * bx
+      const sideFromGeometry: 1 | -1 = cross > 0 ? -1 : 1
+      const side: 1 | -1 = (Math.abs(cross) > 25 ? sideFromGeometry : preferSideSign)
+
+      const detourDist = bestBumper.radius + 105
+      const waypoint = {
+        x: bestBumper.pos.x + perpX * detourDist * side,
+        y: bestBumper.pos.y + perpY * detourDist * side,
+      }
+
+      // Keep the waypoint on the field.
+      const pad = 30
+      return {
+        x: clamp(waypoint.x, field.left + pad, field.right - pad),
+        y: clamp(waypoint.y, field.top + pad, field.bottom - pad),
+      }
+    }
+
+    // Route the move target around bumpers to prevent "slow ramming".
+    const plannedMoveTarget = allowDetour
+      ? planDetourAroundBumpers(vehicle.pos, moveTarget, detourSideSign)
+      : moveTarget
+    const isDetouring = allowDetour && (Math.hypot(plannedMoveTarget.x - moveTarget.x, plannedMoveTarget.y - moveTarget.y) > 1.5)
+
+    const moveDx = plannedMoveTarget.x - vehicle.pos.x
+    const moveDy = plannedMoveTarget.y - vehicle.pos.y
+    const distToMoveTarget = Math.hypot(moveDx, moveDy)
+
+    // Reach the approach point before lining up the shot. Steering through
+    // the ball too early ignores both the contact point and bumper detours.
+    const plannedAimTarget = isDetouring || distToMoveTarget > 55 ? plannedMoveTarget : aimTarget
+
+    const aimDx = plannedAimTarget.x - vehicle.pos.x
+    const aimDy = plannedAimTarget.y - vehicle.pos.y
+    const distToAimTarget = Math.hypot(aimDx, aimDy)
+
+    // If we're already at the aim target (or very close), don't force angle to atan2(0,0)=0.
+    const targetAngle = distToAimTarget > 0.5 ? Math.atan2(aimDy, aimDx) : vehicle.angle
+    const angleDiff = normalizeAngle(targetAngle - vehicle.angle)
+
+    // Use the same maximum turn rate as the player.
+    const turn = clamp(angleDiff * 5, -4, 4)
+    vehicle.angle += turn * dt
+
+    // Speed control: avoid overshooting the move target
+    const closeSlowdown = distToMoveTarget < 120 ? distToMoveTarget / 120 : 1
+    const facingOk = Math.abs(angleDiff) < Math.PI / 2
+
+    // Additional speed limiting near bumpers (prevents ramming them),
+    // but avoid globally slowing the AI down. Only slow when a bumper is
+    // close AND roughly in front of the car, and never while detouring.
+    let bumperSpeedMult = 1.0
+    if (!isDetouring) {
+      let nearestBumper: Bumper | null = null
+      let nearestBumperDist = Number.POSITIVE_INFINITY
+      for (const bumper of bumpers) {
+        const d = Math.hypot(bumper.pos.x - vehicle.pos.x, bumper.pos.y - vehicle.pos.y) - bumper.radius
+        if (d < nearestBumperDist) {
+          nearestBumperDist = d
+          nearestBumper = bumper
+        }
+      }
+
+      if (nearestBumper && nearestBumperDist < 70) {
+        const toBx = nearestBumper.pos.x - vehicle.pos.x
+        const toBy = nearestBumper.pos.y - vehicle.pos.y
+        const toBd = Math.hypot(toBx, toBy)
+        if (toBd > 0.001) {
+          const hx = Math.cos(vehicle.angle)
+          const hy = Math.sin(vehicle.angle)
+          const dotAhead = (hx * (toBx / toBd)) + (hy * (toBy / toBd))
+          // Only slow if the bumper is actually in front.
+          if (dotAhead > 0.35) {
+            const t = clamp(nearestBumperDist / 70, 0.55, 1.0)
+            bumperSpeedMult = t
+          }
+        }
+      }
+    }
+
+    if (facingOk) {
+      const effectiveAccel = Math.min(1, accelMult * closeSlowdown * bumperSpeedMult)
+      if (effectiveAccel > 0.001) {
+        vehicle.vel.x += Math.cos(vehicle.angle) * accel * effectiveAccel * dt
+        vehicle.vel.y += Math.sin(vehicle.angle) * accel * effectiveAccel * dt
+        isAccelerating = true
+      }
+    } else if (allowReverse && distToMoveTarget > 110) {
+      vehicle.vel.x -= Math.cos(vehicle.angle) * accel * 0.35 * dt
+      vehicle.vel.y -= Math.sin(vehicle.angle) * accel * 0.35 * dt
+    }
+  }
+
+  const runKickballAi = (opts: {
+    vehicle: Vehicle
+    opponent: Vehicle
+    memory: AiMemory
+    attackGoal: Goal
+    defendGoal: Goal
+  }) => {
+    const { vehicle, opponent, memory: mem, attackGoal, defendGoal } = opts
+
+    // Countdown "held direction" timer (used to prevent dead-ball dithering).
+    if (mem.heldDirMs > 0) mem.heldDirMs = Math.max(0, mem.heldDirMs - dt * 1000)
+
+    const carToBallX = ball.pos.x - vehicle.pos.x
+    const carToBallY = ball.pos.y - vehicle.pos.y
+    const carToBallDist = Math.hypot(carToBallX, carToBallY)
+
+    // Decide whether we are in a "danger" situation and should clear defensively.
+    const ballToDefGoalX = ball.pos.x - defendGoal.pos.x
+    const ballToDefGoalY = ball.pos.y - defendGoal.pos.y
+    const ballToDefGoalDist = Math.hypot(ballToDefGoalX, ballToDefGoalY)
+    const ballSpeed = Math.hypot(ball.vel.x, ball.vel.y)
+    const ballIsStill = ballSpeed < 28
+
+    const isOnOwnSide = defendGoal.side === 'left' ? ball.pos.x < (field.left + field.right) / 2 : ball.pos.x > (field.left + field.right) / 2
+    const movingTowardOwnGoal = defendGoal.side === 'left' ? ball.vel.x < -40 : ball.vel.x > 40
+    const nearOwnWell = ballToDefGoalDist < defendGoal.gravityRadius + 45
+    const inDanger = nearOwnWell || (ballToDefGoalDist < 260) || (isOnOwnSide && movingTowardOwnGoal && ballSpeed > 80)
+
+    // Emergency clear: ball is moving toward our goal and likely to enter soon.
+    // In this mode, the defender should aggressively hit the ball away.
+    const innerDefRadius = defendGoal.radius - ball.radius
+    const tThreat = 0.45
+    const threatEnd = { x: ball.pos.x + ball.vel.x * tThreat, y: ball.pos.y + ball.vel.y * tThreat }
+    const segToGoalDist = innerDefRadius > 0
+      ? segmentDistanceToPoint(ball.pos.x, ball.pos.y, threatEnd.x, threatEnd.y, defendGoal.pos.x, defendGoal.pos.y)
+      : Number.POSITIVE_INFINITY
+    const toDefX = defendGoal.pos.x - ball.pos.x
+    const toDefY = defendGoal.pos.y - ball.pos.y
+    const toDefD = Math.hypot(toDefX, toDefY)
+    const towardDef = toDefD > 0.001 ? ((ball.vel.x * (toDefX / toDefD) + ball.vel.y * (toDefY / toDefD)) > 55) : false
+    const emergencyClear = (segToGoalDist < (innerDefRadius + 10)) || (towardDef && ballToDefGoalDist < defendGoal.gravityRadius + 60)
+
+    // Predict ball a bit so we hit the correct face when it's moving.
+    // When the ball is nearly stopped, leading creates oscillation; treat it as stationary.
+    let tLead = clamp(carToBallDist / 450, 0.12, 0.6)
+    tLead += clamp(ballSpeed / 900, 0, 0.25)
+    tLead = clamp(tLead, 0.12, 0.7)
+    if (ballIsStill) tLead = 0.12
+
+    const ballPred = ballIsStill ? { ...ball.pos } : predictBallPosition(tLead)
+
+    // Choose a strategic push direction.
+    const attackBase = { x: attackGoal.pos.x - ballPred.x, y: attackGoal.pos.y - ballPred.y }
+    const defendClearTarget = {
+      x: (field.left + field.right) / 2 + (defendGoal.side === 'left' ? 120 : -120),
+      y: (field.top + field.bottom) / 2,
+    }
+
+    // Defensive block point: get between ball and our goal to stop easy pushes.
+    const toBallFromDefX = ballPred.x - defendGoal.pos.x
+    const toBallFromDefY = ballPred.y - defendGoal.pos.y
+    const toBallFromDefD = Math.hypot(toBallFromDefX, toBallFromDefY)
+    const goalieDist = defendGoal.radius + 120
+    const goaliePoint = toBallFromDefD > 0.001
+      ? { x: defendGoal.pos.x + (toBallFromDefX / toBallFromDefD) * goalieDist, y: defendGoal.pos.y + (toBallFromDefY / toBallFromDefD) * goalieDist }
+      : { x: defendGoal.pos.x + (defendGoal.side === 'left' ? 1 : -1) * goalieDist, y: defendGoal.pos.y }
+    const defendBase = { x: defendClearTarget.x - ballPred.x, y: defendClearTarget.y - ballPred.y }
+
+    const base = inDanger ? defendBase : attackBase
+    const goalPosForScoring = inDanger ? defendClearTarget : attackGoal.pos
+    let desiredDir = chooseDesiredDir(
+      ballPred,
+      base,
+      goalPosForScoring,
+      inDanger ? undefined : attackGoal,
+      defendGoal,
+    )
+
+    // If the ball is near a wall, bias the desired direction to extract toward the center-ish
+    // so the AI doesn't "give up" by endlessly trying unreachable contact points.
+    const wallMargin = ball.radius + 52
+    const dLeft = ballPred.x - field.left
+    const dRight = field.right - ballPred.x
+    const dTop = ballPred.y - field.top
+    const dBottom = field.bottom - ballPred.y
+    const wallMin = Math.min(dLeft, dRight, dTop, dBottom)
+    if (!inDanger && wallMin < wallMargin) {
+      let away = { x: 0, y: 0 }
+      if (wallMin === dLeft) away = { x: 1, y: 0 }
+      else if (wallMin === dRight) away = { x: -1, y: 0 }
+      else if (wallMin === dTop) away = { x: 0, y: 1 }
+      else away = { x: 0, y: -1 }
+
+      const toGoal = normalize({ x: attackGoal.pos.x - ballPred.x, y: attackGoal.pos.y - ballPred.y })
+      const mixed = normalize({ x: away.x * 0.8 + toGoal.x * 0.6, y: away.y * 0.8 + toGoal.y * 0.6 })
+
+      // Re-pick around the mixed base to keep bumper awareness.
+      desiredDir = chooseDesiredDir(
+        ballPred,
+        mixed,
+        attackGoal.pos,
+        attackGoal,
+        defendGoal,
+      )
+    }
+
+    // When the ball is basically stopped, hold the chosen direction briefly.
+    // This keeps contact points stable and stops micro-oscillation.
+    if (!inDanger && !emergencyClear && ballIsStill) {
+      if (mem.heldDirMs > 0) {
+        desiredDir = mem.heldDir
+      } else {
+        mem.heldDir = desiredDir
+        mem.heldDirMs = 380
+      }
+    } else {
+      mem.heldDirMs = 0
+    }
+
+    // Where the car can actually be (center point constraints)
+    const vehicleRadiusForContact = 15
+    const boundsPad = 8
+    const minX = field.left + vehicleRadiusForContact + boundsPad
+    const maxX = field.right - vehicleRadiusForContact - boundsPad
+    const minY = field.top + vehicleRadiusForContact + boundsPad
+    const maxY = field.bottom - vehicleRadiusForContact - boundsPad
+    const isInBounds = (p: Vector2) => p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY
+    const clampToBounds = (p: Vector2): Vector2 => ({ x: clamp(p.x, minX, maxX), y: clamp(p.y, minY, maxY) })
+
+    // Contact point: where the car should be so it pushes ball along desiredDir
+    const contactOffset = ball.radius + vehicleRadiusForContact + 12
+    let contactPoint = {
+      x: ballPred.x - desiredDir.x * contactOffset,
+      y: ballPred.y - desiredDir.y * contactOffset,
+    }
+
+    // If the "ideal" contact point is unreachable (ball near a wall), switch to a wall-bounce shot.
+    // This avoids jittering/orbiting when the car can't physically get behind the ball.
+    if (!isInBounds(contactPoint)) {
+      const overLeft = minX - contactPoint.x
+      const overRight = contactPoint.x - maxX
+      const overTop = minY - contactPoint.y
+      const overBottom = contactPoint.y - maxY
+
+      // Pick the dominant out-of-bounds axis
+      const maxOver = Math.max(overLeft, overRight, overTop, overBottom)
+
+      const alongOwnWall = (defendGoal.side === 'left' && maxOver === overLeft) || (defendGoal.side === 'right' && maxOver === overRight)
+      const yTowardGoal = alongOwnWall
+        ? Math.sign(ballPred.y - defendGoal.pos.y) * 0.6
+        : clamp((goalPosForScoring.y - ballPred.y) / 240, -0.6, 0.6)
+      const xTowardGoal = clamp((goalPosForScoring.x - ballPred.x) / 240, -0.6, 0.6)
+
+      if (maxOver === overLeft) {
+        // Need to be too far left to strike toward goal => instead push ball into LEFT wall to bounce out
+        desiredDir = { x: -1, y: yTowardGoal }
+      } else if (maxOver === overRight) {
+        desiredDir = { x: 1, y: yTowardGoal }
+      } else if (maxOver === overTop) {
+        desiredDir = { x: xTowardGoal, y: -1 }
+      } else if (maxOver === overBottom) {
+        desiredDir = { x: xTowardGoal, y: 1 }
+      }
+
+      const dd = Math.hypot(desiredDir.x, desiredDir.y)
+      if (dd > 0.0001) desiredDir = { x: desiredDir.x / dd, y: desiredDir.y / dd }
+
+      contactPoint = {
+        x: ballPred.x - desiredDir.x * contactOffset,
+        y: ballPred.y - desiredDir.y * contactOffset,
+      }
+    }
+
+    // Always clamp the computed targets so we don't "orbit" to impossible points near walls.
+    contactPoint = clampToBounds(contactPoint)
+
+    const toCarX = vehicle.pos.x - ballPred.x
+    const toCarY = vehicle.pos.y - ballPred.y
+    const behindMetric = toCarX * desiredDir.x + toCarY * desiredDir.y
+    // Increase margin slightly when the ball is still to avoid state jitter near the ball.
+    const behindEnough = behindMetric < (ballIsStill ? -28 : -18)
+    const wrongSide = behindMetric > (ballIsStill ? 28 : 18)
+
+    const perp = { x: -desiredDir.y, y: desiredDir.x }
+    const cross = toCarX * desiredDir.y - toCarY * desiredDir.x
+    // Reduce orbit-side jitter near walls / close geometry
+    if (!ballIsStill && Math.abs(cross) > 35) {
+      mem.orbitSideSign = cross > 0 ? 1 : -1
+    }
+
+    // State machine: orbit -> setup -> strike
+    const facing = { x: Math.cos(vehicle.angle), y: Math.sin(vehicle.angle) }
+    const headingAlign = facing.x * desiredDir.x + facing.y * desiredDir.y
+    const distToContact = Math.hypot(contactPoint.x - vehicle.pos.x, contactPoint.y - vehicle.pos.y)
+    const distToBallPred = Math.hypot(ballPred.x - vehicle.pos.x, ballPred.y - vehicle.pos.y)
+
+    // Countdown commit timer (reduces state flip-flopping).
+    if (mem.commitMs > 0) mem.commitMs = Math.max(0, mem.commitMs - dt * 1000)
+
+    // Simple stuck detector: if we're not making progress toward the ball, flip orbit side.
+    const distToBallNow = Math.hypot(ballPred.x - vehicle.pos.x, ballPred.y - vehicle.pos.y)
+    if (!Number.isFinite(mem.lastDistToBall)) {
+      mem.lastPos = { x: vehicle.pos.x, y: vehicle.pos.y }
+      mem.lastDistToBall = distToBallNow
+      mem.stuckMs = 0
+    }
+    const moved = Math.hypot(vehicle.pos.x - mem.lastPos.x, vehicle.pos.y - mem.lastPos.y)
+    const progress = mem.lastDistToBall - distToBallNow
+    const verySlow = moved < 0.6
+    const notProgressing = progress < 0.2
+    if (verySlow && notProgressing) mem.stuckMs += dt * 1000
+    else mem.stuckMs = Math.max(0, mem.stuckMs - dt * 650)
+    mem.lastPos = { x: vehicle.pos.x, y: vehicle.pos.y }
+    mem.lastDistToBall = distToBallNow
+
+    if (mem.stuckMs > 520) {
+      mem.orbitSideSign = (mem.orbitSideSign === 1 ? -1 : 1)
+      mem.offenseState = 'orbit'
+      mem.commitMs = 220
+      mem.stuckMs = 0
+    }
+
+    // Only allow state changes when not committed.
+    const canChange = mem.commitMs <= 0
+
+    // Dead-ball behavior: commit to getting the ball moving instead of orbit-dithering.
+    if (!inDanger && ballIsStill && canChange && distToBallPred < 210) {
+      if (mem.offenseState !== 'strike') {
+        mem.offenseState = 'setup'
+        mem.commitMs = Math.max(mem.commitMs, 420)
+      }
+    }
+
+    if (mem.offenseState === 'strike') {
+      // Once we overshoot the ball, go back to orbit
+      if (canChange && (distToBallPred > 180 || wrongSide)) mem.offenseState = 'orbit'
+    } else if (mem.offenseState === 'setup') {
+      if (canChange && !behindEnough) mem.offenseState = 'orbit'
+      else if (canChange && distToContact < 60 && Math.abs(cross) < 25 && headingAlign > 0.8) {
+        mem.offenseState = 'strike'
+        mem.commitMs = ballIsStill ? 520 : 280
+      }
+    } else {
+      // orbit
+      if (canChange && behindEnough && distToContact < 280) {
+        mem.offenseState = 'setup'
+        mem.commitMs = 220
+      }
+    }
+
+    // When in danger, bias toward more decisive clears.
+    if (inDanger && mem.offenseState === 'setup' && distToBallPred < 150) {
+      mem.offenseState = 'strike'
+      mem.commitMs = Math.max(mem.commitMs, 320)
+    }
+
+    const orbitRadius = wrongSide ? 200 : 150
+    const orbitBack = contactOffset + 60
+    let orbitTarget = {
+      x: ballPred.x - desiredDir.x * orbitBack + perp.x * orbitRadius * mem.orbitSideSign,
+      y: ballPred.y - desiredDir.y * orbitBack + perp.y * orbitRadius * mem.orbitSideSign,
+    }
+
+    // If orbit target would push into top/bottom, flip orbit side
+    if (orbitTarget.y < field.top + 50 || orbitTarget.y > field.bottom - 50) {
+      mem.orbitSideSign = (mem.orbitSideSign === 1 ? -1 : 1)
+      orbitTarget = {
+        x: ballPred.x - desiredDir.x * orbitBack + perp.x * orbitRadius * mem.orbitSideSign,
+        y: ballPred.y - desiredDir.y * orbitBack + perp.y * orbitRadius * mem.orbitSideSign,
+      }
+    }
+
+    orbitTarget = clampToBounds(orbitTarget)
+
+    let moveTarget: Vector2
+    let aimTarget: Vector2
+    let accelMult = 1.0
+    let allowAvoidance = true
+    let allowReverse = true
+
+    const goalSideOfBall = (vehicle.pos.x - ball.pos.x) * (defendGoal.pos.x - ball.pos.x)
+      + (vehicle.pos.y - ball.pos.y) * (defendGoal.pos.y - ball.pos.y) > 0
+    if (emergencyClear && goalSideOfBall) {
+      // Full send: hit the ball away from our goal as hard as possible.
+      const away = normalize({ x: ballPred.x - defendGoal.pos.x, y: ballPred.y - defendGoal.pos.y })
+      const centerBias = normalize({
+        x: ((field.left + field.right) / 2) - ballPred.x,
+        y: ((field.top + field.bottom) / 2) - ballPred.y,
+      })
+      const clearDir = normalize({ x: away.x * 0.9 + centerBias.x * 0.35, y: away.y * 0.9 + centerBias.y * 0.35 })
+      moveTarget = { x: ballPred.x + clearDir.x * 420, y: ballPred.y + clearDir.y * 420 }
+      aimTarget = moveTarget
+      accelMult = 1.75
+      allowAvoidance = false
+      allowReverse = false
+      mem.offenseState = 'strike'
+      mem.commitMs = Math.max(mem.commitMs, 520)
+    } else if (inDanger && distToBallPred > 140 && ballToDefGoalDist < 340) {
+      // Goalkeeping: block first, then clear.
+      moveTarget = goaliePoint
+      aimTarget = ballPred
+      accelMult = 1.05
+      allowAvoidance = true
+      allowReverse = true
+    } else if (mem.offenseState === 'orbit') {
+      moveTarget = orbitTarget
+      aimTarget = orbitTarget
+      accelMult = carToBallDist > 260 ? 1.05 : 0.95
+      allowAvoidance = true
+      allowReverse = true
+    } else if (mem.offenseState === 'setup') {
+      // Move to contact point, but AIM through the ball so we don't stop facing a zero-vector.
+      moveTarget = contactPoint
+      aimTarget = { x: ballPred.x + desiredDir.x * 280, y: ballPred.y + desiredDir.y * 280 }
+
+      // If far from the contact point, keep moving; when close, prioritize alignment.
+      // Near walls / dead balls: allow a bit more "creep" to finish lining up instead of stalling.
+      if (distToContact > 45) accelMult = 0.75
+      else accelMult = headingAlign > 0.15 ? 0.65 : (ballIsStill ? 0.28 : 0.12)
+
+      // Allow soft avoidance while far from the contact point (prevents bumper-route stalls),
+      // but keep close-in setup clean. When ball is dead, allow a bit more maneuvering.
+      allowAvoidance = distToContact > (ballIsStill ? 70 : 120)
+      allowReverse = ballIsStill && distToContact > 120
+    } else {
+      // strike: drive through ball along desiredDir
+      moveTarget = { x: ballPred.x + desiredDir.x * 360, y: ballPred.y + desiredDir.y * 360 }
+      aimTarget = moveTarget
+      if (!inDanger) {
+        const dToAttackGoal = Math.hypot(attackGoal.pos.x - ballPred.x, attackGoal.pos.y - ballPred.y)
+        // When the ball is already in the goal's gravity well, blasting it can actually reduce
+        // conversion; prefer controlled pushes so gravity can "sink" the ball.
+        if (dToAttackGoal < attackGoal.gravityRadius * 0.95) {
+          accelMult = ballSpeed > 240 ? 0.9 : 1.1
+        } else {
+          accelMult = 1.25
+        }
+      } else {
+        accelMult = 1.35
+      }
+      allowAvoidance = false
+      allowReverse = false
+    }
+
+    // Avoidance can destabilize close-in ball control; keep it mostly for orbiting
+    const avoidanceMode: 'none' | 'hard' | 'soft' = allowAvoidance && carToBallDist > 90 ? 'soft' : 'hard'
+    const finalMoveTarget = applyAvoidanceToTarget(vehicle, opponent, moveTarget, avoidanceMode)
+    const finalAimTarget = allowAvoidance ? finalMoveTarget : aimTarget
+    const allowDetour = allowAvoidance && mem.offenseState !== 'strike' && distToBallPred > 120
+    applyAiDriving(vehicle, finalMoveTarget, finalAimTarget, accelMult, allowReverse, allowDetour, mem.orbitSideSign)
+
+    if (mem.boost.activeRemaining <= 0 && mem.boost.cooldownRemaining <= 0) {
+      const hx = Math.cos(vehicle.angle), hy = Math.sin(vehicle.angle)
+      const forwardSpeed = vehicle.vel.x * hx + vehicle.vel.y * hy
+      const sidewaysSpeed = Math.abs(vehicle.vel.x * hy - vehicle.vel.y * hx)
+      const targetX = finalMoveTarget.x - vehicle.pos.x, targetY = finalMoveTarget.y - vehicle.pos.y
+      const targetDistance = Math.hypot(targetX, targetY)
+      const aligned = targetDistance > 1 && (targetX * hx + targetY * hy) / targetDistance > 0.99
+      const ballAhead = carToBallX * hx + carToBallY * hy
+      const ballAcross = Math.abs(carToBallX * hy - carToBallY * hx)
+      const awayFromOwnGoal = (vehicle.pos.x - defendGoal.pos.x) * hx + (vehicle.pos.y - defendGoal.pos.y) * hy > 0
+      const finishing = mem.offenseState === 'strike' && behindEnough && ballAhead > 65 && ballAhead < 200
+        && ballAcross < 18 && headingAlign > 0.97 && awayFromOwnGoal
+        && Math.hypot(ball.pos.x - attackGoal.pos.x, ball.pos.y - attackGoal.pos.y) > attackGoal.gravityRadius + 30
+      const repositioning = mem.offenseState === 'orbit' && carToBallDist > 400 && targetDistance > 360
+      // Spend the boost on a lined-up hit or a long straight recovery, never
+      // while turning, sliding sideways, setting up a delicate touch, or in traffic.
+      memory.boostRequested = aligned && forwardSpeed > 15 && forwardSpeed < 250 && sidewaysSpeed < 55
+        && (finishing || repositioning) && boostLaneClear(world, vehicle)
+    }
+  }
+
+  const rightGoal = goals.find(g => g.side === 'right')
+  const leftGoal = goals.find(g => g.side === 'left')
+  if (rightGoal && leftGoal) {
+    runKickballAi({
+      vehicle: vehicle1,
+      opponent: vehicle2,
+      memory,
+      attackGoal: rightGoal,
+      defendGoal: leftGoal,
+    })
+  }
+
+  return isAccelerating
+}
+
+/** Separate from normal driving so both cars use the same boost and cooldown. */
+export function advanceComputerBoost(world: PhysicsWorld, memory: AiMemory, dt: number): boolean {
+  const started = memory.boostRequested && startBoost(memory.boost, world.vehicle1)
+  memory.boostRequested = false
+  updateBoost(memory.boost, world.vehicle1, dt)
+  return started
+}

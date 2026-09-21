@@ -45,6 +45,10 @@ exhaust attachment checks keep the simplified silhouettes intact.
 Combat checks require four blaster hits or fifty completed laser contacts, verify
 five seconds of effective contact at maximum focus (twenty seconds stock), and
 cover fractional-damage rounding, stock-capacitor bursts and mixed-weapon finishes.
+Security-defense regressions exercise continuous laser fire at every focus level
+and 30/60/120 Hz, preserving warning/burst timing while retreating from close range.
+They also cover heavy-hit stagger recovery, the tug's laser counter, safe Haven,
+cover and wall clearance, and real-session return fire against a stationary pilot.
 Damage checks verify accumulating breaches and increasing
 spark count, frequency, reach and lifetime at 30/60/120 Hz, including paused,
 powered-off and destroyed craft.
@@ -75,6 +79,11 @@ Hint checks cover live connect/disconnect, unsupported-pad fallback, selection
 preservation, HUD/map/tutorial labels, and keyboard use while a pad is connected.
 These checks do not replace testing real USB/Bluetooth hardware: verify stick
 feel, layout detection and audio activation on the target controller/browser.
+
+Flight-camera checks cover uniform viewport scaling from phone to 4K and
+ultrawide layouts, centered flight, unchanged world geometry and paused state
+during resizing, fixed-size desktop HUD, training, and floor-label docking at
+both small and enlarged scales. Survey-map zoom remains independent.
 
 ## Survival-pod evacuation
 

@@ -125,7 +125,7 @@ test('both bot types need fifty laser contacts: five seconds at maximum focus an
     let asteroidFrames=0
     do{asteroidFrames++}while(!stepLaserContact(baseline,asteroid,dt,impactMs))
     for(let frame=1;frame<=asteroidFrames*50;frame++) {
-      if(stepLaserContact(contact,bot,dt,impactMs))damageBot(state,bot,BOT_LASER_DAMAGE)
+      if(stepLaserContact(contact,bot,dt,impactMs))damageBot(state,bot,BOT_LASER_DAMAGE,'laser')
       assert.equal(bot.health<=0,frame===asteroidFrames*50,`${kind}, focus ${focus}, ${hz} Hz, frame ${frame}`)
     }
     assert.equal(bot.health,0,'fifty fractional hits must not leave a rounding-error survivor')
@@ -144,7 +144,7 @@ test('laser and blaster damage accumulate while incomplete laser contacts cannot
   assert.equal(bot.health,15)
   for(let hit=1;hit<=38;hit++) {
     assert.equal(stepLaserContact(contact,bot,.4,400),true)
-    assert.equal(damageBot(state,bot,BOT_LASER_DAMAGE),hit===38)
+    assert.equal(damageBot(state,bot,BOT_LASER_DAMAGE,'laser'),hit===38)
   }
 })
 
@@ -155,7 +155,7 @@ test('the starting laser can chip and eventually defeat bots across stock-capaci
     const dt=1/60,impactMs=laserImpactMs(state),frames=Math.round(laserCapacityMs(state)/1000/dt)
     assert.ok(impactMs<=laserCapacityMs(state),'a stock beam must last long enough to inflict damage')
     for(let burst=1;burst<=50;burst++) {
-      for(let frame=0;frame<frames;frame++) if(stepLaserContact(contact,bot,dt,impactMs)) damageBot(state,bot,BOT_LASER_DAMAGE)
+      for(let frame=0;frame<frames;frame++) if(stepLaserContact(contact,bot,dt,impactMs)) damageBot(state,bot,BOT_LASER_DAMAGE,'laser')
       assert.equal(bot.health,Math.round((BOT_MAX_HEALTH-burst*BOT_LASER_DAMAGE)*1000)/1000)
       // Recharging clears unfinished contact, but not damage already inflicted.
       stepLaserContact(contact,undefined,0,impactMs)

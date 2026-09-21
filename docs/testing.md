@@ -113,7 +113,10 @@ fragments, replacement feed, physical chute clearance, ship/cargo interlocks dur
 charging, cooldown/capacity limits and pause/death/restart resets.
 Browser tests exercise keyboard/controller entry, reset, recorder, leave, live
 floor bindings, disconnect safety, and byte-for-byte preservation of both valid
-and unreadable expedition saves. The development study renders mining, hoppers
+and unreadable expedition saves. Pause-menu help also covers returning to the live
+expedition, preserving its tether and progress through repeated training visits,
+training restarts, failed saves, and held controller buttons across the return.
+The development study renders mining, hoppers
 and power practice at flight scale, including active hopper lasers and the powered
 receiver/open door. It also guards against outside-world references in floor text.
 It verifies all four induction exercises remain labeled and captures the dispenser

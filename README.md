@@ -58,6 +58,9 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - Point the ship's nose at an object and press F to grapple it. Fly to tow;
   press F again to release. Flight training teaches the controls with floor
   markings and hands-on practice; the expedition has no automatic tutorial cards.
+  Open **Flight training · Help** from the pause menu at any time. Your expedition
+  stays frozen, and **Return to expedition** takes you back to its pause menu
+  without losing your position, tether or progress, even if saving is unavailable.
   The training bay is a mining-pilot induction simulator with an automatic white-rock
   dispenser. It replenishes used stock through a visible chute, waits for a clear
   outlet, and limits the amount of loose debris. Red material is never placed or

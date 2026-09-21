@@ -59,6 +59,8 @@ function centered(f) {
 }
 
 test('hard corners leave temporary rubber and squeal, while parked steering and pause stay quiet',async({page})=>{
+  // This samples every frame through driving, a long pause, and the full skid fade.
+  test.setTimeout(60000)
   await setup(page);await page.getByRole('button',{name:'Deploy',exact:true}).click()
   await page.keyboard.down('ArrowRight');await page.clock.runFor(400);await page.keyboard.up('ArrowRight')
   expect((await frame(page)).skids).toBe(0)

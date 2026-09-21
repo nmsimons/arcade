@@ -2,7 +2,7 @@ import type { Expedition } from './expedition'
 import type { Debris, Ship, TetherBody, Vector2 } from './types'
 import type { CavernMap } from './worldGeometry'
 import type { BotId, CircuitId } from './stationIds'
-import { raycastCavern, resolveCircleInCavern } from './worldGeometry.ts'
+import { isInsideCavern, raycastCavern, resolveCircleInCavern } from './worldGeometry.ts'
 import { rayCircleHitDistance } from './phaserGeometry.ts'
 import { MAINTENANCE_SPEED, stepMaintenanceBot } from './maintenanceBots.ts'
 import type { MaintenanceRig } from './maintenanceBots'
@@ -22,6 +22,8 @@ export type StationBotKind = typeof BOT_STATIONS[number]['kind']
 export const BOT_MAX_HEALTH = 20
 export const BOT_BLASTER_DAMAGE = 5
 export const BOT_LASER_DAMAGE = BOT_MAX_HEALTH / 50
+export type BotDamageKind = 'laser' | 'impact'
+const SECURITY_MIN_RANGE = 160
 // Visible breaches and emitted sparks share these local hull locations.
 export const BOT_DAMAGE_SITES = [
   { point: [-10, 0, -4.5], angle: 0 },
@@ -75,15 +77,29 @@ const distance = (a: Vector2, b: Vector2) => Math.hypot(a.x - b.x, a.y - b.y)
 const sight = (a: Vector2, b: Vector2, map: CavernMap) => raycastCavern(a, { x: b.x - a.x, y: b.y - a.y }, distance(a, b), map) >= distance(a, b) - .1
 const turn = (a: number, b: number) => Math.atan2(Math.sin(b - a), Math.cos(b - a))
 
+/** Make room to fight; try a diagonal escape if the direct retreat is blocked. */
+function securityRetreat(bot: StationBot, ship: Ship, map: CavernMap) {
+  const away = distance(bot.pos, ship.pos) > .001 ? Math.atan2(bot.pos.y-ship.pos.y,bot.pos.x-ship.pos.x) : bot.angle+Math.PI
+  for (const reach of [100,60,30]) for (const offset of [0,.65,-.65]) {
+    const angle = away+offset
+    const point = {x:bot.pos.x+Math.cos(angle)*reach,y:bot.pos.y+Math.sin(angle)*reach}
+    if (isInsideCavern(point,bot.radius+4,map) && sight(bot.pos,point,map)) return point
+  }
+}
+
 /** Defeats persist through docking and reloads until the pilot respawns. */
-export function damageBot(state: Pick<Expedition, 'disabledBots'>, bot: StationBot, damage: number) {
+export function damageBot(state: Pick<Expedition, 'disabledBots'>, bot: StationBot, damage: number, kind: BotDamageKind = 'impact') {
   if (bot.health <= 0 || damage <= 0 || bot.phase === 'offline' || bot.phase === 'boot') return false
   // Fractional laser chips must reach zero on the intended hit, not leave a
   // floating-point sliver of armor that requires one extra contact.
   bot.health = Math.max(0, Math.round((bot.health - damage) * 1000) / 1000)
   bot.sparkDelay = 0 // A new hit immediately vents sparks; ongoing damage keeps sputtering.
-  bot.flash = 1; bot.stun = .65; bot.target = undefined; bot.maintenance = undefined
-  bot.phase = 'cooldown'; bot.timer = 1.5
+  bot.flash = 1; bot.target = undefined; bot.maintenance = undefined
+  // A cutting beam chips security armor, but cannot repeatedly cancel its
+  // attack. Heavy impacts still stagger it; tugs retain their laser counter.
+  if (kind !== 'laser' || bot.botKind === 'tug') {
+    bot.stun = .65; bot.phase = 'cooldown'; bot.timer = 1.5
+  }
   if (bot.health) return false
   if (!state.disabledBots.includes(bot.botId)) state.disabledBots.push(bot.botId)
   return true
@@ -142,6 +158,7 @@ export function stepBots(runtime: BotRuntime, state: GarageState, args: {
           if (destination && distance(bot.pos, destination) < 40) bot.returning = !bot.returning
           if (acquired && bot.timer <= 0) { bot.phase = 'charge'; bot.timer = 1.25; cues.push({ kind: 'lock', pos: bot.pos }) }
         }
+        if (acquired && distance(bot.pos,ship.pos)<SECURITY_MIN_RANGE) destination=securityRetreat(bot,ship,map)
         if (bot.phase === 'charge') {
           if (!acquired) { bot.phase = 'watch'; bot.timer = .4 }
           else {

@@ -26,9 +26,9 @@ import type { BlasterVisuals } from './blaster'
 import { drawStationBots } from './stationBotRender'
 import { drawDebris } from './debrisRender'
 import type { BotRuntime } from './stationBots'
+import { flightCameraZoom } from './flightCamera'
 
 type Ref<T> = { current: T }
-export const flightCameraZoom=(width:number,height:number)=>clamp(Math.min(width/900,height/620),.58,1)
 
 export function drawHardVacuumFrame(args: {
   ctx: CanvasRenderingContext2D

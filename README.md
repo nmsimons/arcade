@@ -29,6 +29,13 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 **Hard Vacuum**
 
+The ship stays centered as the camera follows it. Flight view gently zooms in on
+larger windows and out on smaller ones, using a 900×620 reference, a 0.58×
+readability floor and a 2× ceiling. Above 1×, zoom grows at 40% of viewport growth
+so larger displays also show more surroundings. World geometry and flight physics
+stay fixed; HUD and menus do not scale with the camera. The same framing applies
+in flight training.
+
 - A/D or Left/Right arrows: rotate; W / Up: thrust; S / Down: nose thruster.
   O/K/L/; also work: O thrusts, K turns left, L fires the nose thruster, and ; turns right.
   Turning fires a tiny lateral jet near the nose and a fainter jet on the opposite
@@ -284,7 +291,10 @@ dodging, cover, distance or damaging the tug breaks the attack. Ship tows last a
 most three seconds, and Haven's repair area is safe. Away from the pilot, tugs
 continue sorting loose cargo. The Works, Reactor and Heart have security units that charge a visible
 targeting beam before firing three-round bursts. Walls, debris and Haven's hull
-block their shots. Both types collide, can be grappled, and take damage from focused
+block their shots. Security units back away when crowded and keep their attack
+timing through laser damage, preventing a sustained beam from stun-locking them.
+Blaster and other physical impacts still stagger them, while laser hits still
+interrupt maintenance tugs and break their cables. Both types collide, can be grappled, and take damage from focused
 laser fire, blasters, explosions and hard impacts. Both types take four blaster hits
 or fifty asteroid-length laser contacts. Laser focus stages require 20, 15, 12.5,
 10, 7.5 and 5 seconds of effective on-target contact respectively (stock through

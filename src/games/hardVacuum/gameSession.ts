@@ -72,7 +72,7 @@ import { needsRecharge, restoreShipSystems } from './supplies.ts'
 import { creditAsteroidDestruction } from './oreCredits.ts'
 import { debrisField, fragmentKindFor, fragmentProfileAt } from './debrisField.ts'
 import { BOT_BLASTER_DAMAGE, BOT_LASER_DAMAGE, damageBot, freshBots, stepBots, stepBotSparks, stepSecurityShots } from './stationBots.ts'
-import type { StationBot } from './stationBots.ts'
+import type { BotDamageKind, StationBot } from './stationBots.ts'
 import { havenColliders } from './havenGeometry.ts'
 import { laserCapacityMs, tetherReachMultiplier, upgradeOffer, SHIP_UPGRADES } from './upgrades.ts'
 import type { ShipUpgrade } from './upgrades.ts'
@@ -805,11 +805,11 @@ export function createGameSession(initial: Expedition = newExpedition(), options
         }
       }
 
-      const hitBot = (bot: StationBot, damage: number) => {
+      const hitBot = (bot: StationBot, damage: number, kind: BotDamageKind = 'impact') => {
         // A death resets the encounter. Remaining impacts in this frame must
         // not mark enemies defeated again after that reset.
         if (bot.health <= 0 || gameStateRef.current !== 'playing') return
-        const destroyed = damageBot(expeditionRef.current, bot, damage)
+        const destroyed = damageBot(expeditionRef.current, bot, damage, kind)
         createDebris(bot.pos.x, bot.pos.y, bot.vel.x, bot.vel.y, destroyed ? 18 : 4, destroyed ? .9 : .25, '225, 171, 114')
         if (destroyed) {
           releaseHarpoonIfAttached(bot)
@@ -1135,7 +1135,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
 
           const impactMs = laserImpactMs(expeditionRef.current)
           if (stepLaserContact(laserContactRef.current, target, dt, impactMs) && target) {
-            if (isStationBot(target)) hitBot(target,BOT_LASER_DAMAGE)
+            if (isStationBot(target)) hitBot(target,BOT_LASER_DAMAGE,'laser')
             else if (isRock(target)) hitRockLikeShipWeapon(target, { x: ux, y: uy })
             else repelBody(target, { x: ux, y: uy })
           }

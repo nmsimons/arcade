@@ -15,7 +15,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - **Final Approach** — land gently on the pad (difficulty selectable)
 - **No Exit** — arena shooter with force-field bounces
 - **Urban Fire** — top-down combat with tanks + helicopters
-- **Bumper Ball** — physics soccer-ish bumper cars (1P/2P)
+- **Bumper Ball** — single-player physics soccer-ish bumper cars against a computer opponent
 - **Sling Load** — helicopter sling-load delivery / survival
 - **Hello World** — vector display “HELLO WORLD” screen
 
@@ -403,9 +403,29 @@ The region plan and narrative are documented in [the campaign notes](docs/hard-v
 
 **Bumper Ball**
 
-- 1P: Arrow Keys to move
-- 2P: WASD + Arrows
-- P or Esc: pause/resume
+- Arrow keys / WASD: steer, accelerate and reverse the blue car against the red computer opponent
+- Space or controller A / ×: a half-second forward boost, followed by a three-second
+  cooldown. The bottom meter shows readiness; release and press again for each burst.
+  Boost time and recharge freeze while paused, and each kickoff restores a full charge.
+- P: pause/resume; Esc: exit
+- Standard controllers use Hard Vacuum's controls: left stick left/right turns
+  proportionally, RT / R2 drives forward, and LT / L2 brakes or reverses with
+  proportional trigger pressure. Stick up/down does not accelerate.
+- Stick / D-pad navigates menus; A / × selects; B / ○ goes back (resumes when
+  paused); Menu / Options pauses or resumes. Disconnecting the active controller
+  or switching away pauses the match. Release held controls after connecting,
+  starting or resuming before driving again. Keyboard controls remain available.
+- The arena is fixed at 1,600 × 1,000 game units. The camera keeps the blue car
+  centered, including near walls. Windows larger than the 1,280 × 800 baseline
+  zoom in proportionally, so the game fills large displays without stretching.
+  Smaller windows stay at 1×. Resizing never moves the goals, bumpers or match objects.
+
+The computer challenges possession, lines up shots around bumpers, predicts ball
+rebounds and makes safer defensive clearances. It uses the player's maximum turn
+rate, acceleration, boost strength and cooldown. It boosts into lined-up shots
+and along clear repositioning routes, while saving gentle touches near the goal.
+Run `npm run benchmark:bumper-ai` for repeatable opponent
+trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and limits.
 
 **Sling Load**
 

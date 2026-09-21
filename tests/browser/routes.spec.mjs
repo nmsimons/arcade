@@ -31,9 +31,9 @@ test('selector loads no games and navigation restores keyboard focus',async({pag
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button',{name:'Bumper Ball',exact:true})).toBeFocused()
   await page.keyboard.press('ArrowDown')
-  await expect(page.getByRole('button',{name:'No Exit',exact:true})).toBeFocused()
+  await expect(page.getByRole('button',{name:'Urban Fire',exact:true})).toBeFocused()
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/no-exit$/)
+  await expect(page).toHaveURL(/\/urban-fire$/)
 })
 
 test('a direct Hard Vacuum visit does not request unrelated game implementations',async({page})=>{

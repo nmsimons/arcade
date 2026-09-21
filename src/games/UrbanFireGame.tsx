@@ -1,11 +1,22 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { FIELD, JEEP_MAX_HEALTH, JEEP_TUNING } from './urbanFire/types'
-import type { Bullet, Debris, Helicopter, Jeep, RepairKit, Tank, Vector2, Wall } from './urbanFire/types'
+import type { ArmorUpgrade, Bullet, Debris, Helicopter, Jeep, RepairKit, Tank, Vector2, Wall } from './urbanFire/types'
 import { ArmorSoundSystem } from './urbanFire/sound'
-import { createBuildings } from './urbanFire/battlefield'
-import { clamp, clear, createNavigator, intersects } from './urbanFire/navigation'
-import { aimTank, createContact, createTankBrain, driveTank, flyHelicopter, observe } from './urbanFire/ai'
+import { createStaticCityWalls } from './urbanFire/battlefield'
+import { civilianCover, createCivilianVehicles, hitCivilianBullet, stepCivilianVehicles } from './urbanFire/civilianVehicles'
+import { CITY } from './urbanFire/cityPlan'
+import { driveJeep, steerJeep } from './urbanFire/driving'
+import { closingImpactSpeed, createCollisionFeedback, stepCollisionFeedback } from './urbanFire/collisionFeedback'
+import type { JeepCollisionContact } from './urbanFire/collisionFeedback'
+import type { CivilianVehicle } from './urbanFire/civilianVehicles'
+import { collectSupplies, createArmorUpgrade, createSupplyArrival, stepSupplyArrivals } from './urbanFire/supplies'
+import { createHelicopterReinforcements, createTankReinforcements, stepHelicopterArrival, stepTankArrival, tankGrounded, tanksRemaining } from './urbanFire/reinforcements'
+import { SCENERY_MARGIN } from './urbanFire/perimeter'
+import { clamp, clear, createNavigator, segmentEntry } from './urbanFire/navigation'
+import { createImpactDebris, stepImpactDebris } from './urbanFire/combatEffects'
+import { aimTank, createContact, driveTank, flyHelicopter, observe } from './urbanFire/ai'
 import { drawBattle, drawCity } from './urbanFire/render'
+import { createVehicleVisuals, stepVehicleVisuals, vehiclePose } from './urbanFire/appearance'
 import { createControllerReader } from './hardVacuum/controllerInput'
 import { neutralController } from './hardVacuum/flightInput'
 import { controllerDialog, controlDialog, scrollDialog } from './hardVacuum/controllerUi'
@@ -13,8 +24,6 @@ import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import './urbanFire/urbanFire.css'
 
 type UrbanFireGameProps = { onExit: () => void }
-const lineIntersectsRect = (x1: number, y1: number, x2: number, y2: number, x: number, y: number, width: number, height: number) =>
-  intersects({ x: x1, y: y1 }, { x: x2, y: y2 }, { x, y, width, height })
 
 export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -28,6 +37,8 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const [controllerConnected, setControllerConnected] = useState(false)
   const contactRef = useRef(createContact())
   const waveDelayRef = useRef(0)
+  const visualsRef = useRef(createVehicleVisuals())
+  const collisionFeedbackRef = useRef(createCollisionFeedback())
 
   const jeepRef = useRef<Jeep>({
     pos: { x: 0, y: 0 },
@@ -43,8 +54,11 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const helicoptersRef = useRef<Helicopter[]>([])
   const bulletsRef = useRef<Bullet[]>([])
   const wallsRef = useRef<Wall[]>([])
+  const civilianVehiclesRef = useRef(createCivilianVehicles())
   const debrisRef = useRef<Debris[]>([])
+  const effectSequenceRef = useRef(0)
   const repairKitsRef = useRef<RepairKit[]>([])
+  const armorUpgradesRef = useRef<ArmorUpgrade[]>([])
   const keysRef = useRef<Set<string>>(new Set())
   const rafRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
@@ -61,17 +75,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     const jeep = jeepRef.current
 
     const isInsideWall = (x: number, y: number, radius: number) => {
-      for (const wall of wallsRef.current) {
-        if (
-          x + radius > wall.x &&
-          x - radius < wall.x + wall.width &&
-          y + radius > wall.y &&
-          y - radius < wall.y + wall.height
-        ) {
-          return true
-        }
-      }
-      return false
+      return !clear({x,y},{x,y},[...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)],radius)
     }
 
     let best: Vector2 | null = null
@@ -103,255 +107,39 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     }
 
     const pos = best ?? { x: width / 2, y: height / 2 }
-    repairKitsRef.current = [{ pos, spawnedAtMs: Date.now() }]
+    repairKitsRef.current = [{ pos, spawnedAtMs: Date.now(), arrival:createSupplyArrival(.4) }]
   }, [])
 
-  const createDebris = useCallback((x: number, y: number, count: number = 8) => {
-    const debris: Debris[] = []
-    for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5
-      const speed = 50 + Math.random() * 100
-      debris.push({
-        pos: { x, y },
-        vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
-        angle: Math.random() * Math.PI * 2,
-        rotSpeed: (Math.random() - 0.5) * 10,
-        life: 1000 + Math.random() * 500,
-        length: 5 + Math.random() * 10,
-      })
-    }
-    debrisRef.current = [...debrisRef.current, ...debris]
+  const createDebris = useCallback((x: number, y: number, count: number = 8, material:Debris['material']='metal',direction?:number) => {
+    const particles=createImpactDebris(x,y,count,++effectSequenceRef.current,material,direction)
+    debrisRef.current = [...debrisRef.current, ...particles].slice(-320)
   }, [])
 
-  const generateWalls = useCallback(() => { wallsRef.current = createBuildings() }, [])
+  const spawnArmorUpgrade=useCallback((waveNum:number)=>{
+    if(armorUpgradesRef.current.length)return
+    const upgrade=createArmorUpgrade(waveNum,jeepRef.current.pos,
+      [...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)],repairKitsRef.current)
+    if(upgrade)armorUpgradesRef.current=[upgrade]
+  },[])
+
+  const generateWalls = useCallback(() => {
+    wallsRef.current = createStaticCityWalls()
+    civilianVehiclesRef.current = createCivilianVehicles()
+  }, [])
 
   const spawnEnemies = useCallback((waveNum: number) => {
-    const { width, height } = FIELD
-    const tanks: Tank[] = []
-    const helicopters: Helicopter[] = []
-
-    const tankCount = Math.min(2 + Math.floor(waveNum / 2), 4)
-    const heliCount = waveNum >= 2 ? Math.min(1 + Math.floor((waveNum - 1) / 2), 3) : 0
-
-    // Helper to check if a path from spawn point is clear
-    const isPathClear = (startX: number, startY: number, angle: number, distance: number): boolean => {
-      const steps = 5
-      for (let i = 1; i <= steps; i++) {
-        const checkX = startX + Math.cos(angle) * (distance * i / steps)
-        const checkY = startY + Math.sin(angle) * (distance * i / steps)
-        for (const wall of wallsRef.current) {
-          if (
-            checkX > wall.x - 30 && checkX < wall.x + wall.width + 30 &&
-            checkY > wall.y - 30 && checkY < wall.y + wall.height + 30
-          ) {
-            return false
-          }
-        }
-      }
-      return true
-    }
-
-    // Define specific spawn points in gaps between perimeter buildings
-    // These are relative positions (0-1) along each edge where gaps exist
-    const spawnPoints = [
-      // Top edge gaps (between buildings)
-      { side: 0, pos: 0.18 },   // Gap after first building
-      { side: 0, pos: 0.38 },   // Gap in upper-left area
-      { side: 0, pos: 0.62 },   // Gap in upper-right area
-      { side: 0, pos: 0.82 },   // Gap before last building
-      // Bottom edge gaps
-      { side: 1, pos: 0.18 },
-      { side: 1, pos: 0.38 },
-      { side: 1, pos: 0.62 },
-      { side: 1, pos: 0.82 },
-      // Left edge gaps
-      { side: 2, pos: 0.18 },
-      { side: 2, pos: 0.38 },
-      { side: 2, pos: 0.62 },
-      { side: 2, pos: 0.82 },
-      // Right edge gaps
-      { side: 3, pos: 0.18 },
-      { side: 3, pos: 0.38 },
-      { side: 3, pos: 0.62 },
-      { side: 3, pos: 0.82 },
-    ]
-
-    // Shuffle spawn points
-    const shuffledSpawns = [...spawnPoints].sort(() => Math.random() - 0.5)
-
-    // Spawn tanks (from edges, drive in)
-    for (let i = 0; i < tankCount; i++) {
-      let x: number, y: number, angle: number
-      let foundSpawn = false
-      
-      // Try to find a spawn point with a clear path
-      for (const spawn of shuffledSpawns) {
-        switch (spawn.side) {
-          case 0: // Top edge
-            x = width * spawn.pos
-            y = 32
-            angle = Math.PI / 2 + (Math.random() - 0.5) * 0.3
-            break
-          case 1: // Bottom edge
-            x = width * spawn.pos
-            y = height - 32
-            angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.3
-            break
-          case 2: // Left edge
-            x = 32
-            y = height * spawn.pos
-            angle = 0 + (Math.random() - 0.5) * 0.3
-            break
-          default: // Right edge
-            x = width - 32
-            y = height * spawn.pos
-            angle = Math.PI + (Math.random() - 0.5) * 0.3
-        }
-        
-        // Check if path is clear for 120 pixels
-        if (isPathClear(x, y, angle, 120)) {
-          foundSpawn = true
-          // Remove this spawn point so other tanks don't use it
-          const idx = shuffledSpawns.indexOf(spawn)
-          if (idx > -1) shuffledSpawns.splice(idx, 1)
-          break
-        }
-      }
-      
-      // Fallback if no clear spawn found
-      if (!foundSpawn) {
-        const side = Math.floor(Math.random() * 4)
-        switch (side) {
-          case 0:
-            x = width / 2
-            y = 32
-            angle = Math.PI / 2
-            break
-          case 1:
-            x = width / 2
-            y = height - 32
-            angle = -Math.PI / 2
-            break
-          case 2:
-            x = 32
-            y = height / 2
-            angle = 0
-            break
-          default:
-            x = width - 32
-            y = height / 2
-            angle = Math.PI
-        }
-      }
-
-      tanks.push({
-        pos: { x: x!, y: y! },
-        vel: { x: Math.cos(angle!) * 40, y: Math.sin(angle!) * 40 },
-        angle: angle!,
-        turretAngle: angle!,
-        health: 2,
-        state: 'active',
-        explodeTime: 0,
-        shootCooldown: 2000 + Math.random() * 2000,
-        trackOffset: 0,
-        losTimeMs: 0,
-        role: i,
-        brain: createTankBrain(),
-        recoil: 0,
-      })
-    }
-
-    // Spawn helicopters (from edges)
-    for (let i = 0; i < heliCount; i++) {
-      const side = Math.floor(Math.random() * 4)
-      let x: number, y: number, vx: number, vy: number
-      switch (side) {
-        case 0: // Top
-          x = Math.random() * width
-          y = -30
-          vx = (Math.random() - 0.5) * 40
-          vy = 30 + Math.random() * 20
-          break
-        case 1: // Bottom
-          x = Math.random() * width
-          y = height + 30
-          vx = (Math.random() - 0.5) * 40
-          vy = -(30 + Math.random() * 20)
-          break
-        case 2: // Left
-          x = -30
-          y = Math.random() * height
-          vx = 30 + Math.random() * 20
-          vy = (Math.random() - 0.5) * 40
-          break
-        default: // Right
-          x = width + 30
-          y = Math.random() * height
-          vx = -(30 + Math.random() * 20)
-          vy = (Math.random() - 0.5) * 40
-      }
-
-      helicopters.push({
-        pos: { x, y },
-        vel: { x: vx, y: vy },
-        angle: Math.atan2(vy, vx),
-        state: 'active',
-        explodeTime: 0,
-        shootCooldown: 1500 + Math.random() * 1500,
-        rotorAngle: 0,
-        soundTimer: 0,
-        losTimeMs: 0,
-        orbit: i % 2 ? -1 : 1,
-        recoil: 0,
-      })
-    }
+    const tanks=createTankReinforcements(waveNum,jeepRef.current.pos,
+      [...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)])
+    const helicopters=createHelicopterReinforcements(waveNum,jeepRef.current.pos,
+      {width:canvasRef.current?.width||window.innerWidth,height:canvasRef.current?.height||window.innerHeight})
 
     tanksRef.current = tanks
     helicoptersRef.current = helicopters
   }, [])
 
   const resetJeep = useCallback(() => {
-    const { width, height } = FIELD
-    
-    // Find a safe spawn position not inside a wall
-    const isInsideWall = (x: number, y: number, radius: number) => {
-      for (const wall of wallsRef.current) {
-        if (
-          x + radius > wall.x &&
-          x - radius < wall.x + wall.width &&
-          y + radius > wall.y &&
-          y - radius < wall.y + wall.height
-        ) {
-          return true
-        }
-      }
-      return false
-    }
-    
-    // Try spawn positions - prefer bottom center area
-    const spawnPositions = [
-      { x: width / 2, y: height - 100 },
-      { x: width / 2, y: height - 150 },
-      { x: width / 3, y: height - 100 },
-      { x: width * 2 / 3, y: height - 100 },
-      { x: width / 2, y: height / 2 + 100 },
-      { x: width / 4, y: height - 100 },
-      { x: width * 3 / 4, y: height - 100 },
-    ]
-    
-    let spawnX = width / 2
-    let spawnY = height - 100
-    
-    for (const pos of spawnPositions) {
-      if (!isInsideWall(pos.x, pos.y, 20)) {
-        spawnX = pos.x
-        spawnY = pos.y
-        break
-      }
-    }
-    
     jeepRef.current = {
-      pos: { x: spawnX, y: spawnY },
+      pos: { ...CITY.playerSpawn },
       vel: { x: 0, y: 0 },
       angle: -Math.PI / 2,
       health: JEEP_MAX_HEALTH,
@@ -371,15 +159,20 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     waveDelayRef.current = 0
     generateWalls()
     resetJeep()
+    visualsRef.current = createVehicleVisuals()
+    collisionFeedbackRef.current = createCollisionFeedback()
+    effectSequenceRef.current = 0
     bulletsRef.current = []
     debrisRef.current = []
     repairKitsRef.current = []
+    armorUpgradesRef.current = []
     setScore(0)
     setWave(1)
     spawnEnemies(1)
     spawnRepairKit()
+    spawnArmorUpgrade(1)
     setGameState('playing')
-  }, [generateWalls, resetJeep, spawnEnemies, spawnRepairKit, sounds, controller])
+  }, [generateWalls, resetJeep, spawnEnemies, spawnRepairKit, spawnArmorUpgrade, sounds, controller])
 
   useEffect(() => {
     if (gameState !== 'menu') return
@@ -389,6 +182,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     bulletsRef.current = []
     debrisRef.current = []
     repairKitsRef.current = []
+    armorUpgradesRef.current = []
     if (tanksRef.current.length === 0 && helicoptersRef.current.length === 0) {
       spawnEnemies(1)
     }
@@ -403,12 +197,16 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   }, [controller, sounds])
   const fire = useCallback(() => {
     const jeep = jeepRef.current
-    if (gameState !== 'playing' || jeep.state !== 'active' || bulletsRef.current.filter(b => !b.isEnemy).length >= JEEP_TUNING.maxPlayerBullets) return
+    if (gameState !== 'playing' || jeep.state !== 'active') return
     const muzzle = { x: jeep.pos.x + Math.cos(jeep.angle) * 17, y: jeep.pos.y + Math.sin(jeep.angle) * 17 }
     if (!clear(jeep.pos, muzzle, wallsRef.current)) return
-    bulletsRef.current.push({ pos: muzzle, vel: { x: Math.cos(jeep.angle) * JEEP_TUNING.playerBulletSpeed, y: Math.sin(jeep.angle) * JEEP_TUNING.playerBulletSpeed }, life: JEEP_TUNING.playerBulletLifeMs, isEnemy: false })
+    const velocity={ x: Math.cos(jeep.angle) * JEEP_TUNING.playerBulletSpeed, y: Math.sin(jeep.angle) * JEEP_TUNING.playerBulletSpeed }
+    const hit=hitCivilianBullet(civilianVehiclesRef.current,wallsRef.current,jeep.pos,muzzle,velocity)
+    if(hit)createDebris(hit.point.x,hit.point.y,3)
+    else bulletsRef.current.push({ pos: muzzle, vel: velocity, life: JEEP_TUNING.playerBulletLifeMs, isEnemy: false })
+    vehiclePose(visualsRef.current, jeep).recoil = 1
     sounds.shoot()
-  }, [gameState, sounds])
+  }, [gameState, sounds, createDebris])
   const pollController = useEffectEvent((time: number, dt: number) => {
     let pads: (Gamepad | null)[] = []
     try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Keyboard remains available. */ }
@@ -504,15 +302,17 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
 
     const route = createNavigator(wallsRef.current)
     const city = document.createElement('canvas')
-    city.width = FIELD.width + 24; city.height = FIELD.height + 24
+    city.width = FIELD.width + SCENERY_MARGIN * 2; city.height = FIELD.height + SCENERY_MARGIN * 2
     const cityContext = city.getContext('2d')!
-    cityContext.translate(12, 12); drawCity(cityContext, wallsRef.current)
+    cityContext.translate(SCENERY_MARGIN, SCENERY_MARGIN); drawCity(cityContext, wallsRef.current)
 
     const update = (dt: number) => {
       if (gameState !== 'playing') return
 
       const { width, height } = FIELD
       const jeep = jeepRef.current
+      debrisRef.current = stepImpactDebris(debrisRef.current,dt)
+      stepSupplyArrivals([...repairKitsRef.current,...armorUpgradesRef.current],dt)
 
       // Fairness: cap concurrent enemy bullets so difficulty stays readable.
       const maxEnemyBullets = 6
@@ -524,14 +324,6 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           sounds.stopEngine()
           setGameState('gameOver')
         }
-        // Update debris
-        debrisRef.current = debrisRef.current.filter((d) => {
-          d.pos.x += d.vel.x * dt
-          d.pos.y += d.vel.y * dt
-          d.angle += d.rotSpeed * dt
-          d.life -= dt * 1000
-          return d.life > 0
-        })
         return
       }
       
@@ -545,54 +337,17 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       const turn = (Number(keysRef.current.has('arrowright') || keysRef.current.has('d')) - Number(keysRef.current.has('arrowleft') || keysRef.current.has('a'))) || input.turn
       const forward = keysRef.current.has('arrowup') || keysRef.current.has('w') ? 1 : input.thrust
       const reverse = keysRef.current.has('arrowdown') || keysRef.current.has('s') ? 1 : input.reverse
-      jeep.angle += turn * JEEP_TUNING.turnSpeed * dt
-      jeep.vel.x += Math.cos(jeep.angle) * JEEP_TUNING.accelForward * (forward - reverse * JEEP_TUNING.accelReverseFactor) * dt
-      jeep.vel.y += Math.sin(jeep.angle) * JEEP_TUNING.accelForward * (forward - reverse * JEEP_TUNING.accelReverseFactor) * dt
-
-      // Drift physics - velocity gradually aligns with facing direction
-      const speed = Math.hypot(jeep.vel.x, jeep.vel.y)
-      if (speed > JEEP_TUNING.driftSpeedThreshold) {
-        const velAngle = Math.atan2(jeep.vel.y, jeep.vel.x)
-        const heading = Math.cos(velAngle - jeep.angle) < 0 ? jeep.angle + Math.PI : jeep.angle
-        let angleDiff = heading - velAngle
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2
-        
-        // The faster you go, the more you drift (less grip)
-        // Grip factor: 1.0 = instant alignment, lower = more drift
-        const gripFactor = Math.max(JEEP_TUNING.gripMin, JEEP_TUNING.gripBase - speed * JEEP_TUNING.gripSpeedFactor)
-        const alignAmount = angleDiff * (1 - Math.pow(1 - gripFactor, dt * 60))
-        
-        // Rotate velocity toward facing direction
-        const newVelAngle = velAngle + alignAmount
-        jeep.vel.x = Math.cos(newVelAngle) * speed
-        jeep.vel.y = Math.sin(newVelAngle) * speed
-      }
-
-      // Friction (slightly less when drifting sideways)
-      jeep.vel.x *= Math.pow(JEEP_TUNING.friction, dt * 60)
-      jeep.vel.y *= Math.pow(JEEP_TUNING.friction, dt * 60)
-
-      // Speed limit
-      const maxSpeed = JEEP_TUNING.maxSpeed
-      if (speed > maxSpeed) {
-        jeep.vel.x = (jeep.vel.x / speed) * maxSpeed
-        jeep.vel.y = (jeep.vel.y / speed) * maxSpeed
-      }
-
-      // Animate wheels
-      jeep.wheelAngle += speed * dt * JEEP_TUNING.wheelSpinFactor
-
-      sounds.setEngineSpeed(speed)
-
-      // Move jeep
-      jeep.pos.x += jeep.vel.x * dt
-      jeep.pos.y += jeep.vel.y * dt
+      const previousPosition={...jeep.pos},previousAngle=jeep.angle
+      const collisionContacts:JeepCollisionContact[]=[]
+      vehiclePose(visualsRef.current,jeep).steeringInput=turn
+      sounds.setEngineSpeed(driveJeep(jeep,{turn,forward,reverse},dt))
 
       // Wall collision for jeep
       for (const wall of wallsRef.current) {
         const { collision, pushX, pushY } = rectCollision(jeep.pos.x, jeep.pos.y, JEEP_TUNING.collisionRadius, wall)
         if (collision) {
+          collisionContacts.push({body:wall,material:wall.impactMaterial??'masonry',
+            speed:closingImpactSpeed(jeep.vel,{x:pushX,y:pushY})})
           jeep.pos.x += pushX
           jeep.pos.y += pushY
           jeep.vel.x *= JEEP_TUNING.collisionVelocityDamping
@@ -604,31 +359,31 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       jeep.pos.x = Math.max(JEEP_TUNING.screenMargin, Math.min(width - JEEP_TUNING.screenMargin, jeep.pos.x))
       jeep.pos.y = Math.max(JEEP_TUNING.screenMargin, Math.min(height - JEEP_TUNING.screenMargin, jeep.pos.y))
 
-      // Repair kit pickup
-      if (repairKitsRef.current.length > 0 && jeep.health < JEEP_MAX_HEALTH) {
-        for (let i = repairKitsRef.current.length - 1; i >= 0; i--) {
-          const kit = repairKitsRef.current[i]
-          const dist = Math.hypot(kit.pos.x - jeep.pos.x, kit.pos.y - jeep.pos.y)
-          if (dist < JEEP_TUNING.repairPickupRadius) {
-            jeep.health = Math.min(JEEP_MAX_HEALTH, jeep.health + 1)
-            repairKitsRef.current.splice(i, 1)
-            sounds.repairPickup()
-          }
-        }
-      }
-
-      observe(contactRef.current, jeep, [...tanksRef.current, ...helicoptersRef.current], wallsRef.current, dt)
+      const cover=()=>[...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)]
+      observe(contactRef.current, jeep, [...tanksRef.current, ...helicoptersRef.current], cover(), dt)
       tanksRef.current = tanksRef.current.filter(tank => {
         if (tank.state === 'exploding') { tank.explodeTime -= dt * 1000; return tank.explodeTime > 0 }
-        driveTank(tank, tanksRef.current, contactRef.current, wallsRef.current, route, dt)
+        if(tank.state==='incoming'){
+          const traffic=[{pos:jeep.pos,radius:JEEP_TUNING.collisionRadius},
+            ...tanksRef.current.filter(other=>other!==tank&&other.state!=='exploding').map(other=>({pos:other.pos,radius:28})),
+            ...civilianVehiclesRef.current.map(car=>({pos:car.pos,radius:Math.hypot(car.length,car.width)/2}))]
+          if(stepTankArrival(tank,dt,wallsRef.current,traffic))sounds.tankLanding()
+          if(!tankGrounded(tank))return true
+        }
+        const tankPreviousPosition={...tank.pos}
+        if(tank.state==='active')driveTank(tank, tanksRef.current, contactRef.current, wallsRef.current, route, dt)
         // Physical contacts still constrain the tactical planner.
         for (const wall of wallsRef.current) {
           const hit = rectCollision(tank.pos.x, tank.pos.y, 28, wall)
           tank.pos.x += hit.pushX; tank.pos.y += hit.pushY
         }
         const dx = jeep.pos.x - tank.pos.x, dy = jeep.pos.y - tank.pos.y, dist = Math.hypot(dx, dy)
-        if (dist > 0 && dist < 40) { jeep.pos.x += dx / dist * (40 - dist); jeep.pos.y += dy / dist * (40 - dist) }
-        const muzzle = aimTank(tank, jeep, tanksRef.current, wallsRef.current, dt)
+        if (dist > 0 && dist < 40) {
+          const tankMotion=dt>0?{x:(tank.pos.x-tankPreviousPosition.x)/dt,y:(tank.pos.y-tankPreviousPosition.y)/dt}:{x:0,y:0}
+          collisionContacts.push({body:tank,material:'armor',speed:closingImpactSpeed(jeep.vel,{x:dx,y:dy},tankMotion)})
+          jeep.pos.x += dx / dist * (40 - dist); jeep.pos.y += dy / dist * (40 - dist)
+        }
+        const muzzle = tank.state==='active'?aimTank(tank, jeep, tanksRef.current, cover(), dt):null
         if (muzzle && bulletsRef.current.filter(b => b.isEnemy).length < maxEnemyBullets) {
           bulletsRef.current.push({ pos: muzzle, vel: { x: Math.cos(tank.turretAngle) * 250, y: Math.sin(tank.turretAngle) * 250 }, life: 2000, isEnemy: true })
           tank.shootCooldown = 2200 + Math.random() * 1700; tank.recoil = 1; sounds.tankShoot()
@@ -638,13 +393,35 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       helicoptersRef.current = helicoptersRef.current.filter(heli => {
         if (heli.state === 'exploding') { heli.explodeTime -= dt * 1000; return heli.explodeTime > 0 }
         heli.soundTimer -= dt * 1000
-        if (heli.soundTimer <= 0) { heli.soundTimer = 180; sounds.helicopter() }
-        if (flyHelicopter(heli, jeep, contactRef.current, wallsRef.current, dt) && bulletsRef.current.filter(b => b.isEnemy).length < maxEnemyBullets) {
+        const heliAudible=Math.hypot(heli.pos.x-jeep.pos.x,heli.pos.y-jeep.pos.y)<850
+        if (heli.soundTimer <= 0) { heli.soundTimer = 180; if(heliAudible)sounds.helicopter() }
+        if(heli.state==='incoming'){stepHelicopterArrival(heli,dt);return true}
+        if (flyHelicopter(heli, jeep, contactRef.current, cover(), dt) && bulletsRef.current.filter(b => b.isEnemy).length < maxEnemyBullets) {
           bulletsRef.current.push({ pos: { ...heli.pos }, vel: { x: Math.cos(heli.angle) * 220, y: Math.sin(heli.angle) * 220 }, life: 2000, isEnemy: true })
           heli.shootCooldown = 2400 + Math.random() * 1400; heli.recoil = 1; sounds.tankShoot()
         }
         return true
       })
+
+      // Unpowered civilian cars remain solid, but trade momentum with the jeep
+      // and tanks. Routing uses permanent structures; tanks can shove cars aside.
+      const groundActors=[{pos:jeep.pos,vel:jeep.vel,radius:JEEP_TUNING.collisionRadius,mass:1,
+        onContact:(car:CivilianVehicle,speed:number)=>collisionContacts.push({body:car,material:'metal',speed})},
+        ...tanksRef.current.filter(tankGrounded).map(t=>({pos:t.pos,vel:t.vel,radius:28,mass:7}))]
+      stepCivilianVehicles(civilianVehiclesRef.current,wallsRef.current,dt,groundActors)
+      for(const actor of groundActors)for(const wall of wallsRef.current){
+        const hit=rectCollision(actor.pos.x,actor.pos.y,actor.radius,wall)
+        if(actor===groundActors[0]&&hit.collision)collisionContacts.push({body:wall,material:wall.impactMaterial??'masonry',
+          speed:closingImpactSpeed(actor.vel,{x:hit.pushX,y:hit.pushY})})
+        actor.pos.x+=hit.pushX;actor.pos.y+=hit.pushY
+      }
+      const impact=stepCollisionFeedback(collisionFeedbackRef.current,collisionContacts,dt)
+      if(impact)sounds.jeepCollision(impact.material,impact.strength)
+      steerJeep(jeep,turn,dt,previousPosition,previousAngle)
+      const supplies=collectSupplies(jeep,repairKitsRef.current,armorUpgradesRef.current,cover())
+      if(supplies.armor||supplies.repaired){
+        if(supplies.armor)sounds.armorPickup();else sounds.repairPickup()
+      }
 
       // Update bullets
       bulletsRef.current = bulletsRef.current.filter((bullet) => {
@@ -654,11 +431,20 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         bullet.pos.y += bullet.vel.y * dt
         bullet.life -= dt * 1000
 
+        const carHit=hitCivilianBullet(civilianVehiclesRef.current,wallsRef.current,
+          {x:prevX,y:prevY},bullet.pos,bullet.vel,bullet.isEnemy)
+        if(carHit){createDebris(carHit.point.x,carHit.point.y,3);return false}
+
         // Wall collision (bullets don't pass through)
+        let wallHit=Infinity
         for (const wall of wallsRef.current) {
-          if (lineIntersectsRect(prevX, prevY, bullet.pos.x, bullet.pos.y, wall.x, wall.y, wall.width, wall.height)) {
-            return false
-          }
+          const entry=segmentEntry({x:prevX,y:prevY},bullet.pos,wall)
+          if(entry!==null)wallHit=Math.min(wallHit,entry)
+        }
+        if(wallHit!==Infinity){
+          createDebris(prevX+(bullet.pos.x-prevX)*wallHit,prevY+(bullet.pos.y-prevY)*wallHit,
+            4,'masonry',Math.atan2(-bullet.vel.y,-bullet.vel.x))
+          return false
         }
 
         // Battlefield bounds
@@ -669,24 +455,13 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         return bullet.life > 0
       })
 
-      // Update debris
-      debrisRef.current = debrisRef.current.filter((d) => {
-        d.pos.x += d.vel.x * dt
-        d.pos.y += d.vel.y * dt
-        d.angle += d.rotSpeed * dt
-        d.vel.x *= 0.98
-        d.vel.y *= 0.98
-        d.life -= dt * 1000
-        return d.life > 0
-      })
-
       // Collision: player bullets vs tanks
       for (let i = bulletsRef.current.length - 1; i >= 0; i--) {
         const bullet = bulletsRef.current[i]
         if (bullet.isEnemy) continue
 
         for (const tank of tanksRef.current) {
-          if (tank.state !== 'active') continue
+          if (!tankGrounded(tank)) continue
           const dist = Math.hypot(bullet.pos.x - tank.pos.x, bullet.pos.y - tank.pos.y)
           if (dist < 20) {
             bulletsRef.current.splice(i, 1)
@@ -698,6 +473,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
               sounds.explosion()
               setScore((s) => s + 500)
             } else {
+              createDebris(bullet.pos.x,bullet.pos.y,4,'metal',Math.atan2(-bullet.vel.y,-bullet.vel.x))
               sounds.tankHit()
               setScore((s) => s + 100)
             }
@@ -760,27 +536,37 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       }
 
       // Check wave complete
-      const activeTanks = tanksRef.current.filter((t) => t.state === 'active').length
-      const activeHelis = helicoptersRef.current.filter((h) => h.state === 'active').length
-      if (activeTanks === 0 && activeHelis === 0 && jeep.state === 'active') {
+      const activeHelis = helicoptersRef.current.filter((h) => h.state !== 'exploding').length
+      if (!tanksRemaining(tanksRef.current) && activeHelis === 0 && jeep.state === 'active') {
         waveDelayRef.current += dt
         if (waveDelayRef.current >= 1.5) {
           const nextWave = wave + 1
           setWave(nextWave); spawnEnemies(nextWave); spawnRepairKit()
+          spawnArmorUpgrade(nextWave)
           waveDelayRef.current = 0
         }
       }
     }
     const draw = () => drawBattle(ctx, city, {
       jeep: jeepRef.current, tanks: tanksRef.current, helicopters: helicoptersRef.current,
-      bullets: bulletsRef.current, debris: debrisRef.current, kits: repairKitsRef.current, walls: wallsRef.current,
-    }, canvas.width, canvas.height, score, wave)
+      bullets: bulletsRef.current, debris: debrisRef.current, kits: repairKitsRef.current,
+      armor: armorUpgradesRef.current,
+      civilianVehicles: civilianVehiclesRef.current,
+    }, canvas.width, canvas.height, score, wave, visualsRef.current)
 
     const animate = (timestamp: number) => {
       const dt = Math.max(0, Math.min((timestamp - lastTimeRef.current) / 1000, 0.05))
       lastTimeRef.current = timestamp
 
-      if (pollController(timestamp, dt)) update(dt)
+      if (pollController(timestamp, dt) && gameState === 'playing') {
+        update(dt)
+        stepVehicleVisuals(visualsRef.current, [
+          [jeepRef.current, 'jeep'],
+          ...tanksRef.current.map(tank => [tank, 'tank'] as const),
+          ...helicoptersRef.current.map(heli => [heli, 'helicopter'] as const),
+        ], dt)
+        sounds.setTireSqueal(jeepRef.current.state==='active'?visualsRef.current.tires.squeal:0)
+      }
       draw()
 
       rafRef.current = requestAnimationFrame(animate)
@@ -793,7 +579,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [gameState, score, wave, generateWalls, resetJeep, spawnEnemies, spawnRepairKit, createDebris, sounds])
+  }, [gameState, score, wave, generateWalls, resetJeep, spawnEnemies, spawnRepairKit, spawnArmorUpgrade, createDebris, sounds])
 
   const exitToGameSelect = () => {
     sounds.stopEngine()
@@ -822,7 +608,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           <div className="urban-help">
             <strong>{controllerConnected ? 'Left stick turns · RT / R2 forward · LT / L2 reverse' : 'Arrow keys / WASD to drive'}</strong><br />
             {gameState === 'paused' ? 'P / Menu or Esc / B resumes · Back exits' : controllerConnected ? 'A / × fires · Menu / Options pauses' : 'Space fires · P pauses · Esc exits'}<br />
-            Tanks: 2 hits · Helicopters: 1 hit<br />Two shots in flight. Recover field kits to repair armor.
+            Tanks: 2 hits · Helicopters: 1 hit<br />Medical cases repair to 3. Armor repairs to 3, then adds 1.
           </div>
         </div>
       </KeyboardDialog>}

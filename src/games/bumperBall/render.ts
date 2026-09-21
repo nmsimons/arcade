@@ -307,17 +307,25 @@ export function drawVehicle(ctx: CanvasRenderingContext2D, vehicle: Vehicle, tim
   const spin = Math.max(0, Math.min(1, (Math.hypot(vehicle.vel.x, vehicle.vel.y) - 60) / 300))
   for (const tx of [-7, 7]) {
     for (const ty of [-10, 10]) {
+      ctx.save()
+      ctx.translate(tx, ty)
+      if (tx > 0) ctx.rotate(appearance.steer)
       const flex = Math.sin(vehicle.wheelAngle * 0.45 + tx * 0.1 + ty * 0.1)
       const bulge = spin * (0.7 + flex * 0.15)
       const length = tireLength / 2 + spin * 0.3
       const width = tireWidth / 2
-      // Speed gently rounds the sidewalls; the small travelling flex follows rotation.
+      const corner = 1.3
+      // Soft shoulders remain rounded at rest; rolling adds a little sidewall flex.
       ctx.beginPath()
-      ctx.moveTo(tx - length, ty - width)
-      ctx.quadraticCurveTo(tx, ty - width - bulge * 2, tx + length, ty - width)
-      ctx.quadraticCurveTo(tx + length + spin * 0.3, ty, tx + length, ty + width)
-      ctx.quadraticCurveTo(tx, ty + width + bulge * 2, tx - length, ty + width)
-      ctx.quadraticCurveTo(tx - length - spin * 0.3, ty, tx - length, ty - width)
+      ctx.moveTo(-length + corner, -width)
+      ctx.quadraticCurveTo(0, -width - bulge * 2, length - corner, -width)
+      ctx.quadraticCurveTo(length, -width, length, -width + corner)
+      ctx.quadraticCurveTo(length + spin * .3, 0, length, width - corner)
+      ctx.quadraticCurveTo(length, width, length - corner, width)
+      ctx.quadraticCurveTo(0, width + bulge * 2, -length + corner, width)
+      ctx.quadraticCurveTo(-length, width, -length, width - corner)
+      ctx.quadraticCurveTo(-length - spin * .3, 0, -length, -width + corner)
+      ctx.quadraticCurveTo(-length, -width, -length + corner, -width)
       ctx.closePath()
       ctx.fillStyle = '#030806'
       ctx.fill()
@@ -328,10 +336,11 @@ export function drawVehicle(ctx: CanvasRenderingContext2D, vehicle: Vehicle, tim
       for (let i = -2; i <= 2; i++) {
         const offset = i * 3 + (vehicle.wheelAngle * 3) % 3
         ctx.beginPath()
-        ctx.moveTo(tx + offset, ty - width - bulge)
-        ctx.quadraticCurveTo(tx + offset + spin * 0.4, ty, tx + offset, ty + width + bulge)
+        ctx.moveTo(offset, -width - bulge)
+        ctx.quadraticCurveTo(offset + spin * 0.4, 0, offset, width + bulge)
         ctx.stroke()
       }
+      ctx.restore()
       ctx.restore()
     }
   }

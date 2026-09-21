@@ -1,6 +1,8 @@
 import { FIELD } from './types.ts'
 import type { Helicopter, Jeep, Tank, Vector2, Wall } from './types'
 import { angleDelta, clamp, clear, distance, openPoint } from './navigation.ts'
+import { CITY } from './cityPlan.ts'
+import { tankTerrainSpeed, vehicleTerrain } from './terrain.ts'
 
 export type TankBrain = { goal: Vector2 | null; path: Vector2[]; replan: number }
 export const createTankBrain = (): TankBrain => ({ goal: null, path: [], replan: 0 })
@@ -32,7 +34,7 @@ export function intercept(origin: Vector2, target: Vector2, velocity: Vector2, s
 type Route = (start: Vector2, goal: Vector2) => Vector2[]
 export function planTank(tank: Tank, squad: Tank[], contact: Contact, walls: Wall[], route: Route) {
   const fresh = contact.age < 4
-  const patrol = [{ x: 800, y: 900 }, { x: 300, y: 550 }, { x: 800, y: 200 }, { x: 1300, y: 550 }]
+  const patrol = CITY.patrol
   const target = contact.age > 8 ? patrol[(Math.floor((contact.age - 8) / 18) + tank.role) % patrol.length] : contact.pos
   const candidates: { pos: Vector2; score: number }[] = []
   // Separate attack bearings establish crossfire instead of a single-file chase.
@@ -57,6 +59,7 @@ export function planTank(tank: Tank, squad: Tank[], contact: Contact, walls: Wal
 }
 
 export function driveTank(tank: Tank, squad: Tank[], contact: Contact, walls: Wall[], route: Route, dt: number) {
+  if(tank.state!=='active')return
   const brain = tank.brain
   brain.replan -= dt
   if (brain.replan <= 0) {
@@ -92,6 +95,7 @@ export function driveTank(tank: Tank, squad: Tank[], contact: Contact, walls: Wa
       }
     }
   }
+  speed*=tankTerrainSpeed(vehicleTerrain(tank.pos,tank.angle,'tank').roughness)
   tank.vel = { x: Math.cos(tank.angle) * speed, y: Math.sin(tank.angle) * speed }
   tank.pos.x = clamp(tank.pos.x + tank.vel.x * dt, 30, FIELD.width - 30)
   tank.pos.y = clamp(tank.pos.y + tank.vel.y * dt, 30, FIELD.height - 30)
@@ -100,6 +104,7 @@ export function driveTank(tank: Tank, squad: Tank[], contact: Contact, walls: Wa
 }
 
 export function aimTank(tank: Tank, jeep: Jeep, squad: Tank[], walls: Wall[], dt: number) {
+  if(tank.state!=='active')return null
   const range = distance(tank.pos, jeep.pos)
   const visible = range < 400 && clear(tank.pos, jeep.pos, walls)
   tank.losTimeMs = visible ? Math.min(2000, tank.losTimeMs + dt * 1000) : 0
@@ -117,6 +122,7 @@ export function aimTank(tank: Tank, jeep: Jeep, squad: Tank[], walls: Wall[], dt
 }
 
 export function flyHelicopter(heli: Helicopter, jeep: Jeep, contact: Contact, walls: Wall[], dt: number) {
+  if(heli.state!=='active')return false
   const radial = Math.atan2(heli.pos.y - contact.pos.y, heli.pos.x - contact.pos.x)
   let goal = { x: contact.pos.x + Math.cos(radial + heli.orbit * .6) * 220, y: contact.pos.y + Math.sin(radial + heli.orbit * .6) * 220 }
   // Orbit toward an open firing lane when a building shields the target.

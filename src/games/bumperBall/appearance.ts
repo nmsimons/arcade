@@ -1,7 +1,7 @@
 import type { Vehicle } from './physics'
 
-export type VehicleAppearance = { roll: number; pitch: number; rollSpeed: number; pitchSpeed: number }
-export const createVehicleAppearance = (): VehicleAppearance => ({ roll: 0, pitch: 0, rollSpeed: 0, pitchSpeed: 0 })
+export type VehicleAppearance = { roll: number; pitch: number; rollSpeed: number; pitchSpeed: number; steer: number }
+export const createVehicleAppearance = (): VehicleAppearance => ({ roll: 0, pitch: 0, rollSpeed: 0, pitchSpeed: 0, steer: 0 })
 type Motion = Pick<Vehicle, 'angle' | 'vel'>
 const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value))
 
@@ -31,6 +31,8 @@ export function stepVehicleAppearance(state: VehicleAppearance, vehicle: Motion,
   const acceleration = ((vehicle.vel.x - previous.vel.x) * hx + (vehicle.vel.y - previous.vel.y) * hy) / dt
   const delta = vehicle.angle - previous.angle
   const turnRate = Math.atan2(Math.sin(delta), Math.cos(delta)) / dt
+  // The front axle follows either driver's actual turn and eases back to center.
+  state.steer += (clamp(turnRate * .1, .35) - state.steer) * (1 - Math.exp(-12 * dt))
   // Roll toward the outside of a turn, reversing sides when backing up.
   const roll = -clamp(turnRate * speed / 650, 1) * 0.3
   const pitch = clamp(clamp(speed / 180, 1) * 0.09 + clamp(acceleration / 450, 1) * 0.17, 0.24)
@@ -38,6 +40,8 @@ export function stepVehicleAppearance(state: VehicleAppearance, vehicle: Motion,
 }
 
 export function settleVehicleAppearance(state: VehicleAppearance, dt: number) {
+  if (dt <= 0) return
+  state.steer *= Math.exp(-12 * dt)
   pose(state, 0, 0, dt)
 }
 

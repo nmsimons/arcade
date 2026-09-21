@@ -1,17 +1,23 @@
 import type { TankBrain } from './ai'
 
 export type Vector2 = { x: number; y: number }
+export type CollisionMaterial = 'masonry' | 'metal' | 'armor' | 'wood' | 'soft'
+export type Airdrop = { elapsed: number; height: number; landed: boolean }
 
+// Medical cases repair the base hull; extra armor comes only from upgrades.
 export const JEEP_MAX_HEALTH = 3
 
 // Gameplay tuning knobs (jeep)
 // Adjust these values to quickly iterate on feel/difficulty.
 export const JEEP_TUNING = {
-  // Rotation (radians / second)
+  // Steering reaches this rate at normal road speed; stationary cars cannot pivot.
   turnSpeed: 4,
+  steeringStopSpeed: 2,
+  steeringFullSpeed: 60,
 
-  // Acceleration (pixels / second^2)
-  accelForward: 280,
+  // Acceleration (pixels / second^2). Drag-limited road speed scales with
+  // engine thrust in both directions.
+  accelForward: 350,
   accelReverseFactor: 0.5,
 
   // Drift/grip
@@ -22,10 +28,11 @@ export const JEEP_TUNING = {
 
   // Friction / speed cap
   friction: 0.96,
-  maxSpeed: 500,
+  maxSpeed: 625,
 
   // Wheels / visuals
   wheelSpinFactor: 0.3,
+  wheelSteerAngle: 0.6,
 
   // Collision / bounds
   collisionRadius: 12,
@@ -33,7 +40,6 @@ export const JEEP_TUNING = {
   screenMargin: 20,
 
   // Firing
-  maxPlayerBullets: 2,
   playerBulletSpeed: 400,
   playerBulletLifeMs: 1500,
 
@@ -54,16 +60,17 @@ export type Jeep = {
 
 export type Tank = {
   pos: Vector2; vel: Vector2; angle: number; turretAngle: number; health: number
-  state: 'active' | 'exploding'; explodeTime: number; shootCooldown: number
+  state: 'incoming' | 'active' | 'exploding'; explodeTime: number; shootCooldown: number
   trackOffset: number; losTimeMs: number; role: number; brain: TankBrain
   recoil: number
+  arrival?: Airdrop
 }
 
 export type Helicopter = {
   pos: Vector2
   vel: Vector2
   angle: number
-  state: 'active' | 'exploding'
+  state: 'incoming' | 'active' | 'exploding'
   explodeTime: number
   shootCooldown: number
   rotorAngle: number
@@ -71,6 +78,7 @@ export type Helicopter = {
   losTimeMs: number
   orbit: number
   recoil: number
+  entry?: Vector2
 }
 
 export type Bullet = {
@@ -85,6 +93,9 @@ export type Wall = {
   y: number
   width: number
   height: number
+  // Optional rotation about the rectangle center, used by movable cover.
+  angle?: number
+  impactMaterial?: CollisionMaterial
 }
 
 export type Debris = {
@@ -94,13 +105,22 @@ export type Debris = {
   rotSpeed: number
   life: number
   length: number
+  kind: 'chip' | 'dust' | 'ember'
+  material: 'metal' | 'masonry'
+  age: number
+  duration: number
+  height: number
+  rise: number
 }
 
 export type RepairKit = {
   pos: Vector2
   spawnedAtMs: number
+  arrival?: Airdrop
 }
+
+export type ArmorUpgrade = { pos: Vector2; arrival?: Airdrop }
 
 
 export const FIELD = { width: 1600, height: 1100 } as const
-export const viewportScale = (width: number, height: number) => Math.max(1, Math.min(width / 1280, height / 800))
+export const viewportScale = (width: number, height: number) => .8 * Math.max(1, Math.min(width / 1280, height / 800))

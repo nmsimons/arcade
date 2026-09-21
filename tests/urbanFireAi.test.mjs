@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { createBuildings } from '../src/games/urbanFire/battlefield.ts'
+import { createCityWalls } from '../src/games/urbanFire/battlefield.ts'
+import { CITY } from '../src/games/urbanFire/cityPlan.ts'
 import { createNavigator, clear, distance, angleDelta } from '../src/games/urbanFire/navigation.ts'
 import { createTankBrain, createContact, driveTank, aimTank, observe, intercept, planTank, flyHelicopter } from '../src/games/urbanFire/ai.ts'
 
@@ -9,10 +10,11 @@ const makeTank = (x, y, role = 0) => ({ pos: { x, y }, vel: { x: 0, y: 0 }, angl
   losTimeMs: 0, shootCooldown: 2000, recoil: 0 })
 const jeepAt = (x, y) => ({ pos: { x, y }, vel: { x: 0, y: 0 }, state: 'active' })
 
-test('tanks navigate five city entry routes, preserve hull clearance and establish firing lanes', () => {
-  const walls = createBuildings(), route = createNavigator(walls), jeep = jeepAt(800, 950)
-  for (const [x, y] of [[288, 32], [608, 32], [32, 198], [1568, 902], [1312, 1068]]) {
+test('tanks navigate every street entrance, preserve hull clearance and establish firing lanes', () => {
+  const walls = createCityWalls(), route = createNavigator(walls), jeep = jeepAt(CITY.playerSpawn.x, CITY.playerSpawn.y)
+  for (const { pos: { x, y }, angle } of CITY.entries) {
     const tank = makeTank(x, y), contact = createContact()
+    tank.angle = tank.turretAngle = angle
     let firstShot = null
     for (let i = 0; i < 900; i++) {
       observe(contact, jeep, [tank], walls, 1 / 30)
@@ -22,7 +24,9 @@ test('tanks navigate five city entry routes, preserve hull clearance and establi
       assert.ok(Math.abs(angleDelta(tank.angle, angle)) <= .95 / 30 + 1e-9)
       if (aimTank(tank, jeep, [tank], walls, 1 / 30)) { firstShot = i / 30; break }
     }
-    assert.ok(firstShot !== null && firstShot < 25, `entry ${x},${y} must reach a firing lane`)
+    // The far northwest approach now follows real blocks instead of crossing
+    // their future footprints. Every authored entry must engage within 30 s.
+    assert.ok(firstShot !== null && firstShot < 30, `entry ${x},${y} must reach a firing lane`)
   }
 })
 
@@ -62,7 +66,7 @@ test('a squad spreads out and loses live knowledge of the player behind cover', 
 test('helicopters circle at standoff range, aim through clear lanes and remain inside the battlefield', () => {
   const jeep = jeepAt(800, 800), contact = createContact(); contact.pos = { ...jeep.pos }
   const heli = { pos: { x: 1020, y: 800 }, vel: { x: 0, y: 0 }, angle: Math.PI, orbit: 1,
-    rotorAngle: 0, recoil: 0, shootCooldown: 0, losTimeMs: 0 }
+    rotorAngle: 0, recoil: 0, shootCooldown: 0, losTimeMs: 0, state: 'active' }
   let shots = 0, minRange = Infinity
   for (let i = 0; i < 600; i++) {
     if (flyHelicopter(heli, jeep, contact, [], 1 / 30)) { shots++; heli.shootCooldown = 3000 }

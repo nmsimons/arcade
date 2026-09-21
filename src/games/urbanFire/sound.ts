@@ -1,3 +1,9 @@
+import { fillTireSound, TIRE_SOUND } from './tireSound.ts'
+import { COLLISION_SOUND_SECONDS, fillCollisionSound } from './collisionSound.ts'
+import type { CollisionMaterial } from './types'
+
+type ImpactVoice = {source:AudioBufferSourceNode;gain:GainNode}
+
 // Sound system for Urban Fire
 export class ArmorSoundSystem {
   private ctx: AudioContext | null = null
@@ -5,6 +11,79 @@ export class ArmorSoundSystem {
   private engineGain: GainNode | null = null
   private engineOsc: OscillatorNode | null = null
   private engineRunning = false
+  private collisionBuffers = new Map<CollisionMaterial,AudioBuffer>()
+  private collisionVoices = new Set<ImpactVoice>()
+  private collisionSequence = 0
+  private tireBuffer: AudioBuffer | null = null
+  private tires: {friction:AudioBufferSourceNode;splitter:ChannelSplitterNode;filter:BiquadFilterNode;noiseGain:GainNode;gain:GainNode} | null = null
+
+  jeepCollision(material:CollisionMaterial,amount:number) {
+    if(!this.ctx||!this.engineRunning)return
+    const strength=Math.max(0,Math.min(1,amount)),now=this.ctx.currentTime
+    let buffer=this.collisionBuffers.get(material)
+    if(!buffer){
+      buffer=this.ctx.createBuffer(1,Math.round(this.ctx.sampleRate*COLLISION_SOUND_SECONDS),this.ctx.sampleRate)
+      fillCollisionSound(buffer.getChannelData(0),this.ctx.sampleRate,material)
+      this.collisionBuffers.set(material,buffer)
+    }
+    if(this.collisionVoices.size>=4)this.stopCollisionVoice(this.collisionVoices.values().next().value!)
+    const source=this.ctx.createBufferSource(),gain=this.ctx.createGain(),voice={source,gain}
+    source.buffer=buffer
+    source.playbackRate.value=1-strength*.06+Math.sin(++this.collisionSequence*2.4)*.025
+    gain.gain.setValueAtTime((.05+strength*.22)*(material==='soft'?.75:1),now)
+    source.connect(gain);gain.connect(this.ctx.destination)
+    source.onended=()=>{source.disconnect();gain.disconnect();this.collisionVoices.delete(voice)}
+    this.collisionVoices.add(voice)
+    source.start(now);source.stop(now+buffer.duration/source.playbackRate.value+.01)
+  }
+
+  private stopCollisionVoice(voice:ImpactVoice) {
+    if(!this.ctx)return
+    const now=this.ctx.currentTime
+    voice.gain.gain.cancelAndHoldAtTime(now)
+    voice.gain.gain.linearRampToValueAtTime(0,now+.02)
+    voice.source.stop(now+.03)
+    this.collisionVoices.delete(voice)
+  }
+
+  setTireSqueal(amount: number) {
+    if (!this.ctx || !this.engineRunning) return
+    const intensity = Math.max(0, Math.min(1, amount)), now = this.ctx.currentTime
+    if (intensity < .06) { this.stopTireSqueal(); return }
+    if (!this.tires) {
+      const friction = this.ctx.createBufferSource(), filter = this.ctx.createBiquadFilter(), gain = this.ctx.createGain()
+      const splitter = this.ctx.createChannelSplitter(2), noiseGain = this.ctx.createGain()
+      if (!this.tireBuffer) {
+        const rate = this.ctx.sampleRate
+        this.tireBuffer = this.ctx.createBuffer(2, rate * 4, rate)
+        fillTireSound(this.tireBuffer.getChannelData(0), this.tireBuffer.getChannelData(1), rate)
+      }
+      friction.buffer = this.tireBuffer; friction.loop = true
+      filter.type = 'bandpass'; filter.frequency.value = TIRE_SOUND.brightness; filter.Q.value = TIRE_SOUND.resonance
+      noiseGain.gain.value = TIRE_SOUND.hiss
+      gain.gain.value = 0
+      // The noise bypasses the tone filter so it remains broadband underneath.
+      friction.connect(splitter); splitter.connect(filter, 0); filter.connect(gain)
+      splitter.connect(noiseGain, 1); noiseGain.connect(gain); gain.connect(this.ctx.destination)
+      friction.start(now)
+      this.tires = {friction, splitter, filter, noiseGain, gain}
+    }
+    this.tires.friction.playbackRate.setTargetAtTime(.98 + intensity * .06, now, .12)
+    this.tires.gain.gain.setTargetAtTime(intensity * .085 * TIRE_SOUND.volume / 100, now, .025)
+  }
+
+  private stopTireSqueal() {
+    if (!this.ctx || !this.tires) return
+    const tires = this.tires, now = this.ctx.currentTime
+    this.tires = null
+    tires.gain.gain.cancelAndHoldAtTime(now)
+    tires.gain.gain.linearRampToValueAtTime(0, now + .06)
+    tires.friction.onended = () => {
+      tires.friction.disconnect(); tires.splitter.disconnect(); tires.filter.disconnect()
+      tires.noiseGain.disconnect(); tires.gain.disconnect()
+    }
+    tires.friction.stop(now + .07)
+  }
 
   init() {
     if (this.initialized) { void this.ctx?.resume().catch(() => {}); return }
@@ -41,6 +120,8 @@ export class ArmorSoundSystem {
   }
 
   stopEngine() {
+    this.stopTireSqueal()
+    for(const voice of this.collisionVoices)this.stopCollisionVoice(voice)
     if (!this.ctx || !this.engineRunning) return
     this.engineRunning = false
 
@@ -82,6 +163,15 @@ export class ArmorSoundSystem {
     gain.connect(this.ctx.destination)
     osc.start()
     osc.stop(this.ctx.currentTime + 0.2)
+  }
+
+  tankLanding() {
+    if(!this.ctx)return
+    const now=this.ctx.currentTime,osc=this.ctx.createOscillator(),gain=this.ctx.createGain()
+    osc.type='triangle';osc.frequency.setValueAtTime(82,now);osc.frequency.exponentialRampToValueAtTime(24,now+.38)
+    gain.gain.setValueAtTime(.0001,now);gain.gain.exponentialRampToValueAtTime(.22,now+.015)
+    gain.gain.exponentialRampToValueAtTime(.0001,now+.4)
+    osc.connect(gain);gain.connect(this.ctx.destination);osc.start(now);osc.stop(now+.42)
   }
 
   tankHit() {
@@ -212,6 +302,18 @@ export class ArmorSoundSystem {
     noiseGain.connect(this.ctx.destination)
     noise.start()
     noise.stop(this.ctx.currentTime + duration)
+  }
+
+  armorPickup() {
+    if (!this.ctx) return
+    const now=this.ctx.currentTime
+    for(const [i,frequency] of [330,440,660].entries()){
+      const osc=this.ctx.createOscillator(),gain=this.ctx.createGain(),start=now+i*.085
+      osc.type='triangle';osc.frequency.setValueAtTime(frequency,start)
+      gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(.13,start+.012)
+      gain.gain.exponentialRampToValueAtTime(.0001,start+.2)
+      osc.connect(gain);gain.connect(this.ctx.destination);osc.start(start);osc.stop(start+.22)
+    }
   }
 
   repairPickup() {

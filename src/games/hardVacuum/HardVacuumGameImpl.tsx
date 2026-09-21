@@ -29,11 +29,18 @@ import { TrainingHud, TrainingOverlay } from './TrainingUi'
 
 /** Browser adapter: focus, input, menus, snapshots, audio, storage and presentation only. */
 export function HardVacuumGame({ onExit }: HardVacuumGameProps) {
-  const [training,setTraining]=useState(false)
-  return <HardVacuumFlight key={String(training)} onExit={training ? ()=>setTraining(false) : onExit} training={training} onTraining={()=>setTraining(true)} />
+  const [trainingFrom,setTrainingFrom]=useState<'menu' | 'paused' | null>(null)
+  // Keep the live expedition (including velocity, tether and world objects),
+  // not just its save. Only the visible flight owns input, audio and animation.
+  return <>
+    <HardVacuumFlight active={trainingFrom===null} onExit={onExit} training={false} onTraining={fromPause=>setTrainingFrom(fromPause ? 'paused' : 'menu')} />
+    {trainingFrom!==null && <HardVacuumFlight onExit={()=>setTrainingFrom(null)} training returnToExpedition={trainingFrom==='paused'} />}
+  </>
 }
 
-function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps & {training:boolean;onTraining:()=>void}) {
+function HardVacuumFlight({ onExit, training, active = true, returnToExpedition = false, onTraining }: HardVacuumGameProps & {
+  training:boolean;active?:boolean;returnToExpedition?:boolean;onTraining?:(fromPause:boolean)=>void
+}) {
   const rootRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [controller] = useState(createControllerReader)
@@ -227,7 +234,7 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
     }
   })
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!active || !import.meta.env.DEV) return
     const toggle = (event: KeyboardEvent) => {
       if (event.altKey || event.ctrlKey || event.metaKey) return
       if (event.code !== 'Backquote' && event.key !== String.fromCharCode(96) && event.key !== '~') return
@@ -236,8 +243,11 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
     }
     window.addEventListener('keydown', toggle, true)
     return () => window.removeEventListener('keydown', toggle, true)
-  }, [setDevelopmentOpen])
+  }, [active, setDevelopmentOpen])
   useEffect(() => {
+    if (!active) return
+    controller.reset()
+    focusedRef.current = document.hasFocus()
     const handleKeyDown = (e: KeyboardEvent) => {
       if (devOpenRef.current || e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return
       const key = e.code === 'Semicolon' ? ';' : e.key.toLowerCase()
@@ -287,14 +297,16 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
       window.removeEventListener('blur', handleBlur); window.removeEventListener('keydown', handleKeyDown); window.removeEventListener('keyup', handleKeyUp)
       window.removeEventListener('focus', handleFocus); document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [session, dispatch, controller, devMapRevealed, toggleOverview, toggleMapZoom, setSurveyOpen])
+  }, [active, session, dispatch, controller, devMapRevealed, toggleOverview, toggleMapZoom, setSurveyOpen])
   useEffect(() => {
+    if (!active) return
     if (gameState !== 'playing' || devOpen || mapOpen) { sounds.stopThrust(); sounds.stopRepairHum(); sounds.stopPhaser(); sounds.stopRadiation() }
     if (gameState === 'docked' && !devOpen && !mapOpen) sounds.startStoreMusic()
     else sounds.stopStoreMusic()
     return () => { sounds.stopThrust(); sounds.stopStoreMusic(); sounds.stopRepairHum(); sounds.stopPhaser(true); sounds.stopRadiation() }
-  }, [gameState, devOpen, mapOpen])
+  }, [active, gameState, devOpen, mapOpen])
   useEffect(() => {
+    if (!active) return
     const canvas = canvasRef.current, ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
     const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; canvasSizeRef.current = { width: canvas.width, height: canvas.height } }
@@ -327,10 +339,10 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
     }
     rafId = requestAnimationFrame(animate)
     return () => { cancelAnimationFrame(rafId); window.removeEventListener('resize', resize); sounds.stopRepairHum(true); sounds.stopRadiation() }
-  }, [session, flushEvents, devMapRevealed, controller])
+  }, [active, session, flushEvents, devMapRevealed, controller])
   useEffect(() => {
-    if (gameState === 'playing' && !mapOpen && !devOpen) canvasRef.current?.focus({ preventScroll: true })
-  }, [gameState, mapOpen, devOpen])
+    if (active && gameState === 'playing' && !mapOpen && !devOpen) canvasRef.current?.focus({ preventScroll: true })
+  }, [active, gameState, mapOpen, devOpen])
 
   const leaveGame = () => {
     sounds.stopThrust()
@@ -375,6 +387,8 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
 
   const holdButtonClass =
     'touch-none select-none min-w-12 w-12 h-12 sm:min-w-16 sm:w-16 sm:h-16 rounded-full border-2 border-white/45 bg-black/65 text-white text-xl font-bold active:border-[#00ff88] active:bg-[#00ff88]/30'
+
+  if (!active) return null
 
   return (
     <ControlHintsContext.Provider value={{ connected: controllerConnected, layout: controller.layout }}>
@@ -456,13 +470,13 @@ function HardVacuumFlight({ onExit, training, onTraining }: HardVacuumGameProps 
       )}
 
       <div hidden={mapOpen} inert={mapOpen}>
-      {training ? <TrainingOverlay mode={gameState} training={session.training!} journalOpen={journalOpen} onCloseJournal={()=>setJournalOpen(false)} onResume={resumeFlight} onReset={()=>dispatch({type:'start'})} onExit={leaveGame} /> : <ExpeditionOverlay
+      {training ? <TrainingOverlay mode={gameState} training={session.training!} journalOpen={journalOpen} onCloseJournal={()=>setJournalOpen(false)} onResume={resumeFlight} onReset={()=>dispatch({type:'start'})} onExit={leaveGame} returnToExpedition={returnToExpedition} /> : <ExpeditionOverlay
         gameState={gameState} state={expedition} hasSave={hasSave} saveIssue={saveIssue}
         controllerStatus={controllerStatus} controllerLayout={controller.layout}
         loadStatus={saveSession.load.status} loadBlocked={loadBlocked} hasBackup={saveSession.backup.status === 'valid'} onRecover={recoverSave}
         exitSaveFailed={exitSaveFailed} onCancelExit={() => setExitSaveFailed(false)} onExitWithoutSaving={leaveGame}
         lostCredits={lostCredits}
-        onStart={() => startGame(false)} onNew={() => startGame(true)} onBuy={buyUpgrade} onTraining={onTraining}
+        onStart={() => startGame(false)} onNew={() => startGame(true)} onBuy={buyUpgrade} onTraining={()=>onTraining?.(gameState==='paused')}
         onRelocate={relocateHaven}
         onLaunch={() => dispatch({ type:'launch' })}
         launchBusy={!!session.refs.runtimeRef.current.recovery}

@@ -175,7 +175,7 @@ export function ExpeditionOverlay({ gameState, state, hasSave, saveIssue, contro
         <p className="text-xs text-[#00ff88] tracking-widest uppercase">Expedition paused</p>
         <h2 className="text-3xl mt-3">Hard Vacuum</h2>
         <p className="mt-4 text-xs text-[#ffcf85]">{state.campaign.havenActivated ? <>Recovery link: {checkpoint} · {state.credits} credits at risk · {state.banked} banked</> : 'Recovery link offline'}</p>
-        <div className="flex flex-wrap gap-3 mt-7"><button className={button} data-menu-id="resume" onClick={onResume} aria-keyshortcuts="P Escape">Resume · {hint('back', 'P / Esc')}</button><button className={button} onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="G">{connected ? 'Log' : <>Lo<span className="underline underline-offset-2">g</span></>}</button><button className={button} onClick={onExit}>Save & exit</button></div>
+        <div className="flex flex-wrap gap-3 mt-7"><button className={button} data-menu-id="resume" onClick={onResume} aria-keyshortcuts="P Escape">Resume · {hint('back', 'P / Esc')}</button><button className={button} onClick={onJournal} aria-label="Flight recorder" aria-keyshortcuts="G">{connected ? 'Log' : <>Lo<span className="underline underline-offset-2">g</span></>}</button><button className={button} data-menu-id="training" onClick={onTraining}>Flight training · Help</button><button className={button} onClick={onExit}>Save & exit</button></div>
       </>}
       {gameState === 'gameOver' && <>
         <p className="text-xs text-[#ff7962] tracking-widest uppercase">{state.campaign.havenActivated ? 'Much later / reconstruction complete' : 'Ship lost / no recovery link'}</p>

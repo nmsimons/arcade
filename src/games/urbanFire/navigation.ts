@@ -6,19 +6,25 @@ export const distance = (a: Vector2, b: Vector2) => Math.hypot(a.x - b.x, a.y - 
 export const angleDelta = (a: number, b: number) => Math.atan2(Math.sin(a - b), Math.cos(a - b))
 
 /** Slab intersection includes grazes and segments beginning inside a building. */
-export function intersects(a: Vector2, b: Vector2, wall: Wall, pad = 0) {
+export function segmentEntry(a: Vector2, b: Vector2, wall: Wall, pad = 0): number | null {
+  if (wall.angle) {
+    const cx=wall.x+wall.width/2,cy=wall.y+wall.height/2,c=Math.cos(wall.angle),s=Math.sin(wall.angle)
+    const local=(p:Vector2)=>({x:cx+(p.x-cx)*c+(p.y-cy)*s,y:cy-(p.x-cx)*s+(p.y-cy)*c})
+    a=local(a);b=local(b)
+  }
   let near = 0, far = 1
   for (const [start, delta, low, high] of [
     [a.x, b.x - a.x, wall.x - pad, wall.x + wall.width + pad],
     [a.y, b.y - a.y, wall.y - pad, wall.y + wall.height + pad],
   ]) {
-    if (Math.abs(delta) < 1e-9) { if (start < low || start > high) return false; continue }
+    if (Math.abs(delta) < 1e-9) { if (start < low || start > high) return null; continue }
     const t0 = (low - start) / delta, t1 = (high - start) / delta
     near = Math.max(near, Math.min(t0, t1)); far = Math.min(far, Math.max(t0, t1))
-    if (near > far) return false
+    if (near > far) return null
   }
-  return true
+  return near
 }
+export const intersects = (a: Vector2,b: Vector2,wall: Wall,pad=0) => segmentEntry(a,b,wall,pad)!==null
 export const clear = (a: Vector2, b: Vector2, walls: Wall[], pad = 0) => !walls.some(w => intersects(a, b, w, pad))
 export const openPoint = (p: Vector2, walls: Wall[], pad = 30) => p.x >= pad && p.y >= pad &&
   p.x <= FIELD.width - pad && p.y <= FIELD.height - pad && clear(p, p, walls, pad)

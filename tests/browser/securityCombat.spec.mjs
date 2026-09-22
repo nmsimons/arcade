@@ -3,6 +3,8 @@ import { pauseSimulation } from './helpers/simulation.mjs'
 import { freshExpedition, powerReceiver, SAVE_KEY } from '../../src/games/hardVacuum/expedition.ts'
 
 test('a security bot warns and shoots while the player parks nearby holding the upgraded laser',async({page},info)=>{
+  // Rendering every simulation frame can exceed 30 seconds on shared CI runners.
+  test.setTimeout(60000)
   const state=freshExpedition();powerReceiver(state,'works-power','works-power');state.botDoors={}
   state.position={x:5200,y:1030};state.impactShieldInstalled=true;state.shields=2
   state.upgrades.push('radiation');state.radiationCharge=100

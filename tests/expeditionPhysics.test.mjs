@@ -82,7 +82,9 @@ test('power-cell origins are empty space while receivers retain their physical c
     assert.ok(resolveCircleInCavern(contact, approach, 15, 0.4, map).collided)
     assert.ok(approach.x < 0)
   }
-  for (const pos of [{ x: 703, y: 460 }, { x: 2723, y: 950 }]) assert.ok(isInsideCavern(pos, 15, map), 'former checkpoint arms are removed')
+  // The old Foundry checkpoint's east arm now overlaps a real relay contact;
+  // its west arm and the old engine checkpoint remain unobstructed.
+  for (const pos of [{ x: 617, y: 460 }, { x: 2723, y: 950 }]) assert.ok(isInsideCavern(pos, 15, map), 'former checkpoint arms are removed')
 })
 
 test('every free cargo body starts drifting in clear space while medical pods remain locked', () => {

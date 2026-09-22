@@ -11,7 +11,8 @@ const inverseMass = (body: TetherBody) => isImmovable(body) ? 0 : 1 / bodyMass(b
 /** All free bodies exchange momentum. A connected cell is a solid anchored
  * body: it deflects incoming objects without being pulled out of its receiver. */
 export function collideBodies(a: TetherBody, b: TetherBody, restitution = .55) {
-  if (a === b) return { hit:false, speed:0 }
+  // Log ports sit flush with the floor; their radius is only a tether target.
+  if (a === b || a.terminalId || b.terminalId) return { hit:false, speed:0 }
   const dx=b.pos.x-a.pos.x, dy=b.pos.y-a.pos.y, distance=Math.hypot(dx,dy), overlap=a.radius+b.radius-distance
   if (overlap <= 0) return { hit:false, speed:0 }
   const ia=inverseMass(a), ib=inverseMass(b), total=ia+ib

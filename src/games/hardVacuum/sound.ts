@@ -809,8 +809,9 @@ export class SoundSystem {
     const now = this.ctx.currentTime
     if (this.thrusting && this.thrustGain) {
       if (this.thrustLevel !== level) {
-        this.thrustGain.gain.cancelAndHoldAtTime(now)
-        this.thrustGain.gain.linearRampToValueAtTime(0.2 * level, now + 0.05)
+        // Analog triggers vary every frame. Retarget the continuous envelope;
+        // repeatedly cancelling short linear ramps can produce silent gaps.
+        this.thrustGain.gain.setTargetAtTime(0.2 * level, now, 0.025)
         this.thrustLevel = level
       }
       return
@@ -838,8 +839,8 @@ export class SoundSystem {
 
     // Master gain with fade in
     this.thrustGain = this.ctx.createGain()
-    this.thrustGain.gain.setValueAtTime(0, this.ctx.currentTime)
-    this.thrustGain.gain.linearRampToValueAtTime(0.2 * level, this.ctx.currentTime + 0.05)
+    this.thrustGain.gain.setValueAtTime(0, now)
+    this.thrustGain.gain.setTargetAtTime(0.2 * level, now, 0.025)
 
     // Connect noise path
     this.thrustNoise.connect(filter)
@@ -860,8 +861,8 @@ export class SoundSystem {
     this.thrustGain = null
 
     if (gain) {
-      gain.gain.cancelAndHoldAtTime(now)
-      gain.gain.linearRampToValueAtTime(0, now + 0.1)
+      gain.gain.setTargetAtTime(0, now, 0.015)
+      gain.gain.setValueAtTime(0, now + 0.1)
     }
     // Stop this voice only; a quick release/repress may already start another.
     source?.stop(now + 0.1)

@@ -321,9 +321,8 @@ function HardVacuumFlight({ onExit, training, active = true, returnToExpedition 
       if (!devOpenRef.current && !mapOpenRef.current && session.mode === 'playing' && !session.expedition.campaign.journey?.riding) {
         stepShipAppearance(appearance, refs.keysRef.current, dt, refs.shipRef.current.angularVelocity, refs.controllerRef.current)
         const controls = flightInput(refs.keysRef.current, refs.controllerRef.current)
-        if (controls.forward || controls.reverse) sounds.startThrust()
-        else if (controls.strafe !== 0) sounds.startThrust(.5)
-        else if (appearance.turn !== 0) sounds.startThrust(.25)
+        const thrustLevel = Math.max(controls.forward, controls.reverse, Math.abs(controls.strafe) * .5, Math.abs(appearance.turn) * .25)
+        if (thrustLevel > 0) sounds.startThrust(thrustLevel)
         else sounds.stopThrust()
         refs.debrisRef.current.push(...stepHullSparks(appearance, refs.shipRef.current, session.expedition.shields, dt, session.expedition.impactShieldInstalled))
       } else { appearance.turn = 0; sounds.stopThrust(); stepShipAppearance(appearance, new Set(), dt); appearance.sparkDelay = 0 }

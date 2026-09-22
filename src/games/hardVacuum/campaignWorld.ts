@@ -47,7 +47,16 @@ const fractures = [
   [[-.5,-.15],[-.30,-.45],[-.08,-.39],[.18,-.5],[.42,-.32],[.5,-.05],[.42,.24],[.29,.46],[.08,.39],[-.12,.5],[-.38,.35],[-.46,.08]],
   [[-.5,-.21],[-.35,-.28],[-.23,-.46],[.13,-.5],[.35,-.35],[.48,-.14],[.46,.12],[.35,.23],[.24,.49],[-.13,.47],[-.33,.27],[-.5,.20]],
 ]
-export const CAMPAIGN_CHAMBERS = Object.fromEntries(bays.map(([id, , x, y, w, h], i) => [id, poly(fractures[i % fractures.length].map(([a,b]) => [x + a * w, y + b * h]))]))
+// Main chambers retain their approaches but have silhouettes shaped by their
+// work. These mostly expand the old floor, preserving established towing lanes.
+const landmarks: Partial<Record<RoomId, number[][]>> = {
+  breach: [[-.54,-.18],[-.50,-.34],[-.39,-.53],[-.14,-.56],[.10,-.49],[.33,-.53],[.50,-.30],[.54,.03],[.47,.31],[.23,.52],[-.04,.54],[-.33,.44],[-.52,.20]],
+  freight: [[-.54,-.30],[-.38,-.52],[.38,-.52],[.54,-.30],[.54,.30],[.38,.52],[-.38,.52],[-.54,.30]],
+  works: [[-.52,-.23],[-.52,-.36],[-.35,-.36],[-.35,-.53],[.35,-.53],[.35,-.38],[.53,-.38],[.53,.26],[.37,.26],[.37,.53],[-.35,.53],[-.35,.32],[-.52,.32]],
+  refuge: [[-.52,-.23],[-.44,-.44],[-.28,-.52],[.28,-.52],[.44,-.44],[.52,-.23],[.52,.23],[.44,.44],[.28,.52],[-.28,.52],[-.44,.44],[-.52,.23]],
+  'heart-hub': [[-.54,-.28],[-.30,-.54],[.30,-.54],[.54,-.28],[.54,.28],[.30,.54],[-.30,.54],[-.54,.28]],
+}
+export const CAMPAIGN_CHAMBERS = Object.fromEntries(bays.map(([id, , x, y, w, h], i) => [id, poly((landmarks[id] ?? fractures[i % fractures.length]).map(([a,b]) => [x + a * w, y + b * h]))]))
 CAMPAIGN_CHAMBERS.arrival = poly([[8670,2800],[9590,2800],[9590,3000],[8670,3000]])
 
 // A bent passage is the union of its swept segments. Gate sections are always

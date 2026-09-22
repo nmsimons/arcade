@@ -17,7 +17,7 @@ for(const name of ['prototype','pre-supplies-medical','teleporter-refund','banke
     assert.deepEqual(again,state,`${name}: migration is not idempotent`)
     assert.deepEqual(parseExpedition(raw),state,`${name}: migration depends on external state`)
     assert.equal(state.credits,before.credits)
-    assert.equal(state.banked,before.banked+(name==='teleporter-refund'?750:0))
+    assert.equal(state.banked,before.banked+(name==='teleporter-refund'?1500:0))
     if(name==='prototype') {
       assert.equal(state.campaign.berth,'ring');assert.equal(state.checkpoint,'haven')
       assert.ok(state.upgrades.includes('radiation')&&state.upgrades.includes('focus'))
@@ -25,7 +25,7 @@ for(const name of ['prototype','pre-supplies-medical','teleporter-refund','banke
       assert.equal(state.cargo.radiation,undefined);assert.equal(state.cargo.foundry,undefined)
     }
     if(name==='pre-supplies-medical')assert.ok(state.gates.includes('medical-return'))
-    if(name==='teleporter-refund') { assert.equal(state.upgradeLevels.winch,1);assert.equal(state.teleportCharges,undefined) }
+    if(name==='teleporter-refund') { assert.equal(state.upgradeLevels.winch,undefined);assert.ok(!state.upgrades.includes('winch'));assert.equal(state.teleportCharges,undefined) }
     if(name==='banked-core') { assert.equal(state.core,false);assert.ok(state.cargo.core.tethered);assert.ok(state.flags.includes('ignition-ready'));assert.ok(state.gates.includes('breach-return')) }
     if(name==='journey') { assert.deepEqual(state.campaign.journey,before.campaign.journey);assert.deepEqual(state.cargo,before.cargo);assert.equal(state.blasterCharges,1);assert.equal(state.remoteRechargeRemaining,undefined) }
     if(name==='completed') { assert.ok(state.core);assert.equal(state.complete,false);assert.deepEqual(state.rescuedPods,[]) }
@@ -40,6 +40,33 @@ test('current saves never repeat legacy rewards or cargo relocations, and newer 
   assert.equal(parseExpedition(JSON.stringify({...state,gates:['ignition-ready']})),null)
   const raw=JSON.stringify({...state,version:SAVE_SCHEMA_VERSION+1})
   assert.deepEqual(parseSave(raw),{status:'unsupported',raw})
+})
+
+test('retired winch purchases refund 750 credits once across every older schema',()=>{
+  for(const version of [1,2,3,4,5,6,7,8,9,10,11,12]) for(const level of [undefined,0,1,...(version===1?[2,3,4,5]:[])]) {
+    const old={...freshExpedition(),version,banked:1234,credits:17,
+      upgrades:['capacitor',...(level===0?[]:['winch'])],upgradeLevels:{capacitor:2,...(level===undefined?{}:{winch:level})},
+      cargo:{'rescue-cache':{pos:{x:7100,y:3620},vel:{x:3,y:4},tethered:true}}}
+    const loaded=parseExpedition(JSON.stringify(old))
+    assert.ok(loaded,`schema ${version}, winch level ${level} must migrate`)
+    assert.equal(loaded.version,SAVE_SCHEMA_VERSION)
+    assert.deepEqual(loaded.upgrades,['capacitor']);assert.deepEqual(loaded.upgradeLevels,{capacitor:2})
+    assert.equal(loaded.banked,old.banked+(level===0?0:750));assert.equal(loaded.credits,old.credits)
+    assert.deepEqual(loaded.cargo,old.cargo);assert.deepEqual(loaded.position,old.position)
+    assert.deepEqual(parseExpedition(JSON.stringify(loaded)),loaded,'a reload cannot repeat the refund')
+    if(version===12) assert.deepEqual(loaded,{...old,version:SAVE_SCHEMA_VERSION,banked:old.banked+(level===0?0:750),upgrades:['capacitor'],upgradeLevels:{capacitor:2}})
+  }
+})
+
+test('retired winch fields are validated before refunds and rejected in current saves',()=>{
+  for(const version of [1,12]) for(const level of [-1,6,1.5,null,'1',...(version===12?[2]:[])]) {
+    const old={...freshExpedition(),version,upgrades:['winch'],upgradeLevels:{winch:level}}
+    assert.equal(parseExpedition(JSON.stringify(old)),null)
+  }
+  const state=freshExpedition()
+  assert.equal(parseExpedition(JSON.stringify({...state,upgrades:['winch']})),null)
+  assert.equal(parseExpedition(JSON.stringify({...state,upgradeLevels:{winch:0}})),null)
+  assert.deepEqual(parseExpedition(JSON.stringify(state)),state)
 })
 
 test('older Freight circuits gain new outputs without closing earned doors or moving saved cargo',()=>{
@@ -71,6 +98,59 @@ test('unclaimed Freight blasters migrate to the Works once, without changing equ
     assert.equal(loaded.banked,1234);assert.equal(loaded.credits,17)
     assert.deepEqual(loaded.position,old.position);assert.deepEqual(loaded.power,old.power)
     assert.deepEqual(parseExpedition(JSON.stringify(loaded)),loaded)
+  }
+})
+
+test('unclaimed Works teleporters relocate to the Broken Ring once across every older schema',()=>{
+  const module=PICKUPS.find(item=>item.id==='teleporter')
+  for(const version of [1,2,3,4,5,6,7,8,9,10,11]) for(const pos of [{x:5100,y:1930},{x:4900,y:1830}]) {
+    const old={...freshExpedition(),version,banked:1234,credits:17,
+      cargo:{teleporter:{pos,vel:{x:1,y:2},tethered:false},'ring-power':{pos:{x:5000,y:1840},vel:{x:3,y:4},tethered:true}}}
+    const loaded=parseExpedition(JSON.stringify(old))
+    assert.ok(loaded,`schema ${version} must migrate`)
+    assert.equal(loaded.version,SAVE_SCHEMA_VERSION)
+    assert.equal(loaded.cargo.teleporter,undefined)
+    assert.equal(loaded.teleporterInstalled,false)
+    assert.deepEqual(cargoBodies(loaded,freshRuntime()).find(body=>body.cargoId==='teleporter').pos,module.pos)
+    assert.deepEqual(loaded.cargo['ring-power'],old.cargo['ring-power'])
+    assert.equal(loaded.banked,old.banked);assert.equal(loaded.credits,old.credits)
+    assert.deepEqual(loaded.position,old.position);assert.deepEqual(loaded.power,old.power)
+    assert.deepEqual(parseExpedition(JSON.stringify(loaded)),loaded)
+  }
+})
+
+test('Ring relocation preserves installed, towed, relocated and current-save teleporters',()=>{
+  for(const patch of [
+    {version:11,teleporterInstalled:true},
+    {version:11,tethered:true},
+    {version:11,pos:{x:1500,y:1800}},
+    {version:11,pos:{x:8000,y:3500}},
+    {version:SAVE_SCHEMA_VERSION},
+  ]) {
+    const {pos={x:5100,y:1930},tethered=false,...equipment}=patch
+    const old={...freshExpedition(),...equipment,cargo:{teleporter:{pos,vel:{x:1,y:2},tethered}}}
+    const loaded=parseExpedition(JSON.stringify(old))
+    assert.deepEqual(loaded.cargo,old.cargo)
+    assert.equal(loaded.teleporterInstalled,old.teleporterInstalled)
+    assert.deepEqual(parseExpedition(JSON.stringify(loaded)),loaded)
+  }
+})
+
+test('the Foundry relocation moves only unclaimed hub modules and preserves earned Ring progress',()=>{
+  const item=PICKUPS.find(pickup=>pickup.id==='teleporter')
+  for(const version of [12,13]) for(const pos of [{x:1710,y:1200},{x:1660,y:1150}]) {
+    const old={...freshExpedition('ring'),version,banked:2000,credits:17,power:{relay:'relay'},gates:['archive','shortcut','reactor'],rescuedPods:['survival-10'],
+      cargo:{teleporter:{pos,vel:{x:1,y:2},tethered:false},'archive-cache':{pos:{x:1300,y:300},vel:{x:3,y:4},tethered:true}}}
+    const loaded=parseExpedition(JSON.stringify(old))
+    assert.ok(loaded)
+    assert.deepEqual(loaded,{...old,version:SAVE_SCHEMA_VERSION,cargo:{'archive-cache':old.cargo['archive-cache']}})
+    assert.deepEqual(cargoBodies(loaded,freshRuntime()).find(body=>body.cargoId==='teleporter').pos,item.pos)
+    assert.deepEqual(parseExpedition(JSON.stringify(loaded)),loaded)
+  }
+  for(const patch of [{version:13,tethered:true},{version:13,teleporterInstalled:true},{version:13,pos:{x:1500,y:1800}},{version:SAVE_SCHEMA_VERSION}]) {
+    const {pos={x:1710,y:1200},tethered=false,...progress}=patch
+    const old={...freshExpedition(),...progress,cargo:{teleporter:{pos,vel:{x:1,y:2},tethered}}}
+    assert.deepEqual(parseExpedition(JSON.stringify(old)),{...old,version:SAVE_SCHEMA_VERSION})
   }
 })
 

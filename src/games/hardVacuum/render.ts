@@ -16,6 +16,7 @@ import { expeditionMap, maxShields } from './expedition'
 import type { Expedition, ExpeditionRuntime } from './expedition'
 import { drawExpeditionWorld, drawExpeditionMap, drawExpeditionDoorFoundations } from './expeditionRender'
 import { drawTerrainWalls } from './terrainRender'
+import { drawRegionFloor, drawRegionRock } from './regionRender'
 import { STATION_TERRAIN } from './stationLayout'
 import { drawPowerCell } from './objectModels'
 import { drawPlayerShip, shieldRechargeAppearance } from './shipRender'
@@ -103,6 +104,8 @@ export function drawHardVacuumFrame(args: {
 
   const shipPosition = shipRef.current.pos
   const cameraZoom = flightCameraZoom(width,height)
+  const regionView = { x:shipPosition.x-width/(2*cameraZoom), y:shipPosition.y-height/(2*cameraZoom), w:width/cameraZoom, h:height/cameraZoom }
+  const regionalTerrain = !args.training && gameState !== 'menu'
   ctx.save()
   ctx.translate(width / 2, height / 2)
   ctx.scale(cameraZoom, cameraZoom)
@@ -124,6 +127,7 @@ export function drawHardVacuumFrame(args: {
   ctx.save()
   traceCavern()
   ctx.clip()
+  if (regionalTerrain) drawRegionFloor(ctx,regionView)
 
   // Interior formations define the routes through later maps. They are drawn
   // as solid cavern mass, then added as holes in the gameplay clip below.
@@ -553,7 +557,7 @@ export function drawHardVacuumFrame(args: {
     }
   }
 
-  if (gameState !== 'menu') drawTeleporter(ctx, expedition, expeditionRuntime)
+  if (gameState !== 'menu') drawTeleporter(ctx, expedition, expeditionRuntime, miningBaseAngleRef.current)
   // Draw ship
   if ((!expedition.campaign.journey?.riding || havenDeployment(expedition) > .3) && (gameState !== 'dying' && gameState !== 'gameOver')) {
     drawPlayerShip(ctx,shipRef.current,shipAppearance,{
@@ -567,6 +571,7 @@ export function drawHardVacuumFrame(args: {
   if (gameState === 'playing' && !expedition.campaign.journey?.riding) drawRadiationShield(ctx, shipRef.current, expeditionRuntime.radiation, expeditionRuntime.elapsed)
   ctx.restore() // cavern clip
 
+  if (regionalTerrain) drawRegionRock(ctx,regionView)
   drawTerrainWalls(ctx, cavernMap.boundary, args.training ? TRAINING_WALLS : gameState === 'menu' ? cavernMap.obstacles : STATION_TERRAIN.islands)
   if (args.training) drawGateFoundations(ctx,TRAINING_GATE,args.training.door)
   else if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition)

@@ -60,7 +60,7 @@ import { havenLinkTargets, retireHavenLink, stepHavenLinkRetraction } from './ha
 import type { BerthId } from './campaignWorld.ts'
 import { IGNITION_CRADLE } from './campaignWorld.ts'
 import type { HardVacuumGameState } from './ui.ts'
-import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, checkpointPosition, crashExpedition, expeditionMap, newExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, powerCellSpawns, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition.ts'
+import { bankAtCheckpoint, bankCarriedCredits, blastGate, cargoBodies, crashExpedition, expeditionMap, newExpedition, freshRuntime, interaction, maxShields, purchaseUpgrade, powerCellSpawns, sectorAt, snapshotCargo, stepCargoRecovery, stepExpedition, teleportToHaven, visibleBetween } from './expedition.ts'
 import { BLASTER_BLAST_RADIUS, fireBlaster, pulverizeAsteroid, stepBlaster } from './blaster.ts'
 import type { BlasterVisuals } from './blaster.ts'
 import { angleDelta, dockingReadiness, driftCargo, repelBody, repelBlueBody, stepShipMovement } from './expeditionPhysics.ts'
@@ -73,8 +73,8 @@ import { creditAsteroidDestruction } from './oreCredits.ts'
 import { debrisField, fragmentKindFor, fragmentProfileAt } from './debrisField.ts'
 import { BOT_BLASTER_DAMAGE, BOT_LASER_DAMAGE, damageBot, freshBots, stepBots, stepBotSparks, stepSecurityShots } from './stationBots.ts'
 import type { BotDamageKind, StationBot } from './stationBots.ts'
-import { havenColliders } from './havenGeometry.ts'
-import { laserCapacityMs, tetherReachMultiplier, upgradeOffer, SHIP_UPGRADES } from './upgrades.ts'
+import { withHavenColliders } from './havenGeometry.ts'
+import { laserCapacityMs, upgradeOffer, SHIP_UPGRADES } from './upgrades.ts'
 import type { ShipUpgrade } from './upgrades.ts'
 import { freshShipAppearance } from './shipAppearance.ts'
 import { updateBaseDefenseAndProcessing } from './baseDefense.ts'
@@ -282,6 +282,17 @@ export function createGameSession(initial: Expedition = newExpedition(), options
       debrisRef.current = [...debrisRef.current, ...debris]
     }
 
+  const loseShip = () => {
+    const ship = shipRef.current
+    createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 18, 1.2, '255, 255, 255')
+    sounds.explosion('large'); sounds.stopThrust(); sounds.stopRadiation()
+    keysRef.current.clear()
+    dyingTimerRef.current = DYING_ANIMATION_DURATION
+    setLostCredits(training ? 0 : crashExpedition(expeditionRef.current))
+    publishExpedition()
+    setGameStateWithRef('dying')
+  }
+
   const populateExpedition = () => {
     if (training) { rocksRef.current=populateTraining(createRock); return }
     rocksRef.current = debrisField(expeditionRef.current).map(({ pos, radius, vel, kind }) => createRock(pos.x, pos.y, radius, vel, kind))
@@ -422,8 +433,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
     keysRef.current.clear()
     sounds.init()
     sounds.stopStoreMusic()
-    const savedPosition = expeditionRef.current.position
-    const spawn = isInsideCavern(savedPosition, 15, worldMap()) ? { ...savedPosition } : checkpointPosition(expeditionRef.current)
+    const spawn = { ...expeditionRef.current.position }
     shipRef.current = identifyBody({ pos: spawn, vel: { x: 0, y: 0 }, angle: Math.PI, angularVelocity: 0, radius: 15 }, { type: 'ship' })
     if (training) shipRef.current.angle=0
     rocksRef.current = []
@@ -443,7 +453,10 @@ export function createGameSession(initial: Expedition = newExpedition(), options
     phaserBeamRef.current = { active: false, start: { x: 0, y: 0 }, direction: { x: 1, y: 0 }, length: 0, energy01: 1 }
     phaserParticlesRef.current = []
     populateExpedition()
-    publishExpedition()
+    // A changed wall may now occupy a saved position. Treat a buried center as
+    // a real loss; ordinary hull contact still belongs to collision resolution.
+    if (!isInsideCavern(spawn,0,worldMap())) loseShip()
+    else publishExpedition()
   }
   const stageMenuScene = () => {
 
@@ -576,7 +589,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
           const hookVx = shipV0x + dirX * speedRel * (mShip / mSum)
           const hookVy = shipV0y + dirY * speedRel * (mShip / mSum)
 
-          const cableLength = HARPOON_CABLE_LENGTH * tetherReachMultiplier(expeditionRef.current)
+          const cableLength = HARPOON_CABLE_LENGTH
           const ropeLength = cableLength * HARPOON_VISUAL_SLACK
           const seedX = ship.pos.x + Math.cos(ship.angle) * Math.min(ropeLength, 16)
           const seedY = ship.pos.y + Math.sin(ship.angle) * Math.min(ropeLength, 16)
@@ -772,6 +785,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
 
       const ship = shipRef.current
       const cavernMap = worldMap()
+      const weaponMap = training ? cavernMap : withHavenColliders(cavernMap, havenPose(expeditionRef.current))
 
       const pendingRedDetonations: Rock[] = []
       const initialBanked = expeditionRef.current.banked
@@ -869,13 +883,13 @@ export function createGameSession(initial: Expedition = newExpedition(), options
           sounds.explosion('large')
           createDebris(source.pos.x, source.pos.y, source.vel.x, source.vel.y, 26, 1.4, '255, 80, 80')
 
-          for (const bot of botsRef.current.units) if (bot.health > 0 && Math.hypot(bot.pos.x-source.pos.x,bot.pos.y-source.pos.y) < RED_ROCK_BLAST_RADIUS && visibleBetween(source.pos,bot.pos,cavernMap)) hitBot(bot,3)
+          for (const bot of botsRef.current.units) if (bot.health > 0 && Math.hypot(bot.pos.x-source.pos.x,bot.pos.y-source.pos.y) < RED_ROCK_BLAST_RADIUS && visibleBetween(source.pos,bot.pos,weaponMap)) hitBot(bot,3)
 
           // AOE: ship
           {
             const d = worldDelta(source.pos.x, source.pos.y, ship.pos.x, ship.pos.y)
             const dist = Math.hypot(d.dx, d.dy)
-            if (!riding && dist < RED_ROCK_BLAST_RADIUS) {
+            if (!riding && dist < RED_ROCK_BLAST_RADIUS && visibleBetween(source.pos,ship.pos,weaponMap)) {
               const t = clamp(1 - dist / RED_ROCK_BLAST_RADIUS, 0, 1)
               const impactSpeed = 60 + t * 340
               applyImpactShield(impactSpeed)
@@ -896,7 +910,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
             if (other.socketId) continue
             const d = worldDelta(source.pos.x, source.pos.y, other.pos.x, other.pos.y)
             const dist = Math.hypot(d.dx, d.dy)
-            if (dist >= RED_ROCK_BLAST_RADIUS || !visibleBetween(source.pos, other.pos, cavernMap)) continue
+            if (dist >= RED_ROCK_BLAST_RADIUS || !visibleBetween(source.pos, other.pos, weaponMap)) continue
 
             const t = clamp(1 - dist / RED_ROCK_BLAST_RADIUS, 0, 1)
             const nx = dist > 1e-6 ? d.dx / dist : 1
@@ -917,15 +931,6 @@ export function createGameSession(initial: Expedition = newExpedition(), options
         }
       }
 
-      const loseShip = () => {
-        createDebris(ship.pos.x, ship.pos.y, ship.vel.x, ship.vel.y, 18, 1.2, '255, 255, 255')
-        sounds.explosion('large'); sounds.stopThrust(); sounds.stopRadiation()
-        keysRef.current.clear()
-        dyingTimerRef.current = DYING_ANIMATION_DURATION
-        setLostCredits(training ? 0 : crashExpedition(expeditionRef.current))
-        publishExpedition()
-        setGameStateWithRef('dying')
-      }
       const applyImpactShield = (impactSpeed: number) => {
         if (riding || invulnerableRef.current > 0 || gameStateRef.current !== 'playing') return
         // Calibrated for gameplay feel (ship max speed ~300):
@@ -995,15 +1000,14 @@ export function createGameSession(initial: Expedition = newExpedition(), options
 
       const rocks = rocksRef.current.filter(activeRock)
       const botBodies = botsRef.current.units.filter(bot => bot.health > 0)
-      const securityMap = { ...cavernMap, obstacles: [...cavernMap.obstacles, ...havenColliders(havenPose(expeditionRef.current))] }
       const botCues = training ? [] : stepBots(botsRef.current, expeditionRef.current, {
-        dt, ship, map: securityMap, bodies: [...rocksRef.current, ...worldCargo()],
+        dt, ship, map: weaponMap, bodies: [...rocksRef.current, ...worldCargo()],
         towed: harpoonRef.current.state === 'attached' ? harpoonRef.current.rock : undefined,
         shipSafe: riding || (havenReady(expeditionRef.current) && Math.hypot(ship.pos.x-havenPosition(expeditionRef.current).x,ship.pos.y-havenPosition(expeditionRef.current).y)<MINING_BASE_RADIUS),
       })
       for (const cue of botCues) if (Math.hypot(cue.pos.x-ship.pos.x,cue.pos.y-ship.pos.y)<650) sounds.botCue(cue.kind)
       for (const bot of botBodies) if (Math.hypot(bot.pos.x-ship.pos.x,bot.pos.y-ship.pos.y)<750) debrisRef.current.push(...stepBotSparks(bot,dt))
-      for (const impact of stepSecurityShots(botsRef.current,dt,securityMap,[...(riding ? [] : [ship]),...rocksRef.current,...worldCargo(),...botBodies])) {
+      for (const impact of stepSecurityShots(botsRef.current,dt,weaponMap,[...(riding ? [] : [ship]),...rocksRef.current,...worldCargo(),...botBodies])) {
         createDebris(impact.pos.x,impact.pos.y,0,0,3,.2,'255, 162, 125')
         if (impact.target === ship) applyImpactShield(80)
         else if (impact.target && isStationBot(impact.target)) hitBot(impact.target,1)
@@ -1021,6 +1025,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
 
         if (havenReady(expeditionRef.current)) updateBaseDefenseAndProcessing({
           dt,
+          collisionMap: weaponMap,
           sounds,
 
           baseX,
@@ -1115,7 +1120,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
 
           const ux = Math.cos(ship.angle)
           const uy = Math.sin(ship.angle)
-          let len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE, cavernMap)
+          let len = raycastCavern(ship.pos, { x: ux, y: uy }, PHASER_RANGE, weaponMap)
           let target: TetherBody | undefined
           let nearest = Infinity
           // Beam blocking and hit response use the same nearest body. Cargo
@@ -1208,19 +1213,21 @@ export function createGameSession(initial: Expedition = newExpedition(), options
       }
 
       blasterRef.current.bursts = blasterRef.current.bursts.filter(burst => { burst.life -= dt; return burst.life > 0 })
-      const blasterStep = stepBlaster(blasterRef.current.shots, dt, cavernMap, [...rocksRef.current, ...worldCargo(),...botBodies.filter(bot=>bot.health>0 && !bot.anchored)])
+      const blasterStep = stepBlaster(blasterRef.current.shots, dt, weaponMap, [...rocksRef.current, ...worldCargo(),...botBodies.filter(bot=>bot.health>0 && !bot.anchored)])
       blasterRef.current.shots = blasterStep.shots
       for (const impact of blasterStep.impacts) {
         blasterRef.current.bursts.push({ pos: impact.pos, life: 0.28 })
         createDebris(impact.pos.x, impact.pos.y, 0, 0, 18, 0.7, '255, 76, 64')
         sounds.explosion('medium')
-        if (blastGate(expeditionRef.current, impact.pos, BLASTER_BLAST_RADIUS)) publishExpedition('Blast door breached.')
-        const impactMap = expeditionMap(expeditionRef.current)
-        for (const bot of botBodies) if (bot.health > 0 && (bot === impact.target || (Math.hypot(bot.pos.x-impact.pos.x,bot.pos.y-impact.pos.y)<BLASTER_BLAST_RADIUS+bot.radius && visibleBetween(impact.pos,bot.pos,impactMap)))) hitBot(bot,BOT_BLASTER_DAMAGE)
+        // Start splash sight lines just outside the struck surface, on the incoming side.
+        const blastOrigin = { x:impact.pos.x-impact.direction.x*.01, y:impact.pos.y-impact.direction.y*.01 }
+        if (blastGate(expeditionRef.current, blastOrigin, BLASTER_BLAST_RADIUS)) publishExpedition('Blast door breached.')
+        const impactMap = withHavenColliders(expeditionMap(expeditionRef.current), havenPose(expeditionRef.current))
+        for (const bot of botBodies) if (bot.health > 0 && (bot === impact.target || (Math.hypot(bot.pos.x-impact.pos.x,bot.pos.y-impact.pos.y)<BLASTER_BLAST_RADIUS+bot.radius && visibleBetween(blastOrigin,bot.pos,impactMap)))) hitBot(bot,BOT_BLASTER_DAMAGE)
         for (const rock of [...rocksRef.current]) {
           if (rock.socketId) continue
           const distance = Math.hypot(rock.pos.x - impact.pos.x, rock.pos.y - impact.pos.y)
-          if (rock === impact.target || (distance < BLASTER_BLAST_RADIUS + rock.radius && visibleBetween(impact.pos, rock.pos, impactMap))) {
+          if (rock === impact.target || (distance < BLASTER_BLAST_RADIUS + rock.radius && visibleBetween(blastOrigin, rock.pos, impactMap))) {
             const direction = distance > 1e-6 ? { x: rock.pos.x - impact.pos.x, y: rock.pos.y - impact.pos.y } : impact.direction
             const push = 320 * Math.max(0.25, 1 - distance / (BLASTER_BLAST_RADIUS + rock.radius))
             if (rock.sourceId) repelBlueBody(rock, direction, push)
@@ -1240,7 +1247,7 @@ export function createGameSession(initial: Expedition = newExpedition(), options
         rocksRef,
         harpoonRef,
         shipRef,
-        cavernMap,
+        cavernMap: weaponMap,
 
         buildRopeBetween,
         sounds,

@@ -15,7 +15,7 @@ export const TRAINING_SOCKET = { x: 1600, y: 1740 }
 export const TRAINING_CELL = { x: 2110, y: 1590 }
 export const TRAINING_LOG = {
   id: 'training-log', title: 'A clean recovery', speaker: 'MINING OPERATIONS · INSTRUCTOR LOG',
-  text: 'Link confirmed. Your flight recorder now holds this briefing. Good mining is controlled work: make a clean cut, identify what you expose, and give a towed load room to settle. Speed is not the assessment. Bring the ore in without damaging the rig. The range dispenser will supply fresh rock for the next pass.',
+  text: 'Assessment record: today’s fastest recruit scattered half a load across the range. The quiet one made a clean cut and brought every piece home. I left fresh white rock in the dispenser at the northeast wall; it feeds another piece when stock is used. Take the fragments to the two processing hoppers and let the machinery work. Your flight recorder can keep the time. I’m counting intact ships.',
   pos: { x: 1760, y: 2160 },
 }
 const rect = (x: number, y: number, w: number, h: number): Vector2[] => [{x,y},{x:x+w,y},{x:x+w,y:y+h},{x,y:y+h}]
@@ -41,7 +41,7 @@ export const TRAINING_GATE = {id:'training-door',kind:'socket',label:'RECORDS',x
 export const TRAINING_WALLS = [rect(1400,1960,280,20),rect(1840,1960,100,20),rect(1400,1960,20,380),rect(1920,1960,20,380),rect(1400,2320,540,20)]
 export const TRAINING_POWER_PATH = [{x:1678,y:1740},{x:1720,y:1740},{x:1800,y:1820},{x:1800,y:1900},{x:1836,y:1936},{x:1836,y:1970}]
 export const TRAINING_POWER_TRACES = TRAINING_POWER_PATH.slice(1).map((b,i)=>({a:TRAINING_POWER_PATH[i],b}))
-const FIXTURES = [...HOPPER_WALLS, ...TRAINING_EMITTER_HOUSINGS, ...receiverPlates(TRAINING_SOCKET), ...TRAINING_WALLS, rect(TRAINING_LOG.pos.x-24,TRAINING_LOG.pos.y-30,48,60)]
+const FIXTURES = [...HOPPER_WALLS, ...TRAINING_EMITTER_HOUSINGS, ...receiverPlates(TRAINING_SOCKET), ...TRAINING_WALLS]
 const INSTALLED_CELL = rect(TRAINING_SOCKET.x-10,TRAINING_SOCKET.y-15,20,30)
 const base: CavernMap = { id: -1, name: 'Flight training', boundary: rect(0,0,TRAINING_SIZE,TRAINING_SIZE), obstacles: FIXTURES }
 let mapProgress = -1, cachedMap = base

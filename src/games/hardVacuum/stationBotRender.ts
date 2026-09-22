@@ -4,6 +4,8 @@ import type { BotRuntime } from './stationBots'
 import type { Expedition } from './expedition'
 import { expeditionMap } from './expedition'
 import { raycastCavern } from './worldGeometry'
+import { havenPose } from './campaign'
+import { withHavenColliders } from './havenGeometry'
 
 export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRuntime, state: Expedition, time: number) {
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.shadowBlur = 0
@@ -42,7 +44,7 @@ export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRunti
       ctx.beginPath();ctx.moveTo(21,-15);ctx.lineTo(23,-9);ctx.moveTo(21,15);ctx.lineTo(23,9);ctx.stroke();ctx.restore()
     }
     if (bot.phase === 'charge' || bot.phase === 'burst') {
-      const direction = { x: Math.cos(bot.aim), y: Math.sin(bot.aim) }, length = raycastCavern(bot.pos,direction,490,expeditionMap(state))
+      const direction = { x: Math.cos(bot.aim), y: Math.sin(bot.aim) }, length = raycastCavern(bot.pos,direction,490,withHavenColliders(expeditionMap(state),havenPose(state)))
       ctx.strokeStyle = bot.timer < .4 || bot.phase === 'burst' ? '#ff9878b0' : '#ff987840'; ctx.lineWidth = 1
       ctx.setLineDash(bot.timer > .4 && bot.phase === 'charge' ? [3,12] : [])
       ctx.beginPath(); ctx.moveTo(bot.pos.x+direction.x*22,bot.pos.y+direction.y*22); ctx.lineTo(bot.pos.x+direction.x*length,bot.pos.y+direction.y*length); ctx.stroke(); ctx.setLineDash([])

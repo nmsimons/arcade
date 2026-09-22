@@ -124,13 +124,31 @@ test('the dock opens on upgrades and cannot sell devices or remote recharge',asy
   await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toBeVisible()
   await expect(page.getByRole('button',{name:'Ship upgrades',exact:true})).toHaveAttribute('aria-pressed','true')
   await expect(page.getByRole('button',{name:'Supplies',exact:true})).toHaveCount(0)
-  await expect(page.getByRole('button',{name:/Haven teleporter|Remote recharge|Radiation reserve/i})).toHaveCount(0)
+  await expect(page.getByRole('button',{name:/Haven teleporter|Remote recharge|Radiation reserve|Longline winch/i})).toHaveCount(0)
   const magazine=page.getByRole('button',{name:/Blaster magazine I,/})
   await expect(magazine).toBeDisabled()
   await expect(magazine).toContainText('Recover and install the blaster first.')
   await page.getByRole('button',{name:/Reinforced hull I,/}).press('Enter')
   await expect(page.getByRole('button',{name:/Reinforced hull II,/})).toBeVisible()
   await expect.poll(()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).banked,SAVE_KEY)).toBe(9250)
+})
+
+test('the retired tether upgrade disappears from the outfitter and refunds once across reloads',async({page})=>{
+  const state={...freshExpedition(),version:12,banked:1234,upgrades:['winch'],upgradeLevels:{winch:1}}
+  await launch(page,state)
+  await expect.poll(()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).version,SAVE_KEY)).toBe(SAVE_SCHEMA_VERSION)
+  await page.keyboard.press('e')
+  await expect(page.getByRole('heading',{name:'Haven outfitter',exact:true})).toBeVisible()
+  await expect(page.locator('[data-menu-id^="upgrade-"]')).toHaveCount(4)
+  await expect(page.getByRole('button',{name:/Longline winch/i})).toHaveCount(0)
+  const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY)
+  expect(saved.banked).toBe(1984)
+  expect(saved.upgrades).not.toContain('winch');expect(saved.upgradeLevels.winch).toBeUndefined()
+  await page.reload()
+  await page.getByRole('button',{name:'Continue expedition',exact:true}).press('Enter')
+  const reloaded=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY)
+  expect(reloaded.banked).toBe(1984)
+  expect(reloaded.upgrades).not.toContain('winch');expect(reloaded.upgradeLevels.winch).toBeUndefined()
 })
 
 for(const id of ['blaster','teleporter']) test(`delivering the ${id} unlocks its flight control and persists after reload`,async({page})=>{

@@ -9,7 +9,9 @@ const polygon = (points: number[][]): Vector2[] => points.map(([x, y]) => ({ x, 
 // Bounds used for sector names/spawning do not define any physical walls.
 export const CHAMBERS: Record<string, Vector2[]> = {
   ...CAMPAIGN_CHAMBERS,
-  haven: polygon([[1170,1000],[1230,865],[1380,810],[1500,820],[1600,780],[1755,830],[1830,975],[1785,1110],[1810,1230],[1745,1375],[1590,1415],[1440,1360],[1270,1390],[1180,1270]]),
+  // A once-regular ring excavated around the distribution hub. Its facets
+  // enclose the former chamber and keep all five approach mouths open.
+  haven: Array.from({length:16},(_,i)=>({x:1500+410*Math.cos(i*Math.PI/8),y:1100+365*Math.sin(i*Math.PI/8)})),
   salvage: polygon([[290,800],[500,785],[650,835],[735,940],[810,1040],[800,1220],[690,1350],[490,1430],[285,1355],[180,1260],[185,1170],[250,1130],[195,1030],[210,900]]),
   foundry: polygon([[220,285],[320,210],[465,185],[600,225],[700,210],[810,295],[785,445],[725,510],[625,610],[450,625],[315,565],[205,450]]),
   archive: polygon([[1210,330],[1300,220],[1430,195],[1520,230],[1680,205],[1805,315],[1810,400],[1720,565],[1570,610],[1440,565],[1280,580],[1170,470]]),

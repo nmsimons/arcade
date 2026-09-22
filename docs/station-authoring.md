@@ -18,9 +18,29 @@ powered by the original cells; blast barriers still require the blaster. Existin
 reachability, cargo clearance, Haven route, medical bypass, wire routing and
 Ignition Cradle tests remain the geometry-level acceptance tests.
 
-Main-map exposition must be restrained. Keep physical recordings (`RECORDS`) short
-and about character/history, not a walkthrough. Do not explain training mechanics,
-equipment locations, routes, receiver solutions or things the player can discover.
+Regional identity comes from a main-chamber silhouette and restrained materials
+in `regionRender.ts`. Keep its near-black tints fixed in world space, with soft
+transitions along tunnels. Sparse surface seams belong inside solid surrounding
+rock, clipped by the actual terrain, not across flight lanes. Preserve the
+shared clear wall outline and equipment/hazard colors. Chamber edits must keep
+gates, cargo routes and folded Haven clearance valid; regenerate power paths
+and run the geometry/progression checks after edits. A ship loaded inside solid
+terrain follows normal death and recovery. Existing save positions do not
+constrain new chamber shapes; ordinary hull contact is resolved without death.
+
+Every log must do two jobs: reveal something about the story or its people, and
+hint at the location or purpose of a useful item. Some should also convey a game
+mechanic through the speaker's experience, work, regret or plan. Keep each entry
+in character and within 85 words; use natural station language, not key bindings,
+UI instructions or a detached tutorial paragraph. Check clues against the current
+map, item placement and power circuits whenever progression changes.
+
+The opening contract points to waking Haven through her center socket. Haven
+points to the impact shield in the western rescue locker and taking it home.
+Later logs lead from the freight cell and radiation shield to the Works blaster,
+Foundry teleporter, Archive survivor and reactor cell, ward reserve and sleepers,
+then the ignition core's return cradle. Preserve the crew's distinct voices and
+the discrepancy between the official evacuation and the people left behind.
 `stationWayfinding.ts` supplies one painted destination sign per main regional
 approach, including Breach Anchorage. Reuse its lettering, color and solid arrow;
 keep text upright and point the arrow along the actual entry passage. Short line
@@ -36,16 +56,19 @@ equipment-status stencil. Preserve sparse industrial
 labels, not floor lesson blocks. All recorders share the same model, and training,
 station logs and Haven use `TetherInfo` for their deliberately tethered messages.
 A record's circuit/flag is an availability condition; only a tether connection
-downloads it. Flush recorders (`floorMounted`) use the same art but cannot obstruct cargo routes;
-freestanding terminals retain solid housings. Give each story entry a reachable
+downloads it. Every recorder is a flush, non-solid floor port, including the training log.
+Use the shared translucent inset, broken panel seam and blue socket; never add a solid housing.
+The tether radius only controls attachment and does not block ships or cargo. Give each story entry a reachable
 reader and test sight lines. Haven's greeting uses its retiring center socket.
 Preserve retired download IDs in `RETIRED_RECORD_IDS` for save compatibility,
 without restoring their fixtures or including them in the journal/completion count.
 Training geometry, hopper processing
 and floor instructions are isolated in `training.ts` / `trainingRender.ts`, while
 flight, weapons, tether physics and input use the same session as the expedition.
-Write training copy as mining-pilot induction placards and instructor briefings,
-limited to exercises in the bay, never references to the expedition. The dispenser's
+Write training copy as mining-pilot induction placards and instructor briefings.
+Its log should use an incident from training to establish the working culture,
+point to useful range equipment and suggest better technique; keep its clues
+limited to exercises in the bay rather than revealing the expedition. The dispenser's
 rails share their rendering/collision geometry. Feed only white parent rocks;
 red material must be exposed by fragmentation. Preserve outlet interlocks and
 stock limits when changing its cycle. Hoppers reuse Haven's

@@ -17,16 +17,16 @@ function encounter(gap=45) {
   return {state,runtime,bot,ship}
 }
 
-test('laser chips damage security armor without restarting its attack, deployment or stagger recovery',()=>{
-  for(const phase of ['deploy','watch','charge','burst','cooldown']) {
-    const {state,bot}=encounter()
-    Object.assign(bot,{phase,timer:.3,shotCount:1,stun:.2})
+test('laser chips damage either enemy without restarting its attack, deployment or stagger recovery',()=>{
+  for(const kind of ['security','tug']) for(const phase of ['deploy','watch','charge','burst','cooldown']) for(const stun of [0,.2]) {
+    const state=freshExpedition(),bot=freshBots(state).units.find(bot=>bot.botKind===kind)
+    Object.assign(bot,{phase,timer:.3,shotCount:1,stun})
     damageBot(state,bot,BOT_LASER_DAMAGE,'laser')
     assert.equal(bot.health,BOT_MAX_HEALTH-BOT_LASER_DAMAGE)
     assert.equal(bot.phase,phase)
     assert.equal(bot.timer,.3)
     assert.equal(bot.shotCount,1)
-    assert.equal(bot.stun,.2,'laser cannot extend a stagger from another weapon')
+    assert.equal(bot.stun,stun,'laser cannot start or extend a stagger')
     assert.equal(bot.flash,1);assert.equal(bot.sparkDelay,0)
   }
 })
@@ -67,12 +67,21 @@ test('blaster impacts still interrupt security; laser cannot prolong that interr
   assert.equal(shots,3,'laser spam must not keep resetting the heavy-hit cooldown')
 })
 
-test('laser still breaks maintenance tethers and staggers the tug',()=>{
+test('repeated laser hits preserve a tug grapple until the tug is destroyed',()=>{
   const state=freshExpedition(),bot=freshBots(state).units.find(bot=>bot.botKind==='tug')
-  Object.assign(bot,{phase:'watch',anchored:false,target:{},maintenance:{}})
-  damageBot(state,bot,BOT_LASER_DAMAGE,'laser')
+  const target={pos:{x:7100,y:1360},vel:{x:0,y:0},radius:15}
+  const rig={mode:'ship',cycle:0,age:0,holding:.5,cableLength:92}
+  Object.assign(bot,{phase:'watch',anchored:false,target,maintenance:rig,timer:.3,vel:{x:40,y:10}})
+  for(let hit=1;hit<50;hit++) {
+    assert.equal(damageBot(state,bot,BOT_LASER_DAMAGE,'laser'),false)
+    assert.equal(bot.target,target);assert.equal(bot.maintenance,rig)
+    assert.equal(bot.phase,'watch');assert.equal(bot.stun,0);assert.equal(bot.timer,.3)
+    assert.deepEqual(bot.vel,{x:40,y:10})
+    assert.equal(bot.health,Math.round((BOT_MAX_HEALTH-hit*BOT_LASER_DAMAGE)*1000)/1000)
+  }
+  assert.equal(damageBot(state,bot,BOT_LASER_DAMAGE,'laser'),true)
   assert.equal(bot.target,undefined);assert.equal(bot.maintenance,undefined)
-  assert.equal(bot.phase,'cooldown');assert.equal(bot.stun,.65)
+  assert.ok(state.disabledBots.includes(bot.botId))
 })
 
 test('close-range defense still respects safe Haven, blocked sight and wall clearance',()=>{

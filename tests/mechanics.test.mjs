@@ -105,15 +105,19 @@ test('radiation reserve and exposure persist, and legacy upgrades migrate withou
   for (const radiationCharge of [-1, 101, '100']) assert.equal(parseExpedition(JSON.stringify({ ...state, radiationCharge })), null)
 })
 
-test('power cells start in other rooms from receivers, and ordinary blue ore cannot power them', () => {
+test('power cells require a haul, the Foundry relay has a local reserve, and ordinary blue ore cannot power receivers', () => {
   const state = freshExpedition('ring'), rt = freshRuntime()
   for (const socket of SOCKETS) {
-    assert.notEqual(sectorAt(socket.source).id, sectorAt(socket.pos).id)
+    if (socket.id === 'relay') {
+      assert.equal(sectorAt(socket.source).id,'foundry')
+      assert.equal(sectorAt(socket.pos).id,'foundry')
+    } else assert.notEqual(sectorAt(socket.source).id, sectorAt(socket.pos).id)
+    assert.ok(Math.hypot(socket.source.x-socket.pos.x,socket.source.y-socket.pos.y)>150)
     assert.ok(isInsideCavern(socket.source, 20, expeditionMap(state)))
     const ore = { kind: 'blue', pos: { ...socket.pos }, vel: { x: 0, y: 0 }, radius: 20, rot: [0, 0, 0] }
     const args = { dt: 1, ship: { pos: { x: 1500, y: 1100 }, vel: { x: 0, y: 0 }, radius: 15, angle: 0 }, rocks: [ore], harpoon: { state: 'idle' }, beam: { active: false } }
     stepExpedition(state, rt, args)
-    assert.equal(state.gates.includes(socket.id), false)
+    assert.equal(state.power[socket.id], undefined)
   }
 })
 

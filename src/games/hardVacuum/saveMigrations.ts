@@ -15,8 +15,9 @@ import { PROGRESSION_IDS } from './stationIds.ts'
 import { initialCargoVelocity } from './expeditionPhysics.ts'
 import { SURVIVAL_PODS, allSurvivorsAboard } from './survivalPods.ts'
 
-export const SAVE_SCHEMA_VERSION = 11
+export const SAVE_SCHEMA_VERSION = 14
 // Historical prices/capacities belong to migration, not the live upgrade shop.
+const RETIRED_WINCH_COST = 750
 const RETIRED_RADIATION_COSTS = [6000, 12000, 24000]
 const RETIRED_RADIATION_CAPACITIES = [100, 150, 200, 250]
 const untouchedArchiveModule = (body: {pos:Vector2;tethered?:boolean}) => !body.tethered && body.pos.x>=1100 && body.pos.x<=1900 && body.pos.y>=150 && body.pos.y<=650
@@ -32,8 +33,8 @@ export function parseExpedition(raw: string | null): Expedition | null {
     }
 
     function validateInventory() {
-    if (!s || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, SAVE_SCHEMA_VERSION].includes(s.version) || (s.finaleVersion!==undefined && s.finaleVersion!==2) || !Number.isFinite(s.credits) || s.credits < 0 || !Number.isFinite(s.banked) || s.banked < 0 ||
-      !Array.isArray(s.upgrades) || !s.upgrades.every((id: unknown) => (id === 'focus2' || id === 'radiation' || (s.version < 4 && id === 'radiationReserve') || SHOP.some(p => p.id === id))) ||
+    if (!s || ![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, SAVE_SCHEMA_VERSION].includes(s.version) || (s.finaleVersion!==undefined && s.finaleVersion!==2) || !Number.isFinite(s.credits) || s.credits < 0 || !Number.isFinite(s.banked) || s.banked < 0 ||
+      !Array.isArray(s.upgrades) || !s.upgrades.every((id: unknown) => (id === 'focus2' || id === 'radiation' || (s.version < 4 && id === 'radiationReserve') || (s.version < 13 && id === 'winch') || SHOP.some(p => p.id === id))) ||
       !Array.isArray(s.gates) || !s.gates.every((id: unknown) => id === 'heart' || id === 'ignition-ready' || id === 'thermal' || GATES.some(g => g.id === id)) ||
       !Array.isArray(s.caches) || !s.caches.every((id: unknown) => CACHES.some(c => c.id === id)) ||
       !Array.isArray(s.visited) || !s.visited.every((id: unknown) => SECTORS.some(r => r.id === id)) ||
@@ -114,7 +115,7 @@ export function parseExpedition(raw: string | null): Expedition | null {
         !Number.isFinite(s.remoteRechargeRemaining) || s.remoteRechargeRemaining < 0 || s.remoteRechargeRemaining > SHIELD_REPAIR_TIME) return false
     } else if (s.rechargePacks !== undefined || s.remoteRechargeRemaining !== undefined) return false
     if (!s.upgradeLevels || typeof s.upgradeLevels !== 'object' || Array.isArray(s.upgradeLevels) ||
-      Object.entries(s.upgradeLevels).some(([id, level]) => !(SHOP.some(item => item.id === id) || (s.version < 4 && id === 'radiationReserve')) || typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level > UPGRADE_COSTS.length)) return false
+      Object.entries(s.upgradeLevels).some(([id, level]) => !(SHOP.some(item => item.id === id) || (s.version < 4 && id === 'radiationReserve') || (s.version < 13 && id === 'winch')) || typeof level !== 'number' || !Number.isInteger(level) || level < 0 || level > UPGRADE_COSTS.length)) return false
     const reserveLevel = s.upgradeLevels.radiationReserve ?? 0
     if (s.version >= 5 && !s.impactShieldInstalled && (s.shields > 0 || s.upgrades.includes('hull') || (s.upgradeLevels.hull ?? 0) > 0)) return false
     if (!s.blasterInstalled && (s.upgrades.includes('magazine') || (s.upgradeLevels.magazine ?? 0) > 0)) return false
@@ -287,6 +288,30 @@ export function parseExpedition(raw: string | null): Expedition | null {
         && (!s.complete || s.core && allSurvivorsAboard(s))
         && !s.rescuedPods.some((id: string) => s.cargo?.[id])
     }
+    function migrateRingTeleporter() {
+      // Advance the unclaimed Works module to the next region once. Keep
+      // installed equipment and any module the player has already handled.
+      const body = s.cargo?.teleporter
+      if (!s.teleporterInstalled && body && !body.tethered &&
+        body.pos.x >= 3200 && body.pos.x <= 6300 && body.pos.y >= 200 && body.pos.y <= 2300) delete s.cargo.teleporter
+      s.version = 12
+    }
+    function retireWinchUpgrade() {
+      // Refund the retired Longline purchase once and restore standard reach.
+      const level = s.upgradeLevels.winch ?? (s.upgrades.includes('winch') ? 1 : 0)
+      if (level > 0) s.banked += RETIRED_WINCH_COST
+      delete s.upgradeLevels.winch
+      s.upgrades = s.upgrades.filter((id: string) => id !== 'winch')
+      s.version = 13
+    }
+    function migrateFoundryTeleporter() {
+      // Only relocate an unclaimed module still around its former hub spawn.
+      // Earned relay power, open doors, rescues and handled equipment stay put.
+      const body = s.cargo?.teleporter
+      if (!s.teleporterInstalled && body && !body.tethered &&
+        body.pos.x >= 1170 && body.pos.x <= 1830 && body.pos.y >= 780 && body.pos.y <= 1415) delete s.cargo.teleporter
+      s.version = 14
+    }
     function validateCurrent() {
       return s.finaleVersion === 2 && Array.isArray(s.flags) && s.flags.every((id: unknown) => PROGRESSION_IDS.some(flag => flag === id))
         && s.gates.every((id: unknown) => GATES.some(g => g.id === id))
@@ -296,7 +321,7 @@ export function parseExpedition(raw: string | null): Expedition | null {
     // Version 1 accumulated historical subformats. The ordered stages below
     // migrate them exactly once, then advance through each newer schema in order.
     const legacy = s?.version === 1
-    if (!legacy && s?.version !== 2 && s?.version !== 3 && s?.version !== 4 && s?.version !== 5 && s?.version !== 6 && s?.version !== 7 && s?.version !== 8 && s?.version !== 9 && s?.version !== 10 && s?.version !== SAVE_SCHEMA_VERSION) return null
+    if (!legacy && s?.version !== 2 && s?.version !== 3 && s?.version !== 4 && s?.version !== 5 && s?.version !== 6 && s?.version !== 7 && s?.version !== 8 && s?.version !== 9 && s?.version !== 10 && s?.version !== 11 && s?.version !== 12 && s?.version !== 13 && s?.version !== SAVE_SCHEMA_VERSION) return null
     if (legacy) migrateLegacyNames()
     if (!validateInventory()) return null
     if (legacy) migratePrototypeCampaign()
@@ -322,8 +347,11 @@ export function parseExpedition(raw: string | null): Expedition | null {
       if (!s.complete && !s.campaign.journey?.departure && s.position.x>OUTER_LOCK.x-15 &&
         s.position.y>=OUTER_LOCK.y-15 && s.position.y<=OUTER_LOCK.y+OUTER_LOCK.h+15)
         s.position={x:OUTER_LOCK.x-50,y:OUTER_LOCK.y+OUTER_LOCK.h/2}
-      s.version = SAVE_SCHEMA_VERSION
+      s.version = 11
     }
+    if (s.version === 11) migrateRingTeleporter()
+    if (s.version === 12) retireWinchUpgrade()
+    if (s.version === 13) migrateFoundryTeleporter()
     // Migrate former outpost checkpoints without discarding earned progress.
     return { ...s, checkpoint: 'haven', blasterInstalled: s.blasterInstalled ?? false, blasterCharges: s.blasterInstalled ? s.blasterCharges ?? blasterCapacity(s) : 0, radiationCharge: s.radiationCharge ?? (s.upgrades.includes('radiation') ? RADIATION_CAPACITY : 0), radiationExposure: s.radiationExposure ?? 0 } as Expedition
   } catch { return null }

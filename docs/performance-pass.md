@@ -72,8 +72,6 @@ and other hardware need their own measurements before claiming a frame-rate targ
   wave, deployment and pause changes. The animation effect reads current React
   state without restarting. Paused/menu frames redraw on state changes and resize;
   controller polling continues so resuming stays responsive.
-- Urban Fire's small FPS counter averages actual frame intervals over half a
-  second, excluding paused time and avoiding per-frame React updates.
 - Civilian-vehicle contacts reject provably distant pairs before allocating SAT
   axes. Close contacts retain the same solver, order and fixed substeps. Bounds
   include rotated corners and long obstacles, and use current body positions.
@@ -145,10 +143,11 @@ compositing enabled. One unchanged-build 3840×2160 episode measured 5.9 ms CPU 
 
 A separate experimental build with a smaller world canvas and DOM HUD did not
 improve frame pacing enough to justify a visual-quality tradeoff. The playable
-build retains the original full-resolution canvas and its FPS counter. This
+build retains the original full-resolution canvas. This
 matched the subsequent user finding: browser hardware acceleration had been
 disabled. Enabling it resolved the reported full-screen slowdown without changing
 the game's rendering resolution.
+The temporary FPS counter was removed after verification.
 
 The GPU flag follows [Chromium's headless hardware guidance](https://chromium.googlesource.com/chromium/src/+/HEAD/docs/gpu/using-gpu-hardware-in-headless-chrome.md).
 It applies only to the isolated test browser; it does not change browser settings.

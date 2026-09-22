@@ -29,7 +29,7 @@ export function drawHelicopter(ctx: CanvasRenderingContext2D, heli: Helicopter, 
 }
 
 type Scene = { jeep: Jeep; tanks: Tank[]; helicopters: Helicopter[]; bullets: Bullet[]; debris: Debris[]; kits: RepairKit[]; armor: ArmorUpgrade[]; civilianVehicles: CivilianVehicle[] }
-export function drawBattle(ctx: CanvasRenderingContext2D, city: HTMLCanvasElement, scene: Scene, width: number, height: number, score: number, wave: number, visuals: VehicleVisuals, fps?: number) {
+export function drawBattle(ctx: CanvasRenderingContext2D, city: HTMLCanvasElement, scene: Scene, width: number, height: number, score: number, wave: number, visuals: VehicleVisuals) {
   const { jeep, tanks, helicopters, bullets, debris, kits, armor } = scene
   const scale = viewportScale(width, height)
   ctx.fillStyle = INK; ctx.fillRect(0, 0, width, height)
@@ -60,6 +60,5 @@ export function drawBattle(ctx: CanvasRenderingContext2D, city: HTMLCanvasElemen
   const inbound=[...tanks,...helicopters].filter(e=>e.state==='incoming').length
   ctx.fillText(`${tanks.filter(t => t.state === 'active').length + helicopters.filter(h => h.state === 'active').length} HOSTILES${inbound?` · ${inbound} INBOUND`:''}`, 20, height - 40)
   ctx.fillText('P / MENU · PAUSE', 20, height - 24)
-  ctx.textAlign = 'right'; ctx.fillText(`${fps ?? '—'} FPS`, width - 20, height - 24)
   ctx.restore()
 }

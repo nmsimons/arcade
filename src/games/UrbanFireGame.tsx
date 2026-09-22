@@ -266,8 +266,6 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
 
     let needsDraw=true
     let lastDrawState: string | undefined
-    let fps: number | undefined
-    let fpsFrames=0, fpsStartedAt=0
     const resize = () => {
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
@@ -564,23 +562,13 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       bullets: bulletsRef.current, debris: debrisRef.current, kits: repairKitsRef.current,
       armor: armorUpgradesRef.current,
       civilianVehicles: civilianVehiclesRef.current,
-      }, canvas.width, canvas.height, score, wave, visualsRef.current, fps)
+      }, canvas.width, canvas.height, score, wave, visualsRef.current)
     }
 
     const animate = (timestamp: number) => {
       const {gameState}=readFrameState()
       const dt = Math.max(0, Math.min((timestamp - lastTimeRef.current) / 1000, 0.05))
       lastTimeRef.current = timestamp
-
-      // Measure actual frame cadence, not the clamped simulation step. Updating
-      // twice a second keeps the HUD readable without adding React renders.
-      if(gameState!=='playing' || lastDrawState!=='playing'){
-        fps=undefined;fpsFrames=0;fpsStartedAt=timestamp
-      }else{
-        fpsFrames++
-        const elapsed=timestamp-fpsStartedAt
-        if(elapsed>=500){fps=Math.round(fpsFrames*1000/elapsed);fpsFrames=0;fpsStartedAt=timestamp}
-      }
 
       if (pollController(timestamp, dt) && gameState === 'playing') {
         update(dt)

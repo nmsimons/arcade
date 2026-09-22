@@ -80,6 +80,17 @@ preservation, HUD/map/tutorial labels, and keyboard use while a pad is connected
 These checks do not replace testing real USB/Bluetooth hardware: verify stick
 feel, layout detection and audio activation on the target controller/browser.
 
+Arcade theme checks cover the three illustrated entry points without eagerly
+loading game engines, per-game start/pause/loading/error treatments, controller
+reconnection hints, and selection restored on return. They also check unclipped
+focus at phone, landscape and desktop sizes and preserve Hard Vacuum's vector
+console styling. Decorative cover stills share the actual game renderers, do not
+add focus targets, and redraw at display resolution only when resized. Tests
+check that they leave saves and audio untouched, remain still during selection,
+and cannot block navigation if a decorative preview fails to download.
+Focus checks keep primary/secondary materials distinct with one consistent ring,
+no competing pseudo-element marker, and no moving button hit areas.
+
 Flight-camera checks cover uniform viewport scaling from phone to 4K and
 ultrawide layouts, centered flight, unchanged world geometry and paused state
 during resizing, fixed-size desktop HUD, training, and floor-label docking at

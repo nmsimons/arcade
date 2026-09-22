@@ -1,12 +1,40 @@
-.urban-overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; overflow:auto; padding:24px; background:#05090dc9; backdrop-filter:blur(3px); }
-.urban-menu { width:min(100%,480px); padding:34px; margin-block:auto; border:1px solid #5c756e; border-top:3px solid #a6d7ce; background:#0c1419f5; color:#b4c4be; }
-.urban-menu h1 { text-transform:uppercase; font-size:clamp(28px,5vw,42px); letter-spacing:.13em; color:#d7e7dc; line-height:1.3; margin:10px 0 18px; font-weight:500; }
-.urban-menu h2 { font-size:26px; letter-spacing:.13em; color:#d7e7dc; margin:10px 0 20px; }
-.urban-eyebrow { font-size:10px; letter-spacing:.16em; color:#99aa8b; }
-.urban-brief { font-size:12px; line-height:1.9; margin-bottom:24px; color:#a6b5b4; }
-.urban-actions { display:grid; gap:10px; }
-.urban-actions button { text-align:left; padding:12px 16px; border:1px solid #435b57; color:#b9d1c6; background:#101e24; font-size:12px; letter-spacing:.15em; text-transform:uppercase; cursor:pointer; }
-.urban-actions button:hover,.urban-actions button:focus { outline:1px solid #a6d7ce; outline-offset:2px; background:#1e3235; color:#e9f4e5; }
-.urban-help { border-top:1px solid #435b5760; padding-top:18px; margin-top:24px; font-size:11px; line-height:1.9; color:#8ea59d; }
-.urban-help strong { color:#c7d6ca; font-weight:400; }
-@media(max-height:600px),(max-width:480px) { .urban-overlay { padding:16px; } .urban-menu { padding:22px; } .urban-menu h1 { text-transform:uppercase; font-size:28px; } .urban-brief { margin-bottom:16px; } .urban-help { margin-top:18px; } }
+/* Painted steel, warm masonry and field-order paper, like the city itself. */
+.urban-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: auto; padding: 28px; background: #26342cd1; backdrop-filter: blur(3px); font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; color: #344136; scrollbar-color: #85917a #dfe1ce; }
+.urban-menu { position: relative; width: min(100%, 510px); padding: 30px; margin-block: auto; border: 1px solid #b0b6a1; border-top: 7px solid #56654d; border-radius: 3px; background: linear-gradient(125deg, #f2efdc, #daddc5); color: #344136; box-shadow: inset 0 1px #ffffffb3, 0 5px #8f9a8266, 0 22px 70px #111b1780; }
+.urban-nameplate { display: flex; align-items: center; justify-content: space-between; padding-bottom: 14px; border-bottom: 1px solid #7c89675c; gap: 16px; }
+.urban-eyebrow, .urban-game-label { font-size: 10px; font-weight: 700; letter-spacing: .16em; color: #56664e; }
+.urban-sector { font-size: 9px; letter-spacing: .12em; color: #5b6652; }
+.urban-sector strong { display: inline-block; margin-left: 8px; padding: 4px 7px; border: 1px solid #6b785c; font: 18px ui-monospace, monospace; }
+.urban-menu h1, .urban-menu h2 { font-family: Impact, 'Arial Narrow', sans-serif; text-transform: uppercase; font-size: clamp(40px, 6vw, 58px); font-weight: 500; letter-spacing: .015em; color: #344536; line-height: 1.05; margin: 20px 0; text-shadow: 0 1px #fff9; }
+.urban-menu h2 { font-size: clamp(30px, 5vw, 44px); }
+.urban-game-label { margin-top: 24px; }
+.urban-cover { margin: 0 -30px 22px; border-block: 1px solid #939f89; }
+.urban-cover .game-art { height: 142px; }
+.urban-brief { font-size: 13px; line-height: 1.8; margin-bottom: 24px; color: #495743; }
+.urban-brief strong { color: #344536; }
+.urban-actions { display: grid; gap: 12px; }
+.urban-menu .urban-button { text-align: left; min-height: 46px; padding: 12px 16px; border: 1px solid #9ca68a; border-radius: 3px; color: #3c4e38; background: linear-gradient(#f0f0dd, #e3e6d1); box-shadow: 0 1px #a5af93; font-family: inherit; font-size: 13px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; cursor: pointer; }
+.urban-menu .urban-button-primary { background: linear-gradient(#536749, #485c3f); border-color: #405537; color: #fffbea; box-shadow: inset 0 1px #d1d6a630, 0 1px #34492e; }
+.urban-menu .urban-button:focus:not(:disabled) { outline: 2px solid #344d3e; outline-offset: 3px; color: #2e412b; background: linear-gradient(#faf8e9, #ecefdc); border-color: transparent; box-shadow: 0 1px #a5af93; }
+.urban-menu .urban-button-primary:focus:not(:disabled) { color: #fffbea; background: linear-gradient(#5b704f, #4d6342); box-shadow: inset 0 1px #d1d6a630, 0 1px #34492e; }
+.urban-menu .urban-button:hover:not(:disabled) { background: linear-gradient(#fffdf2, #f1f1de); color: #2e412b; border-color: #677654; }
+.urban-menu .urban-button-primary:hover:not(:disabled) { background: linear-gradient(#607650, #526947); color: #fffbea; }
+.urban-menu .urban-button:focus:hover:not(:disabled) { border-color: transparent; }
+.urban-menu .urban-button:active:not(:disabled) { box-shadow: inset 0 2px 4px #253b3030; }
+.urban-help { border-top: 1px solid #8a96716b; padding-top: 18px; margin-top: 24px; font-size: 11px; line-height: 1.9; color: #526348; }
+.urban-help strong { color: #3c4e38; font-weight: 700; }
+.urban-field-note { margin-block: 10px; }
+.urban-report { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 28px; border-block: 1px solid #8a96716b; background: #f8f4de80; }
+.urban-report > span { padding: 16px; color: #526348; font-size: 10px; letter-spacing: .1em; }
+.urban-report > span + span { border-left: 1px solid #8a96716b; }
+.urban-report strong { display: block; margin-top: 5px; font: 28px ui-monospace, monospace; color: #344536; letter-spacing: -.04em; }
+@media (max-height: 650px), (max-width: 480px) {
+  .urban-overlay { padding: 20px 16px; }
+  .urban-menu { padding: 22px; }
+  .urban-menu h1 { font-size: 42px; margin-block: 16px; }
+  .urban-cover { margin-inline: -22px; }
+  .urban-cover .game-art { height: 98px; }
+  .urban-brief { margin-bottom: 18px; }
+  .urban-help { margin-top: 20px; padding-top: 14px; }
+}
+@media (prefers-reduced-motion: reduce) { .urban-menu .urban-button { transition: none; } }

@@ -2,18 +2,26 @@ import { Component, useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { KeyboardDialog } from './games/hardVacuum/KeyboardDialog'
 import { useControlHints } from './games/hardVacuum/controlHints'
+import { useLocation } from 'react-router-dom'
+import { gameForPath } from './arcade/games'
 
 function RouteMessage({ failed, onExit }: { failed?: boolean; onExit: () => void }) {
   const { hint } = useControlHints()
-  return <KeyboardDialog label={failed ? 'Game unavailable' : 'Loading game'} focusKey={failed ? 'load-failed' : 'loading'} globalMenu onClose={onExit}>
-    <div className="menu-surface max-w-lg space-y-5">
-      <h1 role={failed ? 'alert' : 'status'} className="text-xl">{failed ? 'This game could not be loaded' : 'Loading game…'}</h1>
-      {failed && <p className="text-sm text-white/60">Check your connection, then reload to try again.</p>}
-      <div className="flex flex-wrap gap-3">
-        {failed && <button className="menu-button" onClick={() => window.location.reload()}>Reload game</button>}
-        <button className="menu-button" onClick={onExit}>Back to game selector</button>
+  const { pathname } = useLocation()
+  const game = gameForPath(pathname), theme = game?.theme
+  const surface = theme === 'bumper' ? 'bumper-menu' : theme === 'urban' ? 'urban-menu' : 'menu-surface max-w-lg'
+  const button = theme === 'bumper' ? 'menu-button bumper-button' : theme === 'urban' ? 'urban-button' : 'menu-button'
+  return <KeyboardDialog label={failed ? 'Game unavailable' : 'Loading game'} focusKey={failed ? 'load-failed' : 'loading'} globalMenu onClose={onExit}
+    className={theme === 'bumper' ? 'bumper-overlay' : theme === 'urban' ? 'urban-overlay' : 'menu-overlay'}>
+    <div className={`${surface} route-message space-y-5`}>
+      {game && <p className={theme === 'bumper' ? 'bumper-eyebrow' : theme === 'urban' ? 'urban-eyebrow' : 'menu-eyebrow'}>{game.label}</p>}
+      <h1 role={failed ? 'alert' : 'status'} className="route-message-title text-xl">{failed ? 'This game could not be loaded' : 'Loading game…'}</h1>
+      {failed && <p className="text-sm opacity-80">Check your connection, then reload to try again.</p>}
+      <div className={theme === 'urban' ? 'urban-actions' : 'flex flex-col gap-3'}>
+        {failed && <button className={button} onClick={() => window.location.reload()}>Reload game</button>}
+        <button className={`${button} ${theme === 'bumper' && failed ? 'bumper-button-secondary' : ''}`} onClick={onExit}>Back to game selector</button>
       </div>
-      <p className="menu-help">{hint('back', 'Esc')} <span>Back</span></p>
+      <p className={theme === 'bumper' ? 'menu-help bumper-help' : theme === 'urban' ? 'menu-help urban-help' : 'menu-help'}>{hint('back', 'Esc')} <span>Back</span></p>
     </div>
   </KeyboardDialog>
 }

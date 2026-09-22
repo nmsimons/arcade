@@ -23,6 +23,15 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 **Arcade menu**
 
+The three featured entries carry their game's visual identity: Hard Vacuum's
+vector console, Bumper Ball's lacquered toys and cream score panels, and Urban
+Fire's masonry-and-olive field orders. Start, pause, results, loading and recovery
+screens use the same game-specific treatment. Keyboard and controller selection
+share one restrained focus ring; secondary actions retain their own material.
+Decorative covers render stills using the real ship, Haven, court, vehicles and
+city drawing code. They redraw only on resize, stay sharp on high-density
+displays, and never start a game loop, audio or save session.
+
 - Arrows / WASD or Tab / Shift+Tab: select a game; Home / End: first / last
 - Enter/Space: launch
 - Controller: stick or D-pad selects a game; A launches it.

@@ -28,7 +28,6 @@
   background: linear-gradient(145deg, #101e19, #09120f 75%);
   box-shadow: 0 20px 70px #0008;
 }
-.arcade-menu { max-width: 480px; }
 .menu-outfitter { padding-block: 24px; }
 .menu-outfitter .menu-item { padding: 10px 14px; }
 .menu-outfitter .menu-help { margin-top: 16px; padding-top: 12px; }
@@ -52,7 +51,6 @@
 }
 .menu-button { letter-spacing: .04em; }
 .menu-item { text-align: left; }
-.arcade-choice { text-align: left; padding: 15px 20px; font-size: 15px; }
 .game-dialog button:hover:not(:disabled) { background-color: #192b23; border-color: #527b65; }
 .game-dialog button[aria-pressed="true"] {
   border-color: #698b7b;
@@ -62,23 +60,15 @@
 /* :focus (not only :focus-visible) keeps controller selection visible after
    using a mouse. Preserve child text colours and price/status hierarchy. */
 .game-dialog button:focus:not(:disabled) {
-  outline: 1px solid #a6d5bc;
+  outline: 2px solid #a6d5bc;
   outline-offset: 2px;
-  border-color: #719d83;
+  border-color: transparent;
   background-color: #20382b;
   color: #ecf5ef;
-  box-shadow: inset 3px 0 #b0e8c7;
+  box-shadow: none;
   transition: none;
 }
-.game-dialog button:focus:not(:disabled)::after {
-  content: '';
-  position: absolute;
-  top: 50%; left: -3px;
-  height: 10px; width: 3px;
-  transform: translateY(-50%);
-  background: #c9f4d9;
-  border-radius: 2px;
-}
+.game-dialog button:active:not(:disabled) { background-color: #294536; }
 .game-dialog button:disabled {
   cursor: not-allowed;
   opacity: .65;

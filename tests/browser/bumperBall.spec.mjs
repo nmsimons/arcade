@@ -6,21 +6,28 @@ async function setup(page) {
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype
-    for (const method of ['fillRect', 'arcTo', 'arc', 'roundRect', 'fillText']) {
+    for (const method of ['fillRect', 'arcTo', 'arc', 'roundRect', 'rect', 'fillText']) {
       const original = proto[method]
       proto[method] = function (...args) {
-        if (method === 'fillRect' && this.fillStyle === '#070c0b' && args[2] === this.canvas.width && args[3] === this.canvas.height) {
-          window.bumperFrame = { width: this.canvas.width, height: this.canvas.height, walls: [], fixtures: [], cars: {}, text: [] }
+        if (method === 'fillRect' && this.fillStyle === '#243e43' && args[2] === this.canvas.width && args[3] === this.canvas.height) {
+          window.bumperFrame = { width: this.canvas.width, height: this.canvas.height, walls: [], fixtures: [], cars: {}, text: [], layers: [] }
         }
         const frame = window.bumperFrame
         if (frame) {
           const { a, b, c, d, e, f } = this.getTransform()
           const transform = { a, b, c, d, e, f }
           if (method === 'arcTo') frame.walls.push(args)
-          if (method === 'arc' && ((args[2] === 20 && this.strokeStyle === '#d8b674' && this.lineWidth === 1.5) || args[2] === 60)) {
+          if (method === 'arc' && args[2] === 20 && this.strokeStyle === '#596e75' && this.lineWidth === 1.5) {
             frame.fixtures.push({ x: args[0], y: args[1], radius: args[2], transform })
           }
-          if (method === 'arc' && args[2] === 30) frame.ball = { x: args[0], y: args[1] }
+          if (method === 'roundRect' && args[2] === 90 && args[3] === 260 && this.fillStyle instanceof CanvasGradient) {
+            frame.fixtures.push({ x: args[0], y: args[1], width: args[2], height: args[3], transform })
+          }
+          if (method === 'arc' && args[2] === 30) {
+            frame.ball = { x: args[0], y: args[1] }
+            frame.layers.push('ball')
+          }
+          if (method === 'rect' && args[2] === 90 && args[3] === 260) frame.layers.push('net')
           // The chassis stays centered while the suspension and tires animate.
           if (method === 'roundRect' && args[0] === -14 && args[1] === -8 && args[2] === 29 && args[3] === 16) frame.cars[this.strokeStyle] = transform
           if (method === 'fillText') frame.text.push({ value: args[0], x: args[1], y: args[2], transform })
@@ -45,7 +52,7 @@ function playerPosition(output) {
 }
 
 function expectCentered(output) {
-  const player = output.cars['#87bfff']
+  const player = output.cars['#409eff']
   // Browser canvas transforms use single-precision components internally.
   expect(player.e).toBeCloseTo(output.width / 2, 3)
   expect(player.f).toBeCloseTo(output.height / 2, 3)
@@ -56,6 +63,15 @@ function expectCentered(output) {
     expect(text.transform).toEqual({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 })
   }
 }
+
+test('the goal netting is rendered above the ball', async ({ page }) => {
+  await setup(page)
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  const output = await frame(page)
+  expect(output.layers.filter(layer => layer === 'net')).toHaveLength(2)
+  expect(output.layers.lastIndexOf('ball')).toBeGreaterThanOrEqual(0)
+  expect(output.layers.indexOf('net')).toBeGreaterThan(output.layers.lastIndexOf('ball'))
+})
 
 test('single-player menu supports mouse and keyboard without a two-player option', async ({ page }) => {
   await setup(page)
@@ -71,6 +87,75 @@ test('single-player menu supports mouse and keyboard without a two-player option
   expectCentered(await frame(page))
 })
 
+test('hover responds on the selected button and shares selection with keyboard and controller', async ({ page }) => {
+  await setupController(page)
+  const play = page.getByRole('button', { name: 'Play', exact: true })
+  const back = page.getByRole('button', { name: 'Back', exact: true })
+  await page.mouse.move(8, 8)
+  await expect(play).toBeFocused()
+  const selectedPaint = await play.evaluate(button => getComputedStyle(button).backgroundImage)
+  await play.hover()
+  expect(await play.evaluate(button => getComputedStyle(button).backgroundImage)).not.toBe(selectedPaint)
+  await back.hover()
+  await expect(back).toBeFocused()
+  await expect(play).not.toBeFocused()
+
+  // A stationary pointer must not take selection back from either input.
+  await page.keyboard.press('ArrowUp')
+  await frame(page)
+  await expect(play).toBeFocused()
+  await tap(page, 13)
+  await expect(back).toBeFocused()
+  await tap(page, 12)
+  await expect(play).toBeFocused()
+  const bounds = await back.boundingBox()
+  await page.mouse.move(bounds.x + bounds.width / 2 + 5, bounds.y + bounds.height / 2)
+  await expect(back).toBeFocused()
+
+  await play.click()
+  await frame(page)
+  await page.keyboard.press('p')
+  const resume = page.getByRole('button', { name: 'Resume', exact: true })
+  await expect(resume).toBeFocused()
+  await back.hover()
+  await expect(back).toBeFocused()
+  await resume.hover()
+  await expect(resume).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('menu transitions keep the arena visible and move focus without waiting for a game frame', async ({ page }) => {
+  await setup(page)
+  await frame(page)
+  const canvas = page.getByLabel('Bumper Ball arena', { exact: true })
+  const expectPainted = async () => {
+    // The clock stays paused through each transition. Clearing the backing
+    // surface here creates a visible black flash until the next animation frame.
+    const alpha = await canvas.evaluate(element => element.getContext('2d')
+      .getImageData(element.width / 2, element.height / 2, 1, 1).data[3])
+    expect(alpha).toBe(255)
+  }
+  await expectPainted()
+  await page.getByRole('button', { name: 'Play', exact: true }).click()
+  await expect(canvas).toBeFocused()
+  await expectPainted()
+  await frame(page)
+  for (const input of ['keyboard', 'mouse']) {
+    await page.keyboard.press('p')
+    await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
+    await expectPainted()
+    await page.keyboard.press('ArrowDown')
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeFocused()
+    await page.keyboard.press('ArrowUp')
+    if (input === 'keyboard') await page.keyboard.press('Enter')
+    else await page.getByRole('button', { name: 'Resume', exact: true }).click()
+    await expect(canvas).toBeFocused()
+    await expectPainted()
+    await frame(page)
+  }
+})
+
 test('larger windows zoom in while preserving the fixed arena, centered player and paused match', async ({ page }) => {
   await setup(page)
   await page.getByRole('button', { name: 'Play', exact: true }).click()
@@ -80,10 +165,10 @@ test('larger windows zoom in while preserving the fixed arena, centered player a
   const before = await frame(page)
   expect(before.walls).toEqual([[1600, 0, 1600, 30, 30], [1600, 1000, 1570, 1000, 30], [0, 1000, 0, 970, 30], [0, 0, 30, 0, 30]])
   expect(before.fixtures).toHaveLength(12)
-  const fixtures = output => output.fixtures.map(({ x, y, radius }) => ({ x, y, radius }))
+  const fixtures = output => output.fixtures.map(({ x, y, radius, width, height }) => ({ x, y, radius, width, height }))
   const relativeOpponent = output => ({
-    x: (output.cars['#f18e7d'].e - output.cars['#87bfff'].e) / output.fixtures[0].transform.a,
-    y: (output.cars['#f18e7d'].f - output.cars['#87bfff'].f) / output.fixtures[0].transform.d,
+    x: (output.cars['#ef6250'].e - output.cars['#409eff'].e) / output.fixtures[0].transform.a,
+    y: (output.cars['#ef6250'].f - output.cars['#409eff'].f) / output.fixtures[0].transform.d,
   })
   for (const [viewport, zoom] of [
     [{ width: 640, height: 480 }, 1],
@@ -100,7 +185,7 @@ test('larger windows zoom in while preserving the fixed arena, centered player a
     expectCentered(after)
     expect(after.fixtures[0].transform.a).toBeCloseTo(zoom, 5)
     // Car and fixtures enlarge together, while HUD text remains unscaled.
-    expect(Math.hypot(after.cars['#87bfff'].a, after.cars['#87bfff'].b)).toBeCloseTo(zoom, 5)
+    expect(Math.hypot(after.cars['#409eff'].a, after.cars['#409eff'].b)).toBeCloseTo(zoom, 5)
     expect(after.walls).toEqual(before.walls)
     expect(fixtures(after)).toEqual(fixtures(before))
     expect(after.ball).toEqual(before.ball)
@@ -129,7 +214,7 @@ for (const [turn, reverse] of [['ArrowLeft', 'ArrowDown'], ['a', 's']]) test(`${
   const moving = await frame(page)
   expectCentered(moving)
   expect(playerPosition(moving).y).toBeLessThan(playerPosition(before).y - 30)
-  expect(moving.cars['#f18e7d'].e).not.toBe(before.cars['#f18e7d'].e)
+  expect(moving.cars['#ef6250'].e).not.toBe(before.cars['#ef6250'].e)
   await page.clock.runFor(7000)
   await page.keyboard.up(reverse)
   const atWall = await frame(page)
@@ -148,7 +233,7 @@ async function setupController(page, mapping = 'standard') {
   await frame(page)
 }
 
-const heading = output => Math.atan2(output.cars['#87bfff'].b, output.cars['#87bfff'].a)
+const heading = output => Math.atan2(output.cars['#409eff'].b, output.cars['#409eff'].a)
 const angleDelta = (after, before) => Math.atan2(Math.sin(heading(after) - heading(before)), Math.cos(heading(after) - heading(before)))
 
 test('controller navigates menus, starts, turns proportionally without stick throttle, pauses, resumes and exits', async ({ page }) => {
@@ -324,7 +409,7 @@ test('Space boosts once per press, shows recharge, and freezes the cooldown whil
 
 test('controller A boosts after release, cannot retrigger while held, and respects pause priority', async ({ page }) => {
   await setupController(page)
-  await expect(page.getByText('A / × boosts', { exact: true })).toBeVisible()
+  await expect(page.locator('.bumper-help')).toContainText('A / × boosts')
   await hold(page, 0, 1, 200)
   expect(boostLabel(await frame(page))).toBe('BOOST READY · A / ×')
   await hold(page, 0, 0)

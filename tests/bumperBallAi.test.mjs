@@ -55,3 +55,44 @@ test('computer boosts improve an open finish but preserve gentle touches near th
   assert.equal(gentle.outcome, 'scored')
   assert.equal(gentle.boosts, 0)
 })
+
+test('a lined-up approach can become a strike without waiting for the setup timer', () => {
+  const world = createTrial({ car: [720, 400, 0], ball: [800, 400, 0, 0], opponent: [1200, 800] })
+  const memory = createAiMemory()
+  Object.assign(memory, { offenseState: 'setup', commitMs: 420, stuckMs: 500,
+    lastPos: { ...world.vehicle1.pos }, lastDistToBall: 80, heldDir: { x: 1, y: 0 }, heldDirMs: 380 })
+  driveComputer(world, memory, 1 / 60)
+  assert.equal(memory.offenseState, 'strike')
+  assert.ok(memory.stuckMs < 500, 'lining up is not a stuck-car recovery')
+  assert.ok(world.vehicle1.vel.x > 0)
+})
+
+test('orbiting stays on the approach side of a stationary ball', () => {
+  for (const [y, expectedSide] of [[300, -1], [700, 1]]) {
+    const world = createTrial({ car: [950, y, Math.PI], ball: [800, 500, 0, 0], opponent: [1400, 800] })
+    const memory = createAiMemory()
+    memory.heldDir = { x: 1, y: 0 }
+    memory.heldDirMs = 380
+    driveComputer(world, memory, 1 / 60)
+    assert.equal(memory.orbitSideSign, expectedSide)
+  }
+})
+
+test('the first wall-release touch is controlled instead of boosted into the end wall', () => {
+  for (const name of ['top-wall', 'bottom-wall']) {
+    const result = runTrial(SITUATIONS.find(fixture => fixture.name === name), { duration: 3 })
+    assert.ok(result.firstTouch !== null)
+    assert.equal(result.boosts, 0)
+  }
+})
+
+test('a long clear pursuit can use boost without first entering the orbit state', () => {
+  const world = createTrial({ car: [400, 400, 0], ball: [1000, 400, 0, 0], opponent: [1400, 800] })
+  world.vehicle1.vel.x = 50
+  const memory = createAiMemory()
+  memory.heldDir = { x: 1, y: 0 }
+  memory.heldDirMs = 380
+  driveComputer(world, memory, 1 / 60)
+  assert.equal(memory.offenseState, 'strike')
+  assert.equal(memory.boostRequested, true)
+})

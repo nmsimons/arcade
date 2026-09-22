@@ -38,6 +38,25 @@ Baseline results were captured from the original opponent in the fixed 1,600 × 
 
 Goals now sit in openings at the end walls. Shots must carry the entire ball across the line between the posts; there is no pull toward a goal. Cars and balls can enter the net pocket, with solid posts, side netting and a back boundary. The opponent's predictions use this geometry, and steering permits entry through the goal mouth.
 
-The same fixtures with the soccer goals produce 2 scored / 1 conceded / 9 unresolved in the fixed situations, and 10 / 5 / 9 against the seeded ball chaser. The open chance scores in 1.50 seconds. Removing the gravity assist and moving the scoring plane changes conversion substantially: wall recovery and contested possession often do not convert within 45 seconds. The existing AI outcome benchmarks still fail their earlier conversion targets; those thresholds have not been lowered to conceal the change. Further opponent tuning is needed before treating the historical figures as targets for soccer goals.
+The first soccer-goal version regressed to 2 scored / 1 conceded / 9 unresolved in the fixed situations. It continued chasing after off-line touches, steered beyond incoming balls, and repeatedly banked wall-bound balls into the rail. Setup timers could delay a ready strike, and the orbit-side sign could send the car across the ball instead of around it.
+
+The follow-up fixes the decisions without changing match physics or the existing test thresholds:
+
+- Predict both position and velocity through rebounds, lead by time until contact, and estimate a kick from relative velocity rather than a fixed extra impulse.
+- Aim beyond the goal line so the entire ball can cross; take an already-clear lane through the posts instead of circling for a center shot.
+- Follow a moving striking line continuously, compensate for drift, and maintain speed when the setup point is moving. Shorten the approach under nearby opposing pressure.
+- Keep orbiting on the current approach side and route around the ball as well as bumpers. Reach the outside edge of a rail-bound ball instead of pinning it with repeated wall shots.
+- Keep wall-release touches controlled, and allow boosts for long clear pursuits in any tactical phase. Alignment, traffic, cooldown and player-equivalent limits still apply.
+
+Current results, using the unchanged 45-second trials:
+
+| Trial set | Scored | Conceded | Unresolved |
+| --- | --- | --- | --- |
+| 12 fixed situations | 12 | 0 | 0 |
+| 24 ball-chaser situations, seed `20260921` | 13 | 8 | 3 |
+| Additional 24 situations, seed `20260922` | 15 | 3 | 6 |
+| Additional 24 situations, seed `20260923` | 11 | 11 | 2 |
+
+The open chance scores in 1.08 seconds. Top- and bottom-wall recoveries score in 7.00 and 7.12 seconds, and the corner recovery scores in 13.93 seconds. Regression tests also cover ready strikes during setup commitment, stationary-ball orbit direction, unboosted wall releases, and boosts during long straight pursuits.
 
 These trials do not measure difficulty or enjoyment against human players. Planning also uses an approximate prediction without forecasting the human's next input.

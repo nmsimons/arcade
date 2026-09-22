@@ -1,0 +1,167 @@
+{
+  "label": "after",
+  "recordedAt": "2026-09-22T20:27:56.151Z",
+  "profiling": false,
+  "seed": 713,
+  "hardware": {
+    "platform": "win32",
+    "arch": "arm64",
+    "cpu": "Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz",
+    "logicalCPUs": 12
+  },
+  "browser": "153.0.8010.12",
+  "viewport": {
+    "width": 1280,
+    "height": 800,
+    "dpr": 1
+  },
+  "headless": true,
+  "method": "Three fresh production-adapter episodes: 300 real RAF callbacks while driving/firing, then 60 paused callbacks. Transition latency includes browser/Playwright scheduling. No synthetic clock or developer hooks.",
+  "episodes": [
+    {
+      "deployMs": 264.87969999999973,
+      "pauseMs": 57.03030000000035,
+      "resumeMs": 165.04119999999966,
+      "cityBuilds": 1,
+      "playing": {
+        "work": {
+          "samples": 312,
+          "mean": 6.993910256349362,
+          "p50": 1.699999999254942,
+          "p95": 19.59999999962747,
+          "p99": 22.800000000745058,
+          "max": 31.699999999254942
+        },
+        "frameInterval": {
+          "samples": 311,
+          "mean": 9.324437299035369,
+          "p50": 0,
+          "p95": 33.29999999999973,
+          "p99": 33.40000000000009,
+          "max": 50
+        }
+      },
+      "paused": {
+        "work": {
+          "samples": 66,
+          "mean": 0.16818181811973001,
+          "p50": 0.19999999925494194,
+          "p95": 0.30000000074505806,
+          "p99": 0.30000000074505806,
+          "max": 0.3999999985098839
+        },
+        "frameInterval": {
+          "samples": 65,
+          "mean": 8.204615384615387,
+          "p50": 0,
+          "p95": 16.699999999999818,
+          "p99": 16.799999999999272,
+          "max": 16.800000000000182
+        }
+      },
+      "heap": {
+        "usedSize": 5492936,
+        "totalSize": 8974336,
+        "embedderHeapUsedSize": 1443768,
+        "backingStorageSize": 399422
+      }
+    },
+    {
+      "deployMs": 255.4369000000006,
+      "pauseMs": 76.07450000000063,
+      "resumeMs": 202.76050000000032,
+      "cityBuilds": 1,
+      "playing": {
+        "work": {
+          "samples": 308,
+          "mean": 8.11168831164114,
+          "p50": 0.5,
+          "p95": 22.59999999962747,
+          "p99": 26.200000001117587,
+          "max": 62.30000000074506
+        },
+        "frameInterval": {
+          "samples": 307,
+          "mean": 10.531921824104234,
+          "p50": 0,
+          "p95": 33.40000000000009,
+          "p99": 33.400000000000546,
+          "max": 49.899999999999636
+        }
+      },
+      "paused": {
+        "work": {
+          "samples": 68,
+          "mean": 0.22647058813120513,
+          "p50": 0.19999999925494194,
+          "p95": 0.40000000037252903,
+          "p99": 1,
+          "max": 1.199999999254942
+        },
+        "frameInterval": {
+          "samples": 67,
+          "mean": 8.208955223880597,
+          "p50": 0,
+          "p95": 16.699999999999818,
+          "p99": 16.700000000000728,
+          "max": 16.800000000000182
+        }
+      },
+      "heap": {
+        "usedSize": 5673004,
+        "totalSize": 10547200,
+        "embedderHeapUsedSize": 1454304,
+        "backingStorageSize": 465291
+      }
+    },
+    {
+      "deployMs": 205.96099999999933,
+      "pauseMs": 66.38799999999901,
+      "resumeMs": 193.40659999999843,
+      "cityBuilds": 1,
+      "playing": {
+        "work": {
+          "samples": 312,
+          "mean": 6.018589743621981,
+          "p50": 0.7000000011175871,
+          "p95": 13.800000000745058,
+          "p99": 18.59999999962747,
+          "max": 33.600000001490116
+        },
+        "frameInterval": {
+          "samples": 311,
+          "mean": 8.520578778135047,
+          "p50": 0,
+          "p95": 16.700000000000273,
+          "p99": 16.800000000000182,
+          "max": 33.30000000000018
+        }
+      },
+      "paused": {
+        "work": {
+          "samples": 66,
+          "mean": 0.17575757580837517,
+          "p50": 0.10000000149011612,
+          "p95": 0.30000000074505806,
+          "p99": 0.40000000037252903,
+          "max": 1.599999999627471
+        },
+        "frameInterval": {
+          "samples": 65,
+          "mean": 8.20461538461538,
+          "p50": 0,
+          "p95": 16.700000000000728,
+          "p99": 16.800000000000182,
+          "max": 16.800000000000182
+        }
+      },
+      "heap": {
+        "usedSize": 5867096,
+        "totalSize": 9760768,
+        "embedderHeapUsedSize": 1464016,
+        "backingStorageSize": 399573
+      }
+    }
+  ],
+  "errors": []
+}

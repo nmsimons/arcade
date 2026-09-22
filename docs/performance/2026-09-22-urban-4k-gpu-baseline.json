@@ -1,0 +1,114 @@
+{
+  "label": "before-4k",
+  "recordedAt": "2026-09-22T21:10:25.166Z",
+  "profiling": false,
+  "seed": 713,
+  "hardware": {
+    "platform": "win32",
+    "arch": "arm64",
+    "cpu": "Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz",
+    "logicalCPUs": 12
+  },
+  "browser": "153.0.8010.53",
+  "channel": "chrome",
+  "viewport": {
+    "width": 3840,
+    "height": 2160,
+    "dpr": 1
+  },
+  "headless": true,
+  "gpuRequested": true,
+  "gpu": {
+    "devices": [
+      {
+        "vendorId": 1297040209,
+        "deviceId": 909329200,
+        "subSysId": 808989496,
+        "revision": 136,
+        "vendorString": "",
+        "deviceString": "Qualcomm(R) Adreno(TM) X1-85 GPU",
+        "driverVendor": "Qualcomm",
+        "driverVersion": "31.0.133.1"
+      },
+      {
+        "vendorId": 5140,
+        "deviceId": 140,
+        "subSysId": 0,
+        "revision": 0,
+        "vendorString": "",
+        "deviceString": "Microsoft Basic Render Driver",
+        "driverVendor": "",
+        "driverVersion": "10.0.26100.9278"
+      }
+    ],
+    "features": {
+      "2d_canvas": "enabled",
+      "direct_rendering_display_compositor": "disabled_off_ok",
+      "gpu_compositing": "enabled",
+      "multiple_raster_threads": "enabled_on",
+      "opengl": "enabled_on",
+      "rasterization": "enabled",
+      "raw_draw": "disabled_off_ok",
+      "skia_graphite": "unavailable_off",
+      "trees_in_viz": "disabled_off",
+      "video_decode": "enabled",
+      "video_encode": "enabled",
+      "webgl": "enabled",
+      "webgpu": "enabled",
+      "webnn": "disabled_off"
+    },
+    "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11-31.0.133.1)"
+  },
+  "method": "1 fresh production-adapter episodes: 300 game RAF callbacks while driving/firing, then 60 paused callbacks. The game callback is identified by its battlefield draw; unrelated app/menu RAF callbacks are excluded. Transition latency includes browser/Playwright scheduling. No synthetic clock or developer hooks.",
+  "episodes": [
+    {
+      "deployMs": 255.3422999999998,
+      "pauseMs": 9.460100000000239,
+      "resumeMs": 69.46889999999985,
+      "cityBuilds": 1,
+      "playing": {
+        "work": {
+          "samples": 303,
+          "mean": 3.741914191409306,
+          "p50": 3.400000002235174,
+          "p95": 5.899999998509884,
+          "p99": 7.100000001490116,
+          "max": 8.600000001490116
+        },
+        "frameInterval": {
+          "samples": 302,
+          "mean": 16.88708609271523,
+          "p50": 16.699999999999818,
+          "p95": 17,
+          "p99": 18.59999999999991,
+          "max": 66.60000000000036
+        }
+      },
+      "paused": {
+        "work": {
+          "samples": 65,
+          "mean": 0.09384615375445439,
+          "p50": 0.09999999776482582,
+          "p95": 0.30000000074505806,
+          "p99": 0.30000000074505806,
+          "max": 0.3999999985098839
+        },
+        "frameInterval": {
+          "samples": 64,
+          "mean": 16.667187499999997,
+          "p50": 16.699999999999818,
+          "p95": 17,
+          "p99": 17.699999999999818,
+          "max": 19
+        }
+      },
+      "heap": {
+        "usedSize": 5923896,
+        "totalSize": 10285056,
+        "embedderHeapUsedSize": 1309448,
+        "backingStorageSize": 466514
+      }
+    }
+  ],
+  "errors": []
+}

@@ -11,6 +11,7 @@
     "test:browser": "playwright test",
     "generate:power": "node scripts/generate-power.mjs",
     "benchmark": "node scripts/benchmark.mjs",
+    "benchmark:urban-fire": "node scripts/benchmark-urban-fire.mjs",
     "benchmark:bumper-ai": "node scripts/benchmark-bumper-ai.mjs",
     "preview": "vite preview"
   },

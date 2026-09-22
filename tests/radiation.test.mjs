@@ -4,7 +4,7 @@ import { expeditionMap, freshExpedition, GATES, SOCKETS, powerReceiver } from '.
 import { isInsideCavern, resolveCircleInCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 import {
   RADIATION_HOUSINGS, RADIATION_SOURCES, freshRadiationFeedback, radiationAt,
-  radiationFootprint, stepRadiation, stepRadiationFeedback, RADIATION_RECHARGE_TIME,
+  radiationFootprint, radiationReach, stepRadiation, stepRadiationFeedback, RADIATION_RECHARGE_TIME,
 } from '../src/games/hardVacuum/radiation.ts'
 
 const reactor = RADIATION_SOURCES[0]
@@ -41,6 +41,18 @@ test('cached visual outlines exactly match fresh raycasts throughout station doo
     for(const source of RADIATION_SOURCES) {
       const cached=radiationFootprint(source,map)
       assert.deepEqual(cached,radiationFootprint(source,{...map,boundary:[...map.boundary]}),`${source.id} progress=${progress}`)
+      // Oracle uses every polygon, independently of footprint candidate filtering.
+      const angles=Array.from({length:96},(_,i)=>i*Math.PI/48-Math.PI)
+      for(const point of [...map.boundary,...map.obstacles.flat()]){
+        if(Math.hypot(point.x-source.pos.x,point.y-source.pos.y)>source.range+1)continue
+        const angle=Math.atan2(point.y-source.pos.y,point.x-source.pos.x)
+        angles.push(angle-.0001,angle,angle+.0001)
+      }
+      const expected=angles.sort((a,b)=>a-b).map(angle=>{
+        const distance=radiationReach(source,angle,map)
+        return {x:source.pos.x+Math.cos(angle)*distance,y:source.pos.y+Math.sin(angle)*distance}
+      })
+      assert.deepEqual(cached,expected,`full-map rays: ${source.id} progress=${progress}`)
     }
   }
 })

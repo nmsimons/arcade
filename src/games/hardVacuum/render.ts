@@ -28,6 +28,8 @@ import { drawStationBots } from './stationBotRender'
 import { drawDebris } from './debrisRender'
 import type { BotRuntime } from './stationBots'
 import { flightCameraZoom } from './flightCamera'
+import { contourPath, terrainPath } from './renderPaths'
+import { inRenderView } from './renderView'
 
 type Ref<T> = { current: T }
 
@@ -111,60 +113,33 @@ export function drawHardVacuumFrame(args: {
   ctx.scale(cameraZoom, cameraZoom)
   ctx.translate(-shipPosition.x, -shipPosition.y)
 
-  const traceCavern = () => {
-    ctx.beginPath()
-    cavernMap.boundary.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point.x, point.y)
-      else ctx.lineTo(point.x, point.y)
-    })
-    ctx.closePath()
-  }
-
   // The cavern is the actual world boundary, not a decorative viewport edge.
-  traceCavern()
+  const boundaryPath=contourPath(cavernMap.boundary)
   ctx.fillStyle = '#081211'
-  ctx.fill()
+  ctx.fill(boundaryPath)
   ctx.save()
-  traceCavern()
-  ctx.clip()
+  ctx.clip(boundaryPath)
   if (regionalTerrain) drawRegionFloor(ctx,regionView)
 
   // Interior formations define the routes through later maps. They are drawn
   // as solid cavern mass, then added as holes in the gameplay clip below.
   ctx.lineJoin = 'round'
   for (const obstacle of cavernMap.obstacles) {
-    ctx.beginPath()
-    obstacle.forEach((point, index) => {
-      if (index === 0) ctx.moveTo(point.x, point.y)
-      else ctx.lineTo(point.x, point.y)
-    })
-    ctx.closePath()
     ctx.fillStyle = '#030706'
-    ctx.fill()
+    ctx.fill(contourPath(obstacle))
   }
 
   if (args.training) drawTrainingFloor(ctx,args.training,args.floorHint ?? ((_action,key)=>key),expedition,shipRef.current)
   else if (gameState !== 'menu') {
     drawCampaignFloor(ctx,expedition,args.floorHint ?? ((_action,key)=>key),expeditionRuntime)
-    drawExpeditionWorld(ctx, expedition, expeditionRuntime, shipRef.current)
+    drawExpeditionWorld(ctx, expedition, expeditionRuntime, shipRef.current,regionView)
   }
 
   // Hide ships, rocks, beams, and debris when they pass behind solid rock.
-  ctx.beginPath()
-  cavernMap.boundary.forEach((point, index) => {
-    if (index === 0) ctx.moveTo(point.x, point.y)
-    else ctx.lineTo(point.x, point.y)
-  })
-  ctx.closePath()
-  for (const obstacle of cavernMap.obstacles) {
-    ctx.moveTo(obstacle[0].x, obstacle[0].y)
-    for (let index = 1; index < obstacle.length; index++) ctx.lineTo(obstacle[index].x, obstacle[index].y)
-    ctx.closePath()
-  }
-  ctx.clip('evenodd')
+  ctx.clip(terrainPath(cavernMap.boundary,cavernMap.obstacles),'evenodd')
 
   // The same rigid leaves supply rendering and collision geometry.
-  if (gameState !== 'menu' && !args.training) drawHaven(ctx, havenPose(expedition, miningBaseAngleRef.current), expeditionRuntime.elapsed,
+  if (gameState !== 'menu' && !args.training && inRenderView(expedition.campaign.haven,220,regionView)) drawHaven(ctx, havenPose(expedition, miningBaseAngleRef.current), expeditionRuntime.elapsed,
     (expedition.campaign.journey?.speed ?? 0) / 210, expeditionRuntime.havenImpact ?? 0, expedition.rescuedPods.length, expedition.campaign.havenActivated, expeditionRuntime.havenActivation ?? 0,
     {deployment:havenLinkDeployment(expedition,expeditionRuntime),connected:expeditionRuntime.connectedTerminal==='first-light'})
   const recovery=expeditionRuntime.recovery
@@ -188,7 +163,7 @@ export function drawHardVacuumFrame(args: {
     ctx.restore()
   }
 
-  if (gameState !== 'menu' && !args.training) drawStationBots(ctx,args.bots,expedition,expeditionRuntime.elapsed)
+  if (gameState !== 'menu' && !args.training) drawStationBots(ctx,args.bots,expedition,expeditionRuntime.elapsed,regionView)
 
   // Draw rocks
   rocksRef.current.forEach((rock) => {
@@ -574,7 +549,7 @@ export function drawHardVacuumFrame(args: {
   if (regionalTerrain) drawRegionRock(ctx,regionView)
   drawTerrainWalls(ctx, cavernMap.boundary, args.training ? TRAINING_WALLS : gameState === 'menu' ? cavernMap.obstacles : STATION_TERRAIN.islands)
   if (args.training) drawGateFoundations(ctx,TRAINING_GATE,args.training.door)
-  else if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition)
+  else if (gameState !== 'menu') drawExpeditionDoorFoundations(ctx, expedition,regionView)
   ctx.restore() // camera
 
   if (mapOpen) {

@@ -1,4 +1,4 @@
-import { normalize3, rotX, rotY, rotZ } from './hardVacuum/math.ts'
+import { normalize3, rotZ } from './hardVacuum/math.ts'
 import type { V3, Vector2 } from './hardVacuum/types'
 export type { V3, Vector2 } from './hardVacuum/types'
 
@@ -33,7 +33,15 @@ export function bevel(lower: Outline, upper: Outline, color: string, bottom = 3,
   }
 }
 
-const rotate = (p: V3, angles: V3) => rotZ(rotY(rotX(p, angles[0]), angles[1]), angles[2])
+// Reuse trigonometry across an assembly/part without changing rotation order.
+const rotation = (angles: V3) => {
+  const cx=Math.cos(angles[0]),sx=Math.sin(angles[0]),cy=Math.cos(angles[1]),sy=Math.sin(angles[1]),cz=Math.cos(angles[2]),sz=Math.sin(angles[2])
+  return (p:V3):V3=>{
+    const y=p[1]*cx-p[2]*sx,z=p[1]*sx+p[2]*cx
+    const x=p[0]*cy+z*sy,depth=-p[0]*sy+z*cy
+    return [x*cz-y*sz,x*sz+y*cz,depth]
+  }
+}
 const colorCache = new Map<string, V3>()
 const rgb = (color: string): V3 => {
   if (!colorCache.has(color)) colorCache.set(color, [1, 3, 5].map(i => parseInt(color.slice(i, i + 2), 16)) as V3)
@@ -46,6 +54,7 @@ const rgb = (color: string): V3 => {
 export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: readonly Part[], angles: V3, time: number, scale = 1, illumination = 0, material: 'vector' | 'solid' = 'vector', lightAngle = 0) {
   type Marking = { points: Vector2[]; color: V3; glow: boolean }
   const faces: { points: Vector2[]; z: number; color: V3; shade: number; glow: boolean; edges?: number[]; markings: Marking[] }[] = []
+  const solid=material==='solid', rotateAssembly=rotation(angles)
   const light: V3 = material==='solid' ? rotZ([-.38,-.48,-.79],-lightAngle) : [0.25, -0.45, -0.86]
   const project = (p: V3): Vector2 => {
     const perspective=420/(420+p[2])
@@ -53,22 +62,25 @@ export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: re
   }
   for (const part of parts) {
     const edgeKey = (a:number,b:number) => `${Math.min(a,b)}:${Math.max(a,b)}`
-    const edges = part.edges && new Map(part.edges.map(([a,b,opacity])=>[edgeKey(a,b),opacity]))
+    // Solid models use shaded joins, never the vector material's edge graph.
+    const edges = !solid && part.edges ? new Map(part.edges.map(([a,b,opacity])=>[edgeKey(a,b),opacity])) : undefined
     const local = part.rotation ?? [0, 0, 0]
+    const rotatePart=rotation([local[0],local[1],local[2]+time*(part.spin??0)])
     const transform = (v: V3) => {
-      const p = rotate(v, [local[0], local[1], local[2] + time * (part.spin ?? 0)])
-      return rotate([p[0] + part.at[0], p[1] + part.at[1], p[2] + part.at[2]], angles)
+      const p = rotatePart(v)
+      return rotateAssembly([p[0] + part.at[0], p[1] + part.at[1], p[2] + part.at[2]])
     }
     const vertices = part.verts.map(transform)
+    const projected = vertices.map(project)
     const visibleFaces = part.faces.flatMap((face, index) => {
       // Newell's normal uses the whole polygon. Beveled quads can be slightly
       // twisted; using their first triangle makes mirrored faces disagree.
-      const normal = normalize3(face.reduce<V3>((sum, index, i) => {
-        const a = vertices[index], b = vertices[face[(i + 1) % face.length]]
-        return [sum[0] + (a[1] - b[1]) * (a[2] + b[2]),
-          sum[1] + (a[2] - b[2]) * (a[0] + b[0]),
-          sum[2] + (a[0] - b[0]) * (a[1] + b[1])]
-      }, [0, 0, 0]))
+      let nx=0,ny=0,nz=0
+      for(let i=0;i<face.length;i++){
+        const a=vertices[face[i]],b=vertices[face[(i+1)%face.length]]
+        nx+=(a[1]-b[1])*(a[2]+b[2]);ny+=(a[2]-b[2])*(a[0]+b[0]);nz+=(a[0]-b[0])*(a[1]+b[1])
+      }
+      const normal=normalize3([nx,ny,nz])
       return normal[2] > 0.02 ? [] : [{ face, normal, index }]
     })
     const visibleEdges = new Map<string, number>()
@@ -79,7 +91,7 @@ export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: re
       }
     }
     for (const { face, normal, index } of visibleFaces) {
-      const points = face.map(i => project(vertices[i]))
+      const points = face.map(i => projected[i])
       faces.push({ points, z: face.reduce((sum, i) => sum + vertices[i][2], 0) / face.length, color: rgb(part.color), shade: Math.max(0, normal[0] * light[0] + normal[1] * light[1] + normal[2] * light[2]), glow: !!part.glow,
         markings:(part.markings ?? []).filter(marking=>marking.face===index).map(marking=>({points:marking.verts.map(v=>project(transform(v))),color:rgb(marking.color),glow:!!marking.glow})),
         // An edge shared by two visible faces is a seam; with only one it is
@@ -98,7 +110,6 @@ export function drawModel(ctx: CanvasRenderingContext2D, pos: Vector2, parts: re
     ctx.beginPath()
     face.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y))
     ctx.closePath()
-    const solid=material==='solid'
     const brightness = (solid ? .24+face.shade*.62 : face.glow ? 0.4 + face.shade * 0.35 : 0.025 + face.shade * 0.055) + illumination * 0.25
     const [r, g, b] = face.color
     ctx.shadowBlur = 0

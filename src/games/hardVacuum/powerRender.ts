@@ -1,11 +1,13 @@
 import type { Vector2 } from './types'
 import { RECEIVER_HALF_GAP } from './receivers'
+import { inRenderView, segmentInRenderView } from './renderView'
+import type { RenderView } from './renderView'
 
 /** Shared visual language for live power, in the station and practice room. */
-export function drawPowerCircuit(ctx: CanvasRenderingContext2D, traces: readonly {a:Vector2;b:Vector2}[], contacts: readonly Vector2[], powered: boolean, time: number) {
+export function drawPowerCircuit(ctx: CanvasRenderingContext2D, traces: readonly {a:Vector2;b:Vector2}[], contacts: readonly Vector2[], powered: boolean, time: number, view?:RenderView) {
   ctx.save();ctx.lineJoin='bevel';ctx.lineCap='butt';ctx.shadowBlur=0
   ctx.beginPath()
-  for(const {a,b} of traces) {ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)}
+  for(const {a,b} of traces) if(segmentInRenderView(a,b,2,view)) {ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y)}
   ctx.strokeStyle=powered ? 'rgba(91,173,133,.30)' : 'rgba(97,135,133,.20)'
   ctx.lineWidth=1;ctx.stroke()
   if(powered) {
@@ -14,7 +16,7 @@ export function drawPowerCircuit(ctx: CanvasRenderingContext2D, traces: readonly
     ctx.setLineDash([])
   }
   ctx.fillStyle=powered ? 'rgba(101,239,178,.45)' : 'rgba(102,139,139,.30)'
-  for(const p of contacts)ctx.fillRect(p.x-1.5,p.y-1.5,3,3)
+  for(const p of contacts)if(inRenderView(p,2,view))ctx.fillRect(p.x-1.5,p.y-1.5,3,3)
   ctx.restore()
 }
 

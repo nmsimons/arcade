@@ -11,6 +11,12 @@ async function setup(page, controller = false) {
     }
     window.tireAudio={started:0,stopped:0}
     window.impactAudio={started:0}
+    window.urbanWork={cities:0,draws:0}
+    const getContext=HTMLCanvasElement.prototype.getContext
+    HTMLCanvasElement.prototype.getContext=function(...args){
+      if(args[0]==='2d'&&this.width===3648&&this.height===3148)window.urbanWork.cities++
+      return getContext.apply(this,args)
+    }
     for(const method of ['start','stop']){
       const original=AudioBufferSourceNode.prototype[method]
       AudioBufferSourceNode.prototype[method]=function(...args){
@@ -25,6 +31,7 @@ async function setup(page, controller = false) {
       proto[method] = function (...args) {
         if (this.canvas.getAttribute('aria-label') === 'Urban Fire battlefield') {
           if (method === 'fillRect' && args[0] === 0 && args[1] === 0 && args[2] === this.canvas.width && args[3] === this.canvas.height) {
+            window.urbanWork.draws++
             window.urbanFrame = { width: this.canvas.width, height: this.canvas.height, enemies: [], shots: [], hud: [], skids:0 }
           }
           const frame = window.urbanFrame
@@ -52,6 +59,20 @@ async function setup(page, controller = false) {
 }
 const frame = async page => { await page.clock.runFor(32); return page.evaluate(() => window.urbanFrame) }
 const position = f => ({ x: (f.width / 2 - f.city.transform.e) / f.city.transform.a, y: (f.height / 2 - f.city.transform.f) / f.city.transform.d })
+
+test('static battlefield resources survive deployment and pause, and a paused frame only redraws on resize',async({page})=>{
+  await setup(page)
+  expect(await page.evaluate(()=>window.urbanWork.cities)).toBe(1)
+  await page.getByRole('button',{name:'Deploy',exact:true}).click();await frame(page)
+  await page.keyboard.press('p');await frame(page)
+  const before=await page.evaluate(()=>({...window.urbanWork}))
+  await page.clock.runFor(2000)
+  expect(await page.evaluate(()=>window.urbanWork)).toEqual(before)
+  await page.setViewportSize({width:900,height:700});await frame(page)
+  expect(await page.evaluate(()=>window.urbanWork.draws)).toBeGreaterThan(before.draws)
+  await page.keyboard.press('p');await frame(page)
+  expect(await page.evaluate(()=>window.urbanWork.cities)).toBe(1)
+})
 function centered(f) {
   expect(f.jeep.e).toBeCloseTo(f.width / 2, 3); expect(f.jeep.f).toBeCloseTo(f.height / 2, 3)
   expect([f.city.width, f.city.height]).toEqual([3648, 3148])

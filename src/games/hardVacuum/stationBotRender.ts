@@ -6,10 +6,13 @@ import { expeditionMap } from './expedition'
 import { raycastCavern } from './worldGeometry'
 import { havenPose } from './campaign'
 import { withHavenColliders } from './havenGeometry'
+import { inRenderView, segmentInRenderView } from './renderView'
+import type { RenderView } from './renderView'
 
-export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRuntime, state: Expedition, time: number) {
+export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRuntime, state: Expedition, time: number, view?:RenderView) {
   ctx.save(); ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.shadowBlur = 0
   for (const spec of BOT_STATIONS) {
+    if(!inRenderView(spec.home,120,view))continue
     const powered = !!state.power[spec.power]
     for (const shape of [...botGarageWalls(spec),...botGarageDoors(spec,botGarageProgress(state,spec))]) {
       ctx.beginPath(); shape.forEach((p,i)=>i ? ctx.lineTo(p.x,p.y) : ctx.moveTo(p.x,p.y)); ctx.closePath()
@@ -27,6 +30,10 @@ export function drawStationBots(ctx: CanvasRenderingContext2D, runtime: BotRunti
   for (const bot of runtime.units) {
     if (bot.health <= 0) continue
     const rig=bot.maintenance,hook=rig?.hook
+    const end=bot.target?.pos ?? hook?.pos
+    const reach=bot.phase==='charge'||bot.phase==='burst' ? 520 : 100
+    // Retain a cable crossing the viewport even when both bodies are outside.
+    if(!inRenderView(bot.pos,reach,view) && !(end && segmentInRenderView(bot.pos,end,(rig?.cableLength??92)*.3+12,view)))continue
     if (bot.target || hook) {
       const end=bot.target?.pos ?? hook!.pos,dx=end.x-bot.pos.x,dy=end.y-bot.pos.y,d=Math.max(1,Math.hypot(dx,dy))
       const tip={x:end.x-dx/d*(bot.target?.radius ?? 0)*.8,y:end.y-dy/d*(bot.target?.radius ?? 0)*.8}

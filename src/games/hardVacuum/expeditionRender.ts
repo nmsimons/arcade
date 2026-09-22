@@ -17,6 +17,8 @@ import { drawTerminals } from './terminalRender'
 import { surveyView } from './surveyView'
 import { drawIgnitionCradle } from './ignitionCradleRender'
 import { drawAccessTunnel } from './accessTunnelRender'
+import { inRenderView } from './renderView'
+import type { RenderView } from './renderView'
 
 const SURVEY_LABEL_POSITIONS: Record<string, Vector2> = {
   ...Object.fromEntries(SECTORS.map(r => [r.id,{ x:r.x+r.w/2,y:r.y+r.h*.27 }])),
@@ -24,14 +26,14 @@ const SURVEY_LABEL_POSITIONS: Record<string, Vector2> = {
   archive: { x: 1470, y: 400 }, reactor: { x: 2480, y: 1280 }, engine: { x: 2500, y: 1940 }, vault: { x: 1430, y: 1910 },
 }
 
-export function drawExpeditionDoorFoundations(ctx: CanvasRenderingContext2D, state: Expedition) {
-  for (const gate of GATES) drawGateFoundations(ctx, gate, doorProgress(state, gate.id))
+export function drawExpeditionDoorFoundations(ctx: CanvasRenderingContext2D, state: Expedition, view?:RenderView) {
+  for (const gate of GATES) if(inRenderView({x:gate.x+gate.w/2,y:gate.y+gate.h/2},Math.max(gate.w,gate.h)/2+30,view)) drawGateFoundations(ctx, gate, doorProgress(state, gate.id))
   drawGateFoundations(ctx,OUTER_LOCK,outerLockProgress(outerLockOpen(state)))
 }
 
-export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition, rt: ExpeditionRuntime, ship: Ship) {
+export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition, rt: ExpeditionRuntime, ship: Ship, view?:RenderView) {
   ctx.save()
-  drawStationInfrastructure(ctx, s, rt.elapsed)
+  drawStationInfrastructure(ctx, s, rt.elapsed, view)
   drawAccessTunnel(ctx,outerLockOpen(s))
   for (const housing of WARD_POD_HOUSINGS) {
     ctx.fillStyle='#0b1712';ctx.strokeStyle='#708f82';ctx.lineWidth=1
@@ -57,6 +59,7 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     ctx.stroke(); ctx.restore()
   }
   for (const berth of BERTHS) {
+    if(!inRenderView(berth.pos,200,view))continue
     if (berth.id === s.campaign.berth && havenReady(s)) continue
     const active = s.campaign.berths.includes(berth.id)
     ctx.save(); ctx.translate(berth.pos.x,berth.pos.y)
@@ -70,14 +73,16 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
     }
     ctx.restore()
   }
-  drawTerminals(ctx,s,rt,ship)
+  drawTerminals(ctx,s,rt,ship,undefined,view)
   drawRadiationSources(ctx, ship, rt.elapsed, expeditionMap(s))
   for (const gate of GATES) {
+    if(!inRenderView({x:gate.x+gate.w/2,y:gate.y+gate.h/2},Math.max(gate.w,gate.h)/2+30,view))continue
     const progress = doorProgress(s, gate.id)
     if (progress >= 1 && gate.kind === 'rubble') continue
     drawGateObject(ctx, gate, progress)
   }
   for (const socket of SOCKETS) {
+    if(!inRenderView(socket.pos,130,view))continue
     const powered = !!s.power[socket.id]
     drawExpeditionObject(ctx, 'socket', socket.pos, { active: powered, time: rt.elapsed })
     if (powered) drawReceiverCurrent(ctx, socket.pos, rt.elapsed)
@@ -86,21 +91,24 @@ export function drawExpeditionWorld(ctx: CanvasRenderingContext2D, s: Expedition
   for (const item of PICKUPS) {
     if (moduleInstalled(s, item.id) || rt.recovery?.id === item.id) continue
     const pos = rt.objects[item.id]?.pos ?? item.pos
+    if(!inRenderView(pos,120,view))continue
     drawCargo(ctx,item.id,pos,{time:rt.elapsed,laserGlow:rt.objects[item.id]?.laserGlow})
   }
   CACHES.forEach(cache => {
     if (s.caches.includes(cache.id) || rt.recovery?.id === cache.id) return
     const pos = rt.objects[cache.id]?.pos ?? cache.pos
+    if(!inRenderView(pos,120,view))return
     drawCargo(ctx,cache.id,pos,{time:rt.elapsed,laserGlow:rt.objects[cache.id]?.laserGlow})
   })
   for (const pod of SURVIVAL_PODS) {
     if (s.rescuedPods.includes(pod.id) || rt.recovery?.id===pod.id) continue
     const body=rt.objects[pod.id], released=podReleased(s,pod.id)
+    if(!inRenderView(body?.pos ?? pod.pos,120,view))continue
     drawCargo(ctx,pod.id,body?.pos ?? pod.pos,{time:released ? rt.elapsed : 0,laserGlow:body?.laserGlow})
   }
   if (!s.core) {
     const pos = rt.objects.core?.pos ?? CORE_POSITION
-    drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.coreLatch?.cargoTime ?? rt.elapsed,laserGlow:rt.objects.core?.laserGlow})
+    if(inRenderView(pos,120,view))drawCargo(ctx,'core',pos,{active:coreReleased(s),time:rt.coreLatch?.cargoTime ?? rt.elapsed,laserGlow:rt.objects.core?.laserGlow})
   }
   ctx.restore()
 }

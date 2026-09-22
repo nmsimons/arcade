@@ -2,13 +2,23 @@ import type { Expedition } from './expedition'
 import { powerConduits, powerTraces } from './powerWiring'
 import { drawPowerCircuit } from './powerRender'
 import { drawWayfindingSign, REGION_ENTRY_SIGNS } from './stationWayfinding'
+import type { RenderView } from './renderView'
 
-export function drawStationInfrastructure(ctx: CanvasRenderingContext2D, state: Expedition, time: number) {
+function circuitGeometry() {
   const circuits = powerConduits()
-  for (const source of new Set(circuits.map(c=>c.source))) {
-    const branches=circuits.filter(c=>c.source===source),powered=!!state.power[source]
+  const traces=powerTraces()
+  return [...new Set(circuits.map(c=>c.source))].map(source=>{
+    const branches=circuits.filter(c=>c.source===source)
     const contacts=new Map(branches.flatMap(c=>[c.start,c.end]).map(p=>[`${p.x},${p.y}`,p]))
-    drawPowerCircuit(ctx,powerTraces().filter(c=>c.source===source),[...contacts.values()],powered,time)
+    return {source,traces:traces.filter(c=>c.source===source),contacts:[...contacts.values()]}
+  })
+}
+let circuits: ReturnType<typeof circuitGeometry> | undefined
+
+export function drawStationInfrastructure(ctx: CanvasRenderingContext2D, state: Expedition, time: number, view?:RenderView) {
+  // Fixed authored wiring never changes with power state or moving door leaves.
+  for (const circuit of circuits??=circuitGeometry()) {
+    drawPowerCircuit(ctx,circuit.traces,circuit.contacts,!!state.power[circuit.source],time,view)
   }
   for(const sign of REGION_ENTRY_SIGNS) drawWayfindingSign(ctx,sign)
   // Sparse industrial labels, not instructions for solving the station.

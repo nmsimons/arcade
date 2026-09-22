@@ -3,30 +3,51 @@ import test from 'node:test'
 import { drawTerrainWalls } from '../src/games/hardVacuum/terrainRender.ts'
 import { STATION_TERRAIN } from '../src/games/hardVacuum/stationLayout.ts'
 import { getDemoCavernMap } from '../src/games/hardVacuum/worldGeometry.ts'
+import { contourPath, terrainPath } from '../src/games/hardVacuum/renderPaths.ts'
+
+class RecordedPath {
+  constructor(other) { this.contours=structuredClone(other?.contours??[]) }
+  moveTo(x,y) { this.contours.push({points:[{x,y}],closed:false}) }
+  lineTo(x,y) { this.contours.at(-1).points.push({x,y}) }
+  closePath() { this.contours.at(-1).closed=true }
+  addPath(other) { this.contours.push(...structuredClone(other.contours)) }
+}
 
 function recordWalls(boundary, islands) {
   const initial = { lineJoin: 'miter', lineWidth: 3, strokeStyle: '#ffffff', shadowBlur: 25, shadowColor: '#ff0000' }
   const strokes = [], stack = []
-  let contours = []
   const ctx = {
     ...initial,
     save() { stack.push(Object.fromEntries(Object.keys(initial).map(key => [key, this[key]]))) },
     restore() { Object.assign(this, stack.pop()) },
-    beginPath() { contours = [] },
-    moveTo(x, y) { contours.push({ points: [{ x, y }], closed: false }) },
-    lineTo(x, y) { contours.at(-1).points.push({ x, y }) },
-    closePath() { contours.at(-1).closed = true },
-    stroke() {
-      strokes.push({ contours: structuredClone(contours), width: this.lineWidth, color: this.strokeStyle,
+    stroke(path) {
+      strokes.push({ contours: structuredClone(path.contours), width: this.lineWidth, color: this.strokeStyle,
         glow: this.shadowBlur, glowColor: this.shadowColor, join: this.lineJoin })
     },
   }
-  drawTerrainWalls(ctx, boundary, islands)
+  const original=globalThis.Path2D;globalThis.Path2D=RecordedPath
+  try { drawTerrainWalls(ctx, boundary, islands) } finally { globalThis.Path2D=original }
   assert.deepEqual(Object.fromEntries(Object.keys(initial).map(key => [key, ctx[key]])), initial,
     'wall styling must not leak into doors, objects, or the HUD')
   assert.equal(stack.length, 0)
   return strokes
 }
+
+test('cached contours preserve closed geometry and fresh door snapshots invalidate the clip',()=>{
+  const original=globalThis.Path2D;globalThis.Path2D=RecordedPath
+  try {
+    const boundary=[{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}]
+    const door=[{x:40,y:0},{x:60,y:0},{x:60,y:100},{x:40,y:100}],closed=[door]
+    const path=terrainPath(boundary,closed)
+    assert.equal(terrainPath(boundary,closed),path)
+    assert.equal(contourPath(boundary),contourPath(boundary))
+    const opened=[door.map(p=>({...p,y:p.y-100}))],openPath=terrainPath(boundary,opened)
+    assert.notEqual(openPath,path)
+    assert.deepEqual(path.contours.map(c=>c.points),[boundary,door])
+    assert.deepEqual(openPath.contours.map(c=>c.points),[boundary,...opened])
+    assert.ok(openPath.contours.every(c=>c.closed))
+  }finally{globalThis.Path2D=original}
+})
 
 for (const [name, boundary, islands] of [
   ['station', STATION_TERRAIN.boundary, STATION_TERRAIN.islands],

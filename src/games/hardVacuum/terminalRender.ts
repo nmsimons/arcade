@@ -2,9 +2,12 @@ import type { Expedition, ExpeditionRuntime } from './expedition'
 import type { Ship } from './types'
 import { TERMINALS, TERMINAL_OUTLINE } from './terminals'
 import { recordAvailable } from './campaign'
+import { inRenderView } from './renderView'
+import type { RenderView } from './renderView'
 
-export function drawTerminals(ctx: CanvasRenderingContext2D, s: Expedition, rt: Pick<ExpeditionRuntime,'connectedTerminal'|'elapsed'>, ship: Pick<Ship,'pos'>, terminals=TERMINALS) {
+export function drawTerminals(ctx: CanvasRenderingContext2D, s: Expedition, rt: Pick<ExpeditionRuntime,'connectedTerminal'|'elapsed'>, ship: Pick<Ship,'pos'>, terminals=TERMINALS, view?:RenderView) {
   for (const terminal of terminals) {
+    if(!inRenderView(terminal.pos,100,view))continue
     const connected = rt.connectedTerminal === terminal.terminalId
     const heard = s.campaign.records.includes(terminal.terminalId!)
     const color = connected ? '#65efb2' : '#6bcaff'

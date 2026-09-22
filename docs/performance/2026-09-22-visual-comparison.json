@@ -1,0 +1,44 @@
+[
+  {
+    "name": "late-field",
+    "differingPixels": 0,
+    "maxChannelDifference": 0,
+    "meanChannelDifference": 0,
+    "pixels": 1024000
+  },
+  {
+    "name": "red-chain",
+    "differingPixels": 0,
+    "maxChannelDifference": 0,
+    "meanChannelDifference": 0,
+    "pixels": 1024000
+  },
+  {
+    "name": "bot-towing",
+    "differingPixels": 0,
+    "maxChannelDifference": 0,
+    "meanChannelDifference": 0,
+    "pixels": 1024000
+  },
+  {
+    "name": "moving-haven",
+    "differingPixels": 0,
+    "maxChannelDifference": 0,
+    "meanChannelDifference": 0,
+    "pixels": 1024000
+  },
+  {
+    "name": "opening-doors",
+    "differingPixels": 0,
+    "maxChannelDifference": 0,
+    "meanChannelDifference": 0,
+    "pixels": 1024000
+  },
+  {
+    "name": "radiation-flight",
+    "differingPixels": 0,
+    "maxChannelDifference": 0,
+    "meanChannelDifference": 0,
+    "pixels": 1024000
+  }
+]

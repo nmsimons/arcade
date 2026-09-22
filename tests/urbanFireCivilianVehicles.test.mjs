@@ -12,6 +12,21 @@ const car=(kind='car',x=780,y=550)=>createCivilianVehicles([{x:x-16,y:y-8,width:
 const settle=(cars,walls=[],seconds=4,dt=1/120)=>{for(let t=0;t<seconds-1e-8;t+=dt)stepCivilianVehicles(cars,walls,dt)}
 const wallBox=w=>({pos:{x:w.x+w.width/2,y:w.y+w.height/2},length:w.width,width:w.height,angle:w.angle??0})
 
+test('broad rejection retains long-wall contacts and rotated tips, including a car turning into cover',()=>{
+  const c=car();c.length=120;c.width=12
+  const wall={pos:{x:830,y:550},length:10,width:900,angle:0}
+  assert.ok(boxContact(c,wall),'a long wall can intersect although its corners are distant')
+  const target={pos:{x:824,y:594},length:8,width:8,angle:0}
+  assert.equal(boxContact(c,target),null)
+  c.angle=Math.PI/4
+  assert.ok(boxContact(c,target),'the rotated tip must not be culled using unrotated extents')
+  const actor={pos:{x:824,y:594},vel:{x:0,y:0},radius:6,mass:1}
+  assert.ok(civilianCircleContact(c,actor))
+  c.pos={x:100,y:100}
+  assert.equal(boxContact(c,target),null)
+  assert.equal(civilianCircleContact(c,actor),null)
+})
+
 test('every intact civilian vehicle is live cover, without a cached obstacle at its old position',()=>{
   const authored=JSON.stringify(CITY),cars=createCivilianVehicles(),walls=createStaticCityWalls()
   assert.equal(cars.length,CITY.props.filter(isMovableProp).length)

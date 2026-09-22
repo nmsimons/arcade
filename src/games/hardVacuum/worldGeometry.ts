@@ -219,15 +219,6 @@ export const pointInPolygon = (point: Vector2, polygon: readonly Vector2[]) => {
   return inside
 }
 
-const closestPointOnSegment = (point: Vector2, a: Vector2, b: Vector2) => {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  const lengthSquared = dx * dx + dy * dy
-  if (lengthSquared < 1e-9) return { x: a.x, y: a.y }
-  const t = Math.max(0, Math.min(1, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lengthSquared))
-  return { x: a.x + dx * t, y: a.y + dy * t }
-}
-
 const polygonBounds = new WeakMap<readonly Vector2[], { x:number; y:number; right:number; bottom:number }>()
 const boundsOf = (polygon: readonly Vector2[]) => {
   let bounds = polygonBounds.get(polygon)
@@ -238,23 +229,71 @@ const boundsOf = (polygon: readonly Vector2[]) => {
   return bounds
 }
 const boundsDistanceSquared = (p: Vector2, polygon: readonly Vector2[]) => {
-  const b = boundsOf(polygon), dx = Math.max(0,b.x-p.x,p.x-b.right), dy = Math.max(0,b.y-p.y,p.y-b.bottom)
+  return distanceToBoundsSquared(p,boundsOf(polygon))
+}
+type Bounds = {x:number;y:number;right:number;bottom:number}
+const distanceToBoundsSquared = (p:Vector2,b:Bounds) => {
+  const dx = Math.max(0,b.x-p.x,p.x-b.right), dy = Math.max(0,b.y-p.y,p.y-b.bottom)
   return dx*dx+dy*dy
 }
+type EdgeNode = Bounds & {edges?:number[]; left?:EdgeNode; rightNode?:EdgeNode}
+const edgeTrees = new WeakMap<readonly Vector2[],EdgeNode>()
+/** Large immutable station contours share a small edge hierarchy. Door leaves
+ * and other short polygons keep the straight scan. No collision is approximated. */
+function edgeTree(polygon:readonly Vector2[]):EdgeNode | undefined {
+  if(polygon.length<24)return undefined
+  let tree=edgeTrees.get(polygon)
+  if(!tree){
+    const edges=polygon.map((a,i)=>{
+      const b=polygon[(i+1)%polygon.length]
+      return {x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),right:Math.max(a.x,b.x),bottom:Math.max(a.y,b.y)}
+    })
+    const build=(indices:number[]):EdgeNode=>{
+      const node:EdgeNode={x:Infinity,y:Infinity,right:-Infinity,bottom:-Infinity}
+      for(const i of indices){const b=edges[i];node.x=Math.min(node.x,b.x);node.y=Math.min(node.y,b.y);node.right=Math.max(node.right,b.right);node.bottom=Math.max(node.bottom,b.bottom)}
+      if(indices.length<=8)node.edges=indices
+      else{
+        const wide=node.right-node.x>=node.bottom-node.y
+        indices.sort((a,b)=>wide ? (edges[a].x+edges[a].right)-(edges[b].x+edges[b].right) : (edges[a].y+edges[a].bottom)-(edges[b].y+edges[b].bottom))
+        const middle=Math.floor(indices.length/2)
+        node.left=build(indices.slice(0,middle));node.rightNode=build(indices.slice(middle))
+      }
+      return node
+    }
+    tree=build(polygon.map((_,i)=>i));edgeTrees.set(polygon,tree)
+  }
+  return tree
+}
 const nearestPolygonPoint = (point: Vector2, polygon: readonly Vector2[]) => {
-  let nearest = { x: polygon[0].x, y: polygon[0].y }
+  let nearestX = polygon[0].x, nearestY = polygon[0].y
   let distance = Infinity
   let edgeIndex = 0
-  for (let i = 0; i < polygon.length; i++) {
-    const candidate = closestPointOnSegment(point, polygon[i], polygon[(i + 1) % polygon.length])
-    const candidateDistance = (point.x - candidate.x)**2 + (point.y - candidate.y)**2
-    if (candidateDistance < distance) {
-      nearest = candidate
+  const visitEdge = (i:number) => {
+    // Keep the exact projection and original edge tie-break, allocating only the winner.
+    // This query runs several times per body per tick on the station contour.
+    const a=polygon[i], b=polygon[(i+1)%polygon.length], dx=b.x-a.x, dy=b.y-a.y
+    const lengthSquared=dx*dx+dy*dy
+    const t=lengthSquared<1e-9 ? 0 : Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/lengthSquared))
+    const x=a.x+dx*t, y=a.y+dy*t
+    const candidateDistance = (point.x - x)**2 + (point.y - y)**2
+    if (candidateDistance < distance || candidateDistance === distance && i < edgeIndex) {
+      nearestX = x; nearestY = y
       distance = candidateDistance
       edgeIndex = i
     }
   }
-  return { point: nearest, distance:Math.sqrt(distance), edgeIndex }
+  const tree=edgeTree(polygon)
+  if(tree){
+    const visit=(node:EdgeNode)=>{
+      if(distanceToBoundsSquared(point,node)>distance+1e-7)return
+      if(node.edges){for(const i of node.edges)visitEdge(i);return}
+      const left=node.left!,right=node.rightNode!
+      if(distanceToBoundsSquared(point,left)<=distanceToBoundsSquared(point,right)){visit(left);visit(right)}
+      else{visit(right);visit(left)}
+    }
+    visit(tree)
+  }else for(let i=0;i<polygon.length;i++)visitEdge(i)
+  return { point: {x:nearestX,y:nearestY}, distance:Math.sqrt(distance), edgeIndex }
 }
 
 const distanceToOuterBoundary = (point: Vector2, map: CavernMap) => {
@@ -371,20 +410,32 @@ const raycastPolygon = (
   maxDistance: number,
 ) => {
   let nearest = maxDistance
-  for (let i = 0; i < polygon.length; i++) {
+  let nearestEdge = -1
+  const visitEdge = (i:number) => {
     const a = polygon[i]
     const b = polygon[(i + 1) % polygon.length]
     const ex = b.x - a.x
     const ey = b.y - a.y
     const denominator = cross(direction.x, direction.y, ex, ey)
-    if (Math.abs(denominator) < 1e-9) continue
+    if (Math.abs(denominator) < 1e-9) return
 
     const ox = a.x - origin.x
     const oy = a.y - origin.y
     const distance = cross(ox, oy, ex, ey) / denominator
     const edgeT = cross(ox, oy, direction.x, direction.y) / denominator
-    if (distance >= 0 && distance <= nearest && edgeT >= 0 && edgeT <= 1) nearest = distance
+    if (distance >= 0 && distance <= nearest && edgeT >= 0 && edgeT <= 1 && (distance < nearest || i > nearestEdge)) {
+      nearest = distance; nearestEdge = i
+    }
   }
+  const tree=edgeTree(polygon)
+  if(tree){
+    const visit=(node:EdgeNode)=>{
+      if(distanceToBoundsSquared(origin,node)>(nearest+1e-7)**2)return
+      if(node.edges){for(const i of node.edges)visitEdge(i)}
+      else{visit(node.left!);visit(node.rightNode!)}
+    }
+    visit(tree)
+  }else for(let i=0;i<polygon.length;i++)visitEdge(i)
   return nearest
 }
 
@@ -400,6 +451,9 @@ export const raycastCavern = (
   const normalized = { x: direction.x / magnitude, y: direction.y / magnitude }
   let nearest = raycastPolygon(origin, normalized, map.boundary, maxDistance)
   for (const obstacle of map.obstacles) {
+    // Conservative reach rejection includes long edges with distant vertices.
+    // Geometry snapshots are immutable, so their bounds are shared with contacts.
+    if (boundsDistanceSquared(origin,obstacle) > (nearest+1e-7)**2) continue
     nearest = raycastPolygon(origin, normalized, obstacle, nearest)
   }
   return nearest

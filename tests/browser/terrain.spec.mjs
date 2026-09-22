@@ -9,6 +9,16 @@ test('each frame outlines all rock once without clipping outer walls or restylin
   await page.addInitScript(({ key, state }) => {
     localStorage.setItem(key, JSON.stringify(state))
     const proto = CanvasRenderingContext2D.prototype, contexts = new WeakMap()
+    const paths=new WeakMap(),NativePath=window.Path2D
+    // Record retained native paths as well as immediate Canvas commands.
+    // The browser still renders real Path2D objects; only inspection is added.
+    window.Path2D=class extends NativePath {
+      constructor(...args){super(...args);paths.set(this,structuredClone(paths.get(args[0])??[]))}
+      moveTo(x,y){paths.get(this).push({start:{x,y},points:1,closed:false});super.moveTo(x,y)}
+      lineTo(x,y){const contour=paths.get(this).at(-1);if(contour)contour.points++;super.lineTo(x,y)}
+      closePath(){const contour=paths.get(this).at(-1);if(contour)contour.closed=true;super.closePath()}
+      addPath(path,...args){paths.get(this).push(...structuredClone(paths.get(path)??[]));super.addPath(path,...args)}
+    }
     const context = ctx => {
       if (!contexts.has(ctx)) contexts.set(ctx, { contours: [], clips: 0, stack: [] })
       return contexts.get(ctx)
@@ -27,13 +37,13 @@ test('each frame outlines all rock once without clipping outer walls or restylin
     intercept('fillRect', ctx => {
       if (ctx.fillStyle === '#050808') window.terrainFrame = { strokes: [], legacy: 0 }
     })
-    intercept('stroke', ctx => {
+    intercept('stroke', (ctx,path) => {
       if (!window.terrainFrame) return
       const color = String(ctx.strokeStyle).replaceAll(' ', '')
       if (color.startsWith('rgba(70,112,96,') && ctx.lineWidth === 7) window.terrainFrame.legacy++
       if (color === 'rgba(70,100,86,0.4)' || color === 'rgba(174,197,181,0.52)') {
         const c = context(ctx)
-        window.terrainFrame.strokes.push({ contours: structuredClone(c.contours), clips: c.clips, width: Number(ctx.lineWidth.toFixed(4)) })
+        window.terrainFrame.strokes.push({ contours: structuredClone(paths.get(path)??c.contours), clips: c.clips, width: Number(ctx.lineWidth.toFixed(4)) })
       }
     })
   }, { key: SAVE_KEY, state })

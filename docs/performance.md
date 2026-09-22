@@ -1,5 +1,8 @@
 # Hard Vacuum runtime measurements
 
+For the later Urban Fire / Hard Vacuum pass, see
+[September 22 runtime performance](performance-pass.md).
+
 Measured September 19, 2026 on an Apple M5 Pro (18 logical CPUs, 24 GiB RAM),
 macOS/Darwin 25.5.0 arm64, Chromium 153.0.8010.12, headless, 1280×800 at DPR 1,
 no CPU throttling. Raw measurements: [before](performance-before.json) and

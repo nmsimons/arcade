@@ -44,6 +44,10 @@ export function createCivilianVehicles(props:readonly CityProp[]=CITY.props):Civ
 /** SAT keeps rotated cars out of real cover instead of colliding with an
  * oversized axis-aligned box. The normal points from b toward a. */
 export function boxContact(a:Box,b:Box){
+  // Each rotated rectangle fits inside this conservative square. Reject
+  // distant pairs before allocating axes or doing the exact SAT contacts.
+  const reach=(a.length+a.width+b.length+b.width)/2
+  if(Math.abs(a.pos.x-b.pos.x)>reach || Math.abs(a.pos.y-b.pos.y)>reach)return null
   const aa=axes(a),bb=axes(b),delta={x:a.pos.x-b.pos.x,y:a.pos.y-b.pos.y}
   let depth=Infinity,normal={x:0,y:0}
   for(const axis of [...aa,...bb]){
@@ -64,6 +68,8 @@ export function boxContact(a:Box,b:Box){
 }
 
 export function civilianCircleContact(car:CivilianVehicle,actor:ContactVehicle){
+  const reach=(car.length+car.width)/2+actor.radius
+  if(Math.abs(car.pos.x-actor.pos.x)>reach || Math.abs(car.pos.y-actor.pos.y)>reach)return null
   const p=local(car,actor.pos),q={x:clamp(p.x,-car.length/2,car.length/2),y:clamp(p.y,-car.width/2,car.width/2)}
   let dx=p.x-q.x,dy=p.y-q.y,distance=Math.hypot(dx,dy),depth=actor.radius-distance
   if(depth<=0)return null

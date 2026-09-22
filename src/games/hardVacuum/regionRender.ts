@@ -1,6 +1,7 @@
 import { REGIONS } from './campaignWorld.ts'
 import { CHAMBERS, STATION_TERRAIN } from './stationLayout.ts'
 import type { Vector2 } from './types'
+import { terrainPath } from './renderPaths'
 
 type RegionId = typeof REGIONS[number]['id']
 type View = { x: number; y: number; w: number; h: number }
@@ -92,14 +93,12 @@ const ROCK_SEAMS = REGIONS.map(region=>({
 
 export function drawRegionRock(ctx: CanvasRenderingContext2D, view: View) {
   ctx.save()
-  ctx.beginPath(); ctx.rect(view.x,view.y,view.w,view.h)
-  for (const contour of [STATION_TERRAIN.boundary,...STATION_TERRAIN.islands]) {
-    contour.forEach((p,i)=>i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y))
-    ctx.closePath()
-  }
+  const mask=new Path2D()
+  mask.rect(view.x,view.y,view.w,view.h)
+  mask.addPath(terrainPath(STATION_TERRAIN.boundary,STATION_TERRAIN.islands))
   // Invert the actual walkable terrain, including the rock islands. Seams
   // disappear at every corridor mouth and cannot masquerade as extra walls.
-  ctx.clip('evenodd')
+  ctx.clip(mask,'evenodd')
   tint(ctx,'rock',view)
   ctx.lineWidth=1.2; ctx.lineJoin='round'; ctx.lineCap='round'
   for (const region of ROCK_SEAMS) {

@@ -56,17 +56,19 @@ const footprintCache = new WeakMap<CavernMap, Map<string, Vector2[]>>()
 const localFootprintCache = new WeakMap<readonly Vector2[], Map<string, { signature: string; points: Vector2[] }>>()
 /** Maps are immutable geometry snapshots. A distant moving door cannot affect
  * these rays; retain the last local footprint across fresh map identities. */
-function footprintSignature(source: RadiationSource, map: CavernMap, sourceKey: string) {
+function footprintGeometry(source: RadiationSource, map: CavernMap, sourceKey: string) {
   const reach=source.range+1,left=source.pos.x-reach,right=source.pos.x+reach,top=source.pos.y-reach,bottom=source.pos.y+reach
   let signature=sourceKey
+  const obstacles:CavernMap['obstacles'][number][]=[]
   for(const polygon of map.obstacles) {
     let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity
     for(const p of polygon){minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y)}
     // AABB overlap is conservative, including long edges with no nearby vertex.
     if(maxX<left||minX>right||maxY<top||minY>bottom)continue
+    obstacles.push(polygon)
     signature+='|'+polygon.map(p=>`${p.x},${p.y}`).join(';')
   }
-  return signature
+  return {signature,obstacles}
 }
 /** Use the same wall raycasts for the visible footprint and the actual dose. */
 export function radiationFootprint(source: RadiationSource, map: CavernMap): Vector2[] {
@@ -79,17 +81,21 @@ export function radiationFootprint(source: RadiationSource, map: CavernMap): Vec
     if (existing) return existing
     let local=localFootprintCache.get(map.boundary)
     if(!local){local=new Map();localFootprintCache.set(map.boundary,local)}
-    const signature=footprintSignature(source,map,sourceKey),previous=local.get(source.id)
+    const {signature,obstacles}=footprintGeometry(source,map,sourceKey),previous=local.get(source.id)
     if(previous?.signature===signature){cached.set(sourceKey,previous.points);return previous.points}
     const angles = Array.from({ length: 96 }, (_, i) => i * Math.PI / 48 - Math.PI)
-    for (const point of [...map.boundary, ...map.obstacles.flat()]) {
+    for (const point of [...map.boundary, ...obstacles.flat()]) {
       if (Math.hypot(point.x - source.pos.x, point.y - source.pos.y) > source.range + 1) continue
       const angle = Math.atan2(point.y - source.pos.y, point.x - source.pos.x)
       angles.push(angle - 0.0001, angle, angle + 0.0001)
     }
     angles.sort((a, b) => a - b)
+    // Every ray ends within the emitter's range. Reuse the same conservative
+    // candidates as the cache signature instead of rechecking distant walls
+    // for every angle. The boundary and exact ray/vertex calculations stay intact.
+    const localMap={...map,obstacles}
     const points = angles.map(angle => {
-      const distance = radiationReach(source, angle, map)
+      const distance = radiationReach(source, angle, localMap)
       return { x: source.pos.x + Math.cos(angle) * distance, y: source.pos.y + Math.sin(angle) * distance }
     })
     cached.set(sourceKey, points)

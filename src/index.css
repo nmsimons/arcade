@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "./menu.css";
+@import "./arcade/arcade.css";
+@import "./games/bumperBall/bumperBall.css";
+@import "./games/urbanFire/urbanFire.css";
 
 html,
 body,
@@ -15,7 +18,7 @@ body {
   height: 100vh;
 }
 
-.hard-vacuum button:focus-visible {
+.hard-vacuum button:focus-visible:not(.game-dialog button) {
   outline: 2px solid #00ff88;
   outline-offset: 3px;
   background-color: #10372c;

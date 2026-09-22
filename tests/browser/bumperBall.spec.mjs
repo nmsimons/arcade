@@ -409,7 +409,7 @@ test('Space boosts once per press, shows recharge, and freezes the cooldown whil
 
 test('controller A boosts after release, cannot retrigger while held, and respects pause priority', async ({ page }) => {
   await setupController(page)
-  await expect(page.getByText('A / × boosts', { exact: true })).toBeVisible()
+  await expect(page.locator('.bumper-help')).toContainText('A / × boosts')
   await hold(page, 0, 1, 200)
   expect(boostLabel(await frame(page))).toBe('BOOST READY · A / ×')
   await hold(page, 0, 0)

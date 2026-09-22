@@ -29,6 +29,7 @@ export type Goal = {
 
 export const FIELD = { left: 0, right: 1600, top: 0, bottom: 1000 } as const
 export const CENTER = { x: (FIELD.left + FIELD.right) / 2, y: (FIELD.top + FIELD.bottom) / 2 }
+export const BALL_RADIUS = 30
 
 export const segmentDistanceToPoint = (ax: number, ay: number, bx: number, by: number, px: number, py: number) => {
   const abx = bx - ax

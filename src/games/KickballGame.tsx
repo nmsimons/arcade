@@ -4,7 +4,7 @@ import { controllerButtonLabel, controllerTurnLabel } from './hardVacuum/control
 import { controllerDialog, controlDialog, scrollDialog } from './hardVacuum/controllerUi'
 import { neutralController } from './hardVacuum/flightInput'
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
-import { FIELD, CENTER, createArena, resolveFieldBoundary, stepPhysics } from './bumperBall/physics'
+import { FIELD, CENTER, BALL_RADIUS, createArena, resolveFieldBoundary, stepPhysics } from './bumperBall/physics'
 import type { Ball, Bumper, Goal, Vehicle } from './bumperBall/physics'
 import { advanceComputerBoost, createAiMemory, driveComputer } from './bumperBall/ai'
 import { createBoost, startBoost, updateBoost } from './bumperBall/boost'
@@ -14,7 +14,7 @@ import type { MotorDrive } from './bumperBall/motorSound'
 
 import { COLORS, DISPLAY_FONT, INK, drawCourt, drawGoal, drawGoalFrame, drawBumper, drawBall, drawVehicle, drawScoreboard, drawBoostMeter } from './bumperBall/render'
 import type { Vector3 } from './bumperBall/render'
-import './bumperBall/bumperBall.css'
+import { GameArt } from '../arcade/GameArt'
 
 type GameState = 'menu' | 'playing' | 'paused' | 'goal' | 'gameOver'
 
@@ -226,7 +226,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
   const ballRef = useRef<Ball>({
     pos: { ...CENTER },
     vel: { x: 0, y: 0 },
-    radius: 30,
+    radius: BALL_RADIUS,
   })
 
   const bumpersRef = useRef<Bumper[]>([])
@@ -262,7 +262,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
     ballRef.current = {
       pos: { x: centerX, y: centerY },
       vel: { x: 0, y: 0 },
-      radius: 30,
+      radius: BALL_RADIUS,
     }
 
     // Reset vehicle positions - each on their own side
@@ -745,7 +745,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
       {gameState === 'menu' && (
         <KeyboardDialog label="Bumper Ball" focusKey="bumper-menu" onClose={onExit} className="bumper-overlay">
           <div className="bumper-menu">
-            <div className="bumper-marque" aria-hidden="true"><span /><i /><span /></div>
+            <div className="bumper-cover"><GameArt theme="bumper" compact /></div>
             <p className="bumper-eyebrow">THREE MINUTES OF FRIENDLY COLLISIONS</p>
             <h1>BUMPER BALL</h1>
             <p className="bumper-tagline">Small cars. Questionable manners.</p>
@@ -757,23 +757,23 @@ export function KickballGame({ onExit }: KickballGameProps) {
                     if (i === 0) startGame()
                     else onExit()
                   }}
-                  className="menu-button bumper-button"
+                  className={`menu-button bumper-button ${i > 0 ? 'bumper-button-secondary' : ''}`}
                 >
                   {label}
                 </button>
               ))}
             </div>
             <div className="bumper-help">
-              {controllerConnected && <div className="mb-3 space-y-1">
+              {controllerConnected ? <div className="bumper-controls">
                 <p>{controllerTurnLabel(controller.layout)}</p>
                 <p>{controllerButtonLabel(controller.layout.buttons.thrust)} forward · {controllerButtonLabel(controller.layout.buttons.reverse)} reverse</p>
-                <p>{controllerButtonLabel(controller.layout.buttons.confirm)} boosts</p>
-                <p>{controllerButtonLabel(controller.layout.buttons.pause)} pauses</p>
+                <p>{controllerButtonLabel(controller.layout.buttons.confirm)} boosts · {controllerButtonLabel(controller.layout.buttons.pause)} pauses</p>
+              </div> : <div className="bumper-controls">
+                <p>Arrow keys / WASD to drive · P to pause</p>
+                <p>Space to boost · 3-second cooldown</p>
               </div>}
-              <p>Arrow keys / WASD to drive · P to pause</p>
-              <p>Space to boost · 3-second cooldown</p>
-              <p className="mt-3"><span className="bumper-blue">You are blue.</span> Bump the ball into the <span className="bumper-red">red goal.</span></p>
-              <p>Highest score wins. Mind the bumpers.</p>
+              <p className="mt-3"><span className="bumper-blue">You are blue.</span> Aim for the <span className="bumper-red">red goal.</span></p>
+              <p>Highest score wins.</p>
               <p className="mt-2">{controllerConnected
                 ? `Stick / D-pad · Choose · ${controllerButtonLabel(controller.layout.buttons.confirm)} · Play · ${controllerButtonLabel(controller.layout.buttons.back)} · Back`
                 : 'Press Esc to exit'}</p>
@@ -786,6 +786,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
       {gameState === 'paused' && (
         <KeyboardDialog label="Bumper Ball paused" focusKey="bumper-paused" onClose={onExit} className="bumper-overlay">
           <div className="bumper-menu">
+            <p className="bumper-eyebrow">BUMPER BALL / TIME OUT</p>
             <h2 className="bumper-dialog-title">PAUSED</h2>
             <p className="bumper-tagline">{controllerConnected
               ? `${controllerButtonLabel(controller.layout.buttons.pause)} / ${controllerButtonLabel(controller.layout.buttons.back)} · Resume`
@@ -799,7 +800,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
               </button>
               <button
                 onClick={onExit}
-                className="menu-button bumper-button"
+                className="menu-button bumper-button bumper-button-secondary"
               >
                 Back
               </button>
@@ -812,6 +813,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
       {gameState === 'gameOver' && (
         <KeyboardDialog label="Bumper Ball game over" focusKey="bumper-game-over" onClose={onExit} className="bumper-overlay">
           <div className="bumper-menu">
+            <p className="bumper-eyebrow">BUMPER BALL / FULL TIME</p>
             <h2 className="bumper-dialog-title">GAME OVER</h2>
             <p
               className={`text-2xl mb-6 ${
@@ -820,9 +822,9 @@ export function KickballGame({ onExit }: KickballGameProps) {
             >
               {redScore === blueScore ? 'TIE GAME!' : redScore > blueScore ? 'RED WINS!' : 'BLUE WINS!'}
             </p>
-            <p className="bumper-final-score">
-              Final Score: <span className="bumper-red">{redScore}</span> - <span className="bumper-blue">{blueScore}</span>
-            </p>
+            <div className="bumper-final-score" aria-label={`Final Score: red ${redScore}, blue ${blueScore}`}>
+              <span className="bumper-red"><small>RED</small>{redScore}</span><span className="bumper-score-divider">:</span><span className="bumper-blue"><small>BLUE / YOU</small>{blueScore}</span>
+            </div>
             <div className="flex flex-col gap-3">
               {['Play Again', 'Main Menu', 'Back'].map((label, i) => (
                 <button
@@ -832,7 +834,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
                     else if (i === 1) setGameState('menu')
                     else onExit()
                   }}
-                  className="menu-button bumper-button"
+                  className={`menu-button bumper-button ${i > 0 ? 'bumper-button-secondary' : ''}`}
                 >
                   {label}
                 </button>

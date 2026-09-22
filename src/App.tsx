@@ -1,12 +1,12 @@
-import { lazy, Suspense, useEffect, useEffectEvent, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useEffectEvent, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { GameLoadBoundary, GameLoading, GameViewport } from './GameRoute'
 import { createControllerReader } from './games/hardVacuum/controllerInput'
-import { KeyboardDialog } from './games/hardVacuum/KeyboardDialog'
 import { topDialog } from './games/hardVacuum/dialogNavigation'
 import { controlDialog, scrollDialog } from './games/hardVacuum/controllerUi'
 import { createKeyboardGate } from './games/hardVacuum/keyboardGate'
-import { ControlHintsContext, controlHint } from './games/hardVacuum/controlHints'
+import { ControlHintsContext } from './games/hardVacuum/controlHints'
+import { ArcadeMenu } from './arcade/ArcadeMenu'
 
 const HardVacuumGame = lazy(() => import('./games/HardVacuumGame').then(m => ({ default: m.HardVacuumGame })))
 const HelloWorldGame = lazy(() => import('./games/HelloWorldGame').then(m => ({ default: m.HelloWorldGame })))
@@ -23,16 +23,6 @@ export default function App() {
   const [controller] = useState(createControllerReader)
   const [keyboard] = useState(createKeyboardGate)
   const [controllerConnected, setControllerConnected] = useState(false)
-
-  const games = useMemo(
-    () =>
-      [
-        { id: 'hardVacuum', path: '/hard-vacuum', label: 'Hard Vacuum' },
-        { id: 'kickball', path: '/bumper-ball', label: 'Bumper Ball' },
-        { id: 'urbanFire', path: '/urban-fire', label: 'Urban Fire' },
-      ] as const,
-    [],
-  )
 
   const pollMenuController = useEffectEvent((now: number) => {
     const dialog = topDialog()
@@ -82,29 +72,7 @@ export default function App() {
       <Route
         path="/"
         element={
-          <KeyboardDialog label="Arcade" focusKey="arcade" globalMenu onClose={() => {}}>
-              <div className="menu-surface arcade-menu">
-                <p className="menu-eyebrow">SIMULATION ARCHIVE / {String(games.length).padStart(2, '0')} TITLES</p>
-                <h1 className="text-3xl text-[#d9eee5] mt-3 mb-7 tracking-wider">Select Game</h1>
-                <div className="flex flex-col gap-3">
-                  {games.map((g, i) => (
-                    <button
-                      key={g.id}
-                      data-menu-id={g.id}
-                      data-initial-focus={selectedIndex === i || undefined}
-                      onFocus={() => setSelectedIndex(i)}
-                      onClick={() => navigate(g.path)}
-                      className="menu-button arcade-choice"
-                    >
-                      {g.label}
-                    </button>
-                  ))}
-                </div>
-                <div className="menu-help">{controllerConnected
-                  ? <p>Stick / D-pad <span>Choose</span> · {controlHint(true, 'confirm', '', controller.layout)} <span>Play</span></p>
-                  : <p>↑ ↓ / Tab <span>Choose</span> · Enter <span>Play</span></p>}</div>
-              </div>
-          </KeyboardDialog>
+          <ArcadeMenu selectedIndex={selectedIndex} onSelection={setSelectedIndex} onPlay={navigate} />
         }
       />
 

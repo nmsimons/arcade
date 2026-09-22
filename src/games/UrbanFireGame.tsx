@@ -21,7 +21,8 @@ import { createControllerReader } from './hardVacuum/controllerInput'
 import { neutralController } from './hardVacuum/flightInput'
 import { controllerDialog, controlDialog, scrollDialog } from './hardVacuum/controllerUi'
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
-import './urbanFire/urbanFire.css'
+import { GameArt } from '../arcade/GameArt'
+import { controllerButtonLabel } from './hardVacuum/controllerLayouts'
 
 type UrbanFireGameProps = { onExit: () => void }
 
@@ -591,24 +592,30 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       <canvas ref={canvasRef} tabIndex={-1} role="img" aria-label="Urban Fire battlefield" className="absolute inset-0 outline-none" />
       {gameState !== 'playing' && <KeyboardDialog label={gameState === 'menu' ? 'Urban Fire' : gameState === 'paused' ? 'Paused' : 'Mission ended'} focusKey={gameState} onClose={gameState === 'paused' ? resumeGame : exitToGameSelect} className="urban-overlay">
         <div className="urban-menu">
-          <div className="urban-eyebrow">ARMORED RECON / SECTOR 04</div>
+          <div className="urban-nameplate"><span className="urban-eyebrow">ARMORED RECON</span><span className="urban-sector">SECTOR <strong>04</strong></span></div>
           {gameState === 'menu' ? <>
             <h1>Urban Fire</h1>
-            <p className="urban-brief">Hold the district. Break the armored advance.<br />Use the buildings for cover and keep moving as enemy units establish crossfire.</p>
-            <div className="urban-actions"><button onClick={startGame}>Deploy</button><button onClick={exitToGameSelect}>Back</button></div>
+            <div className="urban-cover"><GameArt theme="urban" compact /></div>
+            <p className="urban-brief"><strong>Hold the district.</strong> Break the armored advance.<br />Use the buildings for cover. Keep moving to stay out of the crossfire.</p>
+            <div className="urban-actions"><button className="urban-button urban-button-primary" onClick={startGame}>Deploy</button><button className="urban-button" onClick={exitToGameSelect}>Back</button></div>
           </> : gameState === 'paused' ? <>
+            <p className="urban-game-label">URBAN FIRE / FIELD REPORT</p>
             <h2>PAUSED</h2>
-            <p className="urban-brief">Wave {wave} · {score.toString().padStart(6, '0')} points</p>
-            <div className="urban-actions"><button onClick={resumeGame}>Resume</button><button onClick={exitToGameSelect}>Back</button></div>
+            <div className="urban-report"><span>WAVE <strong>{String(wave).padStart(2, '0')}</strong></span><span>POINTS <strong>{score.toString().padStart(6, '0')}</strong></span></div>
+            <div className="urban-actions"><button className="urban-button urban-button-primary" onClick={resumeGame}>Resume</button><button className="urban-button" onClick={exitToGameSelect}>Back</button></div>
           </> : <>
+            <p className="urban-game-label">URBAN FIRE / AFTER ACTION</p>
             <h2>MISSION ENDED</h2>
-            <p className="urban-brief">Wave {wave} · {score.toString().padStart(6, '0')} points</p>
-            <div className="urban-actions"><button onClick={startGame}>Redeploy</button><button onClick={() => setGameState('menu')}>Main menu</button><button onClick={exitToGameSelect}>Back</button></div>
+            <div className="urban-report"><span>WAVE <strong>{String(wave).padStart(2, '0')}</strong></span><span>POINTS <strong>{score.toString().padStart(6, '0')}</strong></span></div>
+            <div className="urban-actions"><button className="urban-button urban-button-primary" onClick={startGame}>Redeploy</button><button className="urban-button" onClick={() => setGameState('menu')}>Main menu</button><button className="urban-button" onClick={exitToGameSelect}>Back</button></div>
           </>}
           <div className="urban-help">
-            <strong>{controllerConnected ? 'Left stick turns · RT / R2 forward · LT / L2 reverse' : 'Arrow keys / WASD to drive'}</strong><br />
-            {gameState === 'paused' ? 'P / Menu or Esc / B resumes · Back exits' : controllerConnected ? 'A / × fires · Menu / Options pauses' : 'Space fires · P pauses · Esc exits'}<br />
-            Tanks: 2 hits · Helicopters: 1 hit<br />Medical cases repair to 3. Armor repairs to 3, then adds 1.
+            {gameState === 'menu' ? <>
+              <p><strong>{controllerConnected ? 'Left stick turns · RT / R2 forward · LT / L2 reverse' : 'Arrow keys / WASD to drive'}</strong></p>
+              <p>{controllerConnected ? `${controllerButtonLabel(controller.layout.buttons.confirm)} fires · ${controllerButtonLabel(controller.layout.buttons.pause)} pauses` : 'Space fires · P pauses'}</p>
+              <p className="urban-field-note">Tanks: 2 hits · Helicopters: 1 hit<br />Medical cases repair to 3. Armor repairs to 3, then adds 1.</p>
+            </> : gameState === 'paused' ? <p>{controllerConnected ? `${controllerButtonLabel(controller.layout.buttons.pause)} / ${controllerButtonLabel(controller.layout.buttons.back)} resumes · Back exits` : 'P / Esc resumes · Back exits'}</p> : null}
+            {gameState !== 'paused' && <p>{controllerConnected ? `Stick / D-pad selects · ${controllerButtonLabel(controller.layout.buttons.confirm)} confirms · ${controllerButtonLabel(controller.layout.buttons.back)} exits` : '↑ ↓ / Tab selects · Enter confirms · Esc exits'}</p>}
           </div>
         </div>
       </KeyboardDialog>}

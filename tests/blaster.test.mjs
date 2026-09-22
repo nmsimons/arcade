@@ -212,6 +212,8 @@ test('the former hopper location is open space with no invisible machinery', () 
 test('objectives follow restored circuits through the refuge to the final core', () => {
   const state = freshExpedition('ring'); state.impactShieldInstalled = true
   for (const id of ['breach-power','freight-power','dispatch-power','works-power','ring-power','foundry','relay']) state.power[id] = id
+  assert.equal(objective(state).title, 'Recover the Foundry teleporter')
+  state.teleporterInstalled = true
   assert.equal(objective(state).title, 'Restore reactor containment')
   state.power.heart = 'heart'; state.flags.push('heart');state.gates.push('refuge-link')
   assert.equal(objective(state).title, 'Restore medical transfer')

@@ -59,10 +59,12 @@ test('the terminal lesson is contextual, respects walls, and retires after the f
   hint();assert.match(rt.grappleHint,/terminal.*blue socket.*F.*recording/)
   ship.pos={x:terminal.pos.x+900,y:terminal.pos.y};hint();assert.equal(rt.grappleHint,'')
   ship.pos={x:terminal.pos.x+75,y:terminal.pos.y}
-  const x=terminal.pos.x+35,y=terminal.pos.y
-  const blocked={...map,obstacles:[...map.obstacles,[{x,y:y-100},{x:x+10,y:y-100},{x:x+10,y:y+100},{x,y:y+100}]]}
-  assert.equal(terminalVisible(ship.pos,terminal,blocked),false)
-  stepGrappleGuide(s,rt,ship,{state:'idle'},[],blocked,.1);assert.equal(rt.grappleHint,'')
+  for(const offset of [12,35]) {
+    const x=terminal.pos.x+offset,y=terminal.pos.y
+    const blocked={...map,obstacles:[...map.obstacles,[{x,y:y-100},{x:x+10,y:y-100},{x:x+10,y:y+100},{x,y:y+100}]]}
+    assert.equal(terminalVisible(ship.pos,terminal,blocked),false)
+    stepGrappleGuide(s,rt,ship,{state:'idle'},[],blocked,.1);assert.equal(rt.grappleHint,'')
+  }
   s.campaign.terminalLinked=true;hint();assert.equal(rt.grappleHint,'')
   const legacy=freshExpedition();legacy.version=1;delete legacy.campaign.terminalLinked
   assert.equal(parseExpedition(JSON.stringify(legacy)).campaign.terminalLinked,false)
@@ -84,6 +86,8 @@ test('hooks latch onto terminals from every direction at different frame rates w
     assert.deepEqual(fixture,before,'terminal stays bolted down under tension')
   }
   const ship=shipAt({x:fixture.pos.x-30,y:fixture.pos.y});ship.vel.x=100
-  collideBodies(ship,fixture)
-  assert.ok(ship.vel.x<0);assert.deepEqual(fixture,before)
+  const moving=structuredClone(ship)
+  assert.equal(collideBodies(ship,fixture).hit,false)
+  assert.equal(collideBodies(fixture,ship).hit,false)
+  assert.deepEqual(ship,moving);assert.deepEqual(fixture,before)
 })

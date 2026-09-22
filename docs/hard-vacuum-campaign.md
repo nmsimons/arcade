@@ -24,9 +24,28 @@ the target.
 | The Breach | 8 min | Learn movement and hauling by recovering the impact shield from the rescue locker, then learn mining and bring the locker’s reserve to freight transit. | Haven begins here. An optional sealed baggage bay rewards a return with the blaster. |
 | Freight Galleries | 11 min | Power the gallery receiver from western stores; install radiation shielding and enter Dispatch through the long radioactive tunnel. Carry a hold-six reserve to the receiver inside. | Gallery power opens the far tunnel door and Haven’s berth. Dispatch opens the safe lift shortcut back out and the Works exit. The first survivor pod is in hold six; there are none in the opening Breach. The evacuation ledger does not add up. |
 | The Works | 12 min | Find the blaster in the main bay and tow it back to Freight Haven for installation. Breach the tool crib, recover its supply, restore maintenance, then feed the Ring from the capacitor store. | Maintenance power enables the berth. Welded bulkheads reveal deliberate damage containment. |
-| The Broken Ring | 17 min | Clear the west passage, power the Foundry and relay, recover radiation shielding, then restore the reserve engine. | The original seven-room map. The relay enables Haven’s berth. The engine opens Refuge Approach south of the vault. |
+| The Broken Ring | Re-measure Foundry route | Blast into Wreckwater and power the Foundry entrance, waking its tug. Find the teleporter and restore the relay inside the Foundry to open the Archive return. Recover the teleporter and Archive survivor, then restore the reserve engine. | The first Foundry door earns equipment access; its far door earns the Archive rescue and a return shortcut. Relay power enables Haven’s nearby berth. The engine opens Refuge Approach south of the vault. |
 | Refuge Approach | Re-measure with eight rescues | Restore medical transfer from the vault reserve; carry the Triage cell through the radioactive service bypass; power the ward and tow its eight released pods to Haven. | Transfer power opens the service bypass and Haven’s berth. Ward power opens the direct safe return. Twelve cradles have four empty slots for the earlier pods. Keep the central towing and service lanes clear. |
 | The Heart | 10 min | Supply induction from the ward, ground the field, release the core and tow it through the lower return to the Ignition Cradle east of the Breach. | Ignition restores station escape power, not a rescue count. Haven leaves only when all twelve pods are aboard. |
+
+### Ring exploration rewards
+
+| Room | Challenge or work | Payoff |
+| --- | --- | --- |
+| Service hub | Bring the local reserve west and later restore the Foundry relay. | A staging point that becomes Haven's berth for the workshop and Archive recoveries. |
+| Wreckwater | Breach the western rock barrier and haul the hub reserve to the entrance receiver. | Access to the teleporter workshop, plus salvage. Power also releases the Foundry maintenance tug. |
+| Foundry | Enter from the south, work around the active tug, and bring the local reserve to the internal relay. | A permanent teleporter upgrade; the east exit, Archive shortcut, reactor access and nearby Haven berth. |
+| Cold Archive | Continue through the newly opened Foundry exit. | A required survivor, a recording and salvage; its southern door returns directly to the hub. |
+| Ember Lung | Recover the reactor cell through the radiation field. | The supply needed for containment and the route onward. |
+| Reserve engine | Deliver the reactor cell. | Contained radiation, the safe engine return and Refuge access, plus salvage. |
+| Smuggler's Rest | Breach the southern door or return through the powered engine passage. | Refuge's supply reserve and salvage on the onward route. |
+
+Keep the teleporter and survivor in different rooms so both discoveries matter.
+The two Foundry doors have different jobs: earned access on the approach, then a
+return through a new reward room. Restore the relay locally before hauling the
+teleporter home; requiring that haul back through Wreckwater first would waste
+the shortcut's benefit. The player can still choose to recover the module early
+or defer it; objective order adds no artificial equipment lock to the reactor.
 
 The previous main-route target was approximately 70 minutes. Twelve required
 pod recoveries change both pacing and upgrade income; re-measure with human
@@ -34,6 +53,22 @@ playtesting before quoting a revised duration. Optional cargo, recordings and
 return visits remain. Navigation and recovery use the
 existing ship, laser, blaster, grapple and shields. There are no inventory keys,
 boost gates, ore hoppers, destructible background crags or additional checkpoints.
+
+## Regional character
+
+Each region has a near-black material tint and one distinct main-chamber
+silhouette. The Breach has an uneven fractured edge; Freight uses a broad bay
+with clipped corners; the Works has stepped machinery recesses; the Ring hub
+has sixteen regular facets; Medical transfer has a symmetrical softened outline;
+the Heart is octagonal. Their entrances and established towing lanes remain.
+
+`regionRender.ts` gives Breach slate, Freight steel blue, Works iron brown,
+Ring blue-violet, Refuge gray-green and Heart warm amber undertones. The tint is
+fixed in world space and feathers through the connecting tunnels. Sparse cracks,
+paired cuts, broken bands and corner seams stay clipped to solid surrounding
+rock, including interior rock islands. Equipment, ore and hazard colors keep
+their existing meanings. There are no extra formations to collide with, moving
+ambient particles or repeated floor textures. Training keeps its existing look.
 
 ## One mobile Haven
 
@@ -71,11 +106,16 @@ leaves push loose cells, salvage, asteroids and the free ship. Body impacts and
 red asteroid fuses continue during passenger travel. Authored service lanes
 leave clearance for the whole folded hull, including its rear extrusion.
 
-Exposition is deliberately sparse: seven short physical story recordings and
-Haven's brief, tether-requested greeting. Logs reveal the people and history of
-Orison, never equipment locations, puzzle solutions or routes. Sixteen former
-walkthrough recordings have been retired. Their IDs remain valid in existing
-saves, but they no longer appear as fixtures or journal entries.
+There are seven physical story recordings and Haven's tether-requested greeting.
+Every log combines story exposition with a hint about a useful item's location
+or purpose. Several also suggest mechanics through lived experience: connecting
+to wake Haven, towing and installation, seating power cells, teleporter cargo
+limits, radiation recovery and releasing pod clamps. The first contract points
+to waking Haven; her reply points to the western rescue-locker shield. The crew's
+remaining accounts connect discoveries through the campaign while revealing the
+false evacuation. Keep the voices distinct and each entry within 85 words.
+Sixteen former automatic walkthrough recordings remain retired. Their IDs stay
+valid in existing saves, without fixtures or journal entries.
 Floor text is limited to destination signs and a few industrial labels. Six matching
 destination signs mark the main approaches: Breach Anchorage, Freight Galleries,
 The Works, The Broken Ring, Refuge Approach and The Heart. They share the
@@ -85,9 +125,9 @@ tether link have no control hints; training covers them. Haven's center reads Do
 socket is fully retracted; empty discovered berths carry Call Haven. Bindings
 follow the connected input device. All logs use one recorder model and one
 tethered information-card treatment, including training. There are no floating
-control prompts, automatic status toasts, receiver lessons,
-installation instructions, route directions, automatic tutorial cards or
-instructional objective paragraphs in pause/the recorder. Basic mechanics belong
+control prompts, automatic status toasts, automatic tutorial cards or detached
+instructional objective paragraphs in pause/the recorder. Item, route and mechanic
+clues belong within the deliberately requested logs; hands-on instruction remains
 in flight training. Haven holds its opening steady until shield installation.
 
 ## Flight training
@@ -134,14 +174,18 @@ fund gradual upgrades before the ward rescue. Locked equipment still has to be
 found and installed; money cannot skip that progression. Optional cargo pays 250 to 4,000
 credits in later regions. Mining inside Haven retains its 10× banked payout.
 
-Hull, capacitor, laser focus and blaster magazine have five stages; the winch has one upgrade.
+Hull, capacitor, laser focus and blaster magazine have five stages. The tether has
+fixed standard reach and no upgrade.
 Radiation shielding has a fixed 100-point reserve, no upgrades, and eight seconds
 of protection at peak exposure. It refills in one second outside radiation.
 The Freight Stores radiation module remains a separate defensive reserve.
 The blaster module is in the southeast of the Works main bay, outside the sealed
 tool crib. It is unavailable in Freight; tow it back to Haven to install it before
 breaching the crib and restoring the Works berth. The teleporter module is in
-the Capacitor store, behind a blast door. Tow all four
+the Broken Ring's Foundry, behind the western rock barrier and powered workshop
+entrance. The Foundry's internal relay opens a return through the Archive and
+activates Haven's Ring berth before the recovery haul. Blaster and teleporter
+discoveries occupy successive regions. Tow all four
 to Haven to install them. The dock sells only upgrades, never new equipment or
 remote recharge packs. New ships have no impact shield until the opening recovery;
 old saves keep their existing shield, upgrades and remaining charges. Installed

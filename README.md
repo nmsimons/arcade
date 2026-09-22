@@ -59,7 +59,7 @@ in flight training.
   to refill. Impacts pulverize asteroids of every color into dust and award credits,
   leaving no fragments. Rock barriers and blast doors can only be cleared with B.
 - T: return to Haven and bank all carried credits after finding the teleporter module
-  in the Capacitor store below the Works and towing it to Haven for installation.
+  in the Broken Ring's Foundry and towing it to Haven for installation.
   Teleporting is free and unlimited. Grappled cargo stays
   where it was released. Haven recharges the arrived ship normally.
   Teleporting is unavailable during Haven's relocation or when already at Haven.
@@ -81,10 +81,8 @@ in flight training.
   dispenser. It replenishes used stock through a visible chute, waits for a clear
   outlet, and limits the amount of loose debris. Red material is never placed or
   dispensed directly: it appears only inside fragments cut from white asteroids.
-  The single Longline winch upgrade doubles the hook's reach.
-  Once attached, the cable retracts at 130 pixels per second to its original
-  130-pixel towing length: one second at maximum reach, less for closer attachments.
-  It then stays at towing length and never reels cargo into the ship;
+  The tether has a fixed 130-pixel reach and towing length.
+  It never reels cargo into the ship;
   modules and salvage must be towed to Haven for recovery.
   Touching the ship never collects cargo. F releases the cable.
   Loose cells, modules, salvage and the core start with gentle drift. Power cells
@@ -98,8 +96,10 @@ in flight training.
   between a receiver's plates to connect it; nearby cells are not pulled in.
   Connected cells stay anchored. Modules, salvage, and the core still need the grapple for recovery.
   Ships, all asteroid types, cells, modules, salvage and the core collide and
-  transfer momentum everywhere. Receiver plates, installed cells, recording
-  terminals, doors, walls and Haven's hull are solid too.
+  transfer momentum everywhere. Receiver plates, installed cells, doors, walls
+  and Haven's hull are solid too. Log ports are flush with the floor and can be flown over.
+  Haven's armor also blocks lasers, projectiles and blast damage, including while folding
+  or moving. Shots can still pass through its open docking gaps.
   Cargo cannot be recalled remotely. Tow the ignition core through the irradiated
   commissioning tube from the Ignition Well back to the Breach, then east to the
   Ignition Cradle.
@@ -115,12 +115,15 @@ in flight training.
   The map uses the available screen.
 - G: log / flight recorder. Re-read recordings downloaded through tether connections.
   Available in flight, while paused, or docked at Haven.
-- Fixed recording terminals have live data displays and blue cable sockets that
+- Recessed log ports have live data displays and blue cable sockets that
   stay active after reading. Aim and grapple with F to
   download their recordings; flying nearby does not read them. Seven short story
-  recordings remain, alongside Haven's commissioning greeting. They describe
-  Orison's people and history, not puzzle solutions or equipment locations. The terminal stays
-  bolted down while the ship tethers to it, and the connection pulses with data.
+  recordings remain, alongside Haven's commissioning greeting. Each combines
+  Orison's people and history with a clue to an item's location or purpose;
+  mechanics emerge through the speakers' experiences and unfinished work. The
+  opening contract hints at waking Haven, whose reply points to the shield. Each port stays
+  fixed in the floor while the ship tethers to it, and the connection pulses with data.
+  Their faint, broken panel seams mark passable floor in both the station and training bay.
   Only the nearest reachable reader shows a brief button/action hint. F disconnects; downloaded
   records remain in the flight recorder, and reconnecting replays them.
 - The laser needs 400 ms of uninterrupted contact on one asteroid before impact.
@@ -206,7 +209,8 @@ peak exposure, with no capacity upgrades. It recharges automatically in one seco
 outside radiation; Haven also restores it during servicing. The HUD shows its
 remaining percentage. Removed capacity upgrades refund their original cumulative
 purchase costs once on migration; existing charge is capped at 100, never refilled.
-Longline winch is a single 750-credit upgrade that doubles tether reach.
+The tether uses its standard reach throughout the expedition, with no upgrade.
+Older saves remove the Longline winch and refund its 750-credit price once.
 Blaster magazine upgrades unlock after recovering and installing the blaster.
 Each adds one shot (3 → 4 → 5 → 6 → 7 → 8) and fills the new magazine;
 damage and firing speed are unchanged. Haven servicing and respawn refill the
@@ -215,7 +219,13 @@ The dock shop only improves existing systems; new equipment must be found and
 recovered. Impact shielding, radiation shielding, the blaster and the teleporter use the same
 physical tow-and-install handoff at Haven, at no credit cost. The blaster becomes
 reachable upon entering the Works, outside its sealed tool crib; tow it back to
-Freight Haven before breaching the crib. The teleporter rewards opening the Capacitor store.
+Freight Haven before breaching the crib. The teleporter rewards reaching the Foundry
+in the next region, the Broken Ring: blast into Wreckwater, tow in the entrance cell,
+and contend with the powered maintenance tug. The relay receiver is inside the Foundry;
+restoring it opens the far exit and Archive shortcut, exposes the Archive survivor,
+and enables Haven's nearby berth for both recoveries. Each door earns a distinct benefit.
+Older saves relocate unclaimed Works or hub teleporters once, preserving installed
+or towed modules, rescued survivors and earned power.
 Older saves relocate an unclaimed Freight blaster once, preserving installed or towed modules.
 The impact shield's first installation plays the normal one-second recharge rings,
 hum and finishing flash, including while docked. This feedback never grants an
@@ -296,14 +306,14 @@ unbroken main hull. Thrusters are inset into the shell rather than separate pods
 Maintenance tugs pursue at 185 units/second and
 alternate between grappling the ship, hauling asteroids into its projected path,
 and stealing towed cargo. Their jaws signal a launch before a physical hook flies;
-dodging, cover, distance or damaging the tug breaks the attack. Ship tows last at
+dodging, cover, distance or a heavy hit breaks the attack. Ship tows last at
 most three seconds, and Haven's repair area is safe. Away from the pilot, tugs
 continue sorting loose cargo. The Works, Reactor and Heart have security units that charge a visible
 targeting beam before firing three-round bursts. Walls, debris and Haven's hull
-block their shots. Security units back away when crowded and keep their attack
-timing through laser damage, preventing a sustained beam from stun-locking them.
-Blaster and other physical impacts still stagger them, while laser hits still
-interrupt maintenance tugs and break their cables. Both types collide, can be grappled, and take damage from focused
+block their shots. Security units back away when crowded. Laser damage never stuns
+either enemy type or interrupts their attacks, movement or maintenance grapples.
+Blaster and other physical impacts still stagger them and break tug cables;
+destroying a tug also releases its cable. Both types collide, can be grappled, and take damage from focused
 laser fire, blasters, explosions and hard impacts. Both types take four blaster hits
 or fifty asteroid-length laser contacts. Laser focus stages require 20, 15, 12.5,
 10, 7.5 and 5 seconds of effective on-target contact respectively (stock through

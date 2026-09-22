@@ -11,15 +11,19 @@ export function drawTerminals(ctx: CanvasRenderingContext2D, s: Expedition, rt: 
     ctx.save(); ctx.translate(terminal.pos.x,terminal.pos.y)
     ctx.beginPath()
     TERMINAL_OUTLINE.forEach(([x,y],i)=>i ? ctx.lineTo(x,y) : ctx.moveTo(x,y))
-    ctx.closePath(); ctx.fillStyle='#091310'; ctx.fill()
-    ctx.strokeStyle='#859e92'; ctx.lineWidth=1.4; ctx.stroke()
-    // Bolted recorder housing, a live data display, and a reusable cable socket.
-    ctx.fillStyle='#71897e'
-    for (const x of [-19,19]) for (const y of [-24,24]) ctx.fillRect(x-1,y-1,2,2)
-    ctx.strokeStyle='#304c40'; ctx.lineWidth=1
-    ctx.beginPath(); ctx.moveTo(-20,20); ctx.lineTo(-15,26); ctx.lineTo(15,26); ctx.lineTo(20,20); ctx.stroke()
-    ctx.fillStyle='#061e24'; ctx.fillRect(-16,-25,32,12)
-    ctx.strokeStyle='#365c65'; ctx.strokeRect(-16,-25,32,12)
+    // A translucent inset and broken floor seam replace the raised, solid housing.
+    // Keep the deck visible beneath it, with no wall-like rim, bevel or bolts.
+    ctx.closePath(); ctx.fillStyle='#193d392e'; ctx.fill()
+    ctx.strokeStyle='#365950'; ctx.lineWidth=.7
+    ctx.setLineDash([3,4]); ctx.stroke(); ctx.setLineDash([])
+    // Fine traces lie in the deck; the blue socket remains the interactive focus.
+    ctx.strokeStyle='#294b48'; ctx.lineWidth=.8
+    for (const side of [-1,1]) {
+      ctx.beginPath(); ctx.moveTo(side*14,7); ctx.lineTo(side*21,14)
+      ctx.lineTo(side*21,34); ctx.lineTo(side*30,43); ctx.stroke()
+    }
+    ctx.fillStyle='#061e2499'; ctx.fillRect(-16,-25,32,12)
+    ctx.strokeStyle='#29464d'; ctx.strokeRect(-16,-25,32,12)
     const scroll = Math.floor(rt.elapsed*(connected ? 5 : 1.5))
     for (let row=0;row<3;row++) {
       ctx.fillStyle=connected ? '#8ceac1' : '#83bdcf'
@@ -29,7 +33,7 @@ export function drawTerminals(ctx: CanvasRenderingContext2D, s: Expedition, rt: 
     // Stored recordings remain visibly online after download.
     ctx.fillStyle=heard ? '#83c7ac' : '#8bafb6'
     ctx.font='6px monospace'; ctx.textAlign='center'; ctx.fillText('LOG',0,23)
-    ctx.strokeStyle=color; ctx.lineWidth=1.6
+    ctx.strokeStyle=color; ctx.lineWidth=1.3
     ctx.beginPath(); ctx.arc(0,0,9,0,Math.PI*2); ctx.stroke()
     for (let i=0;i<3;i++) {
       const angle=i*Math.PI*2/3-Math.PI/2

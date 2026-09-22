@@ -14,11 +14,11 @@ const stencils=(s,{connectedTerminal,havenLinkRetraction,controller=false}={})=>
 }
 const words=(s,options)=>stencils(s,options).map(t=>t.value)
 
-test('campaign has seven short physical story logs and one Haven greeting, not a walkthrough at every circuit',()=>{
+test('campaign keeps seven concise story-and-clue logs and one Haven greeting, without key-binding instructions',()=>{
   assert.equal(RECORDS.length,8);assert.equal(TERMINALS.length,7)
   for(const record of RECORDS) {
-    assert.ok(record.text.split(/\s+/).length<=40,record.id)
-    assert.doesNotMatch(record.text,/press |tow |recharge|receiver|southeast|north of|find cover|shutters|reserve cells|module|shortcut/i)
+    assert.ok(record.text.split(/\s+/).length<=85,record.id)
+    assert.doesNotMatch(record.text,/press (?:[A-Z]|Space|Escape)\b|click |pause menu|upgrade button/i)
   }
   for(const id of RETIRED_RECORD_IDS) {
     assert.ok(!TERMINALS.some(t=>t.terminalId===id))

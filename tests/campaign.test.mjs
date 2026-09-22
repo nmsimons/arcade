@@ -9,6 +9,7 @@ import { surveyPoint } from '../src/games/hardVacuum/survey.ts'
 import { radiationAt } from '../src/games/hardVacuum/radiation.ts'
 import { PICKUPS } from '../src/games/hardVacuum/stationDefinitions.ts'
 import { CIRCUIT_LOADS } from '../src/games/hardVacuum/stationProgression.ts'
+import { SURVIVAL_PODS } from '../src/games/hardVacuum/survivalPods.ts'
 
 const shipAt = pos => ({ pos:{ ...pos },vel:{ x:0,y:0 },radius:15,angle:0 })
 const tick = (s,rt,ship,rocks=[],dt=.1) => stepExpedition(s,rt,{ dt,ship,rocks,harpoon:{ state:'idle' },beam:{ active:false } })
@@ -87,6 +88,45 @@ test('Freight requires the radioactive approach before Dispatch opens its safe s
   for(const [circuit,gates] of [['freight-power',['freight-return']],['dispatch-power',['freight-lift','freight-link']]]) {
     assert.deepEqual(CIRCUIT_LOADS.filter(l=>l.circuit===circuit&&l.kind==='door').map(l=>l.gate),gates,'visible wires follow the new circuit targets')
   }
+})
+
+test('the Ring earns its teleporter through the Foundry approach and opens a separate rescue return',()=>{
+  const state=freshExpedition(),works=BERTHS.find(b=>b.id==='works').pos
+  const blaster=PICKUPS.find(item=>item.id==='blaster'),teleporter=PICKUPS.find(item=>item.id==='teleporter')
+  const foundry=SOCKETS.find(item=>item.id==='foundry'),relay=SOCKETS.find(item=>item.id==='relay')
+  const survivor=SURVIVAL_PODS.find(pod=>pod.sector==='archive')
+  const blasterRegion=REGIONS.findIndex(region=>region.rooms.includes(blaster.sector))
+  const teleporterRegion=REGIONS.findIndex(region=>region.rooms.includes(teleporter.sector))
+  assert.equal(REGIONS[blasterRegion].id,'works')
+  assert.equal(teleporterRegion,blasterRegion+1)
+  for(const id of ['breach-power','freight-power','dispatch-power'])powerReceiver(state,id,id)
+  state.doors={}
+  const arrival=flood(state,works)
+  assert.ok(arrival(blaster.pos),'the blaster is available on arrival in the Works')
+  assert.ok(!arrival(teleporter.pos),'the teleporter is outside the Works')
+  state.gates.push('tool-door','store-door')
+  powerReceiver(state,'works-power','works-power');state.doors={}
+  assert.ok(!flood(state,works)(teleporter.pos),'opening the capacitor store does not grant the teleporter')
+  powerReceiver(state,'ring-power','ring-power');state.doors={}
+  const ringArrival=flood(state,works)
+  assert.ok(ringArrival(foundry.source),'the approach cell can be collected on arrival')
+  assert.ok(!ringArrival(foundry.pos),'the western rock barrier guards the entrance receiver')
+  assert.ok(!ringArrival(teleporter.pos),'arriving in the Ring does not grant its equipment reward')
+  assert.ok(!ringArrival(relay.pos),'a spare cell cannot power the relay from the hub and bypass the Foundry')
+  state.gates.push('rubble')
+  const wreckwater=flood(state,works)
+  assert.ok(wreckwater(foundry.pos));assert.ok(!wreckwater(teleporter.pos))
+  powerReceiver(state,'foundry','foundry');state.doors={}
+  const workshop=flood(state,works)
+  for(const pos of [teleporter.pos,relay.source,relay.pos])assert.ok(workshop(pos),'both the reward and relay puzzle fit behind the powered entrance')
+  assert.ok(CIRCUIT_LOADS.some(load=>load.circuit==='foundry'&&load.target==='bot:foundry-tug'),'entry power also wakes the workshop tug')
+  assert.ok(!workshop(survivor.pos),'the Archive rescue is earned by restoring the internal relay')
+  powerReceiver(state,'relay','relay');state.doors={}
+  assert.ok(flood(state,teleporter.pos)(survivor.pos),'the far door opens onto another worthwhile discovery')
+  assert.ok(state.gates.includes('shortcut'));assert.ok(state.gates.includes('reactor'))
+  assert.ok(state.power[BERTHS.find(b=>b.id==='ring').power],'Haven can berth nearby for both cargo recoveries')
+  state.gates=state.gates.filter(id=>id!=='foundry')
+  assert.ok(flood(state,teleporter.pos)(BERTHS.find(b=>b.id==='ring').pos),'the eastern exit returns to Haven without retracing Wreckwater')
 })
 
 test('folded Haven fits every authored service route and travels continuously with saved progress',()=>{

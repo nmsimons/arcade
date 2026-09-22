@@ -100,11 +100,27 @@ test('the Works blaster can be reached and towed back to Freight Haven before op
   assert.equal(state.power['works-power'],undefined,'installation does not depend on powering the Works berth')
 })
 
-test('the teleporter is a blast-door reward with a clear towing route back to Works Haven',()=>{
-  const state=freshExpedition(),item=PICKUPS.find(item=>item.id==='teleporter')
-  assert.ok(!isInsideCavern({x:4900,y:1565},23,expeditionMap(state)))
-  state.gates.push('store-door')
-  clearRoute(state,[[item.pos.x,item.pos.y],[4900,1840],[4900,1700],[4900,1430],[4930,1180]])
+test('the Foundry teleporter and Archive survivor have a clear, radiation-free return after restoring the internal relay',()=>{
+  const state=freshExpedition('ring'),item=PICKUPS.find(item=>item.id==='teleporter')
+  assert.equal(item.sector,'foundry')
+  powerReceiver(state,'relay','relay');state.doors={}
+  // Keep the southern Foundry door shut to verify the new return independently.
+  clearRoute(state,[[item.pos.x,item.pos.y],[740,370],[880,400],[1150,400],[1500,400],[1500,600],[1500,810],[1500,950]])
+  clearRoute(state,[[1570,470],[1500,500],[1500,600],[1500,810],[1500,950]])
+})
+
+test('Ring guidance earns the Foundry return first, then leads recovery of its teleporter before the reactor',()=>{
+  const state=freshExpedition('ring');state.impactShieldInstalled=true;state.blasterInstalled=true;state.upgrades=['radiation']
+  for(const id of ['breach-power','freight-power','dispatch-power','works-power','ring-power','foundry'])powerReceiver(state,id,id)
+  assert.equal(objective(state).title,'Open the Foundry return route')
+  state.cargo={relay:{pos:{x:500,y:500},vel:{x:0,y:0},tethered:true}}
+  assert.deepEqual(objective(state).target,{x:620,y:470})
+  powerReceiver(state,'relay','relay')
+  const item=PICKUPS.find(item=>item.id==='teleporter')
+  assert.equal(objective(state).title,'Recover the Foundry teleporter');assert.deepEqual(objective(state).target,item.pos)
+  state.cargo.teleporter={pos:{x:1500,y:800},vel:{x:0,y:0},tethered:true}
+  assert.deepEqual(objective(state).target,havenPosition(state))
+  state.teleporterInstalled=true;assert.equal(objective(state).title,'Restore reactor containment')
 })
 
 test('Works guidance directs missing equipment to its actual cargo position and then to Haven',()=>{

@@ -3,7 +3,6 @@ import type { Harpoon, Ship, TetherBody } from './types'
 import type { CavernMap } from './worldGeometry'
 import { raycastCavern } from './worldGeometry.ts'
 import { HARPOON_CABLE_LENGTH } from './tuning.ts'
-import { tetherReachMultiplier } from './upgrades.ts'
 import { TERMINALS, terminalVisible } from './terminals.ts'
 import { POD_RESCUE_CREDITS_LABEL, SURVIVAL_PODS, podReleased, survivalPod } from './survivalPods.ts'
 
@@ -25,7 +24,7 @@ export function stepGrappleGuide(s: Expedition, rt: ExpeditionRuntime, ship: Shi
     rt.grappleHint='Haven is online. Point your nose at the blue socket in her center and press F to reconnect and hear her message. Disconnect when finished to retract the link permanently.'
     return
   }
-  const reach = HARPOON_CABLE_LENGTH * tetherReachMultiplier(s)
+  const reach = HARPOON_CABLE_LENGTH
   const impactModule = bodies.find(body => body.cargoId === 'impact')
   if (!s.impactShieldInstalled && impactModule && (Math.hypot(impactModule.pos.x-ship.pos.x,impactModule.pos.y-ship.pos.y)<600 || rt.recovery?.id==='impact')) {
     if (rt.recovery?.id === 'impact') rt.grappleHint = 'Haven is installing the impact shield. Wait for the recovery shutters to seal.'

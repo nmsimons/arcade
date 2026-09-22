@@ -1,7 +1,7 @@
 # Save compatibility and reset policy
 
 The browser slot remains `hard-vacuum-expedition-v1` so existing installations are
-found. Its **payload schema is now version 11**. Campaign version 1 and finale
+found. Its **payload schema is now version 14**. Campaign version 1 and finale
 version 2 are retained as historical content markers. Physical door IDs live in
 `gates`; abstract `heart`, `ignition-ready`, and retired `thermal` milestones live
 in `flags`. Flags never create collision geometry.
@@ -143,6 +143,34 @@ Older active saves without this optional flag keep their connector retired.
 The outer lock is now fully sealed until an authorized Haven departure. Old
 pilots saved inside its leaves or in the exterior pocket move just inside it;
 all other saved positions, progress and completed departures are preserved.
+
+## Ordered schema 11 → 12 migration
+
+Move the teleporter from the Works to the Broken Ring's service hub. Delete only
+an uninstalled, never-towed module's saved position while it remains in the Works
+region; the next cargo load uses the new authored position. Installed teleporters,
+previously towed modules and modules moved outside the Works retain their progress.
+All other cargo and progress stay intact. Current saves never repeat the relocation.
+
+## Ordered schema 12 → 13 migration
+
+Remove the retired Longline winch from both upgrade ownership and saved levels.
+Refund its 750-credit purchase price once if installed, including older purchases
+that migrate through the historical single-stage conversion. All ships use the
+standard 130-pixel tether reach. Preserve other upgrades, cargo and progress.
+Current saves reject retired winch fields and never repeat the refund.
+
+## Ordered schema 13 → 14 migration
+
+Move an uninstalled, never-towed teleporter still around its former Ring hub spawn
+to the Foundry by discarding that saved body position. Installed teleporters,
+handled modules and modules moved outside the hub retain their progress; current
+saves never repeat the move. Older Works-spawn migrations now use the same latest
+authored Foundry position.
+
+The relay receiver moves from the hub into the Foundry, keeping its circuit and
+door IDs. Preserve earned power, source-cell assignments, open doors, animation
+progress, rescued pods and completion. No new survivor is added or rescue undone.
 
 ## What persists and resets
 

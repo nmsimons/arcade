@@ -1,7 +1,7 @@
 import { worldDelta } from './worldDelta.ts'
 import { fragmentKindFor } from './debrisField.ts'
 import type { Bullet, Harpoon, Rock, RockKind, Ship, Vector2 } from './types'
-import { isInsideCavern, type CavernMap } from './worldGeometry.ts'
+import { isInsideCavern, raycastCavern, type CavernMap } from './worldGeometry.ts'
 import { repelBlueBody } from './expeditionPhysics.ts'
 
 type Ref<T> = { current: T }
@@ -63,8 +63,10 @@ export function updateBulletsAndPlayerRockCollisions(args: {
 
   } = args
 
-  // Projectiles expire when they strike the cavern boundary.
+  // Sweep against walls and Haven's hull instead of skipping thin surfaces.
   bulletsRef.current = bulletsRef.current.filter((bullet) => {
+    const travel = Math.hypot(bullet.vel.x,bullet.vel.y)*dt
+    if (raycastCavern(bullet.pos,bullet.vel,travel,cavernMap)<travel) return false
     bullet.pos.x += bullet.vel.x * dt
     bullet.pos.y += bullet.vel.y * dt
     bullet.life -= dt * 1000

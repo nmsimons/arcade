@@ -4,6 +4,8 @@ import type { Expedition } from './expedition'
 import { repelBlueBody } from './expeditionPhysics.ts'
 import { BASE_GUN_FIRE_COOLDOWN } from './tuning.ts'
 import { creditAsteroidDestruction, inOreProcessingZone } from './oreCredits.ts'
+import { raycastCavern } from './worldGeometry.ts'
+import type { CavernMap } from './worldGeometry'
 
 type Ref<T> = { current: T }
 
@@ -19,6 +21,7 @@ type CreateDebris = (
 
 export function updateBaseDefenseAndProcessing(args: {
   dt: number
+  collisionMap?: CavernMap
 
   baseX: number
   baseY: number
@@ -39,6 +42,7 @@ export function updateBaseDefenseAndProcessing(args: {
 }) {
   const {
     dt,
+    collisionMap,
 
     baseX,
     baseY,
@@ -107,6 +111,7 @@ export function updateBaseDefenseAndProcessing(args: {
         const td = worldDelta(gx, gy, target.pos.x, target.pos.y)
         const tl = Math.hypot(td.dx, td.dy)
         if (tl < 1e-6) continue
+        if (collisionMap && raycastCavern({x:gx,y:gy},{x:td.dx,y:td.dy},tl,collisionMap)<tl) continue
         const vx = (td.dx / tl) * shotSpeed
         const vy = (td.dy / tl) * shotSpeed
 
@@ -118,13 +123,15 @@ export function updateBaseDefenseAndProcessing(args: {
 
   // Update base shots.
   baseShotsRef.current = baseShotsRef.current
-    .map((s) => {
+    .filter((s) => {
+      // Sweep the path so a missed processing shot cannot escape through a hull leaf.
+      const travel = Math.hypot(s.vel.x,s.vel.y)*dt
+      if (collisionMap && raycastCavern(s.pos,s.vel,travel,collisionMap)<travel) return false
       s.pos.x = (s.pos.x + s.vel.x * dt)
       s.pos.y = (s.pos.y + s.vel.y * dt)
       s.life -= dt
-      return s
+      return s.life > 0
     })
-    .filter((s) => s.life > 0)
 
   // Base shots hit rocks (processing). Only affects rocks, not the ship.
   if (baseShotsRef.current.length > 0 && rocksRef.current.length > 0) {

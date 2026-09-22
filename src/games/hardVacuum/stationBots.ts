@@ -94,10 +94,11 @@ export function damageBot(state: Pick<Expedition, 'disabledBots'>, bot: StationB
   // floating-point sliver of armor that requires one extra contact.
   bot.health = Math.max(0, Math.round((bot.health - damage) * 1000) / 1000)
   bot.sparkDelay = 0 // A new hit immediately vents sparks; ongoing damage keeps sputtering.
-  bot.flash = 1; bot.target = undefined; bot.maintenance = undefined
-  // A cutting beam chips security armor, but cannot repeatedly cancel its
-  // attack. Heavy impacts still stagger it; tugs retain their laser counter.
-  if (kind !== 'laser' || bot.botKind === 'tug') {
+  bot.flash = 1
+  // Laser chips never interrupt an enemy's attack, movement or grapple.
+  // Heavy impacts interrupt it; destruction always releases attached cargo.
+  if (kind !== 'laser' || bot.health === 0) { bot.target = undefined; bot.maintenance = undefined }
+  if (kind !== 'laser') {
     bot.stun = .65; bot.phase = 'cooldown'; bot.timer = 1.5
   }
   if (bot.health) return false

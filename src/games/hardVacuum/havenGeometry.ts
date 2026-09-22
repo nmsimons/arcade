@@ -1,5 +1,6 @@
 import type { TetherBody, Vector2 } from './types'
 import { pointInPolygon } from './worldGeometry.ts'
+import type { CavernMap } from './worldGeometry'
 
 export const HAVEN_RADIUS = 118
 export const HAVEN_FOLDED_CLEARANCE = 70
@@ -47,6 +48,10 @@ export function havenColliders(pose: HavenPose): Vector2[][] {
   // The fixed core opens before the docking ring finishes deploying.
   if (pose.deployment < .3) panels.push([[-33,-18],[25,-18],[34,-9],[34,9],[25,18],[-33,18]].map(([x,y])=>posePoint({x,y},pose)))
   return panels
+}
+/** Weapon cover follows the same articulated hull as physical contacts. */
+export function withHavenColliders(map: CavernMap, pose: HavenPose): CavernMap {
+  return { ...map, obstacles: [...map.obstacles, ...havenColliders(pose)] }
 }
 export interface HavenContact { hit: boolean; speed: number; point: Vector2 }
 /** Contact impulses use the velocity of the struck leaf, including its hinge

@@ -38,14 +38,14 @@ export interface CircuitDefinition { id: CircuitId; pos: Vector2; source: Vector
 export const SOCKETS: readonly CircuitDefinition[] = [
   { id: 'foundry', pos: { x: 460, y: 920 }, source: { x: 1660, y: 920 }, label: 'FOUNDRY DOOR', gates: ['foundry'] },
   { id: 'heart', pos: { x: 2480, y: 1780 }, source: { x: 2735, y: 1110 }, label: 'CONTAINMENT / ENGINE RETURN', gates: ['refuge-link', 'drive'], flags: ['heart'] },
-  { id: 'relay', pos: { x: 1660, y: 1280 }, source: { x: 340, y: 340 }, label: 'ARCHIVE / REACTOR / SHORTCUT', gates: ['archive', 'reactor', 'shortcut'] },
+  { id: 'relay', pos: { x: 620, y: 470 }, source: { x: 340, y: 340 }, label: 'RING RELAY / ARCHIVE RETURN', gates: ['archive', 'reactor', 'shortcut'] },
   ...CAMPAIGN_SOCKETS,
 ] as const
 export const PICKUPS: { id: ModuleId; pos: Vector2; label: string; detail: string; sector: RoomId }[] = [
   { id: 'impact', pos: { x: 7110, y: 3600 }, label: 'Impact shield', detail: 'Tow this green module to Haven to install two impact-shield charges. Haven recharges it; the dock can upgrade it after installation.', sector: 'rescue' },
   { id: 'radiation', pos: { x: 7130, y: 1290 }, label: 'Radiation shield', detail: 'Adds a separate radiation reserve. Eight seconds at peak exposure; distance and rock cover reduce the dose. Recharges automatically outside radiation.', sector: 'stores' },
   { id: 'blaster', pos: { x: 5110, y: 1320 }, label: 'Blaster', detail: 'B · Heavy red bolts breach blast doors. Three shots; reload at Haven. Tow to Haven to install.', sector: 'works' },
-  { id: 'teleporter', pos: { x: 5100, y: 1930 }, label: 'Haven teleporter', detail: 'T · Return to Haven and bank carried credits. Unlimited use; cargo stays behind. Tow to Haven to install.', sector: 'capacitors' },
+  { id: 'teleporter', pos: { x: 660, y: 300 }, label: 'Haven teleporter', detail: 'T · Return to Haven and bank carried credits. Unlimited use; cargo stays behind. Tow to Haven to install.', sector: 'foundry' },
 ]
 export const CACHES: readonly { id: CacheId; pos: Vector2; value: number; sector: RoomId }[] = [
   { id: 'wreck-cache', pos: { x: 290, y: 1260 }, value: 100, sector: 'salvage' },

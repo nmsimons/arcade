@@ -19,8 +19,9 @@ import { dockingReadiness, driftCargo, initialCargoVelocity } from './expedition
 import type { FloatingBody } from './expeditionPhysics'
 import { resolveWorldContacts } from './bodyCollisions.ts'
 import type { HavenMotion, WorldContact } from './bodyCollisions'
+import { withHavenColliders } from './havenGeometry.ts'
 import { betweenReceiverPlates, receiverPlates } from './receivers.ts'
-import { TERMINALS, TERMINAL_HOUSINGS, terminalVisible } from './terminals.ts'
+import { TERMINALS, terminalVisible } from './terminals.ts'
 import type { Harpoon, PhaserBeam, Rock, Ship, Vector2 } from './types'
 import { BLASTER_BLAST_RADIUS } from './blaster.ts'
 import { RADIATION_HOUSINGS, freshRadiationFeedback, rechargeRadiation } from './radiation.ts'
@@ -36,7 +37,7 @@ import type { CoreLatch } from './ignitionCradle'
 
 export type Upgrade = 'radiation' | 'focus2' | ShopUpgrade
 export interface Expedition {
-  version: 11
+  version: 14
   flags: import('./stationIds').ProgressionId[]
   finaleVersion?: 2
   campaign: Campaign
@@ -71,7 +72,7 @@ const rectangle = (x: number, y: number, w: number, h: number): Vector2[] => [
 ]
 export const EXPEDITION_WALLS = STATION_TERRAIN.walls
 
-export const freshExpedition = (berth: BerthId = 'breach'): Expedition => ({ version: 11, flags: [], finaleVersion:2, campaign:freshCampaign(berth), upgrades: [], upgradeLevels: {}, gates: [], power: {}, doors: {}, caches: [], rescuedPods: [], visited: [BERTHS.find(b => b.id === berth)!.room], surveyed: [], disabledBots: [], botDoors: {}, checkpoint: 'haven', credits: 0, banked: 0, core: false, complete: false, position: { ...BERTHS.find(b => b.id === berth)!.pos }, shields: 0, impactShieldInstalled: false, blasterInstalled: false, blasterCharges: 0, radiationCharge: 0, radiationExposure: 0, teleporterInstalled: false })
+export const freshExpedition = (berth: BerthId = 'breach'): Expedition => ({ version: 14, flags: [], finaleVersion:2, campaign:freshCampaign(berth), upgrades: [], upgradeLevels: {}, gates: [], power: {}, doors: {}, caches: [], rescuedPods: [], visited: [BERTHS.find(b => b.id === berth)!.room], surveyed: [], disabledBots: [], botDoors: {}, checkpoint: 'haven', credits: 0, banked: 0, core: false, complete: false, position: { ...BERTHS.find(b => b.id === berth)!.pos }, shields: 0, impactShieldInstalled: false, blasterInstalled: false, blasterCharges: 0, radiationCharge: 0, radiationExposure: 0, teleporterInstalled: false })
 /** A new campaign arrives from outside; berth starts remain useful for development and staging. */
 export const newExpedition = (): Expedition => ({ ...freshExpedition(), campaign:{...freshCampaign(),havenActivated:false}, position:{...ARRIVAL_POSITION}, visited:['arrival'] })
 export { parseExpedition } from './saveMigrations.ts'
@@ -83,7 +84,6 @@ const mapCache = new Map<string, CavernMap>()
 const machineObstacles = [
   ...IGNITION_HOUSINGS,
   ...WARD_POD_HOUSINGS,
-  ...TERMINAL_HOUSINGS,
   ...RADIATION_HOUSINGS,
   ...SOCKETS.flatMap(socket=>receiverPlates(socket.pos)),
 ]
@@ -334,7 +334,7 @@ export function openGate(s: Expedition, id: string): boolean {
 }
 export function blastGate(s: Expedition, pos: Vector2, radius = BLASTER_BLAST_RADIUS): boolean {
   let opened = false
-  const map = expeditionMap(s)
+  const map = withHavenColliders(expeditionMap(s), havenPose(s))
   for (const gate of GATES) {
     if ((gate.kind !== 'blast' && gate.kind !== 'rubble') || s.gates.includes(gate.id)) continue
     const edge = { x: Math.max(gate.x, Math.min(gate.x + gate.w, pos.x)), y: Math.max(gate.y, Math.min(gate.y + gate.h, pos.y)) }

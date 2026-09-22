@@ -20,6 +20,11 @@ is checked against real mined-fragment outcomes. Clock tests bound hitches to
 six ticks and assert no pause/survey catch-up. Existing focused mechanics and
 geometry tests remain in the suite.
 
+Spawn recovery checks load ships inside outer rock, an interior rock island and
+a closed door, then follow the normal death/recovery flow. A hull merely touching
+a wall must resolve its contact and stay alive. The saved checkpoint is updated
+at death so reloading during the explosion cannot repeat the invalid spawn.
+
 Playwright owns both servers and isolated browser contexts. Production tests
 cover all routes, download isolation/failure recovery, saves, menus, keyboard
 flight, survey/log/pause and HUD synchronization. A separate development project
@@ -47,7 +52,7 @@ five seconds of effective contact at maximum focus (twenty seconds stock), and
 cover fractional-damage rounding, stock-capacitor bursts and mixed-weapon finishes.
 Security-defense regressions exercise continuous laser fire at every focus level
 and 30/60/120 Hz, preserving warning/burst timing while retreating from close range.
-They also cover heavy-hit stagger recovery, the tug's laser counter, safe Haven,
+They also cover heavy-hit stagger recovery, uninterrupted tug grapples under laser fire, safe Haven,
 cover and wall clearance, and real-session return fire against a stationary pilot.
 Damage checks verify accumulating breaches and increasing
 spark count, frequency, reach and lifetime at 30/60/120 Hz, including paused,
@@ -79,6 +84,12 @@ Hint checks cover live connect/disconnect, unsupported-pad fallback, selection
 preservation, HUD/map/tutorial labels, and keyboard use while a pad is connected.
 These checks do not replace testing real USB/Bluetooth hardware: verify stick
 feel, layout detection and audio activation on the target controller/browser.
+
+The Hard Vacuum audio regression renders the real thrust gain in an offline
+browser audio context. Small trigger fluctuations must stay continuous; full
+and low throttle must settle at proportional volumes, release must reach
+silence, and a quick release/repress must preserve the new voice. A constant
+input isolates volume dropouts from the random noise texture.
 
 Arcade theme checks cover the three illustrated entry points without eagerly
 loading game engines, per-game start/pause/loading/error treatments, controller
@@ -143,12 +154,15 @@ It verifies all four induction exercises remain labeled and captures the dispens
 charging, launching and clearing its outlet through the real session/renderer.
 Terminal tests cover powered-memory gating,
 explicit connection, replay, saved downloads and the absence of unsolicited help.
-Campaign presentation tests cap story length and density, exclude walkthrough
-copy, preserve retired recording IDs across save loads, and check Haven's floor
+Campaign presentation tests cap log length and density, exclude key-binding/UI
+instructions, preserve retired recording IDs across save loads, and check Haven's floor
 stencil timing and relocation. Terminal physics tests retain line-of-sight and
 power gating checks. Browser coverage checks live keyboard/controller floor
 bindings, socket retraction before Dock appears, tap-to-dock on small screens,
 the absence of floating prompts/status toasts, and hidden retired downloads.
+Review every log for story exposition plus an item clue, and some for a mechanic
+expressed in the speaker's voice. Verify locations and functions against current
+authored content, especially the opening Haven/shield sequence and Foundry relay.
 Recorder rendering tests compare all eight models pixel-for-pixel in unread,
 downloaded and connected states at three scales, with a visual contact sheet.
 Log models, Haven's tether link and tethered information cards must not repeat

@@ -5,6 +5,8 @@ import type { Jeep, Vector2 } from './types'
 
 export type SkidMark={from:Vector2;to:Vector2;age:number;strength:number}
 export const SKID_LIFETIME=3.5
+// Require a pronounced slide before either effect starts; hard skids still reach full strength.
+const SKID_SLIP_START=48,SKID_SLIP_FULL=80
 const pavement=[...roadFootprints().map(r=>({x:r.x-ROADS.sidewalk,y:r.y-ROADS.sidewalk,
   width:r.width+ROADS.sidewalk*2,height:r.height+ROADS.sidewalk*2})),
   ...CITY.alleys,...CITY.driveways,...CITY.lots.filter(lot=>lot.kind==='parking'||lot.kind==='plaza')]
@@ -23,7 +25,7 @@ export function stepTireEffects(effects:TireEffects,jeep:Jeep,dt:number){
   const dx=previous?(jeep.pos.x-previous.x)/dt:0,dy=previous?(jeep.pos.y-previous.y)/dt:0
   const speed=Math.hypot(dx,dy),c=Math.cos(jeep.angle),s=Math.sin(jeep.angle)
   const slip=Math.abs(-dx*s+dy*c)
-  const intensity=jeep.state==='active'&&speed<600?clamp((speed-60)/50,0,1)*clamp((slip-24)/55,0,1):0
+  const intensity=jeep.state==='active'&&speed<600?clamp((speed-60)/50,0,1)*clamp((slip-SKID_SLIP_START)/(SKID_SLIP_FULL-SKID_SLIP_START),0,1):0
   let contactStrength=0
   for(let i=0;i<2;i++){
     const side=i?1:-1,point={x:jeep.pos.x-7*c-side*9*s,y:jeep.pos.y-7*s+side*9*c}

@@ -2,7 +2,8 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { collideBodies, resolveWorldContacts } from '../src/games/hardVacuum/bodyCollisions.ts'
 import { cargoBodies, expeditionMap, freshExpedition, freshRuntime, powerReceiver, SOCKETS, stepExpedition } from '../src/games/hardVacuum/expedition.ts'
-import { RECORDS } from '../src/games/hardVacuum/campaign.ts'
+import { TERMINALS } from '../src/games/hardVacuum/terminals.ts'
+import { freshTraining, trainingMap } from '../src/games/hardVacuum/training.ts'
 import { isInsideCavern, resolveCircleInCavern } from '../src/games/hardVacuum/worldGeometry.ts'
 
 const object=(x,y,properties={})=>({pos:{x,y},vel:{x:0,y:0},radius:20,...properties})
@@ -73,7 +74,7 @@ test('actual expedition collisions include cargo and red rocks far from Haven wi
   assert.equal(crate.tethered,undefined)
 })
 
-test('installed power cells and recording terminal housings stay solid',()=>{
+test('installed power cells stay solid',()=>{
   const state=freshExpedition(),socket=SOCKETS.find(s=>s.id==='breach-power')
   assert.ok(isInsideCavern(socket.pos,5,expeditionMap(state)))
   powerReceiver(state,socket.id,socket.id);state.doors={}
@@ -81,11 +82,22 @@ test('installed power cells and recording terminal housings stay solid',()=>{
   const cell=object(socket.pos.x-25,socket.pos.y,{vel:{x:80,y:0}})
   assert.ok(resolveCircleInCavern(cell.pos,cell.vel,cell.radius,.55,expeditionMap(state)).collided)
   assert.ok(cell.vel.x<0)
-  for(const record of RECORDS.filter(r=>r.pos)) {
-    if(record.floorMounted) { assert.equal(isInsideCavern(record.pos,0,expeditionMap(state)),true);continue }
-    assert.equal(isInsideCavern(record.pos,0,expeditionMap(state)),false)
-    const ship=object(record.pos.x+25,record.pos.y,{radius:15,vel:{x:-80,y:0}})
-    assert.ok(resolveCircleInCavern(ship.pos,ship.vel,ship.radius,.55,expeditionMap(state)).collided)
-    assert.ok(ship.vel.x>0)
+})
+
+test('all campaign and training log ports let ships and cargo pass over without contact',()=>{
+  const station=expeditionMap(freshExpedition()),training=freshTraining()
+  const fixtures=[...TERMINALS.map(terminal=>({terminal,map:station})),{terminal:training.terminal,map:trainingMap(0)}]
+  // Cross each socket along the open lane; the final log borders a solid bot garage to its west.
+  for(const {terminal,map} of fixtures) for(const kind of kinds) {
+    const fixed=structuredClone(terminal)
+    for(let offset=-35;offset<=35;offset+=5) {
+      const moving=object(terminal.pos.x,terminal.pos.y+offset,{...kind,vel:{x:0,y:80}})
+      const before=structuredClone(moving),contacts=[]
+      assert.ok(isInsideCavern(moving.pos,moving.radius,map),terminal.terminalId)
+      resolveWorldContacts([moving,terminal],map,contact=>contacts.push(contact))
+      assert.deepEqual(contacts,[],terminal.terminalId)
+      assert.deepEqual(moving,before,terminal.terminalId)
+      assert.deepEqual(terminal,fixed)
+    }
   }
 })

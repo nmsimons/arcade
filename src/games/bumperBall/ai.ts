@@ -1,4 +1,4 @@
-import { segmentDistanceToPoint } from './physics.ts'
+import { crossedGoal, resolveFieldBoundary, segmentDistanceToPoint } from './physics.ts'
 import type { PhysicsWorld, Vehicle, Goal, Bumper, Vector2 } from './physics'
 import { boostLaneClear, createBoost, startBoost, updateBoost } from './boost.ts'
 import type { BoostState } from './boost'
@@ -60,19 +60,10 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
     for (let i = 0; i < steps; i++) {
       const friction = Math.pow(0.995, step * 60)
       vel.x *= friction; vel.y *= friction
+      const previous = { ...pos }
       pos.x += vel.x * step; pos.y += vel.y * step
-      for (const goal of goals) {
-        const dx = goal.pos.x - pos.x, dy = goal.pos.y - pos.y, distance = Math.hypot(dx, dy)
-        if (distance < goal.radius - ball.radius) return pos
-        if (distance > 0 && distance < goal.gravityRadius) {
-          const pull = 400 * (1 - distance / goal.gravityRadius) * step / distance
-          vel.x += dx * pull; vel.y += dy * pull
-        }
-      }
-      if (pos.x < field.left + ball.radius) { pos.x = field.left + ball.radius; vel.x *= -0.8 }
-      if (pos.x > field.right - ball.radius) { pos.x = field.right - ball.radius; vel.x *= -0.8 }
-      if (pos.y < field.top + ball.radius) { pos.y = field.top + ball.radius; vel.y *= -0.8 }
-      if (pos.y > field.bottom - ball.radius) { pos.y = field.bottom - ball.radius; vel.y *= -0.8 }
+      resolveFieldBoundary({ pos, vel }, ball.radius, goals)
+      if (goals.some(goal => crossedGoal(goal, previous, pos, ball.radius))) return pos
       for (const bumper of bumpers) {
         const dx = pos.x - bumper.pos.x, dy = pos.y - bumper.pos.y, distance = Math.hypot(dx, dy)
         const clearance = bumper.radius + ball.radius
@@ -98,9 +89,7 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
     // Sample candidate directions around baseDir and pick the one that
     // best converts into a goal (when attacking) while still avoiding hazards.
     //
-    // Key upgrade vs. pure geometry:
-    // - incorporate goal gravity via a cheap rollout so the AI can intentionally
-    //   "feed" the gravity well rather than only aiming at the goal center.
+    // Roll shots through the actual posts and goal lines, including rebounds.
     const base = normalize(baseDir)
     const sampleAngles = [-1.1, -0.85, -0.6, -0.4, -0.25, -0.12, 0, 0.12, 0.25, 0.4, 0.6, 0.85, 1.1]
     const horizon = 420
@@ -109,117 +98,37 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
 
     const rolloutScore = (dir: Vector2) => {
       if (!attackGoal) return 0
-
-      // Start from current ball velocity plus a "strike" impulse along dir.
-      const strikeImpulse = 240
-      let vx = ball.vel.x + dir.x * strikeImpulse
-      let vy = ball.vel.y + dir.y * strikeImpulse
-      const v0 = Math.hypot(vx, vy)
-      const maxV0 = 520
-      if (v0 > maxV0) {
-        vx = (vx / v0) * maxV0
-        vy = (vy / v0) * maxV0
+      const simulated = {
+        pos: { ...ballPos },
+        vel: { x: ball.vel.x + dir.x * 240, y: ball.vel.y + dir.y * 240 },
       }
-
-      let px = ballPos.x
-      let py = ballPos.y
-      let bestDistToGoal = Number.POSITIVE_INFINITY
-
-      // ~1.1s horizon at 30Hz is enough to see "capture" by gravity.
+      const { pos, vel } = simulated
+      const speed = Math.hypot(vel.x, vel.y)
+      if (speed > 520) { vel.x *= 520 / speed; vel.y *= 520 / speed }
+      let bestDistance = Number.POSITIVE_INFINITY
       const dtSim = 1 / 30
-      const steps = 33
-      const frictionPerFrame = 0.995
-
-      for (let i = 0; i < steps; i++) {
-        // Approximate the game's friction (which is applied per frame).
-        const f = Math.pow(frictionPerFrame, dtSim * 60)
-        vx *= f
-        vy *= f
-
-        // Gravity toward the attack goal.
-        const gdx = attackGoal.pos.x - px
-        const gdy = attackGoal.pos.y - py
-        const gdist = Math.hypot(gdx, gdy)
-
-        // Check if fully inside goal at any point in the rollout.
-        if (gdist + ballRadius < attackGoal.radius) {
-          // Strong win signal: earlier is better.
-          return -20000 + i * 180
-        }
-
-        bestDistToGoal = Math.min(bestDistToGoal, gdist)
-
-        if (gdist < attackGoal.gravityRadius && gdist > 0) {
-          const gravityStrength = 400 * (1 - gdist / attackGoal.gravityRadius)
-          const nx = gdx / gdist
-          const ny = gdy / gdist
-          vx += nx * gravityStrength * dtSim
-          vy += ny * gravityStrength * dtSim
-        }
-
-        // Avoid our own goal well during rollout (especially important during clears).
-        if (avoidGoal) {
-          const odx = avoidGoal.pos.x - px
-          const ody = avoidGoal.pos.y - py
-          const od = Math.hypot(odx, ody)
-          if (od < avoidGoal.gravityRadius && od > 0) {
-            const danger = (avoidGoal.gravityRadius - od) / avoidGoal.gravityRadius
-            // Treat this as a large negative outcome even if not yet "scored".
-            return 9000 + danger * 9000 + i * 120
-          }
-        }
-
-        px += vx * dtSim
-        py += vy * dtSim
-
-        // Bumper collisions (approximate the real physics; enough for planning).
+      for (let i = 0; i < 45; i++) {
+        const previous = { ...pos }
+        const friction = Math.pow(0.995, dtSim * 60)
+        vel.x *= friction; vel.y *= friction
+        pos.x += vel.x * dtSim; pos.y += vel.y * dtSim
+        resolveFieldBoundary(simulated, ballRadius, goals)
+        if (crossedGoal(attackGoal, previous, pos, ballRadius)) return -20000 + i * 180
+        if (avoidGoal && crossedGoal(avoidGoal, previous, pos, ballRadius)) return 20000
+        bestDistance = Math.min(bestDistance, Math.hypot(attackGoal.pos.x - pos.x, attackGoal.pos.y - pos.y))
         for (const bumper of bumpers) {
-          const bdx = px - bumper.pos.x
-          const bdy = py - bumper.pos.y
-          const bd = Math.hypot(bdx, bdy)
-          const minDist = bumper.radius + ballRadius
-          if (bd < minDist && bd > 0) {
-            const nx = bdx / bd
-            const ny = bdy / bd
-            const push = minDist - bd
-            px += nx * push
-            py += ny * push
-
-            // Bounce with energy boost (mirrors game behavior).
-            const dot = vx * nx + vy * ny
-            vx -= 2.5 * dot * nx
-            vy -= 2.5 * dot * ny
-            const boostSpeed = 150
-            vx += nx * boostSpeed
-            vy += ny * boostSpeed
-          }
+          const dx = pos.x - bumper.pos.x, dy = pos.y - bumper.pos.y, distance = Math.hypot(dx, dy)
+          const clearance = bumper.radius + ballRadius
+          if (distance <= 0 || distance >= clearance) continue
+          const nx = dx / distance, ny = dy / distance, dot = vel.x * nx + vel.y * ny
+          pos.x += nx * (clearance - distance); pos.y += ny * (clearance - distance)
+          vel.x += nx * (150 - 2.5 * dot); vel.y += ny * (150 - 2.5 * dot)
         }
-
-        // Rough wall bounces (mirrors game physics) so rollouts aren't overly optimistic.
-        if (px < field.left + ballRadius) {
-          px = field.left + ballRadius
-          vx *= -0.8
-        } else if (px > field.right - ballRadius) {
-          px = field.right - ballRadius
-          vx *= -0.8
-        }
-        if (py < field.top + ballRadius) {
-          py = field.top + ballRadius
-          vy *= -0.8
-        } else if (py > field.bottom - ballRadius) {
-          py = field.bottom - ballRadius
-          vy *= -0.8
-        }
+        const speed = Math.hypot(vel.x, vel.y)
+        if (speed > 600) { vel.x *= 600 / speed; vel.y *= 600 / speed }
       }
-
-      // No goal during rollout: reward getting deep into the gravity well.
-      // (Using bestDistToGoal is important; end-of-horizon can bounce away.)
-      const wellBonus = attackGoal.gravityRadius > 0
-        ? clamp((attackGoal.gravityRadius - bestDistToGoal) / attackGoal.gravityRadius, 0, 1)
-        : 0
-      return bestDistToGoal - wellBonus * 260
+      return bestDistance
     }
-
     let bestDir = base
     let bestScore = Number.POSITIVE_INFINITY
 
@@ -232,7 +141,7 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
       const distToTarget = Math.hypot(scoringTarget.x - endX, scoringTarget.y - endY)
       let score = distToTarget
 
-      // Gravity-aware scoring when attacking.
+      // Reward shots that actually cross the goal line.
       score += rolloutScore(dir)
 
       // Penalize paths that would clip bumpers.
@@ -244,14 +153,13 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
         }
       }
 
-      // Avoid drifting into our own goal / gravity well.
+      // Prefer clearances away from our goal mouth.
       if (avoidGoal) {
         const d0 = segmentDistanceToPoint(ballPos.x, ballPos.y, endX, endY, avoidGoal.pos.x, avoidGoal.pos.y)
-        if (d0 < avoidGoal.gravityRadius + 30) {
-          score += (avoidGoal.gravityRadius + 30 - d0) * 18
+        if (d0 < 220) {
+          score += (220 - d0) * 18
         }
-        const inner = avoidGoal.radius - ballRadius
-        if (inner > 0 && d0 < inner) {
+        if (crossedGoal(avoidGoal, ballPos, { x: endX, y: endY }, ballRadius)) {
           score += 20000
         }
       }
@@ -263,7 +171,8 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
       const distTop = endY - field.top
       const distBottom = field.bottom - endY
       const wallMin = Math.min(distLeft, distRight, distTop, distBottom)
-      if (wallMin < wallPad) {
+      const aimedIntoGoal = attackGoal && crossedGoal(attackGoal, ballPos, { x: endX, y: endY }, ballRadius)
+      if (wallMin < wallPad && !aimedIntoGoal) {
         score += (wallPad - wallMin) * 8
       }
 
@@ -286,7 +195,7 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
     target: Vector2,
     mode: 'none' | 'hard' | 'soft',
   ) => {
-    // Walls are always avoided; bumpers/opponent are soft or hard depending on mode.
+    // Solid walls are avoided; the goal mouths remain traversable.
     const vehicleRadiusForAvoid = 20
     let steerAwayX = 0
     let steerAwayY = 0
@@ -340,10 +249,12 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
     }
 
     const wallMargin = 60
-    if (vehicle.pos.x < field.left + wallMargin) {
+    const openAt = (side: Goal['side']) => goals.some(goal => goal.side === side
+      && Math.abs(vehicle.pos.y - goal.pos.y) < goal.height / 2 - goal.postRadius - 25)
+    if (vehicle.pos.x < field.left + wallMargin && !openAt('left')) {
       steerAwayX += (wallMargin - (vehicle.pos.x - field.left)) * 1.5
     }
-    if (vehicle.pos.x > field.right - wallMargin) {
+    if (vehicle.pos.x > field.right - wallMargin && !openAt('right')) {
       steerAwayX -= (wallMargin - (field.right - vehicle.pos.x)) * 1.5
     }
     if (vehicle.pos.y < field.top + wallMargin) {
@@ -511,22 +422,17 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
 
     const isOnOwnSide = defendGoal.side === 'left' ? ball.pos.x < (field.left + field.right) / 2 : ball.pos.x > (field.left + field.right) / 2
     const movingTowardOwnGoal = defendGoal.side === 'left' ? ball.vel.x < -40 : ball.vel.x > 40
-    const nearOwnWell = ballToDefGoalDist < defendGoal.gravityRadius + 45
-    const inDanger = nearOwnWell || (ballToDefGoalDist < 260) || (isOnOwnSide && movingTowardOwnGoal && ballSpeed > 80)
+    const inDanger = ballToDefGoalDist < 260 || (isOnOwnSide && movingTowardOwnGoal && ballSpeed > 80)
 
     // Emergency clear: ball is moving toward our goal and likely to enter soon.
     // In this mode, the defender should aggressively hit the ball away.
-    const innerDefRadius = defendGoal.radius - ball.radius
     const tThreat = 0.45
     const threatEnd = { x: ball.pos.x + ball.vel.x * tThreat, y: ball.pos.y + ball.vel.y * tThreat }
-    const segToGoalDist = innerDefRadius > 0
-      ? segmentDistanceToPoint(ball.pos.x, ball.pos.y, threatEnd.x, threatEnd.y, defendGoal.pos.x, defendGoal.pos.y)
-      : Number.POSITIVE_INFINITY
     const toDefX = defendGoal.pos.x - ball.pos.x
     const toDefY = defendGoal.pos.y - ball.pos.y
     const toDefD = Math.hypot(toDefX, toDefY)
     const towardDef = toDefD > 0.001 ? ((ball.vel.x * (toDefX / toDefD) + ball.vel.y * (toDefY / toDefD)) > 55) : false
-    const emergencyClear = (segToGoalDist < (innerDefRadius + 10)) || (towardDef && ballToDefGoalDist < defendGoal.gravityRadius + 60)
+    const emergencyClear = crossedGoal(defendGoal, ball.pos, threatEnd, ball.radius) || (towardDef && ballToDefGoalDist < 260)
 
     // Predict ball a bit so we hit the correct face when it's moving.
     // When the ball is nearly stopped, leading creates oscillation; treat it as stationary.
@@ -548,7 +454,7 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
     const toBallFromDefX = ballPred.x - defendGoal.pos.x
     const toBallFromDefY = ballPred.y - defendGoal.pos.y
     const toBallFromDefD = Math.hypot(toBallFromDefX, toBallFromDefY)
-    const goalieDist = defendGoal.radius + 120
+    const goalieDist = 180
     const goaliePoint = toBallFromDefD > 0.001
       ? { x: defendGoal.pos.x + (toBallFromDefX / toBallFromDefD) * goalieDist, y: defendGoal.pos.y + (toBallFromDefY / toBallFromDefD) * goalieDist }
       : { x: defendGoal.pos.x + (defendGoal.side === 'left' ? 1 : -1) * goalieDist, y: defendGoal.pos.y }
@@ -572,7 +478,9 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
     const dTop = ballPred.y - field.top
     const dBottom = field.bottom - ballPred.y
     const wallMin = Math.min(dLeft, dRight, dTop, dBottom)
-    if (!inDanger && wallMin < wallMargin) {
+    const atAttackingMouth = Math.abs(ballPred.y - attackGoal.pos.y) < attackGoal.height / 2 - attackGoal.postRadius - ball.radius
+      && (attackGoal.side === 'left' ? wallMin === dLeft : wallMin === dRight)
+    if (!inDanger && wallMin < wallMargin && !atAttackingMouth) {
       let away = { x: 0, y: 0 }
       if (wallMin === dLeft) away = { x: 1, y: 0 }
       else if (wallMin === dRight) away = { x: -1, y: 0 }
@@ -816,9 +724,8 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
       aimTarget = moveTarget
       if (!inDanger) {
         const dToAttackGoal = Math.hypot(attackGoal.pos.x - ballPred.x, attackGoal.pos.y - ballPred.y)
-        // When the ball is already in the goal's gravity well, blasting it can actually reduce
-        // conversion; prefer controlled pushes so gravity can "sink" the ball.
-        if (dToAttackGoal < attackGoal.gravityRadius * 0.95) {
+        // A controlled final touch keeps a close shot between the posts.
+        if (dToAttackGoal < 190) {
           accelMult = ballSpeed > 240 ? 0.9 : 1.1
         } else {
           accelMult = 1.25
@@ -849,7 +756,7 @@ export function driveComputer(world: PhysicsWorld, memory: AiMemory, dt: number)
       const awayFromOwnGoal = (vehicle.pos.x - defendGoal.pos.x) * hx + (vehicle.pos.y - defendGoal.pos.y) * hy > 0
       const finishing = mem.offenseState === 'strike' && behindEnough && ballAhead > 65 && ballAhead < 200
         && ballAcross < 18 && headingAlign > 0.97 && awayFromOwnGoal
-        && Math.hypot(ball.pos.x - attackGoal.pos.x, ball.pos.y - attackGoal.pos.y) > attackGoal.gravityRadius + 30
+        && Math.hypot(ball.pos.x - attackGoal.pos.x, ball.pos.y - attackGoal.pos.y) > 220
       const repositioning = mem.offenseState === 'orbit' && carToBallDist > 400 && targetDistance > 360
       // Spend the boost on a lined-up hit or a long straight recovery, never
       // while turning, sliding sideways, setting up a delicate touch, or in traffic.

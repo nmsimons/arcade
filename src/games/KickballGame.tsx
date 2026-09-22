@@ -4,13 +4,15 @@ import { controllerButtonLabel, controllerTurnLabel } from './hardVacuum/control
 import { controllerDialog, controlDialog, scrollDialog } from './hardVacuum/controllerUi'
 import { neutralController } from './hardVacuum/flightInput'
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
-import { FIELD, CENTER, createArena, stepPhysics } from './bumperBall/physics'
-import type { Ball, Bumper, Goal, Vehicle, Vector2 } from './bumperBall/physics'
+import { FIELD, CENTER, createArena, resolveFieldBoundary, stepPhysics } from './bumperBall/physics'
+import type { Ball, Bumper, Goal, Vehicle } from './bumperBall/physics'
 import { advanceComputerBoost, createAiMemory, driveComputer } from './bumperBall/ai'
 import { createBoost, startBoost, updateBoost } from './bumperBall/boost'
 import { createVehicleAppearance, settleVehicleAppearance, stepVehicleAppearance } from './bumperBall/appearance'
+import { BumperMotorSound } from './bumperBall/motorSound'
+import type { MotorDrive } from './bumperBall/motorSound'
 
-import { COLORS, INK, drawCourt, drawGoal, drawBumper, drawBall, drawVehicle, drawScoreboard, drawBoostMeter } from './bumperBall/render'
+import { COLORS, DISPLAY_FONT, INK, drawCourt, drawGoal, drawGoalFrame, drawBumper, drawBall, drawVehicle, drawScoreboard, drawBoostMeter } from './bumperBall/render'
 import type { Vector3 } from './bumperBall/render'
 import './bumperBall/bumperBall.css'
 
@@ -22,6 +24,7 @@ const BASE_VIEWPORT = { width: 1280, height: 800 } as const
 // Sound system
 class SoundSystem {
   private ctx: AudioContext | null = null
+  private motor: BumperMotorSound | null = null
 
   init() {
     if (!this.ctx) {
@@ -108,18 +111,21 @@ class SoundSystem {
     })
   }
 
-  engine() {
-    if (!this.ctx) return
-    const osc = this.ctx.createOscillator()
-    const gain = this.ctx.createGain()
-    osc.type = 'sawtooth'
-    osc.frequency.value = 35
-    gain.gain.setValueAtTime(0.03, this.ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1)
-    osc.connect(gain)
-    gain.connect(this.ctx.destination)
-    osc.start()
-    osc.stop(this.ctx.currentTime + 0.1)
+  engine(player: MotorDrive, opponent: MotorDrive, dx: number, dy: number) {
+    if (!this.ctx || this.ctx.state !== 'running') return
+    this.motor ??= new BumperMotorSound(this.ctx)
+    this.motor.update(player, opponent, dx, dy)
+  }
+
+  silenceEngine() {
+    this.motor?.silence()
+  }
+
+  dispose() {
+    this.motor?.dispose()
+    this.motor = null
+    if (this.ctx) void this.ctx.close().catch(() => {})
+    this.ctx = null
   }
 
   boost() {
@@ -228,13 +234,10 @@ export function KickballGame({ onExit }: KickballGameProps) {
   const keysRef = useRef<Set<string>>(new Set())
   const viewportSizeRef = useRef({ width: 800, height: 600 })
   const soundsRef = useRef<SoundSystem>(new SoundSystem())
-  const engineTimerRef = useRef(0)
   const goalCelebrationRef = useRef(0)
   const lastScorerRef = useRef<'red' | 'blue'>('red')
   const goalFlashRef = useRef(0)
-  const ripplesRef = useRef<{ x: number; y: number; radius: number; maxRadius: number; color: string }[]>([])
-  const ambientRipplesRef = useRef<{ goalSide: 'left' | 'right'; radius: number; maxRadius: number }[]>([])
-  const drainAnimRef = useRef<{ goalPos: Vector2; startPos: Vector2; progress: number; spinAngle: number } | null>(null)
+  const scoredGoalRef = useRef<Goal['side'] | null>(null)
 
   const ballSpinAngleRef = useRef(0)
   const ballSpinAxisRef = useRef<Vector3>({ x: 0, y: 1, z: 0 })
@@ -253,6 +256,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
     boostRequestedRef.current = false
     const { x: centerX, y: centerY } = CENTER
     appearanceRef.current = { left: createVehicleAppearance(), right: createVehicleAppearance() }
+    scoredGoalRef.current = null
 
     // Reset ball to center
     ballRef.current = {
@@ -298,6 +302,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
     pausedStateRef.current = gameState
     keysRef.current.clear()
     boostRequestedRef.current = false
+    soundsRef.current.silenceEngine()
     controller.reset()
     setGameState('paused')
   }, [controller, gameState])
@@ -346,6 +351,11 @@ export function KickballGame({ onExit }: KickballGameProps) {
   }, [generateField])
 
   useEffect(() => {
+    const sounds = soundsRef.current
+    return () => sounds.dispose()
+  }, [])
+
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -355,10 +365,15 @@ export function KickballGame({ onExit }: KickballGameProps) {
     // Fast Refresh can preserve a match created before computer boosts existed.
     ai1Ref.current.boost ??= createBoost()
 
+    let needsRedraw = true
     const resize = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-      viewportSizeRef.current = { width: canvas.width, height: canvas.height }
+      const width = window.innerWidth, height = window.innerHeight
+      // Assigning even the same dimensions clears the backing surface. Keep
+      // the last frame intact when a menu, score or controller state changes.
+      if (canvas.width !== width) canvas.width = width
+      if (canvas.height !== height) canvas.height = height
+      viewportSizeRef.current = { width, height }
+      needsRedraw = true
     }
     resize()
     window.addEventListener('resize', resize)
@@ -485,6 +500,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
           if (explodedSides.has('left')) spawnExplosion(vehicle1.pos.x, vehicle1.pos.y, 'left')
           if (explodedSides.has('right')) spawnExplosion(vehicle2.pos.x, vehicle2.pos.y, 'right')
 
+          sounds.silenceEngine()
           sounds.explosion()
           endSequenceRef.current = { msLeft: 1200, explodedSides, particles, rings }
           return
@@ -503,84 +519,26 @@ export function KickballGame({ onExit }: KickballGameProps) {
         goalCelebrationRef.current -= dt * 1000
         goalFlashRef.current = Math.max(0, goalFlashRef.current - dt * 2)
         
-        // Update drain animation - ball spirals into center
-        if (drainAnimRef.current) {
-          const drain = drainAnimRef.current
-          drain.progress = Math.min(1, drain.progress + dt * 2) // Complete in 0.5 seconds
-          drain.spinAngle += dt * 15 // Fast spin
-          
-          // Spiral path - starts at ball position, spirals to goal center
-          const t = drain.progress
-          const easeT = 1 - Math.pow(1 - t, 3) // Ease out cubic - accelerates into drain
-          const spiralRadius = (1 - easeT) * 40 // Spiral gets tighter
-          
-          // Update ball position to follow spiral
-          ball.pos.x = drain.goalPos.x + Math.cos(drain.spinAngle) * spiralRadius
-          ball.pos.y = drain.goalPos.y + Math.sin(drain.spinAngle) * spiralRadius
-        }
-        
-        // Update ripples - shrink inward rapidly for goal celebration
-        const rippleSpeed = 400
-        ripplesRef.current = ripplesRef.current.filter(r => {
-          r.radius -= rippleSpeed * dt
-          return r.radius > r.maxRadius // maxRadius is now minimum (goal radius)
-        })
-        
-        // Spawn new inward ripples rapidly during goal celebration
-        if (drainAnimRef.current && ripplesRef.current.length < 8) {
-          const lastRipple = ripplesRef.current[ripplesRef.current.length - 1]
-          if (!lastRipple || lastRipple.radius < 350) {
-            const goal = goalsRef.current.find(g => 
-              g.pos.x === drainAnimRef.current!.goalPos.x
-            )
-            if (goal) {
-              ripplesRef.current.push({
-                x: goal.pos.x,
-                y: goal.pos.y,
-                radius: 400, // Start from far out
-                maxRadius: goal.radius, // Shrink to goal radius
-                color: goal.side === 'left' ? COLORS.red : COLORS.blue
-              })
-            }
-          }
-        }
-        
+        // Let the scored ball settle against the net while the cars celebrate.
+        ball.pos.x += ball.vel.x * dt
+        ball.pos.y += ball.vel.y * dt
+        resolveFieldBoundary(ball, ball.radius, goalsRef.current, 0.3)
+        ball.vel.x *= Math.exp(-5 * dt)
+        ball.vel.y *= Math.exp(-5 * dt)
+        ballSpinAngleRef.current += Math.hypot(ball.vel.x, ball.vel.y) / ball.radius * dt
         if (goalCelebrationRef.current <= 0) {
           resetPositions()
-          ripplesRef.current = []
-          drainAnimRef.current = null
           setGameState('playing')
         }
         return
       }
       
-      // Update ambient goal ripples (always active during play) - ripple inward
-      const ambientRippleSpeed = 80
-      ambientRipplesRef.current = ambientRipplesRef.current.filter(r => {
-        r.radius -= ambientRippleSpeed * dt
-        return r.radius > r.maxRadius // maxRadius is now the minimum (goal radius)
-      })
-      
-      // Spawn ambient ripples for each goal - start at gravity radius, shrink to goal
-      for (const goal of goalsRef.current) {
-        const goalRipples = ambientRipplesRef.current.filter(r => r.goalSide === goal.side)
-        const lastRipple = goalRipples[goalRipples.length - 1]
-        if (!lastRipple || lastRipple.radius < goal.gravityRadius - 50) {
-          ambientRipplesRef.current.push({
-            goalSide: goal.side,
-            radius: goal.gravityRadius,
-            maxRadius: goal.radius // Now used as minimum radius
-          })
-        }
-      }
-
       const world = { field, vehicle1, vehicle2, ball, bumpers: bumpersRef.current, goals: goalsRef.current }
       const previous1 = { angle: vehicle1.angle, vel: { ...vehicle1.vel } }
       const previous2 = { angle: vehicle2.angle, vel: { ...vehicle2.vel } }
       const accel = 350
-      let isAccelerating = driveComputer(world, ai1Ref.current, dt)
+      const computerDriving = driveComputer(world, ai1Ref.current, dt)
       if (advanceComputerBoost(world, ai1Ref.current, dt)) sounds.boost()
-      isAccelerating ||= ai1Ref.current.boost.activeRemaining > 0
 
       // Keyboard and controller share the same steering and acceleration limits.
       const input = controllerInputRef.current
@@ -593,50 +551,27 @@ export function KickballGame({ onExit }: KickballGameProps) {
       const drive = (forward - reverse * 0.5) * accel * dt
       vehicle2.vel.x += Math.cos(vehicle2.angle) * drive
       vehicle2.vel.y += Math.sin(vehicle2.angle) * drive
-      isAccelerating ||= forward > 0 || reverse > 0
 
       if (boostRequestedRef.current) {
         if (startBoost(boostRef.current, vehicle2)) sounds.boost()
         boostRequestedRef.current = false
       }
       updateBoost(boostRef.current, vehicle2, dt)
-      isAccelerating ||= boostRef.current.activeRemaining > 0
-
-      // Engine sound
-      if (isAccelerating) {
-        engineTimerRef.current -= dt * 1000
-        if (engineTimerRef.current <= 0) {
-          engineTimerRef.current = 100
-          sounds.engine()
-        }
-      }
 
       const goal = stepPhysics(world, dt, sounds)
       stepVehicleAppearance(appearanceRef.current.left, vehicle1, previous1, dt)
       stepVehicleAppearance(appearanceRef.current.right, vehicle2, previous2, dt)
+      sounds.engine(
+        { speed: Math.hypot(vehicle2.vel.x, vehicle2.vel.y), throttle: Math.max(forward, reverse * 0.5), boosting: boostRef.current.activeRemaining > 0 },
+        { speed: Math.hypot(vehicle1.vel.x, vehicle1.vel.y), throttle: computerDriving ? 0.75 : 0, boosting: ai1Ref.current.boost.activeRemaining > 0 },
+        vehicle1.pos.x - vehicle2.pos.x, vehicle1.pos.y - vehicle2.pos.y,
+      )
       if (goal) {
+        sounds.silenceEngine()
         boostRef.current.activeRemaining = 0
         ai1Ref.current.boost.activeRemaining = 0
         boostRequestedRef.current = false
-        // Start drain animation
-        drainAnimRef.current = {
-          goalPos: { x: goal.pos.x, y: goal.pos.y },
-          startPos: { x: ball.pos.x, y: ball.pos.y },
-          progress: 0,
-          spinAngle: 0
-        }
-
-        // Start ripple emanation from goal
-        const rippleColor = goal.side === 'left' ? COLORS.red : COLORS.blue
-        ripplesRef.current = []
-        // Create initial ripple
-        ripplesRef.current.push({
-          x: goal.pos.x,
-          y: goal.pos.y,
-          radius: goal.radius,
-          maxRadius: 300,
-          color: rippleColor
-        })
+        scoredGoalRef.current = goal.side
         goalFlashRef.current = 1.0
 
         if (goal.side === 'left') {
@@ -690,11 +625,8 @@ export function KickballGame({ onExit }: KickballGameProps) {
       ctx.scale(zoom, zoom)
       ctx.translate(-player.pos.x, -player.pos.y)
 
-      drawCourt(ctx)
-      for (const goal of goalsRef.current) {
-        const scoring = gameState === 'goal' && drainAnimRef.current?.goalPos.x === goal.pos.x
-        drawGoal(ctx, goal, visualTime, scoring, ambientRipplesRef.current)
-      }
+      drawCourt(ctx, goalsRef.current)
+      for (const goal of goalsRef.current) drawGoal(ctx, goal)
       for (const bumper of bumpersRef.current) drawBumper(ctx, bumper)
       drawBall(ctx, ballRef.current, ballSpinAxisRef.current, ballSpinAngleRef.current)
       for (const vehicle of [vehicle1Ref.current, vehicle2Ref.current]) {
@@ -735,20 +667,8 @@ export function KickballGame({ onExit }: KickballGameProps) {
         }
       }
 
-      // Goal ripples belong to the world and move with the camera.
-      if (gameState === 'goal') {
-        for (const ripple of ripplesRef.current) {
-          const startRadius = 400
-          const endRadius = ripple.maxRadius
-          const progress = (startRadius - ripple.radius) / (startRadius - endRadius)
-          const alpha = 0.12 + progress * 0.4
-          ctx.strokeStyle = ripple.color
-          ctx.globalAlpha = alpha
-          ctx.lineWidth = 1 + progress * 2
-          ctx.beginPath()
-          ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2)
-          ctx.stroke()
-        }
+      for (const goal of goalsRef.current) {
+        drawGoalFrame(ctx, goal, visualTime, gameState === 'goal' && scoredGoalRef.current === goal.side)
       }
       ctx.restore()
 
@@ -761,14 +681,16 @@ export function KickballGame({ onExit }: KickballGameProps) {
         const lift = Math.max(0, goalFlashRef.current) * 10
         ctx.save()
         ctx.textAlign = 'center'
-        ctx.font = '12px ui-monospace, monospace'
-        ctx.fillStyle = color
+        ctx.font = `bold 12px ${DISPLAY_FONT}`
+        ctx.fillStyle = '#243e43ee'
         const bannerY = Math.max(148, height * 0.28)
+        ctx.beginPath()
+        ctx.roundRect(width / 2 - 130, bannerY - 66 - lift, 260, 90, 22)
+        ctx.fill()
+        ctx.fillStyle = color
         ctx.fillText(lastScorerRef.current === 'blue' ? 'NICELY BUMPED.' : 'THE LITTLE RASCAL.', width / 2, bannerY - 37 - lift)
-        ctx.font = '42px ui-monospace, monospace'
+        ctx.font = `900 42px ${DISPLAY_FONT}`
         ctx.fillStyle = COLORS.cream
-        ctx.shadowColor = '#030907'
-        ctx.shadowBlur = 14
         ctx.fillText('GOAL!', width / 2, bannerY - lift)
         ctx.restore()
       }
@@ -779,15 +701,25 @@ export function KickballGame({ onExit }: KickballGameProps) {
       lastTime = time
 
       if (pollController(time, dt)) update(dt)
-      draw()
+      else sounds.silenceEngine()
+      // Menus keep polling input, but their frozen backdrop needs no animation
+      // or repeated blur compositing. A viewport change still repaints it.
+      if (needsRedraw || gameState === 'playing' || gameState === 'goal') {
+        draw()
+        needsRedraw = false
+      }
 
       animationId = requestAnimationFrame(gameLoop)
     }
 
+    // Paint transitions immediately, including a fresh match after Game Over.
+    draw()
+    needsRedraw = false
     animationId = requestAnimationFrame(gameLoop)
 
     return () => {
       cancelAnimationFrame(animationId)
+      sounds.silenceEngine()
       window.removeEventListener('resize', resize)
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
@@ -798,7 +730,15 @@ export function KickballGame({ onExit }: KickballGameProps) {
   }, [gameState, controller, controllerConnected, pauseGame, resumeGame, resetPositions, onExit, redScore, blueScore])
 
   return (
-    <div ref={rootRef} data-controller-connected={controllerConnected} className="relative w-screen h-screen overflow-hidden bg-black" onPointerDown={() => soundsRef.current.init()}>
+    <div ref={rootRef} data-controller-connected={controllerConnected} className="relative w-screen h-screen overflow-hidden bg-black"
+      onPointerDown={() => soundsRef.current.init()}
+      onPointerMove={event => {
+        // Only actual mouse movement takes over selection. A parked pointer
+        // must not undo keyboard/controller navigation or focus a new menu.
+        if (event.pointerType !== 'mouse' || event.buttons !== 0) return
+        const button = (event.target as HTMLElement).closest<HTMLButtonElement>('.bumper-button')
+        if (button && !button.disabled && button !== document.activeElement) button.focus({ preventScroll: true })
+      }}>
       <canvas ref={canvasRef} tabIndex={0} aria-label="Bumper Ball arena" className="block w-full h-full outline-none" />
 
       {/* Menu */}
@@ -874,7 +814,7 @@ export function KickballGame({ onExit }: KickballGameProps) {
           <div className="bumper-menu">
             <h2 className="bumper-dialog-title">GAME OVER</h2>
             <p
-              className={`text-2xl mb-6 font-mono ${
+              className={`text-2xl mb-6 ${
                 redScore === blueScore ? 'bumper-cream' : redScore > blueScore ? 'bumper-red' : 'bumper-blue'
               }`}
             >

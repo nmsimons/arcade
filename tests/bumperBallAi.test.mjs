@@ -45,13 +45,13 @@ test('planning does not move the ball, opponent or bumpers, and each kickoff get
   assert.notStrictEqual(fresh.boost, memory.boost)
 })
 
-test('computer boosts improve an open finish but preserve gentle touches inside the goal well', () => {
+test('computer boosts improve an open finish but preserve gentle touches near the goal mouth', () => {
   const fixture = SITUATIONS.find(x => x.name === 'open-finish')
   const without = runTrial(fixture, { boosts: false }), withBoost = runTrial(fixture)
   assert.equal(without.outcome, 'scored')
   assert.equal(withBoost.outcome, 'scored')
   assert.ok(withBoost.seconds < without.seconds * 0.7)
-  const gentle = runTrial({ name: 'in-the-well', car: [1300, 500, 0], ball: [1400, 500, 0, 0], opponent: [800, 800] })
+  const gentle = runTrial({ name: 'near-goal-mouth', car: [1300, 500, 0], ball: [1400, 500, 0, 0], opponent: [800, 800] })
   assert.equal(gentle.outcome, 'scored')
   assert.equal(gentle.boosts, 0)
 })

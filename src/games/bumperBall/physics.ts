@@ -21,8 +21,9 @@ export type Bumper = {
 
 export type Goal = {
   pos: Vector2
-  radius: number
-  gravityRadius: number
+  height: number
+  depth: number
+  postRadius: number
   side: 'left' | 'right'
 }
 
@@ -75,17 +76,65 @@ export function createArena() {
   bumpers.push({ pos: { x: field.right - fieldWidth * 0.15, y: field.top + fieldHeight * 0.35 }, radius: bumperRadius, hitTimer: 0 })
   bumpers.push({ pos: { x: field.right - fieldWidth * 0.15, y: field.bottom - fieldHeight * 0.35 }, radius: bumperRadius, hitTimer: 0 })
 
-  // Goals - circles with gravity (ball radius is 30, so 60+ allows full containment)
-  const goalRadius = 60
-  const goalGravityRadius = 200
-  const goalOffset = 100 // Offset from field edge
-
   const goals: Goal[] = [
-    { pos: { x: field.left + goalOffset, y: centerY }, radius: goalRadius, gravityRadius: goalGravityRadius, side: 'left' },
-    { pos: { x: field.right - goalOffset, y: centerY }, radius: goalRadius, gravityRadius: goalGravityRadius, side: 'right' },
+    { pos: { x: field.left, y: centerY }, height: 260, depth: 90, postRadius: 7, side: 'left' },
+    { pos: { x: field.right, y: centerY }, height: 260, depth: 90, postRadius: 7, side: 'right' },
   ]
 
   return { field, bumpers, goals }
+}
+
+/** Score only when the whole ball crosses outward through the open goal mouth. */
+export function crossedGoal(goal: Goal, from: Vector2, to: Vector2, radius: number) {
+  const sign = goal.side === 'left' ? -1 : 1
+  const before = (from.x - goal.pos.x) * sign, after = (to.x - goal.pos.x) * sign
+  if (before > radius || after <= radius || after <= before) return false
+  const t = (radius - before) / (after - before)
+  const y = from.y + (to.y - from.y) * t
+  return Math.abs(y - goal.pos.y) < goal.height / 2 - goal.postRadius - radius
+}
+
+/** Shared by the match and AI: end-wall openings, round posts and solid net pockets. */
+export function resolveFieldBoundary(body: { pos: Vector2; vel: Vector2 }, radius: number,
+  goals: readonly Goal[], restitution = 0.8) {
+  const { pos, vel } = body
+  let hit = false
+  const bound = (axis: 'x' | 'y', limit: number, direction: -1 | 1) => {
+    if ((pos[axis] - limit) * direction <= 0) return
+    pos[axis] = limit
+    if (vel[axis] * direction > 0) { vel[axis] *= -restitution; hit = true }
+  }
+  for (const side of ['left', 'right'] as const) {
+    const sign = side === 'left' ? -1 : 1
+    const edge = FIELD[side]
+    const goal = goals.find(g => g.side === side)
+    const inMouth = goal && Math.abs(pos.y - goal.pos.y) < goal.height / 2
+    bound('x', edge + (inMouth ? sign * (goal.depth - radius) : -sign * radius), sign)
+    if (!goal) continue
+    // Once behind the goal line, the side net contains cars as well as the ball.
+    if ((pos.x - edge) * sign > 0) {
+      const clearance = goal.height / 2 - goal.postRadius - radius
+      bound('y', goal.pos.y - clearance, -1)
+      bound('y', goal.pos.y + clearance, 1)
+    }
+    for (const end of [-1, 1]) {
+      const dx = pos.x - edge, dy = pos.y - (goal.pos.y + end * goal.height / 2)
+      const distance = Math.hypot(dx, dy), clearance = radius + goal.postRadius
+      if (distance >= clearance) continue
+      const nx = distance > 0 ? dx / distance : -sign
+      const ny = distance > 0 ? dy / distance : 0
+      pos.x += nx * (clearance - distance); pos.y += ny * (clearance - distance)
+      const intoPost = vel.x * nx + vel.y * ny
+      if (intoPost < 0) {
+        vel.x -= (1 + restitution) * intoPost * nx
+        vel.y -= (1 + restitution) * intoPost * ny
+        hit = true
+      }
+    }
+  }
+  bound('y', FIELD.top + radius, -1)
+  bound('y', FIELD.bottom - radius, 1)
+  return hit
 }
 
 export interface PhysicsWorld {
@@ -112,7 +161,7 @@ export function stepPhysics(world: PhysicsWorld, dt: number, sounds: PhysicsSoun
 }
 
 function advancePhysics(world: PhysicsWorld, dt: number, sounds: PhysicsSounds, frameFraction: number): Goal | undefined {
-  const { field, vehicle1, vehicle2, ball, bumpers, goals } = world
+  const { vehicle1, vehicle2, ball, bumpers, goals } = world
   // Vehicle physics helper function
   const vRadius = 15
   const updateVehiclePhysics = (vehicle: Vehicle) => {
@@ -138,23 +187,7 @@ function advancePhysics(world: PhysicsWorld, dt: number, sounds: PhysicsSounds, 
     vehicle.pos.x += vehicle.vel.x * dt
     vehicle.pos.y += vehicle.vel.y * dt
 
-    // Wall collision
-    if (vehicle.pos.x < field.left + vRadius) {
-      vehicle.pos.x = field.left + vRadius
-      vehicle.vel.x *= -0.5
-    }
-    if (vehicle.pos.x > field.right - vRadius) {
-      vehicle.pos.x = field.right - vRadius
-      vehicle.vel.x *= -0.5
-    }
-    if (vehicle.pos.y < field.top + vRadius) {
-      vehicle.pos.y = field.top + vRadius
-      vehicle.vel.y *= -0.5
-    }
-    if (vehicle.pos.y > field.bottom - vRadius) {
-      vehicle.pos.y = field.bottom - vRadius
-      vehicle.vel.y *= -0.5
-    }
+    resolveFieldBoundary(vehicle, vRadius, goals, 0.5)
 
     // Bumper collision
     for (const bumper of bumpers) {
@@ -219,57 +252,7 @@ ball.vel.y *= ballFriction
 ball.pos.x += ball.vel.x * dt
 ball.pos.y += ball.vel.y * dt
 
-// Ball collision with walls
-// Goal gravity effect on ball
-for (const goal of goals) {
-  const dx = goal.pos.x - ball.pos.x
-  const dy = goal.pos.y - ball.pos.y
-  const dist = Math.hypot(dx, dy)
-
-  // Continuous scoring check to avoid tunneling at high speeds.
-  // If the ball center crosses into the inner goal circle at any point during this frame,
-  // treat it as a score (equivalent to "fully inside" at some moment).
-  const innerRadius = goal.radius - ball.radius
-  const segDist = innerRadius > 0
-    ? segmentDistanceToPoint(prevBallPos.x, prevBallPos.y, ball.pos.x, ball.pos.y, goal.pos.x, goal.pos.y)
-    : Number.POSITIVE_INFINITY
-  const enteredGoalThisFrame = segDist < innerRadius
-
-  // Check if ball is FULLY inside goal (ball edge must be within goal circle)
-  if (enteredGoalThisFrame || (dist + ball.radius < goal.radius)) {
-    return goal
-  }
-  // Apply gravity when ball is within gravity radius
-  if (dist < goal.gravityRadius && dist > 0) {
-    const gravityStrength = 400 * (1 - dist / goal.gravityRadius) // Stronger as it gets closer
-    const nx = dx / dist
-    const ny = dy / dist
-    ball.vel.x += nx * gravityStrength * dt
-    ball.vel.y += ny * gravityStrength * dt
-  }
-}
-
-// Ball collision with walls (no more goal openings in walls)
-if (ball.pos.x < field.left + ball.radius) {
-  ball.pos.x = field.left + ball.radius
-  ball.vel.x *= -0.8
-  sounds.wallBounce()
-}
-if (ball.pos.x > field.right - ball.radius) {
-  ball.pos.x = field.right - ball.radius
-  ball.vel.x *= -0.8
-  sounds.wallBounce()
-}
-if (ball.pos.y < field.top + ball.radius) {
-  ball.pos.y = field.top + ball.radius
-  ball.vel.y *= -0.8
-  sounds.wallBounce()
-}
-if (ball.pos.y > field.bottom - ball.radius) {
-  ball.pos.y = field.bottom - ball.radius
-  ball.vel.y *= -0.8
-  sounds.wallBounce()
-}
+if (resolveFieldBoundary(ball, ball.radius, goals)) sounds.wallBounce()
 
 // Ball collision with bumpers
 for (const bumper of bumpers) {
@@ -332,6 +315,10 @@ const handleVehicleBallCollision = (vehicle: Vehicle) => {
 
 handleVehicleBallCollision(vehicle1)
 handleVehicleBallCollision(vehicle2)
+
+// A final contact can push the ball across the line in this same substep.
+if (resolveFieldBoundary(ball, ball.radius, goals)) sounds.wallBounce()
+for (const goal of goals) if (crossedGoal(goal, prevBallPos, ball.pos, ball.radius)) return goal
 
 // Limit ball speed
 const ballSpeed = Math.hypot(ball.vel.x, ball.vel.y)

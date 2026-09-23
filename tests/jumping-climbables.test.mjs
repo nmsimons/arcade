@@ -135,14 +135,14 @@ test('automatic catches use the moving rope and consume a jump press on the catc
   advance(p, .2, { move: 1 }); assert.equal(p.climbing, null)
 })
 
-test('grounded players and ladders still require climb input, and drop suppresses automatic catches', () => {
+test('grounded players and ladders still require climb input, and action preserves an existing rope grip', () => {
   const p = createPlayer(); p.x = 1535
   advance(p, .3); assert.equal(p.climbing, null)
   advance(p, .4, { jump: true }); assert.equal(p.climbing, null); assert.equal(p.grounded, true)
   advance(p, .15); assert.equal(p.climbing?.kind, 'rope', 'jumping from below must catch without holding up')
   for (let i = 0; i < 60; i++) {
     advance(p, STEP, { detach: true })
-    assert.equal(p.climbing, null, 'drop must let the player fall clear of the rope')
+    assert.equal(p.climbing?.kind, 'rope', 'action must not release an existing rope grip')
   }
   const byLadder = createPlayer(); Object.assign(byLadder, { x: 1134, y: 550, grounded: false, vy: -100 })
   advance(byLadder, .1); assert.equal(byLadder.climbing, null)

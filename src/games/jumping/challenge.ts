@@ -1,3 +1,4 @@
+import { bodyIntersects } from './geometry.ts'
 import { cancelJumpInput, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain } from './level.ts'
@@ -51,7 +52,7 @@ function syncPlatforms(run: Run) {
   run.platforms = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, y: m.y })), ...run.props.filter(b => b.kind === 'box').map(boxShape)]
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
-const bodyOverlap = (p: Player, b: Platform, dy = 0) => p.x + 12 > b.x + .001 && p.x - 12 < b.x + b.w - .001 && p.y + dy > platformSurface(b, p.x).y + .001 && p.y + dy - 62 < b.y + b.h - .001
+const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b)
 function translatePlayer(p: Player, dx: number, dy: number) {
   p.x += dx; p.y += dy
   if (p.footwork) for (const foot of p.footwork.feet) { foot.x += dx; foot.y += dy; foot.anchorX += dx; foot.anchorY += dy; foot.groundY += dy }

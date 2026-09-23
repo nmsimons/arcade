@@ -492,17 +492,14 @@ or unmedalled completion. The clock starts on your first movement action; pauses
 and menus do not consume time. Personal bests are saved separately for each map.
 The result screen advances to the next lesson or lets you retry immediately.
 
-**Counterweight Yard · experiment** keeps the original object course available
-outside the opening progression. Its pusher spots the player from a distance,
-pursues at speed, winds up briefly, rushes, and quickly attacks again. Pushers
-stay on supported terrain and respect their editable left/right limits. They push
-players and loose objects without killing. Crates and weighted balls use the
-same refined rendering in play and in the editor. The background grid stays fixed
-in world space.
+Levels are rectangular rooms with a light grid back wall. Medium-grey solid terrain
+surrounds the room on all four sides. Internal terrain uses the same fill: static
+rectangles or simple polygons, including concave shapes and floating blocks.
+Slopes up to 45 degrees are walkable. Steeper slopes make the player slide, with
+a balancing pose and small contact particles. Sides and undersides are solid.
 
-R or Y/Triangle restarts the whole current trial, including every prop, rope,
-pusher, elevator, trigger, and the clock. It also restarts the correct custom
-level during a builder playtest.
+R or Y/Triangle restarts the current trial and its ropes and clock, including a
+custom level during a builder playtest.
 
 - Left stick: proportional walk/run speed; D-pad also moves. Keyboard: A/D or
   Left/Right, with Shift to walk.
@@ -519,34 +516,40 @@ level during a builder playtest.
   the grip; release and press Down again to drop, or use B/Circle / X.
 - Jump into a rope to catch it automatically. Up/Down or W/S climbs and descends
   ladders and ropes; left/right pumps a rope swing. Jump releases with momentum;
-  B/Circle or X lets go.
+  B/Circle or X pushes off a rappel wall while keeping the rope grip. Steering
+  away also starts an outward swing. Feet brace when rope tension or movement
+  presses the player against a wall; they release as the rope swings away. Down controls
+  the rappel and climbs off the rope's end or onto the ground. Stopping settles both
+  feet against the wall. Jump is the manual release, launching away from a wall;
+  climbing onto a clear ledge still completes the transfer.
 - Y/Triangle or R: restart the trial; in the playground, return to the most recent reset point.
 - Menu/Start or Escape/P: pause. The pause menu returns to the arcade.
 
 **Enter playground** opens the movement sandbox with a runway, steps, an overhanging ledge, ladders, ropes over a gap,
 ramps, and rough terrain. Feet follow the ground, and connected terrain pieces have
-no solid internal seams. Walking off the visible ends falls and resets rather than
-hitting an invisible boundary. The readout shows speed, charge and best jump height
+no solid internal seams. The visible room boundary is solid on every side. The readout shows speed, charge and best jump height
 for the current visit. Controller disconnect and focus loss pause the game;
 release buttons and center the stick after resuming. Keyboard stays available.
 Movement constants and level geometry live in `src/games/jumping/model.ts`;
 the simulation advances at 120 Hz independently of rendering and viewport size.
 
 Open **Level builder** to enter the **Level studio**. Its **Library** tab offers
-copies of all three lessons, the counterweight experiment, a blank trial, and
+copies of all three lessons, a blank trial, and
 saved levels. The original movement playground is also available to copy.
 
-- Draw floating platforms, supported pillars, ramps, and rough terrain. The
-  **Pit** tool carves the banks and adds a bottom floor and a return ladder.
-- Place starts, finish flags, ladders, ropes, movable crates, balls, and pushers.
-- Place elevators or retracting gates, then pressure plates. Select a plate and
-  choose its **Activates** target and **Pressure mode** (props, or player/props).
-  Connections are visible in the canvas. Each plate latches until restart.
-- Drag selected objects, resize with the corner handle or numeric inspector,
-  and reshape slopes with their white control points. Duplicate with Ctrl/Cmd+D.
-  Undo/redo includes object changes, connections, imported maps, and templates.
-- Set map width, height, bottom-floor depth, medal times, and the player hint.
-  The bottom floor and boundary walls are structural and cannot be erased.
+- **Rectangle** draws static terrain anywhere in the room. Drag both width and height.
+- **Polygon** places one corner per click. Click the first corner or press Enter
+  to close it. Select terrain to drag its white corners; **Add corner** adds a vertex.
+  Crossing edges are rejected. Concave outlines support cavities and overhangs.
+- Place **Ladders** and **Ropes** freely. A rope started near a terrain edge snaps
+  its anchor to that edge; moving or reshaping the terrain carries the anchor.
+  The inspector can attach or detach a nearby anchor. Moving a rope detaches it.
+- Start and finish markers set the route. Legacy object maps remain importable,
+  but new levels use only terrain, ladders and ropes.
+- Drag selected elements, resize with the corner handle or numeric inspector,
+  and duplicate with Ctrl/Cmd+D. Undo/redo includes edits, imports and templates.
+- Set room width and height, medal times and the player hint. All four outer
+  boundaries are structural and cannot be erased.
 - Turn on **Jump guide** to compare short and charged running jumps. Selecting a
   platform moves the guide to its edge. Guides are advisory; grip and momentum
   affect actual landings.
@@ -559,7 +562,7 @@ invalid starts, flags, medals, unsupported pushers, and missing mechanism links.
 Drafts autosave locally; **Save level** stores a named copy in this browser.
 
 **Export** produces a `.jump-level.json` file with all terrain, goals, medal
-thresholds, props, enemies, and mechanism connections. Give that file to Codex to
+thresholds, ladders and ropes, including terrain anchor attachments. Give that file to Codex to
 add the level to the campaign. **Import level file** in Library opens it for
 further editing with a fresh level identity. Invalid imports leave the draft
 intact; storage/export failures are visible. Browser data does not sync devices.

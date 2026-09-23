@@ -1,3 +1,4 @@
+import { levelTerrain } from './jumping/level'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
@@ -9,7 +10,7 @@ import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
 import { createRun, FIRST_LEVEL, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
-import { CAMPAIGN, PLAYABLE_LEVELS, YARD_LEVEL } from './jumping/levels'
+import { CAMPAIGN, PLAYABLE_LEVELS } from './jumping/levels'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { drawChallenge } from './jumping/challengeRender'
 import './jumping/jumping.css'
@@ -29,6 +30,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   const best = bestTimes[trial.id] ?? null
   const campaignIndex = CAMPAIGN.findIndex(l => l.id === trial.id)
   const [saveError, setSaveError] = useState(false)
+  const terrain = useRef(levelTerrain(DEFAULT_LEVEL))
   const activeLevel = useRef(DEFAULT_LEVEL), rules = useRef(levelRules(DEFAULT_LEVEL))
   const [builderStarted, setBuilderStarted] = useState(false), [testing, setTesting] = useState(false)
   const jumpQueue = useRef<boolean[]>([]), keyboardJump = useRef(false)
@@ -37,7 +39,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('Take a breath. Pick up where you left off.')
-  const [metrics, setMetrics] = useState({ state: 'Ready', speed: 0, charge: 0, height: 0, elapsed: 0, started: false, lift: false })
+  const [metrics, setMetrics] = useState({ state: 'Ready', speed: 0, charge: 0, height: 0, elapsed: 0, started: false, lift: false, rope: false })
 
   function changeScreen(next: Screen, reason?: string) {
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
@@ -65,18 +67,18 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   }
   function startPlayground() {
     run.current = null; setChallenge(false); setTesting(false)
-    activeLevel.current = DEFAULT_LEVEL; rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
+    activeLevel.current = DEFAULT_LEVEL; terrain.current = levelTerrain(DEFAULT_LEVEL); rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
     changeScreen('playing')
   }
   function openBuilder() { setBuilderStarted(true); changeScreen('building') }
   function testLevel(level: JumpLevel) {
     if (isPuzzleLevel(level)) { playChallenge(level, true); return }
     run.current = null; setChallenge(false)
-    activeLevel.current = level; rules.current = levelRules(level); player.current = levelPlayer(level)
+    activeLevel.current = level; terrain.current = levelTerrain(level); rules.current = levelRules(level); player.current = levelPlayer(level)
     setTesting(true); changeScreen('playing')
   }
   function closeBuilder() {
-    activeLevel.current = DEFAULT_LEVEL; rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
+    activeLevel.current = DEFAULT_LEVEL; terrain.current = levelTerrain(DEFAULT_LEVEL); rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
     run.current = createRun(trial); player.current = run.current.player; setChallenge(true)
     setTesting(false); changeScreen('menu')
   }
@@ -172,7 +174,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
           if (jumpQueue.current.length) keyboardJump.current = jumpQueue.current.shift()!
           const controls = { ...input, jump: input.jump || keyboardJump.current }
           if (run.current) stepRun(run.current, controls)
-          else stepPlayer(player.current, controls, STEP, activeLevel.current.platforms, activeLevel.current.climbables, rules.current)
+          else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
           accumulator -= STEP
           if (run.current?.finished) { finishRun(); accumulator = 0; break }
         }
@@ -180,7 +182,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
       paint()
       if (now - published > 80) {
         const p = player.current
-        setMetrics({ state: playerState(p), speed: Math.abs(p.vx) / 60, charge: p.charge, height: p.bestHeight / 60,
+        setMetrics({ state: playerState(p), speed: Math.abs(p.vx) / 60, charge: p.charge, height: p.bestHeight / 60, rope: !!p.climbing?.rope,
           elapsed: run.current?.elapsed ?? 0, started: run.current?.started ?? false, lift: run.current?.mechanisms.some(m => m.active) ?? false })
         published = now
       }
@@ -194,6 +196,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     }
   }, [])
 
+  const ropeControls = metrics.rope && screen === 'playing'
   return <div className="jumping-game" ref={rootRef}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the flag` : 'Untitled Jumping Game movement playground'} />
     <header className="jumping-header">
@@ -215,9 +218,9 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
       {best !== null && <small>Personal best {formatTime(best)}</small>}
     </aside>}
     <footer className="jumping-footer">
-      {connected ? <><span><kbd>L stick / D-pad</kbd> Move / swing</span><span><kbd>A / ×</kbd> Jump / let go</span><span><kbd>↑ ↓</kbd> Climb / descend</span><span><kbd>B / ○</kbd> Drop</span></>
-        : <><span><kbd>A D / ← →</kbd> Move / swing <kbd>Shift</kbd> Walk</span><span><kbd>Space</kbd> Jump / let go</span><span><kbd>W S / ↑ ↓</kbd> Climb / descend</span><span><kbd>X</kbd> Drop</span></>}
-      <span className="jumping-grab-hint">Press jump while braced to kick off · Ledges & ropes catch automatically</span>
+      {connected ? <><span><kbd>L stick / D-pad</kbd> Move / swing</span><span><kbd>A / ×</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>↑ ↓</kbd> Climb / descend</span><span><kbd>B / ○</kbd> {ropeControls ? 'Push off wall' : 'Drop'}</span></>
+        : <><span><kbd>A D / ← →</kbd> Move / swing <kbd>Shift</kbd> Walk</span><span><kbd>Space</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>W S / ↑ ↓</kbd> Climb / descend</span><span><kbd>X</kbd> {ropeControls ? 'Push off wall' : 'Drop'}</span></>}
+      <span className="jumping-grab-hint">{ropeControls ? 'Steer away to swing · Push off keeps your grip · Jump releases the rope' : 'Press jump while braced to kick off · Ledges & ropes catch automatically'}</span>
     </footer>
     {screen === 'complete' && <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={startChallenge} className="jumping-overlay">
       <div className="jumping-menu jumping-result">
@@ -254,7 +257,6 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
           {screen === 'menu' && <button onClick={startPlayground}>Enter playground</button>}
           {screen === 'paused' && <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>}
           <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
-          {screen === 'menu' && <button onClick={() => selectTrial(YARD_LEVEL)}>Counterweight Yard · experiment</button>}
           {screen === 'paused' && <button onClick={() => { setTesting(false); changeScreen('menu') }}>Level menu</button>}
           <button onClick={onExit}>Back to arcade</button>
         </div>

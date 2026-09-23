@@ -11,7 +11,7 @@ async function setup(page, controller = false) {
     // Measure the rendered athlete against the rendered terrain; no simulation backdoor.
     const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 620 && args[2] === 1670) window.jumpCamera = this.getTransform()
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') window.jumpCamera = this.getTransform()
       return rect.apply(this, args)
     }
     proto.ellipse = function (...args) {

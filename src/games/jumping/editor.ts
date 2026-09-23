@@ -1,10 +1,12 @@
 import type { JumpLevel } from './level.ts'
-import { copyLevel, snapToGround, newLevelId, levelTerrain } from './level.ts'
+import { copyLevel, snapToGround, newLevelId, levelTerrain, levelHeight } from './level.ts'
 import type { Platform } from './model.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { platformSurface } from './terrain.ts'
+import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
+import type { Vec } from './geometry.ts'
 
-export type Tool = 'select' | 'pan' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'flag' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate'
+export type Tool = 'select' | 'pan' | 'polygon' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'flag' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'flag' | 'prop' | 'robot' | 'mechanism' | 'trigger'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 export function itemBounds(level: JumpLevel, selection: Selection) {
@@ -38,7 +40,7 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
   }
   for (let i = level.platforms.length - 1; i >= 0; i--) {
     const b = level.platforms[i]
-    if (x >= b.x && x <= b.x + b.w && y >= platformSurface(b, x).y - tolerance && y <= b.y + b.h) return { kind: 'platform', index: i }
+    if (pointInside(b, x, y)) return { kind: 'platform', index: i }
   }
   return null
 }
@@ -48,6 +50,11 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
   for (const ladder of next.climbables.ladders) if (ladder.platform === index) {
     ladder.x = ladder.side === 1 ? platform.x - 16 : platform.x + platform.w + 16
     ladder.bottom += platform.y - before.y; ladder.top = platform.y
+  }
+  for (const rope of next.climbables.ropes) if (rope.anchor?.platform === index) {
+    rope.anchor.x *= platform.w / before.w; rope.anchor.y *= platform.h / before.h
+    const edge = nearestBoundary(platform, platform.x + rope.anchor.x, platform.y + rope.anchor.y)
+    rope.x = edge.x; rope.y = edge.y; rope.anchor.x = edge.x - platform.x; rope.anchor.y = edge.y - platform.y
   }
   // Carry start/checkpoint markers with the surface that supports them.
   for (const p of [next.spawn, ...next.checkpoints, ...(next.flag ? [next.flag] : [])]) if (p.x >= before.x && p.x <= before.x + before.w && Math.abs(p.y - platformSurface(before, p.x).y) < .1) {
@@ -60,13 +67,13 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (!b) return level
   const attached = selection.kind === 'platform' ? level.climbables.ladders.filter(l => l.platform === selection.index) : []
   const x = clamp(b.x + dx, attached.some(l => l.side === 1) ? 16 : 0, level.width - b.w - (attached.some(l => l.side === -1) ? 16 : 0))
-  const y = clamp(b.y + dy, -1800, Math.min(2400, ...attached.map(l => 3000 - (l.bottom - b.y))))
+  const y = clamp(b.y + dy, 0, levelHeight(level) - b.h)
   if (selection.kind === 'platform') return replacePlatform(level, selection.index, { ...level.platforms[selection.index], x, y })
   const next = copyLevel(level)
-  if (selection.kind === 'rope') Object.assign(next.climbables.ropes[selection.index], { x, y })
+  if (selection.kind === 'rope') { Object.assign(next.climbables.ropes[selection.index], { x, y }); delete next.climbables.ropes[selection.index].anchor }
   if (selection.kind === 'ladder') {
     const ladder = next.climbables.ladders[selection.index]
-    ladder.bottom = clamp(ladder.bottom + dy, ladder.top + 80, 3000)
+    ladder.x = x; ladder.bottom = y + b.h; ladder.top = y; ladder.platform = -1
   }
   if (selection.kind === 'spawn') next.spawn = snapToGround(next, x, y)
   if (selection.kind === 'checkpoint') next.checkpoints[selection.index] = snapToGround(next, x, y)
@@ -84,13 +91,14 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   const next = copyLevel(level)
   if (selection.kind === 'platform') {
     const before = level.platforms[selection.index], rightLadder = level.climbables.ladders.some(l => l.platform === selection.index && l.side === -1)
-    const width = clamp(w, 20, level.width - before.x - (rightLadder ? 16 : 0)), height = clamp(h, 10, 2000)
+    const width = clamp(w, 20, level.width - before.x - (rightLadder ? 16 : 0)), height = clamp(h, 10, levelHeight(level) - before.y)
     return replacePlatform(level, selection.index, { ...before, w: width, h: height,
+      ...(before.polygon ? { polygon: before.polygon.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}),
       ...(before.profile ? { profile: before.profile.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}) })
   }
-  if (selection.kind === 'rope') next.climbables.ropes[selection.index].length = clamp(h, 80, 600)
+  if (selection.kind === 'rope') next.climbables.ropes[selection.index].length = clamp(h, 80, Math.min(2000, levelHeight(level) - next.climbables.ropes[selection.index].y))
   if (selection.kind === 'ladder') {
-    const ladder = next.climbables.ladders[selection.index]; ladder.bottom = clamp(ladder.top + h, ladder.top + 80, 3000)
+    const ladder = next.climbables.ladders[selection.index]; ladder.bottom = clamp(ladder.top + h, ladder.top + 80, levelHeight(level))
   }
   if (selection.kind === 'prop') {
     const b = next.props![selection.index], size = clamp(w !== b.size ? w : h, 30, 200)
@@ -107,7 +115,11 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   if (selection.kind === 'spawn' || selection.kind === 'flag') return level
   if (selection.kind === 'platform') {
     next.platforms.splice(i, 1)
-    next.climbables.ladders = next.climbables.ladders.filter(l => l.platform !== i).map(l => ({ ...l, platform: l.platform > i ? l.platform - 1 : l.platform }))
+    next.climbables.ladders = next.climbables.ladders.map(l => ({ ...l, platform: l.platform === i ? -1 : l.platform > i ? l.platform - 1 : l.platform }))
+    for (const r of next.climbables.ropes) if (r.anchor) {
+      if (r.anchor.platform === i) delete r.anchor
+      else if (r.anchor.platform > i) r.anchor.platform--
+    }
   } else if (selection.kind === 'rope') next.climbables.ropes.splice(i, 1)
   else if (selection.kind === 'ladder') next.climbables.ladders.splice(i, 1)
   else if (selection.kind === 'prop') next.props!.splice(i, 1)
@@ -118,12 +130,12 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   return next
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
-  const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), -1800, 2400)
+  const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
   if (['platform', 'pillar', 'ramp', 'rough'].includes(tool)) {
     if (next.platforms.length >= 160) throw new Error('This level already has 160 terrain pieces.')
     const click = Math.hypot(end.x - start.x, end.y - start.y) < 10
     const w = Math.min(level.width - x, Math.max(40, click ? tool === 'platform' ? 180 : tool === 'pillar' ? 80 : 320 : Math.abs(end.x - start.x)))
-    const h = tool === 'platform' ? 22 : Math.max(20, click ? tool === 'pillar' ? 180 : 80 : Math.abs(end.y - start.y)), b: Platform = { x, y, w, h: Math.min(2000, h) }
+    const h = Math.max(20, click ? tool === 'pillar' ? 180 : 100 : Math.abs(end.y - start.y)), b: Platform = { x, y, w, h: Math.min(levelHeight(level) - y, h) }
     if (tool === 'pillar') {
       const center = x + w / 2
       const support = levelTerrain(next).filter(s => center >= s.x && center <= s.x + s.w)
@@ -143,17 +155,12 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   }
   if (tool === 'rope') {
     if (next.climbables.ropes.length >= 40) throw new Error('This level already has 40 ropes.')
-    next.climbables.ropes.push({ x, y, length: clamp(Math.abs(end.y - start.y) || 260, 80, 600), segments: 24 })
-    return { level: next, selection: { kind: 'rope', index: next.climbables.ropes.length - 1 } }
+    next.climbables.ropes.push({ x, y, length: clamp(Math.abs(end.y - start.y) || 260, 80, Math.min(2000, levelHeight(level) - y)), segments: 24 })
+    return { level: anchorRope(next, next.climbables.ropes.length - 1, 16), selection: { kind: 'rope', index: next.climbables.ropes.length - 1 } }
   }
   if (tool === 'ladder') {
     if (next.climbables.ladders.length >= 40) throw new Error('This level already has 40 ladders.')
-    const edges = next.platforms.flatMap((p, platform) => p.profile ? [] : [1, -1].map(side => ({ platform, side, x: side === 1 ? p.x - 16 : p.x + p.w + 16, y: p.y })))
-      .filter(e => e.x >= 0 && e.x <= level.width).sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))
-    const edge = edges[0]
-    if (!edge || Math.hypot(edge.x - x, edge.y - y) > 100) throw new Error('Place the ladder near the top corner of a rectangular platform.')
-    const bottom = snapToGround(next, edge.x, edge.y + 260).y
-    next.climbables.ladders.push({ x: edge.x, top: edge.y, bottom: Math.max(edge.y + 100, Math.abs(end.y - start.y) > 80 ? Math.max(start.y, end.y) : bottom), platform: edge.platform, side: edge.side })
+    next.climbables.ladders.push({ x, top: y, bottom: y + clamp(Math.abs(end.y - start.y) || 260, 80, levelHeight(level) - y), platform: -1, side: 1 })
     return { level: next, selection: { kind: 'ladder', index: next.climbables.ladders.length - 1 } }
   }
   if (tool === 'pit') {
@@ -198,7 +205,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
     if (next.platforms.length >= 160) return null
     index = next.platforms.push(copyLevel(level).platforms[i]) - 1
   } else if (selection.kind === 'rope') { if (next.climbables.ropes.length >= 40) return null; index = next.climbables.ropes.push({ ...next.climbables.ropes[i] }) - 1 }
-  else if (selection.kind === 'ladder') return null
+  else if (selection.kind === 'ladder') { if (next.climbables.ladders.length >= 40) return null; index = next.climbables.ladders.push({ ...next.climbables.ladders[i], platform: -1 }) - 1 }
   else if (selection.kind === 'prop') { if (next.props!.length >= 80) return null; index = next.props!.push({ ...next.props![i] }) - 1 }
   else if (selection.kind === 'robot') { if (next.robots!.length >= 30) return null; index = next.robots!.push({ ...next.robots![i] }) - 1 }
   else if (selection.kind === 'trigger') { if (next.triggers!.length >= 40) return null; index = next.triggers!.push({ ...next.triggers![i] }) - 1 }
@@ -214,4 +221,33 @@ export function allSelections(level: JumpLevel): Selection[] {
     ...level.checkpoints.map((_, index) => ({ kind: 'checkpoint' as const, index })),
     ...(level.props ?? []).map((_, index) => ({ kind: 'prop' as const, index })), ...(level.robots ?? []).map((_, index) => ({ kind: 'robot' as const, index })),
     ...(level.triggers ?? []).map((_, index) => ({ kind: 'trigger' as const, index })), ...(level.mechanisms ?? []).map((_, index) => ({ kind: 'mechanism' as const, index }))]
+}
+
+/** Terrain anchors are stored in local coordinates so they travel with edited terrain. */
+export function anchorRope(level: JumpLevel, index: number, maxDistance = 40): JumpLevel {
+  const next = copyLevel(level), r = next.climbables.ropes[index]
+  const candidates = next.platforms.map((b, platform) => ({ ...nearestBoundary(b, r.x, r.y), platform })).sort((a, b) => a.distance - b.distance)
+  const best = candidates[0]
+  if (!best || best.distance > maxDistance) return next
+  const b = next.platforms[best.platform]
+  r.x = best.x; r.y = best.y; r.anchor = { platform: best.platform, x: r.x - b.x, y: r.y - b.y }
+  return next
+}
+export function polygonPlatform(points: readonly Vec[]): Platform {
+  if (!validPolygon(points)) throw new Error('Use at least three corners without crossing the edges.')
+  const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
+  const w = Math.max(...points.map(p => p[0])) - x, h = Math.max(...points.map(p => p[1])) - y
+  if (w < 10 || h < 8) throw new Error('Terrain needs a little more width and height.')
+  return { x, y, w, h, polygon: points.map(p => [p[0] - x, p[1] - y]) }
+}
+export function addPolygon(level: JumpLevel, points: readonly Vec[]) {
+  if (level.platforms.length >= 160) throw new Error('This level already has 160 terrain pieces.')
+  const b = polygonPlatform(points.map(([x, y]) => [clamp(x, 0, level.width), clamp(y, 0, levelHeight(level))]))
+  const next = copyLevel(level); next.platforms.push(b)
+  return { level: next, selection: { kind: 'platform' as const, index: next.platforms.length - 1 } }
+}
+export function moveVertex(level: JumpLevel, index: number, vertex: number, dx: number, dy: number): JumpLevel {
+  const points = polygonPoints(level.platforms[index])
+  const p = points[vertex]; points[vertex] = [clamp(p[0] + dx, 0, level.width), clamp(p[1] + dy, 0, levelHeight(level))]
+  try { return replacePlatform(level, index, polygonPlatform(points)) } catch { return level }
 }

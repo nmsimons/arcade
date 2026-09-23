@@ -2,7 +2,10 @@ import { createPlayer, PLATFORMS, PLAYGROUND_RULES, WORLD_WIDTH } from './model.
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
 import { CLIMBABLES } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
-import { exposedSide, groundAt, platformSurface } from './terrain.ts'
+import { groundAt, platformSurfaces, walkable } from './terrain.ts'
+import { bodyIntersects, nearestBoundary, validPolygon } from './geometry.ts'
+
+export const LEVEL_GRID_SIZE = 20
 
 export interface PropDefinition { kind: 'box' | 'ball'; x: number; y: number; size: number }
 export interface Mechanism { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number }
@@ -21,11 +24,15 @@ export interface PuzzleLevel extends JumpLevel {
   props: PropDefinition[]; mechanisms: Mechanism[]; triggers: Trigger[]; robots: Pusher[]
 }
 export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.flag !== undefined && level.floor !== undefined && level.times !== undefined
-/** The bottom floor and side walls are structural and cannot be accidentally erased in the editor. */
+/** Legacy floor values are the bottom of the playable rectangle. */
+export const levelHeight = (level: JumpLevel) => level.floor ?? level.height ?? 1020
+/** Four solid half-spaces enclose the level. The renderer fills the entire outside viewport. */
 export function levelTerrain(level: JumpLevel): Platform[] {
-  return level.floor === undefined ? level.platforms : [...level.platforms,
-    { x: 0, y: level.floor, w: level.width, h: Math.max(120, (level.height ?? level.floor + 120) - level.floor) },
-    { x: 0, y: -2100, w: 24, h: level.floor + 2100 }, { x: level.width - 24, y: -2100, w: 24, h: level.floor + 2100 }]
+  const extent = 1e7, h = levelHeight(level)
+  return [...level.platforms,
+    { x: -extent, y: h, w: extent * 2, h: extent },
+    { x: -extent, y: -extent, w: extent * 2, h: extent },
+    { x: -extent, y: 0, w: extent, h }, { x: level.width, y: 0, w: extent, h }]
 }
 export const DEFAULT_LEVEL: JumpLevel = {
   version: 1, id: 'playground', name: 'Movement playground', width: WORLD_WIDTH,
@@ -37,14 +44,14 @@ export const DRAFT_STORAGE_KEY = 'arcade.jumping.draft.v1'
 export const copyLevel = <T extends JumpLevel>(level: T): T => structuredClone(level)
 export const newLevelId = () => globalThis.crypto.randomUUID()
 export function newLevel(): JumpLevel {
-  return { version: 1, id: newLevelId(), name: 'Untitled level', width: 3200, spawn: { x: 200, y: 620 }, checkpoints: [],
-    platforms: [{ x: 0, y: 620, w: 3200, h: 320 }], climbables: { ladders: [], ropes: [] } }
+  return { version: 1, id: newLevelId(), name: 'Untitled level', width: 3200, height: 1000, spawn: { x: 200, y: 1000 }, checkpoints: [],
+    platforms: [], climbables: { ladders: [], ropes: [] } }
 }
 export function playgroundCopy(): JumpLevel {
   return { ...copyLevel(DEFAULT_LEVEL), id: newLevelId(), name: 'My playground' }
 }
 export function levelRules(level: JumpLevel): LevelRules {
-  return { checkpoints: level.checkpoints, fallY: Math.max(1020, level.spawn.y + 400, ...level.platforms.map(b => b.y + b.h + 80)) }
+  return { checkpoints: level.checkpoints, fallY: levelHeight(level) + 100 }
 }
 export function levelPlayer(level: JumpLevel) {
   const p = createPlayer(), ground = groundAt(levelTerrain(level), level.spawn.x, level.spawn.y, .1)
@@ -53,16 +60,16 @@ export function levelPlayer(level: JumpLevel) {
   return p
 }
 export function snapToGround(level: JumpLevel, x: number, y: number): Checkpoint {
-  const surfaces = levelTerrain(level).filter(b => x >= b.x + 3 && x <= b.x + b.w - 3).map(b => platformSurface(b, x))
+  const surfaces = levelTerrain(level).filter(b => x >= b.x + 3 && x <= b.x + b.w - 3).flatMap(b => platformSurfaces(b, x)).filter(s => walkable(s.angle) && s.y >= 62 && s.y <= levelHeight(level))
   surfaces.sort((a, b) => Math.abs(a.y - y) - Math.abs(b.y - y))
   return { x, y: surfaces[0]?.y ?? y }
 }
 export function spawnProblem(level: JumpLevel): string | null {
   const terrain = levelTerrain(level)
   const { x, y } = level.spawn
-  if (!groundAt(terrain, x, y, .15)) return 'Place the start point on a platform or terrain surface.'
-  if (terrain.some(b => x + 12 > b.x && x - 12 < b.x + b.w && y > platformSurface(b, x).y + .15 && y - 62 < b.y + b.h
-    && (x >= b.x && x <= b.x + b.w || exposedSide(terrain, b, x < b.x ? 1 : -1, y - 62, y)))) {
+  const ground = groundAt(terrain, x, y, .15)
+  if (!ground || !walkable(ground.angle)) return 'Place the start point on a surface no steeper than 45°.'
+  if (terrain.some(b => bodyIntersects(x, y, b))) {
     return 'The start point needs enough space for the player to stand.'
   }
   return null
@@ -71,6 +78,7 @@ export function levelProblems(level: JumpLevel): string[] {
   const issues: string[] = [], spawn = spawnProblem(level)
   if (!level.name.trim()) issues.push('Give the level a name.')
   if (spawn) issues.push(spawn)
+  if (level.platforms.some(b => b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level))) issues.push('Keep terrain inside the level rectangle.')
   if (isPuzzleLevel(level)) {
     const flag = spawnProblem({ ...level, spawn: level.flag })
     if (flag) issues.push('Place the finish flag on a clear, reachable surface.')
@@ -87,13 +95,13 @@ export function parseLevel(value: unknown): JumpLevel {
   const object = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : fail()
   const num = (v: unknown, min: number, max: number): number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fail()
   const list = (v: unknown, max: number): unknown[] => Array.isArray(v) && v.length <= max ? v : fail()
-  const point = (v: unknown): Checkpoint => { const p = object(v); return { x: num(p.x, 0, 20000), y: num(p.y, -2000, 3000),
+  const point = (v: unknown): Checkpoint => { const p = object(v); return { x: num(p.x, 0, 20000), y: num(p.y, -2000, 6000),
     ...(p.radius === undefined ? {} : { radius: num(p.radius, 10, 1000) }) } }
   const v = object(value)
   if (v.version !== 1 || typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80 || typeof v.id !== 'string' || v.id.length > 100) fail()
   const width = num(v.width, 800, 20000)
   const platforms = list(v.platforms, 160).map(item => {
-    const b = object(item), platform: Platform = { x: num(b.x, 0, width), y: num(b.y, -2000, 3000), w: num(b.w, 10, width), h: num(b.h, 8, 3000) }
+    const b = object(item), platform: Platform = { x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
     if (platform.x + platform.w > width) fail()
     if (b.profile !== undefined) {
       const profile = list(b.profile, 100).map(item => {
@@ -104,21 +112,39 @@ export function parseLevel(value: unknown): JumpLevel {
         || profile.some((p, i) => i > 0 && p[0] <= profile[i - 1][0])) fail()
       platform.profile = profile
     }
+    if (b.polygon !== undefined) {
+      if (b.profile !== undefined) fail()
+      const points = list(b.polygon, 64).map(p => {
+        if (!Array.isArray(p) || p.length !== 2) return fail()
+        return [num(p[0], 0, platform.w), num(p[1], 0, platform.h)] as [number, number]
+      })
+      if (!validPolygon(points)) fail()
+      platform.polygon = points
+    }
     return platform
   })
   const climbables = object(v.climbables)
   const ladders = list(climbables.ladders, 40).map(item => {
-    const b = object(item), platform = num(b.platform, 0, platforms.length - 1), side = num(b.side, -1, 1)
-    if (!Number.isInteger(platform) || Math.abs(side) !== 1 || platforms[platform].profile) fail()
-    const ladder = { x: num(b.x, 0, width), top: num(b.top, -2000, 3000), bottom: num(b.bottom, -2000, 3000), platform, side }
+    const b = object(item), platform = num(b.platform ?? -1, -1, Math.max(-1, platforms.length - 1)), side = num(b.side ?? 1, -1, 1)
+    if (!Number.isInteger(platform) || Math.abs(side) !== 1 || platform >= 0 && (platforms[platform].profile || platforms[platform].polygon)) fail()
+    const ladder = { x: num(b.x, 0, width), top: num(b.top, -2000, 6000), bottom: num(b.bottom, -2000, 6000), platform, side }
     const support = platforms[platform]
-    if (ladder.bottom - ladder.top < 80 || ladder.top !== support.y || Math.abs(ladder.x - (side === 1 ? support.x - 16 : support.x + support.w + 16)) > .1) fail()
+    if (ladder.bottom - ladder.top < 80 || support && (ladder.top !== support.y || Math.abs(ladder.x - (side === 1 ? support.x - 16 : support.x + support.w + 16)) > .1)) fail()
     return ladder
   })
   const ropes = list(climbables.ropes, 40).map(item => {
     const r = object(item), segments = num(r.segments, 4, 40)
     if (!Number.isInteger(segments)) fail()
-    return { x: num(r.x, 0, width), y: num(r.y, -2000, 3000), length: num(r.length, 80, 600), segments }
+    const rope: ClimbableWorld['ropes'][number] = { x: num(r.x, 0, width), y: num(r.y, -2000, 6000), length: num(r.length, 80, 2000), segments }
+    if (r.anchor !== undefined) {
+      const a = object(r.anchor), platform = num(a.platform, 0, platforms.length - 1)
+      if (!Number.isInteger(platform)) fail()
+      const b = platforms[platform]
+      rope.anchor = { platform, x: num(a.x, 0, b.w), y: num(a.y, 0, b.h) }
+      rope.x = b.x + rope.anchor.x; rope.y = b.y + rope.anchor.y
+      if (nearestBoundary(b, rope.x, rope.y).distance > .01) fail()
+    }
+    return rope
   })
   const spawn = point(v.spawn), checkpoints = list(v.checkpoints, 30).map(point)
   if (spawn.x > width || checkpoints.some(p => p.x > width)) fail()
@@ -127,7 +153,7 @@ export function parseLevel(value: unknown): JumpLevel {
     platforms, spawn, checkpoints, climbables: { ladders, ropes } }
   if (v.description !== undefined) { if (typeof v.description !== 'string' || v.description.length > 600) fail(); level.description = v.description as string }
   if (v.flag !== undefined) {
-    level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, Math.min(2800, level.height - 80))
+    level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
     level.flag = point(v.flag); if (level.flag.x > width) fail()
     const times = object(v.times); level.times = { gold: num(times.gold, .1, 3600), silver: num(times.silver, .1, 3600), bronze: num(times.bronze, .1, 3600) }
     if (!(level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) fail()

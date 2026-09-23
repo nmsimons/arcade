@@ -1,3 +1,4 @@
+import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run } from './challenge.ts'
 import type { Checkpoint } from './model.ts'
@@ -100,10 +101,6 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run) {
     ctx.fillStyle = '#97a493'; ctx.fillRect(d.x - 4, d.y - d.travel - 23, d.w + 8, 8)
   }
   drawTerrain(ctx, run.terrain)
-  for (const b of level.platforms.filter(b => !b.profile && b.w < 130 && b.h > 70)) {
-    ctx.strokeStyle = '#86988a55'; ctx.lineWidth = 1
-    for (let y = b.y + 24; y < b.y + b.h; y += 24) { ctx.beginPath(); ctx.moveTo(b.x + 4, y); ctx.lineTo(b.x + b.w - 4, y); ctx.stroke() }
-  }
   for (const m of run.mechanisms) {
     const d = m.definition, skin = ctx.createLinearGradient(0, m.y, 0, m.y + d.h)
     skin.addColorStop(0, '#d9cdb0'); skin.addColorStop(1, '#aa9771')
@@ -122,7 +119,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run) {
   drawClimbables(ctx, p, level.climbables)
   for (const r of run.robots) drawRobot(ctx, r, run.elapsed)
   drawFlag(ctx, level.flag, run.finished, run.elapsed)
-  drawAthlete(ctx, p)
+  drawMovementEffects(ctx, p); drawAthlete(ctx, p)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {
   const { level, player: p } = run
@@ -133,14 +130,7 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   const cameraY = p.y - 31
   ctx.save(); ctx.translate(width / 2 - cameraX * zoom, height / 2 - cameraY * zoom); ctx.scale(zoom, zoom)
   const left = cameraX - half, top = cameraY - height / zoom / 2
-  ctx.fillStyle = '#e9e9df'; ctx.fillRect(0, -2000, level.width, level.floor + 2000)
-  for (const [spacing, color] of [[40, '#465c4910'], [200, '#465c491e']] as const) {
-    ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1 / zoom
-    for (let x = Math.floor(left / spacing) * spacing; x < left + width / zoom; x += spacing) { ctx.moveTo(x, top); ctx.lineTo(x, top + height / zoom) }
-    for (let y = Math.floor(top / spacing) * spacing; y < top + height / zoom; y += spacing) { ctx.moveTo(left, y); ctx.lineTo(left + width / zoom, y) }
-    ctx.stroke()
-  }
+  drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom)
   drawPuzzleWorld(ctx, run)
-  ctx.fillStyle = '#c7cfc4'; ctx.fillRect(0, level.height, level.width, Math.max(0, top + height / zoom - level.height))
   ctx.restore()
 }

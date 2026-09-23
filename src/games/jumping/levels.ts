@@ -45,9 +45,9 @@ export function pitLevel(ropes: 0 | 1 | 2, gap = [320, 600, 930][ropes]): Puzzle
 }
 export const CAMPAIGN = [pitLevel(0), pitLevel(1), pitLevel(2)]
 export const FIRST_LEVEL = CAMPAIGN[0]
-export const PLAYABLE_LEVELS = [...CAMPAIGN, YARD_LEVEL]
+export const PLAYABLE_LEVELS = [...CAMPAIGN]
 export function blankTrial(): PuzzleLevel {
-  return { version: 1, id: newLevelId(), name: 'Untitled level', description: '', width: 1800, height: 1040, floor: 920,
+  return { version: 1, id: newLevelId(), name: 'Untitled level', description: '', width: 1800, height: 920, floor: 920,
     spawn: { x: 160, y: 920 }, flag: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
     climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
 }

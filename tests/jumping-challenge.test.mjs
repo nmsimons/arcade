@@ -62,7 +62,7 @@ test('pushers spot distant players, close the distance quickly, and repeat their
     if (r.hit && !wasHit) hits++; wasHit = r.hit
   }
   assert.ok(seen.has('windup')); assert.ok(seen.has('charge')); assert.ok(hits >= 2, 'pusher comes back after the first shove')
-  assert.ok(run.player.x >= 36); assert.equal(run.finished, false)
+  assert.ok(run.player.x >= 12); assert.equal(run.finished, false)
 })
 test('pushers respect a pit and solid pillar while chasing', () => {
   const level = structuredClone(FIRST_LEVEL); level.robots = [{ x: 400, y: 520, left: 80, right: 1200 }]
@@ -98,6 +98,6 @@ test('authored maps round-trip with their complete game data and continuous floo
   for (const level of [...CAMPAIGN, YARD_LEVEL]) {
     assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))), level)
     assert.deepEqual(levelProblems(level), [])
-    assert.ok(levelTerrain(level).some(b => b.x === 0 && b.y === level.floor && b.w === level.width))
+    assert.ok(levelTerrain(level).some(b => b.x <= 0 && b.y === level.floor && b.x + b.w >= level.width))
   }
 })

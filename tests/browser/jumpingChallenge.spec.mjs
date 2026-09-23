@@ -6,7 +6,7 @@ async function setup(page, lesson = 0) {
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && (args[1] === 920 || args[1] === 1080) && args[2] >= 1000) window.levelCamera = this.getTransform()
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') window.levelCamera = this.getTransform()
       return rect.apply(this, args)
     }
     proto.ellipse = function (...args) {
@@ -142,9 +142,9 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   expect((await position(page)).y).toBeCloseTo(920)
   await expect(page.locator('.jumping-state')).not.toHaveText('Bracing')
 })
-test('the experiment shows the redesigned props and the game remains usable on a narrow screen', async ({ page }, info) => {
-  await setup(page); await page.getByRole('button', { name: 'Counterweight Yard · experiment' }).click(); await enter(page)
-  await page.screenshot({ path: info.outputPath('refined-props.png') })
+test('the simple level view remains usable on a narrow screen', async ({ page }, info) => {
+  await setup(page); await enter(page)
+  await page.screenshot({ path: info.outputPath('simple-terrain.png') })
   await page.setViewportSize({ width: 390, height: 740 }); await page.clock.runFor(100)
   await expect(page.getByRole('button', { name: /Restart/ })).toBeInViewport()
   await page.screenshot({ path: info.outputPath('trial-mobile.png') })

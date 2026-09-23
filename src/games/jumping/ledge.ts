@@ -1,6 +1,7 @@
 type Point = [number, number]
 type LedgeFrame = { time: number; root: Point; hip: Point; waist: Point; shoulder: Point; head: Point; frontFoot: Point; backFoot: Point }
 export const LEDGE_CATCH_TIME = .14
+export const ROPE_LEDGE_CATCH_TIME = .24
 export const LEDGE_CLIMB_TIME = .82
 export const FRONT_GRIP: Point = [2, -1.3]
 export const BACK_GRIP: Point = [-.5, -1.3]
@@ -27,6 +28,14 @@ const frames: LedgeFrame[] = [
 ]
 const bracedFrames: LedgeFrame[] = [{ ...frames[0], hip: [-18, 32], waist: [-14, 26], frontFoot: [-2.8, 58], backFoot: [-2.8, 55] }, ...frames.slice(1)]
 export const ledgeEase = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
+
+/** Clear an overhang sideways before lifting from a rope into the ledge hang. */
+export function ropeCatchRoot(from: Point, progress: number): Point {
+  const underLip = from[0] > -14 && from[1] > 74
+  const x = ledgeEase(underLip ? progress / .5 : progress)
+  const y = ledgeEase(underLip ? (progress - .5) / .5 : progress)
+  return [from[0] + (-14 - from[0]) * x, from[1] + (74 - from[1]) * y]
+}
 
 /** Edge-relative choreography: pull, knee support, trailing foot, then stand. */
 export function climbFrame(progress: number, braced = false) {

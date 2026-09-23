@@ -75,6 +75,7 @@ test('keyboard walks and runs, quick taps jump, and a charged jump goes higher',
 
 test('controller-only play gates launch, supports analog speed and charge, and pauses on disconnect', async ({ page }) => {
   await setup(page, true)
+  await tap(page, 13) // The time trial is first; choose the movement playground below it.
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   expect((await position(page)).y).toBeCloseTo(620)
@@ -91,6 +92,33 @@ test('controller-only play gates launch, supports analog speed and charge, and p
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)
   await page.keyboard.down('a'); await page.clock.runFor(200); await page.keyboard.up('a')
   expect((await position(page)).x).toBeLessThan(paused.x)
+})
+
+test('keyboard walks over the opening ramp with continuous footing and no level text', async ({ page }, info) => {
+  await setup(page); await enter(page)
+  await page.evaluate(() => {
+    window.levelText = []
+    const original = CanvasRenderingContext2D.prototype.fillText
+    CanvasRenderingContext2D.prototype.fillText = function (text, ...args) {
+      window.levelText.push(text)
+      return original.call(this, text, ...args)
+    }
+  })
+  await page.keyboard.down('Shift'); await page.keyboard.down('d')
+  let previous = await position(page), highest = previous.y
+  for (let frame = 0; frame < 38; frame++) {
+    await page.clock.runFor(80)
+    const current = await position(page)
+    expect(Math.abs(current.y - previous.y)).toBeLessThan(4.6)
+    expect(await page.locator('.jumping-state').textContent()).toBe('Walking')
+    highest = Math.min(highest, current.y); previous = current
+    if (frame === 16 || frame === 29) await page.screenshot({ path: info.outputPath(frame === 16 ? 'slope-uphill.png' : 'slope-downhill.png') })
+  }
+  await page.keyboard.up('d'); await page.keyboard.up('Shift'); await page.clock.runFor(250)
+  expect(highest).toBeCloseTo(582)
+  expect((await position(page)).x).toBeGreaterThan(550)
+  expect((await position(page)).y).toBeCloseTo(620)
+  expect(await page.evaluate(() => window.levelText)).toEqual([])
 })
 
 test('pausing while charging cancels the charge and requires fresh controller input', async ({ page }) => {
@@ -120,15 +148,18 @@ test('focus loss pauses and resizing preserves the world position', async ({ pag
 
 async function reachOverhang(page) {
   await page.keyboard.down('d'); await page.clock.runFor(1500); await page.keyboard.up('d')
-  for (const [moving, settling, height] of [[350, 850, 566], [600, 600, 502]]) {
-    await page.keyboard.down('Space'); await page.clock.runFor(800); await page.keyboard.up('Space')
-    await page.keyboard.down('d'); await page.clock.runFor(moving); await page.keyboard.up('d')
-    await page.clock.runFor(settling)
-    expect((await position(page)).y).toBeCloseTo(height)
-  }
-  // A partial jump approaches the lip from below; a full jump can land on top directly.
-  await page.keyboard.down('Space'); await page.clock.runFor(240); await page.keyboard.up('Space')
-  await page.keyboard.down('d'); await page.clock.runFor(1000); await page.keyboard.up('d')
+  await page.keyboard.down('Space'); await page.clock.runFor(800); await page.keyboard.up('Space')
+  await page.keyboard.down('d'); await page.clock.runFor(350); await page.keyboard.up('d'); await page.clock.runFor(850)
+  expect((await position(page)).y).toBeCloseTo(566)
+  // Build speed on the first step and carry it through the jump to the second.
+  await page.keyboard.down('Space'); await page.clock.runFor(250); await page.keyboard.down('d')
+  for (let i = 0; i < 80 && (await position(page)).x < 720; i++) await page.clock.runFor(16)
+  await page.keyboard.up('Space'); await page.keyboard.up('d'); await page.clock.runFor(1100)
+  expect((await position(page)).y).toBeCloseTo(502)
+  // A short running hop approaches the lip from below for the automatic catch.
+  await page.keyboard.down('d')
+  for (let i = 0; i < 80 && (await position(page)).x < 958; i++) await page.clock.runFor(16)
+  await page.keyboard.press('Space'); await page.clock.runFor(700); await page.keyboard.up('d')
   await page.clock.runFor(100) // Let the throttled movement readout publish the caught ledge.
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
 }

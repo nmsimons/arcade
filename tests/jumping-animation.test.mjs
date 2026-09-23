@@ -55,6 +55,17 @@ test('jump legs gather by the apex and remain gathered throughout descent', () =
   }
 })
 
+test('both jump arms reach forward through takeoff, the apex, and descent in either direction', () => {
+  for (const facing of [-1, 1]) for (const vx of [0, 125, 350]) for (const vy of [-800, -560, -455, -180, 0, 400, 1000]) {
+    const pose = athletePose({ ...createPlayer(), grounded: false, facing, vx: vx * facing, vy })
+    for (const arm of [pose.frontArm, pose.backArm]) {
+      assert.ok(arm.joint[0] > pose.shoulder[0] + 3, 'both elbows stay in front of the torso')
+      assert.ok(arm.end[0] > pose.shoulder[0] + 10, 'both hands reach ahead of the figure')
+    }
+    assert.ok(distance(pose.frontArm.end, pose.backArm.end) > 3, 'the arms remain visibly separate')
+  }
+})
+
 test('the same local animation plays in either direction', () => {
   for (let frame = 0; frame < 40; frame++) {
     const stride = frame / 40 * Math.PI * 2

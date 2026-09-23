@@ -1,7 +1,10 @@
-import { PLATFORMS, TUNING, WORLD_WIDTH } from './model.ts'
-import type { Player } from './model.ts'
+import { TUNING } from './model.ts'
+import type { Platform, Player } from './model.ts'
+import { DEFAULT_LEVEL } from './level.ts'
+import type { JumpLevel } from './level.ts'
 import { CLIMBABLES } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
+import { groundAt } from './terrain.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -26,55 +29,54 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
   }
 }
 
-export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player) {
-  ctx.fillStyle = '#f1f0e9'; ctx.fillRect(0, 0, width, height)
-  const zoom = Math.max(.45, Math.min(1.6, height / 760))
-  // Keep the character's standing body center fixed while the world moves around it.
-  ctx.save(); ctx.translate(width / 2 - p.x * zoom, height / 2 - (p.y - TUNING.height / 2) * zoom); ctx.scale(zoom, zoom)
-  ctx.lineWidth = 1; ctx.strokeStyle = '#25363809'; ctx.beginPath()
-  for (let x = 0; x <= WORLD_WIDTH; x += 80) { ctx.moveTo(x, -500); ctx.lineTo(x, 1000) }
-  for (let y = -500; y <= 1000; y += 80) { ctx.moveTo(0, y); ctx.lineTo(WORLD_WIDTH, y) }
-  ctx.stroke()
-  const labels = [
-    [140, 440, '01', 'FIND YOUR STRIDE', 'A little pressure. A little more pace.'],
-    [630, 365, '02', 'TAKE THE STEPS', 'Tap to hop. Hold to go higher.'],
-    [1110, 265, '03', 'REACH & RECOVER', 'Catch the edge. Pull yourself up.'],
-    [1450, 140, '↑ ↓', 'CLIMB & SWING', 'Jump to catch a rope. Move to build momentum.'],
-    [1640, 365, '04', 'MAKE THE GAP', 'Carry your speed into the jump.'],
-    [2160, 335, '05', 'ONE MORE TIME', 'Room to experiment. Nothing to lose.'],
-  ] as const
-  for (const [x, y, number, title, detail] of labels) {
-    ctx.fillStyle = '#a5afa9'; ctx.font = '14px monospace'; ctx.fillText(number, x, y)
-    ctx.fillStyle = '#596b66'; ctx.font = '600 12px "Segoe UI", sans-serif'; ctx.fillText(title, x, y + 24)
-    ctx.fillStyle = '#7d8981'; ctx.font = '12px "Segoe UI", sans-serif'; ctx.fillText(detail, x, y + 46)
-  }
-  // A soft recovery zone under the gap, without a lethal obstacle or score penalty.
-  ctx.fillStyle = '#e5e3d9'; ctx.fillRect(1670, 850, 250, 200)
-  ctx.fillStyle = '#8b938b'; ctx.font = '11px monospace'; ctx.fillText('FALL. RESET. REPEAT.', 1702, 885)
-  for (const b of PLATFORMS) {
+export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[]) {
+  for (const b of platforms) {
+    if (b.profile) {
+      ctx.beginPath(); ctx.moveTo(b.x, b.y + b.h)
+      for (const [x, y] of b.profile) ctx.lineTo(b.x + x, b.y + y)
+      ctx.lineTo(b.x + b.w, b.y + b.h); ctx.closePath()
+      ctx.fillStyle = '#c7cfc4'; ctx.fill()
+      ctx.save(); ctx.clip()
+      for (const [offset, color, lineWidth] of [[5, '#d6dbd2', 10], [3, '#697d72', 2], [0, '#faf9f3', 3]] as const) {
+        ctx.beginPath()
+        b.profile.forEach(([x, y], i) => i ? ctx.lineTo(b.x + x, b.y + y + offset) : ctx.moveTo(b.x + x, b.y + y + offset))
+        ctx.strokeStyle = color; ctx.lineWidth = lineWidth; ctx.lineJoin = 'round'; ctx.stroke()
+      }
+      ctx.restore()
+      continue
+    }
     ctx.fillStyle = '#d6dbd2'; ctx.fillRect(b.x, b.y, b.w, b.h)
     ctx.fillStyle = '#c7cfc4'; ctx.fillRect(b.x, b.y + 8, b.w, b.h - 8)
     ctx.fillStyle = '#faf9f3'; ctx.fillRect(b.x, b.y, b.w, 3)
     ctx.fillStyle = '#697d72'; ctx.fillRect(b.x, b.y + 3, b.w, 2)
     if (b.y < 620) {
       ctx.fillStyle = ACCENT; ctx.fillRect(b.x, b.y, 22, 4); ctx.fillRect(b.x + b.w - 22, b.y, 22, 4)
-      ctx.fillStyle = '#77897c'; ctx.font = '11px monospace'; ctx.fillText(`${620 - b.y}`, b.x + 14, b.h < 40 ? b.y - 10 : b.y + 30)
     }
   }
-  drawClimbables(ctx, p)
-  // Runway marks make acceleration easy to read against the otherwise quiet space.
-  for (let x = 80; x < 2600; x += 40) if (x < 1670 || x > 1920) {
-    ctx.fillStyle = '#8b9b8e'; ctx.fillRect(x, 638, 1, x % 200 === 0 ? 15 : 5)
+}
+
+export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel = DEFAULT_LEVEL) {
+  ctx.fillStyle = '#f1f0e9'; ctx.fillRect(0, 0, width, height)
+  const zoom = Math.max(.45, Math.min(1.6, height / 760))
+  // Keep the character's standing body center fixed while the world moves around it.
+  ctx.save(); ctx.translate(width / 2 - p.x * zoom, height / 2 - (p.y - TUNING.height / 2) * zoom); ctx.scale(zoom, zoom)
+  ctx.lineWidth = 1; ctx.strokeStyle = '#25363809'; ctx.beginPath()
+  for (let x = 0; x <= level.width; x += 80) { ctx.moveTo(x, -500); ctx.lineTo(x, 1000) }
+  for (let y = -500; y <= 1000; y += 80) { ctx.moveTo(0, y); ctx.lineTo(level.width, y) }
+  ctx.stroke()
+  // A soft recovery zone under the gap, without a lethal obstacle or score penalty.
+  if (level.id === 'playground') { ctx.fillStyle = '#e5e3d9'; ctx.fillRect(1670, 850, 250, 200) }
+  drawTerrain(ctx, level.platforms)
+  drawClimbables(ctx, p, level.climbables)
+  // Small ground marks give movement scale without putting text into the level.
+  for (let x = 80; x < level.width; x += 40) {
+    const surface = groundAt(level.platforms, x, 620, 150)
+    if (surface) { ctx.fillStyle = '#8b9b8e'; ctx.fillRect(x, surface.y + 18, 1, x % 200 === 0 ? 15 : 5) }
   }
-  for (const [x, index] of [[200, 0], [1500, 1], [2050, 2]]) {
+  for (const [index, { x, y }] of [level.spawn, ...level.checkpoints].entries()) {
     ctx.fillStyle = p.checkpoint >= index ? ACCENT : '#95a397'
-    ctx.beginPath(); ctx.moveTo(x, 666); ctx.lineTo(x - 5, 674); ctx.lineTo(x + 5, 674); ctx.fill()
-    ctx.font = '10px monospace'; ctx.textAlign = 'center'; ctx.fillText(index ? 'RESET POINT' : 'START', x, 693); ctx.textAlign = 'left'
+    ctx.beginPath(); ctx.moveTo(x, y + 46); ctx.lineTo(x - 5, y + 54); ctx.lineTo(x + 5, y + 54); ctx.fill()
   }
   drawAthlete(ctx, p)
-  if (p.hang) {
-    ctx.fillStyle = ACCENT; ctx.font = '600 11px "Segoe UI", sans-serif'; ctx.textAlign = 'center'
-    ctx.fillText('UP TO CLIMB', p.x, p.y + 28); ctx.textAlign = 'left'
-  }
   ctx.restore()
 }

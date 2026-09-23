@@ -1,5 +1,6 @@
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
+import { platformSurface } from './terrain.ts'
 
 export type Point = [number, number]
 export interface Ladder { x: number; top: number; bottom: number; platform: number; side: number }
@@ -92,6 +93,9 @@ export function ropePump(climb: Climbing) {
 /** Verlet particles, distance constraints, an anchored top and a heavier loaded grip. */
 export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number } | null) {
   const { nodes, definition } = rope, length = definition.length / definition.segments
+  const reach = definition.length + 32
+  const nearby = platforms.filter(b => b.x < definition.x + reach && b.x + b.w > definition.x - reach
+    && b.y < definition.y + reach && b.y + b.h > definition.y - reach)
   const loaded = load ? clamp(Math.round((load.distance + 6) / length), 1, nodes.length - 1) : -1
   const weight = (i: number) => i === 0 ? 0 : i === loaded ? .08 : 1
   const damping = Math.exp(-.4 * dt)
@@ -124,14 +128,16 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
       a.x += dx * correction * wa; a.y += dy * correction * wa
       b.x -= dx * correction * wb; b.y -= dy * correction * wb
     }
-    for (let i = 1; i < nodes.length; i++) for (const b of platforms) {
+    for (let i = 1; i < nodes.length; i++) for (const b of nearby) {
       const n = nodes[i]
       if (n.x <= b.x - 1.5 || n.x >= b.x + b.w + 1.5 || n.y <= b.y - 1.5 || n.y >= b.y + b.h + 1.5) continue
-      const gaps = [n.x - b.x + 1.5, b.x + b.w + 1.5 - n.x, n.y - b.y + 1.5, b.y + b.h + 1.5 - n.y]
+      const top = platformSurface(b, n.x).y
+      if (n.y <= top - 1.5) continue
+      const gaps = [n.x - b.x + 1.5, b.x + b.w + 1.5 - n.x, n.y - top + 1.5, b.y + b.h + 1.5 - n.y]
       const edge = gaps.indexOf(Math.min(...gaps))
       if (edge === 0) n.x = b.x - 1.5
       else if (edge === 1) n.x = b.x + b.w + 1.5
-      else if (edge === 2) n.y = b.y - 1.5
+      else if (edge === 2) n.y = top - 1.5
       else n.y = b.y + b.h + 1.5
     }
   }

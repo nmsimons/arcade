@@ -169,7 +169,7 @@ test('climbing refuses a blocked standing space', () => {
   advance(p, .5, { climb: true }, world); assert.ok(p.hang); assert.equal(p.mantle, null)
 })
 test('falling and manual reset restore the last safe reset point', () => {
-  const p = createPlayer(); p.x = 1500; advance(p, STEP)
+  const p = createPlayer(); p.x = 1500; advance(p, STEP, {}, PLATFORMS)
   assert.equal(p.checkpoint, 1); p.x = 1790; p.y = 1019; p.vy = 800; p.grounded = false
   stepPlayer(p, NEUTRAL_INPUT); assert.equal(p.x, 1500); assert.equal(p.y, 620)
   p.x = 1000; respawn(p); assert.equal(p.x, 1500)

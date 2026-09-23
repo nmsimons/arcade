@@ -1,6 +1,7 @@
 import { gaitPose } from './model.ts'
 import type { Player } from './model.ts'
-import { footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
+import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
+import { groundAt } from './terrain.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, ropePump } from './climbables.ts'
 
@@ -85,15 +86,20 @@ function footAngle(limb: Limb, desired: number): number {
   // Flex relative to the shin, keeping the toes clear of the calf during recovery.
   return neutral + Math.max(-.35, Math.min(.7, delta))
 }
-function solveLeg(root: Point, target: Point, desired: number, grounded: boolean, planted = false, footFacing = 1, load = Number(grounded), kneeDirection = -1): Leg {
+function solveLeg(root: Point, target: Point, desired: number, grounded: boolean, planted = false, footFacing = 1, load = Number(grounded), kneeDirection = -1,
+  groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null): Leg {
   const ankle: Point = [...target]
   let limb = solve(root, ankle, 15, 14.5, kneeDirection, MIN_KNEE_OPENING)
-  const swingAngle = () => lerp(desired, footAngle(limb, desired), grounded ? smooth((-ankle[1] - 2.8) / 3) : 1)
+  const swingAngle = () => lerp(desired, footAngle(limb, desired), grounded ? smooth((groundY - ankle[1] - 2.8) / 3) : 1)
   let angle = swingAngle()
-  const flex = () => toeBend(angle * footFacing, load * smooth((limb.end[1] + 10) / 6)) * footFacing
-  if (planted) return { ...limb, footAngle: desired, toeAngle: toeBend(desired * footFacing) * footFacing, footFacing, planted }
+  const flex = () => toeBend((angle - surfaceAngle) * footFacing, load * smooth((limb.end[1] - groundY + 10) / 6)) * footFacing
+  if (planted) return { ...limb, footAngle: desired, toeAngle: toeBend((desired - surfaceAngle) * footFacing) * footFacing, footFacing, planted }
   if (grounded) for (let i = 0; i < 4; i++) {
-    const bottom = limb.end[1] + soleContact(angle * footFacing, flex() * footFacing)[1]
+    const bottom = terrainHeight ? Math.max(...FOOT_CONTACT.map(point => {
+      const sole = footPoint(point, angle * footFacing, flex() * footFacing)
+      const surface = terrainHeight(limb.end[0] + sole[0] * footFacing)
+      return surface === null ? 0 : limb.end[1] + sole[1] - surface
+    })) : limb.end[1] + soleContact(angle * footFacing, flex() * footFacing)[1] - groundY
     if (bottom <= .01) break
     ankle[1] -= bottom
     limb = solve(root, ankle, 15, 14.5, kneeDirection, MIN_KNEE_OPENING); angle = swingAngle()
@@ -321,10 +327,11 @@ export function athletePose(p: Player): AthletePose {
   const landing = (landingTime < .28 ? smooth(landingTime / .28) : 1 - smooth((landingTime - .28) / .72)) * (1 - air * .7)
   const landingDepth = landing * lerp(2.5, 16, p.landingImpact) * (1 - squat)
   const dip = squat * 22 + landingDepth + charge
+  const slopeLean = -p.groundAngle * p.facing * (1 - air) * .3
   const hipHeight = lerp(lerp(-33.2, lerp(-31.4, -28.3, run), moving), -31.5 + tuck * 2.5, air)
   const pelvicPitch = (.025 + run * .2 + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .35 + air * (.08 + tuck * .28) + landingDepth * .014
   const chestPitch = (.035 + run * .4 + Math.sin(cycle * 2 - .55) * lerp(.035, .1, run)
-    + Math.sin(cycle - .3) * run * .035) * gait + squat * .55 + air * (.12 + speed * .18 + tuck * .18) + landingDepth * .035
+    + Math.sin(cycle - .3) * run * .035) * gait + squat * .55 + air * (.12 + speed * .18 + tuck * .18) + landingDepth * .035 + slopeLean
   const hip: Point = [-squat * 7 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4), hipHeight + dip + hipBob]
   const waist: Point = [hip[0] + Math.sin(pelvicPitch) * 6.5, hip[1] - Math.cos(pelvicPitch) * 6.5]
   const shoulder: Point = [waist[0] + Math.sin(chestPitch) * 10.1, waist[1] - Math.cos(chestPitch) * 10.1 + chestBob - hipBob]
@@ -356,9 +363,9 @@ export function athletePose(p: Player): AthletePose {
     frontAnkle = mix(frontAnkle, airborneFront, air)
     backAnkle = mix(backAnkle, airborneBack, air)
     frontAngle = lerp(frontAngle, .5 + rising * (.2 + extension * .4), air)
-    backAngle = lerp(backAngle, -.65 + tuck * .45, air)
+    backAngle = lerp(backAngle, .38 + rising * (.2 + extension * .3), air)
     frontFlex = lerp(frontFlex, 1.2 + rising * .5, air)
-    backFlex = lerp(backFlex, .7 + rising * (.8 - extension * .4), air)
+    backFlex = lerp(backFlex, .9 + rising * (.5 - extension * .2), air)
   }
   frontAngle = lerp(frontAngle, Math.PI - .08, p.reach)
   backAngle = lerp(backAngle, Math.PI + .06, p.reach)
@@ -372,9 +379,10 @@ export function athletePose(p: Player): AthletePose {
   }
   // Lower the pelvis when necessary; a planted foot must never be pulled off its anchor by IK.
   let supportDip = 0
-  for (const [ankle, planted] of [[frontAnkle, frontPlanted], [backAnkle, backPlanted]] as const) if (p.grounded && !p.mantle) {
+  for (const [index, [ankle, planted]] of ([[frontAnkle, frontPlanted], [backAnkle, backPlanted]] as const).entries()) if (p.grounded && !p.mantle) {
     const rise = Math.sqrt(Math.max(0, 29 ** 2 - (ankle[0] - hip[0]) ** 2))
-    const weight = planted ? 1 : smooth((ankle[1] + 8) / 5.2)
+    const groundY = contacts ? contacts[index].groundY - p.y : 0
+    const weight = planted ? 1 : smooth((ankle[1] - groundY + 8) / 5.2)
     supportDip = Math.max(supportDip, (ankle[1] - rise - (hip[1] + 1)) * weight)
   }
   if (supportDip) { hip[1] += supportDip; waist[1] += supportDip; shoulder[1] += supportDip; head[1] += supportDip }
@@ -396,9 +404,62 @@ export function athletePose(p: Player): AthletePose {
     backArm = grippingArm(backRoot(), add(origin, BACK_WRIST), add(origin, BACK_GRIP), backArm, p.ledgeReach.amount)
   }
   const frontFacing = (contacts?.[0].facing ?? p.facing) * p.facing, backFacing = (contacts?.[1].facing ?? p.facing) * p.facing
-  const frontLeg = solveLeg(add(hip, [0, 1]), frontAnkle, contacts ? contacts[0].angle * frontFacing : lerp(frontStep.angle * (1 - squat) * moving, -.15, air), p.grounded, frontPlanted, frontFacing, 1 - air)
-  const backLeg = solveLeg(add(hip, [0, 1]), backAnkle, contacts ? contacts[1].angle * backFacing : lerp(backStep.angle * (1 - squat) * moving, .12, air), p.grounded, backPlanted, backFacing, 1 - air)
-  return { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
+  const terrainHeight = p.footwork ? (x: number) => {
+    const ground = groundAt(p.footwork!.terrain, p.x + x * p.facing, p.y)
+    return ground ? ground.y - p.y : null
+  } : undefined
+  const frontLeg = solveLeg(add(hip, [0, 1]), frontAnkle, contacts ? contacts[0].angle * frontFacing : lerp(frontStep.angle * (1 - squat) * moving, -.15, air), p.grounded, frontPlanted, frontFacing, 1 - air, -1,
+    contacts ? contacts[0].groundY - p.y : 0, (contacts?.[0].groundAngle ?? 0) * p.facing, terrainHeight)
+  const backLeg = solveLeg(add(hip, [0, 1]), backAnkle, contacts ? contacts[1].angle * backFacing : lerp(backStep.angle * (1 - squat) * moving, .12, air), p.grounded, backPlanted, backFacing, 1 - air, -1,
+    contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight)
+  const result = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
+  return p.wallBrace ? wallBracePose(p, result) : result
+}
+
+/** Keep the ordinary pushing silhouette, with the legs reaching diagonally to the wall. */
+function wallBracePose(p: Player, free: AthletePose): AthletePose {
+  if (p.grounded) return free
+  const brace = p.wallBrace!, wall = (brace.wallX - p.x) * p.facing
+  const amount = smooth(Math.max(...brace.hands, ...brace.feet))
+  // Use the same body and arm rig as a settled ground push, including its distance
+  // from the wall. The physical capsule stays at the collision boundary.
+  const pushDistance = 25.5
+  const pushing = athletePose({ ...p, x: brace.wallX - p.facing * pushDistance,
+    grounded: true, vx: 0, vy: 0, wallBrace: null, footwork: null, gait: gaitPose(0),
+    crouch: 0, crouching: false, charging: false, reach: 0, landing: 0, groundAngle: 0,
+    pushing: { wallX: brace.wallX, direction: p.facing, amount: 1, effort: 1 } })
+  const offset: Point = [wall - pushDistance, 0]
+  const lean = .2
+  const towardWall = (point: Point): Point => {
+    const x = point[0] - pushing.hip[0], y = point[1] - pushing.hip[1]
+    return add(pushing.hip, [x * Math.cos(lean) - y * Math.sin(lean) + offset[0], x * Math.sin(lean) + y * Math.cos(lean)])
+  }
+  const hip = mix(free.hip, add(pushing.hip, offset), amount), waist = mix(free.waist, towardWall(pushing.waist), amount)
+  const shoulder = mix(free.shoulder, towardWall(pushing.shoulder), amount), head = mix(free.head, towardWall(pushing.head), amount)
+  const arm = (limb: Limb, weight: number, y: number) => {
+    const contact = smooth(weight)
+    const braced = grippingArm(add(shoulder, [0, .7]), [wall - 2.8, y], [wall - 1.6, y], limb, contact)
+    braced.handAngle = lerp(braced.handAngle ?? 0, Math.PI / 2, contact)
+    return braced
+  }
+  const leg = (limb: Leg, weight: number, y: number): Leg => {
+    const contact = smooth(weight)
+    const target = mix(limb.end, [wall - 2.8, y], contact)
+    const root = add(hip, [0, 1])
+    const desired = lerp(limb.footAngle, -Math.PI / 2, contact)
+    let result = solveLeg(root, target, desired, false)
+    // Use the normal forward knee bend throughout the reach. Let the ankle flex
+    // within its usual limits, then place the contacting part of the foot at the wall.
+    for (let i = 0; i < 12; i++) {
+      const reach = Math.max(...FOOT_CONTACT.map(point => footPoint(point, result.footAngle, result.toeAngle)[0]))
+      target[0] = Math.min(wall - reach, lerp(limb.end[0], wall - reach, contact))
+      result = solveLeg(root, target, desired, false)
+    }
+    return result
+  }
+  return { hip, waist, shoulder, head,
+    frontArm: arm(free.frontArm, brace.hands[0], -43), backArm: arm(free.backArm, brace.hands[1], -46),
+    frontLeg: leg(free.frontLeg, brace.feet[0], -13), backLeg: leg(free.backLeg, brace.feet[1], -17) }
 }
 
 /** A single dark-grey silhouette, shared by every pose and viewing direction. */

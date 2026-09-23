@@ -4,21 +4,40 @@ import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
 import { cancelJumpInput, createPlayer, playerState, respawn, STEP, stepPlayer } from './jumping/model'
 import { drawPlayground } from './jumping/render'
+import { DEFAULT_LEVEL, isPuzzleLevel, levelPlayer, levelRules } from './jumping/level'
+import type { JumpLevel, PuzzleLevel } from './jumping/level'
+import { LevelBuilder } from './jumping/LevelBuilder'
+import { createRun, FIRST_LEVEL, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
+import type { Run } from './jumping/challenge'
+import { CAMPAIGN, PLAYABLE_LEVELS, YARD_LEVEL } from './jumping/levels'
+import { LevelThumbnail } from './jumping/LevelThumbnail'
+import { drawChallenge } from './jumping/challengeRender'
 import './jumping/jumping.css'
 
-type Screen = 'menu' | 'playing' | 'paused'
+type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyR', 'Escape', 'KeyP'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null)
-  const player = useRef(createPlayer()), keys = useRef(new Set<string>())
+  const [initialRun] = useState(createRun)
+  const run = useRef<Run | null>(initialRun)
+  const player = useRef(initialRun.player), keys = useRef(new Set<string>())
+  const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
+  const [challenge, setChallenge] = useState(true)
+  const [trial, setTrial] = useState<PuzzleLevel>(FIRST_LEVEL)
+  const [bestTimes, setBestTimes] = useState<Record<string, number | null>>(() => Object.fromEntries(PLAYABLE_LEVELS.map(l => { try { return [l.id, readBest(localStorage, l.id)] } catch { return [l.id, null] } })))
+  const best = bestTimes[trial.id] ?? null
+  const campaignIndex = CAMPAIGN.findIndex(l => l.id === trial.id)
+  const [saveError, setSaveError] = useState(false)
+  const activeLevel = useRef(DEFAULT_LEVEL), rules = useRef(levelRules(DEFAULT_LEVEL))
+  const [builderStarted, setBuilderStarted] = useState(false), [testing, setTesting] = useState(false)
   const jumpQueue = useRef<boolean[]>([]), keyboardJump = useRef(false)
   const [controller] = useState(createJumpController)
   const [screen, setScreen] = useState<Screen>('menu')
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('Take a breath. Pick up where you left off.')
-  const [metrics, setMetrics] = useState({ state: 'Ready', speed: 0, charge: 0, height: 0 })
+  const [metrics, setMetrics] = useState({ state: 'Ready', speed: 0, charge: 0, height: 0, elapsed: 0, started: false, lift: false })
 
   function changeScreen(next: Screen, reason?: string) {
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
@@ -30,10 +49,47 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
   }, [screen])
   function resetPosition() {
-    respawn(player.current); keys.current.clear(); controller.reset()
+    if (run.current) { run.current = createRun(run.current.level); player.current = run.current.player }
+    else respawn(player.current)
+    keys.current.clear(); controller.reset()
     jumpQueue.current = []; keyboardJump.current = false
     canvasRef.current?.focus({ preventScroll: true })
   }
+  function playChallenge(level: PuzzleLevel, fromBuilder = false) {
+    run.current = createRun(level); player.current = run.current.player; setTrial(level)
+    setChallenge(true); setTesting(fromBuilder); setSaveError(false); changeScreen('playing')
+  }
+  function startChallenge() { playChallenge(trial, testing) }
+  function selectTrial(level: PuzzleLevel) {
+    setTrial(level); run.current = createRun(level); player.current = run.current.player; setChallenge(true); setTesting(false)
+  }
+  function startPlayground() {
+    run.current = null; setChallenge(false); setTesting(false)
+    activeLevel.current = DEFAULT_LEVEL; rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
+    changeScreen('playing')
+  }
+  function openBuilder() { setBuilderStarted(true); changeScreen('building') }
+  function testLevel(level: JumpLevel) {
+    if (isPuzzleLevel(level)) { playChallenge(level, true); return }
+    run.current = null; setChallenge(false)
+    activeLevel.current = level; rules.current = levelRules(level); player.current = levelPlayer(level)
+    setTesting(true); changeScreen('playing')
+  }
+  function closeBuilder() {
+    activeLevel.current = DEFAULT_LEVEL; rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
+    run.current = createRun(trial); player.current = run.current.player; setChallenge(true)
+    setTesting(false); changeScreen('menu')
+  }
+  const finishRun = useEffectEvent(() => {
+    if (!run.current?.finished || screenRef.current !== 'playing') return
+    setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
+    if (!testing) {
+      const { elapsed, level } = run.current
+      try { const time = saveBest(localStorage, elapsed, level.id); setBestTimes(previous => ({ ...previous, [level.id]: time })); setSaveError(false) }
+      catch { setBestTimes(previous => ({ ...previous, [level.id]: Math.min(previous[level.id] ?? Infinity, elapsed) })); setSaveError(true) }
+    }
+    changeScreen('complete')
+  })
   const handleKey = useEffectEvent((event: KeyboardEvent) => {
     if (screenRef.current !== 'playing' || event.altKey || event.ctrlKey || event.metaKey || !PLAY_KEYS.has(event.code)) return
     // Preserve Tab/Enter behavior for the small on-screen toolbar.
@@ -62,6 +118,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
       return null
     }
     if (screenRef.current !== 'playing') {
+      if (screenRef.current === 'building') return null
       const dialog = controllerDialog(rootRef.current)
       if (dialog) {
         if (pad.pause && screenRef.current === 'paused') changeScreen('playing')
@@ -86,7 +143,8 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     let width = 0, height = 0, ratio = 1, frame = 0, previous = 0, accumulator = 0, published = 0
     const paint = () => {
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-      drawPlayground(ctx, width, height, player.current)
+      if (run.current) drawChallenge(ctx, width, height, run.current)
+      else drawPlayground(ctx, width, height, player.current, activeLevel.current)
     }
     const resize = () => {
       const rect = canvas.getBoundingClientRect(); width = rect.width; height = rect.height
@@ -112,13 +170,18 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
         while (accumulator >= STEP) {
           // Preserve even a complete keyboard tap between two rendered frames.
           if (jumpQueue.current.length) keyboardJump.current = jumpQueue.current.shift()!
-          stepPlayer(player.current, { ...input, jump: input.jump || keyboardJump.current }); accumulator -= STEP
+          const controls = { ...input, jump: input.jump || keyboardJump.current }
+          if (run.current) stepRun(run.current, controls)
+          else stepPlayer(player.current, controls, STEP, activeLevel.current.platforms, activeLevel.current.climbables, rules.current)
+          accumulator -= STEP
+          if (run.current?.finished) { finishRun(); accumulator = 0; break }
         }
       } else accumulator = 0
       paint()
       if (now - published > 80) {
         const p = player.current
-        setMetrics({ state: playerState(p), speed: Math.abs(p.vx) / 60, charge: p.charge, height: p.bestHeight / 60 })
+        setMetrics({ state: playerState(p), speed: Math.abs(p.vx) / 60, charge: p.charge, height: p.bestHeight / 60,
+          elapsed: run.current?.elapsed ?? 0, started: run.current?.started ?? false, lift: run.current?.mechanisms.some(m => m.active) ?? false })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -132,43 +195,72 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   }, [])
 
   return <div className="jumping-game" ref={rootRef}>
-    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label="Untitled Jumping Game movement playground" />
+    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the flag` : 'Untitled Jumping Game movement playground'} />
     <header className="jumping-header">
-      <div><p className="jumping-eyebrow">MOVEMENT STUDY / 001</p><h1>Untitled Jumping Game</h1></div>
+      <div><p className="jumping-eyebrow">{challenge ? `${testing ? 'PLAYTEST' : campaignIndex < 0 ? 'EXPERIMENT' : `LEVEL 0${campaignIndex + 1}`} / ${trial.name.toUpperCase()}` : 'MOVEMENT PLAYGROUND'}</p><h1>Untitled Jumping Game</h1></div>
       <div className="jumping-toolbar"><span className="jumping-device">{connected ? 'Controller connected' : 'Keyboard · controller ready'}</span>
-        {screen === 'playing' && <><button onClick={resetPosition}>Reset <kbd>{connected ? 'Y / △' : 'R'}</kbd></button><button onClick={() => changeScreen('paused')}>Pause <kbd>{connected ? 'Menu' : 'Esc'}</kbd></button></>}
+        {screen === 'playing' && <>{(!challenge || testing) && <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>}<button onClick={resetPosition}>{challenge ? 'Restart' : 'Reset'} <kbd>{connected ? 'Y / △' : 'R'}</kbd></button><button onClick={() => changeScreen('paused')}>Pause <kbd>{connected ? 'Menu' : 'Esc'}</kbd></button></>}
       </div>
     </header>
     <aside className="jumping-telemetry" aria-label="Movement readout">
       <span className="jumping-state">{metrics.state}</span>
-      <span>Speed <b data-testid="jump-speed">{metrics.speed.toFixed(1)}</b><small>m/s</small></span>
-      <span>Best jump <b>{metrics.height.toFixed(1)}</b><small>m</small></span>
+      {!challenge && <><span>Speed <b data-testid="jump-speed">{metrics.speed.toFixed(1)}</b><small>m/s</small></span>
+      <span>Best jump <b>{metrics.height.toFixed(1)}</b><small>m</small></span></>}
       <span className="jumping-charge">Charge <meter min="0" max="1" value={metrics.charge} aria-label="Jump charge" /></span>
     </aside>
+    {challenge && screen === 'playing' && <aside className="jumping-race" aria-label="Level time">
+      <b data-testid="level-time">{formatTime(metrics.elapsed)}</b>
+      <span>{metrics.started ? trial.climbables.ropes.length ? 'Swing, release, reach the flag.' : trial.mechanisms.length ? metrics.lift ? 'Mechanism active · Reach the flag' : 'Find your route to the flag' : 'Hold jump to charge. Release to leap.' : 'Move to start the clock'}</span>
+      <div className="jumping-medal-times"><span className="gold">Gold {trial.times.gold}s</span><span>Silver {trial.times.silver}s</span><span className="bronze">Bronze {trial.times.bronze}s</span></div>
+      {best !== null && <small>Personal best {formatTime(best)}</small>}
+    </aside>}
     <footer className="jumping-footer">
       {connected ? <><span><kbd>L stick / D-pad</kbd> Move / swing</span><span><kbd>A / ×</kbd> Jump / let go</span><span><kbd>↑ ↓</kbd> Climb / descend</span><span><kbd>B / ○</kbd> Drop</span></>
         : <><span><kbd>A D / ← →</kbd> Move / swing <kbd>Shift</kbd> Walk</span><span><kbd>Space</kbd> Jump / let go</span><span><kbd>W S / ↑ ↓</kbd> Climb / descend</span><span><kbd>X</kbd> Drop</span></>}
-      <span className="jumping-grab-hint">Ledges & ropes catch automatically</span>
+      <span className="jumping-grab-hint">Press jump while braced to kick off · Ledges & ropes catch automatically</span>
     </footer>
-    {screen !== 'playing' && <KeyboardDialog label={screen === 'menu' ? 'Untitled Jumping Game' : 'Game paused'} focusKey={`jumping-${screen}`}
-      onClose={() => screen === 'menu' ? onExit() : changeScreen('playing')} className="jumping-overlay">
-      <div className="jumping-menu">
-        <p className="jumping-eyebrow">{screen === 'menu' ? 'THE MOVEMENT PLAYGROUND' : 'PAUSED'}</p>
-        <h2>{screen === 'menu' ? 'A little room to jump.' : 'Find your footing.'}</h2>
-        <p>{screen === 'menu' ? 'Run, charge, catch, climb. A quiet space to find the feel of the next game.' : pauseReason}</p>
-        {screen === 'menu' && <div className="jumping-instructions">
-          <p><strong>Move at your pace.</strong> Tilt the left stick to walk or run. Keyboard: A/D or arrows, hold Shift to walk.</p>
-          <p><strong>Load the jump.</strong> Hold A/Cross or Space, then release. A quick tap makes a small hop.</p>
-          <p><strong>Keep your grip.</strong> Face a ledge to catch it, or press Down near an edge to lower into a hang. Up or jump climbs. Press Down again or B/Circle / X to drop. Away + jump pushes off.</p>
-          <p><strong>Find another way up.</strong> Jump into a rope to catch it automatically, or hold Up near a ladder or rope to grab it. Up/Down climbs and descends. Left/Right swings the rope; jump lets go with your momentum.</p>
-        </div>}
-        <div className="jumping-actions">
-          <button className="jumping-primary" onClick={() => changeScreen('playing')}>{screen === 'menu' ? 'Enter playground' : 'Resume'} <span aria-hidden="true">↗</span></button>
-          {screen === 'paused' && <button onClick={() => { resetPosition(); changeScreen('playing') }}>Reset position</button>}
-          <button onClick={onExit}>Back to arcade</button>
-        </div>
-        <p className="jumping-menu-note">{connected ? 'Stick / D-pad to choose · A / Cross to confirm' : 'Keyboard supported · Connect a controller and press a button'}</p>
+    {screen === 'complete' && <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={startChallenge} className="jumping-overlay">
+      <div className="jumping-menu jumping-result">
+        <p className="jumping-eyebrow">{trial.name.toUpperCase()} / {testing ? 'TEST COMPLETE' : 'COMPLETE'}</p><h2>Flag reached.</h2>
+        <div className={`jumping-medal ${result.medal.toLowerCase().replace(' ', '-')}`} aria-hidden="true">{result.medal === 'No medal' ? '⚑' : '★'}</div>
+        <p className="jumping-result-time">{formatTime(result.elapsed)}</p>
+        <p>{result.medal === 'No medal' ? 'Level complete. Another run, another route.' : `${result.medal} medal`}</p>
+        <div className="jumping-medal-times"><span className="gold">Gold ≤ {trial.times.gold}s</span><span>Silver ≤ {trial.times.silver}s</span><span className="bronze">Bronze ≤ {trial.times.bronze}s</span></div>
+        {!testing && best !== null && <p>Personal best {formatTime(best)}</p>}
+        {saveError && <p role="status">Your time is kept for this visit. Browser storage is unavailable.</p>}
+        <div className="jumping-actions">{!testing && campaignIndex >= 0 && campaignIndex < CAMPAIGN.length - 1 && <button className="jumping-primary" onClick={() => playChallenge(CAMPAIGN[campaignIndex + 1])}>Next level <span aria-hidden="true">→</span></button>}{testing && <button className="jumping-primary" onClick={openBuilder}>Return to builder</button>}<button onClick={startChallenge}>Try again <span aria-hidden="true">↗</span></button><button onClick={() => changeScreen('menu')}>Level menu</button><button onClick={onExit}>Back to arcade</button></div>
       </div>
     </KeyboardDialog>}
+    {(screen === 'menu' || screen === 'paused') && <KeyboardDialog label={screen === 'menu' ? 'Untitled Jumping Game' : 'Game paused'} focusKey={`jumping-${screen}`}
+      onClose={() => screen === 'menu' ? onExit() : changeScreen('playing')} className="jumping-overlay">
+      <div className={`jumping-menu ${screen === 'menu' ? 'jumping-level-menu' : ''}`}>
+        <p className="jumping-eyebrow">{screen === 'menu' ? 'SMALL LEAPS / BETTER TIMES' : 'PAUSED'}</p>
+        <h2>{screen === 'menu' ? 'Find your way across.' : 'Find your footing.'}</h2>
+        <p>{screen === 'menu' ? 'One flag. A few good jumps. As many tries as you need.' : pauseReason}</p>
+        {screen === 'menu' && <>
+          <div className="jumping-level-cards">{CAMPAIGN.map((level, index) => {
+            const record = bestTimes[level.id]
+            return <button key={level.id} className="jumping-level-card" aria-pressed={trial.id === level.id} onClick={() => selectTrial(level)} aria-label={`Level ${index + 1}: ${level.name}`}>
+              <span className="level-card-number">0{index + 1}</span><LevelThumbnail level={level} />
+              <strong>{level.name}</strong><span>{['Charge your jump', 'Catch and swing', 'Make the transfer'][index]}</span>
+              <small>{record ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
+            </button>
+          })}</div>
+          <div className="jumping-level-detail"><div><h3>{trial.name}</h3><p>{trial.description}</p></div><div className="jumping-medal-times"><span className="gold">Gold {trial.times.gold}s</span><span>Silver {trial.times.silver}s</span><span className="bronze">Bronze {trial.times.bronze}s</span></div></div>
+          {best !== null && <p className="jumping-best">Personal best: {formatTime(best)}</p>}
+        </>}
+        <div className="jumping-actions">
+          <button data-initial-focus className="jumping-primary" onClick={() => screen === 'menu' ? playChallenge(trial) : changeScreen('playing')}>{screen === 'menu' ? 'Start level' : 'Resume'} <span aria-hidden="true">↗</span></button>
+          {screen === 'menu' && <button onClick={startPlayground}>Enter playground</button>}
+          {screen === 'paused' && <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>}
+          <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
+          {screen === 'menu' && <button onClick={() => selectTrial(YARD_LEVEL)}>Counterweight Yard · experiment</button>}
+          {screen === 'paused' && <button onClick={() => { setTesting(false); changeScreen('menu') }}>Level menu</button>}
+          <button onClick={onExit}>Back to arcade</button>
+        </div>
+        <p className="jumping-menu-note">{connected ? 'Stick / D-pad to choose · A / Cross to confirm' : 'A / D to move · Hold Space, release to jump · W / S to climb'}<br />No death. A missed jump is another try.</p>
+      </div>
+    </KeyboardDialog>}
+    {builderStarted && <LevelBuilder active={screen === 'building'} onPlay={testLevel} onClose={closeBuilder} />}
   </div>
 }

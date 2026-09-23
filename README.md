@@ -18,7 +18,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - **Bumper Ball** — single-player physics soccer-ish bumper cars against a computer opponent
 - **Sling Load** — helicopter sling-load delivery / survival
 - **Hello World** — vector display “HELLO WORLD” screen
-- **Untitled Jumping Game** — a minimalist platforming playground for movement, charged jumps, and ledge grabs
+- **Untitled Jumping Game** — a timed, nonlethal puzzle platformer with a movement playground and level builder
 
 ## Controls
 
@@ -480,10 +480,39 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 **Untitled Jumping Game** (`/untitled-jumping-game`)
 
+The opening campaign teaches one movement mechanic at a time:
+
+1. **First Leap** — a 320-unit pit that requires a charged running jump.
+2. **A Little Swing** — a wider pit crossed using one rope.
+3. **Hand Over Hand** — transfer between two ropes across a still wider pit.
+
+Every pit has a continuous bottom floor and a ladder returning to the left bank.
+There is no death or automatic reset. Reach the flag for a gold, silver, bronze,
+or unmedalled completion. The clock starts on your first movement action; pauses
+and menus do not consume time. Personal bests are saved separately for each map.
+The result screen advances to the next lesson or lets you retry immediately.
+
+**Counterweight Yard · experiment** keeps the original object course available
+outside the opening progression. Its pusher spots the player from a distance,
+pursues at speed, winds up briefly, rushes, and quickly attacks again. Pushers
+stay on supported terrain and respect their editable left/right limits. They push
+players and loose objects without killing. Crates and weighted balls use the
+same refined rendering in play and in the editor. The background grid stays fixed
+in world space.
+
+R or Y/Triangle restarts the whole current trial, including every prop, rope,
+pusher, elevator, trigger, and the clock. It also restarts the correct custom
+level during a builder playtest.
+
 - Left stick: proportional walk/run speed; D-pad also moves. Keyboard: A/D or
   Left/Right, with Shift to walk.
 - Hold A/Cross or Space to charge; release to jump. Tap for a short hop.
   Charging preserves your movement speed and running stride for running jumps.
+- Jumping into a wall braces the hands and feet against its surface while gravity
+  carries the player down. Press Space or A/Cross again to jump up and away from
+  the wall. The initial push briefly carries you outward, then air steering resumes.
+  Each wall jump needs a fresh press; holding jump does not automatically bounce.
+  Air steering makes gradual adjustments to the trajectory while preserving takeoff momentum.
 - Face a nearby ledge in the air to grab automatically. Up/W or jump climbs;
   B/Circle or Down/S drops; away + jump pushes off.
 - Down/S near an exposed platform edge lowers into a hang. Holding Down keeps
@@ -491,15 +520,54 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 - Jump into a rope to catch it automatically. Up/Down or W/S climbs and descends
   ladders and ropes; left/right pumps a rope swing. Jump releases with momentum;
   B/Circle or X lets go.
-- Y/Triangle or R: return to the most recent reset point. Falling resets there too.
+- Y/Triangle or R: restart the trial; in the playground, return to the most recent reset point.
 - Menu/Start or Escape/P: pause. The pause menu returns to the arcade.
 
-The sandbox includes a runway, steps, an overhanging ledge, ladders, and ropes over a gap. It
-has no score or persistence. The readout shows speed, charge and best jump height
+**Enter playground** opens the movement sandbox with a runway, steps, an overhanging ledge, ladders, ropes over a gap,
+ramps, and rough terrain. Feet follow the ground, and connected terrain pieces have
+no solid internal seams. Walking off the visible ends falls and resets rather than
+hitting an invisible boundary. The readout shows speed, charge and best jump height
 for the current visit. Controller disconnect and focus loss pause the game;
 release buttons and center the stick after resuming. Keyboard stays available.
 Movement constants and level geometry live in `src/games/jumping/model.ts`;
 the simulation advances at 120 Hz independently of rendering and viewport size.
+
+Open **Level builder** to enter the **Level studio**. Its **Library** tab offers
+copies of all three lessons, the counterweight experiment, a blank trial, and
+saved levels. The original movement playground is also available to copy.
+
+- Draw floating platforms, supported pillars, ramps, and rough terrain. The
+  **Pit** tool carves the banks and adds a bottom floor and a return ladder.
+- Place starts, finish flags, ladders, ropes, movable crates, balls, and pushers.
+- Place elevators or retracting gates, then pressure plates. Select a plate and
+  choose its **Activates** target and **Pressure mode** (props, or player/props).
+  Connections are visible in the canvas. Each plate latches until restart.
+- Drag selected objects, resize with the corner handle or numeric inspector,
+  and reshape slopes with their white control points. Duplicate with Ctrl/Cmd+D.
+  Undo/redo includes object changes, connections, imported maps, and templates.
+- Set map width, height, bottom-floor depth, medal times, and the player hint.
+  The bottom floor and boundary walls are structural and cannot be erased.
+- Turn on **Jump guide** to compare short and charged running jumps. Selecting a
+  platform moves the guide to its edge. Guides are advisory; grip and momentum
+  affect actual landings.
+- V selects, H or held Space pans, scrolling pans, and Ctrl/Cmd+scroll zooms.
+  **Fit level** or the overview fits the map; **Find start** returns to the player.
+
+**Playtest** runs the entire authored trial with its own goals and mechanics.
+**Return to builder** preserves the draft and undo history. The inspector flags
+invalid starts, flags, medals, unsupported pushers, and missing mechanism links.
+Drafts autosave locally; **Save level** stores a named copy in this browser.
+
+**Export** produces a `.jump-level.json` file with all terrain, goals, medal
+thresholds, props, enemies, and mechanism connections. Give that file to Codex to
+add the level to the campaign. **Import level file** in Library opens it for
+further editing with a fresh level identity. Invalid imports leave the draft
+intact; storage/export failures are visible. Browser data does not sync devices.
+See `docs/jumping-levels.md` for the file handoff and integration format.
+
+Level validation lives in `src/games/jumping/level.ts`, campaign definitions in
+`levels.ts`, puzzle simulation in `challenge.ts`, and editing operations in
+`editor.ts` and `puzzleEditor.ts`.
 
 Note: browsers often require a user gesture (key press/click) before audio can start.
 

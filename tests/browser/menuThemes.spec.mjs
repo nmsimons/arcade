@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { setup, tap } from './helpers/controller.mjs'
 
-const titles = ['Hard Vacuum', 'Bumper Ball', 'Urban Fire']
+const titles = ['Hard Vacuum', 'Bumper Ball', 'Urban Fire', 'Untitled Jumping Game']
 const paint = button => button.evaluate(element => {
   const style = getComputedStyle(element)
   return { font: style.fontFamily, fill: style.backgroundColor, outline: style.outlineColor, width: style.outlineWidth }
@@ -40,14 +40,14 @@ test('arcade entries have distinct materials, decorative covers and one clear ke
   await page.goto('/')
   const cards = titles.map(name => page.getByRole('button', { name, exact: true }))
   await expect(cards[0]).toBeFocused()
-  await expect(page.getByRole('button')).toHaveCount(3)
-  await expect(page.locator('.arcade-choice img[aria-hidden="true"][data-art-state="ready"]')).toHaveCount(3)
+  await expect(page.getByRole('button')).toHaveCount(titles.length)
+  await expect(page.locator('.arcade-choice img[aria-hidden="true"][data-art-state="ready"]')).toHaveCount(titles.length)
   expect((await paint(cards[0])).font).toContain('monospace')
   expect((await paint(cards[1])).font).toContain('Trebuchet')
   const fills = await Promise.all(cards.map(async card => (await paint(card)).fill))
-  expect(new Set(fills).size).toBe(3)
+  expect(new Set(fills).size).toBe(titles.length)
   expect(scripts.filter(url => /Game-[^/]+\.js/.test(url))).toEqual([])
-  for (const [key, index] of [['ArrowRight', 1], ['ArrowDown', 2], ['Tab', 0], ['End', 2], ['Home', 0]]) {
+  for (const [key, index] of [['ArrowRight', 1], ['ArrowDown', 2], ['Tab', 3], ['Tab', 0], ['End', 3], ['Home', 0]]) {
     await page.keyboard.press(key)
     await expect(cards[index]).toBeFocused()
     await expect(cards[index]).toHaveCSS('outline-width', '2px')
@@ -137,7 +137,7 @@ test('real-renderer covers stay still, resize sharply, and never start audio or 
     })
     await page.goto('/')
     const covers = page.locator('.game-art')
-    await expect(page.locator('.game-art[data-art-state="ready"]')).toHaveCount(3)
+    await expect(page.locator('.game-art[data-art-state="ready"]')).toHaveCount(titles.length)
     await covers.evaluateAll(images => Promise.all(images.map(image => image.decode())))
     const sources = await covers.evaluateAll(images => images.map(image => image.src))
     for (let i = 0; i < 6; i++) await page.keyboard.press('Tab')
@@ -156,7 +156,7 @@ test('a failed decorative preview never blocks the selector or game', async ({ p
   await page.route('**/assets/urban-*.js', route => route.abort('failed'))
   await page.goto('/')
   await expect(page.locator('.game-art-urban')).toHaveAttribute('data-art-state', 'unavailable')
-  await page.keyboard.press('End'); await page.keyboard.press('Enter')
+  await page.getByRole('button', { name: 'Urban Fire', exact: true }).focus(); await page.keyboard.press('Enter')
   await expect(page.getByRole('button', { name: 'Deploy', exact: true })).toBeFocused()
   await page.keyboard.press('Enter')
   await expect(page.getByRole('dialog')).toHaveCount(0)

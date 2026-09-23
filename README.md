@@ -18,6 +18,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - **Bumper Ball** — single-player physics soccer-ish bumper cars against a computer opponent
 - **Sling Load** — helicopter sling-load delivery / survival
 - **Hello World** — vector display “HELLO WORLD” screen
+- **Untitled Jumping Game** — a minimalist platforming playground for movement, charged jumps, and ledge grabs
 
 ## Controls
 
@@ -476,6 +477,29 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 **Hello World**
 
 - Escape / Enter / Space: exit
+
+**Untitled Jumping Game** (`/untitled-jumping-game`)
+
+- Left stick: proportional walk/run speed; D-pad also moves. Keyboard: A/D or
+  Left/Right, with Shift to walk.
+- Hold A/Cross or Space to charge; release to jump. Tap for a short hop.
+  Charging preserves your movement speed and running stride for running jumps.
+- Face a nearby ledge in the air to grab automatically. Up/W or jump climbs;
+  B/Circle or Down/S drops; away + jump pushes off.
+- Down/S near an exposed platform edge lowers into a hang. Holding Down keeps
+  the grip; release and press Down again to drop, or use B/Circle / X.
+- Jump into a rope to catch it automatically. Up/Down or W/S climbs and descends
+  ladders and ropes; left/right pumps a rope swing. Jump releases with momentum;
+  B/Circle or X lets go.
+- Y/Triangle or R: return to the most recent reset point. Falling resets there too.
+- Menu/Start or Escape/P: pause. The pause menu returns to the arcade.
+
+The sandbox includes a runway, steps, an overhanging ledge, ladders, and ropes over a gap. It
+has no score or persistence. The readout shows speed, charge and best jump height
+for the current visit. Controller disconnect and focus loss pause the game;
+release buttons and center the stick after resuming. Keyboard stays available.
+Movement constants and level geometry live in `src/games/jumping/model.ts`;
+the simulation advances at 120 Hz independently of rendering and viewport size.
 
 Note: browsers often require a user gesture (key press/click) before audio can start.
 

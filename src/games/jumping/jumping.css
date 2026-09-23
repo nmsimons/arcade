@@ -1,0 +1,42 @@
+.jumping-game { position: fixed; inset: 0; color: #253638; background: #f1f0e9; font-family: 'Segoe UI', sans-serif; }
+.jumping-game canvas { display: block; width: 100%; height: 100%; outline: none; }
+.jumping-header { position: absolute; inset: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 30px 40px; pointer-events: none; }
+.jumping-eyebrow { color: #7b8981; font: 10px ui-monospace, monospace; letter-spacing: .16em; }
+.jumping-header h1 { margin-top: 8px; font-size: 21px; font-weight: 600; letter-spacing: -.035em; }
+.jumping-toolbar { display: flex; align-items: center; gap: 12px; font-size: 11px; }
+.jumping-device { color: #6a7b70; margin-right: 12px; }
+.jumping-game button { cursor: pointer; border: 1px solid #a7b3a8; border-radius: 4px; padding: 9px 13px; color: #33473e; background: #f6f5ef; font: inherit; pointer-events: auto; }
+.jumping-game button:hover { background: #e3e8dc; }
+.jumping-game button:focus-visible, .jumping-game .game-dialog button:focus { outline: 2px solid #c65332; outline-offset: 3px; }
+.jumping-game kbd { font: 10px ui-monospace, monospace; border: 1px solid #c5cdc2; border-radius: 3px; padding: 3px 5px; color: #40554a; white-space: nowrap; }
+.jumping-toolbar kbd { margin-left: 6px; }
+.jumping-telemetry { position: absolute; top: 116px; left: 40px; display: flex; align-items: center; gap: 22px; color: #78867b; font: 10px ui-monospace, monospace; }
+.jumping-telemetry > span { display: flex; align-items: center; gap: 7px; }
+.jumping-telemetry b { color: #344a3e; font-size: 13px; font-weight: 500; }
+.jumping-telemetry small { font-size: 9px; }
+.jumping-telemetry .jumping-state { color: #c65332; min-width: 62px; }
+.jumping-charge meter { width: 65px; height: 6px; accent-color: #df633f; }
+.jumping-charge meter::-webkit-meter-bar { background: #d6dbd2; border: 0; }
+.jumping-charge meter::-webkit-meter-optimum-value { background: #df633f; }
+.jumping-footer { position: absolute; inset: auto 0 0; display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 15px 26px; min-height: 70px; padding: 18px 24px; border-top: 1px solid #c6cfc2; background: #f1f0e9ed; color: #64786a; font-size: 11px; }
+.jumping-footer kbd { margin-right: 5px; }
+.jumping-grab-hint { color: #849084; font-size: 10px; }
+.jumping-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; background: #e9ece382; backdrop-filter: blur(5px); }
+.jumping-game .game-dialog { color: #253638; font-family: 'Segoe UI', sans-serif; scrollbar-color: #8d9b8c #eef0e6; }
+.jumping-game .game-dialog button:is(:hover, :focus):not(:disabled) { background: #e3e8dc; color: #33473e; border-color: #a7b3a8; }
+.jumping-game .game-dialog button:focus:not(:disabled) { outline: 2px solid #c65332; outline-offset: 3px; }
+.jumping-game .game-dialog .jumping-primary:is(:hover, :focus):not(:disabled) { background: #405d46; color: #fffaf3; border-color: #405d46; }
+.jumping-menu { max-width: 500px; width: 100%; margin: auto; background: #faf9f2; padding: 36px; border: 1px solid #cad1c4; border-top: 3px solid #df633f; border-radius: 5px; box-shadow: 0 20px 90px #314b3b18; }
+.jumping-menu h2 { font-size: 30px; letter-spacing: -.05em; font-weight: 600; line-height: 1.12; margin: 14px 0; }
+.jumping-menu > p:not(.jumping-eyebrow) { font-size: 13px; color: #738170; line-height: 1.65; }
+.jumping-instructions { margin: 24px 0; padding-block: 18px; border-block: 1px solid #dce0d6; font-size: 12px; line-height: 1.6; color: #71806f; }
+.jumping-instructions p + p { margin-top: 12px; }
+.jumping-instructions strong { color: #405540; font-weight: 600; }
+.jumping-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; font-size: 13px; }
+.jumping-actions button { padding: 13px 16px; text-align: left; }
+.jumping-actions .jumping-primary { color: #fffaf3; background: #334b3c; border-color: #334b3c; }
+.jumping-actions .jumping-primary:hover { background: #47624b; }
+.jumping-primary span { float: right; }
+.jumping-menu .jumping-menu-note { font-size: 10px !important; margin-top: 22px; }
+@media (max-width: 720px) { .jumping-header { padding: 20px; align-items: start; } .jumping-header h1 { font-size: 17px; } .jumping-toolbar { gap: 6px; } .jumping-device { display: none; } .jumping-toolbar button { font-size: 10px; padding: 6px; } .jumping-toolbar kbd { display: none; } .jumping-telemetry { top: 94px; left: 20px; gap: 12px; } .jumping-grab-hint { display: none; } .jumping-menu { padding: 24px; } .jumping-footer { gap: 12px; font-size: 10px; padding: 14px; } }
+@media (max-height: 540px) { .jumping-header { padding-block: 14px; } .jumping-telemetry { top: 84px; } .jumping-menu { padding: 22px; } .jumping-instructions { margin-block: 16px; } }

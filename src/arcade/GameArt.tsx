@@ -5,6 +5,7 @@ const scenes = {
   vacuum: () => import('./previews/vacuum'),
   bumper: () => import('./previews/bumper'),
   urban: () => import('./previews/urban'),
+  jumping: () => import('./previews/jumping'),
 }
 
 /** A still rendered by the real game renderers, without starting a game, audio,

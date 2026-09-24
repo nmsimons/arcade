@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFile } from 'node:fs/promises'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 async function open(page, level) {
@@ -147,8 +147,7 @@ test('wall timers share the run clock, travel with the map, and allow the player
   await page.screenshot({ path: info.outputPath('wall-timers-during-play.png') })
   await page.keyboard.press('Escape'); await page.clock.runFor(2000)
   expect((await readings()).map(timer => timer.text)).toEqual(moving.map(timer => timer.text))
-  await page.getByRole('button', { name: 'Resume', exact: true }).click()
-  await page.keyboard.press('r'); await page.clock.runFor(160)
+  await page.getByRole('button', { name: 'Restart level', exact: true }).click(); await page.clock.runFor(160)
   expect((await readings()).map(timer => timer.text)).toEqual(['0:00.00', '0:00.00'])
 })
 
@@ -304,7 +303,7 @@ test('rope layout is resolved in the editor, saved, and reused unchanged on play
   await page.keyboard.down('ArrowLeft'); await page.clock.runFor(32); await page.keyboard.up('ArrowLeft'); await page.clock.runFor(2000)
   const running = await game.evaluate(canvas => canvas.ropePath)
   expect(Math.max(...running.map((p, i) => Math.hypot(p[0] - preview[i][0], p[1] - preview[i][1])))).toBeLessThan(1)
-  await page.getByRole('button', { name: 'Restart', exact: true }).click(); await page.clock.runFor(32)
+  await restartFromPause(page); await page.clock.runFor(32)
   expect(await game.evaluate(canvas => canvas.ropePath)).toEqual(preview)
   await page.getByRole('button', { name: 'Return to builder' }).click()
   await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
@@ -338,7 +337,7 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
   if(controller)await page.evaluate(()=>{window.testPad.axes[1]=0})
   else await page.keyboard.up('s')
   await page.clock.runFor(350)
-  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await page.keyboard.press('Escape')
   await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Press jump to leave a rope')
   await expect(page.getByRole('region', { name: 'How to play' })).toContainText(controller ? 'B / ○' : 'X')
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)

@@ -17,7 +17,7 @@ export function createJumpController() {
         jump: held(0), climb: held(12) || sample.direction.y < -.5, drop: held(1) || held(13) || sample.direction.y > .65,
         descend: held(13) || sample.direction.y > .65, detach: held(1),
         crouch: false, reach: false,
-        pause: sample.pressed.includes(9), resetPosition: sample.pressed.includes(3) }
+        pause: sample.pressed.includes(9) }
     },
   }
 }

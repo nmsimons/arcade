@@ -20,7 +20,7 @@ import { drawChallenge } from './jumping/challengeRender'
 import './jumping/jumping.css'
 
 type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
-const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyR', 'Escape', 'KeyP'])
+const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
@@ -141,12 +141,11 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   })
   const handleKey = useEffectEvent((event: KeyboardEvent) => {
     if (screenRef.current !== 'playing' || event.altKey || event.ctrlKey || event.metaKey || !PLAY_KEYS.has(event.code)) return
-    // Preserve Tab/Enter behavior for the small on-screen toolbar.
+    // Preserve keyboard activation of the playtest's Return to builder button.
     if (event.target instanceof HTMLButtonElement && event.code === 'Space') return
     event.preventDefault()
     if (event.repeat) return
-    if (event.code === 'Escape' || event.code === 'KeyP') changeScreen('paused')
-    else if (event.code === 'KeyR') resetPosition()
+    if (event.code === 'Escape') changeScreen('paused')
     else {
       if (event.code === 'Space' && !keys.current.has(event.code)) jumpQueue.current.push(true)
       keys.current.add(event.code)
@@ -178,7 +177,6 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       return null
     }
     if (pad.pause) { changeScreen('paused'); return null }
-    if (pad.resetPosition) { resetPosition(); return null }
     const k = keys.current, keyboard = keyboardMovement(k)
     return { move: keyboard || pad.move, jump: pad.jump,
       climb: k.has('KeyW') || k.has('ArrowUp') || pad.climb,
@@ -247,14 +245,6 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: activate the goal` : 'Untitled Jumping Game movement playground'} />
     {screen === 'playing' && <>
       {testing && <button className="jumping-builder-return" onClick={openBuilder}>Return to builder</button>}
-      <nav className="jumping-toolbar" aria-label="Game controls">
-        <button onClick={resetPosition} aria-label={challenge ? 'Restart' : 'Reset'} title={`${challenge ? 'Restart' : 'Reset'} (${connected ? 'Y / △' : 'R'})`}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a7.5 7.5 0 1 1-.2 5M5 4v5h5" /></svg>
-        </button>
-        <button onClick={() => changeScreen('paused')} aria-label="Pause" title={`Pause (${connected ? 'Menu' : 'Esc'})`}>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
-        </button>
-      </nav>
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
         {challenge && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}
@@ -333,7 +323,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
         </section>}
         {screen === 'paused' && <div className="jumping-actions">
             <button data-initial-focus className="jumping-primary" onClick={() => changeScreen('playing')}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
-            <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'} <kbd aria-hidden="true">{connected ? 'Y / △' : 'R'}</kbd></button>
+            <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>
             <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
             <button onClick={() => { setTesting(false); changeScreen('menu') }}>Level menu</button>
             <button onClick={onExit}>Back to arcade</button>

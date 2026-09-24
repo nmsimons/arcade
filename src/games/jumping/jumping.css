@@ -1,13 +1,9 @@
 .jumping-game { position: fixed; inset: 0; color: #253638; background: #f1f0e9; font-family: 'Segoe UI', sans-serif; }
 .jumping-game canvas { display: block; width: 100%; height: 100%; outline: none; }
 .jumping-eyebrow { color: #7b8981; font: 10px ui-monospace, monospace; letter-spacing: .16em; }
-.jumping-toolbar { position: absolute; top: 20px; right: 20px; display: flex; align-items: center; gap: 10px; }
 .jumping-game button { cursor: pointer; border: 1px solid #a7b3a8; border-radius: 4px; padding: 9px 13px; color: #33473e; background: #f6f5ef; font: inherit; pointer-events: auto; }
 .jumping-game button:hover { background: #e3e8dc; }
 .jumping-game button:focus-visible, .jumping-game .game-dialog button:focus { outline: 2px solid #c65332; outline-offset: 3px; }
-.jumping-game .jumping-toolbar button { display: grid; place-items: center; width: 44px; height: 44px; padding: 11px; border-color: #b4bdb085; background: #f6f5efe6; }
-.jumping-game .jumping-toolbar button:hover { background: #e3e8dc; border-color: #a7b3a8; }
-.jumping-toolbar svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .jumping-game .jumping-builder-return { position: absolute; top: 20px; left: 20px; min-height: 44px; font-size: 12px; }
 .jumping-game kbd { font: 10px ui-monospace, monospace; border: 1px solid #c5cdc2; border-radius: 3px; padding: 3px 5px; color: #40554a; white-space: nowrap; }
 .jumping-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; overflow: auto; background: #e9ece382; backdrop-filter: blur(5px); }
@@ -29,7 +25,7 @@
 .jumping-actions .jumping-primary:hover { background: #47624b; }
 .jumping-primary kbd { color: inherit; border-color: #ffffff55; }
 .jumping-primary span { flex-shrink: 0; }
-@media (max-width: 720px) { .jumping-toolbar { top: 12px; right: 12px; } .jumping-game .jumping-builder-return { top: 12px; left: 12px; } .jumping-menu { padding: 24px; } }
+@media (max-width: 720px) { .jumping-game .jumping-builder-return { top: 12px; left: 12px; } .jumping-menu { padding: 24px; } }
 @media (max-height: 540px) { .jumping-menu { padding: 22px; } }
 .jumping-medal-times { display: flex; gap: 16px; font: 11px ui-monospace, monospace; color: #6c7d7c; flex-wrap: wrap; }
 .jumping-medal-times .gold { color: #896621; }

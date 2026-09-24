@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { hold } from './helpers/controller.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
@@ -62,7 +62,21 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   await page.keyboard.press('Escape'); await page.clock.runFor(5000)
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(100)
   expect(await page.getByTestId('level-time').innerText()).toMatch(/^0:00\./)
-  await page.keyboard.press('r'); await page.clock.runFor(100); expect((await position(page)).x).toBeCloseTo(170)
+  await page.clock.runFor(300)
+  const moved = await position(page)
+  expect(moved.x).toBeGreaterThan(200)
+  for (const key of ['r', 'y', 'p']) { await page.keyboard.press(key); await page.clock.runFor(64) }
+  expect(await position(page)).toEqual(moved)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
+  await page.keyboard.press('r')
+  await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
+  await page.keyboard.press('ArrowDown')
+  await expect(page.getByRole('button', { name: 'Restart level', exact: true })).toBeFocused()
+  await page.keyboard.press('Enter'); await page.clock.runFor(100)
+  expect((await position(page)).x).toBeCloseTo(170)
+  await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.screenshot({ path: info.outputPath('first-leap.png') })
   await finishFirst(page); await expect(page.getByText('Gold medal')).toBeVisible()
   await page.screenshot({ path: info.outputPath('first-leap-medal.png') })
@@ -179,17 +193,17 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 })
 test('the simple level view remains usable on a narrow screen', async ({ page }, info) => {
   await setup(page); await enter(page)
-  await expect(page.getByRole('navigation', { name: 'Game controls' }).getByRole('button')).toHaveCount(2)
+  await expect(page.getByRole('button')).toHaveCount(0)
   await expect(page.locator('.jumping-header, .jumping-footer, .jumping-telemetry')).toHaveCount(0)
   await expect(page.getByRole('meter')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('simple-terrain.png') })
   await page.setViewportSize({ width: 390, height: 740 }); await page.clock.runFor(100)
-  await expect(page.getByRole('button', { name: /Restart/ })).toBeInViewport()
-  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeInViewport()
+  await expect(page.getByRole('button')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('trial-mobile.png') })
-  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await page.keyboard.press('Escape')
   await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Hold, release to jump')
   await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
+  await expect(page.getByRole('button', { name: 'Restart level', exact: true })).toBeInViewport()
   await page.screenshot({ path: info.outputPath('pause-controls-mobile.png') })
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)
   await expect(page.getByRole('region', { name: 'How to play' })).toHaveCount(0)
@@ -240,7 +254,7 @@ test('an object can light a distant goal; pause and restart handle the reveal co
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(200)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await page.keyboard.press('r'); await page.clock.runFor(2000)
+  await restartFromPause(page); await page.clock.runFor(2000)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   expect((await page.evaluate(() => window.goalLight)).lit).toBe(false)

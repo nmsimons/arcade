@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'stopwatch-browser-test', name: 'Stopwatch run', width: 1000, height: 600, floor: 600,
   spawn: { x: 160, y: 600 }, goal: { x: 800, y: 600 },
@@ -61,7 +61,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   await page.clock.runFor(2000)
   expect((await state(page)).stopped).toBe(false)
   expect((await state(page)).times[0]).not.toBe(pulse.times[0])
-  await page.keyboard.press('r'); await page.clock.runFor(64)
+  await restartFromPause(page); await page.clock.runFor(64)
   expect((await state(page)).scales).toEqual([1, 1, 1, 1])
   expect((await state(page)).times).toEqual(['0:00.00', '0:00.00'])
   await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')

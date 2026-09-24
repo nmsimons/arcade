@@ -8,3 +8,8 @@ export async function useLevelFixtures(page, levels) {
     return file ? route.fulfill({ json: file.level }) : route.fulfill({ status: 404 })
   })
 }
+
+export async function restartFromPause(page) {
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: /^(Restart level|Reset position)$/ }).click()
+}

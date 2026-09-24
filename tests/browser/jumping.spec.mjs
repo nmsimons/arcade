@@ -1,4 +1,4 @@
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold, tap } from './helpers/controller.mjs'
@@ -138,7 +138,7 @@ test('keyboard walks and runs, quick taps jump, and a charged jump goes higher',
   await expectCentered(page)
   await page.screenshot({ path: info.outputPath('running-charge.png') })
   await page.keyboard.up('Space')
-  await page.keyboard.up('d'); await page.keyboard.press('r'); await page.clock.runFor(64)
+  await page.keyboard.up('d'); await restartFromPause(page); await page.clock.runFor(64)
   await page.keyboard.press('Space'); await page.clock.runFor(200)
   const short = await position(page); expect(short.y).toBeLessThan(592); expect(short.y).toBeGreaterThan(582)
   await page.clock.runFor(700)
@@ -202,8 +202,9 @@ test('keyboard walks over the opening ramp with continuous footing and no level 
   expect(await page.evaluate(() => window.levelText)).toEqual([])
 })
 
-test('pausing while charging cancels the charge and requires fresh controller input', async ({ page }) => {
+test('controller pause cancels the charge and reset is available only through the menu', async ({ page }) => {
   await setup(page, true); await enter(page)
+  const initial = await position(page)
   await hold(page, 0, 1, 500); await tap(page, 9)
   await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
   await tap(page, 9); await page.clock.runFor(300); await hold(page, 0, 0)
@@ -211,6 +212,25 @@ test('pausing while charging cancels the charge and requires fresh controller in
   await expect(page.getByRole('meter')).toHaveCount(0)
   await hold(page, 0, 1, 100); await hold(page, 0, 0, 200)
   expect((await position(page)).y).toBeLessThan(600)
+  await page.clock.runFor(800)
+  await page.evaluate(() => { window.testPad.axes[0] = -1 }); await page.clock.runFor(250)
+  await page.evaluate(() => { window.testPad.axes[0] = 0 }); await page.clock.runFor(400)
+  const moved = await position(page)
+  expect(moved.x).toBeLessThan(initial.x - 20)
+  await tap(page, 3)
+  expect(await position(page)).toEqual(moved)
+  await expect(page.getByRole('button')).toHaveCount(0)
+  await tap(page, 9)
+  await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
+  await tap(page, 3)
+  await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
+  expect(await position(page)).toEqual(moved)
+  await tap(page, 13)
+  await expect(page.getByRole('button', { name: 'Reset position', exact: true })).toBeFocused()
+  await tap(page, 0)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.locator('canvas')).toBeFocused()
+  expect(await position(page)).toEqual(initial)
 })
 
 test('focus loss pauses and resizing preserves the world position', async ({ page }) => {
@@ -268,7 +288,7 @@ test('the authored course supports jumping the steps, catching and climbing the 
   await page.keyboard.press('Space'); await page.clock.runFor(900); await page.keyboard.up('d')
   expect((await position(page)).x).toBeGreaterThan(1990)
   expect((await position(page)).y).toBeCloseTo(620)
-  await page.keyboard.press('r'); await page.clock.runFor(64)
+  await restartFromPause(page); await page.clock.runFor(64)
   expect((await position(page)).x).toBeCloseTo(2050)
   await expectCentered(page)
 })

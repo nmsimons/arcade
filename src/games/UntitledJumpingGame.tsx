@@ -9,10 +9,12 @@ import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelPlayer, level
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
 import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
+import { GOAL_REVEAL_SECONDS } from './jumping/goal'
 import type { Run } from './jumping/challenge'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile } from './jumping/levelAssets'
 import { useLocalLevels } from './jumping/localLevels'
+import { LocalFolderActions, LocalFolderPanel } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { drawChallenge } from './jumping/challengeRender'
 import './jumping/jumping.css'
@@ -25,7 +27,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   useEffect(() => {
     let active = true
     loadLevelCatalog(import.meta.env.BASE_URL).then(result => { if (active) setCatalog(result) }, error => {
-      if (active) setCatalog({ campaign: [], examples: [], playground: null, errors: [error.message] })
+      if (active) setCatalog({ files: [], errors: [error.message] })
     })
     return () => { active = false }
   }, [])
@@ -35,17 +37,18 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
 function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelCatalog; onExit: () => void }) {
   const [catalog, setCatalog] = useState(initialCatalog), [refreshing, setRefreshing] = useState(false)
   const local = useLocalLevels()
-  const [collection, setCollection] = useState<'built-in' | 'local'>('built-in')
-  const [selectedName, setSelectedName] = useState(initialCatalog.campaign[0]?.fileName ?? '')
-  const files = collection === 'built-in' ? catalog.campaign : local.files
+  const [chosenCollection, setCollection] = useState<'built-in' | 'local' | null>(null)
+  const collection = chosenCollection ?? (local.name ? 'local' : 'built-in')
+  const [selectedName, setSelectedName] = useState(initialCatalog.files[0]?.fileName ?? '')
+  const files = collection === 'built-in' ? catalog.files : local.files
   const selected = files.find(file => file.fileName === selectedName) ?? files[0]
   const selectedProblems = selected ? levelProblems(selected.level) : []
-  const [playingFile, setPlayingFile] = useState({ collection: 'built-in', fileName: initialCatalog.campaign[0]?.fileName ?? '' })
-  const playingFiles = playingFile.collection === 'built-in' ? catalog.campaign : local.files
+  const [playingFile, setPlayingFile] = useState({ collection: 'built-in', fileName: initialCatalog.files[0]?.fileName ?? '' })
+  const playingFiles = playingFile.collection === 'built-in' ? catalog.files : local.files
   const campaignIndex = playingFiles.findIndex(file => file.fileName === playingFile.fileName)
   const nextFile = playingFiles.slice(campaignIndex + 1).find(file => levelProblems(file.level).length === 0)
   const [editorFile, setEditorFile] = useState<{ file: LevelFile; key: number } | null>(null)
-  const [recordKey, setRecordKey] = useState(initialCatalog.campaign[0]?.level.id ?? '')
+  const [recordKey, setRecordKey] = useState(initialCatalog.files[0]?.level.id ?? '')
   async function refreshBuiltins() {
     setRefreshing(true)
     try { setCatalog(await loadLevelCatalog(import.meta.env.BASE_URL)) }
@@ -53,7 +56,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     finally { setRefreshing(false) }
   }
   const rootRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null)
-  const [initialRun] = useState(() => createRun(initialCatalog.campaign[0]?.level ?? blankTrial()))
+  const [initialRun] = useState(() => createRun(initialCatalog.files[0] && isPuzzleLevel(initialCatalog.files[0].level) ? initialCatalog.files[0].level : blankTrial()))
   const run = useRef<Run | null>(initialRun)
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
   const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
@@ -72,7 +75,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('Take a breath. Pick up where you left off.')
-  const [metrics, setMetrics] = useState({ state: 'Ready', speed: 0, charge: 0, height: 0, elapsed: 0, started: false, lift: false, rope: false })
+  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
@@ -111,9 +114,6 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       changeScreen('playing')
     }
   }
-  function startPlayground() {
-    if (catalog.playground) playFile({ fileName: 'playground.json', level: catalog.playground }, 'built-in')
-  }
   function editFile(file: LevelFile) {
     setEditorFile({ file: { ...file, level: copyLevel(file.level) }, key: Date.now() }); openBuilder()
   }
@@ -130,7 +130,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     setTesting(false); changeScreen('menu')
   }
   const finishRun = useEffectEvent(() => {
-    if (!run.current?.finished || screenRef.current !== 'playing') return
+    if (!run.current?.finished || run.current.finishElapsed < GOAL_REVEAL_SECONDS || screenRef.current !== 'playing') return
     setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
     if (!testing) {
       const { elapsed } = run.current
@@ -223,14 +223,14 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
           if (run.current) stepRun(run.current, controls)
           else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
           accumulator -= STEP
-          if (run.current?.finished) { finishRun(); accumulator = 0; break }
+          if (run.current?.finished && run.current.finishElapsed >= GOAL_REVEAL_SECONDS) { finishRun(); accumulator = 0; break }
         }
       } else accumulator = 0
       paint()
       if (now - published > 80) {
         const p = player.current
-        setMetrics({ state: playerState(p), speed: Math.abs(p.vx) / 60, charge: p.charge, height: p.bestHeight / 60, rope: !!p.climbing?.rope,
-          elapsed: run.current?.elapsed ?? 0, started: run.current?.started ?? false, lift: run.current?.mechanisms.some(m => m.active) ?? false })
+        setMetrics({ state: run.current?.finished ? 'Goal activated' : playerState(p),
+          elapsed: run.current?.elapsed ?? 0 })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -243,35 +243,26 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     }
   }, [])
 
-  const ropeControls = metrics.rope && screen === 'playing'
   return <div className="jumping-game" ref={rootRef}>
-    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the flag` : 'Untitled Jumping Game movement playground'} />
-    <header className="jumping-header">
-      <div><p className="jumping-eyebrow">{challenge ? `${testing ? 'PLAYTEST' : campaignIndex < 0 ? 'CUSTOM LEVEL' : `LEVEL ${String(campaignIndex + 1).padStart(2, '0')}`} / ${trial.name.toUpperCase()}` : 'MOVEMENT PLAYGROUND'}</p><h1>Untitled Jumping Game</h1></div>
-      <div className="jumping-toolbar"><span className="jumping-device">{connected ? 'Controller connected' : 'Keyboard · controller ready'}</span>
-        {screen === 'playing' && <>{(!challenge || testing) && <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>}<button onClick={resetPosition}>{challenge ? 'Restart' : 'Reset'} <kbd>{connected ? 'Y / △' : 'R'}</kbd></button><button onClick={() => changeScreen('paused')}>Pause <kbd>{connected ? 'Menu' : 'Esc'}</kbd></button></>}
-      </div>
-    </header>
-    <aside className="jumping-telemetry" aria-label="Movement readout">
-      <span className="jumping-state">{metrics.state}</span>
-      {!challenge && <><span>Speed <b data-testid="jump-speed">{metrics.speed.toFixed(1)}</b><small>m/s</small></span>
-      <span>Best jump <b>{metrics.height.toFixed(1)}</b><small>m</small></span></>}
-      <span className="jumping-charge">Charge <meter min="0" max="1" value={metrics.charge} aria-label="Jump charge" /></span>
-    </aside>
-    {challenge && screen === 'playing' && <aside className="jumping-race" aria-label="Level time">
-      <b data-testid="level-time">{formatTime(metrics.elapsed)}</b>
-      <span>{metrics.started ? trial.climbables.ropes.length ? 'Swing, release, reach the flag.' : trial.mechanisms.length ? metrics.lift ? 'Mechanism active · Reach the flag' : 'Find your route to the flag' : 'Hold jump to charge. Release to leap.' : 'Move to start the clock'}</span>
-      <div className="jumping-medal-times"><span className="gold">Gold {trial.times.gold}s</span><span>Silver {trial.times.silver}s</span><span className="bronze">Bronze {trial.times.bronze}s</span></div>
-      {best !== null && <small>Personal best {formatTime(best)}</small>}
-    </aside>}
-    <footer className="jumping-footer">
-      {connected ? <><span><kbd>L stick / D-pad</kbd> Move / swing</span><span><kbd>A / ×</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>↑ ↓</kbd> Climb / descend</span><span><kbd>B / ○</kbd> Drop</span></>
-        : <><span><kbd>A D / ← →</kbd> Move / swing <kbd>Shift</kbd> Walk</span><span><kbd>Space</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>W S / ↑ ↓</kbd> Climb / descend</span><span><kbd>X</kbd> Drop</span></>}
-      <span className="jumping-grab-hint">{ropeControls ? 'Steer away to swing · Jump off or drop to let go' : 'Press jump while braced to kick off · Ledges & ropes catch automatically'}</span>
-    </footer>
+    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: activate the goal` : 'Untitled Jumping Game movement playground'} />
+    {screen === 'playing' && <>
+      {testing && <button className="jumping-builder-return" onClick={openBuilder}>Return to builder</button>}
+      <nav className="jumping-toolbar" aria-label="Game controls">
+        <button onClick={resetPosition} aria-label={challenge ? 'Restart' : 'Reset'} title={`${challenge ? 'Restart' : 'Reset'} (${connected ? 'Y / △' : 'R'})`}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9a7.5 7.5 0 1 1-.2 5M5 4v5h5" /></svg>
+        </button>
+        <button onClick={() => changeScreen('paused')} aria-label="Pause" title={`Pause (${connected ? 'Menu' : 'Esc'})`}>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14" /></svg>
+        </button>
+      </nav>
+      <aside className="jumping-visually-hidden" aria-label="Player status">
+        <span className="jumping-state">{metrics.state}</span>
+        {challenge && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}
+      </aside>
+    </>}
     {screen === 'complete' && <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={startChallenge} className="jumping-overlay">
       <div className="jumping-menu jumping-result">
-        <p className="jumping-eyebrow">{trial.name.toUpperCase()} / {testing ? 'TEST COMPLETE' : 'COMPLETE'}</p><h2>Flag reached.</h2>
+        <p className="jumping-eyebrow">{trial.name.toUpperCase()} / {testing ? 'TEST COMPLETE' : 'COMPLETE'}</p><h2>Goal activated.</h2>
         <div className={`jumping-medal ${result.medal.toLowerCase().replace(' ', '-')}`} aria-hidden="true">{result.medal === 'No medal' ? '⚑' : '★'}</div>
         <p className="jumping-result-time">{formatTime(result.elapsed)}</p>
         <p>{result.medal === 'No medal' ? 'Level complete. Another run, another route.' : `${result.medal} medal`}</p>
@@ -282,46 +273,75 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       </div>
     </KeyboardDialog>}
     {(screen === 'menu' || screen === 'paused') && <KeyboardDialog label={screen === 'menu' ? 'Untitled Jumping Game' : 'Game paused'} focusKey={`jumping-${screen}`}
-      onClose={() => screen === 'menu' ? onExit() : changeScreen('playing')} className="jumping-overlay">
+      onClose={() => screen === 'menu' ? onExit() : changeScreen('playing')} className={`jumping-overlay ${screen === 'menu' ? 'jumping-level-screen' : ''}`}>
       <div className={`jumping-menu ${screen === 'menu' ? 'jumping-level-menu' : ''}`}>
-        <p className="jumping-eyebrow">{screen === 'menu' ? 'SMALL LEAPS / BETTER TIMES' : 'PAUSED'}</p>
-        <h2>{screen === 'menu' ? 'Find your way across.' : 'Find your footing.'}</h2>
-        <p>{screen === 'menu' ? 'One flag. A few good jumps. As many tries as you need.' : pauseReason}</p>
+        <div className="jumping-menu-header">
+          <div className="jumping-menu-heading">
+            <p className="jumping-eyebrow">{screen === 'menu' ? 'SMALL LEAPS / BETTER TIMES' : 'PAUSED'}</p>
+            <h2>{screen === 'menu' ? 'Find your way across.' : 'Find your footing.'}</h2>
+            <p>{screen === 'menu' ? 'One light. A few good jumps. As many tries as you need.' : pauseReason}</p>
+          </div>
+          {screen === 'menu' && <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button></div>}
+        </div>
         {screen === 'menu' && <>
           <div className="jumping-library-bar">
-            <button aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in levels</button>
-            <button aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>Local folder</button>
-            {collection === 'built-in' ? <button disabled={refreshing} onClick={() => void refreshBuiltins()}>{refreshing ? 'Refreshing…' : 'Refresh levels'}</button>
-              : <><button disabled={local.busy} onClick={() => void local.open()}>Open folder</button>{local.name && <button disabled={local.busy} onClick={() => void local.refresh()}>Refresh folder</button>}</>}
+            <div className="jumping-collection-tabs" role="group" aria-label="Level source">
+              <button aria-label="Built-in levels" aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in<span className="jumping-source-label-extra"> levels</span></button>
+              <button aria-label="Local folder" aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>Local<span className="jumping-source-label-extra"> folder</span></button>
+            </div>
+            {collection === 'local' ? <LocalFolderActions local={local} /> : <button className="jumping-library-refresh" disabled={refreshing} onClick={() => void refreshBuiltins()}>{refreshing ? 'Refreshing…' : 'Refresh levels'}</button>}
           </div>
-          {collection === 'local' && <p className="jumping-folder-name">{local.name || 'Choose a folder of JSON levels on your computer.'}</p>}
-          {(collection === 'built-in' ? catalog.errors : local.errors).map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}
-          {!files.length && <p>No levels in this collection yet.</p>}
-          <div className="jumping-level-cards">{files.map((file, index) => {
+          <div className="jumping-library-status">
+            {collection === 'local' ? <LocalFolderPanel local={local} summary /> : <div className="jumping-builtin-summary">
+              <strong>{files.length} built-in {files.length === 1 ? 'level' : 'levels'}</strong>
+              {catalog.errors.length ? <p className="jumping-load-error" role="alert" title={catalog.errors.join('\n')}>{catalog.errors.join(' · ')}</p> : <span>Included with the game · Ordered by filename</span>}
+            </div>}
+          </div>
+          <div className="jumping-level-browser">
+          <div key={collection} className="jumping-level-cards" data-menu-grid data-controller-scroll>{files.map((file, index) => {
             const level = file.level, record = bestTime(collection === 'local' ? `local:${level.id}` : level.id)
             return <button key={file.fileName} className="jumping-level-card" aria-pressed={selected?.fileName === file.fileName} onClick={() => selectTrial(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
               <span className="level-card-number">{String(index + 1).padStart(2, '0')}</span><LevelThumbnail level={level} />
               <strong>{level.name}</strong><span>{file.fileName}</span>
-              <small>{record && isPuzzleLevel(level) ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
+              <small>{record !== null && isPuzzleLevel(level) ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
             </button>
-          })}</div>
-          {selected && <div className="jumping-level-detail"><div><h3>{selected.level.name}</h3><p>{selected.level.description}</p></div>{isPuzzleLevel(selected.level) && <div className="jumping-medal-times"><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span>Bronze {selected.level.times.bronze}s</span></div>}</div>}
-          {selectedProblems.map(problem => <p role="alert" key={problem}>{problem}</p>)}
-          {selected && <button onClick={() => editFile(selected)}>Edit selected level</button>}
+          })}{!files.length && <p className="jumping-empty-levels">{collection === 'built-in' ? 'No built-in levels available.' : local.status === 'ready' ? 'No levels in this folder yet.' : 'Open your folder to see its levels here.'}</p>}</div>
+          <div className="jumping-level-detail">
+            <div className="jumping-level-preview">{selected && <LevelThumbnail level={selected.level} />}</div>
+            <h3 title={selected?.level.name}>{selected?.level.name ?? 'Select a level'}</h3>
+            <div key={`${collection}:${selected?.fileName}`} className="jumping-level-description" role="region" aria-label="Level description" data-controller-scroll>
+              <p>{selected?.level.description}</p>
+              {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
+            </div>
+            <div className="jumping-medal-times">{selected && isPuzzleLevel(selected.level) && <><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span>Bronze {selected.level.times.bronze}s</span></>}</div>
+            <div className="jumping-actions jumping-level-actions">
+              <button disabled={!selected} onClick={() => selected && editFile(selected)}>Edit selected level</button>
+              <button data-initial-focus className="jumping-primary" disabled={!selected || selectedProblems.length > 0} onClick={() => selected && playFile(selected)}>Start level <span aria-hidden="true">↗</span></button>
+            </div>
+          </div>
+          </div>
         </>}
-        <div className="jumping-actions">
-          <button data-initial-focus className="jumping-primary" disabled={screen === 'menu' && (!selected || selectedProblems.length > 0)} onClick={() => screen === 'menu' ? selected && playFile(selected) : changeScreen('playing')}>{screen === 'menu' ? 'Start level' : 'Resume'} <span aria-hidden="true">↗</span></button>
-          {screen === 'menu' && catalog.playground && <button onClick={startPlayground}>Enter playground</button>}
-          {screen === 'paused' && <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>}
-          <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
-          {screen === 'paused' && <button onClick={() => { setTesting(false); changeScreen('menu') }}>Level menu</button>}
-          <button onClick={onExit}>Back to arcade</button>
-        </div>
-        <p className="jumping-menu-note">{connected ? 'Stick / D-pad to choose · A / Cross to confirm' : 'A / D to move · Hold Space, release to jump · W / S to climb'}<br />No death. A missed jump is another try.</p>
+        {screen === 'paused' && <section className="jumping-controls" aria-label="How to play">
+          <dl>
+            <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
+            <div><dt>Hold, release to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
+            <div><dt>Climb / descend</dt><dd><kbd>{connected ? '↑ ↓' : 'W S / ↑ ↓'}</kbd></dd></div>
+            <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
+            {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
+          </dl>
+          <p>Ledges and ropes catch automatically. Press jump to leave a rope or kick away from a wall.</p>
+        </section>}
+        {screen === 'paused' && <div className="jumping-actions">
+            <button data-initial-focus className="jumping-primary" onClick={() => changeScreen('playing')}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
+            <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'} <kbd aria-hidden="true">{connected ? 'Y / △' : 'R'}</kbd></button>
+            <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
+            <button onClick={() => { setTesting(false); changeScreen('menu') }}>Level menu</button>
+            <button onClick={onExit}>Back to arcade</button>
+        </div>}
       </div>
     </KeyboardDialog>}
     <input ref={local.picker} aria-label="Open local level folder" type="file" {...{ webkitdirectory: '', directory: '' }} multiple hidden onChange={e => void local.importFolder(e.target.files)} />
     {builderStarted && <LevelBuilder key={editorFile?.key ?? 'draft'} active={screen === 'building'} onPlay={testLevel} onClose={closeBuilder}
-      templates={[...catalog.campaign, ...catalog.examples]} playground={catalog.playground} local={local} initialFile={editorFile?.file} /> }
+      templates={catalog.files} local={local} initialFile={editorFile?.file} /> }
   </div>
 }

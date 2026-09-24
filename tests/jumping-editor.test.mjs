@@ -1,7 +1,7 @@
 import { DEFAULT_LEVEL, createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DRAFT_STORAGE_KEY, LEVEL_STORAGE_KEY, copyLevel, levelPlayer, levelRules, levelTerrain, newLevel, parseLevel, readSavedLevels, saveLevel, snapToGround, spawnProblem } from '../src/games/jumping/level.ts'
+import { copyLevel, levelPlayer, levelRules, levelTerrain, newLevel, parseLevel, snapToGround, spawnProblem } from '../src/games/jumping/level.ts'
 import { addItem, deleteItem, moveItem, replacePlatform, resizeItem } from '../src/games/jumping/editor.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createRope, NO_CLIMBABLES, stepRope } from '../src/games/jumping/climbables.ts'
@@ -89,17 +89,6 @@ test('import rejects malformed, unbounded and non-finite geometry before it reac
     const value = newLevel(); value.platforms.push({x:100,y:400,w:300,h:200}); change(value); assert.throws(() => parseLevel(value))
   }
   const valid = parseLevel(JSON.parse(JSON.stringify(DEFAULT_LEVEL))); assert.deepEqual(valid, DEFAULT_LEVEL)
-})
-test('saved library round-trips levels, updates by identity, and preserves unreadable data', () => {
-  const data = new Map(), storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) }
-  const first = newLevel(), second = newLevel(); first.name = 'Hills'; second.name = 'Ropes'
-  saveLevel(storage, first); saveLevel(storage, second)
-  first.name = 'Long hills'; saveLevel(storage, first)
-  assert.deepEqual(readSavedLevels(storage).map(l => l.name), ['Long hills', 'Ropes'])
-  assert.equal(data.has(DRAFT_STORAGE_KEY), false)
-  data.set(LEVEL_STORAGE_KEY, '{bad')
-  assert.throws(() => saveLevel(storage, first)); assert.equal(data.get(LEVEL_STORAGE_KEY), '{bad')
-  assert.throws(() => saveLevel({ getItem: () => null, setItem: () => { throw new Error('quota') } }, first), /quota/)
 })
 test('spawn validation flags missing ground and low ceilings, and start placement snaps to terrain', () => {
   const level = newLevel(); level.spawn = { x: 200, y: 500 }; assert.ok(spawnProblem(level))

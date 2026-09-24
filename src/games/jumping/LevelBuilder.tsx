@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { addPolygon, anchorRope, moveVertex, polygonPlatform, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight } from './editor'
 import type { Selection, Tool } from './editor'
-import { copyLevel, DRAFT_STORAGE_KEY, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, prepareLevelRopes, readSavedLevels, saveLevel } from './level'
+import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, prepareLevelRopes } from './level'
 import type { JumpLevel } from './level'
 import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
 import { blankTrial } from './level'
@@ -16,6 +16,7 @@ import { createRun } from './challenge'
 import { drawPuzzleWorld } from './challengeRender'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
+import { LocalFolderPanel } from './LocalFolderPanel'
 import { TUNING } from './model'
 import './builder.css'
 
@@ -31,39 +32,31 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'rope', group: 'Movement', label: 'Rope', help: 'Drag down from the anchor. Start near a terrain edge to attach the anchor to it.' },
   { id: 'ladder', group: 'Movement', label: 'Ladder', help: 'Drag down anywhere to place a ladder. Move it or change its height in the inspector.' },
   { id: 'spawn', group: 'Markers', label: 'Start', help: 'Click a surface to choose where the player starts.' },
-  { id: 'flag', group: 'Markers', label: 'Finish flag', help: 'Click a clear surface for the finish. Reaching it stops the timer.' },
+  { id: 'goal', group: 'Markers', label: 'Goal light', help: 'Place the plate on a flat surface. The player, a crate, or a ball can press it to light the goal and stop the timer.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
+  { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
+  { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Edit the text, size, and alignment in the inspector. Text never blocks movement.' },
+  { id: 'stopwatch', group: 'Power-ups', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
 ]
-function initialEditor(file?: LevelFile) {
-  let level: JumpLevel = blankTrial(), library: JumpLevel[] = [], error = ''
-  try {
-    library = readSavedLevels(localStorage)
-    const draft = localStorage.getItem(DRAFT_STORAGE_KEY)
-    if (draft && !file) level = parseLevel(JSON.parse(draft))
-  } catch { error = 'Some local level data could not be loaded. Saved levels have been kept.' }
-  return { level: prepareLevelRopes(file ? copyLevel(file.level) : level), library, error }
-}
 const selectionLabel = (s: Selection, level: JumpLevel) => {
-  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'flag' ? 'Finish flag' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Crate'
-    : s.kind === 'robot' ? 'Pusher' : s.kind === 'trigger' ? 'Pressure plate' : s.kind === 'mechanism' ? level.mechanisms?.[s.index]?.kind === 'gate' ? 'Gate' : 'Elevator' : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
-  return `${name}${s.kind === 'spawn' || s.kind === 'flag' ? '' : ` ${s.index + 1}`}`
+  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Crate'
+    : s.kind === 'pickup' ? 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Pusher' : s.kind === 'trigger' ? 'Pressure plate' : s.kind === 'mechanism' ? level.mechanisms?.[s.index]?.kind === 'gate' ? 'Gate' : 'Elevator' : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
+  return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 
 
-export function LevelBuilder({ active, onPlay, onClose, templates, playground, local, initialFile }: {
+export function LevelBuilder({ active, onPlay, onClose, templates, local, initialFile }: {
   active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
-  templates: LevelFile[]; playground: JumpLevel | null; local: LocalLevels; initialFile?: LevelFile
+  templates: LevelFile[]; local: LocalLevels; initialFile?: LevelFile
 }) {
-  const [initial] = useState(() => initialEditor(initialFile))
+  const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial()) }))
   const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
   const [fileSource, setFileSource] = useState(initialFile?.sourceText)
-  const [folderFile, setFolderFile] = useState('')
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
   const level = prepareLevelRopes(preview ?? history.present)
   const roomHeight = levelHeight(level)
-  const [library, setLibrary] = useState(initial.library), [libraryId, setLibraryId] = useState('')
-  const [message, setMessage] = useState(initial.error), [draftStatus, setDraftStatus] = useState('')
+  const [message, setMessage] = useState('')
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
   const [panel, setPanel] = useState<'build' | 'library'>('build')
   const [jumpGuide, setJumpGuide] = useState(false), [keepTool, setKeepTool] = useState(false)
@@ -83,6 +76,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
   const trigger = selection?.kind === 'trigger' ? level.triggers?.[selection.index] : null
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
+  const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const quantize = useCallback((v: number) => snap ? Math.round(v / LEVEL_GRID_SIZE) * LEVEL_GRID_SIZE : Math.round(v), [snap])
   const quantizeY = useCallback((y: number) => roomHeight - quantize(roomHeight - y), [roomHeight, quantize])
 
@@ -135,10 +129,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
         const source = await local.save(fileName, next, fileSource)
         if (next.id !== history.present.id) commit(next)
         setFileSource(source); setMessage(`Saved “${fileName}” to ${local.name}.`)
-      } else {
-        setLibrary(saveLevel(localStorage, prepareLevelRopes(history.present))); setLibraryId(level.id)
-        setMessage(`Saved “${level.name}” in this browser. Open a folder to save JSON files directly, or Export a file.`)
-      }
+      } else exportLevel()
     } catch (error) { setMessage(`Could not save: ${(error as Error).message}`) }
   }
   function exportLevel() {
@@ -146,25 +137,18 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
     const url = URL.createObjectURL(new Blob([JSON.stringify(parseLevel(prepareLevelRopes(history.present)), null, 2)], { type: 'application/json' }))
     const a = document.createElement('a'); a.href = url; a.download = fileName || levelFileName(level.name); a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-    setMessage('Level exported. Put the JSON file in your local level folder, or in the built-in campaign assets.')
+    setMessage(`Downloaded “${fileName || levelFileName(level.name)}”. Open a local folder to save directly to it.`)
     } catch (error) { setMessage(`Could not export: ${(error as Error).message}`) }
   }
   async function importFile(file?: File) {
     if (!file) return
     try {
       if (file.size > 1_000_000) throw new Error('Please choose a level file smaller than 1 MB.')
-      const imported = parseLevel(JSON.parse(await file.text()))
-      load({ ...imported, id: newLevelId() }, { fileName: file.name, level: imported }); setMessage(`Imported “${imported.name}”. Save it to add it to your library.`)
+      const sourceText = await file.text(), imported = parseLevel(JSON.parse(sourceText))
+      load(imported, { fileName: file.name, level: imported, sourceText }); setMessage(`Opened “${file.name}”. Save level writes a JSON file.`)
     } catch (error) { setMessage(`Could not import: ${(error as Error).message}`) }
     if (fileRef.current) fileRef.current.value = ''
   }
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try { localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(parseLevel(prepareLevelRopes(history.present)))); setDraftStatus('Draft saved locally') }
-      catch { setDraftStatus('Draft not saved. Check the settings or export a valid copy; the previous draft is kept.') }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [history.present])
   useEffect(() => {
     if (!active || !canvasRef.current) return
     const canvas = canvasRef.current
@@ -217,7 +201,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
       ctx.strokeStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
       ctx.strokeRect(outline.x - 4, outline.y - 4 - (outline.h ? 0 : 62), Math.max(8, outline.w + 8), Math.max(8, outline.h + 8 + (outline.h ? 0 : 62)))
       ctx.setLineDash([])
-      if (selection && handlePoint && ['platform', 'rope', 'ladder', 'prop', 'mechanism', 'trigger'].includes(selection.kind)) {
+      if (selection && handlePoint && ['platform', 'rope', 'ladder', 'prop', 'mechanism', 'trigger', 'text'].includes(selection.kind)) {
         const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
         ctx.fillRect(handlePoint.x - handle / 2, handlePoint.y + 14 / view.zoom - handle / 2, handle, handle)
       }
@@ -302,10 +286,26 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
     const z = Math.min(size.width / (next.width + 120), size.height / (levelHeight(next) + 120))
     setView({ x: -60, y: -60, zoom: clamp(z, .08, 2.5) })
   }
-  function chooseTemplate(template: JumpLevel) { const next = copyForEditing(template); load(next); fitLevel(next); setPanel('build') }
+  function chooseTemplate(template: JumpLevel, sourceName?: string) {
+    const next = copyForEditing(template)
+    const suggested = sourceName ? sourceName.replace(/((?:\.jump-level)?\.json)$/i, '-copy$1') : levelFileName(next.name)
+    const extension = suggested.match(/(?:\.jump-level)?\.json$/i)![0], stem = suggested.slice(0, -extension.length)
+    const used = new Set(local.files.map(file => file.fileName.toLowerCase()))
+    let name = suggested
+    for (let suffix = 2; used.has(name.toLowerCase()); suffix++) name = `${stem}-${suffix}${extension}`
+    load(next); setFileName(name); fitLevel(next); setPanel('build')
+    setMessage(`Created a new level from “${template.name}”. Save it as “${name}”.`)
+    requestAnimationFrame(() => canvasRef.current?.focus())
+  }
   function changeObject(field: string, value: number | string) {
     if (!selection) return
     const next = copyLevel(history.present)
+    if (selection.kind === 'text') {
+      const text = next.texts![selection.index]
+      if (field === 'text') text.text = String(value).slice(0, 1000)
+      if (field === 'fontSize' && Number.isFinite(Number(value))) text.fontSize = clamp(Number(value), 12, 96)
+      if (field === 'align' && (value === 'left' || value === 'center' || value === 'right')) text.align = value
+    }
     if (selection.kind === 'mechanism') next.mechanisms![selection.index].travel = clamp(Number(value), 60, 1200)
     if (selection.kind === 'trigger') {
       const t = next.triggers![selection.index]
@@ -320,7 +320,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
     commit(next)
   }
 
-  return <section className="jumping-builder" hidden={!active} aria-label="Level builder" onKeyDown={event => {
+  return <section className={`jumping-builder ${panel === 'library' ? 'builder-library-open' : ''}`} hidden={!active} aria-label="Level builder" onKeyDown={event => {
     if ((event.target as HTMLElement).matches('input, select, textarea')) return
     if (event.code === 'Space') { event.preventDefault(); panHeld.current = true }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicate() }
@@ -329,7 +329,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save() }
     else if (event.key === 'Enter' && vertices.length) { event.preventDefault(); finishPolygon() }
     else if (event.key === 'Escape') { setVertices([]); setTool('select'); setSelection(null); drag.current = null; setPreview(null); latestPreview.current = null }
-    else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', h: 'pan', p: 'platform', r: 'rope', l: 'ladder', g: 'polygon', f: 'flag' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', h: 'pan', p: 'platform', r: 'rope', l: 'ladder', g: 'polygon', f: 'flag' } as Record<string, Tool>)[event.key.toLowerCase()]) }
+    else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', h: 'pan', p: 'platform', r: 'rope', l: 'ladder', g: 'polygon', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', h: 'pan', p: 'platform', r: 'rope', l: 'ladder', g: 'polygon', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) }
     else if (event.target === canvasRef.current && selection) {
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
@@ -345,44 +345,39 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
     <header className="builder-header">
       <div className="builder-brand"><span className="builder-brand-mark" aria-hidden="true">↗</span><div><p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h1>Level studio</h1></div></div>
       <label className="builder-name">YOUR LEVEL<input aria-label="Level name" maxLength={80} value={level.name} onChange={e => { if (!fileSource && fileName === levelFileName(level.name)) setFileName(levelFileName(e.target.value)); commit({ ...history.present, name: e.target.value }) }} /></label>
-      <div className="builder-main-actions"><button onClick={onClose}>Back to game</button><button disabled={local.busy} onClick={() => void save()}>Save level</button><button onClick={exportLevel}>Export</button><button className="builder-play" disabled={!!problem} onClick={() => onPlay(copyLevel(history.present))}>▶ Playtest</button></div>
+      <div className="builder-main-actions"><button className="builder-back" onClick={onClose}>Back to game</button><div className="builder-file-actions"><button disabled={local.busy} onClick={() => void save()}>Save level</button><button onClick={exportLevel}>Export</button></div><button className="builder-play" disabled={!!problem} onClick={() => onPlay(copyLevel(history.present))}><span aria-hidden="true">▶</span> Playtest</button></div>
     </header>
     <aside className="builder-tools" aria-label="Building tools">
       <div className="builder-panel-tabs"><button aria-pressed={panel === 'build'} onClick={() => setPanel('build')}>Build</button><button aria-pressed={panel === 'library'} onClick={() => setPanel('library')}>Library</button></div>
       {panel === 'build' ? <>
-        {['Terrain', 'Movement', 'Markers'].map(group => <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level))).map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(item.id); setVertices([]); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div>)}
+        {['Terrain', 'Movement', 'Markers', 'Power-ups', 'Back wall'].map(group => <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level))).map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(item.id); setVertices([]); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div>)}
         {tool === 'polygon' && <button disabled={vertices.length < 3} onClick={finishPolygon}>Finish polygon</button>}
         <label className="builder-snap"><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} /> Keep placing</label>
         {!['select', 'pan', 'polygon'].includes(tool) && <button className="builder-add" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button>}
       </> : <>
-        <h2>Start from a template</h2>
-        <div className="builder-templates">{templates.map(({ fileName, level: template }) => <button key={fileName} onClick={() => chooseTemplate(template)}><LevelThumbnail level={template} /><strong>{template.name}</strong><span>{fileName}</span></button>)}</div>
-        <div className="builder-library-actions"><button onClick={() => { load(blankTrial()); setPanel('build') }}>New level</button>{playground && <button onClick={() => load(copyForEditing(playground))}>Copy playground</button>}</div>
+        <div className="builder-library-actions"><button onClick={() => { load(blankTrial()); setPanel('build') }}><span aria-hidden="true">+ </span>New level</button><button onClick={() => fileRef.current?.click()}>Open file…</button></div>
         <h2>Local folder</h2>
-        <button disabled={local.busy} onClick={() => void local.open()}>Open folder</button>
-        {local.name && <>
-          <p>{local.name}</p><button disabled={local.busy} onClick={() => void local.refresh()}>Refresh folder</button>
-          <label>Level files<select aria-label="Local level files" value={folderFile} onChange={e => setFolderFile(e.target.value)}><option value="">Choose a file</option>{local.files.map(file => <option key={file.fileName} value={file.fileName}>{file.fileName}</option>)}</select></label>
-          <button disabled={!folderFile || local.busy} onClick={() => { const file = local.files.find(f => f.fileName === folderFile); if (file) { load(file.level, file); fitLevel(file.level); setPanel('build') } }}>Edit file</button>
-          <p>{local.canWrite ? 'Save level writes to this folder. Refresh to pick up changes made outside the game.' : 'This browser can read the folder. Use Export to save an edited file, then reselect the folder to refresh.'}</p>
-        </>}
-        {local.errors.map(error => <p role="alert" key={error}>{error}</p>)}
-        <h2>Browser copies</h2>
-        <label>Saved levels<select aria-label="Saved levels" value={libraryId} onChange={e => setLibraryId(e.target.value)}><option value="">Choose a level</option>{library.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <button className="builder-load" disabled={!libraryId} onClick={() => { const saved = library.find(l => l.id === libraryId); if (saved) { load(saved); fitLevel(saved); setPanel('build') } }}>Load level</button>
-        <button className="builder-import" onClick={() => fileRef.current?.click()}>Import level file</button>
-        <p className="builder-local-note">Open a local folder to edit and save its JSON files. Filenames such as 00-intro.json and 01-next.json determine level order. Browser copies and the automatic draft stay available as local backups.</p>
+        <LocalFolderPanel local={local} compact />
+        {local.files.length > 0 && <div className="builder-local-files" role="group" aria-label="Local level files">{local.files.map(file => <div className="builder-local-file" key={file.fileName}>
+          <button disabled={local.busy} aria-label={`Open ${file.fileName}`} aria-pressed={fileName === file.fileName && level.id === file.level.id}
+          onClick={() => { load(file.level, file); fitLevel(file.level); setPanel('build'); requestAnimationFrame(() => canvasRef.current?.focus()) }}>
+          <span className="builder-file-number" aria-hidden="true">↗</span><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small></span>
+          </button>
+          <button className="builder-use-template" disabled={local.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => chooseTemplate(file.level, file.fileName)}>Use as template</button>
+        </div>)}</div>}
+        <h2>Built-in levels</h2>
+        <div className="builder-templates">{templates.map(({ fileName, level: template }) => <button key={fileName} onClick={() => chooseTemplate(template)}><LevelThumbnail level={template} /><strong>{template.name}</strong><span>{fileName}</span></button>)}</div>
       </>}
       <input ref={fileRef} aria-label="Import level file" type="file" accept=".json,application/json" hidden onChange={e => void importFile(e.target.files?.[0])} />
     </aside>
     <div className="builder-stage">
       <div className="builder-view-controls">
-        {(['select', 'pan'] as const).map(id => <button key={id} aria-label={id === 'select' ? 'Select' : 'Pan'} aria-pressed={tool === id} title={id === 'select' ? 'Select (V)' : 'Pan (H / hold Space)'} onClick={() => setTool(id)}><BuilderIcon kind={id} /></button>)}
-        <div className="builder-divider" /><button disabled={!history.past.length} onClick={undo}>Undo</button><button disabled={!history.future.length} onClick={redo}>Redo</button>
-        <label className="builder-inline-check"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap {LEVEL_GRID_SIZE}</label>
-        <label className="builder-inline-check"><input type="checkbox" checked={jumpGuide} onChange={e => setJumpGuide(e.target.checked)} />Jump guide</label><span />
-        <button aria-label="Zoom out" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" onClick={() => zoom(1.25)}>+</button>
-        <button onClick={() => fitLevel()}>Fit level</button><button onClick={() => setView(homeView(level, size.height))}>Find start</button>
+        <div className="builder-control-group" role="group" aria-label="Canvas tools">{(['select', 'pan'] as const).map(id => <button key={id} aria-label={id === 'select' ? 'Select' : 'Pan'} aria-pressed={tool === id} title={id === 'select' ? 'Select (V)' : 'Pan (H / hold Space)'} onClick={() => setTool(id)}><BuilderIcon kind={id} /></button>)}</div>
+        <div className="builder-control-group" role="group" aria-label="Edit history"><button disabled={!history.past.length} onClick={undo}>Undo</button><button disabled={!history.future.length} onClick={redo}>Redo</button></div>
+        <div className="builder-control-group"><label className="builder-inline-check"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap {LEVEL_GRID_SIZE}</label>
+        <label className="builder-inline-check"><input type="checkbox" checked={jumpGuide} onChange={e => setJumpGuide(e.target.checked)} />Jump guide</label></div>
+        <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" onClick={() => zoom(1.25)}>+</button></div>
+        <div className="builder-control-group" role="group" aria-label="Canvas view"><button onClick={() => fitLevel()}>Fit level</button><button onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
       </div>
       <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" style={{ cursor: tool === 'pan' ? 'grab' : tool === 'select' ? 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
@@ -397,9 +392,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
       </select></label>
       {selection && bounds ? <div className="builder-property-card">
         <h3>{selectionLabel(selection, level)}</h3>
-        <div className="builder-dimensions">{(['x', 'y', 'w', 'h'] as const).filter(axis => ['platform', 'prop', 'mechanism'].includes(selection.kind) || (axis === 'x' || axis === 'y') || axis === 'h' && ['rope', 'ladder'].includes(selection.kind) || axis === 'w' && selection.kind === 'trigger').map(axis =>
+        <div className="builder-dimensions">{(['x', 'y', 'w', 'h'] as const).filter(axis => ['platform', 'prop', 'mechanism', 'text'].includes(selection.kind) || (axis === 'x' || axis === 'y') || axis === 'h' && ['rope', 'ladder'].includes(selection.kind) || axis === 'w' && selection.kind === 'trigger').map(axis =>
           <label key={axis}>{({ x: 'X', y: 'Y', w: 'Width', h: 'Height' })[axis]}<input type="number" aria-label={`Object ${axis}`} step={snap ? LEVEL_GRID_SIZE : 1} value={Math.round((axis === 'y' ? roomHeight - bounds.y : bounds[axis]) * 100) / 100} onChange={e => setDimension(axis, Number(e.target.value))} onBlur={e => { if (snap && e.currentTarget.value !== '') setDimension(axis, quantize(Number(e.currentTarget.value))) }} /></label>)}</div>
-        <p>Y is height above the floor, measured at {['spawn', 'checkpoint', 'flag'].includes(selection.kind) ? 'the feet' : selection.kind === 'rope' ? 'the anchor' : 'the top of the object'}.</p>
+        <p>Y is height above the floor, measured at {selection.kind === 'goal' ? 'the plate’s surface' : ['spawn', 'checkpoint'].includes(selection.kind) ? 'the feet' : selection.kind === 'rope' ? 'the anchor' : 'the top of the object'}.</p>
         {chosen?.profile && <><button onClick={() => commit(replacePlatform(history.present, selection.index, { ...chosen, profile: [...chosen.profile!].reverse().map(([x, y]) => [chosen.w - x, y]) }))}>Flip slope</button><p>Drag the white points to shape the surface.</p></>}
         {chosen && <><button onClick={() => {
           const points = polygonPoints(chosen), a = points[0], b = points[1]
@@ -407,6 +402,16 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
           if (points.length <= 64) commit(replacePlatform(history.present, selection.index, polygonPlatform(points)))
         }}>Add corner</button><p>Drag the white corners to reshape terrain. Slopes above 45° are slippery.</p></>}
         {selection.kind === 'ladder' && <p>Climb with Up / Down. Jump to leave the ladder.</p>}
+        {selection.kind === 'timer' && <p>Mounted on the back wall. Shows the run time, stops when the goal lights, and never blocks the player or objects.</p>}
+        {selection.kind === 'pickup' && <p>Touch to stop the level timer for 10 seconds while gameplay continues. Extra watches add 10 seconds to the remaining pause. Collected once per run; returns on restart.</p>}
+        {wallText && <>
+          <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>
+          <div className="builder-dimensions">
+            <label>Font size<input aria-label="Text font size" type="number" min={12} max={96} step={2} value={wallText.fontSize} onChange={e => changeObject('fontSize', Number(e.target.value))} /></label>
+            <label>Alignment<select aria-label="Text alignment" value={wallText.align} onChange={e => changeObject('align', e.target.value)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+          </div>
+          <p>Text wraps inside this area. Resize it to show more lines. Mounted on the back wall, with no collision.</p>
+        </>}
         {selection.kind === 'rope' && <><p>{level.climbables.ropes[selection.index].anchor ? 'Anchored to terrain. Moving that terrain carries the anchor.' : 'Free anchor. Place it near a terrain edge to attach it.'}</p><button onClick={() => {
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
@@ -414,13 +419,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
         {mechanism && <label>Travel distance<input aria-label="Travel distance" type="number" min={60} max={1200} step={20} value={mechanism.travel} onChange={e => changeObject('travel', Number(e.target.value))} /></label>}
         {trigger && <><label>Activates<select aria-label="Connected mechanism" value={trigger.target} onChange={e => changeObject('target', e.target.value)}><option value="">Choose a mechanism</option>{level.mechanisms?.map((m, i) => <option key={m.id} value={m.id}>{m.kind === 'lift' ? 'Elevator' : 'Gate'} {i + 1}</option>)}</select></label><label>Pressure mode<select aria-label="Pressure mode" value={trigger.mode} onChange={e => changeObject('mode', e.target.value)}><option value="weight">Crates & balls</option><option value="touch">Player or props</option></select></label><p>Activation latches on until restart.</p></>}
         {robot && <><div className="builder-dimensions"><label>Left limit<input aria-label="Pusher left limit" type="number" value={Math.round(robot.left)} onChange={e => changeObject('left', Number(e.target.value))} /></label><label>Right limit<input aria-label="Pusher right limit" type="number" value={Math.round(robot.right)} onChange={e => changeObject('right', Number(e.target.value))} /></label></div><p>Chases on sight. A brief wind-up, a hard shove, then straight back after you.</p></>}
-        <div className="builder-object-actions"><button disabled={['spawn', 'flag'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" disabled={['spawn', 'flag'].includes(selection.kind)} onClick={remove}>Delete object</button></div>
+        <div className="builder-object-actions"><button disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete object</button></div>
       </div> : <div className="builder-empty-selection"><BuilderIcon kind="select" /><strong>Make it yours.</strong><p>Choose a tool and draw in the canvas, or select an object to refine it.</p></div>}
       <details className="builder-level-settings" open={!selection}>
         <summary>Level settings</summary>
         <label>File name<input aria-label="Level file name" value={fileName} onChange={e => { setFileName(e.target.value); setFileSource(undefined) }} /></label>
         <p>Filenames set level order. Saving under a new filename creates a copy.</p>
-        <p>{local.canWrite ? `Save destination: ${local.name}` : 'Open a folder in Library to save directly to disk, or Export a JSON file.'}</p>
+        <button className="builder-save-location" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => setPanel('library')}><span>Save location</span><strong>{local.canWrite ? local.name : 'Downloads'}</strong><span aria-hidden="true">↗</span></button>
         <label>Level width<input type="number" aria-label="Level width" step={100} value={level.width} min={800} max={20000} onChange={e => {
           const extent = Math.max(800, level.spawn.x + 40, ...allSelections(level).map(s => { const b = itemBounds(level, s)!; return b.x + b.w + (level.floor === undefined ? 0 : 24) }))
           commit({ ...history.present, width: clamp(Number(e.target.value), extent, 20000) })
@@ -435,9 +440,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, playground, l
           <label>Player hint<textarea aria-label="Player hint" rows={3} maxLength={600} value={level.description ?? ''} onChange={e => commit({ ...history.present, description: e.target.value })} /></label>
         </>}
       </details>
-      <div className={`builder-validation ${problems.length ? 'has-problems' : ''}`}><strong>{problems.length ? 'Before you play' : 'Ready to playtest'}</strong>{problems.length ? problems.map(issue => <p key={issue} role="alert">{issue}</p>) : <p>{isPuzzleLevel(level) ? 'Start and flag are placed. Test the route, then export it.' : 'The player has a clear place to start.'}</p>}</div>
+      <div className={`builder-validation ${problems.length ? 'has-problems' : ''}`}><strong>{problems.length ? 'Before you play' : 'Ready to playtest'}</strong>{problems.length ? problems.map(issue => <p key={issue} role="alert">{issue}</p>) : <p>{isPuzzleLevel(level) ? 'Start and goal are placed. Test the route, then export it.' : 'The player has a clear place to start.'}</p>}</div>
       <p className="builder-shortcuts">V Select · H / Space Pan<br />⌘ / Ctrl D Duplicate · Z Undo<br />Arrow keys Move · Delete Remove</p>
     </aside>
-    <footer className="builder-status"><span role="status" aria-label="Builder status">{message || draftStatus}</span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '0, 0 = bottom left'}</output> · Scroll to pan · Ctrl + scroll to zoom</span></footer>
+    <footer className="builder-status"><span role="status" aria-label="Builder status">{message || 'Changes stay in this session until you save a JSON file.'}</span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '0, 0 = bottom left'}</output> · Scroll to pan · Ctrl + scroll to zoom</span></footer>
   </section>
 }

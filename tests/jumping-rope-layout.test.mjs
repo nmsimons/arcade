@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { newLevel, prepareLevelRopes, levelPlayer, levelTerrain, parseLevel, saveLevel, readSavedLevels } from '../src/games/jumping/level.ts'
+import { newLevel, prepareLevelRopes, levelPlayer, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
 import { createRope, stepRope, ropeImpulse, ropePoint, ropePath, findRope, ROPE_SEGMENT_LENGTH } from '../src/games/jumping/climbables.ts'
 import { STEP, respawn } from '../src/games/jumping/model.ts'
 import { hitItem, itemHandle, itemOutline, moveItem, resizeItem, deleteItem, replacePlatform } from '../src/games/jumping/editor.ts'
@@ -69,10 +69,7 @@ test('terrain and rope edits rebuild the layout, while unrelated edits and undo 
 })
 
 test('saved, exported and imported ropes retain their exact shape and remain selectable along it', () => {
-  const level = prepareLevelRopes(fixture()), data = new Map()
-  const storage = { getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) }
-  saveLevel(storage, level)
-  assert.deepEqual(readSavedLevels(storage)[0], level)
+  const level = prepareLevelRopes(fixture())
   assert.deepEqual(prepareLevelRopes(parseLevel(JSON.parse(JSON.stringify(level)))), level)
   const selection = { kind: 'rope', index: 0 }, rope = level.climbables.ropes[0]
   const tip = rope.rest.points.at(-1), bounds = itemOutline(level, selection)

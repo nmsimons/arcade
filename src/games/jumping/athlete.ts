@@ -325,9 +325,10 @@ function climbingPose(p: Player): AthletePose {
   const feet = [contact(gait.feet[0], true, -1), contact(gait.feet[1], true, 1)]
   if (hanging) {
     const mid = mix(hands[0].point, hands[1].point, .5)
-    const out = lean * 7, spread = 3.9 * blend * (1 - sideView)
+    const out = -lean * 12, spread = 3.9 * blend * (1 - sideView)
     const chest = add(mid, [out, Math.sqrt(18.8 ** 2 - (Math.abs(out) + spread) ** 2) - .7])
-    // Almost-straight arms bear the weight; the pelvis and legs lead the outward lean.
+    // Reach up and forward to the fixed grip, with the head behind the hands.
+    // The pelvis and legs still lead the pump; this offset only changes the silhouette.
     for (let pass = 0; pass < 12; pass++) for (const [i, hand] of hands.entries()) {
       const offset = (i ? 1 : -1) * spread
       const dx = chest[0] + offset - hand.point[0], dy = chest[1] + .7 - hand.point[1], length = Math.hypot(dx, dy)
@@ -336,7 +337,7 @@ function climbingPose(p: Player): AthletePose {
     const pump = ropePump(c), offset = (point: Point): Point => [point[0] * p.facing, point[1]]
     const pelvis = add(chest, offset(pump.hip))
     hip = mix(hip, pelvis, hanging); waist = mix(waist, add(chest, offset(pump.waist)), hanging)
-    shoulder = mix(shoulder, chest, hanging); head = mix(head, add(chest, [lean * 5, -7.3]), hanging)
+    shoulder = mix(shoulder, chest, hanging); head = mix(head, add(chest, [lean, -7.3]), hanging)
     feet[0].point = mix(feet[0].point, add(pelvis, offset(pump.frontFoot)), hanging)
     feet[1].point = mix(feet[1].point, add(pelvis, offset(pump.backFoot)), hanging)
   }

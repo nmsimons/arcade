@@ -93,7 +93,7 @@ test('jumps release slope support immediately and land on the surface from eithe
     for (let i = 0; i < 200 && !p.grounded; i++) {
       advance(p, STEP, { move: direction * .35 }); rise = Math.max(rise, launchY - p.y)
     }
-    assert.ok(rise > 100); assert.ok(p.grounded)
+    assert.ok(rise > 80 && rise < 90); assert.ok(p.grounded)
     assert.ok(Math.abs(p.y - groundAt(world, p.x, p.y).y) < 1e-6)
   }
 })

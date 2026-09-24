@@ -8,6 +8,7 @@ export function controllerDialog(root: HTMLElement | null) {
     .filter(isVisibleControl).at(-1)
 }
 export function controlDialog(dialog: HTMLElement, action: ControllerNavigation | 'confirm' | 'back') {
+  dialog.dataset.inputMethod = 'controller'
   if (action !== 'confirm' && action !== 'back') { moveDialogSelection(dialog, action); return }
   if (action === 'confirm') {
     const button = document.activeElement

@@ -1,16 +1,19 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFile, readdir } from 'node:fs/promises'
-import { loadLevelCatalog, loadLocalLevelFiles, decodeLevelFile, playableLevelFile, isLevelFileName } from '../src/games/jumping/levelAssets.ts'
+import { readFile, readdir, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import { join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { loadLevelCatalog, loadLocalLevelFiles, decodeLevelFile, playableLevelFile } from '../src/games/jumping/levelAssets.ts'
 import { writeLocalLevel } from '../src/games/jumping/localLevels.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { levelProblems, parseLevel, prepareLevelRopes } from '../src/games/jumping/level.ts'
-import { JSON_LAB, DEFAULT_LEVEL, FIRST_LEVEL } from './helpers/jumping-fixtures.mjs'
+import { JSON_LAB, FIRST_LEVEL } from './helpers/jumping-fixtures.mjs'
 
 const root = new URL('../public/levels/jumping/', import.meta.url)
 const index = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
-const assets = new Map(await Promise.all(['index.json', index.playground, ...index.campaign.map(n => `campaign/${n}`), ...index.examples.map(n => `examples/${n}`)].map(async name => [name, await readFile(new URL(name, root), 'utf8')])))
+const assets = new Map(await Promise.all(['index.json', ...index.levels].map(async name => [name, await readFile(new URL(name, root), 'utf8')])))
 function server(data = new Map(assets)) {
   const requests = []
   return { data, requests, fetch: async (url, options) => {
@@ -19,43 +22,58 @@ function server(data = new Map(assets)) {
   } }
 }
 
-test('the deployed index names every JSON campaign and example asset, in filename order', async () => {
-  for (const group of ['campaign', 'examples']) {
-    assert.deepEqual(index[group], (await readdir(new URL(`${group}/`, root))).filter(isLevelFileName).sort())
-  }
+test('the deployed index includes only the JSON test lab and no other level assets', async () => {
+  assert.deepEqual(index.levels, ['00-json-test-lab.json'])
+  assert.deepEqual((await readdir(root)).sort(), ['00-json-test-lab.json', 'index.json'])
   const catalog = await loadLevelCatalog('/arcade/', server().fetch)
-  assert.deepEqual(catalog.errors, [])
-  assert.equal(catalog.campaign.length, index.campaign.length); assert.equal(catalog.examples.length, index.examples.length)
-  assert.deepEqual(catalog.playground, DEFAULT_LEVEL)
-  for (const { level } of [...catalog.campaign, ...catalog.examples]) assert.deepEqual(levelProblems(level), [])
+  assert.deepEqual(catalog.errors, []); assert.equal(catalog.files.length, 1)
+  assert.deepEqual(catalog.files[0].level, JSON_LAB)
+  assert.deepEqual(levelProblems(catalog.files[0].level), [])
+})
+
+test('sync removes retired built-in files from an existing deployment without removing unrelated files', async () => {
+  const target = await mkdtemp(join(tmpdir(), 'jumping-asset-sync-'))
+  try {
+    await mkdir(join(target, 'campaign')); await mkdir(join(target, 'examples'))
+    await writeFile(join(target, 'index.json'), JSON.stringify({ version: 1, campaign: ['00-old.json'], examples: ['01-old.json'], playground: 'playground.json', levels: ['99-removed.json'] }))
+    for (const name of ['campaign/00-old.json', 'examples/01-old.json', 'playground.json', '99-removed.json']) await writeFile(join(target, name), '{}')
+    await writeFile(join(target, 'notes.txt'), 'Keep this file')
+    execFileSync(process.execPath, ['scripts/jumping-levels.mjs', 'sync', target])
+    const files = (await readdir(target, { recursive: true })).filter(name => name.endsWith('.json')).sort()
+    assert.deepEqual(files, ['00-json-test-lab.json', 'index.json'])
+    assert.equal(await readFile(join(target, 'notes.txt'), 'utf8'), 'Keep this file')
+    assert.deepEqual(JSON.parse(await readFile(join(target, '00-json-test-lab.json'), 'utf8')), JSON_LAB)
+  } finally { await rm(target, { recursive: true, force: true }) }
 })
 
 test('runtime refresh discovers new files and changed geometry without rebuilding or reimporting code', async () => {
   const remote = server(), first = await loadLevelCatalog('/arcade/', remote.fetch)
-  const edited = structuredClone(FIRST_LEVEL); edited.width += 600; edited.name = 'Edited on disk'
-  remote.data.set(`campaign/${index.campaign[0]}`, JSON.stringify(edited))
-  remote.data.set('campaign/00-before.json', JSON.stringify({ ...edited, id: 'new-file', name: 'Added on disk' }))
-  remote.data.set('index.json', JSON.stringify({ ...index, campaign: [...index.campaign].reverse().concat('00-before.json') }))
+  const edited = structuredClone(JSON_LAB); edited.width += 600; edited.name = 'Edited on disk'
+  remote.data.set(index.levels[0], JSON.stringify(edited))
+  remote.data.set('00-before.json', JSON.stringify({ ...edited, id: 'new-file', name: 'Added on disk' }))
+  remote.data.set('index.json', JSON.stringify({ ...index, levels: [...index.levels].reverse().concat('00-before.json') }))
   const refreshed = await loadLevelCatalog('/arcade/', remote.fetch)
-  assert.equal(first.campaign[0].level.name, FIRST_LEVEL.name)
-  assert.equal(refreshed.campaign[0].fileName, '00-before.json')
-  assert.equal(refreshed.campaign[1].level.width, edited.width)
-  assert.equal(refreshed.campaign[1].level.name, 'Edited on disk')
+  assert.equal(first.files[0].level.name, JSON_LAB.name)
+  assert.equal(refreshed.files[0].fileName, '00-before.json')
+  assert.equal(refreshed.files[1].level.width, edited.width)
+  assert.equal(refreshed.files[1].level.name, 'Edited on disk')
   assert.ok(remote.requests.every(r => r.url.startsWith('/arcade/levels/jumping/') && r.options.cache === 'no-store'))
 })
 
 test('bad and missing assets report their filenames without hiding valid levels', async () => {
-  const remote = server(); remote.data.set(`campaign/${index.campaign[1]}`, '{bad'); remote.data.delete(`campaign/${index.campaign[2]}`)
+  const remote = server()
+  remote.data.set('01-broken.json', '{bad')
+  remote.data.set('index.json', JSON.stringify({ ...index, levels: [...index.levels, '01-broken.json', '02-missing.json'] }))
   const catalog = await loadLevelCatalog('/', remote.fetch)
-  assert.deepEqual(catalog.campaign.map(f => f.fileName), index.campaign.filter((_, i) => i !== 1 && i !== 2))
-  assert.equal(catalog.errors.length, 2); assert.ok(catalog.errors[0].includes(index.campaign[1])); assert.match(catalog.errors[1], /HTTP 404/)
+  assert.deepEqual(catalog.files.map(f => f.fileName), index.levels)
+  assert.equal(catalog.errors.length, 2); assert.match(catalog.errors[0], /01-broken.json/); assert.match(catalog.errors[1], /HTTP 404/)
   remote.data.delete('index.json')
   await assert.rejects(loadLevelCatalog('/', remote.fetch), /index.json.*404/)
 })
 
 test('an invalid catalog cannot request arbitrary paths or origins', async () => {
   for (const name of ['../outside.json', 'https://example.com/map.json', 'nested/map.json', 'bad\\map.json', 'index.json']) {
-    const remote = server(); remote.data.set('index.json', JSON.stringify({ ...index, campaign: [name] }))
+    const remote = server(); remote.data.set('index.json', JSON.stringify({ ...index, levels: [name] }))
     await assert.rejects(loadLevelCatalog('/', remote.fetch), /filenames/)
     assert.equal(remote.requests.length, 1)
   }
@@ -86,13 +104,16 @@ test('the JSON test lab exercises all geometry, attachments, saved rope paths an
   assert.deepEqual(level.props.map(p => p.kind).sort(), ['ball', 'box'])
   assert.deepEqual(level.mechanisms.map(m => m.kind).sort(), ['gate', 'lift'])
   assert.deepEqual(level.triggers.map(t => t.mode).sort(), ['touch', 'weight']); assert.ok(level.robots.length)
+  assert.equal(level.timers.length, 2)
+  assert.equal(level.texts.length, 2); assert.ok(level.texts.every(t => t.text.includes('\n')))
+  assert.equal(level.pickups.length, 2); assert.ok(level.pickups.every(p => p.kind === 'stopwatch'))
   const run = createRun(level), original = createRun(level)
   for (let i = 0; i < 120; i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true })
   assert.equal(run.triggers[0].active, true); assert.equal(run.mechanisms[0].active, true); assert.ok(run.mechanisms[0].y < level.mechanisms[0].y)
   Object.assign(run.player, { x: 2740, y: 1400, grounded: true, footwork: null })
   for (let i = 0; i < 120; i++) stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.triggers[1].active, true); assert.equal(run.mechanisms[1].active, true)
-  Object.assign(run.player, level.flag); stepRun(run, NEUTRAL_INPUT); assert.equal(run.finished, true)
+  Object.assign(run.player, level.goal); stepRun(run, NEUTRAL_INPUT); assert.equal(run.finished, true)
   assert.deepEqual(createRun(level), original, 'reset reconstructs every actor from the same JSON')
 })
 
@@ -109,8 +130,25 @@ const malformed = {
   ropeBends: l => { l.climbables.ropes[0].rest.bends[0] = [NaN, 0] }, ropeMaterial: l => { l.climbables.ropes[0].rest.distances[1] = 0 },
   prop: l => { l.props[0].size = 300 }, mechanism: l => { l.mechanisms[0].travel = -10 },
   duplicateMechanism: l => { l.mechanisms[1].id = l.mechanisms[0].id }, trigger: l => { l.triggers[0].mode = 'invalid' },
-  pusher: l => { l.robots[0].left = l.robots[0].right }, medals: l => { l.times.gold = l.times.bronze }, flag: l => { l.flag.y = NaN },
+  pusher: l => { l.robots[0].left = l.robots[0].right }, medals: l => { l.times.gold = l.times.bronze }, goal: l => { l.goal.y = NaN },
+  wallTimer: l => { l.timers[0].x = l.width },
 }
+
+test('legacy flags import as goal plates, and exports use only the new goal point', () => {
+  const legacy = structuredClone(JSON_LAB); legacy.flag = legacy.goal; delete legacy.goal
+  const imported = parseLevel(legacy)
+  assert.deepEqual(imported.goal, JSON_LAB.goal); assert.equal('flag' in imported, false)
+  assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(imported))), imported)
+  assert.deepEqual(parseLevel({ ...legacy, goal: { x: 2500, y: 1400 } }).goal, { x: 2500, y: 1400 })
+  assert.throws(() => parseLevel({ ...legacy, goal: null }))
+})
+
+test('the whole goal plate needs a flat floor and its light must fit inside the level', () => {
+  for (const goal of [{ x: 0, y: 1400 }, { x: 3190, y: 1400 }, { x: 3050, y: 1300 }]) {
+    const level = structuredClone(JSON_LAB); level.goal = goal
+    assert.ok(levelProblems(level).some(problem => problem.includes('goal plate')))
+  }
+})
 for (const [name, mutate] of Object.entries(malformed)) test(`JSON test lab rejects invalid ${name}`, () => {
   const level = structuredClone(JSON_LAB); mutate(level); assert.throws(() => parseLevel(level))
 })

@@ -14,7 +14,7 @@ function jumpHeight(charge) {
 }
 test('tap, partial and fully charged jumps produce graduated heights without auto-jumping', () => {
   const short = jumpHeight(STEP), medium = jumpHeight(TUNING.chargeTime / 2), full = jumpHeight(TUNING.chargeTime + STEP)
-  assert.ok(short > 60 && short < 75); assert.ok(medium > short + 45); assert.ok(full > medium + 65)
+  assert.ok(short > 28 && short < 36); assert.ok(medium > short + 45); assert.ok(full > 200 && full < 210)
   const p = createPlayer(); advance(p, 2, { jump: true })
   assert.equal(p.y, 620); assert.equal(p.charge, 1); assert.equal(p.grounded, true)
   advance(p, 2); assert.equal(p.y, 620); assert.equal(p.grounded, true)
@@ -116,7 +116,7 @@ test('solid sides and ceilings block the player without penetration', () => {
 test('coyote time permits a late jump, but never an extra midair jump', () => {
   const p = createPlayer(); Object.assign(p, { x: 305, grounded: false, coyote: .08 })
   const edge = [{ x: 0, y: 620, w: 300, h: 400 }]
-  advance(p, STEP, { jump: true }, edge); advance(p, STEP, {}, edge); assert.ok(p.vy < -400)
+  advance(p, STEP, { jump: true }, edge); advance(p, STEP, {}, edge); assert.ok(p.vy < -TUNING.jumpSpeed * .9)
   advance(p, .2, {}, edge); const vy = p.vy
   advance(p, STEP, { jump: true }, edge); advance(p, STEP, {}, edge); assert.ok(p.vy > vy)
 })

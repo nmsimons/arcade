@@ -2,7 +2,7 @@ import { test, expect } from './helpers/test.mjs'
 import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-const first = JSON.parse(await readFile(new URL('../../public/levels/jumping/campaign/00-first-leap.json', import.meta.url), 'utf8'))
+import { FIRST_LEVEL as first, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
 const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
@@ -11,10 +11,45 @@ async function open(page) {
 }
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
 
+test('built-ins contain only the test lab, and the builder ignores browser copies and drafts', async ({ page }, info) => {
+  await page.addInitScript(level => {
+    const get = Storage.prototype.getItem, set = Storage.prototype.setItem
+    set.call(localStorage, 'arcade.jumping.levels.v1', JSON.stringify([level]))
+    set.call(localStorage, 'arcade.jumping.draft.v1', JSON.stringify(level))
+    window.levelStorageCalls = []
+    const record = (method, key) => { if (/^arcade\.jumping\.(levels|draft)\./.test(key)) window.levelStorageCalls.push([method, key]) }
+    Storage.prototype.getItem = function (key) { record('get', key); return get.call(this, key) }
+    Storage.prototype.setItem = function (key, value) { record('set', key); return set.call(this, key, value) }
+  }, { ...JSON_LAB, name: 'Old browser draft' })
+  await open(page)
+  expect(await names(page)).toEqual(['JSON Test Lab'])
+  await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
+  await page.screenshot({ path: info.outputPath('only-test-lab.png') })
+  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Untitled level')
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await expect(page.getByText('Browser copies', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('combobox', { name: 'Saved levels' })).toHaveCount(0)
+  await expect(page.locator('.builder-templates button')).toHaveCount(1)
+  await page.screenshot({ path: info.outputPath('file-library.png') })
+  await page.getByRole('textbox', { name: 'Level name' }).fill('File-only level')
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save level', exact: true }).click()])
+  const file = JSON.parse(await readFile(await download.path(), 'utf8'))
+  expect(file.name).toBe('File-only level')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Downloaded')
+  expect(await page.evaluate(() => window.levelStorageCalls)).toEqual([])
+  await page.reload()
+  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Untitled level')
+  await page.getByLabel('Import level file').setInputFiles(await download.path())
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('File-only level')
+  expect(await page.evaluate(() => window.levelStorageCalls)).toEqual([])
+})
+
 test('built-in JSON changes and newly indexed files load without changing the app bundle', async ({ page }, info) => {
   let revision = false
-  await page.route('**/levels/jumping/index.json', route => route.fulfill({ json: { version: 1, playground: 'playground.json', examples: [], campaign: revision ? ['10-last.json', '02-added.json', '00-first.json'] : ['10-last.json', '00-first.json'] } }))
-  await page.route('**/levels/jumping/campaign/*.json', route => {
+  await page.route('**/levels/jumping/index.json', route => route.fulfill({ json: { version: 1, levels: revision ? ['10-last.json', '02-added.json', '00-first.json'] : ['10-last.json', '00-first.json'] } }))
+  await page.route('**/levels/jumping/*-*.json', route => {
     const name = route.request().url().split('/').at(-1)
     const level = custom(name, name === '00-first.json' ? revision ? 'Changed on disk' : 'First asset' : name === '02-added.json' ? 'New asset' : 'Last asset')
     if (revision && name === '00-first.json') { level.width = 2200; level.times.gold = 4 }
@@ -44,7 +79,9 @@ test('a missing index reports the failure and refresh recovers without a compile
   await expect(page.getByRole('button', { name: /^Start level/ })).toBeDisabled()
   failing = false
   await page.getByRole('button', { name: 'Refresh levels', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Level 1: First Leap' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Level 1: JSON Test Lab' })).toBeVisible()
+  expect(await names(page)).toEqual(['JSON Test Lab'])
+  await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
@@ -61,13 +98,17 @@ test('local folder fallback loads real JSON files in filename order and reloads 
     await page.getByLabel('Open local level folder').setInputFiles(dir)
     await expect(page.getByRole('button', { name: 'Level 1: First local level' })).toBeVisible()
     expect(await names(page)).toEqual(['First local level', 'Second local level'])
+    await expect(page.getByText('2 levels · Edits save as downloads')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Refresh folder' })).toHaveCount(0)
     await expect(page.getByRole('alert')).toContainText('03-broken.json')
     await writeFile(join(dir, '00-first.json'), JSON.stringify(custom('first', 'Edited outside the game')))
-    await page.getByLabel('Open local level folder').setInputFiles(dir)
+    const chooser = page.waitForEvent('filechooser')
+    await page.getByRole('button', { name: 'Reselect folder' }).click()
+    await (await chooser).setFiles(dir)
     await expect(page.getByRole('button', { name: 'Level 1: Edited outside the game' })).toBeVisible()
     await page.screenshot({ path: info.outputPath('local-folder-levels.png') })
     await page.getByRole('button', { name: /^Start level/ }).click()
-    await expect(page.getByRole('img', { name: 'Edited outside the game: reach the flag' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Edited outside the game: activate the goal' })).toBeFocused()
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
@@ -87,7 +128,7 @@ test('native folder saves update the loaded file, protect external edits, and cr
     })
   }, custom('local-first', 'Local original'))
   await open(page); await page.getByRole('button', { name: 'Local folder', exact: true }).click()
-  await page.getByRole('button', { name: 'Open folder', exact: true }).click()
+  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Level 1: Local original' })).toBeVisible()
   await page.getByRole('button', { name: 'Edit selected level' }).click()
   await page.getByRole('textbox', { name: 'Level name' }).fill('Edited in builder')
@@ -102,8 +143,8 @@ test('native folder saves update the loaded file, protect external edits, and cr
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('changed on disk')
   expect(await page.evaluate(() => window.folderWrites)).toEqual(['00-first.json'])
-  await page.getByRole('combobox', { name: 'Local level files' }).selectOption('00-first.json')
-  await page.getByRole('button', { name: 'Edit file', exact: true }).click()
+  await page.screenshot({ path: info.outputPath('builder-folder-files.png') })
+  await page.getByRole('button', { name: 'Open 00-first.json', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('External edit')
   await page.getByRole('textbox', { name: 'Level file name' }).fill('02-copy.json')
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
@@ -117,10 +158,64 @@ test('native folder saves update the loaded file, protect external edits, and cr
   await page.screenshot({ path: info.outputPath('saved-local-levels.png') })
 })
 
+test('folder picker handles cancel, busy, errors and empty folders without losing the current collection', async ({ page }, info) => {
+  await page.addInitScript(level => {
+    window.showDirectoryPicker = () => new Promise((resolve, reject) => {
+      window.finishFolderPicker = (result) => {
+        if (result === 'cancel') { reject(new DOMException('Cancelled', 'AbortError')); return }
+        resolve({ name: result === 'empty' ? 'New levels' : 'My collection of jumping levels and experiments',
+          async *values() {
+            if (result === 'error') throw new DOMException('Folder access was denied. Choose the folder again.', 'NotAllowedError')
+            if (result !== 'empty') yield { kind: 'file', name: '00-a-very-long-filename-for-my-first-level.json', getFile: async () => new File([JSON.stringify(level)], '00-a-very-long-filename-for-my-first-level.json') }
+          },
+        })
+      }
+    })
+  }, custom('picker-test', 'First experiment'))
+  await open(page)
+  await page.getByRole('button', { name: 'Local folder', exact: true }).click()
+  await page.screenshot({ path: info.outputPath('folder-empty-state.png') })
+  await page.getByRole('button', { name: 'Choose folder' }).click()
+  await expect(page.getByRole('button', { name: 'Working…' })).toBeDisabled()
+  await page.evaluate(() => window.finishFolderPicker('cancel'))
+  await expect(page.getByRole('button', { name: 'Choose folder' })).toBeEnabled()
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Choose folder' }).click()
+  await page.evaluate(() => window.finishFolderPicker('populated'))
+  await expect(page.getByRole('button', { name: 'Level 1: First experiment' })).toBeVisible()
+  await page.getByRole('button', { name: 'Change folder' }).click()
+  await page.evaluate(() => window.finishFolderPicker('error'))
+  await expect(page.getByRole('alert')).toContainText('Folder access was denied')
+  expect(await names(page)).toEqual(['First experiment'])
+  await page.getByRole('button', { name: 'Change folder' }).click()
+  await page.evaluate(() => window.finishFolderPicker('cancel'))
+  await expect(page.getByRole('button', { name: 'Change folder' })).toBeEnabled()
+  expect(await names(page)).toEqual(['First experiment'])
+  await page.getByRole('button', { name: 'Change folder' }).click()
+  await page.evaluate(() => window.finishFolderPicker('populated'))
+  await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.screenshot({ path: info.outputPath('folder-mobile-menu.png') })
+  await page.getByRole('button', { name: 'Edit selected level' }).click()
+  await page.getByRole('button', { name: /Save location/ }).click()
+  await expect(page.getByRole('button', { name: 'Open 00-a-very-long-filename-for-my-first-level.json' })).toBeVisible()
+  await page.screenshot({ path: info.outputPath('folder-mobile-builder.png') })
+  await expect(page.locator('.builder-tools')).toHaveJSProperty('scrollWidth', await page.locator('.builder-tools').evaluate(el => el.clientWidth))
+  await page.getByRole('button', { name: 'Open 00-a-very-long-filename-for-my-first-level.json' }).click()
+  await expect(page.getByRole('application', { name: 'Level canvas' })).toBeFocused()
+  expect(parseInt(await page.getByLabel('Zoom', { exact: true }).textContent())).toBeGreaterThan(8)
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Change folder' }).click()
+  await page.evaluate(() => window.finishFolderPicker('empty'))
+  await expect(page.getByText('0 levels · Save directly to folder')).toBeVisible()
+  await expect(page.getByText('No level files yet. Save a level here from the builder.')).toBeVisible()
+  await expect(page.getByRole('group', { name: 'Local level files' })).toHaveCount(0)
+})
+
 test('local Next level follows filenames and skips files that need repairs', async ({ page }) => {
   const dir = await mkdtemp(join(tmpdir(), 'jumping-level-order-'))
   try {
-    const start = custom('local-start', 'Start here'); start.flag = { x: 330, y: start.spawn.y }
+    const start = custom('local-start', 'Start here'); start.goal = { x: 330, y: start.spawn.y }
     const broken = custom('local-repair', 'Needs repair'); broken.spawn.y += 100
     await writeFile(join(dir, '10-last.json'), JSON.stringify(custom('local-last', 'Alphabetically first title')))
     await writeFile(join(dir, '02-repair.json'), JSON.stringify(broken))
@@ -136,10 +231,10 @@ test('local Next level follows filenames and skips files that need repairs', asy
     await page.getByRole('button', { name: 'Level 1: Start here' }).click()
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
     await page.getByRole('button', { name: /^Start level/ }).click()
-    await page.keyboard.down('d'); await page.clock.runFor(1000); await page.keyboard.up('d')
+    await page.keyboard.down('d'); await page.clock.runFor(2600); await page.keyboard.up('d')
     await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
     await page.getByRole('button', { name: 'Next level' }).click()
-    await expect(page.getByRole('img', { name: 'Alphabetically first title: reach the flag' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Alphabetically first title: activate the goal' })).toBeFocused()
     const records = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1')))
     expect(records['local:local-start']).toBeGreaterThan(0)
     expect(records['local-start']).toBeUndefined()
@@ -159,7 +254,7 @@ test('the comprehensive JSON reference level is available as a builder template 
   expect(exported.props.map(p => p.kind)).toEqual(['box', 'ball'])
   await page.screenshot({ path: info.outputPath('json-test-lab.png') })
   await page.getByRole('button', { name: 'Playtest' }).click()
-  await expect(page.getByRole('img', { name: 'JSON Test Lab — copy: reach the flag' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'JSON Test Lab — copy: activate the goal' })).toBeFocused()
   await page.keyboard.press('ArrowRight')
   expect(errors).toEqual([])
 })

@@ -1,11 +1,15 @@
 import { test, expect } from './helpers/test.mjs'
+import { readFile } from 'node:fs/promises'
+import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { blankTrial } from '../../src/games/jumping/level.ts'
 
-async function open(page) {
+async function open(page, level) {
+  if (level) await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, text = proto.fillText
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.jumpCamera = this.getTransform()
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = [] }
       return rect.apply(this, args)
     }
     proto.ellipse = function (...args) {
@@ -15,12 +19,28 @@ async function open(page) {
       }
       return ellipse.apply(this, args)
     }
+    proto.fillText = function (value, x, y, ...rest) {
+      if (this.fillStyle === '#718074') {
+        const t = this.getTransform()
+        this.canvas.wallTexts?.push({ text: value, x, y, screenX: x * t.a + t.e, screenY: y * t.d + t.f })
+      }
+      if (/^\d+:\d{2}\.\d{2}$/.test(value)) {
+        const t = this.getTransform()
+        this.canvas.wallTimers?.push({ text: value, x, y, screenX: x * t.a + t.e, screenY: y * t.d + t.f })
+      }
+      return text.call(this, value, x, y, ...rest)
+    }
   })
   await page.goto('/untitled-jumping-game')
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: level ? 'Edit selected level' : 'Level builder', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.clock.runFor(64)
+}
+async function downloadLevel(page, button = 'Export') {
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: button, exact: true }).click()])
+  const path = await download.path()
+  return { path, level: JSON.parse(await readFile(path, 'utf8')) }
 }
 async function dragWorld(page, start, end) {
   const canvas = await page.getByRole('application', { name: 'Level canvas' }).boundingBox()
@@ -29,6 +49,108 @@ async function dragWorld(page, start, end) {
   await page.mouse.move(x(start.x), y(start.y)); await page.mouse.down()
   await page.mouse.move(x(end.x), y(end.y), { steps: 8 }); await page.mouse.up()
 }
+
+test('stopwatches can be placed, edited, duplicated, undone, exported, imported and playtested', async ({ page }, info) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Stopwatch', exact: true }).click()
+  await dragWorld(page, { x: 320, y: 840 }, { x: 320, y: 840 })
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveValue('pickup:0')
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('600')
+  await page.getByRole('spinbutton', { name: 'Object y', exact: true }).fill('240')
+  await page.getByRole('button', { name: 'Delete object' }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  const exported = await downloadLevel(page)
+  expect(exported.level.pickups).toEqual([{ kind: 'stopwatch', x: 344, y: 872 }, { kind: 'stopwatch', x: 624, y: 712 }])
+  await page.getByLabel('Import level file').setInputFiles(exported.path)
+  expect((await downloadLevel(page)).level.pickups).toEqual(exported.level.pickups)
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('pickup:0')
+  await page.screenshot({ path: info.outputPath('stopwatch-builder.png') })
+  await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
+  await page.keyboard.down('d'); await page.clock.runFor(800); await page.keyboard.up('d')
+  const frozenTime = await page.getByTestId('level-time').innerText()
+  expect(frozenTime).toMatch(/^0:00\./)
+  await page.clock.runFor(2000)
+  await expect(page.getByTestId('level-time')).toHaveText(frozenTime)
+  await page.getByRole('button', { name: 'Return to builder' }).click()
+  expect((await downloadLevel(page)).level.pickups).toEqual(exported.level.pickups)
+})
+
+test('wall text edits, wraps, duplicates, resizes, and survives export, import and playtest', async ({ page }, info) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Wall text', exact: true }).click()
+  await dragWorld(page, { x: 320, y: 700 }, { x: 720, y: 820 })
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveValue('text:0')
+  const content = page.getByRole('textbox', { name: 'Wall text content' })
+  await content.fill('Hold to charge.')
+  await content.press('End'); await content.press('Enter'); await content.pressSequentially('Release to jump.')
+  await page.getByRole('spinbutton', { name: 'Text font size' }).fill('32')
+  await page.getByRole('combobox', { name: 'Text alignment' }).selectOption('center')
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('800')
+  await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('200')
+  await page.getByRole('spinbutton', { name: 'Object h', exact: true }).fill('200')
+  await page.getByRole('button', { name: 'Delete object' }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  const exported = await downloadLevel(page)
+  expect(exported.level.texts).toEqual([
+    { x: 320, y: 700, w: 400, h: 120, text: 'Hold to charge.\nRelease to jump.', fontSize: 32, align: 'center' },
+    { x: 800, y: 700, w: 200, h: 200, text: 'Hold to charge.\nRelease to jump.', fontSize: 32, align: 'center' },
+  ])
+  await page.getByLabel('Import level file').setInputFiles(exported.path)
+  const editor = page.getByRole('application', { name: 'Level canvas' })
+  const readings = await editor.evaluate(canvas => canvas.wallTexts.map(t => t.text))
+  expect(readings.slice(0, 2)).toEqual(['Hold to charge.', 'Release to jump.'])
+  expect(readings.slice(2)).toEqual(['Hold to', 'charge.', 'Release to', 'jump.'])
+  expect((await downloadLevel(page)).level.texts).toEqual(exported.level.texts)
+  await page.screenshot({ path: info.outputPath('wall-text-builder.png') })
+  await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
+  const game = page.getByRole('img', { name: 'Untitled level: activate the goal' })
+  expect(await game.evaluate(canvas => canvas.wallTexts.map(t => t.text))).toEqual(readings)
+  await page.screenshot({ path: info.outputPath('wall-text-play.png') })
+})
+
+test('wall timers can be placed, duplicated, edited, deleted, undone, exported and reimported', async ({ page }, info) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Wall timer', exact: true }).click()
+  await dragWorld(page, { x: 320, y: 780 }, { x: 320, y: 780 })
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveValue('timer:0')
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveValue('timer:1')
+  await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('640')
+  await page.getByRole('spinbutton', { name: 'Object y', exact: true }).fill('240')
+  await page.getByRole('button', { name: 'Delete object' }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  const exported = await downloadLevel(page)
+  expect(exported.level.timers).toEqual([{ x: 320, y: 780 }, { x: 640, y: 680 }])
+  await page.getByLabel('Import level file').setInputFiles(exported.path)
+  const roundtrip = await downloadLevel(page)
+  expect(roundtrip.level.timers).toEqual(exported.level.timers)
+  await page.screenshot({ path: info.outputPath('wall-timers-in-builder.png') })
+})
+
+test('wall timers share the run clock, travel with the map, and allow the player to pass through', async ({ page }, info) => {
+  const level = blankTrial(); level.width = 3200; level.spawn.x = 800; level.goal.x = 2800
+  level.timers = [{ x: 920, y: 860 }, { x: 1180, y: 740 }]
+  await open(page, level)
+  await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
+  const canvas = page.getByRole('img', { name: 'Untitled level: activate the goal' })
+  const readings = () => canvas.evaluate(el => el.wallTimers)
+  const initial = await readings()
+  expect(initial.map(timer => timer.text)).toEqual(['0:00.00', '0:00.00'])
+  await expect(page.locator('.jumping-race')).toHaveCount(0)
+  await page.keyboard.down('d'); await page.clock.runFor(1100); await page.keyboard.up('d')
+  const moving = await readings()
+  expect(moving).toHaveLength(2); expect(moving[0].text).toBe(moving[1].text); expect(moving[0].text).not.toBe('0:00.00')
+  expect(moving[0].x).toBe(initial[0].x); expect(moving[0].screenX).toBeLessThan(initial[0].screenX - 80)
+  expect((await page.evaluate(() => window.jumpPlayer)).x).toBeGreaterThan(1120)
+  await page.screenshot({ path: info.outputPath('wall-timers-during-play.png') })
+  await page.keyboard.press('Escape'); await page.clock.runFor(2000)
+  expect((await readings()).map(timer => timer.text)).toEqual(moving.map(timer => timer.text))
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await page.keyboard.press('r'); await page.clock.runFor(160)
+  expect((await readings()).map(timer => timer.text)).toEqual(['0:00.00', '0:00.00'])
+})
 
 test('build, edit, undo, save, playtest, return and reload a custom level', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))
@@ -48,13 +170,13 @@ test('build, edit, undo, save, playtest, return and reload a custom level', asyn
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
   await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveValue('400')
-  await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved “Slope workshop”')
+  const saved = await downloadLevel(page, 'Save level')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Downloaded “Slope workshop.jump-level.json”')
   await page.clock.runFor(600)
   await page.screenshot({ path: info.outputPath('level-builder.png') })
   await page.getByRole('button', { name: 'Playtest', exact: false }).click()
   await page.clock.runFor(100)
-  await expect(page.locator('canvas[aria-label="Slope workshop: reach the flag"]')).toBeFocused()
+  await expect(page.locator('canvas[aria-label="Slope workshop: activate the goal"]')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(1100); await page.keyboard.up('d'); await page.clock.runFor(100)
   const p = await page.evaluate(() => window.jumpPlayer)
   expect(p.x).toBeGreaterThan(450); expect(p.y).toBeLessThan(900)
@@ -65,15 +187,10 @@ test('build, edit, undo, save, playtest, return and reload a custom level', asyn
   // Let React's lazy-route scheduling run normally across the reload.
   await page.clock.resume(); await page.reload()
   await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Untitled level')
+  await page.getByLabel('Import level file').setInputFiles(saved.path)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Slope workshop')
-  const levels = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.levels.v1')))
-  expect(levels).toHaveLength(1); expect(levels[0].platforms).toHaveLength(1)
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
-  await page.getByRole('button', { name: 'New level', exact: true }).click()
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Saved levels' }).selectOption({ label: 'Slope workshop' })
-  await page.getByRole('button', { name: 'Load level', exact: true }).click()
-  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Slope workshop')
+  expect(saved.level.platforms).toHaveLength(1)
   expect(errors).toEqual([])
 })
 
@@ -86,7 +203,7 @@ test('polygon terrain can be reshaped and removed, with undo restoring it', asyn
   await page.keyboard.press('Enter')
   await dragWorld(page, { x: 560, y: 800 }, { x: 560, y: 760 })
   await page.clock.runFor(600)
-  const draft = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.draft.v1')))
+  const draft = (await downloadLevel(page)).level
   expect(draft.platforms[0].y).toBe(760); expect(draft.platforms[0].polygon).toHaveLength(3)
   await page.getByRole('button', { name: 'Delete object' }).click()
   await expect(page.getByRole('combobox', { name: 'Selected object' }).locator('option')).toHaveCount(3)
@@ -103,19 +220,20 @@ test('exported levels import successfully and bad imports leave the current draf
   await page.getByRole('button', { name: 'New level', exact: true }).click()
   await page.getByLabel('Import level file').setInputFiles(await download.path())
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Export me')
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Imported')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Opened')
   await page.getByLabel('Import level file').setInputFiles({ name: 'broken.json', mimeType: 'application/json', buffer: Buffer.from('{"version":1,"platforms":[]}') })
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Could not import')
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Export me')
 })
 
-test('storage failures are visible and do not falsely report a successful save', async ({ page }) => {
-  await page.addInitScript(() => { Storage.prototype.setItem = () => { throw new Error('Storage full') } })
+test('saving a level to a file works when browser storage is unavailable', async ({ page }) => {
+  await page.addInitScript(() => { Storage.prototype.setItem = Storage.prototype.getItem = () => { throw new Error('Storage unavailable') } })
   await open(page)
-  await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Could not save')
+  const saved = await downloadLevel(page, 'Save level')
+  expect(saved.level.name).toBe('Untitled level')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Downloaded')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
-  await expect(page.getByRole('combobox', { name: 'Saved levels' }).locator('option')).toHaveCount(1)
+  await expect(page.getByRole('combobox', { name: 'Saved levels' })).toHaveCount(0)
 })
 
 test('builder controls and drawing area remain usable on a narrow screen', async ({ page }, info) => {
@@ -149,21 +267,19 @@ test('author terrain, a free ladder and an anchored rope with portable export', 
   expect(exported.climbables.ladders[0].platform).toBe(-1); expect(exported.climbables.ladders[0].x).toBe(640)
   await page.screenshot({ path: info.outputPath('simple-level-elements.png') })
   await page.getByRole('button', {name:'Playtest'}).click(); await page.clock.runFor(100)
-  await expect(page.getByRole('img', { name: 'My rope course: reach the flag' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'My rope course: activate the goal' })).toBeFocused()
   await page.getByRole('button', {name:'Return to builder'}).click()
   await page.getByLabel('Import level file').setInputFiles(await download.path())
-  await page.getByRole('button', {name:'Save level', exact:true}).click()
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.levels.v1')).at(-1))
+  const saved = (await downloadLevel(page, 'Save level')).level
   expect(saved.platforms).toEqual(exported.platforms); expect(saved.climbables).toEqual(exported.climbables)
 })
 
 test('rope layout is resolved in the editor, saved, and reused unchanged on playtest and reload', async ({ page }, info) => {
   const level = { version: 1, id: 'rope-layout', name: 'Rope layout', width: 1200, height: 1000, floor: 1000,
-    spawn: { x: 120, y: 1000 }, flag: { x: 1000, y: 1000 }, checkpoints: [],
+    spawn: { x: 120, y: 1000 }, goal: { x: 1000, y: 1000 }, checkpoints: [],
     platforms: [{ x: 300, y: 300, w: 200, h: 300 }], climbables: { ladders: [], ropes: [{ x: 400, y: 200, length: 500, segments: 24 }] },
     props: [], robots: [], mechanisms: [], triggers: [], times: { gold: 10, silver: 20, bronze: 40 } }
-  await page.addInitScript(level => {
-    if (!localStorage.getItem('arcade.jumping.draft.v1')) localStorage.setItem('arcade.jumping.draft.v1', JSON.stringify(level))
+  await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, begin = proto.beginPath, move = proto.moveTo, line = proto.lineTo, stroke = proto.stroke
     proto.beginPath = function () { this.recordedPath = []; return begin.call(this) }
     proto.moveTo = function (x, y) { this.recordedPath?.push([x, y]); return move.call(this, x, y) }
@@ -172,24 +288,23 @@ test('rope layout is resolved in the editor, saved, and reused unchanged on play
       if (this.strokeStyle === '#998263' && Math.abs(this.lineWidth - 2.8) < .001) this.canvas.ropePath = this.recordedPath.slice(1)
       return stroke.apply(this, args)
     }
-  }, level)
-  await open(page)
+  })
+  await open(page, level)
   const editor = page.getByRole('application', { name: 'Level canvas' })
   const preview = await editor.evaluate(canvas => canvas.ropePath)
   expect(preview.length).toBeGreaterThanOrEqual(Math.ceil(500 / 8) + 1)
   expect(Math.abs(preview.at(-1)[0] - 400)).toBeGreaterThan(50)
-  await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.levels.v1'))[0])
+  const file = await downloadLevel(page, 'Save level'), saved = file.level
   const { points, bends } = saved.climbables.ropes[0].rest
   expect(points.flatMap((p, i) => i && bends[i - 1] ? [bends[i - 1], p] : [p])).toEqual(preview)
   await page.screenshot({ path: info.outputPath('rope-resolved-in-editor.png') })
   await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
-  const game = page.getByRole('img', { name: 'Rope layout: reach the flag' })
+  const game = page.getByRole('img', { name: 'Rope layout: activate the goal' })
   expect(await game.evaluate(canvas => canvas.ropePath)).toEqual(preview)
   await page.keyboard.down('ArrowLeft'); await page.clock.runFor(32); await page.keyboard.up('ArrowLeft'); await page.clock.runFor(2000)
   const running = await game.evaluate(canvas => canvas.ropePath)
   expect(Math.max(...running.map((p, i) => Math.hypot(p[0] - preview[i][0], p[1] - preview[i][1])))).toBeLessThan(1)
-  await page.getByRole('button', { name: /^Restart R$/ }).click(); await page.clock.runFor(32)
+  await page.getByRole('button', { name: 'Restart', exact: true }).click(); await page.clock.runFor(32)
   expect(await game.evaluate(canvas => canvas.ropePath)).toEqual(preview)
   await page.getByRole('button', { name: 'Return to builder' }).click()
   await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
@@ -201,16 +316,17 @@ test('rope layout is resolved in the editor, saved, and reused unchanged on play
   expect(await editor.evaluate(canvas => canvas.ropePath)).toEqual(preview)
   await page.clock.resume(); await page.reload()
   await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByLabel('Import level file').setInputFiles(file.path)
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Rope layout')
   expect(await editor.evaluate(canvas => canvas.ropePath)).toEqual(preview)
 })
 
 for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyboard'} Down transfers onto its rope, descends, swings away and drops`, async ({page},info) => {
-  const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,spawn:{x:410,y:200},flag:{x:700,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
-  await page.addInitScript(({level,controller})=>{
-    localStorage.setItem('arcade.jumping.draft.v1',JSON.stringify(level))
+  const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,spawn:{x:410,y:200},goal:{x:700,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
+  await page.addInitScript(({controller})=>{
     if(controller){window.testPad={index:0,id:'Rappel pad',connected:true,mapping:'standard',axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};Object.defineProperty(navigator,'getGamepads',{value:()=>[window.testPad]})}
-  },{level,controller})
-  await open(page);await page.getByRole('button',{name:'Playtest'}).click();await page.clock.runFor(100)
+  },{controller})
+  await open(page, level);await page.getByRole('button',{name:'Playtest'}).click();await page.clock.runFor(100)
   if(controller)await page.evaluate(()=>{window.testPad.axes[1]=1})
   else await page.keyboard.down('s')
   await page.clock.runFor(350);await expect(page.locator('.jumping-state')).toHaveText('Lowering')
@@ -222,8 +338,10 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
   if(controller)await page.evaluate(()=>{window.testPad.axes[1]=0})
   else await page.keyboard.up('s')
   await page.clock.runFor(350)
-  await expect(page.locator('.jumping-footer')).toContainText('Jump off rope')
-  await expect(page.locator('.jumping-footer')).toContainText(controller ? 'B / ○ Drop' : 'X Drop')
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Press jump to leave a rope')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText(controller ? 'B / ○' : 'X')
+  await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)
   const braced = await page.evaluate(() => window.jumpPlayer)
   if(controller)await page.evaluate(()=>{window.testPad.axes[0]=-1})
   else await page.keyboard.down('a')
@@ -257,17 +375,16 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
 
 for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} climbs a grid-snapped free ladder onto its neighboring cliff`, async ({ page }, info) => {
   const level = { version: 1, id: 'ladder-exit-test', name: 'Ladder exit test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 420, y: 600 }, flag: { x: 100, y: 200 }, checkpoints: [], platforms: [{ x: 0, y: 200, w: 400, h: 400 }],
+    spawn: { x: 420, y: 600 }, goal: { x: 100, y: 200 }, checkpoints: [], platforms: [{ x: 0, y: 200, w: 400, h: 400 }],
     climbables: { ladders: [{ x: 420, top: 200, bottom: 600, platform: -1, side: 1 }], ropes: [] },
     props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
-  await page.addInitScript(({ level, controller }) => {
-    localStorage.setItem('arcade.jumping.draft.v1', JSON.stringify(level))
+  await page.addInitScript(({ controller }) => {
     if (controller) {
       window.testPad = { index: 0, id: 'Ladder pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
       Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] })
     }
-  }, { level, controller })
-  await open(page); await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
+  }, { controller })
+  await open(page, level); await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
   if (controller) await page.evaluate(() => { window.testPad.axes[1] = -1 })
   else await page.keyboard.down('w')
   await page.clock.runFor(4300)
@@ -289,17 +406,16 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 
 for (const anchorY of [200, 220]) for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} climbs onto a thin platform from a rope anchored at ${anchorY}`, async ({ page }, info) => {
   const level = { version: 1, id: 'rope-exit-test', name: 'Rope exit test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 400, y: 600 }, flag: { x: 700, y: 200 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 20 }],
+    spawn: { x: 400, y: 600 }, goal: { x: 700, y: 200 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 20 }],
     climbables: { ladders: [], ropes: [{ x: 400, y: anchorY, length: 330, segments: 24, anchor: { platform: 0, x: 0, y: anchorY - 200 } }] },
     props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
-  await page.addInitScript(({ level, controller }) => {
-    localStorage.setItem('arcade.jumping.draft.v1', JSON.stringify(level))
+  await page.addInitScript(({ controller }) => {
     if (controller) {
       window.testPad = { index: 0, id: 'Rope pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
       Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] })
     }
-  }, { level, controller })
-  await open(page); await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
+  }, { controller })
+  await open(page, level); await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
   if (controller) await page.evaluate(() => { window.testPad.axes[1] = -1 })
   else await page.keyboard.down('w')
   await page.clock.runFor(1000)
@@ -313,10 +429,9 @@ for (const anchorY of [200, 220]) for (const controller of [false, true]) test(`
 
 test('snap aligns final terrain positions and resize edges, including previously offset terrain', async ({ page }, info) => {
   const level = { version: 1, id: 'grid-test', name: 'Grid test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 100, y: 600 }, flag: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 403, y: 203, w: 203, h: 117 }],
+    spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 403, y: 203, w: 203, h: 117 }],
     climbables: { ladders: [], ropes: [] }, props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
-  await page.addInitScript(level => localStorage.setItem('arcade.jumping.draft.v1', JSON.stringify(level)), level)
-  await open(page)
+  await open(page, level)
   await dragWorld(page, { x: 500, y: 250 }, { x: 523, y: 271 })
   await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('420')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('380')
@@ -338,20 +453,17 @@ test('snap aligns final terrain positions and resize edges, including previously
   await page.getByRole('checkbox', { name: 'Snap 20' }).check()
   await dragWorld(page, { x: 447, y: 220 }, { x: 466, y: 239 })
   await page.clock.runFor(600)
-  const draft = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.draft.v1')))
+  const draft = (await downloadLevel(page)).level
   expect(draft.platforms[0].polygon[0].map((v, i) => v + (i ? draft.platforms[0].y : draft.platforms[0].x))).toEqual([460, 240])
   await page.screenshot({ path: info.outputPath('aligned-grid.png') })
 })
 
 test('height grows above the layout with a bottom-left origin, stable view, undo, export and playtest', async ({ page }, info) => {
   const level = { version: 1, id: 'height-test', name: 'Height test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 100, y: 600 }, flag: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 300, y: 200, w: 200, h: 100 }],
+    spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 300, y: 200, w: 200, h: 100 }],
     climbables: { ladders: [{ x: 284, top: 200, bottom: 600, platform: 0, side: 1 }], ropes: [{ x: 500, y: 200, length: 300, segments: 24, anchor: { platform: 0, x: 200, y: 0 } }] },
     props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
-  await page.addInitScript(level => {
-    if (!localStorage.getItem('arcade.jumping.draft.v1')) localStorage.setItem('arcade.jumping.draft.v1', JSON.stringify(level))
-  }, level)
-  await open(page)
+  await open(page, level)
   const canvas = page.getByRole('application', { name: 'Level canvas' })
   const camera = () => canvas.evaluate(c => ({ a: c.jumpCamera.a, f: c.jumpCamera.f }))
   const originalView = await camera()
@@ -389,7 +501,7 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   expect(exported.platforms.map(p => p.y)).toEqual([577, 737])
   expect(exported.climbables.ladders[0]).toMatchObject({ top: 577, bottom: 977, platform: 0 })
   expect(exported.climbables.ropes[0]).toMatchObject({ y: 577, anchor: { platform: 0, x: 200, y: 0 } })
-  expect(exported.spawn.y).toBe(1037); expect(exported.flag.y).toBe(1037)
+  expect(exported.spawn.y).toBe(1037); expect(exported.goal.y).toBe(1037)
   await page.getByRole('button', { name: 'Fit level', exact: true }).click()
   await page.screenshot({ path: info.outputPath('height-added-at-top.png') })
   await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
@@ -399,6 +511,7 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   await page.clock.runFor(600)
   await page.clock.resume(); await page.reload()
   await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByLabel('Import level file').setInputFiles(await download.path())
   await expect(page.getByRole('spinbutton', { name: 'Level height', exact: true })).toHaveValue('1037')
   await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('460')

@@ -1,13 +1,6 @@
 {
   "version": 1,
-  "campaign": [
-    "00-first-leap.json",
-    "01-one-rope.json",
-    "02-two-ropes.json"
-  ],
-  "playground": "playground.json",
-  "examples": [
-    "00-json-test-lab.json",
-    "01-counterweight-yard.json"
+  "levels": [
+    "00-json-test-lab.json"
   ]
 }

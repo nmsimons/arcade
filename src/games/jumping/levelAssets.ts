@@ -1,9 +1,9 @@
-import { isPuzzleLevel, levelProblems, parseLevel } from './level.ts'
-import type { JumpLevel, PuzzleLevel } from './level.ts'
+import { levelProblems, parseLevel } from './level.ts'
+import type { JumpLevel } from './level.ts'
 
 export interface LevelFile<T extends JumpLevel = JumpLevel> { fileName: string; level: T; sourceText?: string }
 export interface LevelCatalog {
-  campaign: LevelFile<PuzzleLevel>[]; playground: JumpLevel | null; examples: LevelFile[]; errors: string[]
+  files: LevelFile[]; errors: string[]
 }
 export const MAX_LEVEL_BYTES = 1_000_000
 export const MAX_LEVEL_FILES = 500
@@ -54,17 +54,10 @@ export async function loadLevelCatalog(base: string, fetchFile: typeof fetch = f
     if (!Array.isArray(value) || value.length > MAX_LEVEL_FILES || value.some(n => typeof n !== 'string' || !isLevelFileName(n)) || new Set(value).size !== value.length) throw new Error('The level index must list unique JSON filenames without paths.')
     return [...value].sort(compareFileNames)
   }
-  if (!index || index.version !== 1 || typeof index.playground !== 'string' || !isLevelFileName(index.playground)) throw new Error('The level index is not valid.')
-  const campaign = names(index.campaign), examples = names(index.examples)
-  const load = async (dir: string, files: string[], trial: boolean) => collectLevelFiles(await Promise.allSettled(files.map(async fileName => {
-    const level = decodeLevelFile(await read(dir + encodeURIComponent(fileName)))
-    if (trial && !isPuzzleLevel(level)) throw new Error('Campaign levels need a flag and medal times.')
-    return playableLevelFile({ fileName, level })
+  if (!index || index.version !== 1) throw new Error('The level index is not valid.')
+  const files = names(index.levels)
+  return collectLevelFiles(await Promise.allSettled(files.map(async fileName => {
+    const sourceText = await read(encodeURIComponent(fileName))
+    return playableLevelFile({ fileName, level: decodeLevelFile(sourceText), sourceText })
   })), files)
-  const [trials, samples, playground] = await Promise.all([
-    load('campaign/', campaign, true), load('examples/', examples, false),
-    read(encodeURIComponent(index.playground)).then(decodeLevelFile).then(level => playableLevelFile({ fileName: index.playground, level }).level).then(level => ({ level, error: '' }), error => ({ level: null, error: `${index.playground}: ${error.message}` })),
-  ])
-  return { campaign: trials.files as LevelFile<PuzzleLevel>[], examples: samples.files, playground: playground.level,
-    errors: [...trials.errors, ...samples.errors, ...(playground.error ? [playground.error] : [])] }
 }

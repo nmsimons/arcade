@@ -9,7 +9,7 @@ import { bodyIntersects, moveBody, nearestBoundary, pointInside } from './geomet
 export interface Platform { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[] }
 export const TUNING = {
   runSpeed: 350, walkSpeed: 125, acceleration: 2200, airAcceleration: 300,
-  braking: 2800, gravity: 1550, jumpSpeed: 455, chargedJumpSpeed: 800,
+  braking: 2800, gravity: 1550, jumpSpeed: 303, chargedJumpSpeed: 800,
   wallJumpSpeed: 560, wallJumpPush: 300, wallJumpControlTime: .12,
   chargeTime: .35, coyoteTime: .1, jumpBuffer: .13, width: 24, height: 62, crouchHeight: 40, hangReach: 74,
   climbTime: LEDGE_CLIMB_TIME,

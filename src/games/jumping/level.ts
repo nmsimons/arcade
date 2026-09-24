@@ -5,6 +5,12 @@ import { prepareRope } from './ropeLayout.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces, walkable } from './terrain.ts'
 import { bodyIntersects, nearestBoundary, validPolygon } from './geometry.ts'
+import { GOAL_PLATE_WIDTH, goalBounds } from './goal.ts'
+import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
+import type { WallTimer } from './wallTimer.ts'
+import type { WallText } from './wallText.ts'
+import { pickupBounds } from './pickups.ts'
+import type { Pickup } from './pickups.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
@@ -16,15 +22,18 @@ export interface JumpLevel {
   version: 1; id: string; name: string; width: number; height?: number
   spawn: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
-  description?: string; floor?: number; flag?: Checkpoint
+  description?: string; floor?: number; goal?: Checkpoint
   times?: { gold: number; silver: number; bronze: number }
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
+  timers?: WallTimer[]
+  texts?: WallText[]
+  pickups?: Pickup[]
 }
 export interface PuzzleLevel extends JumpLevel {
-  height: number; floor: number; flag: Checkpoint; times: { gold: number; silver: number; bronze: number }
+  height: number; floor: number; goal: Checkpoint; times: { gold: number; silver: number; bronze: number }
   props: PropDefinition[]; mechanisms: Mechanism[]; triggers: Trigger[]; robots: Pusher[]
 }
-export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.flag !== undefined && level.floor !== undefined && level.times !== undefined
+export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.goal !== undefined && level.floor !== undefined && level.times !== undefined
 /** Legacy floor values are the bottom of the playable rectangle. */
 export const levelHeight = (level: JumpLevel) => level.floor ?? level.height ?? 1020
 /** Four solid half-spaces enclose the level. The renderer fills the entire outside viewport. */
@@ -35,8 +44,6 @@ export function levelTerrain(level: JumpLevel): Platform[] {
     { x: -extent, y: -extent, w: extent * 2, h: extent },
     { x: -extent, y: 0, w: extent, h }, { x: level.width, y: 0, w: extent, h }]
 }
-export const LEVEL_STORAGE_KEY = 'arcade.jumping.levels.v1'
-export const DRAFT_STORAGE_KEY = 'arcade.jumping.draft.v1'
 export const copyLevel = <T extends JumpLevel>(level: T): T => structuredClone(level)
 export const newLevelId = () => globalThis.crypto.randomUUID()
 export function newLevel(): JumpLevel {
@@ -85,12 +92,21 @@ export function levelProblems(level: JumpLevel): string[] {
   if (!level.name.trim()) issues.push('Give the level a name.')
   if (spawn) issues.push(spawn)
   if (level.platforms.some(b => b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level))) issues.push('Keep terrain inside the level rectangle.')
+  if (level.texts?.some(t => t.x < 0 || t.y < 0 || t.x + t.w > level.width || t.y + t.h > levelHeight(level))) issues.push('Keep wall text inside the level rectangle.')
   if (isPuzzleLevel(level)) {
-    const flag = spawnProblem({ ...level, spawn: level.flag })
-    if (flag) issues.push('Place the finish flag on a clear, reachable surface.')
+    const terrain = levelTerrain(level), bounds = goalBounds(level.goal)
+    const plateSupported = [-GOAL_PLATE_WIDTH / 2, 0, GOAL_PLATE_WIDTH / 2].every(dx => {
+      const support = groundAt(terrain, level.goal.x + dx, level.goal.y, .15)
+      return support && Math.abs(support.angle) < .02
+    })
+    if (!plateSupported || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
+      issues.push('Place the goal plate on a flat surface with room for its light inside the level.')
+    }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
     if (level.triggers.some(t => !level.mechanisms.some(m => m.id === t.target))) issues.push('Connect each pressure plate to an elevator or gate.')
     if (level.robots.some(r => !groundAt(levelTerrain(level), r.x, r.y, .2))) issues.push('Place each pusher on a terrain surface.')
+    if (level.timers?.some(t => t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level))) issues.push('Keep wall timers inside the level rectangle.')
+    if (level.pickups?.some(p => { const b = pickupBounds(p); return b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level) })) issues.push('Keep power-ups inside the level rectangle.')
   }
   return issues
 }
@@ -181,9 +197,12 @@ export function parseLevel(value: unknown): JumpLevel {
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
     platforms, spawn, checkpoints, climbables: { ladders, ropes } }
   if (v.description !== undefined) { if (typeof v.description !== 'string' || v.description.length > 600) fail(); level.description = v.description as string }
-  if (v.flag !== undefined) {
+  // Existing local files use "flag". Import it as the plate center; new exports use "goal".
+  const goal = v.goal === undefined ? v.flag : v.goal
+  if (goal !== undefined) {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
-    level.flag = point(v.flag); if (level.flag.x > width) fail()
+    const location = point(goal)
+    level.goal = { x: location.x, y: location.y }; if (level.goal.x > width) fail()
     const times = object(v.times); level.times = { gold: num(times.gold, .1, 3600), silver: num(times.silver, .1, 3600), bronze: num(times.bronze, .1, 3600) }
     if (!(level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) fail()
     level.props = list(v.props, 80).map(item => {
@@ -206,29 +225,27 @@ export function parseLevel(value: unknown): JumpLevel {
       const r = object(item), left = num(r.left, 50, width - 100), right = num(r.right, left + 50, width - 50)
       return { x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right }
     })
-  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots'].some(key => v[key] !== undefined)) fail()
+    if (v.timers !== undefined) level.timers = list(v.timers, 40).map(item => {
+      const timer = object(item)
+      return { x: num(timer.x, 0, width - WALL_TIMER_WIDTH), y: num(timer.y, 0, level.floor! - WALL_TIMER_HEIGHT) }
+    })
+    if (v.pickups !== undefined) level.pickups = list(v.pickups, 80).map(item => {
+      const pickup = object(item), bounds = pickupBounds({ x: 0, y: 0 })
+      if (pickup.kind !== 'stopwatch') fail()
+      return { kind: 'stopwatch', x: num(pickup.x, -bounds.x, width - bounds.x - bounds.w), y: num(pickup.y, -bounds.y, level.floor! - bounds.y - bounds.h) }
+    })
+  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups'].some(key => v[key] !== undefined)) fail()
+  if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
+    const t = object(item), w = num(t.w, 40, Math.min(2000, width)), h = num(t.h, 24, Math.min(1200, levelHeight(level)))
+    if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
+    return { x: num(t.x, 0, width - w), y: num(t.y, 0, levelHeight(level) - h), w, h,
+      text: t.text as string, fontSize: num(t.fontSize, 12, 96), align: t.align as WallText['align'] }
+  })
   return level
 }
-export function readSavedLevels(storage: Pick<Storage, 'getItem'>): JumpLevel[] {
-  const raw = storage.getItem(LEVEL_STORAGE_KEY)
-  if (!raw) return []
-  const values: unknown = JSON.parse(raw)
-  if (!Array.isArray(values) || values.length > 50) throw new Error('The saved level library could not be read. Your data has been kept.')
-  return values.map(parseLevel)
-}
-export function saveLevel(storage: Pick<Storage, 'getItem' | 'setItem'>, level: JumpLevel): JumpLevel[] {
-  const valid = parseLevel(level), levels = readSavedLevels(storage), index = levels.findIndex(item => item.id === valid.id)
-  if (index < 0) {
-    if (levels.length >= 50) throw new Error('The library holds 50 levels. Export this draft to keep a copy.')
-    levels.push(valid)
-  } else levels[index] = valid
-  storage.setItem(LEVEL_STORAGE_KEY, JSON.stringify(levels))
-  return levels
-}
-
 /** An empty editor document; all authored maps are external JSON assets. */
 export function blankTrial(): PuzzleLevel {
   return { version: 1, id: newLevelId(), name: 'Untitled level', description: '', width: 1800, height: 920, floor: 920,
-    spawn: { x: 160, y: 920 }, flag: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
-    climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
+    spawn: { x: 160, y: 920 }, goal: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
+    climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], timers: [], texts: [], pickups: [], times: { gold: 10, silver: 20, bronze: 40 } }
 }

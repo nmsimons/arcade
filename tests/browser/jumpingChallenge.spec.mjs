@@ -1,13 +1,28 @@
 import { test, expect } from './helpers/test.mjs'
 import { hold } from './helpers/controller.mjs'
+import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
+import { blankTrial } from '../../src/games/jumping/level.ts'
 
-async function setup(page, lesson = 0) {
+async function setup(page, lesson = 0, levels = CAMPAIGN) {
+  await useLevelFixtures(page, levels)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, arc = proto.arc, text = proto.fillText
+    proto.arc = function (...args) {
+      if (args[2] === 11 && ['#a9d56b', '#9aa38e'].includes(this.fillStyle)) {
+        const t = this.getTransform()
+        window.goalLight = { lit: this.fillStyle === '#a9d56b', x: (args[0] * t.a + t.e) / this.canvas.width, y: (args[1] * t.d + t.f) / this.canvas.height }
+      }
+      return arc.apply(this, args)
+    }
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') window.levelCamera = this.getTransform()
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { window.levelCamera = this.getTransform(); window.wallTimerReadings = [] }
       return rect.apply(this, args)
+    }
+    proto.fillText = function (value, ...args) {
+      if (/^\d+:\d{2}\.\d{2}$/.test(value)) window.wallTimerReadings.push(value)
+      return text.call(this, value, ...args)
     }
     proto.ellipse = function (...args) {
       if (args[2] === 6.2 && args[3] === 6.2 && window.levelCamera) {
@@ -30,7 +45,7 @@ async function launch(page) {
   await page.keyboard.up('Space'); await page.keyboard.down('w')
 }
 async function finishFirst(page) {
-  await launch(page); await page.clock.runFor(2400); await page.keyboard.up('d'); await page.keyboard.up('w')
+  await launch(page); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
 }
 
@@ -54,7 +69,7 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['first-leap'])
   expect(record).toBeGreaterThan(2); expect(record).toBeLessThan(3.5)
   await page.getByRole('button', { name: 'Next level' }).click(); await page.clock.runFor(100)
-  await expect(page.getByRole('img', { name: 'A Little Swing: reach the flag' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()
   expect((await position(page)).x).toBeCloseTo(170); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.clock.resume(); await page.reload(); await expect(page.getByText(/Gold · 0:02/)).toBeVisible()
 })
@@ -164,8 +179,69 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 })
 test('the simple level view remains usable on a narrow screen', async ({ page }, info) => {
   await setup(page); await enter(page)
+  await expect(page.getByRole('navigation', { name: 'Game controls' }).getByRole('button')).toHaveCount(2)
+  await expect(page.locator('.jumping-header, .jumping-footer, .jumping-telemetry')).toHaveCount(0)
+  await expect(page.getByRole('meter')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('simple-terrain.png') })
   await page.setViewportSize({ width: 390, height: 740 }); await page.clock.runFor(100)
   await expect(page.getByRole('button', { name: /Restart/ })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Pause', exact: true })).toBeInViewport()
   await page.screenshot({ path: info.outputPath('trial-mobile.png') })
+  await page.getByRole('button', { name: 'Pause', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Hold, release to jump')
+  await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
+  await page.screenshot({ path: info.outputPath('pause-controls-mobile.png') })
+  await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)
+  await expect(page.getByRole('region', { name: 'How to play' })).toHaveCount(0)
+})
+
+test('the goal lights immediately, movement continues, and victory waits without charging the timer', async ({ page }, info) => {
+  const level = blankTrial(); level.goal.x = 500
+  level.timers = [{ x: 340, y: 740 }, { x: 740, y: 660 }]
+  await setup(page, 0, [level]); await enter(page)
+  expect((await page.evaluate(() => window.goalLight)).lit).toBe(false)
+  await page.screenshot({ path: info.outputPath('goal-unlit.png') })
+  await page.keyboard.down('d')
+  for (let i = 0; i < 150 && !await page.evaluate(() => window.goalLight.lit); i++) await page.clock.runFor(16)
+  expect((await page.evaluate(() => window.goalLight)).lit).toBe(true)
+  await page.clock.runFor(80)
+  const time = await page.getByTestId('level-time').innerText(), before = await position(page)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.keyboard.down('Space'); await page.clock.runFor(160); await page.keyboard.up('Space'); await page.clock.runFor(240)
+  const after = await position(page)
+  expect(after.x).toBeGreaterThan(before.x + 80); expect(after.y).toBeLessThan(before.y - 20)
+  await page.keyboard.up('d')
+  await page.clock.runFor(400)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByTestId('level-time')).toHaveText(time)
+  expect(await page.evaluate(() => window.wallTimerReadings)).toEqual([time, time])
+  expect((await page.evaluate(() => window.goalLight)).lit).toBe(true)
+  await page.screenshot({ path: info.outputPath('goal-lit-player-moving.png') })
+  await page.clock.runFor(700)
+  await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Goal activated.' })).toBeVisible()
+  await expect(page.locator('.jumping-result-time')).toHaveText(time)
+})
+
+test('an object can light a distant goal; pause and restart handle the reveal correctly', async ({ page }, info) => {
+  const level = blankTrial(); level.goal.x = 1500
+  level.props = [{ kind: 'ball', x: 1500, y: level.floor - 80, size: 80 }]
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('w'); await page.clock.runFor(32); await page.keyboard.up('w')
+  for (let i = 0; i < 90 && !await page.evaluate(() => window.goalLight.lit); i++) await page.clock.runFor(16)
+  expect((await page.evaluate(() => window.goalLight)).lit).toBe(true)
+  expect((await position(page)).x).toBeLessThan(200)
+  await page.clock.runFor(650)
+  const light = await page.evaluate(() => window.goalLight)
+  expect(light.x).toBeGreaterThan(0); expect(light.x).toBeLessThan(1)
+  expect(light.y).toBeGreaterThan(0); expect(light.y).toBeLessThan(1)
+  await page.screenshot({ path: info.outputPath('remote-ball-goal-lit.png') })
+  await page.keyboard.press('Escape'); await page.clock.runFor(4000)
+  await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
+  await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(200)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.keyboard.press('r'); await page.clock.runFor(2000)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  expect((await page.evaluate(() => window.goalLight)).lit).toBe(false)
 })

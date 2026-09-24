@@ -18,7 +18,7 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - **Bumper Ball** — single-player physics soccer-ish bumper cars against a computer opponent
 - **Sling Load** — helicopter sling-load delivery / survival
 - **Hello World** — vector display “HELLO WORLD” screen
-- **Untitled Jumping Game** — a timed, nonlethal puzzle platformer with a movement playground and level builder
+- **Untitled Jumping Game** — a timed, nonlethal puzzle platformer with local JSON levels and a level builder
 
 ## Controls
 
@@ -480,17 +480,19 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 **Untitled Jumping Game** (`/untitled-jumping-game`)
 
-The opening campaign teaches one movement mechanic at a time:
+**JSON Test Lab** is currently the only built-in level. It exercises every
+supported level element and is loaded from a JSON asset at runtime. Open a local
+folder to play your own levels, ordered by filename.
 
-1. **First Leap** — a 320-unit pit that requires a charged running jump.
-2. **A Little Swing** — a wider pit crossed using one rope.
-3. **Hand Over Hand** — transfer between two ropes across a still wider pit.
-
-Every pit has a continuous bottom floor and a ladder returning to the left bank.
-There is no death or automatic reset. Reach the flag for a gold, silver, bronze,
-or unmedalled completion. The clock starts on your first movement action; pauses
+There is no death or automatic reset. Depress the goal's floor plate to switch on
+its pole light for a gold, silver, bronze, or unmedalled completion. The player,
+a crate, or a ball can activate it. The timer stops as soon as the light turns on;
+movement and physics continue for 1.5 seconds before the result dialog appears.
+The clock starts on your first movement action; pauses
 and menus do not consume time. Personal bests are saved separately for each map.
-The result screen advances to the next lesson or lets you retry immediately.
+Timers are displays on the back wall, placed with the builder's **Wall timer**
+tool. A level may have several; they show the same time and never block movement.
+The result screen advances to the next file or lets you retry immediately.
 
 Levels are rectangular rooms with a light grid back wall. Medium-grey solid terrain
 surrounds the room on all four sides. Internal terrain uses the same fill: static
@@ -500,6 +502,11 @@ a balancing pose and small contact particles. Sides and undersides are solid.
 
 R or Y/Triangle restarts the current trial and its ropes and clock, including a
 custom level during a builder playtest.
+
+During play, only compact restart and pause controls overlay the map (plus a
+return button during builder playtests). The player's pose provides jump-charge
+feedback. The pause menu contains the keyboard or controller reference; the play
+area has no title, movement readout, charge meter, or instruction strip.
 
 - Left stick: proportional walk/run speed; D-pad also moves. Keyboard: A/D or
   Left/Right, with Shift to walk.
@@ -525,19 +532,17 @@ custom level during a builder playtest.
 - Y/Triangle or R: restart the trial; in the playground, return to the most recent reset point.
 - Menu/Start or Escape/P: pause. The pause menu returns to the arcade.
 
-**Enter playground** opens the movement sandbox with a runway, steps, an overhanging ledge, ladders, ropes over a gap,
-ramps, and rough terrain. Feet follow the ground, and connected terrain pieces have
-no solid internal seams. The visible room boundary is solid on every side. The readout shows speed, charge and best jump height
-for the current visit. Controller disconnect and focus loss pause the game;
-release buttons and center the stick after resuming. Keyboard stays available.
-Movement constants live in `src/games/jumping/model.ts`; the simulation advances
-at 120 Hz independently of rendering and viewport size. All authored maps,
-including the playground, are runtime JSON assets in `public/levels/jumping/`.
+Feet follow the ground, and connected terrain pieces have no solid internal
+seams. Controller disconnect and focus loss pause the game; release buttons and
+center the stick after resuming. Keyboard stays available. Movement constants
+live in `src/games/jumping/model.ts`; the simulation advances at 120 Hz
+independently of rendering and viewport size. Built-in maps are runtime JSON
+assets in `public/levels/jumping/`.
 
 Open **Level builder** to enter the **Level studio**. Its **Library** tab offers
-copies of the built-in levels, a blank trial, a comprehensive JSON test lab,
-local folder files and existing browser copies. The original movement playground
-is also available to copy.
+the built-in test level, a blank new level, and local files. **Use as template**
+under a local file starts a new level with the same contents, a new ID, and an
+unused filename. Save the new level to keep it; the source file stays unchanged.
 
 - **Rectangle** draws static terrain anywhere in the room. Drag both width and height.
 - **Polygon** places one corner per click. Click the first corner or press Enter
@@ -546,6 +551,9 @@ is also available to copy.
 - Place **Ladders** and **Ropes** freely. A rope started near a terrain edge snaps
   its anchor to that edge; moving or reshaping the terrain carries the anchor.
   The inspector can attach or detach a nearby anchor. Moving a rope detaches it.
+- **Back wall → Wall text** adds a non-solid text area. Edit its content, font size,
+  and alignment in the inspector; drag or resize it like other objects. Multiple
+  lines wrap within the area, and text is included in saved levels and templates.
 - Start and finish markers set the route. Legacy object maps remain importable,
   but new levels use only terrain, ladders and ropes.
 - Drag selected elements, resize with the corner handle or numeric inspector,
@@ -561,17 +569,25 @@ is also available to copy.
 **Playtest** runs the entire authored trial with its own goals and mechanics.
 **Return to builder** preserves the draft and undo history. The inspector flags
 invalid starts, flags, medals, unsupported pushers, and missing mechanism links.
-Drafts autosave locally. **Local folder → Open folder** in the level menu loads
+**Local folder → Choose folder** in the level menu loads
 JSON files from disk in filename order, such as `00-intro.json`, `01-rope.json`.
 **Edit selected level** opens a file in the builder. With a writable folder open,
-**Save level** writes directly to it; otherwise it keeps a browser recovery copy.
-**Refresh folder** picks up edits made in a text editor or by Codex.
+**Save level** writes directly to it; otherwise it downloads a JSON file.
+The selected folder is remembered in browser storage and reopened automatically
+on reload, reading its current files from disk. If permission expires, use
+**Reconnect folder**; **Enable saving** renews write access when only read access
+remains. Browser storage holds only the folder reference, not copies of levels.
+There are no browser copies or autosaved drafts. Save to a file before leaving
+or reloading the game; edits remain in memory during playtests and menu visits.
+**Refresh** picks up edits made in a text editor or by Codex. Browsers that only
+read folders show **Reselect folder** instead; they remember the folder name but
+require reselection after reload, and edited levels save as downloads.
 
 **Export** produces a `.jump-level.json` file with all terrain, goals, medal
 thresholds, ladders and ropes, including terrain anchor attachments. Put that file
-in a local folder or `public/levels/jumping/campaign/`. **Import level file** in Library opens it for
-further editing with a fresh level identity. Invalid imports leave the draft
-intact; storage/export failures are visible. Browser data does not sync devices.
+in a local folder or `public/levels/jumping/`. **Open file…** in Library opens it for
+further editing with the same level identity. Invalid imports leave current edits
+intact; file save/export failures are visible.
 Built-in files are fetched at runtime, ordered by filename, and refreshed with
 **Refresh levels**. Run `npm run levels:index` after adding, removing or renaming
 assets; existing-file edits need no index change. `npm run levels:sync` copies the

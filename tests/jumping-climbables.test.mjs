@@ -206,11 +206,12 @@ test('rope rest hangs from overhead grips and swinging turns smoothly into a pro
       if (input.move) {
         assert.equal(pose.sideView, 1)
         assert.ok(distance(pose.frontArm.root, pose.backArm.root) < .01, 'the shoulders coincide in profile')
-        assert.ok((pose.hip[0] - pose.frontArm.hand[0]) * facing * input.move > 10, 'the body leans toward the input')
-        assert.ok(Math.abs(pose.hip[0]) < 1, 'the camera follows the body, not the loose rope tail')
+        assert.ok(Math.abs(pose.hip[0]) < 20, 'the swinging silhouette stays close to the player root')
         for (const arm of [pose.frontArm, pose.backArm]) {
           assert.ok(distance(arm.root, arm.end) > 18.7)
-          assert.ok(arm.hand[1] < pose.head[1] - 8)
+          assert.ok((arm.hand[0] - pose.shoulder[0]) * facing * input.move > 9, 'the shoulders stay behind the fixed grip')
+          assert.ok((arm.hand[0] - pose.head[0]) * facing * input.move > 8, 'the rope is held in front of the head in either direction')
+          assert.ok(arm.hand[1] < pose.head[1] - 5)
         }
       } else {
         assert.ok(pose.sideView < .01)

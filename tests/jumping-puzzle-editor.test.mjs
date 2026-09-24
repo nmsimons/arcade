@@ -3,7 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { addItem, deleteItem, duplicateItem, moveItem, resizeItem } from '../src/games/jumping/editor.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { levelProblems, parseLevel, saveLevel, readSavedLevels } from '../src/games/jumping/level.ts'
+import { levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { carvePit } from '../src/games/jumping/puzzleEditor.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
@@ -15,7 +15,7 @@ test('a drawn pit includes solid banks, a catch floor, and a ladder returning to
   assert.equal(level.climbables.ladders[0].side, -1); assert.equal(level.climbables.ladders[0].bottom, 1320)
   assert.deepEqual(levelProblems(level), []); assert.deepEqual(parseLevel(level), level)
 })
-test('every gameplay object survives editing, save/load, and a portable JSON round-trip', () => {
+test('every gameplay object survives editing and a portable JSON file round-trip', () => {
   let level = blankTrial()
   for (const [index, tool] of ['box', 'ball', 'pusher', 'lift', 'gate', 'plate'].entries()) {
     const added = addItem(level, tool, { x: 300 + index * 180, y: 920 }, { x: 300 + index * 180, y: 920 })
@@ -24,8 +24,6 @@ test('every gameplay object survives editing, save/load, and a portable JSON rou
   assert.equal(level.props.length, 2); assert.equal(level.robots.length, 1); assert.equal(level.mechanisms.length, 2)
   assert.equal(level.triggers[0].target, level.mechanisms[1].id)
   assert.deepEqual(levelProblems(level), [])
-  let raw = null; const storage = { getItem: () => raw, setItem: (_, value) => { raw = value } }
-  saveLevel(storage, level); assert.deepEqual(readSavedLevels(storage)[0], level)
   assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))), level)
 })
 test('duplicated mechanisms have unique identities; deleting one leaves an explicit missing connection', () => {
@@ -36,10 +34,10 @@ test('duplicated mechanisms have unique identities; deleting one leaves an expli
   level = deleteItem(level, { kind: 'mechanism', index: 0 })
   assert.equal(level.triggers[0].target, ''); assert.match(levelProblems(level).join(), /Connect each pressure plate/)
 })
-test('goals follow their supporting platform, and the start and flag cannot be deleted accidentally', () => {
+test('goals follow their supporting platform, and the start and goal cannot be deleted accidentally', () => {
   const before = CAMPAIGN[0], after = moveItem(before, { kind: 'platform', index: 1 }, -40, -60)
-  assert.equal(after.flag.y, 460); assert.equal(after.flag.x, before.flag.x - 40)
-  assert.deepEqual(deleteItem(after, { kind: 'flag', index: 0 }), after)
+  assert.equal(after.goal.y, 460); assert.equal(after.goal.x, before.goal.x - 40)
+  assert.deepEqual(deleteItem(after, { kind: 'goal', index: 0 }), after)
   assert.deepEqual(deleteItem(after, { kind: 'spawn', index: 0 }), after)
 })
 test('sizing props and moving robots keeps their definitions bounded', () => {

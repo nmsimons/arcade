@@ -5,6 +5,9 @@ import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
 import { groundAt, platformSurface } from './terrain.ts'
+import { GOAL_PLATE_WIDTH, GOAL_REVEAL_SECONDS } from './goal.ts'
+import { stepPickups } from './pickups.ts'
+import type { PickupState } from './pickups.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop {
@@ -15,18 +18,19 @@ export interface RobotState { definition: Pusher; x: number; y: number; facing: 
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; active: boolean }[]; robots: RobotState[]; shoveCooldown: number
-  elapsed: number; started: boolean; finished: boolean; medal: Medal | null
+  pickups: PickupState[]; activeTime: number; timeStopRemaining: number
+  elapsed: number; started: boolean; finished: boolean; finishElapsed: number; goalDepression: number; medal: Medal | null
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
 export function medalFor(seconds: number, level: PuzzleLevel): Medal {
   return seconds <= level.times.gold ? 'Gold' : seconds <= level.times.silver ? 'Silver' : seconds <= level.times.bronze ? 'Bronze' : 'No medal'
 }
 export function formatTime(seconds: number) {
-  const centiseconds = Math.floor((seconds + 1e-7) * 100)
-  return `${Math.floor(centiseconds / 6000)}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`
+  const centiseconds = Math.floor((Math.abs(seconds) + 1e-7) * 100)
+  return `${seconds < 0 && centiseconds ? '-' : ''}${Math.floor(centiseconds / 6000)}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`
 }
 export function readBest(storage: Pick<Storage, 'getItem'>, id: string): number | null {
-  try { const value = JSON.parse(storage.getItem(BEST_TIME_KEY) ?? '{}')[id]; return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null } catch { return null }
+  try { const value = JSON.parse(storage.getItem(BEST_TIME_KEY) ?? '{}')[id]; return typeof value === 'number' && Number.isFinite(value) ? value : null } catch { return null }
 }
 export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds: number, id: string): number {
   const best = Math.min(readBest(storage, id) ?? Infinity, seconds)
@@ -43,7 +47,8 @@ export function createRun(level: PuzzleLevel): Run {
     mechanisms: level.mechanisms.map(definition => ({ definition, y: definition.y, direction: -1, wait: 0, active: false })),
     triggers: level.triggers.map(() => ({ held: 0, active: false })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, facing: -1, phase: 'patrol', time: 0, hit: false })),
-    shoveCooldown: 0, elapsed: 0, started: false, finished: false, medal: null }
+    pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), activeTime: 0, timeStopRemaining: 0,
+    shoveCooldown: 0, elapsed: 0, started: false, finished: false, finishElapsed: 0, goalDepression: 0, medal: null }
   syncPlatforms(run)
   return run
 }
@@ -183,15 +188,29 @@ function stepRobots(run: Run, dt: number) {
     }
   }
 }
+/** Only feet/bottom contact loads the plate; passing through the light or over it does not. */
+function goalPressed(run: Run) {
+  const goal = run.level.goal, half = GOAL_PLATE_WIDTH / 2
+  const contact = (body: { x: number; y: number; grounded: boolean }, footprint: number) =>
+    body.grounded && Math.abs(body.y - goal.y) < 2 && Math.abs(body.x - goal.x) < half + footprint - 2
+  return contact(run.player, TUNING.width / 2) || run.props.some(prop => contact(prop, prop.kind === 'box' ? prop.size / 2 : 0))
+}
 export function stepRun(run: Run, input: JumpInput, dt = STEP) {
-  if (run.finished) return
   if (!run.started && (Math.abs(input.move) > .01 || input.jump || input.climb || input.descend)) run.started = true
-  if (!run.started) return
-  run.elapsed += dt
+  if (!run.started) { run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.finished); return }
+  run.activeTime += dt
+  if (run.finished) run.finishElapsed = Math.min(GOAL_REVEAL_SECONDS, run.finishElapsed + dt)
+  else {
+    const stopped = Math.min(dt, run.timeStopRemaining)
+    run.timeStopRemaining = Math.max(0, run.timeStopRemaining - stopped)
+    run.elapsed += dt - stopped
+  }
   stepMechanisms(run, dt); syncPlatforms(run)
   stepProps(run, input, dt); syncPlatforms(run)
   stepPlayer(run.player, input, dt, run.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity })
   collideBalls(run); stepRobots(run, dt)
+  // Resolve pickups before a goal touched on this step; the completed score then stays latched.
+  run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.finished)
   run.level.triggers.forEach((plate, index) => {
     const sensor = run.triggers[index]
     const weighted = run.props.some(b => Math.abs(b.x - (plate.x + plate.w / 2)) <= plate.w / 2 - 6 && Math.abs(b.y - plate.y) < 3 && b.grounded)
@@ -200,7 +219,9 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     if (sensor.held >= .15) sensor.active = true
     if (sensor.active) { const mechanism = run.mechanisms.find(m => m.definition.id === plate.target); if (mechanism) mechanism.active = true }
   })
-  if (run.player.grounded && Math.abs(run.player.x - run.level.flag.x) < 28 && Math.abs(run.player.y - run.level.flag.y) < 4) {
-    run.finished = true; run.medal = medalFor(run.elapsed, run.level); cancelJumpInput(run.player)
+  const pressed = goalPressed(run)
+  run.goalDepression = approach(run.goalDepression, pressed ? 1 : 0, dt / .12)
+  if (!run.finished && pressed) {
+    run.finished = true; run.medal = medalFor(run.elapsed, run.level)
   }
 }

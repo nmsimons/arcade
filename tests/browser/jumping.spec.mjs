@@ -1,7 +1,10 @@
+import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold, tap } from './helpers/controller.mjs'
 
 async function setup(page, controller = false) {
+  await useLevelFixtures(page, [DEFAULT_LEVEL])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(({ controller }) => {
     if (controller) {
@@ -18,23 +21,29 @@ async function setup(page, controller = false) {
       if (args[2] === 6.2 && args[3] === 6.2 && window.jumpCamera) {
         const body = this.getTransform(), camera = window.jumpCamera
         window.jumpPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
+        const now = performance.now()
+        window.jumpMotion = [...(window.jumpMotion ?? []).filter(point => now - point.time < 200), { x: window.jumpPlayer.x, time: now }]
         window.jumpScreen = { x: body.e / this.canvas.width, y: (body.f - Math.abs(body.d) * 31) / this.canvas.height }
       }
       return ellipse.apply(this, args)
     }
   }, { controller })
   await page.goto('/untitled-jumping-game')
-  await expect(page.getByRole('button', { name: 'Enter playground' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start level' })).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.clock.runFor(64)
 }
 const position = page => page.evaluate(() => window.jumpPlayer)
+const speed = page => page.evaluate(() => {
+  const first = window.jumpMotion[0], last = window.jumpMotion.at(-1)
+  return Math.abs(last.x - first.x) / ((last.time - first.time) / 1000) / 60
+})
 async function expectCentered(page) {
   const point = await page.evaluate(() => window.jumpScreen)
   expect(point.x).toBeCloseTo(.5, 5); expect(point.y).toBeCloseTo(.5, 5)
 }
 async function enter(page) {
-  await page.getByRole('button', { name: 'Enter playground' }).click()
+  await page.getByRole('button', { name: 'Start level' }).click()
   await page.clock.runFor(64)
   await expect(page.locator('canvas')).toBeFocused()
 }
@@ -44,23 +53,21 @@ test('keyboard walks and runs, quick taps jump, and a charged jump goes higher',
   await setup(page); await enter(page)
   await expectCentered(page)
   await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.clock.runFor(350)
-  await expect(page.getByTestId('jump-speed')).toHaveText('2.1')
+  expect(Math.abs(await speed(page) - 2.1)).toBeLessThan(.2)
   await page.keyboard.up('Shift'); await page.clock.runFor(300)
-  await expect(page.getByTestId('jump-speed')).toHaveText('5.8')
+  expect(Math.abs(await speed(page) - 5.8)).toBeLessThan(.2)
   const runStart = await position(page)
   await page.keyboard.down('Space'); await page.clock.runFor(400)
-  await expect(page.getByTestId('jump-speed')).toHaveText('5.8')
-  await expect(page.getByRole('meter')).toHaveAttribute('value', '1')
+  expect(Math.abs(await speed(page) - 5.8)).toBeLessThan(.2)
   expect((await position(page)).x - runStart.x).toBeGreaterThan(130)
   await expectCentered(page)
   await page.screenshot({ path: info.outputPath('running-charge.png') })
   await page.keyboard.up('Space')
   await page.keyboard.up('d'); await page.keyboard.press('r'); await page.clock.runFor(64)
-  await page.keyboard.press('Space'); await page.clock.runFor(280)
-  const short = await position(page); expect(short.y).toBeLessThan(570); expect(short.y).toBeGreaterThan(540)
+  await page.keyboard.press('Space'); await page.clock.runFor(200)
+  const short = await position(page); expect(short.y).toBeLessThan(592); expect(short.y).toBeGreaterThan(582)
   await page.clock.runFor(700)
   await page.keyboard.down('Space'); await page.clock.runFor(800)
-  await expect(page.getByRole('meter')).toHaveAttribute('value', '1')
   expect((await position(page)).y).toBeCloseTo(620)
   await page.keyboard.up('Space'); await page.clock.runFor(480)
   expect((await position(page)).y).toBeLessThan(short.y - 100)
@@ -75,13 +82,12 @@ test('keyboard walks and runs, quick taps jump, and a charged jump goes higher',
 
 test('controller-only play gates launch, supports analog speed and charge, and pauses on disconnect', async ({ page }) => {
   await setup(page, true)
-  await tap(page, 13) // The time trial is first; choose the movement playground below it.
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   expect((await position(page)).y).toBeCloseTo(620)
   await hold(page, 0, 0); expect((await position(page)).y).toBeCloseTo(620)
   await page.evaluate(() => { window.testPad.axes[0] = .59 }); await page.clock.runFor(400)
-  await expect(page.getByTestId('jump-speed')).toHaveText('2.9')
+  expect(Math.abs(await speed(page) - 2.9)).toBeLessThan(.2)
   await page.evaluate(() => { window.testPad.axes[0] = 0 }); await page.clock.runFor(200)
   await hold(page, 0, 1, 800); await hold(page, 0, 0, 480)
   expect((await position(page)).y).toBeLessThan(440)
@@ -127,7 +133,7 @@ test('pausing while charging cancels the charge and requires fresh controller in
   await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
   await tap(page, 9); await page.clock.runFor(300); await hold(page, 0, 0)
   expect((await position(page)).y).toBeCloseTo(620)
-  await expect(page.getByRole('meter')).toHaveAttribute('value', '0')
+  await expect(page.getByRole('meter')).toHaveCount(0)
   await hold(page, 0, 1, 100); await hold(page, 0, 0, 200)
   expect((await position(page)).y).toBeLessThan(600)
 })
@@ -258,8 +264,8 @@ test('the playground remains readable at compact sizes', async ({ page }, info) 
     await page.setViewportSize(viewport); await page.clock.runFor(64)
     const dialog = page.getByRole('dialog')
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    await page.getByRole('button', { name: 'Enter playground' }).focus()
-    await expect(page.getByRole('button', { name: 'Enter playground' })).toBeInViewport()
+    await page.getByRole('button', { name: 'Start level' }).focus()
+    await expect(page.getByRole('button', { name: 'Start level' })).toBeInViewport()
     await page.screenshot({ path: info.outputPath(`playground-menu-${viewport.width}.png`) })
   }
 })

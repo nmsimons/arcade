@@ -5,6 +5,7 @@ import type { JumpLevel } from './level.ts'
 import { ropePath } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
+import { drawWallTexts } from './wallText.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -39,6 +40,7 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   const bottom = levelHeight(level), firstY = bottom - Math.floor((bottom - Math.max(0, view.y)) / grid) * grid
   for (let y = firstY; y <= Math.min(bottom, view.y + view.h); y += grid) { ctx.moveTo(view.x, y); ctx.lineTo(view.x + view.w, y) }
   ctx.stroke(); ctx.restore()
+  drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[]) {
   ctx.fillStyle = TERRAIN_COLOR

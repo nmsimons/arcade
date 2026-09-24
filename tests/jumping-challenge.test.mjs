@@ -7,11 +7,12 @@ import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { levelProblems, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
 import { NO_CLIMBABLES } from '../src/games/jumping/climbables.ts'
 import { playLesson } from './helpers/jumping-routes.mjs'
+import { GOAL_PLATE_WIDTH, GOAL_REVEAL_SECONDS } from '../src/games/jumping/goal.ts'
 const advance = (run, frames, input = {}) => { for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input }) }
 for (const [index, level] of CAMPAIGN.entries()) test(`${level.name} can be finished from spawn using its taught mechanic`, () => {
   const run = playLesson(index); assert.ok(run.elapsed < level.times.silver)
   const time = run.elapsed, p = structuredClone(run.player); advance(run, 600, { move: -1, jump: true })
-  assert.equal(run.elapsed, time); assert.deepEqual(run.player, p)
+  assert.equal(run.elapsed, time); assert.notDeepEqual(run.player, p)
 })
 test('a short hop cannot clear lesson one and a charged jump cannot skip either rope lesson', () => {
   for (const [index, level] of CAMPAIGN.entries()) {
@@ -87,7 +88,7 @@ test('a lift landing is a passable seam in either direction', () => {
 })
 test('medals use each level’s thresholds and an unmedalled finish is still successful', () => {
   assert.equal(medalFor(3.5, FIRST_LEVEL), 'Gold'); assert.equal(medalFor(3.51, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(6, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(15, FIRST_LEVEL), 'Bronze'); assert.equal(medalFor(15.01, FIRST_LEVEL), 'No medal')
-  const run = createRun(FIRST_LEVEL); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.flag); advance(run, 1)
+  const run = createRun(FIRST_LEVEL); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.goal); advance(run, 1)
   assert.equal(run.finished, true); assert.equal(run.medal, 'No medal'); assert.equal(formatTime(100.019), '1:40.01')
 })
 test('personal bests are isolated by level and survive slower runs and corrupt storage', () => {
@@ -101,4 +102,60 @@ test('authored maps round-trip with their complete game data and continuous floo
     assert.deepEqual(levelProblems(level), [])
     assert.ok(levelTerrain(level).some(b => b.x <= 0 && b.y === level.floor && b.x + b.w >= level.width))
   }
+})
+
+test('the player must load the goal plate from above; touching the pole or jumping over it does not finish', () => {
+  const level = blankTrial(); level.goal.x = 800
+  const run = createRun(level); run.started = true
+  Object.assign(run.player, { x: 800, y: 860, grounded: false })
+  advance(run, 1); assert.equal(run.finished, false)
+  Object.assign(run.player, { x: 844, y: 920, grounded: true, vy: 0, footwork: null })
+  advance(run, 1); assert.equal(run.finished, false, 'standing at the pole is not plate contact')
+  Object.assign(run.player, { x: 800, footwork: null })
+  advance(run, 1); assert.equal(run.finished, true)
+})
+
+for (const kind of ['box', 'ball']) test(`a ${kind} can light the goal with the player elsewhere`, () => {
+  const level = blankTrial(); level.goal.x = 1000
+  level.props = [{ kind, x: 1000, y: 920, size: 80 }]
+  const run = createRun(level)
+  advance(run, 100); assert.equal(run.finished, false, 'the puzzle still waits for first input')
+  advance(run, 1, { move: -1 })
+  assert.equal(run.finished, true); assert.equal(run.medal, 'Gold'); assert.ok(run.player.x < 200)
+  const time = run.elapsed, player = structuredClone(run.player), prop = structuredClone(run.props[0])
+  advance(run, Math.ceil((GOAL_REVEAL_SECONDS - .2) / STEP), { move: 1, jump: true })
+  assert.ok(run.finishElapsed < GOAL_REVEAL_SECONDS)
+  assert.equal(run.elapsed, time); assert.notDeepEqual(run.player, player); assert.deepEqual(run.props[0], prop)
+  advance(run, 100)
+  assert.equal(run.finishElapsed, GOAL_REVEAL_SECONDS); assert.equal(run.elapsed, time)
+  const fresh = createRun(level)
+  assert.equal(fresh.finished, false); assert.equal(fresh.finishElapsed, 0); assert.equal(fresh.elapsed, 0)
+})
+
+test('a crate edge presses the plate, while a ball must put its bottom contact on the plate', () => {
+  for (const kind of ['box', 'ball']) {
+    const level = blankTrial(); level.goal.x = 1000
+    level.props = [{ kind, x: 1000 + GOAL_PLATE_WIDTH / 2 + 30, y: 920, size: 80 }]
+    const run = createRun(level); run.started = true; advance(run, 1)
+    assert.equal(run.finished, kind === 'box')
+  }
+})
+
+test('an object above the plate only activates it after landing', () => {
+  const level = blankTrial(); level.goal.x = 1000
+  level.props = [{ kind: 'ball', x: 1000, y: 840, size: 80 }]
+  const run = createRun(level); run.started = true
+  advance(run, 1); assert.equal(run.finished, false)
+  advance(run, 90); assert.equal(run.finished, true); assert.equal(run.props[0].y, level.goal.y)
+})
+
+test('walking off the goal releases its plate while the light, medal, and finishing time stay latched', () => {
+  const level = blankTrial(); level.goal.x = 800
+  const run = createRun(level); run.started = true; run.player.x = 800
+  advance(run, 20)
+  assert.equal(run.finished, true); assert.equal(run.goalDepression, 1)
+  const time = run.elapsed, medal = run.medal
+  advance(run, 100, { move: 1 })
+  assert.ok(run.player.x > 1000); assert.equal(run.goalDepression, 0)
+  assert.equal(run.finished, true); assert.equal(run.medal, medal); assert.equal(run.elapsed, time)
 })

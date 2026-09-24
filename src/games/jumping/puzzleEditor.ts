@@ -8,9 +8,9 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
   const floor = Math.min(2800, Math.max(920, ...level.platforms.map(b => b.y + b.h)))
   const defaults = blankTrial()
   return { ...defaults, ...copyLevel(level), height: Math.max(floor + 120, level.height ?? 1040), floor,
-    flag: snapToGround(level, level.width - 160, level.spawn.y), times: defaults.times, props: [], mechanisms: [], triggers: [], robots: [] }
+    goal: snapToGround(level, level.width - 160, level.spawn.y), times: defaults.times, props: [], mechanisms: [], triggers: [], robots: [] }
 }
-export function copyForEditing(level: JumpLevel): JumpLevel { return { ...copyLevel(level), id: newLevelId(), name: `${level.name} — copy` } }
+export function copyForEditing(level: JumpLevel): JumpLevel { return { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` } }
 /** Carve rectangular terrain and provide a bottom floor and a return ladder in one gesture. */
 export function carvePit(source: JumpLevel, start: { x: number; y: number }, end: { x: number; y: number }): PuzzleLevel {
   const level = asTrial(source), x = Math.max(100, Math.min(start.x, end.x)), w = Math.min(level.width - x - 160, Math.max(240, Math.abs(end.x - start.x)))

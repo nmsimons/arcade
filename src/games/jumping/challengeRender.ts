@@ -1,9 +1,13 @@
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run } from './challenge.ts'
+import { formatTime } from './challenge.ts'
 import type { Checkpoint } from './model.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, GOAL_POLE_OFFSET } from './goal.ts'
+import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
+import { drawPickup } from './pickups.ts'
 
-const ink = '#40554f', orange = '#ce6245', brass = '#a68146'
+const brass = '#a68146'
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
   const r = b.size / 2, x = b.x - r, y = b.y - b.size
@@ -73,19 +77,34 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
   if (r.phase === 'recover') { ctx.strokeStyle = '#859384'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -55, 10, elapsed * 9, elapsed * 9 + 2); ctx.stroke() }
   ctx.restore()
 }
-export function drawFlag(ctx: CanvasRenderingContext2D, flag: Checkpoint, complete = false, time = 0) {
-  ctx.strokeStyle = ink; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(flag.x, flag.y); ctx.lineTo(flag.x, flag.y - 107); ctx.stroke()
-  ctx.fillStyle = '#e4d4b4'; ctx.beginPath(); ctx.arc(flag.x, flag.y - 108, 3.3, 0, Math.PI * 2); ctx.fill()
-  const wave = Math.sin(time * 3) * 3
-  ctx.fillStyle = complete ? '#ba994e' : orange; ctx.beginPath(); ctx.moveTo(flag.x + 2, flag.y - 102)
-  ctx.bezierCurveTo(flag.x + 25, flag.y - 113 + wave, flag.x + 38, flag.y - 85, flag.x + 60, flag.y - 96 + wave)
-  ctx.lineTo(flag.x + 60, flag.y - 61 + wave)
-  ctx.bezierCurveTo(flag.x + 39, flag.y - 51, flag.x + 24, flag.y - 80 + wave, flag.x + 2, flag.y - 67); ctx.closePath(); ctx.fill()
-  ctx.fillStyle = '#40554f'; rounded(ctx, flag.x - 11, flag.y - 4, 22, 4, 2); ctx.fill()
+export function drawGoal(ctx: CanvasRenderingContext2D, goal: Checkpoint, complete = false, depression = 0) {
+  const half = GOAL_PLATE_WIDTH / 2, pole = goal.x + GOAL_POLE_OFFSET, lamp = goal.y - GOAL_LIGHT_HEIGHT
+  ctx.fillStyle = '#738575'
+  ctx.fillRect(goal.x + half, goal.y - 2, GOAL_POLE_OFFSET - half, 2)
+  ctx.fillRect(pole - 2, lamp, 4, GOAL_LIGHT_HEIGHT)
+  ctx.fillStyle = complete ? '#a9d56b' : '#9aa38e'
+  ctx.beginPath(); ctx.arc(pole, lamp, 11, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#738575'
+  ctx.fillRect(goal.x - half - 3, goal.y - 3, GOAL_PLATE_WIDTH + 6, 3)
+  ctx.fillStyle = complete ? '#9bb878' : '#c4a66b'
+  ctx.fillRect(goal.x - half, goal.y - 7 + depression * 4, GOAL_PLATE_WIDTH, 3)
 }
-/** Shared world renderer for play, thumbnails, and editor previews. No labels are painted into the level. */
+/** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
 export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run) {
   const { level, player: p } = run
+  // Wall displays sit behind solid terrain and actors, and have no physics shape.
+  ctx.save(); ctx.font = '500 28px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  const clockStopped = !run.finished && run.timeStopRemaining > 0
+  for (const timer of level.timers ?? []) {
+    ctx.fillStyle = clockStopped ? '#eee3ce' : '#e2e7da'; ctx.fillRect(timer.x, timer.y, WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT)
+    ctx.fillStyle = run.finished ? '#66844e' : clockStopped ? '#91652f' : '#40574a'
+    ctx.fillText(formatTime(run.elapsed), timer.x + WALL_TIMER_WIDTH / 2, timer.y + WALL_TIMER_HEIGHT / 2 + 1)
+    if (clockStopped) {
+      ctx.fillRect(timer.x + 9, timer.y + 22, 3, 10)
+      ctx.fillRect(timer.x + 15, timer.y + 22, 3, 10)
+    }
+  }
+  ctx.restore()
   for (const [index, plate] of level.triggers.entries()) {
     const target = run.mechanisms.find(m => m.definition.id === plate.target)?.definition
     if (target) {
@@ -115,10 +134,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run) {
     ctx.fillStyle = run.triggers[i].active ? '#81a186' : '#c4a870'; rounded(ctx, plate.x, plate.y - (run.triggers[i].held ? 4 : 8), plate.w, 5, 2); ctx.fill()
     ctx.strokeStyle = brass; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(plate.x + plate.w / 2, plate.y + 16, 5, 0, Math.PI * 2); ctx.stroke()
   }
+  drawGoal(ctx, level.goal, run.finished, run.goalDepression)
   for (const b of run.props) drawProp(ctx, b)
   drawClimbables(ctx, p, level.climbables)
-  for (const r of run.robots) drawRobot(ctx, r, run.elapsed)
-  drawFlag(ctx, level.flag, run.finished, run.elapsed)
+  for (const r of run.robots) drawRobot(ctx, r, run.activeTime)
+  for (const pickup of run.pickups) drawPickup(ctx, pickup)
   drawMovementEffects(ctx, p); drawAthlete(ctx, p)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {
@@ -126,8 +146,11 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   ctx.fillStyle = '#f0efe8'; ctx.fillRect(0, 0, width, height)
   const zoom = Math.max(.42, Math.min(1.3, height / 850, width / Math.min(1800, level.width + 80)))
   const half = width / zoom / 2
-  const cameraX = level.width < half * 2 - 80 ? level.width / 2 : Math.max(half - 40, Math.min(level.width - half + 40, p.x))
-  const cameraY = p.y - 31
+  // A remotely weighted plate still gets a visible completion moment.
+  const progress = run.finished ? Math.min(1, run.finishElapsed / .55) : 0, ease = progress * progress * (3 - 2 * progress)
+  const focusX = p.x + (level.goal.x - p.x) * ease, focusY = p.y - 31 + (level.goal.y - 50 - (p.y - 31)) * ease
+  const cameraX = level.width < half * 2 - 80 ? level.width / 2 : Math.max(half - 40, Math.min(level.width - half + 40, focusX))
+  const cameraY = focusY
   ctx.save(); ctx.translate(width / 2 - cameraX * zoom, height / 2 - cameraY * zoom); ctx.scale(zoom, zoom)
   const left = cameraX - half, top = cameraY - height / zoom / 2
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom)

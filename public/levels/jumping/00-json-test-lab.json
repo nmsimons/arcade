@@ -2,7 +2,7 @@
   "version": 1,
   "id": "json-lab",
   "name": "JSON Test Lab",
-  "description": "A reference level covering every supported JSON field: terrain, checkpoints, ladders, ropes, props, triggers, mechanisms, and a pusher.",
+  "description": "A reference level covering every supported JSON field: terrain, checkpoints, ladders, ropes, props, triggers, mechanisms, a pusher, stopwatch pickups, wall timers, and wall text.",
   "width": 3200,
   "height": 1400,
   "floor": 1400,
@@ -10,7 +10,7 @@
     "x": 120,
     "y": 1400
   },
-  "flag": {
+  "goal": {
     "x": 3050,
     "y": 1400
   },
@@ -1235,6 +1235,48 @@
       "w": 100,
       "target": "lab-gate",
       "mode": "touch"
+    }
+  ],
+  "timers": [
+    {
+      "x": 80,
+      "y": 1220
+    },
+    {
+      "x": 2880,
+      "y": 1220
+    }
+  ],
+  "texts": [
+    {
+      "x": 60,
+      "y": 1080,
+      "w": 320,
+      "h": 100,
+      "text": "JSON TEST LAB\nFind your route.",
+      "fontSize": 24,
+      "align": "left"
+    },
+    {
+      "x": 2520,
+      "y": 600,
+      "w": 580,
+      "h": 120,
+      "text": "Try another way.\nEvery fall is recoverable.",
+      "fontSize": 24,
+      "align": "center"
+    }
+  ],
+  "pickups": [
+    {
+      "kind": "stopwatch",
+      "x": 260,
+      "y": 1360
+    },
+    {
+      "kind": "stopwatch",
+      "x": 1150,
+      "y": 740
     }
   ]
 }

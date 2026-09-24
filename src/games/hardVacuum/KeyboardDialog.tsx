@@ -46,6 +46,7 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className =
 
   const navigate = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.altKey || event.ctrlKey || event.metaKey || topDialog() !== event.currentTarget) return
+    event.currentTarget.dataset.inputMethod = 'keyboard'
     const key = event.key.toLowerCase()
     if (key === 'escape') {
       event.preventDefault(); event.stopPropagation()
@@ -82,6 +83,7 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className =
   return <div ref={rootRef} tabIndex={-1} role={confirmation ? 'alertdialog' : 'dialog'} aria-modal="true" aria-label={label}
     data-global-menu={globalMenu || undefined} data-dialog-screen={focusKey} data-controller-mode={controllerMode} className={`game-dialog ${className}`} onKeyDown={navigate}
     onPointerDownCapture={event => {
+      event.currentTarget.dataset.inputMethod = 'pointer'
       const button = (event.target as HTMLElement).closest('button')
       if (button && dialogButtons(event.currentTarget).includes(button)) button.focus({ preventScroll: true })
     }}

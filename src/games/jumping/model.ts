@@ -1,7 +1,7 @@
 import { advanceFootwork } from './footwork.ts'
 import type { Footwork } from './footwork.ts'
 import { climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
-import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ropeImpulse, ropePoint, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
+import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ropeGripDistance, ropeImpulse, ropePoint, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder, RopeState } from './climbables.ts'
 import { exposedSide, followGround, groundAt, platformSurface, walkable } from './terrain.ts'
 import { bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
@@ -357,20 +357,23 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (c.wall) { p.facing = c.wall.side; c.swing = 0 }
     c.swing += ((c.rope && !c.wall ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
     c.lean += ((c.rope && !c.wall && !c.direction ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
-    c.hangBlend = approach(c.hangBlend, Number(!!c.rope && !c.direction), dt / .22)
-    let catchVelocity: [number, number] | null = null
+    // As the feet run out of rope, keep the body hanging below its hands instead
+    // of extrapolating the last tiny segment into a long, whipping body support.
+    const endHang = c.rope ? ease((c.distance - c.rope.definition.length + 80) / 48) : 0
+    c.hangBlend = approach(c.hangBlend, Math.max(Number(!!c.rope && !c.direction), endHang), dt / .22)
+    let ropeVelocity: [number, number] | null = null
     if (c.rope) {
-      const grip = climbGait(c.distance, c.rope.definition.length).grip
+      const grip = ropeGripDistance(previousClimb)
       const current = ropePoint(c.rope, grip), previous = ropePoint(c.rope, grip, true)
       const velocity: [number, number] = [(current[0] - previous[0]) / dt, (current[1] - previous[1]) / dt]
       c.swingVelocity += (Math.max(-1, Math.min(1, velocity[0] / 240)) - c.swingVelocity) * (1 - Math.exp(-dt / .08))
-      // Moving into the catch pose is not swing momentum. Use the loaded grip
-      // until both ends of the body-motion sample are past the catch blend.
-      if (previousClimb.time < .16) catchVelocity = velocity
+      // Catch blends, hand-over-hand poses and weight-shift poses do not add
+      // physical momentum. Sample the same loaded material point at both times.
+      ropeVelocity = velocity
     }
     p.crouch = 0; p.crouching = false; p.reach = 0; p.landing = 0; p.charge = 0; p.charging = false; p.buffer = 0
     if (pressed || input.detach) {
-      if (catchVelocity) [p.vx, p.vy] = catchVelocity
+      if (ropeVelocity && previousClimb.time < .16) [p.vx, p.vy] = ropeVelocity
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
       const jumping = pressed && !input.detach
       const launchMove = c.rope && wall ? -wall.side : input.move
@@ -427,9 +430,11 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         p.vx = (p.x - oldX) / dt; p.vy = (p.y - oldY) / dt
       } else { p.climbing = null; p.grabCooldown = .3; p.vx = 0; p.vy = 0 }
     }
-    // Also replace the final blended sample, so a release on the next frame
-    // cannot inherit its catch-up speed. Settled swing motion is unchanged.
-    if (catchVelocity && p.climbing === c) [p.vx, p.vy] = catchVelocity
+    if (ropeVelocity && p.climbing === c) {
+      const before = ropePoint(c.rope!, previousClimb.distance), after = ropePoint(c.rope!, c.distance)
+      p.vx = ropeVelocity[0] + (after[0] - before[0]) / dt
+      p.vy = ropeVelocity[1] + (after[1] - before[1]) / dt
+    }
     if (c.rope && p.climbing && c.distance === bottom && vertical < 0 && c.time >= .16) {
       // Descending off the last handhold is a natural exit, not a jump.
       p.climbing = null; p.grabCooldown = .35; p.vy = Math.max(80, p.vy)

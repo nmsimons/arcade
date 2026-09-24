@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
-import { climbGait, ropePoint } from '../src/games/jumping/climbables.ts'
+import { ropeGripDistance, ropePoint } from '../src/games/jumping/climbables.ts'
 import { CAMPAIGN } from './helpers/jumping-fixtures.mjs'
 
 const input = extras => ({ ...NEUTRAL_INPUT, ...extras })
@@ -17,6 +17,7 @@ test('settling onto a stationary rope cannot supply jump or drop momentum', () =
     assert.equal(p.climbing?.kind, 'rope')
     for (let i = 0; i < frames; i++) tick(p)
     const { x, y } = p, c = p.climbing
+    const grip = ropeGripDistance(c)
     tick(p, { move: side, jump: true, detach: drop })
     assert.equal(p.climbing, null)
     assert.equal(p.x, x); assert.equal(p.y, y, 'releasing must not snap to the final catch pose')
@@ -24,7 +25,6 @@ test('settling onto a stationary rope cannot supply jump or drop momentum', () =
     assert.ok(Math.abs(p.vx - expected) < .01, `catch repositioning added horizontal speed: side ${side}, gap ${gap}, frame ${frames}, drop ${drop}, vx ${p.vx}`)
     if (!drop && frames <= 20) {
       // The loaded rope can bob vertically as it settles; that is real motion.
-      const grip = climbGait(c.distance, c.rope.definition.length).grip
       const swingUp = Math.max(0, (ropePoint(c.rope, grip, true)[1] - ropePoint(c.rope, grip)[1]) / STEP)
       assert.ok(p.vy >= -360 - swingUp - 1, `catch repositioning added upward speed at frame ${frames}: ${p.vy}`)
     }

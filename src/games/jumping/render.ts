@@ -11,6 +11,7 @@ import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
 
 const ACCENT = '#df633f'
+export const LEVEL_BOTTOM_PADDING = 32
 
 export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: ClimbableWorld) {
   for (const ladder of world.ladders) {
@@ -61,7 +62,8 @@ export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player) {
 }
 export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel) {
   const zoom = Math.max(.45, Math.min(1.6, height / 760))
-  const x = p.x - width / zoom / 2, y = p.y - TUNING.height / 2 - height / zoom / 2
+  const x = p.x - width / zoom / 2
+  const y = Math.min(p.y - TUNING.height / 2 - height / zoom / 2, levelHeight(level) - (height - LEVEL_BOTTOM_PADDING) / zoom)
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
   drawTerrain(ctx, level.platforms); drawClimbables(ctx, p, level.climbables)

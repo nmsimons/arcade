@@ -3,8 +3,8 @@ import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold, tap } from './helpers/controller.mjs'
 
-async function setup(page, controller = false) {
-  await useLevelFixtures(page, [DEFAULT_LEVEL])
+async function setup(page, controller = false, level = DEFAULT_LEVEL) {
+  await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(({ controller }) => {
     if (controller) {
@@ -47,6 +47,81 @@ async function enter(page) {
   await page.clock.runFor(64)
   await expect(page.locator('canvas')).toBeFocused()
 }
+
+for (const trial of [false, true]) test(`${trial ? 'trial' : 'playground'} camera leaves bottom padding and centers the player after climbing`, async ({ page }, info) => {
+  const bottom = 1800
+  const level = {
+    version: 1, id: 'camera-floor', name: 'Camera floor', width: 2000, height: bottom,
+    spawn: { x: 1000, y: bottom }, checkpoints: [], platforms: [],
+    climbables: { ladders: [{ x: 1000, top: 200, bottom, platform: -1, side: 1 }], ropes: [] },
+    ...(trial ? { height: 2000, floor: bottom, goal: { x: 1500, y: bottom }, times: { gold: 30, silver: 60, bronze: 120 },
+      props: [], mechanisms: [], triggers: [], robots: [] } : {}),
+  }
+  await setup(page, false, level); await enter(page)
+  const visibleBottom = () => page.evaluate(() => (document.querySelector('canvas').height - window.jumpCamera.f) / window.jumpCamera.d)
+  const floorPadding = () => page.evaluate(bottom => {
+    const canvas = document.querySelector('canvas'), camera = window.jumpCamera
+    return (1 - (bottom * camera.d + camera.f) / canvas.height) * canvas.getBoundingClientRect().height
+  }, bottom)
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 640, height: 480 }]) {
+    await page.setViewportSize(viewport); await page.clock.runFor(64)
+    expect(await floorPadding()).toBeCloseTo(32, 3)
+    expect((await page.evaluate(() => window.jumpScreen)).y).toBeGreaterThan(.85)
+    expect((await position(page)).y).toBeCloseTo(bottom, 3)
+  }
+  await page.screenshot({ path: info.outputPath('camera-at-floor.png') })
+  await page.keyboard.down('w'); await page.clock.runFor(1000)
+  expect(await floorPadding()).toBeCloseTo(32, 3)
+  expect((await page.evaluate(() => window.jumpScreen)).y).toBeGreaterThan(.5)
+  await page.clock.runFor(9000); await page.keyboard.up('w')
+  await expect(page.locator('.jumping-state')).toContainText('Ladder')
+  await expectCentered(page)
+  expect(await visibleBottom()).toBeLessThan(bottom)
+  await page.screenshot({ path: info.outputPath('camera-following-climb.png') })
+  await page.keyboard.down('ArrowDown'); await page.clock.runFor(10000); await page.keyboard.up('ArrowDown')
+  expect((await position(page)).y).toBeCloseTo(bottom, 3)
+  expect(await floorPadding()).toBeCloseTo(32, 3)
+})
+
+for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} maximum-length rope holds steady and permits a controlled descent off its end`, async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  const level = {
+    version: 1, id: 'long-rope-regression', name: 'Long rope', width: 2000, height: 2600,
+    spawn: { x: 990, y: 2300 }, checkpoints: [],
+    platforms: [{ x: 0, y: 2300, w: 2000, h: 300 }],
+    climbables: { ladders: [], ropes: [{ x: 1000, y: 200, length: 2000, segments: 250 }] },
+  }
+  await setup(page, controller, level); await enter(page)
+  if (controller) await tap(page, 0)
+  else await page.keyboard.press('Space')
+  await page.clock.runFor(1600)
+  await expect(page.locator('.jumping-state')).toHaveText('Rope · holding')
+  const held = await position(page)
+  await page.clock.runFor(2000)
+  const settled = await position(page)
+  expect(Math.abs(settled.y - held.y)).toBeLessThan(.5)
+  expect(Math.abs(settled.x - held.x)).toBeLessThan(.5)
+  await page.screenshot({ path: info.outputPath('long-rope-hanging.png') })
+  if (controller) await page.evaluate(() => { window.testPad.axes[0] = 1 })
+  else await page.keyboard.down('d')
+  await page.clock.runFor(700)
+  if (controller) await page.evaluate(() => { window.testPad.axes[0] = 0 })
+  else await page.keyboard.up('d')
+  await expect(page.locator('.jumping-state')).toHaveText('Rope · holding')
+  await page.screenshot({ path: info.outputPath('long-rope-swing.png') })
+  const before = await position(page)
+  if (controller) await page.evaluate(() => { window.testPad.axes[1] = 1 })
+  else await page.keyboard.down('ArrowDown')
+  await page.clock.runFor(500)
+  if (controller) await page.evaluate(() => { window.testPad.axes[1] = 0 })
+  else await page.keyboard.up('ArrowDown')
+  await expect(page.locator('.jumping-state')).not.toContainText('Rope')
+  const after = await position(page)
+  expect(Math.abs(after.x - before.x)).toBeLessThan(150)
+  expect(after.y).toBeGreaterThan(before.y)
+  await page.screenshot({ path: info.outputPath('long-rope-released.png') })
+  expect(errors).toEqual([])
+})
 
 test('keyboard walks and runs, quick taps jump, and a charged jump goes higher', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))

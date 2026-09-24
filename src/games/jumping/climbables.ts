@@ -231,6 +231,45 @@ export function ropePump(climb: Climbing) {
   return { waist, hip, frontFoot, backFoot }
 }
 
+/** The material point carrying the body, independent of the animated body root. */
+export function ropeGripDistance(climb: Climbing) {
+  if (climb.wall) return climb.distance
+  const gait = climbGait(climb.distance, climb.rope!.definition.length), hanging = ease(climb.hangBlend)
+  return gait.hands.reduce((sum, hand) => sum + hand.distance + (gait.grip - hand.distance) * hanging, 0) / 2
+}
+
+/** Coarse distance bounds carry tension through long spans without making slack
+ * rope rigid. These bounds follow from the sum of the local segment lengths.
+ */
+function solveRopeTension(rope: RopeState, count: number, weights: number[], strength: number) {
+  const { nodes } = rope
+  // Share each correction with the local contact sweeps instead of snapping a
+  // whole span taut before the feet and body have resolved their terrain contact.
+  strength *= .5
+  // Every possible grip has the same maximum reach from the fixed anchor, not
+  // just the endpoints of the coarse groups. This also keeps regrips continuous.
+  for (let i = 8; i <= count; i++) {
+    const node = nodes[i], dx = node.x - nodes[0].x, dy = node.y - nodes[0].y
+    const actual = Math.hypot(dx, dy), length = ropeDistance(rope, i)
+    if (actual <= length) continue
+    const correction = strength * (actual - length) / actual
+    node.x -= dx * correction; node.y -= dy * correction
+  }
+  // The local sweeps already resolve small groups; join those groups here.
+  for (let stride = 2 ** Math.ceil(Math.log2(count)); stride >= 8; stride /= 2) {
+    for (let start = 0; start < count; start += stride) {
+      const end = Math.min(count, start + stride), a = nodes[start], b = nodes[end]
+      if (end - start < 8) continue
+      const dx = b.x - a.x, dy = b.y - a.y, actual = Math.hypot(dx, dy)
+      const length = ropeDistance(rope, end) - ropeDistance(rope, start)
+      if (actual <= length) continue
+      const correction = strength * (actual - length) / actual / (weights[start] + weights[end])
+      a.x += dx * correction * weights[start]; a.y += dy * correction * weights[start]
+      b.x -= dx * correction * weights[end]; b.y -= dy * correction * weights[end]
+    }
+  }
+}
+
 /** Verlet particles, distance constraints, an anchored top and a heavier loaded grip. */
 export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
   body?: { climb: Climbing; from: Point; facing: number } } | null) {
@@ -240,10 +279,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   const nearby = platforms.filter(b => b.x < definition.x + reach && b.x + b.w > definition.x - reach
     && b.y < definition.y + reach && b.y + b.h > definition.y - reach)
   let loadDistance = load?.distance ?? 0
-  if (load?.body && !load.wall) {
-    const c = load.body.climb, gait = climbGait(c.distance, definition.length), hanging = ease(c.hangBlend)
-    loadDistance = gait.hands.reduce((sum, hand) => sum + hand.distance + (gait.grip - hand.distance) * hanging, 0) / 2
-  }
+  if (load?.body) loadDistance = ropeGripDistance(load.body.climb)
   const loadedAt = load ? clamp(ropeCoordinate(rope, loadDistance), 1, nodes.length - 1) : -2
   const loaded = Math.round(loadedAt)
   // Rope mass scales with segment length; the player's mass does not. Sharing
@@ -276,9 +312,18 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     const pumping = supports[i] * (bodyMass + 1) * weights[i]
     n.x += dx + pumpX * pumping; n.y += dy + 1400 * dt * dt + pumpY * pumping
   }
+  // Keep these spans fixed while the hands move; changing a span's endpoint
+  // during a regrip would turn accumulated stretch into an artificial impulse.
+  const tensionEnd = nodes.length - 1
+  const wallGap = load ? 1.5 + (8.5 + Math.sin(load.distance * Math.PI / 22) * 1.5) * (load.bracing ?? 1) : 0
+  const wallSupported = load?.wall && (load.wall.x - load.wall.side * wallGap - nodes[loaded].x) * load.wall.side < 0
+  const tensionStrength = load?.body ? 1 - rappelWeight(load.body.climb) : Number(!wallSupported)
   const passes = Math.max(32, Math.ceil(nodes.length / 8) * 8)
   for (let pass = 0; pass < passes; pass++) {
     nodes[0].x = definition.x; nodes[0].y = definition.y
+    // A free hang loads the span to the anchor. Braced feet also support the
+    // body, so let the local wall/contact constraints resolve that load instead.
+    if (tensionStrength && pass < 32 && pass % 2 === 0) solveRopeTension(rope, tensionEnd, weights, tensionStrength)
     for (let j = 1; j < nodes.length; j++) {
       const i = pass % 2 ? nodes.length - j : j, a = nodes[i - 1], b = nodes[i]
       const bend = rope.bends[i - 1], wa = weight(i - 1), wb = weight(i)
@@ -329,8 +374,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
       // Wall-supported feet carry an outward load. Only the grip is displaced;
       // the constraint chain above it transmits the tension back to the anchor.
       const n = nodes[loaded], wall = load.wall
-      const gap = 1.5 + (8.5 + Math.sin(load.distance * Math.PI / 22) * 1.5) * (load.bracing ?? 1)
-      const target = wall.x - wall.side * gap
+      const target = wall.x - wall.side * wallGap
       if ((target - n.x) * wall.side < 0) n.x += (target - n.x) * .45
     }
     if (load?.body) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, nearby)

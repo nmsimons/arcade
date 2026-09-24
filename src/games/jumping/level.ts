@@ -168,7 +168,7 @@ export function parseLevel(value: unknown): JumpLevel {
     }
     if (r.rest !== undefined) {
       const rest = object(r.rest)
-      if (typeof rest.key !== 'string' || !/^[1-6]:[0-9a-f]{16}$/.test(rest.key)) fail()
+      if (typeof rest.key !== 'string' || !/^[1-7]:[0-9a-f]{16}$/.test(rest.key)) fail()
       const position = (p: unknown) => {
         const pair = list(p, 2)
         if (pair.length !== 2) fail()

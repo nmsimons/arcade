@@ -1,4 +1,4 @@
-import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
+import { drawLevelBackdrop, drawMovementEffects, LEVEL_BOTTOM_PADDING } from './render.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run } from './challenge.ts'
 import { formatTime } from './challenge.ts'
@@ -6,6 +6,7 @@ import type { Checkpoint } from './model.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, GOAL_POLE_OFFSET } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { drawPickup } from './pickups.ts'
+import { levelHeight } from './level.ts'
 
 const brass = '#a68146'
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
@@ -150,7 +151,7 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   const progress = run.finished ? Math.min(1, run.finishElapsed / .55) : 0, ease = progress * progress * (3 - 2 * progress)
   const focusX = p.x + (level.goal.x - p.x) * ease, focusY = p.y - 31 + (level.goal.y - 50 - (p.y - 31)) * ease
   const cameraX = level.width < half * 2 - 80 ? level.width / 2 : Math.max(half - 40, Math.min(level.width - half + 40, focusX))
-  const cameraY = focusY
+  const cameraY = Math.min(focusY, levelHeight(level) + (LEVEL_BOTTOM_PADDING - height / 2) / zoom)
   ctx.save(); ctx.translate(width / 2 - cameraX * zoom, height / 2 - cameraY * zoom); ctx.scale(zoom, zoom)
   const left = cameraX - half, top = cameraY - height / zoom / 2
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom)

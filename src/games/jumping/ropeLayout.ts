@@ -11,7 +11,7 @@ function fingerprint(source: string) {
     a = Math.imul(a ^ source.charCodeAt(i), 16777619)
     b = Math.imul(b, 33) ^ source.charCodeAt(i)
   }
-  return `6:${(a >>> 0).toString(16).padStart(8, '0')}${(b >>> 0).toString(16).padStart(8, '0')}`
+  return `7:${(a >>> 0).toString(16).padStart(8, '0')}${(b >>> 0).toString(16).padStart(8, '0')}`
 }
 
 /** Start on a continuous route around solids, rather than ejecting isolated particles

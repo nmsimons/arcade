@@ -157,6 +157,53 @@ test('author terrain, a free ladder and an anchored rope with portable export', 
   expect(saved.platforms).toEqual(exported.platforms); expect(saved.climbables).toEqual(exported.climbables)
 })
 
+test('rope layout is resolved in the editor, saved, and reused unchanged on playtest and reload', async ({ page }, info) => {
+  const level = { version: 1, id: 'rope-layout', name: 'Rope layout', width: 1200, height: 1000, floor: 1000,
+    spawn: { x: 120, y: 1000 }, flag: { x: 1000, y: 1000 }, checkpoints: [],
+    platforms: [{ x: 300, y: 300, w: 200, h: 300 }], climbables: { ladders: [], ropes: [{ x: 400, y: 200, length: 500, segments: 24 }] },
+    props: [], robots: [], mechanisms: [], triggers: [], times: { gold: 10, silver: 20, bronze: 40 } }
+  await page.addInitScript(level => {
+    if (!localStorage.getItem('arcade.jumping.draft.v1')) localStorage.setItem('arcade.jumping.draft.v1', JSON.stringify(level))
+    const proto = CanvasRenderingContext2D.prototype, begin = proto.beginPath, move = proto.moveTo, line = proto.lineTo, stroke = proto.stroke
+    proto.beginPath = function () { this.recordedPath = []; return begin.call(this) }
+    proto.moveTo = function (x, y) { this.recordedPath?.push([x, y]); return move.call(this, x, y) }
+    proto.lineTo = function (x, y) { this.recordedPath?.push([x, y]); return line.call(this, x, y) }
+    proto.stroke = function (...args) {
+      if (this.strokeStyle === '#998263' && Math.abs(this.lineWidth - 2.8) < .001) this.canvas.ropePath = this.recordedPath.slice(1)
+      return stroke.apply(this, args)
+    }
+  }, level)
+  await open(page)
+  const editor = page.getByRole('application', { name: 'Level canvas' })
+  const preview = await editor.evaluate(canvas => canvas.ropePath)
+  expect(preview.length).toBeGreaterThanOrEqual(Math.ceil(500 / 8) + 1)
+  expect(Math.abs(preview.at(-1)[0] - 400)).toBeGreaterThan(50)
+  await page.getByRole('button', { name: 'Save level', exact: true }).click()
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.levels.v1'))[0])
+  const { points, bends } = saved.climbables.ropes[0].rest
+  expect(points.flatMap((p, i) => i && bends[i - 1] ? [bends[i - 1], p] : [p])).toEqual(preview)
+  await page.screenshot({ path: info.outputPath('rope-resolved-in-editor.png') })
+  await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
+  const game = page.getByRole('img', { name: 'Rope layout: reach the flag' })
+  expect(await game.evaluate(canvas => canvas.ropePath)).toEqual(preview)
+  await page.keyboard.down('ArrowLeft'); await page.clock.runFor(32); await page.keyboard.up('ArrowLeft'); await page.clock.runFor(2000)
+  const running = await game.evaluate(canvas => canvas.ropePath)
+  expect(Math.max(...running.map((p, i) => Math.hypot(p[0] - preview[i][0], p[1] - preview[i][1])))).toBeLessThan(1)
+  await page.getByRole('button', { name: /^Restart R$/ }).click(); await page.clock.runFor(32)
+  expect(await game.evaluate(canvas => canvas.ropePath)).toEqual(preview)
+  await page.getByRole('button', { name: 'Return to builder' }).click()
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
+  await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('600')
+  await page.clock.runFor(600)
+  const edited = await editor.evaluate(canvas => canvas.ropePath)
+  expect(edited).not.toEqual(preview)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await page.clock.runFor(600)
+  expect(await editor.evaluate(canvas => canvas.ropePath)).toEqual(preview)
+  await page.clock.resume(); await page.reload()
+  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  expect(await editor.evaluate(canvas => canvas.ropePath)).toEqual(preview)
+})
+
 for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyboard'} Down transfers onto its rope, descends and swings away from the wall`, async ({page},info) => {
   const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,spawn:{x:410,y:200},flag:{x:700,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
   await page.addInitScript(({level,controller})=>{
@@ -195,10 +242,14 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
   expect(returned.x).toBeCloseTo(377, 1)
   if(controller)await page.evaluate(()=>{window.testPad.buttons[1]={pressed:true,value:1}})
   else await page.keyboard.down('x')
-  await page.clock.runFor(600)
+  let kickX = returned.x
+  for (let i = 0; i < 20 && kickX >= returned.x - 12; i++) {
+    await page.clock.runFor(50)
+    kickX = Math.min(kickX, (await page.evaluate(() => window.jumpPlayer)).x)
+  }
   await expect(page.locator('.jumping-state')).toHaveText('Rope · holding')
-  // Action gives one kick, without the additional pumping from held steering.
-  expect((await page.evaluate(() => window.jumpPlayer)).x).toBeLessThan(returned.x - 12)
+  // Sample the outgoing arc: a single kick can already be returning by 600 ms.
+  expect(kickX).toBeLessThan(returned.x - 12)
   if(controller)await page.evaluate(()=>{window.testPad.buttons[1]={pressed:false,value:0};window.testPad.buttons[0]={pressed:true,value:1}})
   else { await page.keyboard.up('x'); await page.keyboard.down('Space') }
   await page.clock.runFor(120)

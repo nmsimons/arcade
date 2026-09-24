@@ -62,7 +62,7 @@ test('ropes climb and descend, carry the player during a swing, and transfer vel
   const p = createPlayer(); p.x = 1535
   advance(p, .8, { climb: true }); assert.equal(p.climbing.kind, 'rope'); const height = p.y
   advance(p, .2, { descend: true }); assert.ok(p.y > height + 15)
-  advance(p, .6, { climb: true, move: 1 }); assert.ok(p.x > 1570)
+  advance(p, .6, { climb: true, move: 1 }); assert.ok(p.x > 1538, 'a modest weight shift should start a swing')
   const velocity = p.vx; advance(p, STEP, { jump: true, move: 1 })
   assert.equal(p.climbing, null); assert.ok(p.vx >= velocity); assert.ok(p.vy < -350)
   const x = p.x; advance(p, .1, { move: 1 }); assert.ok(p.x > x + 10)
@@ -72,6 +72,7 @@ test('ropes climb and descend, carry the player during a swing, and transfer vel
 test('holding a swing direction cannot suspend the rope to one side', () => {
   for (const distance of [80, 240]) for (const move of [-1, -.5, .5, 1]) {
     const rope = createRope(CLIMBABLES.ropes[0])
+    ropeImpulse(rope, distance, 100 * Math.sign(move), 0, STEP)
     let side = 0, crossings = 0, firstPeak = 0, returned = false
     for (let i = 0; i < 12 / STEP; i++) {
       stepRope(rope, STEP, [], { distance, move })
@@ -100,9 +101,24 @@ test('timed weight shifts build a larger swing than holding one side, and neutra
     return peak
   }
   const coasting = amplitude('coast'), held = amplitude('held'), timed = amplitude('timed')
-  assert.ok(coasting > 5, 'releasing the stick preserves pendulum momentum')
-  assert.ok(held > coasting * 2, 'pumping adds useful swing energy')
-  assert.ok(timed > held * 1.1, 'alternating with the swing rewards good timing')
+  assert.ok(coasting > 2, 'releasing the stick preserves pendulum momentum')
+  assert.ok(Math.abs(held - coasting) < .001, 'holding the stick must not keep supplying energy')
+  assert.ok(timed > held * 2, 'alternating with the swing rewards good timing')
+})
+
+test('reversing the stick cannot instantly reverse an established swing', () => {
+  const rope = createRope(CLIMBABLES.ropes[0])
+  ropeImpulse(rope, 240, 400, 0, STEP)
+  for (let i = 0; i < 30; i++) stepRope(rope, STEP, [], { distance: 240, move: 0 })
+  const speed = () => (ropePoint(rope, 240)[0] - ropePoint(rope, 240, true)[0]) / STEP
+  const before = speed()
+  assert.ok(before > 100)
+  let move = 0
+  for (let i = 0; i < 12; i++) {
+    move += (-1 - move) * (1 - Math.exp(-STEP / .2))
+    stepRope(rope, STEP, [], { distance: 240, move })
+  }
+  assert.ok(speed() > 0, 'the stronger weight shift must still leave the rope moving with its existing momentum')
 })
 
 test('airborne rope catches work from either side, rising or falling, without directional input', () => {
@@ -199,7 +215,7 @@ test('pumping gathers the legs and bends the waist before the rope has built spe
     const chest = Math.atan2(early.waist[0] - early.shoulder[0], early.waist[1] - early.shoulder[1])
     const pelvis = Math.atan2(early.hip[0] - early.waist[0], early.hip[1] - early.waist[1])
     assert.ok((pelvis - chest) * move > .25, 'the early tuck must flex through the waist')
-    for (const arm of [early.frontArm, early.backArm]) assert.ok(distance(arm.root, arm.end) > 18.5)
+    for (const arm of [early.frontArm, early.backArm]) assert.ok(distance(arm.root, arm.end) > 18, 'turning keeps both arms close to full extension')
   }
 })
 

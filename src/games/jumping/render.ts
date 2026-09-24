@@ -2,7 +2,7 @@ import { TUNING } from './model.ts'
 import type { Platform, Player } from './model.ts'
 import { DEFAULT_LEVEL, LEVEL_GRID_SIZE, levelHeight } from './level.ts'
 import type { JumpLevel } from './level.ts'
-import { CLIMBABLES } from './climbables.ts'
+import { CLIMBABLES, ropePath } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 
@@ -21,8 +21,7 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
   for (const [i, rope] of world.ropes.entries()) {
     ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
     ctx.beginPath(); ctx.moveTo(rope.x, rope.y)
-    if (p.ropes?.[i]) for (const n of p.ropes[i].nodes) ctx.lineTo(n.x, n.y)
-    else ctx.lineTo(rope.x, rope.y + rope.length)
+    for (const [x, y] of ropePath(rope, p.ropes?.[i])) ctx.lineTo(x, y)
     ctx.stroke()
     ctx.fillStyle = '#697d72'; ctx.beginPath(); ctx.arc(rope.x, rope.y, 5, 0, Math.PI * 2); ctx.fill()
   }

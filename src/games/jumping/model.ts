@@ -82,7 +82,8 @@ export function cancelJumpInput(p: Player) {
 }
 export function respawn(p: Player) {
   const { spawnX, spawnY, checkpoint, bestHeight } = p
-  Object.assign(p, createPlayer(), { x: spawnX, y: spawnY, spawnX, spawnY, checkpoint, bestHeight })
+  const ropes = p.ropes?.map(r => createRope(r.definition)) ?? null
+  Object.assign(p, createPlayer(), { x: spawnX, y: spawnY, spawnX, spawnY, checkpoint, bestHeight, ropes })
 }
 const approach = (value: number, target: number, delta: number) => value + Math.max(-delta, Math.min(delta, target - value))
 const overlaps = (x: number, y: number, b: Platform, height: number = TUNING.height) => bodyIntersects(x, y, b, height)
@@ -181,7 +182,7 @@ function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[]) {
   const candidates = platforms.flatMap((b, platform) => [1, -1].flatMap(side => {
     const edge = ledgeSurface(b, side), gap = edge ? (edge.x - p.x) * side : Infinity
     return edge && gap >= -TUNING.width / 2 && gap <= 48 && Math.abs(edge.x - grip[0]) <= 28
-      && grip[1] >= edge.y - 24 && grip[1] <= edge.y + 32
+      && grip[1] >= edge.y - 24 && grip[1] <= edge.y + 33
       && exposedSide(platforms, b, side, edge.y, edge.y + TUNING.hangReach)
       ? [{ platform, side, edgeX: edge.x, edgeY: edge.y, braced: ledgeBraced(platforms, edge.x, edge.y, side) }] : []
   })).sort((a, b) => Math.hypot(a.edgeX - grip[0], a.edgeY - grip[1]) - Math.hypot(b.edgeX - grip[0], b.edgeY - grip[1]))
@@ -360,7 +361,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (wall && c.rope && !pressed && (input.move * wall.side < -.1 || action)) {
       // A single leg push starts the swing; holding away cannot pin the rope out.
       const grip = ropePoint(c.rope, c.distance), previous = ropePoint(c.rope, c.distance, true)
-      ropeImpulse(c.rope, c.distance, (grip[0] - previous[0]) / dt - wall.side * 180 * (action ? 1 : Math.abs(input.move)), (grip[1] - previous[1]) / dt, dt)
+      ropeImpulse(c.rope, c.distance, (grip[0] - previous[0]) / dt - wall.side * (action ? 260 : 180 * Math.abs(input.move)), (grip[1] - previous[1]) / dt, dt)
       c.wallCooldown = .35
     }
     updateRopeWall(c, platforms, input.move)
@@ -370,8 +371,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     c.rappelPull = approach(c.rappelPull ?? 0, Number(!!c.wall && vertical > 0), dt / .18)
     c.rappelMotion = approach(c.rappelMotion ?? 0, Number(!!c.wall && vertical !== 0), dt / .16)
     if (c.wall) { p.facing = c.wall.side; c.swing = 0 }
-    c.swing += ((c.rope && !c.wall ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .12))
-    c.lean += ((c.rope && !c.wall && !c.direction ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / .14))
+    c.swing += ((c.rope && !c.wall ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
+    c.lean += ((c.rope && !c.wall && !c.direction ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
     c.hangBlend = approach(c.hangBlend, Number(!!c.rope && !c.direction), dt / .22)
     if (c.rope) {
       const grip = climbGait(c.distance, c.rope.definition.length).grip
@@ -396,7 +397,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const edge = ropeLedge({ ...p, x: oldX, y: oldY }, c, platforms)
       if (edge) {
         // The unloaded rope keeps moving; the pose we are leaving must stay fixed.
-        previousClimb.rope = { ...c.rope, nodes: c.rope.nodes.map(node => ({ ...node })) }
+        previousClimb.rope = { ...c.rope, nodes: c.rope.nodes.map(node => ({ ...node })), bends: c.rope.bends.map(bend => bend ? [...bend] : null) }
         p.hang = { ...edge, time: 0, queued: true,
           caught: { x: oldX, y: oldY, vx: 0, vy: 0, stride: p.stride, gait: p.gait, ledgeReach: null, climbing: previousClimb } }
         p.x = oldX; p.y = oldY

@@ -5,6 +5,7 @@ import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
+import { ropePath, ropeSegmentCount } from './climbables.ts'
 
 export type Tool = 'select' | 'pan' | 'polygon' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'flag' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'flag' | 'prop' | 'robot' | 'mechanism' | 'trigger'; index: number }
@@ -22,6 +23,18 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   const p = selection.kind === 'spawn' ? level.spawn : level.checkpoints[i]
   return p ? { x: p.x, y: p.y, w: 0, h: 0 } : null
 }
+export function itemOutline(level: JumpLevel, selection: Selection) {
+  const rope = selection.kind === 'rope' ? level.climbables.ropes[selection.index] : undefined
+  const points = rope ? ropePath(rope) : undefined
+  if (!points) return itemBounds(level, selection)
+  const xs = points.map(p => p[0]), ys = points.map(p => p[1]), x = Math.min(...xs), y = Math.min(...ys)
+  return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
+}
+export function itemHandle(level: JumpLevel, selection: Selection) {
+  const tip = selection.kind === 'rope' ? level.climbables.ropes[selection.index]?.rest?.points.at(-1) : undefined
+  const b = itemBounds(level, selection)
+  return tip ? { x: tip[0], y: tip[1] } : b ? { x: b.x + b.w, y: b.y + b.h } : null
+}
 export function hitItem(level: JumpLevel, x: number, y: number, tolerance: number): Selection | null {
   if (Math.abs(x - level.spawn.x) < tolerance * 1.5 && y <= level.spawn.y + tolerance && y >= level.spawn.y - 62 - tolerance) return { kind: 'spawn', index: 0 }
   for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) return { kind: 'checkpoint', index: i }
@@ -32,7 +45,12 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
   }
   for (let i = level.climbables.ropes.length - 1; i >= 0; i--) {
     const r = level.climbables.ropes[i]
-    if (Math.abs(x - r.x) <= tolerance && y >= r.y - tolerance && y <= r.y + r.length + tolerance) return { kind: 'rope', index: i }
+    const points = ropePath(r)
+    if (points.slice(1).some((b, j) => {
+      const a = points[j], dx = b[0] - a[0], dy = b[1] - a[1]
+      const t = clamp(((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy || 1), 0, 1)
+      return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy) <= tolerance
+    })) return { kind: 'rope', index: i }
   }
   for (let i = level.climbables.ladders.length - 1; i >= 0; i--) {
     const l = level.climbables.ladders[i]
@@ -155,7 +173,8 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   }
   if (tool === 'rope') {
     if (next.climbables.ropes.length >= 40) throw new Error('This level already has 40 ropes.')
-    next.climbables.ropes.push({ x, y, length: clamp(Math.abs(end.y - start.y) || 260, 80, Math.min(2000, levelHeight(level) - y)), segments: 24 })
+    const length = clamp(Math.abs(end.y - start.y) || 260, 80, Math.min(2000, levelHeight(level) - y))
+    next.climbables.ropes.push({ x, y, length, segments: ropeSegmentCount(length) })
     return { level: anchorRope(next, next.climbables.ropes.length - 1, 16), selection: { kind: 'rope', index: next.climbables.ropes.length - 1 } }
   }
   if (tool === 'ladder') {

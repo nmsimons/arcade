@@ -166,3 +166,69 @@ export function lineBlocked(a: Vec, b: Vec, terrain: readonly Platform[]) {
   }
   return false
 }
+
+/** Interior intervals catch thin terrain and corners between rope particles. */
+export function segmentPenetration(a: Vec, b: Vec, shape: Platform, clearance: number) {
+  if (Math.max(a[0], b[0]) <= shape.x - clearance || Math.min(a[0], b[0]) >= shape.x + shape.w + clearance
+    || Math.max(a[1], b[1]) <= shape.y - clearance || Math.min(a[1], b[1]) >= shape.y + shape.h + clearance) return null
+  const dx = b[0] - a[0], dy = b[1] - a[1], cuts = [0, 1], points = polygonPoints(shape)
+  // Maintain clearance at convex corners, rather than repeatedly penetrating and
+  // popping out by the rope radius. That also lets an unloaded rope settle quietly.
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i]
+    if (cross(points[(i + points.length - 1) % points.length], p, points[(i + 1) % points.length]) <= EPS) continue
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1)))
+    const x = a[0] + dx * t - p[0], y = a[1] + dy * t - p[1], distance = Math.hypot(x, y)
+    if (distance > EPS && distance < clearance && !pointInside(shape, p[0] + x, p[1] + y)) return { t, dx: x * (clearance / distance - 1), dy: y * (clearance / distance - 1) }
+  }
+  for (let i = 0; i < points.length; i++) {
+    const c = points[i], d = points[(i + 1) % points.length], sx = d[0] - c[0], sy = d[1] - c[1], denominator = dx * sy - dy * sx
+    if (Math.abs(denominator) < EPS) continue
+    const t = ((c[0] - a[0]) * sy - (c[1] - a[1]) * sx) / denominator
+    const u = ((c[0] - a[0]) * dy - (c[1] - a[1]) * dx) / denominator
+    if (t > 0 && t < 1 && u >= 0 && u <= 1) cuts.push(t)
+  }
+  cuts.sort((x, y) => x - y)
+  for (let i = 1; i < cuts.length; i++) {
+    const t = (cuts[i - 1] + cuts[i]) / 2, x = a[0] + dx * t, y = a[1] + dy * t
+    if (pointInside(shape, x, y)) {
+      const edge = nearestBoundary(shape, x, y)
+      if (edge.distance > EPS) {
+        // Move the whole span to that face, not just its interior sample. A small
+        // correction at the sample can leave the ends on opposite sides of a slab.
+        const depth = Math.max((edge.x - a[0]) * edge.nx + (edge.y - a[1]) * edge.ny,
+          (edge.x - b[0]) * edge.nx + (edge.y - b[1]) * edge.ny) + clearance
+        return { t: .5, dx: edge.nx * depth, dy: edge.ny * depth }
+      }
+    }
+  }
+  return null
+}
+
+/** A rope can bend between particles at an exposed convex terrain corner. The
+ * corner carries the transverse force; neighboring particles only carry tension. */
+export function ropeBend(a: Vec, b: Vec, terrain: readonly Platform[], clearance: number): [number, number] | null {
+  const dx = b[0] - a[0], dy = b[1] - a[1], direct = Math.hypot(dx, dy)
+  let best: [number, number] | null = null, length = Infinity
+  for (const shape of terrain) {
+    if (Math.max(a[0], b[0]) < shape.x - clearance || Math.min(a[0], b[0]) > shape.x + shape.w + clearance
+      || Math.max(a[1], b[1]) < shape.y - clearance || Math.min(a[1], b[1]) > shape.y + shape.h + clearance) continue
+    const points = polygonPoints(shape), blocked = lineBlocked(a, b, [shape])
+    for (let i = 0; i < points.length; i++) {
+      const before = points[(i + points.length - 1) % points.length], p = points[i], after = points[(i + 1) % points.length]
+      if (cross(before, p, after) <= EPS) continue
+      const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (direct * direct || 1)))
+      if (!blocked && (t <= EPS || t >= 1 - EPS || Math.hypot(a[0] + t * dx - p[0], a[1] + t * dy - p[1]) > clearance + .01)) continue
+      const u = Math.hypot(p[0] - before[0], p[1] - before[1]), v = Math.hypot(after[0] - p[0], after[1] - p[1])
+      const n1 = [(p[1] - before[1]) / u, (before[0] - p[0]) / u], n2 = [(after[1] - p[1]) / v, (p[0] - after[0]) / v]
+      const scale = clearance / Math.max(.1, 1 + n1[0] * n2[0] + n1[1] * n2[1])
+      const c: [number, number] = [p[0] + (n1[0] + n2[0]) * scale, p[1] + (n1[1] + n2[1]) * scale]
+      const along = ((c[0] - a[0]) * dx + (c[1] - a[1]) * dy) / (direct * direct || 1)
+      if (along <= EPS || along >= 1 - EPS) continue
+      const arc = Math.hypot(c[0] - a[0], c[1] - a[1]) + Math.hypot(c[0] - b[0], c[1] - b[1])
+      if (arc - direct < EPS || arc >= length || arc > direct + clearance * 6 || lineBlocked(a, c, terrain) || lineBlocked(c, b, terrain)) continue
+      best = c; length = arc
+    }
+  }
+  return best
+}

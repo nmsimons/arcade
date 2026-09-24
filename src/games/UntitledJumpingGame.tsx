@@ -5,7 +5,7 @@ import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
 import { cancelJumpInput, createPlayer, playerState, respawn, STEP, stepPlayer } from './jumping/model'
 import { drawPlayground } from './jumping/render'
-import { DEFAULT_LEVEL, isPuzzleLevel, levelPlayer, levelRules } from './jumping/level'
+import { DEFAULT_LEVEL, isPuzzleLevel, levelPlayer, levelRules, prepareLevelRopes } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
 import { createRun, FIRST_LEVEL, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
@@ -67,11 +67,12 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   }
   function startPlayground() {
     run.current = null; setChallenge(false); setTesting(false)
-    activeLevel.current = DEFAULT_LEVEL; terrain.current = levelTerrain(DEFAULT_LEVEL); rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
+    activeLevel.current = prepareLevelRopes(DEFAULT_LEVEL); terrain.current = levelTerrain(activeLevel.current); rules.current = levelRules(activeLevel.current); player.current = levelPlayer(activeLevel.current)
     changeScreen('playing')
   }
   function openBuilder() { setBuilderStarted(true); changeScreen('building') }
   function testLevel(level: JumpLevel) {
+    level = prepareLevelRopes(level)
     if (isPuzzleLevel(level)) { playChallenge(level, true); return }
     run.current = null; setChallenge(false)
     activeLevel.current = level; terrain.current = levelTerrain(level); rules.current = levelRules(level); player.current = levelPlayer(level)

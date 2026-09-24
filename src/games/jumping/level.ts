@@ -1,6 +1,7 @@
 import { createPlayer, PLATFORMS, PLAYGROUND_RULES, WORLD_WIDTH } from './model.ts'
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
-import { CLIMBABLES } from './climbables.ts'
+import { CLIMBABLES, createRope, ropeSegmentCount } from './climbables.ts'
+import { prepareRope } from './ropeLayout.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces, walkable } from './terrain.ts'
 import { bodyIntersects, nearestBoundary, validPolygon } from './geometry.ts'
@@ -54,10 +55,23 @@ export function levelRules(level: JumpLevel): LevelRules {
   return { checkpoints: level.checkpoints, fallY: levelHeight(level) + 100 }
 }
 export function levelPlayer(level: JumpLevel) {
-  const p = createPlayer(), ground = groundAt(levelTerrain(level), level.spawn.x, level.spawn.y, .1)
+  const p = createPlayer(), terrain = levelTerrain(level), ground = groundAt(terrain, level.spawn.x, level.spawn.y, .1)
+  p.ropes = level.climbables.ropes.map(r => createRope(prepareRope(r, terrain)))
   Object.assign(p, { x: level.spawn.x, y: level.spawn.y, spawnX: level.spawn.x, spawnY: level.spawn.y,
     grounded: !!ground, groundAngle: ground?.angle ?? 0, jumpStart: level.spawn.y })
   return p
+}
+/** Saved geometry is also the editor preview and the first playable frame. */
+export function prepareLevelRopes<T extends JumpLevel>(level: T): T {
+  const terrain = levelTerrain(level), ropes = level.climbables.ropes.map(r => {
+    const resolved = prepareRope(r, terrain)
+    if (resolved.x !== r.x || resolved.y !== r.y) {
+      const platform = level.platforms.findIndex(b => nearestBoundary(b, resolved.x, resolved.y).distance < .01)
+      if (platform >= 0) return { ...resolved, anchor: { platform, x: resolved.x - level.platforms[platform].x, y: resolved.y - level.platforms[platform].y } }
+    }
+    return resolved
+  })
+  return ropes.every((r, i) => r === level.climbables.ropes[i]) ? level : { ...level, climbables: { ...level.climbables, ropes } }
 }
 export function snapToGround(level: JumpLevel, x: number, y: number): Checkpoint {
   const surfaces = levelTerrain(level).filter(b => x >= b.x + 3 && x <= b.x + b.w - 3).flatMap(b => platformSurfaces(b, x)).filter(s => walkable(s.angle) && s.y >= 62 && s.y <= levelHeight(level))
@@ -133,7 +147,7 @@ export function parseLevel(value: unknown): JumpLevel {
     return ladder
   })
   const ropes = list(climbables.ropes, 40).map(item => {
-    const r = object(item), segments = num(r.segments, 4, 40)
+    const r = object(item), segments = num(r.segments, 4, ropeSegmentCount(2000))
     if (!Number.isInteger(segments)) fail()
     const rope: ClimbableWorld['ropes'][number] = { x: num(r.x, 0, width), y: num(r.y, -2000, 6000), length: num(r.length, 80, 2000), segments }
     if (r.anchor !== undefined) {
@@ -143,6 +157,29 @@ export function parseLevel(value: unknown): JumpLevel {
       rope.anchor = { platform, x: num(a.x, 0, b.w), y: num(a.y, 0, b.h) }
       rope.x = b.x + rope.anchor.x; rope.y = b.y + rope.anchor.y
       if (nearestBoundary(b, rope.x, rope.y).distance > .01) fail()
+    }
+    if (r.rest !== undefined) {
+      const rest = object(r.rest)
+      if (typeof rest.key !== 'string' || !/^[1-6]:[0-9a-f]{16}$/.test(rest.key)) fail()
+      const position = (p: unknown) => {
+        const pair = list(p, 2)
+        if (pair.length !== 2) fail()
+        return [num(pair[0], rope.x - rope.length - 32, rope.x + rope.length + 32), num(pair[1], rope.y - rope.length - 32, rope.y + rope.length + 32)] as [number, number]
+      }
+      const points = list(rest.points, segments + 1).map(position)
+      const bends = rest.bends === undefined ? undefined : list(rest.bends, segments).map(p => p === null ? null : position(p))
+      if (bends && bends.length !== segments) fail()
+      if (points.length !== segments + 1 || points[0][0] !== rope.x || points[0][1] !== rope.y) fail()
+      const spacing = rope.length / segments
+      const distances = rest.distances === undefined ? undefined : list(rest.distances, segments + 1).map(d => num(d, 0, rope.length))
+      if (distances && (distances.length !== segments + 1 || distances[0] !== 0 || Math.abs(distances[segments] - rope.length) > .000001
+        || distances.slice(1).some((d, i) => d - distances[i] < .000001 || d - distances[i] > spacing * 2))) fail()
+      if (points.slice(1).some((p, i) => {
+        const a = points[i], c = bends?.[i]
+        const length = c ? Math.hypot(c[0] - a[0], c[1] - a[1]) + Math.hypot(p[0] - c[0], p[1] - c[1]) : Math.hypot(p[0] - a[0], p[1] - a[1])
+        return length > (distances ? distances[i + 1] - distances[i] : spacing) * 1.15
+      })) fail()
+      rope.rest = { key: rest.key as string, points, ...(distances ? { distances } : {}), ...(bends ? { bends } : {}) }
     }
     return rope
   })

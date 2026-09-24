@@ -13,7 +13,7 @@ function setup(side, thickness = 20, polygon = false, anchorY = 0, lower = true,
   const world = { ladders: [], ropes: [{ x: 400, y: 200 + anchorY, length: 520, segments: 28, anchor: { platform: 0, x: side === 1 ? 0 : 400, y: anchorY } }] }
   const rope = createRope(world.ropes[0])
   for (const [i, n] of rope.nodes.entries()) {
-    const d = i * 520 / 28
+    const d = n.y - rope.definition.y
     n.x = n.oldX = 400 - side * Math.sin(tilt) * d
     n.y = n.oldY = 200 + anchorY + Math.cos(tilt) * d
   }

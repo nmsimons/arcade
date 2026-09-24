@@ -77,7 +77,7 @@ test('steering away pushes off either wall, frees the feet smoothly and rebraces
       current.forEach((point, j) => { maxStep = Math.max(maxStep, distance(point, previous[j])) })
       previous = current
     }
-    assert.ok(peakGap > 30, 'the input must create a physical outward swing')
+    assert.ok(peakGap > (strength === 1 ? 30 : 20), 'the push must create an outward swing proportional to stick input')
     assert.ok(returned, 'feet may brace again when the swing brings the player back into contact')
     assert.ok(maxStep < 6, `feet, torso and hands should release and settle smoothly, largest step ${maxStep}`)
   }

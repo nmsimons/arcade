@@ -1,7 +1,7 @@
 import { bodyIntersects } from './geometry.ts'
 import { cancelJumpInput, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { levelPlayer, levelTerrain } from './level.ts'
+import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 import { FIRST_LEVEL } from './levels.ts'
 export { FIRST_LEVEL } from './levels.ts'
@@ -39,6 +39,7 @@ export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds:
 }
 const boxShape = (b: Prop): Platform => ({ x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size })
 export function createRun(level = FIRST_LEVEL): Run {
+  level = prepareLevelRopes(level)
   const run: Run = { level, player: levelPlayer(level), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],
     mechanisms: level.mechanisms.map(definition => ({ definition, y: definition.y, direction: -1, wait: 0, active: false })),

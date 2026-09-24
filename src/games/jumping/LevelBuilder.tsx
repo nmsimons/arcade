@@ -2,9 +2,9 @@ import { polygonPoints } from './geometry'
 import type { Vec } from './geometry'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { addPolygon, anchorRope, moveVertex, polygonPlatform, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, replacePlatform, resizeItem } from './editor'
+import { addPolygon, anchorRope, moveVertex, polygonPlatform, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem } from './editor'
 import type { Selection, Tool } from './editor'
-import { copyLevel, DRAFT_STORAGE_KEY, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, playgroundCopy, readSavedLevels, saveLevel } from './level'
+import { copyLevel, DRAFT_STORAGE_KEY, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, playgroundCopy, prepareLevelRopes, readSavedLevels, saveLevel } from './level'
 import type { JumpLevel } from './level'
 import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
 import { blankTrial, CAMPAIGN } from './levels'
@@ -38,7 +38,7 @@ function initialEditor() {
     const draft = localStorage.getItem(DRAFT_STORAGE_KEY)
     if (draft) level = parseLevel(JSON.parse(draft))
   } catch { error = 'Some local level data could not be loaded. Saved levels have been kept.' }
-  return { level, library, error }
+  return { level: prepareLevelRopes(level), library, error }
 }
 const selectionLabel = (s: Selection, level: JumpLevel) => {
   const name = s.kind === 'spawn' ? 'Start' : s.kind === 'flag' ? 'Finish flag' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Crate'
@@ -51,7 +51,7 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
   const [initial] = useState(initialEditor)
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
-  const level = preview ?? history.present
+  const level = prepareLevelRopes(preview ?? history.present)
   const [library, setLibrary] = useState(initial.library), [libraryId, setLibraryId] = useState('')
   const [message, setMessage] = useState(initial.error), [draftStatus, setDraftStatus] = useState('')
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
@@ -66,6 +66,8 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
   const latestPreview = useRef<JumpLevel | null>(null)
   const framed = useRef(false)
   const bounds = selection ? itemBounds(level, selection) : null
+  const outline = selection ? itemOutline(level, selection) : null
+  const handlePoint = selection ? itemHandle(level, selection) : null
   const chosen = selection?.kind === 'platform' ? level.platforms[selection.index] : null
   const problems = levelProblems(level), problem = problems[0]
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
@@ -74,6 +76,7 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
   const quantize = useCallback((v: number) => snap ? Math.round(v / LEVEL_GRID_SIZE) * LEVEL_GRID_SIZE : Math.round(v), [snap])
 
   function commit(next: JumpLevel) {
+    next = prepareLevelRopes(next)
     setHistory(h => JSON.stringify(next) === JSON.stringify(h.present) ? h : { past: [...h.past, h.present].slice(-60), present: next, future: [] })
     setPreview(null); latestPreview.current = null; setMessage('')
   }
@@ -104,12 +107,12 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
     } catch (error) { setMessage((error as Error).message) }
   }
   function save() {
-    try { setLibrary(saveLevel(localStorage, history.present)); setLibraryId(level.id); setMessage(`Saved “${level.name}” in this browser.`) }
+    try { setLibrary(saveLevel(localStorage, prepareLevelRopes(history.present))); setLibraryId(level.id); setMessage(`Saved “${level.name}” in this browser.`) }
     catch (error) { setMessage(`Could not save: ${(error as Error).message}`) }
   }
   function exportLevel() {
     try {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(parseLevel(history.present), null, 2)], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([JSON.stringify(parseLevel(prepareLevelRopes(history.present)), null, 2)], { type: 'application/json' }))
     const a = document.createElement('a'); a.href = url; a.download = `${level.name.replace(/[^a-z0-9 -]/gi, '').trim() || 'jumping-level'}.jump-level.json`; a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
     setMessage('Level exported. Give this .jump-level.json file to Codex to add it to the game, or import it here to keep editing.')
@@ -126,7 +129,7 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
   }
   useEffect(() => {
     const timer = setTimeout(() => {
-      try { localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(parseLevel(history.present))); setDraftStatus('Draft saved locally') }
+      try { localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(parseLevel(prepareLevelRopes(history.present)))); setDraftStatus('Draft saved locally') }
       catch { setDraftStatus('Draft not saved. Check the settings or export a valid copy; the previous draft is kept.') }
     }, 500)
     return () => clearTimeout(timer)
@@ -179,13 +182,13 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
       ctx.strokeStyle = '#cc6a49'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom]); ctx.beginPath(); ctx.moveTo(robot.left, robot.y - 65); ctx.lineTo(robot.right, robot.y - 65); ctx.stroke(); ctx.setLineDash([])
       for (const x of [robot.left, robot.right]) { ctx.beginPath(); ctx.arc(x, robot.y - 65, 3 / view.zoom, 0, Math.PI * 2); ctx.fill() }
     }
-    if (bounds) {
+    if (outline) {
       ctx.strokeStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
-      ctx.strokeRect(bounds.x - 4, bounds.y - 4 - (bounds.h ? 0 : 62), Math.max(8, bounds.w + 8), Math.max(8, bounds.h + 8 + (bounds.h ? 0 : 62)))
+      ctx.strokeRect(outline.x - 4, outline.y - 4 - (outline.h ? 0 : 62), Math.max(8, outline.w + 8), Math.max(8, outline.h + 8 + (outline.h ? 0 : 62)))
       ctx.setLineDash([])
-      if (selection && ['platform', 'rope', 'ladder', 'prop', 'mechanism', 'trigger'].includes(selection.kind)) {
+      if (selection && handlePoint && ['platform', 'rope', 'ladder', 'prop', 'mechanism', 'trigger'].includes(selection.kind)) {
         const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
-        ctx.fillRect(bounds.x + bounds.w - handle / 2, bounds.y + bounds.h + 14 / view.zoom - handle / 2, handle, handle)
+        ctx.fillRect(handlePoint.x - handle / 2, handlePoint.y + 14 / view.zoom - handle / 2, handle, handle)
       }
       if (chosen) for (const [wx, wy] of polygonPoints(chosen)) {
         ctx.beginPath(); ctx.arc(wx, wy, 4.5 / view.zoom, 0, Math.PI * 2)
@@ -193,7 +196,7 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
       }
     }
     ctx.restore()
-  }, [active, level, view, size, bounds, chosen, selection, jumpGuide, mechanism, robot, vertices, pointer, quantize])
+  }, [active, level, view, size, outline, handlePoint, chosen, selection, jumpGuide, mechanism, robot, vertices, pointer, quantize])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -211,7 +214,7 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
       return
     }
     if (tool !== 'select') { drag.current = { mode: 'draw', start: { x: quantize(p.x), y: quantize(p.y) }, screen, base, view, selection: null }; return }
-    if (selection && bounds && Math.hypot(p.x - bounds.x - bounds.w, p.y - bounds.y - bounds.h - 14 / view.zoom) < 11 / view.zoom) {
+    if (selection && handlePoint && Math.hypot(p.x - handlePoint.x, p.y - handlePoint.y - 14 / view.zoom) < 11 / view.zoom) {
       drag.current = { mode: 'resize', start: p, screen, base, view, selection }; return
     }
     if (selection && chosen) {

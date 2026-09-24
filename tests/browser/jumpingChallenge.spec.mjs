@@ -92,6 +92,18 @@ for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
   expect(await page.getByText(/^(Gold|Silver|Bronze) medal$/).count()).toBe(1)
 })
+test('jumping again during a rope catch does not launch at catch-animation speed', async ({ page }) => {
+  await setup(page, 1); await enter(page); await launch(page)
+  for (let i = 0; i < 120 && !(await page.locator('.jumping-state').innerText()).startsWith('Rope'); i++) await page.clock.runFor(32)
+  await expect(page.locator('.jumping-state')).toContainText('Rope')
+  await page.keyboard.up('w'); await page.clock.runFor(80)
+  const before = await position(page)
+  await page.keyboard.down('Space'); await page.clock.runFor(64); await page.keyboard.up('Space')
+  const after = await position(page)
+  await expect(page.locator('.jumping-state')).not.toContainText('Rope')
+  expect(after.x - before.x).toBeGreaterThan(10)
+  expect(after.x - before.x).toBeLessThan(31)
+})
 test('a fall is recoverable by the ladder and does not restart the clock', async ({ page }) => {
   await setup(page); await enter(page)
   await page.keyboard.down('d'); await page.clock.runFor(1400); await page.keyboard.up('d'); await page.clock.runFor(1300)

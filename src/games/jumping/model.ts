@@ -358,13 +358,19 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     c.swing += ((c.rope && !c.wall ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
     c.lean += ((c.rope && !c.wall && !c.direction ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
     c.hangBlend = approach(c.hangBlend, Number(!!c.rope && !c.direction), dt / .22)
+    let catchVelocity: [number, number] | null = null
     if (c.rope) {
       const grip = climbGait(c.distance, c.rope.definition.length).grip
-      const velocity = (ropePoint(c.rope, grip)[0] - ropePoint(c.rope, grip, true)[0]) / dt / 240
-      c.swingVelocity += (Math.max(-1, Math.min(1, velocity)) - c.swingVelocity) * (1 - Math.exp(-dt / .08))
+      const current = ropePoint(c.rope, grip), previous = ropePoint(c.rope, grip, true)
+      const velocity: [number, number] = [(current[0] - previous[0]) / dt, (current[1] - previous[1]) / dt]
+      c.swingVelocity += (Math.max(-1, Math.min(1, velocity[0] / 240)) - c.swingVelocity) * (1 - Math.exp(-dt / .08))
+      // Moving into the catch pose is not swing momentum. Use the loaded grip
+      // until both ends of the body-motion sample are past the catch blend.
+      if (previousClimb.time < .16) catchVelocity = velocity
     }
     p.crouch = 0; p.crouching = false; p.reach = 0; p.landing = 0; p.charge = 0; p.charging = false; p.buffer = 0
     if (pressed || input.detach) {
+      if (catchVelocity) [p.vx, p.vy] = catchVelocity
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
       const jumping = pressed && !input.detach
       const launchMove = c.rope && wall ? -wall.side : input.move
@@ -421,6 +427,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         p.vx = (p.x - oldX) / dt; p.vy = (p.y - oldY) / dt
       } else { p.climbing = null; p.grabCooldown = .3; p.vx = 0; p.vy = 0 }
     }
+    // Also replace the final blended sample, so a release on the next frame
+    // cannot inherit its catch-up speed. Settled swing motion is unchanged.
+    if (catchVelocity && p.climbing === c) [p.vx, p.vy] = catchVelocity
     if (c.rope && p.climbing && c.distance === bottom && vertical < 0 && c.time >= .16) {
       // Descending off the last handhold is a natural exit, not a jump.
       p.climbing = null; p.grabCooldown = .35; p.vy = Math.max(80, p.vy)

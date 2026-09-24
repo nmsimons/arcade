@@ -84,7 +84,7 @@ test('collecting on the goal never subtracts time or changes medals; later touch
   const run = createRun(level); run.started = true; run.elapsed = 45
   Object.assign(run.player, level.goal)
   step(run, 1)
-  assert.equal(run.finished, true); assert.equal(run.medal, 'No medal')
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, 'No medal')
   assert.ok(Math.abs(run.elapsed - (45 + STEP)) < 1e-9); assert.equal(run.timeStopRemaining, 10)
   const score = run.elapsed
   run.player.x = 1700; step(run, 120)

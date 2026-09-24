@@ -10,6 +10,7 @@ import { ropePath, ropeSegmentCount } from './climbables.ts'
 import { goalBounds } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { pickupBounds } from './pickups.ts'
+import { MECHANISM_THICKNESS, mechanismAnchor } from './mechanisms.ts'
 
 export type Tool = 'select' | 'pan' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'timer' | 'text' | 'stopwatch'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -61,6 +62,8 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
 }
 export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
+  const mechanism = selection.kind === 'mechanism' ? level.mechanisms?.[selection.index] : undefined
+  if (mechanism) return { x: mechanism.x, y: mechanismAnchor(mechanism).y, w: mechanism.w, h: mechanism.h + mechanism.travel }
   const rope = selection.kind === 'rope' ? level.climbables.ropes[selection.index] : undefined
   const points = rope ? ropePath(rope) : undefined
   if (!points) return itemBounds(level, selection)
@@ -85,7 +88,14 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
   }
   for (const kind of ['prop', 'robot', 'trigger', 'mechanism'] as const) {
     const length = (kind === 'prop' ? level.props : kind === 'robot' ? level.robots : kind === 'trigger' ? level.triggers : level.mechanisms)?.length ?? 0
-    for (let i = length - 1; i >= 0; i--) { const b = itemBounds(level, { kind, index: i })!; if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind, index: i } }
+    for (let i = length - 1; i >= 0; i--) {
+      const b = itemBounds(level, { kind, index: i })!
+      if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind, index: i }
+      if (kind === 'mechanism') {
+        const anchor = mechanismAnchor(level.mechanisms![i])
+        if (Math.abs(x - anchor.x) <= tolerance + 5 && y >= anchor.y - tolerance - 5 && y <= b.y) return { kind, index: i }
+      }
+    }
   }
   for (let i = level.climbables.ropes.length - 1; i >= 0; i--) {
     const r = level.climbables.ropes[i]
@@ -149,8 +159,8 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'spawn') next.spawn = snapToGround(next, x, y)
   if (selection.kind === 'checkpoint') next.checkpoints[selection.index] = snapToGround(next, x, y)
   if (selection.kind === 'goal') {
-    const b = goalBounds({ x: 0, y: 0 })
-    next.goal = snapToGround(next, clamp(x, -b.x, level.width - b.x - b.w), y)
+    const b = goalBounds({ ...next.goal, x: 0, y: 0 })
+    next.goal = { ...next.goal, ...snapToGround(next, clamp(x, -b.x, level.width - b.x - b.w), y) }
   }
   if (selection.kind === 'timer') Object.assign(next.timers![selection.index], { x, y })
   if (selection.kind === 'text') Object.assign(next.texts![selection.index], { x, y })
@@ -193,7 +203,10 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
     b.size = size; b.x = clamp(b.x, 24 + size / 2, next.width - 24 - size / 2)
   }
   if (selection.kind === 'mechanism') {
-    const m = next.mechanisms![selection.index]; m.w = clamp(w, 30, Math.min(600, next.width - m.x - 24)); m.h = clamp(h, 12, 800); m.y = Math.min(m.y, next.floor! - m.h)
+    const m = next.mechanisms![selection.index]
+    m.w = m.kind === 'gate' ? MECHANISM_THICKNESS : clamp(w, 30, Math.min(600, next.width - m.x - 24))
+    m.h = m.kind === 'lift' ? MECHANISM_THICKNESS : clamp(h, 12, 800)
+    m.y = Math.min(m.y, next.floor! - m.h)
   }
   if (selection.kind === 'trigger') { const t = next.triggers![selection.index]; t.w = clamp(w, 40, Math.min(240, next.width - t.x - 24)) }
   return next
@@ -282,26 +295,26 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   }
   if (['goal', 'box', 'ball', 'pusher', 'plate', 'lift', 'gate'].includes(tool)) {
     const trial = asTrial(level), point = snapToGround(trial, clamp(x, 70, trial.width - 110), y)
-    if (tool === 'goal') { trial.goal = point; return { level: trial, selection: { kind: 'goal', index: 0 } } }
+    if (tool === 'goal') { trial.goal = { ...trial.goal, ...point }; return { level: trial, selection: { kind: 'goal', index: 0 } } }
     if (tool === 'box' || tool === 'ball') {
       if (trial.props.length >= 80) throw new Error('This level already has 80 props.')
       trial.props.push({ kind: tool, ...point, size: tool === 'box' ? 80 : 68 })
       return { level: trial, selection: { kind: 'prop', index: trial.props.length - 1 } }
     }
     if (tool === 'pusher') {
-      if (trial.robots.length >= 30) throw new Error('This level already has 30 pushers.')
+      if (trial.robots.length >= 30) throw new Error('This level already has 30 shovebots.')
       trial.robots.push({ ...point, ...pusherRange(trial, point.x, point.y) })
       return { level: trial, selection: { kind: 'robot', index: trial.robots.length - 1 } }
     }
     if (tool === 'plate') {
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 pressure plates.')
       const nearest = [...trial.mechanisms].sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
-      trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, target: nearest?.id ?? '', mode: 'weight' })
+      trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, target: nearest?.id ?? '', mode: 'touch' })
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }
     if (tool === 'lift' || tool === 'gate') {
       if (trial.mechanisms.length >= 40) throw new Error('This level already has 40 mechanisms.')
-      const h = tool === 'lift' ? 22 : 180, w = tool === 'lift' ? 140 : 44
+      const h = tool === 'lift' ? MECHANISM_THICKNESS : 180, w = tool === 'lift' ? 140 : MECHANISM_THICKNESS
       trial.mechanisms.push({ id: newLevelId(), kind: tool, x: clamp(x, 24, trial.width - w - 24), y: Math.min(trial.floor - h, tool === 'lift' ? Math.max(start.y, end.y) : point.y - h), w, h,
         travel: clamp(Math.abs(end.y - start.y) || (tool === 'gate' ? 220 : 300), 60, 1200) })
       return { level: trial, selection: { kind: 'mechanism', index: trial.mechanisms.length - 1 } }

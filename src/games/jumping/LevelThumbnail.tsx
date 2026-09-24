@@ -3,7 +3,7 @@ import { levelHeight } from './level'
 import { polygonPoints } from './geometry'
 import { TERRAIN_COLOR } from './render'
 import { ropePath } from './climbables'
-import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, GOAL_POLE_OFFSET } from './goal'
+import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, goalPoleX, goalDoor } from './goal'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer'
 import { WALL_TEXT_COLOR, WALL_TEXT_FONT, WALL_TEXT_LINE_HEIGHT } from './wallText'
 import { STOPWATCH_COLOR, STOPWATCH_FACE_PATH, STOPWATCH_DETAILS_PATH } from './pickups'
@@ -28,9 +28,10 @@ export function LevelThumbnail({ level }: { level: JumpLevel }) {
       <path d={STOPWATCH_FACE_PATH} fillRule="evenodd" /><path d={STOPWATCH_DETAILS_PATH} />
     </g>)}
     {level.goal && <g>
-      <rect x={level.goal.x + GOAL_POLE_OFFSET - 2} y={level.goal.y - GOAL_LIGHT_HEIGHT} width={4} height={GOAL_LIGHT_HEIGHT} fill="#738575" />
+      <rect x={goalDoor(level.goal).x} y={goalDoor(level.goal).y} width={goalDoor(level.goal).w} height={goalDoor(level.goal).h} fill="none" stroke="#8a938b" strokeWidth={2} strokeDasharray="4 4" />
+      <rect x={goalPoleX(level.goal) - 2} y={level.goal.y - GOAL_LIGHT_HEIGHT} width={4} height={GOAL_LIGHT_HEIGHT} fill="#738575" />
       <rect x={level.goal.x - GOAL_PLATE_WIDTH / 2} y={level.goal.y - 7} width={GOAL_PLATE_WIDTH} height={7} fill="#c4a66b" />
-      <circle cx={level.goal.x + GOAL_POLE_OFFSET} cy={level.goal.y - GOAL_LIGHT_HEIGHT} r={11} fill="#9aa38e" />
+      <circle cx={goalPoleX(level.goal)} cy={level.goal.y - GOAL_LIGHT_HEIGHT} r={11} fill="#9aa38e" />
     </g>}
   </svg>
 }

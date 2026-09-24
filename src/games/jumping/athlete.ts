@@ -500,8 +500,9 @@ export function athletePose(p: Player): AthletePose {
   if (pushing) {
     const wall = (p.pushing!.wallX - p.x) * p.facing
     const press = (arm: Limb, y: number) => {
-      const result = grippingArm(arm.root, [wall - 2.8, y], [wall - 1.6, y], arm, pushing)
-      result.handAngle = (result.handAngle ?? 0) + Math.PI / 2 * pushing
+      const contactX = wall + (y + 43) * (p.pushing!.slope ?? 0) * p.facing
+      const result = grippingArm(arm.root, [contactX - 2.8, y], [contactX - 1.6, y], arm, pushing)
+      result.handAngle = (result.handAngle ?? 0) + (Math.PI / 2 - Math.atan((p.pushing!.slope ?? 0) * p.facing)) * pushing
       return result
     }
     frontArm = press(frontArm, -43); backArm = press(backArm, -46)

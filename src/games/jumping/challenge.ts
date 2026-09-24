@@ -1,25 +1,32 @@
-import { bodyIntersects } from './geometry.ts'
-import { cancelJumpInput, STEP, stepPlayer, TUNING } from './model.ts'
+import { bodyIntersects, moveBody } from './geometry.ts'
+import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
-import { groundAt, platformSurface } from './terrain.ts'
-import { GOAL_PLATE_WIDTH, GOAL_REVEAL_SECONDS } from './goal.ts'
+import { moveRobot, prepareRobots } from './robotPhysics.ts'
+import { GOAL_PLATE_WIDTH, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
+import type { GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
+import { prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
+import { ballShape, boxShape, propBounds, propLoadsPlate } from './propGeometry.ts'
+import { playerContacts, translatePlayer } from './playerContacts.ts'
+import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
+import { mechanismAnchor, prepareMechanism } from './mechanisms.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop {
-  kind: 'box' | 'ball'; x: number; y: number; size: number; vx: number; vy: number; angle: number; grounded: boolean
+  kind: 'box' | 'ball'; x: number; y: number; size: number; vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
 }
 export interface MechanismState { definition: Mechanism; y: number; direction: number; wait: number; active: boolean }
-export interface RobotState { definition: Pusher; x: number; y: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; hit: boolean }
+export interface RobotState { definition: Pusher; x: number; y: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; hit: boolean }
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
-  mechanisms: MechanismState[]; triggers: { held: number; active: boolean }[]; robots: RobotState[]; shoveCooldown: number
+  mechanisms: MechanismState[]; triggers: { held: number; active: boolean; depression: number }[]; robots: RobotState[]; shoveCooldown: number
   pickups: PickupState[]; activeTime: number; timeStopRemaining: number
-  elapsed: number; started: boolean; finished: boolean; finishElapsed: number; goalDepression: number; medal: Medal | null
+  elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
+  finished: boolean; goalDepression: number; medal: Medal | null
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
 export function medalFor(seconds: number, level: PuzzleLevel): Medal {
@@ -39,119 +46,102 @@ export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds:
   storage.setItem(BEST_TIME_KEY, JSON.stringify({ ...values, [id]: best }))
   return best
 }
-const boxShape = (b: Prop): Platform => ({ x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size })
 export function createRun(level: PuzzleLevel): Run {
   level = prepareLevelRopes(level)
-  const run: Run = { level, player: levelPlayer(level), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, grounded: true })),
+  const run: Run = { level, player: levelPlayer(level), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],
-    mechanisms: level.mechanisms.map(definition => ({ definition, y: definition.y, direction: -1, wait: 0, active: false })),
-    triggers: level.triggers.map(() => ({ held: 0, active: false })),
-    robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, facing: -1, phase: 'patrol', time: 0, hit: false })),
+    mechanisms: level.mechanisms.map(m => {
+      const definition = prepareMechanism(m, level.floor)
+      return { definition, y: definition.y, direction: -1, wait: 0, active: false }
+    }),
+    triggers: level.triggers.map(() => ({ held: 0, active: false, depression: 0 })),
+    robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, angle: 0, facing: -1, phase: 'patrol', time: 0, hit: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), activeTime: 0, timeStopRemaining: 0,
-    shoveCooldown: 0, elapsed: 0, started: false, finished: false, finishElapsed: 0, goalDepression: 0, medal: null }
-  syncPlatforms(run)
+    shoveCooldown: 0, elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, goalDepression: 0, medal: null }
+  prepareProps(run); syncPlatforms(run)
+  prepareRobots(run.platforms, run.robots)
   return run
 }
-function syncPlatforms(run: Run) {
-  run.platforms = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, y: m.y })), ...run.props.filter(b => b.kind === 'box').map(boxShape)]
+function syncPlatforms(run: Run): ContactWorld {
+  const colliders = [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
+    ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: { ...m.definition, y: m.y } })),
+    ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind
+      ? [{ id: `prop:${i}`, prop, platform: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) }] : []))]
+  run.platforms = colliders.map(c => c.platform)
+  return { platforms: run.platforms, colliders }
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b)
-function translatePlayer(p: Player, dx: number, dy: number) {
-  p.x += dx; p.y += dy
-  if (p.footwork) for (const foot of p.footwork.feet) { foot.x += dx; foot.y += dy; foot.anchorX += dx; foot.anchorY += dy; foot.groundY += dy }
-  if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
-  if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }
-}
-function stepMechanisms(run: Run, dt: number) {
+function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
   for (const [index, m] of run.mechanisms.entries()) {
-    if (!m.active) continue
+    const def = m.definition
+    if (def.kind === 'lift' && !m.active) continue
     if (m.wait > 0) { m.wait -= dt; continue }
-    const def = m.definition, oldY = m.y, target = m.direction < 0 ? def.y - def.travel : def.y
+    const oldY = m.y, rising = def.kind === 'gate' ? m.active : m.direction < 0
+    const target = rising ? mechanismAnchor(def).y : def.y
+    if (oldY === target) continue
     const next = approach(oldY, target, 130 * dt), dy = next - oldY, p = run.player
     const platformIndex = run.terrain.length + index
-    const onCrate = run.props.some(b => b.kind === 'box' && b.grounded && Math.abs(b.y - oldY) < .2 && b.x >= def.x && b.x <= def.x + def.w
-      && p.grounded && Math.abs(p.y - (b.y - b.size)) < .2 && Math.abs(p.x - b.x) < b.size / 2)
-    const rider = onCrate || p.grounded && Math.abs(p.y - oldY) < .2 && p.x >= def.x && p.x <= def.x + def.w
+    const support = contacts.support?.collider
+    const onProp = support?.prop && propLoadsPlate(support.prop, def.x, oldY, def.w)
+    const rider = onProp || support?.id === `mechanism:${index}`
       || p.hang?.platform === platformIndex || !!p.mantle && Math.abs(p.mantle.edgeY - oldY) < .2 && p.mantle.edgeX >= def.x && p.mantle.edgeX <= def.x + def.w
     const nextShape = { ...def, y: next }
     const obstacles = run.platforms.filter((_, i) => i !== platformIndex)
     if (rider && obstacles.some(b => bodyOverlap(p, b, dy)) || !rider && bodyOverlap(p, nextShape)) continue
-    if (run.props.some(b => b.x + b.size / 2 > def.x && b.x - b.size / 2 < def.x + def.w
-      && b.y > next + .2 && b.y - b.size < next + def.h && Math.abs(b.y - oldY) > .2)) continue
+    if (run.props.some(b => !propLoadsPlate(b, def.x, oldY, def.w)
+      && propBlocksMechanism(b, { ...def, y: oldY }, nextShape))) continue
     m.y = next
     if (rider) translatePlayer(p, 0, dy)
-    for (const b of run.props) if (b.grounded && Math.abs(b.y - oldY) < .2 && b.x > def.x && b.x < def.x + def.w) b.y += dy
+    for (const b of run.props) if (propLoadsPlate(b, def.x, oldY, def.w)) b.y += dy
     if (next === target && def.kind === 'lift') { m.direction *= -1; m.wait = target < def.y ? 3 : 2 }
   }
 }
-function propSurface(b: Prop, terrain: Platform, x: number) {
-  const s = platformSurface(terrain, x)
-  // Circle center follows the normal offset of the slope, so its rim stays tangent.
-  return { ...s, y: s.y - (b.kind === 'ball' ? b.size / 2 * (1 / Math.cos(s.angle) - 1) : 0) }
-}
-function stepProps(run: Run, input: JumpInput, dt: number) {
-  const p = run.player
-  for (const b of run.props) {
-    const oldX = b.x, oldY = b.y, r = b.size / 2
-    const solids = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, y: m.y })), ...run.props.filter(other => other !== b && other.kind === 'box').map(boxShape)]
-    const direction = Math.sign(input.move), edge = b.x - direction * r, gap = (edge - p.x) * direction
-    const pushing = p.grounded && !p.climbing && !p.hang && !p.mantle && direction && gap >= 8 && gap < 34
-      && p.y > b.y - b.size + 12 && p.y - 42 < b.y && p.y <= b.y + b.size * .6
-    const support = solids.find(s => oldX >= s.x && oldX <= s.x + s.w && Math.abs(oldY - propSurface(b, s, oldX).y) < 2)
-    if (pushing) b.vx = direction * (b.kind === 'ball' ? 175 : 90) * Math.abs(input.move)
-    else if (support) {
-      const angle = propSurface(b, support, oldX).angle
-      if (b.kind === 'ball') b.vx += Math.sin(angle) * 900 * dt
-      const onPlate = run.level.triggers.some(t => Math.abs(b.x - (t.x + t.w / 2)) < t.w / 2 && Math.abs(b.y - t.y) < 4)
-      b.vx = approach(b.vx, 0, (b.kind === 'box' ? 850 : onPlate ? 350 : 65) * dt)
+function stepProps(run: Run, contacts: PlayerContacts, dt: number) {
+  if (!run.props.length) return
+  const p = run.player, solids = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, y: m.y }))]
+  // Fixed small steps stabilize corners; fast linear or angular motion takes
+  // additional steps so even a small prop cannot skip a thin wall or another prop.
+  const travel = Math.max(175, ...run.props.map(b => Math.hypot(b.vx, b.vy) + Math.abs(b.angularVelocity) * b.size + TUNING.gravity * dt)) * dt
+  const steps = Math.max(1, Math.ceil(dt * 240), Math.ceil(travel / (Math.min(...run.props.map(b => b.size)) * .15))), h = dt / steps
+  for (let step = 0; step < steps; step++) {
+    const before = run.props.map(b => ({ ...b }))
+    stepPropPhysics(run, contacts, h)
+    for (const [index, b] of run.props.entries()) {
+      const old = before[index], oldBounds = propBounds(old), bounds = propBounds(b)
+      const riding = contacts.support?.collider.prop === b
+      const holding = b.kind === 'box' && p.hang?.platform === run.terrain.length + run.mechanisms.length + run.props.filter(other => other.kind === 'box').indexOf(b)
+      if (b.kind === 'box' && !riding && !holding && bodyOverlap(p, boxShape(b))) {
+        const side = p.x + 12 <= oldBounds.x + .1 ? -1 : p.x - 12 >= oldBounds.x + oldBounds.w - .1 ? 1 : 0
+        if (side) {
+          const x = side < 0 ? bounds.x - 12 - .01 : bounds.x + bounds.w + 12 + .01
+          const obstacles = [...solids, ...run.props.filter(other => other !== b && other.kind === 'box').map(boxShape)]
+          if (!obstacles.some(s => bodyOverlap({ ...p, x }, s))) translatePlayer(p, x - p.x, 0)
+          else { b.x = old.x; b.y = old.y; b.angle = old.angle; b.vx = 0; b.angularVelocity = 0 }
+        } else if (oldBounds.y + oldBounds.h <= p.y - TUNING.height + .1) {
+          b.y -= bounds.y + bounds.h - (p.y - TUNING.height - .01); b.vy = 0
+        }
+      }
+      if (riding || holding) {
+        const angle = b.kind === 'box' ? b.angle - old.angle : 0, x = p.x - old.x, y = p.y - old.y + old.size / 2
+        const nextX = b.x + x * Math.cos(angle) - y * Math.sin(angle)
+        const nextY = b.y - b.size / 2 + x * Math.sin(angle) + y * Math.cos(angle)
+        translatePlayer(p, nextX - p.x, nextY - p.y)
+      }
     }
-    b.x += b.vx * dt
-    // Solid sides and ceilings are resolved independently from terrain tops.
-    for (const s of solids) {
-      if (b.x + r <= s.x || b.x - r >= s.x + s.w || oldY <= propSurface(b, s, b.x).y + 1 || oldY - b.size >= s.y + s.h) continue
-      if (oldX + r <= s.x + .1 && b.vx > 0) { b.x = s.x - r; b.vx = 0 }
-      else if (oldX - r >= s.x + s.w - .1 && b.vx < 0) { b.x = s.x + s.w + r; b.vx = 0 }
-    }
-    b.vy = Math.min(1000, b.vy + TUNING.gravity * dt); b.y += b.vy * dt; b.grounded = false
-    for (const s of solids) {
-      if (b.x < s.x || b.x > s.x + s.w) continue
-      const surface = propSurface(b, s, b.x), before = propSurface(b, s, oldX)
-      const follow = support === s && Math.abs(surface.angle) < .75
-      if (b.vy >= 0 && (oldY <= before.y + 2 || follow) && b.y >= surface.y) { b.y = surface.y; b.vy = 0; b.grounded = true }
-    }
-    const riding = b.kind === 'box' && p.grounded && Math.abs(p.y - (oldY - b.size)) < .2 && Math.abs(p.x - oldX) < r
-    const holding = b.kind === 'box' && p.hang?.platform === run.terrain.length + run.mechanisms.length + run.props.filter(other => other.kind === 'box').indexOf(b)
-    if (b.kind === 'box' && !riding && !holding && bodyOverlap(p, boxShape(b))) {
-      // Loose crates displace a person only into free space, and stop when pinned.
-      const side = p.x + 12 <= oldX - r + .1 ? -1 : p.x - 12 >= oldX + r - .1 ? 1 : 0
-      if (side) {
-        const x = b.x + side * (r + 12 + .01)
-        if (!solids.some(s => bodyOverlap({ ...p, x }, s))) translatePlayer(p, x - p.x, 0)
-        else { b.x = oldX; b.vx = 0 }
-      } else if (oldY <= p.y - TUNING.height + .1) { b.y = p.y - TUNING.height - .01; b.vy = 0 }
-    }
-    const dx = b.x - oldX, dy = b.y - oldY
-    if (b.kind === 'ball') b.angle += dx / r
-    if (riding || holding) translatePlayer(p, dx, dy)
   }
 }
-function collideBalls(run: Run) {
-  const p = run.player
-  if (p.climbing || p.hang || p.mantle) return
-  for (const ball of run.props.filter(b => b.kind === 'ball')) {
-    const r = ball.size / 2, cy = ball.y - r
-    const nearestY = Math.max(p.y - 50, Math.min(p.y - 12, cy)), dx = p.x - ball.x, dy = nearestY - cy, distance = Math.hypot(dx, dy)
-    if (distance >= r + 12 || !distance) continue
-    const nx = dx / distance, ny = dy / distance, overlap = r + 12 - distance
-    const nextX = p.x + nx * overlap, nextY = p.y + ny * overlap
-    // Resolve only into free space; a ball never squeezes someone through terrain.
-    if (!run.platforms.some(s => bodyOverlap({ ...p, x: nextX, y: nextY }, s))) {
-      p.x = nextX; p.y = nextY
-      if (ny < -.65 && p.vy >= 0) { p.vy = 0; p.grounded = true }
-      else if (Math.sign(p.vx) !== Math.sign(nx)) p.vx = 0
-    } else { ball.vx = 0; ball.x = p.x - Math.sign(nx || 1) * (r + 12) }
-  }
+function stepTriggers(run: Run, dt: number) {
+  run.level.triggers.forEach((plate, index) => {
+    const sensor = run.triggers[index]
+    const weighted = run.props.some(b => propLoadsPlate(b, plate.x, plate.y, plate.w))
+    const touched = run.player.grounded && Math.abs(run.player.y - plate.y) < 3 && run.player.x >= plate.x && run.player.x <= plate.x + plate.w
+    sensor.held = weighted || touched ? sensor.held + dt : 0
+    sensor.active = sensor.held >= .15
+    sensor.depression = approach(sensor.depression, weighted || touched ? 1 : 0, dt / .12)
+  })
+  // Any held plate can power a shared mechanism; released plates never latch it on.
+  for (const mechanism of run.mechanisms) mechanism.active = run.level.triggers.some((plate, i) => plate.target === mechanism.definition.id && run.triggers[i].active)
 }
 function stepRobots(run: Run, dt: number) {
   const p = run.player
@@ -181,9 +171,7 @@ function stepRobots(run: Run, dt: number) {
     } else if (r.phase === 'recover' && r.time >= .34) { r.phase = 'chase'; r.time = 0 }
     if (speed) {
       const x = Math.max(bounds.left, Math.min(bounds.right, r.x + r.facing * speed * dt))
-      const surface = groundAt(run.platforms, x, r.y, Math.abs(x - r.x) * .85 + 2)
-      const blocked = !surface || run.platforms.some(b => x + 25 > b.x && x - 25 < b.x + b.w && r.y - 2 > platformSurface(b, x).y && r.y - 42 < b.y + b.h)
-      if (!blocked) { r.x = x; r.y = surface.y }
+      const blocked = !moveRobot(run.platforms, r, x)
       if ((blocked || x === bounds.left || x === bounds.right) && r.phase === 'patrol') r.facing *= -1
     }
   }
@@ -193,35 +181,55 @@ function goalPressed(run: Run) {
   const goal = run.level.goal, half = GOAL_PLATE_WIDTH / 2
   const contact = (body: { x: number; y: number; grounded: boolean }, footprint: number) =>
     body.grounded && Math.abs(body.y - goal.y) < 2 && Math.abs(body.x - goal.x) < half + footprint - 2
-  return contact(run.player, TUNING.width / 2) || run.props.some(prop => contact(prop, prop.kind === 'box' ? prop.size / 2 : 0))
+  return contact(run.player, TUNING.width / 2) || run.props.some(prop => propLoadsPlate(prop, goal.x - half, goal.y, GOAL_PLATE_WIDTH))
 }
 export function stepRun(run: Run, input: JumpInput, dt = STEP) {
+  if (run.finished) return
   if (!run.started && (Math.abs(input.move) > .01 || input.jump || input.climb || input.descend)) run.started = true
-  if (!run.started) { run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.finished); return }
+  if (!run.started) { run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.goalLit); return }
   run.activeTime += dt
-  if (run.finished) run.finishElapsed = Math.min(GOAL_REVEAL_SECONDS, run.finishElapsed + dt)
+  if (run.goalLit) run.goalElapsed = Math.min(GOAL_OPEN_SECONDS, run.goalElapsed + dt)
   else {
     const stopped = Math.min(dt, run.timeStopRemaining)
     run.timeStopRemaining = Math.max(0, run.timeStopRemaining - stopped)
     run.elapsed += dt - stopped
   }
-  stepMechanisms(run, dt); syncPlatforms(run)
-  stepProps(run, input, dt); syncPlatforms(run)
-  stepPlayer(run.player, input, dt, run.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity })
-  collideBalls(run); stepRobots(run, dt)
+  if (run.exit) {
+    const p = run.player, from: [number, number] = [p.x, p.y]
+    run.exit.elapsed = Math.min(GOAL_EXIT_SECONDS, run.exit.elapsed + dt)
+    p.x = goalExitPosition(run.exit); p.vx = (p.x - from[0]) / dt
+    finishPlayerStep(p, NEUTRAL_INPUT, dt, syncPlatforms(run), from)
+    stepPickups(run.pickups, p, dt, false)
+    run.goalDepression = approach(run.goalDepression, 0, dt / .12)
+    run.finished = run.exit.elapsed >= GOAL_EXIT_SECONDS
+    return
+  }
+  // Collect intent, advance the contacted world, then solve player motion once.
+  // Geometry is refreshed after moving bodies; the contact policy is shared.
+  let world = syncPlatforms(run)
+  stepTriggers(run, dt); stepMechanisms(run, dt, playerContacts(run.player, input, world))
+  world = syncPlatforms(run)
+  stepRobots(run, dt)
+  stepProps(run, playerContacts(run.player, input, world), dt)
+  world = syncPlatforms(run)
+  stepPlayer(run.player, input, dt, run.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world)
   // Resolve pickups before a goal touched on this step; the completed score then stays latched.
-  run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.finished)
-  run.level.triggers.forEach((plate, index) => {
-    const sensor = run.triggers[index]
-    const weighted = run.props.some(b => Math.abs(b.x - (plate.x + plate.w / 2)) <= plate.w / 2 - 6 && Math.abs(b.y - plate.y) < 3 && b.grounded)
-    const touched = plate.mode === 'touch' && run.player.grounded && Math.abs(run.player.y - plate.y) < 3 && run.player.x >= plate.x && run.player.x <= plate.x + plate.w
-    sensor.held = weighted || touched ? sensor.held + dt : 0
-    if (sensor.held >= .15) sensor.active = true
-    if (sensor.active) { const mechanism = run.mechanisms.find(m => m.definition.id === plate.target); if (mechanism) mechanism.active = true }
-  })
+  run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.goalLit)
+  stepTriggers(run, 0)
   const pressed = goalPressed(run)
   run.goalDepression = approach(run.goalDepression, pressed ? 1 : 0, dt / .12)
-  if (!run.finished && pressed) {
-    run.finished = true; run.medal = medalFor(run.elapsed, run.level)
+  if (!run.goalLit && pressed) {
+    run.goalLit = true; run.medal = medalFor(run.elapsed, run.level)
+  }
+  const p = run.player, door = goalDoor(run.level.goal)
+  if (run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
+    && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
+    && !run.platforms.some(b => bodyOverlap(p, b))) {
+    // This is a doorway in the back wall. Reaching it permits entry even when
+    // a loose prop blocks a sideways step toward its center.
+    const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], run.platforms)
+    run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
+    p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null
+    cancelJumpInput(p)
   }
 }

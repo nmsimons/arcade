@@ -107,7 +107,7 @@ preserves its ID. Using a built-in or local level as a template creates a new ID
 `00-json-test-lab.json` exercises every supported field: rectangular,
 polygon and profile terrain; start, goal plate and checkpoint radius; attached and free
 ladders; attached and free ropes with saved points, bends and material distances;
-boxes, balls, a pusher, weight/touch triggers, an elevator, a gate, stopwatch pickups, wall timers,
+boxes, balls, a pusher, pressure plates, an elevator, a gate, stopwatch pickups, wall timers,
 multiline wall text and medal times.
 It is available in **Level builder → Library → JSON Test Lab**.
 
@@ -201,18 +201,42 @@ During play, the camera leaves a 32-pixel margin below the room's floor,
 independent of zoom. The player moves up toward the screen center
 while climbing, then the camera follows them in the center as before.
 
-The goal is a self-contained pressure plate and pole light. Its `goal: { x, y }`
+Balls and boxes collide with each other, transfer momentum, and can rest on one
+another. Balls use round contact against other balls and box corners. Larger
+props carry more mass, and boxes are heavier than equally sized balls.
+Boxes rotate, settle on their faces, and tip over edges. Moderate slopes can hold
+a resting box; steeper slopes let it slide or tumble. Pushing applies a limited
+force, with the player's hands following the tilted face and steps following
+actual progress. Balls contact the complete terrain outline, including corners
+and valleys. Placed props are lifted clear of terrain before play starts.
+Shovebots keep both wheels on connected slopes, tilt with the terrain, and stop
+at cliffs and walls. A gate can slide past a ball touching its side while still
+stopping before it would crush a prop beneath it.
+
+The goal is a self-contained pressure plate, pole light and hidden exit. Its `goal: { x, y }`
 point is the center of a 56-unit-wide plate at the supporting floor surface. The
-light stands 44 units to its right, 96 units above the floor. Place the entire
-plate on a flat surface and leave room for the light inside the level. The
+light stands 44 units to its right, 96 units above the floor. The door is 40 units
+wide and 80 high, centered 100 units to the plate's right. Leave continuous flat
+floor from the plate through the doorway, with clear space above it. The
 builder's **Goal light** tool places and moves this assembly as one object.
+Select the goal and choose **Flip horizontally** to put the light and door on the left
+without moving the plate. This is saved as `goal.flipX: true`; omitted or `false`
+keeps the light on the right.
 A grounded player or crate whose bottom overlaps the plate activates it; a ball's
 bottom contact must be over the plate. Airborne contact and touching the pole do
-not count. Activation latches the light on and stops the timer. Movement and physics
-continue for 1.5 seconds before the result dialog; the plate rises again if unloaded.
-Pausing also pauses this reveal; restarting
-resets the plate, light, and delay. The camera settles on the goal during the reveal,
-including when an object activates it away from the player.
+not count. Activation latches the light on, locks the medal time, and opens a black
+doorway beyond the light. Before activation the closed door is indistinguishable
+from the back wall. The builder and level thumbnail show a dashed doorway guide.
+The expanded assembly occupies 154 units across, including its selection margin.
+Existing custom goals may need more space; their saved plate positions do not move.
+
+Movement and physics continue with the timer stopped until the player walks into
+the open doorway. Passing above it or rolling an object through it does not finish
+the level. The player takes a short final step, then disappears into the
+door; only then does the results dialog appear and save the personal best. Pausing
+freezes the opening and exit animation. Restarting resets the plate, light, door,
+timer and exit. The camera continues following the player when a distant object
+activates the goal.
 
 Existing version 1 files with `flag: { x, y }` remain readable: their flag point
 becomes the goal plate center. Saved/exported files use `goal`; if both fields are
@@ -257,9 +281,28 @@ Body collisions constrain the loaded rope section while other sections keep
 moving; a blocked climb retains the grip and allows retreat along the rope.
 
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
-Props, robots, mechanisms and trigger links remain readable and appear in the
-reference templates. Their creation tools are not currently offered in the
-builder. These arrays are empty in new levels; exports preserve existing data.
+The builder's **Objects** tools place balls, boxes, and shovebots on a surface.
+Select a ball or box to change its size, or a shovebot to set its patrol limits.
+The **Mechanisms** tools place elevators, gates, and pressure plates. Select a
+plate and choose its connected mechanism in **Activates**; new plates connect to
+the nearest mechanism when possible. All support moving, duplication, undo/redo,
+playtesting, and portable level files.
+
+Gates are vertical barriers with a fixed width of 20. A single rope suspends each
+gate from an anchor at `(x + w / 2, y - travel)`. Holding its connected pressure
+plate lifts the gate until its top reaches the anchor; releasing the plate lowers
+it again. Gate height sets the barrier length, and **Distance to anchor** sets the
+lift distance. Older gates are narrowed around their original center on import.
+Elevators use the same rope and anchor, with a horizontal platform fixed at 20
+units thick and an adjustable width. They make repeated trips between the starting
+position and the anchor while a connected plate is held, with a pause at each end.
+Releasing the plate pauses the elevator in place; pressing again resumes it.
+If multiple plates connect to one mechanism, any held plate powers it. Closing
+gates stop against players or props and continue once the path is clear. Older elevator
+thicknesses are normalized while preserving the standing surface where possible.
+Every pressure plate accepts the grounded player, crates, and balls. The legacy
+`mode` values `weight` and `touch` are still accepted and preserved in files, but
+both now have this same behavior.
 
 Importing preserves the level ID. Structural validation rejects malformed or
 unbounded geometry; editor validation checks clear starts and goals, room bounds,

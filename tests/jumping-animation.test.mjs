@@ -2,8 +2,8 @@ import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { athletePose } from '../src/games/jumping/athlete.ts'
-import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { FOOT_CONTACT, footPoint, footRoll, soleContact, toeBend } from '../src/games/jumping/footwork.ts'
+import { gaitPose, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { advanceFootwork, FOOT_CONTACT, footPoint, footRoll, soleContact, toeBend } from '../src/games/jumping/footwork.ts'
 
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
 const points = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -13,6 +13,31 @@ const worldFoot = (p, leg) => {
   const x = p.x + leg.end[0] * p.facing, y = p.y + leg.end[1]
   return { planted: leg.planted, anchor: x - footRoll(angle)[0] * facing, ground: y + soleContact(angle, leg.toeAngle * leg.footFacing)[1], angle, facing }
 }
+
+test('braced pushing steps follow distance travelled and stop when blocked', () => {
+  const terrain = [{ x: 0, y: 320, w: 2600, h: 780, profile: [[0,780],[2600,0]] }]
+  const counts = []
+  for (const speed of [2, 12, 60]) {
+    const p = createPlayer(); p.x = 800; p.y = 1100 - p.x * .3; p.gait = gaitPose(speed)
+    p.pushing = { wallX: p.x + 25.5, direction: 1, amount: 1, effort: 1 }
+    let steps = 0, planted = [true,true]
+    for (let frame=0;frame<1200;frame++) {
+      const oldX=p.x; p.x+=speed*STEP; p.y=1100-p.x*.3; p.pushing.wallX=p.x+25.5
+      advanceFootwork(p,STEP,oldX,terrain)
+      const feet=p.footwork.feet
+      steps+=feet.filter((foot,i)=>!foot.planted&&planted[i]).length
+      assert.ok(feet.some(foot=>foot.planted),'at least one foot supports a slow push')
+      planted=feet.map(foot=>foot.planted)
+    }
+    counts.push(steps)
+    for(let frame=0;frame<120;frame++)advanceFootwork(p,STEP,p.x,terrain)
+    const stopped=p.footwork.feet.map(foot=>[foot.x,foot.y])
+    for(let frame=0;frame<240;frame++)advanceFootwork(p,STEP,p.x,terrain)
+    assert.deepEqual(p.footwork.feet.map(foot=>[foot.x,foot.y]),stopped,'blocked pushing keeps the feet planted')
+  }
+  assert.ok(counts[0]<6,`a creeping push should not churn: ${counts}`)
+  assert.ok(counts[1]>counts[0]*2 && counts[2]>counts[1]*2,`steps scale with travel: ${counts}`)
+})
 
 test('expressive strides keep limb lengths, safe knee bends, and continuous poses', () => {
   for (const vx of [0, 70, 125, 240, 350]) for (const charging of [false, true]) {

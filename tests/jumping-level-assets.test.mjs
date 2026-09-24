@@ -113,7 +113,7 @@ test('the JSON test lab exercises all geometry, attachments, saved rope paths an
   Object.assign(run.player, { x: 2740, y: 1400, grounded: true, footwork: null })
   for (let i = 0; i < 120; i++) stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.triggers[1].active, true); assert.equal(run.mechanisms[1].active, true)
-  Object.assign(run.player, level.goal); stepRun(run, NEUTRAL_INPUT); assert.equal(run.finished, true)
+  Object.assign(run.player, level.goal); stepRun(run, NEUTRAL_INPUT); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
   assert.deepEqual(createRun(level), original, 'reset reconstructs every actor from the same JSON')
 })
 

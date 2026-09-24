@@ -9,7 +9,6 @@ import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelPlayer, level
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
 import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
-import { GOAL_REVEAL_SECONDS } from './jumping/goal'
 import type { Run } from './jumping/challenge'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile } from './jumping/levelAssets'
@@ -130,7 +129,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     setTesting(false); changeScreen('menu')
   }
   const finishRun = useEffectEvent(() => {
-    if (!run.current?.finished || run.current.finishElapsed < GOAL_REVEAL_SECONDS || screenRef.current !== 'playing') return
+    if (!run.current?.finished || screenRef.current !== 'playing') return
     setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
     if (!testing) {
       const { elapsed } = run.current
@@ -221,13 +220,13 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
           if (run.current) stepRun(run.current, controls)
           else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
           accumulator -= STEP
-          if (run.current?.finished && run.current.finishElapsed >= GOAL_REVEAL_SECONDS) { finishRun(); accumulator = 0; break }
+          if (run.current?.finished) { finishRun(); accumulator = 0; break }
         }
       } else accumulator = 0
       paint()
       if (now - published > 80) {
         const p = player.current
-        setMetrics({ state: run.current?.finished ? 'Goal activated' : playerState(p),
+        setMetrics({ state: run.current?.exit ? 'Entering the exit' : run.current?.goalLit ? 'Exit open' : playerState(p),
           elapsed: run.current?.elapsed ?? 0 })
         published = now
       }
@@ -252,7 +251,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     </>}
     {screen === 'complete' && <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={startChallenge} className="jumping-overlay">
       <div className="jumping-menu jumping-result">
-        <p className="jumping-eyebrow">{trial.name.toUpperCase()} / {testing ? 'TEST COMPLETE' : 'COMPLETE'}</p><h2>Goal activated.</h2>
+        <p className="jumping-eyebrow">{trial.name.toUpperCase()} / {testing ? 'TEST COMPLETE' : 'COMPLETE'}</p><h2>Level complete.</h2>
         <div className={`jumping-medal ${result.medal.toLowerCase().replace(' ', '-')}`} aria-hidden="true">{result.medal === 'No medal' ? '⚑' : '★'}</div>
         <p className="jumping-result-time">{formatTime(result.elapsed)}</p>
         <p>{result.medal === 'No medal' ? 'Level complete. Another run, another route.' : `${result.medal} medal`}</p>

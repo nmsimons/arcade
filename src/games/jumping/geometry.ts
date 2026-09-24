@@ -154,6 +154,10 @@ export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec)
   }
   return best
 }
+export { parts as convexParts }
+export function polygonIntersects(hull: readonly Vec[], terrain: Platform, tolerance = 0) {
+  return parts(terrain).some(piece => (penetration(hull, piece)?.depth ?? 0) > tolerance)
+}
 /** Locate the face at the part of the hull that actually made contact. At a
  * concave corner, the face nearest the feet can differ from the blocking face. */
 export function bodyContact(b: Platform, x: number, y: number, normal: Vec, height = 62) {

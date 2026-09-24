@@ -50,6 +50,181 @@ async function dragWorld(page, start, end) {
   await page.mouse.move(x(end.x), y(end.y), { steps: 8 }); await page.mouse.up()
 }
 
+test('object tools place editable balls, boxes, elevators, gates and shovebots with connected pressure plates', async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await open(page)
+  await page.getByRole('textbox', { name: 'Level name' }).fill('Object workshop')
+  const selected = page.getByRole('combobox', { name: 'Selected object' })
+  const place = async (name, point, end = point) => {
+    await page.getByRole('button', { name, exact: true }).click()
+    await dragWorld(page, point, end)
+  }
+  await place('Ball', { x: 260, y: 880 })
+  await expect(selected).toHaveValue('prop:0')
+  await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('60')
+  await place('Box', { x: 380, y: 880 })
+  await expect(selected).toHaveValue('prop:1')
+  await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('100')
+  await place('Elevator', { x: 500, y: 900 }, { x: 500, y: 660 })
+  await expect(selected).toHaveValue('mechanism:0')
+  await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('180')
+  await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toHaveValue('20')
+  await expect(page.getByRole('spinbutton', { name: 'Distance to anchor' })).toHaveValue('240')
+  await place('Gate', { x: 820, y: 900 })
+  await expect(selected).toHaveValue('mechanism:1')
+  await page.getByRole('spinbutton', { name: 'Object h', exact: true }).fill('200')
+  await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveValue('20')
+  await place('Shovebot', { x: 740, y: 900 })
+  await expect(selected).toHaveValue('robot:0')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(selected.locator('option[value="robot:0"]')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await selected.selectOption('robot:0')
+  await page.getByRole('spinbutton', { name: 'Shovebot left limit' }).fill('660')
+  await page.getByRole('spinbutton', { name: 'Shovebot right limit' }).fill('780')
+  for (const [x, target] of [[100, 'Elevator 1'], [660, 'Gate 2']]) {
+    await place('Pressure plate', { x, y: 900 })
+    await page.getByRole('combobox', { name: 'Connected mechanism' }).selectOption({ label: target })
+  }
+  await expect(page.getByRole('button', { name: 'Playtest', exact: true })).toBeEnabled()
+  const saved = await downloadLevel(page, 'Save level')
+  expect(saved.level.props).toEqual([{ kind: 'ball', x: 260, y: 920, size: 60 }, { kind: 'box', x: 380, y: 920, size: 100 }])
+  expect(saved.level.mechanisms.map(({ kind, x, y, w, h, travel }) => ({ kind, x, y, w, h, travel }))).toEqual([
+    { kind: 'lift', x: 500, y: 900, w: 180, h: 20, travel: 240 },
+    { kind: 'gate', x: 820, y: 720, w: 20, h: 200, travel: 220 },
+  ])
+  expect(saved.level.robots).toEqual([{ x: 740, y: 920, left: 660, right: 780 }])
+  expect(saved.level.triggers.map(p => p.target)).toEqual(saved.level.mechanisms.map(m => m.id))
+  await page.getByLabel('Import level file').setInputFiles(saved.path); await page.clock.runFor(32)
+  expect((await downloadLevel(page)).level).toEqual(saved.level)
+  await selected.selectOption('mechanism:0')
+  await page.getByRole('button', { name: 'Elevator', exact: true }).scrollIntoViewIfNeeded()
+  await page.screenshot({ path: info.outputPath('object-tools-builder.png') })
+  await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
+  await expect(page.getByRole('img', { name: 'Object workshop: activate the goal' })).toBeVisible()
+  await page.keyboard.down('d'); await page.clock.runFor(64); await page.keyboard.up('d')
+  await page.getByRole('button', { name: 'Return to builder' }).click()
+  expect((await downloadLevel(page)).level).toEqual(saved.level)
+  expect(errors).toEqual([])
+})
+
+test('suspended gates and elevators keep fixed thickness, editable anchors, and working switches', async ({ page }, info) => {
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype, roundRect = proto.roundRect, arc = proto.arc
+    proto.roundRect = function (x, y, w, h, ...rest) {
+      const kind = this.fillStyle === '#8f9e98' && w === 20 ? 'gate' : this.fillStyle === '#b3a28d' && h === 20 ? 'lift' : null
+      if (kind) (this.canvas.mechanismBodies ??= {})[kind] = { x, y, w, h }
+      return roundRect.call(this, x, y, w, h, ...rest)
+    }
+    proto.arc = function (x, y, r, ...rest) {
+      if (this.fillStyle === '#697d72' && r === 5) (this.canvas.mechanismAnchors ??= {})[x] = y
+      return arc.call(this, x, y, r, ...rest)
+    }
+  })
+  const level = blankTrial(); level.spawn.x = 340
+  level.mechanisms = [
+    { id: 'gate', kind: 'gate', x: 600, y: 740, w: 44, h: 180, travel: 220 },
+    { id: 'lift', kind: 'lift', x: 900, y: 890, w: 160, h: 22, travel: 200 },
+  ]
+  level.triggers = [{ x: 300, y: 920, w: 80, target: 'gate', mode: 'weight' },
+    { x: 300, y: 920, w: 80, target: 'lift', mode: 'weight' }]
+  await open(page, level)
+  const selected = page.getByRole('combobox', { name: 'Selected object' }), editor = page.getByRole('application', { name: 'Level canvas' })
+  await selected.selectOption('trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Pressure mode' })).toHaveCount(0)
+  await expect(page.getByText('The player, a crate, or a ball can hold this plate. Releasing pauses elevators and closes gates.')).toBeVisible()
+  await selected.selectOption('mechanism:0')
+  await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveValue('20')
+  await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toBeDisabled()
+  await page.getByRole('spinbutton', { name: 'Object h', exact: true }).fill('160')
+  await page.getByRole('spinbutton', { name: 'Distance to anchor' }).fill('240')
+  await selected.selectOption('mechanism:1')
+  await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toHaveValue('20')
+  await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toBeDisabled()
+  await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('200')
+  await page.getByRole('spinbutton', { name: 'Distance to anchor' }).fill('240')
+  await page.clock.runFor(32)
+  expect(await editor.evaluate(canvas => canvas.mechanismBodies)).toEqual({
+    gate: { x: 612, y: 740, w: 20, h: 160 }, lift: { x: 900, y: 890, w: 200, h: 20 },
+  })
+  const exported = await downloadLevel(page)
+  expect(exported.level.mechanisms.map(m => [m.w, m.h, m.travel])).toEqual([[20, 160, 240], [200, 20, 240]])
+  await page.getByLabel('Import level file').setInputFiles(exported.path); await page.clock.runFor(32)
+  expect(await editor.evaluate(canvas => canvas.mechanismAnchors[622])).toBe(500)
+  expect(await editor.evaluate(canvas => canvas.mechanismAnchors[1000])).toBe(650)
+  await page.screenshot({ path: info.outputPath('suspended-mechanisms-builder.png') })
+  await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
+  const game = page.getByRole('img', { name: 'Untitled level: activate the goal' })
+  await page.keyboard.down('d'); await page.clock.runFor(32); await page.keyboard.up('d')
+  await page.clock.runFor(2600)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(500)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.lift.y)).toBe(650)
+  expect(await game.evaluate(canvas => canvas.mechanismAnchors[622])).toBe(500)
+  expect(await game.evaluate(canvas => canvas.mechanismAnchors[1000])).toBe(650)
+  await page.screenshot({ path: info.outputPath('suspended-mechanisms-raised.png') })
+  await page.clock.runFor(4000)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(500)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.lift.y)).toBeGreaterThan(650)
+  await page.keyboard.down('d'); await page.clock.runFor(320); await page.keyboard.up('d'); await page.clock.runFor(32)
+  const stoppedY = await game.evaluate(canvas => canvas.mechanismBodies.lift.y)
+  await page.clock.runFor(2400)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(740)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.lift.y)).toBe(stoppedY)
+  await page.screenshot({ path: info.outputPath('suspended-mechanisms-released.png') })
+})
+
+test('goal lights flip horizontally, survive moving and export, and still activate in play', async ({ page }, info) => {
+  await page.addInitScript(() => {
+    const arc = CanvasRenderingContext2D.prototype.arc
+    CanvasRenderingContext2D.prototype.arc = function (...args) {
+      if (args[2] === 11 && ['#9aa38e', '#a9d56b'].includes(this.fillStyle))
+        this.canvas.goalLight = { x: args[0], y: args[1], lit: this.fillStyle === '#a9d56b' }
+      return arc.apply(this, args)
+    }
+  })
+  const level = blankTrial(); level.goal.x = 500
+  await open(page, level)
+  const selected = page.getByRole('combobox', { name: 'Selected object' }), editor = page.getByRole('application', { name: 'Level canvas' })
+  await selected.selectOption('goal:0')
+  const flip = page.getByRole('button', { name: 'Flip horizontally', exact: true })
+  await expect(flip).toHaveAttribute('aria-pressed', 'false')
+  expect(await editor.evaluate(canvas => canvas.goalLight.x)).toBe(544)
+  await flip.click(); await page.clock.runFor(32)
+  await expect(flip).toHaveAttribute('aria-pressed', 'true')
+  expect(await editor.evaluate(canvas => canvas.goalLight.x)).toBe(456)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await selected.selectOption('goal:0')
+  await expect(flip).toHaveAttribute('aria-pressed', 'false')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await selected.selectOption('goal:0')
+  await expect(flip).toHaveAttribute('aria-pressed', 'true')
+  await flip.click(); await expect(flip).toHaveAttribute('aria-pressed', 'false')
+  await flip.click()
+  await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('600')
+  await selected.selectOption('spawn:0'); await page.clock.runFor(32)
+  await dragWorld(page, { x: 556, y: 824 }, { x: 556, y: 824 })
+  await expect(selected).toHaveValue('goal:0')
+  const exported = await downloadLevel(page)
+  expect(exported.level.goal).toEqual({ x: 600, y: 920, flipX: true })
+  await page.getByLabel('Import level file').setInputFiles(exported.path); await page.clock.runFor(32)
+  expect(await editor.evaluate(canvas => canvas.goalLight)).toEqual({ x: 556, y: 824, lit: false })
+  await selected.selectOption('goal:0')
+  await expect(flip).toHaveAttribute('aria-pressed', 'true')
+  await page.screenshot({ path: info.outputPath('flipped-goal-builder.png') })
+  await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
+  const game = page.getByRole('img', { name: 'Untitled level: activate the goal' })
+  expect(await game.evaluate(canvas => canvas.goalLight)).toEqual({ x: 556, y: 824, lit: false })
+  await page.keyboard.down('d')
+  for (let i = 0; i < 120 && !await game.evaluate(canvas => canvas.goalLight.lit); i++) await page.clock.runFor(16)
+  await page.keyboard.up('d')
+  expect(await game.evaluate(canvas => canvas.goalLight.lit)).toBe(true)
+  await page.screenshot({ path: info.outputPath('flipped-goal-lit.png') })
+  await page.clock.runFor(1600)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await page.keyboard.down('a'); await page.clock.runFor(1800); await page.keyboard.up('a')
+  await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
+})
+
 test('stopwatches can be placed, edited, duplicated, undone, exported, imported and playtested', async ({ page }, info) => {
   await open(page)
   await page.getByRole('button', { name: 'Stopwatch', exact: true }).click()
@@ -315,7 +490,6 @@ test('builder controls and drawing area remain usable on a narrow screen', async
 
 test('author terrain, a free ladder and an anchored rope with portable export', async ({ page }, info) => {
   await open(page)
-  await expect(page.getByRole('button', {name:'Crate', exact:true})).toHaveCount(0)
   await page.getByRole('textbox', { name: 'Level name' }).fill('My rope course')
   await page.getByRole('button', {name:'Terrain', exact:true}).click()
   await dragWorld(page,{x:800,y:400},{x:1100,y:460})

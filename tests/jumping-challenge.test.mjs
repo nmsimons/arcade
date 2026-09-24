@@ -7,12 +7,17 @@ import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { levelProblems, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
 import { NO_CLIMBABLES } from '../src/games/jumping/climbables.ts'
 import { playLesson } from './helpers/jumping-routes.mjs'
-import { GOAL_PLATE_WIDTH, GOAL_REVEAL_SECONDS } from '../src/games/jumping/goal.ts'
+import { GOAL_PLATE_WIDTH, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor } from '../src/games/jumping/goal.ts'
+import { mechanismAnchor } from '../src/games/jumping/mechanisms.ts'
 const advance = (run, frames, input = {}) => { for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input }) }
+const weightPlate = (level, target = 'lift') => {
+  level.triggers.push({ x: 300, y: 920, w: 80, target, mode: 'weight' })
+  level.props.push({ kind: 'box', x: 340, y: 920, size: 30 })
+}
 for (const [index, level] of CAMPAIGN.entries()) test(`${level.name} can be finished from spawn using its taught mechanic`, () => {
   const run = playLesson(index); assert.ok(run.elapsed < level.times.silver)
   const time = run.elapsed, p = structuredClone(run.player); advance(run, 600, { move: -1, jump: true })
-  assert.equal(run.elapsed, time); assert.notDeepEqual(run.player, p)
+  assert.equal(run.elapsed, time); assert.deepEqual(run.player, p)
 })
 test('a short hop cannot clear lesson one and a charged jump cannot skip either rope lesson', () => {
   for (const [index, level] of CAMPAIGN.entries()) {
@@ -33,26 +38,126 @@ test('a missed jump lands on the floor, and the ladder returns to the left bank'
 test('all actors wait for the first input and restarting reconstructs the entire puzzle', () => {
   const run = createRun(YARD_LEVEL), fresh = createRun(YARD_LEVEL)
   advance(run, 1000); assert.deepEqual(run, fresh)
-  advance(run, 360, { move: 1 }); assert.equal(run.triggers[0].active, true); assert.ok(run.elapsed > 2.9)
+  let pressed = false
+  for (let i = 0; i < 360; i++) { advance(run, 1, { move: 1 }); pressed ||= run.triggers[0].active }
+  assert.equal(pressed, true); advance(run, 120, { move: -1 }); assert.equal(run.triggers[0].active, false); assert.ok(run.elapsed > 2.9)
   assert.notDeepEqual(run.props, fresh.props); assert.deepEqual(createRun(YARD_LEVEL), fresh)
 })
-test('a pressure plate starts only its connected mechanism and keeps it latched', () => {
+test('a pressure plate powers only its connected mechanism while held', () => {
   const level = blankTrial(); level.mechanisms = [
     { id: 'lift', kind: 'lift', x: 700, y: 890, w: 140, h: 22, travel: 300 },
     { id: 'gate', kind: 'gate', x: 1100, y: 740, w: 44, h: 180, travel: 200 },
   ]; level.triggers = [{ x: 250, y: 920, w: 100, target: 'gate', mode: 'touch' }]
   const run = createRun(level); run.player.x = 290; advance(run, 60, { climb: true })
   assert.equal(run.mechanisms[0].active, false); assert.equal(run.mechanisms[1].active, true)
-  run.player.x = 450; advance(run, 300)
+  advance(run, 300)
   assert.equal(run.mechanisms[1].y, 540); assert.equal(run.mechanisms[0].y, 890)
+  run.player.x = 450; advance(run, 300)
+  assert.equal(run.triggers[0].active, false); assert.equal(run.mechanisms[1].active, false)
+  assert.equal(run.mechanisms[1].y, 740)
 })
 test('elevators carry the player and stop above them without crushing or trapping them', () => {
   const level = blankTrial(); level.mechanisms = [{ id: 'lift', kind: 'lift', x: 700, y: 890, w: 140, h: 22, travel: 300 }]
-  const run = createRun(level), lift = run.mechanisms[0]; run.started = true; lift.active = true
-  Object.assign(run.player, { x: 760, y: 890 }); advance(run, 280); assert.equal(run.player.y, 590)
+  weightPlate(level)
+  const run = createRun(level), lift = run.mechanisms[0]; run.started = true
+  Object.assign(run.player, { x: 760, y: 890 }); advance(run, 320); assert.equal(run.player.y, 590)
   Object.assign(run.player, { x: 760, y: 920, footwork: null }); lift.y = 750; lift.direction = 1; lift.wait = 0
-  advance(run, 250); assert.ok(lift.y + 22 <= run.player.y - 62 + .01)
+  advance(run, 250); assert.ok(lift.y + lift.definition.h <= run.player.y - 62 + .01)
   advance(run, 130, { move: 1 }); assert.ok(lift.y > 865)
+})
+
+test('a thin gate rises while pressed and closes on release without crushing a player underneath', () => {
+  const level = blankTrial(); level.spawn.x = 500
+  level.mechanisms = [{ id: 'gate', kind: 'gate', x: 600, y: 740, w: 20, h: 180, travel: 220 }]
+  level.triggers = [{ x: 300, y: 920, w: 80, target: 'gate', mode: 'touch' }]
+  const run = createRun(level), gate = run.mechanisms[0], anchor = mechanismAnchor(gate.definition)
+  advance(run, 180, { move: 1 })
+  assert.ok(run.player.x < 600); assert.equal(gate.y, 740)
+  Object.assign(run.player, { x: 340, vx: 0, footwork: null }); advance(run, 60)
+  assert.equal(gate.active, true)
+  advance(run, 360)
+  assert.equal(gate.y, anchor.y); assert.equal(gate.definition.h, 180)
+  Object.assign(run.player, { x: 610, vx: 0, footwork: null }); advance(run, 360)
+  assert.equal(gate.active, false)
+  assert.ok(gate.y > anchor.y && gate.y < 740)
+  assert.ok(gate.y + gate.definition.h <= run.player.y - 62 + .01)
+  advance(run, 80, { move: 1 }); assert.ok(run.player.x > 660)
+  advance(run, 240); assert.equal(gate.y, 740)
+  Object.assign(run.player, { x: 340, vx: 0, footwork: null }); advance(run, 360)
+  assert.equal(gate.y, anchor.y)
+  const restarted = createRun(level)
+  assert.equal(restarted.mechanisms[0].y, 740); assert.equal(restarted.mechanisms[0].active, false)
+})
+
+test('a suspended elevator keeps its anchor fixed while carrying a rider through a complete cycle', () => {
+  const level = blankTrial(); level.mechanisms = [{ id: 'lift', kind: 'lift', x: 700, y: 890, w: 160, h: 20, travel: 200 }]
+  weightPlate(level)
+  const run = createRun(level), lift = run.mechanisms[0], anchor = mechanismAnchor(lift.definition)
+  run.started = true
+  Object.assign(run.player, { x: 750, y: 890, footwork: null })
+  let reachedAnchor = false, returned = false
+  for (let i = 0; i < 1100; i++) {
+    advance(run, 1)
+    assert.ok(Math.abs(run.player.y - lift.y) < .01)
+    assert.ok(lift.y >= anchor.y && lift.y <= 890)
+    assert.deepEqual(mechanismAnchor(lift.definition), anchor)
+    if (lift.y === anchor.y) reachedAnchor = true
+    if (reachedAnchor && lift.y === 890) returned = true
+  }
+  assert.equal(reachedAnchor, true); assert.equal(returned, true)
+})
+
+test('an elevator pauses on plate release and resumes its direction on pressure in either direction', () => {
+  const level = blankTrial(); level.mechanisms = [{ id: 'lift', kind: 'lift', x: 700, y: 890, w: 160, h: 20, travel: 200 }]
+  weightPlate(level)
+  const run = createRun(level), lift = run.mechanisms[0], weight = run.props[0]
+  run.started = true; advance(run, 80)
+  for (const direction of [-1, 1]) {
+    assert.equal(lift.direction, direction)
+    const y = lift.y
+    weight.x = 450; advance(run, 1)
+    assert.equal(lift.active, false); assert.equal(lift.y, y)
+    advance(run, 120); assert.equal(lift.y, y)
+    weight.x = 340; advance(run, 60)
+    assert.equal(lift.active, true); assert.ok((lift.y - y) * direction > 0)
+    if (direction < 0) {
+      for (let i = 0; i < 800 && !(lift.direction === 1 && lift.y > 710); i++) advance(run, 1)
+    }
+  }
+})
+
+test('the player or either of two weighted plates can keep a gate open', () => {
+  const level = blankTrial(); level.mechanisms = [{ id: 'gate', kind: 'gate', x: 1000, y: 740, w: 20, h: 180, travel: 220 }]
+  level.triggers = [{ x: 300, y: 920, w: 80, target: 'gate', mode: 'weight' }, { x: 500, y: 920, w: 80, target: 'gate', mode: 'weight' }]
+  level.props = [{ kind: 'box', x: 700, y: 920, size: 30 }, { kind: 'ball', x: 800, y: 920, size: 30 }]
+  const run = createRun(level), gate = run.mechanisms[0]
+  run.started = true; run.player.x = 340; advance(run, 60)
+  assert.equal(gate.active, true); assert.ok(gate.y < 740)
+  run.player.x = 160; run.props[0].x = 340; run.props[1].x = 540; advance(run, 360)
+  assert.equal(gate.y, 520)
+  run.props[0].x = 700; advance(run, 180)
+  assert.equal(run.triggers[0].active, false); assert.equal(run.triggers[1].active, true); assert.equal(gate.y, 520)
+  run.props[1].x = 800; advance(run, 360)
+  assert.equal(gate.active, false); assert.equal(gate.y, 740)
+})
+
+for (const mode of ['weight', 'touch']) for (const kind of ['gate', 'lift']) test(`the player alone activates a ${mode} plate for a ${kind}, and leaving releases it`, () => {
+  const level = blankTrial(); level.spawn.x = 340
+  level.mechanisms = [{ id: 'mechanism', kind, x: 700, y: 740, w: kind === 'gate' ? 20 : 160, h: kind === 'gate' ? 180 : 20, travel: 220 }]
+  level.triggers = [{ x: 300, y: 920, w: 80, target: 'mechanism', mode }]
+  const run = createRun(level), mechanism = run.mechanisms[0]
+  run.started = true; advance(run, 60)
+  assert.equal(run.triggers[0].active, true); assert.equal(mechanism.active, true)
+  assert.ok(mechanism.y < 740)
+  const y = mechanism.y
+  run.player.x = 450; advance(run, 1)
+  assert.equal(run.triggers[0].active, false); assert.equal(mechanism.active, false)
+  advance(run, 300)
+  assert.equal(mechanism.y, kind === 'gate' ? 740 : y)
+  Object.assign(run.player, { x: 340, y: 820, vy: 0, grounded: false, footwork: null }); advance(run, 1)
+  assert.equal(run.triggers[0].active, false, 'passing above a plate does not press it')
+  Object.assign(run.player, { y: 920, vy: 0, grounded: true, footwork: null }); advance(run, 60)
+  assert.equal(mechanism.active, true)
 })
 test('pushers spot distant players, close the distance quickly, and repeat their attacks', () => {
   const level = blankTrial(); level.robots = [{ x: 1000, y: 920, left: 80, right: 1700 }]
@@ -76,7 +181,7 @@ test('loose crates displace players, stop at obstacles, and provide stable suppo
   const run = createRun(level); run.started = true; run.props[0].vx = 240; Object.assign(run.player, { x: 1053, y: 920 })
   advance(run, 30); assert.ok(run.player.x > 1065); assert.ok(run.player.x - 12 >= run.props[0].x + 40 - .01)
   Object.assign(run.player, { x: run.props[0].x, y: 840, vx: 0, footwork: null }); advance(run, 240)
-  assert.equal(run.player.y, 840)
+  assert.ok(Math.abs(run.player.y - 840) < .01)
 })
 test('a lift landing is a passable seam in either direction', () => {
   const terrain = [{ x: 0, y: 540, w: 200, h: 22 }, { x: 200, y: 540, w: 400, h: 22 }]
@@ -89,7 +194,7 @@ test('a lift landing is a passable seam in either direction', () => {
 test('medals use each level’s thresholds and an unmedalled finish is still successful', () => {
   assert.equal(medalFor(3.5, FIRST_LEVEL), 'Gold'); assert.equal(medalFor(3.51, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(6, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(15, FIRST_LEVEL), 'Bronze'); assert.equal(medalFor(15.01, FIRST_LEVEL), 'No medal')
   const run = createRun(FIRST_LEVEL); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.goal); advance(run, 1)
-  assert.equal(run.finished, true); assert.equal(run.medal, 'No medal'); assert.equal(formatTime(100.019), '1:40.01')
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, 'No medal'); assert.equal(formatTime(100.019), '1:40.01')
 })
 test('personal bests are isolated by level and survive slower runs and corrupt storage', () => {
   let raw = null; const storage = { getItem: () => raw, setItem: (_, value) => { raw = value } }
@@ -104,32 +209,52 @@ test('authored maps round-trip with their complete game data and continuous floo
   }
 })
 
-test('the player must load the goal plate from above; touching the pole or jumping over it does not finish', () => {
-  const level = blankTrial(); level.goal.x = 800
-  const run = createRun(level); run.started = true
-  Object.assign(run.player, { x: 800, y: 860, grounded: false })
-  advance(run, 1); assert.equal(run.finished, false)
-  Object.assign(run.player, { x: 844, y: 920, grounded: true, vy: 0, footwork: null })
-  advance(run, 1); assert.equal(run.finished, false, 'standing at the pole is not plate contact')
-  Object.assign(run.player, { x: 800, footwork: null })
-  advance(run, 1); assert.equal(run.finished, true)
+for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} goal lights only from its plate and finishes only through its open doorway`, () => {
+  const level = blankTrial(); level.goal.x = 800; level.goal.flipX = flipX
+  const run = createRun(level), p = run.player, door = goalDoor(level.goal), direction = flipX ? -1 : 1
+  run.started = true
+  Object.assign(p, { x: 800, y: 860, grounded: false })
+  advance(run, 1); assert.equal(run.goalLit, false)
+  Object.assign(p, { x: 800 + direction * 44, y: 920, grounded: true, vy: 0, footwork: null })
+  advance(run, 1); assert.equal(run.goalLit, false, 'standing at the pole is not plate contact')
+  Object.assign(p, { x: door.x + door.w / 2, footwork: null })
+  advance(run, 120); assert.equal(run.exit, null, 'the closed hidden door is inactive')
+  Object.assign(p, { x: 800, footwork: null })
+  advance(run, 1); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
+  const time = run.elapsed
+  advance(run, 600); assert.equal(run.finished, false); assert.equal(run.exit, null); assert.equal(run.elapsed, time)
+  Object.assign(p, { x: door.x + door.w / 2, y: 800, vy: 0, grounded: false, footwork: null })
+  advance(run, 1); assert.equal(run.exit, null, 'airborne passage does not enter the doorway')
+  Object.assign(p, { x: 800, y: 920, vx: 0, vy: 0, grounded: true, footwork: null })
+  for (let i = 0; i < 120 && !run.exit; i++) advance(run, 1, { move: direction })
+  assert.ok(run.exit); assert.equal(run.finished, false)
+  const captured = run.exit.fromX
+  advance(run, Math.floor(GOAL_EXIT_SECONDS / STEP) - 2, { move: -direction, jump: true })
+  assert.equal(run.finished, false, 'the full exit animation plays before results')
+  assert.ok(Math.abs(p.x - (door.x + door.w / 2)) < .01); assert.notEqual(p.x, captured)
+  advance(run, 5)
+  assert.equal(run.finished, true); assert.equal(run.elapsed, time)
+  const completed = structuredClone(run)
+  advance(run, 240, { move: 1, jump: true }); assert.deepEqual(run, completed)
 })
 
-for (const kind of ['box', 'ball']) test(`a ${kind} can light the goal with the player elsewhere`, () => {
+for (const kind of ['box', 'ball']) test(`a ${kind} can light the goal remotely without finishing the level`, () => {
   const level = blankTrial(); level.goal.x = 1000
   level.props = [{ kind, x: 1000, y: 920, size: 80 }]
   const run = createRun(level)
-  advance(run, 100); assert.equal(run.finished, false, 'the puzzle still waits for first input')
+  advance(run, 100); assert.equal(run.goalLit, false, 'the puzzle still waits for first input')
   advance(run, 1, { move: -1 })
-  assert.equal(run.finished, true); assert.equal(run.medal, 'Gold'); assert.ok(run.player.x < 200)
-  const time = run.elapsed, player = structuredClone(run.player), prop = structuredClone(run.props[0])
-  advance(run, Math.ceil((GOAL_REVEAL_SECONDS - .2) / STEP), { move: 1, jump: true })
-  assert.ok(run.finishElapsed < GOAL_REVEAL_SECONDS)
-  assert.equal(run.elapsed, time); assert.notDeepEqual(run.player, player); assert.deepEqual(run.props[0], prop)
-  advance(run, 100)
-  assert.equal(run.finishElapsed, GOAL_REVEAL_SECONDS); assert.equal(run.elapsed, time)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, 'Gold'); assert.ok(run.player.x < 200)
+  const time = run.elapsed, player = structuredClone(run.player)
+  advance(run, 240, { move: 1, jump: true })
+  assert.equal(run.goalElapsed, GOAL_OPEN_SECONDS); assert.equal(run.finished, false); assert.equal(run.exit, null)
+  assert.equal(run.elapsed, time); assert.notDeepEqual(run.player, player)
+  const door = goalDoor(level.goal)
+  run.props[0].x = door.x + door.w / 2
+  advance(run, 240)
+  assert.equal(run.finished, false, 'a prop in the door cannot complete the level')
   const fresh = createRun(level)
-  assert.equal(fresh.finished, false); assert.equal(fresh.finishElapsed, 0); assert.equal(fresh.elapsed, 0)
+  assert.equal(fresh.finished, false); assert.equal(fresh.goalLit, false); assert.equal(fresh.goalElapsed, 0); assert.equal(fresh.exit, null); assert.equal(fresh.elapsed, 0)
 })
 
 test('a crate edge presses the plate, while a ball must put its bottom contact on the plate', () => {
@@ -137,7 +262,7 @@ test('a crate edge presses the plate, while a ball must put its bottom contact o
     const level = blankTrial(); level.goal.x = 1000
     level.props = [{ kind, x: 1000 + GOAL_PLATE_WIDTH / 2 + 30, y: 920, size: 80 }]
     const run = createRun(level); run.started = true; advance(run, 1)
-    assert.equal(run.finished, kind === 'box')
+    assert.equal(run.goalLit, kind === 'box'); assert.equal(run.finished, false)
   }
 })
 
@@ -145,17 +270,17 @@ test('an object above the plate only activates it after landing', () => {
   const level = blankTrial(); level.goal.x = 1000
   level.props = [{ kind: 'ball', x: 1000, y: 840, size: 80 }]
   const run = createRun(level); run.started = true
-  advance(run, 1); assert.equal(run.finished, false)
-  advance(run, 90); assert.equal(run.finished, true); assert.equal(run.props[0].y, level.goal.y)
+  advance(run, 1); assert.equal(run.goalLit, false)
+  advance(run, 90); assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.ok(Math.abs(run.props[0].y - level.goal.y) < .01)
 })
 
-test('walking off the goal releases its plate while the light, medal, and finishing time stay latched', () => {
+test('walking away releases the plate while the light, open door, medal and time remain latched', () => {
   const level = blankTrial(); level.goal.x = 800
   const run = createRun(level); run.started = true; run.player.x = 800
   advance(run, 20)
-  assert.equal(run.finished, true); assert.equal(run.goalDepression, 1)
+  assert.equal(run.goalLit, true); assert.equal(run.goalDepression, 1)
   const time = run.elapsed, medal = run.medal
-  advance(run, 100, { move: 1 })
-  assert.ok(run.player.x > 1000); assert.equal(run.goalDepression, 0)
-  assert.equal(run.finished, true); assert.equal(run.medal, medal); assert.equal(run.elapsed, time)
+  advance(run, 100, { move: -1 })
+  assert.ok(run.player.x < 600); assert.equal(run.goalDepression, 0)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, medal); assert.equal(run.elapsed, time)
 })

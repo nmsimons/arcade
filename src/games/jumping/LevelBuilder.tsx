@@ -41,16 +41,22 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'node', group: 'Terrain', label: 'Node', help: 'Click a terrain edge to add a node at the highlighted point. Drag to reshape it. N selects this tool; Esc returns to Select.' },
   { id: 'rope', group: 'Movement', label: 'Rope', help: 'Drag down from the anchor. Start near a terrain edge to attach the anchor to it.' },
   { id: 'ladder', group: 'Movement', label: 'Ladder', help: 'Drag down anywhere to place a ladder. Move it or change its height in the inspector.' },
+  { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click a surface to place a ball. Move it or change its size in the inspector.' },
+  { id: 'box', group: 'Objects', label: 'Box', help: 'Click a surface to place a box. Move it or change its size in the inspector.' },
+  { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Set its patrol limits in the inspector.' },
+  { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Connect a pressure plate to move it.' },
+  { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click a surface to place a gate. Adjust its height and distance to the anchor in the inspector. Connect a pressure plate to raise it.' },
+  { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose its elevator or gate in the inspector. The player, boxes, and balls can hold it down.' },
   { id: 'spawn', group: 'Markers', label: 'Start', help: 'Click a surface to choose where the player starts.' },
-  { id: 'goal', group: 'Markers', label: 'Goal light', help: 'Place the plate on a flat surface. The player, a crate, or a ball can press it to light the goal and stop the timer.' },
+  { id: 'goal', group: 'Markers', label: 'Goal light', help: 'Press the plate to stop the timer and reveal the hidden exit beyond the light. Walk into the door to finish. Leave flat, clear space for the whole goal.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Edit the text, size, and alignment in the inspector. Text never blocks movement.' },
   { id: 'stopwatch', group: 'Power-ups', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
 ]
 const selectionLabel = (s: Selection, level: JumpLevel) => {
-  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Crate'
-    : s.kind === 'pickup' ? 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Pusher' : s.kind === 'trigger' ? 'Pressure plate' : s.kind === 'mechanism' ? level.mechanisms?.[s.index]?.kind === 'gate' ? 'Gate' : 'Elevator' : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
+  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
+    : s.kind === 'pickup' ? 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? 'Pressure plate' : s.kind === 'mechanism' ? level.mechanisms?.[s.index]?.kind === 'gate' ? 'Gate' : 'Elevator' : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
   return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 
@@ -177,7 +183,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
     drawLevelBackdrop(ctx, level, { x: view.x, y: view.y, w: size.width / view.zoom, h: size.height / view.zoom }, view.zoom)
     const player = levelPlayer(level)
-    if (isPuzzleLevel(level)) drawPuzzleWorld(ctx, createRun(level))
+    if (isPuzzleLevel(level)) drawPuzzleWorld(ctx, createRun(level), true)
     else { drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, player, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, player); ctx.globalAlpha = 1 }
     ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
     if (jumpGuide) {
@@ -332,7 +338,6 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     if (selection.kind === 'trigger') {
       const t = next.triggers![selection.index]
       if (field === 'target') t.target = String(value)
-      else t.mode = value === 'touch' ? 'touch' : 'weight'
     }
     if (selection.kind === 'robot') {
       const r = next.robots![selection.index]
@@ -371,7 +376,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     <aside className="builder-tools" aria-label="Building tools">
       <div className="builder-panel-tabs"><button aria-pressed={panel === 'build'} onClick={() => setPanel('build')}>Build</button><button aria-pressed={panel === 'library'} onClick={() => setPanel('library')}>Library</button></div>
       {panel === 'build' ? <>
-        {['Terrain', 'Movement', 'Markers', 'Power-ups', 'Back wall'].map(group => <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level))).map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div>)}
+        {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Power-ups', 'Back wall'].map(group => <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level))).map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div>)}
         <label className="builder-snap"><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} /> Keep placing</label>
         {!['select', 'pan', 'node'].includes(tool) && <button className="builder-add" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button>}
       </> : <>
@@ -413,8 +418,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       {selection && bounds ? <div className="builder-property-card">
         <h3>{selectionLabel(selection, level)}</h3>
         <div className="builder-dimensions">{(['x', 'y', 'w', 'h'] as const).filter(axis => ['platform', 'prop', 'mechanism', 'text'].includes(selection.kind) || (axis === 'x' || axis === 'y') || axis === 'h' && ['rope', 'ladder'].includes(selection.kind) || axis === 'w' && selection.kind === 'trigger').map(axis =>
-          <label key={axis}>{({ x: 'X', y: 'Y', w: 'Width', h: 'Height' })[axis]}<input type="number" aria-label={`Object ${axis}`} step={snap ? LEVEL_GRID_SIZE : 1} value={Math.round((axis === 'y' ? roomHeight - bounds.y : bounds[axis]) * 100) / 100} onChange={e => setDimension(axis, Number(e.target.value))} onBlur={e => { if (snap && e.currentTarget.value !== '') setDimension(axis, quantize(Number(e.currentTarget.value))) }} /></label>)}</div>
+          <label key={axis}>{({ x: 'X', y: 'Y', w: 'Width', h: 'Height' })[axis]}<input type="number" aria-label={`Object ${axis}`} disabled={mechanism?.kind === 'gate' && axis === 'w' || mechanism?.kind === 'lift' && axis === 'h'} step={snap ? LEVEL_GRID_SIZE : 1} value={Math.round((axis === 'y' ? roomHeight - bounds.y : bounds[axis]) * 100) / 100} onChange={e => setDimension(axis, Number(e.target.value))} onBlur={e => { if (snap && e.currentTarget.value !== '') setDimension(axis, quantize(Number(e.currentTarget.value))) }} /></label>)}</div>
         <p>Y is height above the floor, measured at {selection.kind === 'goal' ? 'the plate’s surface' : ['spawn', 'checkpoint'].includes(selection.kind) ? 'the feet' : selection.kind === 'rope' ? 'the anchor' : 'the top of the object'}.</p>
+        {selection.kind === 'goal' && level.goal && <button aria-pressed={!!level.goal.flipX} onClick={() => {
+          const next = copyLevel(history.present)
+          if (next.goal) { if (next.goal.flipX) delete next.goal.flipX; else next.goal.flipX = true }
+          commit(next)
+        }}>Flip horizontally</button>}
         {chosen?.profile && <><button onClick={() => commit(replacePlatform(history.present, selection.index, { ...chosen, profile: [...chosen.profile!].reverse().map(([x, y]) => [chosen.w - x, y]) }))}>Flip slope</button><p>Drag the white points to shape the surface.</p></>}
         {chosen && <><button aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><p>Drag square handles to resize the whole shape. Drag white nodes to change its geometry. Steeper slopes leave less grip for climbing and can cause sliding.</p></>}
         {selection.kind === 'ladder' && <p>Climb with Up / Down. Jump to leave the ladder.</p>}
@@ -432,9 +442,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></>}
-        {mechanism && <label>Travel distance<input aria-label="Travel distance" type="number" min={60} max={1200} step={20} value={mechanism.travel} onChange={e => changeObject('travel', Number(e.target.value))} /></label>}
-        {trigger && <><label>Activates<select aria-label="Connected mechanism" value={trigger.target} onChange={e => changeObject('target', e.target.value)}><option value="">Choose a mechanism</option>{level.mechanisms?.map((m, i) => <option key={m.id} value={m.id}>{m.kind === 'lift' ? 'Elevator' : 'Gate'} {i + 1}</option>)}</select></label><label>Pressure mode<select aria-label="Pressure mode" value={trigger.mode} onChange={e => changeObject('mode', e.target.value)}><option value="weight">Crates & balls</option><option value="touch">Player or props</option></select></label><p>Activation latches on until restart.</p></>}
-        {robot && <><div className="builder-dimensions"><label>Left limit<input aria-label="Pusher left limit" type="number" value={Math.round(robot.left)} onChange={e => changeObject('left', Number(e.target.value))} /></label><label>Right limit<input aria-label="Pusher right limit" type="number" value={Math.round(robot.right)} onChange={e => changeObject('right', Number(e.target.value))} /></label></div><p>Chases on sight. A brief wind-up, a hard shove, then straight back after you.</p></>}
+        {mechanism && <label>Distance to anchor<input aria-label="Distance to anchor" type="number" min={60} max={1200} step={20} value={mechanism.travel} onChange={e => changeObject('travel', Number(e.target.value))} /></label>}
+        {mechanism?.kind === 'gate' && <p>20 units thick. Holding the plate raises the gate to its anchor. Releasing it lowers the gate. Adjust the height to set the barrier length.</p>}
+        {mechanism?.kind === 'lift' && <p>20 units thick. Moves between its starting position and the anchor while the plate is held. Pauses in place when released. Adjust the width to set the platform size.</p>}
+        {trigger && <><label>Activates<select aria-label="Connected mechanism" value={trigger.target} onChange={e => changeObject('target', e.target.value)}><option value="">Choose a mechanism</option>{level.mechanisms?.map((m, i) => <option key={m.id} value={m.id}>{m.kind === 'lift' ? 'Elevator' : 'Gate'} {i + 1}</option>)}</select></label><p>The player, a crate, or a ball can hold this plate. Releasing pauses elevators and closes gates.</p></>}
+        {robot && <><div className="builder-dimensions"><label>Left limit<input aria-label="Shovebot left limit" type="number" value={Math.round(robot.left)} onChange={e => changeObject('left', Number(e.target.value))} /></label><label>Right limit<input aria-label="Shovebot right limit" type="number" value={Math.round(robot.right)} onChange={e => changeObject('right', Number(e.target.value))} /></label></div><p>Chases on sight. A brief wind-up, a hard shove, then straight back after you.</p></>}
         <div className="builder-object-actions"><button disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete object</button></div>
       </div> : <div className="builder-empty-selection"><BuilderIcon kind="select" /><strong>Make it yours.</strong><p>Choose a tool and draw in the canvas, or select an object to refine it.</p></div>}
       <details className="builder-level-settings" open={!selection}>

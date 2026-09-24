@@ -7,6 +7,8 @@ import { exposedSide, followGround, groundAt, platformSurface } from './terrain.
 import type { GroundSurface } from './terrain.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
+import { playerContacts, pushingVelocity, staticContactWorld, updatePushingPose } from './playerContacts.ts'
+import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 
 export interface Platform { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[] }
 export const TUNING = {
@@ -35,7 +37,7 @@ export interface Player {
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; direction: number; active: boolean; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
-  pushing: { wallX: number; direction: number; amount: number; effort: number } | null
+  pushing: { wallX: number; direction: number; amount: number; effort: number; slope?: number } | null
   ledgeReach: { x: number; y: number; amount: number } | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean;
     caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null } } | null
@@ -46,6 +48,7 @@ export interface Player {
   crouching: boolean; crouch: number; reach: number
   gait: GaitPose | null
   footwork: Footwork | null
+  contacts: PlayerContacts | null
   terrain?: readonly Platform[]
 }
 export function createPlayer(spawn = { x: 0, y: 0 }): Player {
@@ -53,10 +56,12 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
     charge: 0, charging: false, coyote: TUNING.coyoteTime, buffer: 0, jumpHeld: false,
     grabCooldown: 0, knockback: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
-    crouching: false, crouch: 0, reach: 0, gait: null, footwork: null }
+    crouching: false, crouch: 0, reach: 0, gait: null, footwork: null, contacts: null }
 }
 function settleGait(p: Player, dt: number) {
-  const target = gaitPose(p.climbing ? 0 : p.vx, !p.grounded && !p.hang && !p.mantle && !p.climbing), previous = p.gait ?? gaitPose(0)
+  const speed = p.climbing ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
+  const target = gaitPose(speed, !p.grounded && !p.hang && !p.mantle && !p.climbing), previous = p.gait ?? gaitPose(0)
+  if (p.contacts?.push) target.run = 0
   const blend = (from: number, to: number, response = to > from ? .045 : .08) => {
     const value = from + (to - from) * (1 - Math.exp(-dt / response))
     return Math.abs(value - to) < .001 ? to : value
@@ -224,18 +229,17 @@ export function playerState(p: Player) {
 /** Fixed-step, world-space movement. Rendering and input devices never change physics. */
 export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: readonly Platform[] = [],
   climbables: ClimbableWorld = NO_CLIMBABLES,
-  rules: LevelRules = { checkpoints: [], fallY: Infinity }) {
+  rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms)) {
   p.terrain = platforms
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle
-  const previousGround = p.grounded ? groundAt(platforms, p.x, p.y, .2, s => canGrip(s.angle)) : null
-  stepMotion(p, input, dt, platforms, climbables, rules)
+  const initialContacts = playerContacts(p, input, world), previousGround = initialContacts.support
+  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts)) return
   const leavingGround = previousGround && !p.grounded
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
   // The authored mantle already clears its own ledge; every other solid still blocks it.
   const mantle = p.mantle ?? oldMantle
   const obstacles = mantle ? platforms.filter(b => Math.abs((ledgeSurface(b, mantle.side)?.y ?? Infinity) - mantle.edgeY) > .01
     || Math.abs((mantle.side === 1 ? b.x : b.x + b.w) - mantle.edgeX) > .01) : platforms
-  if (p.gait === null && p.x === p.spawnX && p.y === p.spawnY) return // Respawn is a teleport to a validated start.
   const result = moveBody(from, [p.x, p.y], obstacles, p.crouching ? TUNING.crouchHeight : TUNING.height)
   // Following a curved ground profile may cross a crest between two samples.
   // Keep the supported endpoint only for tiny corrections with a clear body.
@@ -288,12 +292,24 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
         if (!p.grounded && oldVy > 0) absorbLanding(p, oldVy)
         p.grounded = true; p.vy = 0; p.groundAngle = ground.angle
         if (!platforms.some(b => overlaps(p.x, ground.y, b))) p.y = ground.y
-        if (!p.footwork) advanceFootwork(p, dt, from[0], platforms)
       }
     }
   }
+  finishPlayerStep(p, input, dt, world, from)
 }
-function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules) {
+
+/** All movement modes publish contacts and advance presentation once, after
+ * their final world position is known, including an authored level exit. */
+export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number]) {
+  const contacts = playerContacts(p, input, world)
+  contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
+  updatePushingPose(p, contacts.push, dt)
+  p.contacts = contacts
+  settleGait(p, dt)
+  advanceFootwork(p, dt, from[0], world.platforms)
+}
+function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
+  world: ContactWorld, contacts: PlayerContacts) {
   const pressed = input.jump && !p.jumpHeld, released = !input.jump && p.jumpHeld
   p.jumpHeld = input.jump
   p.grabCooldown = Math.max(0, p.grabCooldown - dt)
@@ -334,9 +350,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.mantle = null
     } else if (progress === 1) {
       p.x = m.toX; p.y = m.toY; p.mantle = null; p.grounded = true; p.coyote = TUNING.coyoteTime; p.stride = 0
-      p.gait = gaitPose(0); advanceFootwork(p, dt, p.x, platforms)
+      p.gait = gaitPose(0)
     }
-    settleGait(p, dt)
     return
   }
   const vertical = Number(input.climb) - Number(input.descend ?? (input.drop && !input.detach))
@@ -380,7 +395,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.grounded = false; p.footwork = null; p.ledgeReach = null; p.coyote = 0; cancelJumpInput(p)
       // Catching consumes the current jump press; release and press again to jump off.
       p.jumpHeld = input.jump
-      settleGait(p, dt); return
+      return
     }
   }
   if (p.climbing) {
@@ -427,7 +442,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const launchMove = c.rope && wall ? -wall.side : input.move
       if (jumping) p.vx = Math.max(-600, Math.min(600, p.vx + launchMove * 180))
       p.vy = jumping ? Math.min(p.vy, 0) - 360 : Math.max(0, p.vy) + 40
-      p.jumpStart = p.y; p.jumpHeight = 0; settleGait(p, dt); return
+      p.jumpStart = p.y; p.jumpHeight = 0; return
     }
     const bottom = c.ladder ? c.ladder.bottom - c.ladder.top - 56 : c.rope!.definition.length - 8
     c.distance = Math.max(c.ladder ? 18 : 12, Math.min(bottom, c.distance - vertical * (vertical > 0 ? 85 : 105) * dt))
@@ -444,7 +459,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
           caught: { x: oldX, y: oldY, vx: 0, vy: 0, stride: p.stride, gait: p.gait, ledgeReach: null, climbing: previousClimb } }
         p.x = oldX; p.y = oldY
         p.climbing = null; p.facing = edge.side; p.vx = 0; p.vy = 0; p.grabCooldown = .35
-        settleGait(p, dt); return
+        return
       }
     }
     if (c.ladder && c.distance === 18 && vertical > 0 && c.time >= .16) {
@@ -456,7 +471,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       }
     } else if (c.ladder && c.distance === bottom && vertical < 0 && c.time >= .16) {
       p.climbing = null; p.grabCooldown = .25; p.y = c.ladder.bottom; p.vx = 0; p.vy = 0; p.grounded = !!groundAt(platforms, p.x, p.y, .2)
-      p.gait = gaitPose(0); advanceFootwork(p, dt, p.x, platforms)
+      p.gait = gaitPose(0)
     }
     // Sweep even the first catch frame. Blocked grips cannot pull the player through terrain.
     let safe = moveBody([oldX, oldY], [p.x, p.y], platforms)
@@ -466,7 +481,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (footing && canGrip(footing.angle)) {
       p.climbing = null; p.grabCooldown = .35; p.grounded = true
       p.y = footing.y; p.vx = 0; p.vy = 0; p.groundAngle = footing.angle
-      p.gait = gaitPose(0); advanceFootwork(p, dt, p.x, platforms)
+      p.gait = gaitPose(0)
     } else if (blocked > .1) {
       if (c.rope) {
         // Stop only a climbing step into an obstruction, never the rope simulation.
@@ -487,7 +502,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       // Descending off the last handhold is a natural exit, not a jump.
       p.climbing = null; p.grabCooldown = .35; p.vy = Math.max(80, p.vy)
     }
-    settleGait(p, dt); return
+    return
   }
   if (p.hang) {
     const h = p.hang; h.time += dt
@@ -516,7 +531,6 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         }
       }
     }
-    settleGait(p, dt)
     return
   }
   // Feet stay planted when ducking. Do not stand up through a low ceiling.
@@ -548,25 +562,19 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (pressed) { p.vx = tangent[0] * speed; launch(p, 0) }
   } else {
     if (Math.abs(move) > .01) p.facing = Math.sign(move)
-    const ground = p.grounded ? groundAt(platforms, p.x, p.y, .2) : null
-    p.vx = ground && canGrip(ground.angle)
+    const ground = p.grounded ? contacts.support : null
+    const constrained = pushingVelocity(p, contacts.push, world, dt)
+    p.vx = constrained ?? (ground && canGrip(ground.angle)
       ? groundVelocity(p.vx, target, ground.angle, move ? TUNING.acceleration : TUNING.braking, dt)
-      : approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt)
+      : approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt))
   }
   const oldX = p.x, oldY = p.y
   const following = p.grounded
-  let wallContact: number | null = null
-  if (p.grounded && move) for (const b of platforms) {
-    const wallX = p.facing === 1 ? b.x : b.x + b.w, gap = (wallX - p.x) * p.facing
-    if (gap >= 11.9 && gap <= 26.5 && exposedSide(platforms, b, p.facing, p.y - 44 - .1, p.y - 44 + .1)) {
-      wallContact = wallX; p.vx = 0; break
-    }
-  }
   // Internal terrain ends are ledges; structural outer terrain encloses the room.
   p.x += p.vx * dt
   for (const b of platforms) if (overlaps(p.x, p.y, b, height)) {
-    if (p.vx > 0 && oldX + 12 <= b.x + .1 && exposedSide(platforms, b, 1, p.y - height, p.y)) { p.x = b.x - 12; p.vx = 0; wallContact = b.x }
-    else if (p.vx < 0 && oldX - 12 >= b.x + b.w - .1 && exposedSide(platforms, b, -1, p.y - height, p.y)) { p.x = b.x + b.w + 12; p.vx = 0; wallContact = b.x + b.w }
+    if (p.vx > 0 && oldX + 12 <= b.x + .1 && exposedSide(platforms, b, 1, p.y - height, p.y)) { p.x = b.x - 12; p.vx = 0 }
+    else if (p.vx < 0 && oldX - 12 >= b.x + b.w - .1 && exposedSide(platforms, b, -1, p.y - height, p.y)) { p.x = b.x + b.w + 12; p.vx = 0 }
   }
   let support = following ? followGround(platforms, oldX, p.x, oldY) : null
   if (following && !support) {
@@ -620,18 +628,6 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.y = b.y + b.h + height; p.vy = 0
     }
   }
-  const pushing = wallContact !== null && p.grounded && Math.abs(move) > .01
-    && platforms.some(b => Math.abs((p.facing === 1 ? b.x : b.x + b.w) - wallContact!) < .1 && exposedSide(platforms, b, p.facing, p.y - 44 - .1, p.y - 44 + .1))
-  if (pushing) {
-    const targetX = wallContact! - p.facing * 25.5, nextX = approach(p.x, targetX, dt * 95)
-    const supported = platforms.some(b => Math.abs(b.y - p.y) < .1 && nextX >= b.x + 2 && nextX <= b.x + b.w - 2)
-    if (supported && !platforms.some(b => overlaps(nextX, p.y, b))) p.x = nextX
-    const previous = p.pushing?.direction === p.facing && Math.abs(p.pushing.wallX - wallContact!) < 4 ? p.pushing.amount : 0
-    p.pushing = { wallX: wallContact!, direction: p.facing, amount: Math.min(1, previous + dt / .14), effort: Math.abs(move) }
-  } else if (p.pushing) {
-    p.pushing.amount = Math.max(0, p.pushing.amount - dt / .16); p.pushing.effort = 0
-    if (!p.pushing.amount || !p.grounded || p.pushing.direction !== p.facing) p.pushing = null
-  }
   let reach: Player['ledgeReach'] = null
   if (!p.grounded && !p.crouching && p.grabCooldown === 0 && !input.drop && p.vy > -500) {
     for (let index = 0; index < platforms.length; index++) {
@@ -671,7 +667,5 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     p.bestHeight = Math.max(p.bestHeight, p.jumpHeight)
   }
   p.groundAngle += ((p.grounded ? support?.angle ?? 0 : 0) - p.groundAngle) * (1 - Math.exp(-dt / .08))
-  settleGait(p, dt)
-  advanceFootwork(p, dt, oldX, platforms)
-  if (p.y > rules.fallY) respawn(p)
+  if (p.y > rules.fallY) { respawn(p); return true }
 }

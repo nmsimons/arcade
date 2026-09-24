@@ -5,25 +5,28 @@ import { prepareRope } from './ropeLayout.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { bodyIntersects, nearestBoundary, validPolygon } from './geometry.ts'
-import { GOAL_PLATE_WIDTH, goalBounds } from './goal.ts'
+import { bodyIntersects, nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
+import { GOAL_PLATE_WIDTH, goalBounds, goalDoor } from './goal.ts'
+import type { Goal } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
+import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
 export interface PropDefinition { kind: 'box' | 'ball'; x: number; y: number; size: number }
 export interface Mechanism { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number }
+/** Both legacy mode values accept the player and props; retained for file compatibility. */
 export interface Trigger { x: number; y: number; w: number; target: string; mode: 'weight' | 'touch' }
 export interface Pusher { x: number; y: number; left: number; right: number }
 export interface JumpLevel {
   version: 1; id: string; name: string; width: number; height?: number
   spawn: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
-  description?: string; floor?: number; goal?: Checkpoint
+  description?: string; floor?: number; goal?: Goal
   times?: { gold: number; silver: number; bronze: number }
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
   timers?: WallTimer[]
@@ -31,7 +34,7 @@ export interface JumpLevel {
   pickups?: Pickup[]
 }
 export interface PuzzleLevel extends JumpLevel {
-  height: number; floor: number; goal: Checkpoint; times: { gold: number; silver: number; bronze: number }
+  height: number; floor: number; goal: Goal; times: { gold: number; silver: number; bronze: number }
   props: PropDefinition[]; mechanisms: Mechanism[]; triggers: Trigger[]; robots: Pusher[]
 }
 export const isPuzzleLevel = (level: JumpLevel): level is PuzzleLevel => level.goal !== undefined && level.floor !== undefined && level.times !== undefined
@@ -95,17 +98,21 @@ export function levelProblems(level: JumpLevel): string[] {
   if (level.platforms.some(b => b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level))) issues.push('Keep terrain inside the level rectangle.')
   if (level.texts?.some(t => t.x < 0 || t.y < 0 || t.x + t.w > level.width || t.y + t.h > levelHeight(level))) issues.push('Keep wall text inside the level rectangle.')
   if (isPuzzleLevel(level)) {
-    const terrain = levelTerrain(level), bounds = goalBounds(level.goal)
-    const plateSupported = [-GOAL_PLATE_WIDTH / 2, 0, GOAL_PLATE_WIDTH / 2].every(dx => {
-      const support = groundAt(terrain, level.goal.x + dx, level.goal.y, .15)
+    const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
+    const left = Math.min(level.goal.x - GOAL_PLATE_WIDTH / 2, door.x), right = Math.max(level.goal.x + GOAL_PLATE_WIDTH / 2, door.x + door.w)
+    const count = Math.ceil((right - left) / 8)
+    const plateSupported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
+      const support = groundAt(terrain, x, level.goal.y, .15)
       return support && Math.abs(support.angle) < .02
     })
-    if (!plateSupported || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
-      issues.push('Place the goal plate on a flat surface with room for its light inside the level.')
+    const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
+      [door.x + door.w, door.y + door.h], [door.x, door.y + door.h]], b))
+    if (!plateSupported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
+      issues.push('Place the goal plate, light and exit on a continuous flat surface, with a clear doorway inside the level.')
     }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
     if (level.triggers.some(t => !level.mechanisms.some(m => m.id === t.target))) issues.push('Connect each pressure plate to an elevator or gate.')
-    if (level.robots.some(r => !groundAt(levelTerrain(level), r.x, r.y, .2))) issues.push('Place each pusher on a terrain surface.')
+    if (level.robots.some(r => !groundAt(levelTerrain(level), r.x, r.y, .2))) issues.push('Place each shovebot on a terrain surface.')
     if (level.timers?.some(t => t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level))) issues.push('Keep wall timers inside the level rectangle.')
     if (level.pickups?.some(p => { const b = pickupBounds(p); return b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level) })) issues.push('Keep power-ups inside the level rectangle.')
   }
@@ -202,8 +209,9 @@ export function parseLevel(value: unknown): JumpLevel {
   const goal = v.goal === undefined ? v.flag : v.goal
   if (goal !== undefined) {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
-    const location = point(goal)
-    level.goal = { x: location.x, y: location.y }; if (level.goal.x > width) fail()
+    const location = point(goal), flipX = object(goal).flipX
+    if (flipX !== undefined && typeof flipX !== 'boolean') fail()
+    level.goal = { x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }) }; if (level.goal.x > width) fail()
     const times = object(v.times); level.times = { gold: num(times.gold, .1, 3600), silver: num(times.silver, .1, 3600), bronze: num(times.bronze, .1, 3600) }
     if (!(level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) fail()
     level.props = list(v.props, 80).map(item => {
@@ -213,8 +221,8 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
-      const w = num(m.w, 30, 600), h = num(m.h, 12, 800)
-      return { id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h, travel: num(m.travel, 60, 1200) }
+      const w = num(m.w, m.kind === 'gate' ? MECHANISM_THICKNESS : 30, 600), h = num(m.h, 12, 800)
+      return prepareMechanism({ id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h, travel: num(m.travel, 60, 1200) }, level.floor!)
     })
     if (new Set(level.mechanisms.map(m => m.id)).size !== level.mechanisms.length) fail()
     level.triggers = list(v.triggers, 40).map(item => {

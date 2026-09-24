@@ -112,16 +112,25 @@ function plantFoot(foot: FootContact, platforms: readonly Platform[], y: number)
   clearTerrain(foot, platforms, y)
 }
 
-function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[]): Footwork {
+function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[], advancing = false): Footwork {
   // Bring the stance under the body, keeping both targets on the current platform.
-  const surface = groundAt(platforms, p.x, p.y, .15)?.platform
+  const surface = p.contacts?.support?.platform ?? groundAt(platforms, p.x, p.y, .15)?.platform
   const center = surface ? Math.max(surface.x + 3, Math.min(surface.x + surface.w - 3, p.x)) : p.x
   const brace = p.pushing?.amount ?? 0
-  const targets = [center + 2 * p.facing, center - (2 + brace * 8) * p.facing]
+  const pushingForward = !!p.pushing?.effort && advancing
+  // During a moving push either foot steps ahead of the hips. Keeping one
+  // foot permanently behind them stretched that leg on an uphill slope and
+  // forced the whole torso to drop abruptly as the other foot took a step.
+  const targets = pushingForward ? [center + 8 * p.facing, center + 8 * p.facing]
+    : [center + 2 * p.facing, center - (2 + brace * 8) * p.facing]
   const corrections = previous.feet.map((foot, i) => Math.abs(foot.anchorX - targets[i]) + (foot.facing !== p.facing ? 4 : 0))
+  // A braced foot stays planted until the body has actually moved far enough
+  // to need another step. Retargeting every fraction of a pixel caused a fast
+  // shuffle even when a heavy box was barely moving.
+  const threshold = pushingForward ? 14 : p.pushing?.effort ? 12 : .15
   // Finish airborne feet first, then reposition the remaining support foot with a small step.
   const adjusting = previous.feet.some(foot => !foot.planted) ? -1
-    : corrections[0] >= corrections[1] && corrections[0] > .15 ? 0 : corrections[1] > .15 ? 1 : -1
+    : corrections[0] >= corrections[1] && corrections[0] > threshold ? 0 : corrections[1] > threshold ? 1 : -1
   const feet = previous.feet.map((before, i): FootContact => {
     const foot = { ...before, release: null }
     if (foot.planted && i !== adjusting) {
@@ -133,7 +142,7 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
       return foot
     }
     const start = foot.settle ?? { x: foot.x, y: foot.y, angle: foot.angle, facing: foot.facing, time: 0,
-      duration: .12 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
+      duration: p.pushing?.effort ? .24 : .12 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
     const time = Math.min(start.duration, start.time + dt), t = time / start.duration, blend = smooth(t)
     const lift = .9 + Math.min(2.1, Math.abs(start.x - targets[i]) * .09)
     const target = groundAt(platforms, targets[i], p.y)
@@ -166,7 +175,7 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     return foot
   }
   const previous: Footwork = p.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
-  if (!traveling || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms); return }
+  if (!traveling || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing > .0001); return }
   const rephased = traveling && (!previous.moving || previous.facing !== p.facing)
   if (rephased) {
     const support = previous.feet[0].planted !== previous.feet[1].planted ? (previous.feet[0].planted ? 0 : 1)

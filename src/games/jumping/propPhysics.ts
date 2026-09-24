@@ -1,0 +1,185 @@
+import Matter from 'matter-js'
+import type { Prop, Run } from './challenge.ts'
+import type { Platform } from './model.ts'
+import type { PlayerContacts } from './playerContacts.ts'
+import { TUNING } from './model.ts'
+import { convexParts } from './geometry.ts'
+import { propLoadsPlate } from './propGeometry.ts'
+
+const { Bodies, Body, Collision, Composite, Engine, Query, Sleeping, Vertices } = Matter
+interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[] }
+const worlds = new WeakMap<Run, PropWorld>()
+const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
+const material = { friction: .55, frictionStatic: 1.4, frictionAir: 0, restitution: 0, slop: .0001 }
+const PLAYER_MASS = 2.5
+
+function terrainBodies(s: Platform, run: Run) {
+  // Bound the room's half-spaces to keep the solver's broad phase well-scaled.
+  if (s.w > 1e6 || s.h > 1e6) {
+    const x = Math.max(-2048, s.x), y = Math.max(-2048, s.y)
+    s = { x, y, w: Math.min(run.level.width + 2048, s.x + s.w) - x, h: Math.min(run.level.floor + 2048, s.y + s.h) - y }
+  }
+  return convexParts(s).map(piece => {
+    const vertices = piece.map(([x, y]) => ({ x, y })), position = Vertices.centre(vertices)
+    return Body.create({ ...material, isStatic: true, vertices, position })
+  })
+}
+
+function makeProp(b: Prop) {
+  const r = b.size / 2, options = { ...material, density: b.kind === 'box' ? .002 : .001, sleepThreshold: 45 }
+  const body = b.kind === 'box' ? Bodies.rectangle(b.x, b.y - r, b.size, b.size, options)
+    // Circumscribe the visible circle so even the spaces between hull vertices
+    // cannot clip terrain. The maximum clearance is under .13 units at size 200.
+    : Body.create({ ...options, friction: 0, position: { x: b.x, y: b.y - r }, vertices: Array.from({ length: 64 }, (_, i) => {
+      const angle = (i + .5) * Math.PI / 32, radius = r / Math.cos(Math.PI / 64)
+      return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }
+    }) })
+  Body.setInertia(body, b.kind === 'box' ? body.mass * b.size ** 2 / 6 : Infinity)
+  if (b.kind === 'box') Body.setAngle(body, b.angle)
+  return body
+}
+
+function worldFor(run: Run) {
+  const cached = worlds.get(run)
+  if (cached) return cached
+  const engine = Engine.create({ enableSleeping: true, positionIterations: 24, velocityIterations: 16 })
+  engine.gravity.y = 1; engine.gravity.scale = TUNING.gravity / 1e6
+  const terrain = run.terrain.flatMap(s => terrainBodies(s, run))
+  const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.definition.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
+  const bodies = new Map(run.props.map(b => [b, makeProp(b)]))
+  Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values()])
+  const world = { engine, terrain, mechanisms, bodies }; worlds.set(run, world)
+  return world
+}
+
+/** Repair placed/imported overlaps before the first rendered frame, without
+ * advancing the clock, moving the player, or letting props fall in the editor. */
+export function prepareProps(run: Run) {
+  if (!run.props.length) return
+  const world = worldFor(run), solids = [...world.terrain, ...world.mechanisms]
+  for (const [prop, body] of world.bodies) {
+    for (let pass = 0; pass < 32; pass++) {
+      const hits = Query.collides(body, solids)
+      const hit = hits.sort((a, b) => a.depth - b.depth)[0]
+      if (!hit || hit.depth < 1e-7) break
+      const sign = hit.bodyA === body ? 1 : -1
+      let x = hit.normal.x * sign * (hit.depth + .0001), y = hit.normal.y * sign * (hit.depth + .0001)
+      // Preserve authored horizontal placement when a corner clips its support.
+      if (hit.normal.y * sign < -.2) { y = -(hit.depth + .0001) / Math.abs(hit.normal.y); x = 0 }
+      Body.translate(body, { x, y })
+    }
+    prop.x = body.position.x; prop.y = body.position.y + prop.size / 2
+  }
+}
+
+/** Rigid corners, angular momentum and Coulomb contact friction are resolved
+ * together for terrain, moving platforms, balls and boxes. */
+export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number) {
+  const world = worldFor(run), push = playerContact.push
+  const driven = new Set<Matter.Body>()
+  run.mechanisms.forEach((m, i) => {
+    if (Math.abs(world.mechanisms[i].position.y - m.y - m.definition.h / 2) > 1e-7) {
+      // Moving a static support must also wake its sleeping passengers.
+      for (const body of world.bodies.values()) Sleeping.set(body, false)
+      Body.setPosition(world.mechanisms[i], { x: m.definition.x + m.definition.w / 2, y: m.y + m.definition.h / 2 })
+    }
+  })
+  for (const [b, body] of world.bodies) {
+    const velocity = Body.getVelocity(body), angle = b.kind === 'box' ? b.angle : 0
+    const moved = Math.hypot(body.position.x - b.x, body.position.y - b.y + b.size / 2) > 1e-7 || Math.abs(body.angle - angle) > 1e-7
+    const accelerated = Math.abs(velocity.x * 60 - b.vx) + Math.abs(velocity.y * 60 - b.vy) > 1e-5
+    if (moved) { Body.setPosition(body, { x: b.x, y: b.y - b.size / 2 }); Body.setAngle(body, angle) }
+    if (moved || accelerated) Sleeping.set(body, false)
+    if (push?.collider.prop === b) {
+      driven.add(body)
+      Sleeping.set(body, false)
+      const target = push.direction * push.effort * (b.kind === 'ball' ? 175 : 90)
+      const maximum = b.kind === 'ball' ? 3800 : 1900
+      const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * 35))
+      Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
+    } else if (b.kind === 'ball' && b.grounded) {
+      const onPlate = run.level.triggers.some(t => propLoadsPlate(b, t.x, t.y, t.w))
+      b.vx = approach(b.vx, 0, (onPlate ? 350 : 65) * dt)
+    }
+    if (push && playerContact.support?.collider.prop === b && push.collider.prop !== b) {
+      // A shove needs footing. When that footing is loose, the opposite force
+      // goes into it rather than treating the player's feet as a fixed anchor.
+      driven.add(body); Sleeping.set(body, false)
+      const target = -push.direction * push.effort * 90
+      const acceleration = Math.max(-900, Math.min(900, (target - b.vx) * 20))
+      Body.applyForce(body, { x: run.player.x, y: run.player.y }, { x: body.mass * acceleration / 1e6, y: 0 })
+    }
+    const contact = playerContact.body.find(c => c.collider.prop === b)
+    if (contact && push?.collider.prop !== b) {
+      // The player is a controlled body, but its normal load still belongs in
+      // the prop solver. Otherwise an airborne body wedged beside a ball can
+      // never separate it from a wall and keeps falling against a fixed sphere.
+      const force = PLAYER_MASS * contact.load / 1e6
+      Sleeping.set(body, false)
+      Body.applyForce(body, { x: contact.point[0], y: contact.point[1] }, { x: -contact.normal[0] * force, y: -contact.normal[1] * force })
+    }
+    Body.setVelocity(body, { x: b.vx / 60, y: Math.min(1000, b.vy) / 60 })
+    if (b.kind === 'box' && Math.abs(Body.getAngularVelocity(body) * 60 - b.angularVelocity) > 1e-5) Body.setAngularVelocity(body, b.angularVelocity / 60)
+  }
+  Engine.update(world.engine, dt * 1000)
+  const solids = [...world.terrain, ...world.mechanisms, ...world.bodies.values()]
+  const candidates = new Map([...world.bodies.values()].map(body => [body, solids.filter(other => other !== body)]))
+  // Recompute normals at joins after the solver's position iterations. A ball
+  // reaching the flat floor can have a new contact that the old ramp normal
+  // alone cannot separate, even with more iterations of that old contact.
+  for (let pass = 0; pass < 8; pass++) {
+    let corrected = false
+    for (const body of world.bodies.values()) for (const hit of Query.collides(body, candidates.get(body)!)) {
+      if (hit.depth < .001) continue
+      const a = hit.bodyA, b = hit.bodyB, wa = a.isStatic || a.isSleeping ? 0 : a.inverseMass, wb = b.isStatic || b.isSleeping ? 0 : b.inverseMass
+      if (!wa && !wb) continue
+      const distance = (hit.depth - .0001) / (wa + wb)
+      if (wa) Body.translate(a, { x: hit.normal.x * distance * wa, y: hit.normal.y * distance * wa })
+      if (wb) Body.translate(b, { x: -hit.normal.x * distance * wb, y: -hit.normal.y * distance * wb })
+      corrected = true
+    }
+    if (!corrected) break
+  }
+  const byBody = new Map([...world.bodies].map(([prop, body]) => [body, prop]))
+  const supports = new Map<Matter.Body, Matter.Vector>()
+  const contacts: Matter.Collision[] = world.engine.pairs.list.filter((pair: Matter.Pair) => pair.isActive).map((pair: Matter.Pair) => pair.collision)
+  for (const body of world.bodies.values()) contacts.push(...Query.collides(body, candidates.get(body)!))
+  for (const [b, body] of world.bodies) if (!body.isSleeping) b.grounded = false
+  for (let pass = 0; pass <= run.props.length; pass++) {
+    let changed = false
+    for (const contact of contacts) {
+      const a = byBody.get(contact.bodyA), b = byBody.get(contact.bodyB), ny = contact.normal.y
+      if (a && ny < -.3 && (contact.bodyB.isStatic || b?.grounded) && !a.grounded) {
+        a.grounded = true; changed = true; supports.set(contact.bodyA, contact.normal)
+      }
+      if (b && ny > .3 && (contact.bodyA.isStatic || a?.grounded) && !b.grounded) {
+        b.grounded = true; changed = true; supports.set(contact.bodyB, { x: -contact.normal.x, y: -ny })
+      }
+    }
+    if (!changed) break
+  }
+  for (const [b, body] of world.bodies) {
+    const normal = supports.get(body)
+    // Static friction holds a settled face on a moderate slope. Checking face
+    // alignment keeps corners free to tip; steep slopes keep their momentum.
+    if (b.kind === 'box' && normal && !driven.has(body) && Math.abs(normal.x) > .02 && Math.abs(normal.x) < -.65 * normal.y
+      && Math.abs(Math.sin(2 * (body.angle - Math.atan2(normal.x, -normal.y)))) < .02
+      && Body.getSpeed(body) * 60 < 25 && Math.abs(Body.getAngularVelocity(body)) * 60 < .08) Sleeping.set(body, true)
+    const oldX = b.x, velocity = Body.getVelocity(body)
+    b.x = body.position.x; b.y = body.position.y + b.size / 2
+    b.vx = velocity.x * 60; b.vy = velocity.y * 60
+    if (b.kind === 'box') { b.angle = body.angle; b.angularVelocity = Body.getAngularVelocity(body) * 60 }
+    else b.angle += (b.x - oldX) / (b.size / 2)
+  }
+}
+
+/** A mechanism can slide along a touching prop. Only increasing penetration
+ * blocks it, so rounded contacts do not act like the ball's bounding square. */
+export function propBlocksMechanism(prop: Prop, before: Platform, after: Platform) {
+  const body = makeProp(prop)
+  const obstacle = Bodies.rectangle(before.x + before.w / 2, before.y + before.h / 2, before.w, before.h)
+  const previous = Collision.collides(body, obstacle)?.depth ?? 0
+  Body.setPosition(obstacle, { x: after.x + after.w / 2, y: after.y + after.h / 2 })
+  const next = Collision.collides(body, obstacle)?.depth ?? 0
+  return next > Math.max(.01, previous + .002)
+}

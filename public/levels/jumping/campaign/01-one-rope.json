@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "id": "one-rope",
+  "name": "A Little Swing",
+  "description": "A wider gap. Catch the rope, build a swing, and jump off toward the flag. The ladder is your way back.",
+  "width": 1560,
+  "height": 920,
+  "floor": 920,
+  "spawn": {
+    "x": 170,
+    "y": 520
+  },
+  "flag": {
+    "x": 1400,
+    "y": 520
+  },
+  "checkpoints": [],
+  "platforms": [
+    {
+      "x": 24,
+      "y": 520,
+      "w": 536,
+      "h": 400
+    },
+    {
+      "x": 1160,
+      "y": 520,
+      "w": 376,
+      "h": 400
+    }
+  ],
+  "climbables": {
+    "ladders": [
+      {
+        "x": 576,
+        "top": 520,
+        "bottom": 920,
+        "platform": 0,
+        "side": -1
+      }
+    ],
+    "ropes": [
+      {
+        "x": 850,
+        "y": 150,
+        "length": 390,
+        "segments": 28
+      }
+    ]
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "times": {
+    "gold": 7,
+    "silver": 12,
+    "bronze": 24
+  }
+}

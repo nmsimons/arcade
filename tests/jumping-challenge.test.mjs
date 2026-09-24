@@ -1,8 +1,9 @@
+import { CAMPAIGN, FIRST_LEVEL, YARD_LEVEL, createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from '../src/games/jumping/challenge.ts'
-import { CAMPAIGN, FIRST_LEVEL, YARD_LEVEL, blankTrial } from '../src/games/jumping/levels.ts'
-import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer } from '../src/games/jumping/model.ts'
+import { blankTrial } from '../src/games/jumping/level.ts'
+import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { levelProblems, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
 import { NO_CLIMBABLES } from '../src/games/jumping/climbables.ts'
 import { playLesson } from './helpers/jumping-routes.mjs'
@@ -22,7 +23,7 @@ test('a short hop cannot clear lesson one and a charged jump cannot skip either 
   }
 })
 test('a missed jump lands on the floor, and the ladder returns to the left bank', () => {
-  const run = createRun(), p = run.player; advance(run, 150, { move: 1 }); advance(run, 140)
+  const run = createRun(FIRST_LEVEL), p = run.player; advance(run, 150, { move: 1 }); advance(run, 140)
   assert.equal(p.y, 920); assert.ok(p.x > 560)
   for (let i = 0; i < 240 && p.x > 578; i++) advance(run, 1, { move: -1 })
   advance(run, 800, { climb: true }); assert.equal(p.y, 520); assert.ok(p.x < 560)
@@ -85,14 +86,14 @@ test('a lift landing is a passable seam in either direction', () => {
   }
 })
 test('medals use each level’s thresholds and an unmedalled finish is still successful', () => {
-  assert.equal(medalFor(3.5), 'Gold'); assert.equal(medalFor(3.51), 'Silver'); assert.equal(medalFor(6), 'Silver'); assert.equal(medalFor(15), 'Bronze'); assert.equal(medalFor(15.01), 'No medal')
-  const run = createRun(); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.flag); advance(run, 1)
+  assert.equal(medalFor(3.5, FIRST_LEVEL), 'Gold'); assert.equal(medalFor(3.51, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(6, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(15, FIRST_LEVEL), 'Bronze'); assert.equal(medalFor(15.01, FIRST_LEVEL), 'No medal')
+  const run = createRun(FIRST_LEVEL); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.flag); advance(run, 1)
   assert.equal(run.finished, true); assert.equal(run.medal, 'No medal'); assert.equal(formatTime(100.019), '1:40.01')
 })
 test('personal bests are isolated by level and survive slower runs and corrupt storage', () => {
   let raw = null; const storage = { getItem: () => raw, setItem: (_, value) => { raw = value } }
   assert.equal(saveBest(storage, 4, 'first-leap'), 4); assert.equal(saveBest(storage, 9, 'one-rope'), 9); assert.equal(saveBest(storage, 5, 'first-leap'), 4)
-  assert.equal(readBest(storage, 'one-rope'), 9); raw = 'corrupt'; assert.equal(readBest(storage), null); assert.equal(saveBest(storage, 3), 3)
+  assert.equal(readBest(storage, 'one-rope'), 9); raw = 'corrupt'; assert.equal(readBest(storage, FIRST_LEVEL.id), null); assert.equal(saveBest(storage, 3, FIRST_LEVEL.id), 3)
 })
 test('authored maps round-trip with their complete game data and continuous floor', () => {
   for (const level of [...CAMPAIGN, YARD_LEVEL]) {

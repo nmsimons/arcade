@@ -1,6 +1,7 @@
+import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlayer, stepPlayer, STEP, NEUTRAL_INPUT, TUNING, playerState, respawn } from '../src/games/jumping/model.ts'
+import { STEP, NEUTRAL_INPUT, TUNING, playerState, respawn } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
 

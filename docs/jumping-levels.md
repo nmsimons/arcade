@@ -1,19 +1,96 @@
-# Jumping level handoff
+# Jumping level files
 
-Use **Level builder → Library** to copy a lesson or start a blank trial. Build,
-playtest, then choose **Export**. The resulting `.jump-level.json` is the complete
-source for the level; screenshots and descriptions are optional context.
+All authored levels are JSON assets. The app fetches them at runtime; neither maps
+nor a campaign list are imported into its JavaScript bundle. The builder creates
+empty documents, and the engine receives the selected level as data.
 
-To add a handed-off level to the game:
+## Built-in levels
 
-1. Read the JSON with `parseLevel` from `src/games/jumping/level.ts`. Check
-   `isPuzzleLevel` and `levelProblems` before integration.
-2. Store the approved data in `src/games/jumping/levels.ts` (or import a checked-in
-   JSON file there), give it a stable, unique `id`, and append it to `CAMPAIGN` in
-   the intended order. Keep that ID stable so personal bests remain attached.
-3. Verify the intended route from spawn with normal inputs, pit recovery, medal
-   thresholds, slopes and rope transitions. The shared renderer and `createRun`
-   consume this data directly; no per-level code should be needed.
+The asset folder is `public/levels/jumping/` in the repository and `levels/jumping/`
+in the deployed app:
+
+- `campaign/`: the numbered levels shown in the main menu.
+- `playground.json`: the movement playground.
+- `examples/`: builder templates, including `00-json-test-lab.json` and the older
+  counterweight experiment.
+- `index.json`: lists the filenames to fetch. It contains no level geometry.
+
+The app sorts filenames, not titles or IDs. Use zero-padded prefixes such as
+`00-intro.json`, `01-rope.json`, and `02-two-ropes.json`. The same ordering controls
+the menu and Next level. The order of entries in the index does not matter.
+Static hosting cannot enumerate directories, so adding, removing, or renaming a
+file also requires updating the index:
+
+```sh
+npm run levels:index
+```
+
+Editing the contents of an existing file needs no index update. Choose **Refresh
+levels** in the game menu to fetch the latest files. Requests and deployed JSON
+responses disable caching. Failed files are named in the menu; valid files remain
+available. Missing assets do not fall back to a compiled copy.
+
+For an already built app, copy just the level assets into its deployment folder:
+
+```sh
+npm run levels:sync
+# Or choose another deployment asset folder:
+npm run levels:sync -- /path/to/site/levels/jumping
+```
+
+This regenerates the index and copies JSON to `dist/levels/jumping/` by default.
+It does not compile JavaScript or run gameplay tests. Upload that asset folder
+using your hosting deployment process. Regular repository CI still performs the
+full build and checks on pushes; the asset-only command is independent of it.
+Normal development startup and app builds regenerate the index automatically.
+While the dev server is running, run `levels:index` after changing filenames.
+
+## Local levels and editing
+
+Choose **Local folder → Open folder** in the game menu. The game reads JSON files
+directly in that folder, sorts their filenames, and lets you play them or choose
+**Edit selected level**. Files in nested folders and non-JSON files are ignored.
+**Refresh folder** rereads external edits, additions, deletions, and renames.
+Reopen the folder after reloading the page; the files themselves remain on disk.
+
+In the builder, **Library → Open folder** selects the destination for **Save level**.
+Load an existing file using **Local level files → Edit file** to update it. The
+filename is editable under Level settings. Saving under a different filename
+creates another file; a copy of an existing local level receives a new ID.
+Saving refuses to overwrite a file that changed outside the builder since it was
+loaded. Refresh and load the latest file, or save under another filename.
+
+Direct folder writes use the browser's directory picker. If it is unavailable,
+the folder input still loads levels, and **Export** downloads the edited JSON.
+Reselect the folder to refresh it. No custom files are uploaded to a server.
+Without a writable folder selected, **Save level** keeps a browser copy, clearly
+reported in its status. Existing browser copies remain under Library, and the
+automatic draft remains a local recovery copy.
+
+Keep a level's `id` stable when changing its layout or filename. IDs identify best
+times; filenames determine ordering. IDs must be unique within a collection.
+Local best times are separate from built-in records. File imports into the builder
+receive a fresh ID; opening a file from the local folder preserves its ID.
+
+## Validation and reference level
+
+`examples/00-json-test-lab.json` exercises every supported field: rectangular,
+polygon and profile terrain; start, flag and checkpoint radius; attached and free
+ladders; attached and free ropes with saved points, bends and material distances;
+boxes, balls, a pusher, weight/touch triggers, an elevator, a gate and medal times.
+It is available in **Level builder → Library → JSON Test Lab**.
+
+```sh
+npm run levels:check
+node --test tests/jumping-level-assets.test.mjs
+```
+
+The first command validates the indexed files without building the app. The tests
+check the reference level's round trip and gameplay, invalid field values, runtime
+refresh, filename ordering, file failures, local saves and external-edit conflicts.
+The existing movement tests read their maps from these same JSON assets.
+
+## File format
 
 The version 1 file contains `id`, `name`, `description`, `width`, `height`,
 `spawn`, `platforms`, `checkpoints`, and `climbables` (ladders and ropes). A timed
@@ -30,8 +107,7 @@ and layout together.
 
 Version 1 **file and runtime coordinates** still use positive Y downward for
 compatibility with existing levels. Convert an editor Y with `levelHeight - Y`.
-The playable room
-is `[0, width] × [0, height]`; legacy trial files use `floor` as their interior
+The playable room is `[0, width] × [0, height]`; legacy trial files use `floor` as their interior
 height. New editor files keep `height` and `floor` equal. Terrain outside all four
 edges is structural and generated by `levelTerrain`, so it need not be authored.
 The renderer fills the full outside viewport, with no visible end to the terrain.
@@ -66,9 +142,9 @@ Body collisions constrain the loaded rope section while other sections keep
 moving; a blocked climb retains the grip and allows retreat along the rope.
 
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
-Legacy props, robots, mechanisms and trigger links remain readable, but their
-creation tools and experiment template are no longer offered. These arrays are
-empty in new levels. Exports preserve existing data for compatibility.
+Props, robots, mechanisms and trigger links remain readable and appear in the
+reference templates. Their creation tools are not currently offered in the
+builder. These arrays are empty in new levels; exports preserve existing data.
 
 Importing creates a fresh level ID. Structural validation rejects malformed or
 unbounded geometry; editor validation checks clear starts and goals, room bounds,

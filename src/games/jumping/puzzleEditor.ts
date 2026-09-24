@@ -1,6 +1,6 @@
 import type { JumpLevel, PuzzleLevel } from './level.ts'
 import { copyLevel, isPuzzleLevel, levelTerrain, newLevelId, snapToGround } from './level.ts'
-import { blankTrial } from './levels.ts'
+import { blankTrial } from './level.ts'
 import { groundAt } from './terrain.ts'
 
 export function asTrial(level: JumpLevel): PuzzleLevel {

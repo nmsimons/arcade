@@ -1,6 +1,7 @@
+import { createPlayer, stepPlayer, PLATFORMS } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, PLATFORMS } from '../src/games/jumping/model.ts'
+import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { groundAt, platformSurface } from '../src/games/jumping/terrain.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'

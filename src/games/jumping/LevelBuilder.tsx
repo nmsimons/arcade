@@ -4,10 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { addPolygon, anchorRope, moveVertex, polygonPlatform, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight } from './editor'
 import type { Selection, Tool } from './editor'
-import { copyLevel, DRAFT_STORAGE_KEY, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, playgroundCopy, prepareLevelRopes, readSavedLevels, saveLevel } from './level'
+import { copyLevel, DRAFT_STORAGE_KEY, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, prepareLevelRopes, readSavedLevels, saveLevel } from './level'
 import type { JumpLevel } from './level'
 import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
-import { blankTrial, CAMPAIGN } from './levels'
+import { blankTrial } from './level'
+import type { LevelFile } from './levelAssets'
+import { levelFileName } from './localLevels'
+import type { LocalLevels } from './localLevels'
 import { copyForEditing } from './puzzleEditor'
 import { createRun } from './challenge'
 import { drawPuzzleWorld } from './challengeRender'
@@ -31,14 +34,14 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'flag', group: 'Markers', label: 'Finish flag', help: 'Click a clear surface for the finish. Reaching it stops the timer.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
 ]
-function initialEditor() {
+function initialEditor(file?: LevelFile) {
   let level: JumpLevel = blankTrial(), library: JumpLevel[] = [], error = ''
   try {
     library = readSavedLevels(localStorage)
     const draft = localStorage.getItem(DRAFT_STORAGE_KEY)
-    if (draft) level = parseLevel(JSON.parse(draft))
+    if (draft && !file) level = parseLevel(JSON.parse(draft))
   } catch { error = 'Some local level data could not be loaded. Saved levels have been kept.' }
-  return { level: prepareLevelRopes(level), library, error }
+  return { level: prepareLevelRopes(file ? copyLevel(file.level) : level), library, error }
 }
 const selectionLabel = (s: Selection, level: JumpLevel) => {
   const name = s.kind === 'spawn' ? 'Start' : s.kind === 'flag' ? 'Finish flag' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Crate'
@@ -47,8 +50,14 @@ const selectionLabel = (s: Selection, level: JumpLevel) => {
 }
 
 
-export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void }) {
-  const [initial] = useState(initialEditor)
+export function LevelBuilder({ active, onPlay, onClose, templates, playground, local, initialFile }: {
+  active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
+  templates: LevelFile[]; playground: JumpLevel | null; local: LocalLevels; initialFile?: LevelFile
+}) {
+  const [initial] = useState(() => initialEditor(initialFile))
+  const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
+  const [fileSource, setFileSource] = useState(initialFile?.sourceText)
+  const [folderFile, setFolderFile] = useState('')
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
   const level = prepareLevelRopes(preview ?? history.present)
@@ -99,7 +108,8 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
     setPointer(p => p && { ...p, y: p.y + dy })
     setVertices(points => points.map(([x, y]) => [x, y + dy]))
   }
-  function load(next: JumpLevel) {
+  function load(next: JumpLevel, file?: LevelFile) {
+    setFileName(file?.fileName ?? levelFileName(next.name)); setFileSource(file?.sourceText)
     setVertices([]); commit(copyLevel(next)); setSelection(null); setTool('select'); setView(homeView(next, size.height))
   }
   function remove() {
@@ -117,16 +127,26 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
       commit(added.level); setSelection(added.selection); setVertices([]); if (!keepTool) setTool('select')
     } catch (error) { setMessage((error as Error).message) }
   }
-  function save() {
-    try { setLibrary(saveLevel(localStorage, prepareLevelRopes(history.present))); setLibraryId(level.id); setMessage(`Saved “${level.name}” in this browser.`) }
-    catch (error) { setMessage(`Could not save: ${(error as Error).message}`) }
+  async function save() {
+    try {
+      if (local.canWrite) {
+        const next = local.files.some(file => file.fileName !== fileName && file.level.id === level.id)
+          ? { ...history.present, id: newLevelId() } : history.present
+        const source = await local.save(fileName, next, fileSource)
+        if (next.id !== history.present.id) commit(next)
+        setFileSource(source); setMessage(`Saved “${fileName}” to ${local.name}.`)
+      } else {
+        setLibrary(saveLevel(localStorage, prepareLevelRopes(history.present))); setLibraryId(level.id)
+        setMessage(`Saved “${level.name}” in this browser. Open a folder to save JSON files directly, or Export a file.`)
+      }
+    } catch (error) { setMessage(`Could not save: ${(error as Error).message}`) }
   }
   function exportLevel() {
     try {
     const url = URL.createObjectURL(new Blob([JSON.stringify(parseLevel(prepareLevelRopes(history.present)), null, 2)], { type: 'application/json' }))
-    const a = document.createElement('a'); a.href = url; a.download = `${level.name.replace(/[^a-z0-9 -]/gi, '').trim() || 'jumping-level'}.jump-level.json`; a.click()
+    const a = document.createElement('a'); a.href = url; a.download = fileName || levelFileName(level.name); a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
-    setMessage('Level exported. Give this .jump-level.json file to Codex to add it to the game, or import it here to keep editing.')
+    setMessage('Level exported. Put the JSON file in your local level folder, or in the built-in campaign assets.')
     } catch (error) { setMessage(`Could not export: ${(error as Error).message}`) }
   }
   async function importFile(file?: File) {
@@ -134,7 +154,7 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
     try {
       if (file.size > 1_000_000) throw new Error('Please choose a level file smaller than 1 MB.')
       const imported = parseLevel(JSON.parse(await file.text()))
-      load({ ...imported, id: newLevelId() }); setMessage(`Imported “${imported.name}”. Save it to add it to your library.`)
+      load({ ...imported, id: newLevelId() }, { fileName: file.name, level: imported }); setMessage(`Imported “${imported.name}”. Save it to add it to your library.`)
     } catch (error) { setMessage(`Could not import: ${(error as Error).message}`) }
     if (fileRef.current) fileRef.current.value = ''
   }
@@ -324,8 +344,8 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
   }} onKeyUp={event => { if (event.code === 'Space') panHeld.current = false }} onBlur={() => { panHeld.current = false }}>
     <header className="builder-header">
       <div className="builder-brand"><span className="builder-brand-mark" aria-hidden="true">↗</span><div><p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h1>Level studio</h1></div></div>
-      <label className="builder-name">YOUR LEVEL<input aria-label="Level name" maxLength={80} value={level.name} onChange={e => commit({ ...history.present, name: e.target.value })} /></label>
-      <div className="builder-main-actions"><button onClick={onClose}>Back to game</button><button onClick={save}>Save level</button><button onClick={exportLevel}>Export</button><button className="builder-play" disabled={!!problem} onClick={() => onPlay(copyLevel(history.present))}>▶ Playtest</button></div>
+      <label className="builder-name">YOUR LEVEL<input aria-label="Level name" maxLength={80} value={level.name} onChange={e => { if (!fileSource && fileName === levelFileName(level.name)) setFileName(levelFileName(e.target.value)); commit({ ...history.present, name: e.target.value }) }} /></label>
+      <div className="builder-main-actions"><button onClick={onClose}>Back to game</button><button disabled={local.busy} onClick={() => void save()}>Save level</button><button onClick={exportLevel}>Export</button><button className="builder-play" disabled={!!problem} onClick={() => onPlay(copyLevel(history.present))}>▶ Playtest</button></div>
     </header>
     <aside className="builder-tools" aria-label="Building tools">
       <div className="builder-panel-tabs"><button aria-pressed={panel === 'build'} onClick={() => setPanel('build')}>Build</button><button aria-pressed={panel === 'library'} onClick={() => setPanel('library')}>Library</button></div>
@@ -336,13 +356,22 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
         {!['select', 'pan', 'polygon'].includes(tool) && <button className="builder-add" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button>}
       </> : <>
         <h2>Start from a template</h2>
-        <div className="builder-templates">{CAMPAIGN.map(template => <button key={template.id} onClick={() => chooseTemplate(template)}><LevelThumbnail level={template} /><strong>{template.name}</strong><span>{template.climbables.ropes.length ? `${template.climbables.ropes.length} rope${template.climbables.ropes.length > 1 ? 's' : ''}` : 'Charged jump'} · Pit + return ladder</span></button>)}</div>
-        <div className="builder-library-actions"><button onClick={() => { load(blankTrial()); setPanel('build') }}>New level</button><button onClick={() => load(playgroundCopy())}>Copy playground</button></div>
-        <h2>Your collection</h2>
+        <div className="builder-templates">{templates.map(({ fileName, level: template }) => <button key={fileName} onClick={() => chooseTemplate(template)}><LevelThumbnail level={template} /><strong>{template.name}</strong><span>{fileName}</span></button>)}</div>
+        <div className="builder-library-actions"><button onClick={() => { load(blankTrial()); setPanel('build') }}>New level</button>{playground && <button onClick={() => load(copyForEditing(playground))}>Copy playground</button>}</div>
+        <h2>Local folder</h2>
+        <button disabled={local.busy} onClick={() => void local.open()}>Open folder</button>
+        {local.name && <>
+          <p>{local.name}</p><button disabled={local.busy} onClick={() => void local.refresh()}>Refresh folder</button>
+          <label>Level files<select aria-label="Local level files" value={folderFile} onChange={e => setFolderFile(e.target.value)}><option value="">Choose a file</option>{local.files.map(file => <option key={file.fileName} value={file.fileName}>{file.fileName}</option>)}</select></label>
+          <button disabled={!folderFile || local.busy} onClick={() => { const file = local.files.find(f => f.fileName === folderFile); if (file) { load(file.level, file); fitLevel(file.level); setPanel('build') } }}>Edit file</button>
+          <p>{local.canWrite ? 'Save level writes to this folder. Refresh to pick up changes made outside the game.' : 'This browser can read the folder. Use Export to save an edited file, then reselect the folder to refresh.'}</p>
+        </>}
+        {local.errors.map(error => <p role="alert" key={error}>{error}</p>)}
+        <h2>Browser copies</h2>
         <label>Saved levels<select aria-label="Saved levels" value={libraryId} onChange={e => setLibraryId(e.target.value)}><option value="">Choose a level</option>{library.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <button className="builder-load" disabled={!libraryId} onClick={() => { const saved = library.find(l => l.id === libraryId); if (saved) { load(saved); fitLevel(saved); setPanel('build') } }}>Load level</button>
         <button className="builder-import" onClick={() => fileRef.current?.click()}>Import level file</button>
-        <p className="builder-local-note">Export a .jump-level.json file and give it to Codex to add your level to the game. It includes terrain, ladders, ropes, and your level settings.</p>
+        <p className="builder-local-note">Open a local folder to edit and save its JSON files. Filenames such as 00-intro.json and 01-next.json determine level order. Browser copies and the automatic draft stay available as local backups.</p>
       </>}
       <input ref={fileRef} aria-label="Import level file" type="file" accept=".json,application/json" hidden onChange={e => void importFile(e.target.files?.[0])} />
     </aside>
@@ -389,6 +418,9 @@ export function LevelBuilder({ active, onPlay, onClose }: { active: boolean; onP
       </div> : <div className="builder-empty-selection"><BuilderIcon kind="select" /><strong>Make it yours.</strong><p>Choose a tool and draw in the canvas, or select an object to refine it.</p></div>}
       <details className="builder-level-settings" open={!selection}>
         <summary>Level settings</summary>
+        <label>File name<input aria-label="Level file name" value={fileName} onChange={e => { setFileName(e.target.value); setFileSource(undefined) }} /></label>
+        <p>Filenames set level order. Saving under a new filename creates a copy.</p>
+        <p>{local.canWrite ? `Save destination: ${local.name}` : 'Open a folder in Library to save directly to disk, or Export a JSON file.'}</p>
         <label>Level width<input type="number" aria-label="Level width" step={100} value={level.width} min={800} max={20000} onChange={e => {
           const extent = Math.max(800, level.spawn.x + 40, ...allSelections(level).map(s => { const b = itemBounds(level, s)!; return b.x + b.w + (level.floor === undefined ? 0 : 24) }))
           commit({ ...history.present, width: clamp(Number(e.target.value), extent, 20000) })

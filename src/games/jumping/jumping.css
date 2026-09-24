@@ -80,3 +80,10 @@
   .jumping-level-card small { font-size: 8px; margin-top: 10px; }
   .jumping-level-menu .jumping-actions { font-size: 11px; }
 }
+
+.jumping-loading { display: grid; place-content: center; gap: 16px; text-align: center; }
+.jumping-library-bar { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 18px 0 12px; }
+.jumping-library-bar button[aria-pressed="true"] { background: #405c49; color: #fff; }
+.jumping-level-cards { max-height: 38vh; overflow-y: auto; }
+.jumping-level-card span, .jumping-folder-name, .jumping-load-error { overflow-wrap: anywhere; }
+.jumping-load-error { color: #a54028; font-size: 12px; }

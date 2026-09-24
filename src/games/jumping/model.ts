@@ -1,7 +1,7 @@
 import { advanceFootwork } from './footwork.ts'
 import type { Footwork } from './footwork.ts'
 import { climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
-import { CLIMBABLES, NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ropeImpulse, ropePoint, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
+import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ropeImpulse, ropePoint, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder, RopeState } from './climbables.ts'
 import { exposedSide, followGround, groundAt, platformSurface, walkable } from './terrain.ts'
 import { bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
@@ -15,22 +15,8 @@ export const TUNING = {
   climbTime: LEDGE_CLIMB_TIME,
 } as const
 export const STEP = 1 / 120
-export const WORLD_WIDTH = 4500
 export interface Checkpoint { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-export const PLAYGROUND_RULES: LevelRules = { checkpoints: [{ x: 1500, y: 620 }, { x: 2050, y: 620, radius: 250 }, { x: 2600, y: 620 }], fallY: 1020 }
-export const PLATFORMS: readonly Platform[] = [
-  { x: 0, y: 620, w: 1670, h: 320 },
-  { x: 1920, y: 620, w: WORLD_WIDTH - 1920, h: 320 },
-  { x: 610, y: 566, w: 140, h: 54 },
-  { x: 820, y: 502, w: 160, h: 118 },
-  { x: 1150, y: 400, w: 230, h: 18 },
-  { x: 2260, y: 490, w: 180, h: 130 },
-  { x: 320, y: 582, w: 230, h: 38, profile: [[0, 38], [95, 0], [135, 0], [230, 38]] },
-  { x: 2680, y: 494, w: 740, h: 126, profile: [[0, 126], [240, 30], [300, 0], [400, 0], [490, 45], [740, 126]] },
-  { x: 3490, y: 554, w: 700, h: 66, profile: [[0, 66], [60, 42], [95, 48], [135, 30], [175, 38], [220, 14],
-    [255, 22], [300, 0], [345, 14], [380, 6], [425, 32], [465, 20], [510, 44], [550, 34], [610, 54], [650, 46], [700, 66]] },
-]
 export interface JumpInput { move: number; jump: boolean; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export interface GaitPose { speed: number; moving: number; run: number; air: number }
@@ -60,11 +46,11 @@ export interface Player {
   footwork: Footwork | null
   terrain?: readonly Platform[]
 }
-export function createPlayer(): Player {
-  return { x: 200, y: 620, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
+export function createPlayer(spawn = { x: 0, y: 0 }): Player {
+  return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     charge: 0, charging: false, coyote: TUNING.coyoteTime, buffer: 0, jumpHeld: false,
     grabCooldown: 0, knockback: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
-    spawnX: 200, spawnY: 620, checkpoint: 0, jumpStart: 620, jumpHeight: 0, bestHeight: 0,
+    spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
     crouching: false, crouch: 0, reach: 0, gait: null, footwork: null }
 }
 function settleGait(p: Player, dt: number) {
@@ -206,9 +192,9 @@ export function playerState(p: Player) {
 }
 
 /** Fixed-step, world-space movement. Rendering and input devices never change physics. */
-export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: readonly Platform[] = PLATFORMS,
-  climbables: ClimbableWorld = platforms === PLATFORMS ? CLIMBABLES : NO_CLIMBABLES,
-  rules: LevelRules = platforms === PLATFORMS ? PLAYGROUND_RULES : { checkpoints: [], fallY: 1020 }) {
+export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: readonly Platform[] = [],
+  climbables: ClimbableWorld = NO_CLIMBABLES,
+  rules: LevelRules = { checkpoints: [], fallY: Infinity }) {
   p.terrain = platforms
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle
   stepMotion(p, input, dt, platforms, climbables, rules)

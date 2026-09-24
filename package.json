@@ -13,7 +13,12 @@
     "benchmark": "node scripts/benchmark.mjs",
     "benchmark:urban-fire": "node scripts/benchmark-urban-fire.mjs",
     "benchmark:bumper-ai": "node scripts/benchmark-bumper-ai.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "levels:index": "node scripts/jumping-levels.mjs index",
+    "levels:sync": "node scripts/jumping-levels.mjs sync",
+    "levels:check": "node scripts/jumping-levels.mjs check",
+    "prebuild": "npm run levels:index",
+    "predev": "npm run levels:index"
   },
   "dependencies": {
     "react": "^19.2.0",

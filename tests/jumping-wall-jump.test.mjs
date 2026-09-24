@@ -1,6 +1,7 @@
+import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlayer, stepPlayer, STEP, NEUTRAL_INPUT, TUNING, cancelJumpInput, playerState, respawn } from '../src/games/jumping/model.ts'
+import { STEP, NEUTRAL_INPUT, TUNING, cancelJumpInput, playerState, respawn } from '../src/games/jumping/model.ts'
 
 const floor = { x: 0, y: 620, w: 1000, h: 400 }
 const wall = { x: 350, y: 0, w: 100, h: 620 }

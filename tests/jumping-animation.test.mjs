@@ -1,7 +1,8 @@
+import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { athletePose } from '../src/games/jumping/athlete.ts'
-import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { footPoint, footRoll, soleContact, toeBend } from '../src/games/jumping/footwork.ts'
 
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])

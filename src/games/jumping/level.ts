@@ -1,6 +1,6 @@
-import { createPlayer, PLATFORMS, PLAYGROUND_RULES, WORLD_WIDTH } from './model.ts'
+import { createPlayer } from './model.ts'
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
-import { CLIMBABLES, createRope, ropeSegmentCount } from './climbables.ts'
+import { createRope, ropeSegmentCount } from './climbables.ts'
 import { prepareRope } from './ropeLayout.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces, walkable } from './terrain.ts'
@@ -35,11 +35,6 @@ export function levelTerrain(level: JumpLevel): Platform[] {
     { x: -extent, y: -extent, w: extent * 2, h: extent },
     { x: -extent, y: 0, w: extent, h }, { x: level.width, y: 0, w: extent, h }]
 }
-export const DEFAULT_LEVEL: JumpLevel = {
-  version: 1, id: 'playground', name: 'Movement playground', width: WORLD_WIDTH,
-  spawn: { x: 200, y: 620 }, checkpoints: [...PLAYGROUND_RULES.checkpoints], platforms: [...PLATFORMS],
-  climbables: { ladders: [...CLIMBABLES.ladders], ropes: [...CLIMBABLES.ropes] },
-}
 export const LEVEL_STORAGE_KEY = 'arcade.jumping.levels.v1'
 export const DRAFT_STORAGE_KEY = 'arcade.jumping.draft.v1'
 export const copyLevel = <T extends JumpLevel>(level: T): T => structuredClone(level)
@@ -48,14 +43,11 @@ export function newLevel(): JumpLevel {
   return { version: 1, id: newLevelId(), name: 'Untitled level', width: 3200, height: 1000, spawn: { x: 200, y: 1000 }, checkpoints: [],
     platforms: [], climbables: { ladders: [], ropes: [] } }
 }
-export function playgroundCopy(): JumpLevel {
-  return { ...copyLevel(DEFAULT_LEVEL), id: newLevelId(), name: 'My playground' }
-}
 export function levelRules(level: JumpLevel): LevelRules {
   return { checkpoints: level.checkpoints, fallY: levelHeight(level) + 100 }
 }
 export function levelPlayer(level: JumpLevel) {
-  const p = createPlayer(), terrain = levelTerrain(level), ground = groundAt(terrain, level.spawn.x, level.spawn.y, .1)
+  const p = createPlayer(level.spawn), terrain = levelTerrain(level), ground = groundAt(terrain, level.spawn.x, level.spawn.y, .1)
   p.ropes = level.climbables.ropes.map(r => createRope(prepareRope(r, terrain)))
   Object.assign(p, { x: level.spawn.x, y: level.spawn.y, spawnX: level.spawn.x, spawnY: level.spawn.y,
     grounded: !!ground, groundAngle: ground?.angle ?? 0, jumpStart: level.spawn.y })
@@ -232,4 +224,11 @@ export function saveLevel(storage: Pick<Storage, 'getItem' | 'setItem'>, level: 
   } else levels[index] = valid
   storage.setItem(LEVEL_STORAGE_KEY, JSON.stringify(levels))
   return levels
+}
+
+/** An empty editor document; all authored maps are external JSON assets. */
+export function blankTrial(): PuzzleLevel {
+  return { version: 1, id: newLevelId(), name: 'Untitled level', description: '', width: 1800, height: 920, floor: 920,
+    spawn: { x: 160, y: 920 }, flag: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
+    climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
 }

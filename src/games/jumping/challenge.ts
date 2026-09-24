@@ -3,8 +3,6 @@ import { cancelJumpInput, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
-import { FIRST_LEVEL } from './levels.ts'
-export { FIRST_LEVEL } from './levels.ts'
 export type { PuzzleLevel } from './level.ts'
 import { groundAt, platformSurface } from './terrain.ts'
 
@@ -20,17 +18,17 @@ export interface Run {
   elapsed: number; started: boolean; finished: boolean; medal: Medal | null
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
-export function medalFor(seconds: number, level = FIRST_LEVEL): Medal {
+export function medalFor(seconds: number, level: PuzzleLevel): Medal {
   return seconds <= level.times.gold ? 'Gold' : seconds <= level.times.silver ? 'Silver' : seconds <= level.times.bronze ? 'Bronze' : 'No medal'
 }
 export function formatTime(seconds: number) {
   const centiseconds = Math.floor((seconds + 1e-7) * 100)
   return `${Math.floor(centiseconds / 6000)}:${String(Math.floor(centiseconds / 100) % 60).padStart(2, '0')}.${String(centiseconds % 100).padStart(2, '0')}`
 }
-export function readBest(storage: Pick<Storage, 'getItem'>, id = FIRST_LEVEL.id): number | null {
+export function readBest(storage: Pick<Storage, 'getItem'>, id: string): number | null {
   try { const value = JSON.parse(storage.getItem(BEST_TIME_KEY) ?? '{}')[id]; return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null } catch { return null }
 }
-export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds: number, id = FIRST_LEVEL.id): number {
+export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds: number, id: string): number {
   const best = Math.min(readBest(storage, id) ?? Infinity, seconds)
   let values: Record<string, unknown> = {}
   try { const parsed: unknown = JSON.parse(storage.getItem(BEST_TIME_KEY) ?? '{}'); if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) values = parsed as Record<string, unknown> } catch { /* Replace an unreadable record. */ }
@@ -38,7 +36,7 @@ export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds:
   return best
 }
 const boxShape = (b: Prop): Platform => ({ x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size })
-export function createRun(level = FIRST_LEVEL): Run {
+export function createRun(level: PuzzleLevel): Run {
   level = prepareLevelRopes(level)
   const run: Run = { level, player: levelPlayer(level), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],

@@ -1,6 +1,7 @@
+import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer } from '../src/games/jumping/model.ts'
+import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createRope, rappelFrame } from '../src/games/jumping/climbables.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'

@@ -3,14 +3,16 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 're
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
-import { cancelJumpInput, createPlayer, playerState, respawn, STEP, stepPlayer } from './jumping/model'
+import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
 import { drawPlayground } from './jumping/render'
-import { DEFAULT_LEVEL, isPuzzleLevel, levelPlayer, levelRules, prepareLevelRopes } from './jumping/level'
+import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelPlayer, levelRules, prepareLevelRopes } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
-import { createRun, FIRST_LEVEL, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
+import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
-import { CAMPAIGN, PLAYABLE_LEVELS } from './jumping/levels'
+import { loadLevelCatalog } from './jumping/levelAssets'
+import type { LevelCatalog, LevelFile } from './jumping/levelAssets'
+import { useLocalLevels } from './jumping/localLevels'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { drawChallenge } from './jumping/challengeRender'
 import './jumping/jumping.css'
@@ -19,19 +21,50 @@ type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'KeyR', 'Escape', 'KeyP'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
+  const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
+  useEffect(() => {
+    let active = true
+    loadLevelCatalog(import.meta.env.BASE_URL).then(result => { if (active) setCatalog(result) }, error => {
+      if (active) setCatalog({ campaign: [], examples: [], playground: null, errors: [error.message] })
+    })
+    return () => { active = false }
+  }, [])
+  return catalog ? <JumpingGameSession initialCatalog={catalog} onExit={onExit} /> : <div className="jumping-game jumping-loading"><p role="status">Loading levels…</p><button onClick={onExit}>Back to arcade</button></div>
+}
+
+function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelCatalog; onExit: () => void }) {
+  const [catalog, setCatalog] = useState(initialCatalog), [refreshing, setRefreshing] = useState(false)
+  const local = useLocalLevels()
+  const [collection, setCollection] = useState<'built-in' | 'local'>('built-in')
+  const [selectedName, setSelectedName] = useState(initialCatalog.campaign[0]?.fileName ?? '')
+  const files = collection === 'built-in' ? catalog.campaign : local.files
+  const selected = files.find(file => file.fileName === selectedName) ?? files[0]
+  const selectedProblems = selected ? levelProblems(selected.level) : []
+  const [playingFile, setPlayingFile] = useState({ collection: 'built-in', fileName: initialCatalog.campaign[0]?.fileName ?? '' })
+  const playingFiles = playingFile.collection === 'built-in' ? catalog.campaign : local.files
+  const campaignIndex = playingFiles.findIndex(file => file.fileName === playingFile.fileName)
+  const nextFile = playingFiles.slice(campaignIndex + 1).find(file => levelProblems(file.level).length === 0)
+  const [editorFile, setEditorFile] = useState<{ file: LevelFile; key: number } | null>(null)
+  const [recordKey, setRecordKey] = useState(initialCatalog.campaign[0]?.level.id ?? '')
+  async function refreshBuiltins() {
+    setRefreshing(true)
+    try { setCatalog(await loadLevelCatalog(import.meta.env.BASE_URL)) }
+    catch (error) { setCatalog(previous => ({ ...previous, errors: [(error as Error).message] })) }
+    finally { setRefreshing(false) }
+  }
   const rootRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null)
-  const [initialRun] = useState(createRun)
+  const [initialRun] = useState(() => createRun(initialCatalog.campaign[0]?.level ?? blankTrial()))
   const run = useRef<Run | null>(initialRun)
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
   const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
   const [challenge, setChallenge] = useState(true)
-  const [trial, setTrial] = useState<PuzzleLevel>(FIRST_LEVEL)
-  const [bestTimes, setBestTimes] = useState<Record<string, number | null>>(() => Object.fromEntries(PLAYABLE_LEVELS.map(l => { try { return [l.id, readBest(localStorage, l.id)] } catch { return [l.id, null] } })))
-  const best = bestTimes[trial.id] ?? null
-  const campaignIndex = CAMPAIGN.findIndex(l => l.id === trial.id)
+  const [trial, setTrial] = useState<PuzzleLevel>(initialRun.level)
+  const [bestTimes, setBestTimes] = useState<Record<string, number | null>>({})
+  function bestTime(id: string) { try { return bestTimes[id] ?? readBest(localStorage, id) } catch { return null } }
+  const best = bestTime(recordKey)
   const [saveError, setSaveError] = useState(false)
-  const terrain = useRef(levelTerrain(DEFAULT_LEVEL))
-  const activeLevel = useRef(DEFAULT_LEVEL), rules = useRef(levelRules(DEFAULT_LEVEL))
+  const terrain = useRef(levelTerrain(initialRun.level))
+  const activeLevel = useRef<JumpLevel>(initialRun.level), rules = useRef(levelRules(initialRun.level))
   const [builderStarted, setBuilderStarted] = useState(false), [testing, setTesting] = useState(false)
   const jumpQueue = useRef<boolean[]>([]), keyboardJump = useRef(false)
   const [controller] = useState(createJumpController)
@@ -57,18 +90,32 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     jumpQueue.current = []; keyboardJump.current = false
     canvasRef.current?.focus({ preventScroll: true })
   }
-  function playChallenge(level: PuzzleLevel, fromBuilder = false) {
-    run.current = createRun(level); player.current = run.current.player; setTrial(level)
+  function playChallenge(level: PuzzleLevel, fromBuilder = false, key = level.id) {
+    run.current = createRun(level); player.current = run.current.player; setTrial(level); setRecordKey(key)
     setChallenge(true); setTesting(fromBuilder); setSaveError(false); changeScreen('playing')
   }
-  function startChallenge() { playChallenge(trial, testing) }
-  function selectTrial(level: PuzzleLevel) {
-    setTrial(level); run.current = createRun(level); player.current = run.current.player; setChallenge(true); setTesting(false)
+  function startChallenge() { playChallenge(trial, testing, recordKey) }
+  function selectTrial(file: LevelFile) {
+    setSelectedName(file.fileName)
+    if (isPuzzleLevel(file.level)) {
+      setTrial(file.level); run.current = createRun(file.level); player.current = run.current.player; setChallenge(true); setTesting(false)
+      setRecordKey(collection === 'local' ? `local:${file.level.id}` : file.level.id)
+    }
+  }
+  function playFile(file: LevelFile, source = collection) {
+    setPlayingFile({ collection: source, fileName: file.fileName }); setSelectedName(file.fileName)
+    if (isPuzzleLevel(file.level)) playChallenge(file.level, false, source === 'local' ? `local:${file.level.id}` : file.level.id)
+    else {
+      run.current = null; setChallenge(false); setTesting(false)
+      activeLevel.current = prepareLevelRopes(file.level); terrain.current = levelTerrain(file.level); rules.current = levelRules(file.level); player.current = levelPlayer(activeLevel.current)
+      changeScreen('playing')
+    }
   }
   function startPlayground() {
-    run.current = null; setChallenge(false); setTesting(false)
-    activeLevel.current = prepareLevelRopes(DEFAULT_LEVEL); terrain.current = levelTerrain(activeLevel.current); rules.current = levelRules(activeLevel.current); player.current = levelPlayer(activeLevel.current)
-    changeScreen('playing')
+    if (catalog.playground) playFile({ fileName: 'playground.json', level: catalog.playground }, 'built-in')
+  }
+  function editFile(file: LevelFile) {
+    setEditorFile({ file: { ...file, level: copyLevel(file.level) }, key: Date.now() }); openBuilder()
   }
   function openBuilder() { setBuilderStarted(true); changeScreen('building') }
   function testLevel(level: JumpLevel) {
@@ -79,7 +126,6 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     setTesting(true); changeScreen('playing')
   }
   function closeBuilder() {
-    activeLevel.current = DEFAULT_LEVEL; terrain.current = levelTerrain(DEFAULT_LEVEL); rules.current = levelRules(DEFAULT_LEVEL); player.current = createPlayer()
     run.current = createRun(trial); player.current = run.current.player; setChallenge(true)
     setTesting(false); changeScreen('menu')
   }
@@ -87,9 +133,9 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     if (!run.current?.finished || screenRef.current !== 'playing') return
     setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
     if (!testing) {
-      const { elapsed, level } = run.current
-      try { const time = saveBest(localStorage, elapsed, level.id); setBestTimes(previous => ({ ...previous, [level.id]: time })); setSaveError(false) }
-      catch { setBestTimes(previous => ({ ...previous, [level.id]: Math.min(previous[level.id] ?? Infinity, elapsed) })); setSaveError(true) }
+      const { elapsed } = run.current
+      try { const time = saveBest(localStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: time })); setSaveError(false) }
+      catch { setBestTimes(previous => ({ ...previous, [recordKey]: Math.min(previous[recordKey] ?? Infinity, elapsed) })); setSaveError(true) }
     }
     changeScreen('complete')
   })
@@ -201,7 +247,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   return <div className="jumping-game" ref={rootRef}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the flag` : 'Untitled Jumping Game movement playground'} />
     <header className="jumping-header">
-      <div><p className="jumping-eyebrow">{challenge ? `${testing ? 'PLAYTEST' : campaignIndex < 0 ? 'EXPERIMENT' : `LEVEL 0${campaignIndex + 1}`} / ${trial.name.toUpperCase()}` : 'MOVEMENT PLAYGROUND'}</p><h1>Untitled Jumping Game</h1></div>
+      <div><p className="jumping-eyebrow">{challenge ? `${testing ? 'PLAYTEST' : campaignIndex < 0 ? 'CUSTOM LEVEL' : `LEVEL ${String(campaignIndex + 1).padStart(2, '0')}`} / ${trial.name.toUpperCase()}` : 'MOVEMENT PLAYGROUND'}</p><h1>Untitled Jumping Game</h1></div>
       <div className="jumping-toolbar"><span className="jumping-device">{connected ? 'Controller connected' : 'Keyboard · controller ready'}</span>
         {screen === 'playing' && <>{(!challenge || testing) && <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>}<button onClick={resetPosition}>{challenge ? 'Restart' : 'Reset'} <kbd>{connected ? 'Y / △' : 'R'}</kbd></button><button onClick={() => changeScreen('paused')}>Pause <kbd>{connected ? 'Menu' : 'Esc'}</kbd></button></>}
       </div>
@@ -232,7 +278,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
         <div className="jumping-medal-times"><span className="gold">Gold ≤ {trial.times.gold}s</span><span>Silver ≤ {trial.times.silver}s</span><span className="bronze">Bronze ≤ {trial.times.bronze}s</span></div>
         {!testing && best !== null && <p>Personal best {formatTime(best)}</p>}
         {saveError && <p role="status">Your time is kept for this visit. Browser storage is unavailable.</p>}
-        <div className="jumping-actions">{!testing && campaignIndex >= 0 && campaignIndex < CAMPAIGN.length - 1 && <button className="jumping-primary" onClick={() => playChallenge(CAMPAIGN[campaignIndex + 1])}>Next level <span aria-hidden="true">→</span></button>}{testing && <button className="jumping-primary" onClick={openBuilder}>Return to builder</button>}<button onClick={startChallenge}>Try again <span aria-hidden="true">↗</span></button><button onClick={() => changeScreen('menu')}>Level menu</button><button onClick={onExit}>Back to arcade</button></div>
+        <div className="jumping-actions">{!testing && campaignIndex >= 0 && nextFile && <button className="jumping-primary" onClick={() => playFile(nextFile, playingFile.collection as 'built-in' | 'local')}>Next level <span aria-hidden="true">→</span></button>}{testing && <button className="jumping-primary" onClick={openBuilder}>Return to builder</button>}<button onClick={startChallenge}>Try again <span aria-hidden="true">↗</span></button><button onClick={() => changeScreen('menu')}>Level menu</button><button onClick={onExit}>Back to arcade</button></div>
       </div>
     </KeyboardDialog>}
     {(screen === 'menu' || screen === 'paused') && <KeyboardDialog label={screen === 'menu' ? 'Untitled Jumping Game' : 'Game paused'} focusKey={`jumping-${screen}`}
@@ -242,20 +288,30 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
         <h2>{screen === 'menu' ? 'Find your way across.' : 'Find your footing.'}</h2>
         <p>{screen === 'menu' ? 'One flag. A few good jumps. As many tries as you need.' : pauseReason}</p>
         {screen === 'menu' && <>
-          <div className="jumping-level-cards">{CAMPAIGN.map((level, index) => {
-            const record = bestTimes[level.id]
-            return <button key={level.id} className="jumping-level-card" aria-pressed={trial.id === level.id} onClick={() => selectTrial(level)} aria-label={`Level ${index + 1}: ${level.name}`}>
-              <span className="level-card-number">0{index + 1}</span><LevelThumbnail level={level} />
-              <strong>{level.name}</strong><span>{['Charge your jump', 'Catch and swing', 'Make the transfer'][index]}</span>
-              <small>{record ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
+          <div className="jumping-library-bar">
+            <button aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in levels</button>
+            <button aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>Local folder</button>
+            {collection === 'built-in' ? <button disabled={refreshing} onClick={() => void refreshBuiltins()}>{refreshing ? 'Refreshing…' : 'Refresh levels'}</button>
+              : <><button disabled={local.busy} onClick={() => void local.open()}>Open folder</button>{local.name && <button disabled={local.busy} onClick={() => void local.refresh()}>Refresh folder</button>}</>}
+          </div>
+          {collection === 'local' && <p className="jumping-folder-name">{local.name || 'Choose a folder of JSON levels on your computer.'}</p>}
+          {(collection === 'built-in' ? catalog.errors : local.errors).map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}
+          {!files.length && <p>No levels in this collection yet.</p>}
+          <div className="jumping-level-cards">{files.map((file, index) => {
+            const level = file.level, record = bestTime(collection === 'local' ? `local:${level.id}` : level.id)
+            return <button key={file.fileName} className="jumping-level-card" aria-pressed={selected?.fileName === file.fileName} onClick={() => selectTrial(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
+              <span className="level-card-number">{String(index + 1).padStart(2, '0')}</span><LevelThumbnail level={level} />
+              <strong>{level.name}</strong><span>{file.fileName}</span>
+              <small>{record && isPuzzleLevel(level) ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
             </button>
           })}</div>
-          <div className="jumping-level-detail"><div><h3>{trial.name}</h3><p>{trial.description}</p></div><div className="jumping-medal-times"><span className="gold">Gold {trial.times.gold}s</span><span>Silver {trial.times.silver}s</span><span className="bronze">Bronze {trial.times.bronze}s</span></div></div>
-          {best !== null && <p className="jumping-best">Personal best: {formatTime(best)}</p>}
+          {selected && <div className="jumping-level-detail"><div><h3>{selected.level.name}</h3><p>{selected.level.description}</p></div>{isPuzzleLevel(selected.level) && <div className="jumping-medal-times"><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span>Bronze {selected.level.times.bronze}s</span></div>}</div>}
+          {selectedProblems.map(problem => <p role="alert" key={problem}>{problem}</p>)}
+          {selected && <button onClick={() => editFile(selected)}>Edit selected level</button>}
         </>}
         <div className="jumping-actions">
-          <button data-initial-focus className="jumping-primary" onClick={() => screen === 'menu' ? playChallenge(trial) : changeScreen('playing')}>{screen === 'menu' ? 'Start level' : 'Resume'} <span aria-hidden="true">↗</span></button>
-          {screen === 'menu' && <button onClick={startPlayground}>Enter playground</button>}
+          <button data-initial-focus className="jumping-primary" disabled={screen === 'menu' && (!selected || selectedProblems.length > 0)} onClick={() => screen === 'menu' ? selected && playFile(selected) : changeScreen('playing')}>{screen === 'menu' ? 'Start level' : 'Resume'} <span aria-hidden="true">↗</span></button>
+          {screen === 'menu' && catalog.playground && <button onClick={startPlayground}>Enter playground</button>}
           {screen === 'paused' && <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>}
           <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
           {screen === 'paused' && <button onClick={() => { setTesting(false); changeScreen('menu') }}>Level menu</button>}
@@ -264,6 +320,8 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
         <p className="jumping-menu-note">{connected ? 'Stick / D-pad to choose · A / Cross to confirm' : 'A / D to move · Hold Space, release to jump · W / S to climb'}<br />No death. A missed jump is another try.</p>
       </div>
     </KeyboardDialog>}
-    {builderStarted && <LevelBuilder active={screen === 'building'} onPlay={testLevel} onClose={closeBuilder} />}
+    <input ref={local.picker} aria-label="Open local level folder" type="file" {...{ webkitdirectory: '', directory: '' }} multiple hidden onChange={e => void local.importFolder(e.target.files)} />
+    {builderStarted && <LevelBuilder key={editorFile?.key ?? 'draft'} active={screen === 'building'} onPlay={testLevel} onClose={closeBuilder}
+      templates={[...catalog.campaign, ...catalog.examples]} playground={catalog.playground} local={local} initialFile={editorFile?.file} /> }
   </div>
 }

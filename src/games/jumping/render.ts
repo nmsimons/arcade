@@ -1,8 +1,8 @@
 import { TUNING } from './model.ts'
 import type { Platform, Player } from './model.ts'
-import { DEFAULT_LEVEL, LEVEL_GRID_SIZE, levelHeight } from './level.ts'
+import { LEVEL_GRID_SIZE, levelHeight } from './level.ts'
 import type { JumpLevel } from './level.ts'
-import { CLIMBABLES, ropePath } from './climbables.ts'
+import { ropePath } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 
@@ -11,7 +11,7 @@ export { drawAthlete } from './athlete.ts'
 
 const ACCENT = '#df633f'
 
-export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: ClimbableWorld = CLIMBABLES) {
+export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: ClimbableWorld) {
   for (const ladder of world.ladders) {
     ctx.fillStyle = '#87958b'
     ctx.fillRect(ladder.x - 8, ladder.top, 2.5, ladder.bottom - ladder.top)
@@ -57,7 +57,7 @@ export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player) {
   }
   ctx.restore()
 }
-export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel = DEFAULT_LEVEL) {
+export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel) {
   const zoom = Math.max(.45, Math.min(1.6, height / 760))
   const x = p.x - width / zoom / 2, y = p.y - TUNING.height / 2 - height / zoom / 2
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)

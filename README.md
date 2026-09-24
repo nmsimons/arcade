@@ -516,8 +516,8 @@ custom level during a builder playtest.
   the grip; release and press Down again to drop, or use B/Circle / X.
 - Jump into a rope to catch it automatically. Up/Down or W/S climbs and descends
   ladders and ropes; left/right pumps a rope swing. Jump releases with momentum;
-  B/Circle or X pushes off a rappel wall while keeping the rope grip. Steering
-  away also starts an outward swing. Feet brace when rope tension or movement
+  B/Circle or X drops without jumping. Steering away starts an outward swing
+  while keeping the grip. Feet brace when rope tension or movement
   presses the player against a wall; they release as the rope swings away. Down controls
   the rappel and climbs off the rope's end or onto the ground. Stopping settles both
   feet against the wall. Jump is the manual release, launching away from a wall;
@@ -530,12 +530,14 @@ ramps, and rough terrain. Feet follow the ground, and connected terrain pieces h
 no solid internal seams. The visible room boundary is solid on every side. The readout shows speed, charge and best jump height
 for the current visit. Controller disconnect and focus loss pause the game;
 release buttons and center the stick after resuming. Keyboard stays available.
-Movement constants and level geometry live in `src/games/jumping/model.ts`;
-the simulation advances at 120 Hz independently of rendering and viewport size.
+Movement constants live in `src/games/jumping/model.ts`; the simulation advances
+at 120 Hz independently of rendering and viewport size. All authored maps,
+including the playground, are runtime JSON assets in `public/levels/jumping/`.
 
 Open **Level builder** to enter the **Level studio**. Its **Library** tab offers
-copies of all three lessons, a blank trial, and
-saved levels. The original movement playground is also available to copy.
+copies of the built-in levels, a blank trial, a comprehensive JSON test lab,
+local folder files and existing browser copies. The original movement playground
+is also available to copy.
 
 - **Rectangle** draws static terrain anywhere in the room. Drag both width and height.
 - **Polygon** places one corner per click. Click the first corner or press Enter
@@ -559,17 +561,25 @@ saved levels. The original movement playground is also available to copy.
 **Playtest** runs the entire authored trial with its own goals and mechanics.
 **Return to builder** preserves the draft and undo history. The inspector flags
 invalid starts, flags, medals, unsupported pushers, and missing mechanism links.
-Drafts autosave locally; **Save level** stores a named copy in this browser.
+Drafts autosave locally. **Local folder → Open folder** in the level menu loads
+JSON files from disk in filename order, such as `00-intro.json`, `01-rope.json`.
+**Edit selected level** opens a file in the builder. With a writable folder open,
+**Save level** writes directly to it; otherwise it keeps a browser recovery copy.
+**Refresh folder** picks up edits made in a text editor or by Codex.
 
 **Export** produces a `.jump-level.json` file with all terrain, goals, medal
-thresholds, ladders and ropes, including terrain anchor attachments. Give that file to Codex to
-add the level to the campaign. **Import level file** in Library opens it for
+thresholds, ladders and ropes, including terrain anchor attachments. Put that file
+in a local folder or `public/levels/jumping/campaign/`. **Import level file** in Library opens it for
 further editing with a fresh level identity. Invalid imports leave the draft
 intact; storage/export failures are visible. Browser data does not sync devices.
-See `docs/jumping-levels.md` for the file handoff and integration format.
+Built-in files are fetched at runtime, ordered by filename, and refreshed with
+**Refresh levels**. Run `npm run levels:index` after adding, removing or renaming
+assets; existing-file edits need no index change. `npm run levels:sync` copies the
+JSON assets into an existing `dist` without recompiling the app. `npm run levels:check`
+validates them without a build. See `docs/jumping-levels.md` for the full workflow.
 
-Level validation lives in `src/games/jumping/level.ts`, campaign definitions in
-`levels.ts`, puzzle simulation in `challenge.ts`, and editing operations in
+Level validation lives in `src/games/jumping/level.ts`, asset loading in
+`levelAssets.ts`, puzzle simulation in `challenge.ts`, and editing operations in
 `editor.ts` and `puzzleEditor.ts`.
 
 Note: browsers often require a user gesture (key press/click) before audio can start.

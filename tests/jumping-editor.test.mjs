@@ -1,8 +1,9 @@
+import { DEFAULT_LEVEL, createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_LEVEL, DRAFT_STORAGE_KEY, LEVEL_STORAGE_KEY, copyLevel, levelPlayer, levelRules, levelTerrain, newLevel, parseLevel, readSavedLevels, saveLevel, snapToGround, spawnProblem } from '../src/games/jumping/level.ts'
+import { DRAFT_STORAGE_KEY, LEVEL_STORAGE_KEY, copyLevel, levelPlayer, levelRules, levelTerrain, newLevel, parseLevel, readSavedLevels, saveLevel, snapToGround, spawnProblem } from '../src/games/jumping/level.ts'
 import { addItem, deleteItem, moveItem, replacePlatform, resizeItem } from '../src/games/jumping/editor.ts'
-import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer } from '../src/games/jumping/model.ts'
+import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createRope, NO_CLIMBABLES, stepRope } from '../src/games/jumping/climbables.ts'
 import { groundAt } from '../src/games/jumping/terrain.ts'
 

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "id": "first-leap",
+  "name": "First Leap",
+  "description": "Hold your jump to charge it, then release near the edge. Missed it? The ladder takes you back for another try.",
+  "width": 1280,
+  "height": 920,
+  "floor": 920,
+  "spawn": {
+    "x": 170,
+    "y": 520
+  },
+  "flag": {
+    "x": 1120,
+    "y": 520
+  },
+  "checkpoints": [],
+  "platforms": [
+    {
+      "x": 24,
+      "y": 520,
+      "w": 536,
+      "h": 400
+    },
+    {
+      "x": 880,
+      "y": 520,
+      "w": 376,
+      "h": 400
+    }
+  ],
+  "climbables": {
+    "ladders": [
+      {
+        "x": 576,
+        "top": 520,
+        "bottom": 920,
+        "platform": 0,
+        "side": -1
+      }
+    ],
+    "ropes": []
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "times": {
+    "gold": 3.5,
+    "silver": 6,
+    "bronze": 15
+  }
+}

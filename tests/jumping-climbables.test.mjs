@@ -1,7 +1,8 @@
+import { createPlayer, PLATFORMS, stepPlayer, CLIMBABLES } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlayer, NEUTRAL_INPUT, PLATFORMS, STEP, stepPlayer } from '../src/games/jumping/model.ts'
-import { CLIMBABLES, climbContact, createRope, ropeImpulse, ropePoint, stepRope } from '../src/games/jumping/climbables.ts'
+import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { climbContact, createRope, ropeImpulse, ropePoint, stepRope } from '../src/games/jumping/climbables.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 
 function advance(p, seconds, input = {}, world = PLATFORMS) {

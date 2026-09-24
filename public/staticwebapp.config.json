@@ -3,6 +3,7 @@
     "rewrite": "/index.html",
     "exclude": [
       "/assets/*",
+      "/levels/*",
       "/*.css",
       "/*.js",
       "/*.mjs",
@@ -24,5 +25,13 @@
     ".css": "text/css",
     ".wasm": "application/wasm",
     ".svg": "image/svg+xml"
-  }
+  },
+  "routes": [
+    {
+      "route": "/levels/jumping/*",
+      "headers": {
+        "Cache-Control": "no-store"
+      }
+    }
+  ]
 }

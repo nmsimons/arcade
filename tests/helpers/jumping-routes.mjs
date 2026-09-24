@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from '../../src/games/jumping/challenge.ts'
-import { CAMPAIGN } from '../../src/games/jumping/levels.ts'
+import { CAMPAIGN } from './jumping-fixtures.mjs'
 import { NEUTRAL_INPUT } from '../../src/games/jumping/model.ts'
 import { climbGait, ropePoint } from '../../src/games/jumping/climbables.ts'
 

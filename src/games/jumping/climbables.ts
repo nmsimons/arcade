@@ -13,10 +13,6 @@ export interface Rope {
   rest?: { key: string; points: Point[]; distances?: number[]; bends?: (Point | null)[] }
 }
 export interface ClimbableWorld { ladders: readonly Ladder[]; ropes: readonly Rope[] }
-export const CLIMBABLES: ClimbableWorld = {
-  ladders: [{ x: 1134, top: 400, bottom: 620, platform: 4, side: 1 }, { x: 2244, top: 490, bottom: 620, platform: 5, side: 1 }],
-  ropes: [{ x: 1535, y: 240, length: 320, segments: 24 }, { x: 1800, y: 190, length: 370, segments: 28 }],
-}
 export const NO_CLIMBABLES: ClimbableWorld = { ladders: [], ropes: [] }
 export interface RopeNode { x: number; y: number; oldX: number; oldY: number }
 export interface RopeState { definition: Rope; nodes: RopeNode[]; pumpInput: number; bends: (Point | null)[] }

@@ -68,15 +68,23 @@ for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${
     for (let i = 0; i < 200 && (await position(page)).y > climbY; i++) await page.clock.runFor(16)
     await page.keyboard.up('w'); await page.keyboard.down('d')
     const anchor = lesson === 1 ? 850 : rope === 0 ? 810 : 1140
-    let previous = await position(page), forward = false
-    for (let i = 0; i < 180; i++) {
+    let previous = await position(page), forward = false, direction = 1
+    for (let i = 0; i < 240; i++) {
       await page.clock.runFor(32)
       const current = await position(page)
-      forward = i >= 7 && current.x > anchor + 55 && (current.x - previous.x) / .032 > 120
+      const velocity = (current.x - previous.x) / .032
+      forward = i >= 7 && current.x > anchor + 55 && velocity > 120
       previous = current
       if (forward) break
+      // Pump with the swing, as in the gameplay route test. Holding one direction
+      // can miss the launch window depending on the timing of the incoming catch.
+      if (Math.abs(velocity) > 3 && Math.sign(velocity) !== direction) {
+        await page.keyboard.up(direction > 0 ? 'd' : 'a'); direction = Math.sign(velocity)
+        await page.keyboard.down(direction > 0 ? 'd' : 'a')
+      }
     }
     expect(forward).toBe(true)
+    await page.keyboard.up('a'); await page.keyboard.down('d')
     await page.screenshot({ path: info.outputPath(`lesson-${lesson + 1}-rope-${rope + 1}.png`) })
     await page.keyboard.down('Space'); await page.clock.runFor(32); await page.keyboard.up('Space'); await page.keyboard.down('w'); await page.clock.runFor(160)
   }

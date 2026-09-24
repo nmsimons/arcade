@@ -83,41 +83,39 @@ test('steering away pushes off either wall, frees the feet smoothly and rebraces
   }
 })
 
-test('rope action pushes off once per press without releasing; jump alone leaps outward and lets go', () => {
-  for (const side of [-1, 1]) {
+test('drop releases either rappel wall without a push; jump alone still leaps outward', () => {
+  for (const side of [-1, 1]) for (const dropping of [false, true]) {
     const { p, terrain, tick } = setup(side)
     for (let i = 0; i < 80; i++) tick({})
     assert.ok(p.climbing.wall)
-    const rope = p.climbing.rope, gripDistance = p.climbing.distance
-    let peakGap = 0, returns = 0, previousWall = true
-    for (let i = 0; i < 720; i++) {
-      tick({ detach: true })
-      assert.equal(p.climbing.distance, gripDistance)
-      const wall = !!p.climbing.wall
-      if (i === 0) assert.equal(wall, false, 'action releases the feet rather than the hands')
-      if (wall && !previousWall) returns++
-      previousWall = wall
-      peakGap = Math.max(peakGap, (400 - ropePoint(rope, gripDistance)[0]) * side)
-    }
-    assert.ok(peakGap > 30)
-    assert.equal(returns, 1, 'holding action must not repeatedly kick on each return to the wall')
-    assert.ok(p.climbing.wall)
-    stepPlayer(p, { ...NEUTRAL_INPUT, jump: true }, STEP, terrain, { ladders: [], ropes: [rope.definition] }, { checkpoints: [], fallY: Infinity })
+    const rope = p.climbing.rope, { vx, y } = p
+    const world = { ladders: [], ropes: [rope.definition] }, rules = { checkpoints: [], fallY: Infinity }
+    // Drop takes precedence if both face buttons are held together.
+    const input = { ...NEUTRAL_INPUT, jump: true, detach: dropping, drop: dropping }
+    stepPlayer(p, input, STEP, terrain, world, rules)
     assert.equal(p.climbing, null)
-    assert.ok(p.vx * side < -120 && p.vy < -300, 'jump without steering must launch away from the rappel wall')
+    if (dropping) {
+      assert.equal(p.vx, vx); assert.ok(p.vy > 0)
+      for (let i = 0; i < 60; i++) {
+        stepPlayer(p, input, STEP, terrain, world, rules)
+        assert.equal(p.climbing, null)
+        assert.ok(!terrain.some(b => bodyIntersects(p.x, p.y, b)))
+      }
+      assert.ok(p.y > y + 100)
+    } else assert.ok(p.vx * side < -120 && p.vy < -300, 'jump without steering must launch away from the rappel wall')
   }
 })
 
-test('neutral and action keep the last grip, but continuing Down climbs off the rope end', () => {
+test('neutral keeps the last grip, but continuing Down climbs off the rope end', () => {
   for (const side of [-1, 1]) for (const gap of [2, 40]) {
     const { p, terrain, tick } = setup(side, gap)
     for (let i = 0; i < 80; i++) tick({})
     for (let i = 0; i < 620 && p.climbing.distance < p.climbing.rope.definition.length - 12; i++) tick({ descend: true })
     const c = p.climbing
     const at = c.distance
-    for (let i = 0; i < 180; i++) tick({ detach: true })
+    for (let i = 0; i < 180; i++) tick({})
     assert.equal(p.climbing, c)
-    assert.equal(c.distance, at, 'neither neutral nor Action should feed rope through the hands')
+    assert.equal(c.distance, at, 'neutral should not feed rope through the hands')
     const world = { ladders: [], ropes: [c.rope.definition] }, rules = { checkpoints: [], fallY: Infinity }
     for (let i = 0; i < 12 && p.climbing; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, terrain, world, rules)
     assert.equal(p.climbing, null)

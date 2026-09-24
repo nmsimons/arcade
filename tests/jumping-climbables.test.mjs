@@ -151,17 +151,32 @@ test('automatic catches use the moving rope and consume a jump press on the catc
   advance(p, .2, { move: 1 }); assert.equal(p.climbing, null)
 })
 
-test('grounded players and ladders still require climb input, and action preserves an existing rope grip', () => {
+test('grounded players and ladders still require climb input, and drop releases a rope without recatching', () => {
   const p = createPlayer(); p.x = 1535
   advance(p, .3); assert.equal(p.climbing, null)
   advance(p, .4, { jump: true }); assert.equal(p.climbing, null); assert.equal(p.grounded, true)
   advance(p, .15); assert.equal(p.climbing?.kind, 'rope', 'jumping from below must catch without holding up')
+  const y = p.y
   for (let i = 0; i < 60; i++) {
-    advance(p, STEP, { detach: true })
-    assert.equal(p.climbing?.kind, 'rope', 'action must not release an existing rope grip')
+    advance(p, STEP, { detach: true, drop: true })
+    assert.equal(p.climbing, null, 'holding drop prevents another catch even after the cooldown')
   }
+  assert.ok(p.y > y && p.grounded)
   const byLadder = createPlayer(); Object.assign(byLadder, { x: 1134, y: 550, grounded: false, vy: -100 })
   advance(byLadder, .1); assert.equal(byLadder.climbing, null)
+})
+
+test('dropping from a swinging rope preserves horizontal momentum without a jump or steering boost', () => {
+  for (const move of [-1, 0, 1]) {
+    const p = createPlayer(); p.x = 1535
+    advance(p, .8, { climb: true }); advance(p, .6, { move: 1 })
+    assert.equal(p.climbing?.kind, 'rope'); assert.ok(Math.abs(p.vx) > 10)
+    const { vx, y } = p
+    advance(p, STEP, { detach: true, drop: true, move })
+    assert.equal(p.climbing, null); assert.equal(p.vx, vx); assert.ok(p.vy > 0)
+    advance(p, .1)
+    assert.equal(p.climbing, null); assert.ok(p.y > y, 'a quick tap also gives enough time to fall clear')
+  }
 })
 
 test('rope rest hangs from overhead grips and swinging turns smoothly into a profile with extended arms', () => {

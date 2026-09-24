@@ -179,13 +179,14 @@ test('controller directions only request ledge actions, without crouch or reach'
   const reader = createJumpController(), pad = makePad(); reader.sample([pad], 'playing', 0)
   pad.buttons[13] = { pressed: true, value: 1 }
   const down = reader.sample([pad], 'playing', 16)
-  assert.equal(down.drop, true); assert.equal(down.crouch, false); assert.equal(down.reach, false)
+  assert.equal(down.drop, true); assert.equal(down.descend, true); assert.equal(down.detach, false)
+  assert.equal(down.crouch, false); assert.equal(down.reach, false)
   pad.buttons[13] = { pressed: false, value: 0 }; pad.axes[1] = -1
   const up = reader.sample([pad], 'playing', 32)
   assert.equal(up.climb, true); assert.equal(up.crouch, false); assert.equal(up.reach, false)
   pad.axes[1] = 0; pad.buttons[1] = { pressed: true, value: 1 }
   const b = reader.sample([pad], 'playing', 48)
-  assert.equal(b.drop, true); assert.equal(b.crouch, false)
+  assert.equal(b.drop, true); assert.equal(b.detach, true); assert.equal(b.descend, false); assert.equal(b.crouch, false)
 })
 test('controller gates held inputs across screens, preserves analog speed and handles disconnect', () => {
   const reader = createJumpController(), pad = makePad()

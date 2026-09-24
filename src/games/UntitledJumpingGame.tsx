@@ -219,9 +219,9 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
       {best !== null && <small>Personal best {formatTime(best)}</small>}
     </aside>}
     <footer className="jumping-footer">
-      {connected ? <><span><kbd>L stick / D-pad</kbd> Move / swing</span><span><kbd>A / ×</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>↑ ↓</kbd> Climb / descend</span><span><kbd>B / ○</kbd> {ropeControls ? 'Push off wall' : 'Drop'}</span></>
-        : <><span><kbd>A D / ← →</kbd> Move / swing <kbd>Shift</kbd> Walk</span><span><kbd>Space</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>W S / ↑ ↓</kbd> Climb / descend</span><span><kbd>X</kbd> {ropeControls ? 'Push off wall' : 'Drop'}</span></>}
-      <span className="jumping-grab-hint">{ropeControls ? 'Steer away to swing · Push off keeps your grip · Jump releases the rope' : 'Press jump while braced to kick off · Ledges & ropes catch automatically'}</span>
+      {connected ? <><span><kbd>L stick / D-pad</kbd> Move / swing</span><span><kbd>A / ×</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>↑ ↓</kbd> Climb / descend</span><span><kbd>B / ○</kbd> Drop</span></>
+        : <><span><kbd>A D / ← →</kbd> Move / swing <kbd>Shift</kbd> Walk</span><span><kbd>Space</kbd> {ropeControls ? 'Jump off rope' : 'Jump / let go'}</span><span><kbd>W S / ↑ ↓</kbd> Climb / descend</span><span><kbd>X</kbd> Drop</span></>}
+      <span className="jumping-grab-hint">{ropeControls ? 'Steer away to swing · Jump off or drop to let go' : 'Press jump while braced to kick off · Ledges & ropes catch automatically'}</span>
     </footer>
     {screen === 'complete' && <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={startChallenge} className="jumping-overlay">
       <div className="jumping-menu jumping-result">

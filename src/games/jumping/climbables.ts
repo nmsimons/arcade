@@ -28,7 +28,6 @@ export interface Climbing {
   wallBlend?: number
   wallCooldown?: number
   wallContact?: { x: number; side: number; time: number }
-  actionHeld?: boolean
   rappelPull?: number
   rappelMotion?: number
   caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang'] }

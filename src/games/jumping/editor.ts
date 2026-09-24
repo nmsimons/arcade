@@ -1,5 +1,6 @@
 import type { JumpLevel } from './level.ts'
 import { copyLevel, snapToGround, newLevelId, levelTerrain, levelHeight } from './level.ts'
+import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { platformSurface } from './terrain.ts'
@@ -10,6 +11,34 @@ import { ropePath, ropeSegmentCount } from './climbables.ts'
 export type Tool = 'select' | 'pan' | 'polygon' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'flag' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'flag' | 'prop' | 'robot' | 'mechanism' | 'trigger'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+
+/** The editor's origin is the bottom-left; version 1 files and physics use Y-down. */
+export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLevel {
+  if (!Number.isFinite(requested)) return level
+  const before = levelHeight(level)
+  // Shrink from the ceiling, stopping before any authored object is cropped.
+  const tops = allSelections(level).map(s => {
+    const b = itemOutline(level, s)!
+    const clearance = s.kind === 'spawn' || s.kind === 'checkpoint' ? TUNING.height : s.kind === 'flag' ? 110 : 0
+    return b.y - clearance
+  })
+  const height = clamp(requested, Math.ceil(Math.max(400, ...tops.map(y => before - y))), 6000)
+  const dy = height - before
+  if (!dy) return level
+  const next = copyLevel(level)
+  next.height = height
+  if (next.floor !== undefined) next.floor = height
+  for (const point of [next.spawn, ...next.checkpoints, ...(next.flag ? [next.flag] : []), ...next.platforms,
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? [])]) point.y += dy
+  for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
+  for (const rope of next.climbables.ropes) {
+    rope.y += dy
+    // Local terrain anchors stay unchanged. Rebuild cached world-space geometry
+    // against the resized room before previewing, playing, or saving the level.
+    delete rope.rest
+  }
+  return next
+}
 export function itemBounds(level: JumpLevel, selection: Selection) {
   const i = selection.index
   if (selection.kind === 'platform') return level.platforms[i] ?? null

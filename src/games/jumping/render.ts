@@ -36,7 +36,8 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   // Zoomed-out views omit minor lines, but every line remains on the same snap lattice.
   const grid = LEVEL_GRID_SIZE * 2 ** Math.max(0, Math.ceil(Math.log2(8 / (LEVEL_GRID_SIZE * zoom))))
   for (let x = Math.max(0, Math.floor(view.x / grid) * grid); x <= Math.min(level.width, view.x + view.w); x += grid) { ctx.moveTo(x, view.y); ctx.lineTo(x, view.y + view.h) }
-  for (let y = Math.max(0, Math.floor(view.y / grid) * grid); y <= Math.min(levelHeight(level), view.y + view.h); y += grid) { ctx.moveTo(view.x, y); ctx.lineTo(view.x + view.w, y) }
+  const bottom = levelHeight(level), firstY = bottom - Math.floor((bottom - Math.max(0, view.y)) / grid) * grid
+  for (let y = firstY; y <= Math.min(bottom, view.y + view.h); y += grid) { ctx.moveTo(view.x, y); ctx.lineTo(view.x + view.w, y) }
   ctx.stroke(); ctx.restore()
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[]) {

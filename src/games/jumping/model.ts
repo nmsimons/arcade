@@ -354,14 +354,12 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const previousClimb = { ...c }
     c.time += dt
     c.direction = vertical
-    const action = !!input.detach && !c.actionHeld
-    c.actionHeld = !!input.detach
     c.wallCooldown = Math.max(0, (c.wallCooldown ?? 0) - dt)
     const wall = c.wall
-    if (wall && c.rope && !pressed && (input.move * wall.side < -.1 || action)) {
+    if (wall && c.rope && !pressed && !input.detach && input.move * wall.side < -.1) {
       // A single leg push starts the swing; holding away cannot pin the rope out.
       const grip = ropePoint(c.rope, c.distance), previous = ropePoint(c.rope, c.distance, true)
-      ropeImpulse(c.rope, c.distance, (grip[0] - previous[0]) / dt - wall.side * (action ? 260 : 180 * Math.abs(input.move)), (grip[1] - previous[1]) / dt, dt)
+      ropeImpulse(c.rope, c.distance, (grip[0] - previous[0]) / dt - wall.side * 180 * Math.abs(input.move), (grip[1] - previous[1]) / dt, dt)
       c.wallCooldown = .35
     }
     updateRopeWall(c, platforms, input.move)
@@ -380,11 +378,12 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       c.swingVelocity += (Math.max(-1, Math.min(1, velocity)) - c.swingVelocity) * (1 - Math.exp(-dt / .08))
     }
     p.crouch = 0; p.crouching = false; p.reach = 0; p.landing = 0; p.charge = 0; p.charging = false; p.buffer = 0
-    if (pressed || input.detach && c.ladder) {
+    if (pressed || input.detach) {
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
+      const jumping = pressed && !input.detach
       const launchMove = c.rope && wall ? -wall.side : input.move
-      p.vx = Math.max(-600, Math.min(600, p.vx + launchMove * 180))
-      p.vy = pressed ? Math.min(p.vy, 0) - 360 : Math.max(0, p.vy) + 40
+      if (jumping) p.vx = Math.max(-600, Math.min(600, p.vx + launchMove * 180))
+      p.vy = jumping ? Math.min(p.vy, 0) - 360 : Math.max(0, p.vy) + 40
       p.jumpStart = p.y; p.jumpHeight = 0; settleGait(p, dt); return
     }
     const bottom = c.ladder ? c.ladder.bottom - c.ladder.top - 56 : c.rope!.definition.length - 8

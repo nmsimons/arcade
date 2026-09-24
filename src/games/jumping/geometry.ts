@@ -138,16 +138,29 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
   }
   return { x, y, contacts }
 }
-export function nearestBoundary(b: Platform, x: number, y: number) {
+export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec) {
   let best = { x, y, distance: Infinity, nx: 0, ny: -1 }
   const points = polygonPoints(b)
   for (let i = 0; i < points.length; i++) {
     const a = points[i], c = points[(i + 1) % points.length], dx = c[0] - a[0], dy = c[1] - a[1], length = Math.hypot(dx, dy)
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (length * length)))
     const px = a[0] + dx * t, py = a[1] + dy * t, distance = Math.hypot(px - x, py - y)
-    if (distance < best.distance) best = { x: px, y: py, distance, nx: dy / length, ny: -dx / length }
+    const nx = dy / length, ny = -dx / length
+    // Adjacent faces can share the contact point. Prefer the face that supplied
+    // the collision normal instead of depending on vertex order or roundoff.
+    const tied = normal && Math.abs(distance - best.distance) < 1e-5
+    if (tied ? nx * normal[0] + ny * normal[1] > best.nx * normal[0] + best.ny * normal[1] : distance < best.distance)
+      best = { x: px, y: py, distance, nx, ny }
   }
   return best
+}
+/** Locate the face at the part of the hull that actually made contact. At a
+ * concave corner, the face nearest the feet can differ from the blocking face. */
+export function bodyContact(b: Platform, x: number, y: number, normal: Vec, height = 62) {
+  const hull = body(x, y, height), depth = Math.min(...hull.map(p => dot(p, normal)))
+  const touching = hull.filter(p => dot(p, normal) <= depth + EPS)
+  return nearestBoundary(b, touching.reduce((sum, p) => sum + p[0], 0) / touching.length,
+    touching.reduce((sum, p) => sum + p[1], 0) / touching.length, normal)
 }
 export function lineBlocked(a: Vec, b: Vec, terrain: readonly Platform[]) {
   const rx = b[0] - a[0], ry = b[1] - a[1]

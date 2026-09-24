@@ -3,7 +3,8 @@ import type { Checkpoint, LevelRules, Platform } from './model.ts'
 import { createRope, ropeSegmentCount } from './climbables.ts'
 import { prepareRope } from './ropeLayout.ts'
 import type { ClimbableWorld } from './climbables.ts'
-import { groundAt, platformSurfaces, walkable } from './terrain.ts'
+import { groundAt, platformSurfaces } from './terrain.ts'
+import { canGrip } from './friction.ts'
 import { bodyIntersects, nearestBoundary, validPolygon } from './geometry.ts'
 import { GOAL_PLATE_WIDTH, goalBounds } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
@@ -73,7 +74,7 @@ export function prepareLevelRopes<T extends JumpLevel>(level: T): T {
   return ropes.every((r, i) => r === level.climbables.ropes[i]) ? level : { ...level, climbables: { ...level.climbables, ropes } }
 }
 export function snapToGround(level: JumpLevel, x: number, y: number): Checkpoint {
-  const surfaces = levelTerrain(level).filter(b => x >= b.x + 3 && x <= b.x + b.w - 3).flatMap(b => platformSurfaces(b, x)).filter(s => walkable(s.angle) && s.y >= 62 && s.y <= levelHeight(level))
+  const surfaces = levelTerrain(level).filter(b => x >= b.x + 3 && x <= b.x + b.w - 3).flatMap(b => platformSurfaces(b, x)).filter(s => canGrip(s.angle) && s.y >= 62 && s.y <= levelHeight(level))
   surfaces.sort((a, b) => Math.abs(a.y - y) - Math.abs(b.y - y))
   return { x, y: surfaces[0]?.y ?? y }
 }
@@ -81,7 +82,7 @@ export function spawnProblem(level: JumpLevel): string | null {
   const terrain = levelTerrain(level)
   const { x, y } = level.spawn
   const ground = groundAt(terrain, x, y, .15)
-  if (!ground || !walkable(ground.angle)) return 'Place the start point on a surface no steeper than 45°.'
+  if (!ground || !canGrip(ground.angle)) return 'Place the start point on a surface with enough grip to stand still.'
   if (terrain.some(b => bodyIntersects(x, y, b))) {
     return 'The start point needs enough space for the player to stand.'
   }

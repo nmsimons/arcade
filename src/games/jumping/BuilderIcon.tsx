@@ -2,7 +2,7 @@ import type { Tool } from './editor'
 import { STOPWATCH_FACE_PATH, STOPWATCH_DETAILS_PATH } from './pickups'
 const paths: Record<Exclude<Tool, 'stopwatch'>, string> = {
   select: 'M5 3v16l4-5 4 7 3-2-4-6 7-1Z', pan: 'M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3',
-  polygon: 'M3 18 6 5 16 3 21 13 13 20Z',
+  node: 'M3 17h6m6 0h6M12 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM12 3v7M8.5 6.5h7',
   platform: 'M3 10h18v5H3zM6 18h12', pillar: 'M7 3h10v18H7zM7 9h10M7 15h10', pit: 'M2 7h6v13h8V7h6M10 20h4', ramp: 'M3 19 21 5v14Z',
   rough: 'M2 19V15l4-4 3 2 5-8 3 5 5 4v5Z', rope: 'M15 5a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM12 8v2c-6 4 6 7 0 11', ladder: 'M7 3v18M17 3v18M7 6h10M7 10h10M7 14h10M7 18h10',
   spawn: 'M8 21V4l11 4-11 4M4 21h8', goal: 'M3 19h11v2H3zM17 21V10M14 21h6M17 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7Z', checkpoint: 'm12 3 8 9-8 9-8-9Z',

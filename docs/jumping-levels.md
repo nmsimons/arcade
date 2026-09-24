@@ -50,6 +50,14 @@ While the dev server is running, run `levels:index` after changing filenames.
 
 ## Local levels and editing
 
+The **Terrain** tool draws a rectangular starting shape. Select it to resize the
+whole shape with the four square handles outside its bounding corners, or drag
+the white nodes to change its geometry. Choose **Node** (N), or **Add node** in
+the inspector, then click a terrain edge to insert a point at the preview marker.
+You can drag the new point immediately, or enable **Keep placing** to add several.
+Resizing keeps the opposite corner fixed and scales the existing nodes. Resizing
+and node edits follow Snap; new points snap along the edge without changing its slope.
+
 Choose **Local folder → Choose folder** in the game menu. The game reads JSON files
 directly in that folder, sorts their filenames, and lets you play them or choose
 **Edit selected level**. Files in nested folders and non-JSON files are ignored.
@@ -224,8 +232,17 @@ Ropes contain anchor `x, y`, `length`, and `segments`. Optional
 coordinates. The coordinates must lie on the terrain boundary. Editing terrain
 carries its rope anchors; deleting terrain detaches its ropes and ladders.
 
-Slopes through 45 degrees support walking. Above that angle, gravity carries the
-player downhill. Player movement uses swept convex collision against decomposed
+All current terrain uses the same friction. Walking and stable starts depend on
+whether surface grip can resist downhill gravity, with no fixed angle cutoff.
+Uphill traction and climbing speed taper as that grip is consumed. Running speed
+is measured along the surface, and releasing movement lets the player brake and
+stand still wherever there is enough grip. Flat-ground acceleration and braking
+retain their original tuning. When gravity overcomes grip, slipping builds
+gradually; momentum can carry the player uphill briefly before friction and
+gravity carry them downhill even while holding uphill. A slide can continue onto
+a gentler incline until friction slows the player enough to regain footing.
+Landing removes velocity into the surface and retains momentum along it; jumping
+releases surface friction immediately. Player movement uses swept convex collision against decomposed
 polygon pieces, including rope catches and climbs. A wall-side rope supports a
 braced rappel; Up transfers onto a clear ledge, and Down from the rim lowers to
 the adjacent rope before continuing to descend. Steering away pushes off the wall

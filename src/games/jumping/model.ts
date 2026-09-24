@@ -3,8 +3,10 @@ import type { Footwork } from './footwork.ts'
 import { climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
 import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ropeGripDistance, ropeImpulse, ropePoint, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder, RopeState } from './climbables.ts'
-import { exposedSide, followGround, groundAt, platformSurface, walkable } from './terrain.ts'
-import { bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
+import { exposedSide, followGround, groundAt, platformSurface } from './terrain.ts'
+import type { GroundSurface } from './terrain.ts'
+import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
+import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
 
 export interface Platform { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[] }
 export const TUNING = {
@@ -77,6 +79,7 @@ function launch(p: Player, charge: number) {
   p.vy = -(TUNING.jumpSpeed + (TUNING.chargedJumpSpeed - TUNING.jumpSpeed) * charge)
   p.grounded = false; p.coyote = 0; p.charge = 0; p.charging = false; p.buffer = 0; p.wallJumpBuffer = 0
   p.jumpStart = p.y; p.jumpHeight = 0
+  if (p.sliding) p.sliding.active = false
 }
 function updateWallBrace(p: Player, move: number, dt: number, platforms: readonly Platform[]) {
   let contact: Player['wallBrace'] = null
@@ -124,6 +127,33 @@ function absorbLanding(p: Player, downwardSpeed: number) {
   // Capture the impact before the collision removes vertical velocity.
   p.landingImpact = ease((downwardSpeed - 150) / 850)
   p.landing = 1
+}
+/** The floor carries the weight where it meets an incline without enough grip.
+ * Resolve both contacts together; projecting onto the incline alone lifts the
+ * feet off the floor and repeatedly restarts the walking/sliding cycle. */
+function settleSlopeBase(p: Player, ground: GroundSurface, downhill: number, platforms: readonly Platform[]) {
+  const point = (offset: number) => {
+    const x = p.x + downhill * offset, surface = platformSurface(ground.platform, x, ground.y)
+    return { x, y: surface.y, surface, valid: x >= ground.platform.x && x <= ground.platform.x + ground.platform.w && canGrip(surface.angle) }
+  }
+  const clear = (offset: number) => {
+    const q = point(offset)
+    return q.valid && !platforms.some(b => overlaps(q.x, q.y, b, p.crouching ? TUNING.crouchHeight : TUNING.height))
+  }
+  let low = 0, high: number = TUNING.width
+  if (clear(0)) high = 0
+  else {
+    if (!clear(high)) return null
+    for (let i = 0; i < 20; i++) {
+      const mid = (low + high) / 2
+      if (clear(mid)) high = mid; else low = mid
+    }
+  }
+  // Leave a tiny separation so a rounded-off zero-time contact cannot be missed
+  // by the next sweep and let the walking motor advance into the face again.
+  const q = point(clear(high + 1e-4) ? high + 1e-4 : high)
+  p.x = q.x; p.y = q.y; p.vx = 0; p.vy = 0; p.grounded = true; p.gait = gaitPose(0)
+  return q.surface
 }
 function ledgeBraced(platforms: readonly Platform[], edgeX: number, edgeY: number, side: number) {
   return [55, 58].every(offset => platforms.some(wall => {
@@ -197,7 +227,10 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   rules: LevelRules = { checkpoints: [], fallY: Infinity }) {
   p.terrain = platforms
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle
+  const previousGround = p.grounded ? groundAt(platforms, p.x, p.y, .2, s => canGrip(s.angle)) : null
   stepMotion(p, input, dt, platforms, climbables, rules)
+  const leavingGround = previousGround && !p.grounded
+    && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
   // The authored mantle already clears its own ledge; every other solid still blocks it.
   const mantle = p.mantle ?? oldMantle
   const obstacles = mantle ? platforms.filter(b => Math.abs((ledgeSurface(b, mantle.side)?.y ?? Infinity) - mantle.edgeY) > .01
@@ -224,19 +257,34 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     }
   }
   if (!p.climbing && !p.hang && !p.mantle) {
-    const ground = groundAt(platforms, p.x, p.y, .2)
-    const slope = result.contacts.map(c => ({ ...c, face: nearestBoundary(c.platform, p.x, p.y) })).find(c => c.face.ny < -1e-7 && !walkable(Math.atan2(c.face.nx, -c.face.ny))
-      && (c.platform.polygon || c.platform.profile))
+    let ground = groundAt(platforms, p.x, p.y, .2)
+    let slope = result.contacts.map(c => ({ ...c, face: bodyContact(c.platform, p.x, p.y, c.normal,
+      p.crouching ? TUNING.crouchHeight : TUNING.height) })).find(c => {
+      if (c.face.ny >= -1e-7) return false
+      const angle = Math.atan2(c.face.nx, -c.face.ny), speed = p.vx * Math.cos(angle) + p.vy * Math.sin(angle)
+      return !canGrip(angle) || p.sliding?.active && Math.abs(speed) > 1e-5
+    })
+    const base = slope && !canGrip(Math.atan2(slope.face.nx, -slope.face.ny))
+      ? groundAt(platforms, p.x, p.y, .3, s => canGrip(s.angle)) ?? (!leavingGround ? previousGround : null) : null
+    if (slope && base && !leavingGround && (p.vx * slope.face.nx <= 0 || input.move * slope.face.nx < 0)
+      && (p.grounded || previousGround || p.vx * Math.sin(base.angle) - p.vy * Math.cos(base.angle) <= .1)
+    ) {
+      const support = settleSlopeBase(p, base, Math.sign(slope.face.nx), platforms)
+      if (support) { slope = undefined; ground = support }
+    }
     if (slope) {
-      const angle = Math.atan2(slope.face.nx, -slope.face.ny), sign = Math.sign(angle), tangent = [Math.cos(angle), Math.sin(angle)]
-      const speed = Math.max(25, (p.vx * tangent[0] + p.vy * tangent[1]) * sign)
+      const angle = Math.atan2(slope.face.nx, -slope.face.ny), tangent = [Math.cos(angle), Math.sin(angle)]
+      let speed = p.vx * tangent[0] + p.vy * tangent[1]
+      if (!p.sliding?.active) speed = slidingVelocity(speed - TUNING.gravity * tangent[1] * dt, angle, TUNING.gravity, dt)
       const contact = nearestBoundary(slope.platform, p.x, p.y)
-      p.vx = tangent[0] * speed * sign; p.vy = tangent[1] * speed * sign
-      p.sliding = { angle, amount: Math.min(1, (p.sliding?.amount ?? 0) + dt / .1), time: (p.sliding?.time ?? 0) + dt, active: true, x: contact.x, y: contact.y }
+      p.vx = tangent[0] * speed; p.vy = tangent[1] * speed
+      p.sliding = { angle, amount: approach(p.sliding?.amount ?? 0, 1, dt / .12), time: (p.sliding?.time ?? 0) + dt, active: true, x: contact.x, y: contact.y }
       p.grounded = false; p.coyote = 0; p.charging = false; p.charge = 0; p.footwork = null; p.wallBrace = null
     } else {
       if (p.sliding) { p.sliding.active = false; p.sliding.amount = Math.max(0, p.sliding.amount - dt / .12); if (!p.sliding.amount) p.sliding = null }
-      if (ground && walkable(ground.angle) && p.vy >= -.1) {
+      // An uphill landing can have upward world velocity after the collision.
+      // Support depends on separating from the surface, not on falling in world Y.
+      if (ground && canGrip(ground.angle) && (p.grounded || p.vx * Math.sin(ground.angle) - p.vy * Math.cos(ground.angle) <= .1)) {
         if (!p.grounded && oldVy > 0) absorbLanding(p, oldVy)
         p.grounded = true; p.vy = 0; p.groundAngle = ground.angle
         if (!platforms.some(b => overlaps(p.x, ground.y, b))) p.y = ground.y
@@ -415,7 +463,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const blocked = Math.hypot(safe.x - p.x, safe.y - p.y)
     p.x = safe.x; p.y = safe.y
     const footing = c.rope && vertical < 0 ? groundAt(platforms, p.x, p.y, .2) : null
-    if (footing && walkable(footing.angle)) {
+    if (footing && canGrip(footing.angle)) {
       p.climbing = null; p.grabCooldown = .35; p.grounded = true
       p.y = footing.y; p.vx = 0; p.vy = 0; p.groundAngle = footing.angle
       p.gait = gaitPose(0); advanceFootwork(p, dt, p.x, platforms)
@@ -492,12 +540,18 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     p.vx = p.wallJump.direction * TUNING.wallJumpPush; p.facing = p.wallJump.direction
   } else if (p.sliding?.active && !p.grounded) {
     const angle = p.sliding.angle, tangent = [Math.cos(angle), Math.sin(angle)]
-    const speed = p.vx * tangent[0] + p.vy * tangent[1]
-    p.vx = tangent[0] * speed; p.vy = tangent[1] * speed
-    if (pressed) { launch(p, 0); p.sliding.active = false }
+    const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, TUNING.gravity, dt)
+    // The ordinary gravity step below supplies the normal load for the sweep.
+    // Subtract its tangent contribution here so gravity is integrated only once.
+    const beforeGravity = speed - TUNING.gravity * tangent[1] * dt
+    p.vx = tangent[0] * beforeGravity; p.vy = tangent[1] * beforeGravity
+    if (pressed) { p.vx = tangent[0] * speed; launch(p, 0) }
   } else {
     if (Math.abs(move) > .01) p.facing = Math.sign(move)
-    p.vx = approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt)
+    const ground = p.grounded ? groundAt(platforms, p.x, p.y, .2) : null
+    p.vx = ground && canGrip(ground.angle)
+      ? groundVelocity(p.vx, target, ground.angle, move ? TUNING.acceleration : TUNING.braking, dt)
+      : approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt)
   }
   const oldX = p.x, oldY = p.y
   const following = p.grounded
@@ -515,9 +569,32 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     else if (p.vx < 0 && oldX - 12 >= b.x + b.w - .1 && exposedSide(platforms, b, -1, p.y - height, p.y)) { p.x = b.x + b.w + 12; p.vx = 0; wallContact = b.x + b.w }
   }
   let support = following ? followGround(platforms, oldX, p.x, oldY) : null
+  if (following && !support) {
+    const before = groundAt(platforms, oldX, oldY, .2)
+    const ahead = before && p.x >= before.platform.x && p.x <= before.platform.x + before.platform.w
+      ? platformSurface(before.platform, p.x, oldY) : null
+    if (ahead && !canGrip(ahead.angle) && ahead.y < oldY) {
+      // Walk as far as the supporting face permits. Applying a free-fall step
+      // before reaching this crease can push the player back down the old face,
+      // repeating a tiny uphill/downhill cycle without ever hitting the new one.
+      const dx = p.x - oldX
+      let low = 0, high = 1
+      for (let i = 0; i < 20; i++) {
+        const mid = (low + high) / 2
+        if (followGround(platforms, oldX, oldX + dx * mid, oldY)) low = mid; else high = mid
+      }
+      p.x = oldX + dx * low; p.vx = 0
+      support = followGround(platforms, oldX, p.x, oldY)
+    }
+  }
   if (support && platforms.some(b => b !== support!.platform && oldY - height >= b.y + b.h - .1 && overlaps(p.x, support!.y, b, height))) {
     // A ramp must not lift the body through a ceiling.
     p.x = oldX; p.vx = 0; support = followGround(platforms, oldX, oldX, oldY)
+  }
+  if (following && !support) {
+    // Carry the actual surface velocity over a crest or onto a steeper face.
+    const before = groundAt(platforms, oldX, oldY, .2)
+    if (before) p.vy = p.vx * Math.tan(before.angle)
   }
   p.vy = Math.min(1100, p.vy + TUNING.gravity * dt)
   p.y += p.vy * dt; p.grounded = false
@@ -526,10 +603,14 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (p.x + 12 <= b.x || p.x - 12 >= b.x + b.w) continue
     if (b.polygon) continue // Polygon faces are resolved by the continuous body sweep.
     const surface = platformSurface(b, p.x), before = platformSurface(b, oldX)
-    if (!walkable(surface.angle)) continue
+    if (!canGrip(surface.angle) || p.sliding?.active) continue
     if ((p.vy >= 0 || b.profile && p.y - surface.y >= oldY - before.y) && oldY <= before.y + .1 && p.y >= surface.y) {
       if (p.x >= b.x && p.x <= b.x + b.w) {
-        if (!wasGrounded) absorbLanding(p, p.vy)
+        if (!wasGrounded) {
+          absorbLanding(p, p.vy)
+          const cos = Math.cos(surface.angle), sin = Math.sin(surface.angle)
+          p.vx = (p.vx * cos + p.vy * sin) * cos
+        }
         p.y = surface.y; p.vy = 0; p.grounded = true; support = surface
       } else if (!support && !b.profile && ((p.x < b.x && p.vx > 0) || (p.x > b.x + b.w && p.vx < 0))) {
         // A missed corner is a side contact, not support under empty space.

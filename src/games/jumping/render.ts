@@ -51,11 +51,13 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player) {
   if (!p.sliding) return
-  const { angle, amount, time, x, y } = p.sliding, direction = Math.sign(angle)
+  const { angle, amount, time, x, y } = p.sliding
+  const speed = p.vx * Math.cos(angle) + p.vy * Math.sin(angle), direction = Math.sign(speed) || p.facing
+  const intensity = amount * Math.min(1, Math.abs(speed) / 180)
   ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.fillStyle = '#777b7e'
   for (let i = 0; i < 7; i++) {
     const age = (time * 3 + i / 7) % 1
-    ctx.globalAlpha = amount * (1 - age) * .5
+    ctx.globalAlpha = intensity * (1 - age) * .5
     ctx.fillRect(-direction * (3 + age * 24), -2 - Math.sin(age * Math.PI) * (3 + i % 3), 1.5 + i % 2, 1.5)
   }
   ctx.restore()

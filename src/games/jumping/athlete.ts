@@ -418,7 +418,9 @@ function clearClimbingLeg(p: Player, leg: Leg, spread: number): Leg {
 export function athletePose(p: Player): AthletePose {
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
-  const pose = p.gait ?? gaitPose(p.vx, !p.grounded)
+  // A slipping foot is still in contact: do not layer a falling/running cycle
+  // underneath the balance pose while the surface is supporting the body.
+  const pose = p.sliding?.active ? gaitPose(0) : p.gait ?? gaitPose(p.vx, !p.grounded)
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
   const cycle = p.stride * p.facing
   const gait = moving * (1 - p.crouch) * (1 - air)
@@ -520,7 +522,7 @@ export function athletePose(p: Player): AthletePose {
     contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight)
   const result = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
   const resolved = p.sliding ? slidingPose(p, result) : p.wallBrace ? wallBracePose(p, result) : result
-  if (!p.grounded && p.terrain) {
+  if ((!p.grounded || p.sliding) && p.terrain) {
     resolved.frontLeg = clearAirborneFoot(p, resolved.frontLeg); resolved.backLeg = clearAirborneFoot(p, resolved.backLeg)
   }
   return resolved
@@ -549,23 +551,39 @@ function clearAirborneFoot(p: Player, leg: Leg): Leg {
   return current
 }
 
-/** Sit into the slope, lead with the feet and counterbalance with open arms. */
+/** Keep weight over staggered feet, with soft knees and small balance corrections. */
 function slidingPose(p: Player, free: AthletePose): AthletePose {
-  const s = p.sliding!, weight = smooth(s.amount), direction = Math.sign(s.angle)
+  const s = p.sliding!, weight = smooth(s.amount)
   const tx = Math.cos(s.angle), ty = Math.sin(s.angle), nx = ty, ny = -tx
-  const at = (along: number, above: number): Point => [(s.x + tx * along * direction + nx * above - p.x) * p.facing, s.y + ty * along * direction + ny * above - p.y]
-  const hip = mix(free.hip, at(-9, 19), weight), shoulder = mix(free.shoulder, at(-13, 35), weight)
-  const waist = mix(free.waist, at(-12, 25.5), weight), head = mix(free.head, at(-11, 42), weight)
-  const leg = (original: Leg, along: number): Leg => {
-    const target = mix(original.end, at(along, 2.8), weight), origin = at(0, 0)
+  const velocity = p.vx * tx + p.vy * ty, speed = smooth(Math.abs(velocity) / 450)
+  const balance = Math.tanh(velocity / 150) * p.facing, correction = Math.sin(s.time * 5.5) * speed
+  const at = (along: number, above: number): Point => [(s.x + tx * along + nx * above - p.x) * p.facing, s.y + ty * along + ny * above - p.y]
+  const spread = 2.5 + speed * 4, center = at(0, 2.8)
+  const front = at((spread + correction * .6) * p.facing, 2.8), back = at(-(spread - correction * .6) * p.facing, 2.8)
+  const hipTarget: Point = [center[0] - balance * 2, center[1] - 29 + speed * 2]
+  // Fit both legs before placing the torso, instead of pulling a foot off the
+  // slope or rotating the entire person to match its angle.
+  for (const foot of [front, back]) {
+    const reach = 28.5 - speed, rise = Math.sqrt(Math.max(0, reach ** 2 - (foot[0] - hipTarget[0]) ** 2))
+    hipTarget[1] = Math.max(hipTarget[1], foot[1] - rise - 1)
+  }
+  const lean = -balance * (1.5 + speed) + correction * .4
+  const hip = mix(free.hip, hipTarget, weight), waist = mix(free.waist, add(hipTarget, [lean * .3, -6.5]), weight)
+  const shoulder = mix(free.shoulder, add(hipTarget, [lean, -16.4]), weight)
+  const head = mix(free.head, add(hipTarget, [lean + .45, -23.7]), weight)
+  const leg = (original: Leg, foot: Point): Leg => {
+    const target = mix(original.end, foot, weight), origin = at(0, 0)
     const above = (target[0] - origin[0]) * nx * p.facing + (target[1] - origin[1]) * ny
     if (above < 2.8) { target[0] += nx * p.facing * (2.8 - above); target[1] += ny * (2.8 - above) }
-    const limb = solve(add(hip, [0, 1]), target, 15, 14.5, -direction * p.facing, MIN_KNEE_OPENING)
-    return { ...limb, footAngle: s.angle * p.facing, toeAngle: 0, footFacing: 1, planted: false }
+    const limb = solve(add(hip, [0, 1]), target, 15, 14.5, -1, MIN_KNEE_OPENING)
+    return { ...limb, footAngle: lerp(original.footAngle, s.angle * p.facing, weight), toeAngle: original.toeAngle * (1 - weight), footFacing: 1, planted: false }
   }
-  const arm = (original: Limb, along: number, above: number) => solve(shoulder, mix(original.end, at(along, above), weight), UPPER_ARM, FOREARM, 1)
-  return { hip, waist, shoulder, head, frontLeg: leg(free.frontLeg, 9), backLeg: leg(free.backLeg, 0),
-    frontArm: arm(free.frontArm, 3, 35), backArm: arm(free.backArm, -26, 29) }
+  const armRoot = add(shoulder, [0, .7])
+  const frontArm = armPose(armRoot, .08 + speed * .16 + correction * .015, .2 + speed * .55)
+  const backArm = armPose(armRoot, -.12 - speed * .18 + correction * .02, .14 + speed * .1)
+  const arm = (original: Limb, relaxed: Limb) => solve(armRoot, mix(original.end, relaxed.end, weight), UPPER_ARM, FOREARM, 1)
+  return { hip, waist, shoulder, head, frontLeg: leg(free.frontLeg, front), backLeg: leg(free.backLeg, back),
+    frontArm: arm(free.frontArm, frontArm), backArm: arm(free.backArm, backArm) }
 }
 
 /** Keep the ordinary pushing silhouette, with the legs reaching diagonally to the wall. */

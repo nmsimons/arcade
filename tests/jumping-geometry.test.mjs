@@ -37,7 +37,7 @@ test('concave polygon cavities, undersides and thin edges collide with their act
   assert.ok(!validPolygon([[0,0],[100,100],[0,100],[100,0]]))
 })
 
-test('45 degree slopes are walkable; steeper slopes slide downhill despite uphill input', () => {
+test('slopes with sufficient grip support walking; unbalanced slopes slide despite uphill input', () => {
   for (const direction of [-1, 1]) for (const rise of [200, 280]) {
     const shape = { x: 100, y: 250, w: 200, h: rise, polygon: direction > 0 ? [[0,0],[200,rise],[0,rise]] : [[0,rise],[200,0],[200,rise]] }
     const p = createPlayer(); Object.assign(p, { x: 200, y: 220, grounded: false, grabCooldown: 10 })

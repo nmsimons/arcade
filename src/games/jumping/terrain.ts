@@ -1,11 +1,10 @@
 import type { Platform } from './model.ts'
 import { polygonPoints } from './geometry.ts'
+import { canGrip } from './friction.ts'
 
 export interface GroundSurface { platform: Platform; y: number; angle: number }
 
 /** Profile points are local x/y offsets from the platform's upper-left corner. */
-export const WALKABLE_ANGLE = Math.PI / 4
-export const walkable = (angle: number) => Math.abs(angle) <= WALKABLE_ANGLE + 1e-7
 export function platformSurfaces(platform: Platform, x: number): GroundSurface[] {
   if (!platform.polygon) return [platformSurface(platform, x)]
   const points = polygonPoints(platform), found: GroundSurface[] = []
@@ -34,12 +33,13 @@ export function platformSurface(platform: Platform, x: number, nearY = -Infinity
 }
 
 /** Choose the exposed surface within reach, ignoring floors far below and ceilings above. */
-export function groundAt(platforms: readonly Platform[], x: number, y: number, reach = 26): GroundSurface | null {
+export function groundAt(platforms: readonly Platform[], x: number, y: number, reach = 26,
+  accepts?: (surface: GroundSurface) => boolean): GroundSurface | null {
   let found: GroundSurface | null = null
   for (const platform of platforms) {
     if (x < platform.x || x > platform.x + platform.w) continue
     for (const surface of platformSurfaces(platform, x))
-      if (Math.abs(surface.y - y) <= reach && (!found || surface.y < found.y)) found = surface
+      if (Math.abs(surface.y - y) <= reach && (!accepts || accepts(surface)) && (!found || surface.y < found.y)) found = surface
   }
   return found
 }
@@ -70,7 +70,7 @@ export function followGround(platforms: readonly Platform[], oldX: number, x: nu
   const before = groundAt(platforms, oldX, y, .15)
   if (!before) return null
   const after = groundAt(platforms, x, y, Math.abs(x - oldX) + .15)
-  if (!after || !walkable(after.angle)) return null
+  if (!after || !canGrip(after.angle)) return null
   const a = before.platform, b = after.platform
   if (a === b) return after
   // Overlapping ramps can meet a flat floor at their zero-height ends.

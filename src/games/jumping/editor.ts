@@ -11,7 +11,8 @@ import { goalBounds } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { pickupBounds } from './pickups.ts'
 
-export type Tool = 'select' | 'pan' | 'polygon' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'timer' | 'text' | 'stopwatch'
+export type Tool = 'select' | 'pan' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'timer' | 'text' | 'stopwatch'
+export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
@@ -166,16 +167,20 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'trigger') { const t = next.triggers![selection.index], point = snapToGround(next, x + b.w / 2, y + 8); t.x = clamp(x, 24, next.width - t.w - 24); t.y = point.y }
   return next
 }
-export function resizeItem(level: JumpLevel, selection: Selection, w: number, h: number): JumpLevel {
+export function resizeItem(level: JumpLevel, selection: Selection, w: number, h: number, corner: ResizeCorner = 'bottom-right'): JumpLevel {
   const next = copyLevel(level)
   if (selection.kind === 'text') {
     const t = next.texts![selection.index]
     t.w = clamp(w, 40, Math.min(2000, next.width - t.x)); t.h = clamp(h, 24, Math.min(1200, levelHeight(next) - t.y))
   }
   if (selection.kind === 'platform') {
-    const before = level.platforms[selection.index], rightLadder = level.climbables.ladders.some(l => l.platform === selection.index && l.side === -1)
-    const width = clamp(w, 20, level.width - before.x - (rightLadder ? 16 : 0)), height = clamp(h, 10, levelHeight(level) - before.y)
-    return replacePlatform(level, selection.index, { ...before, w: width, h: height,
+    const before = level.platforms[selection.index], left = corner.endsWith('left'), top = corner.startsWith('top')
+    const ladders = level.climbables.ladders.filter(l => l.platform === selection.index)
+    const minX = ladders.some(l => l.side === 1) ? 16 : 0, maxX = level.width - (ladders.some(l => l.side === -1) ? 16 : 0)
+    const width = clamp(w, 20, left ? before.x + before.w - minX : maxX - before.x)
+    const height = clamp(h, 10, top ? before.y + before.h : levelHeight(level) - before.y)
+    const x = left ? before.x + before.w - width : before.x, y = top ? before.y + before.h - height : before.y
+    return replacePlatform(level, selection.index, { ...before, x, y, w: width, h: height,
       ...(before.polygon ? { polygon: before.polygon.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}),
       ...(before.profile ? { profile: before.profile.map(([x, y]) => [x / before.w * width, y / before.h * height] as [number, number]) } : {}) })
   }
@@ -360,6 +365,47 @@ export function addPolygon(level: JumpLevel, points: readonly Vec[]) {
   const next = copyLevel(level); next.platforms.push(b)
   return { level: next, selection: { kind: 'platform' as const, index: next.platforms.length - 1 } }
 }
+export type TerrainNodeTarget = { index: number; edge: number; x: number; y: number }
+
+/** Project onto the nearest edge; snap along its dominant axis to preserve slopes. */
+export function terrainNodeTarget(level: JumpLevel, x: number, y: number, tolerance: number, grid = 0): TerrainNodeTarget | null {
+  let best: (TerrainNodeTarget & { distance: number }) | null = null
+  for (let index = level.platforms.length - 1; index >= 0; index--) {
+    const points = polygonPoints(level.platforms[index])
+    for (let edge = 0; edge < points.length; edge++) {
+      const a = points[edge], b = points[(edge + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1]
+      const t = clamp(((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy), 0, 1)
+      const px = a[0] + dx * t, py = a[1] + dy * t, distance = Math.hypot(x - px, y - py)
+      if (distance <= tolerance && (!best || distance < best.distance)) best = { index, edge, x: px, y: py, distance }
+    }
+  }
+  if (!best) return null
+  const points = polygonPoints(level.platforms[best.index]), a = points[best.edge], b = points[(best.edge + 1) % points.length]
+  let px = best.x, py = best.y
+  if (grid) {
+    const dx = b[0] - a[0], dy = b[1] - a[1]
+    const snappedY = levelHeight(level) - Math.round((levelHeight(level) - py) / grid) * grid
+    const t = clamp(Math.abs(dx) >= Math.abs(dy) ? (Math.round(px / grid) * grid - a[0]) / dx : (snappedY - a[1]) / dy, 0, 1)
+    px = a[0] + dx * t; py = a[1] + dy * t
+  }
+  if (points.some(([vx, vy]) => Math.hypot(vx - px, vy - py) < .01)) return null
+  return { index: best.index, edge: best.edge, x: px, y: py }
+}
+
+export function insertTerrainNode(level: JumpLevel, target: TerrainNodeTarget): JumpLevel {
+  const points = polygonPoints(level.platforms[target.index])
+  if (points.length >= 64) throw new Error('This terrain already has 64 nodes.')
+  points.splice(target.edge + 1, 0, [target.x, target.y])
+  if (!validPolygon(points)) throw new Error('Choose a point on the edge away from an existing node.')
+  // Inserting on an edge leaves the surface and all supported objects in place.
+  const next = copyLevel(level), terrain = next.platforms[target.index]
+  delete terrain.profile
+  terrain.polygon = points.map(([x, y]) => [x - terrain.x, y - terrain.y])
+  // Polygon terrain uses free ladders; retain their placement when converting a rectangle.
+  for (const ladder of next.climbables.ladders) if (ladder.platform === target.index) ladder.platform = -1
+  return next
+}
+
 export function moveVertex(level: JumpLevel, index: number, vertex: number, dx: number, dy: number): JumpLevel {
   const points = polygonPoints(level.platforms[index])
   const p = points[vertex]; points[vertex] = [clamp(p[0] + dx, 0, level.width), clamp(p[1] + dy, 0, levelHeight(level))]

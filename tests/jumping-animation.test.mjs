@@ -3,7 +3,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { footPoint, footRoll, soleContact, toeBend } from '../src/games/jumping/footwork.ts'
+import { FOOT_CONTACT, footPoint, footRoll, soleContact, toeBend } from '../src/games/jumping/footwork.ts'
 
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
 const points = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -238,4 +238,46 @@ test('resting near a platform edge keeps both recovery steps on the platform', (
     for (let i = 0; i < 100; i++) stepPlayer(p, NEUTRAL_INPUT, STEP, floor)
     assert.ok(p.footwork.feet.every(foot => foot.planted && foot.x >= 0 && foot.x <= 300))
   }
+})
+
+test('sliding keeps an upright torso, relaxed asymmetric arms, and both soles on the slope', () => {
+  for (const facing of [-1, 1]) for (const degrees of [-70, -55, -25, 0, 25, 55, 70]) for (const speed of [-400, -15, 0, 15, 120, 400]) {
+    const angle = degrees * Math.PI / 180, tx = Math.cos(angle), ty = Math.sin(angle)
+    const p = { ...createPlayer(), x: 0, y: 0, vx: speed * tx, vy: speed * ty, facing, grounded: false,
+      sliding: { angle, amount: 1, time: 1, active: true, x: 0, y: 0 } }
+    const pose = athletePose(p)
+    assert.ok(Math.abs(pose.shoulder[0] - pose.hip[0]) < 4 && pose.hip[1] - pose.shoulder[1] > 16)
+    for (const limb of [pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg]) {
+      const leg = 'footAngle' in limb
+      assert.ok(Math.abs(distance(limb.root, limb.joint) - (leg ? 15 : 10)) < 1e-6)
+      assert.ok(Math.abs(distance(limb.joint, limb.end) - (leg ? 14.5 : 9)) < 1e-6)
+      if (!leg) {
+        assert.ok(limb.joint[1] > pose.shoulder[1] + 9, 'elbows stay down beside the torso')
+        assert.ok(limb.end[1] > pose.hip[1] - 3, 'hands stay low instead of spreading at chest height')
+      } else {
+        const clearance = Math.min(...FOOT_CONTACT.map(point => {
+          const sole = footPoint(point, limb.footAngle, limb.toeAngle)
+          return (limb.end[0] + sole[0]) * facing * ty - (limb.end[1] + sole[1]) * tx
+        }))
+        assert.ok(clearance > -.01 && clearance < .01, 'each sliding sole stays against the supporting plane')
+      }
+    }
+    assert.ok(distance(pose.frontArm.end, pose.backArm.end) > 2)
+  }
+})
+
+test('the sliding pose stays continuous through slow reversals and is still at zero slip', () => {
+  const p = { ...createPlayer(), x: 0, y: 0, grounded: false,
+    sliding: { angle: .9, amount: 1, time: 1, active: true, x: 0, y: 0 } }
+  let previous
+  for (let speed = -5; speed <= 5; speed += .1) {
+    p.vx = speed * Math.cos(.9); p.vy = speed * Math.sin(.9)
+    const current = points(athletePose(p))
+    if (previous) for (let i = 0; i < current.length; i++) assert.ok(distance(current[i], previous[i]) < .02)
+    previous = current
+  }
+  p.vx = 0; p.vy = 0
+  const stopped = athletePose(p)
+  p.sliding.time += 1
+  assert.deepEqual(athletePose(p), stopped)
 })

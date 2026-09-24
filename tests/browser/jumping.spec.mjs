@@ -21,6 +21,8 @@ async function setup(page, controller = false, level = DEFAULT_LEVEL) {
       if (args[2] === 6.2 && args[3] === 6.2 && window.jumpCamera) {
         const body = this.getTransform(), camera = window.jumpCamera
         window.jumpPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
+        window.jumpHead = { x: (body.e + body.a * args[0] + body.c * args[1] - camera.e) / camera.a,
+          y: (body.f + body.b * args[0] + body.d * args[1] - camera.f) / camera.d }
         const now = performance.now()
         window.jumpMotion = [...(window.jumpMotion ?? []).filter(point => now - point.time < 200), { x: window.jumpPlayer.x, time: now }]
         window.jumpScreen = { x: body.e / this.canvas.width, y: (body.f - Math.abs(body.d) * 31) / this.canvas.height }
@@ -38,6 +40,46 @@ const speed = page => page.evaluate(() => {
   const first = window.jumpMotion[0], last = window.jumpMotion.at(-1)
   return Math.abs(last.x - first.x) / ((last.time - first.time) / 1000) / 60
 })
+
+test('jumping across slopes restores traction while holding uphill, then permits stopping and jumping', async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  const level = {
+    version: 1, id: 'slope-friction', name: 'Slope friction', width: 2000, height: 1400,
+    spawn: { x: 600, y: 900 }, checkpoints: [],
+    platforms: [{ x: 0, y: 640, w: 2000, h: 760,
+      polygon: [[0, 160], [400, 160], [800, 360], [1200, 0], [2000, 0], [2000, 760], [0, 760]] }],
+    climbables: { ladders: [], ropes: [] },
+  }
+  await setup(page, false, level); await enter(page)
+  await page.keyboard.down('d'); await page.clock.runFor(300)
+  await page.keyboard.down('Space'); await page.clock.runFor(24); await page.keyboard.up('Space')
+  await page.clock.runFor(600)
+  const landed = await position(page)
+  expect(landed.x).toBeGreaterThan(800)
+  expect(landed.y).toBeCloseTo(1000 - (landed.x - 800) * .9, 3)
+  await expect(page.locator('.jumping-state')).toHaveText(/^(Ready|Walking|Running)$/)
+  await page.screenshot({ path: info.outputPath('uphill-landing-traction.png') })
+  let previousX = landed.x
+  for (let i = 0; i < 5; i++) {
+    await page.clock.runFor(64)
+    const p = await position(page)
+    expect(p.y).toBeCloseTo(1000 - (p.x - 800) * .9, 3)
+    expect(p.x).toBeGreaterThan(previousX); previousX = p.x
+    await expect(page.locator('.jumping-state')).toHaveText(/^(Ready|Walking|Running)$/)
+  }
+  await page.clock.runFor(96)
+  await expect(page.locator('.jumping-state')).toHaveText('Walking')
+  await page.keyboard.up('d'); await page.clock.runFor(500)
+  const stopped = await position(page)
+  await page.clock.runFor(400)
+  expect(await position(page)).toEqual(stopped)
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  await page.keyboard.down('Space'); await page.clock.runFor(400); await page.keyboard.up('Space')
+  await page.clock.runFor(64)
+  await expect(page.locator('.jumping-state')).toHaveText('Rising')
+  expect((await position(page)).y).toBeLessThan(stopped.y - 30)
+  expect(errors).toEqual([])
+})
 async function expectCentered(page) {
   const point = await page.evaluate(() => window.jumpScreen)
   expect(point.x).toBeCloseTo(.5, 5); expect(point.y).toBeCloseTo(.5, 5)
@@ -47,6 +89,97 @@ async function enter(page) {
   await page.clock.runFor(64)
   await expect(page.locator('canvas')).toBeFocused()
 }
+
+for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} keeps grip above 45 degrees and releases it for a jump`, async ({ page }, info) => {
+  const level = {
+    version: 1, id: 'grip-balance', name: 'Grip balance', width: 1600, height: 2200,
+    spawn: { x: 800, y: 1024 }, checkpoints: [],
+    platforms: [{ x: 0, y: 200, w: 1600, h: 2000, polygon: [[0, 0], [1600, 1648], [1600, 2000], [0, 2000]] }],
+    climbables: { ladders: [], ropes: [] },
+  }
+  const move = value => controller ? page.evaluate(value => { window.testPad.axes[0] = value }, value)
+    : value ? page.keyboard.down('a') : page.keyboard.up('a')
+  const jump = value => controller ? page.evaluate(value => { window.testPad.buttons[0] = { pressed: value, value: Number(value) } }, value)
+    : value ? page.keyboard.down('Space') : page.keyboard.up('Space')
+  await setup(page, controller, level); await enter(page)
+  await page.clock.runFor(500)
+  const start = await position(page)
+  expect(start.x).toBeCloseTo(800, 3); expect(start.y).toBeCloseTo(1024, 3)
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  await move(-1); await page.clock.runFor(600)
+  const climbing = await position(page)
+  expect(climbing.x).toBeLessThan(start.x - 15)
+  expect(climbing.y).toBeCloseTo(200 + climbing.x * 1.03, 3)
+  await expect(page.locator('.jumping-state')).toHaveText('Walking')
+  await page.screenshot({ path: info.outputPath('grip-above-45.png') })
+  await move(0); await page.clock.runFor(500)
+  const stopped = await position(page)
+  await page.clock.runFor(300)
+  expect(await position(page)).toEqual(stopped)
+  await jump(true); await page.clock.runFor(400); await jump(false); await page.clock.runFor(128)
+  await expect(page.locator('.jumping-state')).toHaveText('Rising')
+  expect((await position(page)).y).toBeLessThan(stopped.y - 30)
+})
+
+test('controller stays steady where a gentle slope meets a steep face, then walks away and jumps', async ({ page }, info) => {
+  const level = {
+    version: 1, id: 'angled-slope-base', name: 'Angled slope base', width: 1600, height: 1200,
+    spawn: { x: 650, y: 580 }, checkpoints: [],
+    platforms: [{ x: 0, y: 200, w: 1600, h: 1000,
+      polygon: [[0, 640], [700, 360], [900, 40], [1200, 0], [1600, 0], [1600, 1000], [0, 1000]] }],
+    climbables: { ladders: [], ropes: [] },
+  }
+  await setup(page, true, level); await enter(page)
+  const move = value => page.evaluate(value => { window.testPad.axes[0] = value }, value)
+  await move(1); await page.clock.runFor(1800)
+  const blocked = await position(page), head = await page.evaluate(() => window.jumpHead)
+  expect(blocked.x).toBeGreaterThan(695); expect(blocked.x).toBeLessThan(700)
+  for (let i = 0; i < 24; i++) {
+    await page.clock.runFor(16)
+    const current = await position(page), currentHead = await page.evaluate(() => window.jumpHead)
+    expect(Math.hypot(current.x - blocked.x, current.y - blocked.y)).toBeLessThan(.001)
+    expect(Math.hypot(currentHead.x - head.x, currentHead.y - head.y)).toBeLessThan(.01)
+    await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  }
+  await page.screenshot({ path: info.outputPath('stable-at-angled-corner.png') })
+  await move(0); await page.clock.runFor(300)
+  expect((await position(page)).x).toBeCloseTo(blocked.x, 3)
+  await move(-1); await page.clock.runFor(400)
+  expect((await position(page)).x).toBeLessThan(blocked.x - 30)
+  await move(1); await page.clock.runFor(1500)
+  await hold(page, 0, 1, 400); await hold(page, 0, 0, 128)
+  await expect(page.locator('.jumping-state')).toHaveText('Rising')
+  expect((await position(page)).y).toBeLessThan(blocked.y - 30)
+})
+
+test('holding uphill against steep terrain stays still, then jumping onto it produces a supported slide', async ({ page }, info) => {
+  const rise = 500 * Math.tan(55 * Math.PI / 180)
+  const level = {
+    version: 1, id: 'slope-base', name: 'Slope base', width: 1800, height: 1000,
+    spawn: { x: 550, y: 1000 }, checkpoints: [],
+    platforms: [{ x: 600, y: 1000 - rise, w: 500, h: rise, polygon: [[0, rise], [500, 0], [500, rise]] }],
+    climbables: { ladders: [], ropes: [] },
+  }
+  await setup(page, false, level); await enter(page)
+  await page.keyboard.down('d'); await page.clock.runFor(1500)
+  const blocked = await position(page), head = await page.evaluate(() => window.jumpHead)
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  for (let i = 0; i < 10; i++) {
+    await page.clock.runFor(64)
+    const current = await position(page), currentHead = await page.evaluate(() => window.jumpHead)
+    expect(Math.hypot(current.x - blocked.x, current.y - blocked.y)).toBeLessThan(.001)
+    expect(Math.hypot(currentHead.x - head.x, currentHead.y - head.y)).toBeLessThan(.01)
+    await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  }
+  await page.screenshot({ path: info.outputPath('stable-at-slope-base.png') })
+  await page.keyboard.down('Space'); await page.clock.runFor(400); await page.keyboard.up('Space')
+  await page.clock.runFor(128)
+  await expect(page.locator('.jumping-state')).toHaveText('Rising')
+  expect((await position(page)).y).toBeLessThan(blocked.y - 50)
+  await page.clock.runFor(800)
+  await expect(page.locator('.jumping-state')).toHaveText('Sliding')
+  await page.screenshot({ path: info.outputPath('balanced-slide.png') })
+})
 
 for (const trial of [false, true]) test(`${trial ? 'trial' : 'playground'} camera leaves bottom padding and centers the player after climbing`, async ({ page }, info) => {
   const bottom = 1800

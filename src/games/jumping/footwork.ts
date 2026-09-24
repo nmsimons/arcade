@@ -92,13 +92,15 @@ export function sampleStride(cycle: number, run: number, moving = 1) {
 
 function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: number) {
   const toe = toeBend(foot.angle - foot.groundAngle * foot.facing)
-  let penetration = 0
+  // A planted sole follows the actual surface even when its roll crosses a
+  // crease below the anchor's tangent plane. Swinging feet only move upward.
+  let penetration = foot.planted ? -Infinity : 0
   for (const point of FOOT_CONTACT) {
     const sole = footPoint(point, foot.angle, toe)
     const surface = groundAt(platforms, foot.x + sole[0] * foot.facing, y)
     if (surface) penetration = Math.max(penetration, foot.y + sole[1] - surface.y)
   }
-  foot.y -= penetration
+  if (Number.isFinite(penetration)) foot.y -= penetration
   foot.groundY = groundAt(platforms, foot.x, y)?.y ?? y
 }
 

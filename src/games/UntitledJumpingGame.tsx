@@ -18,10 +18,13 @@ import { LocalFolderActions } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { drawChallenge } from './jumping/challengeRender'
 import { JUMPING_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
+import { JumpingAudioState } from './jumping/audioState'
+import { JumpingSoundSession, SOUND_PREFERENCE_KEY } from './jumping/sound'
 import './jumping/jumping.css'
 
 type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
+function localStorageSoundMuted() { try { return localStorage.getItem(SOUND_PREFERENCE_KEY) === 'off' } catch { return false } }
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
@@ -60,6 +63,9 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const [initialRun] = useState(() => createRun(initialCatalog.files[0] && isPuzzleLevel(initialCatalog.files[0].level) ? initialCatalog.files[0].level : blankTrial()))
   const run = useRef<Run | null>(initialRun)
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
+  const audio = useRef<JumpingSoundSession | null>(null)
+  const [audioState] = useState(() => new JumpingAudioState())
+  const [muted, setMuted] = useState(localStorageSoundMuted)
   const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
   const [challenge, setChallenge] = useState(true)
   const [trial, setTrial] = useState<PuzzleLevel>(initialRun.level)
@@ -79,10 +85,18 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
+    audio.current?.silence()
+    if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
+    audioState.reset(player.current, run.current)
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
     jumpQueue.current = []; keyboardJump.current = false
     screenRef.current = next; setScreen(next)
     if (next === 'paused') setPauseReason(reason ?? 'Take a breath. Pick up where you left off.')
+  }
+  function toggleSound() {
+    const next = !muted
+    setMuted(next); audio.current?.setMuted(next)
+    try { localStorage.setItem(SOUND_PREFERENCE_KEY, next ? 'off' : 'on') } catch { /* Keep the preference for this visit. */ }
   }
   useLayoutEffect(() => {
     if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
@@ -245,6 +259,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     let pads: (Gamepad | null)[] = []
     try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Keyboard stays available. */ }
     const pad = controller.sample(pads, screenRef.current, now, document.hasFocus() && !document.hidden)
+    if (pad.pressed.length || Math.abs(pad.move) > .1) audio.current?.unlock()
     if (pad.connected !== connected) setConnected(pad.connected)
     if (pad.disconnected && screenRef.current === 'playing') {
       changeScreen('paused', 'Controller disconnected. Reconnect, or continue with the keyboard.')
@@ -276,6 +291,10 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
 
   useEffect(() => {
     const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!
+    // The context itself is deferred until a pointer, keyboard or controller action.
+    const sound = new JumpingSoundSession(localStorageSoundMuted())
+    audio.current = sound
+    audioState.reset(player.current, run.current)
     let width = 0, height = 0, ratio = 1, frame = 0, previous = 0, accumulator = 0, published = 0
     const paint = () => {
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
@@ -309,9 +328,11 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
           const controls = { ...input, jump: input.jump || keyboardJump.current }
           if (run.current) stepRun(run.current, controls)
           else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
+          audioState.step(player.current, run.current, STEP)
           accumulator -= STEP
           if (run.current?.finished) { finishRun(); accumulator = 0; break }
         }
+        sound.update(audioState.drain())
       } else accumulator = 0
       paint()
       if (now - published > 80) {
@@ -324,13 +345,14 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     }
     frame = requestAnimationFrame(tick)
     return () => {
+      sound.dispose(); audio.current = null
       cancelAnimationFrame(frame); observer.disconnect()
       window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', suspend); document.removeEventListener('visibilitychange', visibility)
     }
-  }, [])
+  }, [audioState])
 
-  return <div className="jumping-game" ref={rootRef}>
+  return <div className="jumping-game" ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: activate the goal` : 'Untitled Jumping Game movement playground'} />
     {screen === 'playing' && <>
       {testing && <button className="jumping-builder-return" onClick={openBuilder}>Return to builder</button>}
@@ -360,7 +382,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
               <p className="jumping-eyebrow">PAUSED</p><h2>Find your footing.</h2><p>{pauseReason}</p>
             </>}
           </div>
-          {screen === 'menu' && <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button></div>}
+          {screen === 'menu' && <div className="jumping-menu-navigation"><button onClick={toggleSound} aria-pressed={!muted}>Sound {muted ? 'off' : 'on'}</button><button onClick={onExit}>Back to arcade</button><button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button></div>}
         </div>
         {screen === 'menu' && <>
           <div className="jumping-library-bar">
@@ -417,6 +439,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
         {screen === 'paused' && <div className="jumping-actions">
             <button data-initial-focus className="jumping-primary" onClick={() => changeScreen('playing')}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
             <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>
+            <button onClick={toggleSound} aria-pressed={!muted}>Sound {muted ? 'off' : 'on'}</button>
             <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
             <button onClick={showMenu}>Level menu</button>
             <button onClick={onExit}>Back to arcade</button>

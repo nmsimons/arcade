@@ -194,7 +194,10 @@ test('a lift landing is a passable seam in either direction', () => {
 test('medals use each level’s thresholds and an unmedalled finish is still successful', () => {
   assert.equal(medalFor(3.5, FIRST_LEVEL), 'Gold'); assert.equal(medalFor(3.51, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(6, FIRST_LEVEL), 'Silver'); assert.equal(medalFor(15, FIRST_LEVEL), 'Bronze'); assert.equal(medalFor(15.01, FIRST_LEVEL), 'No medal')
   const run = createRun(FIRST_LEVEL); run.started = true; run.elapsed = 100; Object.assign(run.player, run.level.goal); advance(run, 1)
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, 'No medal'); assert.equal(formatTime(100.019), '1:40.01')
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
+  const door = goalDoor(run.level.goal); Object.assign(run.player, { x: door.x + door.w / 2 })
+  advance(run, 180)
+  assert.equal(run.finished, true); assert.equal(run.medal, 'No medal'); assert.equal(formatTime(100.019), '1:40.01')
 })
 test('personal bests are isolated by level and survive slower runs and corrupt storage', () => {
   let raw = null; const storage = { getItem: () => raw, setItem: (_, value) => { raw = value } }
@@ -222,18 +225,20 @@ for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} goal li
   Object.assign(p, { x: 800, footwork: null })
   advance(run, 1); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
   const time = run.elapsed
-  advance(run, 600); assert.equal(run.finished, false); assert.equal(run.exit, null); assert.equal(run.elapsed, time)
+  advance(run, 600); assert.equal(run.finished, false); assert.equal(run.exit, null); assert.ok(Math.abs(run.elapsed - time - 5) < 1e-9)
+  assert.equal(run.medal, null, 'opening the door does not award a medal')
   Object.assign(p, { x: door.x + door.w / 2, y: 800, vy: 0, grounded: false, footwork: null })
   advance(run, 1); assert.equal(run.exit, null, 'airborne passage does not enter the doorway')
   Object.assign(p, { x: 800, y: 920, vx: 0, vy: 0, grounded: true, footwork: null })
   for (let i = 0; i < 120 && !run.exit; i++) advance(run, 1, { move: direction })
   assert.ok(run.exit); assert.equal(run.finished, false)
-  const captured = run.exit.fromX
+  const captured = run.exit.fromX, finishTime = run.elapsed
+  assert.ok(finishTime > time + 5); assert.equal(run.medal, medalFor(finishTime, level))
   advance(run, Math.floor(GOAL_EXIT_SECONDS / STEP) - 2, { move: -direction, jump: true })
   assert.equal(run.finished, false, 'the full exit animation plays before results')
   assert.ok(Math.abs(p.x - (door.x + door.w / 2)) < .01); assert.notEqual(p.x, captured)
   advance(run, 5)
-  assert.equal(run.finished, true); assert.equal(run.elapsed, time)
+  assert.equal(run.finished, true); assert.equal(run.elapsed, finishTime, 'the exit animation does not count toward the score')
   const completed = structuredClone(run)
   advance(run, 240, { move: 1, jump: true }); assert.deepEqual(run, completed)
 })
@@ -244,11 +249,11 @@ for (const kind of ['box', 'ball']) test(`a ${kind} can light the goal remotely 
   const run = createRun(level)
   advance(run, 100); assert.equal(run.goalLit, false, 'the puzzle still waits for first input')
   advance(run, 1, { move: -1 })
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, 'Gold'); assert.ok(run.player.x < 200)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null); assert.ok(run.player.x < 200)
   const time = run.elapsed, player = structuredClone(run.player)
   advance(run, 240, { move: 1, jump: true })
   assert.equal(run.goalElapsed, GOAL_OPEN_SECONDS); assert.equal(run.finished, false); assert.equal(run.exit, null)
-  assert.equal(run.elapsed, time); assert.notDeepEqual(run.player, player)
+  assert.ok(Math.abs(run.elapsed - time - 2) < 1e-9); assert.notDeepEqual(run.player, player)
   const door = goalDoor(level.goal)
   run.props[0].x = door.x + door.w / 2
   advance(run, 240)
@@ -274,13 +279,14 @@ test('an object above the plate only activates it after landing', () => {
   advance(run, 90); assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.ok(Math.abs(run.props[0].y - level.goal.y) < .01)
 })
 
-test('walking away releases the plate while the light, open door, medal and time remain latched', () => {
+test('walking away releases the plate while the exit stays open and the timer keeps running', () => {
   const level = blankTrial(); level.goal.x = 800
   const run = createRun(level); run.started = true; run.player.x = 800
   advance(run, 20)
   assert.equal(run.goalLit, true); assert.equal(run.goalDepression, 1)
-  const time = run.elapsed, medal = run.medal
+  const time = run.elapsed
   advance(run, 100, { move: -1 })
   assert.ok(run.player.x < 600); assert.equal(run.goalDepression, 0)
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, medal); assert.equal(run.elapsed, time)
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
+  assert.ok(Math.abs(run.elapsed - time - 100 * STEP) < 1e-9)
 })

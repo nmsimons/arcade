@@ -181,10 +181,10 @@ function goalPressed(run: Run) {
 export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (run.finished) return
   if (!run.started && (Math.abs(input.move) > .01 || input.jump || input.climb || input.descend)) run.started = true
-  if (!run.started) { run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.goalLit); return }
+  if (!run.started) { run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, true); return }
   run.activeTime += dt
   if (run.goalLit) run.goalElapsed = Math.min(GOAL_OPEN_SECONDS, run.goalElapsed + dt)
-  else {
+  if (!run.exit) {
     const stopped = Math.min(dt, run.timeStopRemaining)
     run.timeStopRemaining = Math.max(0, run.timeStopRemaining - stopped)
     run.elapsed += dt - stopped
@@ -208,14 +208,12 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   stepProps(run, playerContacts(run.player, input, world), dt)
   world = syncPlatforms(run)
   stepPlayer(run.player, input, dt, run.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world)
-  // Resolve pickups before a goal touched on this step; the completed score then stays latched.
-  run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, !run.goalLit)
+  // Pickups remain available until entry, including one touched on the entry step.
+  run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, true)
   stepTriggers(run, 0)
   const pressed = goalPressed(run)
   run.goalDepression = approach(run.goalDepression, pressed ? 1 : 0, dt / .12)
-  if (!run.goalLit && pressed) {
-    run.goalLit = true; run.medal = medalFor(run.elapsed, run.level)
-  }
+  if (pressed) run.goalLit = true
   const p = run.player, door = goalDoor(run.level.goal)
   if (run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
@@ -224,6 +222,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     // a loose prop blocks a sideways step toward its center.
     const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], run.platforms)
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
+    run.medal = medalFor(run.elapsed, run.level)
     p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null
     cancelJumpInput(p)
   }

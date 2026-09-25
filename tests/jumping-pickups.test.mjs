@@ -5,6 +5,7 @@ import { blankTrial, levelProblems, parseLevel } from '../src/games/jumping/leve
 import { addItem, allSelections, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, resizeLevelHeight } from '../src/games/jumping/editor.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { PICKUP_ANIMATION_SECONDS } from '../src/games/jumping/pickups.ts'
+import { goalDoor } from '../src/games/jumping/goal.ts'
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
 
 const stopwatch = (x, y) => ({ kind: 'stopwatch', x, y })
@@ -79,18 +80,26 @@ test('collecting changes only scoring and pickup state, with identical movement,
   assert.ok(bonus.elapsed < plain.elapsed)
 })
 
-test('collecting on the goal never subtracts time or changes medals; later touches leave the finished score locked', () => {
+test('stopwatches still work after the light opens; entry locks the score and ends collection', () => {
   const level = blankTrial(); level.pickups = [stopwatch(1620, 888), stopwatch(1700, 888)]
   const run = createRun(level); run.started = true; run.elapsed = 45
   Object.assign(run.player, level.goal)
   step(run, 1)
-  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, 'No medal')
+  assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
   assert.ok(Math.abs(run.elapsed - (45 + STEP)) < 1e-9); assert.equal(run.timeStopRemaining, 10)
   const score = run.elapsed
-  run.player.x = 1700; step(run, 120)
-  assert.equal(run.elapsed, score); assert.equal(run.pickups[1].collectedAge, null)
+  run.player.x = 1675; step(run, 60)
+  assert.equal(run.elapsed, score); assert.equal(run.exit, null)
+  assert.equal(run.pickups[1].collectedAge, PICKUP_ANIMATION_SECONDS)
   assert.equal(run.pickups[0].collectedAge, PICKUP_ANIMATION_SECONDS)
-  assert.equal(run.timeStopRemaining, 10)
+  assert.ok(Math.abs(run.timeStopRemaining - 19.5) < 1e-9)
+  const door = goalDoor(level.goal); run.player.x = door.x + door.w / 2; step(run, 1)
+  assert.ok(run.exit); assert.equal(run.medal, 'No medal')
+  const remaining = run.timeStopRemaining
+  run.pickups.push({ definition: stopwatch(run.player.x, 888), collectedAge: null })
+  step(run, 240)
+  assert.equal(run.finished, true); assert.equal(run.elapsed, score); assert.equal(run.timeStopRemaining, remaining)
+  assert.equal(run.pickups[2].collectedAge, null)
 })
 
 test('signed times format cleanly and zero/negative personal bests survive storage', () => {

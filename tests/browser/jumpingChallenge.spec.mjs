@@ -287,7 +287,7 @@ test('the player can jump out from a ball beside a tilted box and closed gate', 
   expect((await position(page)).x).toBeLessThan(before.x - 80)
 })
 
-test('the light opens a hidden black door, locks the timer, and waits for a pausable exit before saving results', async ({ page }, info) => {
+test('the light opens a hidden black door; entering stops the timer and a pausable exit saves results', async ({ page }, info) => {
   const level = blankTrial(); level.goal.x = 500; level.spawn.x = 450
   level.timers = [{ x: 340, y: 740 }, { x: 740, y: 660 }]
   await setup(page, 0, [level]); await enter(page)
@@ -301,13 +301,18 @@ test('the light opens a hidden black door, locks the timer, and waits for a paus
   expect(await page.evaluate(() => window.goalDoor)).toEqual({ x: 580, y: 840, w: 40, h: 80 })
   await page.clock.runFor(4000)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.getByTestId('level-time')).toHaveText(time)
-  expect(await page.evaluate(() => window.wallTimerReadings)).toEqual([time, time])
+  await expect(page.getByTestId('level-time')).not.toHaveText(time)
+  const runningTime = await page.getByTestId('level-time').innerText()
+  const wallTimes = await page.evaluate(() => window.wallTimerReadings)
+  expect(wallTimes).toHaveLength(2); expect(wallTimes[0]).toBe(wallTimes[1]); expect(wallTimes[0]).not.toBe(time)
   expect(await page.evaluate(() => localStorage.getItem('arcade.jumping.times.v1'))).toBeNull()
   await page.screenshot({ path: info.outputPath('hidden-door-open.png') })
   await page.keyboard.down('d')
   for (let i = 0; i < 100 && await page.locator('.jumping-state').innerText() !== 'Entering the exit'; i++) await page.clock.runFor(16)
   await page.keyboard.up('d'); await page.clock.runFor(160)
+  const finishTime = await page.getByTestId('level-time').innerText()
+  expect(finishTime).not.toBe(runningTime)
+  expect(await page.evaluate(() => window.wallTimerReadings)).toEqual([finishTime, finishTime])
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('entering-hidden-door.png') })
   await page.keyboard.press('Escape')
@@ -318,7 +323,7 @@ test('the light opens a hidden black door, locks the timer, and waits for a paus
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(1000)
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Level complete.' })).toBeVisible()
-  await expect(page.locator('.jumping-result-time')).toHaveText(time)
+  await expect(page.locator('.jumping-result-time')).toHaveText(finishTime)
   expect(await page.evaluate(id => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))[id], level.id)).toBeGreaterThan(0)
 })
 

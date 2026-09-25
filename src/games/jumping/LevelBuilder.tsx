@@ -50,7 +50,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose its elevator or gate in the inspector. The player, boxes, and balls can hold it down.' },
   { id: 'spawn', group: 'Markers', label: 'Start', help: 'Click a surface to choose where the player starts.' },
-  { id: 'goal', group: 'Markers', label: 'Goal light', help: 'Press the plate to stop the timer and reveal the hidden exit beyond the light. Walk into the door to finish. Leave flat, clear space for the whole goal.' },
+  { id: 'goal', group: 'Markers', label: 'Goal light', help: 'Press the plate to reveal the hidden exit beyond the light. Walk into the door to stop the timer and finish. Leave flat, clear space for the whole goal.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Edit the text, size, and alignment in the inspector. Text never blocks movement.' },
@@ -434,7 +434,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
         {chosen?.profile && <><button onClick={() => commit(replacePlatform(history.present, selection.index, { ...chosen, profile: [...chosen.profile!].reverse().map(([x, y]) => [chosen.w - x, y]) }))}>Flip slope</button><p>Drag the white points to shape the surface.</p></>}
         {chosen && <><button aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><p>Drag square handles to resize the whole shape. Drag white nodes to change its geometry. Steeper slopes leave less grip for climbing and can cause sliding.</p></>}
         {selection.kind === 'ladder' && <p>Climb with Up / Down. Jump to leave the ladder.</p>}
-        {selection.kind === 'timer' && <p>Mounted on the back wall. Shows the run time, stops when the goal lights, and never blocks the player or objects.</p>}
+        {selection.kind === 'timer' && <p>Mounted on the back wall. Shows the run time, stops when the player enters the exit, and never blocks the player or objects.</p>}
         {selection.kind === 'pickup' && <p>Touch to stop the level timer for 10 seconds while gameplay continues. Extra watches add 10 seconds to the remaining pause. Collected once per run; returns on restart.</p>}
         {wallText && <>
           <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>

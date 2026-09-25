@@ -76,10 +76,10 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor)
   // Wall displays sit behind solid terrain and actors, and have no physics shape.
   ctx.save(); ctx.font = '500 28px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  const clockStopped = !run.goalLit && run.timeStopRemaining > 0
+  const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
   for (const timer of level.timers ?? []) {
     ctx.fillStyle = clockStopped ? '#eee3ce' : '#e2e7da'; ctx.fillRect(timer.x, timer.y, WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT)
-    ctx.fillStyle = run.goalLit ? '#66844e' : clockStopped ? '#91652f' : '#40574a'
+    ctx.fillStyle = clockFinished ? '#66844e' : clockStopped ? '#91652f' : '#40574a'
     ctx.fillText(formatTime(run.elapsed), timer.x + WALL_TIMER_WIDTH / 2, timer.y + WALL_TIMER_HEIGHT / 2 + 1)
     if (clockStopped) {
       ctx.fillRect(timer.x + 9, timer.y + 22, 3, 10)

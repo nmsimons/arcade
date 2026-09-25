@@ -24,7 +24,17 @@ function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
     const edge = nearestBoundary(solid, ...end)
     end[0] = edge.x + edge.nx * ROPE_CLEARANCE; end[1] = edge.y + edge.ny * ROPE_CLEARANCE
   }
-  if (!lineBlocked(start, end, terrain)) return [start, end]
+  if (!lineBlocked(start, end, terrain)) {
+    // On a vertical face, clear the wall with the first segment and hang the
+    // rest straight down. A diagonal seed makes every particle slide sideways
+    // against the wall, taking seconds to converge for a long rope.
+    const dx = end[0] - start[0], firstLength = Math.min(rope.length, ROPE_SEGMENT_LENGTH)
+    if (Math.abs(dx) > 0 && Math.abs(dx) <= ROPE_CLEARANCE + .00001 && end[1] > start[1] + firstLength) {
+      const first: Point = [end[0], start[1] + Math.sqrt(firstLength * firstLength - dx * dx)]
+      if (!lineBlocked(start, first, terrain) && !lineBlocked(first, end, terrain)) return [start, first, end]
+    }
+    return [start, end]
+  }
   const vertices: Point[] = [start, end]
   for (const b of terrain) {
     const points = polygonPoints(b)
@@ -94,8 +104,17 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[]): Rop
   if (cached) return { ...rope, rest: cached }
   delete rope.rest
   const state = createRope(rope)
-  const path = seedPath(rope, nearby)
   const distances = state.nodes.map((_, i) => Math.min(rope.length, i * ROPE_SEGMENT_LENGTH))
+  // A free vertical span is already its exact rest shape. Do not simulate
+  // thousands of constraint passes merely to rediscover that straight line.
+  if (!nearby.some(b => b.x < rope.x + ROPE_CLEARANCE && b.x + b.w > rope.x - ROPE_CLEARANCE
+    && b.y < rope.y + rope.length + ROPE_CLEARANCE && b.y + b.h > rope.y - ROPE_CLEARANCE)) {
+    const rest = { key, points: state.nodes.map(n => [n.x, n.y] as Point), distances, bends: state.bends }
+    if (layouts.size >= 128) layouts.delete(layouts.keys().next().value!)
+    layouts.set(source, rest)
+    return { ...rope, rest }
+  }
+  const path = seedPath(rope, nearby)
   for (let i = 1; i < state.nodes.length; i++) {
     let travel = distances[i]
     for (let j = 1; j < path.length; j++) {

@@ -131,6 +131,9 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
 /** Transport the body and its planted anchors before measuring locomotion. */
 export function translatePlayer(p: Player, dx: number, dy: number) {
   p.x += dx; p.y += dy
+  // An automatic step targets static terrain. A prop pushing the player away
+  // interrupts it rather than moving the destination off the real ledge.
+  if (p.mantle?.step && Math.hypot(dx, dy) > .001) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
   if (p.footwork) for (const foot of p.footwork.feet) {
     foot.x += dx; foot.y += dy; foot.anchorX += dx; foot.anchorY += dy; foot.groundY += dy
     if (foot.settle) foot.settle = { ...foot.settle, x: foot.settle.x + dx, y: foot.settle.y + dy }

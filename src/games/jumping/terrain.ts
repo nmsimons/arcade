@@ -44,25 +44,44 @@ export function groundAt(platforms: readonly Platform[], x: number, y: number, r
   return found
 }
 
-/** Internal seams are not walls: subtract solids on the outside of this face. */
+/** Solid intervals on a vertical slice. Concave terrain can have open air
+ * between its ceiling and floor even when both belong to the same polygon. */
+function solidSpans(platform: Platform, x: number): number[][] {
+  if (x < platform.x || x > platform.x + platform.w) return []
+  if (!platform.polygon) return [[platformSurface(platform, x).y, platform.y + platform.h]]
+  const points = polygonPoints(platform), crossings: number[] = []
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length]
+    if ((a[0] > x) !== (b[0] > x)) crossings.push(a[1] + (x - a[0]) * (b[1] - a[1]) / (b[0] - a[0]))
+  }
+  crossings.sort((a, b) => a - b)
+  return crossings.flatMap((y, i) => i % 2 === 0 && i + 1 < crossings.length ? [[y, crossings[i + 1]]] : [])
+}
+
+/** Internal seams are not walls: subtract actual solids on the outside of this face. */
 export function exposedSide(platforms: readonly Platform[], platform: Platform, side: number, top: number, bottom: number): boolean {
   const x = side === 1 ? platform.x : platform.x + platform.w
+  let spans: number[][]
   if (platform.polygon) {
     const points = polygonPoints(platform)
-    if (!points.some((a, i) => {
+    spans = points.flatMap((a, i) => {
       const b = points[(i + 1) % points.length]
       return Math.abs(a[0] - x) < .01 && Math.abs(b[0] - x) < .01 && (b[1] - a[1]) * side < 0
-        && Math.min(a[1], b[1]) < bottom && Math.max(a[1], b[1]) > top
-    })) return false
-  }
-  let spans = [[Math.max(top, platformSurface(platform, x).y), Math.min(bottom, platform.y + platform.h)]]
+        ? [[Math.max(top, Math.min(a[1], b[1])), Math.min(bottom, Math.max(a[1], b[1]))]] : []
+    })
+  } else spans = [[Math.max(top, platformSurface(platform, x).y), Math.min(bottom, platform.y + platform.h)]]
+  spans = spans.filter(([a, b]) => b - a > .01)
+  if (!spans.length) return false
+  const outsideX = x - side * .01
   for (const other of platforms) {
-    if (other === platform || (side === 1 ? other.x >= x - .01 || other.x + other.w < x - .01 : other.x > x + .01 || other.x + other.w <= x + .01)) continue
-    const y = platformSurface(other, x).y, end = other.y + other.h
-    spans = spans.flatMap(([a, b]) => end <= a || y >= b ? [[a, b]] : [[a, Math.min(b, y)], [Math.max(a, end), b]])
-      .filter(([a, b]) => b - a > .01)
+    if (other === platform || outsideX < other.x || outsideX > other.x + other.w || other.y >= bottom || other.y + other.h <= top) continue
+    for (const [y, end] of solidSpans(other, outsideX)) {
+      spans = spans.flatMap(([a, b]) => end <= a || y >= b ? [[a, b]] : [[a, Math.min(b, y)], [Math.max(a, end), b]])
+        .filter(([a, b]) => b - a > .01)
+      if (!spans.length) return false
+    }
   }
-  return spans.some(([a, b]) => b - a > .01)
+  return true
 }
 
 /** Follow connected terrain only: never snap across a gap or down from a ledge. */

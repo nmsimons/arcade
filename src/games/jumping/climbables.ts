@@ -1,6 +1,7 @@
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
 import { lineBlocked, moveBody, nearestBoundary, pointInside, segmentPenetration, ropeBend } from './geometry.ts'
+import { initRopeSleep, ropeCanSleep, settleRopeSleep } from './ropeSleep.ts'
 
 export type Point = [number, number]
 export const ROPE_CLEARANCE = 1.5
@@ -37,10 +38,12 @@ export function createRope(definition: Rope): RopeState {
     definition = { ...definition, segments }
     delete definition.rest
   }
-  return { definition, pumpInput: 0, bends: definition.rest?.bends?.map(p => p ? [...p] : null) ?? Array.from({ length: segments }, () => null), nodes: Array.from({ length: definition.segments + 1 }, (_, i) => {
+  const rope = { definition, pumpInput: 0, bends: definition.rest?.bends?.map(p => p ? [...p] as Point : null) ?? Array.from({ length: segments }, () => null), nodes: Array.from({ length: definition.segments + 1 }, (_, i) => {
     const [x, y] = definition.rest?.points[i] ?? [definition.x, definition.y + Math.min(definition.length, i * ROPE_SEGMENT_LENGTH)]
     return { x, y, oldX: x, oldY: y }
   }) }
+  initRopeSleep(rope, !!definition.rest)
+  return rope
 }
 
 /** Material distance along the rope, including its tangent beyond the free end. */
@@ -250,8 +253,9 @@ function solveRopeTension(rope: RopeState, count: number, weights: number[], str
   // just the endpoints of the coarse groups. This also keeps regrips continuous.
   for (let i = 8; i <= count; i++) {
     const node = nodes[i], dx = node.x - nodes[0].x, dy = node.y - nodes[0].y
-    const actual = Math.hypot(dx, dy), length = ropeDistance(rope, i)
-    if (actual <= length) continue
+    const squared = dx * dx + dy * dy, length = ropeDistance(rope, i)
+    if (squared <= length * length) continue
+    const actual = Math.sqrt(squared)
     const correction = strength * (actual - length) / actual
     node.x -= dx * correction; node.y -= dy * correction
   }
@@ -260,9 +264,10 @@ function solveRopeTension(rope: RopeState, count: number, weights: number[], str
     for (let start = 0; start < count; start += stride) {
       const end = Math.min(count, start + stride), a = nodes[start], b = nodes[end]
       if (end - start < 8) continue
-      const dx = b.x - a.x, dy = b.y - a.y, actual = Math.hypot(dx, dy)
+      const dx = b.x - a.x, dy = b.y - a.y, squared = dx * dx + dy * dy
       const length = ropeDistance(rope, end) - ropeDistance(rope, start)
-      if (actual <= length) continue
+      if (squared <= length * length) continue
+      const actual = Math.sqrt(squared)
       const correction = strength * (actual - length) / actual / (weights[start] + weights[end])
       a.x += dx * correction * weights[start]; a.y += dy * correction * weights[start]
       b.x -= dx * correction * weights[end]; b.y -= dy * correction * weights[end]
@@ -274,10 +279,21 @@ function solveRopeTension(rope: RopeState, count: number, weights: number[], str
 export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
   body?: { climb: Climbing; from: Point; facing: number } } | null) {
   const { nodes, definition } = rope
+  // Only geometry near the rope's current sweep can touch it this step. The
+  // anchor's full reach pulled most of a tall level into every solver pass.
+  let left = definition.x, right = definition.x, top = definition.y, bottom = definition.y
+  for (const n of nodes) {
+    const x = n.x + (n.x - n.oldX), y = n.y + (n.y - n.oldY) + 1400 * dt * dt
+    left = Math.min(left, n.x, x); right = Math.max(right, n.x, x)
+    top = Math.min(top, n.y, y); bottom = Math.max(bottom, n.y, y)
+  }
+  if (load?.body) {
+    const [x, y] = load.body.from
+    left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y - 62); bottom = Math.max(bottom, y)
+  }
+  const nearby = platforms.filter(b => b.x < right + 96 && b.x + b.w > left - 96 && b.y < bottom + 96 && b.y + b.h > top - 96)
+  if (ropeCanSleep(rope, nearby, !!load)) return
   const lengths = nodes.slice(1).map((_, i) => ropeDistance(rope, i + 1) - ropeDistance(rope, i))
-  const reach = definition.length + 32
-  const nearby = platforms.filter(b => b.x < definition.x + reach && b.x + b.w > definition.x - reach
-    && b.y < definition.y + reach && b.y + b.h > definition.y - reach)
   let loadDistance = load?.distance ?? 0
   if (load?.body) loadDistance = ropeGripDistance(load.body.climb)
   const loadedAt = load ? clamp(ropeCoordinate(rope, loadDistance), 1, nodes.length - 1) : -2
@@ -329,13 +345,14 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
       const bend = rope.bends[i - 1], wa = weight(i - 1), wb = weight(i)
       if (bend) {
         const ax = bend[0] - a.x, ay = bend[1] - a.y, bx = bend[0] - b.x, by = bend[1] - b.y
-        const first = Math.hypot(ax, ay), second = Math.hypot(bx, by), correction = Math.max(0, first + second - lengths[i - 1]) / (wa + wb)
+        const first = Math.sqrt(ax * ax + ay * ay), second = Math.sqrt(bx * bx + by * by), correction = Math.max(0, first + second - lengths[i - 1]) / (wa + wb)
         a.x += ax / (first || 1) * correction * wa; a.y += ay / (first || 1) * correction * wa
         b.x += bx / (second || 1) * correction * wb; b.y += by / (second || 1) * correction * wb
         continue
       }
-      const dx = b.x - a.x, dy = b.y - a.y, actual = Math.hypot(dx, dy) || 1
-      const correction = Math.max(0, actual - lengths[i - 1]) / actual / (wa + wb)
+      const dx = b.x - a.x, dy = b.y - a.y, squared = dx * dx + dy * dy, length = lengths[i - 1]
+      if (squared <= length * length) continue
+      const actual = Math.sqrt(squared), correction = (actual - length) / actual / (wa + wb)
       a.x += dx * correction * wa; a.y += dy * correction * wa
       b.x -= dx * correction * wb; b.y -= dy * correction * wb
     }
@@ -379,6 +396,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     }
     if (load?.body) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, nearby)
   }
+  settleRopeSleep(rope, nearby, !!load, dt)
 }
 
 /** Resolve the rope points that determine the body position, leaving its tail free. */

@@ -1,5 +1,5 @@
 import { polygonPoints } from './geometry'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets } from './editor'
 import type { ResizeCorner, Selection, Tool } from './editor'
@@ -71,7 +71,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const [fileSource, setFileSource] = useState(initialFile?.sourceText)
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
-  const level = prepareLevelRopes(preview ?? history.present)
+  const level = useMemo(() => prepareLevelRopes(preview ?? history.present), [preview, history.present])
+  const previewRun = useMemo(() => isPuzzleLevel(level) ? createRun(level) : null, [level])
+  const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level), [level, previewRun])
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
@@ -197,9 +199,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.fillStyle = '#eeeee6'; ctx.fillRect(0, 0, size.width, size.height)
     ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
     drawLevelBackdrop(ctx, level, { x: view.x, y: view.y, w: size.width / view.zoom, h: size.height / view.zoom }, view.zoom)
-    const player = levelPlayer(level)
-    if (isPuzzleLevel(level)) drawPuzzleWorld(ctx, createRun(level), true)
-    else { drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, player, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, player); ctx.globalAlpha = 1 }
+    if (previewRun) drawPuzzleWorld(ctx, previewRun, true)
+    else { drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, previewPlayer, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, previewPlayer); ctx.globalAlpha = 1 }
     ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
     if (jumpGuide) {
       const origin = chosen ? { x: chosen.x + chosen.w - 14, y: chosen.y } : level.spawn
@@ -252,7 +253,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
     }
     ctx.restore()
-  }, [active, level, view, size, outline, resizeHandles, chosen, selectedNode, jumpGuide, mechanism, robot, nodeTarget])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, jumpGuide, mechanism, robot, nodeTarget])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()

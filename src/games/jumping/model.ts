@@ -11,6 +11,8 @@ import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } f
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
 import { playerContacts, pushingVelocity, staticContactWorld, updatePushingPose } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
+import { findStepUp, finishStepFeet, stepUpRoot } from './stepUp.ts'
+import type { StepUp } from './stepUp.ts'
 
 export interface Platform { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[] }
 export const TUNING = {
@@ -41,9 +43,11 @@ export interface Player {
   climbing: Climbing | null; ropes: RopeState[] | null
   pushing: { wallX: number; direction: number; amount: number; effort: number; slope?: number } | null
   ledgeReach: { x: number; y: number; amount: number } | null
+  stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean;
     caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null } } | null
   mantle: { edgeX: number; edgeY: number; side: number; toX: number; toY: number; time: number; braced: boolean;
+    step?: StepUp;
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
   jumpStart: number; jumpHeight: number; bestHeight: number
@@ -57,7 +61,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     charge: 0, charging: false, coyote: TUNING.coyoteTime, buffer: 0, jumpHeld: false,
     grabCooldown: 0, knockback: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
-    spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
+    stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
     crouching: false, crouch: 0, reach: 0, gait: null, footwork: null, contacts: null }
 }
 function settleGait(p: Player, dt: number) {
@@ -74,6 +78,8 @@ function settleGait(p: Player, dt: number) {
 }
 export function cancelJumpInput(p: Player) {
   p.charge = 0; p.charging = false; p.jumpHeld = false; p.buffer = 0; p.wallJumpBuffer = 0
+  if (p.mantle?.step) p.mantle.step.jumpQueued = false
+  p.stepIntent = null
 }
 export function respawn(p: Player) {
   const { spawnX, spawnY, checkpoint, bestHeight } = p
@@ -227,9 +233,9 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts)) return
   const leavingGround = previousGround && !p.grounded
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
-  // The authored mantle already clears its own ledge; every other solid still blocks it.
+  // The hanging climb clears its own ledge; low steps use the full solid hull.
   const mantle = p.mantle ?? oldMantle
-  const obstacles = mantle ? ledgeObstacles(platforms, mantle) : platforms
+  const obstacles = mantle && !mantle.step ? ledgeObstacles(platforms, mantle) : platforms
   const result = moveBody(from, [p.x, p.y], obstacles, p.crouching ? TUNING.crouchHeight : TUNING.height)
   // Following a curved ground profile may cross a crest between two samples.
   // Keep the supported endpoint only for tiny corrections with a clear body.
@@ -300,6 +306,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
 }
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
   world: ContactWorld, contacts: PlayerContacts) {
+  const stepIntent = p.stepIntent; p.stepIntent = null
   const pressed = input.jump && !p.jumpHeld, released = !input.jump && p.jumpHeld
   p.jumpHeld = input.jump
   p.grabCooldown = Math.max(0, p.grabCooldown - dt)
@@ -321,6 +328,22 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.crouching = false; p.crouch = 0; p.reach = 0; p.footwork = null; p.ledgeReach = null; p.landing = 0 }
   if (p.mantle) {
     const m = p.mantle; m.time += dt
+    if (m.step) {
+      m.step.jumpQueued ||= pressed
+      const progress = Math.min(1, m.time / m.step.duration), root = stepUpRoot(m, progress)
+      p.x = root[0]; p.y = root[1]
+      p.vx = 0; p.vy = 0; p.facing = m.side
+      if (progress === 1) {
+        p.mantle = null; p.grounded = true; p.coyote = TUNING.coyoteTime; p.groundAngle = 0; p.stride = 0; p.gait = gaitPose(0)
+        p.vx = input.move * m.side > .1 ? m.step.caught.vx : 0
+        finishStepFeet(p, m.step)
+        if (m.step.jumpQueued) {
+          if (input.jump) { p.charging = true; p.buffer = TUNING.jumpBuffer }
+          else launch(p, 0)
+        }
+      }
+      return
+    }
     const progress = Math.min(1, Math.max(0, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME))
     const t = m.descending ? 1 - progress : progress, pose = climbFrame(t, m.braced)
     p.x = m.edgeX + pose.root[0] * m.side; p.y = m.edgeY + pose.root[1]; p.vx = 0; p.vy = 0; p.facing = m.side
@@ -556,6 +579,15 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     p.vx = constrained ?? (ground && canGrip(ground.angle)
       ? groundVelocity(p.vx, target, ground.angle, move ? TUNING.acceleration : TUNING.braking, dt)
       : approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt))
+  }
+  if (p.grounded && contacts.support && !p.crouching && !p.charging && !input.jump && !input.drop && !input.descend
+    && !p.sliding?.active && !p.knockback && p.grabCooldown === 0) {
+    const step = findStepUp(p, move, dt, world, stepIntent)
+    if (step) {
+      p.mantle = step; p.grounded = false; p.vy = 0; p.pushing = null; p.ledgeReach = null; p.wallBrace = null
+      p.landing = 0; p.coyote = 0; p.buffer = 0
+      return
+    }
   }
   const oldX = p.x, oldY = p.y
   const following = p.grounded

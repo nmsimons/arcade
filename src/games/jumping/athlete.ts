@@ -5,6 +5,7 @@ import { groundAt } from './terrain.ts'
 import { nearestBoundary, pointInside } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
+import { stepFootOffsets } from './stepUp.ts'
 
 type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
@@ -230,6 +231,51 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
   return { ...arm, hand: add(arm.end, mix(freePalm, contactPalm, contact)), handAngle: angle * (1 - contact) }
 }
 
+/** A low step starts in the walking pose: lead with a knee, transfer weight,
+ * then bring the trailing foot up. It never passes through the hanging rig. */
+function stepUpPose(p: Player): AthletePose {
+  const m = p.mantle!, s = m.step!, t = clamp(m.time / s.duration), side = m.side
+  const source = athletePose({ ...p, ...s.caught, mantle: null, pushing: null, landing: 0, groundAngle: 0 })
+  const weight = Math.sin(Math.PI * t), high = smooth((s.rise - 20) / 20)
+  const hip = mix(source.hip, [0, -32.7], smooth(t))
+  hip[0] += weight * 2; hip[1] += weight * (2 + high * 5)
+  const waist = add(hip, [weight * 2, -6.5])
+  const shoulder = add(waist, [weight * (3 + high * 4), -10.1 + weight * high * 2])
+  const head = add(shoulder, [.45 + weight, -7.3])
+  const foot = (leg: Leg, start: number, end: number, offset: number) => {
+    const u = smooth((t - start) / (end - start))
+    const fromX = (s.caught.x - m.edgeX) * side + leg.end[0], toX = (m.toX - m.edgeX) * side + offset
+    const fromY = s.caught.y + leg.end[1] - m.edgeY
+    // The toes clear the riser before moving across its vertical face.
+    const crossing = clamp((-7 - fromX) / (toX - fromX))
+    const y = lerp(fromY, -2.8, smooth(u / Math.max(.15, crossing))) - Math.sin(Math.PI * u) * 7
+    return { ankle: [(m.edgeX - p.x) * side + lerp(fromX, toX, u), m.edgeY - p.y + y] as Point, planted: t >= end || t <= start && leg.planted }
+  }
+  const offsets = stepFootOffsets(s)
+  const [front, back] = [source.frontLeg, source.backLeg].map((leg, i) =>
+    foot(leg, i === s.lead ? high * .12 : .12 + high * .1, i === s.lead ? .42 + high * .1 : 1, offsets[i]))
+  for (const f of [front, back]) if (f.planted) {
+    const dip = Math.max(0, f.ankle[1] - Math.sqrt(Math.max(0, 29 ** 2 - (f.ankle[0] - hip[0]) ** 2)) - hip[1] - 1)
+    for (const point of [hip, waist, shoulder, head]) point[1] += dip
+  }
+  const root = add(hip, [0, 1]), armRoot = add(shoulder, [0, .7])
+  const pose: AthletePose = { hip, waist, shoulder, head,
+    frontArm: armPose(armRoot, -.03 - weight * .3, .1 + weight * .85),
+    backArm: armPose(armRoot, -.03 + weight * .45, .1 + weight * .45),
+    frontLeg: solveLeg(root, front.ankle, 0, false, front.planted),
+    backLeg: solveLeg(root, back.ankle, 0, false, back.planted) }
+  const brace = high * smooth(t / .18) * (1 - smooth((t - .32) / .16))
+  const edge: Point = [(m.edgeX - p.x) * side, m.edgeY - p.y]
+  pose.frontArm = grippingArm(armRoot, add(edge, FRONT_WRIST), add(edge, FRONT_GRIP), pose.frontArm, brace)
+  pose.backArm = grippingArm(armRoot, add(edge, BACK_WRIST), add(edge, BACK_GRIP), pose.backArm, brace)
+  // Preserve the exact entry silhouette while the first foot starts lifting.
+  const result = t < .18 ? transferPose(source, pose, [0, 0], smooth(t / .18)) : pose
+  if (p.terrain) {
+    result.frontLeg = clearAirborneFoot(p, result.frontLeg, 16); result.backLeg = clearAirborneFoot(p, result.backLeg, 16)
+  }
+  return result
+}
+
 /** All supports are authored relative to the corner, independent of the camera and player root. */
 function ledgePose(p: Player): AthletePose {
   const catchTime = p.hang?.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME
@@ -416,6 +462,7 @@ function clearClimbingLeg(p: Player, leg: Leg, spread: number): Leg {
 }
 /** Local-space poses share one rig, from planted contact through flight and landing. */
 export function athletePose(p: Player): AthletePose {
+  if (p.mantle?.step) return stepUpPose(p)
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
   // A slipping foot is still in contact: do not layer a falling/running cycle
@@ -530,10 +577,10 @@ export function athletePose(p: Player): AthletePose {
 }
 
 /** Toes can meet a slope just before the body hull. Keep them on the air side. */
-function clearAirborneFoot(p: Player, leg: Leg): Leg {
+function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
   let current = leg
   const target: Point = [...leg.end]
-  for (let pass = 0; pass < 6; pass++) {
+  for (let pass = 0; pass < passes; pass++) {
     let moved = false
     for (const point of FOOT_CONTACT) {
       const sole = footPoint(point, current.footAngle * current.footFacing, current.toeAngle * current.footFacing)

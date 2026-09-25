@@ -83,7 +83,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const passengers = run.props.filter(b => propLoadsPlate(b, m.x, m.y, def.w))
     const onProp = support?.prop && passengers.includes(support.prop)
     const rider = onProp || support?.id === `mechanism:${index}`
-      || p.hang?.platform === platformIndex || !!p.mantle && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
+      || p.hang?.platform === platformIndex || !!p.mantle && !p.mantle.step && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
     const obstacles = run.platforms.filter((b, i) => i !== platformIndex && b !== support?.platform)
     const solids = [...run.terrain, ...run.mechanisms.filter(other => other !== m).map(mechanismShape)]
     const passengerBlocked = (dx: number, dy: number) => passengers.some(b => solids.some(s => propBlocksMechanism(b, s, { ...s, x: s.x - dx, y: s.y - dy })))

@@ -4,7 +4,7 @@ import type { Platform } from './model.ts'
 import type { PlayerContacts } from './playerContacts.ts'
 import { TUNING } from './model.ts'
 import { bodyPolygon, convexParts, moveBody } from './geometry.ts'
-import { propLoadsPlate } from './propGeometry.ts'
+import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { translatePlayer } from './playerContacts.ts'
 import { mechanismShape } from './mechanisms.ts'
 
@@ -242,4 +242,102 @@ export function propBlocksMechanism(prop: Prop, before: Platform, after: Platfor
     const next = Collision.collides(body, obstacle)?.depth ?? 0
     return next > Math.max(.01, previous + .002)
   })
+}
+
+/** Smallest translation satisfying the current fixed contact normals. Solving
+ * them together lets a ball roll along its floor instead of oscillating between
+ * a floor correction and a nearly vertical platform correction. */
+function contactTranslation(body: Matter.Body, hits: Matter.Collision[]) {
+  const constraints = hits.map(hit => {
+    const sign = hit.bodyA === body ? 1 : -1
+    return { x: hit.normal.x * sign, y: hit.normal.y * sign, depth: Math.max(0, hit.depth + .0001) }
+  })
+  let best: Matter.Vector | null = null, distance = Infinity
+  const consider = (x: number, y: number) => {
+    const length = x * x + y * y
+    if (length < distance && constraints.every(c => x * c.x + y * c.y >= c.depth - 1e-7)) {
+      best = { x, y }; distance = length
+    }
+  }
+  for (const [i, a] of constraints.entries()) {
+    consider(a.x * a.depth, a.y * a.depth)
+    for (const b of constraints.slice(i + 1)) {
+      const determinant = a.x * b.y - a.y * b.x
+      if (Math.abs(determinant) > 1e-7) consider((a.depth * b.y - a.y * b.depth) / determinant, (a.x * b.depth - a.depth * b.x) / determinant)
+    }
+  }
+  return best
+}
+
+/** Try a kinematic lift step against the same hulls used by prop physics.
+ * Nothing is committed until the entire contact chain has room to separate. */
+export function planLiftPropMotion(run: Run, index: number, next: Platform, passengers: readonly Prop[], riding: boolean, support: Prop | undefined, dt: number) {
+  const m = run.mechanisms[index], dx = next.x - m.x, dy = next.y - m.y
+  const shapes = run.mechanisms.map((other, i) => i === index ? next : mechanismShape(other))
+  const fixed = [...worldFor(run).terrain, ...shapes.flatMap(s => terrainBodies(s, run))]
+  const bodies = new Map(run.props.map(prop => {
+    const body = makeProp(prop)
+    if (passengers.includes(prop)) Body.translate(body, { x: dx, y: dy })
+    if (prop.kind !== 'ball') Body.setStatic(body, true)
+    return [prop, body] as const
+  }))
+  const balls = [...bodies].filter(([prop]) => prop.kind === 'ball')
+  const p = run.player, height = p.crouching ? TUNING.crouchHeight : TUNING.height
+  const playerPosition = () => {
+    if (support) {
+      const body = bodies.get(support)!
+      return { x: p.x + body.position.x - support.x, y: p.y + body.position.y - support.y + support.size / 2 }
+    }
+    return { x: p.x + (riding ? dx : 0), y: p.y + (riding ? dy : 0) }
+  }
+  const vertices = bodyPolygon(p.x, p.y, height).map(([x, y]) => ({ x, y }))
+  const playerHull = Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
+  const playerCenter = { ...playerHull.position }
+  const updatePlayer = () => {
+    const position = playerPosition()
+    Body.setPosition(playerHull, { x: playerCenter.x + position.x - p.x, y: playerCenter.y + position.y - p.y })
+  }
+  const candidates = new Map(balls.map(([prop, body]) => [body,
+    [...fixed, ...[...bodies.values()].filter(other => other !== body), ...(prop === support ? [] : [playerHull])]]))
+  // Limit the ball's contact-driven speed. The lift can shorten its stroke
+  // instead of launching a ball when it meets a nearly horizontal tangent.
+  const limit = 260 * dt
+  for (let pass = 0; pass < 96; pass++) {
+    let corrected = false
+    updatePlayer()
+    for (const [prop, body] of balls) {
+      const hits = Query.collides(body, candidates.get(body)!)
+      const fixedHits = hits.filter(hit => hit.bodyA.isStatic || hit.bodyB.isStatic)
+      if (fixedHits.some(hit => hit.depth > .001)) {
+        const shift = contactTranslation(body, fixedHits)
+        if (!shift) return null
+        Body.translate(body, shift); corrected = true
+      }
+      for (const hit of Query.collides(body, [...bodies.values()].filter(other => other !== body && !other.isStatic))) {
+        if (hit.depth <= .001) continue
+        const a = hit.bodyA, b = hit.bodyB, wa = a.isStatic ? 0 : a.inverseMass, wb = b.isStatic ? 0 : b.inverseMass
+        const distance = (hit.depth + .0001) / (wa + wb)
+        if (wa) Body.translate(a, { x: hit.normal.x * distance * wa, y: hit.normal.y * distance * wa })
+        if (wb) Body.translate(b, { x: -hit.normal.x * distance * wb, y: -hit.normal.y * distance * wb })
+        corrected = true
+      }
+      if (Math.hypot(body.position.x - prop.x, body.position.y - prop.y + prop.size / 2) > limit) return null
+    }
+    if (!corrected) break
+  }
+  updatePlayer()
+  // Include carried boxes and the rider in the final clearance check. An
+  // impossible squeeze rejects the trial instead of leaking through a wall.
+  for (const [prop, body] of bodies) {
+    const obstacles = candidates.get(body) ?? [...fixed, ...[...bodies.values()].filter(other => other !== body), ...(prop === support ? [] : [playerHull])]
+    if (Query.collides(body, obstacles).some(hit => hit.depth > .002)) return null
+  }
+  const position = playerPosition(), barriers = [...run.terrain, ...shapes,
+    ...run.props.filter(prop => prop !== support).map(prop => {
+      const body = bodies.get(prop)!, moved = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2 }
+      return prop.kind === 'ball' ? ballShape(moved) : boxShape(moved)
+    })]
+  const safe = moveBody([p.x, p.y], [position.x, position.y], barriers, height)
+  if (Math.hypot(safe.x - position.x, safe.y - position.y) > .01) return null
+  return { player: position, balls: balls.map(([prop, body]) => ({ prop, x: body.position.x, y: body.position.y + prop.size / 2 })) }
 }

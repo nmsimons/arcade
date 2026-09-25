@@ -1,9 +1,9 @@
 import { polygonPoints } from './geometry'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, moveVertex, insertTerrainNode, terrainNodeTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight } from './editor'
+import { anchorRope, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets } from './editor'
 import type { ResizeCorner, Selection, Tool } from './editor'
-import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, prepareLevelRopes } from './level'
+import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, prepareLevelRopes, triggerTargets } from './level'
 import type { JumpLevel } from './level'
 import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
 import { blankTrial } from './level'
@@ -34,21 +34,19 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
   return point && ['rope', 'ladder', 'prop', 'mechanism', 'trigger', 'text'].includes(selection.kind)
     ? [{ ...point, y: point.y + 14 / zoom, corner: 'bottom-right' }] : []
 }
-type Drag = { mode: 'move' | 'resize' | 'point' | 'draw' | 'pan'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeCorner; inserted?: boolean }
+type Drag = { mode: 'move' | 'resize' | 'travel' | 'point' | 'draw' | 'pan'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeCorner; inserted?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
-  { id: 'select', group: 'Navigate', label: 'Select', help: 'Drag to move. Drag square handles to resize or white nodes to reshape terrain. Shift + arrow nudges one unit.' },
-  { id: 'pan', group: 'Navigate', label: 'Pan', help: 'Drag to move around the level. Hold Space or the middle mouse button to pan from any tool.' },
   { id: 'platform', group: 'Terrain', label: 'Terrain', help: 'Drag to create terrain, then reshape it with the white nodes. Use the Node tool to add points along an edge.' },
-  { id: 'node', group: 'Terrain', label: 'Node', help: 'Click a terrain edge to add a node at the highlighted point. Drag to reshape it. N selects this tool; Esc returns to Select.' },
+  { id: 'node', group: 'Terrain', label: 'Node', help: 'Click a terrain edge to add a node at the highlighted point. Drag to reshape it. N activates this tool.' },
   { id: 'rope', group: 'Movement', label: 'Rope', help: 'Drag down from the anchor. Start near a terrain edge to attach the anchor to it.' },
   { id: 'ladder', group: 'Movement', label: 'Ladder', help: 'Drag down anywhere to place a ladder. Move it or change its height in the inspector.' },
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click a surface to place a ball. Move it or change its size in the inspector.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click a surface to place a box. Move it or change its size in the inspector.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Set its patrol limits in the inspector.' },
-  { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Connect a pressure plate to move it.' },
+  { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the top anchor to change travel height. Connect a pressure plate to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click a surface to place a gate. It rises by its own height while a connected pressure plate is held.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
-  { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose its elevator or gate in the inspector. The player, boxes, and balls can hold it down.' },
+  { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose which elevators and gates it activates in the inspector. The player, boxes, and balls can hold it down.' },
   { id: 'spawn', group: 'Markers', label: 'Start', help: 'Click a surface to choose where the player starts.' },
   { id: 'goal', group: 'Markers', label: 'Goal light', help: 'Press the plate to reveal the hidden exit beyond the light. Walk into the door to stop the timer and finish. Leave flat, clear space for the whole goal.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
@@ -77,6 +75,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
+  const [selectedNode, setSelectedNode] = useState<number | null>(null)
   const [panel, setPanel] = useState<'build' | 'library'>('build')
   const [jumpGuide, setJumpGuide] = useState(false), [keepTool, setKeepTool] = useState(false)
   const panHeld = useRef(false)
@@ -96,6 +95,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const resizeCursor = resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
   const problems = levelProblems(level), problem = problems[0]
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
+  const travelHandle = mechanism?.kind === 'lift' ? mechanismAnchor(mechanism) : null
+  const travelHandleAt = (p: Point) => travelHandle && Math.hypot(p.x - travelHandle.x, p.y - travelHandle.y) < 10 / view.zoom
+  const adjustingTravel = drag.current?.mode === 'travel' || pointer && travelHandleAt(pointer)
   const trigger = selection?.kind === 'trigger' ? level.triggers?.[selection.index] : null
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
@@ -103,6 +105,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const quantizeY = useCallback((y: number) => roomHeight - quantize(roomHeight - y), [roomHeight, quantize])
   const nodeTarget = tool === 'node' && pointer ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null
 
+  function chooseSelection(next: Selection | null) { setSelection(next); setSelectedNode(null) }
   function commit(next: JumpLevel) {
     next = prepareLevelRopes(next)
     setHistory(h => JSON.stringify(next) === JSON.stringify(h.present) ? h : { past: [...h.past, h.present].slice(-60), present: next, future: [] })
@@ -111,12 +114,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   function undo() {
     if (history.past.length) keepFloorInView(history.past.at(-1)!)
     setHistory(h => h.past.length ? { past: h.past.slice(0, -1), present: h.past.at(-1)!, future: [h.present, ...h.future] } : h)
-    setSelection(null); setPreview(null); latestPreview.current = null; drag.current = null
+    chooseSelection(null); setPreview(null); latestPreview.current = null; drag.current = null
   }
   function redo() {
     if (history.future.length) keepFloorInView(history.future[0])
     setHistory(h => h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h)
-    setSelection(null); setPreview(null); latestPreview.current = null; drag.current = null
+    chooseSelection(null); setPreview(null); latestPreview.current = null; drag.current = null
   }
   function keepFloorInView(next: JumpLevel) {
     const dy = levelHeight(next) - levelHeight(history.present)
@@ -126,16 +129,23 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   }
   function load(next: JumpLevel, file?: LevelFile, fromFolder = false) {
     setFileName(file?.fileName ?? levelFileName(next.name)); setFileSource(file?.sourceText)
-    commit(copyLevel(next)); setSelection(null); setTool('select'); setView(homeView(next, size.height))
+    commit(copyLevel(next)); chooseSelection(null); setTool('select'); setView(homeView(next, size.height))
     onFileChange(fromFolder ? file?.fileName : undefined)
   }
   function remove() {
-    if (selection) { commit(deleteItem(history.present, selection)); setSelection(null) }
+    if (selection) { commit(deleteItem(history.present, selection)); chooseSelection(null) }
+  }
+  function removeNode() {
+    if (selection?.kind !== 'platform' || selectedNode === null) return
+    try {
+      const next = deleteTerrainNode(history.present, selection.index, selectedNode)
+      commit(next); setSelectedNode(Math.min(selectedNode, polygonPoints(next.platforms[selection.index]).length - 1))
+    } catch (error) { setMessage((error as Error).message) }
   }
   function add(tool: Tool, start: Point, end: Point) {
     try {
       const added = addItem(history.present, tool, start, end)
-      if (added) { commit(added.level); setSelection(added.selection); if (!keepTool) setTool('select') }
+      if (added) { commit(added.level); chooseSelection(added.selection); if (!keepTool) setTool('select') }
     } catch (error) { setMessage((error as Error).message) }
   }
   async function save() {
@@ -201,10 +211,17 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       }
     }
     if (mechanism) {
-      const open = mechanismOpenPosition(mechanism), anchor = mechanismAnchor(mechanism), end = mechanismRopeEnd(mechanism)
+      const open = mechanismOpenPosition(mechanism)
       ctx.strokeStyle = '#b78947'; ctx.lineWidth = 1 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
       ctx.strokeRect(open.x, open.y, mechanism.w, mechanism.h)
-      ctx.beginPath(); ctx.moveTo(end.x, end.y); ctx.lineTo(anchor.x, anchor.y); ctx.stroke(); ctx.setLineDash([])
+      ctx.setLineDash([])
+      if (mechanism.kind === 'lift') {
+        const anchor = mechanismAnchor(mechanism), end = mechanismRopeEnd(mechanism)
+        ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
+        ctx.beginPath(); ctx.moveTo(end.x, end.y); ctx.lineTo(anchor.x, anchor.y); ctx.stroke(); ctx.setLineDash([])
+        const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
+        ctx.fillRect(anchor.x - handle / 2, anchor.y - handle / 2, handle, handle)
+      }
     }
     if (robot) {
       ctx.strokeStyle = '#cc6a49'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom]); ctx.beginPath(); ctx.moveTo(robot.left, robot.y - 65); ctx.lineTo(robot.right, robot.y - 65); ctx.stroke(); ctx.setLineDash([])
@@ -219,9 +236,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
         const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
         ctx.fillRect(point.x - handle / 2, point.y - handle / 2, handle, handle)
       }
-      if (chosen) for (const [wx, wy] of polygonPoints(chosen)) {
-        ctx.beginPath(); ctx.arc(wx, wy, 4.5 / view.zoom, 0, Math.PI * 2)
-        ctx.fillStyle = '#fffdf5'; ctx.fill(); ctx.stroke()
+      if (chosen) for (const [i, [wx, wy]] of polygonPoints(chosen).entries()) {
+        ctx.beginPath(); ctx.arc(wx, wy, (i === selectedNode ? 6 : 4.5) / view.zoom, 0, Math.PI * 2)
+        ctx.fillStyle = i === selectedNode ? '#c65231' : '#fffdf5'; ctx.fill(); ctx.stroke()
       }
     }
     if (nodeTarget) {
@@ -235,7 +252,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
     }
     ctx.restore()
-  }, [active, level, view, size, outline, resizeHandles, chosen, jumpGuide, mechanism, robot, nodeTarget])
+  }, [active, level, view, size, outline, resizeHandles, chosen, selectedNode, jumpGuide, mechanism, robot, nodeTarget])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -246,29 +263,33 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     event.preventDefault(); event.currentTarget.focus({ preventScroll: true }); event.currentTarget.setPointerCapture(event.pointerId)
     const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = history.present
     latestPreview.current = null
-    if (tool === 'pan' || panHeld.current || event.button === 1) { drag.current = { mode: 'pan', start: p, screen, base, view, selection: null }; return }
+    if (panHeld.current || event.button === 1) { drag.current = { mode: 'pan', start: p, screen, base, view, selection: null }; return }
     if (tool === 'node') {
       const target = terrainNodeTarget(base, p.x, p.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0)
       if (!target) { setMessage('Click a terrain edge away from an existing node.'); return }
       try {
         const next = insertTerrainNode(base, target), selected = { kind: 'platform' as const, index: target.index }
-        setSelection(selected); setMessage(''); setPreview(next); latestPreview.current = next
+        chooseSelection(selected); setSelectedNode(target.edge + 1); setMessage(''); setPreview(next); latestPreview.current = next
         drag.current = { mode: 'point', start: p, screen, base: next, view, selection: selected, point: target.edge + 1, inserted: true }
         if (!keepTool) setTool('select')
       } catch (error) { setMessage((error as Error).message) }
       return
     }
     if (tool !== 'select') { drag.current = { mode: 'draw', start: { x: quantize(p.x), y: quantizeY(p.y) }, screen, base, view, selection: null }; return }
+    if (selection && travelHandleAt(p)) {
+      drag.current = { mode: 'travel', start: p, screen, base, view, selection }; return
+    }
     const handle = resizeHandleAt(p)
     if (selection && handle) {
+      setSelectedNode(null)
       drag.current = { mode: 'resize', start: p, screen, base, view, selection, corner: handle.corner }; return
     }
     if (selection && chosen) {
       const point = polygonPoints(chosen).findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
-      if (point >= 0) { drag.current = { mode: 'point', start: p, screen, base, view, selection, point }; return }
+      if (point >= 0) { setSelectedNode(point); drag.current = { mode: 'point', start: p, screen, base, view, selection, point }; return }
     }
     const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
-    setSelection(hit); drag.current = hit ? { mode: 'move', start: p, screen, base, view, selection: hit } : null
+    chooseSelection(hit); drag.current = { mode: hit ? 'move' : 'pan', start: p, screen, base, view, selection: hit }
   }
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
     const d = drag.current
@@ -281,6 +302,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     } else if (d.selection) {
       const b = itemBounds(d.base, d.selection)!
       if (d.mode === 'move') next = moveItem(d.base, d.selection, quantize(b.x + dx) - b.x, quantizeY(b.y + dy) - b.y)
+      if (d.mode === 'travel') {
+        const elevator = d.base.mechanisms![d.selection.index]
+        next = setElevatorTravel(d.base, d.selection.index, elevator.y - quantizeY(mechanismAnchor(elevator).y + dy))
+      }
       if (d.mode === 'resize') {
         const width = d.corner?.endsWith('left') ? b.x + b.w - quantize(b.x + dx) : quantize(b.x + b.w + dx) - b.x
         const height = d.corner?.startsWith('top') ? b.y + b.h - quantizeY(b.y + dy) : quantizeY(b.y + b.h + dy) - b.y
@@ -296,6 +321,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   }
   function pointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
     const d = drag.current; drag.current = null
+    setPointer(position(event))
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     if (!d) return
     if (d.mode === 'draw') { const p = position(event); add(tool, d.start, { x: quantize(p.x), y: quantizeY(p.y) }) }
@@ -303,7 +329,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     setPreview(null); latestPreview.current = null
   }
   function zoom(factor: number, at = { x: size.width / 2, y: size.height / 2 }) {
-    setView(v => { const z = clamp(v.zoom * factor, .08, 2.5); return { zoom: z, x: v.x + at.x / v.zoom - at.x / z, y: v.y + at.y / v.zoom - at.y / z } })
+    setView(v => {
+      const z = clamp(v.zoom * factor, .08, 2.5)
+      if (outline) return { zoom: z, x: outline.x + outline.w / 2 - size.width / (2 * z),
+        y: outline.y + (outline.h ? outline.h / 2 : -31) - size.height / (2 * z) }
+      return { zoom: z, x: v.x + at.x / v.zoom - at.x / z, y: v.y + at.y / v.zoom - at.y / z }
+    })
   }
   function setDimension(axis: 'x' | 'y' | 'w' | 'h', value: number) {
     if (!selection || !bounds || !Number.isFinite(value)) return
@@ -314,7 +345,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   function duplicate() {
     if (!selection) return
     const result = duplicateItem(history.present, selection)
-    if (result) { commit(result.level); setSelection(result.selection) }
+    if (result) { commit(result.level); chooseSelection(result.selection) }
   }
   function fitLevel(next = level) {
     const z = Math.min(size.width / (next.width + 120), size.height / (levelHeight(next) + 120))
@@ -333,17 +364,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   }
   function changeObject(field: string, value: number | string) {
     if (!selection) return
+    if (selection.kind === 'mechanism' && field === 'travel') {
+      commit(setElevatorTravel(history.present, selection.index, Number(value))); return
+    }
     const next = copyLevel(history.present)
     if (selection.kind === 'text') {
       const text = next.texts![selection.index]
       if (field === 'text') text.text = String(value).slice(0, 1000)
       if (field === 'fontSize' && Number.isFinite(Number(value))) text.fontSize = clamp(Number(value), 12, 96)
       if (field === 'align' && (value === 'left' || value === 'center' || value === 'right')) text.align = value
-    }
-    if (selection.kind === 'mechanism' && next.mechanisms![selection.index].kind === 'lift') next.mechanisms![selection.index].travel = clamp(Number(value), 60, 1200)
-    if (selection.kind === 'trigger') {
-      const t = next.triggers![selection.index]
-      if (field === 'target') t.target = String(value)
     }
     if (selection.kind === 'robot') {
       const r = next.robots![selection.index]
@@ -360,17 +389,20 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save() }
-    else if (event.key === 'Escape') { setTool('select'); setSelection(null); drag.current = null; setPreview(null); latestPreview.current = null }
-    else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', h: 'pan', n: 'node', p: 'platform', r: 'rope', l: 'ladder', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', h: 'pan', n: 'node', p: 'platform', r: 'rope', l: 'ladder', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) }
+    else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); drag.current = null; setPreview(null); latestPreview.current = null }
+    else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) }
     else if (event.target === canvasRef.current && selection) {
-      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove() }
+      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && chosen) removeNode(); else remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault(); const step = event.shiftKey ? 1 : snap ? LEVEL_GRID_SIZE : 5
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
-        commit(moveItem(history.present, selection,
-          snap && !event.shiftKey && bounds && dx ? quantize(bounds.x + dx) - bounds.x : dx,
-          snap && !event.shiftKey && bounds && dy ? quantizeY(bounds.y + dy) - bounds.y : dy))
+        const node = chosen && selectedNode !== null ? polygonPoints(chosen)[selectedNode] : null
+        const origin = node ? { x: node[0], y: node[1] } : bounds
+        const shiftX = snap && !event.shiftKey && origin && dx ? quantize(origin.x + dx) - origin.x : dx
+        const shiftY = snap && !event.shiftKey && origin && dy ? quantizeY(origin.y + dy) - origin.y : dy
+        commit(node ? moveVertex(history.present, selection.index, selectedNode!, shiftX, shiftY)
+          : moveItem(history.present, selection, shiftX, shiftY))
       }
     }
   }} onKeyUp={event => { if (event.code === 'Space') panHeld.current = false }} onBlur={() => { panHeld.current = false }}>
@@ -382,9 +414,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     <aside className="builder-tools" aria-label="Building tools">
       <div className="builder-panel-tabs"><button aria-pressed={panel === 'build'} onClick={() => setPanel('build')}>Build</button><button aria-pressed={panel === 'library'} onClick={() => setPanel('library')}>Library</button></div>
       {panel === 'build' ? <>
-        {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Power-ups', 'Back wall'].map(group => <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level))).map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div>)}
+        {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Power-ups', 'Back wall'].map(group => <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level))).map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div>)}
         <label className="builder-snap"><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} /> Keep placing</label>
-        {!['select', 'pan', 'node'].includes(tool) && <button className="builder-add" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button>}
+        {!['select', 'node'].includes(tool) && <button className="builder-add" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button>}
       </> : <>
         <div className="builder-library-actions"><button onClick={() => { load(blankTrial()); setPanel('build') }}><span aria-hidden="true">+ </span>New level</button><button onClick={() => fileRef.current?.click()}>Open file…</button></div>
         <h2>Local folder</h2>
@@ -403,28 +435,27 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     </aside>
     <div className="builder-stage">
       <div className="builder-view-controls">
-        <div className="builder-control-group" role="group" aria-label="Canvas tools">{(['select', 'pan'] as const).map(id => <button key={id} aria-label={id === 'select' ? 'Select' : 'Pan'} aria-pressed={tool === id} title={id === 'select' ? 'Select (V)' : 'Pan (H / hold Space)'} onClick={() => setTool(id)}><BuilderIcon kind={id} /></button>)}</div>
         <div className="builder-control-group" role="group" aria-label="Edit history"><button disabled={!history.past.length} onClick={undo}>Undo</button><button disabled={!history.future.length} onClick={redo}>Redo</button></div>
         <div className="builder-control-group"><label className="builder-inline-check"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap {LEVEL_GRID_SIZE}</label>
         <label className="builder-inline-check"><input type="checkbox" checked={jumpGuide} onChange={e => setJumpGuide(e.target.checked)} />Jump guide</label></div>
         <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" onClick={() => zoom(1.25)}>+</button></div>
         <div className="builder-control-group" role="group" aria-label="Canvas view"><button onClick={() => fitLevel()}>Fit level</button><button onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
       </div>
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" style={{ cursor: tool === 'pan' ? 'grab' : tool === 'select' ? resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" style={{ cursor: drag.current?.mode === 'pan' ? 'grabbing' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onWheel={e => { if (e.ctrlKey || e.metaKey) { const r = e.currentTarget.getBoundingClientRect(); zoom(Math.exp(-e.deltaY * .003), { x: e.clientX - r.left, y: e.clientY - r.top }) } else setView(v => ({ ...v, x: v.x + (e.shiftKey ? e.deltaY : e.deltaX) / v.zoom, y: v.y + (e.shiftKey ? 0 : e.deltaY) / v.zoom })) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} /><span>OVERVIEW</span></button>
-      <p id="builder-help" className="builder-help">{TOOLS.find(t => t.id === tool)?.help}</p>
+      <p id="builder-help" className="builder-help">{tool === 'select' ? 'Drag objects to move them or empty space to pan. Drag square handles to resize or nodes to reshape terrain. Space + drag pans anywhere.' : `${TOOLS.find(t => t.id === tool)?.help} Esc or click the active tool to stop.`}</p>
     </div>
     <aside className="builder-inspector" aria-label="Object properties">
       <h2>Inspector</h2>
-      <label>Selected object<select aria-label="Selected object" value={selection ? `${selection.kind}:${selection.index}` : ''} onChange={e => { const [kind, index] = e.target.value.split(':'); setSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); setTool('select') }}>
+      <label>Selected object<select aria-label="Selected object" value={selection ? `${selection.kind}:${selection.index}` : ''} onChange={e => { const [kind, index] = e.target.value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); setTool('select') }}>
         <option value="">Nothing selected</option>{allSelections(level).map(s => <option key={`${s.kind}:${s.index}`} value={`${s.kind}:${s.index}`}>{selectionLabel(s, level)}</option>)}
       </select></label>
       {selection && bounds ? <div className="builder-property-card">
         <h3>{selectionLabel(selection, level)}</h3>
         <div className="builder-dimensions">{(['x', 'y', 'w', 'h'] as const).filter(axis => ['platform', 'prop', 'mechanism', 'text'].includes(selection.kind) || (axis === 'x' || axis === 'y') || axis === 'h' && ['rope', 'ladder'].includes(selection.kind) || axis === 'w' && selection.kind === 'trigger').map(axis =>
-          <label key={axis}>{({ x: 'X', y: 'Y', w: 'Width', h: 'Height' })[axis]}<input type="number" aria-label={`Object ${axis}`} disabled={!!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h')} step={snap ? LEVEL_GRID_SIZE : 1} value={Math.round((axis === 'y' ? roomHeight - bounds.y : bounds[axis]) * 100) / 100} onChange={e => setDimension(axis, Number(e.target.value))} onBlur={e => { if (snap && e.currentTarget.value !== '') setDimension(axis, quantize(Number(e.currentTarget.value))) }} /></label>)}</div>
+          <label key={axis}>{axis === 'h' && mechanism?.kind === 'lift' ? 'Thickness' : ({ x: 'X', y: 'Y', w: 'Width', h: 'Height' })[axis]}<input type="number" aria-label={`Object ${axis}`} disabled={!!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h')} step={snap ? LEVEL_GRID_SIZE : 1} value={Math.round((axis === 'y' ? roomHeight - bounds.y : bounds[axis]) * 100) / 100} onChange={e => setDimension(axis, Number(e.target.value))} onBlur={e => { if (snap && e.currentTarget.value !== '') setDimension(axis, quantize(Number(e.currentTarget.value))) }} /></label>)}</div>
         <p>Y is height above the floor, measured at {selection.kind === 'goal' ? 'the plate’s surface' : ['spawn', 'checkpoint'].includes(selection.kind) ? 'the feet' : selection.kind === 'rope' ? 'the anchor' : 'the top of the object'}.</p>
         {selection.kind === 'goal' && level.goal && <button aria-pressed={!!level.goal.flipX} onClick={() => {
           const next = copyLevel(history.present)
@@ -432,7 +463,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
           commit(next)
         }}>Flip horizontally</button>}
         {chosen?.profile && <><button onClick={() => commit(replacePlatform(history.present, selection.index, { ...chosen, profile: [...chosen.profile!].reverse().map(([x, y]) => [chosen.w - x, y]) }))}>Flip slope</button><p>Drag the white points to shape the surface.</p></>}
-        {chosen && <><button aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><p>Drag square handles to resize the whole shape. Drag white nodes to change its geometry. Steeper slopes leave less grip for climbing and can cause sliding.</p></>}
+        {chosen && <><div className="builder-object-actions"><button aria-pressed={tool === 'node'} onClick={() => { setTool(tool === 'node' ? 'select' : 'node'); setMessage('') }}>Add node</button><button disabled={selectedNode === null || polygonPoints(chosen).length <= 3} onClick={removeNode}>Delete node</button></div><p>Drag square handles to resize the shape. Select a node to move it or press Delete to remove it. At least three nodes must remain.</p></>}
         {selection.kind === 'ladder' && <p>Climb with Up / Down. Jump to leave the ladder.</p>}
         {selection.kind === 'timer' && <p>Mounted on the back wall. Shows the run time, stops when the player enters the exit, and never blocks the player or objects.</p>}
         {selection.kind === 'pickup' && <p>Touch to stop the level timer for 10 seconds while gameplay continues. Extra watches add 10 seconds to the remaining pause. Collected once per run; returns on restart.</p>}
@@ -448,16 +479,21 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></>}
-        {mechanism?.kind === 'lift' && <label>Distance to anchor<input aria-label="Distance to anchor" type="number" min={60} max={1200} step={20} value={mechanism.travel} onChange={e => changeObject('travel', Number(e.target.value))} /></label>}
+        {mechanism?.kind === 'lift' && <label>Travel height<input aria-label="Travel height" type="number" min={60} max={1200} step={snap ? LEVEL_GRID_SIZE : 1} value={mechanism.travel} onChange={e => changeObject('travel', Number(e.target.value))} /></label>}
         {mechanism && isHorizontalGate(mechanism) && <><button aria-pressed={!!mechanism.flipX} onClick={() => {
           const next = copyLevel(level), m = next.mechanisms![selection.index]
           if (m.flipX) delete m.flipX; else m.flipX = true
           commit(next)
-        }}>Flip horizontally</button><p>20 units thick. Retracts {mechanism.flipX ? 'right' : 'left'} by its own width while the plate is held. Releasing it closes the gate. The rope length follows the width.</p></>}
-        {mechanism?.kind === 'gate' && !isHorizontalGate(mechanism) && <p>20 units thick. Rises by its own height while the plate is held. Releasing it lowers the gate. The rope length follows the height.</p>}
+        }}>Flip horizontally</button><p>20 units thick. Retracts {mechanism.flipX ? 'right' : 'left'} by its own width while the plate is held. Releasing it closes the gate.</p></>}
+        {mechanism?.kind === 'gate' && !isHorizontalGate(mechanism) && <p>20 units thick. Rises by its own height while the plate is held. Releasing it lowers the gate.</p>}
         {mechanism?.kind === 'gate' && <p>If closing catches the player or an object, the gate reopens and waits for the path to clear.</p>}
-        {mechanism?.kind === 'lift' && <p>20 units thick. Moves between its starting position and the anchor while the plate is held. Pauses in place when released. Adjust the width to set the platform size.</p>}
-        {trigger && <><label>Activates<select aria-label="Connected mechanism" value={trigger.target} onChange={e => changeObject('target', e.target.value)}><option value="">Choose a mechanism</option>{level.mechanisms?.map((m, i) => <option key={m.id} value={m.id}>{mechanismLabel(m)} {i + 1}</option>)}</select></label><p>The player, a crate, or a ball can hold this plate. Releasing pauses elevators and closes gates.</p></>}
+        {mechanism?.kind === 'lift' && <p>Drag the top anchor to set travel height. Moves while the plate is held and pauses when released.</p>}
+        {trigger && <><fieldset className="builder-connections"><legend>Activates</legend>
+          {level.mechanisms?.length ? level.mechanisms.map((m, i) => <label key={m.id}><input type="checkbox" checked={triggerTargets(trigger).includes(m.id)} onChange={e => {
+            const targets = triggerTargets(trigger)
+            commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...targets, m.id] : targets.filter(id => id !== m.id)))
+          }} />{mechanismLabel(m)} {i + 1}</label>) : <p>Add an elevator or gate to connect this plate.</p>}
+        </fieldset><p>The player, a crate, or a ball can hold this plate. Releasing pauses elevators and closes gates.</p></>}
         {robot && <><div className="builder-dimensions"><label>Left limit<input aria-label="Shovebot left limit" type="number" value={Math.round(robot.left)} onChange={e => changeObject('left', Number(e.target.value))} /></label><label>Right limit<input aria-label="Shovebot right limit" type="number" value={Math.round(robot.right)} onChange={e => changeObject('right', Number(e.target.value))} /></label></div><p>Chases on sight. A brief wind-up, a hard shove, then straight back after you.</p></>}
         <div className="builder-object-actions"><button disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete object</button></div>
       </div> : <div className="builder-empty-selection"><BuilderIcon kind="select" /><strong>Make it yours.</strong><p>Choose a tool and draw in the canvas, or select an object to refine it.</p></div>}

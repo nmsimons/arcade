@@ -1,7 +1,7 @@
 import { bodyIntersects, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
+import { levelPlayer, levelTerrain, prepareLevelRopes, triggerTargets } from './level.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
 import { moveRobot, prepareRobots } from './robotPhysics.ts'
@@ -9,7 +9,7 @@ import { GOAL_PLATE_WIDTH, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalE
 import type { GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
-import { prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
+import { planLiftPropMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { playerContacts, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
@@ -104,17 +104,37 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const opening = def.kind === 'gate' ? m.active || m.safetyHold != null : m.direction < 0
     const target = opening ? open : def
     if (m.x === target.x && m.y === target.y) continue
-    const before = mechanismShape(m), x = approach(m.x, target.x, 130 * dt), y = approach(m.y, target.y, 130 * dt)
-    const dx = x - m.x, dy = y - m.y, nextShape = { ...def, x, y }
-    const blocked = (rider ? obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, dy)) : bodyOverlap(p, nextShape))
-      || run.props.some(b => !passengers.includes(b) && propBlocksMechanism(b, before, nextShape)) || passengerBlocked(dx, dy)
+    const before = mechanismShape(m)
+    let x = approach(m.x, target.x, 130 * dt), y = approach(m.y, target.y, 130 * dt)
+    let dx = x - m.x, dy = y - m.y
+    const nextShape = { ...def, x, y }
+    const playerBlocked = rider ? obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, dy)) : bodyOverlap(p, nextShape)
+    const propsBlocked = run.props.some(b => !passengers.includes(b) && propBlocksMechanism(b, before, nextShape)) || passengerBlocked(dx, dy)
+    let motion = !playerBlocked && propsBlocked && def.kind === 'lift'
+      ? planLiftPropMotion(run, index, nextShape, passengers, !!rider, support?.prop, dt) : null
+    // Near the crown of a ball, a short downward step needs much more rolling
+    // travel. Shorten that step before declaring a genuinely blocked lift.
+    if (!playerBlocked && propsBlocked && def.kind === 'lift' && !motion) for (let part = 2; part <= 32; part *= 2) {
+      motion = planLiftPropMotion(run, index, { ...nextShape, x: m.x + dx / part, y: m.y + dy / part }, passengers, !!rider, support?.prop, dt)
+      if (motion) { dx /= part; dy /= part; x = m.x + dx; y = m.y + dy; break }
+    }
+    const blocked = playerBlocked || propsBlocked && !motion
     if (blocked) {
       if (def.kind === 'gate' && !opening) m.safetyHold = 0
       continue
     }
     m.x = x; m.y = y
-    if (rider) translatePlayer(p, dx, dy)
+    if (motion) translatePlayer(p, motion.player.x - p.x, motion.player.y - p.y)
+    else if (rider) translatePlayer(p, dx, dy)
     for (const b of passengers) { b.x += dx; b.y += dy }
+    for (const moved of motion?.balls ?? []) {
+      const b = moved.prop, shiftX = moved.x - b.x, shiftY = moved.y - b.y
+      b.x = moved.x; b.y = moved.y; b.angle += shiftX / (b.size / 2)
+      // Preserve existing momentum, adding only the velocity needed to yield
+      // to the platform. A failed trial never imparts a force or a displacement.
+      if (Math.abs(shiftX) > .001 && b.vx * Math.sign(shiftX) < Math.abs(shiftX) / dt) b.vx = shiftX / dt
+      if (Math.abs(shiftY) > .001 && b.vy * Math.sign(shiftY) < Math.abs(shiftY) / dt) b.vy = shiftY / dt
+    }
     if (x === target.x && y === target.y && def.kind === 'lift') { m.direction *= -1; m.wait = opening ? 3 : 2 }
   }
 }
@@ -127,16 +147,18 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number) {
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h)
 }
 function stepTriggers(run: Run, dt: number) {
+  const activeTargets = new Set<string>()
   run.level.triggers.forEach((plate, index) => {
     const sensor = run.triggers[index]
     const weighted = run.props.some(b => propLoadsPlate(b, plate.x, plate.y, plate.w))
     const touched = run.player.grounded && Math.abs(run.player.y - plate.y) < 3 && run.player.x >= plate.x && run.player.x <= plate.x + plate.w
     sensor.held = weighted || touched ? sensor.held + dt : 0
     sensor.active = sensor.held >= .15
+    if (sensor.active) for (const id of triggerTargets(plate)) activeTargets.add(id)
     sensor.depression = approach(sensor.depression, weighted || touched ? 1 : 0, dt / .12)
   })
   // Any held plate can power a shared mechanism; released plates never latch it on.
-  for (const mechanism of run.mechanisms) mechanism.active = run.level.triggers.some((plate, i) => plate.target === mechanism.definition.id && run.triggers[i].active)
+  for (const mechanism of run.mechanisms) mechanism.active = activeTargets.has(mechanism.definition.id)
 }
 function stepRobots(run: Run, dt: number) {
   const p = run.player

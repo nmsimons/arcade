@@ -2,7 +2,7 @@ import { DEFAULT_LEVEL, createPlayer, stepPlayer } from './helpers/jumping-fixtu
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { copyLevel, levelPlayer, levelRules, levelTerrain, newLevel, parseLevel, snapToGround, spawnProblem } from '../src/games/jumping/level.ts'
-import { addItem, deleteItem, insertTerrainNode, moveItem, replacePlatform, resizeItem, terrainNodeTarget } from '../src/games/jumping/editor.ts'
+import { addItem, deleteItem, deleteTerrainNode, insertTerrainNode, moveItem, replacePlatform, resizeItem, terrainNodeTarget } from '../src/games/jumping/editor.ts'
 import { polygonArea, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createRope, NO_CLIMBABLES, stepRope } from '../src/games/jumping/climbables.ts'
@@ -174,6 +174,21 @@ test('node placement keeps sloping and concave edges intact with snapping on or 
   crowded.platforms = [{ x: 200, y: 200, w: 400, h: 200, polygon: [...Array.from({ length: 61 }, (_, i) => [i * 400 / 61, 0]), [400, 0], [400, 200], [0, 200]] }]
   assert.throws(() => insertTerrainNode(crowded, terrainNodeTarget(crowded, 400, 400, 12)), /64 nodes/)
 })
+test('deleting nodes preserves the other world positions and refuses invalid terrain', () => {
+  const level = newLevel(); level.platforms = [{ x: 200, y: 200, w: 200, h: 200, polygon: [[0,0],[100,0],[200,0],[200,200],[0,200]] }]
+  const original = copyLevel(level), deleted = deleteTerrainNode(level, 0, 1)
+  assert.deepEqual(polygonPoints(deleted.platforms[0]), [[200,200],[400,200],[400,400],[200,400]])
+  assert.deepEqual(level, original)
+  const triangle = deleteTerrainNode(deleted, 0, 0)
+  assert.equal(polygonPoints(triangle.platforms[0]).length, 3)
+  assert.doesNotThrow(() => parseLevel(triangle))
+  assert.throws(() => deleteTerrainNode(triangle, 0, 0), /at least three nodes/)
+  const concave = copyLevel(level)
+  concave.platforms[0].polygon = [[0,0],[200,0],[200,200],[0,200],[0,100],[100,100],[100,50],[0,50]]
+  assert.throws(() => deleteTerrainNode(concave, 0, 1), /without crossing/)
+  assert.equal(concave.platforms[0].polygon.length, 8)
+})
+
 test('import rejects malformed, unbounded and non-finite geometry before it reaches the simulation', () => {
   for (const change of [v => { v.platforms[0].w = Infinity }, v => { v.platforms[0].profile = [[0, 0], [0, 20]] },
     v => { v.platforms[0].profile = [[0, 0], [v.platforms[0].w, 9000]] }, v => { v.climbables.ropes = [{ x: 0, y: 0, length: 100, segments: 1e9 }] },

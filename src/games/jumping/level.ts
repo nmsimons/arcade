@@ -20,7 +20,10 @@ export const LEVEL_GRID_SIZE = 20
 export interface PropDefinition { kind: 'box' | 'ball'; x: number; y: number; size: number }
 export interface Mechanism { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
-export interface Trigger { x: number; y: number; w: number; target: string; mode: 'weight' | 'touch' }
+type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
+export type Trigger = { x: number; y: number; w: number; mode: 'weight' | 'touch' } & TriggerConnection
+/** Legacy single connections remain readable without rewriting existing files. */
+export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
 export interface Pusher { x: number; y: number; left: number; right: number }
 export interface JumpLevel {
   version: 1; id: string; name: string; width: number; height?: number
@@ -111,7 +114,7 @@ export function levelProblems(level: JumpLevel): string[] {
       issues.push('Place the goal plate, light and exit on a continuous flat surface, with a clear doorway inside the level.')
     }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
-    if (level.triggers.some(t => !level.mechanisms.some(m => m.id === t.target))) issues.push('Connect each pressure plate to an elevator or gate.')
+    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id)))) issues.push('Connect each pressure plate to one or more elevators or gates.')
     if (level.robots.some(r => !groundAt(levelTerrain(level), r.x, r.y, .2))) issues.push('Place each shovebot on a terrain surface.')
     if (level.timers?.some(t => t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level))) issues.push('Keep wall timers inside the level rectangle.')
     if (level.pickups?.some(p => { const b = pickupBounds(p); return b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level) })) issues.push('Keep power-ups inside the level rectangle.')
@@ -231,9 +234,18 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     if (new Set(level.mechanisms.map(m => m.id)).size !== level.mechanisms.length) fail()
     level.triggers = list(v.triggers, 40).map(item => {
-      const t = object(item); if (typeof t.target !== 'string' || t.target.length > 100 || t.mode !== 'touch' && t.mode !== 'weight') fail()
+      const t = object(item); if (t.mode !== 'touch' && t.mode !== 'weight') fail()
+      let connection: TriggerConnection
+      if (t.targets !== undefined) {
+        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > 40
+          || t.targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(t.targets).size !== t.targets.length) fail()
+        connection = { targets: [...t.targets as string[]] }
+      } else {
+        if (typeof t.target !== 'string' || t.target.length > 100) fail()
+        connection = { target: t.target as string }
+      }
       const w = num(t.w, 40, 240)
-      return { x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!), w, target: t.target as string, mode: t.mode as 'touch' | 'weight' }
+      return { x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!), w, ...connection, mode: t.mode as 'touch' | 'weight' }
     })
     level.robots = list(v.robots, 30).map(item => {
       const r = object(item), left = num(r.left, 50, width - 100), right = num(r.right, left + 50, width - 50)

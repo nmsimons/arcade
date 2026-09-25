@@ -87,14 +87,14 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     }
   }
   ctx.restore()
-  for (const m of run.mechanisms) {
+  for (const m of run.mechanisms) if (m.definition.kind === 'lift') {
     const anchor = mechanismAnchor(m.definition), end = mechanismRopeEnd(m.definition, m)
     ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.8
     ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(end.x, end.y); ctx.stroke()
   }
   drawTerrain(ctx, run.terrain)
   for (const m of run.mechanisms) {
-    const d = m.definition, anchor = mechanismAnchor(d)
+    const d = m.definition
     if (d.kind === 'gate') {
       ctx.fillStyle = '#8f9e98'; rounded(ctx, m.x, m.y, d.w, d.h, 2); ctx.fill()
       ctx.fillStyle = '#667b72'
@@ -105,8 +105,9 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
       ctx.fillStyle = '#b3a28d'; rounded(ctx, m.x, m.y, d.w, d.h, 2); ctx.fill()
       ctx.fillStyle = '#938777'
       for (let x = m.x + 12; x < m.x + d.w - 8; x += 16) ctx.fillRect(x, m.y + d.h * .35, 3, d.h * .3)
+      const anchor = mechanismAnchor(d)
+      ctx.fillStyle = '#697d72'; ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill()
     }
-    ctx.fillStyle = '#697d72'; ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill()
   }
   for (const [i, plate] of level.triggers.entries()) {
     drawPressurePlate(ctx, plate.x, plate.y, plate.w, run.triggers[i].active, run.triggers[i].depression)

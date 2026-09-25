@@ -13,11 +13,11 @@ import { createRun, formatTime, readBest, saveBest, stepRun } from './jumping/ch
 import type { Run } from './jumping/challenge'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile } from './jumping/levelAssets'
-import { useLocalLevels } from './jumping/localLevels'
+import { levelFileName, useLocalLevels } from './jumping/localLevels'
 import { LocalFolderActions } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { drawChallenge } from './jumping/challengeRender'
-import { JUMPING_BUILDER, JUMPING_MENU, JUMPING_PLAYTEST, jumpingRoute, levelPath } from './jumping/routes'
+import { JUMPING_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import './jumping/jumping.css'
 
 type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
@@ -38,7 +38,7 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
 function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelCatalog; onExit: () => void }) {
   const location = useLocation(), navigate = useNavigate()
   const handledRoute = useRef(''), activePlayKey = useRef(''), builderPath = useRef(JUMPING_BUILDER)
-  const editorPath = useRef(JUMPING_BUILDER), playtests = useRef(new Map<number, JumpLevel>())
+  const editorPath = useRef(JUMPING_BUILDER), playtests = useRef(new Map<number, { level: JumpLevel; path: string; builderPath: string }>())
   const editorRevision = useRef(0)
   const [routeNotice, setRouteNotice] = useState('')
   const catalog = initialCatalog
@@ -130,9 +130,9 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     if (path !== location.pathname) navigate(path, { replace: true, state: location.state })
   }
   function testLevel(level: JumpLevel) {
-    const testId = playtests.current.size + 1
-    playtests.current.set(testId, copyLevel(level))
-    visit(JUMPING_PLAYTEST, { testId })
+    const testId = playtests.current.size + 1, path = playtestPath(builderPath.current, level.id)
+    playtests.current.set(testId, { level: copyLevel(level), path, builderPath: builderPath.current })
+    visit(path, { testId })
   }
   function startTest(level: JumpLevel) {
     level = prepareLevelRopes(level)
@@ -145,15 +145,26 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     if (handledRoute.current === location.key) return
     const route = jumpingRoute(location.pathname)
     setRouteNotice('')
+    if (route.screen === 'playtest') {
+      const draft = playtests.current.get(location.state?.testId)
+      if (draft?.path === location.pathname) {
+        builderPath.current = draft.builderPath
+        if (editorPath.current !== draft.builderPath) {
+          editorPath.current = draft.builderPath
+          setEditorFile({ file: { fileName: route.file?.fileName ?? levelFileName(draft.level.name), level: copyLevel(draft.level) }, key: ++editorRevision.current })
+          setBuilderStarted(true)
+        }
+        if (activePlayKey.current === location.key) changeScreen('playing')
+        else { startTest(draft.level); activePlayKey.current = location.key }
+        handledRoute.current = location.key
+        return
+      }
+      // Unsaved drafts remain session-only; file playtests can reload their saved level.
+      if (!route.file) { navigate(JUMPING_BUILDER, { replace: true }); return }
+    }
     if (route.screen === 'menu' || route.screen === 'missing') {
       setTesting(false); changeScreen('menu')
       if (route.screen === 'missing') setRouteNotice('That link does not point to a level or builder. Choose a level below.')
-    } else if (route.screen === 'playtest') {
-      const draft = playtests.current.get(location.state?.testId)
-      // Drafts live only in this session. A reload cannot reconstruct a playtest.
-      if (!draft) { navigate(JUMPING_BUILDER, { replace: true }); return }
-      if (activePlayKey.current === location.key) changeScreen('playing')
-      else { startTest(draft); activePlayKey.current = location.key }
     } else {
       if (route.screen === 'builder' && builderStarted && editorPath.current === location.pathname) {
         builderPath.current = location.pathname; changeScreen('building')
@@ -177,6 +188,16 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
         if (levelProblems(file.level).length) { changeScreen('menu'); setRouteNotice('This level needs repair before it can be played.'); return }
         if (activePlayKey.current === location.key) { setTesting(false); changeScreen('playing') }
         else { startFile(file, route.source); activePlayKey.current = location.key }
+      } else if (route.screen === 'playtest' && file) {
+        if (levelProblems(file.level).length) { changeScreen('menu'); setRouteNotice('This level needs repair before it can be played.'); return }
+        const path = levelPath(route.file!.source, file.fileName, true)
+        if (!builderStarted || editorPath.current !== path) {
+          setEditorFile({ file: { ...file, level: copyLevel(file.level) }, key: ++editorRevision.current })
+          editorPath.current = path
+        }
+        builderPath.current = path; setBuilderStarted(true)
+        if (activePlayKey.current === location.key) { setTesting(true); changeScreen('playing') }
+        else { startTest(file.level); activePlayKey.current = location.key }
       } else if (route.screen === 'builder') {
         if (editorPath.current !== location.pathname) {
           setEditorFile(file ? { file: { ...file, level: copyLevel(file.level) }, key: ++editorRevision.current } : null)

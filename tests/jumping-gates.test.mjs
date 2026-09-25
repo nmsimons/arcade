@@ -5,7 +5,7 @@ import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { addItem, duplicateItem, hitItem, itemOutline, moveItem, resizeItem } from '../src/games/jumping/editor.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
-import { mechanismAnchor, mechanismOpenPosition, mechanismRopeEnd, mechanismShape } from '../src/games/jumping/mechanisms.ts'
+import { mechanismOpenPosition, mechanismShape } from '../src/games/jumping/mechanisms.ts'
 
 const advance = (run, frames) => { for (let i = 0; i < frames; i++) stepRun(run, NEUTRAL_INPUT) }
 const fixture = flipX => {
@@ -30,18 +30,17 @@ test('gate travel follows barrier length through old imports and resizing, while
 
 for (const flipX of [false, true]) {
   const direction = flipX ? 1 : -1
-  test(`horizontal gate ${flipX ? 'right' : 'left'}: editing, rope bounds and JSON preserve its orientation`, () => {
+  test(`horizontal gate ${flipX ? 'right' : 'left'}: editing, body bounds and JSON preserve its orientation`, () => {
     let level = parseLevel(fixture(flipX)), m = level.mechanisms[0]
-    const anchor = mechanismAnchor(m), end = mechanismRopeEnd(m)
     assert.deepEqual(mechanismOpenPosition(m), { x: 700 + direction * 180, y: 780 })
-    assert.equal(Math.hypot(anchor.x - end.x, anchor.y - end.y), m.w)
-    for (const t of [0, .5, 1]) assert.deepEqual(hitItem(level, anchor.x + (end.x - anchor.x) * t, anchor.y, 0), { kind: 'mechanism', index: 0 })
-    assert.deepEqual(itemOutline(level, { kind: 'mechanism', index: 0 }), { x: flipX ? 700 : 520, y: 780, w: 360, h: 20 })
+    assert.deepEqual(hitItem(level, 790, 790, 0), { kind: 'mechanism', index: 0 })
+    assert.equal(hitItem(level, 790 + direction * 180, 790, 0), null, 'empty retraction space is not selectable')
+    assert.deepEqual(itemOutline(level, { kind: 'mechanism', index: 0 }), { x: 700, y: 780, w: 180, h: 20 })
     level = moveItem(level, { kind: 'mechanism', index: 0 }, 40, -60)
     level = duplicateItem(level, { kind: 'mechanism', index: 0 }).level
     m = level.mechanisms[1]
     assert.equal(m.orientation, 'horizontal'); assert.equal(m.flipX, flipX)
-    assert.deepEqual(mechanismAnchor(m), { x: anchor.x + 80, y: anchor.y - 60 })
+    assert.deepEqual(mechanismOpenPosition(m), { x: 780 + direction * 180, y: 720 })
     assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))), level)
   })
 
@@ -51,7 +50,7 @@ for (const flipX of [false, true]) {
     const run = createRun(level), gate = run.mechanisms[0], p = run.player; run.started = true
     advance(run, 240)
     assert.equal(gate.x, 700 + direction * 180); assert.equal(gate.y, 840)
-    assert.deepEqual(mechanismRopeEnd(gate.definition, gate), mechanismAnchor(gate.definition))
+    assert.deepEqual({ x: gate.x, y: gate.y }, mechanismOpenPosition(gate.definition))
     advance(run, 120); assert.equal(gate.x, 700 + direction * 180)
     Object.assign(p, { x: 790, y: 880, grounded: true, vx: 0, vy: 0, footwork: null })
     for (let i = 0; i < 240; i++) {

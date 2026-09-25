@@ -51,11 +51,20 @@ While the dev server is running, run `levels:index` after changing filenames.
 
 ## Local levels and editing
 
+Click an object to select it, drag it to move it, or drag empty space to pan.
+Space + drag or the middle mouse button pans from anywhere. Placement tools return
+to this default interaction after one use unless **Keep placing** is enabled;
+press Esc or click the active tool again to stop placing. Zoom centers on the
+selected object, or on the cursor for wheel zoom when nothing is selected.
+
 The **Terrain** tool draws a rectangular starting shape. Select it to resize the
 whole shape with the four square handles outside its bounding corners, or drag
 the white nodes to change its geometry. Choose **Node** (N), or **Add node** in
 the inspector, then click a terrain edge to insert a point at the preview marker.
 You can drag the new point immediately, or enable **Keep placing** to add several.
+Click an existing node, then press Delete / Backspace or use **Delete node** in the
+inspector to remove it. At least three nodes must remain, and the outline cannot
+cross itself. Arrow keys nudge the selected node; Shift nudges one unit.
 Resizing keeps the opposite corner fixed and scales the existing nodes. Resizing
 and node edits follow Snap; new points snap along the edge without changing its slope.
 
@@ -108,10 +117,12 @@ The level menu is `/untitled-jumping-game`, playing a saved level uses
 and the builder is `/untitled-jumping-game/builder`. Editing a local file uses
 `/untitled-jumping-game/builder/local/<filename>`. Filenames are URL encoded.
 Back and Forward navigate between these screens; returning from
-`/untitled-jumping-game/builder/playtest` preserves the current draft and undo
-history. Saved level links can be reloaded or bookmarked. Local links reopen the
-remembered folder, or ask for access before continuing. A playtest is temporary:
-reloading its URL returns to the builder, without restoring an unsaved draft.
+Playtesting a file appends `/playtest` to its builder URL, for example
+`/untitled-jumping-game/builder/local/Tower.json/playtest`. Back and **Return to
+builder** preserve the current draft and undo history. Reloading a file playtest
+uses the saved level; local links reopen the remembered folder or ask for access.
+Unsaved levels use `/untitled-jumping-game/builder/playtest/<level-id>` and remain
+session-only. Reloading an unsaved playtest returns to the empty builder.
 
 There are no browser copies or automatic draft saves. Edits and undo history stay
 in memory while returning from a playtest or the level menu, but reloading or
@@ -306,29 +317,33 @@ Medal `times` are increasing positive seconds: `gold < silver < bronze`.
 The builder's **Objects** tools place balls, boxes, and shovebots on a surface.
 Select a ball or box to change its size, or a shovebot to set its patrol limits.
 The **Mechanisms** tools place elevators, vertical and horizontal gates, and pressure plates. Select a
-plate and choose its connected mechanism in **Activates**; new plates connect to
+plate and check one or more mechanisms in **Activates**; new plates connect to
 the nearest mechanism when possible. All support moving, duplication, undo/redo,
 playtesting, and portable level files.
 
-Vertical gates have a fixed width of 20. A single rope suspends each gate from an
-anchor at `(x + w / 2, y - h)`. Holding its connected pressure plate raises the
-gate exactly its own height; releasing the plate lowers it again. Changing the
-height also changes the rope length. Older gates are narrowed around their original
+Vertical gates have a fixed width of 20, with no rope or anchor. Holding a connected
+pressure plate raises the gate exactly its own height; releasing the plate lowers
+it again. Older gates are narrowed around their original
 center on import, and their `travel` is normalized to their height.
 
 The **Horizontal gate** tool places a barrier 20 units tall. Drag horizontally
 to set its width, or change the width in the inspector. It retracts left by its
-own width while its plate is held. **Flip horizontally** moves the anchor to the
-right and reverses retraction; the closed barrier stays in place. Releasing the
+own width while its plate is held. **Flip horizontally** reverses retraction to the
+right; the closed barrier stays in place. Releasing the
 plate closes it. Horizontal gates use `kind: "gate"`, `orientation: "horizontal"`,
 and optional `flipX: true` in level files. Their `travel` always equals their width.
 
-Elevators use the same rope and anchor, with a horizontal platform fixed at 20
-units thick and an adjustable width. **Distance to anchor** sets their travel.
+Elevators hang from a rope and anchor, with a horizontal platform fixed at 20
+units thick and an adjustable width. **Travel height** sets their vertical travel
+from 60 to 1200 units. Dragging the selected elevator's top anchor adjusts the
+same distance without moving the platform, and respects the Snap setting.
 They make repeated trips between the starting
 position and the anchor while a connected plate is held, with a pause at each end.
 Releasing the plate pauses the elevator in place; pressing again resumes it.
-If multiple plates connect to one mechanism, any held plate powers it. A closing
+One plate can power several mechanisms simultaneously. Connections are saved as
+`targets: ["mechanism-id", "another-id"]`; legacy `target: "mechanism-id"`
+connections are still accepted. Deleting a mechanism removes only its connection
+from each plate. If multiple plates connect to one mechanism, any held plate powers it. A closing
 gate that meets a player or prop reopens completely. It stays open until the
 closing path has been clear for 0.6 seconds, then closes. This safety override
 also protects riders and carried props from being pinned against terrain.

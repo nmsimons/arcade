@@ -22,10 +22,19 @@ a ball and a wall can therefore displace the ball and regain footing. Requested
 motion away from a contact does not cancel the weight on it when another wall
 prevents separation. These contacts use the same swept player hull as movement.
 
-Mechanisms share position, anchor and travel geometry for both axes. A closing
+Mechanisms share position and travel geometry for both axes. A closing
 gate reverses when blocked, completes its opening stroke, and waits for its full
 closing path to clear for 0.6 seconds. The check includes transported players and
 props, so a rider cannot be pinned against terrain by a closing gate.
+
+Elevators first try to displace a contacted ball using the prop solver's collision
+hulls. Floor, platform and wall normals are solved together, so a ball can roll
+along a surface or push neighboring balls out of the way. Carried props and the
+player's swept movement must also remain clear. Trial positions are committed
+only when the complete contact chain fits; blocked trials impart no motion or
+momentum. Near the crown of a ball, the elevator takes a shorter step to keep its
+contact-driven speed bounded. A flat contact with no sideways normal does not
+invent a rolling direction.
 
 ## Step order
 
@@ -49,6 +58,12 @@ waits until this exit finishes.
 Geometry must be refreshed after moving objects, and final contacts must be
 revalidated after a jump or collision. These are successive stages of the same
 contact policy, not independent object-specific decisions about the player.
+
+Ledge grabs, ladder exits, rope transfers and lowering over an edge share the
+terrain's actual exposed top corners. Inset towers and shelves within a single
+polygon work like separate terrain pieces. Climbing exempts only the supporting
+corner from the standing-body hull; ceilings and other parts of the same polygon
+still obstruct the climb.
 
 ## Boundaries to preserve
 

@@ -62,6 +62,32 @@ function parts(b: Platform): Vec[][] {
   }
   cache.set(b, result); return result
 }
+const cornerCache = new WeakMap<Platform, Map<string, Platform[]>>()
+/** Keep solids above or outside a ledge while its authored climb clears the supporting corner. */
+export function outsideCorner(b: Platform, x: number, y: number, side: number): Platform[] {
+  let saved = cornerCache.get(b)
+  if (!saved) { saved = new Map(); cornerCache.set(b, saved) }
+  const key = `${x},${y},${side}`, cached = saved.get(key)
+  if (cached) return cached
+  const clipped: Platform[] = []
+  for (const points of parts(b)) for (const distance of [(p: Vec) => y - p[1], (p: Vec) => (x - p[0]) * side]) {
+    const polygon: Vec[] = []
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], c = points[(i + 1) % points.length], da = distance(a), dc = distance(c)
+      if (da >= 0) polygon.push(a)
+      if ((da > 0 && dc < 0) || (da < 0 && dc > 0)) {
+        const t = da / (da - dc)
+        polygon.push([a[0] + (c[0] - a[0]) * t, a[1] + (c[1] - a[1]) * t])
+      }
+    }
+    if (polygon.length < 3 || Math.abs(polygonArea(polygon)) < EPS) continue
+    const left = Math.min(...polygon.map(p => p[0])), top = Math.min(...polygon.map(p => p[1]))
+    clipped.push({ x: left, y: top, w: Math.max(...polygon.map(p => p[0])) - left, h: Math.max(...polygon.map(p => p[1])) - top,
+      polygon: polygon.map(p => [p[0] - left, p[1] - top]) })
+  }
+  saved.set(key, clipped)
+  return clipped
+}
 function axes(points: readonly Vec[]) {
   return points.map((a, i): Vec => {
     const b = points[(i + 1) % points.length], length = Math.hypot(b[0] - a[0], b[1] - a[1])

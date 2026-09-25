@@ -76,6 +76,9 @@
 .builder-minimap > span { display: block; font: 8px ui-monospace, monospace; color: #87967c; letter-spacing: .14em; margin-top: 3px; }
 .builder-property-card { margin-top: 16px; border-top: 1px solid #dfe4d6; padding-top: 2px; }
 .builder-property-card > label { margin-block: 14px; }
+.builder-connections { margin: 14px 0; padding: 0; border: 0; min-width: 0; }
+.builder-connections legend { margin-bottom: 8px; font-size: 10px; color: #7a8674; }
+.jumping-builder .builder-connections label { flex-direction: row; align-items: center; gap: 8px; padding: 7px 0; color: #3e5344; }
 .builder-property-card p, .builder-inspector p { color: #87917d; font-size: 10px; line-height: 1.65; }
 .builder-dimensions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 10px; margin-bottom: 14px; }
 .builder-object-actions { display: flex; gap: 12px; margin: 20px 0; }

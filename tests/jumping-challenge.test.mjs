@@ -126,6 +126,30 @@ test('an elevator pauses on plate release and resumes its direction on pressure 
   }
 })
 
+test('one plate powers several mechanisms and shared connections remain active until every plate releases', () => {
+  const level = blankTrial(); level.spawn.x = 340
+  level.mechanisms = [
+    { id: 'gate', kind: 'gate', x: 1000, y: 740, w: 20, h: 180, travel: 180 },
+    { id: 'lift', kind: 'lift', x: 700, y: 900, w: 160, h: 20, travel: 300 },
+    { id: 'horizontal', kind: 'gate', orientation: 'horizontal', x: 1300, y: 700, w: 180, h: 20, travel: 180 },
+  ]
+  level.triggers = [{ x: 300, y: 920, w: 80, targets: ['gate', 'lift', 'horizontal'], mode: 'weight' },
+    { x: 500, y: 920, w: 80, target: 'gate', mode: 'touch' }]
+  level.props = [{ kind: 'box', x: 540, y: 920, size: 30 }]
+  const run = createRun(level), [gate, lift, horizontal] = run.mechanisms
+  run.started = true; advance(run, 150)
+  assert.ok(run.mechanisms.every(m => m.active))
+  assert.ok(gate.y < 740 && lift.y < 900 && horizontal.x < 1300)
+  run.player.x = 160; advance(run, 1)
+  const stopped = lift.y
+  advance(run, 300)
+  assert.equal(lift.active, false); assert.equal(lift.y, stopped)
+  assert.equal(horizontal.active, false); assert.equal(horizontal.x, 1300)
+  assert.equal(gate.active, true); assert.equal(gate.y, 560)
+  run.props[0].x = 650; advance(run, 300)
+  assert.equal(gate.active, false); assert.equal(gate.y, 740)
+})
+
 test('the player or either of two weighted plates can keep a gate open', () => {
   const level = blankTrial(); level.mechanisms = [{ id: 'gate', kind: 'gate', x: 1000, y: 740, w: 20, h: 180, travel: 220 }]
   level.triggers = [{ x: 300, y: 920, w: 80, target: 'gate', mode: 'weight' }, { x: 500, y: 920, w: 80, target: 'gate', mode: 'weight' }]

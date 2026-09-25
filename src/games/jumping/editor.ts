@@ -12,7 +12,7 @@ import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { pickupBounds } from './pickups.ts'
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 
-export type Tool = 'select' | 'pan' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch'
+export type Tool = 'select' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
@@ -63,7 +63,8 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
 export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
   const mechanism = selection.kind === 'mechanism' ? level.mechanisms?.[selection.index] : undefined
-  if (mechanism) return mechanismSweep(mechanism)
+  if (mechanism) return mechanism.kind === 'lift' ? mechanismSweep(mechanism)
+    : { x: mechanism.x, y: mechanism.y, w: mechanism.w, h: mechanism.h }
   const rope = selection.kind === 'rope' ? level.climbables.ropes[selection.index] : undefined
   const points = rope ? ropePath(rope) : undefined
   if (!points) return itemBounds(level, selection)
@@ -74,6 +75,19 @@ export function itemHandle(level: JumpLevel, selection: Selection) {
   const tip = selection.kind === 'rope' ? level.climbables.ropes[selection.index]?.rest?.points.at(-1) : undefined
   const b = itemBounds(level, selection)
   return tip ? { x: tip[0], y: tip[1] } : b ? { x: b.x + b.w, y: b.y + b.h } : null
+}
+/** Adjust the upper stop without moving or resizing the elevator platform. */
+export function setElevatorTravel(level: JumpLevel, index: number, travel: number): JumpLevel {
+  if (level.mechanisms?.[index]?.kind !== 'lift' || !Number.isFinite(travel)) return level
+  const next = copyLevel(level)
+  next.mechanisms![index].travel = clamp(travel, 60, 1200)
+  return next
+}
+export function setTriggerTargets(level: JumpLevel, index: number, targets: readonly string[]): JumpLevel {
+  if (!level.triggers?.[index]) return level
+  const next = copyLevel(level), { x, y, w, mode } = next.triggers![index]
+  next.triggers![index] = { x, y, w, mode, targets: [...new Set(targets.filter(id => next.mechanisms?.some(m => m.id === id)))] }
+  return next
 }
 export function hitItem(level: JumpLevel, x: number, y: number, tolerance: number): Selection | null {
   if (Math.abs(x - level.spawn.x) < tolerance * 1.5 && y <= level.spawn.y + tolerance && y >= level.spawn.y - 62 - tolerance) return { kind: 'spawn', index: 0 }
@@ -91,7 +105,7 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     for (let i = length - 1; i >= 0; i--) {
       const b = itemBounds(level, { kind, index: i })!
       if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind, index: i }
-      if (kind === 'mechanism') {
+      if (kind === 'mechanism' && level.mechanisms![i].kind === 'lift') {
         const m = level.mechanisms![i], anchor = mechanismAnchor(m), end = mechanismRopeEnd(m)
         const dx = end.x - anchor.x, dy = end.y - anchor.y
         const t = clamp(((x - anchor.x) * dx + (y - anchor.y) * dy) / (dx * dx + dy * dy || 1), 0, 1)
@@ -232,7 +246,10 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'prop') next.props!.splice(i, 1)
   else if (selection.kind === 'robot') next.robots!.splice(i, 1)
   else if (selection.kind === 'trigger') next.triggers!.splice(i, 1)
-  else if (selection.kind === 'mechanism') { const [m] = next.mechanisms!.splice(i, 1); next.triggers!.forEach(t => { if (t.target === m.id) t.target = '' }) }
+  else if (selection.kind === 'mechanism') {
+    const [m] = next.mechanisms!.splice(i, 1)
+    next.triggers!.forEach(t => { if (t.targets) t.targets = t.targets.filter(id => id !== m.id); else if (t.target === m.id) t.target = '' })
+  }
   else next.checkpoints.splice(i, 1)
   return next
 }
@@ -312,7 +329,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     if (tool === 'plate') {
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 pressure plates.')
       const nearest = [...trial.mechanisms].sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
-      trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, target: nearest?.id ?? '', mode: 'touch' })
+      trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }
     if (tool === 'lift' || tool === 'gate' || tool === 'horizontal-gate') {
@@ -423,6 +440,16 @@ export function insertTerrainNode(level: JumpLevel, target: TerrainNodeTarget): 
   // Polygon terrain uses free ladders; retain their placement when converting a rectangle.
   for (const ladder of next.climbables.ladders) if (ladder.platform === target.index) ladder.platform = -1
   return next
+}
+
+export function deleteTerrainNode(level: JumpLevel, index: number, vertex: number): JumpLevel {
+  const terrain = level.platforms[index]
+  if (!terrain) return level
+  const points = polygonPoints(terrain)
+  if (!Number.isInteger(vertex) || vertex < 0 || vertex >= points.length) return level
+  if (points.length <= 3) throw new Error('Terrain needs at least three nodes.')
+  points.splice(vertex, 1)
+  return replacePlatform(level, index, polygonPlatform(points))
 }
 
 export function moveVertex(level: JumpLevel, index: number, vertex: number, dx: number, dy: number): JumpLevel {

@@ -5,6 +5,8 @@ import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, eas
 import type { ClimbableWorld, Climbing, Ladder, RopeState } from './climbables.ts'
 import { exposedSide, followGround, groundAt, platformSurface } from './terrain.ts'
 import type { GroundSurface } from './terrain.ts'
+import { ledgeExposed, ledgeObstacles, platformLedges, sameLedge } from './terrainLedges.ts'
+import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
 import { playerContacts, pushingVelocity, staticContactWorld, updatePushingPose } from './playerContacts.ts'
@@ -161,37 +163,27 @@ function settleSlopeBase(p: Player, ground: GroundSurface, downhill: number, pla
   return q.surface
 }
 function ledgeBraced(platforms: readonly Platform[], edgeX: number, edgeY: number, side: number) {
-  return [55, 58].every(offset => platforms.some(wall => {
-    const face = side === 1 ? wall.x : wall.x + wall.w
-    return Math.abs(face - edgeX) < .1 && pointInside(wall, edgeX + side * .1, edgeY + offset)
-  }))
+  return [55, 58].every(offset => platforms.some(wall => pointInside(wall, edgeX + side * .1, edgeY + offset)
+    && !pointInside(wall, edgeX - side * .1, edgeY + offset)))
 }
-function ledgeSurface(b: Platform, side: number) {
-  const x = side === 1 ? b.x : b.x + b.w, surface = platformSurface(b, x + side * .01)
-  const standing = platformSurface(b, x + side * 20, surface.y)
-  return Math.abs(surface.angle) < .001 && Math.abs(standing.y - surface.y) < .01 && Number.isFinite(surface.y)
-    ? { x, y: surface.y } : null
-}
-function ledgePathClear(platforms: readonly Platform[], platform: number, side: number, braced: boolean) {
-  const edge = ledgeSurface(platforms[platform], side)
-  if (!edge) return false
-  const { x: edgeX, y: edgeY } = edge
-  return !platforms.some((other, index) => index !== platform && (
+function ledgePathClear(platforms: readonly Platform[], edge: TerrainLedge, braced: boolean) {
+  const { edgeX, edgeY, side } = edge
+  if (!groundAt(platforms, edgeX + 20 * side, edgeY, .01)) return false
+  return !ledgeObstacles(platforms, edge).some(other => (
     overlaps(edgeX + 20 * side, edgeY, other) || overlaps(edgeX - 14 * side, edgeY, other)
     || Array.from({ length: 25 }, (_, i) => climbFrame(i / 24, braced).root).some(root => overlaps(edgeX + root[0] * side, edgeY + root[1], other))
   ))
 }
 /** Free ladders meet nearby terrain by position, including the builder's 20-unit grid spacing. */
 function ladderLedge(ladder: Ladder, platforms: readonly Platform[]) {
-  const candidates = platforms.flatMap((b, platform) => [1, -1].flatMap(side => {
-    const edge = ledgeSurface(b, side), gap = edge ? (edge.x - ladder.x) * side : Infinity
-    return edge && gap >= TUNING.width / 2 && gap <= 32 && Math.abs(edge.y - ladder.top) < 1
-      && exposedSide(platforms, b, side, edge.y, edge.y + TUNING.hangReach)
-      ? [{ platform, side, edgeX: edge.x, edgeY: edge.y, braced: ledgeBraced(platforms, edge.x, edge.y, side), gap }] : []
+  const candidates = platforms.flatMap((b, platform) => platformLedges(b).flatMap(edge => {
+    const { edgeX, edgeY, side } = edge, gap = (edgeX - ladder.x) * side
+    return gap >= TUNING.width / 2 && gap <= 32 && Math.abs(edgeY - ladder.top) < 1 && ledgeExposed(platforms, edge)
+      ? [{ platform, ...edge, braced: ledgeBraced(platforms, edgeX, edgeY, side), gap }] : []
   })).sort((a, b) => Number(b.platform === ladder.platform && b.side === ladder.side) - Number(a.platform === ladder.platform && a.side === ladder.side)
     || a.gap - b.gap || Number(b.side === ladder.side) - Number(a.side === ladder.side))
   return candidates.find(edge => {
-    if (!ledgePathClear(platforms, edge.platform, edge.side, edge.braced)) return false
+    if (!ledgePathClear(platforms, edge, edge.braced)) return false
     const target: [number, number] = [edge.edgeX - edge.side * 14, edge.edgeY + TUNING.hangReach]
     const safe = moveBody([ladder.x, ladder.top + climbGait(18).root], target, platforms)
     return Math.hypot(safe.x - target[0], safe.y - target[1]) < .01
@@ -200,15 +192,14 @@ function ladderLedge(ladder: Ladder, platforms: readonly Platform[]) {
 /** A rope grip can reach a lip even when the platform has no wall below the feet. */
 function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[]) {
   const grip = ropePoint(climb.rope!, climb.distance)
-  const candidates = platforms.flatMap((b, platform) => [1, -1].flatMap(side => {
-    const edge = ledgeSurface(b, side), gap = edge ? (edge.x - p.x) * side : Infinity
-    return edge && gap >= -TUNING.width / 2 && gap <= 48 && Math.abs(edge.x - grip[0]) <= 28
-      && grip[1] >= edge.y - 24 && grip[1] <= edge.y + 33
-      && exposedSide(platforms, b, side, edge.y, edge.y + TUNING.hangReach)
-      ? [{ platform, side, edgeX: edge.x, edgeY: edge.y, braced: ledgeBraced(platforms, edge.x, edge.y, side) }] : []
+  const candidates = platforms.flatMap((b, platform) => platformLedges(b).flatMap(edge => {
+    const { edgeX, edgeY, side } = edge, gap = (edgeX - p.x) * side
+    return gap >= -TUNING.width / 2 && gap <= 48 && Math.abs(edgeX - grip[0]) <= 28
+      && grip[1] >= edgeY - 24 && grip[1] <= edgeY + 33 && ledgeExposed(platforms, edge)
+      ? [{ platform, ...edge, braced: ledgeBraced(platforms, edgeX, edgeY, side) }] : []
   })).sort((a, b) => Math.hypot(a.edgeX - grip[0], a.edgeY - grip[1]) - Math.hypot(b.edgeX - grip[0], b.edgeY - grip[1]))
   return candidates.find(edge => {
-    if (!ledgePathClear(platforms, edge.platform, edge.side, edge.braced) || platforms.some(b => overlaps(p.x, p.y, b))) return false
+    if (!ledgePathClear(platforms, edge, edge.braced) || platforms.some(b => overlaps(p.x, p.y, b))) return false
     const from: [number, number] = [(p.x - edge.edgeX) * edge.side, p.y - edge.edgeY]
     let previous: [number, number] = [p.x, p.y]
     for (let i = 1; i <= 16; i++) {
@@ -238,8 +229,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
   // The authored mantle already clears its own ledge; every other solid still blocks it.
   const mantle = p.mantle ?? oldMantle
-  const obstacles = mantle ? platforms.filter(b => Math.abs((ledgeSurface(b, mantle.side)?.y ?? Infinity) - mantle.edgeY) > .01
-    || Math.abs((mantle.side === 1 ? b.x : b.x + b.w) - mantle.edgeX) > .01) : platforms
+  const obstacles = mantle ? ledgeObstacles(platforms, mantle) : platforms
   const result = moveBody(from, [p.x, p.y], obstacles, p.crouching ? TUNING.crouchHeight : TUNING.height)
   // Following a curved ground profile may cross a crest between two samples.
   // Keep the supported endpoint only for tiny corrections with a clear body.
@@ -358,20 +348,19 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const requestedClimb = vertical !== 0 && !input.jump
   if (p.grounded && !p.hang && !p.climbing && vertical < 0 && !input.jump && !input.detach && p.grabCooldown === 0) {
     // Lower over the edge first, then transfer to a nearby ladder or rope.
-    const edges = platforms.flatMap((b, platform) => [1, -1].flatMap(side => {
-      const edge = ledgeSurface(b, side)
-      return edge && Math.abs(p.y - edge.y) < .1 && p.x >= b.x && p.x <= b.x + b.w
-        ? [{ platform, side, edgeX: edge.x, edgeY: edge.y }] : []
+    const edges = platforms.flatMap((b, platform) => platformLedges(b).flatMap(edge => {
+      return Math.abs(p.y - edge.edgeY) < .1 && (p.x - edge.edgeX) * edge.side >= 0
+        ? [{ platform, ...edge }] : []
     }))
-      .filter(edge => Math.abs(edge.edgeX - p.x) <= 32 && exposedSide(platforms, platforms[edge.platform], edge.side, edge.edgeY, edge.edgeY + 62))
+      .filter(edge => Math.abs(edge.edgeX - p.x) <= 32 && ledgeExposed(platforms, edge))
       .sort((a, b) => Math.abs(a.edgeX - p.x) - Math.abs(b.edgeX - p.x))
     for (const edge of edges) {
       const braced = ledgeBraced(platforms, edge.edgeX, edge.edgeY, edge.side)
-      if (!ledgePathClear(platforms, edge.platform, edge.side, braced)) continue
+      if (!ledgePathClear(platforms, edge, braced)) continue
       const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork }
       const ladderIndex = climbables.ladders.findIndex(ladder => {
         const exit = ladderLedge(ladder, platforms)
-        return exit?.platform === edge.platform && exit.side === edge.side
+        return exit?.platform === edge.platform && sameLedge(exit, edge)
       })
       const ladder = climbables.ladders[ladderIndex]
       const transfer = ladder ? findClimbable({ ...p, x: ladder.x, y: ladder.top + TUNING.hangReach, grounded: false }, { ladders: [ladder], ropes: [] }, platforms) : null
@@ -507,7 +496,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (p.hang) {
     const h = p.hang; h.time += dt
     const catchTime = h.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME
-    const { platform, side } = h, caught = ledgeEase(h.time / catchTime)
+    const { side } = h, caught = ledgeEase(h.time / catchTime)
     p.x = h.caught.x + (h.edgeX - side * 14 - h.caught.x) * caught
     p.y = h.caught.y + (h.edgeY + TUNING.hangReach - h.caught.y) * caught
     if (h.caught.climbing?.rope) {
@@ -526,7 +515,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       if (h.queued && h.time >= catchTime) {
         const toX = h.edgeX + 20 * side, toY = h.edgeY
         // Check the lift and the destination, including low ceilings over the ledge.
-        if (ledgePathClear(platforms, platform, side, h.braced)) {
+        if (ledgePathClear(platforms, h, h.braced)) {
           p.mantle = { edgeX: h.edgeX, edgeY: h.edgeY, side, toX, toY, time: 0, braced: h.braced }; p.hang = null; cancelJumpInput(p)
         }
       }
@@ -630,10 +619,11 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   }
   let reach: Player['ledgeReach'] = null
   if (!p.grounded && !p.crouching && p.grabCooldown === 0 && !input.drop && p.vy > -500) {
-    for (let index = 0; index < platforms.length; index++) {
-      const b = platforms[index], side = p.facing, ledge = ledgeSurface(b, side)
-      if (!ledge || !exposedSide(platforms, b, side, ledge.y, ledge.y + TUNING.hangReach)) continue
-      const edge = ledge.x, edgeY = ledge.y
+    let catchPosition: ReturnType<typeof moveBody> | undefined
+    ledges: for (let index = 0; index < platforms.length; index++) for (const ledge of platformLedges(platforms[index])) {
+      const side = p.facing
+      if (ledge.side !== side || !ledgeExposed(platforms, ledge)) continue
+      const edge = ledge.edgeX, edgeY = ledge.edgeY
       const handY = p.y - TUNING.hangReach
       const outside = side === 1 ? p.x <= edge - 10 : p.x >= edge + 10
       const grabX = edge - side * 14, grabY = edgeY + TUNING.hangReach
@@ -645,10 +635,16 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       }
       if (p.vy > -180 && outside && Math.abs(p.x + side * 14 - edge) < 13 && Math.abs(handY - edgeY) < 16
         && !platforms.some(other => overlaps(grabX, grabY, other))) {
+        // Inset faces are resolved by the sweep, not the bounds-based side stop above.
+        // Catch from that resolved position so the same contact cannot cancel the new grip.
+        catchPosition ??= moveBody([oldX, oldY], [p.x, p.y], platforms, height)
+        if ((edge - catchPosition.x) * side < 10 || Math.abs(catchPosition.x + side * 14 - edge) >= 13
+          || Math.abs(catchPosition.y - TUNING.hangReach - edgeY) >= 16) continue
+        p.x = catchPosition.x; p.y = catchPosition.y
         const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, gait: p.gait, ledgeReach: reach }
         const braced = ledgeBraced(platforms, edge, edgeY, side)
         p.vx = 0; p.vy = 0; p.hang = { platform: index, side, edgeX: edge, edgeY, time: 0, queued: false, braced, caught }
-        cancelJumpInput(p); p.jumpHeld = input.jump; break
+        cancelJumpInput(p); p.jumpHeld = input.jump; break ledges
       }
     }
   }

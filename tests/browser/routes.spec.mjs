@@ -8,7 +8,7 @@ for(const [path,title]of games) test(`${path}: direct route, compatibility redir
     await expect(page).toHaveURL(new RegExp(`/${path}$`))
     if(title)await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible()
     else await expect(page.getByRole('button',{name:'Back',exact:true})).toBeVisible()
-    await expect(page.locator('canvas')).toBeVisible()
+    await expect(page.locator('canvas:not([aria-hidden="true"])')).toBeVisible()
     await page.evaluate(()=>new Promise(requestAnimationFrame))
     await page.keyboard.press('Escape')
     await expect(page.getByRole('heading',{name:'Select Game'})).toBeVisible()

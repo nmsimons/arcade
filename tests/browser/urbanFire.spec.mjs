@@ -68,7 +68,13 @@ test('static battlefield resources survive deployment and pause, and a paused fr
   const before=await page.evaluate(()=>({...window.urbanWork}))
   await page.clock.runFor(2000)
   expect(await page.evaluate(()=>window.urbanWork)).toEqual(before)
-  await page.setViewportSize({width:900,height:700});await frame(page)
+  await page.setViewportSize({width:900,height:700})
+  // Browser resize delivery is asynchronous and is not controlled by the
+  // mocked clock. Wait for the actual resized frame while advancing animation.
+  await expect.poll(async()=>{
+    const current=await frame(page)
+    return [current.width,current.height]
+  }).toEqual([900,700])
   expect(await page.evaluate(()=>window.urbanWork.draws)).toBeGreaterThan(before.draws)
   await page.keyboard.press('p');await frame(page)
   expect(await page.evaluate(()=>window.urbanWork.cities)).toBe(1)

@@ -390,10 +390,12 @@ async function reachOverhang(page) {
   for (let i = 0; i < 80 && (await position(page)).x < 720; i++) await page.clock.runFor(16)
   await page.keyboard.up('Space'); await page.keyboard.up('d'); await page.clock.runFor(1100)
   expect((await position(page)).y).toBeCloseTo(502)
-  // A short running hop approaches the lip from below for the automatic catch.
+  // This lip is 102 units higher and across a 170-unit gap. Give the running
+  // jump enough charge to reach it; a minimum tap falls short of the catch.
   await page.keyboard.down('d')
-  for (let i = 0; i < 80 && (await position(page)).x < 958; i++) await page.clock.runFor(16)
-  await page.keyboard.press('Space'); await page.clock.runFor(700); await page.keyboard.up('d')
+  for (let i = 0; i < 80 && (await position(page)).x < 928; i++) await page.clock.runFor(16)
+  await page.keyboard.down('Space'); await page.clock.runFor(96); await page.keyboard.up('Space')
+  await page.clock.runFor(700); await page.keyboard.up('d')
   await page.clock.runFor(100) // Let the throttled movement readout publish the caught ledge.
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
 }

@@ -25,9 +25,17 @@ export function restoreDialogSelection(root: HTMLElement, key = root.dataset.sel
 
 /** Linear menus visit every action. Explicit grids also respect their visual columns. */
 export function moveDialogSelection(root: HTMLElement, direction: ControllerNavigation | 'first' | 'last' | 'next' | 'previous') {
-  const buttons = dialogButtons(root), current = document.activeElement as HTMLButtonElement
+  const all = dialogButtons(root), current = document.activeElement as HTMLButtonElement
+  // Tile accessories remain reachable with Tab; directional browsing visits
+  // the tiles themselves, with their primary action on the controller's A button.
+  const linear = direction === 'next' || direction === 'previous'
+  const buttons = linear ? all : all.filter(button => !button.hasAttribute('data-menu-secondary'))
   if (!buttons.length) return
   if (direction === 'first' || direction === 'last') { focusDialogButton(buttons[direction === 'first' ? 0 : buttons.length - 1]); return }
+  if (!linear && all.includes(current) && current.hasAttribute('data-menu-secondary')) {
+    const primary = current.closest('[data-menu-item]')?.querySelector<HTMLButtonElement>('[data-menu-primary]')
+    if (primary && buttons.includes(primary)) { focusDialogButton(primary); return }
+  }
   if (!buttons.includes(current)) { restoreDialogSelection(root); return }
   const grid = current.closest('[data-menu-grid]')
   if (grid && root.contains(grid) && direction !== 'next' && direction !== 'previous') {

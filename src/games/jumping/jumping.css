@@ -1,5 +1,5 @@
 .jumping-game { position: fixed; inset: 0; color: #253638; background: #f1f0e9; font-family: 'Segoe UI', sans-serif; }
-.jumping-game canvas { display: block; width: 100%; height: 100%; outline: none; }
+.jumping-game > canvas { display: block; width: 100%; height: 100%; outline: none; }
 .jumping-eyebrow { color: #7b8981; font: 10px ui-monospace, monospace; letter-spacing: .16em; }
 .jumping-game button { cursor: pointer; border: 1px solid #a7b3a8; border-radius: 4px; padding: 9px 13px; color: #33473e; background: #f6f5ef; font: inherit; pointer-events: auto; }
 .jumping-game button:hover { background: #e3e8dc; }
@@ -60,7 +60,12 @@
 .jumping-level-browser { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 400px); gap: 32px; }
 .jumping-empty-levels { grid-column: 1 / -1; margin: auto; padding: 32px 12px; color: #74826a; font-size: 13px; text-align: center; }
 .jumping-level-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); grid-auto-rows: max-content; align-content: start; gap: 20px; padding: 6px; margin: -6px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scroll-padding: 6px; }
-.jumping-game .jumping-level-card { display: flex; flex-direction: column; align-items: flex-start; align-self: start; min-width: 0; position: relative; padding: 16px; border-color: #d3d8cc; border-radius: 7px; background: #f0f1e7; text-align: left; overflow: hidden; }
+.jumping-level-tile { position: relative; min-width: 0; align-self: start; }
+.jumping-level-tile-actions { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 6px; }
+.jumping-game .jumping-level-tile-actions button { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 9px; font-size: 11px; }
+.jumping-level-tile .jumping-level-card::after { content: ''; display: block; height: 42px; }
+.jumping-route-notice { margin: 0 0 12px; font-size: 12px; color: #985c38; }
+.jumping-game .jumping-level-card { display: flex; flex-direction: column; align-items: flex-start; align-self: start; min-width: 0; width: 100%; position: relative; padding: 16px; border-color: #d3d8cc; border-radius: 7px; background: #f0f1e7; text-align: left; overflow: hidden; }
 .jumping-game .jumping-level-card[aria-pressed=true] { color: #344b3d; border-color: #5e7a63; background: #e6ebdc; box-shadow: inset 0 -3px #607a5f; }
 .jumping-level-card .level-card-number { font: 10px ui-monospace, monospace; letter-spacing: .15em; color: #778570; }
 .level-thumbnail { display: block; flex-shrink: 0; width: 100%; height: 80px; overflow: hidden; }
@@ -68,16 +73,13 @@
 .jumping-level-card strong { font-size: 17px; line-height: 22px; height: 44px; letter-spacing: -.02em; font-weight: 600; margin-top: 12px; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .jumping-level-card > span:not(.level-card-number) { max-width: 100%; font-size: 11px; color: #788671; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .jumping-level-card small { font: 10px ui-monospace, monospace; margin-top: 16px; color: #7c8776; }
-.jumping-level-detail { display: grid; grid-template-rows: auto 56px minmax(0, 1fr) 38px auto; gap: 16px; min-height: 0; min-width: 0; padding-left: 28px; border-left: 1px solid #dce0d6; }
+.jumping-level-detail { display: grid; grid-template-rows: auto 56px minmax(0, 1fr) 38px; gap: 16px; min-height: 0; min-width: 0; padding-left: 28px; border-left: 1px solid #dce0d6; }
 .jumping-level-preview { height: clamp(100px, 22vh, 240px); background: #f0f1e7; border-radius: 5px; padding: 16px; }
 .jumping-level-preview .level-thumbnail { height: 100%; }
 .jumping-level-detail h3 { font-size: 24px; line-height: 28px; margin: 0; font-weight: 600; letter-spacing: -.03em; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .jumping-level-description { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: #a1af96 transparent; }
 .jumping-level-description p { margin: 0; padding-right: 12px; font-size: 13px; color: #71806d; line-height: 21px; overflow-wrap: anywhere; }
 .jumping-level-detail .jumping-medal-times { line-height: 16px; align-content: start; gap: 6px 16px; }
-.jumping-level-menu .jumping-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0; padding-top: 16px; border-top: 1px solid #dce0d6; }
-.jumping-level-menu .jumping-actions button { transition: none; }
-.jumping-level-menu .jumping-actions button:disabled { background: #eef0e6; border-color: #cad2c2; color: #8a9581; opacity: 1; }
 
 .jumping-loading { display: grid; place-content: center; gap: 16px; text-align: center; }
 .jumping-library-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 16px; min-height: 48px; }
@@ -98,10 +100,9 @@
 .jumping-load-error { color: #a54028; font-size: 12px; }
 @media (max-width: 900px) {
   .jumping-level-browser { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 24px; }
-  .jumping-level-detail { grid-template-rows: 24px 64px 16px auto; gap: 10px; padding: 16px 0 0; border-left: 0; border-top: 1px solid #dce0d6; }
+  .jumping-level-detail { grid-template-rows: 24px 64px 16px; gap: 10px; padding: 16px 0 0; border-left: 0; border-top: 1px solid #dce0d6; }
   .jumping-level-preview { display: none; }
   .jumping-level-detail h3 { font-size: 20px; line-height: 24px; -webkit-line-clamp: 1; }
-  .jumping-level-menu .jumping-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 6px; border-top: 0; }
 }
 @media (max-width: 620px) {
   .jumping-level-menu { padding: 20px; }
@@ -123,8 +124,6 @@
   .jumping-level-card strong { font-size: 14px; line-height: 18px; height: 36px; }
   .jumping-level-card > span:not(.level-card-number) { display: none; }
   .jumping-level-card small { font-size: 9px; margin-top: 12px; }
-  .jumping-level-menu .jumping-actions { font-size: 11px; }
-  .jumping-level-menu .jumping-actions button { padding-inline: 12px; }
 }
 @media (max-height: 850px) {
   .jumping-level-menu .jumping-menu-heading > p:not(.jumping-eyebrow) { display: none; }
@@ -133,7 +132,7 @@
 }
 @media (max-height: 750px) and (min-width: 901px) {
   .jumping-level-preview { display: none; }
-  .jumping-level-detail { grid-template-rows: 56px minmax(0, 1fr) 38px auto; }
+  .jumping-level-detail { grid-template-rows: 56px minmax(0, 1fr) 38px; }
 }
 @media (max-height: 650px) {
   .jumping-level-menu { padding: 16px 24px; }
@@ -145,21 +144,17 @@
   .jumping-library-status .local-folder-note:not([role]) { display: none; }
   .jumping-library-status .local-folder-note { -webkit-line-clamp: 1; }
   .jumping-level-preview { display: none; }
-  .jumping-level-detail { grid-template-rows: 24px minmax(0, 1fr) 38px auto; gap: 8px; }
+  .jumping-level-detail { grid-template-rows: 24px minmax(0, 1fr) 38px; gap: 8px; }
   .jumping-level-detail h3 { font-size: 20px; line-height: 24px; -webkit-line-clamp: 1; }
-  .jumping-level-menu .jumping-actions { gap: 10px; padding-top: 8px; }
-  .jumping-level-menu .jumping-actions button { min-height: 36px; padding-block: 8px; }
 }
 @media (max-height: 650px) and (min-width: 621px) {
   .jumping-level-browser { grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr); gap: 24px; }
   .jumping-level-cards { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
   .jumping-level-card .level-thumbnail { height: 90px; }
   .jumping-level-detail { border-top: 0; border-left: 1px solid #dce0d6; padding: 0 0 0 24px; }
-  .jumping-level-menu .jumping-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); font-size: 11px; }
-  .jumping-level-menu .jumping-actions button { padding-inline: 10px; }
 }
 @media (max-height: 650px) and (max-width: 620px) {
-  .jumping-level-detail { grid-template-rows: 24px 42px 16px auto; }
+  .jumping-level-detail { grid-template-rows: 24px 42px 16px; }
 }
 
 .jumping-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

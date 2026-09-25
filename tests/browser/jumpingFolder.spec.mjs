@@ -11,7 +11,7 @@ const names = page => page.locator('.jumping-level-card strong').allTextContents
 const test = base.extend({
   context: async ({ playwright, baseURL, viewport }, use) => {
     const profile = await mkdtemp(join(tmpdir(), 'jumping-folder-browser-'))
-    const context = await playwright.chromium.launchPersistentContext(profile, { channel: 'chromium', headless: true, baseURL, viewport })
+    const context = await playwright.chromium.launchPersistentContext(profile, { channel: process.env.PLAYWRIGHT_CHANNEL || 'chromium', headless: true, baseURL, viewport })
     await context.addInitScript(() => { Object.defineProperty(Navigator.prototype, 'getGamepads', { configurable: true, value: () => [] }) })
     try { await use(context) } finally { await context.close(); await rm(profile, { recursive: true, force: true }) }
   },
@@ -139,11 +139,14 @@ test('reload reopens the remembered handle, reads disk changes, saves, and remem
   expect(await names(page)).toEqual(['Changed on disk', 'New on disk'])
   await expect(page.getByRole('button', { name: 'Local folder', exact: true })).toHaveAttribute('aria-pressed', 'true')
   expect(await page.evaluate(() => [window.folderPickerCalls, window.folderPermissionRequests])).toEqual([0, 0])
-  await page.getByRole('button', { name: 'Edit selected level' }).click()
+  await page.locator('.jumping-level-tile').filter({ has: page.locator('.jumping-level-card[aria-pressed=true]') }).getByRole('button', { name: /^Edit / }).click()
   await page.getByRole('textbox', { name: 'Level name' }).fill('Saved after reload')
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved “00-first.json” to My levels')
   await page.reload()
+  await expect(page).toHaveURL(/\/builder\/local\/00-first.json$/)
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Saved after reload')
+  await page.getByRole('button', { name: 'Back to game', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Level 1: Saved after reload' })).toBeVisible()
   await seed(page, 'Other levels', { '00-other.json': level('other', 'Other folder') })
   await page.evaluate(() => sessionStorage.setItem('testFolder', 'Other levels'))
@@ -157,6 +160,21 @@ test('reload reopens the remembered handle, reads disk changes, saves, and remem
   await page.reload()
   await expect(page.getByRole('button', { name: 'Level 1: Other folder' })).toBeVisible()
   expect(await page.evaluate(() => window.folderPickerCalls)).toBe(0)
+})
+
+test('local play links reload from disk and resume after reconnecting folder access', async ({ page }) => {
+  await openFolder(page, { '01-café #1%.json': level('linked-local', 'Local link') })
+  await page.getByRole('button', { name: 'Play Local link', exact: true }).click()
+  await expect(page).toHaveURL(/\/levels\/local\/01-caf%C3%A9%20%231%25.json$/)
+  await page.reload()
+  await expect(page.getByRole('img', { name: 'Local link: activate the goal' })).toBeFocused()
+  expect(await page.evaluate(() => [window.folderPickerCalls, window.folderPermissionRequests])).toEqual([0, 0])
+  await page.evaluate(() => sessionStorage.setItem('folderPermission', 'prompt'))
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Reconnect folder' })).toBeEnabled()
+  await page.getByRole('button', { name: 'Reconnect folder' }).click()
+  await expect(page.getByRole('img', { name: 'Local link: activate the goal' })).toBeFocused()
+  expect(await page.evaluate(() => window.folderPermissionRequests)).toBe(1)
 })
 
 test('expired permissions reconnect the same folder with one click, and denial keeps the folder remembered', async ({ page }, info) => {
@@ -190,7 +208,7 @@ test('read permission restores levels automatically and write access can be enab
   await expect(page.getByRole('button', { name: 'Level 1: First local level' })).toBeVisible()
   await expect(page.getByText('1 level · Edits save as downloads')).toBeVisible()
   expect(await page.evaluate(() => window.folderPermissionRequests)).toBe(0)
-  await page.getByRole('button', { name: 'Edit selected level' }).click()
+  await page.locator('.jumping-level-tile').filter({ has: page.locator('.jumping-level-card[aria-pressed=true]') }).getByRole('button', { name: /^Edit / }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.screenshot({ path: info.outputPath('read-only-folder.png') })
   await page.getByRole('button', { name: 'Enable saving' }).click()
@@ -219,7 +237,7 @@ test('unavailable browser storage does not prevent opening and saving local file
   await page.addInitScript(() => { Object.defineProperty(window, 'indexedDB', { get() { throw new DOMException('Storage disabled', 'SecurityError') } }) })
   await openFolder(page)
   await expect(page.getByText('This folder could not be remembered', { exact: false })).toBeVisible()
-  await page.getByRole('button', { name: 'Edit selected level' }).click()
+  await page.locator('.jumping-level-tile').filter({ has: page.locator('.jumping-level-card[aria-pressed=true]') }).getByRole('button', { name: /^Edit / }).click()
   await page.getByRole('textbox', { name: 'Level name' }).fill('Still writable')
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved “00-first.json”')

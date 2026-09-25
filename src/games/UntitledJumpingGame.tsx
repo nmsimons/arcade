@@ -1,5 +1,6 @@
 import { levelTerrain } from './jumping/level'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
@@ -16,6 +17,7 @@ import { useLocalLevels } from './jumping/localLevels'
 import { LocalFolderActions, LocalFolderPanel } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { drawChallenge } from './jumping/challengeRender'
+import { JUMPING_BUILDER, JUMPING_MENU, JUMPING_PLAYTEST, jumpingRoute, levelPath } from './jumping/routes'
 import './jumping/jumping.css'
 
 type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
@@ -34,6 +36,11 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
 }
 
 function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelCatalog; onExit: () => void }) {
+  const location = useLocation(), navigate = useNavigate()
+  const handledRoute = useRef(''), activePlayKey = useRef(''), builderPath = useRef(JUMPING_BUILDER)
+  const editorPath = useRef(JUMPING_BUILDER), playtests = useRef(new Map<number, JumpLevel>())
+  const editorRevision = useRef(0)
+  const [routeNotice, setRouteNotice] = useState('')
   const [catalog, setCatalog] = useState(initialCatalog), [refreshing, setRefreshing] = useState(false)
   const local = useLocalLevels()
   const [chosenCollection, setCollection] = useState<'built-in' | 'local' | null>(null)
@@ -97,15 +104,10 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     setChallenge(true); setTesting(fromBuilder); setSaveError(false); changeScreen('playing')
   }
   function startChallenge() { playChallenge(trial, testing, recordKey) }
-  function selectTrial(file: LevelFile) {
+  function startFile(file: LevelFile, source = collection) {
     setSelectedName(file.fileName)
-    if (isPuzzleLevel(file.level)) {
-      setTrial(file.level); run.current = createRun(file.level); player.current = run.current.player; setChallenge(true); setTesting(false)
-      setRecordKey(collection === 'local' ? `local:${file.level.id}` : file.level.id)
-    }
-  }
-  function playFile(file: LevelFile, source = collection) {
-    setPlayingFile({ collection: source, fileName: file.fileName }); setSelectedName(file.fileName)
+    if (levelProblems(file.level).length) return
+    setPlayingFile({ collection: source, fileName: file.fileName })
     if (isPuzzleLevel(file.level)) playChallenge(file.level, false, source === 'local' ? `local:${file.level.id}` : file.level.id)
     else {
       run.current = null; setChallenge(false); setTesting(false)
@@ -113,21 +115,85 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       changeScreen('playing')
     }
   }
-  function editFile(file: LevelFile) {
-    setEditorFile({ file: { ...file, level: copyLevel(file.level) }, key: Date.now() }); openBuilder()
+  function visit(path: string, state = {}) {
+    navigate(path, { state: { from: location.pathname, ...state } })
   }
-  function openBuilder() { setBuilderStarted(true); changeScreen('building') }
+  function returnTo(path: string) {
+    if (location.state?.from === path) navigate(-1)
+    else visit(path)
+  }
+  function showMenu() { returnTo(JUMPING_MENU) }
+  function playFile(file: LevelFile, source = collection) {
+    setSelectedName(file.fileName)
+    if (!levelProblems(file.level).length) visit(levelPath(source, file.fileName))
+  }
+  function editFile(file: LevelFile) { visit(levelPath('local', file.fileName, true)) }
+  function openBuilder() { returnTo(builderPath.current) }
+  function builderFileChanged(fileName?: string) {
+    const path = fileName ? levelPath('local', fileName, true) : JUMPING_BUILDER
+    editorPath.current = path; builderPath.current = path
+    if (path !== location.pathname) navigate(path, { replace: true, state: location.state })
+  }
   function testLevel(level: JumpLevel) {
+    const testId = playtests.current.size + 1
+    playtests.current.set(testId, copyLevel(level))
+    visit(JUMPING_PLAYTEST, { testId })
+  }
+  function startTest(level: JumpLevel) {
     level = prepareLevelRopes(level)
     if (isPuzzleLevel(level)) { playChallenge(level, true); return }
     run.current = null; setChallenge(false)
     activeLevel.current = level; terrain.current = levelTerrain(level); rules.current = levelRules(level); player.current = levelPlayer(level)
     setTesting(true); changeScreen('playing')
   }
-  function closeBuilder() {
-    run.current = createRun(trial); player.current = run.current.player; setChallenge(true)
-    setTesting(false); changeScreen('menu')
-  }
+  const followRoute = useEffectEvent(() => {
+    if (handledRoute.current === location.key) return
+    const route = jumpingRoute(location.pathname)
+    setRouteNotice('')
+    if (route.screen === 'menu' || route.screen === 'missing') {
+      setTesting(false); changeScreen('menu')
+      if (route.screen === 'missing') setRouteNotice('That link does not point to a level or builder. Choose a level below.')
+    } else if (route.screen === 'playtest') {
+      const draft = playtests.current.get(location.state?.testId)
+      // Drafts live only in this session. A reload cannot reconstruct a playtest.
+      if (!draft) { navigate(JUMPING_BUILDER, { replace: true }); return }
+      if (activePlayKey.current === location.key) changeScreen('playing')
+      else { startTest(draft); activePlayKey.current = location.key }
+    } else {
+      if (route.screen === 'builder' && builderStarted && editorPath.current === location.pathname) {
+        builderPath.current = location.pathname; changeScreen('building')
+        handledRoute.current = location.key
+        return
+      }
+      const target = route.screen === 'level' ? route : route.file
+      const file = target && (target.source === 'local' ? local.files : catalog.files).find(file => file.fileName === target.fileName)
+      if (target) {
+        setCollection(target.source); setSelectedName(target.fileName)
+        if (!file) {
+          changeScreen('menu'); setTesting(false)
+          setRouteNotice(target.source === 'local' && local.status !== 'ready'
+            ? `Open the local folder containing ${target.fileName} to continue.`
+            : `Could not find ${target.fileName}. Refresh the levels or choose another file.`)
+          // Keep the destination pending while folder access or files are restored.
+          return
+        }
+      }
+      if (route.screen === 'level' && file) {
+        if (levelProblems(file.level).length) { changeScreen('menu'); setRouteNotice('This level needs repair before it can be played.'); return }
+        if (activePlayKey.current === location.key) { setTesting(false); changeScreen('playing') }
+        else { startFile(file, route.source); activePlayKey.current = location.key }
+      } else if (route.screen === 'builder') {
+        if (editorPath.current !== location.pathname) {
+          setEditorFile(file ? { file: { ...file, level: copyLevel(file.level) }, key: ++editorRevision.current } : null)
+          editorPath.current = location.pathname
+        }
+        builderPath.current = location.pathname
+        setBuilderStarted(true); changeScreen('building')
+      }
+    }
+    handledRoute.current = location.key
+  })
+  useEffect(() => { followRoute() }, [location.key, location.pathname, catalog.files, local.files, local.status, local.busy])
   const finishRun = useEffectEvent(() => {
     if (!run.current?.finished || screenRef.current !== 'playing') return
     setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
@@ -139,6 +205,10 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     changeScreen('complete')
   })
   const handleKey = useEffectEvent((event: KeyboardEvent) => {
+    if (screenRef.current === 'menu' && event.code === 'KeyY' && !event.altKey && !event.ctrlKey && !event.metaKey) {
+      if (!event.repeat && collection === 'local' && selected) { event.preventDefault(); editFile(selected) }
+      return
+    }
     if (screenRef.current !== 'playing' || event.altKey || event.ctrlKey || event.metaKey || !PLAY_KEYS.has(event.code)) return
     // Preserve keyboard activation of the playtest's Return to builder button.
     if (event.target instanceof HTMLButtonElement && event.code === 'Space') return
@@ -169,8 +239,12 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       const dialog = controllerDialog(rootRef.current)
       if (dialog) {
         if (pad.pause && screenRef.current === 'paused') changeScreen('playing')
+        else if (screenRef.current === 'menu' && pad.pressed.includes(3) && collection === 'local' && selected) editFile(selected)
         else if (pad.pressed.includes(1)) controlDialog(dialog, 'back')
-        else if (pad.pressed.includes(0)) controlDialog(dialog, 'confirm')
+        else if (pad.pressed.includes(0)) {
+          if (screenRef.current === 'menu' && selected && document.activeElement?.closest('[data-menu-item]')) playFile(selected)
+          else controlDialog(dialog, 'confirm')
+        }
         else if (pad.navigation) controlDialog(dialog, pad.navigation)
       }
       return null
@@ -258,7 +332,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
         <div className="jumping-medal-times"><span className="gold">Gold ≤ {trial.times.gold}s</span><span>Silver ≤ {trial.times.silver}s</span><span className="bronze">Bronze ≤ {trial.times.bronze}s</span></div>
         {!testing && best !== null && <p>Personal best {formatTime(best)}</p>}
         {saveError && <p role="status">Your time is kept for this visit. Browser storage is unavailable.</p>}
-        <div className="jumping-actions">{!testing && campaignIndex >= 0 && nextFile && <button className="jumping-primary" onClick={() => playFile(nextFile, playingFile.collection as 'built-in' | 'local')}>Next level <span aria-hidden="true">→</span></button>}{testing && <button className="jumping-primary" onClick={openBuilder}>Return to builder</button>}<button onClick={startChallenge}>Try again <span aria-hidden="true">↗</span></button><button onClick={() => changeScreen('menu')}>Level menu</button><button onClick={onExit}>Back to arcade</button></div>
+        <div className="jumping-actions">{!testing && campaignIndex >= 0 && nextFile && <button className="jumping-primary" onClick={() => playFile(nextFile, playingFile.collection as 'built-in' | 'local')}>Next level <span aria-hidden="true">→</span></button>}{testing && <button className="jumping-primary" onClick={openBuilder}>Return to builder</button>}<button onClick={startChallenge}>Try again <span aria-hidden="true">↗</span></button><button onClick={showMenu}>Level menu</button><button onClick={onExit}>Back to arcade</button></div>
       </div>
     </KeyboardDialog>}
     {(screen === 'menu' || screen === 'paused') && <KeyboardDialog label={screen === 'menu' ? 'Untitled Jumping Game' : 'Game paused'} focusKey={`jumping-${screen}`}
@@ -286,14 +360,25 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
               {catalog.errors.length ? <p className="jumping-load-error" role="alert" title={catalog.errors.join('\n')}>{catalog.errors.join(' · ')}</p> : <span>Included with the game · Ordered by filename</span>}
             </div>}
           </div>
+          {routeNotice && <p className="jumping-route-notice" role="status">{routeNotice}</p>}
           <div className="jumping-level-browser">
           <div key={collection} className="jumping-level-cards" data-menu-grid data-controller-scroll>{files.map((file, index) => {
             const level = file.level, record = bestTime(collection === 'local' ? `local:${level.id}` : level.id)
-            return <button key={file.fileName} className="jumping-level-card" aria-pressed={selected?.fileName === file.fileName} onClick={() => selectTrial(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
+            const needsRepair = levelProblems(level).length > 0
+            return <div key={file.fileName} className="jumping-level-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)} onPointerEnter={event => {
+              if (event.pointerType === 'mouse') event.currentTarget.querySelector<HTMLButtonElement>('[data-menu-primary]')?.focus({ preventScroll: true })
+            }}>
+            <button className="jumping-level-card" data-menu-primary data-initial-focus={selected?.fileName === file.fileName || undefined}
+              aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
               <span className="level-card-number">{String(index + 1).padStart(2, '0')}</span><LevelThumbnail level={level} />
               <strong>{level.name}</strong><span>{file.fileName}</span>
-              <small>{record !== null && isPuzzleLevel(level) ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
+              <small>{needsRepair ? 'Needs repair' : record !== null && isPuzzleLevel(level) ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
             </button>
+            <div className="jumping-level-tile-actions">
+              <button className="jumping-level-play" data-menu-secondary aria-label={`Play ${level.name}`} disabled={needsRepair} onClick={() => playFile(file)}>Play{connected && <kbd aria-hidden="true">A</kbd>}</button>
+              {collection === 'local' && <button className="jumping-level-edit" data-menu-secondary aria-label={`Edit ${level.name}`} onClick={() => editFile(file)}>Edit{connected && <kbd aria-hidden="true">Y</kbd>}</button>}
+            </div>
+            </div>
           })}{!files.length && <p className="jumping-empty-levels">{collection === 'built-in' ? 'No built-in levels available.' : local.status === 'ready' ? 'No levels in this folder yet.' : 'Open your folder to see its levels here.'}</p>}</div>
           <div className="jumping-level-detail">
             <div className="jumping-level-preview">{selected && <LevelThumbnail level={selected.level} />}</div>
@@ -303,10 +388,6 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
               {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
             </div>
             <div className="jumping-medal-times">{selected && isPuzzleLevel(selected.level) && <><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span>Bronze {selected.level.times.bronze}s</span></>}</div>
-            <div className="jumping-actions jumping-level-actions">
-              <button disabled={!selected} onClick={() => selected && editFile(selected)}>Edit selected level</button>
-              <button data-initial-focus className="jumping-primary" disabled={!selected || selectedProblems.length > 0} onClick={() => selected && playFile(selected)}>Start level <span aria-hidden="true">↗</span></button>
-            </div>
           </div>
           </div>
         </>}
@@ -324,13 +405,13 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
             <button data-initial-focus className="jumping-primary" onClick={() => changeScreen('playing')}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
             <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>
             <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
-            <button onClick={() => { setTesting(false); changeScreen('menu') }}>Level menu</button>
+            <button onClick={showMenu}>Level menu</button>
             <button onClick={onExit}>Back to arcade</button>
         </div>}
       </div>
     </KeyboardDialog>}
     <input ref={local.picker} aria-label="Open local level folder" type="file" {...{ webkitdirectory: '', directory: '' }} multiple hidden onChange={e => void local.importFolder(e.target.files)} />
-    {builderStarted && <LevelBuilder key={editorFile?.key ?? 'draft'} active={screen === 'building'} onPlay={testLevel} onClose={closeBuilder}
-      templates={catalog.files} local={local} initialFile={editorFile?.file} /> }
+    {builderStarted && <LevelBuilder key={editorFile?.key ?? 'draft'} active={screen === 'building'} onPlay={testLevel} onClose={showMenu}
+      templates={catalog.files} local={local} initialFile={editorFile?.file} onFileChange={builderFileChanged} /> }
   </div>
 }

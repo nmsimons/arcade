@@ -89,7 +89,7 @@ test('a gate rises past a ball leaning against it on a slope',()=>{
   level.triggers=[{x:50,y:920,w:100,target:'gate',mode:'touch'}]
   const run=createRun(level);run.started=true;Object.assign(run.player,{x:100,y:920})
   for(let i=0;i<400;i++){advance(run,1);clearTerrain(run)}
-  assert.equal(run.mechanisms[0].y,200)
+  assert.equal(run.mechanisms[0].y,160)
   assert.ok(run.props[0].x>800,'released ball can roll past the lifted gate')
 })
 

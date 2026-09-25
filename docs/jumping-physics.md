@@ -22,6 +22,11 @@ a ball and a wall can therefore displace the ball and regain footing. Requested
 motion away from a contact does not cancel the weight on it when another wall
 prevents separation. These contacts use the same swept player hull as movement.
 
+Mechanisms share position, anchor and travel geometry for both axes. A closing
+gate reverses when blocked, completes its opening stroke, and waits for its full
+closing path to clear for 0.6 seconds. The check includes transported players and
+props, so a rider cannot be pinned against terrain by a closing gate.
+
 ## Step order
 
 1. Read pressure plates and move mechanisms, carrying supported riders.

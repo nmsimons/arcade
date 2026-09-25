@@ -7,7 +7,7 @@ import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, GOAL_POLE_OFFSET, GOAL_OPEN_SECOND
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { drawPickup } from './pickups.ts'
 import { levelHeight } from './level.ts'
-import { mechanismAnchor } from './mechanisms.ts'
+import { isHorizontalGate, mechanismAnchor, mechanismRopeEnd } from './mechanisms.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number) {
@@ -88,21 +88,23 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   ctx.restore()
   for (const m of run.mechanisms) {
-    const anchor = mechanismAnchor(m.definition)
+    const anchor = mechanismAnchor(m.definition), end = mechanismRopeEnd(m.definition, m)
     ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.8
-    ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(anchor.x, m.y); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(anchor.x, anchor.y); ctx.lineTo(end.x, end.y); ctx.stroke()
   }
   drawTerrain(ctx, run.terrain)
   for (const m of run.mechanisms) {
     const d = m.definition, anchor = mechanismAnchor(d)
     if (d.kind === 'gate') {
-      ctx.fillStyle = '#8f9e98'; rounded(ctx, d.x, m.y, d.w, d.h, 2); ctx.fill()
+      ctx.fillStyle = '#8f9e98'; rounded(ctx, m.x, m.y, d.w, d.h, 2); ctx.fill()
       ctx.fillStyle = '#667b72'
-      for (let y = m.y + 16; y < m.y + d.h - 8; y += 24) ctx.fillRect(d.x + 5, y, d.w - 10, 2)
+      if (isHorizontalGate(d)) {
+        for (let x = m.x + 16; x < m.x + d.w - 8; x += 24) ctx.fillRect(x, m.y + 5, 2, d.h - 10)
+      } else for (let y = m.y + 16; y < m.y + d.h - 8; y += 24) ctx.fillRect(m.x + 5, y, d.w - 10, 2)
     } else {
-      ctx.fillStyle = '#b3a28d'; rounded(ctx, d.x, m.y, d.w, d.h, 2); ctx.fill()
+      ctx.fillStyle = '#b3a28d'; rounded(ctx, m.x, m.y, d.w, d.h, 2); ctx.fill()
       ctx.fillStyle = '#938777'
-      for (let x = d.x + 12; x < d.x + d.w - 8; x += 16) ctx.fillRect(x, m.y + d.h * .35, 3, d.h * .3)
+      for (let x = m.x + 12; x < m.x + d.w - 8; x += 16) ctx.fillRect(x, m.y + d.h * .35, 3, d.h * .3)
     }
     ctx.fillStyle = '#697d72'; ctx.beginPath(); ctx.arc(anchor.x, anchor.y, 5, 0, Math.PI * 2); ctx.fill()
   }

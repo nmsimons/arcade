@@ -32,10 +32,14 @@ async function open(page, level) {
     }
   })
   await page.goto('/untitled-jumping-game')
-  await page.getByRole('button', { name: level ? 'Edit selected level' : 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.clock.runFor(64)
+  if (level) {
+    await page.getByLabel('Import level file').setInputFiles({ name: 'fixture.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(level)) })
+    await page.clock.runFor(32)
+  }
 }
 async function downloadLevel(page, button = 'Export') {
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: button, exact: true }).click()])
@@ -91,7 +95,7 @@ test('object tools place editable balls, boxes, elevators, gates and shovebots w
   expect(saved.level.props).toEqual([{ kind: 'ball', x: 260, y: 920, size: 60 }, { kind: 'box', x: 380, y: 920, size: 100 }])
   expect(saved.level.mechanisms.map(({ kind, x, y, w, h, travel }) => ({ kind, x, y, w, h, travel }))).toEqual([
     { kind: 'lift', x: 500, y: 900, w: 180, h: 20, travel: 240 },
-    { kind: 'gate', x: 820, y: 720, w: 20, h: 200, travel: 220 },
+    { kind: 'gate', x: 820, y: 720, w: 20, h: 200, travel: 200 },
   ])
   expect(saved.level.robots).toEqual([{ x: 740, y: 920, left: 660, right: 780 }])
   expect(saved.level.triggers.map(p => p.target)).toEqual(saved.level.mechanisms.map(m => m.id))
@@ -108,7 +112,7 @@ test('object tools place editable balls, boxes, elevators, gates and shovebots w
   expect(errors).toEqual([])
 })
 
-test('suspended gates and elevators keep fixed thickness, editable anchors, and working switches', async ({ page }, info) => {
+test('suspended gates follow their height while elevators keep editable travel and working switches', async ({ page }, info) => {
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, roundRect = proto.roundRect, arc = proto.arc
     proto.roundRect = function (x, y, w, h, ...rest) {
@@ -137,7 +141,7 @@ test('suspended gates and elevators keep fixed thickness, editable anchors, and 
   await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveValue('20')
   await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toBeDisabled()
   await page.getByRole('spinbutton', { name: 'Object h', exact: true }).fill('160')
-  await page.getByRole('spinbutton', { name: 'Distance to anchor' }).fill('240')
+  await expect(page.getByRole('spinbutton', { name: 'Distance to anchor' })).toHaveCount(0)
   await selected.selectOption('mechanism:1')
   await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toHaveValue('20')
   await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toBeDisabled()
@@ -148,22 +152,22 @@ test('suspended gates and elevators keep fixed thickness, editable anchors, and 
     gate: { x: 612, y: 740, w: 20, h: 160 }, lift: { x: 900, y: 890, w: 200, h: 20 },
   })
   const exported = await downloadLevel(page)
-  expect(exported.level.mechanisms.map(m => [m.w, m.h, m.travel])).toEqual([[20, 160, 240], [200, 20, 240]])
+  expect(exported.level.mechanisms.map(m => [m.w, m.h, m.travel])).toEqual([[20, 160, 160], [200, 20, 240]])
   await page.getByLabel('Import level file').setInputFiles(exported.path); await page.clock.runFor(32)
-  expect(await editor.evaluate(canvas => canvas.mechanismAnchors[622])).toBe(500)
+  expect(await editor.evaluate(canvas => canvas.mechanismAnchors[622])).toBe(580)
   expect(await editor.evaluate(canvas => canvas.mechanismAnchors[1000])).toBe(650)
   await page.screenshot({ path: info.outputPath('suspended-mechanisms-builder.png') })
   await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
   const game = page.getByRole('img', { name: 'Untitled level: activate the goal' })
   await page.keyboard.down('d'); await page.clock.runFor(32); await page.keyboard.up('d')
   await page.clock.runFor(2600)
-  expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(500)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(580)
   expect(await game.evaluate(canvas => canvas.mechanismBodies.lift.y)).toBe(650)
-  expect(await game.evaluate(canvas => canvas.mechanismAnchors[622])).toBe(500)
+  expect(await game.evaluate(canvas => canvas.mechanismAnchors[622])).toBe(580)
   expect(await game.evaluate(canvas => canvas.mechanismAnchors[1000])).toBe(650)
   await page.screenshot({ path: info.outputPath('suspended-mechanisms-raised.png') })
   await page.clock.runFor(4000)
-  expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(500)
+  expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(580)
   expect(await game.evaluate(canvas => canvas.mechanismBodies.lift.y)).toBeGreaterThan(650)
   await page.keyboard.down('d'); await page.clock.runFor(320); await page.keyboard.up('d'); await page.clock.runFor(32)
   const stoppedY = await game.evaluate(canvas => canvas.mechanismBodies.lift.y)
@@ -171,6 +175,58 @@ test('suspended gates and elevators keep fixed thickness, editable anchors, and 
   expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(740)
   expect(await game.evaluate(canvas => canvas.mechanismBodies.lift.y)).toBe(stoppedY)
   await page.screenshot({ path: info.outputPath('suspended-mechanisms-released.png') })
+})
+
+test('horizontal gates resize, flip, round-trip and retract one width only while pressed', async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype, roundRect = proto.roundRect, arc = proto.arc
+    proto.roundRect = function (x, y, w, h, ...rest) {
+      if (this.fillStyle === '#8f9e98' && h === 20) this.canvas.gateBody = { x, y, w, h }
+      return roundRect.call(this, x, y, w, h, ...rest)
+    }
+    proto.arc = function (x, y, r, ...rest) {
+      if (this.fillStyle === '#697d72' && r === 5) this.canvas.gateAnchor = { x, y }
+      return arc.call(this, x, y, r, ...rest)
+    }
+  })
+  const level = blankTrial(); level.spawn.x = 340
+  await open(page, level)
+  await page.getByRole('button', { name: 'Horizontal gate', exact: true }).click()
+  await dragWorld(page, { x: 700, y: 780 }, { x: 880, y: 780 })
+  const editor = page.getByRole('application', { name: 'Level canvas' }), selected = page.getByRole('combobox', { name: 'Selected object' })
+  await expect(selected).toHaveValue('mechanism:0')
+  await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('200')
+  await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toBeDisabled()
+  await expect(page.getByRole('spinbutton', { name: 'Distance to anchor' })).toHaveCount(0)
+  await page.clock.runFor(32)
+  expect(await editor.evaluate(canvas => canvas.gateAnchor)).toEqual({ x: 500, y: 790 })
+  await page.getByRole('button', { name: 'Flip horizontally', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Flip horizontally', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await page.clock.runFor(32)
+  expect(await editor.evaluate(canvas => canvas.gateAnchor)).toEqual({ x: 500, y: 790 })
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); await page.clock.runFor(32)
+  expect(await editor.evaluate(canvas => canvas.gateAnchor)).toEqual({ x: 1100, y: 790 })
+  await page.getByRole('button', { name: 'Pressure plate', exact: true }).click()
+  await dragWorld(page, { x: 340, y: 900 }, { x: 340, y: 900 })
+  await expect(page.getByRole('combobox', { name: 'Connected mechanism' }).locator('option:checked')).toHaveText('Horizontal gate 1')
+  const saved = await downloadLevel(page)
+  expect(saved.level.mechanisms[0]).toMatchObject({ kind: 'gate', orientation: 'horizontal', flipX: true, x: 700, y: 780, w: 200, h: 20, travel: 200 })
+  await page.getByLabel('Import level file').setInputFiles(saved.path); await page.clock.runFor(32)
+  expect((await downloadLevel(page)).level).toEqual(saved.level)
+  await selected.selectOption('mechanism:0')
+  await page.screenshot({ path: info.outputPath('horizontal-gate-builder.png') })
+  await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
+  const game = page.getByRole('img', { name: 'Untitled level: activate the goal' })
+  expect(await game.evaluate(canvas => canvas.gateBody)).toEqual({ x: 700, y: 780, w: 200, h: 20 })
+  await page.keyboard.down('d'); await page.clock.runFor(32); await page.keyboard.up('d'); await page.clock.runFor(2300)
+  expect(await game.evaluate(canvas => canvas.gateBody)).toEqual({ x: 900, y: 780, w: 200, h: 20 })
+  expect(await game.evaluate(canvas => canvas.gateAnchor)).toEqual({ x: 1100, y: 790 })
+  await page.screenshot({ path: info.outputPath('horizontal-gate-open.png') })
+  await page.keyboard.down('d'); await page.clock.runFor(640); await page.keyboard.up('d'); await page.clock.runFor(2300)
+  expect(await game.evaluate(canvas => canvas.gateBody)).toEqual({ x: 700, y: 780, w: 200, h: 20 })
+  await page.screenshot({ path: info.outputPath('horizontal-gate-closed.png') })
+  expect(errors).toEqual([])
 })
 
 test('goal lights flip horizontally, survive moving and export, and still activate in play', async ({ page }, info) => {
@@ -361,7 +417,7 @@ test('build, edit, undo, save, playtest, return and reload a custom level', asyn
   await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveValue('400')
   // Let React's lazy-route scheduling run normally across the reload.
   await page.clock.resume(); await page.reload()
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await expect(page).toHaveURL(/\/builder$/)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Untitled level')
   await page.getByLabel('Import level file').setInputFiles(saved.path)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Slope workshop')
@@ -557,14 +613,14 @@ test('rope layout is resolved in the editor, saved, and reused unchanged on play
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await page.clock.runFor(600)
   expect(await editor.evaluate(canvas => canvas.ropePath)).toEqual(preview)
   await page.clock.resume(); await page.reload()
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await expect(page).toHaveURL(/\/builder$/)
   await page.getByLabel('Import level file').setInputFiles(file.path)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Rope layout')
   expect(await editor.evaluate(canvas => canvas.ropePath)).toEqual(preview)
 })
 
 for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyboard'} Down transfers onto its rope, descends, swings away and drops`, async ({page},info) => {
-  const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,spawn:{x:410,y:200},goal:{x:700,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
+  const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,spawn:{x:410,y:200},goal:{x:620,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
   await page.addInitScript(({controller})=>{
     if(controller){window.testPad={index:0,id:'Rappel pad',connected:true,mapping:'standard',axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};Object.defineProperty(navigator,'getGamepads',{value:()=>[window.testPad]})}
   },{controller})
@@ -648,7 +704,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 
 for (const anchorY of [200, 220]) for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} climbs onto a thin platform from a rope anchored at ${anchorY}`, async ({ page }, info) => {
   const level = { version: 1, id: 'rope-exit-test', name: 'Rope exit test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 400, y: 600 }, goal: { x: 700, y: 200 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 20 }],
+    spawn: { x: 400, y: 600 }, goal: { x: 620, y: 200 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 20 }],
     climbables: { ladders: [], ropes: [{ x: 400, y: anchorY, length: 330, segments: 24, anchor: { platform: 0, x: 0, y: anchorY - 200 } }] },
     props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
   await page.addInitScript(({ controller }) => {
@@ -752,7 +808,7 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   await page.getByLabel('Import level file').setInputFiles(await download.path())
   await page.clock.runFor(600)
   await page.clock.resume(); await page.reload()
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await expect(page).toHaveURL(/\/builder$/)
   await page.getByLabel('Import level file').setInputFiles(await download.path())
   await expect(page.getByRole('spinbutton', { name: 'Level height', exact: true })).toHaveValue('1037')
   await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')

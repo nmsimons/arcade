@@ -10,6 +10,7 @@ const paths: Record<Exclude<Tool, 'stopwatch'>, string> = {
   pusher: 'M4 7h12v11H4zM16 13h4M21 8v12M7 7V4h6M7 11h5M7 18v3M13 18v3',
   plate: 'M2 19h20M4 14h16v2H4zM12 3v7M9 7l3 3 3-3', lift: 'M14 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM12 6v11M3 17h18v4H3z',
   gate: 'M14 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM12 6v4M9 10h6v11H9zM11 14h2M11 18h2',
+  'horizontal-gate': 'M6 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM6 12h4M10 9h11v6H10zM14 11v2M18 11v2',
   timer: 'M2 6h20v12H2zM6 10v4M10 10v4M14 10v4M18 10v4',
   text: 'M4 7V4h16v3M12 4v16M8 20h8',
 }

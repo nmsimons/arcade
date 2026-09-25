@@ -1,4 +1,4 @@
-import { bodyIntersects, moveBody } from './geometry.ts'
+import { bodyIntersects, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
@@ -13,13 +13,13 @@ import { prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysic
 import { ballShape, boxShape, propBounds, propLoadsPlate } from './propGeometry.ts'
 import { playerContacts, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
-import { mechanismAnchor, prepareMechanism } from './mechanisms.ts'
+import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism } from './mechanisms.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop {
   kind: 'box' | 'ball'; x: number; y: number; size: number; vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
 }
-export interface MechanismState { definition: Mechanism; y: number; direction: number; wait: number; active: boolean }
+export interface MechanismState { definition: Mechanism; x: number; y: number; direction: number; wait: number; active: boolean; safetyHold: number | null }
 export interface RobotState { definition: Pusher; x: number; y: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; hit: boolean }
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
@@ -52,7 +52,7 @@ export function createRun(level: PuzzleLevel): Run {
     terrain: levelTerrain(level), platforms: [],
     mechanisms: level.mechanisms.map(m => {
       const definition = prepareMechanism(m, level.floor)
-      return { definition, y: definition.y, direction: -1, wait: 0, active: false }
+      return { definition, x: definition.x, y: definition.y, direction: -1, wait: 0, active: false, safetyHold: null }
     }),
     triggers: level.triggers.map(() => ({ held: 0, active: false, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, angle: 0, facing: -1, phase: 'patrol', time: 0, hit: false })),
@@ -64,7 +64,7 @@ export function createRun(level: PuzzleLevel): Run {
 }
 function syncPlatforms(run: Run): ContactWorld {
   const colliders = [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
-    ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: { ...m.definition, y: m.y } })),
+    ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: mechanismShape(m) })),
     ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind
       ? [{ id: `prop:${i}`, prop, platform: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) }] : []))]
   run.platforms = colliders.map(c => c.platform)
@@ -77,29 +77,50 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const def = m.definition
     if (def.kind === 'lift' && !m.active) continue
     if (m.wait > 0) { m.wait -= dt; continue }
-    const oldY = m.y, rising = def.kind === 'gate' ? m.active : m.direction < 0
-    const target = rising ? mechanismAnchor(def).y : def.y
-    if (oldY === target) continue
-    const next = approach(oldY, target, 130 * dt), dy = next - oldY, p = run.player
+    const p = run.player, open = mechanismOpenPosition(def)
     const platformIndex = run.terrain.length + index
     const support = contacts.support?.collider
-    const onProp = support?.prop && propLoadsPlate(support.prop, def.x, oldY, def.w)
+    const passengers = run.props.filter(b => propLoadsPlate(b, m.x, m.y, def.w))
+    const onProp = support?.prop && passengers.includes(support.prop)
     const rider = onProp || support?.id === `mechanism:${index}`
-      || p.hang?.platform === platformIndex || !!p.mantle && Math.abs(p.mantle.edgeY - oldY) < .2 && p.mantle.edgeX >= def.x && p.mantle.edgeX <= def.x + def.w
-    const nextShape = { ...def, y: next }
-    const obstacles = run.platforms.filter((_, i) => i !== platformIndex)
-    if (rider && obstacles.some(b => bodyOverlap(p, b, dy)) || !rider && bodyOverlap(p, nextShape)) continue
-    if (run.props.some(b => !propLoadsPlate(b, def.x, oldY, def.w)
-      && propBlocksMechanism(b, { ...def, y: oldY }, nextShape))) continue
-    m.y = next
-    if (rider) translatePlayer(p, 0, dy)
-    for (const b of run.props) if (propLoadsPlate(b, def.x, oldY, def.w)) b.y += dy
-    if (next === target && def.kind === 'lift') { m.direction *= -1; m.wait = target < def.y ? 3 : 2 }
+      || p.hang?.platform === platformIndex || !!p.mantle && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
+    const obstacles = run.platforms.filter((b, i) => i !== platformIndex && b !== support?.platform)
+    const solids = [...run.terrain, ...run.mechanisms.filter(other => other !== m).map(mechanismShape)]
+    const passengerBlocked = (dx: number, dy: number) => passengers.some(b => solids.some(s => propBlocksMechanism(b, s, { ...s, x: s.x - dx, y: s.y - dy })))
+    if (m.safetyHold != null && m.x === open.x && m.y === open.y) {
+      // After reversing, wait for the whole closing path to clear. A small pause
+      // gives the player time to step out instead of trapping them on each retry.
+      const path = mechanismSweep(def), dx = def.x - m.x, dy = def.y - m.y
+      const carry = rider ? moveBody([p.x, p.y], [p.x + dx, p.y + dy], obstacles, p.crouching ? TUNING.crouchHeight : TUNING.height) : null
+      let occupied = bodyOverlap(p, path) || run.props.some(b => !passengers.includes(b) && polygonIntersects(polygonPoints(b.kind === 'box' ? boxShape(b) : ballShape(b)), path, .01))
+        || !!carry && Math.hypot(carry.x - p.x - dx, carry.y - p.y - dy) > .01
+      // Sample passenger travel as well as its destination so a carried box
+      // cannot repeatedly run into a wall halfway through the closing stroke.
+      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 8))
+      for (let i = 1; !occupied && passengers.length && i <= steps; i++) occupied = passengerBlocked(dx * i / steps, dy * i / steps)
+      m.safetyHold = occupied ? 0 : m.safetyHold + dt
+      if (m.safetyHold >= .6) m.safetyHold = null
+    }
+    const opening = def.kind === 'gate' ? m.active || m.safetyHold != null : m.direction < 0
+    const target = opening ? open : def
+    if (m.x === target.x && m.y === target.y) continue
+    const before = mechanismShape(m), x = approach(m.x, target.x, 130 * dt), y = approach(m.y, target.y, 130 * dt)
+    const dx = x - m.x, dy = y - m.y, nextShape = { ...def, x, y }
+    const blocked = (rider ? obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, dy)) : bodyOverlap(p, nextShape))
+      || run.props.some(b => !passengers.includes(b) && propBlocksMechanism(b, before, nextShape)) || passengerBlocked(dx, dy)
+    if (blocked) {
+      if (def.kind === 'gate' && !opening) m.safetyHold = 0
+      continue
+    }
+    m.x = x; m.y = y
+    if (rider) translatePlayer(p, dx, dy)
+    for (const b of passengers) { b.x += dx; b.y += dy }
+    if (x === target.x && y === target.y && def.kind === 'lift') { m.direction *= -1; m.wait = opening ? 3 : 2 }
   }
 }
 function stepProps(run: Run, contacts: PlayerContacts, dt: number) {
   if (!run.props.length) return
-  const p = run.player, solids = [...run.terrain, ...run.mechanisms.map(m => ({ ...m.definition, y: m.y }))]
+  const p = run.player, solids = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
   // Fixed small steps stabilize corners; fast linear or angular motion takes
   // additional steps so even a small prop cannot skip a thin wall or another prop.
   const travel = Math.max(175, ...run.props.map(b => Math.hypot(b.vx, b.vy) + Math.abs(b.angularVelocity) * b.size + TUNING.gravity * dt)) * dt

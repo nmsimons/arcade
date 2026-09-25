@@ -34,12 +34,12 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
     }
   })
   await page.goto('/untitled-jumping-game')
-  await expect(page.getByRole('button', { name: 'Start level', exact: false })).toBeVisible()
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  if (lesson) await page.getByRole('button', { name: `Level ${lesson + 1}:`, exact: false }).click()
+  if (lesson) await page.getByRole('button', { name: `Level ${lesson + 1}:`, exact: false }).focus()
 }
 const position = page => page.evaluate(() => window.levelPlayer)
-async function enter(page) { await page.getByRole('button', { name: 'Start level' }).click(); await page.clock.runFor(64) }
+async function enter(page) { await page.locator('.jumping-level-card[aria-pressed=true]').click(); await page.clock.runFor(64) }
 async function launch(page) {
   await page.keyboard.down('d'); await page.keyboard.down('Space')
   for (let i = 0; i < 150 && (await position(page)).x < 533; i++) await page.clock.runFor(16)
@@ -53,7 +53,7 @@ async function finishFirst(page) {
 test('the new level menu presents a readable progression', async ({ page }, info) => {
   await setup(page); await page.screenshot({ path: info.outputPath('campaign-menu.png') })
   await expect(page.getByRole('button', { name: 'Level 1: First Leap' })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'Level 3: Hand Over Hand' }).click()
+  await page.getByRole('button', { name: 'Level 3: Hand Over Hand' }).focus()
   await expect(page.locator('.jumping-level-detail')).toContainText('Transfer from the first rope')
 })
 test('the trial waits, pauses, restarts, completes, saves a best and advances to the next lesson', async ({ page }, info) => {
@@ -86,7 +86,10 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   await page.getByRole('button', { name: 'Next level' }).click(); await page.clock.runFor(100)
   await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()
   expect((await position(page)).x).toBeCloseTo(170); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
-  await page.clock.resume(); await page.reload(); await expect(page.getByText(/Gold · 0:02/)).toBeVisible()
+  await page.clock.resume(); await page.reload()
+  await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()
+  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
+  await expect(page.getByText(/Gold · 0:02/)).toBeVisible()
 })
 for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${lesson} rope${lesson > 1 ? 's' : ''} using the keyboard`, async ({ page }, info) => {
   test.setTimeout(90000); await setup(page, lesson); await enter(page); await launch(page)

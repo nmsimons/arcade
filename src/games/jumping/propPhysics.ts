@@ -45,7 +45,7 @@ function worldFor(run: Run) {
   const engine = Engine.create({ enableSleeping: true, positionIterations: 24, velocityIterations: 16 })
   engine.gravity.y = 1; engine.gravity.scale = TUNING.gravity / 1e6
   const terrain = run.terrain.flatMap(s => terrainBodies(s, run))
-  const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.definition.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
+  const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
   const bodies = new Map(run.props.map(b => [b, makeProp(b)]))
   Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values()])
   const world = { engine, terrain, mechanisms, bodies }; worlds.set(run, world)
@@ -78,10 +78,10 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const world = worldFor(run), push = playerContact.push
   const driven = new Set<Matter.Body>()
   run.mechanisms.forEach((m, i) => {
-    if (Math.abs(world.mechanisms[i].position.y - m.y - m.definition.h / 2) > 1e-7) {
+    if (Math.hypot(world.mechanisms[i].position.x - m.x - m.definition.w / 2, world.mechanisms[i].position.y - m.y - m.definition.h / 2) > 1e-7) {
       // Moving a static support must also wake its sleeping passengers.
       for (const body of world.bodies.values()) Sleeping.set(body, false)
-      Body.setPosition(world.mechanisms[i], { x: m.definition.x + m.definition.w / 2, y: m.y + m.definition.h / 2 })
+      Body.setPosition(world.mechanisms[i], { x: m.x + m.definition.w / 2, y: m.y + m.definition.h / 2 })
     }
   })
   for (const [b, body] of world.bodies) {
@@ -177,9 +177,14 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
  * blocks it, so rounded contacts do not act like the ball's bounding square. */
 export function propBlocksMechanism(prop: Prop, before: Platform, after: Platform) {
   const body = makeProp(prop)
-  const obstacle = Bodies.rectangle(before.x + before.w / 2, before.y + before.h / 2, before.w, before.h)
-  const previous = Collision.collides(body, obstacle)?.depth ?? 0
-  Body.setPosition(obstacle, { x: after.x + after.w / 2, y: after.y + after.h / 2 })
-  const next = Collision.collides(body, obstacle)?.depth ?? 0
-  return next > Math.max(.01, previous + .002)
+  const obstacles = before.profile || before.polygon ? convexParts(before).map(piece => {
+    const vertices = piece.map(([x, y]) => ({ x, y }))
+    return Body.create({ vertices, position: Vertices.centre(vertices) })
+  }) : [Bodies.rectangle(before.x + before.w / 2, before.y + before.h / 2, before.w, before.h)]
+  return obstacles.some(obstacle => {
+    const previous = Collision.collides(body, obstacle)?.depth ?? 0
+    Body.translate(obstacle, { x: after.x - before.x, y: after.y - before.y })
+    const next = Collision.collides(body, obstacle)?.depth ?? 0
+    return next > Math.max(.01, previous + .002)
+  })
 }

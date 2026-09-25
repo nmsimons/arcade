@@ -17,6 +17,7 @@ import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
 import { LocalFolderPanel } from './LocalFolderPanel'
 import { TUNING } from './model'
+import { isHorizontalGate, mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import './builder.css'
 
 type Point = { x: number; y: number }
@@ -45,7 +46,8 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click a surface to place a box. Move it or change its size in the inspector.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Set its patrol limits in the inspector.' },
   { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Connect a pressure plate to move it.' },
-  { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click a surface to place a gate. Adjust its height and distance to the anchor in the inspector. Connect a pressure plate to raise it.' },
+  { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click a surface to place a gate. It rises by its own height while a connected pressure plate is held.' },
+  { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose its elevator or gate in the inspector. The player, boxes, and balls can hold it down.' },
   { id: 'spawn', group: 'Markers', label: 'Start', help: 'Click a surface to choose where the player starts.' },
   { id: 'goal', group: 'Markers', label: 'Goal light', help: 'Press the plate to stop the timer and reveal the hidden exit beyond the light. Walk into the door to finish. Leave flat, clear space for the whole goal.' },
@@ -56,14 +58,15 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
 ]
 const selectionLabel = (s: Selection, level: JumpLevel) => {
   const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
-    : s.kind === 'pickup' ? 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? 'Pressure plate' : s.kind === 'mechanism' ? level.mechanisms?.[s.index]?.kind === 'gate' ? 'Gate' : 'Elevator' : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
+    : s.kind === 'pickup' ? 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
   return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 
 
-export function LevelBuilder({ active, onPlay, onClose, templates, local, initialFile }: {
+export function LevelBuilder({ active, onPlay, onClose, templates, local, initialFile, onFileChange }: {
   active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
   templates: LevelFile[]; local: LocalLevels; initialFile?: LevelFile
+  onFileChange: (fileName?: string) => void
 }) {
   const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial()) }))
   const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
@@ -121,9 +124,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     setView(v => ({ ...v, y: v.y + dy }))
     setPointer(p => p && { ...p, y: p.y + dy })
   }
-  function load(next: JumpLevel, file?: LevelFile) {
+  function load(next: JumpLevel, file?: LevelFile, fromFolder = false) {
     setFileName(file?.fileName ?? levelFileName(next.name)); setFileSource(file?.sourceText)
     commit(copyLevel(next)); setSelection(null); setTool('select'); setView(homeView(next, size.height))
+    onFileChange(fromFolder ? file?.fileName : undefined)
   }
   function remove() {
     if (selection) { commit(deleteItem(history.present, selection)); setSelection(null) }
@@ -142,6 +146,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
         const source = await local.save(fileName, next, fileSource)
         if (next.id !== history.present.id) commit(next)
         setFileSource(source); setMessage(`Saved “${fileName}” to ${local.name}.`)
+        onFileChange(fileName)
       } else exportLevel()
     } catch (error) { setMessage(`Could not save: ${(error as Error).message}`) }
   }
@@ -196,9 +201,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       }
     }
     if (mechanism) {
+      const open = mechanismOpenPosition(mechanism), anchor = mechanismAnchor(mechanism), end = mechanismRopeEnd(mechanism)
       ctx.strokeStyle = '#b78947'; ctx.lineWidth = 1 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
-      ctx.strokeRect(mechanism.x, mechanism.y - mechanism.travel, mechanism.w, mechanism.h)
-      ctx.beginPath(); ctx.moveTo(mechanism.x + mechanism.w / 2, mechanism.y); ctx.lineTo(mechanism.x + mechanism.w / 2, mechanism.y - mechanism.travel); ctx.stroke(); ctx.setLineDash([])
+      ctx.strokeRect(open.x, open.y, mechanism.w, mechanism.h)
+      ctx.beginPath(); ctx.moveTo(end.x, end.y); ctx.lineTo(anchor.x, anchor.y); ctx.stroke(); ctx.setLineDash([])
     }
     if (robot) {
       ctx.strokeStyle = '#cc6a49'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom]); ctx.beginPath(); ctx.moveTo(robot.left, robot.y - 65); ctx.lineTo(robot.right, robot.y - 65); ctx.stroke(); ctx.setLineDash([])
@@ -334,7 +340,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       if (field === 'fontSize' && Number.isFinite(Number(value))) text.fontSize = clamp(Number(value), 12, 96)
       if (field === 'align' && (value === 'left' || value === 'center' || value === 'right')) text.align = value
     }
-    if (selection.kind === 'mechanism') next.mechanisms![selection.index].travel = clamp(Number(value), 60, 1200)
+    if (selection.kind === 'mechanism' && next.mechanisms![selection.index].kind === 'lift') next.mechanisms![selection.index].travel = clamp(Number(value), 60, 1200)
     if (selection.kind === 'trigger') {
       const t = next.triggers![selection.index]
       if (field === 'target') t.target = String(value)
@@ -385,7 +391,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
         <LocalFolderPanel local={local} compact />
         {local.files.length > 0 && <div className="builder-local-files" role="group" aria-label="Local level files">{local.files.map(file => <div className="builder-local-file" key={file.fileName}>
           <button disabled={local.busy} aria-label={`Open ${file.fileName}`} aria-pressed={fileName === file.fileName && level.id === file.level.id}
-          onClick={() => { load(file.level, file); fitLevel(file.level); setPanel('build'); requestAnimationFrame(() => canvasRef.current?.focus()) }}>
+          onClick={() => { load(file.level, file, true); fitLevel(file.level); setPanel('build'); requestAnimationFrame(() => canvasRef.current?.focus()) }}>
           <span className="builder-file-number" aria-hidden="true">↗</span><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small></span>
           </button>
           <button className="builder-use-template" disabled={local.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => chooseTemplate(file.level, file.fileName)}>Use as template</button>
@@ -418,7 +424,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       {selection && bounds ? <div className="builder-property-card">
         <h3>{selectionLabel(selection, level)}</h3>
         <div className="builder-dimensions">{(['x', 'y', 'w', 'h'] as const).filter(axis => ['platform', 'prop', 'mechanism', 'text'].includes(selection.kind) || (axis === 'x' || axis === 'y') || axis === 'h' && ['rope', 'ladder'].includes(selection.kind) || axis === 'w' && selection.kind === 'trigger').map(axis =>
-          <label key={axis}>{({ x: 'X', y: 'Y', w: 'Width', h: 'Height' })[axis]}<input type="number" aria-label={`Object ${axis}`} disabled={mechanism?.kind === 'gate' && axis === 'w' || mechanism?.kind === 'lift' && axis === 'h'} step={snap ? LEVEL_GRID_SIZE : 1} value={Math.round((axis === 'y' ? roomHeight - bounds.y : bounds[axis]) * 100) / 100} onChange={e => setDimension(axis, Number(e.target.value))} onBlur={e => { if (snap && e.currentTarget.value !== '') setDimension(axis, quantize(Number(e.currentTarget.value))) }} /></label>)}</div>
+          <label key={axis}>{({ x: 'X', y: 'Y', w: 'Width', h: 'Height' })[axis]}<input type="number" aria-label={`Object ${axis}`} disabled={!!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h')} step={snap ? LEVEL_GRID_SIZE : 1} value={Math.round((axis === 'y' ? roomHeight - bounds.y : bounds[axis]) * 100) / 100} onChange={e => setDimension(axis, Number(e.target.value))} onBlur={e => { if (snap && e.currentTarget.value !== '') setDimension(axis, quantize(Number(e.currentTarget.value))) }} /></label>)}</div>
         <p>Y is height above the floor, measured at {selection.kind === 'goal' ? 'the plate’s surface' : ['spawn', 'checkpoint'].includes(selection.kind) ? 'the feet' : selection.kind === 'rope' ? 'the anchor' : 'the top of the object'}.</p>
         {selection.kind === 'goal' && level.goal && <button aria-pressed={!!level.goal.flipX} onClick={() => {
           const next = copyLevel(history.present)
@@ -442,10 +448,16 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></>}
-        {mechanism && <label>Distance to anchor<input aria-label="Distance to anchor" type="number" min={60} max={1200} step={20} value={mechanism.travel} onChange={e => changeObject('travel', Number(e.target.value))} /></label>}
-        {mechanism?.kind === 'gate' && <p>20 units thick. Holding the plate raises the gate to its anchor. Releasing it lowers the gate. Adjust the height to set the barrier length.</p>}
+        {mechanism?.kind === 'lift' && <label>Distance to anchor<input aria-label="Distance to anchor" type="number" min={60} max={1200} step={20} value={mechanism.travel} onChange={e => changeObject('travel', Number(e.target.value))} /></label>}
+        {mechanism && isHorizontalGate(mechanism) && <><button aria-pressed={!!mechanism.flipX} onClick={() => {
+          const next = copyLevel(level), m = next.mechanisms![selection.index]
+          if (m.flipX) delete m.flipX; else m.flipX = true
+          commit(next)
+        }}>Flip horizontally</button><p>20 units thick. Retracts {mechanism.flipX ? 'right' : 'left'} by its own width while the plate is held. Releasing it closes the gate. The rope length follows the width.</p></>}
+        {mechanism?.kind === 'gate' && !isHorizontalGate(mechanism) && <p>20 units thick. Rises by its own height while the plate is held. Releasing it lowers the gate. The rope length follows the height.</p>}
+        {mechanism?.kind === 'gate' && <p>If closing catches the player or an object, the gate reopens and waits for the path to clear.</p>}
         {mechanism?.kind === 'lift' && <p>20 units thick. Moves between its starting position and the anchor while the plate is held. Pauses in place when released. Adjust the width to set the platform size.</p>}
-        {trigger && <><label>Activates<select aria-label="Connected mechanism" value={trigger.target} onChange={e => changeObject('target', e.target.value)}><option value="">Choose a mechanism</option>{level.mechanisms?.map((m, i) => <option key={m.id} value={m.id}>{m.kind === 'lift' ? 'Elevator' : 'Gate'} {i + 1}</option>)}</select></label><p>The player, a crate, or a ball can hold this plate. Releasing pauses elevators and closes gates.</p></>}
+        {trigger && <><label>Activates<select aria-label="Connected mechanism" value={trigger.target} onChange={e => changeObject('target', e.target.value)}><option value="">Choose a mechanism</option>{level.mechanisms?.map((m, i) => <option key={m.id} value={m.id}>{mechanismLabel(m)} {i + 1}</option>)}</select></label><p>The player, a crate, or a ball can hold this plate. Releasing pauses elevators and closes gates.</p></>}
         {robot && <><div className="builder-dimensions"><label>Left limit<input aria-label="Shovebot left limit" type="number" value={Math.round(robot.left)} onChange={e => changeObject('left', Number(e.target.value))} /></label><label>Right limit<input aria-label="Shovebot right limit" type="number" value={Math.round(robot.right)} onChange={e => changeObject('right', Number(e.target.value))} /></label></div><p>Chases on sight. A brief wind-up, a hard shove, then straight back after you.</p></>}
         <div className="builder-object-actions"><button disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete object</button></div>
       </div> : <div className="builder-empty-selection"><BuilderIcon kind="select" /><strong>Make it yours.</strong><p>Choose a tool and draw in the canvas, or select an object to refine it.</p></div>}

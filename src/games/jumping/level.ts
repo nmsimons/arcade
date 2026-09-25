@@ -18,7 +18,7 @@ import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 export const LEVEL_GRID_SIZE = 20
 
 export interface PropDefinition { kind: 'box' | 'ball'; x: number; y: number; size: number }
-export interface Mechanism { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number }
+export interface Mechanism { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 export interface Trigger { x: number; y: number; w: number; target: string; mode: 'weight' | 'touch' }
 export interface Pusher { x: number; y: number; left: number; right: number }
@@ -221,8 +221,13 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
+      if (m.orientation !== undefined && (m.kind !== 'gate' || m.orientation !== 'horizontal')) fail()
+      if (m.flipX !== undefined && (m.orientation !== 'horizontal' || typeof m.flipX !== 'boolean')) fail()
       const w = num(m.w, m.kind === 'gate' ? MECHANISM_THICKNESS : 30, 600), h = num(m.h, 12, 800)
-      return prepareMechanism({ id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h, travel: num(m.travel, 60, 1200) }, level.floor!)
+      return prepareMechanism({ id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h,
+        travel: num(m.travel, m.kind === 'gate' ? 12 : 60, 1200),
+        ...(m.orientation === 'horizontal' ? { orientation: 'horizontal' as const } : {}),
+        ...(m.flipX === undefined ? {} : { flipX: m.flipX as boolean }) }, level.floor!)
     })
     if (new Set(level.mechanisms.map(m => m.id)).size !== level.mechanisms.length) fail()
     level.triggers = list(v.triggers, 40).map(item => {

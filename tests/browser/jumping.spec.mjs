@@ -31,7 +31,7 @@ async function setup(page, controller = false, level = DEFAULT_LEVEL) {
     }
   }, { controller })
   await page.goto('/untitled-jumping-game')
-  await expect(page.getByRole('button', { name: 'Start level' })).toBeVisible()
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.clock.runFor(64)
 }
@@ -85,7 +85,7 @@ async function expectCentered(page) {
   expect(point.x).toBeCloseTo(.5, 5); expect(point.y).toBeCloseTo(.5, 5)
 }
 async function enter(page) {
-  await page.getByRole('button', { name: 'Start level' }).click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await page.clock.runFor(64)
   await expect(page.locator('canvas')).toBeFocused()
 }
@@ -492,8 +492,8 @@ test('the playground remains readable at compact sizes', async ({ page }, info) 
     await page.setViewportSize(viewport); await page.clock.runFor(64)
     const dialog = page.getByRole('dialog')
     expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-    await page.getByRole('button', { name: 'Start level' }).focus()
-    await expect(page.getByRole('button', { name: 'Start level' })).toBeInViewport()
+    await page.locator('.jumping-level-card[aria-pressed=true]').focus()
+    await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeInViewport()
     await page.screenshot({ path: info.outputPath(`playground-menu-${viewport.width}.png`) })
   }
 })

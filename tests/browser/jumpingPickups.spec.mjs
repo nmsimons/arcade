@@ -28,14 +28,14 @@ async function open(page) {
     }
   })
   await page.goto('/untitled-jumping-game')
-  await page.getByRole('button', { name: 'Start level' }).waitFor()
+  await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
 }
 const state = page => page.getByRole('img', { name: 'Stopwatch run: activate the goal' }).evaluate(c => ({ scales: c.pickupScales, times: c.timerReadings, stopped: c.clockStopped }))
 
 test('stopwatches freeze only the clock, animate through the effect, pause and restart correctly, and save the stopped time', async ({ page }, info) => {
   await open(page)
-  await page.getByRole('button', { name: 'Start level' }).click(); await page.clock.runFor(64)
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await page.clock.runFor(64)
   expect((await state(page)).scales).toEqual([1, 1, 1, 1])
   expect((await state(page)).times).toEqual(['0:00.00', '0:00.00'])
   await page.screenshot({ path: info.outputPath('stopwatches-ready.png') })
@@ -74,6 +74,8 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   expect(saved).toBeGreaterThan(0); expect(saved).toBeLessThan(1)
   await page.screenshot({ path: info.outputPath('stopped-clock-result.png') })
   await page.clock.resume(); await page.reload()
+  await expect(page.getByRole('img', { name: 'Stopwatch run: activate the goal' })).toBeFocused()
+  await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
   await expect(page.getByText(`Gold · ${resultTime}`, { exact: true })).toBeVisible()
 })
 

@@ -67,7 +67,7 @@ export default function App() {
 
   return (
     <ControlHintsContext.Provider value={{ connected: controllerConnected, layout: controller.layout }}>
-    <GameLoadBoundary key={pathname} onExit={onExit}>
+    <GameLoadBoundary key={pathname.startsWith('/untitled-jumping-game/') ? '/untitled-jumping-game' : pathname} onExit={onExit}>
     <Suspense fallback={<GameLoading onExit={onExit} />}>
     <Routes>
       <Route
@@ -84,7 +84,7 @@ export default function App() {
       <Route path="/bumper-ball" element={<GameViewport><KickballGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
       <Route path="/sling-load" element={<GameViewport><SlingLoadGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
       <Route path="/hello-world" element={<GameViewport><HelloWorldGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
-      <Route path="/untitled-jumping-game" element={<GameViewport><UntitledJumpingGame onExit={onExit} /></GameViewport>} />
+      <Route path="/untitled-jumping-game/*" element={<GameViewport><UntitledJumpingGame onExit={onExit} /></GameViewport>} />
 
       {/* Back-compat redirects */}
       <Route path="/games/hard-vacuum" element={<Navigate to="/hard-vacuum" replace />} />

@@ -11,7 +11,8 @@ import type { LevelFile } from './levelAssets'
 import { levelFileName } from './localLevels'
 import type { LocalLevels } from './localLevels'
 import { copyForEditing } from './puzzleEditor'
-import { createRun } from './challenge'
+import { createPreviewRun } from './challenge'
+import { useRopePreview } from './useRopePreview'
 import { drawPuzzleWorld } from './challengeRender'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
@@ -43,7 +44,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click a surface to place a ball. Move it or change its size in the inspector.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click a surface to place a box. Move it or change its size in the inspector.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Set its patrol limits in the inspector.' },
-  { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the top anchor to change travel height. Connect a pressure plate to move it.' },
+  { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click a surface to place a gate. It rises by its own height while a connected pressure plate is held.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose which elevators and gates it activates in the inspector. The player, boxes, and balls can hold it down.' },
@@ -66,14 +67,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   templates: LevelFile[]; local: LocalLevels; initialFile?: LevelFile
   onFileChange: (fileName?: string) => void
 }) {
-  const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial()) }))
+  const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial(), true) }))
   const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
   const [fileSource, setFileSource] = useState(initialFile?.sourceText)
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
-  const level = useMemo(() => prepareLevelRopes(preview ?? history.present), [preview, history.present])
-  const previewRun = useMemo(() => isPuzzleLevel(level) ? createRun(level) : null, [level])
-  const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level), [level, previewRun])
+  const level = useRopePreview(preview ?? history.present, preview !== null)
+  const previewRun = useMemo(() => isPuzzleLevel(level) ? createPreviewRun(level) : null, [level])
+  const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level, true), [level, previewRun])
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
@@ -87,15 +88,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const canvasRef = useRef<HTMLCanvasElement>(null), fileRef = useRef<HTMLInputElement>(null), drag = useRef<Drag | null>(null)
   const latestPreview = useRef<JumpLevel | null>(null)
   const framed = useRef(false)
-  const bounds = selection ? itemBounds(level, selection) : null
-  const outline = selection ? itemOutline(level, selection) : null
+  const bounds = useMemo(() => selection ? itemBounds(level, selection) : null, [level, selection])
+  const outline = useMemo(() => selection ? itemOutline(level, selection) : null, [level, selection])
   const chosen = selection?.kind === 'platform' ? level.platforms[selection.index] : null
-  const resizeHandles = selectionHandles(level, selection, view.zoom)
+  const resizeHandles = useMemo(() => selectionHandles(level, selection, view.zoom), [level, selection, view.zoom])
   const resizeHandleAt = (p: Point) => resizeHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
   const hoverHandle = pointer && resizeHandleAt(pointer)
   const resizeCorner = drag.current?.mode === 'resize' ? drag.current.corner : hoverHandle?.corner
   const resizeCursor = resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
-  const problems = levelProblems(level), problem = problems[0]
+  const problems = useMemo(() => levelProblems(level), [level]), problem = problems[0]
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
   const travelHandle = mechanism?.kind === 'lift' ? mechanismAnchor(mechanism) : null
   const travelHandleAt = (p: Point) => travelHandle && Math.hypot(p.x - travelHandle.x, p.y - travelHandle.y) < 10 / view.zoom
@@ -105,11 +106,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const quantize = useCallback((v: number) => snap ? Math.round(v / LEVEL_GRID_SIZE) * LEVEL_GRID_SIZE : Math.round(v), [snap])
   const quantizeY = useCallback((y: number) => roomHeight - quantize(roomHeight - y), [roomHeight, quantize])
-  const nodeTarget = tool === 'node' && pointer ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null
+  const nodeTarget = useMemo(() => tool === 'node' && pointer ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null,
+    [tool, pointer, level, view.zoom, snap])
 
   function chooseSelection(next: Selection | null) { setSelection(next); setSelectedNode(null) }
   function commit(next: JumpLevel) {
-    next = prepareLevelRopes(next)
+    next = prepareLevelRopes(next, true)
     setHistory(h => JSON.stringify(next) === JSON.stringify(h.present) ? h : { past: [...h.past, h.present].slice(-60), present: next, future: [] })
     setPreview(null); latestPreview.current = null; setMessage('')
   }
@@ -154,7 +156,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     try {
       if (local.canWrite) {
         const next = local.files.some(file => file.fileName !== fileName && file.level.id === level.id)
-          ? { ...history.present, id: newLevelId() } : history.present
+          ? { ...prepareLevelRopes(level), id: newLevelId() } : prepareLevelRopes(level)
         const source = await local.save(fileName, next, fileSource)
         if (next.id !== history.present.id) commit(next)
         setFileSource(source); setMessage(`Saved “${fileName}” to ${local.name}.`)
@@ -164,7 +166,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   }
   function exportLevel() {
     try {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(parseLevel(prepareLevelRopes(history.present)), null, 2)], { type: 'application/json' }))
+    const url = URL.createObjectURL(new Blob([JSON.stringify(parseLevel(prepareLevelRopes(level)), null, 2)], { type: 'application/json' }))
     const a = document.createElement('a'); a.href = url; a.download = fileName || levelFileName(level.name); a.click()
     setTimeout(() => URL.revokeObjectURL(url), 1000)
     setMessage(`Downloaded “${fileName || levelFileName(level.name)}”. Open a local folder to save directly to it.`)
@@ -410,7 +412,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     <header className="builder-header">
       <div className="builder-brand"><span className="builder-brand-mark" aria-hidden="true">↗</span><div><p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h1>Level studio</h1></div></div>
       <label className="builder-name">YOUR LEVEL<input aria-label="Level name" maxLength={80} value={level.name} onChange={e => { if (!fileSource && fileName === levelFileName(level.name)) setFileName(levelFileName(e.target.value)); commit({ ...history.present, name: e.target.value }) }} /></label>
-      <div className="builder-main-actions"><button className="builder-back" onClick={onClose}>Back to game</button><div className="builder-file-actions"><button disabled={local.busy} onClick={() => void save()}>Save level</button><button onClick={exportLevel}>Export</button></div><button className="builder-play" disabled={!!problem} onClick={() => onPlay(copyLevel(history.present))}><span aria-hidden="true">▶</span> Playtest</button></div>
+      <div className="builder-main-actions"><button className="builder-back" onClick={onClose}>Back to game</button><div className="builder-file-actions"><button disabled={local.busy} onClick={() => void save()}>Save level</button><button onClick={exportLevel}>Export</button></div><button className="builder-play" disabled={!!problem} onClick={() => onPlay(copyLevel(prepareLevelRopes(level)))}><span aria-hidden="true">▶</span> Playtest</button></div>
     </header>
     <aside className="builder-tools" aria-label="Building tools">
       <div className="builder-panel-tabs"><button aria-pressed={panel === 'build'} onClick={() => setPanel('build')}>Build</button><button aria-pressed={panel === 'library'} onClick={() => setPanel('library')}>Library</button></div>
@@ -442,10 +444,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
         <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" onClick={() => zoom(1.25)}>+</button></div>
         <div className="builder-control-group" role="group" aria-label="Canvas view"><button onClick={() => fitLevel()}>Fit level</button><button onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
       </div>
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" style={{ cursor: drag.current?.mode === 'pan' ? 'grabbing' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" aria-busy={level.climbables.ropes.some(r => r.rest?.key.startsWith('preview:'))} style={{ cursor: drag.current?.mode === 'pan' ? 'grabbing' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onWheel={e => { if (e.ctrlKey || e.metaKey) { const r = e.currentTarget.getBoundingClientRect(); zoom(Math.exp(-e.deltaY * .003), { x: e.clientX - r.left, y: e.clientY - r.top }) } else setView(v => ({ ...v, x: v.x + (e.shiftKey ? e.deltaY : e.deltaX) / v.zoom, y: v.y + (e.shiftKey ? 0 : e.deltaY) / v.zoom })) }} />
-      <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} /><span>OVERVIEW</span></button>
+      <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>OVERVIEW</span></button>
       <p id="builder-help" className="builder-help">{tool === 'select' ? 'Drag objects to move them or empty space to pan. Drag square handles to resize or nodes to reshape terrain. Space + drag pans anywhere.' : `${TOOLS.find(t => t.id === tool)?.help} Esc or click the active tool to stop.`}</p>
     </div>
     <aside className="builder-inspector" aria-label="Object properties">
@@ -488,7 +490,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
         }}>Flip horizontally</button><p>20 units thick. Retracts {mechanism.flipX ? 'right' : 'left'} by its own width while the plate is held. Releasing it closes the gate.</p></>}
         {mechanism?.kind === 'gate' && !isHorizontalGate(mechanism) && <p>20 units thick. Rises by its own height while the plate is held. Releasing it lowers the gate.</p>}
         {mechanism?.kind === 'gate' && <p>If closing catches the player or an object, the gate reopens and waits for the path to clear.</p>}
-        {mechanism?.kind === 'lift' && <p>Drag the top anchor to set travel height. Moves while the plate is held and pauses when released.</p>}
+        {mechanism?.kind === 'lift' && <p>Drag the upper stop to set travel height. Moves while the plate is held and pauses when released.</p>}
         {trigger && <><fieldset className="builder-connections"><legend>Activates</legend>
           {level.mechanisms?.length ? level.mechanisms.map((m, i) => <label key={m.id}><input type="checkbox" checked={triggerTargets(trigger).includes(m.id)} onChange={e => {
             const targets = triggerTargets(trigger)

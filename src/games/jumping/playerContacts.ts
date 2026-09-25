@@ -1,12 +1,15 @@
 import type { Prop } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { TUNING } from './model.ts'
+import { STEP, TUNING } from './model.ts'
 import type { GroundSurface } from './terrain.ts'
 import { exposedSide, groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { boxPushFace, propBounds } from './propGeometry.ts'
+import { boxPushFace, propBounds, propPushHands } from './propGeometry.ts'
+import type { PushHands } from './propGeometry.ts'
 import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
+import { climbContactRoot, LEDGE_CLIMB_TIME } from './ledge.ts'
+import { ledgeObstacles } from './terrainLedges.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -24,8 +27,7 @@ export interface PushContact {
   direction: number
   effort: number
   wallX: number
-  /** Hands can brace here; small props and round bodies still receive a shove. */
-  hands: { wallX: number; slope: number } | null
+  hands: PushHands | null
 }
 export interface PlayerContacts {
   support: SupportContact | null
@@ -37,6 +39,16 @@ export interface PlayerContacts {
 
 export function staticContactWorld(platforms: readonly Platform[]): ContactWorld {
   return { platforms, colliders: platforms.map((platform, i) => ({ id: `terrain:${i}`, platform })) }
+}
+
+/** The climb motor and prop forces use the same next-pose contact. */
+export function mantleContact(m: NonNullable<Player['mantle']>, world: ContactWorld, dt = STEP) {
+  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced)
+  const next = climbContactRoot(Math.min(1, (m.time + dt) / LEDGE_CLIMB_TIME), m.braced)
+  const from: Vec = [m.edgeX + before[0] * m.side, m.edgeY + before[1]]
+  const target: Vec = [m.edgeX + next[0] * m.side, m.edgeY + next[1]]
+  const sweep = moveBody(from, target, ledgeObstacles(world.colliders.filter(c => c.prop).map(c => c.platform), m))
+  return { from, target, sweep }
 }
 
 /** One policy for the motor, prop forces, support transport and animation.
@@ -57,11 +69,11 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
     if (b) {
       const bounds = propBounds(b)
       if (p.y <= bounds.y + 12 || p.y - 42 >= bounds.y + bounds.h || p.y > bounds.y + bounds.h + b.size * .6) continue
+      const hands = propPushHands(b, p.x, p.y, direction)
       const face = b.kind === 'box' ? boxPushFace(b, p.x, p.y, direction, Math.min(43, b.size * .6)) : null
-      const wallX = face?.wallX ?? (direction > 0 ? bounds.x : bounds.x + bounds.w), gap = (wallX - p.x) * direction
-      if (b.kind === 'box' ? !face : gap < 8 || gap >= 34) continue
-      candidates.push({ collider: c, direction, effort: Math.min(1, Math.abs(input.move)), wallX,
-        hands: b.kind === 'box' ? boxPushFace(b, p.x, p.y, direction) : null })
+      const wallX = face?.wallX ?? hands?.wallX
+      if (wallX === undefined || (b.kind === 'box' && !face)) continue
+      candidates.push({ collider: c, direction, effort: Math.min(1, Math.abs(input.move)), wallX, hands })
     } else {
       const b = c.platform, wallX = direction === 1 ? b.x : b.x + b.w, gap = (wallX - p.x) * direction
       if (gap < 11.9 || gap > 38 || !exposedSide(world.platforms, b, direction, p.y - 44.1, p.y - 43.9)) continue
@@ -73,6 +85,17 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
   const nearest = candidates[0]
   const push = nearest && (nearest.collider.prop || (nearest.wallX - p.x) * direction <= 26.5) ? nearest : null
   const body: PlayerContacts['body'] = []
+  if (p.mantle && !p.mantle.step && !p.mantle.descending && !p.mantle.returning && !input.drop && !input.descend && !input.detach) {
+    const { from, target, sweep: probe } = mantleContact(p.mantle, world)
+    const dx = target[0] - from[0], dy = target[1] - from[1], distance = Math.hypot(dx, dy)
+    for (const hit of probe.contacts) {
+      const collider = world.colliders.find(c => c.prop && c.platform === hit.platform)
+      if (!collider || body.some(c => c.collider === collider) || distance < 1e-7) continue
+      const load = Math.max(0, -(hit.normal[0] * dx + hit.normal[1] * dy) / distance) * 600
+      const point = bodyContact(hit.platform, probe.x, probe.y, hit.normal)
+      if (load) body.push({ collider, normal: hit.normal, point: [point.x, point.y], load })
+    }
+  }
   const needsBodyLoad = !support || !push?.collider.prop && Math.abs(input.move) > .01
   if (free && !departing && needsBodyLoad && world.colliders.some(c => c.prop)) {
     // Probe the same body hull used by the player sweep. This includes torso

@@ -64,3 +64,12 @@ export function climbFrame(progress: number, braced = false) {
     frontRelease: ledgeEase((t - .56) / .15), backRelease: ledgeEase((t - .54) / .14),
     frontPlanted: t >= .96, backPlanted: t >= .73, kneePlanted: t >= .56 && t <= .73 }
 }
+
+/** The torso leans ahead of the movement root while climbing. Loose objects
+ * must meet that reach, rather than pass through the head before hitting the
+ * upright locomotion hull. Terrain keeps its existing corner clearance. */
+export function climbContactRoot(progress: number, braced = false): Point {
+  const pose = climbFrame(progress, braced)
+  return [Math.max(pose.root[0], pose.head[0] + 6.2 - 12, pose.shoulder[0] + 4 - 12),
+    Math.min(pose.root[1], pose.head[1] - 6.2 + 62)]
+}

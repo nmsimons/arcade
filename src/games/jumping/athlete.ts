@@ -499,6 +499,20 @@ export function athletePose(p: Player): AthletePose {
     waist[0] += pushing; waist[1] += pushing * 3
     shoulder[0] += pushing * 4; shoulder[1] += pushing * 3
     head[0] += pushing * 5; head[1] += pushing * 3
+    // Lower the hips and hinge at the waist to reach short objects. Keep the
+    // planted feet and limb lengths, and retain the tall-box stance at height 43.
+    const low = smooth((43 - (p.pushing!.height ?? 43)) / 28)
+    if (low) {
+      hip[1] += pushing * low * 15
+      const pelvis = .25 + low * .2, chest = .35 + low * .65
+      const lowWaist = add(hip, [Math.sin(pelvis) * 6.5, -Math.cos(pelvis) * 6.5])
+      const lowShoulder = add(lowWaist, [Math.sin(chest) * 10.1, -Math.cos(chest) * 10.1])
+      const lowHead = add(lowShoulder, [.45 + Math.sin(chest) * 2.2, -7.3])
+      const blend = pushing * low
+      for (const [point, target] of [[waist, lowWaist], [shoulder, lowShoulder], [head, lowHead]]) {
+        point[0] = lerp(point[0], target[0], blend); point[1] = lerp(point[1], target[1], blend)
+      }
+    }
     head[0] = Math.min(head[0], (p.pushing!.wallX - p.x) * p.facing - 6.3)
   }
   let frontAnkle = moving ? frontStep.ankle : [0, -2.8] as Point
@@ -541,18 +555,37 @@ export function athletePose(p: Player): AthletePose {
     supportDip = Math.max(supportDip, (ankle[1] - rise - (hip[1] + 1)) * weight)
   }
   if (supportDip) { hip[1] += supportDip; waist[1] += supportDip; shoulder[1] += supportDip; head[1] += supportDip }
+  if (pushing && p.pushing!.palms) {
+    // The upper hand on a round surface can be farther away than the lower
+    // one. Lean into both reachable grips instead of stretching or hovering.
+    let reach = 0
+    for (const palm of p.pushing!.palms) {
+      const x = (palm.x + palm.nx * 2.8 - p.x) * p.facing, y = palm.y + palm.ny * 2.8 - p.y
+      const dy = y - shoulder[1] - .7
+      reach = Math.max(reach, x - shoulder[0] - Math.sqrt(Math.max(0, 18.7 ** 2 - dy * dy)))
+    }
+    const lean = Math.min(5, reach) * pushing
+    waist[0] += lean * .35; shoulder[0] += lean; head[0] += lean
+  }
   // Near and far joints coincide in profile; depth comes only from overlap.
   const frontRoot = () => add(shoulder, [0, .7]), backRoot = frontRoot
   let frontArm = armPose(frontRoot(), frontAngle, frontFlex), backArm = armPose(backRoot(), backAngle, backFlex)
   if (pushing) {
     const wall = (p.pushing!.wallX - p.x) * p.facing
-    const press = (arm: Limb, y: number) => {
+    const press = (arm: Limb, y: number, index: number) => {
+      const palm = p.pushing!.palms?.[index]
+      if (palm) {
+        const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
+        const result = grippingArm(arm.root, add(point, [normal[0] * 2.8, normal[1] * 2.8]), add(point, [normal[0] * 1.6, normal[1] * 1.6]), arm, pushing)
+        result.handAngle = (result.handAngle ?? 0) + Math.atan2(-normal[0], normal[1]) * pushing
+        return result
+      }
       const contactX = wall + (y + 43) * (p.pushing!.slope ?? 0) * p.facing
       const result = grippingArm(arm.root, [contactX - 2.8, y], [contactX - 1.6, y], arm, pushing)
       result.handAngle = (result.handAngle ?? 0) + (Math.PI / 2 - Math.atan((p.pushing!.slope ?? 0) * p.facing)) * pushing
       return result
     }
-    frontArm = press(frontArm, -43); backArm = press(backArm, -46)
+    frontArm = press(frontArm, -43, 0); backArm = press(backArm, -46, 1)
   }
   if (p.ledgeReach && !p.grounded) {
     const origin: Point = [(p.ledgeReach.x - p.x) * p.facing, p.ledgeReach.y - p.y]

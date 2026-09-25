@@ -60,17 +60,17 @@ export function newLevel(): JumpLevel {
 export function levelRules(level: JumpLevel): LevelRules {
   return { checkpoints: level.checkpoints, fallY: levelHeight(level) + 100 }
 }
-export function levelPlayer(level: JumpLevel) {
+export function levelPlayer(level: JumpLevel, preview = false) {
   const p = createPlayer(level.spawn), terrain = levelTerrain(level), ground = groundAt(terrain, level.spawn.x, level.spawn.y, .1)
-  p.ropes = level.climbables.ropes.map(r => createRope(prepareRope(r, terrain)))
+  p.ropes = level.climbables.ropes.map(r => createRope(preview ? r : prepareRope(r, terrain)))
   Object.assign(p, { x: level.spawn.x, y: level.spawn.y, spawnX: level.spawn.x, spawnY: level.spawn.y,
     grounded: !!ground, groundAngle: ground?.angle ?? 0, jumpStart: level.spawn.y })
   return p
 }
 /** Saved geometry is also the editor preview and the first playable frame. */
-export function prepareLevelRopes<T extends JumpLevel>(level: T): T {
+export function prepareLevelRopes<T extends JumpLevel>(level: T, preview = false): T {
   const terrain = levelTerrain(level), ropes = level.climbables.ropes.map(r => {
-    const resolved = prepareRope(r, terrain)
+    const resolved = prepareRope(r, terrain, preview)
     if (resolved.x !== r.x || resolved.y !== r.y) {
       const platform = level.platforms.findIndex(b => nearestBoundary(b, resolved.x, resolved.y).distance < .01)
       if (platform >= 0) return { ...resolved, anchor: { platform, x: resolved.x - level.platforms[platform].x, y: resolved.y - level.platforms[platform].y } }

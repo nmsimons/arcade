@@ -119,7 +119,7 @@ export function bodyIntersects(x: number, y: number, b: Platform, height = 62) {
 }
 function sweep(a: readonly Vec[], b: readonly Vec[], delta: Vec) {
   let enter = -Infinity, exit = Infinity, normal: Vec = [0, -1]
-  for (const axis of [...axes(a), ...axes(b)]) {
+  for (const axis of [...(a.length > 1 ? axes(a) : []), ...axes(b)]) {
     const [amin, amax] = interval(a, axis), [bmin, bmax] = interval(b, axis), speed = dot(delta, axis)
     if (Math.abs(speed) < EPS) { if (amax <= bmin + EPS || amin >= bmax - EPS) return null; continue }
     const t0 = (bmin - amax) / speed, t1 = (bmax - amin) / speed, first = Math.min(t0, t1)
@@ -131,6 +131,27 @@ function sweep(a: readonly Vec[], b: readonly Vec[], delta: Vec) {
   return { time: Math.max(0, enter), normal }
 }
 export interface TerrainContact { normal: Vec; platform: Platform }
+/** Sweep a particle correction too: resolving a body must not teleport its
+ * supporting rope through a thin wall or onto the opposite face. */
+export function movePoint(from: Vec, to: Vec, terrain: readonly Platform[], clearance: number) {
+  let x = from[0], y = from[1], dx = to[0] - x, dy = to[1] - y
+  const nearby = terrain.filter(b => Math.max(x, to[0]) + clearance >= b.x && Math.min(x, to[0]) - clearance <= b.x + b.w
+    && Math.max(y, to[1]) + clearance >= b.y && Math.min(y, to[1]) - clearance <= b.y + b.h)
+  for (let pass = 0; pass < 4 && Math.hypot(dx, dy) > EPS; pass++) {
+    let first: { time: number; normal: Vec } | null = null
+    for (const b of nearby) for (const piece of parts(b)) {
+      const hit = sweep([[x, y]], piece, [dx, dy])
+      if (hit && (!first || hit.time < first.time)) first = hit
+    }
+    if (!first) { x += dx; y += dy; break }
+    x += dx * first.time + first.normal[0] * clearance
+    y += dy * first.time + first.normal[1] * clearance
+    dx *= 1 - first.time; dy *= 1 - first.time
+    const into = dx * first.normal[0] + dy * first.normal[1]
+    dx -= first.normal[0] * into; dy -= first.normal[1] * into
+  }
+  return { x, y }
+}
 /** Sweep the complete body before committing a position, including during catches and climbing. */
 export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], height = 62) {
   let x = from[0], y = from[1], dx = to[0] - x, dy = to[1] - y

@@ -8,7 +8,7 @@ const paths: Record<Exclude<Tool, 'stopwatch'>, string> = {
   spawn: 'M8 21V4l11 4-11 4M4 21h8', goal: 'M3 19h11v2H3zM17 21V10M14 21h6M17 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7Z', checkpoint: 'm12 3 8 9-8 9-8-9Z',
   box: 'M4 4h16v16H4zM7 9h10M7 15h10', ball: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM18 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z',
   pusher: 'M4 7h12v11H4zM16 13h4M21 8v12M7 7V4h6M7 11h5M7 18v3M13 18v3',
-  plate: 'M2 19h20M4 14h16v2H4zM12 3v7M9 7l3 3 3-3', lift: 'M14 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM12 6v11M3 17h18v4H3z',
+  plate: 'M2 19h20M4 14h16v2H4zM12 3v7M9 7l3 3 3-3', lift: 'M8 13V3M5 6l3-3 3 3M16 3v10M13 10l3 3 3-3M3 17h18v4H3z',
   gate: 'M9 3h6v18H9zM11 7h2M11 12h2M11 17h2',
   'horizontal-gate': 'M3 9h18v6H3zM7 11v2M12 11v2M17 11v2',
   timer: 'M2 6h20v12H2zM6 10v4M10 10v4M14 10v4M18 10v4',

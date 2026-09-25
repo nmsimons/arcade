@@ -13,6 +13,18 @@ function fixture(x = 400, y = 200, block = { x: 300, y: 300, w: 200, h: 300 }) {
   level.climbables.ropes = [{ x, y, length: 500, segments: 24 }]
   return level
 }
+
+test('drag sketches are immutable and cannot be mistaken for a settled playable rope', () => {
+  const input = fixture(400, 201), original = structuredClone(input)
+  const preview = prepareLevelRopes(input, true)
+  assert.ok(preview.climbables.ropes[0].rest.key.startsWith('preview:'))
+  assert.deepEqual(input, original)
+  assert.equal(prepareLevelRopes(preview, true), preview)
+  const complete = prepareLevelRopes(preview)
+  assert.ok(!complete.climbables.ropes[0].rest.key.startsWith('preview:'))
+  assert.deepEqual(points(levelPlayer(complete).ropes[0]), complete.climbables.ropes[0].rest.points)
+  assert.deepEqual(parseLevel(complete), complete)
+})
 const cases = [
   ['cliff edge', () => fixture(300, 300, { x: 300, y: 300, w: 200, h: 600 })],
   ['through a block', () => fixture()],

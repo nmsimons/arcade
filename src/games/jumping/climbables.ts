@@ -1,6 +1,6 @@
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
-import { lineBlocked, moveBody, nearestBoundary, pointInside, segmentPenetration, ropeBend } from './geometry.ts'
+import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend } from './geometry.ts'
 import { initRopeSleep, ropeCanSleep, settleRopeSleep } from './ropeSleep.ts'
 
 export type Point = [number, number]
@@ -183,7 +183,7 @@ export function rappelFrame(climb: Climbing) {
   const waist: Point = [shoulder[0] + (hip[0] - shoulder[0]) * .6, shoulder[1] + (hip[1] - shoulder[1]) * .6]
   return { shoulder, hip, waist, head: [shoulder[0] - s * 2, shoulder[1] - 7.3] as Point, hands, feet, steps }
 }
-export function updateRopeWall(climb: Climbing, terrain: readonly Platform[], move = 0) {
+export function updateRopeWall(climb: Climbing, terrain: readonly Platform[], move = 0, position: Point = [climb.caught.x, climb.caught.y]) {
   if (!climb.rope) return
   const grip = climbPoint(climb, climb.distance), old = climb.wall
   climb.wall = undefined
@@ -215,8 +215,9 @@ export function updateRopeWall(climb: Climbing, terrain: readonly Platform[], mo
     // A platform's short side near the hands is not a wall beneath the feet.
     const feet = rappelFrame({ ...climb, wall: { x: face.x, side } }).feet
     if (!feet.every(foot => terrain.some(wall => pointInside(wall, face.x + side * .1, foot[1])))) continue
-    // Never transfer a caught player through the rope's supporting wall.
-    if (!old && (face.x - climb.caught.x) * side < 0) continue
+    // Never transfer through the wall, but a catch through an opening may have
+    // started on its other side. Once the body clears it, allow the feet to brace.
+    if (!old && (face.x - position[0]) * side < 0) continue
     climb.wall = { x: face.x, side }; break
   }
 }
@@ -436,9 +437,17 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
       const into = vx * normal[0] + vy * normal[1]
       if (into < 0) { vx -= into * normal[0] * weight; vy -= into * normal[1] * weight }
     }
-    node.x += dx * wx / Math.max(norm[0], 1e-8) / blend
-    node.y += dy * wy / Math.max(norm[1], 1e-8) / blend
+    const corrected = movePoint([node.x, node.y], [node.x + dx * wx / Math.max(norm[0], 1e-8) / blend,
+      node.y + dy * wy / Math.max(norm[1], 1e-8) / blend], terrain, ROPE_CLEARANCE)
+    node.x = corrected.x; node.y = corrected.y
     node.oldX = node.x - vx; node.oldY = node.y - vy
+  }
+  // Body correction runs after the regular collision pass (and again after a
+  // climbing step). Refresh its adjacent spans so a corner remains wrapped.
+  for (let i = 0; i < rope.bends.length; i++) {
+    if (!weights[i].some(Boolean) && !weights[i + 1].some(Boolean)) continue
+    const a = rope.nodes[i], b = rope.nodes[i + 1]
+    rope.bends[i] = ropeBend([a.x, a.y], [b.x, b.y], terrain, ROPE_CLEARANCE)
   }
   return safe
 }

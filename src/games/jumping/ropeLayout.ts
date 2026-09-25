@@ -76,7 +76,7 @@ function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
 }
 
 /** Resolve an unloaded rope once, in authoring time, using the game's own constraints. */
-export function prepareRope(definition: Rope, terrain: readonly Platform[]): Rope {
+export function prepareRope(definition: Rope, terrain: readonly Platform[], preview = false): Rope {
   const rope = { ...definition, segments: ropeSegmentCount(definition.length) }
   // Use an exposed face of the terrain union, so overlapping blocks cannot bounce
   // a buried anchor back and forth between their internal edges.
@@ -99,7 +99,7 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[]): Rop
   const reach = rope.length + 32
   const nearby = terrain.filter(b => b.x < rope.x + reach && b.x + b.w > rope.x - reach && b.y < rope.y + reach && b.y + b.h > rope.y - reach)
   const source = JSON.stringify([rope.x, rope.y, rope.length, rope.segments, nearby]), key = fingerprint(source)
-  if (rope.rest?.key === key) return definition
+  if (rope.rest?.key === key || preview && rope.rest?.key === `preview:${key}`) return definition
   const cached = layouts.get(source)
   if (cached) return { ...rope, rest: cached }
   delete rope.rest
@@ -126,6 +126,9 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[]): Rop
     }
   }
   rope.rest = { key, points: state.nodes.map(n => [n.x, n.y] as Point), distances }
+  // Dragging needs a route, not thousands of simulation steps. A worker settles
+  // the final edit; a preview key can never masquerade as a saved rest state.
+  if (preview) return { ...rope, rest: { ...rope.rest, key: `preview:${key}` } }
   let quiet = 0
   // Fixed steps and a fixed seed give identical results regardless of frame rate.
   // Extra damping removes the long, uninteresting startup swing in the editor.

@@ -1,18 +1,18 @@
 import { memo, useEffect, useRef } from 'react'
 import type { JumpLevel } from './level'
 import { isPuzzleLevel, levelHeight, levelPlayer, prepareLevelRopes } from './level'
-import { createRun } from './challenge'
+import { createRun, createPreviewRun } from './challenge'
 import { drawPuzzleWorld } from './challengeRender'
 import { drawAthlete, drawClimbables, drawLevelBackdrop, drawTerrain } from './render'
 
 /** Render a still using the same world drawing and initial placement as play. */
-export const LevelThumbnail = memo(function LevelThumbnail({ level }: { level: JumpLevel }) {
+export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = false }: { level: JumpLevel; preview?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const canvas = ref.current!, ctx = canvas.getContext('2d')!
-    const prepared = prepareLevelRopes(level)
-    const run = isPuzzleLevel(prepared) ? createRun(prepared) : null
-    const player = run?.player ?? levelPlayer(prepared)
+    const prepared = preview ? level : prepareLevelRopes(level)
+    const run = isPuzzleLevel(prepared) ? (preview ? createPreviewRun(prepared) : createRun(prepared)) : null
+    const player = run?.player ?? levelPlayer(prepared, preview)
     const paint = () => {
       const { width, height } = canvas.getBoundingClientRect()
       if (!width || !height) return
@@ -32,6 +32,6 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level }: { level: J
     }
     const observer = new ResizeObserver(paint); observer.observe(canvas); paint()
     return () => observer.disconnect()
-  }, [level])
+  }, [level, preview])
   return <canvas ref={ref} className="level-thumbnail" aria-hidden="true" />
 })

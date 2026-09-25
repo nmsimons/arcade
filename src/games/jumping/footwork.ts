@@ -143,7 +143,12 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
     }
     const start = foot.settle ?? { x: foot.x, y: foot.y, angle: foot.angle, facing: foot.facing, time: 0,
       duration: p.pushing?.effort ? .24 : .12 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
-    const time = Math.min(start.duration, start.time + dt), t = time / start.duration, blend = smooth(t)
+    // A rolling ball can travel much faster than a heavy box. Complete each
+    // step within fourteen units of body travel so the planted leg does not
+    // get dragged behind and pull the whole torso toward the floor.
+    const speed = p.contacts?.motion.speed ?? Math.abs(p.vx)
+    const rate = p.pushing?.effort ? Math.max(1, speed * start.duration / 14) : 1
+    const time = Math.min(start.duration, start.time + dt * rate), t = time / start.duration, blend = smooth(t)
     const lift = .9 + Math.min(2.1, Math.abs(start.x - targets[i]) * .09)
     const target = groundAt(platforms, targets[i], p.y)
     const angle = target?.angle ?? 0, groundY = target?.y ?? p.y

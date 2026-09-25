@@ -13,6 +13,37 @@ const advance = (run, frames, input = {}) => {
   for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input })
 }
 
+test('pushing varied prop sizes keeps palms on the surface and feet moving with the body', () => {
+  for (const kind of ['box', 'ball']) for (const size of [30, 40, 50, 60, 100, 200]) for (const direction of [-1, 1]) {
+    const level = blankTrial(); level.props = [{ kind, x: 900, y: 920, size }]
+    level.spawn.x = 900 - direction * (size / 2 + 26)
+    const run = createRun(level), p = run.player; run.started = true; p.facing = direction
+    let previous, contacts = 0
+    for (let i = 0; i < 360; i++) {
+      advance(run, 1, { move: direction })
+      const pose = athletePose(p)
+      if (i > 100) {
+        if (kind === 'ball') {
+          assert.ok(Math.abs(run.props[0].vx) <= 90.1, 'pushing a ball uses the same speed limit as a box')
+          assert.ok(p.contacts.motion.speed <= 90.1, 'the feet follow the slower pushing travel')
+        }
+        assert.ok(p.pushing?.palms, `${kind} ${size} retains both hand contacts`)
+        contacts++
+        for (const [j, arm] of [pose.frontArm, pose.backArm].entries()) {
+          const palm = p.pushing.palms[j]
+          assert.ok(Math.hypot(p.x + arm.hand[0] * direction - palm.x - palm.nx * 1.6,
+            p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < 2, 'palms follow the visible surface')
+        }
+        assert.ok(pose.hip[1] < -10, 'a planted leg must not drag the pelvis down to the floor')
+        assert.ok(Math.hypot(...pose.shoulder.map((v, j) => v - previous[j])) < 3, 'a turning box must not snap the torso between edge heights')
+      }
+      previous = pose.shoulder
+    }
+    assert.ok(contacts > 200)
+    assert.ok((run.props[0].x - 900) * direction > 60)
+  }
+})
+
 test('nearest contact wins in either direction, independent of collider order, and a wall shields props', () => {
   for (const direction of [-1, 1]) {
     const floor = { x: 0, y: 920, w: 2000, h: 40 }

@@ -95,7 +95,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (push?.collider.prop === b) {
       driven.add(body)
       Sleeping.set(body, false)
-      const target = push.direction * push.effort * (b.kind === 'ball' ? 175 : 90)
+      const target = push.direction * push.effort * 90
       const maximum = b.kind === 'ball' ? 3800 : 1900
       const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * 35))
       Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })

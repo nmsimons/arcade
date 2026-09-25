@@ -2,6 +2,7 @@ import { test, expect } from './helpers/test.mjs'
 import { readFile } from 'node:fs/promises'
 import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
+import { ropeTower } from '../helpers/rope-tower.mjs'
 
 async function open(page, level) {
   if (level) await useLevelFixtures(page, [level])
@@ -38,7 +39,8 @@ async function open(page, level) {
   await page.clock.runFor(64)
   if (level) {
     await page.getByLabel('Import level file').setInputFiles({ name: 'fixture.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(level)) })
-    await page.clock.runFor(32)
+    await page.clock.runFor(200)
+    await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false', { timeout: 15000 })
   }
 }
 async function downloadLevel(page, button = 'Export') {
@@ -53,6 +55,44 @@ async function dragWorld(page, start, end) {
   await page.mouse.move(x(start.x), y(start.y)); await page.mouse.down()
   await page.mouse.move(x(end.x), y(end.y), { steps: 8 }); await page.mouse.up()
 }
+
+test('tower edits settle ropes off-thread only after dragging, and never overwrite newer edits', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.ropeWorkerStarts = 0
+    const fill = CanvasRenderingContext2D.prototype.fillRect
+    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
+      if (this.fillStyle === '#eeeee6') this.canvas.editorPaints = (this.canvas.editorPaints ?? 0) + 1
+      return fill.apply(this, args)
+    }
+    const OriginalWorker = window.Worker
+    window.Worker = class extends OriginalWorker {
+      constructor(url, options) { super(url, options); if (String(url).includes('ropeLayout.worker')) window.ropeWorkerStarts++ }
+    }
+  })
+  await open(page, ropeTower())
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  await page.getByRole('button', { name: 'Fit level overview' }).click()
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:1')
+  const before = await page.evaluate(() => window.ropeWorkerStarts)
+  await dragWorld(page, { x: 500, y: 390 }, { x: 560, y: 410 })
+  expect(await page.evaluate(() => window.ropeWorkerStarts)).toBe(before)
+  await page.clock.runFor(130)
+  expect(await page.evaluate(() => window.ropeWorkerStarts)).toBe(before + 1)
+  // Replace the edit while its layout is still outstanding.
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:1')
+  await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('440')
+  await page.clock.runFor(200)
+  await expect(canvas).toHaveAttribute('aria-busy', 'false', { timeout: 15000 })
+  const paints = await canvas.evaluate(canvas => canvas.editorPaints)
+  await page.clock.runFor(1000)
+  expect(await canvas.evaluate(canvas => canvas.editorPaints)).toBe(paints)
+  const { level } = await downloadLevel(page)
+  expect(level.platforms[1].x).toBe(440)
+  expect(level.platforms[1].y).toBe(360)
+  expect(level.climbables.ropes.every(r => !r.rest.key.startsWith('preview:'))).toBe(true)
+})
 
 test('object tools place editable balls, boxes, elevators, gates and shovebots with connected pressure plates', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))
@@ -183,8 +223,8 @@ test('one pressure plate controls a gate and elevator through editing, export an
   expect(exported.level.triggers).toEqual([{ x: 300, y: 920, w: 80, targets: ['gate', 'lift'], mode: 'weight' }])
   expect(exported.level.mechanisms.map(m => [m.w, m.h, m.travel])).toEqual([[20, 160, 160], [200, 20, 240]])
   await page.getByLabel('Import level file').setInputFiles(exported.path); await page.clock.runFor(32)
-  expect(await editor.evaluate(canvas => canvas.mechanismAnchors[622])).toBeUndefined()
-  expect(await editor.evaluate(canvas => canvas.mechanismAnchors[1000])).toBe(650)
+  expect(await editor.evaluate(canvas => canvas.mechanismAnchors?.[622])).toBeUndefined()
+  expect(await editor.evaluate(canvas => canvas.mechanismAnchors?.[1000])).toBeUndefined()
   await page.screenshot({ path: info.outputPath('suspended-mechanisms-builder.png') })
   await page.getByRole('button', { name: 'Playtest', exact: true }).click(); await page.clock.runFor(64)
   const game = page.getByRole('img', { name: 'Untitled level: activate the goal' })
@@ -192,8 +232,8 @@ test('one pressure plate controls a gate and elevator through editing, export an
   await page.clock.runFor(2600)
   expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(580)
   expect(await game.evaluate(canvas => canvas.mechanismBodies.lift.y)).toBe(650)
-  expect(await game.evaluate(canvas => canvas.mechanismAnchors[622])).toBeUndefined()
-  expect(await game.evaluate(canvas => canvas.mechanismAnchors[1000])).toBe(650)
+  expect(await game.evaluate(canvas => canvas.mechanismAnchors?.[622])).toBeUndefined()
+  expect(await game.evaluate(canvas => canvas.mechanismAnchors?.[1000])).toBeUndefined()
   await page.screenshot({ path: info.outputPath('suspended-mechanisms-raised.png') })
   await page.clock.runFor(4000)
   expect(await game.evaluate(canvas => canvas.mechanismBodies.gate.y)).toBe(580)
@@ -712,6 +752,7 @@ test('rope layout is resolved in the editor, saved, and reused unchanged on play
   const edited = await editor.evaluate(canvas => canvas.ropePath)
   expect(edited).not.toEqual(preview)
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await page.clock.runFor(600)
+  await expect(editor).toHaveAttribute('aria-busy', 'false', { timeout: 15000 })
   expect(await editor.evaluate(canvas => canvas.ropePath)).toEqual(preview)
   await page.clock.resume(); await page.reload()
   await expect(page).toHaveURL(/\/builder$/)
@@ -824,6 +865,29 @@ for (const anchorY of [200, 220]) for (const controller of [false, true]) test(`
   const top = await page.evaluate(() => window.jumpPlayer)
   expect(top.x).toBeCloseTo(420, 1); expect(top.y).toBeCloseTo(200, 1)
   await page.screenshot({ path: info.outputPath('rope-platform-exit.png') })
+})
+
+for (const pinned of [false, true]) test(`a ${pinned ? 'pinned' : 'loose'} ball at the rope exit permits climbing or retreating`, async ({ page }, info) => {
+  const level = { version: 1, id: 'rope-ball-exit', name: 'Rope ball exit', width: 1000, height: 600, floor: 600,
+    spawn: { x: 383, y: 600 }, goal: { x: 850, y: 600 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 400 }],
+    climbables: { ladders: [], ropes: [{ x: 400, y: 200, length: 330, segments: 42 }] },
+    props: [{ kind: 'ball', x: 406, y: 200, size: 30 }], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
+  if (pinned) level.platforms.push({ x: 440, y: 0, w: 60, h: 200 })
+  await open(page, level); await page.getByRole('button', { name: 'Playtest' }).click(); await page.clock.runFor(100)
+  await page.keyboard.down('w'); await page.clock.runFor(6500); await page.keyboard.up('w')
+  if (pinned) {
+    await expect(page.locator('.jumping-state')).toHaveText('Climbing')
+    await page.screenshot({ path: info.outputPath('climb-pauses-at-pinned-ball.png') })
+    await page.keyboard.down('s'); await page.clock.runFor(1600); await page.keyboard.up('s')
+    await expect(page.locator('.jumping-state')).toHaveText('Hanging')
+    const held = await page.evaluate(() => window.jumpPlayer)
+    expect(held.x).toBeCloseTo(386, 1); expect(held.y).toBeCloseTo(274, 1)
+  } else {
+    await expect(page.locator('.jumping-state')).toHaveText('Ready')
+    const top = await page.evaluate(() => window.jumpPlayer)
+    expect(top.x).toBeCloseTo(420, 1); expect(top.y).toBeCloseTo(200, 1)
+    await page.screenshot({ path: info.outputPath('climbed-past-loose-ball.png') })
+  }
 })
 
 test('snap aligns final terrain positions and resize edges, including previously offset terrain', async ({ page }, info) => {

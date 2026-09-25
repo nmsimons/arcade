@@ -47,8 +47,14 @@ export function saveBest(storage: Pick<Storage, 'getItem' | 'setItem'>, seconds:
   return best
 }
 export function createRun(level: PuzzleLevel): Run {
-  level = prepareLevelRopes(level)
-  const run: Run = { level, player: levelPlayer(level), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
+  return createInitialWorld(prepareLevelRopes(level))
+}
+/** Static editor drawing must not run the rope settling simulation. */
+export function createPreviewRun(level: PuzzleLevel): Run {
+  return createInitialWorld(level, true)
+}
+function createInitialWorld(level: PuzzleLevel, preview = false): Run {
+  const run: Run = { level, player: levelPlayer(level, preview), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],
     mechanisms: level.mechanisms.map(m => {
       const definition = prepareMechanism(m, level.floor)

@@ -18,14 +18,21 @@ test('pushing varied prop sizes keeps palms on the surface and feet moving with 
     const level = blankTrial(); level.props = [{ kind, x: 900, y: 920, size }]
     level.spawn.x = 900 - direction * (size / 2 + 26)
     const run = createRun(level), p = run.player; run.started = true; p.facing = direction
-    let previous, contacts = 0
-    for (let i = 0; i < 360; i++) {
+    let previous, previousLegs, contacts = 0
+    for (let i = 0; i < 600; i++) {
       advance(run, 1, { move: direction })
       const pose = athletePose(p)
       if (i > 100) {
         if (kind === 'ball') {
           assert.ok(Math.abs(run.props[0].vx) <= 90.1, 'pushing a ball uses the same speed limit as a box')
           assert.ok(p.contacts.motion.speed <= 90.1, 'the feet follow the slower pushing travel')
+          for (const [j, leg] of [pose.frontLeg, pose.backLeg].entries()) {
+            assert.ok(Math.hypot(leg.joint[0] - previousLegs[j].joint[0], leg.joint[1] - previousLegs[j].joint[1]) < 4,
+              `a deeply bent knee must not flip while stepping past the hip: size ${size}, side ${direction}, frame ${i}, leg ${j}, delta ${Math.hypot(leg.joint[0] - previousLegs[j].joint[0], leg.joint[1] - previousLegs[j].joint[1])}`)
+            const foot = p.footwork.feet[j]
+            assert.ok(Math.hypot(p.x + leg.end[0] * direction - foot.x, p.y + leg.end[1] - foot.y) < 1.5,
+              'the leg must reach its small pushing step without floor corrections launching the ankle')
+          }
         }
         assert.ok(p.pushing?.palms, `${kind} ${size} retains both hand contacts`)
         contacts++
@@ -38,6 +45,7 @@ test('pushing varied prop sizes keeps palms on the surface and feet moving with 
         assert.ok(Math.hypot(...pose.shoulder.map((v, j) => v - previous[j])) < 3, 'a turning box must not snap the torso between edge heights')
       }
       previous = pose.shoulder
+      previousLegs = [pose.frontLeg, pose.backLeg]
     }
     assert.ok(contacts > 200)
     assert.ok((run.props[0].x - 900) * direction > 60)

@@ -17,6 +17,8 @@ test('a fresh jump from either braced wall launches upward and away', () => {
     advance(p, .1, { move: side })
     assert.equal(playerState(p), 'Bracing')
     advance(p, STEP, { jump: true, move: side })
+    assert.equal(p.wallJump, null)
+    advance(p, STEP, { move: side })
     assert.equal(playerState(p), 'Wall jump')
     assert.equal(p.vx, -side * TUNING.wallJumpPush)
     assert.ok(p.vy < -530)
@@ -33,6 +35,7 @@ test('holding toward the wall can trim a jump but cannot reverse its outward arc
     const start = { x: p.x, y: p.y }, outward = { ...p }
     advance(p, STEP, { jump: true, move: side })
     advance(outward, STEP, { jump: true, move: -side })
+    advance(p, STEP, { move: side }); advance(outward, STEP, { move: -side })
     let crossedApex = false
     for (let frame = 0; frame < 120; frame++) {
       advance(p, STEP, { move: side })
@@ -80,6 +83,7 @@ test('holding jump cannot chain bounces; a new press can jump from the opposite 
   const p = airborne({ x: 288, y: 500 })
   advance(p, STEP, {}, corridor)
   advance(p, STEP, { jump: true, move: -1 }, corridor)
+  advance(p, STEP, { move: -1 }, corridor)
   advance(p, .64, { jump: true, move: -1 }, corridor)
   assert.equal(p.x, 112)
   assert.equal(p.wallJump, null)
@@ -87,6 +91,8 @@ test('holding jump cannot chain bounces; a new press can jump from the opposite 
   advance(p, STEP, { move: -1 }, corridor)
   const height = p.y
   advance(p, STEP, { jump: true, move: -1 }, corridor)
+  assert.equal(p.wallJump, null)
+  advance(p, STEP, { move: -1 }, corridor)
   assert.equal(p.wallJump?.direction, 1)
   assert.ok(p.vx > 0 && p.vy < -530)
   advance(p, .2, { move: 1 }, corridor)
@@ -106,6 +112,7 @@ test('a kick respects ceilings, and landing and respawn clear its impulse', () =
   const p = airborne({ y: 500 })
   advance(p, STEP)
   advance(p, STEP, { jump: true }, [...world, { x: 250, y: 420, w: 100, h: 18 }])
+  advance(p, STEP, {}, [...world, { x: 250, y: 420, w: 100, h: 18 }])
   assert.equal(p.vy, 0)
   assert.equal(p.y, 500)
   advance(p, 1)
@@ -117,4 +124,23 @@ test('a kick respects ceilings, and landing and respawn clear its impulse', () =
   assert.equal(p.wallJump, null)
   assert.equal(p.wallJumpBuffer, 0)
   assert.equal(p.vx, 0)
+})
+
+test('wall jumps charge against either wall while sliding, and only kick on release', () => {
+  for (const side of [-1, 1]) for (const move of [-1, 0, 1]) for (const frames of [1, 21, 60]) {
+    const p = airborne({ x: side === 1 ? 338 : 462, y: 100, facing: side, vy: 0 })
+    advance(p, STEP)
+    const x = p.x
+    for (let i = 0; i < frames; i++) {
+      advance(p, STEP, { jump: true, move })
+      assert.equal(p.wallJump, null); assert.equal(p.x, x)
+      assert.ok(p.wallBrace?.active && !p.grounded)
+    }
+    const charge = Math.min(1, frames * STEP / TUNING.chargeTime)
+    assert.ok(Math.abs(p.charge - charge) < 1e-6)
+    advance(p, STEP, { move })
+    assert.ok(p.wallJump)
+    assert.equal(p.vx, -side * TUNING.wallJumpPush)
+    assert.ok(Math.abs(p.vy + TUNING.wallJumpSpeed + (TUNING.chargedJumpSpeed - TUNING.wallJumpSpeed) * charge - TUNING.gravity * STEP) < 1e-6)
+  }
 })

@@ -8,6 +8,7 @@ import { CAMPAIGN } from './helpers/jumping-fixtures.mjs'
 const input = extras => ({ ...NEUTRAL_INPUT, ...extras })
 const world = { ladders: [], ropes: [{ x: 500, y: 100, length: 600, segments: 75 }] }
 const tick = (p, extras = {}) => stepPlayer(p, input(extras), STEP, [], world, { checkpoints: [], fallY: Infinity })
+const tapSpeed = 360 + (TUNING.chargedJumpSpeed - 360) * STEP / TUNING.chargeTime
 
 test('settling onto a stationary rope cannot supply jump or drop momentum', () => {
   for (const side of [-1, 1]) for (const gap of [0, 20]) for (const frames of [0, 1, 6, 9, 12, 15, 19, 20, 21]) for (const drop of [false, true]) {
@@ -16,9 +17,10 @@ test('settling onto a stationary rope cannot supply jump or drop momentum', () =
     tick(p)
     assert.equal(p.climbing?.kind, 'rope')
     for (let i = 0; i < frames; i++) tick(p)
+    if (!drop) { tick(p, { jump: true }); assert.ok(p.climbing) }
     const { x, y } = p, c = p.climbing
     const grip = ropeGripDistance(c)
-    tick(p, { move: side, jump: true, detach: drop })
+    tick(p, { move: side, detach: drop })
     assert.equal(p.climbing, null)
     assert.equal(p.x, x); assert.equal(p.y, y, 'releasing must not snap to the final catch pose')
     const expected = drop ? 0 : side * 180
@@ -26,7 +28,7 @@ test('settling onto a stationary rope cannot supply jump or drop momentum', () =
     if (!drop && frames <= 20) {
       // The loaded rope can bob vertically as it settles; that is real motion.
       const swingUp = Math.max(0, (ropePoint(c.rope, grip, true)[1] - ropePoint(c.rope, grip)[1]) / STEP)
-      assert.ok(p.vy >= -360 - swingUp - 1, `catch repositioning added upward speed at frame ${frames}: ${p.vy}`)
+      assert.ok(p.vy >= -tapSpeed - swingUp - 1, `catch repositioning added upward speed at frame ${frames}: ${p.vy}`)
     }
     tick(p, { detach: drop })
     assert.equal(p.climbing, null, 'release must still prevent an immediate recatch')
@@ -42,6 +44,8 @@ test('a running catch keeps real forward momentum without the early-release spee
     const run = structuredClone(caught), p = run.player
     for (let i = 0; i < frames; i++) stepRun(run, input({ move: 1 }))
     stepRun(run, input({ move: 1, jump: true }))
+    assert.ok(p.climbing)
+    stepRun(run, input({ move: 1 }))
     assert.equal(p.climbing, null)
     assert.ok(p.vx > 180, 'the catch must retain actual forward swing momentum')
     assert.ok(p.vx <= TUNING.runSpeed + 180, `quick release amplified the approach speed at frame ${frames}: ${p.vx}`)
@@ -55,6 +59,8 @@ test('an immediate rope jump uses the caught rope motion instead of the incoming
     tick(p)
     assert.equal(p.climbing?.kind, 'rope')
     tick(p, { move: side, jump: true })
+    assert.ok(p.climbing)
+    tick(p, { move: side })
     assert.equal(p.climbing, null)
     assert.ok(p.vx * side > 180, 'arrival momentum must still set the rope moving')
     assert.ok(p.vx * side < TUNING.runSpeed + 180, 'the catch must absorb some of the arrival speed before release')
@@ -71,8 +77,41 @@ test('settled rope jumps and drops retain their existing momentum and push-off',
   assert.ok(Math.abs(p.vx) > 30)
   for (const move of [-1, 0, 1]) for (const drop of [false, true]) {
     const released = structuredClone(p)
-    tick(released, { move, jump: true, detach: drop })
-    assert.equal(released.vx, drop ? p.vx : Math.max(-600, Math.min(600, p.vx + move * 180)))
-    assert.equal(released.vy, drop ? Math.max(0, p.vy) + 40 : Math.min(0, p.vy) - 360)
+    if (!drop) { tick(released, { move, jump: true }); assert.ok(released.climbing) }
+    const { vx, vy } = released
+    tick(released, { move, detach: drop })
+    assert.equal(released.vx, drop ? vx : Math.max(-600, Math.min(600, vx + move * 180)))
+    assert.equal(released.vy, drop ? Math.max(0, vy) + 40 : Math.min(0, vy) - tapSpeed)
   }
+})
+
+test('rope and ladder jumps charge without climbing or detaching until release', () => {
+  for (const kind of ['rope', 'ladder']) for (const frames of [1, 21, 60, 120]) {
+    const climbables = kind === 'rope' ? world : { ropes: [], ladders: [{ x: 500, top: 100, bottom: 700, platform: -1, side: 1 }] }
+    const p = createPlayer({ x: 490, y: 420 }); p.grounded = false; p.coyote = 0
+    const step = extras => stepPlayer(p, input(extras), STEP, [], climbables)
+    step({ climb: true })
+    for (let i = 0; i < 40; i++) step({})
+    assert.equal(p.climbing?.kind, kind)
+    const distance = p.climbing.distance
+    for (let i = 0; i < frames; i++) {
+      step({ jump: true, climb: true })
+      assert.equal(p.climbing?.kind, kind)
+      assert.equal(p.climbing.distance, distance, 'Up cannot climb or pull up during a jump charge')
+    }
+    const charge = Math.min(1, frames * STEP / TUNING.chargeTime), vy = p.vy
+    assert.ok(Math.abs(p.charge - charge) < 1e-6)
+    step({ climb: true })
+    assert.equal(p.climbing, null); assert.equal(p.mantle, null); assert.equal(p.hang, null)
+    assert.ok(Math.abs(p.vy - Math.min(0, vy) + 360 + (TUNING.chargedJumpSpeed - 360) * charge) < 1e-6)
+  }
+})
+
+test('catching a rope consumes a held jump and its release instead of launching again', () => {
+  const p = createPlayer({ x: 480, y: 420 }); p.grounded = false
+  tick(p, { jump: true })
+  for (let i = 0; i < 80; i++) tick(p, { jump: true })
+  assert.ok(p.climbing); assert.equal(p.charging, false)
+  tick(p)
+  assert.ok(p.climbing, 'the old jump release cannot bounce off a new grip')
 })

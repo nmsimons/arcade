@@ -129,7 +129,11 @@ function footAngle(limb: Limb, desired: number): number {
 function solveLeg(root: Point, target: Point, desired: number, grounded: boolean, planted = false, footFacing = 1, load = Number(grounded), kneeDirection = -1,
   groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null): Leg {
   const ankle: Point = [...target]
-  let limb = solve(root, ankle, 15, 14.5, kneeDirection, MIN_KNEE_OPENING)
+  // Deep, supported crouches need more knee flexion than an airborne leg.
+  // Forcing a nearby foot away from the hip can drive it through the floor;
+  // lifting that displaced foot then flips the solver to the other side.
+  const kneeOpening = grounded ? Math.PI / 12 : MIN_KNEE_OPENING
+  let limb = solve(root, ankle, 15, 14.5, kneeDirection, kneeOpening)
   const swingAngle = () => lerp(desired, footAngle(limb, desired), grounded ? smooth((groundY - ankle[1] - 2.8) / 3) : 1)
   let angle = swingAngle()
   const flex = () => toeBend((angle - surfaceAngle) * footFacing, load * smooth((limb.end[1] - groundY + 10) / 6)) * footFacing
@@ -142,7 +146,7 @@ function solveLeg(root: Point, target: Point, desired: number, grounded: boolean
     })) : limb.end[1] + soleContact(angle * footFacing, flex() * footFacing)[1] - groundY
     if (bottom <= .01) break
     ankle[1] -= bottom
-    limb = solve(root, ankle, 15, 14.5, kneeDirection, MIN_KNEE_OPENING); angle = swingAngle()
+    limb = solve(root, ankle, 15, 14.5, kneeDirection, kneeOpening); angle = swingAngle()
   }
   return { ...limb, footAngle: angle, toeAngle: flex(), footFacing, planted }
 }

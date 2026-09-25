@@ -73,7 +73,8 @@ test('wall ropes catch from the open side, brace and rappel without any body pen
       }
     }
     assert.ok(braced > 80, `kept grip for ${braced} frames`); assert.ok(p.y > firstY + 35)
-    tick(p, [wall], { jump: true, move: -side }, world); assert.equal(p.climbing, null)
+    tick(p, [wall], { jump: true, move: -side }, world); assert.ok(p.climbing)
+    tick(p, [wall], { move: -side }, world); assert.equal(p.climbing, null)
   }
 })
 

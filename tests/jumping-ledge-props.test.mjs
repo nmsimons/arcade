@@ -61,6 +61,8 @@ test('a pinned ball pauses the climb without jitter and Down returns to a usable
     assert.equal(p.y, 374); assert.equal(p.x, 400 - side * 14)
     step(run, {})
     step(run, { jump: true, move: -side })
+    assert.ok(p.hang)
+    step(run, { move: -side })
     assert.equal(p.hang, null); assert.equal(p.climbing, null)
     assert.ok(p.vy < 0 && p.vx * side < 0, 'the player can jump away after retreating')
   }

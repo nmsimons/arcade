@@ -97,7 +97,10 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       Sleeping.set(body, false)
       const target = push.direction * push.effort * 90
       const maximum = b.kind === 'ball' ? 3800 : 1900
-      const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * 35))
+      // Keep a ball's push force when a load resists it, despite its lower
+      // walking-speed target. A loaded chain must not stall below that target.
+      const response = b.kind === 'ball' ? 70 : 35
+      const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
       Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
     } else if (b.kind === 'ball' && b.grounded) {
       const onPlate = run.level.triggers.some(t => propLoadsPlate(b, t.x, t.y, t.w))

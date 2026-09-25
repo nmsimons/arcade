@@ -2,7 +2,7 @@ import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { athletePose } from '../src/games/jumping/athlete.ts'
-import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { NEUTRAL_INPUT, STEP, TUNING, cancelJumpInput } from '../src/games/jumping/model.ts'
 import { BACK_GRIP, FRONT_GRIP, KNEE_CONTACT, climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME } from '../src/games/jumping/ledge.ts'
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
 
@@ -134,4 +134,69 @@ test('ledge descent ignores distant edges and refuses a blocked hanging space', 
     assert.equal(p.mantle, null); assert.equal(p.hang, null); assert.equal(p.grounded, true)
     close([p.x, p.y], [x, 400], 'down must leave the figure standing when no safe nearby edge exists')
   }
+})
+
+function hangingPlayer(side, braced) {
+  const p = createPlayer(), world = [{ x: 500, y: 400, w: 220, h: braced ? 220 : 12 }]
+  const edgeX = side === 1 ? 500 : 720
+  Object.assign(p, { x: edgeX + 8 * side, y: 400, facing: -side })
+  for (let time = 0; time < 1.6; time += STEP) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, world)
+  stepPlayer(p, NEUTRAL_INPUT, STEP, world)
+  assert.ok(p.hang)
+  return { p, world }
+}
+
+test('hanging jumps charge in place and only launch on release, regardless of direction or Up input', () => {
+  for (const braced of [false, true]) for (const side of [-1, 1]) for (const move of [-1, 0, 1]) for (const climb of [false, true]) for (const duration of [STEP, .175, .5, 1.2]) {
+    const { p, world } = hangingPlayer(side, braced), startX = p.x, startY = p.y
+    const input = { ...NEUTRAL_INPUT, jump: true, move, climb }
+    for (let t = 0; t < duration - STEP / 2; t += STEP) {
+      stepPlayer(p, input, STEP, world)
+      assert.ok(p.hang); assert.equal(p.mantle, null)
+      assert.equal(p.x, startX); assert.equal(p.y, startY)
+    }
+    assert.ok(Math.abs(p.charge - Math.min(1, duration / TUNING.chargeTime)) < 1e-6)
+    stepPlayer(p, { ...input, jump: false }, STEP, world)
+    assert.equal(p.hang, null); assert.equal(p.mantle, null)
+    assert.ok(Math.abs(p.vy + TUNING.jumpSpeed + (TUNING.chargedJumpSpeed - TUNING.jumpSpeed) * Math.min(1, duration / TUNING.chargeTime)) < 1e-6)
+    assert.ok(p.vy < -300 && p.vx * side < 0, 'Jump launches upward and away without requiring directional input')
+    for (let i = 0; i < 12; i++) {
+      stepPlayer(p, { ...input, jump: false }, STEP, world)
+      assert.equal(p.hang, null); assert.equal(p.mantle, null)
+    }
+    assert.ok(p.y < startY && (p.x - startX) * side < 0, 'the launch continues into free movement')
+  }
+})
+
+test('Up alone starts the pull-up and Jump cancels a queued pull-up', () => {
+  for (const braced of [false, true]) for (const side of [-1, 1]) {
+    const { p, world } = hangingPlayer(side, braced)
+    for (const move of [-1, 0, 1]) for (let i = 0; i < 30; i++) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, move }, STEP, world)
+      assert.ok(p.hang); assert.equal(p.mantle, null)
+    }
+    // A short Up press during the catch queues a pull-up; Jump must override it.
+    p.hang.time = 0
+    stepPlayer(p, { ...NEUTRAL_INPUT, climb: true }, STEP, world)
+    assert.ok(p.hang.queued)
+    stepPlayer(p, { ...NEUTRAL_INPUT, jump: true }, STEP, world)
+    assert.ok(p.hang); assert.equal(p.hang.queued, false)
+    stepPlayer(p, NEUTRAL_INPUT, STEP, world)
+    assert.equal(p.hang, null); assert.equal(p.mantle, null); assert.ok(p.vy < 0)
+
+    const next = hangingPlayer(side, braced)
+    stepPlayer(next.p, { ...NEUTRAL_INPUT, climb: true }, STEP, next.world)
+    assert.ok(next.p.mantle); assert.equal(next.p.hang, null)
+    for (let time = 0; time < LEDGE_CLIMB_TIME + .1; time += STEP) stepPlayer(next.p, NEUTRAL_INPUT, STEP, next.world)
+    assert.ok(next.p.grounded); assert.equal(next.p.mantle, null); assert.equal(next.p.y, 400)
+  }
+})
+
+test('canceling a hanging charge keeps the grip and does not jump on release', () => {
+  const { p, world } = hangingPlayer(1, true)
+  for (let i = 0; i < 60; i++) stepPlayer(p, { ...NEUTRAL_INPUT, jump: true }, STEP, world)
+  assert.equal(p.charge, 1)
+  cancelJumpInput(p)
+  for (let i = 0; i < 60; i++) stepPlayer(p, NEUTRAL_INPUT, STEP, world)
+  assert.ok(p.hang); assert.equal(p.mantle, null); assert.equal(p.vy, 0)
 })

@@ -130,8 +130,10 @@ test('jumping again during a rope catch does not launch at catch-animation speed
   for (let i = 0; i < 120 && !(await page.locator('.jumping-state').innerText()).startsWith('Rope'); i++) await page.clock.runFor(32)
   await expect(page.locator('.jumping-state')).toContainText('Rope')
   await page.keyboard.up('w'); await page.clock.runFor(80)
+  await page.keyboard.down('Space'); await page.clock.runFor(64)
+  await expect(page.locator('.jumping-state')).toContainText('Rope')
   const before = await position(page)
-  await page.keyboard.down('Space'); await page.clock.runFor(64); await page.keyboard.up('Space')
+  await page.keyboard.up('Space'); await page.clock.runFor(64)
   const after = await position(page)
   await expect(page.locator('.jumping-state')).not.toContainText('Rope')
   expect(after.x - before.x).toBeGreaterThan(10)
@@ -147,7 +149,7 @@ test('a fall is recoverable by the ladder and does not restart the clock', async
   expect((await position(page)).y).toBeCloseTo(520); expect((await position(page)).x).toBeLessThan(560)
   await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
 })
-for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} braces, falls, and jumps away on a fresh press`, async ({ page }, info) => {
+for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} braces, falls, and jumps away on release`, async ({ page }, info) => {
   if (controller) await page.addInitScript(() => {
     window.testPad = { index: 0, id: 'Wall brace controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
     Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] })
@@ -178,8 +180,12 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   await page.clock.runFor(120)
   expect((await position(page)).y).toBeGreaterThan(falling.y + 15)
   expect((await position(page)).x).toBeCloseTo(868)
+  const charging = await position(page)
+  await jump(true, 32)
+  expect((await position(page)).x).toBeCloseTo(charging.x)
+  await expect(page.locator('.jumping-state')).toHaveText('Bracing')
   const beforeKick = await position(page)
-  await jump(true, 100) // Holding toward the wall must not cancel the outward kick.
+  await jump(false, 100) // Holding toward the wall must not cancel the released kick.
   expect((await position(page)).x).toBeLessThan(beforeKick.x - 25)
   expect((await position(page)).y).toBeLessThan(beforeKick.y - 40)
   await expect(page.locator('.jumping-state')).toHaveText('Wall jump')

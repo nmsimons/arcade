@@ -65,6 +65,7 @@ test('ropes climb and descend, carry the player during a swing, and transfer vel
   advance(p, .2, { descend: true }); assert.ok(p.y > height + 15)
   advance(p, .6, { climb: true, move: 1 }); assert.ok(p.x > 1538, 'a modest weight shift should start a swing')
   const velocity = p.vx; advance(p, STEP, { jump: true, move: 1 })
+  assert.ok(p.climbing); advance(p, STEP, { move: 1 })
   assert.equal(p.climbing, null); assert.ok(p.vx >= velocity); assert.ok(p.vy < -350)
   const x = p.x; advance(p, .1, { move: 1 }); assert.ok(p.x > x + 10)
   assert.equal(p.climbing, null, 'the release cooldown prevents immediately grabbing again')
@@ -148,6 +149,7 @@ test('automatic catches use the moving rope and consume a jump press on the catc
   assert.equal(p.climbing?.rope, rope)
   advance(p, .1, { jump: true }); assert.equal(p.climbing?.rope, rope)
   advance(p, STEP); advance(p, STEP, { jump: true, move: 1 })
+  assert.ok(p.climbing); advance(p, STEP, { move: 1 })
   assert.equal(p.climbing, null); assert.ok(p.vy < 0)
   advance(p, .2, { move: 1 }); assert.equal(p.climbing, null)
 })
@@ -239,6 +241,7 @@ test('pumping gathers the legs and bends the waist before the rope has built spe
 test('jump and drop release a ladder without producing another grounded jump', () => {
   for (const input of [{ jump: true, move: -1 }, { detach: true }]) {
     const p = createPlayer(); p.x = 1134; advance(p, .7, { climb: true }); advance(p, STEP, input)
+    if (input.jump) { assert.ok(p.climbing); advance(p, STEP, { move: input.move }) }
     assert.equal(p.climbing, null); assert.equal(p.grounded, false); assert.ok(p.grabCooldown > 0)
     if (input.jump) assert.ok(p.vy < 0 && p.vx < 0)
     else assert.ok(p.vy > 0)

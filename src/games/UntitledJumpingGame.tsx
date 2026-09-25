@@ -412,7 +412,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
             <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
             {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
           </dl>
-          <p>Ledges and ropes catch automatically. Press jump to leave a rope or kick away from a wall.</p>
+          <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Hold Jump to charge; release to jump, including from ledges, ropes, ladders, walls, and slopes.</p>
         </section>}
         {screen === 'paused' && <div className="jumping-actions">
             <button data-initial-focus className="jumping-primary" onClick={() => changeScreen('playing')}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>

@@ -163,6 +163,8 @@ test('drop releases the grip without instant regrab; away + jump pushes off', ()
   const { p, world } = hanging(); advance(p, STEP, { drop: true }, world); advance(p, .1, {}, world)
   assert.equal(p.hang, null); assert.ok(p.y > 400 + TUNING.hangReach)
   const { p: q, world: w } = hanging(); advance(q, STEP, { jump: true, move: -1 }, w)
+  assert.ok(q.hang)
+  advance(q, STEP, { move: -1 }, w)
   assert.equal(q.hang, null); assert.ok(q.vx < 0); assert.ok(q.vy < 0)
 })
 test('climbing refuses a blocked standing space', () => {

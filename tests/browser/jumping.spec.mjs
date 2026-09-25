@@ -456,8 +456,9 @@ test('keyboard ladders descend from the platform, and controller ropes climb, sw
   await page.evaluate(() => { window.testPad.axes[0] = 0; window.testPad.axes[1] = 1 }); await page.clock.runFor(200)
   await expect(page.locator('.jumping-state')).toHaveText('Rope · descending')
   await page.evaluate(() => { window.testPad.axes[1] = 0 }); await hold(page, 0, 1, 120)
+  await expect(page.locator('.jumping-state')).toHaveText('Rope · holding')
+  await hold(page, 0, 0, 100)
   await expect(page.locator('.jumping-state')).toHaveText('Rising')
-  await hold(page, 0, 0)
 })
 
 for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} down lowers from an edge and waits for a fresh press before dropping`, async ({ page }, info) => {

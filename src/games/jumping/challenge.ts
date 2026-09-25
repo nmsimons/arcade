@@ -111,7 +111,8 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const target = opening ? open : def
     if (m.x === target.x && m.y === target.y) continue
     const before = mechanismShape(m)
-    let x = approach(m.x, target.x, 130 * dt), y = approach(m.y, target.y, 130 * dt)
+    const speed = def.kind === 'gate' && !opening ? 65 : 130
+    let x = approach(m.x, target.x, speed * dt), y = approach(m.y, target.y, speed * dt)
     let dx = x - m.x, dy = y - m.y
     const nextShape = { ...def, x, y }
     const playerBlocked = rider ? obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, dy)) : bodyOverlap(p, nextShape)

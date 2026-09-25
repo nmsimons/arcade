@@ -15,6 +15,24 @@ const fixture = flipX => {
   return level
 }
 
+test('vertical and horizontal gates close at half their opening speed', () => {
+  for (const orientation of ['vertical', 'horizontal']) for (const flipX of [false, true]) {
+    const level = fixture(flipX)
+    if (orientation === 'vertical') Object.assign(level.mechanisms[0], { orientation, w: 20, h: 180 })
+    const run = createRun(level), gate = run.mechanisms[0]; run.started = true
+    advance(run, 30); assert.equal(gate.active, true)
+    const start = { x: gate.x, y: gate.y }
+    advance(run, 60)
+    const open = { x: gate.x, y: gate.y }
+    assert.ok(Math.abs(Math.hypot(open.x - start.x, open.y - start.y) - 65) < .001)
+    run.player.x = 450
+    advance(run, 1); assert.equal(gate.active, false)
+    const closing = { x: gate.x, y: gate.y }
+    advance(run, 60)
+    assert.ok(Math.abs(Math.hypot(gate.x - closing.x, gate.y - closing.y) - 32.5) < .001)
+  }
+})
+
 test('gate travel follows barrier length through old imports and resizing, while lift travel stays independent', () => {
   let level = blankTrial()
   for (const tool of ['gate', 'horizontal-gate', 'lift']) level = addItem(level, tool, { x: 700, y: 700 }, { x: 700, y: 700 }).level
@@ -62,7 +80,7 @@ for (const flipX of [false, true]) {
     advance(run, 600); assert.equal(gate.x, 700 + direction * 180, 'it must not retry while the player occupies its path')
     Object.assign(p, { x: 450, y: 920, footwork: null })
     advance(run, 60); assert.equal(gate.x, 700 + direction * 180, 'clearance includes time to step away')
-    advance(run, 240); assert.equal(gate.x, 700); assert.equal(gate.safetyHold, null)
+    advance(run, 420); assert.equal(gate.x, 700); assert.equal(gate.safetyHold, null)
     const reset = createRun(level).mechanisms[0]
     assert.equal(reset.x, 700); assert.equal(reset.active, false)
   })
@@ -76,7 +94,7 @@ for (const flipX of [false, true]) {
     advance(run, 240)
     assert.equal(gate.x, 700 + direction * 180, 'the blocked gate reopens fully')
     assert.ok(Math.abs(prop.x - 790) < .1, 'the gate does not crush or teleport the prop')
-    prop.x = 1200; advance(run, 240)
+    prop.x = 1200; advance(run, 420)
     assert.equal(gate.x, 700)
   })
 

@@ -193,7 +193,7 @@ test('steep slopes allow a brief uphill coast, then friction and gravity overcom
   }
 })
 
-test('sliding friction slows downhill acceleration and a jump releases contact immediately', () => {
+test('sliding friction persists while charging and jump release leaves the slope', () => {
   for (const direction of [-1, 1]) {
     const shape = ramp(direction * 55), p = on(shape)
     p.grounded = false
@@ -204,11 +204,29 @@ test('sliding friction slows downhill acceleration and a jump releases contact i
     const gain = Math.hypot(p.vx, p.vy) - startSpeed
     assert.ok(gain > 100 && gain < freeSlide * .7, 'surface friction must resist gravity-driven sliding')
     tick(p, shape, { jump: true })
+    assert.ok(p.sliding?.active && p.charging)
+    tick(p, shape)
     assert.ok(!p.sliding?.active && !p.grounded && p.vy < 0)
     const vy = p.vy
-    tick(p, shape, { jump: true })
+    tick(p, shape)
     assert.ok(!p.sliding?.active)
     assert.ok(Math.abs(p.vy - vy - TUNING.gravity * STEP) < .00001, 'airborne motion has no surface friction')
+  }
+})
+
+test('a sliding jump keeps its charge until release, including a fully held jump', () => {
+  for (const direction of [-1, 1]) for (const frames of [1, 21, 60, 120]) {
+    const shape = ramp(direction * 55), p = on(shape)
+    p.grounded = false; tick(p, shape)
+    for (let i = 0; i < frames; i++) {
+      tick(p, shape, { jump: true })
+      assert.ok(p.sliding?.active && !p.grounded)
+    }
+    const charge = Math.min(1, frames * STEP / TUNING.chargeTime)
+    assert.ok(Math.abs(p.charge - charge) < 1e-6)
+    tick(p, shape)
+    assert.ok(!p.sliding?.active)
+    assert.ok(Math.abs(p.vy + TUNING.jumpSpeed + (TUNING.chargedJumpSpeed - TUNING.jumpSpeed) * charge - TUNING.gravity * STEP) < 1e-6)
   }
 })
 

@@ -25,6 +25,7 @@ export function playLesson(index) {
     }
     assert.ok(p.vx > 120, 'release while the rope is carrying the player toward the next bank')
     tick(1, { move: 1, jump: true })
+    tick(1, { move: 1 })
     for (let i = 0; i < 650 && !run.finished && !p.climbing; i++) tick(1, { move: 1, climb: true })
   }
   assert.equal(run.finished, true); assert.equal(caught.size, index)

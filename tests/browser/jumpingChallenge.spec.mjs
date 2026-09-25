@@ -89,7 +89,7 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   await page.clock.resume(); await page.reload()
   await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
-  await expect(page.getByText(/Gold · 0:02/)).toBeVisible()
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['first-leap'])).toBe(record)
 })
 for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${lesson} rope${lesson > 1 ? 's' : ''} using the keyboard`, async ({ page }, info) => {
   test.setTimeout(90000); await setup(page, lesson); await enter(page); await launch(page)
@@ -246,6 +246,22 @@ test('pushing a ball transfers motion to a box without either prop passing throu
   await page.keyboard.up('d')
   expect((await page.evaluate(() => window.propPositions.box)).x).toBeGreaterThan(500)
   await page.screenshot({ path: info.outputPath('ball-pushing-box.png') })
+})
+
+test('a rolling ball stops against the player at a closed gate on a slope', async ({ page }, info) => {
+  const level = blankTrial()
+  level.platforms = [{ x: 200, y: 550, w: 1200, h: 370, polygon: [[0,0],[1200,360],[1200,370],[0,370]] }]
+  level.spawn = { x: 870, y: 751 }
+  level.mechanisms = [{ id: 'gate', kind: 'gate', x: 900, y: 350, w: 20, h: 570, travel: 570 }]
+  level.props = [{ kind: 'ball', x: 710, y: 703, size: 100 }]
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('w'); await page.clock.runFor(32); await page.keyboard.up('w')
+  for (let i = 0; i < 60; i++) {
+    await page.clock.runFor(64)
+    expect((await position(page)).x).toBeLessThanOrEqual(888.01)
+  }
+  expect((await position(page)).x).toBeGreaterThan(885)
+  await page.screenshot({ path: info.outputPath('ball-player-gate-contact.png') })
 })
 
 test('the player can jump out from a ball beside a tilted box and closed gate', async ({ page }, info) => {

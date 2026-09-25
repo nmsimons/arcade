@@ -9,12 +9,12 @@ import { drawPlayground } from './jumping/render'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelPlayer, levelRules, prepareLevelRopes } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
-import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from './jumping/challenge'
+import { createRun, formatTime, readBest, saveBest, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile } from './jumping/levelAssets'
 import { useLocalLevels } from './jumping/localLevels'
-import { LocalFolderActions, LocalFolderPanel } from './jumping/LocalFolderPanel'
+import { LocalFolderActions } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { drawChallenge } from './jumping/challengeRender'
 import { JUMPING_BUILDER, JUMPING_MENU, JUMPING_PLAYTEST, jumpingRoute, levelPath } from './jumping/routes'
@@ -41,7 +41,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const editorPath = useRef(JUMPING_BUILDER), playtests = useRef(new Map<number, JumpLevel>())
   const editorRevision = useRef(0)
   const [routeNotice, setRouteNotice] = useState('')
-  const [catalog, setCatalog] = useState(initialCatalog), [refreshing, setRefreshing] = useState(false)
+  const catalog = initialCatalog
   const local = useLocalLevels()
   const [chosenCollection, setCollection] = useState<'built-in' | 'local' | null>(null)
   const collection = chosenCollection ?? (local.name ? 'local' : 'built-in')
@@ -55,12 +55,6 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const nextFile = playingFiles.slice(campaignIndex + 1).find(file => levelProblems(file.level).length === 0)
   const [editorFile, setEditorFile] = useState<{ file: LevelFile; key: number } | null>(null)
   const [recordKey, setRecordKey] = useState(initialCatalog.files[0]?.level.id ?? '')
-  async function refreshBuiltins() {
-    setRefreshing(true)
-    try { setCatalog(await loadLevelCatalog(import.meta.env.BASE_URL)) }
-    catch (error) { setCatalog(previous => ({ ...previous, errors: [(error as Error).message] })) }
-    finally { setRefreshing(false) }
-  }
   const rootRef = useRef<HTMLDivElement>(null), canvasRef = useRef<HTMLCanvasElement>(null)
   const [initialRun] = useState(() => createRun(initialCatalog.files[0] && isPuzzleLevel(initialCatalog.files[0].level) ? initialCatalog.files[0].level : blankTrial()))
   const run = useRef<Run | null>(initialRun)
@@ -340,9 +334,9 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       <div className={`jumping-menu ${screen === 'menu' ? 'jumping-level-menu' : ''}`}>
         <div className="jumping-menu-header">
           <div className="jumping-menu-heading">
-            <p className="jumping-eyebrow">{screen === 'menu' ? 'SMALL LEAPS / BETTER TIMES' : 'PAUSED'}</p>
-            <h2>{screen === 'menu' ? 'Find your way across.' : 'Find your footing.'}</h2>
-            <p>{screen === 'menu' ? 'One light. A few good jumps. As many tries as you need.' : pauseReason}</p>
+            {screen === 'menu' ? <h2>Untitled Jumping Game</h2> : <>
+              <p className="jumping-eyebrow">PAUSED</p><h2>Find your footing.</h2><p>{pauseReason}</p>
+            </>}
           </div>
           {screen === 'menu' && <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button></div>}
         </div>
@@ -352,37 +346,34 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
               <button aria-label="Built-in levels" aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in<span className="jumping-source-label-extra"> levels</span></button>
               <button aria-label="Local folder" aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>Local<span className="jumping-source-label-extra"> folder</span></button>
             </div>
-            {collection === 'local' ? <LocalFolderActions local={local} /> : <button className="jumping-library-refresh" disabled={refreshing} onClick={() => void refreshBuiltins()}>{refreshing ? 'Refreshing…' : 'Refresh levels'}</button>}
+            {collection === 'local' && local.name && <span className="jumping-library-folder" title={local.name}>{local.name}</span>}
+            {collection === 'local' && <LocalFolderActions local={local} />}
           </div>
           <div className="jumping-library-status">
-            {collection === 'local' ? <LocalFolderPanel local={local} summary /> : <div className="jumping-builtin-summary">
-              <strong>{files.length} built-in {files.length === 1 ? 'level' : 'levels'}</strong>
-              {catalog.errors.length ? <p className="jumping-load-error" role="alert" title={catalog.errors.join('\n')}>{catalog.errors.join(' · ')}</p> : <span>Included with the game · Ordered by filename</span>}
-            </div>}
+            {(collection === 'local' ? local.errors : catalog.errors).map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}
+            {collection === 'local' && local.status === 'reconnect' && local.notice && <p className="jumping-load-error" role="status">{local.notice}</p>}
           </div>
           {routeNotice && <p className="jumping-route-notice" role="status">{routeNotice}</p>}
           <div className="jumping-level-browser">
           <div key={collection} className="jumping-level-cards" data-menu-grid data-controller-scroll>{files.map((file, index) => {
-            const level = file.level, record = bestTime(collection === 'local' ? `local:${level.id}` : level.id)
+            const level = file.level
             const needsRepair = levelProblems(level).length > 0
             return <div key={file.fileName} className="jumping-level-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)} onPointerEnter={event => {
               if (event.pointerType === 'mouse') event.currentTarget.querySelector<HTMLButtonElement>('[data-menu-primary]')?.focus({ preventScroll: true })
             }}>
             <button className="jumping-level-card" data-menu-primary data-initial-focus={selected?.fileName === file.fileName || undefined}
               aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
-              <span className="level-card-number">{String(index + 1).padStart(2, '0')}</span><LevelThumbnail level={level} />
-              <strong>{level.name}</strong><span>{file.fileName}</span>
-              <small>{needsRepair ? 'Needs repair' : record !== null && isPuzzleLevel(level) ? `${medalFor(record, level)} · ${formatTime(record)}` : 'Ready to try'}</small>
+              <LevelThumbnail level={level} /><strong>{level.name}</strong>
             </button>
             <div className="jumping-level-tile-actions">
               <button className="jumping-level-play" data-menu-secondary aria-label={`Play ${level.name}`} disabled={needsRepair} onClick={() => playFile(file)}>Play{connected && <kbd aria-hidden="true">A</kbd>}</button>
-              {collection === 'local' && <button className="jumping-level-edit" data-menu-secondary aria-label={`Edit ${level.name}`} onClick={() => editFile(file)}>Edit{connected && <kbd aria-hidden="true">Y</kbd>}</button>}
+              {collection === 'local' && <button className="jumping-level-edit" data-menu-secondary aria-label={`Edit ${level.name}`} onClick={() => editFile(file)}>Edit<kbd aria-hidden="true">Y</kbd></button>}
             </div>
             </div>
-          })}{!files.length && <p className="jumping-empty-levels">{collection === 'built-in' ? 'No built-in levels available.' : local.status === 'ready' ? 'No levels in this folder yet.' : 'Open your folder to see its levels here.'}</p>}</div>
+          })}</div>
           <div className="jumping-level-detail">
             <div className="jumping-level-preview">{selected && <LevelThumbnail level={selected.level} />}</div>
-            <h3 title={selected?.level.name}>{selected?.level.name ?? 'Select a level'}</h3>
+            <h3 title={selected?.level.name}>{selected?.level.name}</h3>
             <div key={`${collection}:${selected?.fileName}`} className="jumping-level-description" role="region" aria-label="Level description" data-controller-scroll>
               <p>{selected?.level.description}</p>
               {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}

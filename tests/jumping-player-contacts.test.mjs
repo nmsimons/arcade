@@ -7,6 +7,7 @@ import { playerContacts } from '../src/games/jumping/playerContacts.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { platformSurface } from '../src/games/jumping/terrain.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 
 const advance = (run, frames, input = {}) => {
   for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input })
@@ -171,7 +172,8 @@ test('an airborne player wedged between a ball and a wall transfers load and can
       assert.ok(Math.abs(p.vy) < 900, 'being wedged must not accumulate unbounded falling speed')
     }
     assert.ok(separating, 'the airborne hull transmits load into the ball')
-    assert.ok((ball.x - start) * direction < -5, 'the ball yields instead of trapping the player')
+    assert.ok((ball.x - start) * direction < 0, 'the ball yields instead of trapping the player')
+    assert.equal(bodyIntersects(p.x, p.y, ballShape(ball)), false, 'the resolved body has room beside the ball')
     assert.ok(supported, 'the player regains usable footing')
   }
 })

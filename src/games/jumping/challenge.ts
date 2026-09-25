@@ -10,7 +10,7 @@ import type { GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
 import { prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
-import { ballShape, boxShape, propBounds, propLoadsPlate } from './propGeometry.ts'
+import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { playerContacts, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism } from './mechanisms.ts'
@@ -120,37 +120,11 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
 }
 function stepProps(run: Run, contacts: PlayerContacts, dt: number) {
   if (!run.props.length) return
-  const p = run.player, solids = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
   // Fixed small steps stabilize corners; fast linear or angular motion takes
   // additional steps so even a small prop cannot skip a thin wall or another prop.
   const travel = Math.max(175, ...run.props.map(b => Math.hypot(b.vx, b.vy) + Math.abs(b.angularVelocity) * b.size + TUNING.gravity * dt)) * dt
   const steps = Math.max(1, Math.ceil(dt * 240), Math.ceil(travel / (Math.min(...run.props.map(b => b.size)) * .15))), h = dt / steps
-  for (let step = 0; step < steps; step++) {
-    const before = run.props.map(b => ({ ...b }))
-    stepPropPhysics(run, contacts, h)
-    for (const [index, b] of run.props.entries()) {
-      const old = before[index], oldBounds = propBounds(old), bounds = propBounds(b)
-      const riding = contacts.support?.collider.prop === b
-      const holding = b.kind === 'box' && p.hang?.platform === run.terrain.length + run.mechanisms.length + run.props.filter(other => other.kind === 'box').indexOf(b)
-      if (b.kind === 'box' && !riding && !holding && bodyOverlap(p, boxShape(b))) {
-        const side = p.x + 12 <= oldBounds.x + .1 ? -1 : p.x - 12 >= oldBounds.x + oldBounds.w - .1 ? 1 : 0
-        if (side) {
-          const x = side < 0 ? bounds.x - 12 - .01 : bounds.x + bounds.w + 12 + .01
-          const obstacles = [...solids, ...run.props.filter(other => other !== b && other.kind === 'box').map(boxShape)]
-          if (!obstacles.some(s => bodyOverlap({ ...p, x }, s))) translatePlayer(p, x - p.x, 0)
-          else { b.x = old.x; b.y = old.y; b.angle = old.angle; b.vx = 0; b.angularVelocity = 0 }
-        } else if (oldBounds.y + oldBounds.h <= p.y - TUNING.height + .1) {
-          b.y -= bounds.y + bounds.h - (p.y - TUNING.height - .01); b.vy = 0
-        }
-      }
-      if (riding || holding) {
-        const angle = b.kind === 'box' ? b.angle - old.angle : 0, x = p.x - old.x, y = p.y - old.y + old.size / 2
-        const nextX = b.x + x * Math.cos(angle) - y * Math.sin(angle)
-        const nextY = b.y - b.size / 2 + x * Math.sin(angle) + y * Math.cos(angle)
-        translatePlayer(p, nextX - p.x, nextY - p.y)
-      }
-    }
-  }
+  for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h)
 }
 function stepTriggers(run: Run, dt: number) {
   run.level.triggers.forEach((plate, index) => {

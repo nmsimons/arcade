@@ -73,7 +73,7 @@ const interval = (points: readonly Vec[], axis: Vec) => {
   const values = points.map(p => dot(p, axis)); return [Math.min(...values), Math.max(...values)]
 }
 /** Feet meet slopes at the sole; the broad upper hull protects torso and head. */
-function body(x: number, y: number, height: number): Vec[] {
+export function bodyPolygon(x: number, y: number, height: number): Vec[] {
   return [[x - 12, y - height], [x + 12, y - height], [x + 12, y - 18], [x, y], [x - 12, y - 18]]
 }
 function penetration(a: readonly Vec[], b: readonly Vec[]) {
@@ -88,7 +88,7 @@ function penetration(a: readonly Vec[], b: readonly Vec[]) {
 }
 export function bodyIntersects(x: number, y: number, b: Platform, height = 62) {
   if (x + 12 <= b.x || x - 12 >= b.x + b.w || y <= b.y || y - height >= b.y + b.h) return false
-  const hull = body(x, y, height)
+  const hull = bodyPolygon(x, y, height)
   return parts(b).some(piece => penetration(hull, piece) !== null)
 }
 function sweep(a: readonly Vec[], b: readonly Vec[], delta: Vec) {
@@ -112,7 +112,7 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
   const nearby = terrain.filter(b => Math.max(x, to[0]) + 13 >= b.x && Math.min(x, to[0]) - 13 <= b.x + b.w
     && Math.max(y, to[1]) >= b.y && Math.min(y, to[1]) - height <= b.y + b.h)
   for (let pass = 0; pass < 12; pass++) {
-    const hull = body(x, y, height)
+    const hull = bodyPolygon(x, y, height)
     let stuck: { depth: number; normal: Vec; platform: Platform } | null = null
     for (const b of nearby) for (const piece of parts(b)) {
       const hit = penetration(hull, piece)
@@ -123,7 +123,7 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
     contacts.push(stuck)
   }
   for (let pass = 0; pass < 8 && Math.hypot(dx, dy) > EPS; pass++) {
-    const hull = body(x, y, height)
+    const hull = bodyPolygon(x, y, height)
     let first: { time: number; normal: Vec; platform: Platform } | null = null
     for (const b of nearby) for (const piece of parts(b)) {
       const hit = sweep(hull, piece, [dx, dy])
@@ -161,7 +161,7 @@ export function polygonIntersects(hull: readonly Vec[], terrain: Platform, toler
 /** Locate the face at the part of the hull that actually made contact. At a
  * concave corner, the face nearest the feet can differ from the blocking face. */
 export function bodyContact(b: Platform, x: number, y: number, normal: Vec, height = 62) {
-  const hull = body(x, y, height), depth = Math.min(...hull.map(p => dot(p, normal)))
+  const hull = bodyPolygon(x, y, height), depth = Math.min(...hull.map(p => dot(p, normal)))
   const touching = hull.filter(p => dot(p, normal) <= depth + EPS)
   return nearestBoundary(b, touching.reduce((sum, p) => sum + p[0], 0) / touching.length,
     touching.reduce((sum, p) => sum + p[1], 0) / touching.length, normal)

@@ -588,8 +588,8 @@ thresholds, ladders and ropes, including terrain anchor attachments. Put that fi
 in a local folder or `public/levels/jumping/`. **Open file…** in Library opens it for
 further editing with the same level identity. Invalid imports leave current edits
 intact; file save/export failures are visible.
-Built-in files are fetched at runtime, ordered by filename, and refreshed with
-**Refresh levels**. Run `npm run levels:index` after adding, removing or renaming
+Built-in files are fetched at runtime and ordered by filename. Reload the page
+to pick up changes. Run `npm run levels:index` after adding, removing or renaming
 assets; existing-file edits need no index change. `npm run levels:sync` copies the
 JSON assets into an existing `dist` without recompiling the app. `npm run levels:check`
 validates them without a build. See `docs/jumping-levels.md` for the full workflow.

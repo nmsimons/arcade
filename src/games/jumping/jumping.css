@@ -41,38 +41,25 @@
 .jumping-overlay.jumping-level-screen { padding: 0; overflow: hidden; background: #faf9f2; backdrop-filter: none; }
 .jumping-level-menu { display: flex; flex-direction: column; max-width: none; width: 100%; height: 100%; min-height: 0; margin: 0; padding: clamp(20px, 3vw, 48px); border: 0; border-radius: 0; box-shadow: none; }
 .jumping-level-menu > * { flex-shrink: 0; }
-.jumping-level-menu .jumping-menu-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
-.jumping-level-menu .jumping-eyebrow { margin: 0; }
-.jumping-level-menu h2 { font-size: clamp(28px, 3vw, 44px); margin: 12px 0 8px; }
-.jumping-level-menu .jumping-menu-heading > p:last-child { margin: 0; }
+.jumping-level-menu .jumping-menu-header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+.jumping-level-menu h2 { font-size: clamp(24px, 3vw, 36px); margin: 0; }
 .jumping-menu-navigation { display: flex; gap: 12px; }
 .jumping-menu-navigation button { min-height: 44px; padding: 10px 16px; font-size: 12px; white-space: nowrap; }
-.jumping-library-status { height: 76px; min-width: 0; }
-.jumping-library-status .local-folder { display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.jumping-library-status .local-folder-icon { width: 32px; height: 32px; }
-.jumping-library-status .local-folder-title strong { font-size: 12px; }
-.jumping-library-status .local-folder-title span { margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.jumping-library-status .local-folder .local-folder-note { padding: 0; border: 0; }
-.jumping-library-status :is(.local-folder-note, .local-folder-summary-error, .jumping-load-error) { margin: 0; font-size: 10px; line-height: 15px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.local-folder-summary-error { color: #985c38; }
-.jumping-builtin-summary { display: flex; flex-direction: column; gap: 6px; color: #74826a; font-size: 11px; line-height: 16px; }
-.jumping-builtin-summary strong { color: #344b3d; font-size: 12px; font-weight: 600; }
+.jumping-library-status { min-width: 0; }
+.jumping-library-status .jumping-load-error { margin: 0 0 12px; font-size: 12px; line-height: 1.4; }
+.jumping-library-folder { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #64755f; font-size: 12px; }
 .jumping-level-browser { flex: 1 1 0; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 400px); gap: 32px; }
-.jumping-empty-levels { grid-column: 1 / -1; margin: auto; padding: 32px 12px; color: #74826a; font-size: 13px; text-align: center; }
 .jumping-level-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); grid-auto-rows: max-content; align-content: start; gap: 20px; padding: 6px; margin: -6px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scroll-padding: 6px; }
 .jumping-level-tile { position: relative; min-width: 0; align-self: start; }
 .jumping-level-tile-actions { position: absolute; bottom: 12px; right: 12px; display: flex; gap: 6px; }
 .jumping-game .jumping-level-tile-actions button { display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 9px; font-size: 11px; }
-.jumping-level-tile .jumping-level-card::after { content: ''; display: block; height: 42px; }
+.jumping-level-tile .jumping-level-card::after { content: ''; display: block; height: 38px; }
 .jumping-route-notice { margin: 0 0 12px; font-size: 12px; color: #985c38; }
 .jumping-game .jumping-level-card { display: flex; flex-direction: column; align-items: flex-start; align-self: start; min-width: 0; width: 100%; position: relative; padding: 16px; border-color: #d3d8cc; border-radius: 7px; background: #f0f1e7; text-align: left; overflow: hidden; }
 .jumping-game .jumping-level-card[aria-pressed=true] { color: #344b3d; border-color: #5e7a63; background: #e6ebdc; box-shadow: inset 0 -3px #607a5f; }
-.jumping-level-card .level-card-number { font: 10px ui-monospace, monospace; letter-spacing: .15em; color: #778570; }
 .level-thumbnail { display: block; flex-shrink: 0; width: 100%; height: 80px; overflow: hidden; }
-.jumping-level-card .level-thumbnail { height: 140px; margin-top: 12px; }
+.jumping-level-card .level-thumbnail { height: 140px; }
 .jumping-level-card strong { font-size: 17px; line-height: 22px; height: 44px; letter-spacing: -.02em; font-weight: 600; margin-top: 12px; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.jumping-level-card > span:not(.level-card-number) { max-width: 100%; font-size: 11px; color: #788671; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.jumping-level-card small { font: 10px ui-monospace, monospace; margin-top: 16px; color: #7c8776; }
 .jumping-level-detail { display: grid; grid-template-rows: auto 56px minmax(0, 1fr) 38px; gap: 16px; min-height: 0; min-width: 0; padding-left: 28px; border-left: 1px solid #dce0d6; }
 .jumping-level-preview { height: clamp(100px, 22vh, 240px); background: #f0f1e7; border-radius: 5px; padding: 16px; }
 .jumping-level-preview .level-thumbnail { height: 100%; }
@@ -83,7 +70,7 @@
 
 .jumping-loading { display: grid; place-content: center; gap: 16px; text-align: center; }
 .jumping-library-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 16px; min-height: 48px; }
-.jumping-collection-tabs { display: flex; gap: 3px; padding: 4px; background: #e9ecdf; border-radius: 6px; }
+.jumping-collection-tabs { flex-shrink: 0; display: flex; gap: 3px; padding: 4px; background: #e9ecdf; border-radius: 6px; }
 .jumping-game .jumping-collection-tabs button { min-height: 40px; padding: 8px 14px; line-height: 1.4; font-size: 12px; font-weight: 600; border: 0; background: transparent; color: #65775e; transition: none; }
 /* Selection owns the fill; keyboard and controller focus stays inside each segment. */
 .jumping-game .game-dialog .jumping-collection-tabs button[aria-pressed="false"]:is(:hover, :focus) { background: #dde4d4; color: #334b3c; box-shadow: none; }
@@ -91,8 +78,7 @@
 .jumping-game .game-dialog .jumping-collection-tabs button:focus:not(:disabled) { outline: 2px solid #c65332; outline-offset: -4px; }
 .jumping-game .game-dialog .jumping-collection-tabs button[aria-pressed="true"]:focus { outline-color: #fffaf3; }
 .jumping-game .game-dialog[data-input-method="pointer"] .jumping-collection-tabs button:focus { outline: none; }
-.jumping-game .jumping-library-refresh { min-height: 40px; background: transparent; border-color: transparent; font-size: 11px; padding: 8px 12px; line-height: 1.4; }
-.jumping-library-bar .local-folder-actions { flex-wrap: nowrap; }
+.jumping-library-bar .local-folder-actions { flex-wrap: nowrap; margin-left: auto; }
 .jumping-library-bar .local-folder-actions > button { flex: none; }
 .jumping-level-menu .jumping-library-bar button { transition: none; }
 .jumping-game .jumping-library-bar .local-folder-actions button { min-width: 0; }
@@ -106,12 +92,13 @@
 }
 @media (max-width: 620px) {
   .jumping-level-menu { padding: 20px; }
-  .jumping-level-menu .jumping-menu-header { flex-direction: column-reverse; gap: 24px; }
+  .jumping-level-menu .jumping-menu-header { align-items: stretch; flex-direction: column; gap: 16px; }
   .jumping-level-menu h2 { font-size: 28px; }
   .jumping-menu-navigation { width: 100%; justify-content: space-between; }
   .jumping-menu-navigation button { min-height: 40px; padding: 8px 12px; }
-  .jumping-library-bar { margin-top: 20px; gap: 8px; }
-  .jumping-library-status { height: 88px; }
+  .jumping-library-bar { gap: 8px; flex-wrap: wrap; }
+  .jumping-library-folder { flex-basis: calc(100% - 140px); }
+  .jumping-library-bar .local-folder-actions { width: 100%; justify-content: flex-end; }
   .jumping-collection-tabs { flex-shrink: 0; }
   .jumping-source-label-extra, .jumping-library-bar .local-folder-label-full, .jumping-library-bar .local-folder-refresh span { display: none; }
   .jumping-library-bar .local-folder-label-short { display: inline; }
@@ -120,29 +107,15 @@
   .jumping-game .jumping-collection-tabs button { padding-inline: 8px; font-size: 11px; }
   .jumping-level-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .jumping-game .jumping-level-card { padding: 12px; }
-  .jumping-level-card .level-thumbnail { height: 100px; margin-top: 8px; }
+  .jumping-level-card .level-thumbnail { height: 100px; }
   .jumping-level-card strong { font-size: 14px; line-height: 18px; height: 36px; }
-  .jumping-level-card > span:not(.level-card-number) { display: none; }
-  .jumping-level-card small { font-size: 9px; margin-top: 12px; }
-}
-@media (max-height: 850px) {
-  .jumping-level-menu .jumping-menu-heading > p:not(.jumping-eyebrow) { display: none; }
-  .jumping-level-preview { height: 140px; }
-  .jumping-level-detail { gap: 12px; }
-}
-@media (max-height: 750px) and (min-width: 901px) {
-  .jumping-level-preview { display: none; }
-  .jumping-level-detail { grid-template-rows: 56px minmax(0, 1fr) 38px; }
 }
 @media (max-height: 650px) {
   .jumping-level-menu { padding: 16px 24px; }
-  .jumping-level-menu .jumping-menu-heading { display: none; }
-  .jumping-menu-navigation { width: 100%; justify-content: space-between; }
+  .jumping-level-menu h2 { font-size: 24px; }
   .jumping-menu-navigation button { min-height: 36px; padding-block: 8px; }
-  .jumping-level-menu .jumping-library-bar { margin: 12px 0 8px; }
-  .jumping-library-status { height: 76px; }
-  .jumping-library-status .local-folder-note:not([role]) { display: none; }
-  .jumping-library-status .local-folder-note { -webkit-line-clamp: 1; }
+  .jumping-level-menu .jumping-library-bar { margin: 12px 0; }
+  .jumping-level-card .level-thumbnail { height: 90px; }
   .jumping-level-preview { display: none; }
   .jumping-level-detail { grid-template-rows: 24px minmax(0, 1fr) 38px; gap: 8px; }
   .jumping-level-detail h3 { font-size: 20px; line-height: 24px; -webkit-line-clamp: 1; }
@@ -150,7 +123,6 @@
 @media (max-height: 650px) and (min-width: 621px) {
   .jumping-level-browser { grid-template-columns: minmax(0, 1fr) 300px; grid-template-rows: minmax(0, 1fr); gap: 24px; }
   .jumping-level-cards { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; }
-  .jumping-level-card .level-thumbnail { height: 90px; }
   .jumping-level-detail { border-top: 0; border-left: 1px solid #dce0d6; padding: 0 0 0 24px; }
 }
 @media (max-height: 650px) and (max-width: 620px) {

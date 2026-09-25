@@ -59,7 +59,7 @@ test('built-in JSON changes and newly indexed files load without changing the ap
   expect(await names(page)).toEqual(['First asset', 'Last asset'])
   const scripts = await page.locator('script[src]').evaluateAll(nodes => nodes.map(n => n.src))
   revision = true
-  await page.getByRole('button', { name: 'Refresh levels', exact: true }).click()
+  await page.reload()
   await expect(page.getByRole('button', { name: 'Level 1: Changed on disk' })).toBeVisible()
   expect(await names(page)).toEqual(['Changed on disk', 'New asset', 'Last asset'])
   expect(await page.locator('script[src]').evaluateAll(nodes => nodes.map(n => n.src))).toEqual(scripts)
@@ -73,7 +73,7 @@ test('built-in JSON changes and newly indexed files load without changing the ap
   await expect(page.getByRole('spinbutton', { name: 'gold time' })).toHaveValue('4')
 })
 
-test('a missing index reports the failure and refresh recovers without a compiled fallback map', async ({ page }) => {
+test('a missing index reports the failure and page reload recovers without a compiled fallback map', async ({ page }) => {
   let failing = true
   await page.route('**/levels/jumping/index.json', route => failing ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue())
   await open(page)
@@ -81,7 +81,7 @@ test('a missing index reports the failure and refresh recovers without a compile
   expect(await names(page)).toEqual([])
   await expect(page.locator('.jumping-level-card')).toHaveCount(0)
   failing = false
-  await page.getByRole('button', { name: 'Refresh levels', exact: true }).click()
+  await page.reload()
   await expect(page.getByRole('button', { name: 'Level 1: JSON Test Lab' })).toBeVisible()
   expect(await names(page)).toEqual(['JSON Test Lab'])
   await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
@@ -101,7 +101,7 @@ test('local folder fallback loads real JSON files in filename order and reloads 
     await page.getByLabel('Open local level folder').setInputFiles(dir)
     await expect(page.getByRole('button', { name: 'Level 1: First local level' })).toBeVisible()
     expect(await names(page)).toEqual(['First local level', 'Second local level'])
-    await expect(page.getByText('2 levels · Edits save as downloads')).toBeVisible()
+    await expect(page.locator('.jumping-level-card')).toHaveCount(2)
     await expect(page.getByRole('button', { name: 'Refresh folder' })).toHaveCount(0)
     await expect(page.getByRole('alert')).toContainText('03-broken.json')
     await writeFile(join(dir, '00-first.json'), JSON.stringify(custom('first', 'Edited outside the game')))

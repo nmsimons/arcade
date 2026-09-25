@@ -14,7 +14,8 @@ import { JSON_LAB, FIRST_LEVEL } from './helpers/jumping-fixtures.mjs'
 const root = new URL('../public/levels/jumping/', import.meta.url)
 const index = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
 const assets = new Map(await Promise.all(['index.json', ...index.levels].map(async name => [name, await readFile(new URL(name, root), 'utf8')])))
-function server(data = new Map(assets)) {
+const fixtureIndex = { version: 1, levels: ['00-json-test-lab.json'] }
+function server(data = new Map([['index.json', JSON.stringify(fixtureIndex)], [fixtureIndex.levels[0], JSON.stringify(JSON_LAB)]])) {
   const requests = []
   return { data, requests, fetch: async (url, options) => {
     requests.push({ url, options }); const name = decodeURIComponent(url.split('/levels/jumping/')[1])
@@ -22,36 +23,35 @@ function server(data = new Map(assets)) {
   } }
 }
 
-test('the deployed index includes only the JSON test lab and no other level assets', async () => {
-  assert.deepEqual(index.levels, ['00-json-test-lab.json'])
-  assert.deepEqual((await readdir(root)).sort(), ['00-json-test-lab.json', 'index.json'])
-  const catalog = await loadLevelCatalog('/arcade/', server().fetch)
-  assert.deepEqual(catalog.errors, []); assert.equal(catalog.files.length, 1)
-  assert.deepEqual(catalog.files[0].level, JSON_LAB)
-  assert.deepEqual(levelProblems(catalog.files[0].level), [])
+test('the deployed catalog excludes automated test fixtures', async () => {
+  assert.deepEqual(index.levels, [])
+  assert.deepEqual((await readdir(root)).sort(), ['index.json'])
+  const catalog = await loadLevelCatalog('/arcade/', server(assets).fetch)
+  assert.deepEqual(catalog, { files: [], errors: [] })
+  assert.deepEqual(levelProblems(JSON_LAB), [])
 })
 
 test('sync removes retired built-in files from an existing deployment without removing unrelated files', async () => {
   const target = await mkdtemp(join(tmpdir(), 'jumping-asset-sync-'))
   try {
     await mkdir(join(target, 'campaign')); await mkdir(join(target, 'examples'))
-    await writeFile(join(target, 'index.json'), JSON.stringify({ version: 1, campaign: ['00-old.json'], examples: ['01-old.json'], playground: 'playground.json', levels: ['99-removed.json'] }))
-    for (const name of ['campaign/00-old.json', 'examples/01-old.json', 'playground.json', '99-removed.json']) await writeFile(join(target, name), '{}')
+    await writeFile(join(target, 'index.json'), JSON.stringify({ version: 1, campaign: ['00-old.json'], examples: ['01-old.json'], playground: 'playground.json', levels: ['00-json-test-lab.json', '99-removed.json'] }))
+    for (const name of ['campaign/00-old.json', 'examples/01-old.json', 'playground.json', '00-json-test-lab.json', '99-removed.json']) await writeFile(join(target, name), '{}')
     await writeFile(join(target, 'notes.txt'), 'Keep this file')
     execFileSync(process.execPath, ['scripts/jumping-levels.mjs', 'sync', target])
     const files = (await readdir(target, { recursive: true })).filter(name => name.endsWith('.json')).sort()
-    assert.deepEqual(files, ['00-json-test-lab.json', 'index.json'])
+    assert.deepEqual(files, ['index.json'])
     assert.equal(await readFile(join(target, 'notes.txt'), 'utf8'), 'Keep this file')
-    assert.deepEqual(JSON.parse(await readFile(join(target, '00-json-test-lab.json'), 'utf8')), JSON_LAB)
+    assert.deepEqual(JSON.parse(await readFile(join(target, 'index.json'), 'utf8')), { version: 1, levels: [] })
   } finally { await rm(target, { recursive: true, force: true }) }
 })
 
 test('runtime refresh discovers new files and changed geometry without rebuilding or reimporting code', async () => {
   const remote = server(), first = await loadLevelCatalog('/arcade/', remote.fetch)
   const edited = structuredClone(JSON_LAB); edited.width += 600; edited.name = 'Edited on disk'
-  remote.data.set(index.levels[0], JSON.stringify(edited))
+  remote.data.set(fixtureIndex.levels[0], JSON.stringify(edited))
   remote.data.set('00-before.json', JSON.stringify({ ...edited, id: 'new-file', name: 'Added on disk' }))
-  remote.data.set('index.json', JSON.stringify({ ...index, levels: [...index.levels].reverse().concat('00-before.json') }))
+  remote.data.set('index.json', JSON.stringify({ ...fixtureIndex, levels: [...fixtureIndex.levels].reverse().concat('00-before.json') }))
   const refreshed = await loadLevelCatalog('/arcade/', remote.fetch)
   assert.equal(first.files[0].level.name, JSON_LAB.name)
   assert.equal(refreshed.files[0].fileName, '00-before.json')
@@ -63,9 +63,9 @@ test('runtime refresh discovers new files and changed geometry without rebuildin
 test('bad and missing assets report their filenames without hiding valid levels', async () => {
   const remote = server()
   remote.data.set('01-broken.json', '{bad')
-  remote.data.set('index.json', JSON.stringify({ ...index, levels: [...index.levels, '01-broken.json', '02-missing.json'] }))
+  remote.data.set('index.json', JSON.stringify({ ...fixtureIndex, levels: [...fixtureIndex.levels, '01-broken.json', '02-missing.json'] }))
   const catalog = await loadLevelCatalog('/', remote.fetch)
-  assert.deepEqual(catalog.files.map(f => f.fileName), index.levels)
+  assert.deepEqual(catalog.files.map(f => f.fileName), fixtureIndex.levels)
   assert.equal(catalog.errors.length, 2); assert.match(catalog.errors[0], /01-broken.json/); assert.match(catalog.errors[1], /HTTP 404/)
   remote.data.delete('index.json')
   await assert.rejects(loadLevelCatalog('/', remote.fetch), /index.json.*404/)

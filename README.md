@@ -480,9 +480,9 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 **Untitled Jumping Game** (`/untitled-jumping-game`)
 
-**JSON Test Lab** is currently the only built-in level. It exercises every
-supported level element and is loaded from a JSON asset at runtime. Open a local
-folder to play your own levels, ordered by filename.
+Open a local folder to play your own levels, ordered by filename. There are
+currently no built-in levels. **JSON Test Lab** lives in the automated test
+fixtures and is not offered in the game or builder.
 
 There is no death or automatic reset. Depress the goal's floor plate to switch on
 its pole light for a gold, silver, bronze, or unmedalled completion. The player,
@@ -540,7 +540,7 @@ independently of rendering and viewport size. Built-in maps are runtime JSON
 assets in `public/levels/jumping/`.
 
 Open **Level builder** to enter the **Level studio**. Its **Library** tab offers
-the built-in test level, a blank new level, and local files. **Use as template**
+a blank new level and local files, plus any published built-in levels. **Use as template**
 under a local file starts a new level with the same contents, a new ID, and an
 unused filename. Save the new level to keep it; the source file stays unchanged.
 

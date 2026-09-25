@@ -3,6 +3,7 @@ import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIRST_LEVEL as first, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
+import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
@@ -11,7 +12,7 @@ async function open(page) {
 }
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
 
-test('built-ins contain only the test lab, and the builder ignores browser copies and drafts', async ({ page }, info) => {
+test('test fixtures are hidden from the picker and builder, which ignores browser copies and drafts', async ({ page }, info) => {
   await page.addInitScript(level => {
     const get = Storage.prototype.getItem, set = Storage.prototype.setItem
     set.call(localStorage, 'arcade.jumping.levels.v1', JSON.stringify([level]))
@@ -22,15 +23,18 @@ test('built-ins contain only the test lab, and the builder ignores browser copie
     Storage.prototype.setItem = function (key, value) { record('set', key); return set.call(this, key, value) }
   }, { ...JSON_LAB, name: 'Old browser draft' })
   await open(page)
-  expect(await names(page)).toEqual(['JSON Test Lab'])
+  expect(await names(page)).toEqual([])
+  await expect(page.getByRole('button', { name: 'Local folder', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
-  await page.screenshot({ path: info.outputPath('only-test-lab.png') })
+  await page.screenshot({ path: info.outputPath('local-level-menu.png') })
   await page.getByRole('button', { name: 'Level builder', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Untitled level')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await expect(page.getByText('Browser copies', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('combobox', { name: 'Saved levels' })).toHaveCount(0)
-  await expect(page.locator('.builder-templates button')).toHaveCount(1)
+  await expect(page.locator('.builder-templates button')).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Built-in levels', exact: true })).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('file-library.png') })
   await page.getByRole('textbox', { name: 'Level name' }).fill('File-only level')
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save level', exact: true }).click()])
@@ -82,8 +86,8 @@ test('a missing index reports the failure and page reload recovers without a com
   await expect(page.locator('.jumping-level-card')).toHaveCount(0)
   failing = false
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Level 1: JSON Test Lab' })).toBeVisible()
-  expect(await names(page)).toEqual(['JSON Test Lab'])
+  await expect(page.getByRole('button', { name: 'Local folder', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  expect(await names(page)).toEqual([])
   await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
@@ -246,8 +250,9 @@ test('local Next level follows filenames and skips files that need repairs', asy
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
-test('the comprehensive JSON reference level is available as a builder template and survives playtest/export', async ({ page }, info) => {
+test('the JSON reference fixture survives builder template copying, playtest and export when explicitly supplied', async ({ page }, info) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message))
+  await useLevelFixtures(page, [JSON_LAB])
   await open(page); await page.getByRole('button', { name: 'Level builder', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: /JSON Test Lab/ }).click()

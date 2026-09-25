@@ -396,8 +396,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
           </button>
           <button className="builder-use-template" disabled={local.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => chooseTemplate(file.level, file.fileName)}>Use as template</button>
         </div>)}</div>}
-        <h2>Built-in levels</h2>
-        <div className="builder-templates">{templates.map(({ fileName, level: template }) => <button key={fileName} onClick={() => chooseTemplate(template)}><LevelThumbnail level={template} /><strong>{template.name}</strong><span>{fileName}</span></button>)}</div>
+        {templates.length > 0 && <><h2>Built-in levels</h2>
+        <div className="builder-templates">{templates.map(({ fileName, level: template }) => <button key={fileName} onClick={() => chooseTemplate(template)}><LevelThumbnail level={template} /><strong>{template.name}</strong><span>{fileName}</span></button>)}</div></>}
       </>}
       <input ref={fileRef} aria-label="Import level file" type="file" accept=".json,application/json" hidden onChange={e => void importFile(e.target.files?.[0])} />
     </aside>

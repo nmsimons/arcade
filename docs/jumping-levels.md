@@ -9,13 +9,14 @@ empty documents, and the engine receives the selected level as data.
 The asset folder is `public/levels/jumping/` in the repository and `levels/jumping/`
 in the deployed app:
 
-- `00-json-test-lab.json`: the only built-in level, available to play or copy in the builder.
 - `index.json`: lists the filenames to fetch as `{ "version": 1, "levels": [...] }`.
-  It contains no level geometry.
+  It contains no level geometry and currently lists no built-in levels.
 
-Add future built-ins directly to this folder. The old lessons, playground and
-counterweight yard now live under `tests/fixtures/jumping/` solely for movement
-regression tests. They are not copied into or offered by the deployed game.
+Add future built-ins directly to this folder. The JSON test lab, old lessons,
+playground and counterweight yard live under `tests/fixtures/jumping/` solely for
+automated tests. They are not copied into or offered by the deployed game.
+When the built-in catalog is empty, the level picker opens Local folder and the
+builder omits the built-in templates section.
 
 The app sorts filenames, not titles or IDs. Use zero-padded prefixes such as
 `00-intro.json`, `01-rope.json`, and `02-two-ropes.json`. The same ordering controls
@@ -125,12 +126,12 @@ preserves its ID. Using a built-in or local level as a template creates a new ID
 
 ## Validation and reference level
 
-`00-json-test-lab.json` exercises every supported field: rectangular,
+`tests/fixtures/jumping/00-json-test-lab.json` exercises every supported field: rectangular,
 polygon and profile terrain; start, goal plate and checkpoint radius; attached and free
 ladders; attached and free ropes with saved points, bends and material distances;
 boxes, balls, a pusher, pressure plates, an elevator, a gate, stopwatch pickups, wall timers,
 multiline wall text and medal times.
-It is available in **Level builder → Library → JSON Test Lab**.
+Browser tests supply it explicitly through their level fixture helper.
 
 ```sh
 npm run levels:check

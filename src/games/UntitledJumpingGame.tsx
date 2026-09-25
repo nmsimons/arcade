@@ -44,7 +44,8 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const catalog = initialCatalog
   const local = useLocalLevels()
   const [chosenCollection, setCollection] = useState<'built-in' | 'local' | null>(null)
-  const collection = chosenCollection ?? (local.name ? 'local' : 'built-in')
+  const hasBuiltIns = catalog.files.length > 0 || catalog.errors.length > 0
+  const collection = chosenCollection ?? (local.name || !hasBuiltIns ? 'local' : 'built-in')
   const [selectedName, setSelectedName] = useState(initialCatalog.files[0]?.fileName ?? '')
   const files = collection === 'built-in' ? catalog.files : local.files
   const selected = files.find(file => file.fileName === selectedName) ?? files[0]
@@ -343,7 +344,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
         {screen === 'menu' && <>
           <div className="jumping-library-bar">
             <div className="jumping-collection-tabs" role="group" aria-label="Level source">
-              <button aria-label="Built-in levels" aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in<span className="jumping-source-label-extra"> levels</span></button>
+              {hasBuiltIns && <button aria-label="Built-in levels" aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in<span className="jumping-source-label-extra"> levels</span></button>}
               <button aria-label="Local folder" aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>Local<span className="jumping-source-label-extra"> folder</span></button>
             </div>
             {collection === 'local' && local.name && <span className="jumping-library-folder" title={local.name}>{local.name}</span>}

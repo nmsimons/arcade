@@ -235,6 +235,7 @@ test('local Next level follows filenames and skips files that need repairs', asy
     await page.getByRole('button', { name: 'Level 1: Start here' }).focus()
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
     await page.locator('.jumping-level-card[aria-pressed=true]').click()
+    await expect(page.getByRole('img', { name: 'Start here: activate the goal' })).toBeFocused()
     await page.keyboard.down('d'); await page.clock.runFor(2600); await page.keyboard.up('d')
     await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
     await page.getByRole('button', { name: 'Next level' }).click()

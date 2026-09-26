@@ -6,7 +6,7 @@ import { polygonPoints } from './geometry.ts'
 /** Prop positions retain their file convention: center X and unrotated bottom Y. */
 export function boxShape(b: Pick<Prop, 'x' | 'y' | 'size' | 'angle'>): Platform {
   const r = b.size / 2
-  if (Math.abs(b.angle) < 1e-9) return { x: b.x - r, y: b.y - b.size, w: b.size, h: b.size }
+  if (Math.abs(b.angle - Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2)) < 1e-8) return { x: b.x - r, y: b.y - b.size, w: b.size, h: b.size }
   const c = Math.cos(b.angle), s = Math.sin(b.angle)
   const points = [[-r, -r], [r, -r], [r, r], [-r, r]].map(([x, y]) => [b.x + x * c - y * s, b.y - r + x * s + y * c] as Vec)
   const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))

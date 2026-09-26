@@ -14,6 +14,8 @@ import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { playerContacts, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism } from './mechanisms.ts'
+import { canHangFromBox } from './boxSupport.ts'
+import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop {
@@ -69,11 +71,12 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   return run
 }
 function syncPlatforms(run: Run): ContactWorld {
-  const colliders = [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
+  const colliders: ContactWorld['colliders'] = [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
     ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: mechanismShape(m) })),
     ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind
       ? [{ id: `prop:${i}`, prop, platform: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) }] : []))]
   run.platforms = colliders.map(c => c.platform)
+  for (const collider of colliders) if (collider.prop && !canHangFromBox(collider.prop, run.platforms.filter(b => b !== collider.platform))) disablePlatformLedges(collider.platform)
   return { platforms: run.platforms, colliders }
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
@@ -249,6 +252,13 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   stepRobots(run, dt)
   stepProps(run, playerContacts(run.player, input, world), dt)
   world = syncPlatforms(run)
+  const pGrip = run.player.hang ?? (run.player.mantle?.step ? null : run.player.mantle)
+  const held = pGrip?.platform === undefined ? undefined : world.colliders[pGrip.platform]
+  if (held?.prop && pGrip) {
+    const edge = platformLedges(held.platform).find(e => e.side === pGrip.side)
+    if (edge) translatePlayer(run.player, edge.edgeX - pGrip.edgeX, edge.edgeY - pGrip.edgeY)
+    else { run.player.hang = null; run.player.mantle = null; run.player.grounded = false; run.player.grabCooldown = .25; cancelJumpInput(run.player) }
+  }
   stepPlayer(run.player, input, dt, run.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world)
   // Pickups remain available until entry, including one touched on the entry step.
   run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, true)

@@ -14,6 +14,7 @@ import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEn
 
 export type Tool = 'select' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
@@ -188,18 +189,23 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   }
   if (selection.kind === 'prop') Object.assign(next.props![selection.index], { x: clamp(x + b.w / 2, 24 + b.w / 2, level.width - 24 - b.w / 2), y: Math.min(next.floor!, y + b.h) })
   if (selection.kind === 'robot') {
-    const r = next.robots![selection.index], point = snapToGround(next, clamp(x + 26, 50, next.width - 50), y + 50)
+    const r = next.robots![selection.index], point = { x: clamp(x + 26, 50, next.width - 50), y: y + 50 }
     Object.assign(r, point, pusherRange(next, point.x, point.y))
   }
   if (selection.kind === 'mechanism') Object.assign(next.mechanisms![selection.index], { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
-  if (selection.kind === 'trigger') { const t = next.triggers![selection.index], point = snapToGround(next, x + b.w / 2, y + 8); t.x = clamp(x, 24, next.width - t.w - 24); t.y = point.y }
+  if (selection.kind === 'trigger') { const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = y + 8 }
   return next
 }
-export function resizeItem(level: JumpLevel, selection: Selection, w: number, h: number, corner: ResizeCorner = 'bottom-right'): JumpLevel {
+export function resizeItem(level: JumpLevel, selection: Selection, w: number, h: number, handle?: ResizeHandle): JumpLevel {
   const next = copyLevel(level)
+  const corner = handle ?? 'bottom-right'
+  const left = corner.endsWith('left'), top = corner.startsWith('top')
   if (selection.kind === 'text') {
-    const t = next.texts![selection.index]
-    t.w = clamp(w, 40, Math.min(2000, next.width - t.x)); t.h = clamp(h, 24, Math.min(1200, levelHeight(next) - t.y))
+    const t = next.texts![selection.index], before = { ...t }
+    t.w = clamp(w, 40, Math.min(2000, left ? t.x + t.w : next.width - t.x))
+    t.h = clamp(h, 24, Math.min(1200, top ? t.y + t.h : levelHeight(next) - t.y))
+    if (left) t.x = before.x + before.w - t.w
+    if (top) t.y = before.y + before.h - t.h
   }
   if (selection.kind === 'platform') {
     const before = level.platforms[selection.index], left = corner.endsWith('left'), top = corner.startsWith('top')
@@ -214,20 +220,34 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   }
   if (selection.kind === 'rope') next.climbables.ropes[selection.index].length = clamp(h, 80, Math.min(2000, levelHeight(level) - next.climbables.ropes[selection.index].y))
   if (selection.kind === 'ladder') {
-    const ladder = next.climbables.ladders[selection.index]; ladder.bottom = clamp(ladder.top + h, ladder.top + 80, levelHeight(level))
+    const ladder = next.climbables.ladders[selection.index]
+    if (top) ladder.top = clamp(ladder.bottom - h, 0, ladder.bottom - 80)
+    else ladder.bottom = clamp(ladder.top + h, ladder.top + 80, levelHeight(level))
+    ladder.platform = -1
   }
   if (selection.kind === 'prop') {
-    const b = next.props![selection.index], size = clamp(w !== b.size ? w : h, 30, 200)
-    b.size = size; b.x = clamp(b.x, 24 + size / 2, next.width - 24 - size / 2)
+    const b = next.props![selection.index], before = itemBounds(level, selection)!
+    const requested = Math.abs(w - b.size) >= Math.abs(h - b.size) ? w : h
+    const maxWidth = handle ? left ? before.x + before.w - 24 : next.width - before.x - 24 : Math.min(b.x - 24, next.width - 24 - b.x) * 2
+    const maxHeight = !handle || top ? b.y : levelHeight(level) - before.y
+    b.size = clamp(requested, 30, Math.min(200, maxWidth, maxHeight))
+    if (handle) { b.x = left ? before.x + before.w - b.size / 2 : before.x + b.size / 2; b.y = top ? b.y : before.y + b.size }
+    b.x = clamp(b.x, 24 + b.size / 2, next.width - 24 - b.size / 2)
   }
   if (selection.kind === 'mechanism') {
-    const m = next.mechanisms![selection.index]
-    m.w = m.kind === 'gate' && !isHorizontalGate(m) ? MECHANISM_THICKNESS : clamp(w, 30, Math.min(600, next.width - m.x - 24))
-    m.h = m.kind === 'lift' || isHorizontalGate(m) ? MECHANISM_THICKNESS : clamp(h, 12, 800)
+    const m = next.mechanisms![selection.index], before = { ...m }
+    const vertical = m.kind === 'gate' && !isHorizontalGate(m), keepBottom = vertical && (!handle || top)
+    m.w = vertical ? MECHANISM_THICKNESS : clamp(w, 30, Math.min(600, left ? m.x + m.w - 24 : next.width - m.x - 24))
+    m.h = vertical ? clamp(h, 12, Math.min(800, keepBottom ? m.y + m.h : next.floor! - m.y)) : MECHANISM_THICKNESS
+    if (left) m.x = before.x + before.w - m.w
+    if (keepBottom) m.y = before.y + before.h - m.h
     m.travel = mechanismTravel(m)
-    m.y = Math.min(m.y, next.floor! - m.h)
   }
-  if (selection.kind === 'trigger') { const t = next.triggers![selection.index]; t.w = clamp(w, 40, Math.min(240, next.width - t.x - 24)) }
+  if (selection.kind === 'trigger') {
+    const t = next.triggers![selection.index], right = t.x + t.w
+    t.w = clamp(w, 40, Math.min(240, left ? right - 24 : next.width - t.x - 24))
+    if (left) t.x = right - t.w
+  }
   return next
 }
 export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
@@ -320,7 +340,9 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     if (tool === 'goal') { trial.goal = { ...trial.goal, ...point }; return { level: trial, selection: { kind: 'goal', index: 0 } } }
     if (tool === 'box' || tool === 'ball') {
       if (trial.props.length >= 80) throw new Error('This level already has 80 props.')
-      trial.props.push({ kind: tool, ...point, size: tool === 'box' ? 80 : 68 })
+      const drawn = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y))
+      const size = drawn > 10 ? clamp(drawn, 30, 200) : tool === 'box' ? 80 : 68
+      trial.props.push({ kind: tool, ...(drawn > 10 ? { x: clamp(Math.min(start.x, end.x) + size / 2, 24 + size / 2, trial.width - 24 - size / 2), y: clamp(Math.max(start.y, end.y), size, levelHeight(trial)) } : point), size })
       return { level: trial, selection: { kind: 'prop', index: trial.props.length - 1 } }
     }
     if (tool === 'pusher') {
@@ -336,10 +358,11 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     }
     if (tool === 'lift' || tool === 'gate' || tool === 'horizontal-gate') {
       if (trial.mechanisms.length >= 40) throw new Error('This level already has 40 mechanisms.')
-      const horizontal = tool === 'horizontal-gate', h = tool === 'gate' ? 180 : MECHANISM_THICKNESS
+      const drawnHeight = Math.abs(end.y - start.y)
+      const horizontal = tool === 'horizontal-gate', h = tool === 'gate' ? clamp(drawnHeight > 10 ? drawnHeight : 180, 12, 800) : MECHANISM_THICKNESS
       const w = tool === 'lift' ? 140 : horizontal ? clamp(Math.abs(end.x - start.x) || 180, 30, 600) : MECHANISM_THICKNESS
       trial.mechanisms.push({ id: newLevelId(), kind: tool === 'lift' ? 'lift' : 'gate', x: clamp(x, 24, trial.width - w - 24),
-        y: Math.min(trial.floor - h, tool === 'lift' ? Math.max(start.y, end.y) : horizontal ? y : point.y - h), w, h,
+        y: Math.max(0, Math.min(trial.floor - h, tool === 'lift' ? Math.max(start.y, end.y) : horizontal || drawnHeight > 10 ? y : point.y - h)), w, h,
         travel: tool === 'lift' ? clamp(Math.abs(end.y - start.y) || 300, 60, 1200) : horizontal ? w : h,
         ...(horizontal ? { orientation: 'horizontal' as const } : {}) })
       return { level: trial, selection: { kind: 'mechanism', index: trial.mechanisms.length - 1 } }

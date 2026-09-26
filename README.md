@@ -517,8 +517,9 @@ area has no title, movement readout, charge meter, or instruction strip.
   the wall. The initial push briefly carries you outward, then air steering resumes.
   Each wall jump needs a fresh press; holding jump does not automatically bounce.
   Air steering makes gradual adjustments to the trajectory while preserving takeoff momentum.
-- Face a nearby ledge in the air to grab automatically. Up/W or jump climbs;
-  B/Circle or Down/S drops; away + jump pushes off.
+- Face a nearby ledge in the air to grab automatically. Up/W climbs;
+  B/Circle or Down/S drops; jump pushes off. Boxes tall enough to hang from
+  work the same way when resting flat. Losing support or tipping releases the grip.
 - Down/S near an exposed platform edge lowers into a hang. Holding Down keeps
   the grip; release and press Down again to drop, or use B/Circle / X.
 - Jump into a rope to catch it automatically. Up/Down or W/S climbs and descends
@@ -545,9 +546,8 @@ Replacing an unsaved draft offers **Save and continue**, **Discard changes**, or
 under a local file starts a new level with the same contents, a new ID, and an
 filename based on its new name. Save the new level to create its file; the source stays unchanged.
 
-- **Rectangle** draws static terrain anywhere in the room. Drag both width and height.
-- **Polygon** places one corner per click. Click the first corner or press Enter
-  to close it. Select terrain to drag its white corners; **Add corner** adds a vertex.
+- **Terrain** draws static terrain anywhere in the room. Drag both width and height.
+  Select terrain to drag its white corners; **Node** adds a vertex along an edge.
   Crossing edges are rejected. Concave outlines support cavities and overhangs.
 - Place **Ladders** and **Ropes** freely. A rope started near a terrain edge snaps
   its anchor to that edge; moving or reshaping the terrain carries the anchor.
@@ -555,21 +555,32 @@ filename based on its new name. Save the new level to create its file; the sourc
 - **Back wall → Wall text** adds a non-solid text area. Edit its content, font size,
   and alignment in the inspector; drag or resize it like other objects. Multiple
   lines wrap within the area, and text is included in saved levels and templates.
-- Start and finish markers set the route. Legacy object maps remain importable,
-  but new levels use only terrain, ladders and ropes.
-- Drag selected elements, resize with the corner handle or numeric inspector,
+- Start and goal markers set the route. Boxes, balls, gates, elevators, pressure
+  plates, shovebots, and stopwatches provide puzzles and obstacles.
+- Click for a standard box, ball, or gate; drag to set its size. Boxes and balls
+  have one **Size** value. Gate end handles change length while keeping thickness fixed.
+- Drag selected elements, resize with the handles or numeric inspector,
   and duplicate with Ctrl/Cmd+D. Undo/redo covers edits to the current level; opening another level starts fresh.
+- Numeric fields apply the complete value on Enter or blur; Escape cancels.
+  Arrow keys step by the grid size, Shift takes larger steps, and Alt steps by one.
+  Typed values stay precise even with snapping enabled. Box size and gate height
+  edits preserve the base instead of pushing the object into its support.
+- Snap catches nearby surfaces while dragging. **Place on surface** (End) rests
+  the selection on the next clear support below; the inspector shows its clearance.
+  Hold Alt while dragging to bypass grid and surface snapping.
 - Set room width and height, medal times and the player hint. All four outer
   boundaries are structural and cannot be erased.
-- Turn on **Jump guide** to compare short and charged running jumps. Selecting a
-  platform moves the guide to its edge. Guides are advisory; grip and momentum
-  affect actual landings.
+- Turn on **Jump guide** to compare tap and fully charged jumps using the actual
+  movement and collision code. Select a surface or use **Set takeoff**, choose
+  left/right and a running/standing start. The preview reports height, distance,
+  and whether the jump lands, grabs a ledge, or hits an obstruction. It uses the
+  starting layout; moving objects and rope swings still need a playtest.
 - V selects, H or held Space pans, scrolling pans, and Ctrl/Cmd+scroll zooms.
   **Fit level** or the overview fits the map; **Find start** returns to the player.
 
 **Save and Test** saves the level to its folder before running the authored trial.
 **Return to builder** preserves the draft and undo history. The inspector flags
-invalid starts, flags, medals, unsupported pushers, and missing mechanism links.
+invalid starts, goals, medals, unsupported pushers, and missing mechanism links.
 **Local folder → Choose folder** in the level menu loads
 JSON files from disk using the folder’s `index.json` order, with filename order as the default.
 **Edit selected level** opens a file in the builder. With a writable folder open,

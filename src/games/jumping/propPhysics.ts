@@ -3,10 +3,11 @@ import type { Prop, Run } from './challenge.ts'
 import type { Platform } from './model.ts'
 import type { PlayerContacts } from './playerContacts.ts'
 import { TUNING } from './model.ts'
-import { bodyPolygon, convexParts, moveBody } from './geometry.ts'
+import { bodyPolygon, convexParts, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { translatePlayer } from './playerContacts.ts'
 import { mechanismShape } from './mechanisms.ts'
+import { flatBoxSupport } from './boxSupport.ts'
 
 const { Bodies, Body, Collision, Composite, Engine, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[] }
@@ -139,7 +140,8 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   }
   for (const [b, body] of world.bodies) {
     const riding = playerContact.support?.collider.prop === b
-    const holding = b.kind === 'box' && p.hang?.platform === run.terrain.length + run.mechanisms.length + run.props.filter(other => other.kind === 'box').indexOf(b)
+    const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
+    const holding = b.kind === 'box' && grip?.platform === run.terrain.length + run.mechanisms.length + run.props.filter(other => other.kind === 'box').indexOf(b)
     if (!riding && !holding) continue
     const angle = b.kind === 'box' ? body.angle - b.angle : 0, x = p.x - b.x, y = p.y - b.y + b.size / 2
     transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle))
@@ -232,6 +234,21 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     b.vx = velocity.x * 60; b.vy = velocity.y * 60
     if (b.kind === 'box') { b.angle = body.angle; b.angularVelocity = Body.getAngularVelocity(body) * 60 }
     else b.angle += (b.x - oldX) / (b.size / 2)
+  }
+  // A solver's sub-pixel resting tilt must not turn a flat box top into a slope.
+  // Square only settled faces with two flat supports, without disturbing tilted
+  // boxes, motion, or neighboring bodies. Keep Matter and player geometry equal.
+  for (const [b, body] of world.bodies) {
+    if (b.kind !== 'box' || !b.grounded || Math.hypot(b.vx, b.vy) > .5 || Math.abs(b.angularVelocity) > .005) continue
+    const angle = Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2)
+    if (Math.abs(b.angle - angle) > .001) continue
+    const solids = [...barriers, ...run.props.filter(other => other !== b).map(other => other.kind === 'box' ? boxShape(other) : ballShape(other))]
+    const y = flatBoxSupport(b, solids)
+    if (y === null) continue
+    const shape = boxShape({ ...b, angle, y })
+    if (solids.some(s => polygonIntersects(polygonPoints(shape), s, .0001))) continue
+    b.angle = angle; b.y = y
+    Body.setAngle(body, angle); Body.setPosition(body, { x: b.x, y: y - b.size / 2 })
   }
 }
 

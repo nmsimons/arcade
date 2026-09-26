@@ -356,3 +356,20 @@ test('an object can open a distant exit without moving the camera or completing;
   expect((await page.evaluate(() => window.goalLight)).lit).toBe(false)
   expect(await page.evaluate(() => window.goalDoor)).toBeNull()
 })
+
+test('a player can jump to a large box, hang, and climb onto its flat top', async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Box ledge'; level.spawn = { x: 370, y: 920 }
+  level.props = [{ kind: 'box', x: 500, y: 920, size: 160 }]
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('Space'); await page.clock.runFor(170); await page.keyboard.up('Space')
+  await page.keyboard.down('d'); await page.clock.runFor(900); await page.keyboard.up('d')
+  await expect(page.locator('.jumping-state')).toHaveText('Hanging')
+  await page.clock.runFor(1000)
+  const hanging = await position(page)
+  expect(hanging.x).toBeCloseTo(406, 0); expect(hanging.y).toBeCloseTo(834, 0)
+  await page.screenshot({ path: info.outputPath('box-hanging.png') })
+  await page.keyboard.down('w'); await page.clock.runFor(1700); await page.keyboard.up('w')
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  expect((await position(page)).y).toBeCloseTo(760, 0)
+  await page.screenshot({ path: info.outputPath('box-climbed.png') })
+})

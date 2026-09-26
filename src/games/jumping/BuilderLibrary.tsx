@@ -50,7 +50,13 @@ export function BuilderLibrary({ local, templates, fileName, level, dirty, savin
     } catch (error) { setOrderError((error as Error).message); setOrderMessage('') }
     finally {
       writingOrder.current = false; setOrderSaving(false)
-      requestAnimationFrame(() => { if (focus?.isConnected) { focus.focus({ preventScroll: true }); focus.scrollIntoView({ block: 'nearest' }) } })
+      requestAnimationFrame(() => {
+        // Restoring a disabled button must not steal focus from the next action.
+        const active = document.activeElement
+        if (focus?.isConnected && (active === document.body || active === dialog.current || active === focus)) {
+          focus.focus({ preventScroll: true }); focus.scrollIntoView({ block: 'nearest' })
+        }
+      })
     }
   }
   function move(from: number, to: number) {

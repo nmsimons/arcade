@@ -4,6 +4,9 @@ import { outsideCorner, pointInside, polygonPoints } from './geometry.ts'
 export interface TerrainLedge { edgeX: number; edgeY: number; side: number }
 const ledges = new WeakMap<Platform, readonly TerrainLedge[]>()
 
+/** Moving bodies can explicitly opt out of grips while unsupported or unstable. */
+export function disablePlatformLedges(platform: Platform) { ledges.set(platform, []) }
+
 /** Find exposed top corners throughout an outline, including inset towers and shelves. */
 export function platformLedges(platform: Platform): readonly TerrainLedge[] {
   const cached = ledges.get(platform)

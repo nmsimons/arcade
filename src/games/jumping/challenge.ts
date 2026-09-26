@@ -78,6 +78,10 @@ function syncPlatforms(run: Run): ContactWorld {
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b)
+function reverseLift(m: MechanismState) {
+  m.wait = m.direction < 0 ? 3 : 2
+  m.direction *= -1
+}
 function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
   for (const [index, m] of run.mechanisms.entries()) {
     const def = m.definition
@@ -109,25 +113,34 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     }
     const opening = def.kind === 'gate' ? m.active || m.safetyHold != null : m.direction < 0
     const target = opening ? open : def
-    if (m.x === target.x && m.y === target.y) continue
+    if (m.x === target.x && m.y === target.y) {
+      if (def.kind === 'lift') reverseLift(m)
+      continue
+    }
     const before = mechanismShape(m)
     const speed = def.kind === 'gate' && !opening ? 65 : 130
     let x = approach(m.x, target.x, speed * dt), y = approach(m.y, target.y, speed * dt)
     let dx = x - m.x, dy = y - m.y
     const nextShape = { ...def, x, y }
+    const liftHull = def.kind === 'lift' ? polygonPoints(nextShape) : null
+    const terrainBlocked = liftHull && solids.some(s => x < s.x + s.w && x + def.w > s.x && y < s.y + s.h && y + def.h > s.y
+      && polygonIntersects(liftHull, s, .01))
     const playerBlocked = rider ? obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, dy)) : bodyOverlap(p, nextShape)
     const propsBlocked = run.props.some(b => !passengers.includes(b) && propBlocksMechanism(b, before, nextShape)) || passengerBlocked(dx, dy)
-    let motion = !playerBlocked && propsBlocked && def.kind === 'lift'
+    let motion = !terrainBlocked && !playerBlocked && propsBlocked && def.kind === 'lift'
       ? planLiftPropMotion(run, index, nextShape, passengers, !!rider, support?.prop, dt) : null
     // Near the crown of a ball, a short downward step needs much more rolling
     // travel. Shorten that step before declaring a genuinely blocked lift.
-    if (!playerBlocked && propsBlocked && def.kind === 'lift' && !motion) for (let part = 2; part <= 32; part *= 2) {
+    if (!terrainBlocked && !playerBlocked && propsBlocked && def.kind === 'lift' && !motion) for (let part = 2; part <= 32; part *= 2) {
       motion = planLiftPropMotion(run, index, { ...nextShape, x: m.x + dx / part, y: m.y + dy / part }, passengers, !!rider, support?.prop, dt)
       if (motion) { dx /= part; dy /= part; x = m.x + dx; y = m.y + dy; break }
     }
-    const blocked = playerBlocked || propsBlocked && !motion
+    const blocked = terrainBlocked || playerBlocked || propsBlocked && !motion
     if (blocked) {
       if (def.kind === 'gate' && !opening) m.safetyHold = 0
+      // An obstruction is this trip's endpoint, not a permanent shortened path.
+      // Retry the full stroke next cycle so moving obstacles can free it again.
+      if (def.kind === 'lift') reverseLift(m)
       continue
     }
     m.x = x; m.y = y
@@ -142,7 +155,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
       if (Math.abs(shiftX) > .001 && b.vx * Math.sign(shiftX) < Math.abs(shiftX) / dt) b.vx = shiftX / dt
       if (Math.abs(shiftY) > .001 && b.vy * Math.sign(shiftY) < Math.abs(shiftY) / dt) b.vy = shiftY / dt
     }
-    if (x === target.x && y === target.y && def.kind === 'lift') { m.direction *= -1; m.wait = opening ? 3 : 2 }
+    if (x === target.x && y === target.y && def.kind === 'lift') reverseLift(m)
   }
 }
 function stepProps(run: Run, contacts: PlayerContacts, dt: number) {

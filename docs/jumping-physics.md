@@ -35,6 +35,12 @@ only when the complete contact chain fits; blocked trials impart no motion or
 momentum. Near the crown of a ball, the elevator takes a shorter step to keep its
 contact-driven speed bounded. A flat contact with no sideways normal does not
 invent a rolling direction.
+If terrain, another mechanism, a player or a trapped prop prevents further
+travel, that position becomes the endpoint for the current trip. The elevator
+uses its normal endpoint pause and reverses, continuing to cycle in the available
+space. Each trip retries the full configured travel, so removing an obstruction
+automatically restores the original range. Releasing its pressure plate still
+pauses both travel and endpoint waiting.
 
 ## Step order
 

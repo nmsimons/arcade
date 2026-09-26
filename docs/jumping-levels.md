@@ -339,6 +339,9 @@ from 60 to 1200 units. Dragging the selected elevator's top anchor adjusts the
 same distance without moving the platform, and respects the Snap setting.
 They make repeated trips between the starting
 position and the anchor while a connected plate is held, with a pause at each end.
+An obstruction becomes a temporary endpoint: the elevator pauses and reverses,
+cycling through the available space without crushing players or props. Clearing
+the obstruction lets it use its full travel again on the next trip.
 Releasing the plate pauses the elevator in place; pressing again resumes it.
 One plate can power several mechanisms simultaneously. Connections are saved as
 `targets: ["mechanism-id", "another-id"]`; legacy `target: "mechanism-id"`

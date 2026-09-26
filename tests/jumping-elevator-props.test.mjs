@@ -47,7 +47,7 @@ for (const direction of [-1, 1]) for (const offset of [3, 20, 40]) {
   })
 }
 
-for (const obstruction of ['terrain', 'gate']) test(`a ball rolls until ${obstruction} blocks it, then stops the elevator without creep`, () => {
+for (const obstruction of ['terrain', 'gate']) test(`a ball trapped by ${obstruction} shortens the elevator cycle without creep`, () => {
   const level = fixture()
   if (obstruction === 'terrain') level.platforms = [{ x: 945, y: 700, w: 80, h: 220 }]
   else level.mechanisms.push({ id: 'gate', kind: 'gate', x: 945, y: 700, w: 20, h: 220, travel: 220 })
@@ -56,24 +56,38 @@ for (const obstruction of ['terrain', 'gate']) test(`a ball rolls until ${obstru
   assert.ok(ball.x > 894 && ball.x <= 895.01, 'ball uses the available space before stopping')
   assert.ok(lift.y > 810 && lift.y < 820)
   const stopped = { x: ball.x, y: lift.y, angle: ball.angle }
-  advance(run, 5)
+  const turns = []
+  for (let i = 0; i < 2400; i++) {
+    const direction = lift.direction
+    advance(run, STEP)
+    assert.ok(lift.y <= stopped.y + .01, 'repeated trips cannot squeeze past the trapped ball')
+    if (lift.direction !== direction) turns.push(lift.y)
+  }
+  assert.ok(turns.filter(y => y === 600).length >= 2, 'the elevator keeps returning to its upper endpoint')
+  assert.ok(turns.filter(y => Math.abs(y - stopped.y) < 130 * STEP / 32 + .001).length >= 2, 'the ball remains the lower endpoint within one shortened step')
   assert.ok(Math.abs(ball.x - stopped.x) < .001)
-  assert.ok(Math.abs(lift.y - stopped.y) < .001)
   assert.ok(Math.abs(ball.angle - stopped.angle) < .001)
   assert.ok(Math.hypot(ball.vx, ball.vy) < .001, 'failed trials impart no momentum')
   if (obstruction === 'gate') assert.equal(run.mechanisms[1].y, 700, 'rolling cannot force the gate open')
   ball.x = 1150
-  advance(run, 1)
-  assert.equal(lift.y, 900, 'clearing the ball lets the elevator continue')
+  let restored = false
+  for (let i = 0; i < 1200; i++) { advance(run, STEP); restored ||= lift.y === 900 }
+  assert.ok(restored, 'clearing the ball restores the full stroke on the next trip')
 })
 
 test('the flat underside does not invent a sideways force on a centered ball', () => {
   const level = fixture(); level.props[0].x = 780
   const run = descending(level)
-  advance(run, 4)
+  let lowest = 0, returned = false
+  for (let i = 0; i < 1200; i++) {
+    advance(run, STEP)
+    lowest = Math.max(lowest, run.mechanisms[0].y)
+    returned ||= run.mechanisms[0].y === 600
+  }
   assert.equal(run.props[0].x, 780)
   assert.equal(run.props[0].angle, 0)
-  assert.ok(run.mechanisms[0].y > 799 && run.mechanisms[0].y < 800.01)
+  assert.ok(lowest > 799 && lowest < 800.01)
+  assert.ok(returned, 'the elevator reverses above the ball')
 })
 
 test('a rising elevator rolls a ball off a neighboring ledge', () => {
@@ -87,9 +101,10 @@ test('a rising elevator rolls a ball off a neighboring ledge', () => {
 test('a carried ball can roll away from an overhead corner', () => {
   const level = fixture(); level.props[0] = { kind: 'ball', x: 720, y: 900, size: 100 }
   level.platforms = [{ x: 730, y: 570, w: 100, h: 140 }]
+  level.mechanisms[0].travel = 180 // The platform itself stays below the overhead corner.
   const run = createRun(level); run.started = true
   advance(run, 3)
-  assert.equal(run.mechanisms[0].y, 600)
+  assert.equal(run.mechanisms[0].y, 720)
   assert.ok(run.props[0].x < 680)
 })
 

@@ -56,14 +56,18 @@ test('a pressure plate powers only its connected mechanism while held', () => {
   assert.equal(run.triggers[0].active, false); assert.equal(run.mechanisms[1].active, false)
   assert.equal(run.mechanisms[1].y, 740)
 })
-test('elevators carry the player and stop above them without crushing or trapping them', () => {
+test('elevators carry the player and reverse above them without crushing or trapping them', () => {
   const level = blankTrial(); level.mechanisms = [{ id: 'lift', kind: 'lift', x: 700, y: 890, w: 140, h: 22, travel: 300 }]
   weightPlate(level)
   const run = createRun(level), lift = run.mechanisms[0]; run.started = true
   Object.assign(run.player, { x: 760, y: 890 }); advance(run, 320); assert.equal(run.player.y, 590)
   Object.assign(run.player, { x: 760, y: 920, footwork: null }); lift.y = 750; lift.direction = 1; lift.wait = 0
   advance(run, 250); assert.ok(lift.y + lift.definition.h <= run.player.y - 62 + .01)
-  advance(run, 130, { move: 1 }); assert.ok(lift.y > 865)
+  assert.equal(lift.direction, -1, 'contact underneath turns the elevator back upward')
+  advance(run, 130, { move: 1 })
+  let returned = false
+  for (let i = 0; i < 1200; i++) { advance(run, 1); returned ||= lift.y === 890 }
+  assert.ok(returned, 'after the player leaves, a later trip reaches the original lower endpoint')
 })
 
 test('a thin gate rises while pressed and closes on release without crushing a player underneath', () => {

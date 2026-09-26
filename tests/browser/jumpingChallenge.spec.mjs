@@ -87,8 +87,20 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   await page.screenshot({ path: info.outputPath('first-leap-medal.png') })
   const record = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['first-leap'])
   expect(record).toBeGreaterThan(2); expect(record).toBeLessThan(3.5)
-  await page.getByRole('button', { name: 'Next level' }).click(); await page.clock.runFor(100)
+  // Hold the real worker request to exercise a next level that finishes loading
+  // after the paused animation clock has advanced, as it can on a busy CI runner.
+  let releasePreparation
+  const preparation = new Promise(resolve => { releasePreparation = resolve })
+  const delayPreparation = async route => { await preparation; await route.continue() }
+  await page.route('**/ropeLayout.worker*', delayPreparation)
+  await page.getByRole('button', { name: 'Next level' }).click()
+  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toBeVisible()
+  await page.clock.runFor(100)
+  releasePreparation()
   await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()
+  // Read the new level only after it has rendered and published its reset timer.
+  await page.clock.runFor(100)
+  await page.unroute('**/ropeLayout.worker*', delayPreparation)
   expect((await position(page)).x).toBeCloseTo(170); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.clock.resume(); await page.reload()
   await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()

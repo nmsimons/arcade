@@ -480,8 +480,8 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 **Untitled Jumping Game** (`/untitled-jumping-game`)
 
-Open a local folder to play your own levels, ordered by filename. There are
-currently no built-in levels. **JSON Test Lab** lives in the automated test
+**First Leap** and **Second Leap** are included as built-in levels. Open a local
+folder to play your own levels, ordered by its manifest or filename. **JSON Test Lab** lives in the automated test
 fixtures and is not offered in the game or builder.
 
 There is no death or automatic reset. Depress the goal's floor plate to switch on
@@ -539,10 +539,11 @@ live in `src/games/jumping/model.ts`; the simulation advances at 120 Hz
 independently of rendering and viewport size. Built-in maps are runtime JSON
 assets in `public/levels/jumping/`.
 
-Open **Level builder** to enter the **Level studio**. Its **Library** tab offers
-a blank new level and local files, plus any published built-in levels. **Use as template**
+Open **Level builder** to enter the **Level studio**. Its **Library** button opens
+a centered dialog with **New level**, local files, and published built-in templates.
+Replacing an unsaved draft offers **Save and continue**, **Discard changes**, or **Cancel**. **Use as template**
 under a local file starts a new level with the same contents, a new ID, and an
-unused filename. Save the new level to keep it; the source file stays unchanged.
+filename based on its new name. Save the new level to create its file; the source stays unchanged.
 
 - **Rectangle** draws static terrain anywhere in the room. Drag both width and height.
 - **Polygon** places one corner per click. Click the first corner or press Enter
@@ -557,7 +558,7 @@ unused filename. Save the new level to keep it; the source file stays unchanged.
 - Start and finish markers set the route. Legacy object maps remain importable,
   but new levels use only terrain, ladders and ropes.
 - Drag selected elements, resize with the corner handle or numeric inspector,
-  and duplicate with Ctrl/Cmd+D. Undo/redo includes edits, imports and templates.
+  and duplicate with Ctrl/Cmd+D. Undo/redo covers edits to the current level; opening another level starts fresh.
 - Set room width and height, medal times and the player hint. All four outer
   boundaries are structural and cannot be erased.
 - Turn on **Jump guide** to compare short and charged running jumps. Selecting a
@@ -566,13 +567,14 @@ unused filename. Save the new level to keep it; the source file stays unchanged.
 - V selects, H or held Space pans, scrolling pans, and Ctrl/Cmd+scroll zooms.
   **Fit level** or the overview fits the map; **Find start** returns to the player.
 
-**Playtest** runs the entire authored trial with its own goals and mechanics.
+**Save and Test** saves the level to its folder before running the authored trial.
 **Return to builder** preserves the draft and undo history. The inspector flags
 invalid starts, flags, medals, unsupported pushers, and missing mechanism links.
 **Local folder → Choose folder** in the level menu loads
-JSON files from disk in filename order, such as `00-intro.json`, `01-rope.json`.
+JSON files from disk using the folder’s `index.json` order, with filename order as the default.
 **Edit selected level** opens a file in the builder. With a writable folder open,
-**Save level** writes directly to it; otherwise it downloads a JSON file.
+**Save level** writes directly to it. Without writable access, the Library opens
+so you can choose a folder or enable saving.
 The selected folder is remembered in browser storage and reopened automatically
 on reload, reading its current files from disk. If permission expires, use
 **Reconnect folder**; **Enable saving** renews write access when only read access
@@ -581,16 +583,33 @@ There are no browser copies or autosaved drafts. Save to a file before leaving
 or reloading the game; edits remain in memory during playtests and menu visits.
 **Refresh** picks up edits made in a text editor or by Codex. Browsers that only
 read folders show **Reselect folder** instead; they remember the folder name but
-require reselection after reload, and edited levels save as downloads.
+require reselection after reload. Editing and saving requires writable folder access.
 
-**Export** produces a `.jump-level.json` file with all terrain, goals, medal
-thresholds, ladders and ropes, including terrain anchor attachments. Put that file
-in a local folder or `public/levels/jumping/`. **Open file…** in Library opens it for
-further editing with the same level identity. Invalid imports leave current edits
-intact; file save/export failures are visible.
-Built-in files are fetched at runtime and ordered by filename. Reload the page
+The header exposes both **Level name** and **File name**. New drafts create no
+level file until the first save, using the level name unless you specify a filename.
+Changing a saved filename renames that file on Save and keeps the level ID.
+Connecting a writable folder creates a missing `index.json` automatically in
+filename mode. Read-only folders prompt you to enable saving; existing manifests
+are left unchanged. Drag tiles directly in **Library**, or focus one and use
+**Alt + Arrow keys**, to rearrange levels. Each move saves the specified sequence
+to `index.json` automatically. **Sort by filename** restores filename ordering.
+Reordering never rewrites level files or changes the current draft.
+**Delete** immediately moves a local file into the folder's recycle bin.
+**Library → Recycle bin** shows level cards with **Recover** and **Delete permanently**;
+permanent deletion and **Empty recycle bin** both require confirmation.
+Recovery copies are stored in a `Deleted levels` subfolder, separate from the OS
+trash. Externally deleted files remain as **Missing file** cards until you confirm
+removing their index entries. Deleting a saved file keeps any open editor draft.
+Files contain the full
+level, including terrain, mechanisms, goals, medal thresholds and rope attachments.
+To open an existing file, put it in the selected level folder and refresh, or
+change folders in Library. There is no separate file import or export flow.
+Save failures and filename conflicts leave the draft intact.
+Local and built-in collections share the same manifest format, so a folder of
+levels and its manifest can be shared or promoted to built-in assets unchanged.
+Built-in files are fetched at runtime and use the manifest’s ordering. Reload the page
 to pick up changes. Run `npm run levels:index` after adding, removing or renaming
-assets; existing-file edits need no index change. `npm run levels:sync` copies the
+assets; the command preserves any custom sequence. Existing-file edits need no index change. `npm run levels:sync` copies the
 JSON assets into an existing `dist` without recompiling the app. `npm run levels:check`
 validates them without a build. See `docs/jumping-levels.md` for the full workflow.
 

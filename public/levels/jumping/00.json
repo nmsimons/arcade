@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "id": "a90ceb11-5e2a-4b24-80f2-73648ffab13d",
+  "name": "First Leap",
+  "width": 1304,
+  "height": 1600,
+  "platforms": [
+    {
+      "x": 0,
+      "y": 1200,
+      "w": 540,
+      "h": 400
+    },
+    {
+      "x": 780,
+      "y": 1200,
+      "w": 524,
+      "h": 400
+    }
+  ],
+  "spawn": {
+    "x": 147.08955223880596,
+    "y": 1200
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [
+      {
+        "x": 560,
+        "top": 1200,
+        "bottom": 1600,
+        "platform": -1,
+        "side": -1
+      }
+    ],
+    "ropes": []
+  },
+  "description": "",
+  "floor": 1600,
+  "goal": {
+    "x": 1160,
+    "y": 1200
+  },
+  "times": {
+    "gold": 3.5,
+    "silver": 6,
+    "bronze": 15
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": []
+}

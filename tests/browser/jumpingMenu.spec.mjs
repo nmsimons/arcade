@@ -9,9 +9,19 @@ async function open(page, local = false, maps = levels()) {
   await page.addInitScript(maps => {
     window.testPad = { index: 0, id: 'Menu controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
     Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.testPad] })
-    window.showDirectoryPicker = async () => ({ name: 'Menu levels', async *values() {
-      for (const [i, level] of maps.entries()) { const name = `${i}.json`; yield { kind: 'file', name, getFile: async () => new File([JSON.stringify(level)], name) } }
-    } })
+    window.folderContents = Object.fromEntries(maps.map((level, i) => [`${i}.json`, JSON.stringify(level)]))
+    const handle = name => ({ kind: 'file', name, getFile: async () => new File([window.folderContents[name] ?? ''], name),
+      createWritable: async () => {
+        let staged
+        return { write: async text => { staged = text }, close: async () => { window.folderContents[name] = staged }, abort: async () => {} }
+      } })
+    window.showDirectoryPicker = async () => ({ name: 'Menu levels',
+      async *values() { for (const name of Object.keys(window.folderContents)) yield handle(name) },
+      async getFileHandle(name, options) {
+        if (!(name in window.folderContents) && !options?.create) throw new DOMException('Missing', 'NotFoundError')
+        return handle(name)
+      },
+    })
   }, maps)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game')
@@ -79,9 +89,12 @@ test('local tiles edit independently by button and Y while arrows browse tiles a
     const tile = await page.locator('.jumping-level-tile').filter({ has: page.getByRole('button', { name: 'Edit Second room', exact: true }) }).boundingBox()
     const edit = await page.getByRole('button', { name: 'Edit Second room', exact: true }).boundingBox()
     const play = await page.getByRole('button', { name: 'Play Second room', exact: true }).boundingBox()
-    expect(tile.x + tile.width - edit.x - edit.width).toBeCloseTo(12, 0)
+    const remove = await page.locator('.jumping-level-tile').filter({ has: page.getByRole('button', { name: 'Edit Second room', exact: true }) }).getByRole('button', { name: /^Delete / }).boundingBox()
+    expect(tile.x + tile.width - remove.x - remove.width).toBeCloseTo(12, 0)
     expect(tile.y + tile.height - edit.y - edit.height).toBeCloseTo(12, 0)
+    expect(play.x).toBeGreaterThanOrEqual(tile.x + 10)
     expect(play.x + play.width).toBeLessThan(edit.x)
+    expect(edit.x + edit.width).toBeLessThan(remove.x)
     expect(await page.getByRole('dialog').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
     await page.screenshot({ path: info.outputPath(`local-tiles-${size.width}.png`) })
   }
@@ -157,21 +170,22 @@ test('level URLs support direct entry, reload, Back and Forward without extra me
   await expect(page.getByRole('img', { name: 'Second room: activate the goal' })).toBeFocused()
 })
 
-test('builder and playtest routes preserve unsaved edits and undo history when going back', async ({ page }) => {
+test('builder and playtest routes save edits and preserve undo history when going back', async ({ page }) => {
   await open(page, true)
   await page.getByRole('button', { name: 'Edit Second room', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/local\/1.json$/)
-  await page.getByRole('textbox', { name: 'Level name' }).fill('Unsaved route')
-  await page.getByRole('button', { name: 'Playtest', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Level name' }).fill('Edited route')
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/local\/1.json\/playtest$/)
-  await expect(page.getByRole('img', { name: 'Unsaved route: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'Edited route: activate the goal' })).toBeFocused()
+  expect(await page.evaluate(() => JSON.parse(window.folderContents['1.json']).name)).toBe('Edited route')
   await page.goBack()
-  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Unsaved route')
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Edited route')
   await page.goForward()
   await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/local\/1.json$/)
-  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Unsaved route')
+  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Edited route')
   await page.getByRole('button', { name: /^Undo/ }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Second room')
   await page.goBack()
@@ -180,6 +194,7 @@ test('builder and playtest routes preserve unsaved edits and undo history when g
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Second room')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open 0.json', exact: true }).click()
+  await page.getByRole('button', { name: 'Discard changes', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/local\/0.json$/)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('First room')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
@@ -189,11 +204,14 @@ test('builder and playtest routes preserve unsaved edits and undo history when g
   await page.clock.resume(); await page.goto('/untitled-jumping-game/builder')
   await expect(page.getByRole('textbox', { name: 'Level name' })).toBeVisible()
   await page.getByRole('textbox', { name: 'Level name' }).fill('Temporary draft')
-  await page.getByRole('button', { name: 'Playtest', exact: true }).click()
-  await expect(page).toHaveURL(/\/builder\/playtest\/[^/]+$/)
-  await page.reload()
-  await expect(page).toHaveURL(/\/untitled-jumping-game\/builder$/)
-  await expect(page.getByRole('textbox', { name: 'Level name' })).not.toHaveValue('Temporary draft')
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Choose a writable level folder')
+  await page.getByRole('button', { name: /^(Choose|Reselect) folder$/, exact: true }).click()
+  await page.getByRole('button', { name: 'Close library', exact: true }).click()
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
+  await expect(page).toHaveURL(/\/builder\/local\/Temporary%20draft.jump-level.json\/playtest$/)
+  expect(await page.evaluate(() => JSON.parse(window.folderContents['Temporary draft.jump-level.json']).name)).toBe('Temporary draft')
 })
 
 test('file playtest URLs reload saved levels and return to their own builder', async ({ page }) => {

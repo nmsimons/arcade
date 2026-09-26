@@ -172,11 +172,13 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     const ladder = next.climbables.ladders[selection.index]
     ladder.x = x; ladder.bottom = y + b.h; ladder.top = y; ladder.platform = -1
   }
-  if (selection.kind === 'spawn') next.spawn = snapToGround(next, x, y)
-  if (selection.kind === 'checkpoint') next.checkpoints[selection.index] = snapToGround(next, x, y)
+  // Moving a marker must honor the requested height, even before its supporting
+  // terrain is built. Snapping every move to ground traps nudges at the floor.
+  if (selection.kind === 'spawn') next.spawn = { ...next.spawn, x, y }
+  if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
-    next.goal = { ...next.goal, ...snapToGround(next, clamp(x, -b.x, level.width - b.x - b.w), y) }
+    next.goal = { ...next.goal, x: clamp(x, -b.x, level.width - b.x - b.w), y }
   }
   if (selection.kind === 'timer') Object.assign(next.timers![selection.index], { x, y })
   if (selection.kind === 'text') Object.assign(next.texts![selection.index], { x, y })

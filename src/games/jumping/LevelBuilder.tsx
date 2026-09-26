@@ -1,9 +1,9 @@
 import { polygonPoints } from './geometry'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets } from './editor'
 import type { ResizeCorner, Selection, Tool } from './editor'
-import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, newLevelId, parseLevel, prepareLevelRopes, triggerTargets } from './level'
+import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, parseLevel, prepareLevelRopes, triggerTargets } from './level'
 import type { JumpLevel } from './level'
 import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
 import { blankTrial } from './level'
@@ -16,10 +16,18 @@ import { useRopePreview } from './useRopePreview'
 import { drawPuzzleWorld } from './challengeRender'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
-import { LocalFolderPanel } from './LocalFolderPanel'
+import { BuilderLibrary } from './BuilderLibrary'
+import type { LibraryChoice } from './BuilderLibrary'
 import { TUNING } from './model'
 import { isHorizontalGate, mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import './builder.css'
+
+// Rope rest shapes are derived asynchronously, not unsaved author edits.
+function editSignature(level: JumpLevel) {
+  const next = copyLevel(level)
+  for (const rope of next.climbables.ropes) delete rope.rest
+  return JSON.stringify(next)
+}
 
 type Point = { x: number; y: number }
 type View = Point & { zoom: number }
@@ -69,7 +77,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
 }) {
   const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial(), true) }))
   const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
-  const [fileSource, setFileSource] = useState(initialFile?.sourceText)
+  const suggestFileName = useRef(!initialFile)
+  const [fileSource, setFileSource] = useState({ text: initialFile?.sourceText, fileName: initialFile?.fileName, folderId: local.folderId })
+  const [saved, setSaved] = useState<{ level: string | null; fileName: string }>({ level: editSignature(initial.level), fileName })
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
   const level = useRopePreview(preview ?? history.present, preview !== null)
@@ -77,15 +87,30 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level, true), [level, previewRun])
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
+  const [saving, setSaving] = useState(false), savePending = useRef(false)
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
   const [selectedNode, setSelectedNode] = useState<number | null>(null)
-  const [panel, setPanel] = useState<'build' | 'library'>('build')
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const observedRemoval = useRef(local.lastRemoved)
+  const signature = useMemo(() => editSignature(history.present), [history.present])
+  const dirty = saved.level !== signature || saved.fileName !== fileName
+  const detachDeletedFile = useEffectEvent(() => {
+    if (local.lastRemoved?.folderId !== fileSource.folderId || local.lastRemoved?.fileName !== fileSource.fileName) return
+    setFileSource({ text: undefined, fileName: undefined, folderId: local.folderId })
+    setSaved({ level: null, fileName }); onFileChange(undefined)
+    setMessage('')
+  })
+  useEffect(() => {
+    if (observedRemoval.current === local.lastRemoved) return
+    observedRemoval.current = local.lastRemoved
+    if (local.lastRemoved) detachDeletedFile()
+  }, [local.lastRemoved])
   const [jumpGuide, setJumpGuide] = useState(false), [keepTool, setKeepTool] = useState(false)
   const panHeld = useRef(false)
   const [pointer, setPointer] = useState<Point | null>(null)
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
   const [size, setSize] = useState({ width: 800, height: 600 })
-  const canvasRef = useRef<HTMLCanvasElement>(null), fileRef = useRef<HTMLInputElement>(null), drag = useRef<Drag | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null), drag = useRef<Drag | null>(null)
   const latestPreview = useRef<JumpLevel | null>(null)
   const framed = useRef(false)
   const bounds = useMemo(() => selection ? itemBounds(level, selection) : null, [level, selection])
@@ -131,10 +156,26 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     setView(v => ({ ...v, y: v.y + dy }))
     setPointer(p => p && { ...p, y: p.y + dy })
   }
-  function load(next: JumpLevel, file?: LevelFile, fromFolder = false) {
-    setFileName(file?.fileName ?? levelFileName(next.name)); setFileSource(file?.sourceText)
-    commit(copyLevel(next)); chooseSelection(null); setTool('select'); setView(homeView(next, size.height))
-    onFileChange(fromFolder ? file?.fileName : undefined)
+  function load(next: JumpLevel, file?: LevelFile) {
+    next = prepareLevelRopes(copyLevel(next), true)
+    const name = file?.fileName ?? levelFileName(next.name)
+    suggestFileName.current = !file
+    setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName, folderId: local.folderId })
+    setHistory({ past: [], present: next, future: [] })
+    setSaved({ level: editSignature(next), fileName: name })
+    setPreview(null); latestPreview.current = null; drag.current = null
+    chooseSelection(null); setTool('select'); setView(homeView(next, size.height)); setMessage('')
+    onFileChange(file?.fileName)
+  }
+  function chooseLibraryItem(choice: LibraryChoice) {
+    if (choice.kind === 'template') chooseTemplate(choice.file.level)
+    else {
+      const next = choice.kind === 'open' ? choice.file.level : blankTrial()
+      load(next, choice.kind === 'open' ? choice.file : undefined)
+      if (choice.kind === 'open') fitLevel(next)
+    }
+    setLibraryOpen(false)
+    requestAnimationFrame(() => canvasRef.current?.focus())
   }
   function remove() {
     if (selection) { commit(deleteItem(history.present, selection)); chooseSelection(null) }
@@ -152,34 +193,32 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       if (added) { commit(added.level); chooseSelection(added.selection); if (!keepTool) setTool('select') }
     } catch (error) { setMessage((error as Error).message) }
   }
-  async function save() {
+  async function save(testAfter = false, updateRoute = true): Promise<LevelFile | undefined> {
+    if (savePending.current || local.busy) return undefined
+    if (!local.canWrite) {
+      setMessage(local.hasHandle ? 'Enable saving in this folder before saving your level.' : 'Choose a writable level folder before saving your level.')
+      setLibraryOpen(true)
+      return undefined
+    }
+    savePending.current = true; setSaving(true)
     try {
-      if (local.canWrite) {
-        const next = local.files.some(file => file.fileName !== fileName && file.level.id === level.id)
-          ? { ...prepareLevelRopes(level), id: newLevelId() } : prepareLevelRopes(level)
-        const source = await local.save(fileName, next, fileSource)
-        if (next.id !== history.present.id) commit(next)
-        setFileSource(source); setMessage(`Saved “${fileName}” to ${local.name}.`)
-        onFileChange(fileName)
-      } else exportLevel()
-    } catch (error) { setMessage(`Could not save: ${(error as Error).message}`) }
-  }
-  function exportLevel() {
-    try {
-    const url = URL.createObjectURL(new Blob([JSON.stringify(parseLevel(prepareLevelRopes(level)), null, 2)], { type: 'application/json' }))
-    const a = document.createElement('a'); a.href = url; a.download = fileName || levelFileName(level.name); a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-    setMessage(`Downloaded “${fileName || levelFileName(level.name)}”. Open a local folder to save directly to it.`)
-    } catch (error) { setMessage(`Could not export: ${(error as Error).message}`) }
-  }
-  async function importFile(file?: File) {
-    if (!file) return
-    try {
-      if (file.size > 1_000_000) throw new Error('Please choose a level file smaller than 1 MB.')
-      const sourceText = await file.text(), imported = parseLevel(JSON.parse(sourceText))
-      load(imported, { fileName: file.name, level: imported, sourceText }); setMessage(`Opened “${file.name}”. Save level writes a JSON file.`)
-    } catch (error) { setMessage(`Could not import: ${(error as Error).message}`) }
-    if (fileRef.current) fileRef.current.value = ''
+      const next = parseLevel(prepareLevelRopes(level))
+      const name = suggestFileName.current ? levelFileName(next.name) : fileName
+      const ownsFile = fileSource.folderId === local.folderId && fileSource.text !== undefined
+      const previousName = ownsFile ? fileSource.fileName! : name
+      if (local.files.some(file => file.fileName !== previousName && file.fileName !== name && file.level.id === next.id)) {
+        throw new Error('Another file in this folder uses this level’s ID. Use a template to create an independent level.')
+      }
+      const source = await local.save(name, next, ownsFile ? fileSource.text : undefined, previousName)
+      suggestFileName.current = false
+      setFileName(name); setFileSource({ text: source, fileName: name, folderId: local.folderId })
+      setSaved({ level: editSignature(history.present), fileName: name })
+      setMessage(previousName !== name ? `Renamed “${previousName}” to “${name}” and saved.` : `Saved “${name}” to ${local.name}.`)
+      if (updateRoute) onFileChange(name)
+      if (testAfter) onPlay(copyLevel(next))
+      return { fileName: name, level: next, sourceText: source }
+    } catch (error) { setMessage(`Could not save: ${(error as Error).message}`); return undefined }
+    finally { savePending.current = false; setSaving(false) }
   }
   useEffect(() => {
     if (!active || !canvasRef.current) return
@@ -354,15 +393,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     const z = Math.min(size.width / (next.width + 120), size.height / (levelHeight(next) + 120))
     setView({ x: -60, y: -60, zoom: clamp(z, .08, 2.5) })
   }
-  function chooseTemplate(template: JumpLevel, sourceName?: string) {
+  function chooseTemplate(template: JumpLevel) {
     const next = copyForEditing(template)
-    const suggested = sourceName ? sourceName.replace(/((?:\.jump-level)?\.json)$/i, '-copy$1') : levelFileName(next.name)
-    const extension = suggested.match(/(?:\.jump-level)?\.json$/i)![0], stem = suggested.slice(0, -extension.length)
-    const used = new Set(local.files.map(file => file.fileName.toLowerCase()))
-    let name = suggested
-    for (let suffix = 2; used.has(name.toLowerCase()); suffix++) name = `${stem}-${suffix}${extension}`
-    load(next); setFileName(name); fitLevel(next); setPanel('build')
-    setMessage(`Created a new level from “${template.name}”. Save it as “${name}”.`)
+    load(next); fitLevel(next); setSaved({ level: null, fileName: levelFileName(next.name) })
+    setMessage(`Created a new level from “${template.name}”. Its file will be created when you save.`)
     requestAnimationFrame(() => canvasRef.current?.focus())
   }
   function changeObject(field: string, value: number | string) {
@@ -385,7 +419,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     commit(next)
   }
 
-  return <section className={`jumping-builder ${panel === 'library' ? 'builder-library-open' : ''}`} hidden={!active} aria-label="Level builder" onKeyDown={event => {
+  return <section className="jumping-builder" hidden={!active} aria-label="Level builder" onKeyDown={event => {
+    if (libraryOpen) return
     if ((event.target as HTMLElement).matches('input, select, textarea')) return
     if (event.code === 'Space') { event.preventDefault(); panHeld.current = true }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicate() }
@@ -411,30 +446,16 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   }} onKeyUp={event => { if (event.code === 'Space') panHeld.current = false }} onBlur={() => { panHeld.current = false }}>
     <header className="builder-header">
       <div className="builder-brand"><span className="builder-brand-mark" aria-hidden="true">↗</span><div><p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h1>Level studio</h1></div></div>
-      <label className="builder-name">YOUR LEVEL<input aria-label="Level name" maxLength={80} value={level.name} onChange={e => { if (!fileSource && fileName === levelFileName(level.name)) setFileName(levelFileName(e.target.value)); commit({ ...history.present, name: e.target.value }) }} /></label>
-      <div className="builder-main-actions"><button className="builder-back" onClick={onClose}>Back to game</button><div className="builder-file-actions"><button disabled={local.busy} onClick={() => void save()}>Save level</button><button onClick={exportLevel}>Export</button></div><button className="builder-play" disabled={!!problem} onClick={() => onPlay(copyLevel(prepareLevelRopes(level)))}><span aria-hidden="true">▶</span> Playtest</button></div>
+      <div className="builder-identity">
+        <label className="builder-name">Level name<input aria-label="Level name" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value)); commit({ ...history.present, name: e.target.value }) }} /></label>
+        <label className="builder-name builder-file-name">File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
+      </div>
+      <div className="builder-main-actions"><button className="builder-back" disabled={saving} onClick={onClose}>Back to game</button><button aria-haspopup="dialog" disabled={saving} onClick={() => { setMessage(''); setLibraryOpen(true) }}>Library</button><button disabled={local.busy || saving} onClick={() => void save()}>Save level</button><button className="builder-play" disabled={!!problem || local.busy || saving} aria-busy={saving} onClick={() => void save(true)}><span aria-hidden="true">▶</span> Save and Test</button></div>
     </header>
     <aside className="builder-tools" aria-label="Building tools">
-      <div className="builder-panel-tabs"><button aria-pressed={panel === 'build'} onClick={() => setPanel('build')}>Build</button><button aria-pressed={panel === 'library'} onClick={() => setPanel('library')}>Library</button></div>
-      {panel === 'build' ? <>
         {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Power-ups', 'Back wall'].map(group => <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level))).map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div>)}
         <label className="builder-snap"><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} /> Keep placing</label>
         {!['select', 'node'].includes(tool) && <button className="builder-add" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button>}
-      </> : <>
-        <div className="builder-library-actions"><button onClick={() => { load(blankTrial()); setPanel('build') }}><span aria-hidden="true">+ </span>New level</button><button onClick={() => fileRef.current?.click()}>Open file…</button></div>
-        <h2>Local folder</h2>
-        <LocalFolderPanel local={local} compact />
-        {local.files.length > 0 && <div className="builder-local-files" role="group" aria-label="Local level files">{local.files.map(file => <div className="builder-local-file" key={file.fileName}>
-          <button disabled={local.busy} aria-label={`Open ${file.fileName}`} aria-pressed={fileName === file.fileName && level.id === file.level.id}
-          onClick={() => { load(file.level, file, true); fitLevel(file.level); setPanel('build'); requestAnimationFrame(() => canvasRef.current?.focus()) }}>
-          <span className="builder-file-number" aria-hidden="true">↗</span><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small></span>
-          </button>
-          <button className="builder-use-template" disabled={local.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => chooseTemplate(file.level, file.fileName)}>Use as template</button>
-        </div>)}</div>}
-        {templates.length > 0 && <><h2>Built-in levels</h2>
-        <div className="builder-templates">{templates.map(({ fileName, level: template }) => <button key={fileName} onClick={() => chooseTemplate(template)}><LevelThumbnail level={template} /><strong>{template.name}</strong><span>{fileName}</span></button>)}</div></>}
-      </>}
-      <input ref={fileRef} aria-label="Import level file" type="file" accept=".json,application/json" hidden onChange={e => void importFile(e.target.files?.[0])} />
     </aside>
     <div className="builder-stage">
       <div className="builder-view-controls">
@@ -502,9 +523,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       </div> : <div className="builder-empty-selection"><BuilderIcon kind="select" /><strong>Make it yours.</strong><p>Choose a tool and draw in the canvas, or select an object to refine it.</p></div>}
       <details className="builder-level-settings" open={!selection}>
         <summary>Level settings</summary>
-        <label>File name<input aria-label="Level file name" value={fileName} onChange={e => { setFileName(e.target.value); setFileSource(undefined) }} /></label>
-        <p>Filenames set level order. Saving under a new filename creates a copy.</p>
-        <button className="builder-save-location" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => setPanel('library')}><span>Save location</span><strong>{local.canWrite ? local.name : 'Downloads'}</strong><span aria-hidden="true">↗</span></button>
+        <p>Files are created on the first save. Filename changes rename the current file when saved.</p>
+        <button className="builder-save-location" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => { setMessage(''); setLibraryOpen(true) }}><span>Save location</span><strong>{local.name || 'Choose level folder'}</strong><span aria-hidden="true">↗</span></button>
         <label>Level width<input type="number" aria-label="Level width" step={100} value={level.width} min={800} max={20000} onChange={e => {
           const extent = Math.max(800, level.spawn.x + 40, ...allSelections(level).map(s => { const b = itemBounds(level, s)!; return b.x + b.w + (level.floor === undefined ? 0 : 24) }))
           commit({ ...history.present, width: clamp(Number(e.target.value), extent, 20000) })
@@ -519,9 +539,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
           <label>Player hint<textarea aria-label="Player hint" rows={3} maxLength={600} value={level.description ?? ''} onChange={e => commit({ ...history.present, description: e.target.value })} /></label>
         </>}
       </details>
-      <div className={`builder-validation ${problems.length ? 'has-problems' : ''}`}><strong>{problems.length ? 'Before you play' : 'Ready to playtest'}</strong>{problems.length ? problems.map(issue => <p key={issue} role="alert">{issue}</p>) : <p>{isPuzzleLevel(level) ? 'Start and goal are placed. Test the route, then export it.' : 'The player has a clear place to start.'}</p>}</div>
+      <div className={`builder-validation ${problems.length ? 'has-problems' : ''}`}><strong>{problems.length ? 'Before you play' : 'Ready to playtest'}</strong>{problems.length ? problems.map(issue => <p key={issue} role="alert">{issue}</p>) : <p>{isPuzzleLevel(level) ? 'Start and goal are placed. Save and test the route.' : 'The player has a clear place to start.'}</p>}</div>
       <p className="builder-shortcuts">V Select · H / Space Pan<br />⌘ / Ctrl D Duplicate · Z Undo<br />Arrow keys Move · Delete Remove</p>
     </aside>
-    <footer className="builder-status"><span role="status" aria-label="Builder status">{message || 'Changes stay in this session until you save a JSON file.'}</span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '0, 0 = bottom left'}</output> · Scroll to pan · Ctrl + scroll to zoom</span></footer>
+    <footer className="builder-status"><span role="status" aria-label="Builder status">{message || (dirty ? 'Unsaved changes · Save to your level folder to keep them.' : 'Levels are saved as JSON files in your level folder.')}</span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '0, 0 = bottom left'}</output> · Scroll to pan · Ctrl + scroll to zoom</span></footer>
+    {active && libraryOpen && <BuilderLibrary local={local} templates={templates} fileName={fileName} level={level} dirty={dirty} saving={saving}
+      message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}
   </section>
 }

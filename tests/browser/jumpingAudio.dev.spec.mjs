@@ -44,13 +44,13 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
   expect(result.stopped.peak).toBe(0)
 })
 
-async function setup(page, muted = false) {
+async function setup(page, savedMute = false) {
   const level = blankTrial()
   level.name = 'Sound test'; level.mechanisms = [{ id: 'gate', kind: 'gate', x: 650, y: 520, w: 20, h: 400, travel: 400 }]
   level.triggers = [{ x: 100, y: 920, w: 240, mode: 'touch', target: 'gate' }]
   await useLevelFixtures(page, [level])
-  await page.addInitScript(muted => {
-    if (muted) localStorage.setItem('arcade.jumping.sound.v1', 'off')
+  await page.addInitScript(savedMute => {
+    if (savedMute) localStorage.setItem('arcade.jumping.sound.v1', 'off')
     window.soundContexts = []; window.soundGains = []; window.soundStarts = 0
     const Context = window.AudioContext
     window.AudioContext = class extends Context { constructor(...args) { super(...args); window.soundContexts.push(this) } }
@@ -64,13 +64,13 @@ async function setup(page, muted = false) {
       return disconnect.apply(this, args)
     }
     AudioBufferSourceNode.prototype.start = function (...args) { window.soundStarts++; return start.apply(this, args) }
-  }, muted)
+  }, savedMute)
   await page.goto('/untitled-jumping-game')
   await expect(page.getByRole('button', { name: /^Play Sound test$/ })).toBeVisible()
 }
 const peakGain = page => page.evaluate(() => Math.max(0, ...window.soundGains.map(g => g.gain.value)))
 
-test('gameplay unlocks sound, pause/mute/builder silence it, and leaving closes the context', async ({ page }) => {
+test('gameplay unlocks sound, pause/builder silence it, and leaving closes the context', async ({ page }) => {
   await setup(page)
   expect(await page.evaluate(() => window.soundContexts.length)).toBe(0)
   await page.getByRole('button', { name: 'Play Sound test', exact: true }).click()
@@ -81,12 +81,6 @@ test('gameplay unlocks sound, pause/mute/builder silence it, and leaving closes 
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await expect.poll(() => peakGain(page)).toBe(0)
-  await page.getByRole('button', { name: 'Sound on', exact: true }).click()
-  expect(await page.evaluate(() => localStorage.getItem('arcade.jumping.sound.v1'))).toBe('off')
-  await page.getByRole('button', { name: /^Resume/ }).click()
-  await expect.poll(() => peakGain(page)).toBe(0)
-  await page.keyboard.press('Escape')
-  await page.getByRole('button', { name: 'Sound off', exact: true }).click()
   await page.getByRole('button', { name: /^Resume/ }).click()
   await expect.poll(() => peakGain(page)).toBeGreaterThan(.005)
   await page.evaluate(() => window.dispatchEvent(new Event('blur')))
@@ -100,13 +94,16 @@ test('gameplay unlocks sound, pause/mute/builder silence it, and leaving closes 
   await expect.poll(() => page.evaluate(() => window.soundContexts.every(c => c.state === 'closed'))).toBe(true)
 })
 
-test('a saved mute preference creates no audio context during gameplay', async ({ page }) => {
+test('an old mute preference cannot leave gameplay silent after removing the toggle', async ({ page }) => {
   await setup(page, true)
-  await expect(page.getByRole('button', { name: 'Sound off', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Play Sound test', exact: true }).click()
-  await page.keyboard.press('ArrowRight')
-  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: /^Sound (on|off)$/ })).toHaveCount(0)
   expect(await page.evaluate(() => window.soundContexts.length)).toBe(0)
-  await page.getByRole('button', { name: 'Sound off', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Sound test', exact: true }).click()
+  await page.keyboard.down('ArrowRight')
   await expect.poll(() => page.evaluate(() => window.soundContexts[0]?.state)).toBe('running')
+  await expect.poll(() => peakGain(page)).toBeGreaterThan(.005)
+  await page.keyboard.up('ArrowRight')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /^Sound (on|off)$/ })).toHaveCount(0)
 })

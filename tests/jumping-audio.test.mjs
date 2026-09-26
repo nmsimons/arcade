@@ -111,3 +111,16 @@ test('large balls sound lower, gate closing is lower, and distant sounds fade ou
   assert.ok(soundPosition(200, 0, listener).pan > 0)
   assert.ok(soundPosition(200, 0, listener).volume > soundPosition(800, 0, listener).volume)
 })
+
+test('ball size lowers both the rolling texture and resonance while preserving the default sound', () => {
+  for (const pace of [0, .5, 1]) {
+    const tone = size => loopTone({ kind: 'ball', pace, size })
+    assert.deepEqual(tone(68), { frequency: 105 - 68 * .28 + pace * 28, cutoff: 240 + pace * 260,
+      playbackRate: .65 + pace * .8, body: .12, texture: 1, volume: .12 })
+    for (const [small, large] of [[30, 68], [68, 100], [100, 160], [160, 200]]) {
+      for (const property of ['frequency', 'cutoff', 'playbackRate']) assert.ok(tone(large)[property] < tone(small)[property],
+        `${property} decreases from size ${small} to ${large} at pace ${pace}`)
+    }
+    assert.ok(tone(200).cutoff < tone(68).cutoff * .65, 'the dominant texture has a substantial change at the largest size')
+  }
+})

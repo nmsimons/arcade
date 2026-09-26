@@ -253,7 +253,10 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     if (v.timers !== undefined) level.timers = list(v.timers, 40).map(item => {
       const timer = object(item)
-      return { x: num(timer.x, 0, width - WALL_TIMER_WIDTH), y: num(timer.y, 0, level.floor! - WALL_TIMER_HEIGHT) }
+      // Preserve files authored with the old 192 × 52 display at a room edge.
+      // The larger, tile-aligned display only needs a small inward adjustment.
+      return { x: Math.min(num(timer.x, 0, width - 192), width - WALL_TIMER_WIDTH),
+        y: Math.min(num(timer.y, 0, level.floor! - 52), level.floor! - WALL_TIMER_HEIGHT) }
     })
     if (v.pickups !== undefined) level.pickups = list(v.pickups, 80).map(item => {
       const pickup = object(item), bounds = pickupBounds({ x: 0, y: 0 })

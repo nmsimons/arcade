@@ -82,8 +82,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     ctx.fillStyle = clockFinished ? '#66844e' : clockStopped ? '#91652f' : '#40574a'
     ctx.fillText(formatTime(run.elapsed), timer.x + WALL_TIMER_WIDTH / 2, timer.y + WALL_TIMER_HEIGHT / 2 + 1)
     if (clockStopped) {
-      ctx.fillRect(timer.x + 9, timer.y + 22, 3, 10)
-      ctx.fillRect(timer.x + 15, timer.y + 22, 3, 10)
+      ctx.fillRect(timer.x + 9, timer.y + WALL_TIMER_HEIGHT / 2 - 4, 3, 10)
+      ctx.fillRect(timer.x + 15, timer.y + WALL_TIMER_HEIGHT / 2 - 4, 3, 10)
     }
   }
   ctx.restore()

@@ -216,3 +216,27 @@ test('an airborne player wedged between a ball and a wall transfers load and can
     assert.ok(supported, 'the player regains usable footing')
   }
 })
+
+test('large balls yield to a player falling beside a wall, including on a pressure plate', () => {
+  for (const size of [68, 160, 200]) for (const direction of [-1, 1]) for (const move of [-1, 0, 1]) for (const plate of [false, true]) {
+    const level = blankTrial(), wall = 900
+    level.platforms = [{ x: wall - (direction < 0 ? 30 : 0), y: 300, w: 30, h: 620 }]
+    level.props = [{ kind: 'ball', x: wall - direction * (size / 2 + 8), y: 920, size }]
+    if (plate) level.triggers = [{ x: wall - size - 80, y: 920, w: size * 2 + 160, mode: 'weight', targets: [] }]
+    const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
+    Object.assign(p, { x: wall - direction * 12, y: 920 - size - 20, grounded: false, vy: 200, footwork: null })
+    let supported = false, loaded = false
+    // Gameplay always advances at STEP, including during slower render frames.
+    for (let i = 0; i < Math.ceil(5 / STEP); i++) {
+      advance(run, 1, { move })
+      loaded ||= p.contacts.body.some(c => c.collider.prop === ball && c.load > 0)
+      supported ||= p.grounded
+      assert.equal(bodyIntersects(p.x, p.y, level.platforms[0]), false, 'the player stays outside the wall')
+      assert.equal(bodyIntersects(p.x, p.y, ballShape(ball)), false, 'the player stays outside the ball')
+      assert.ok((ball.x - wall) * direction + size / 2 < .01, 'the ball stays outside the wall')
+      assert.ok(ball.y <= 920.01, 'the ball stays above the floor')
+    }
+    assert.ok(loaded, 'the falling player actually loads the ball')
+    assert.ok(supported, `size ${size}, side ${direction}, input ${move}, plate ${plate}: the player regains footing`)
+  }
+})

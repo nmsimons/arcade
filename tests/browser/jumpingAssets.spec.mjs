@@ -1,9 +1,9 @@
-import { test, expect } from './helpers/test.mjs'
-import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { test, expect } from './helpers/folderTest.mjs'
+import { writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIRST_LEVEL as first, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
 const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
@@ -12,7 +12,9 @@ async function open(page) {
 }
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
 
-test('test fixtures are hidden from the picker and builder, which ignores browser copies and drafts', async ({ page }, info) => {
+test('an empty catalog hides built-ins and the builder ignores browser copies and drafts', async ({ page }, info) => {
+  await useLevelFixtures(page, [])
+  await installTestFolder(page)
   await page.addInitScript(level => {
     const get = Storage.prototype.getItem, set = Storage.prototype.setItem
     set.call(localStorage, 'arcade.jumping.levels.v1', JSON.stringify([level]))
@@ -36,16 +38,16 @@ test('test fixtures are hidden from the picker and builder, which ignores browse
   await expect(page.locator('.builder-templates button')).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Built-in levels', exact: true })).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('file-library.png') })
+  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
+  await page.getByRole('button', { name: 'Close library', exact: true }).click()
   await page.getByRole('textbox', { name: 'Level name' }).fill('File-only level')
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Save level', exact: true }).click()])
-  const file = JSON.parse(await readFile(await download.path(), 'utf8'))
-  expect(file.name).toBe('File-only level')
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Downloaded')
+  const saved = await saveTestLevel(page)
+  expect(saved.level.name).toBe('File-only level')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
   expect(await page.evaluate(() => window.levelStorageCalls)).toEqual([])
   await page.reload()
-  await expect(page).toHaveURL(/\/builder$/)
-  await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Untitled level')
-  await page.getByLabel('Import level file').setInputFiles(await download.path())
+  await expect(page).toHaveURL(/\/builder\/local\//)
+  await reopenTestLevel(page, saved)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('File-only level')
   expect(await page.evaluate(() => window.levelStorageCalls)).toEqual([])
 })
@@ -77,7 +79,7 @@ test('built-in JSON changes and newly indexed files load without changing the ap
   await expect(page.getByRole('spinbutton', { name: 'gold time' })).toHaveValue('4')
 })
 
-test('a missing index reports the failure and page reload recovers without a compiled fallback map', async ({ page }) => {
+test('a missing index reports the failure and page reload recovers without a compiled fallback map', async ({ page }, info) => {
   let failing = true
   await page.route('**/levels/jumping/index.json', route => failing ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue())
   await open(page)
@@ -86,10 +88,17 @@ test('a missing index reports the failure and page reload recovers without a com
   await expect(page.locator('.jumping-level-card')).toHaveCount(0)
   failing = false
   await page.reload()
-  await expect(page.getByRole('button', { name: 'Local folder', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  expect(await names(page)).toEqual([])
+  await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Level 1: First Leap', exact: true })).toBeVisible()
+  expect(await names(page)).toEqual(['First Leap', 'Second Leap'])
   await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
+  await page.screenshot({ path: info.outputPath('built-in-levels.png') })
+  await page.getByRole('button', { name: 'Level 1: First Leap', exact: true }).click()
+  await expect(page.getByRole('img', { name: 'First Leap: activate the goal' })).toBeFocused()
+  await page.goto('/untitled-jumping-game')
+  await page.getByRole('button', { name: 'Level 2: Second Leap', exact: true }).click()
+  await expect(page.getByRole('img', { name: 'Second Leap: activate the goal' })).toBeFocused()
 })
 
 test('local folder fallback loads real JSON files in filename order and reloads external edits', async ({ page }, info) => {
@@ -119,11 +128,12 @@ test('local folder fallback loads real JSON files in filename order and reloads 
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
-test('native folder saves update the loaded file, protect external edits, and create independently identified copies', async ({ page }, info) => {
+test('native folder saves update the loaded file, protect external edits, and rename files without changing identity', async ({ page }, info) => {
   await page.addInitScript(level => {
     window.folderContents = { '01-second.json': JSON.stringify({ ...level, id: 'second', name: 'Second' }), '00-first.json': JSON.stringify(level) }
     window.folderWrites = []
     window.showDirectoryPicker = async () => ({ name: 'My jumping levels',
+      removeEntry: async name => { delete window.folderContents[name] },
       async *values() { for (const name of Object.keys(window.folderContents)) yield { kind: 'file', name, getFile: async () => new File([window.folderContents[name]], name) } },
       async getFileHandle(name, options) {
         if (!(name in window.folderContents) && !options?.create) throw new DOMException('Missing', 'NotFoundError')
@@ -147,19 +157,22 @@ test('native folder saves update the loaded file, protect external edits, and cr
   await page.evaluate(() => { const level = JSON.parse(window.folderContents['00-first.json']); level.name = 'External edit'; window.folderContents['00-first.json'] = JSON.stringify(level) })
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Refresh folder', exact: true }).click()
+  await page.getByRole('button', { name: 'Close library', exact: true }).click()
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('changed on disk')
-  expect(await page.evaluate(() => window.folderWrites)).toEqual(['00-first.json'])
+  expect(await page.evaluate(() => window.folderWrites)).toEqual(['index.json', '00-first.json'])
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.screenshot({ path: info.outputPath('builder-folder-files.png') })
   await page.getByRole('button', { name: 'Open 00-first.json', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('External edit')
-  await page.getByRole('textbox', { name: 'Level file name' }).fill('02-copy.json')
+  await page.getByRole('textbox', { name: 'Level file name' }).fill('02-renamed.json')
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved “02-copy.json”')
-  saved = await page.evaluate(() => JSON.parse(window.folderContents['02-copy.json']))
-  expect(saved.id).not.toBe('local-first')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Renamed “00-first.json” to “02-renamed.json”')
+  saved = await page.evaluate(() => JSON.parse(window.folderContents['02-renamed.json']))
+  expect(saved.id).toBe('local-first')
+  expect(await page.evaluate(() => '00-first.json' in window.folderContents)).toBe(false)
   await page.getByRole('button', { name: 'Back to game', exact: true }).click()
-  expect(await names(page)).toEqual(['External edit', 'Second', 'External edit'])
+  expect(await names(page)).toEqual(['Second', 'External edit'])
   await page.getByRole('button', { name: 'Refresh folder', exact: true }).click()
   await expect(page.getByRole('alert')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('saved-local-levels.png') })
@@ -170,10 +183,19 @@ test('folder picker handles cancel, busy, errors and empty folders without losin
     window.showDirectoryPicker = () => new Promise((resolve, reject) => {
       window.finishFolderPicker = (result) => {
         if (result === 'cancel') { reject(new DOMException('Cancelled', 'AbortError')); return }
+        const contents = result === 'empty' ? {} : { '00-a-very-long-filename-for-my-first-level.json': JSON.stringify(level) }
         resolve({ name: result === 'empty' ? 'New levels' : 'My collection of jumping levels and experiments',
+          removeEntry: async name => { delete contents[name] },
+          getFileHandle: async (name, options) => {
+            if (!(name in contents) && !options?.create) throw new DOMException('Missing', 'NotFoundError')
+            return { kind: 'file', name, getFile: async () => new File([contents[name] ?? ''], name), createWritable: async () => {
+              let staged
+              return { write: async text => { staged = text }, close: async () => { contents[name] = staged }, abort: async () => {} }
+            } }
+          },
           async *values() {
             if (result === 'error') throw new DOMException('Folder access was denied. Choose the folder again.', 'NotAllowedError')
-            if (result !== 'empty') yield { kind: 'file', name: '00-a-very-long-filename-for-my-first-level.json', getFile: async () => new File([JSON.stringify(level)], '00-a-very-long-filename-for-my-first-level.json') }
+            for (const name of Object.keys(contents)) yield { kind: 'file', name, getFile: async () => new File([contents[name]], name) }
           },
         })
       }
@@ -207,7 +229,7 @@ test('folder picker handles cancel, busy, errors and empty folders without losin
   await page.getByRole('button', { name: /Save location/ }).click()
   await expect(page.getByRole('button', { name: 'Open 00-a-very-long-filename-for-my-first-level.json' })).toBeVisible()
   await page.screenshot({ path: info.outputPath('folder-mobile-builder.png') })
-  await expect(page.locator('.builder-tools')).toHaveJSProperty('scrollWidth', await page.locator('.builder-tools').evaluate(el => el.clientWidth))
+  await expect(page.locator('.builder-library')).toHaveJSProperty('scrollWidth', await page.locator('.builder-library').evaluate(el => el.clientWidth))
   await page.getByRole('button', { name: 'Open 00-a-very-long-filename-for-my-first-level.json' }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeFocused()
   expect(parseInt(await page.getByLabel('Zoom', { exact: true }).textContent())).toBeGreaterThan(8)
@@ -219,14 +241,15 @@ test('folder picker handles cancel, busy, errors and empty folders without losin
   await expect(page.getByRole('group', { name: 'Local level files' })).toHaveCount(0)
 })
 
-test('local Next level follows filenames and skips files that need repairs', async ({ page }) => {
+test('local Next level follows manifest order and skips files that need repairs', async ({ page }) => {
   const dir = await mkdtemp(join(tmpdir(), 'jumping-level-order-'))
   try {
     const start = custom('local-start', 'Start here'); start.goal = { x: 330, y: start.spawn.y }
     const broken = custom('local-repair', 'Needs repair'); broken.spawn.y += 100
-    await writeFile(join(dir, '10-last.json'), JSON.stringify(custom('local-last', 'Alphabetically first title')))
+    await writeFile(join(dir, '00-last.json'), JSON.stringify(custom('local-last', 'Alphabetically first title')))
     await writeFile(join(dir, '02-repair.json'), JSON.stringify(broken))
-    await writeFile(join(dir, '00-start.json'), JSON.stringify(start))
+    await writeFile(join(dir, 'index.json'), JSON.stringify({ version: 1, order: 'listed', levels: ['10-start.json', '02-repair.json', '00-last.json'] }))
+    await writeFile(join(dir, '10-start.json'), JSON.stringify(start))
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
     await page.addInitScript(() => { window.showDirectoryPicker = undefined })
     await open(page); await page.getByRole('button', { name: 'Local folder', exact: true }).click()
@@ -250,20 +273,21 @@ test('local Next level follows filenames and skips files that need repairs', asy
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
-test('the JSON reference fixture survives builder template copying, playtest and export when explicitly supplied', async ({ page }, info) => {
+test('the JSON reference fixture survives builder template copying, playtest and folder saves when explicitly supplied', async ({ page }, info) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message))
+  await installTestFolder(page)
   await useLevelFixtures(page, [JSON_LAB])
   await open(page); await page.getByRole('button', { name: 'Level builder', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await page.getByRole('button', { name: /JSON Test Lab/ }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('JSON Test Lab — copy')
-  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Export', exact: true }).click()])
-  const exported = JSON.parse(await readFile(await download.path(), 'utf8'))
+  const exported = (await saveTestLevel(page)).level
   expect(exported.platforms).toHaveLength(5); expect(exported.climbables.ropes).toHaveLength(3)
   expect(exported.mechanisms.map(m => m.kind)).toEqual(['lift', 'gate'])
   expect(exported.props.map(p => p.kind)).toEqual(['box', 'ball'])
   await page.screenshot({ path: info.outputPath('json-test-lab.png') })
-  await page.getByRole('button', { name: 'Playtest' }).click()
+  await page.getByRole('button', { name: 'Save and Test' }).click()
   await expect(page.getByRole('img', { name: 'JSON Test Lab — copy: activate the goal' })).toBeFocused()
   await page.keyboard.press('ArrowRight')
   expect(errors).toEqual([])

@@ -1,4 +1,5 @@
 import type { LocalLevels } from './localLevels'
+import { missingManifestPrompt } from './localLevels'
 import './localFolder.css'
 
 export function LocalFolderActions({ local }: { local: LocalLevels }) {
@@ -17,14 +18,14 @@ export function LocalFolderPanel({ local, compact = false, summary = false }: { 
   const remembered = !!local.name, connected = local.status === 'ready', reconnect = local.status === 'reconnect'
   const status = local.restoring ? 'Restoring folder…' : reconnect ? 'Folder remembered · Access needed'
     : local.status === 'reselect' ? 'Folder remembered · Reselect to load levels'
-    : connected ? `${local.files.length} ${local.files.length === 1 ? 'level' : 'levels'} · ${local.canWrite ? 'Save directly to folder' : 'Edits save as downloads'}` : 'Open a folder to play and edit its level files.'
+    : connected ? `${local.files.length} ${local.files.length === 1 ? 'level' : 'levels'}${local.missing.length ? ` · ${local.missing.length} missing` : ''} · ${local.canWrite ? 'Save directly to folder' : 'Read only'}` : 'Open a folder to play and edit its level files.'
   const note = local.restoring ? 'Checking the folder used on your last visit.'
     : reconnect ? 'Allow access to reopen this folder. Your level files stay on disk.'
     : local.status === 'reselect' ? 'This browser requires you to select the folder again after a reload.'
-    : connected ? local.hasHandle
-      ? !local.canWrite ? 'Enable saving to write edits directly to this folder.' : local.files.length ? 'Levels are ordered by filename.' : 'No level files yet. Save a level here from the builder.'
-      : local.files.length ? 'Reselect this folder to pick up changes from disk.' : 'Add JSON level files here, then reselect the folder.'
-    : 'JSON level files · Ordered by filename · Kept on your device'
+    : connected ? missingManifestPrompt(local) || (local.hasHandle
+      ? !local.canWrite ? 'Enable saving to write edits directly to this folder.' : local.files.length ? 'Drag levels in Library to change their order.' : 'No level files yet. Save a level here from the builder.'
+      : local.files.length ? 'Reselect to pick up changes. Saving requires a browser with writable folder access, such as Chrome or Edge.' : 'Add JSON level files here, then reselect the folder.')
+    : 'JSON level files · Kept on your device'
   return <section className={`local-folder ${compact ? 'local-folder-compact' : ''} ${remembered ? 'is-connected' : 'is-empty'}`} aria-label="Local level folder" aria-busy={local.busy}>
     <div className="local-folder-heading">
       <span className="local-folder-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"><path d="M3 7V5a1 1 0 0 1 1-1h5l2 3h9a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z" /><path d="M3 9h18" /></svg></span>

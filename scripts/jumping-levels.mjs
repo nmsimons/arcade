@@ -1,11 +1,15 @@
 import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
-import { compareFileNames, isLevelFileName, loadLevelCatalog } from '../src/games/jumping/levelAssets.ts'
+import { compareFileNames, decodeLevelManifest, isLevelFileName, loadLevelCatalog } from '../src/games/jumping/levelAssets.ts'
 
 const source = resolve('public/levels/jumping')
 async function index(root) {
   const levels = (await readdir(root, { withFileTypes: true })).filter(entry => entry.isFile() && isLevelFileName(entry.name)).map(entry => entry.name).sort(compareFileNames)
-  const manifest = { version: 1, levels }
+  let previous
+  try { previous = decodeLevelManifest(await readFile(`${root}/index.json`, 'utf8')) }
+  catch (error) { if (error.code !== 'ENOENT') throw error }
+  const retained = (previous?.levels ?? []).filter(name => levels.includes(name))
+  const manifest = { ...previous, version: 1, levels: [...retained, ...levels.filter(name => !retained.includes(name))] }
   await writeFile(`${root}/index.json`, JSON.stringify(manifest, null, 2) + '\n')
   return manifest
 }

@@ -21,6 +21,10 @@ Body contacts also transfer normal load while airborne. A player wedged between
 a ball and a wall can therefore displace the ball and regain footing. Requested
 motion away from a contact does not cancel the weight on it when another wall
 prevents separation. These contacts use the same swept player hull as movement.
+Ball settling drag, including the stronger pressure-plate drag, applies only
+without an active player load or shove. Otherwise it can cancel the force on a
+large ball every physics step and leave the player suspended beside a wall.
+The normal settling behavior resumes when the player releases contact.
 
 Mechanisms share position and travel geometry for both axes. A closing
 gate reverses when blocked, completes its opening stroke, and waits for its full

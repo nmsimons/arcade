@@ -13,3 +13,51 @@ export async function restartFromPause(page) {
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: /^(Restart level|Reset position)$/ }).click()
 }
+
+/** Real file handles, isolated in browser-test storage; production always uses the user's folder. */
+export async function installTestFolder(page, files = {}) {
+  await page.addInitScript(files => {
+    window.testFolderWrites = 0
+    FileSystemHandle.prototype.queryPermission = async () => 'granted'
+    FileSystemHandle.prototype.requestPermission = async () => 'granted'
+    const original = FileSystemFileHandle.prototype.createWritable
+    FileSystemFileHandle.prototype.createWritable = async function (...args) {
+      const writer = await original.apply(this, args), close = writer.close.bind(writer)
+      writer.close = async () => { await close(); window.testFolderWrites++ }
+      return writer
+    }
+    window.testLevelDirectory = async () => {
+      const directory = await (await navigator.storage.getDirectory()).getDirectoryHandle('Test levels', { create: true })
+      for (const [name, level] of Object.entries(files)) {
+        try { await directory.getFileHandle(name); continue } catch { /* Seed only once, preserving saves across reload. */ }
+        const writer = await (await directory.getFileHandle(name, { create: true })).createWritable()
+        await writer.write(JSON.stringify(level)); await writer.close()
+      }
+      return directory
+    }
+    window.showDirectoryPicker = window.testLevelDirectory
+  }, files)
+}
+
+export async function readTestLevel(page, fileName) {
+  return page.evaluate(async name => JSON.parse(await (await (await (await window.testLevelDirectory()).getFileHandle(name)).getFile()).text()), fileName)
+}
+
+export async function saveTestLevel(page, button = 'Save level') {
+  const { expect } = await import('@playwright/test')
+  const fileName = await page.getByRole('textbox', { name: 'Level file name', exact: true }).inputValue()
+  const writes = await page.evaluate(() => window.testFolderWrites)
+  await page.getByRole('button', { name: button, exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.testFolderWrites)).toBeGreaterThan(writes)
+  if (button === 'Save and Test') await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
+  else await expect(page.getByRole('status', { name: 'Builder status' })).toContainText(`Saved “${fileName}”`)
+  return { fileName, level: await readTestLevel(page, fileName) }
+}
+
+export async function reopenTestLevel(page, saved) {
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  const open = page.getByRole('button', { name: `Open ${saved.fileName}`, exact: true })
+  if (!await open.count()) await page.getByRole('button', { name: /^(Choose|Reselect) folder$/ }).click()
+  await open.click()
+  if (await page.getByRole('alertdialog', { name: 'Unsaved changes' }).count()) await page.getByRole('button', { name: 'Discard changes', exact: true }).click()
+}

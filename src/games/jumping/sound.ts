@@ -1,6 +1,5 @@
 import type { SoundCue, SoundFrame, SoundLoop } from './audioState.ts'
 
-export const SOUND_PREFERENCE_KEY = 'arcade.jumping.sound.v1'
 export const MAX_LOOP_VOICES = 6
 const clamp = (n: number, min = 0, max = 1) => Math.max(min, Math.min(max, n))
 type Voice = { id: string | null; source: AudioBufferSourceNode; tone: OscillatorNode; texture: GainNode; body: GainNode; filter: BiquadFilterNode; gain: GainNode; pan: StereoPannerNode }
@@ -18,13 +17,22 @@ function fade(param: AudioParam, now: number) {
 /** Dry, low-register textures. Size changes the ball's resonance; closing gates
  * have a lower, slower sound than opening gates. No reverb or background drone. */
 export function loopTone(loop: SoundLoop) {
-  const pace = clamp(loop.pace)
+  const pace = clamp(loop.pace), playbackRate = .65 + pace * .8
   switch (loop.kind) {
-    case 'ball': return { frequency: clamp(105 - loop.size * .28, 38, 100) + pace * 28, cutoff: 240 + pace * 260, body: .12, texture: 1, volume: .12 }
-    case 'box': return { frequency: 60, cutoff: 700 + pace * 900, body: 0, texture: 1, volume: .075 }
-    case 'elevator': return { frequency: 68 + pace * 25, cutoff: 380, body: .65, texture: .28, volume: .045 }
-    case 'gate-open': return { frequency: 110 + pace * 35, cutoff: 950, body: .16, texture: .85, volume: .075 }
-    case 'gate-close': return { frequency: 76 + pace * 28, cutoff: 650, body: .2, texture: .85, volume: .075 }
+    case 'ball': {
+      // Retain the default 68-unit ball's sound. Lower the dominant rolling
+      // texture as well as the quiet resonance as diameter increases.
+      const scale = Math.sqrt(68 / clamp(loop.size, 30, 200))
+      // Small balls use the rolling texture alone; a pitched body sounds like
+      // a hum at their higher frequency. Blend it back in toward default size.
+      const resonance = clamp((loop.size - 30) / (68 - 30)) ** 2
+      return { frequency: (105 - 68 * .28 + pace * 28) * scale, cutoff: (240 + pace * 260) * scale,
+        playbackRate: playbackRate * scale, body: .12 * resonance, texture: 1, volume: .12 }
+    }
+    case 'box': return { frequency: 60, cutoff: 700 + pace * 900, playbackRate, body: 0, texture: 1, volume: .075 }
+    case 'elevator': return { frequency: 68 + pace * 25, cutoff: 380, playbackRate, body: .65, texture: .28, volume: .045 }
+    case 'gate-open': return { frequency: 110 + pace * 35, cutoff: 950, playbackRate, body: .16, texture: .85, volume: .075 }
+    case 'gate-close': return { frequency: 76 + pace * 28, cutoff: 650, playbackRate, body: .2, texture: .85, volume: .075 }
   }
 }
 
@@ -53,12 +61,18 @@ export class JumpingSound {
     this.ctx = ctx
     this.output = ctx.createGain(); this.output.gain.value = .8; this.output.connect(ctx.destination)
     this.noise = makeBuffer(ctx, 2, (t, noise) => noise * (.8 + .2 * Math.sin(t * Math.PI * 13)))
-    let grain = 0
+    let grain = 0, sole = 0, cushion = 0
+    const softening = 1 - Math.exp(-2 * Math.PI * 500 / ctx.sampleRate)
+    const cushioning = 1 - Math.exp(-2 * Math.PI * 130 / ctx.sampleRate)
     this.cues = {
-      footstep: makeBuffer(ctx, .16, (t, noise) => {
-        grain += (noise - grain) * .2
-        return Math.min(1, t / .003) * (Math.sin(2 * Math.PI * (95 * t - 90 * t * t)) * .3 * Math.exp(-t * 38)
-          + grain * .65 * Math.exp(-t * 48)) * Math.min(1, (.16 - t) / .015)
+      footstep: makeBuffer(ctx, .17, (t, noise) => {
+        // A cushioned rubber sole: a rounded low thump and a faint, soft scuff.
+        grain += (noise - grain) * softening
+        sole += (grain - sole) * softening
+        cushion += (sole - cushion) * cushioning
+        const attack = Math.sin(Math.min(1, t / .022) * Math.PI / 2) ** 2
+        return attack * (cushion * 1.8 * Math.exp(-t * 26)
+          + sole * .18 * Math.exp(-t * 38)) * Math.min(1, (.17 - t) / .035)
       }),
       switch: makeBuffer(ctx, .16, (t, noise) => Math.min(1, t / .002) *
         (noise * .16 * Math.exp(-t * 90) + Math.sin(t * Math.PI * 2 * 480) * .2 * Math.exp(-t * 55)) * Math.min(1, (.16 - t) / .01)),
@@ -76,7 +90,7 @@ export class JumpingSound {
     const ctx = this.ctx, source = ctx.createBufferSource(), tone = ctx.createOscillator()
     const texture = ctx.createGain(), body = ctx.createGain(), filter = ctx.createBiquadFilter(), gain = ctx.createGain(), pan = ctx.createStereoPanner()
     const target = loopTone(loop)
-    source.buffer = this.noise; source.loop = true; source.playbackRate.value = .65 + loop.pace * .8
+    source.buffer = this.noise; source.loop = true; source.playbackRate.value = target.playbackRate
     tone.type = 'triangle'; tone.frequency.value = target.frequency
     texture.gain.value = target.texture; body.gain.value = target.body
     filter.type = 'lowpass'; filter.frequency.value = target.cutoff; filter.Q.value = .4
@@ -102,7 +116,7 @@ export class JumpingSound {
       voice.id = loop.id
       const tone = loopTone(loop)
       approach(voice.tone.frequency, tone.frequency, now)
-      approach(voice.source.playbackRate, .65 + loop.pace * .8, now)
+      approach(voice.source.playbackRate, tone.playbackRate, now)
       approach(voice.body.gain, tone.body, now); approach(voice.texture.gain, tone.texture, now)
       approach(voice.filter.frequency, tone.cutoff, now)
       approach(voice.pan.pan, loop.pan, now)
@@ -117,7 +131,7 @@ export class JumpingSound {
     source.buffer = this.cues[cue.kind]
     const footstep = cue.kind === 'footstep'
     source.playbackRate.value = footstep ? .94 + (++this.variation % 5) * .03 : 1
-    gain.gain.value = clamp(cue.volume) * clamp(cue.strength) * (footstep ? .28 : .38)
+    gain.gain.value = clamp(cue.volume) * clamp(cue.strength) * (footstep ? .22 : .38)
     pan.pan.value = cue.pan; source.connect(gain); gain.connect(pan); pan.connect(this.output)
     const shot = { source, gain, pan }; this.shots.add(shot)
     source.onended = () => { source.disconnect(); gain.disconnect(); pan.disconnect(); this.shots.delete(shot) }
@@ -149,12 +163,8 @@ export class JumpingSoundSession {
   private sound: JumpingSound | null = null
   private resuming = false
   private disposed = false
-  private muted: boolean
-
-  constructor(muted: boolean) { this.muted = muted }
-
   unlock() {
-    if (this.disposed || this.muted || this.resuming) return
+    if (this.disposed || this.resuming) return
     try {
       if (!this.ctx) { this.ctx = new AudioContext(); this.sound = new JumpingSound(this.ctx) }
       if (this.ctx.state === 'suspended') {
@@ -164,18 +174,12 @@ export class JumpingSoundSession {
     } catch { /* Audio is optional; unsupported devices can still play. */ }
   }
 
-  setMuted(muted: boolean) {
-    this.muted = muted
-    if (muted) this.silence()
-    else this.unlock()
-  }
-
   update(frame: SoundFrame) {
-    if (!this.muted && this.ctx?.state === 'running') this.sound?.update(frame)
+    if (this.ctx?.state === 'running') this.sound?.update(frame)
   }
 
   pauseCue() {
-    if (!this.muted && this.ctx?.state === 'running') this.sound?.cue({ kind: 'timer-paused', volume: 1, pan: 0, strength: .65 })
+    if (this.ctx?.state === 'running') this.sound?.cue({ kind: 'timer-paused', volume: 1, pan: 0, strength: .65 })
   }
 
   silence() { this.sound?.silence() }

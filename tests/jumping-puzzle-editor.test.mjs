@@ -81,6 +81,25 @@ test('goals follow their supporting platform, and the start and goal cannot be d
   assert.deepEqual(deleteItem(after, { kind: 'spawn', index: 0 }), after)
 })
 
+test('markers can leave the floor before their supporting terrain is built', () => {
+  for (const kind of ['spawn', 'goal', 'checkpoint']) {
+    const source = blankTrial(); source.checkpoints = [{ x: 500, y: source.floor, radius: 60 }]
+    const marker = level => kind === 'checkpoint' ? level.checkpoints[0] : level[kind]
+    const original = { ...marker(source) }, selection = { kind, index: 0 }
+    let level = moveItem(source, selection, 0, -20)
+    assert.equal(marker(level).y, source.floor - 20, 'a one-tile nudge leaves the floor')
+    level = moveItem(level, selection, 0, -1)
+    assert.equal(marker(level).y, source.floor - 21, 'a precise nudge is not snapped back')
+    level = moveItem(level, selection, 40, -179)
+    assert.deepEqual(marker(level), { ...original, x: original.x + 40, y: source.floor - 200 })
+    assert.deepEqual(marker(source), original, 'moving leaves the undo snapshot intact')
+    assert.deepEqual(parseLevel(level), level, 'unsupported intermediate positions can still be saved')
+    if (kind !== 'checkpoint') assert.ok(levelProblems(level).length, 'testing still requires a supported marker')
+    level.platforms.push({ x: 0, y: source.floor - 200, w: level.width, h: 20 })
+    assert.deepEqual(levelProblems(level), [], 'building support makes the elevated placement playable')
+  }
+})
+
 test('gates and elevators keep their thickness through import, editing, duplication and export', () => {
   const source = blankTrial(); source.mechanisms = [
     { id: 'gate', kind: 'gate', x: 600, y: 740, w: 44, h: 180, travel: 220 },

@@ -10,7 +10,9 @@ The asset folder is `public/levels/jumping/` in the repository and `levels/jumpi
 in the deployed app:
 
 - `index.json`: lists the filenames to fetch as `{ "version": 1, "levels": [...] }`.
-  It contains no level geometry and currently lists no built-in levels.
+  It contains no level geometry and lists the built-ins in presentation order.
+- `00.json`: First Leap.
+- `01.json`: Second Leap.
 
 Add future built-ins directly to this folder. The JSON test lab, old lessons,
 playground and counterweight yard live under `tests/fixtures/jumping/` solely for
@@ -18,11 +20,32 @@ automated tests. They are not copied into or offered by the deployed game.
 When the built-in catalog is empty, the level picker opens Local folder and the
 builder omits the built-in templates section.
 
-The app sorts filenames, not titles or IDs. Use zero-padded prefixes such as
-`00-intro.json`, `01-rope.json`, and `02-two-ropes.json`. The same ordering controls
-the menu and Next level. The order of entries in the index does not matter.
+Local and built-in collections share the same `index.json` manifest format:
+
+```json
+{
+  "version": 1,
+  "order": "listed",
+  "levels": ["intro.json", "ropes.json", "tower.json"]
+}
+```
+
+`order: "listed"` uses this explicit sequence for the picker and Next level.
+`order: "filename"`, or an omitted order mode, uses filename order. Connecting a
+writable folder without a manifest automatically creates `index.json` in filename
+mode, listing its JSON level files without modifying them. Read-only folders use
+filename order and show how to enable saving to create the manifest. Existing
+manifests are preserved, including on reload. Local files not listed in a custom
+manifest appear after its entries, sorted by filename. Missing local files retain
+their place as **Missing file** cards with only a Delete action. Invalid manifests
+are reported; valid local files remain available in filename
+order when the manifest cannot be read. Presentation order is never stored in
+individual level JSON files.
+
 Static hosting cannot enumerate directories, so adding, removing, or renaming a
-file also requires updating the index:
+file also requires updating the index. This command preserves the existing mode,
+custom sequence and other manifest metadata, removes references to missing files,
+and appends newly discovered files in filename order:
 
 ```sh
 npm run levels:index
@@ -69,7 +92,7 @@ Resizing keeps the opposite corner fixed and scales the existing nodes. Resizing
 and node edits follow Snap; new points snap along the edge without changing its slope.
 
 Choose **Local folder → Choose folder** in the game menu. The game reads JSON files
-directly in that folder, sorts their filenames, and lets you play them or choose
+directly in that folder, applies its manifest (or filename order), and lets you play them or choose
 **Edit** on a level tile. Click a tile, press Enter, or press controller A while
 it is selected to play immediately. Focus or hover a tile to preview it in the
 details pane. Each tile has **Play** at the bottom right, beside **Edit** for local
@@ -86,25 +109,67 @@ the same folder without another folder chooser. If read access remains available
 but write permission has expired, levels load automatically and **Enable saving**
 restores direct saves. A missing folder can be replaced with **Change folder**.
 
-In the builder, **Library → Choose folder** selects the destination for **Save level**.
+In the builder, **Library** opens a centered, nearly full-screen dialog. It contains
+**New level**, local files, built-in templates, and folder controls. **Choose folder**
+selects the destination for **Save level**. Replacing a draft with unsaved changes
+offers **Save and continue**, **Discard changes**, or **Cancel**.
 Click any file in the folder's list to open it for editing. **Change folder**
 switches folders; the inspector's **Save location** takes you back to Library. The
-filename is editable under Level settings. Saving under a different filename
-creates another file; a copy of an existing local level receives a new ID.
+filename and level name are independently editable in the header. A new draft
+creates no level file until its first save. Until then, its filename follows the level
+name unless you type a filename yourself. Clearing the filename restores that
+automatic suggestion. After saving, changing the level name leaves the filename
+alone. Editing the filename renames the existing file on the next save, preserving
+its ID and any manifest position. Rename collisions or changes made externally
+block the operation; the original is retained until the replacement is saved.
 **Use as template** under a local file starts a new draft with the same layout,
-objects, timers, and settings, a new ID, and a filename such as `00-intro-copy.json`.
-If that filename already exists, a numbered suffix is added. The source file is
-unchanged; **Save level** writes the new file, or downloads it for read-only folders.
+objects, timers, and settings, a new ID, and a filename based on its new level name.
+It remains unwritten until Save. Choose another filename if it conflicts with an existing file. The source file is
+unchanged; **Save level** writes the new file to the selected writable folder.
 Saving refuses to overwrite a file that changed outside the builder since it was
-loaded. Refresh and load the latest file, or save under another filename.
+loaded. Refresh and open the latest file before saving or renaming it.
 
-**Save level** writes to the selected writable folder. With no writable folder
-open, it downloads a JSON file. **Export** always downloads a file. If the browser
-cannot write directly to folders, its folder input still loads levels; use
+**Save level** writes to the selected writable folder; **Save and Test** waits for
+that save to finish before starting play. With no writable folder open, Library
+opens to let you choose a folder or enable saving. There is no download fallback,
+**Open file**, or **Export**. Put JSON files in the level folder and refresh, or
+change folders to open them. If the browser cannot write directly to folders,
+its folder input still loads levels for play; use
 **Reselect folder** to refresh it. These browsers remember the folder name but
 require reselection after reload. The folder panel shows the save behavior and
 level count. No custom files are uploaded to a server. Clearing this site's
 browser storage also clears the remembered folder, without deleting local files.
+
+Drag level tiles directly in **Library** to change their order. With a level
+focused, **Alt + Left/Right** moves it one position; **Alt + Up/Down** moves it
+one row. Each move saves only `index.json`, switching to explicit listed order.
+**Sort by filename** restores automatic filename ordering. Existing level bytes
+and the current draft are untouched. A failed save leaves the sequence unchanged
+and reports the problem; external manifest edits require refreshing first.
+
+**Delete** on a local level moves it straight to the folder's recycle bin, without
+a confirmation. The game verifies a recovery copy before removing the original
+file and its index entry. An open draft stays in the editor; saving it again
+creates a new file. If a file was deleted outside the game, its **Missing file**
+card stays visible until Delete is confirmed, which removes only the index entry.
+The game cannot recover externally deleted files it has not backed up.
+
+**Library → Recycle bin** displays the same level thumbnails and filenames as the
+library, with **Recover** and **Delete permanently** actions. Recovery preserves
+the original file contents and level ID, refuses to overwrite existing files,
+and lets you choose another filename. Recovered levels go at the end of a custom
+order. **Delete permanently** and **Empty recycle bin** both require confirmation.
+Read-only folders allow viewing the bin; enable saving to change it.
+Recovery files live in `Deleted levels/<timestamp-id>/<filename>` inside the
+selected folder, not in the operating system's Trash or Recycle Bin.
+
+To share a collection, send its level JSON files and `index.json` together.
+Leave out the `Deleted levels` subfolder.
+Another player can put them in one folder and choose it in the game. To promote
+a local collection to built-in levels, copy the same files (including the
+manifest) into `public/levels/jumping/`, then run `npm run levels:index` or
+`npm run levels:sync`. No level-format conversion is needed. The manifest provides
+a place to add chapter metadata later; chapter navigation is not implemented yet.
 
 Menu tiles, the details pane, builder templates and the overview all use the
 game's world renderer for their static previews. They include props, shovebots,
@@ -131,8 +196,8 @@ browser level data is no longer read or written. Personal best times still use
 browser storage independently of level files.
 
 Keep a level's `id` stable when changing its layout or filename. IDs identify best
-times; filenames determine ordering. IDs must be unique within a collection.
-Local best times are separate from built-in records. Opening or importing a file
+times; the collection manifest determines ordering, with filename order as the fallback. IDs must be unique within a collection.
+Local best times are separate from built-in records. Opening a file
 preserves its ID. Using a built-in or local level as a template creates a new ID.
 
 ## Validation and reference level
@@ -272,7 +337,7 @@ timer and exit. The camera continues following the player when a distant object
 activates the goal.
 
 Existing version 1 files with `flag: { x, y }` remain readable: their flag point
-becomes the goal plate center. Saved/exported files use `goal`; if both fields are
+becomes the goal plate center. Saved files use `goal`; if both fields are
 present, `goal` takes precedence. No separate trigger link is needed for this goal.
 
 Player starts use a feet Y coordinate. Terrain uses a top-left `x, y`
@@ -356,6 +421,6 @@ Every pressure plate accepts the grounded player, crates, and balls. The legacy
 `mode` values `weight` and `touch` are still accepted and preserved in files, but
 both now have this same behavior.
 
-Importing preserves the level ID. Structural validation rejects malformed or
+Opening a file preserves the level ID. Structural validation rejects malformed or
 unbounded geometry; editor validation checks clear starts and goals, room bounds,
 and legacy connections. Neither replaces actually playing the route.

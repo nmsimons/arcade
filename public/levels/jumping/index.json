@@ -1,4 +1,8 @@
 {
   "version": 1,
-  "levels": []
+  "order": "listed",
+  "levels": [
+    "00.json",
+    "01.json"
+  ]
 }

@@ -15,14 +15,11 @@ import { createPreviewRun } from './challenge'
 import { useRopePreview } from './useRopePreview'
 import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
-import { jumpOriginAt, previewJump } from './jumpPreview'
-import type { JumpOrigin } from './jumpPreview'
 import { NumberField } from './NumberField'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
 import { BuilderLibrary } from './BuilderLibrary'
 import type { LibraryChoice } from './BuilderLibrary'
-import { TUNING } from './model'
 import { isHorizontalGate, mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import './builder.css'
 
@@ -120,9 +117,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     observedRemoval.current = local.lastRemoved
     if (local.lastRemoved) detachDeletedFile()
   }, [local.lastRemoved])
-  const [jumpGuide, setJumpGuide] = useState(false), [keepTool, setKeepTool] = useState(false)
-  const [jumpOrigin, setJumpOrigin] = useState<JumpOrigin | null>(null), [placingJumpOrigin, setPlacingJumpOrigin] = useState(false)
-  const [jumpDirection, setJumpDirection] = useState(1), [runningJump, setRunningJump] = useState(true)
+  const [keepTool, setKeepTool] = useState(false)
   const panHeld = useRef(false)
   const [pointer, setPointer] = useState<Point | null>(null)
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
@@ -144,15 +139,6 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const travelHandle = mechanism?.kind === 'lift' ? mechanismAnchor(mechanism) : null
   const travelHandleAt = (p: Point) => travelHandle && Math.hypot(p.x - travelHandle.x, p.y - travelHandle.y) < 10 / view.zoom
   const adjustingTravel = drag.current?.mode === 'travel' || pointer && travelHandleAt(pointer)
-  const guide = useMemo(() => {
-    if (!jumpGuide) return null
-    const b = selection ? itemBounds(history.present, selection) : null
-    const fromSelection = b && ['platform', 'prop', 'mechanism'].includes(selection!.kind)
-      ? { x: b.x + (jumpDirection > 0 ? b.w - 16 : 16), y: b.y } : history.present.spawn
-    const origin = jumpOriginAt(history.present, jumpOrigin ?? fromSelection, 2)
-    return origin ? { origin, tap: previewJump(history.present, origin, jumpDirection, false, runningJump),
-      charged: previewJump(history.present, origin, jumpDirection, true, runningJump) } : null
-  }, [jumpGuide, history.present, selection, jumpOrigin, jumpDirection, runningJump])
   const trigger = selection?.kind === 'trigger' ? level.triggers?.[selection.index] : null
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
@@ -188,7 +174,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     const name = file?.fileName ?? levelFileName(next.name)
     suggestFileName.current = !file
     setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName, folderId: local.folderId })
-    setHistory({ past: [], present: next, future: [] }); setJumpOrigin(null); setPlacingJumpOrigin(false)
+    setHistory({ past: [], present: next, future: [] })
     setSaved({ level: editSignature(next), fileName: name })
     setPreview(null); latestPreview.current = null; drag.current = null
     chooseSelection(null); setTool('select'); setView(homeView(next, size.height)); setMessage('')
@@ -270,18 +256,6 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     if (previewRun) drawPuzzleWorld(ctx, previewRun, true)
     else { drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, previewPlayer, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, previewPlayer); ctx.globalAlpha = 1 }
     ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
-    if (guide) {
-      for (const [path, color] of [[guide.tap, '#6d8574'], [guide.charged, '#b28543']] as const) {
-        if (!path) continue
-        ctx.strokeStyle = color; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom]); ctx.beginPath()
-        path.points.forEach((point, i) => { if (!i) ctx.moveTo(point.x, point.y); else ctx.lineTo(point.x, point.y) })
-        ctx.stroke(); ctx.setLineDash([])
-        ctx.fillStyle = color; ctx.beginPath(); ctx.arc(path.end.x, path.end.y, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
-      }
-      ctx.strokeStyle = '#405c49'; ctx.lineWidth = 1.5 / view.zoom
-      ctx.strokeRect(guide.origin.x - TUNING.width / 2, guide.origin.y - TUNING.height, TUNING.width, TUNING.height)
-      ctx.fillStyle = '#405c49'; ctx.beginPath(); ctx.arc(guide.origin.x, guide.origin.y, 5 / view.zoom, 0, Math.PI * 2); ctx.fill()
-    }
     if (mechanism) {
       const open = mechanismOpenPosition(mechanism)
       ctx.strokeStyle = '#b78947'; ctx.lineWidth = 1 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
@@ -328,7 +302,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
     }
     ctx.restore()
-  }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, guide, mechanism, robot, nodeTarget, support])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, mechanism, robot, nodeTarget, support])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -340,11 +314,6 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = history.present
     latestPreview.current = null
     if (panHeld.current || event.button === 1) { drag.current = { mode: 'pan', start: p, screen, base, view, selection: null }; return }
-    if (placingJumpOrigin) {
-      const origin = jumpOriginAt(base, p, 40 / view.zoom)
-      if (origin) { setJumpOrigin(origin); setPlacingJumpOrigin(false) }
-      return
-    }
     if (tool === 'node') {
       const target = terrainNodeTarget(base, p.x, p.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0)
       if (!target) { setMessage('Click a terrain edge away from an existing node.'); return }
@@ -473,7 +442,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save() }
-    else if (event.key === 'Escape') { setPlacingJumpOrigin(false); setTool('select'); chooseSelection(null); drag.current = null; setPreview(null); latestPreview.current = null }
+    else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); drag.current = null; setPreview(null); latestPreview.current = null }
     else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder', f: 'goal' } as Record<string, Tool>)[event.key.toLowerCase()]) }
     else if (event.target === canvasRef.current && selection) {
       if (event.key === 'End') { event.preventDefault(); commit(placeOnSurface(history.present, selection)) }
@@ -507,23 +476,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     <div className="builder-stage">
       <div className="builder-view-controls">
         <div className="builder-control-group" role="group" aria-label="Edit history"><button disabled={!history.past.length} onClick={undo}>Undo</button><button disabled={!history.future.length} onClick={redo}>Redo</button></div>
-        <div className="builder-control-group"><label className="builder-inline-check"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap {LEVEL_GRID_SIZE}</label>
-        <label className="builder-inline-check"><input type="checkbox" checked={jumpGuide} onChange={e => { setJumpGuide(e.target.checked); setPlacingJumpOrigin(false) }} />Jump guide</label></div>
+        <div className="builder-control-group"><label className="builder-inline-check"><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap {LEVEL_GRID_SIZE}</label></div>
         <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" onClick={() => zoom(1.25)}>+</button></div>
         <div className="builder-control-group" role="group" aria-label="Canvas view"><button onClick={() => fitLevel()}>Fit level</button><button onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
       </div>
-      {jumpGuide && <div className="builder-jump-preview" role="region" aria-label="Jump preview">
-        <div className="builder-jump-controls">
-          <button aria-pressed={placingJumpOrigin} onClick={() => setPlacingJumpOrigin(!placingJumpOrigin)}>Set takeoff</button>
-          <button title="Use selected surface or player start" onClick={() => { setJumpOrigin(null); setPlacingJumpOrigin(false) }}>Reset</button>
-          <button aria-label="Jump left" aria-pressed={jumpDirection < 0} onClick={() => setJumpDirection(-1)}>←</button>
-          <button aria-label="Jump right" aria-pressed={jumpDirection > 0} onClick={() => setJumpDirection(1)}>→</button>
-          <select aria-label="Jump approach" value={runningJump ? 'running' : 'standing'} onChange={e => setRunningJump(e.target.value === 'running')}><option value="running">Running start</option><option value="standing">From rest</option></select>
-        </div>
-        <p>{placingJumpOrigin ? 'Click a clear surface to set the takeoff point.' : guide ? 'Tap and fully charged jumps · starting layout' : 'Choose a clear takeoff surface.'}</p>
-        <div className="builder-jump-results">{([['Tap', guide?.tap], ['Charged', guide?.charged]] as const).map(([name, path]) => <span key={name} className={name === 'Charged' ? 'is-charged' : ''}><strong>{name}</strong>{path ? <>{path.outcome}<small>{(path.distance / LEVEL_GRID_SIZE).toFixed(1)} across · {(path.rise / LEVEL_GRID_SIZE).toFixed(1)} high · tiles</small></> : '—'}</span>)}</div>
-      </div>}
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" aria-busy={level.climbables.ropes.some(r => r.rest?.key.startsWith('preview:'))} style={{ cursor: placingJumpOrigin ? 'crosshair' : drag.current?.mode === 'pan' ? 'grabbing' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" aria-busy={level.climbables.ropes.some(r => r.rest?.key.startsWith('preview:'))} style={{ cursor: drag.current?.mode === 'pan' ? 'grabbing' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onWheel={e => { if (e.ctrlKey || e.metaKey) { const r = e.currentTarget.getBoundingClientRect(); zoom(Math.exp(-e.deltaY * .003), { x: e.clientX - r.left, y: e.clientY - r.top }) } else setView(v => ({ ...v, x: v.x + (e.shiftKey ? e.deltaY : e.deltaX) / v.zoom, y: v.y + (e.shiftKey ? 0 : e.deltaY) / v.zoom })) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>OVERVIEW</span></button>

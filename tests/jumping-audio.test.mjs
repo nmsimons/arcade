@@ -60,6 +60,59 @@ test('props sound only in ground contact with actual rolling or sliding, not whe
   assert.equal(observe()[0].kind, 'ball')
 })
 
+test('pushed small boxes knock once per new edge in either direction, while large sliding boxes keep scraping', () => {
+  for (const size of [30, 40, 50, 100]) for (const direction of [-1, 1]) {
+    const { run, step } = setup(l => {
+      l.width = 4000; l.goal.x = 3000
+      l.props = [{ kind: 'box', x: 800, y: 920, size }]
+      l.spawn.x = 800 - direction * (size / 2 + 40)
+    })
+    const impacts = [], scrape = []
+    for (let i = 0; i < 600; i++) {
+      const frame = step({ ...NEUTRAL_INPUT, move: direction }), b = run.props[0]
+      for (const cue of frame.cues.filter(c => c.kind === 'box-impact')) {
+        const edge = Math.round(b.angle / (Math.PI / 2))
+        assert.ok(b.grounded)
+        assert.ok(Math.abs(b.angle - edge * Math.PI / 2) < .06, 'knock aligns with the next edge landing')
+        assert.equal(cue.size, size)
+        impacts.push(edge)
+      }
+      if (i > 120) scrape.push(frame.loops.find(l => l.kind === 'box')?.volume ?? 0)
+    }
+    if (size < 60) {
+      assert.ok(impacts.length >= 4, `${size}, ${direction}: ${impacts}`)
+      assert.equal(new Set(impacts).size, impacts.length, 'no repeated knock from settling on one face')
+      assert.ok(scrape.reduce((sum, v) => sum + v, 0) / scrape.length < .25, 'tumbling leaves only a quiet intermittent scrape')
+    } else {
+      assert.deepEqual(impacts, [])
+      assert.ok(scrape.some(v => v > .5), 'flat sliding retains its existing scrape')
+    }
+  }
+})
+
+test('airborne rotation, resting jitter, transport, reset and teleports do not create box knocks', () => {
+  const { run, audio } = setup(l => { l.props = [{ kind: 'box', x: 350, y: 920, size: 40 }] })
+  const box = run.props[0]
+  const observe = () => { audio.step(run.player, run, STEP); return audio.drain() }
+  for (let i = 0; i < 100; i++) {
+    box.angle = i % 2 ? .002 : -.002; box.angularVelocity = i % 2 ? 2 : 0
+    assert.deepEqual(observe().cues, [])
+  }
+  box.grounded = false; box.angle = .8; box.angularVelocity = 6; observe()
+  box.angle = .9; box.angularVelocity = 0
+  assert.deepEqual(observe().cues, [], 'decelerating while airborne is not an impact')
+  audio.reset(run.player, run)
+  box.grounded = true; box.angle += .001
+  assert.deepEqual(observe().cues, [], 'resume discards previous angular travel')
+  box.angularVelocity = 6; observe(); box.x += 400; box.angle += .6; box.angularVelocity = 0
+  assert.deepEqual(observe().cues, [], 'relocation is not a collision')
+  box.angle = 0; audio.reset(run.player, run)
+  for (let i = 0; i < 50; i++) {
+    box.x += 1; box.y -= 1
+    assert.deepEqual(observe(), { loops: [], cues: [] }, 'being carried is silent')
+  }
+})
+
 test('gate direction follows motion for both orientations; a waiting or blocked elevator is silent', () => {
   const { run, audio } = setup(l => { l.mechanisms = [
     { id: 'vertical', kind: 'gate', x: 500, y: 720, w: 20, h: 200, travel: 200 },

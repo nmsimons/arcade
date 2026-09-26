@@ -7,17 +7,13 @@ import { ballShape } from './propGeometry.ts'
 import { TUNING } from './model.ts'
 import { goalBounds } from './goal.ts'
 import { groundAt } from './terrain.ts'
-import { canHangFromBox } from './boxSupport.ts'
-import { disablePlatformLedges } from './terrainLedges.ts'
 
-export function placementSolids(level: JumpLevel, selection?: Selection) {
+function placementSolids(level: JumpLevel, selection: Selection) {
   const props = (level.props ?? []).flatMap((p, i) => selection?.kind === 'prop' && i === selection.index ? []
-    : [{ prop: p, shape: p.kind === 'ball' ? ballShape(p) : { x: p.x - p.size / 2, y: p.y - p.size, w: p.size, h: p.size } }])
-  const solids = [...levelTerrain(level).filter(b => selection?.kind !== 'platform' || b !== level.platforms[selection.index]),
+    : [p.kind === 'ball' ? ballShape(p) : { x: p.x - p.size / 2, y: p.y - p.size, w: p.size, h: p.size }])
+  return [...levelTerrain(level).filter(b => selection?.kind !== 'platform' || b !== level.platforms[selection.index]),
     ...(level.mechanisms ?? []).filter((_, i) => selection?.kind !== 'mechanism' || i !== selection.index),
-    ...props.map(p => p.shape)]
-  for (const { prop, shape } of props) if (!canHangFromBox({ ...prop, grounded: true, angle: 0, angularVelocity: 0, vx: 0, vy: 0 }, solids.filter(b => b !== shape))) disablePlatformLedges(shape)
-  return solids
+    ...props]
 }
 
 export function canPlaceOnSurface(selection: Selection) {

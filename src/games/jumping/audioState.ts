@@ -2,8 +2,8 @@ import type { Run } from './challenge.ts'
 import type { Player } from './model.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator'
-export type CueKind = 'footstep' | 'switch' | 'timer-paused'
-export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number }
+export type CueKind = 'footstep' | 'box-impact' | 'switch' | 'timer-paused'
+export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
 const clamp = (n: number, min = 0, max = 1) => Math.max(min, Math.min(max, n))
@@ -18,7 +18,7 @@ function snapshot(p: Player, run: Run | null) {
   return {
     x: p.x, y: p.y, grounded: p.grounded, vy: p.vy,
     feet: p.footwork?.feet.map(f => f.planted) ?? [],
-    props: run?.props.map(b => ({ x: b.x, y: b.y, angle: b.angle })) ?? [],
+    props: run?.props.map(b => ({ x: b.x, y: b.y, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
     goalLit: run?.goalLit ?? false, stopped: run?.timeStopRemaining ?? 0, exiting: !!run?.exit,
@@ -32,19 +32,20 @@ export class JumpingAudioState {
   private loops: SoundLoop[] = []
   private cues: SoundCue[] = []
   private stepCooldown = 0
+  private boxes: { angle: number; excursion: number; cooldown: number }[] = []
 
   reset(p: Player, run: Run | null) {
     this.previous = snapshot(p, run)
-    this.loops = []; this.cues = []; this.stepCooldown = 0
+    this.loops = []; this.cues = []; this.stepCooldown = 0; this.boxes = []
   }
 
   step(p: Player, run: Run | null, dt: number) {
     if (!this.previous || dt <= 0) { this.reset(p, run); return }
     const before = this.previous
     this.stepCooldown = Math.max(0, this.stepCooldown - dt)
-    const cue = (kind: CueKind, x: number, y: number, strength = 1) => {
+    const cue = (kind: CueKind, x: number, y: number, strength = 1, size?: number) => {
       const mix = soundPosition(x, y, p)
-      if (mix.volume > .005 && this.cues.length < 8) this.cues.push({ kind, ...mix, strength })
+      if (mix.volume > .005 && this.cues.length < 8) this.cues.push({ kind, ...mix, strength, size })
     }
     // Respawns and editor changes are not impacts. Support transport is excluded
     // by the contact solver, so standing on an elevator never produces footsteps.
@@ -61,12 +62,28 @@ export class JumpingAudioState {
     if (run) {
       for (let i = 0; i < run.props.length; i++) {
         const b = run.props[i], old = before.props[i]
-        if (!old || !b.grounded) continue
+        if (!old) continue
+        const distance = Math.hypot(b.x - old.x, b.y - old.y), rotation = Math.abs(b.angle - old.angle)
+        if (distance > 80 || rotation > Math.PI / 2) { delete this.boxes[i]; continue }
+        if (b.kind === 'box') {
+          const box = this.boxes[i] ??= { angle: old.angle, excursion: 0, cooldown: 0 }
+          box.cooldown = Math.max(0, box.cooldown - dt)
+          box.excursion = Math.max(box.excursion, Math.abs(b.angle - box.angle))
+          // Each new edge hitting its support abruptly slows the tumble, even
+          // when the box never leaves the ground. Ignore tiny settling chatter.
+          const impact = (Math.abs(old.angularVelocity) - Math.abs(b.angularVelocity)) * b.size / 2
+          if (b.grounded && impact > 18 && box.excursion > .12 && box.cooldown === 0) {
+            cue('box-impact', b.x, b.y, .25 + clamp((impact - 18) / 160) * .7, b.size)
+            box.angle = b.angle; box.excursion = 0; box.cooldown = .1
+          }
+        }
+        if (!b.grounded) continue
         // Velocities exclude being carried. Displacement excludes unresolved
-        // pushing forces at a wall; angular travel also captures a rocking box.
-        const travel = Math.hypot(b.x - old.x, b.y - old.y) / dt
-        const roll = Math.abs(b.angle - old.angle) * b.size / (2 * dt)
-        const speed = Math.max(Math.min(travel, Math.hypot(b.vx, b.vy)), roll)
+        // pushing forces at a wall. A box pivoting on a corner makes impacts;
+        // only travel beyond that rotation contributes to its sliding scrape.
+        const travel = Math.min(distance / dt, Math.hypot(b.vx, b.vy))
+        const roll = rotation * b.size / (2 * dt)
+        const speed = b.kind === 'box' ? Math.max(0, travel - roll * Math.SQRT2) : Math.max(travel, roll)
         if (speed < 3) continue
         const mix = soundPosition(b.x, b.y, p), pace = clamp(speed / 240)
         this.loops.push({ id: `prop:${i}`, kind: b.kind, ...mix, volume: mix.volume * clamp((speed - 3) / 65), pace, size: b.size })

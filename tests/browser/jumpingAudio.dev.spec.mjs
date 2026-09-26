@@ -6,7 +6,7 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
   await page.goto('/untitled-jumping-game')
   const result = await page.evaluate(async () => {
     const { JumpingSound, MAX_LOOP_VOICES } = await import('/src/games/jumping/sound.ts')
-    const rate = 24000, ctx = new OfflineAudioContext(2, rate * 4, rate)
+    const rate = 24000, ctx = new OfflineAudioContext(2, rate * 4.4, rate)
     let sources = 0
     const create = ctx.createBufferSource.bind(ctx)
     ctx.createBufferSource = () => { sources++; return create() }
@@ -24,6 +24,8 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
       [2.95, () => sound.cue({ kind: 'switch', volume: 1, pan: 0, strength: 1 })],
       [3.2, () => sound.cue({ kind: 'timer-paused', volume: 1, pan: 0, strength: 1 })],
       [3.6, () => sound.silence()],
+      [3.75, () => sound.cue({ kind: 'box-impact', volume: 1, pan: 0, strength: .65, size: 40 })],
+      [4.05, () => sound.silence()],
     ].map(([time, action]) => ({ ready: ctx.suspend(time), action }))
     const rendering = ctx.startRendering()
     for (const stage of stages) { await stage.ready; stage.action(); await ctx.resume() }
@@ -35,10 +37,10 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
     sound.dispose(); sound.dispose()
     return { quiet: measure(0, .09), loops: [.25, .65, 1.05, 1.45, 1.85].map(t => measure(t, t + .15)),
       steps: measure(2.7, 2.86), switch: measure(2.95, 3.11), timer: measure(3.2, 3.55), crowd: measure(2.3, 2.5),
-      stopped: measure(3.7, 3.99), peak: measure(0, 4).peak, counts, limit: MAX_LOOP_VOICES }
+      box: measure(3.75, 3.93), stopped: measure(4.2, 4.39), peak: measure(0, 4.4).peak, counts, limit: MAX_LOOP_VOICES }
   })
   expect(result.quiet.peak).toBe(0)
-  for (const sound of [...result.loops, result.steps, result.switch, result.timer]) expect(sound.rms, JSON.stringify(result)).toBeGreaterThan(.001)
+  for (const sound of [...result.loops, result.steps, result.switch, result.timer, result.box]) expect(sound.rms, JSON.stringify(result)).toBeGreaterThan(.001)
   expect(result.peak).toBeLessThan(.3)
   expect(result.counts).toEqual([1, result.limit])
   expect(result.stopped.peak).toBe(0)

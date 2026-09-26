@@ -570,11 +570,6 @@ filename based on its new name. Save the new level to create its file; the sourc
   Hold Alt while dragging to bypass grid and surface snapping.
 - Set room width and height, medal times and the player hint. All four outer
   boundaries are structural and cannot be erased.
-- Turn on **Jump guide** to compare tap and fully charged jumps using the actual
-  movement and collision code. Select a surface or use **Set takeoff**, choose
-  left/right and a running/standing start. The preview reports height, distance,
-  and whether the jump lands, grabs a ledge, or hits an obstruction. It uses the
-  starting layout; moving objects and rope swings still need a playtest.
 - V selects, H or held Space pans, scrolling pans, and Ctrl/Cmd+scroll zooms.
   **Fit level** or the overview fits the map; **Find start** returns to the player.
 

@@ -1130,7 +1130,7 @@ test('boxes and gates resize from accessible handles while their bases stay plan
   await page.screenshot({ path: info.outputPath('gate-sizing.png') })
 })
 
-test('surface placement and Alt dragging are predictable off the grid, with an aimable jump preview', async ({ page }, info) => {
+test('surface placement and Alt dragging are predictable off the grid', async ({ page }, info) => {
   const level = blankTrial(); level.platforms = [{ x: 380, y: 713, w: 420, h: 20 }]
   level.props = [{ kind: 'box', x: 500, y: 650, size: 100 }]
   await open(page, level)
@@ -1143,16 +1143,5 @@ test('surface placement and Alt dragging are predictable off the grid, with an a
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('312')
   await page.getByRole('button', { name: 'Place on surface', exact: true }).click()
   expect((await saveTestLevel(page)).level.props[0].y).toBe(713)
-  await page.getByRole('checkbox', { name: 'Jump guide', exact: true }).check()
-  const preview = page.getByRole('region', { name: 'Jump preview' })
-  await expect(preview).toContainText('Lands')
-  const running = await preview.innerText()
-  await page.getByRole('combobox', { name: 'Jump approach' }).selectOption('standing')
-  await expect(preview).not.toHaveText(running)
-  await page.getByRole('button', { name: 'Jump left', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Jump left', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'Set takeoff', exact: true }).click()
-  await dragWorld(page, { x: 750, y: 713 }, { x: 750, y: 713 })
-  await expect(page.getByRole('button', { name: 'Set takeoff', exact: true })).toHaveAttribute('aria-pressed', 'false')
-  await page.screenshot({ path: info.outputPath('editor-polish.png') })
+  await page.screenshot({ path: info.outputPath('surface-placement.png') })
 })

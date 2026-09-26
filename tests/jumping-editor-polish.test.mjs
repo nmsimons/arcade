@@ -3,7 +3,6 @@ import assert from 'node:assert/strict'
 import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
 import { addItem, resizeItem } from '../src/games/jumping/editor.ts'
 import { placeOnSurface, surfacePlacement } from '../src/games/jumping/editorPlacement.ts'
-import { jumpOriginAt, previewJump } from '../src/games/jumping/jumpPreview.ts'
 import { polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
 
@@ -70,24 +69,4 @@ test('start and goal placement respects their standing space and fixed terrain s
   const both = placeOnSurface(start, { kind: 'goal', index: 0 })
   assert.equal(both.spawn.y, 700); assert.equal(both.goal.y, 700)
   assert.deepEqual(levelProblems(both), [])
-})
-
-test('jump preview follows actual tap and charged jumps, directions, and approach speeds', () => {
-  const level = blankTrial(), origin = { x: 900, y: 920 }, before = JSON.stringify(level)
-  const tap = previewJump(level, origin, 1, false, true), charged = previewJump(level, origin, 1, true, true)
-  const left = previewJump(level, origin, -1, true, true), standing = previewJump(level, origin, 1, true, false)
-  assert.equal(tap.outcome, 'Lands'); assert.equal(charged.outcome, 'Lands')
-  assert.ok(charged.rise > tap.rise * 2); assert.ok(charged.distance > tap.distance * 1.5)
-  assert.ok(standing.distance < charged.distance)
-  assert.ok(Math.abs(left.distance - charged.distance) < .001); assert.equal(charged.end.y, 920)
-  assert.equal(JSON.stringify(level), before)
-})
-
-test('jump guide rejects blocked takeoffs and stops at walls instead of drawing through them', () => {
-  const level = blankTrial(), origin = { x: 500, y: 920 }
-  level.platforms = [{ x: 550, y: 300, w: 60, h: 620 }]
-  assert.deepEqual(jumpOriginAt(level, { x: 500, y: 905 }), origin)
-  assert.equal(jumpOriginAt(level, { x: 560, y: 920 }), null)
-  const path = previewJump(level, origin, 1, true, true)
-  assert.equal(path.outcome, 'Blocked'); assert.ok(path.end.x <= 538.01)
 })

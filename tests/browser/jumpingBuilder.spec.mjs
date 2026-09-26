@@ -53,6 +53,45 @@ async function dragWorld(page, start, end) {
   await page.mouse.move(x(end.x), y(end.y), { steps: 8 }); await page.mouse.up()
 }
 
+test('terrain and floor materials undo, save and render consistently in the editor and game', async ({ page }, info) => {
+  const level = { ...blankTrial(), width: 1200, height: 800, floor: 800, spawn: { x: 120, y: 800 }, goal: { x: 1040, y: 800 },
+    platforms: [{ x: 400, y: 680, w: 240, h: 120 }] }
+  await open(page, level)
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
+  const material = page.getByRole('group', { name: 'Terrain material', exact: true })
+  await expect(material.getByRole('button', { name: 'Stone', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await material.getByRole('button', { name: 'Chalk', exact: true }).click()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
+  await expect(material.getByRole('button', { name: 'Stone', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
+  await expect(material.getByRole('button', { name: 'Chalk', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await material.getByRole('button', { name: 'Steel', exact: true }).click()
+  await page.getByText('Level settings', { exact: true }).click()
+  await page.getByRole('group', { name: 'Floor material', exact: true }).getByRole('button', { name: 'Earth', exact: true }).click()
+  const saved = await saveTestLevel(page)
+  expect(saved.level.platforms[0].material).toBe('steel')
+  expect(saved.level.floorMaterial).toBe('earth')
+  await reopenTestLevel(page, saved)
+  await page.getByRole('combobox', { name: 'Selected object' }).selectOption('platform:0')
+  await expect(material.getByRole('button', { name: 'Steel', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.clock.runFor(100)
+  const pixel = (canvas, x, y) => canvas.evaluate((canvas, { x, y }) => {
+    const t = canvas.jumpCamera
+    return [...canvas.getContext('2d').getImageData(Math.round(x * t.a + t.e), Math.round(y * t.d + t.f), 1, 1).data]
+  }, { x, y })
+  const editor = page.getByRole('application', { name: 'Level canvas' })
+  expect(await pixel(editor, 500, 740)).toEqual([135, 151, 162, 255])
+  expect(await pixel(editor, 500, 810)).toEqual([178, 161, 140, 255])
+  await page.screenshot({ path: info.outputPath('terrain-materials-editor.png') })
+  await saveTestLevel(page, 'Save and Test'); await page.clock.runFor(100)
+  const game = page.getByRole('img', { name: `${level.name}: activate the goal`, exact: true })
+  expect(await pixel(game, 500, 740)).toEqual([135, 151, 162, 255])
+  expect(await pixel(game, 500, 810)).toEqual([178, 161, 140, 255])
+  await page.screenshot({ path: info.outputPath('terrain-materials-game.png') })
+})
+
 test('tower edits settle ropes off-thread only after dragging, and never overwrite newer edits', async ({ page }) => {
   await page.addInitScript(() => {
     window.ropeWorkerStarts = 0
@@ -621,6 +660,55 @@ test('folder saves reopen successfully and invalid files leave the current draft
   await expect(page.getByRole('button', { name: 'Open broken.json', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Close library', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Saved route')
+})
+
+test('the Node tool grabs existing nodes across shapes without inserting points or leaving the tool', async ({ page }, info) => {
+  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, spawn: { x: 100, y: 600 }, goal: { x: 900, y: 600 },
+    platforms: [{ x: 300, y: 200, w: 200, h: 120 }, { x: 650, y: 140, w: 200, h: 180, polygon: [[0, 80], [200, 0], [200, 180], [0, 180]] }] }
+  await open(page, level)
+  const canvas = page.getByRole('application', { name: 'Level canvas' }), nodeTool = page.getByRole('button', { name: 'Node', exact: true })
+  const vertices = shape => shape.polygon.map(([x, y]) => [shape.x + x, shape.y + y])
+  const screenPoint = async p => {
+    const box = await canvas.boundingBox()
+    const camera = await canvas.evaluate(c => ({ a: c.jumpCamera.a, e: c.jumpCamera.e, f: c.jumpCamera.f, ratio: devicePixelRatio }))
+    return { x: box.x + (p.x * camera.a + camera.e) / camera.ratio, y: box.y + (p.y * camera.a + camera.f) / camera.ratio }
+  }
+  await nodeTool.click()
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveValue('')
+  const corner = await screenPoint({ x: 300, y: 200 })
+  // A nearby existing corner wins over inserting another point on its edge.
+  await page.mouse.move(corner.x + 5, corner.y)
+  await expect(canvas).toHaveCSS('cursor', 'grab')
+  await page.screenshot({ path: info.outputPath('existing-node-hover.png') })
+  await page.mouse.down(); await expect(canvas).toHaveCSS('cursor', 'grabbing')
+  const end = await screenPoint({ x: 360, y: 160 })
+  await page.mouse.move(end.x + 5, end.y, { steps: 8 }); await page.mouse.up()
+  await expect(nodeTool).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveValue('platform:0')
+  const moved = (await saveTestLevel(page)).level
+  expect(vertices(moved.platforms[0])).toEqual([[360, 160], [500, 200], [500, 320], [300, 320]])
+  expect(moved.platforms[1]).toEqual(level.platforms[1])
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  expect((await saveTestLevel(page)).level.platforms).toEqual(level.platforms)
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  expect((await saveTestLevel(page)).level.platforms).toEqual(moved.platforms)
+  await page.getByRole('button', { name: 'Zoom out', exact: true }).click()
+  const other = await screenPoint({ x: 850, y: 140 })
+  await page.mouse.move(other.x, other.y)
+  await expect(canvas).toHaveCSS('cursor', 'grab')
+  await page.keyboard.down('Alt')
+  await dragWorld(page, { x: 850, y: 140 }, { x: 883, y: 123 })
+  await page.keyboard.up('Alt')
+  await expect(nodeTool).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveValue('platform:1')
+  const saved = await saveTestLevel(page)
+  expect(saved.level.platforms[0]).toEqual(moved.platforms[0])
+  const points = vertices(saved.level.platforms[1])
+  expect(points).toHaveLength(4)
+  expect(points[1][0]).toBeCloseTo(883); expect(points[1][1]).toBeCloseTo(123)
+  expect([points[0], ...points.slice(2)]).toEqual([[650, 220], [850, 320], [650, 320]])
+  await reopenTestLevel(page, saved)
+  expect((await saveTestLevel(page)).level.platforms).toEqual(saved.level.platforms)
 })
 
 test('the Node tool previews and inserts at chosen edges, supports immediate dragging and repeated placement', async ({ page }, info) => {

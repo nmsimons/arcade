@@ -3,11 +3,11 @@
   "id": "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
   "name": "Untitled",
   "width": 1800,
-  "height": 920,
+  "height": 1400,
   "platforms": [],
   "spawn": {
     "x": 160,
-    "y": 920
+    "y": 1400
   },
   "checkpoints": [],
   "climbables": {
@@ -15,10 +15,10 @@
     "ropes": []
   },
   "description": "",
-  "floor": 920,
+  "floor": 1400,
   "goal": {
     "x": 1620,
-    "y": 920
+    "y": 1400
   },
   "times": {
     "gold": 10,
@@ -29,7 +29,7 @@
     {
       "kind": "box",
       "x": 860,
-      "y": 920,
+      "y": 1400,
       "size": 200
     }
   ],

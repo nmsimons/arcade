@@ -1,11 +1,12 @@
 import { TUNING } from './model.ts'
 import type { Platform, Player } from './model.ts'
-import { LEVEL_GRID_SIZE, levelHeight } from './level.ts'
+import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
 import type { JumpLevel } from './level.ts'
 import { ropePath } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
+import { terrainFill, terrainMaterial } from './terrainMaterials.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -29,7 +30,7 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
   }
 }
 
-export const TERRAIN_COLOR = '#999c9e'
+export const TERRAIN_COLOR = terrainMaterial().color
 export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom = 1) {
   ctx.fillStyle = TERRAIN_COLOR; ctx.fillRect(view.x, view.y, view.w, view.h)
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
@@ -44,8 +45,8 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[]) {
-  ctx.fillStyle = TERRAIN_COLOR
   for (const b of platforms) {
+    ctx.fillStyle = terrainFill(ctx, b.material)
     ctx.beginPath(); polygonPoints(b).forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill()
   }
 }
@@ -68,7 +69,7 @@ export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, hei
   const y = Math.min(p.y - TUNING.height / 2 - height / zoom / 2, levelHeight(level) - (height - LEVEL_BOTTOM_PADDING) / zoom)
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
-  drawTerrain(ctx, level.platforms); drawClimbables(ctx, p, level.climbables)
+  drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, p, level.climbables)
   for (const [index, point] of [level.spawn, ...level.checkpoints].entries()) {
     ctx.fillStyle = p.checkpoint >= index ? ACCENT : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
   }

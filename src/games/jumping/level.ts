@@ -14,6 +14,8 @@ import type { WallText } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
 import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
+import { isTerrainMaterial } from './terrainMaterials.ts'
+import type { TerrainMaterial } from './terrainMaterials.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
@@ -30,6 +32,7 @@ export interface JumpLevel {
   spawn: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   description?: string; floor?: number; goal?: Goal
+  floorMaterial?: TerrainMaterial
   times?: { gold: number; silver: number; bronze: number }
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
   timers?: WallTimer[]
@@ -47,7 +50,7 @@ export const levelHeight = (level: JumpLevel) => level.floor ?? level.height ?? 
 export function levelTerrain(level: JumpLevel): Platform[] {
   const extent = 1e7, h = levelHeight(level)
   return [...level.platforms,
-    { x: -extent, y: h, w: extent * 2, h: extent },
+    { x: -extent, y: h, w: extent * 2, h: extent, ...(level.floorMaterial ? { material: level.floorMaterial } : {}) },
     { x: -extent, y: -extent, w: extent * 2, h: extent },
     { x: -extent, y: 0, w: extent, h }, { x: level.width, y: 0, w: extent, h }]
 }
@@ -136,6 +139,10 @@ export function parseLevel(value: unknown): JumpLevel {
   const platforms = list(v.platforms, 160).map(item => {
     const b = object(item), platform: Platform = { x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
     if (platform.x + platform.w > width) fail()
+    if (b.material !== undefined) {
+      if (!isTerrainMaterial(b.material)) return fail()
+      platform.material = b.material
+    }
     if (b.profile !== undefined) {
       const profile = list(b.profile, 100).map(item => {
         if (!Array.isArray(item) || item.length !== 2) return fail()
@@ -208,6 +215,10 @@ export function parseLevel(value: unknown): JumpLevel {
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
     platforms, spawn, checkpoints, climbables: { ladders, ropes } }
   if (v.description !== undefined) { if (typeof v.description !== 'string' || v.description.length > 600) fail(); level.description = v.description as string }
+  if (v.floorMaterial !== undefined) {
+    if (!isTerrainMaterial(v.floorMaterial)) return fail()
+    level.floorMaterial = v.floorMaterial
+  }
   // Existing local files use "flag". Import it as the plate center; new exports use "goal".
   const goal = v.goal === undefined ? v.flag : v.goal
   if (goal !== undefined) {

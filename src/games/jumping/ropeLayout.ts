@@ -75,6 +75,9 @@ function seedPath(rope: Rope, terrain: readonly Platform[]): Point[] {
   return [start, end]
 }
 
+// A coat of paint must not discard an authored rope's settled path or change its cache key.
+const geometryOnly = (key: string, value: unknown) => key === 'material' ? undefined : value
+
 /** Resolve an unloaded rope once, in authoring time, using the game's own constraints. */
 export function prepareRope(definition: Rope, terrain: readonly Platform[], preview = false): Rope {
   if (preview) {
@@ -82,7 +85,7 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
     // Keep a matching saved path; otherwise show a straight rope until the worker finishes.
     const rope = { ...definition, segments: ropeSegmentCount(definition.length) }, reach = rope.length + 32
     const nearby = terrain.filter(b => b.x < rope.x + reach && b.x + b.w > rope.x - reach && b.y < rope.y + reach && b.y + b.h > rope.y - reach)
-    const source = JSON.stringify([rope.x, rope.y, rope.length, rope.segments, nearby]), key = fingerprint(source)
+    const source = JSON.stringify([rope.x, rope.y, rope.length, rope.segments, nearby], geometryOnly), key = fingerprint(source)
     if (rope.rest?.key === key || rope.rest?.key === `preview:${key}`) return definition
     const state = createRope({ ...rope, rest: undefined })
     return { ...rope, rest: { key: `preview:${key}`, points: state.nodes.map(n => [n.x, n.y] as Point),
@@ -109,7 +112,7 @@ export function prepareRope(definition: Rope, terrain: readonly Platform[], prev
   }
   const reach = rope.length + 32
   const nearby = terrain.filter(b => b.x < rope.x + reach && b.x + b.w > rope.x - reach && b.y < rope.y + reach && b.y + b.h > rope.y - reach)
-  const source = JSON.stringify([rope.x, rope.y, rope.length, rope.segments, nearby]), key = fingerprint(source)
+  const source = JSON.stringify([rope.x, rope.y, rope.length, rope.segments, nearby], geometryOnly), key = fingerprint(source)
   if (rope.rest?.key === key) return definition
   const cached = layouts.get(source)
   if (cached) return { ...rope, rest: cached }

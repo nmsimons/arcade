@@ -60,6 +60,67 @@ test('props sound only in ground contact with actual rolling or sliding, not whe
   assert.equal(observe()[0].kind, 'ball')
 })
 
+test('falling balls and boxes sound once on landing, with harder drops making stronger impacts', () => {
+  for (const kind of ['ball', 'box']) for (const size of [30, 68, 200]) {
+    const strengths = []
+    for (const drop of [20, 300]) {
+      const { run, step } = setup(l => { l.props = [{ kind, x: 450, y: l.floor - drop, size }] })
+      run.started = true
+      const impacts = []
+      for (let i = 0; i < 400; i++) {
+        const wasGrounded = run.props[0].grounded, frame = step()
+        for (const cue of frame.cues) {
+          assert.equal(cue.kind, `${kind}-impact`)
+          assert.equal(cue.size, size)
+          assert.ok(!wasGrounded && run.props[0].grounded, 'impact coincides with the landing')
+          impacts.push(cue)
+        }
+      }
+      assert.equal(impacts.length, 1, `${kind}, size ${size}, drop ${drop}: one impact without settling chatter`)
+      assert.ok(impacts[0].volume > 0)
+      strengths.push(impacts[0].strength)
+    }
+    assert.ok(strengths[1] > strengths[0], `${kind}, size ${size}: a longer fall sounds harder`)
+  }
+})
+
+test('props also make landing sounds on platforms, elevators and supported boxes', () => {
+  for (const kind of ['ball', 'box']) for (const support of ['terrain', 'elevator', 'box']) {
+    const surface = support === 'box' ? 800 : 600
+    const { run, step } = setup(l => {
+      l.props = [{ kind, x: 450, y: surface - 200, size: 68 }]
+      if (support === 'terrain') l.platforms = [{ x: 300, y: surface, w: 300, h: 20 }]
+      if (support === 'elevator') l.mechanisms = [{ id: 'lift', kind: 'lift', x: 300, y: surface, w: 300, h: 20, travel: 200 }]
+      if (support === 'box') l.props.push({ kind: 'box', x: 450, y: 920, size: 120 })
+    })
+    run.started = true
+    const impacts = []
+    for (let i = 0; i < 400; i++) impacts.push(...step().cues)
+    assert.equal(impacts.length, 1, `${kind} on ${support}`)
+    assert.equal(impacts[0].kind, `${kind}-impact`)
+    assert.ok(Math.abs(run.props[0].y - surface) < 1)
+  }
+})
+
+test('a tumbling box landing emits one combined impact; quiet contacts, transport and reset stay silent', () => {
+  for (const kind of ['box', 'ball']) {
+    const { run, audio } = setup(l => { l.props = [{ kind, x: 450, y: 920, size: 40 }] })
+    const prop = run.props[0], observe = () => { audio.step(run.player, run, STEP); return audio.drain().cues }
+    prop.grounded = false; prop.vy = 500; prop.angularVelocity = 8; audio.reset(run.player, run)
+    prop.grounded = true; prop.vy = 0; prop.angle += .2; prop.angularVelocity = 0
+    assert.deepEqual(observe().map(c => c.kind), [`${kind}-impact`])
+    for (let i = 0; i < 30; i++) assert.deepEqual(observe(), [])
+    audio.reset(run.player, run); assert.deepEqual(observe(), [])
+    // A tiny support-contact flicker is too slow to make a landing thud.
+    prop.grounded = false; prop.vy = 15; observe()
+    prop.grounded = true; prop.vy = 0; assert.deepEqual(observe(), [])
+    for (let i = 0; i < 30; i++) { prop.y += 1; assert.deepEqual(observe(), [], 'transport is not a landing') }
+    prop.grounded = false; prop.vy = 500; observe()
+    prop.y -= 300; prop.grounded = true; prop.vy = 0
+    assert.deepEqual(observe(), [], 'teleports do not sound like collisions')
+  }
+})
+
 test('pushed small boxes knock once per new edge in either direction, while large sliding boxes keep scraping', () => {
   for (const size of [30, 40, 50, 100]) for (const direction of [-1, 1]) {
     const { run, step } = setup(l => {

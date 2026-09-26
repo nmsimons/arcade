@@ -2,7 +2,7 @@ import type { Run } from './challenge.ts'
 import type { Player } from './model.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator'
-export type CueKind = 'footstep' | 'box-impact' | 'switch' | 'timer-paused'
+export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'switch' | 'timer-paused'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -18,7 +18,7 @@ function snapshot(p: Player, run: Run | null) {
   return {
     x: p.x, y: p.y, grounded: p.grounded, vy: p.vy,
     feet: p.footwork?.feet.map(f => f.planted) ?? [],
-    props: run?.props.map(b => ({ x: b.x, y: b.y, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
+    props: run?.props.map(b => ({ x: b.x, y: b.y, vy: b.vy, grounded: b.grounded, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
     goalLit: run?.goalLit ?? false, stopped: run?.timeStopRemaining ?? 0, exiting: !!run?.exit,
@@ -32,11 +32,11 @@ export class JumpingAudioState {
   private loops: SoundLoop[] = []
   private cues: SoundCue[] = []
   private stepCooldown = 0
-  private boxes: { angle: number; excursion: number; cooldown: number }[] = []
+  private impacts: { angle: number; excursion: number; cooldown: number }[] = []
 
   reset(p: Player, run: Run | null) {
     this.previous = snapshot(p, run)
-    this.loops = []; this.cues = []; this.stepCooldown = 0; this.boxes = []
+    this.loops = []; this.cues = []; this.stepCooldown = 0; this.impacts = []
   }
 
   step(p: Player, run: Run | null, dt: number) {
@@ -64,18 +64,23 @@ export class JumpingAudioState {
         const b = run.props[i], old = before.props[i]
         if (!old) continue
         const distance = Math.hypot(b.x - old.x, b.y - old.y), rotation = Math.abs(b.angle - old.angle)
-        if (distance > 80 || rotation > Math.PI / 2) { delete this.boxes[i]; continue }
+        if (distance > 80 || rotation > Math.PI / 2) { delete this.impacts[i]; continue }
+        const contact = this.impacts[i] ??= { angle: old.angle, excursion: 0, cooldown: 0 }
+        contact.cooldown = Math.max(0, contact.cooldown - dt)
+        // Ground contact includes terrain, elevators and supported props. Read
+        // the incoming fall speed, before the solver removes it on landing.
+        const landed = !old.grounded && b.grounded && old.vy > 60
+        let strength = landed ? .2 + clamp((old.vy - 60) / 740) * .8 : 0
         if (b.kind === 'box') {
-          const box = this.boxes[i] ??= { angle: old.angle, excursion: 0, cooldown: 0 }
-          box.cooldown = Math.max(0, box.cooldown - dt)
-          box.excursion = Math.max(box.excursion, Math.abs(b.angle - box.angle))
+          contact.excursion = Math.max(contact.excursion, Math.abs(b.angle - contact.angle))
           // Each new edge hitting its support abruptly slows the tumble, even
           // when the box never leaves the ground. Ignore tiny settling chatter.
           const impact = (Math.abs(old.angularVelocity) - Math.abs(b.angularVelocity)) * b.size / 2
-          if (b.grounded && impact > 18 && box.excursion > .12 && box.cooldown === 0) {
-            cue('box-impact', b.x, b.y, .25 + clamp((impact - 18) / 160) * .7, b.size)
-            box.angle = b.angle; box.excursion = 0; box.cooldown = .1
-          }
+          if (b.grounded && impact > 18 && contact.excursion > .12) strength = Math.max(strength, .25 + clamp((impact - 18) / 160) * .7)
+        }
+        if (strength > 0 && contact.cooldown === 0) {
+          cue(b.kind === 'box' ? 'box-impact' : 'ball-impact', b.x, b.y, strength, b.size)
+          contact.angle = b.angle; contact.excursion = 0; contact.cooldown = .1
         }
         if (!b.grounded) continue
         // Velocities exclude being carried. Displacement excludes unresolved

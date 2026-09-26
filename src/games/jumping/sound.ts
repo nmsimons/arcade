@@ -61,10 +61,12 @@ export class JumpingSound {
     this.ctx = ctx
     this.output = ctx.createGain(); this.output.gain.value = .8; this.output.connect(ctx.destination)
     this.noise = makeBuffer(ctx, 2, (t, noise) => noise * (.8 + .2 * Math.sin(t * Math.PI * 13)))
-    let grain = 0, sole = 0, cushion = 0, wood = 0
+    let grain = 0, sole = 0, cushion = 0, wood = 0, ballSurface = 0, ballBody = 0
     const softening = 1 - Math.exp(-2 * Math.PI * 500 / ctx.sampleRate)
     const cushioning = 1 - Math.exp(-2 * Math.PI * 130 / ctx.sampleRate)
     const woodSoftening = 1 - Math.exp(-2 * Math.PI * 850 / ctx.sampleRate)
+    const ballSoftening = 1 - Math.exp(-2 * Math.PI * 650 / ctx.sampleRate)
+    const ballDamping = 1 - Math.exp(-2 * Math.PI * 140 / ctx.sampleRate)
     this.cues = {
       footstep: makeBuffer(ctx, .17, (t, noise) => {
         // A cushioned rubber sole: a rounded low thump and a faint, soft scuff.
@@ -81,6 +83,14 @@ export class JumpingSound {
         const attack = Math.sin(Math.min(1, t / .005) * Math.PI / 2) ** 2
         return attack * (wood * .7 * Math.exp(-t * 55)
           + Math.sin(2 * Math.PI * (145 * t - 60 * t * t)) * .38 * Math.exp(-t * 40)) * Math.min(1, (.18 - t) / .03)
+      }),
+      'ball-impact': makeBuffer(ctx, .24, (t, noise) => {
+        // A rounded, damped thud. Filtered noise gives it body without a hum.
+        ballSurface += (noise - ballSurface) * ballSoftening
+        ballBody += (ballSurface - ballBody) * ballDamping
+        const attack = Math.sin(Math.min(1, t / .008) * Math.PI / 2) ** 2
+        return attack * (ballBody * 1.4 * Math.exp(-t * 24)
+          + ballSurface * .35 * Math.exp(-t * 48)) * Math.min(1, (.24 - t) / .035)
       }),
       switch: makeBuffer(ctx, .16, (t, noise) => Math.min(1, t / .002) *
         (noise * .16 * Math.exp(-t * 90) + Math.sin(t * Math.PI * 2 * 480) * .2 * Math.exp(-t * 55)) * Math.min(1, (.16 - t) / .01)),
@@ -137,9 +147,10 @@ export class JumpingSound {
     if (this.disposed || cue.volume <= .005 || this.shots.size >= 12) return
     const ctx = this.ctx, source = ctx.createBufferSource(), gain = ctx.createGain(), pan = ctx.createStereoPanner()
     source.buffer = this.cues[cue.kind]
-    const footstep = cue.kind === 'footstep', box = cue.kind === 'box-impact'
-    source.playbackRate.value = footstep ? .94 + (++this.variation % 5) * .03 : box ? clamp((50 / (cue.size ?? 50)) ** .25, .75, 1.2) : 1
-    gain.gain.value = clamp(cue.volume) * clamp(cue.strength) * (footstep ? .22 : box ? .28 : .38)
+    const footstep = cue.kind === 'footstep', box = cue.kind === 'box-impact', ball = cue.kind === 'ball-impact'
+    const defaultSize = ball ? 68 : 50
+    source.playbackRate.value = footstep ? .94 + (++this.variation % 5) * .03 : box || ball ? clamp((defaultSize / (cue.size ?? defaultSize)) ** .25, .75, 1.2) : 1
+    gain.gain.value = clamp(cue.volume) * clamp(cue.strength) * (footstep ? .22 : box ? .28 : ball ? .32 : .38)
     pan.pan.value = cue.pan; source.connect(gain); gain.connect(pan); pan.connect(this.output)
     const shot = { source, gain, pan }; this.shots.add(shot)
     source.onended = () => { source.disconnect(); gain.disconnect(); pan.disconnect(); this.shots.delete(shot) }

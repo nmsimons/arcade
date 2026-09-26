@@ -582,9 +582,11 @@ JSON files from disk using the folder’s `index.json` order, with filename orde
 **Save level** writes directly to it. Without writable access, the Library opens
 so you can choose a folder or enable saving.
 The selected folder is remembered in browser storage and reopened automatically
-on reload, reading its current files from disk. If permission expires, use
+on reload, reading its current files from disk. The picker remembers the last
+selected collection separately, defaulting to built-ins on a first visit when
+available. Restoring a folder never switches the selected tab. If permission expires, use
 **Reconnect folder**; **Enable saving** renews write access when only read access
-remains. Browser storage holds only the folder reference, not copies of levels.
+remains. Browser storage holds the folder reference and collection choice, not copies of levels.
 There are no browser copies or autosaved drafts. Save to a file before leaving
 or reloading the game; edits remain in memory during playtests and menu visits.
 **Refresh** picks up edits made in a text editor or by Codex. Browsers that only

@@ -79,3 +79,47 @@ test('disjoint outer faces of one polygon do not fill its open side', () => {
   assert.equal(exposedSide([shape], shape, 1, 110, 115), true)
   assert.equal(exposedSide([shape], shape, 1, 285, 290), true)
 })
+
+function joinedGateLedge(side, reversed = false, ceiling = false) {
+  const level = blankTrial()
+  level.width = 1200; level.height = level.floor = 660
+  level.spawn = { x: 100, y: 660 }; level.goal = { x: 1000, y: 660 }
+  const mirror = b => side === 1 ? b : { ...b, x: 1200 - b.x - b.w }
+  // The narrow post and adjacent beam form the same top as a single L shape.
+  level.platforms = [{ x: 600, y: 500, w: 20, h: 80 }, { x: 620, y: 500, w: 280, h: 20 }].map(mirror)
+  if (ceiling) level.platforms.push(mirror({ x: 610, y: 400, w: 100, h: 60 }))
+  if (reversed) level.platforms.reverse()
+  level.mechanisms = [{ id: 'gate', kind: 'gate', ...mirror({ x: 600, y: 580, w: 20, h: 80 }), travel: 80 }]
+  const run = createRun(level); run.started = true
+  Object.assign(run.player, { x: 600 - side * 14, y: 574, grounded: false, coyote: 0, vy: 60, facing: side })
+  for (let i = 0; i < 60; i++) stepRun(run, NEUTRAL_INPUT)
+  assert.ok(run.player.hang)
+  return run
+}
+
+test('a narrow post joined to a beam above a gate allows pulling up from either side', () => {
+  for (const side of [-1, 1]) for (const reversed of [false, true]) {
+    const run = joinedGateLedge(side, reversed), p = run.player
+    let climbing = false
+    for (let i = 0; i < 180; i++) {
+      stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+      climbing ||= !!p.mantle
+      const gate = run.mechanisms[0]
+      assert.ok(!bodyIntersects(p.x, p.y, { ...gate.definition, x: gate.x, y: gate.y }), 'the gate remains solid')
+    }
+    assert.ok(climbing && p.grounded, 'Up climbs onto the continuous top surface')
+    assert.equal(p.hang, null); assert.equal(p.mantle, null)
+    assert.equal(p.x, 600 + side * 20); assert.equal(p.y, 500)
+  }
+})
+
+test('a real ceiling still blocks pulling up onto joined terrain above a gate', () => {
+  for (const side of [-1, 1]) {
+    const run = joinedGateLedge(side, false, true), p = run.player
+    for (let i = 0; i < 180; i++) {
+      stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+      assert.ok(p.hang); assert.equal(p.mantle, null)
+      assert.ok(run.platforms.every(b => !bodyIntersects(p.x, p.y, b)))
+    }
+  }
+})

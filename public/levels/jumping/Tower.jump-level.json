@@ -10,6 +10,7 @@
       "y": 1740,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -50,6 +51,7 @@
       "y": 1740,
       "w": 400,
       "h": 240,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -106,6 +108,7 @@
       "y": 1980,
       "w": 240,
       "h": 20,
+      "material": "earth",
       "polygon": [
         [
           0,
@@ -130,6 +133,7 @@
       "y": 1980,
       "w": 680,
       "h": 20,
+      "material": "earth",
       "polygon": [
         [
           120,
@@ -154,6 +158,7 @@
       "y": 1520,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -206,6 +211,7 @@
       "y": 1080,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -258,6 +264,7 @@
       "y": 860,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -314,6 +321,7 @@
       "y": 1520,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -366,6 +374,7 @@
       "y": 1300,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -418,6 +427,7 @@
       "y": 1080,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -470,6 +480,7 @@
       "y": 860,
       "w": 400,
       "h": 140,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -522,6 +533,7 @@
       "y": 660,
       "w": 960,
       "h": 100,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -562,6 +574,7 @@
       "y": 1320,
       "w": 180,
       "h": 120,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -602,6 +615,7 @@
       "y": 1300,
       "w": 120,
       "h": 40,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -634,6 +648,7 @@
       "y": 1980,
       "w": 180,
       "h": 20,
+      "material": "earth",
       "polygon": [
         [
           180,
@@ -654,6 +669,7 @@
       "y": 1980,
       "w": 180,
       "h": 20,
+      "material": "earth",
       "polygon": [
         [
           0,
@@ -674,6 +690,7 @@
       "y": 640,
       "w": 20,
       "h": 20,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -698,6 +715,7 @@
       "y": 640,
       "w": 20,
       "h": 20,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -722,6 +740,7 @@
       "y": 440,
       "w": 400,
       "h": 80,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -754,6 +773,7 @@
       "y": 860,
       "w": 20,
       "h": 20,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -778,6 +798,7 @@
       "y": 860,
       "w": 20,
       "h": 20,
+      "material": "steel",
       "polygon": [
         [
           0,
@@ -1419,6 +1440,7 @@
     ]
   },
   "description": "",
+  "floorMaterial": "earth",
   "floor": 2000,
   "goal": {
     "x": 1140,
@@ -1433,19 +1455,19 @@
     {
       "kind": "ball",
       "x": 495,
-      "y": 1110,
+      "y": 1100,
       "size": 30
     },
     {
       "kind": "ball",
       "x": 1155,
-      "y": 1550,
+      "y": 1540,
       "size": 30
     },
     {
       "kind": "ball",
-      "x": 734,
-      "y": 668,
+      "x": 735,
+      "y": 660,
       "size": 30
     },
     {
@@ -1462,13 +1484,13 @@
     },
     {
       "kind": "box",
-      "x": 1180,
+      "x": 1175,
       "y": 880,
       "size": 30
     },
     {
       "kind": "box",
-      "x": 510,
+      "x": 520,
       "y": 880,
       "size": 40
     }

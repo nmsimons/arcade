@@ -25,6 +25,7 @@ test('an empty catalog hides built-ins and the builder ignores browser copies an
     const get = Storage.prototype.getItem, set = Storage.prototype.setItem
     set.call(localStorage, 'arcade.jumping.levels.v1', JSON.stringify([level]))
     set.call(localStorage, 'arcade.jumping.draft.v1', JSON.stringify(level))
+    set.call(localStorage, 'arcade.jumping.collection.v1', 'built-in')
     window.levelStorageCalls = []
     const record = (method, key) => { if (/^arcade\.jumping\.(levels|draft)\./.test(key)) window.levelStorageCalls.push([method, key]) }
     Storage.prototype.getItem = function (key) { record('get', key); return get.call(this, key) }

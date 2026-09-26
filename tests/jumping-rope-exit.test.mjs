@@ -5,6 +5,8 @@ import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { climbGait, createRope, ropePoint } from '../src/games/jumping/climbables.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
+import { levelPlayer, levelTerrain, prepareLevelRopes } from '../src/games/jumping/level.ts'
+import { slopedLip } from './helpers/rope-slope.mjs'
 
 function setup(side, thickness = 20, polygon = false, anchorY = 0, lower = true, tilt = .18) {
   const ledge = { x: side === 1 ? 400 : 0, y: 200, w: 400, h: thickness }
@@ -116,16 +118,16 @@ test('holding beside an anchor keeps the player clear without holding the loose 
 
 test('a thick overhang blocks straight ascent but a small outward swing allows climbing around its edge', () => {
   for (const side of [-1, 1]) {
-    const terrain = [{ x: side === 1 ? 400 : 0, y: 200, w: 400, h: 40 }]
+    const terrain = [{ x: side === 1 ? 400 : 0, y: 200, w: 400, h: 80 }]
     const world = { ladders: [], ropes: [{ x: 400, y: 200, length: 160, segments: 12 }] }
     const rope = createRope(world.ropes[0]), p = createPlayer()
-    const c = { kind: 'rope', index: 0, distance: 50, time: 1, direction: 0, swing: 0, lean: 0, hangBlend: 1, swingVelocity: 0,
-      ladder: null, rope, caught: { ...p, x: 400, y: 322 } }
-    Object.assign(p, { x: 400, y: 322, facing: side, grounded: false, ropes: [rope], climbing: c })
+    const c = { kind: 'rope', index: 0, distance: 90, time: 1, direction: 0, swing: 0, lean: 0, hangBlend: 1, swingVelocity: 0,
+      ladder: null, rope, caught: { ...p, x: 400, y: 362 } }
+    Object.assign(p, { x: 400, y: 362, facing: side, grounded: false, ropes: [rope], climbing: c })
     const scene = { p, world, terrain }
     for (let i = 0; i < 120; i++) tick(scene, { climb: true })
     assert.equal(p.climbing?.kind, 'rope', 'the solid underside should block an ascent directly through it')
-    assert.ok(p.y >= 302 - .01)
+    assert.ok(p.y >= 342 - .01)
     for (let i = 0; i < 60; i++) tick(scene, { move: -side })
     let transferred = false
     for (let i = 0; i < 360; i++) {
@@ -134,5 +136,40 @@ test('a thick overhang blocks straight ascent but a small outward swing allows c
     }
     assert.ok(transferred, 'the player must be able to swing clear and reach the lip')
     assert.ok(p.grounded && p.y === 200)
+  }
+})
+
+test('Up climbs around a thin lip and lands on its incline in either direction', () => {
+  for (const mirror of [false, true]) for (const slope of [-.6, -.2, 0, .2, .6]) {
+    const level = prepareLevelRopes(slopedLip(mirror, slope)), terrain = levelTerrain(level), p = levelPlayer(level)
+    Object.assign(p, { x: mirror ? 638 : 1162, y: 635, facing: mirror ? 1 : -1, grounded: false })
+    const scene = { p, terrain, world: level.climbables }
+    let transfer = false, previous, active = false
+    for (let i = 0; i < 420; i++) {
+      tick(scene, { climb: true }); transfer ||= !!p.hang || !!p.mantle
+      const points = landmarks(p)
+      if (previous && (p.hang || p.mantle || active)) points.forEach((a, j) => {
+        assert.ok(Math.hypot(a[0] - previous[j][0], a[1] - previous[j][1]) < 7, `continuous pose, slope ${slope}, frame ${i}, point ${j}`)
+      })
+      previous = points; active = !!(p.hang || p.mantle)
+    }
+    assert.ok(transfer && p.grounded && !p.climbing && !p.hang && !p.mantle, `slope ${slope}, mirror ${mirror}`)
+    assert.equal(p.x, mirror ? 660 : 1140)
+    assert.ok(Math.abs(p.y - (460 + 20 * slope)) < .01)
+    assert.ok(Math.abs(p.groundAngle - Math.atan(slope * (mirror ? 1 : -1))) < .01)
+  }
+})
+
+test('a sloped rope exit still respects low ceilings and unreachable landings', () => {
+  for (const kind of ['ceiling', 'steep']) {
+    const level = prepareLevelRopes(slopedLip(false, kind === 'steep' ? 1.5 : .2)), terrain = levelTerrain(level), p = levelPlayer(level)
+    if (kind === 'ceiling') terrain.push({ x: 1100, y: 370, w: 120, h: 55 })
+    Object.assign(p, { x: 1162, y: 635, facing: -1, grounded: false })
+    for (let i = 0; i < 350; i++) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, climb: true }, STEP, terrain, level.climbables, { checkpoints: [], fallY: Infinity })
+      assert.ok(!terrain.some(b => bodyIntersects(p.x + 1e-4, p.y + 1e-4, b)), 'contact stays outside the lip within solver tolerance')
+      assert.equal(p.hang, null, kind); assert.equal(p.mantle, null, kind)
+    }
+    assert.ok(p.climbing, 'a blocked exit keeps its rope grip')
   }
 })

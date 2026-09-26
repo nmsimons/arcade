@@ -10,11 +10,8 @@
       "y": 760,
       "w": 1800,
       "h": 840,
+      "material": "earth",
       "polygon": [
-        [
-          0,
-          820
-        ],
         [
           80,
           820
@@ -94,6 +91,7 @@
       "y": 560,
       "w": 340,
       "h": 900,
+      "material": "chalk",
       "polygon": [
         [
           0,
@@ -142,6 +140,7 @@
       "y": 460,
       "w": 240,
       "h": 100,
+      "material": "earth",
       "polygon": [
         [
           0,
@@ -189,37 +188,43 @@
       "x": 420,
       "y": 780,
       "w": 300,
-      "h": 20
+      "h": 20,
+      "material": "chalk"
     },
     {
       "x": 860,
       "y": 1020,
       "w": 60,
-      "h": 100
+      "h": 100,
+      "material": "steel"
     },
     {
       "x": 600,
       "y": 860,
       "w": 100,
-      "h": 120
+      "h": 120,
+      "material": "steel"
     },
     {
       "x": 840,
       "y": 760,
       "w": 80,
-      "h": 140
+      "h": 140,
+      "material": "steel"
     },
     {
       "x": 1020,
       "y": 880,
       "w": 180,
-      "h": 60
+      "h": 60,
+      "material": "steel"
     },
     {
       "x": 1180,
       "y": 640,
       "w": 180,
-      "h": 120
+      "h": 120,
+      "material": "steel"
     },
     {
       "x": 500,
@@ -230,7 +235,7 @@
   ],
   "spawn": {
     "x": 40,
-    "y": 1580
+    "y": 1590
   },
   "checkpoints": [],
   "climbables": {
@@ -1051,6 +1056,7 @@
     ]
   },
   "description": "",
+  "floorMaterial": "earth",
   "floor": 1600,
   "goal": {
     "x": 140,

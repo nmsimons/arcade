@@ -3,6 +3,7 @@ import { hold } from './helpers/controller.mjs'
 import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
+import { ropeSlope, slopedLip } from '../helpers/rope-slope.mjs'
 
 async function setup(page, lesson = 0, levels = CAMPAIGN) {
   await useLevelFixtures(page, levels)
@@ -371,6 +372,63 @@ test('an object can open a distant exit without moving the camera or completing;
   await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   expect((await page.evaluate(() => window.goalLight)).lit).toBe(false)
   expect(await page.evaluate(() => window.goalDoor)).toBeNull()
+})
+
+for (const anchor of ['summit', 'shoulder']) test(`Up climbs a rope draped over a steep shoulder (${anchor} anchor)`, async ({ page }, info) => {
+  await setup(page, 0, [ropeSlope(false, { anchor, length: anchor === 'shoulder' ? 180 : 380 })]); await enter(page)
+  await page.keyboard.down('Space'); await page.clock.runFor(370); await page.keyboard.up('Space')
+  await page.keyboard.down('d'); await page.keyboard.down('w')
+  for (let i = 0; i < 70 && !(await page.locator('.jumping-state').innerText()).startsWith('Rope'); i++) await page.clock.runFor(16)
+  await page.keyboard.up('d')
+  await expect(page.locator('.jumping-state')).toContainText('Rope')
+  if (anchor === 'shoulder') {
+    for (let i = 0; i < 240 && await page.locator('.jumping-state').innerText() !== 'Climbing'; i++) await page.clock.runFor(16)
+    await expect(page.locator('.jumping-state')).toHaveText('Climbing')
+    await page.clock.runFor(200)
+  } else await page.clock.runFor(900)
+  await page.screenshot({ path: info.outputPath('rope-slope-climbing.png') })
+  await page.clock.runFor(4000); await page.keyboard.up('w')
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  const landed = await position(page)
+  expect(landed.x).toBeGreaterThanOrEqual(760); expect(landed.x).toBeLessThan(900)
+  expect(landed.y).toBeGreaterThanOrEqual(360); expect(landed.y).toBeLessThanOrEqual(400)
+  await page.screenshot({ path: info.outputPath('rope-slope-standing.png') })
+  await page.keyboard.down('d'); await page.clock.runFor(160); await page.keyboard.up('d')
+  expect((await position(page)).x).toBeGreaterThan(landed.x + 10)
+})
+
+for (const slope of [-.2, .2]) test(`Up climbs around a sloped lip (${slope})`, async ({ page }, info) => {
+  await setup(page, 0, [slopedLip(false, slope)]); await enter(page)
+  await page.keyboard.down('w')
+  for (let i = 0; i < 350 && await page.locator('.jumping-state').innerText() !== 'Climbing'; i++) await page.clock.runFor(16)
+  await expect(page.locator('.jumping-state')).toHaveText('Climbing')
+  await page.clock.runFor(420)
+  await page.screenshot({ path: info.outputPath('sloped-lip-pull-up.png') })
+  await page.clock.runFor(1600)
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  const landed = await position(page)
+  expect(landed.x).toBeCloseTo(1140); expect(landed.y).toBeCloseTo(460 + 20 * slope)
+  await page.screenshot({ path: info.outputPath('sloped-lip-standing.png') })
+  await page.keyboard.up('w'); await page.keyboard.down('a'); await page.clock.runFor(160); await page.keyboard.up('a')
+  expect((await position(page)).x).toBeLessThan(landed.x - 10)
+})
+
+test('Up climbs a narrow post joined to a platform above a closed gate', async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Joined gate ledge'; level.width = 1200; level.height = level.floor = 660
+  level.spawn = { x: 550, y: 660 }; level.goal = { x: 1000, y: 660 }
+  level.platforms = [{ x: 600, y: 500, w: 20, h: 80 }, { x: 620, y: 500, w: 280, h: 20 }]
+  level.mechanisms = [{ id: 'gate', kind: 'gate', x: 600, y: 580, w: 20, h: 80, travel: 80 }]
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('Space'); await page.clock.runFor(170); await page.keyboard.up('Space')
+  await page.keyboard.down('d'); await page.clock.runFor(900); await page.keyboard.up('d')
+  await expect(page.locator('.jumping-state')).toHaveText('Hanging')
+  const hanging = await position(page)
+  expect(hanging.x).toBeCloseTo(586); expect(hanging.y).toBeCloseTo(574)
+  await page.screenshot({ path: info.outputPath('joined-gate-hanging.png') })
+  await page.keyboard.down('w'); await page.clock.runFor(1700); await page.keyboard.up('w')
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  expect((await position(page)).x).toBeCloseTo(620); expect((await position(page)).y).toBeCloseTo(500)
+  await page.screenshot({ path: info.outputPath('joined-gate-climbed.png') })
 })
 
 test('a player can jump to a large box, hang, and climb onto its flat top', async ({ page }, info) => {

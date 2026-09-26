@@ -239,7 +239,7 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
  * then bring the trailing foot up. It never passes through the hanging rig. */
 function stepUpPose(p: Player): AthletePose {
   const m = p.mantle!, s = m.step!, t = clamp(m.time / s.duration), side = m.side
-  const source = athletePose({ ...p, ...s.caught, mantle: null, pushing: null, landing: 0, groundAngle: 0 })
+  const source = athletePose({ ...p, ...s.caught, climbing: s.climbing ?? null, mantle: null, pushing: null, landing: 0, groundAngle: 0 })
   const weight = Math.sin(Math.PI * t), high = smooth((s.rise - 20) / 20)
   const hip = mix(source.hip, [0, -32.7], smooth(t))
   hip[0] += weight * 2; hip[1] += weight * (2 + high * 5)
@@ -252,7 +252,8 @@ function stepUpPose(p: Player): AthletePose {
     const fromY = s.caught.y + leg.end[1] - m.edgeY
     // The toes clear the riser before moving across its vertical face.
     const crossing = clamp((-7 - fromX) / (toX - fromX))
-    const y = lerp(fromY, -2.8, smooth(u / Math.max(.15, crossing))) - Math.sin(Math.PI * u) * 7
+    const toY = m.toY - m.edgeY + offset * side * Math.tan(s.landingAngle ?? 0) - 2.8
+    const y = lerp(fromY, toY, smooth(u / Math.max(.15, crossing))) - Math.sin(Math.PI * u) * 7
     return { ankle: [(m.edgeX - p.x) * side + lerp(fromX, toX, u), m.edgeY - p.y + y] as Point, planted: t >= end || t <= start && leg.planted }
   }
   const offsets = stepFootOffsets(s)
@@ -273,11 +274,11 @@ function stepUpPose(p: Player): AthletePose {
   pose.frontArm = grippingArm(armRoot, add(edge, FRONT_WRIST), add(edge, FRONT_GRIP), pose.frontArm, brace)
   pose.backArm = grippingArm(armRoot, add(edge, BACK_WRIST), add(edge, BACK_GRIP), pose.backArm, brace)
   // Preserve the exact entry silhouette while the first foot starts lifting.
-  const result = t < .18 ? transferPose(source, pose, [0, 0], smooth(t / .18)) : pose
+  const result = t < .18 && !s.climbing ? transferPose(source, pose, [0, 0], smooth(t / .18)) : pose
   if (p.terrain) {
     result.frontLeg = clearAirborneFoot(p, result.frontLeg, 16); result.backLeg = clearAirborneFoot(p, result.backLeg, 16)
   }
-  return result
+  return s.climbing && t < .18 ? transferPose(source, result, [0, 0], smooth(t / .18)) : result
 }
 
 /** All supports are authored relative to the corner, independent of the camera and player root. */
@@ -294,7 +295,7 @@ function ledgePose(p: Player): AthletePose {
   }
   const edge = p.mantle ?? p.hang!
   const t = p.mantle ? p.mantle.descending ? 1 - clamp((p.mantle.time - LEDGE_CATCH_TIME) / LEDGE_CLIMB_TIME) : clamp(p.mantle.time / LEDGE_CLIMB_TIME) : 0
-  const frame = climbFrame(t, edge.braced)
+  const frame = climbFrame(t, edge.braced, edge.slope)
   const origin: Point = [(edge.edgeX - p.x) * p.facing, edge.edgeY - p.y]
   const at = (point: Point) => add(origin, point)
   let hip = at(frame.hip), waist = at(frame.waist), shoulder = at(frame.shoulder), head = at(frame.head)
@@ -318,13 +319,14 @@ function ledgePose(p: Player): AthletePose {
     backFree = { root: add(shoulder, [0, .7]), joint: from(source.backArm.joint), end: from(source.backArm.end) }
   }
   const root = add(shoulder, [0, .7])
-  const frontArm = grippingArm(root, at(FRONT_WRIST), at(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
-  const backArm = grippingArm(root, at(BACK_WRIST), at(BACK_GRIP), backFree, catchWeight * (1 - frame.backRelease), .9)
+  const grip = (point: Point) => at([point[0], point[1] + Math.max(0, point[0]) * (edge.slope ?? 0)])
+  const frontArm = grippingArm(root, grip(FRONT_WRIST), grip(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
+  const backArm = grippingArm(root, grip(BACK_WRIST), grip(BACK_GRIP), backFree, catchWeight * (1 - frame.backRelease), .9)
   const legRoot = add(hip, [0, 1])
   const frontLeg = solveLeg(legRoot, frontFoot, .15 * (1 - smooth(t / .45)), false, frame.frontPlanted)
   const backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), false, frame.backPlanted)
   // Soften ankle flex before contact; the support foot then remains exactly flat.
-  const flatten = (leg: Leg, weight: number) => { leg.footAngle *= 1 - weight; leg.toeAngle *= 1 - weight }
+  const flatten = (leg: Leg, weight: number) => { leg.footAngle = lerp(leg.footAngle, Math.atan(edge.slope ?? 0), weight); leg.toeAngle *= 1 - weight }
   flatten(frontLeg, smooth((t - .86) / .1)); flatten(backLeg, smooth((t - .56) / .07))
   for (const [i, leg] of [frontLeg, backLeg].entries()) {
     if (edge.braced) {

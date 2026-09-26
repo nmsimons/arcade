@@ -28,6 +28,7 @@ import type { LevelSource } from './jumping/routes'
 import './jumping/jumping.css'
 
 type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
+const COLLECTION_KEY = 'arcade.jumping.collection.v1'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
@@ -53,9 +54,18 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const builtIn = useLocalLevels(repository ?? null), devEditing = !!repository
   const catalog = devEditing && !builtIn.restoring ? builtIn : initialCatalog
   const [editorSource, setEditorSource] = useState<LevelSource>('local')
-  const [chosenCollection, setCollection] = useState<'built-in' | 'local' | null>(null)
+  const [chosenCollection, setChosenCollection] = useState<LevelSource | null>(() => {
+    try {
+      const saved = localStorage.getItem(COLLECTION_KEY)
+      return saved === 'built-in' || saved === 'local' ? saved : null
+    } catch { return null }
+  })
   const hasBuiltIns = devEditing || catalog.files.length > 0 || catalog.errors.length > 0
-  const collection = chosenCollection ?? (local.name || !hasBuiltIns ? 'local' : 'built-in')
+  const collection = hasBuiltIns ? chosenCollection ?? 'built-in' : 'local'
+  function setCollection(source: LevelSource) {
+    setChosenCollection(source)
+    try { localStorage.setItem(COLLECTION_KEY, source) } catch { /* Keep the choice for this visit when storage is unavailable. */ }
+  }
   const [selectedName, setSelectedName] = useState(initialCatalog.files[0]?.fileName ?? '')
   const menuStore = collection === 'built-in' && devEditing ? builtIn : local
   const canEditCollection = collection === 'local' || devEditing
@@ -464,13 +474,14 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
             </div>
           })}</div>
           <div className="jumping-level-detail">
-            <div className="jumping-level-preview">{selected && <LevelThumbnail level={selected.level} />}</div>
-            <h3 title={selected?.level.name}>{selected?.level.name}</h3>
-            <div key={`${collection}:${selected?.fileName}`} className="jumping-level-description" role="region" aria-label="Level description" data-controller-scroll>
-              <p>{selected?.level.description}</p>
-              {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
+            <div className="jumping-level-detail-heading">
+              <h3 title={selected?.level.name}>{selected?.level.name}</h3>
+              <div className="jumping-medal-times">{selected && isPuzzleLevel(selected.level) && <><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span className="bronze">Bronze {selected.level.times.bronze}s</span></>}</div>
             </div>
-            <div className="jumping-medal-times">{selected && isPuzzleLevel(selected.level) && <><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span>Bronze {selected.level.times.bronze}s</span></>}</div>
+            <div key={`${collection}:${selected?.fileName}`} className="jumping-level-description" role="region" aria-label="Level description" data-controller-scroll>
+              {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
+              <p>{selected?.level.description}</p>
+            </div>
           </div>
           </div>
         </>}

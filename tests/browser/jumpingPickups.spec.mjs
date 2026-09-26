@@ -34,6 +34,9 @@ async function open(page) {
 const state = page => page.getByRole('img', { name: 'Stopwatch run: activate the goal' }).evaluate(c => ({ scales: c.pickupScales, times: c.timerReadings, stopped: c.clockStopped }))
 
 test('stopwatches freeze only the clock, animate through the effect, pause and restart correctly, and save the stopped time', async ({ page }, info) => {
+  // Simulate the full ten-second freeze and a second run; hosted runners need
+  // headroom to render every frame without shortening the gameplay assertions.
+  test.setTimeout(60000)
   await open(page)
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect(page.locator('canvas[role="img"]')).toBeFocused()

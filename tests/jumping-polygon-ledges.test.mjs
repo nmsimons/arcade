@@ -60,6 +60,20 @@ test('a charged jump can catch an inset cap in ordinary play', () => {
   }
 })
 
+test('a sloping top supports a normal catch, pull-up and return to the same edge', () => {
+  const ramp = { x: 100, y: 100, w: 200, h: 120, polygon: [[0,0],[200,40],[200,120],[0,120]] }
+  for (const side of [1, -1]) {
+    const edgeX = side === 1 ? 100 : 300, edgeY = side === 1 ? 100 : 140
+    const p = catchCorner([ramp], edgeX, edgeY, side)
+    assert.equal(p.hang.slope, .2 * side)
+    climbOnto(p, [ramp], edgeX + side * 20, edgeY + side * 4)
+    for (let i = 0; i < 180; i++) tick(p, [ramp], { descend: true })
+    assert.ok(p.hang, 'descending preserves the sloped ledge grip')
+    assert.equal(p.hang.edgeX, edgeX); assert.equal(p.hang.slope, .2 * side)
+    climbOnto(p, [ramp], edgeX + side * 20, edgeY + side * 4)
+  }
+})
+
 test('inset vertical posts brace the feet against their actual face', () => {
   const post = { x: 100, y: 100, w: 400, h: 300,
     polygon: [[0,240],[60,240],[60,0],[80,0],[80,240],[400,240],[400,260],[80,260],[80,300],[60,300],[60,260],[0,260]] }

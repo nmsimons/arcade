@@ -2,6 +2,7 @@ import type { JumpLevel } from './level.ts'
 import { copyLevel, snapToGround, newLevelId, levelTerrain, levelHeight } from './level.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
+import type { TerrainMaterial } from './terrainMaterials.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
@@ -413,12 +414,12 @@ export function anchorRope(level: JumpLevel, index: number, maxDistance = 40): J
   r.x = best.x; r.y = best.y; r.anchor = { platform: best.platform, x: r.x - b.x, y: r.y - b.y }
   return next
 }
-export function polygonPlatform(points: readonly Vec[]): Platform {
+export function polygonPlatform(points: readonly Vec[], material?: TerrainMaterial): Platform {
   if (!validPolygon(points)) throw new Error('Use at least three corners without crossing the edges.')
   const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
   const w = Math.max(...points.map(p => p[0])) - x, h = Math.max(...points.map(p => p[1])) - y
   if (w < 10 || h < 8) throw new Error('Terrain needs a little more width and height.')
-  return { x, y, w, h, polygon: points.map(p => [p[0] - x, p[1] - y]) }
+  return { x, y, w, h, polygon: points.map(p => [p[0] - x, p[1] - y]), ...(material ? { material } : {}) }
 }
 export function addPolygon(level: JumpLevel, points: readonly Vec[]) {
   if (level.platforms.length >= 160) throw new Error('This level already has 160 terrain pieces.')
@@ -427,6 +428,19 @@ export function addPolygon(level: JumpLevel, points: readonly Vec[]) {
   return { level: next, selection: { kind: 'platform' as const, index: next.platforms.length - 1 } }
 }
 export type TerrainNodeTarget = { index: number; edge: number; x: number; y: number }
+export type TerrainVertexTarget = { index: number; vertex: number; x: number; y: number }
+
+/** Pick the nearest existing node, preferring the topmost terrain on ties. */
+export function terrainVertexTarget(level: JumpLevel, x: number, y: number, tolerance: number): TerrainVertexTarget | null {
+  let best: TerrainVertexTarget | null = null, distance = tolerance
+  for (let index = level.platforms.length - 1; index >= 0; index--) {
+    for (const [vertex, [vx, vy]] of polygonPoints(level.platforms[index]).entries()) {
+      const d = Math.hypot(x - vx, y - vy)
+      if (d <= tolerance && (!best || d < distance)) { best = { index, vertex, x: vx, y: vy }; distance = d }
+    }
+  }
+  return best
+}
 
 /** Project onto the nearest edge; snap along its dominant axis to preserve slopes. */
 export function terrainNodeTarget(level: JumpLevel, x: number, y: number, tolerance: number, grid = 0): TerrainNodeTarget | null {
@@ -474,11 +488,11 @@ export function deleteTerrainNode(level: JumpLevel, index: number, vertex: numbe
   if (!Number.isInteger(vertex) || vertex < 0 || vertex >= points.length) return level
   if (points.length <= 3) throw new Error('Terrain needs at least three nodes.')
   points.splice(vertex, 1)
-  return replacePlatform(level, index, polygonPlatform(points))
+  return replacePlatform(level, index, polygonPlatform(points, terrain.material))
 }
 
 export function moveVertex(level: JumpLevel, index: number, vertex: number, dx: number, dy: number): JumpLevel {
   const points = polygonPoints(level.platforms[index])
   const p = points[vertex]; points[vertex] = [clamp(p[0] + dx, 0, level.width), clamp(p[1] + dy, 0, levelHeight(level))]
-  try { return replacePlatform(level, index, polygonPlatform(points)) } catch { return level }
+  try { return replacePlatform(level, index, polygonPlatform(points, level.platforms[index].material)) } catch { return level }
 }

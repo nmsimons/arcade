@@ -1,7 +1,9 @@
 import type { Platform } from './model.ts'
 import { outsideCorner, pointInside, polygonPoints } from './geometry.ts'
+import { canGrip } from './friction.ts'
 
-export interface TerrainLedge { edgeX: number; edgeY: number; side: number }
+/** Slope is the top's rise per unit inward from the corner. */
+export interface TerrainLedge { edgeX: number; edgeY: number; side: number; slope?: number }
 const ledges = new WeakMap<Platform, readonly TerrainLedge[]>()
 
 /** Moving bodies can explicitly opt out of grips while unsupported or unstable. */
@@ -20,10 +22,12 @@ export function platformLedges(platform: Platform): readonly TerrainLedge[] {
   const found: TerrainLedge[] = []
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = points[(i + 1) % points.length]
-    if (b[0] <= a[0] || Math.abs(b[1] - a[1]) > 1e-7) continue
+    if (b[0] <= a[0]) continue
+    const slope = (b[1] - a[1]) / (b[0] - a[0])
+    if (!canGrip(Math.atan(slope))) continue
     const before = points[(i + points.length - 1) % points.length], after = points[(i + 2) % points.length]
-    if (Math.abs(before[0] - a[0]) < 1e-7 && before[1] > a[1]) found.push({ edgeX: a[0], edgeY: a[1], side: 1 })
-    if (Math.abs(after[0] - b[0]) < 1e-7 && after[1] > b[1]) found.push({ edgeX: b[0], edgeY: b[1], side: -1 })
+    if (Math.abs(before[0] - a[0]) < 1e-7 && before[1] > a[1]) found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}) })
+    if (Math.abs(after[0] - b[0]) < 1e-7 && after[1] > b[1]) found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}) })
   }
   ledges.set(platform, found)
   return found
@@ -36,11 +40,32 @@ export function sameLedge(a: TerrainLedge, b: TerrainLedge) {
 /** Both sides of the corner must open into air; joined terrain seams cannot be grabbed. */
 export function ledgeExposed(platforms: readonly Platform[], edge: TerrainLedge) {
   return !platforms.some(b => pointInside(b, edge.edgeX - edge.side * .01, edge.edgeY + .01)
-    || pointInside(b, edge.edgeX + edge.side * .01, edge.edgeY - .01))
+    || pointInside(b, edge.edgeX + edge.side * .01, edge.edgeY + (edge.slope ?? 0) * .01 - .01))
 }
 
-/** The climb pose clears its supporting corner, but other parts of the same polygon still block it. */
+/** The climb pose clears its continuous supporting top, including joined pieces.
+ * Geometry above or outside the corner still blocks the authored climb. */
 export function ledgeObstacles(platforms: readonly Platform[], edge: TerrainLedge): readonly Platform[] {
-  return platforms.flatMap(b => platformLedges(b).some(candidate => sameLedge(candidate, edge))
-    ? outsideCorner(b, edge.edgeX, edge.edgeY, edge.side) : [b])
+  const support = new Set(platforms.filter(b => platformLedges(b).some(candidate => sameLedge(candidate, edge))))
+  if (!support.size) return platforms
+  // Walk touching collinear top edges inward from the grip. A narrow post
+  // joined to a beam must offer the same clearance as one solid L shape.
+  const tops = platforms.flatMap(platform => {
+    const points = polygonPoints(platform)
+    const above = (point: readonly [number, number]) => point[1] - edge.edgeY - (point[0] - edge.edgeX) * edge.side * (edge.slope ?? 0)
+    return points.flatMap((a, i) => {
+      const b = points[(i + 1) % points.length]
+      if (b[0] <= a[0] || Math.abs(above(a)) > .01 || Math.abs(above(b)) > .01) return []
+      const from = (a[0] - edge.edgeX) * edge.side, to = (b[0] - edge.edgeX) * edge.side
+      return [{ platform, from: Math.min(from, to), to: Math.max(from, to) }]
+    })
+  }).sort((a, b) => a.from - b.from)
+  let reach = 0
+  for (const top of tops) {
+    if (top.to < 0) continue
+    if (top.from > reach + .01) break
+    support.add(top.platform); reach = Math.max(reach, top.to)
+  }
+  return platforms.flatMap(b => support.has(b)
+    ? outsideCorner(b, edge.edgeX, edge.edgeY, edge.side, edge.slope) : [b])
 }

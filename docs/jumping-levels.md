@@ -132,12 +132,16 @@ Space + drag or the middle mouse button pans from anywhere. Placement tools retu
 to this default interaction after one use unless **Keep placing** is enabled;
 press Esc or click the active tool again to stop placing. Zoom centers on the
 selected object, or on the cursor for wheel zoom when nothing is selected.
+Start and goal markers are already part of each time trial. Drag the existing
+markers, or select **Start** / **Goal light** in the inspector to edit their position.
 
 The **Terrain** tool draws a rectangular starting shape. Select it to resize the
 whole shape with the four square handles outside its bounding corners, or drag
 the white nodes to change its geometry. Choose **Node** (N), or **Add node** in
 the inspector, then click a terrain edge to insert a point at the preview marker.
 You can drag the new point immediately, or enable **Keep placing** to add several.
+The Node tool also highlights existing nodes under the pointer. Drag one to move
+it without first selecting its terrain; the tool stays active for further edits.
 Click an existing node, then press Delete / Backspace or use **Delete node** in the
 inspector to remove it. At least three nodes must remain, and the outline cannot
 cross itself. Arrow keys nudge the selected node; Shift nudges one unit.
@@ -147,14 +151,18 @@ and node edits follow Snap; new points snap along the edge without changing its 
 Choose **Local folder → Choose folder** in the game menu. The game reads JSON files
 directly in that folder, applies its manifest (or filename order), and lets you play them or choose
 **Edit** on a level tile. Click a tile, press Enter, or press controller A while
-it is selected to play immediately. Focus or hover a tile to preview it in the
-details pane. Each tile has **Play** at the bottom right, beside **Edit** for local
+it is selected to play immediately. Thumbnails fill the width of the picker.
+Focus or hover a tile to show its description and medal times in the compact strip
+below the grid; long descriptions scroll there without moving the tiles.
+Each tile has **Play** at the bottom right, beside **Edit** for local
 levels. Controller Y (or keyboard Y) edits the selected local level. Built-in
 levels remain available as templates in the builder's Library. Files in nested
 folders and non-JSON files are ignored.
 **Refresh** rereads external edits, additions, deletions, and renames.
-The game remembers the selected folder in browser storage and automatically
-reopens it on refresh or reload, with the local collection selected. It rereads
+The picker remembers your last selected collection separately from the folder
+connection. A first visit defaults to built-ins when available; an empty built-in
+catalog opens Local folder. Restoring a remembered folder never switches the tab.
+The game automatically reopens that folder on refresh or reload. It rereads
 the current files from disk each time. Only the folder name and directory handle
 are stored in IndexedDB; level contents and editor drafts are never cached there.
 If the browser needs permission again, **Reconnect folder** restores access to
@@ -224,7 +232,7 @@ manifest) into `public/levels/jumping/`, then run `npm run levels:index` or
 `npm run levels:sync`. No level-format conversion is needed. The manifest provides
 a place to add chapter metadata later; chapter navigation is not implemented yet.
 
-Menu tiles, the details pane, builder templates and the overview all use the
+Menu tiles, builder templates and the overview all use the
 game's world renderer for their static previews. They include props, shovebots,
 pressure plates, both gate orientations, elevators, ropes, ladders, timers, text,
 pickups and goal exits in their starting state.
@@ -360,6 +368,9 @@ a resting box; steeper slopes let it slide or tumble. Pushing applies a limited
 force, with the player's hands following the tilted face and steps following
 actual progress. Balls contact the complete terrain outline, including corners
 and valleys. Placed props are lifted clear of terrain before play starts.
+Falling boxes and balls make a brief impact sound when they land on the floor,
+terrain, elevators or supported props. Harder landings sound stronger, larger
+objects sound lower, and resting contact stays quiet.
 Shovebots keep both wheels on connected slopes, tilt with the terrain, and stop
 at cliffs and walls. A gate can slide past a ball touching its side while still
 stopping before it would crush a prop beneath it.
@@ -368,8 +379,8 @@ The goal is a self-contained pressure plate, pole light and hidden exit. Its `go
 point is the center of a 56-unit-wide plate at the supporting floor surface. The
 light stands 44 units to its right, 96 units above the floor. The door is 40 units
 wide and 80 high, centered 100 units to the plate's right. Leave continuous flat
-floor from the plate through the doorway, with clear space above it. The
-builder's **Goal light** tool places and moves this assembly as one object.
+floor from the plate through the doorway, with clear space above it. In the
+builder, drag the existing goal to move this assembly as one object.
 Select the goal and choose **Flip horizontally** to put the light and door on the left
 without moving the plate. This is saved as `goal.flipX: true`; omitted or `false`
 keeps the light on the right.
@@ -399,6 +410,15 @@ An optional `polygon` contains 3–64 local `[x, y]` vertices in either winding 
 it must be a simple, nonintersecting polygon contained in its bounds. Concave shapes,
 undercuts, sloped sides and undersides are supported. Older monotonic `profile`
 terrain remains readable. Do not supply both `profile` and `polygon`.
+
+Terrain can specify `material: "stone"`, `"earth"`, `"chalk"`, or `"steel"`. Stone is a cool
+gray with sparse flecks; Earth is a warm sand color with a fine grain; Chalk is a
+smooth, pale sage; Steel is a blue-gray with fine, horizontal brush marks.
+The level's optional `floorMaterial` applies the same palette
+to its enclosing floor. Both default to Stone for existing files. These are
+visual choices only: collision, friction and climbing are identical. Choose a
+terrain piece's material in the inspector, or the floor material in Level settings.
+Materials are saved in the JSON and appear in the game, editor and thumbnails.
 
 Ladders contain `x`, `top`, `bottom`, `platform: -1`, and `side: 1` for independent
 placement. Legacy attached ladders retain a supporting terrain index and side.

@@ -43,8 +43,8 @@ export function staticContactWorld(platforms: readonly Platform[]): ContactWorld
 
 /** The climb motor and prop forces use the same next-pose contact. */
 export function mantleContact(m: NonNullable<Player['mantle']>, world: ContactWorld, dt = STEP) {
-  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced)
-  const next = climbContactRoot(Math.min(1, (m.time + dt) / LEDGE_CLIMB_TIME), m.braced)
+  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced, m.slope)
+  const next = climbContactRoot(Math.min(1, (m.time + dt) / LEDGE_CLIMB_TIME), m.braced, m.slope)
   const from: Vec = [m.edgeX + before[0] * m.side, m.edgeY + before[1]]
   const target: Vec = [m.edgeX + next[0] * m.side, m.edgeY + next[1]]
   const sweep = moveBody(from, target, ledgeObstacles(world.colliders.filter(c => c.prop).map(c => c.platform), m))

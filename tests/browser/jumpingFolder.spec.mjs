@@ -217,6 +217,45 @@ for (const writable of [true, false]) test(`local templates create independent l
   expect(JSON.parse(onDisk[copyName])).toEqual({ ...copy, name: 'My new route', width: source.width + 120 })
 })
 
+test('the last selected collection survives reload independently of the remembered folder', async ({ page }) => {
+  await openFolder(page)
+  await page.getByRole('button', { name: 'Built-in levels', exact: true }).click()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  // Wait for restored folder access through the UI, then verify it did not switch the picker.
+  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Change folder', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Close library', exact: true }).click()
+  await page.getByRole('button', { name: 'Back to game', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Local folder', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Level 1: First local level', exact: true })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Local folder', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Level 1: First local level', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => [window.folderPickerCalls, window.folderPermissionRequests])).toEqual([0, 0])
+})
+
+test('a remembered folder without a collection preference does not override built-ins', async ({ page }) => {
+  await openFolder(page)
+  await page.evaluate(() => {
+    localStorage.removeItem('arcade.jumping.collection.v1')
+    sessionStorage.setItem('folderPermission', 'prompt')
+  })
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Reconnect folder', exact: true })).toBeEnabled()
+  await page.getByRole('button', { name: 'Close library', exact: true }).click()
+  await page.getByRole('button', { name: 'Back to game', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Local folder', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Reconnect folder', exact: true })).toBeEnabled()
+  expect(await page.evaluate(() => [window.folderPickerCalls, window.folderPermissionRequests])).toEqual([0, 0])
+})
+
 test('reload reopens the remembered handle, reads disk changes, saves, and remembers a replacement folder', async ({ page }) => {
   await openFolder(page, { '02-second.json': level('second', 'Second'), '00-first.json': level('first', 'First') })
   expect(await names(page)).toEqual(['First', 'Second'])
@@ -339,7 +378,9 @@ test('a removed folder reports the problem and can be replaced without restoring
 })
 
 test('unavailable browser storage does not prevent opening and saving local files', async ({ page }) => {
-  await page.addInitScript(() => { Object.defineProperty(window, 'indexedDB', { get() { throw new DOMException('Storage disabled', 'SecurityError') } }) })
+  await page.addInitScript(() => {
+    for (const key of ['indexedDB', 'localStorage']) Object.defineProperty(window, key, { get() { throw new DOMException('Storage disabled', 'SecurityError') } })
+  })
   await openFolder(page)
   await expect(page.getByText('My levels', { exact: true })).toBeVisible()
   await page.locator('.jumping-level-tile').filter({ has: page.locator('.jumping-level-card[aria-pressed=true]') }).getByRole('button', { name: /^Edit / }).click()

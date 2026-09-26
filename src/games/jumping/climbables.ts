@@ -27,6 +27,7 @@ export interface Climbing {
   wallContact?: { x: number; side: number; time: number }
   rappelPull?: number
   rappelMotion?: number
+  surfaceSupport?: number
   caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang'] }
 }
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v))
@@ -114,6 +115,21 @@ function ropeCoordinate(rope: RopeState, distance: number) {
 export function rappelWeight(climb: Climbing) {
   return ease(climb.wallBlend ?? Number(!!climb.wall))
 }
+
+/** Anticipate a draped rope's turn onto a slope before the feet leave the wall.
+ * The body stays below the hands; following the rope sideways folds it into the rock. */
+export function ropeSlopeSupport(climb: Climbing, terrain: readonly Platform[]) {
+  if (!climb.rope) return 0
+  const above = ropePoint(climb.rope, Math.max(0, climb.distance - 56)), grip = ropePoint(climb.rope, climb.distance)
+  const tilt = ease((.9 - (grip[1] - above[1]) / (Math.hypot(grip[0] - above[0], grip[1] - above[1]) || 1)) / .4)
+  if (!tilt) return 0
+  // Flat ledges already have their own mantle transition. Free swings keep their normal pose and tension.
+  return terrain.some(b => {
+    const face = nearestBoundary(b, above[0], above[1])
+    return face.ny < -.2 && Math.abs(face.nx) > .12 && face.distance < 80
+  }) ? tilt : 0
+}
+
 function freeClimbRoot(climb: Climbing, facing: number): Point {
   const gait = climbGait(climb.distance, climb.rope?.definition.length, climb.ladder ? climb.ladder.bottom - climb.ladder.top : undefined)
   const root = climbBody(climb, gait.root, 0, facing), hanging = ease(climb.hangBlend)
@@ -305,7 +321,8 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   const supports = nodes.map((_, i) => load ? Math.max(0, 1 - Math.abs(i - loadedAt)) : 0)
   const weights = supports.map((support, i) => i === 0 ? 0 : 1 / (1 + bodyMass * support))
   const weight = (i: number) => weights[i]
-  const damping = Math.exp(-.12 * dt)
+  // Scrambling against rock dissipates motion; it must not store a spring impulse for the next regrip.
+  const damping = Math.exp(-(.12 + (load?.body?.climb.surfaceSupport ?? 0) * 12) * dt)
   if (load?.body?.climb.wallContact) {
     const c = load.body.climb
     c.wallContact!.time -= dt
@@ -334,12 +351,12 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   const tensionEnd = nodes.length - 1
   const wallGap = load ? 1.5 + (8.5 + Math.sin(load.distance * Math.PI / 22) * 1.5) * (load.bracing ?? 1) : 0
   const wallSupported = load?.wall && (load.wall.x - load.wall.side * wallGap - nodes[loaded].x) * load.wall.side < 0
-  const tensionStrength = load?.body ? 1 - rappelWeight(load.body.climb) : Number(!wallSupported)
+  const tensionStrength = load?.body ? 1 - Math.max(rappelWeight(load.body.climb), load.body.climb.surfaceSupport ?? 0) : Number(!wallSupported)
   const passes = Math.max(32, Math.ceil(nodes.length / 8) * 8)
   for (let pass = 0; pass < passes; pass++) {
     nodes[0].x = definition.x; nodes[0].y = definition.y
-    // A free hang loads the span to the anchor. Braced feet also support the
-    // body, so let the local wall/contact constraints resolve that load instead.
+    // A free hang loads the span to the anchor. A wall or slope also supports the
+    // body, so let local contacts resolve that load instead of pulling it airborne.
     if (tensionStrength && pass < 32 && pass % 2 === 0) solveRopeTension(rope, tensionEnd, weights, tensionStrength)
     for (let j = 1; j < nodes.length; j++) {
       const i = pass % 2 ? nodes.length - j : j, a = nodes[i - 1], b = nodes[i]

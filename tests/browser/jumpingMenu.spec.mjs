@@ -34,9 +34,10 @@ async function open(page, local = false, maps = levels()) {
   }
 }
 
-test('level tiles launch immediately by click, Enter or controller A, with focus selecting the preview', async ({ page }, info) => {
+test('level tiles launch immediately by click, Enter or controller A, with focus updating the details', async ({ page }, info) => {
   await open(page)
   await expect(page.locator('.jumping-level-detail button')).toHaveCount(0)
+  await expect(page.locator('.jumping-level-detail canvas')).toHaveCount(0)
   await expect(page.locator('.jumping-level-edit')).toHaveCount(0)
   const second = page.getByRole('button', { name: 'Level 2: Second room', exact: true })
   await second.hover()
@@ -143,7 +144,6 @@ test('all object types appear in menu, library and overview previews through the
     expect(has('strokeRect', a => a[2] === 40 && a[3] === 80)).toBe(true)
   }
   await check(page.locator('.jumping-level-card .level-thumbnail'))
-  await check(page.locator('.jumping-level-preview .level-thumbnail'))
   await page.screenshot({ path: info.outputPath('all-objects-menu.png') })
   await page.getByRole('button', { name: 'Level builder', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click(); await page.clock.runFor(64)

@@ -5,10 +5,13 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prod": "vite preview",
+    "preprod": "npm run build",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "playwright test",
+    "security:check": "npm audit --audit-level=moderate",
     "generate:power": "node scripts/generate-power.mjs",
     "benchmark": "node scripts/benchmark.mjs",
     "benchmark:urban-fire": "node scripts/benchmark-urban-fire.mjs",
@@ -17,8 +20,7 @@
     "levels:index": "node scripts/jumping-levels.mjs index",
     "levels:sync": "node scripts/jumping-levels.mjs sync",
     "levels:check": "node scripts/jumping-levels.mjs check",
-    "prebuild": "npm run levels:index",
-    "predev": "npm run levels:index"
+    "prebuild": "npm run levels:index"
   },
   "dependencies": {
     "matter-js": "^0.20.0",

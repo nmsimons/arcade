@@ -132,6 +132,9 @@
 .builder-library-actions, .builder-library-confirm-actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .jumping-builder .builder-library button { min-height: 40px; }
 .builder-library-folder { padding: 20px var(--library-padding) 0; flex-shrink: 0; max-height: 42%; overflow: auto; }
+.builder-library .jumping-collection-tabs { display: inline-flex; margin-bottom: 12px; }
+.builder-library .jumping-collection-tabs button[aria-pressed="true"] { background: #405c49; color: #fffaf3; }
+.builder-library .jumping-collection-tabs button[aria-pressed="false"]:hover { background: #dde4d4; }
 .builder-library-content { padding: 4px var(--library-padding) 26px; overflow-y: auto; min-height: 0; flex: 1; scrollbar-width: thin; scrollbar-gutter: stable; overscroll-behavior: contain; }
 .jumping-builder .builder-library-content h3 { margin: 24px 0 6px; font-size: 14px; }
 .builder-library-description, .builder-library-empty { color: #718069; font-size: 12px; line-height: 1.6; }

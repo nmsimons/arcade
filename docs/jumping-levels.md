@@ -65,14 +65,67 @@ npm run levels:sync -- /path/to/site/levels/jumping
 ```
 
 This regenerates the index and copies JSON to `dist/levels/jumping/` by default.
-It removes obsolete files listed by the previous deployment index, including the
-old campaign/examples layout. It does not compile JavaScript or run gameplay tests. Upload that asset folder
+It removes obsolete JSON files listed by the previous deployment index. Source
+and destination asset folders must contain only level JSON and `index.json`;
+unexpected files, subdirectories, and symlinks stop publishing. Move unrelated
+content out of the asset folder first; leave `Deleted levels` behind when
+promoting a local collection. Every source level is validated before
+copying, and regular builds (including direct `vite build`) enforce the same
+allowlist. It does not compile JavaScript or run gameplay tests. Upload that asset folder
 using your hosting deployment process. Regular repository CI still performs the
 full build and checks on pushes; the asset-only command is independent of it.
-Normal development startup and app builds regenerate the index automatically.
-While the dev server is running, run `levels:index` after changing filenames.
+App builds regenerate the index automatically. The local development editor
+reads the folder directly and maintains the index as you save, rename and reorder.
+
+## Shared-level safeguards
+
+Level files and manifests have a 1 MB UTF-8 size limit. A collection allows at most
+500 level files and 25 MB total, including its manifest. Reads run four at a time;
+downloads count actual streamed bytes even when response headers omit their size.
+The recycle bin has its own 500-entry / 25 MB budget. Make room in the bin before
+moving more levels there when it is full. Save, rename, and restore also check the
+destination budget before writing, while preserving external-edit checks.
+
+Thumbnails draw authored geometry only and allocate canvas pixels while visible.
+Rope settling and initial world preparation run in a disposable worker, with a
+five-second deadline and cancellation when leaving the level. Failed preparation
+keeps the picker and editor responsive; simplify overly complex ropes or terrain
+before trying again. Saved settled ropes still start in their authored positions.
+
+`npm run security:check` checks the locked dependencies against npm advisories.
+CI runs this check along with validation, gameplay tests, lint, build, and browser
+regressions.
 
 ## Local levels and editing
+
+### Editing built-ins during development
+
+With `npm run dev` open on localhost, built-in levels have the same **Edit**
+controls as local levels. **Library** includes a **Built-in levels / Local folder**
+selector. Open a built-in, edit it, and use **Save level** or **Save and Test**;
+the JSON is written directly to `public/levels/jumping/` in the current checkout
+and appears in Git. No folder picker or app rebuild is needed.
+
+New levels and templates use the collection selected in Library. Filenames,
+renames, drag/keyboard ordering, missing-file removal and recovery work the same
+way in both collections. **Refresh** picks up edits made outside the game.
+Switching collections in Library does not move the current draft or change its
+save destination; opening or creating a level still asks about unsaved changes.
+
+Built-in recovery copies live in the ignored `.local/jumping-recycle-bin/`
+directory, outside the published assets. The repository writer is available only
+through the local dev server with same-origin requests and a per-server token;
+production builds and `vite preview` retain the read-only built-in experience.
+Unfinished maps remain editable after restarting the dev server. Build and publish
+validation still requires every built-in level to be ready to play.
+
+Use `npm run prod` to build and run the customer experience locally, normally on
+port 4173 alongside development on port 5173. It serves built-in JSON from `dist/`
+and enables editing only for local folders. Restart this command after changes
+to rebuild the preview. The two ports have separate browser storage and remembered
+folder connections.
+
+### Using the editor
 
 Click an object to select it, drag it to move it, or drag empty space to pan.
 Space + drag or the middle mouse button pans from anywhere. Placement tools return

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFile, readdir, mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises'
+import { readFile, readdir, mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { execFileSync } from 'node:child_process'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
@@ -24,26 +24,25 @@ function server(data = new Map([['index.json', JSON.stringify(fixtureIndex)], [f
 }
 
 test('the deployed catalog excludes automated test fixtures', async () => {
-  assert.deepEqual(index.levels, ['00.json', '01.json'])
-  assert.deepEqual((await readdir(root)).sort(), ['00.json', '01.json', 'index.json'])
+  assert.deepEqual((await readdir(root)).sort(), [...index.levels, 'index.json'].sort())
   const catalog = await loadLevelCatalog('/arcade/', server(assets).fetch)
   assert.deepEqual(catalog.errors, [])
-  assert.deepEqual(catalog.files.map(file => file.level.name), ['First Leap', 'Second Leap'])
+  assert.deepEqual(catalog.files.map(file => file.fileName), index.order === 'listed' ? index.levels : [...index.levels].sort())
   assert.ok(catalog.files.every(file => file.level.id !== JSON_LAB.id))
   assert.deepEqual(levelProblems(JSON_LAB), [])
 })
 
-test('sync removes retired built-in files from an existing deployment without removing unrelated files', async () => {
+test('sync removes retired indexed levels and refuses unexpected deployment files without deleting them', async () => {
   const target = await mkdtemp(join(tmpdir(), 'jumping-asset-sync-'))
   try {
-    await mkdir(join(target, 'campaign')); await mkdir(join(target, 'examples'))
-    await writeFile(join(target, 'index.json'), JSON.stringify({ version: 1, campaign: ['00-old.json'], examples: ['01-old.json'], playground: 'playground.json', levels: ['00-json-test-lab.json', '99-removed.json'] }))
-    for (const name of ['campaign/00-old.json', 'examples/01-old.json', 'playground.json', '00-json-test-lab.json', '99-removed.json']) await writeFile(join(target, name), '{}')
+    await writeFile(join(target, 'index.json'), JSON.stringify({ version: 1, levels: ['99-removed.json'] }))
+    await writeFile(join(target, '99-removed.json'), '{}')
     await writeFile(join(target, 'notes.txt'), 'Keep this file')
-    execFileSync(process.execPath, ['scripts/jumping-levels.mjs', 'sync', target])
-    const files = (await readdir(target, { recursive: true })).filter(name => name.endsWith('.json')).sort()
-    assert.deepEqual(files, [...index.levels, 'index.json'].sort())
+    assert.throws(() => execFileSync(process.execPath, ['scripts/jumping-levels.mjs', 'sync', target], { stdio: 'pipe' }), /Unexpected level asset/)
     assert.equal(await readFile(join(target, 'notes.txt'), 'utf8'), 'Keep this file')
+    await rm(join(target, 'notes.txt'))
+    execFileSync(process.execPath, ['scripts/jumping-levels.mjs', 'sync', target])
+    assert.deepEqual((await readdir(target)).sort(), [...index.levels, 'index.json'].sort())
     assert.deepEqual(JSON.parse(await readFile(join(target, 'index.json'), 'utf8')), index)
   } finally { await rm(target, { recursive: true, force: true }) }
 })
@@ -252,7 +251,7 @@ test('write permission and disk failures are reported instead of claiming a succ
   const denied = { getFileHandle: async () => { throw new DOMException('Read only', 'NotAllowedError') } }
   await assert.rejects(writeLocalLevel(denied, '00-test.json', FIRST_LEVEL), /Read only/)
   let aborted = false
-  const broken = { getFileHandle: async name => { if (name === 'index.json') throw new DOMException('Missing', 'NotFoundError'); return ({ getFile: async () => new File(['original'], 'test.json'), createWritable: async () => ({ write: async () => { throw Error('Disk full') }, close: async () => {}, abort: async () => { aborted = true } }) }) } }
+  const broken = { async *values() {}, getFileHandle: async name => { if (name === 'index.json') throw new DOMException('Missing', 'NotFoundError'); return ({ getFile: async () => new File(['original'], 'test.json'), createWritable: async () => ({ write: async () => { throw Error('Disk full') }, close: async () => {}, abort: async () => { aborted = true } }) }) } }
   await assert.rejects(writeLocalLevel(broken, 'test.json', FIRST_LEVEL, 'original'), /Disk full/); assert.ok(aborted)
 })
 
@@ -284,7 +283,7 @@ test('unlisted local files follow the manifest in filename order and invalid man
 test('index generation preserves a promoted manifest and appends new assets without resetting its sequence', async () => {
   const target = await mkdtemp(join(tmpdir(), 'jumping-promoted-levels-'))
   try {
-    for (const name of ['z.json', 'a.json', 'new.json']) await writeFile(join(target, name), '{}')
+    for (const name of ['z.json', 'a.json', 'new.json']) await writeFile(join(target, name), JSON.stringify({ ...FIRST_LEVEL, id: name }))
     await writeFile(join(target, 'index.json'), JSON.stringify({ version: 1, order: 'listed', title: 'Shared collection', levels: ['z.json', 'gone.json', 'a.json'] }))
     execFileSync(process.execPath, ['scripts/jumping-levels.mjs', 'index', target])
     assert.deepEqual(JSON.parse(await readFile(join(target, 'index.json'), 'utf8')), { version: 1, order: 'listed', title: 'Shared collection', levels: ['z.json', 'a.json', 'new.json'] })
@@ -478,4 +477,67 @@ test('empty recycle bin removes only confirmed unchanged entries and keeps new o
   await emptyDeletedLevels(f.directory, remaining)
   assert.equal((await readDeletedLevels(f.directory)).deleted.length, 0)
   assert.equal(archive.contents.get('notes.txt'), 'Keep me')
+})
+
+function fillBudget(directory) {
+  const original = directory.values.bind(directory)
+  directory.values = async function* () {
+    yield* original()
+    for (let i = 0; i < 25; i++) yield { kind: 'file', name: `padding-${i}.json`, getFile: async () => ({ name: `padding-${i}.json`, size: 1_000_000,
+      text: async () => { throw new Error('Must reject using metadata before reading contents') } }) }
+  }
+}
+
+test('oversized collections cannot be loaded, saved, renamed, or given a manifest', async () => {
+  const original = JSON.stringify(FIRST_LEVEL), f = folder({ 'level.json': original })
+  fillBudget(f.directory)
+  await assert.rejects(readLocalLevelDirectory(f.directory), /25 MB/)
+  await assert.rejects(writeLocalLevel(f.directory, 'new.json', FIRST_LEVEL), /25 MB/)
+  await assert.rejects(writeLocalLevel(f.directory, 'renamed.json', FIRST_LEVEL, original, 'level.json'), /25 MB/)
+  await assert.rejects(writeLevelOrder(f.directory, [{ fileName: 'level.json' }]), /25 MB/)
+  assert.deepEqual(f.writes, [])
+  assert.deepEqual([...f.contents], [['level.json', original]])
+})
+
+test('directory enumeration stops at the file-count limit without reading level text', async () => {
+  let visited = 0, metadata = 0
+  const directory = { async *values() {
+    for (let i = 0; i < 1000; i++) {
+      visited++
+      yield { kind: 'file', name: `${i}.json`, getFile: async () => { metadata++; return { name: `${i}.json`, size: 10, text: async () => { throw Error('Must not read') } } } }
+    }
+  } }
+  await assert.rejects(readLocalLevelDirectory(directory), /500/)
+  assert.equal(visited, 501); assert.equal(metadata, 500)
+})
+
+test('edits and collisions during budget preflight cannot be overwritten by a save', async () => {
+  const source = JSON.stringify(FIRST_LEVEL)
+  for (const creating of [false, true]) {
+    const f = folder(creating ? {} : { 'level.json': source })
+    f.directory.values = async function* () {
+      f.contents.set('level.json', 'Concurrent edit')
+      yield { kind: 'file', name: 'level.json', getFile: async () => new File(['Concurrent edit'], 'level.json') }
+    }
+    await assert.rejects(writeLocalLevel(f.directory, 'level.json', FIRST_LEVEL, creating ? undefined : source), /already exists or changed/)
+    assert.equal(f.contents.get('level.json'), 'Concurrent edit')
+    assert.deepEqual(f.writes, [])
+  }
+})
+
+test('recycle-bin loads, deletes and restores enforce budgets without losing either copy', async () => {
+  const sourceText = JSON.stringify(FIRST_LEVEL), f = folder({ 'level.json': sourceText })
+  await deleteLocalLevel(f.directory, { fileName: 'level.json', level: FIRST_LEVEL, sourceText })
+  const entry = (await readDeletedLevels(f.directory)).deleted[0]
+  const archive = f.directories.get('Deleted levels').directories.get(entry.directoryName)
+  fillBudget(f.directory)
+  await assert.rejects(restoreDeletedLevel(f.directory, entry, 'level.json'), /25 MB/)
+  assert.equal(archive.contents.get('level.json'), sourceText)
+  assert.equal(f.contents.has('level.json'), false)
+  fillBudget(archive.directory)
+  await assert.rejects(readDeletedLevels(f.directory), /25 MB/)
+  f.contents.set('another.json', sourceText)
+  await assert.rejects(deleteLocalLevel(f.directory, { fileName: 'another.json', level: FIRST_LEVEL, sourceText }), /recycle bin.*25 MB/)
+  assert.equal(f.contents.get('another.json'), sourceText)
+  assert.equal(archive.contents.get('level.json'), sourceText)
 })

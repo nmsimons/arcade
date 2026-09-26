@@ -66,8 +66,10 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, angle: 0, facing: -1, phase: 'patrol', time: 0, hit: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), activeTime: 0, timeStopRemaining: 0,
     shoveCooldown: 0, elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, goalDepression: 0, medal: null }
-  prepareProps(run); syncPlatforms(run)
-  prepareRobots(run.platforms, run.robots)
+  if (!preview) {
+    prepareProps(run); syncPlatforms(run)
+    prepareRobots(run.platforms, run.robots)
+  }
   return run
 }
 function syncPlatforms(run: Run): ContactWorld {

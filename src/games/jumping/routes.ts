@@ -1,10 +1,11 @@
 export const JUMPING_MENU = '/untitled-jumping-game'
 export const JUMPING_BUILDER = `${JUMPING_MENU}/builder`
+export const JUMPING_BUILTIN_BUILDER = `${JUMPING_BUILDER}/built-in`
 export const JUMPING_PLAYTEST = `${JUMPING_BUILDER}/playtest`
 export type LevelSource = 'built-in' | 'local'
 type FileRoute = { source: LevelSource; fileName: string }
 export type JumpingRoute = { screen: 'menu' } | { screen: 'missing' } | { screen: 'playtest'; file?: FileRoute; draftId?: string }
-  | { screen: 'builder'; file?: FileRoute }
+  | { screen: 'builder'; file?: FileRoute; source?: LevelSource }
   | ({ screen: 'level' } & FileRoute)
 
 export function levelPath(source: LevelSource, fileName: string, edit = false) {
@@ -19,6 +20,7 @@ export function jumpingRoute(pathname: string): JumpingRoute {
   const path = pathname.replace(/\/$/, '')
   if (path === JUMPING_MENU) return { screen: 'menu' }
   if (path === JUMPING_BUILDER) return { screen: 'builder' }
+  if (path === JUMPING_BUILTIN_BUILDER) return { screen: 'builder', source: 'built-in' }
   if (path === JUMPING_PLAYTEST) return { screen: 'playtest' }
   const draft = path.match(/^\/untitled-jumping-game\/builder\/playtest\/([^/]+)$/)
   if (draft) {

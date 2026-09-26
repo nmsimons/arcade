@@ -1,19 +1,25 @@
 import { memo, useEffect, useRef } from 'react'
 import type { JumpLevel } from './level'
 import { isPuzzleLevel, levelHeight, levelPlayer, prepareLevelRopes } from './level'
-import { createRun, createPreviewRun } from './challenge'
+import { createPreviewRun } from './challenge'
 import { drawPuzzleWorld } from './challengeRender'
 import { drawAthlete, drawClimbables, drawLevelBackdrop, drawTerrain } from './render'
 
-/** Render a still using the same world drawing and initial placement as play. */
+/** Draw authored geometry only, and allocate canvas pixels only while visible. */
 export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = false }: { level: JumpLevel; preview?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const canvas = ref.current!, ctx = canvas.getContext('2d')!
-    const prepared = preview ? level : prepareLevelRopes(level)
-    const run = isPuzzleLevel(prepared) ? (preview ? createPreviewRun(prepared) : createRun(prepared)) : null
-    const player = run?.player ?? levelPlayer(prepared, preview)
+    let visible = false
+    let scene: ReturnType<typeof createScene> | undefined
+    const createScene = () => {
+      const prepared = preview ? level : prepareLevelRopes(level, true)
+      const run = isPuzzleLevel(prepared) ? createPreviewRun(prepared) : null
+      return { prepared, run, player: run?.player ?? levelPlayer(prepared, true) }
+    }
     const paint = () => {
+      if (!visible) return
+      const { prepared, run, player } = scene ??= createScene()
       const { width, height } = canvas.getBoundingClientRect()
       if (!width || !height) return
       const ratio = Math.min(window.devicePixelRatio || 1, 2), roomHeight = levelHeight(prepared)
@@ -30,8 +36,14 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = fa
         ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
       }
     }
-    const observer = new ResizeObserver(paint); observer.observe(canvas); paint()
-    return () => observer.disconnect()
+    const observer = new ResizeObserver(paint); observer.observe(canvas)
+    const visibility = new IntersectionObserver(entries => {
+      visible = entries[0].isIntersecting
+      if (visible) paint()
+      else { canvas.width = 1; canvas.height = 1; scene = undefined }
+    })
+    visibility.observe(canvas)
+    return () => { observer.disconnect(); visibility.disconnect() }
   }, [level, preview])
   return <canvas ref={ref} className="level-thumbnail" aria-hidden="true" />
 })

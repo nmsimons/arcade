@@ -613,8 +613,13 @@ change folders in Library. There is no separate file import or export flow.
 Save failures and filename conflicts leave the draft intact.
 Local and built-in collections share the same manifest format, so a folder of
 levels and its manifest can be shared or promoted to built-in assets unchanged.
+On localhost in `npm run dev`, built-ins have the same editing and Library controls
+as local files. Saves write directly to `public/levels/jumping` for Git to track;
+built-in recovery copies stay in the ignored `.local/jumping-recycle-bin` folder.
+The development editor can reopen unfinished maps, while publishing still validates
+every built-in. Deployed builds keep built-ins read-only.
 Built-in files are fetched at runtime and use the manifest’s ordering. Reload the page
-to pick up changes. Run `npm run levels:index` after adding, removing or renaming
+to pick up changes (or use **Refresh** in the dev editor). Run `npm run levels:index` after adding, removing or renaming
 assets; the command preserves any custom sequence. Existing-file edits need no index change. `npm run levels:sync` copies the
 JSON assets into an existing `dist` without recompiling the app. `npm run levels:check`
 validates them without a build. See `docs/jumping-levels.md` for the full workflow.
@@ -634,7 +639,7 @@ directly in the regression tests. Install the locked dependencies:
 npm ci
 ```
 
-Start the dev server:
+Start development mode with live updates and developer tools:
 
 ```bash
 npm run dev
@@ -642,12 +647,28 @@ npm run dev
 
 Vite will print the local URL (typically http://localhost:5173).
 
+To test the customer experience locally, start production mode in another terminal:
+
+```bash
+npm run prod
+```
+
+This type-checks and builds the app, validates built-in levels, and serves `dist/`
+(typically http://localhost:4173). Developer tools and built-in level editing are
+disabled; local level folders and the normal level builder remain available.
+Restart `npm run prod` after changing code or built-in levels to rebuild the preview.
+
+Both modes can run at the same time. Their different ports keep browser saves,
+preferences, and remembered folder connections separate. Use the URL printed by
+each server if its default port is already occupied.
+
 ## Scripts
 
 ```bash
-npm run dev      # Start dev server
+npm run dev      # Live development, including developer tools and built-in editing
+npm run prod     # Build fresh, then run the production app locally
 npm run build    # Type-check + production build to dist/
-npm run preview  # Preview the production build locally
+npm run preview  # Serve the existing dist/ without rebuilding
 npm run lint     # Run ESLint
 npm test         # Mechanics, full sessions, geometry, progression, and save tests
 npm run test:browser # Production routes/recovery/controls + development panel

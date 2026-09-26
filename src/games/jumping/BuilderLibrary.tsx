@@ -7,14 +7,18 @@ import { LocalFolderPanel } from './LocalFolderPanel'
 import { LevelThumbnail } from './LevelThumbnail'
 import { DeleteLevelButton, DeleteLevelDialog, MissingLevelNotice } from './LevelFileActions'
 import { RecycleBin } from './RecycleBin'
+import type { LevelSource } from './routes'
 
-export type LibraryChoice = { kind: 'new' } | { kind: 'open' | 'template'; file: LevelFile }
+export type LibraryChoice = ({ kind: 'new' } | { kind: 'open' | 'template'; file: LevelFile }) & { source?: LevelSource }
 
-export function BuilderLibrary({ local, templates, fileName, level, dirty, saving, message, onSave, onChoose, onClose }: {
+export function BuilderLibrary({ local: editorStore, collections, templates, fileName, level, dirty, saving, message, onSave, onChoose, onClose }: {
   local: LocalLevels; templates: LevelFile[]; fileName: string; level: JumpLevel
+  collections?: { local: LocalLevels; builtIn: LocalLevels }
   dirty: boolean; saving: boolean; message: string
   onSave: () => Promise<LevelFile | undefined>; onChoose: (choice: LibraryChoice) => void; onClose: () => void
 }) {
+  const [source, setSource] = useState<LevelSource>(editorStore.repository ? 'built-in' : 'local')
+  const local = collections ? source === 'built-in' ? collections.builtIn : collections.local : editorStore
   const dialog = useRef<HTMLDialogElement>(null), cancel = useRef<HTMLButtonElement>(null), close = useRef<HTMLButtonElement>(null)
   const [deleted, setDeleted] = useState<MissingLevelFile | null>(null), [binOpen, setBinOpen] = useState(false)
   const deleting = useRef(false)
@@ -30,8 +34,9 @@ export function BuilderLibrary({ local, templates, fileName, level, dirty, savin
   }, [])
   useLayoutEffect(() => { (pending ? cancel : close).current?.focus() }, [pending])
   function choose(choice: LibraryChoice) {
-    if (dirty) setPending(choice)
-    else onChoose(choice)
+    const target = { ...choice, source }
+    if (dirty) setPending(target)
+    else onChoose(target)
   }
   async function deleteFile(file: LevelFile) {
     if (deleting.current || local.busy) return
@@ -95,28 +100,33 @@ export function BuilderLibrary({ local, templates, fileName, level, dirty, savin
     {binOpen ? <RecycleBin local={local} /> : pending ? <div className="builder-library-confirm">
       <h3>Save your changes?</h3>
       <p>“{level.name}” has unsaved changes. {pending.kind === 'new' ? 'Creating a new level' : pending.kind === 'open' ? `Opening “${pending.file.level.name}”` : `Using “${pending.file.level.name}” as a template`} will replace this draft.</p>
-      {!local.canWrite && <p>Cancel and choose a writable folder in the library to save this draft first.</p>}
+      {!editorStore.canWrite && <p>Cancel and choose a writable folder in the library to save this draft first.</p>}
       {message && <p className="builder-library-message" role="status">{message}</p>}
       <div className="builder-library-confirm-actions">
         <button ref={cancel} disabled={saving} onClick={() => setPending(null)}>Cancel</button>
         <button className="builder-delete" disabled={saving || local.busy} onClick={() => onChoose(pending)}>Discard changes</button>
-        <button className="builder-play" disabled={saving || local.busy || !local.canWrite} aria-busy={saving} onClick={async () => {
+        <button className="builder-play" disabled={saving || editorStore.busy || !editorStore.canWrite} aria-busy={saving} onClick={async () => {
           const saved = await onSave()
-          if (saved) onChoose(pending.kind === 'open' && pending.file.level.id === saved.level.id ? { ...pending, file: saved } : pending)
+          if (saved) onChoose(pending.kind === 'open' && local.repository === editorStore.repository && pending.file.level.id === saved.level.id ? { ...pending, file: saved } : pending)
         }}>Save and continue</button>
       </div>
     </div> : <>
-      <div className="builder-library-folder"><LocalFolderPanel local={local} />
+      <div className="builder-library-folder">
+        {collections && <div className="jumping-collection-tabs" role="group" aria-label="Library source">
+          <button aria-pressed={source === 'built-in'} disabled={saving || local.busy || orderSaving} onClick={() => setSource('built-in')}>Built-in levels</button>
+          <button aria-pressed={source === 'local'} disabled={saving || local.busy || orderSaving} onClick={() => setSource('local')}>Local folder</button>
+        </div>}
+        <LocalFolderPanel local={local} />
         {message && <p className="builder-library-message" role="status">{message}</p>}
         {orderMessage && <p className="builder-library-description" role="status">{orderMessage}</p>}
         {orderError && <p className="builder-library-message" role="alert">{orderError}</p>}
       </div>
       <div className="builder-library-content">
-        <div className="builder-local-heading"><h3>Local levels</h3>
+        <div className="builder-local-heading"><h3>{local.repository ? 'Built-in levels' : 'Local levels'}</h3>
           {local.entries.length > 0 && <button disabled={!local.canWrite || local.busy || orderSaving || local.manifest?.order !== 'listed'} onClick={() => void saveOrder([...local.entries].sort((a, b) => compareFileNames(a.fileName, b.fileName)), 'filename')}>Sort by filename</button>}
         </div>
         <p className="builder-library-description" id="library-order-help">Open a level to edit it, or use it as a template.{local.entries.length > 1 && (local.canWrite ? ' Drag to reorder, or focus a level and use Alt + Arrow keys. Order saves automatically.' : ' Enable saving to reorder levels.')}</p>
-        {local.entries.length ? <div ref={grid} className="builder-local-files" role="group" aria-label="Local level files" aria-describedby="library-order-help"
+        {local.entries.length ? <div ref={grid} className="builder-local-files" role="group" aria-label={local.repository ? 'Built-in level files' : 'Local level files'} aria-describedby="library-order-help"
           onDragOver={event => {
             if (!dragging.current || !canReorder) return
             event.preventDefault(); event.dataTransfer.dropEffect = 'move'
@@ -144,7 +154,7 @@ export function BuilderLibrary({ local, templates, fileName, level, dirty, savin
             <MissingLevelNotice fileName={file.fileName} />
             <DeleteLevelButton fileName={file.fileName} disabled={local.busy || !local.canWrite} primary onClick={() => setDeleted(file)} />
           </> : <>
-          <button className="builder-file-preview" disabled={local.busy} aria-label={`Open ${file.fileName}`} aria-pressed={fileName === file.fileName && level.id === file.level.id}
+          <button className="builder-file-preview" disabled={local.busy} aria-label={`Open ${file.fileName}`} aria-pressed={local.repository === editorStore.repository && fileName === file.fileName && level.id === file.level.id}
             aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown"
             onClick={() => choose({ kind: 'open', file })}>
             <LevelThumbnail level={file.level} /><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small></span>

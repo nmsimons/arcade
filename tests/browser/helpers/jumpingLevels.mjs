@@ -1,6 +1,12 @@
 /** Gameplay regression maps are test fixtures, never deployed built-in levels. */
 export async function useLevelFixtures(page, levels) {
   const files = levels.map((level, i) => ({ fileName: `${String(i).padStart(2, '0')}-fixture.json`, level }))
+  // Development has a writable catalog endpoint in addition to public assets.
+  await page.route('**/__arcade/jumping-levels', route => {
+    if (route.request().method() !== 'POST' || route.request().postDataJSON()?.method !== 'read') return route.continue()
+    const manifest = { version: 1, levels: files.map(file => file.fileName) }
+    return route.fulfill({ json: { files: files.map(file => ({ ...file, sourceText: JSON.stringify(file.level) })), missing: [], errors: [], manifest, manifestSource: JSON.stringify(manifest) } })
+  })
   await page.route('**/levels/jumping/*.json', route => {
     const fileName = decodeURIComponent(route.request().url().split('/').at(-1))
     if (fileName === 'index.json') return route.fulfill({ json: { version: 1, levels: files.map(file => file.fileName) } })

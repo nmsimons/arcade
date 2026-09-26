@@ -413,6 +413,7 @@ test('Library is modal, preserves canceled edits, and saves before replacing the
   await expect(page.getByRole('alertdialog')).toHaveCount(0)
   // Returning to the saved state via Undo is clean.
   await page.getByRole('spinbutton', { name: 'Level width', exact: true }).fill('3000')
+  await page.getByRole('spinbutton', { name: 'Level width', exact: true }).press('Enter')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await library.click()
   await page.getByRole('button', { name: 'Use 00-first.json as template', exact: true }).click()

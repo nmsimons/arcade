@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "id": "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
+  "name": "Untitled",
+  "width": 1800,
+  "height": 920,
+  "platforms": [],
+  "spawn": {
+    "x": 160,
+    "y": 920
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "description": "",
+  "floor": 920,
+  "goal": {
+    "x": 1620,
+    "y": 920
+  },
+  "times": {
+    "gold": 10,
+    "silver": 20,
+    "bronze": 40
+  },
+  "props": [
+    {
+      "kind": "box",
+      "x": 860,
+      "y": 920,
+      "size": 200
+    }
+  ],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": []
+}

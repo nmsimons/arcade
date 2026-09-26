@@ -13,6 +13,7 @@ import type { LocalLevels } from './localLevels'
 import { copyForEditing } from './puzzleEditor'
 import { createPreviewRun } from './challenge'
 import { useRopePreview } from './useRopePreview'
+import { prepareLevelInWorker } from './levelPreparation'
 import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
@@ -20,6 +21,7 @@ import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
 import { BuilderLibrary } from './BuilderLibrary'
 import type { LibraryChoice } from './BuilderLibrary'
+import type { LevelSource } from './routes'
 import { isHorizontalGate, mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import './builder.css'
 
@@ -82,10 +84,11 @@ const selectionLabel = (s: Selection, level: JumpLevel) => {
 }
 
 
-export function LevelBuilder({ active, onPlay, onClose, templates, local, initialFile, onFileChange }: {
+export function LevelBuilder({ active, onPlay, onClose, templates, local, collections, initialFile, onFileChange }: {
   active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
   templates: LevelFile[]; local: LocalLevels; initialFile?: LevelFile
-  onFileChange: (fileName?: string) => void
+  collections?: { local: LocalLevels; builtIn: LocalLevels }
+  onFileChange: (fileName?: string, source?: LevelSource) => void
 }) {
   const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial(), true) }))
   const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
@@ -94,12 +97,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
   const [saved, setSaved] = useState<{ level: string | null; fileName: string }>({ level: editSignature(initial.level), fileName })
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
-  const level = useRopePreview(preview ?? history.present, preview !== null)
+  const { level, busy: preparingRopes } = useRopePreview(preview ?? history.present, preview !== null)
   const previewRun = useMemo(() => isPuzzleLevel(level) ? createPreviewRun(level) : null, [level])
   const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level, true), [level, previewRun])
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false), savePending = useRef(false)
+  const savePreparation = useRef<AbortController | null>(null)
+  useEffect(() => () => savePreparation.current?.abort(), [])
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
   const [selectedNode, setSelectedNode] = useState<number | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
@@ -169,22 +174,23 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     setView(v => ({ ...v, y: v.y + dy }))
     setPointer(p => p && { ...p, y: p.y + dy })
   }
-  function load(next: JumpLevel, file?: LevelFile) {
+  function load(next: JumpLevel, file?: LevelFile, source: LevelSource = local.repository ? 'built-in' : 'local') {
     next = prepareLevelRopes(copyLevel(next), true)
     const name = file?.fileName ?? levelFileName(next.name)
     suggestFileName.current = !file
-    setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName, folderId: local.folderId })
+    const target = collections ? source === 'built-in' ? collections.builtIn : collections.local : local
+    setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName, folderId: target.folderId })
     setHistory({ past: [], present: next, future: [] })
     setSaved({ level: editSignature(next), fileName: name })
     setPreview(null); latestPreview.current = null; drag.current = null
     chooseSelection(null); setTool('select'); setView(homeView(next, size.height)); setMessage('')
-    onFileChange(file?.fileName)
+    onFileChange(file?.fileName, source)
   }
   function chooseLibraryItem(choice: LibraryChoice) {
-    if (choice.kind === 'template') chooseTemplate(choice.file.level)
+    if (choice.kind === 'template') chooseTemplate(choice.file.level, choice.source)
     else {
       const next = choice.kind === 'open' ? choice.file.level : blankTrial()
-      load(next, choice.kind === 'open' ? choice.file : undefined)
+      load(next, choice.kind === 'open' ? choice.file : undefined, choice.source)
       if (choice.kind === 'open') fitLevel(next)
     }
     setLibraryOpen(false)
@@ -215,7 +221,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     }
     savePending.current = true; setSaving(true)
     try {
-      const next = parseLevel(prepareLevelRopes(level))
+      const controller = new AbortController(); savePreparation.current = controller
+      const next = parseLevel((await prepareLevelInWorker(level, { signal: controller.signal })).level)
       const name = suggestFileName.current ? levelFileName(next.name) : fileName
       const ownsFile = fileSource.folderId === local.folderId && fileSource.text !== undefined
       const previousName = ownsFile ? fileSource.fileName! : name
@@ -231,7 +238,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       if (testAfter) onPlay(copyLevel(next))
       return { fileName: name, level: next, sourceText: source }
     } catch (error) { setMessage(`Could not save: ${(error as Error).message}`); return undefined }
-    finally { savePending.current = false; setSaving(false) }
+    finally { savePreparation.current = null; savePending.current = false; setSaving(false) }
   }
   useEffect(() => {
     if (!active || !canvasRef.current) return
@@ -408,9 +415,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
     const z = Math.min(size.width / (next.width + 120), size.height / (levelHeight(next) + 120))
     setView({ x: -60, y: -60, zoom: clamp(z, .08, 2.5) })
   }
-  function chooseTemplate(template: JumpLevel) {
+  function chooseTemplate(template: JumpLevel, source?: LevelSource) {
     const next = copyForEditing(template)
-    load(next); fitLevel(next); setSaved({ level: null, fileName: levelFileName(next.name) })
+    load(next, undefined, source); fitLevel(next); setSaved({ level: null, fileName: levelFileName(next.name) })
     setMessage(`Created a new level from “${template.name}”. Its file will be created when you save.`)
     requestAnimationFrame(() => canvasRef.current?.focus())
   }
@@ -480,7 +487,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
         <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" onClick={() => zoom(1.25)}>+</button></div>
         <div className="builder-control-group" role="group" aria-label="Canvas view"><button onClick={() => fitLevel()}>Fit level</button><button onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
       </div>
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" aria-busy={level.climbables.ropes.some(r => r.rest?.key.startsWith('preview:'))} style={{ cursor: drag.current?.mode === 'pan' ? 'grabbing' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-describedby="builder-help" aria-busy={preparingRopes} style={{ cursor: drag.current?.mode === 'pan' ? 'grabbing' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onWheel={e => { if (e.ctrlKey || e.metaKey) { const r = e.currentTarget.getBoundingClientRect(); zoom(Math.exp(-e.deltaY * .003), { x: e.clientX - r.left, y: e.clientY - r.top }) } else setView(v => ({ ...v, x: v.x + (e.shiftKey ? e.deltaY : e.deltaX) / v.zoom, y: v.y + (e.shiftKey ? 0 : e.deltaY) / v.zoom })) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>OVERVIEW</span></button>
@@ -571,7 +578,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, initia
       <p className="builder-shortcuts">V Select · H / Space Pan<br />⌘ / Ctrl D Duplicate · Z Undo<br />Arrow keys Move · Delete Remove</p>
     </aside>
     <footer className="builder-status"><span role="status" aria-label="Builder status">{message || (dirty ? 'Unsaved changes · Save to your level folder to keep them.' : 'Levels are saved as JSON files in your level folder.')}</span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '0, 0 = bottom left'}</output> · Scroll to pan · Ctrl + scroll to zoom</span></footer>
-    {active && libraryOpen && <BuilderLibrary local={local} templates={templates} fileName={fileName} level={level} dirty={dirty} saving={saving}
+    {active && libraryOpen && <BuilderLibrary local={local} collections={collections} templates={templates} fileName={fileName} level={level} dirty={dirty} saving={saving}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}
   </section>
 }

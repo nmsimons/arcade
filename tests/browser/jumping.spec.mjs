@@ -86,8 +86,8 @@ async function expectCentered(page) {
 }
 async function enter(page) {
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  await page.clock.runFor(64)
   await expect(page.locator('canvas')).toBeFocused()
+  await page.clock.runFor(64)
 }
 
 for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} keeps grip above 45 degrees and releases it for a jump`, async ({ page }, info) => {
@@ -198,7 +198,8 @@ for (const trial of [false, true]) test(`${trial ? 'trial' : 'playground'} camer
   }, bottom)
   for (const viewport of [{ width: 1280, height: 800 }, { width: 640, height: 480 }]) {
     await page.setViewportSize(viewport); await page.clock.runFor(64)
-    expect(await floorPadding()).toBeCloseTo(32, 3)
+    // ResizeObserver uses browser layout timing, independently of the fake game clock.
+    await expect.poll(floorPadding).toBeCloseTo(32, 3)
     expect((await page.evaluate(() => window.jumpScreen)).y).toBeGreaterThan(.85)
     expect((await position(page)).y).toBeCloseTo(bottom, 3)
   }

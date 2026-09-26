@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/folderTest.mjs'
-import { writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIRST_LEVEL as first, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
@@ -11,6 +11,12 @@ async function open(page) {
   await expect(page.getByRole('button', { name: 'Level builder', exact: true })).toBeVisible()
 }
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
+
+test('production preview does not expose the built-in file API', async ({ request }) => {
+  const read = await request.get('/__arcade/jumping-levels')
+  const write = await request.post('/__arcade/jumping-levels', { data: { method: 'read', args: [] } })
+  for (const response of [read, write]) expect(response.headers()['content-type'] ?? '').not.toContain('application/json')
+})
 
 test('an empty catalog hides built-ins and the builder ignores browser copies and drafts', async ({ page }, info) => {
   await useLevelFixtures(page, [])
@@ -80,6 +86,10 @@ test('built-in JSON changes and newly indexed files load without changing the ap
 })
 
 test('a missing index reports the failure and page reload recovers without a compiled fallback map', async ({ page }, info) => {
+  const root = new URL('../../public/levels/jumping/', import.meta.url)
+  const manifest = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
+  const files = manifest.order === 'listed' ? manifest.levels : [...manifest.levels].sort()
+  const builtIns = await Promise.all(files.map(async name => JSON.parse(await readFile(new URL(name, root), 'utf8'))))
   let failing = true
   await page.route('**/levels/jumping/index.json', route => failing ? route.fulfill({ status: 503, body: 'Unavailable' }) : route.continue())
   await open(page)
@@ -89,16 +99,16 @@ test('a missing index reports the failure and page reload recovers without a com
   failing = false
   await page.reload()
   await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('button', { name: 'Level 1: First Leap', exact: true })).toBeVisible()
-  expect(await names(page)).toEqual(['First Leap', 'Second Leap'])
+  await expect(page.getByRole('button', { name: `Level 1: ${builtIns[0].name}`, exact: true })).toBeVisible()
+  expect(await names(page)).toEqual(builtIns.map(level => level.name))
   await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
   await expect(page.getByRole('alert')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('built-in-levels.png') })
-  await page.getByRole('button', { name: 'Level 1: First Leap', exact: true }).click()
-  await expect(page.getByRole('img', { name: 'First Leap: activate the goal' })).toBeFocused()
-  await page.goto('/untitled-jumping-game')
-  await page.getByRole('button', { name: 'Level 2: Second Leap', exact: true }).click()
-  await expect(page.getByRole('img', { name: 'Second Leap: activate the goal' })).toBeFocused()
+  for (const [index, level] of builtIns.slice(0, 2).entries()) {
+    await page.getByRole('button', { name: `Level ${index + 1}: ${level.name}`, exact: true }).click()
+    await expect(page.getByRole('img', { name: `${level.name}: activate the goal` })).toBeFocused()
+    await page.goto('/untitled-jumping-game')
+  }
 })
 
 test('local folder fallback loads real JSON files in filename order and reloads external edits', async ({ page }, info) => {

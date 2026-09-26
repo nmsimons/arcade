@@ -39,7 +39,11 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
   if (lesson) await page.getByRole('button', { name: `Level ${lesson + 1}:`, exact: false }).focus()
 }
 const position = page => page.evaluate(() => window.levelPlayer)
-async function enter(page) { await page.locator('.jumping-level-card[aria-pressed=true]').click(); await page.clock.runFor(64) }
+async function enter(page) {
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas[role="img"]')).toBeFocused()
+  await page.clock.runFor(64)
+}
 async function launch(page) {
   await page.keyboard.down('d'); await page.keyboard.down('Space')
   for (let i = 0; i < 150 && (await position(page)).x < 533; i++) await page.clock.runFor(16)

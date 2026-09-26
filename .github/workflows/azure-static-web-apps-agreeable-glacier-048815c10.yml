@@ -10,11 +10,11 @@ on:
       - main
 
 jobs:
-  build_and_deploy_job:
+  validate:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
-    name: Validate and deploy
-    timeout-minutes: 20
+    name: Validate and build
+    timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: write
@@ -36,18 +36,64 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Retain validated build
+        uses: actions/upload-artifact@v7
+        with:
+          name: validated-site
+          path: dist/
+          retention-days: 1
+          if-no-files-found: error
+
+  browser:
+    needs: validate
+    runs-on: ubuntu-latest
+    name: Browser checks (${{ matrix.shard }}/3)
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v7
+        with:
+          name: validated-site
+          path: dist/
       - name: Install browser
         run: npx playwright install --with-deps chromium
       - name: Test browser routes, recovery and controls
-        run: npm run test:browser
+        run: npm run test:browser -- --shard=${{ matrix.shard }}/3 --reporter=line
       - name: Retain browser failure diagnostics
-        if: failure()
+        if: failure() || cancelled()
         uses: actions/upload-artifact@v7
         with:
-          name: browser-failures
+          name: browser-failures-${{ matrix.shard }}
           path: test-results/
           retention-days: 7
           if-no-files-found: ignore
+
+  deploy:
+    needs: [validate, browser]
+    if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+    runs-on: ubuntu-latest
+    name: Deploy validated site
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        with:
+          name: validated-site
+          path: dist/
       - name: Deploy validated build
         if: github.event_name == 'push' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
         id: builddeploy

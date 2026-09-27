@@ -105,6 +105,49 @@ export function prepareRobots(platforms: readonly Platform[], robots: RobotState
   }
 }
 
+/** A moving support can leave a wheel in the air even when the motor is idle.
+ * Re-seat locally at the current x; the drive query still refuses cliff edges. */
+export function settleRobot(platforms: readonly Platform[], robot: RobotState, dt: number, player?: Player) {
+  const centerY = robot.y - RADIUS, dx = HALF_AXLE * Math.cos(robot.angle), dy = HALF_AXLE * Math.sin(robot.angle)
+  if (wheelHeight(platforms, robot.x - dx, centerY - dy, .1) !== null
+    && wheelHeight(platforms, robot.x + dx, centerY + dy, .1) !== null) return
+  const reach = HALF_AXLE * 2 + 2
+  const target = robotSupport(platforms, robot.x, robot.y, robot.angle, reach)
+  // Settling cannot climb onto a higher object or invent support over a drop.
+  if (!target || target.y < robot.y - .01) return
+  const angle = robot.angle + Math.max(-2 * dt, Math.min(2 * dt, target.angle - robot.angle))
+  const nextDx = HALF_AXLE * Math.cos(angle), nextDy = HALF_AXLE * Math.sin(angle)
+  const left = wheelHeight(platforms, robot.x - nextDx, centerY - nextDy, reach)
+  const right = wheelHeight(platforms, robot.x + nextDx, centerY + nextDy, reach)
+  if (left === null || right === null) return
+  // The higher contact constrains the chassis while the other wheel lowers.
+  const y = Math.min(left + nextDy, right - nextDy) + RADIUS
+  if (y < robot.y - .01) return
+  const next = { ...robot, y: Math.min(y, robot.y + 130 * dt), angle }
+  if (robotTouchesProps(next, platforms)) return
+  placeRobot(platforms, robot, next, player)
+}
+
+function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x: number; y: number; angle: number }, player?: Player) {
+  if (player) {
+    const contactBody = playerContactBody(player), { height } = contactBody
+    const hulls = robotPlatforms({ ...robot, ...next })
+    // Only the moving bot can initiate this correction. A distant bot
+    // must not resolve a ledge animation against the ordinary upright hull
+    // and transport its grip away from the actual corner.
+    if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height))) {
+      if (player.hang || player.mantle || player.climbing) return false
+      const obstacles = [...platforms, ...hulls]
+      // A pinned player blocks the bot; neither actor can pass through a wall.
+      const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height)
+      if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height))) return false
+      translatePlayer(player, safe.x - player.x, safe.y - player.y)
+    }
+  }
+  robot.x = next.x; robot.y = next.y; robot.angle = next.angle
+  return true
+}
+
 export function moveRobot(platforms: readonly Platform[], robot: RobotState, destination: number, props: readonly Platform[] = [], player?: Player, footing?: Platform) {
   const distance = destination - robot.x, steps = Math.max(1, Math.ceil(Math.abs(distance) / 2)), dx = distance / steps
   for (let i = 0; i < steps; i++) {
@@ -114,22 +157,7 @@ export function moveRobot(platforms: readonly Platform[], robot: RobotState, des
     if (!next) return false
     const pose = { ...robot, ...next }
     if (robotTouchesProps(pose, props)) return false
-    if (player) {
-      const contactBody = playerContactBody(player), { height } = contactBody
-      const hulls = robotPlatforms(pose)
-      // Only the advancing bot can initiate this correction. A distant bot
-      // must not resolve a ledge animation against the ordinary upright hull
-      // and transport its grip away from the actual corner.
-      if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height))) {
-        if (player.hang || player.mantle || player.climbing) return false
-        const obstacles = [...platforms, ...hulls]
-        // A pinned player blocks the bot; neither actor can pass through a wall.
-        const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height)
-        if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height))) return false
-        translatePlayer(player, safe.x - player.x, safe.y - player.y)
-      }
-    }
-    Object.assign(robot, next)
+    if (!placeRobot(platforms, robot, next, player)) return false
   }
   return true
 }

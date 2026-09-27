@@ -353,26 +353,38 @@ function contactTranslation(body: Matter.Body, hits: Matter.Collision[]) {
   return best
 }
 
-/** Try a kinematic lift step against the same hulls used by prop physics.
+/** Try a mechanism step against the same hulls used by prop physics.
  * Nothing is committed until the entire contact chain has room to separate. */
-export function planLiftPropMotion(run: Run, index: number, next: Platform, passengers: readonly Prop[], riding: boolean, support: Prop | undefined, dt: number, boarding = false) {
+export function planMechanismMotion(run: Run, index: number, next: Platform, passengers: readonly Prop[], riding: boolean, support: Prop | undefined, dt: number, boarding = false) {
   const m = run.mechanisms[index], dx = next.x - m.x, dy = next.y - m.y
   const shapes = run.mechanisms.map((other, i) => i === index ? next : mechanismShape(other))
   const fixed = [...worldFor(run).terrain, ...shapes.flatMap(s => terrainBodies(s, run))]
   const bodies = new Map(run.props.map(prop => {
     const body = makeProp(prop)
     if (passengers.includes(prop)) Body.translate(body, { x: dx, y: dy })
-    if (prop.kind !== 'ball') Body.setStatic(body, true)
+    // Carried objects can be stripped off by an obstacle. Uncarried boxes
+    // remain obstructions; balls retain their existing rolling response.
+    if (prop.kind !== 'ball' && !passengers.includes(prop)) Body.setStatic(body, true)
     return [prop, body] as const
   }))
-  const balls = [...bodies].filter(([prop]) => prop.kind === 'ball')
+  const movable = [...bodies].filter(([, body]) => !body.isStatic)
   const p = run.player, height = p.crouching ? TUNING.crouchHeight : TUNING.height
+  const propShapes = () => run.props.filter(prop => prop !== support).map(prop => {
+    const body = bodies.get(prop)!, moved = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2 }
+    return prop.kind === 'ball' ? ballShape(moved) : boxShape(moved)
+  })
   const playerPosition = () => {
+    let position = { x: p.x + (riding ? dx : 0), y: boarding ? Math.min(p.y, next.y) : p.y + (riding ? dy : 0) }
     if (support) {
       const body = bodies.get(support)!
-      return { x: p.x + body.position.x - support.x, y: p.y + body.position.y - support.y + support.size / 2 }
+      position = { x: p.x + body.position.x - support.x, y: p.y + body.position.y - support.y + support.size / 2 }
     }
-    return { x: p.x + (riding ? dx : 0), y: boarding ? Math.min(p.y, next.y) : p.y + (riding ? dy : 0) }
+    if (!riding && !boarding && !support) return position
+    // Carry is a requested motion, not a rigid attachment. Clip it against
+    // obstacles, then check the actual mechanism contact below. A wall can
+    // leave the rider behind; a ceiling/platform squeeze must still reject.
+    return moveBody([p.x, p.y], [position.x, position.y],
+      [...run.terrain, ...shapes.filter((_, i) => i !== index), ...propShapes()], height)
   }
   const vertices = bodyPolygon(p.x, p.y, height).map(([x, y]) => ({ x, y }))
   const playerHull = Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
@@ -381,7 +393,7 @@ export function planLiftPropMotion(run: Run, index: number, next: Platform, pass
     const position = playerPosition()
     Body.setPosition(playerHull, { x: playerCenter.x + position.x - p.x, y: playerCenter.y + position.y - p.y })
   }
-  const candidates = new Map(balls.map(([prop, body]) => [body,
+  const candidates = new Map(movable.map(([prop, body]) => [body,
     [...fixed, ...[...bodies.values()].filter(other => other !== body), ...(prop === support ? [] : [playerHull])]]))
   // Limit the ball's contact-driven speed. The lift can shorten its stroke
   // instead of launching a ball when it meets a nearly horizontal tangent.
@@ -389,7 +401,7 @@ export function planLiftPropMotion(run: Run, index: number, next: Platform, pass
   for (let pass = 0; pass < 96; pass++) {
     let corrected = false
     updatePlayer()
-    for (const [prop, body] of balls) {
+    for (const [prop, body] of movable) {
       const hits = Query.collides(body, candidates.get(body)!)
       const fixedHits = hits.filter(hit => hit.bodyA.isStatic || hit.bodyB.isStatic)
       if (fixedHits.some(hit => hit.depth > .001)) {
@@ -410,18 +422,15 @@ export function planLiftPropMotion(run: Run, index: number, next: Platform, pass
     if (!corrected) break
   }
   updatePlayer()
-  // Include carried boxes and the rider in the final clearance check. An
-  // impossible squeeze rejects the trial instead of leaking through a wall.
+  // Every final hull must fit, including the rider against its own support.
+  // An impossible squeeze rejects the trial instead of leaking through a wall.
   for (const [prop, body] of bodies) {
     const obstacles = candidates.get(body) ?? [...fixed, ...[...bodies.values()].filter(other => other !== body), ...(prop === support ? [] : [playerHull])]
     if (Query.collides(body, obstacles).some(hit => hit.depth > .002)) return null
   }
-  const position = playerPosition(), barriers = [...run.terrain, ...shapes,
-    ...run.props.filter(prop => prop !== support).map(prop => {
-      const body = bodies.get(prop)!, moved = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2 }
-      return prop.kind === 'ball' ? ballShape(moved) : boxShape(moved)
-    })]
+  if (Query.collides(playerHull, [...fixed, ...bodies.values()]).some(hit => hit.depth > .002)) return null
+  const position = playerPosition(), barriers = [...run.terrain, ...shapes, ...propShapes()]
   const safe = moveBody([p.x, p.y], [position.x, position.y], barriers, height)
   if (Math.hypot(safe.x - position.x, safe.y - position.y) > .01) return null
-  return { player: position, balls: balls.map(([prop, body]) => ({ prop, x: body.position.x, y: body.position.y + prop.size / 2 })) }
+  return { player: position, props: movable.map(([prop, body]) => ({ prop, x: body.position.x, y: body.position.y + prop.size / 2 })) }
 }

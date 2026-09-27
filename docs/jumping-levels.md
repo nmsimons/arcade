@@ -4,6 +4,9 @@ All authored levels are JSON assets. The app fetches them at runtime; neither ma
 nor the level list are imported into its JavaScript bundle. The builder creates
 empty documents, and the engine receives the selected level as data.
 
+For route design, teaching, wall guidance, puzzles, and playtesting, see
+[Making a fun jumping level](jumping-level-design.md).
+
 ## Built-in levels
 
 The asset folder is `public/levels/jumping/` in the repository and `levels/jumping/`
@@ -299,7 +302,7 @@ trimmed, and empty names are omitted. Mechanism connections still use their stab
 IDs, so renaming an elevator or gate does not change its connections.
 
 Optional `timers: [{ "x": 80, "y": 1220 }, ...]` places up to 40 wall displays.
-Each point is the top-left of a 192 × 52 display in file coordinates. The entire
+Each point is the top-left of a 200 × 60 display in file coordinates. The entire
 display must fit inside the room. **Back wall → Wall timer** places one in the
 builder; select it to move, duplicate, or delete it. Inspector Y measures its top
 above the floor, and increasing level height preserves that height. Terrain edits

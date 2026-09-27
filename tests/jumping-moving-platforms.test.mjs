@@ -123,20 +123,41 @@ for (const flipX of [false, true]) {
     assert.ok(trace(run, 12).some(t => t.x === far))
   })
 
-  for (const passenger of ['player', 'box']) test(`moving ${label} protects a ${passenger} from an overhanging obstacle`, () => {
-    const level = fixture(flipX), obstacle = { x: flipX ? 1040 : 520, y: 600, w: 20, h: 80 }
+  for (const passenger of ['player', 'box', 'ball']) for (const dt of [STEP, 1 / 60]) test(`moving ${label} slides under an obstructed ${passenger} without shortening its trip (${1 / dt} Hz)`, () => {
+    const level = fixture(flipX), obstacle = { x: flipX ? 920 : 650, y: 600, w: 20, h: 80 }
     level.platforms = [obstacle]
     if (passenger === 'player') {
       level.spawn = { x: 780, y: 700 }
       level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }]
-    } else level.props = [{ kind: 'box', x: 780, y: 700, size: 60 }]
+    } else level.props = [{ kind: passenger, x: 780, y: 700, size: 60 }]
     const run = start(level), rider = passenger === 'player' ? run.player : run.props[0]
+    let leftBehind = false, fell = false
     const turns = trace(run, 24, m => {
-      assert.ok(Math.abs(rider.x - m.x - 80) < .2)
-      if (passenger === 'box') assert.equal(polygonIntersects(polygonPoints(boxShape(rider)), obstacle, .01), false)
-    })
-    assert.ok(turns.filter(t => t.wait === 3 && direction * (t.x - far) < 0).length >= 2, 'rider shortens the trip')
+      leftBehind ||= Math.abs(rider.x - m.x - 80) > 40
+      fell ||= rider.y > 780
+      if (passenger !== 'player') {
+        const shape = passenger === 'box' ? boxShape(rider) : ballShape(rider)
+        for (const solid of [...run.terrain, mechanismShape(m)]) assert.equal(polygonIntersects(polygonPoints(shape), solid, .03), false)
+      }
+    }, dt)
+    assert.ok(leftBehind && fell, 'the obstruction strips the passenger off the moving platform')
+    assert.ok(turns.filter(t => t.x === far && t.wait === 3).length >= 2, 'a blocked passenger does not shorten travel')
     assert.ok(turns.filter(t => t.x === 700 && t.wait === 2).length >= 2)
+  })
+
+  test(`moving ${label} leaves a blocked player behind while carrying their supporting crate onward`, () => {
+    const level = fixture(flipX)
+    level.spawn = { x: 780, y: 640 }
+    level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }, { kind: 'box', x: 780, y: 700, size: 60 }]
+    level.platforms = [{ x: flipX ? 920 : 650, y: 540, w: 20, h: 80 }]
+    const run = start(level), box = run.props[1]
+    let dismounted = false
+    const turns = trace(run, 12, m => {
+      assert.ok(Math.abs(box.x - m.x - 80) < .2, 'clear cargo keeps riding')
+      dismounted ||= run.player.y > 660 && Math.abs(run.player.x - box.x) > 40
+    })
+    assert.ok(dismounted, 'a blocked player is not rigidly attached to their crate')
+    assert.ok(turns.some(t => t.x === far) && turns.some(t => t.x === 700))
   })
 }
 

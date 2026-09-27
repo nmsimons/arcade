@@ -4,13 +4,13 @@ import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes, triggerTargets } from './level.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
-import { moveRobot, prepareRobots, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesProps } from './robotPhysics.ts'
+import { moveRobot, prepareRobots, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { GOAL_PLATE_WIDTH, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
-import { planLiftPropMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
+import { planMechanismMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { playerContacts, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld, PlayerCollider, PlayerContacts } from './playerContacts.ts'
@@ -93,6 +93,10 @@ function syncPlatforms(run: Run): ContactWorld {
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b, p.crouching ? TUNING.crouchHeight : TUNING.height)
+const contactShift = (correction: number, carry: number) => {
+  const travel = correction + carry
+  return travel - Math.max(Math.min(0, carry), Math.min(Math.max(0, carry), travel))
+}
 function reverseLift(m: MechanismState) {
   m.wait = m.direction < 0 ? 3 : 2
   m.direction *= -1
@@ -115,14 +119,8 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     if (m.safetyHold != null && m.x === open.x && m.y === open.y) {
       // After reversing, wait for the whole closing path to clear. A small pause
       // gives the player time to step out instead of trapping them on each retry.
-      const path = mechanismSweep(def), dx = def.x - m.x, dy = def.y - m.y
-      const carry = rider ? moveBody([p.x, p.y], [p.x + dx, p.y + dy], obstacles, p.crouching ? TUNING.crouchHeight : TUNING.height) : null
-      let occupied = bodyOverlap(p, path) || run.props.some(b => !passengers.includes(b) && polygonIntersects(polygonPoints(b.kind === 'box' ? boxShape(b) : ballShape(b)), path, .01))
-        || !!carry && Math.hypot(carry.x - p.x - dx, carry.y - p.y - dy) > .01
-      // Sample passenger travel as well as its destination so a carried box
-      // cannot repeatedly run into a wall halfway through the closing stroke.
-      const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 8))
-      for (let i = 1; !occupied && passengers.length && i <= steps; i++) occupied = passengerBlocked(dx * i / steps, dy * i / steps)
+      const path = mechanismSweep(def)
+      const occupied = bodyOverlap(p, path) || run.props.some(b => polygonIntersects(polygonPoints(b.kind === 'box' ? boxShape(b) : ballShape(b)), path, .01))
       m.safetyHold = occupied ? 0 : m.safetyHold + dt
       if (m.safetyHold >= .6) m.safetyHold = null
     }
@@ -141,21 +139,21 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const terrainBlocked = liftHull && solids.some(s => x < s.x + s.w && x + def.w > s.x && y < s.y + s.h && y + def.h > s.y
       && polygonIntersects(liftHull, s, .01))
     // A rising top can meet airborne feet between player steps. Board it just
-    // like a landing; only side/underside contact or a blocked carry ends a trip.
+    // like a landing; side/underside contact can still obstruct the mechanism.
     const boarding = def.kind === 'lift' && !rider && dy < 0 && p.y <= m.y + .01 && bodyOverlap(p, nextShape)
-    const playerBlocked = rider || boarding
-      ? obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, boarding ? y - p.y : dy))
-      : bodyOverlap(p, nextShape)
-    const propsBlocked = run.props.some(b => !passengers.includes(b) && propBlocksMechanism(b, before, nextShape)) || passengerBlocked(dx, dy)
-    let motion = !terrainBlocked && !playerBlocked && propsBlocked && def.kind === 'lift'
-      ? planLiftPropMotion(run, index, nextShape, passengers, !!rider, support?.prop, dt, boarding) : null
+    const cargoBlocked = passengerBlocked(dx, dy)
+    const carryBlocked = (rider || boarding) && obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, boarding ? y - p.y : dy)) || cargoBlocked
+    const playerBlocked = !rider && !boarding && bodyOverlap(p, nextShape)
+    const propsBlocked = run.props.some(b => !passengers.includes(b) && propBlocksMechanism(b, before, nextShape))
+    const needsMotion = !terrainBlocked && !playerBlocked && (carryBlocked || propsBlocked) && (def.kind === 'lift' || !propsBlocked)
+    let motion = needsMotion ? planMechanismMotion(run, index, nextShape, passengers, !!rider, support?.prop, dt, boarding) : null
     // Near the crown of a ball, a short downward step needs much more rolling
     // travel. Shorten that step before declaring a genuinely blocked lift.
-    if (!terrainBlocked && !playerBlocked && propsBlocked && def.kind === 'lift' && !motion) for (let part = 2; part <= 32; part *= 2) {
-      motion = planLiftPropMotion(run, index, { ...nextShape, x: m.x + dx / part, y: m.y + dy / part }, passengers, !!rider, support?.prop, dt, boarding)
+    if (needsMotion && (propsBlocked || cargoBlocked) && def.kind === 'lift' && !motion) for (let part = 2; part <= 32; part *= 2) {
+      motion = planMechanismMotion(run, index, { ...nextShape, x: m.x + dx / part, y: m.y + dy / part }, passengers, !!rider, support?.prop, dt, boarding)
       if (motion) { dx /= part; dy /= part; x = m.x + dx; y = m.y + dy; break }
     }
-    const blocked = terrainBlocked || playerBlocked || propsBlocked && !motion
+    const blocked = terrainBlocked || playerBlocked || (carryBlocked || propsBlocked) && !motion
     if (blocked) {
       if (def.kind === 'gate' && !opening) m.safetyHold = 0
       // An obstruction is this trip's endpoint, not a permanent shortened path.
@@ -168,13 +166,17 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     else if (rider) translatePlayer(p, dx, dy)
     else if (boarding) translatePlayer(p, dx, Math.min(0, y - p.y))
     for (const b of passengers) { b.x += dx; b.y += dy }
-    for (const moved of motion?.balls ?? []) {
+    for (const moved of motion?.props ?? []) {
       const b = moved.prop, shiftX = moved.x - b.x, shiftY = moved.y - b.y
-      b.x = moved.x; b.y = moved.y; b.angle += shiftX / (b.size / 2)
+      b.x = moved.x; b.y = moved.y
+      if (b.kind === 'ball') b.angle += shiftX / (b.size / 2)
       // Preserve existing momentum, adding only the velocity needed to yield
-      // to the platform. A failed trial never imparts a force or a displacement.
-      if (Math.abs(shiftX) > .001 && b.vx * Math.sign(shiftX) < Math.abs(shiftX) / dt) b.vx = shiftX / dt
-      if (Math.abs(shiftY) > .001 && b.vy * Math.sign(shiftY) < Math.abs(shiftY) / dt) b.vy = shiftY / dt
+      // to actual contact. Clipping carried travel against a wall must not
+      // invent a backward kick. Failed trials never impart any motion.
+      const carried = passengers.includes(b)
+      const contactX = contactShift(shiftX, carried ? dx : 0), contactY = contactShift(shiftY, carried ? dy : 0)
+      if (Math.abs(contactX) > .001 && b.vx * Math.sign(contactX) < Math.abs(contactX) / dt) b.vx = contactX / dt
+      if (Math.abs(contactY) > .001 && b.vy * Math.sign(contactY) < Math.abs(contactY) / dt) b.vy = contactY / dt
     }
     if (x === target.x && y === target.y && def.kind === 'lift') reverseLift(m)
   }
@@ -212,6 +214,7 @@ function stepRobots(run: Run, dt: number, world: ContactWorld) {
   const p = run.player
   const oldX = p.x
   for (const r of run.robots) {
+    settleRobot(run.platforms, r, dt, p)
     const bounds = r.definition, gap = p.x - r.x
     // Reuse the current collision shapes and publish this result for rendering.
     const seesPlayer = r.seesPlayer = robotSensesPlayer(r, p, robotSightObstacles(world, r))

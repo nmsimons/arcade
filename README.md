@@ -625,7 +625,9 @@ Built-in files are fetched at runtime and use the manifest’s ordering. Reload 
 to pick up changes (or use **Refresh** in the dev editor). Run `npm run levels:index` after adding, removing or renaming
 assets; the command preserves any custom sequence. Existing-file edits need no index change. `npm run levels:sync` copies the
 JSON assets into an existing `dist` without recompiling the app. `npm run levels:check`
-validates them without a build. See `docs/jumping-levels.md` for the full workflow.
+validates them without a build. See [jumping level files](docs/jumping-levels.md)
+for the full workflow and [Making a fun jumping level](docs/jumping-level-design.md)
+for the level-design brief.
 
 Level validation lives in `src/games/jumping/level.ts`, asset loading in
 `levelAssets.ts`, puzzle simulation in `challenge.ts`, and editing operations in

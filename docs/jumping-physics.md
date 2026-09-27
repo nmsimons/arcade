@@ -28,15 +28,24 @@ The normal settling behavior resumes when the player releases contact.
 
 Mechanisms share position and travel geometry for both axes. A closing
 gate reverses when blocked, completes its opening stroke, and waits for its full
-closing path to clear for 0.6 seconds. The check includes transported players and
-props, so a rider cannot be pinned against terrain by a closing gate.
+closing path to clear for 0.6 seconds. Safety clearance checks the gate's actual
+swept volume, rather than the travel requested for its passengers.
+
+Carrying is requested movement, not a rigid attachment. When a player, box, or
+ball on a mechanism meets an obstacle, resolve the passenger against that
+obstacle and let the mechanism continue if its own next position fits. Horizontal
+gates and platforms can slide out from under blocked passengers; descending
+mechanisms can leave cargo on a receiving ledge. A player riding a carried crate
+can also be left behind while the crate continues. Clipping a carry does not add
+an artificial backward velocity.
 
 Elevators first try to displace a contacted ball using the prop solver's collision
 hulls. Floor, platform and wall normals are solved together, so a ball can roll
-along a surface or push neighboring balls out of the way. Carried props and the
-player's swept movement must also remain clear. Trial positions are committed
-only when the complete contact chain fits; blocked trials impart no motion or
-momentum. Near the crown of a ball, the elevator takes a shorter step to keep its
+along a surface or push neighboring balls out of the way. Carried boxes use that
+same contact solver, and the player's carry is swept against the available space.
+Trial positions are committed only when every final hull fits. A passenger
+trapped between the mechanism and terrain still blocks it; blocked trials impart
+no motion or momentum. Near the crown of a ball, the elevator takes a shorter step to keep its
 contact-driven speed bounded. A flat contact with no sideways normal does not
 invent a rolling direction.
 If terrain, another mechanism, a player or a trapped prop prevents further
@@ -45,6 +54,14 @@ uses its normal endpoint pause and reverses, continuing to cycle in the availabl
 space. Each trip retries the full configured travel, so removing an obstruction
 automatically restores the original range. Releasing its pressure plate still
 pauses both travel and endpoint waiting.
+
+Shovebots recheck their current wheel support independently of driving. When a
+prop moves out from under a wheel, the chassis settles toward the available
+support with bounded tilt and downward motion, including during idle recovery.
+Settling checks the complete hull and uses the same player displacement rules as
+driving. The drive query retains its short support reach and cliff avoidance;
+EMP pauses both driving and settling. Regression coverage lives in
+`tests/jumping-robot-settling.test.mjs`.
 
 ## Step order
 
@@ -59,8 +76,8 @@ pauses both travel and endpoint waiting.
    Update the pushing blend, gait and footwork exactly once, from that result.
 6. Evaluate pickups, pressure plates and goal completion at the final positions.
 
-Lighting the goal only locks scoring and opens the exit. Entering the back-wall
-door starts a short authored movement, followed by the same contact/animation
+Lighting the goal opens the exit. Entering the back-wall door locks scoring and
+starts a short authored movement, followed by the same contact/animation
 finalization as normal movement. Its approach is swept against nearby objects;
 entry never requires reaching a center point blocked by a prop. The result dialog
 waits until this exit finishes.

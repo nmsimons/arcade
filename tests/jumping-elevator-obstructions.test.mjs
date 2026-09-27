@@ -151,3 +151,21 @@ test('a completely blocked lift keeps retrying even when already at its configur
   run.terrain = run.terrain.filter(s => s !== level.platforms[0])
   assert.ok(trace(run, 12).some(t => t.y === 600), 'clearing space cannot leave the lift stuck at the opposite endpoint')
 })
+
+for (const kind of ['lift', 'gate']) for (const dt of [STEP, 1 / 60]) test(`a descending ${kind} leaves a carried crate on a receiving ledge (${1 / dt} Hz)`, () => {
+  const level = fixture()
+  level.mechanisms = [{ id: 'carrier', kind, x: kind === 'lift' ? 700 : 770, y: 700,
+    w: kind === 'lift' ? 160 : 20, h: kind === 'lift' ? 20 : 200, travel: 200 }]
+  level.triggers = kind === 'lift' ? [{ mode: 'touch', x: 50, y: 920, w: 100, targets: ['carrier'] }] : []
+  level.platforms = [{ x: 600, y: 600, w: 100, h: 320 }, { x: 860, y: 600, w: 100, h: 320 }]
+  level.props = [{ kind: 'box', x: 780, y: 500, size: 200 }]
+  const run = start(level, 500, 1), m = run.mechanisms[0], box = run.props[0]
+  for (let i = 0; i < Math.round(3.4 / dt); i++) {
+    stepRun(run, NEUTRAL_INPUT, dt)
+    for (const solid of [...run.terrain, mechanismShape(m)]) assert.equal(polygonIntersects(polygonPoints(boxShape(box)), solid, .03), false)
+    assert.equal(m.safetyHold, null, 'unloading is not a safety obstruction')
+  }
+  assert.equal(m.y, 700, 'the mechanism completes its downward travel')
+  assert.ok(Math.abs(box.y - 600) < .01, 'the receiving ledge takes over support')
+  assert.ok(Math.abs(box.x - 780) < .01)
+})

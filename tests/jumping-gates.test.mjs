@@ -2,12 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
+import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { addItem, duplicateItem, hitItem, itemOutline, moveItem, resizeItem } from '../src/games/jumping/editor.ts'
-import { bodyIntersects } from '../src/games/jumping/geometry.ts'
+import { bodyIntersects, polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { mechanismOpenPosition, mechanismShape } from '../src/games/jumping/mechanisms.ts'
+import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 
-const advance = (run, frames) => { for (let i = 0; i < frames; i++) stepRun(run, NEUTRAL_INPUT) }
+const advance = (run, frames, dt = STEP) => { for (let i = 0; i < frames; i++) stepRun(run, NEUTRAL_INPUT, dt) }
 const fixture = flipX => {
   const level = blankTrial(); level.spawn.x = 340
   level.mechanisms = [{ id: 'gate', kind: 'gate', orientation: 'horizontal', flipX, x: 700, y: 780, w: 180, h: 20, travel: 500 }]
@@ -139,10 +140,10 @@ for (const flipX of [false, true]) {
     assert.equal(gate.x, 700 + direction * 180)
   })
 
-  for (const passenger of ['player', 'box']) test(`horizontal gate ${flipX ? 'right' : 'left'} reverses before pinning its ${passenger} rider into a wall`, () => {
+  for (const passenger of ['player', 'box', 'ball']) for (const dt of [STEP, 1 / 60]) test(`horizontal gate ${flipX ? 'right' : 'left'} closes beneath its obstructed ${passenger} rider (${1 / dt} Hz)`, () => {
     const level = fixture(flipX)
     level.platforms = [{ x: flipX ? 730 : 820, y: 600, w: 30, h: 180 }]
-    if (passenger === 'box') level.props = [{ kind: 'box', x: 1200, y: 920, size: 40 }]
+    if (passenger !== 'player') level.props = [{ kind: passenger, x: 1200, y: 920, size: 40 }]
     const run = createRun(level), gate = run.mechanisms[0], p = run.player; run.started = true
     advance(run, 240)
     const offset = passenger === 'player' ? flipX ? 10 : 170 : flipX ? 50 : 130
@@ -151,13 +152,17 @@ for (const flipX of [false, true]) {
     else Object.assign(run.props[0], { x: gate.x + offset, y: gate.y })
     let reversed = false
     for (let i = 0; i < 600; i++) {
-      advance(run, 1)
+      advance(run, 1, dt)
       reversed ||= gate.safetyHold !== null
       if (passenger === 'player') assert.equal(bodyIntersects(p.x, p.y, level.platforms[0]), false)
+      else {
+        const shape = passenger === 'box' ? boxShape(run.props[0]) : ballShape(run.props[0])
+        for (const solid of [...run.terrain, mechanismShape(gate)]) assert.equal(polygonIntersects(polygonPoints(shape), solid, .03), false)
+      }
     }
-    assert.ok(reversed)
-    assert.equal(gate.x, 700 + direction * 180)
-    assert.equal(gate.safetyHold, 0, 'do not repeat a closing stroke that would pin the rider again')
+    assert.equal(reversed, false, 'a blocked carry does not trigger gate safety reversal')
+    assert.equal(gate.x, 700)
+    assert.equal(gate.safetyHold, null)
   })
 }
 

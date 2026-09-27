@@ -162,7 +162,7 @@ for (const flipX of [false, true]) {
 }
 
 test('mechanism import rejects invalid orientations and flips', () => {
-  for (const change of [m => { m.orientation = 'diagonal' }, m => { m.flipX = 'yes' }, m => { m.kind = 'lift' }]) {
+  for (const change of [m => { m.orientation = 'diagonal' }, m => { m.flipX = 'yes' }, m => { delete m.orientation }]) {
     const level = fixture(false); change(level.mechanisms[0])
     assert.throws(() => parseLevel(level))
   }

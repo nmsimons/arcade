@@ -19,7 +19,8 @@ async function open(page) {
       return rect.apply(this, args)
     }
     proto.fill = function (...args) {
-      if (this.fillStyle === '#ba8542') this.canvas.pickupScales?.push(this.getTransform().a / this.canvas.worldZoom)
+      // Measure the fixed watch face, independently of its rotating hand.
+      if (this.fillStyle === '#ba8542' && args[1] === 'evenodd') this.canvas.pickupScales?.push(this.getTransform().a / this.canvas.worldZoom)
       return fill.apply(this, args)
     }
     proto.fillText = function (value, ...args) {
@@ -41,7 +42,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.clock.runFor(64)
-  expect((await state(page)).scales).toEqual([1, 1, 1, 1])
+  expect((await state(page)).scales).toEqual([1, 1])
   expect((await state(page)).times).toEqual(['0:00.00', '0:00.00'])
   await page.screenshot({ path: info.outputPath('stopwatches-ready.png') })
   await page.keyboard.down('d')
@@ -58,7 +59,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   expect((await state(page)).scales[0]).toBeLessThan(.6)
   await page.screenshot({ path: info.outputPath('stopwatch-shrink.png') })
   await page.clock.runFor(250)
-  expect((await state(page)).scales).toEqual([1, 1])
+  expect((await state(page)).scales).toEqual([1])
   expect((await state(page)).times).toEqual(pulse.times)
   await page.clock.runFor(8000)
   expect((await state(page)).times).toEqual(pulse.times)
@@ -67,7 +68,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   expect((await state(page)).stopped).toBe(false)
   expect((await state(page)).times[0]).not.toBe(pulse.times[0])
   await restartFromPause(page); await page.clock.runFor(64)
-  expect((await state(page)).scales).toEqual([1, 1, 1, 1])
+  expect((await state(page)).scales).toEqual([1, 1])
   expect((await state(page)).times).toEqual(['0:00.00', '0:00.00'])
   await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()

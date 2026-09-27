@@ -1,8 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, newLevel, levelProblems, parseLevel } from '../src/games/jumping/level.ts'
-import { addItem, deleteItem, duplicateItem, hitItem, moveItem, resizeItem, resizeLevelHeight } from '../src/games/jumping/editor.ts'
-import { wallTextLines } from '../src/games/jumping/wallText.ts'
+import { addItem, deleteItem, duplicateItem, hitItem, itemOutline, moveItem, resizeItem, resizeLevelHeight, setWallTextRotation } from '../src/games/jumping/editor.ts'
+import { wallTextBounds, wallTextLines, wallTextPoint } from '../src/games/jumping/wallText.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
@@ -55,7 +55,60 @@ test('wall text imports are bounded, and old files do not acquire a text field',
   for (const value of [null, 12, Array(81).fill(valid), ...[
     { text: 2 }, { text: 'a'.repeat(1001) }, { fontSize: 97 }, { fontSize: 0 }, { align: 'bottom' },
     { x: -1 }, { y: 900 }, { w: 2001 }, { h: 0 }, { fontSize: NaN },
+    { style: 'url(https://example.com/font)' }, { style: 1 }, { rotation: '30' }, { rotation: NaN }, { rotation: 181 }, { rotation: -181 },
   ].map(patch => [{ ...valid, ...patch }])]) assert.throws(() => parseLevel({ ...legacy, texts: value }))
+})
+
+for (const rotation of [-180, -90, -25, 0, 30, 90, 180]) test(`wall text at ${rotation} degrees selects, moves, resizes and round-trips in both styles`, () => {
+  for (const style of ['official', 'graffiti']) {
+    const added = addItem(blankTrial(), 'text', { x: 400, y: 350 }, { x: 720, y: 470 })
+    let level = setWallTextRotation(added.level, 0, rotation)
+    const text = level.texts[0], selection = added.selection
+    text.style = style
+    const inside = wallTextPoint(text, 8, 8), outside = wallTextPoint(text, -5, -5)
+    assert.deepEqual(hitItem(level, inside.x, inside.y, 0), selection)
+    assert.notDeepEqual(hitItem(level, outside.x, outside.y, 0), selection)
+    assert.deepEqual(itemOutline(level, selection), wallTextBounds(text))
+    const fixed = wallTextPoint(text, 0, 0)
+    level = resizeItem(level, selection, 380, 160, 'bottom-right')
+    const after = wallTextPoint(level.texts[0], 0, 0)
+    assert.ok(Math.hypot(after.x - fixed.x, after.y - fixed.y) < 1e-6, 'the opposite corner stays planted')
+    const copy = duplicateItem(level, selection)
+    assert.equal(copy.level.texts[1].style, style); assert.equal(copy.level.texts[1].rotation, rotation)
+    for (const direction of [-1, 1]) {
+      const moved = moveItem(level, selection, direction * 50000, direction * 50000)
+      assert.deepEqual(levelProblems(moved), [])
+      assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(moved))), moved)
+      const b = wallTextBounds(moved.texts[0])
+      assert.ok(b.x >= -.001 && b.y >= -.001 && b.x + b.w <= moved.width + .001 && b.y + b.h <= moved.height + .001)
+    }
+    const taller = resizeLevelHeight(level, 1300)
+    assert.equal(taller.texts[0].rotation, rotation)
+    assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(taller))), taller)
+  }
+})
+
+test('rotating a large text area fits it inside the room and height reduction respects the rotated top', () => {
+  const added = addItem(blankTrial(), 'text', { x: 0, y: 0 }, { x: 1600, y: 800 })
+  for (const rotation of [45, 90, -90]) {
+    const level = setWallTextRotation(added.level, 0, rotation)
+    assert.deepEqual(levelProblems(level), [])
+    assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))), level)
+    const shorter = resizeLevelHeight(level, 400)
+    assert.deepEqual(levelProblems(shorter), [])
+  }
+})
+
+test('a long vertical text area fits a narrow room and stays valid when the ceiling is lowered', () => {
+  const source = { ...blankTrial(), width: 800, height: 2200, floor: 2200, spawn: { x: 160, y: 2200 }, goal: { x: 640, y: 2200 } }
+  const added = addItem(source, 'text', { x: 200, y: 1000 }, { x: 400, y: 1060 })
+  let level = setWallTextRotation(added.level, 0, 90)
+  level = resizeItem(level, added.selection, 1800, 120)
+  assert.equal(level.texts[0].w, 1800, 'local text width follows the tall dimension after rotation')
+  assert.deepEqual(parseLevel(level), level)
+  level = resizeLevelHeight(level, 1900)
+  assert.deepEqual(parseLevel(level), level)
+  assert.deepEqual(levelProblems(level), [])
 })
 
 test('wall text wraps words, long words and Unicode without losing explicit blank lines', () => {

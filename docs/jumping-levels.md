@@ -234,7 +234,7 @@ a place to add chapter metadata later; chapter navigation is not implemented yet
 
 Menu tiles, builder templates and the overview all use the
 game's world renderer for their static previews. They include props, shovebots,
-pressure plates, both gate orientations, elevators, ropes, ladders, timers, text,
+pressure plates, both gate orientations, elevators, moving platforms, ropes, ladders, timers, text,
 pickups and goal exits in their starting state.
 
 The level menu is `/untitled-jumping-game`, playing a saved level uses
@@ -306,13 +306,13 @@ above the floor, and increasing level height preserves that height. Terrain edit
 do not move these wall objects.
 
 Every display shows the same elapsed time: zero before the first movement, paused
-with the game, latched when the goal light turns on, and zero again on restart.
+with the game, latched when the player enters the exit, and zero again on restart.
 Displays are drawn behind terrain and actors and have no collision. Their size
 and position follow the world camera. There is no visible HUD clock; levels
 without `timers` simply have no wall display. Older files may omit the array.
 
 Optional `pickups: [{ "kind": "stopwatch", "x": 260, "y": 1360 }, ...]` places
-up to 80 pickups (stopwatches and coins combined) in a timed trial. Coordinates mark the center of the watch
+up to 80 pickups (all kinds combined) in a timed trial. Coordinates mark the center of the watch
 face; its bounds extend 24 units left/right, 32 above, and 20 below and must fit
 inside the room. Choose **Collectibles → Stopwatch** in the builder to place one,
 then move, duplicate, delete, or undo it like other objects. Inspector X/Y use
@@ -329,8 +329,62 @@ while stopped. Medals and saved best times use the displayed time.
 Pausing the game also pauses the remaining effect and pickup animation. A watch
 collected at the start keeps its full duration until the first movement starts
 the run. Restarting restores every pickup, clears the effect, and resets the time
-to zero. Once the goal lights, the result is locked. Crates, balls, and pushers
+to zero. Entering the exit locks the result and ends collection. Crates, balls, and pushers
 cannot collect pickups, and pickups do not obstruct movement.
+
+**Collectibles → Time bonus** places a counterclockwise arrow with a number inside.
+Set **Seconds off** to an integer from 1 to 9 (default 5). The JSON shape is
+`{ "kind": "time-bonus", "seconds": 5, "x": 260, "y": 1360 }`.
+Player contact immediately subtracts that many elapsed seconds, stopping at zero;
+any unused seconds are discarded. It does not start or extend a stopwatch pause.
+The item has the same placement bounds, pulse-and-shrink animation, and collection
+sound as a stopwatch. The displayed number follows the configured value in the
+editor, previews, and gameplay. Restarting restores it.
+
+**Collectibles → Time penalty** is the dark-red opposite of a time bonus: its
+arrow points and rotates clockwise, and contact adds the numbered seconds to
+the clock. Set **Seconds added** from 1 to 9 (default 5). Its JSON shape is
+`{ "kind": "time-penalty", "seconds": 5, "x": 420, "y": 1360 }`.
+The number lifts directly from the icon as a fading `+5` while the arrow pulses
+and shrinks. Penalties apply immediately even during a stopwatch freeze. Bonuses
+and penalties touched in the same step are combined before clamping to zero.
+
+**Collectibles → Fast stopwatch** uses the same dark-red color, with a hand
+sweeping clockwise once every 1.2 seconds, versus the normal watch's slower
+counterclockwise sweep every 8 seconds.
+Its JSON shape is `{ "kind": "fast-stopwatch", "x": 500, "y": 1360 }`.
+Contact makes the level clock run at **2× speed for 5 seconds** of gameplay;
+the player and world keep their normal speed. Wall timers turn red and show a
+fast-forward mark during the effect. Additional fast watches extend its duration
+by 5 seconds each, without increasing the multiplier. A normal stopwatch still
+freezes the clock; both durations count down during gameplay, including their
+overlap. Pausing the game pauses both effects. A fast watch collected before the
+run starts keeps its full duration until movement starts the run.
+
+Both harmful pickups share the existing collection bounds and pulse-and-shrink
+animation, with a lower collection chime. Only the player collects them. Restart
+restores them and clears their effects; entering the exit locks the score and
+ends collection. Medals and best times include all penalties.
+
+**Collectibles → EMP** places a solid gold lightning bolt. It spins about its
+vertical axis with the same thick edge and pace as a coin. Collection sends out
+a gold ring as the bolt pulses and shrinks away,
+with a soft power-down sound. Its JSON shape is
+`{ "kind": "emp", "x": 600, "y": 1360 }`. Coordinates mark the center;
+its placement bounds extend 24 units in each direction.
+
+Player contact cuts power to **all gates, elevators, moving platforms, switches, and shovebots for
+5 seconds**. Gates, elevators, moving platforms, and bots stop in place and resume from the same
+position and phase afterward. They remain solid; a disabled bot cannot shove.
+The exit plate, light, and door keep working. The clock, player, ropes, and loose
+objects continue normally. Clock collectibles do not change the outage duration.
+
+Coins still collect and fill every coin meter during the outage. A full meter
+stays gold until power returns, then switches on and turns green. An already
+activated coin switch stays latched through an EMP. Pressure plates cannot power
+anything during the outage; after restoration they respond to their current load.
+Extra EMPs add 5 seconds each. Pausing pauses the outage, a pickup collected before
+the run starts keeps its full duration, and restarting clears it.
 
 **Collectibles → Coin** places a plain gold disc with a thick edge that spins slowly, pulses and
 disappears on player contact, with a short chime. Coins use
@@ -375,7 +429,13 @@ preserved; words wrap at the area's width, and excess lines are clipped to its
 height. Font sizes range from 12 to 96 world units, text is limited to 1,000
 characters, and areas are 40–2,000 units wide and 24–1,200 units high, bounded by
 the level. Choose **Back wall → Wall text** in the builder, then edit content,
-font size, alignment, position, and dimensions in the inspector. Text can be
+font size, alignment, position, and dimensions in the inspector. **Style** selects
+clean **Official** lettering or muted-red **Graffiti** marker lettering. The
+graffiti font is bundled with the game and works offline. **Rotation (°)** turns
+the area around its center, from −180 to 180 degrees; positive values turn
+clockwise. The selection frame and resize handles rotate with it. In JSON,
+`style: "graffiti"` and `rotation: -12` are optional; omitted fields retain the
+original upright Official style. Rotated areas stay within the room. Text can be
 duplicated, deleted, undone, and copied through templates. It moves with the
 camera, sits behind terrain and actors, and never affects physics. Growing the
 level adds space above it. Older files may omit `texts`.
@@ -491,7 +551,17 @@ moving; a blocked climb retains the grip and allows retreat along the rope.
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
 The builder's **Objects** tools place balls, boxes, and shovebots on a surface.
 Select a ball or box to change its size, or a shovebot to set its patrol limits.
-The **Mechanisms** tools place elevators, vertical and horizontal gates, and pressure plates. Select a
+Shovebots are solid bodies on wheels, with no projecting arm or bumper. The
+player can stand, crouch, walk, and jump on their roof. Limited shoe traction
+keeps up with ordinary movement but allows a sudden charge to pull the bot out
+from under a rider. Departing preserves the player's earned momentum. Shovebots
+push the player through physical contact, with no proximity knockback or upward
+launch; a pinned player blocks the bot against a wall.
+Shovebots need a clear line from their eye to the player's body to pursue or
+charge. Terrain, boxes, balls, mechanisms, and other bots can provide cover;
+wall decorations and collectibles do not. Losing sight restores ordinary patrol
+and the calm eye color. Crouching behind low cover can hide the player.
+The **Mechanisms** tools place elevators, moving platforms, vertical and horizontal gates, and pressure plates. Select a
 plate and check one or more mechanisms in **Activates**; new plates connect to
 the nearest mechanism when possible. All support moving, duplication, undo/redo,
 playtesting, and portable level files.
@@ -508,16 +578,28 @@ right; the closed barrier stays in place. Releasing the
 plate closes it. Horizontal gates use `kind: "gate"`, `orientation: "horizontal"`,
 and optional `flipX: true` in level files. Their `travel` always equals their width.
 
-Elevators hang from a rope and anchor, with a horizontal platform fixed at 20
+Elevators have a horizontal platform fixed at 20
 units thick and an adjustable width. **Travel height** sets their vertical travel
 from 60 to 1200 units. Dragging the selected elevator's top anchor adjusts the
-same distance without moving the platform, and respects the Snap setting.
+same distance without moving the platform, and respects the Snap setting. The
+travel path and stop appear when selected in the builder.
 They make repeated trips between the starting
 position and the anchor while a connected plate is held, with a pause at each end.
 An obstruction becomes a temporary endpoint: the elevator pauses and reverses,
 cycling through the available space without crushing players or props. Clearing
 the obstruction lets it use its full travel again on the next trip.
 Releasing the plate pauses the elevator in place; pressing again resumes it.
+
+**Moving platform** is the horizontal version of the elevator, with the same
+speed, endpoint pauses, passenger carrying, obstruction handling, and EMP behavior.
+Click to place a platform that initially travels left, or drag from its starting
+position toward the desired destination to set direction and distance. It stays
+20 units thick; resizing its width does not change its travel. **Travel distance**
+sets a range of 60–1200 units, also adjustable by dragging the far stop on the
+canvas. **Flip horizontally** reverses travel without moving the starting platform.
+Level files use `kind: "lift"`, `orientation: "horizontal"`, and optional
+`flipX: true` for rightward travel. Omitting `orientation` keeps the vertical elevator.
+
 One plate can power several mechanisms simultaneously. Connections are saved as
 `targets: ["mechanism-id", "another-id"]`; legacy `target: "mechanism-id"`
 connections are still accepted. Deleting a mechanism removes only its connection

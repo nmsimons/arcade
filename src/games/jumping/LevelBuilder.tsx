@@ -17,6 +17,10 @@ import { prepareLevelInWorker } from './levelPreparation'
 import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
+import { setPickupSeconds, setWallTextRotation } from './editor'
+import { wallTextLocalPoint, wallTextPoint } from './wallText'
+import { useWallTextFont } from './useWallTextFont'
+import { pickupLabel } from './pickups'
 import { ObjectNameField } from './ObjectNameField'
 import { TerrainMaterialPicker } from './TerrainMaterialPicker'
 import { BuilderIcon } from './BuilderIcon'
@@ -58,9 +62,10 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     : mechanism ? mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? ['top', 'bottom'] : ['left', 'right']
     : trigger ? trigger.mode === 'coins' && trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
     : ['prop', 'text'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
-  return corners.map(corner => ({ corner,
+  const handles = corners.map(corner => ({ corner,
     x: bounds.x + (corner.endsWith('left') ? -8 / zoom : corner.endsWith('right') ? bounds.w + 8 / zoom : bounds.w / 2),
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
+  return selection.kind === 'text' ? handles.map(p => ({ ...p, ...wallTextPoint(level.texts![selection.index], p.x - bounds.x, p.y - bounds.y) })) : handles
 }
 type Drag = { mode: 'move' | 'resize' | 'travel' | 'point' | 'draw' | 'pan'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeHandle; inserted?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
@@ -73,19 +78,24 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click for a standard box, or drag to choose its size. Corner handles resize it.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Set its patrol limits in the inspector.' },
   { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate or coin switch to move it.' },
+  { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
-  { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose which elevators and gates it activates in the inspector. The player, boxes, and balls can hold it down.' },
-  { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a coin switch on the back wall. Choose horizontal or vertical orientation in the inspector. Its meter fills with collected coins; reaching Coins required activates its connected gates and elevators until restart.' },
+  { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose which elevators, moving platforms, and gates it activates in the inspector. The player, boxes, and balls can hold it down.' },
+  { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a coin switch on the back wall. Choose horizontal or vertical orientation in the inspector. Its meter fills with collected coins; reaching Coins required activates its connected mechanisms until restart.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
-  { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Edit the text, size, and alignment in the inspector. Text never blocks movement.' },
+  { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Choose Official or red Graffiti, and edit the text, size, alignment, and rotation in the inspector. Text never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
+  { id: 'time-bonus', group: 'Collectibles', label: 'Time bonus', help: 'Touch to remove time from the clock, down to zero. Set Seconds off from 1 to 9 in the inspector; the number appears inside the arrow.' },
+  { id: 'time-penalty', group: 'Collectibles', label: 'Time penalty', help: 'A dark-red clockwise arrow. Touching it adds its number to the clock. Set Seconds added from 1 to 9 in the inspector.' },
+  { id: 'fast-stopwatch', group: 'Collectibles', label: 'Fast stopwatch', help: 'A dark-red stopwatch. Touching it makes the clock run twice as fast for 5 seconds. Extra watches extend the effect.' },
+  { id: 'emp', group: 'Collectibles', label: 'EMP', help: 'A gold lightning bolt. Cuts power to gates, elevators, moving platforms, switches, and shovebots for 5 seconds. The exit keeps working.' },
 ]
 const defaultSelectionLabel = (s: Selection, level: JumpLevel) => {
   const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
-    : s.kind === 'pickup' ? level.pickups?.[s.index]?.kind === 'coin' ? 'Coin' : 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
+    : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
   return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 const selectionLabel = (s: Selection, level: JumpLevel) => {
@@ -99,6 +109,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   collections?: { local: LocalLevels; builtIn: LocalLevels }
   onFileChange: (fileName?: string, source?: LevelSource) => void
 }) {
+  const wallTextFontReady = useWallTextFont()
   const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial(), true) }))
   const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
   const suggestFileName = useRef(!initialFile)
@@ -159,6 +170,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const verticalCoinSwitch = trigger?.mode === 'coins' && trigger.orientation === 'vertical'
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
+  const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
   const quantize = useCallback((v: number) => snap ? Math.round(v / LEVEL_GRID_SIZE) * LEVEL_GRID_SIZE : Math.round(v), [snap])
   const quantizeY = useCallback((y: number) => roomHeight - quantize(roomHeight - y), [roomHeight, quantize])
   const hoveredNode = useMemo(() => tool === 'node' && pointer ? terrainVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom) : null,
@@ -306,7 +318,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (outline) {
       ctx.strokeStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
       const padding = (chosen ? 16 : 8) / view.zoom
-      ctx.strokeRect(outline.x - padding, outline.y - padding - (outline.h ? 0 : 62), Math.max(8, outline.w + padding * 2), Math.max(8, outline.h + padding * 2 + (outline.h ? 0 : 62)))
+      if (wallText) {
+        ctx.save(); ctx.translate(wallText.x + wallText.w / 2, wallText.y + wallText.h / 2); ctx.rotate((wallText.rotation ?? 0) * Math.PI / 180)
+        ctx.strokeRect(-wallText.w / 2 - padding, -wallText.h / 2 - padding, wallText.w + padding * 2, wallText.h + padding * 2); ctx.restore()
+      } else ctx.strokeRect(outline.x - padding, outline.y - padding - (outline.h ? 0 : 62), Math.max(8, outline.w + padding * 2), Math.max(8, outline.h + padding * 2 + (outline.h ? 0 : 62)))
       ctx.setLineDash([])
       for (const point of resizeHandles) {
         const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
@@ -332,7 +347,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
     }
     ctx.restore()
-  }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -399,11 +414,22 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       }
       if (d.mode === 'travel') {
         const elevator = d.base.mechanisms![d.selection.index]
-        next = setElevatorTravel(d.base, d.selection.index, elevator.y - qy(mechanismAnchor(elevator).y + dy))
+        const stop = mechanismOpenPosition(elevator)
+        // Snap the platform's edge, so changing its width cannot offset the travel grid.
+        const travel = elevator.orientation === 'horizontal'
+          ? (elevator.flipX ? 1 : -1) * (qx(stop.x + dx) - elevator.x)
+          : elevator.y - qy(stop.y + dy)
+        next = setElevatorTravel(d.base, d.selection.index, travel)
       }
       if (d.mode === 'resize') {
-        const width = d.corner === 'top' || d.corner === 'bottom' ? b.w : d.corner?.endsWith('left') ? b.x + b.w - qx(b.x + dx) : qx(b.x + b.w + dx) - b.x
-        const height = d.corner === 'left' || d.corner === 'right' ? b.h : d.corner?.startsWith('top') ? b.y + b.h - qy(b.y + dy) : qy(b.y + b.h + dy) - b.y
+        const text = d.selection.kind === 'text' ? d.base.texts![d.selection.index] : null
+        const start = text ? wallTextLocalPoint(text, d.start.x, d.start.y) : d.start
+        const end = text ? wallTextLocalPoint(text, p.x, p.y) : p
+        const localX = end.x - start.x, localY = end.y - start.y
+        const width = text ? qx(b.w + (d.corner?.endsWith('left') ? -localX : localX))
+          : d.corner === 'top' || d.corner === 'bottom' ? b.w : d.corner?.endsWith('left') ? b.x + b.w - qx(b.x + dx) : qx(b.x + b.w + dx) - b.x
+        const height = text ? qx(b.h + (d.corner?.startsWith('top') ? -localY : localY))
+          : d.corner === 'left' || d.corner === 'right' ? b.h : d.corner?.startsWith('top') ? b.y + b.h - qy(b.y + dy) : qy(b.y + b.h + dy) - b.y
         next = resizeItem(d.base, d.selection, Math.max(snap && !event.altKey ? LEVEL_GRID_SIZE : 1, width), Math.max(snap && !event.altKey ? LEVEL_GRID_SIZE : 1, height), d.corner)
       }
       if (d.mode === 'point') {
@@ -470,12 +496,16 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (selection.kind === 'mechanism' && field === 'travel') {
       commit(setElevatorTravel(history.present, selection.index, Number(value))); return
     }
+    if (selection.kind === 'text' && field === 'rotation') {
+      commit(setWallTextRotation(history.present, selection.index, Number(value))); return
+    }
     const next = copyLevel(history.present)
     if (selection.kind === 'text') {
       const text = next.texts![selection.index]
       if (field === 'text') text.text = String(value).slice(0, 1000)
       if (field === 'fontSize' && Number.isFinite(Number(value))) text.fontSize = clamp(Number(value), 12, 96)
       if (field === 'align' && (value === 'left' || value === 'center' || value === 'right')) text.align = value
+      if (field === 'style' && (value === 'official' || value === 'graffiti')) text.style = value
     }
     if (selection.kind === 'robot') {
       const r = next.robots![selection.index]
@@ -542,7 +572,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {!['select', 'node'].includes(tool) && <div className="builder-tool-options"><button className="builder-add" title="Place this object at the center of the current view" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button></div>}
     </aside>
     <div className="builder-stage">
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes} style={{ cursor: drag.current?.mode === 'pan' || drag.current?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingTravel ? 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes} style={{ cursor: drag.current?.mode === 'pan' || drag.current?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag.current) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
@@ -585,6 +615,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {wallText && <>
           <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>
           <div className="builder-dimensions">
+            <label>Style<select aria-label="Text style" title="Official lettering or red marker graffiti" value={wallText.style ?? 'official'} onChange={e => changeObject('style', e.target.value)}><option value="official">Official</option><option value="graffiti">Graffiti</option></select></label>
+            <label>Rotation (°)<NumberField label="Text rotation" min={-180} max={180} step={5} value={wallText.rotation ?? 0} onCommit={value => changeObject('rotation', value)} /></label>
             <label>Font size<NumberField label="Text font size" min={12} max={96} step={2} value={wallText.fontSize} onCommit={value => changeObject('fontSize', value)} /></label>
             <label>Alignment<select aria-label="Text alignment" value={wallText.align} onChange={e => changeObject('align', e.target.value)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
           </div>
@@ -593,8 +625,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
-        {mechanism?.kind === 'lift' && <label>Travel height<NumberField label="Travel height" min={60} max={1200} step={snap ? LEVEL_GRID_SIZE : 1} value={mechanism.travel} onCommit={value => changeObject('travel', value)} /></label>}
-        {mechanism && isHorizontalGate(mechanism) && <button className="builder-property-action" title="Reverse the gate’s opening direction" aria-pressed={!!mechanism.flipX} onClick={() => {
+        {(pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && <label>{pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'}<NumberField label={pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'} min={1} max={9} step={1} value={pickup.seconds} onCommit={value => commit(setPickupSeconds(history.present, selection.index, value))} /></label>}
+        {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? LEVEL_GRID_SIZE : 1} value={mechanism.travel} onCommit={value => changeObject('travel', value)} /></label>}
+        {mechanism?.orientation === 'horizontal' && <button className="builder-property-action" title={mechanism.kind === 'lift' ? 'Reverse the platform’s travel direction' : 'Reverse the gate’s opening direction'} aria-pressed={!!mechanism.flipX} onClick={() => {
           const next = copyLevel(level), m = next.mechanisms![selection.index]
           if (m.flipX) delete m.flipX; else m.flipX = true
           commit(next)

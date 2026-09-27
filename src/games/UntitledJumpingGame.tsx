@@ -26,6 +26,7 @@ import { clonePreparedLevel, prepareLevelInWorker } from './jumping/levelPrepara
 import type { PreparedLevel } from './jumping/levelPreparation'
 import { createDevLevelRepository } from './jumping/devLevelRepository'
 import type { LevelSource } from './jumping/routes'
+import { useWallTextFont } from './jumping/useWallTextFont'
 import './jumping/theme.css'
 import './jumping/jumping.css'
 import './jumping/dialogs.css'
@@ -36,6 +37,7 @@ const COLLECTION_KEY = 'arcade.jumping.collection.v1'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
+  useWallTextFont()
   const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
   useEffect(() => {
     let active = true
@@ -337,7 +339,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       climb: k.has('KeyW') || k.has('ArrowUp') || pad.climb,
       drop: k.has('KeyS') || k.has('ArrowDown') || k.has('KeyX') || pad.drop,
       descend: k.has('KeyS') || k.has('ArrowDown') || pad.descend, detach: k.has('KeyX') || pad.detach,
-      crouch: pad.crouch, reach: pad.reach }
+      crouch: k.has('KeyS') || k.has('ArrowDown') || pad.crouch, reach: pad.reach }
   })
 
   useEffect(() => {

@@ -12,15 +12,30 @@ import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
 import { goalBounds } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
-import { pickupBounds } from './pickups.ts'
+import { fitWallText, wallTextBounds, wallTextLocalPoint, wallTextPoint } from './wallText.ts'
+import { pickupBounds, TIME_BONUS_DEFAULT_SECONDS } from './pickups.ts'
 import { COIN_SWITCH_THICKNESS, COIN_SWITCH_LENGTH, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'coin-switch'
+export type Tool = 'select' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+
+export function setWallTextRotation(level: JumpLevel, index: number, rotation: number): JumpLevel {
+  if (!level.texts?.[index] || !Number.isFinite(rotation)) return level
+  const next = copyLevel(level), text = next.texts![index]
+  text.rotation = clamp(rotation, -180, 180)
+  next.texts![index] = fitWallText(text, next.width, levelHeight(next))
+  return next
+}
+
+export function setPickupSeconds(level: JumpLevel, index: number, seconds: number): JumpLevel {
+  const next = copyLevel(level), pickup = next.pickups?.[index]
+  if ((pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && Number.isFinite(seconds)) pickup.seconds = clamp(Math.round(seconds), 1, 9)
+  return next
+}
 
 /** Return the saved definition, not the derived bounds used for canvas handles. */
 export function itemDefinition(level: JumpLevel, selection: Selection): NamedObject | undefined {
@@ -87,6 +102,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
 }
 export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
+  if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const mechanism = selection.kind === 'mechanism' ? level.mechanisms?.[selection.index] : undefined
   if (mechanism) return mechanism.kind === 'lift' ? mechanismSweep(mechanism)
     : { x: mechanism.x, y: mechanism.y, w: mechanism.w, h: mechanism.h }
@@ -101,7 +117,7 @@ export function itemHandle(level: JumpLevel, selection: Selection) {
   const b = itemBounds(level, selection)
   return tip ? { x: tip[0], y: tip[1] } : b ? { x: b.x + b.w, y: b.y + b.h } : null
 }
-/** Adjust the upper stop without moving or resizing the elevator platform. */
+/** Adjust the far stop without moving or resizing the platform. */
 export function setElevatorTravel(level: JumpLevel, index: number, travel: number): JumpLevel {
   if (level.mechanisms?.[index]?.kind !== 'lift' || !Number.isFinite(travel)) return level
   const next = copyLevel(level)
@@ -183,7 +199,8 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
   }
   for (let i = (level.texts?.length ?? 0) - 1; i >= 0; i--) {
     const t = level.texts![i]
-    if (x >= t.x - tolerance && x <= t.x + t.w + tolerance && y >= t.y - tolerance && y <= t.y + t.h + tolerance) return { kind: 'text', index: i }
+    const local = wallTextLocalPoint(t, x, y)
+    if (local.x >= -tolerance && local.x <= t.w + tolerance && local.y >= -tolerance && local.y <= t.h + tolerance) return { kind: 'text', index: i }
   }
   return null
 }
@@ -227,7 +244,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     next.goal = { ...next.goal, x: clamp(x, -b.x, level.width - b.x - b.w), y }
   }
   if (selection.kind === 'timer') Object.assign(next.timers![selection.index], { x, y })
-  if (selection.kind === 'text') Object.assign(next.texts![selection.index], { x, y })
+  if (selection.kind === 'text') next.texts![selection.index] = fitWallText({ ...next.texts![selection.index], x: b.x + dx, y: b.y + dy }, next.width, levelHeight(next))
   if (selection.kind === 'pickup') {
     const bounds = pickupBounds({ kind: next.pickups![selection.index].kind, x: 0, y: 0 })
     Object.assign(next.pickups![selection.index], { x: x - bounds.x, y: y - bounds.y })
@@ -247,10 +264,11 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   const left = corner.endsWith('left'), top = corner.startsWith('top')
   if (selection.kind === 'text') {
     const t = next.texts![selection.index], before = { ...t }
-    t.w = clamp(w, 40, Math.min(2000, left ? t.x + t.w : next.width - t.x))
-    t.h = clamp(h, 24, Math.min(1200, top ? t.y + t.h : levelHeight(next) - t.y))
-    if (left) t.x = before.x + before.w - t.w
-    if (top) t.y = before.y + before.h - t.h
+    const fixed = wallTextPoint(before, left ? before.w : 0, top ? before.h : 0)
+    t.w = clamp(w, 40, 2000); t.h = clamp(h, 24, 1200)
+    const moved = wallTextPoint(t, left ? t.w : 0, top ? t.h : 0)
+    t.x += fixed.x - moved.x; t.y += fixed.y - moved.y
+    next.texts![selection.index] = fitWallText(t, next.width, levelHeight(next))
   }
   if (selection.kind === 'platform') {
     const before = level.platforms[selection.index], left = corner.endsWith('left'), top = corner.startsWith('top')
@@ -381,10 +399,11 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     timers.push({ x: clamp(start.x, 0, trial.width - WALL_TIMER_WIDTH), y: clamp(start.y, 0, levelHeight(trial) - WALL_TIMER_HEIGHT) })
     return { level: trial, selection: { kind: 'timer', index: timers.length - 1 } }
   }
-  if (tool === 'stopwatch' || tool === 'coin') {
+  if (tool === 'stopwatch' || tool === 'fast-stopwatch' || tool === 'coin' || tool === 'time-bonus' || tool === 'time-penalty' || tool === 'emp') {
     const trial = asTrial(level), pickups = trial.pickups ??= [], bounds = pickupBounds({ kind: tool, x: 0, y: 0 })
     if (pickups.length >= 80) throw new Error('This level already has 80 power-ups and coins.')
-    pickups.push({ kind: tool, x: clamp(start.x, 0, trial.width - bounds.w) - bounds.x, y: clamp(start.y, 0, levelHeight(trial) - bounds.h) - bounds.y })
+    const position = { x: clamp(start.x, 0, trial.width - bounds.w) - bounds.x, y: clamp(start.y, 0, levelHeight(trial) - bounds.h) - bounds.y }
+    pickups.push(tool === 'time-bonus' || tool === 'time-penalty' ? { ...position, kind: tool, seconds: TIME_BONUS_DEFAULT_SECONDS } : { ...position, kind: tool })
     return { level: trial, selection: { kind: 'pickup', index: pickups.length - 1 } }
   }
   if (tool === 'coin-switch') {
@@ -395,7 +414,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       w: COIN_SWITCH_LENGTH, mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
-  if (['goal', 'box', 'ball', 'pusher', 'plate', 'lift', 'gate', 'horizontal-gate'].includes(tool)) {
+  if (['goal', 'box', 'ball', 'pusher', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
     const trial = asTrial(level), point = snapToGround(trial, clamp(x, 70, trial.width - 110), y)
     if (tool === 'goal') { trial.goal = { ...trial.goal, ...point }; return { level: trial, selection: { kind: 'goal', index: 0 } } }
     if (tool === 'box' || tool === 'ball') {
@@ -416,15 +435,17 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }
-    if (tool === 'lift' || tool === 'gate' || tool === 'horizontal-gate') {
+    if (tool === 'lift' || tool === 'moving-platform' || tool === 'gate' || tool === 'horizontal-gate') {
       if (trial.mechanisms.length >= 40) throw new Error('This level already has 40 mechanisms.')
       const drawnHeight = Math.abs(end.y - start.y)
-      const horizontal = tool === 'horizontal-gate', h = tool === 'gate' ? clamp(drawnHeight > 10 ? drawnHeight : 180, 12, 800) : MECHANISM_THICKNESS
-      const w = tool === 'lift' ? 140 : horizontal ? clamp(Math.abs(end.x - start.x) || 180, 30, 600) : MECHANISM_THICKNESS
-      trial.mechanisms.push({ id: newLevelId(), kind: tool === 'lift' ? 'lift' : 'gate', x: clamp(x, 24, trial.width - w - 24),
-        y: Math.max(0, Math.min(trial.floor - h, tool === 'lift' ? Math.max(start.y, end.y) : horizontal || drawnHeight > 10 ? y : point.y - h)), w, h,
-        travel: tool === 'lift' ? clamp(Math.abs(end.y - start.y) || 300, 60, 1200) : horizontal ? w : h,
-        ...(horizontal ? { orientation: 'horizontal' as const } : {}) })
+      const moving = tool === 'moving-platform', lift = tool === 'lift' || moving
+      const horizontal = tool === 'horizontal-gate' || moving, h = tool === 'gate' ? clamp(drawnHeight > 10 ? drawnHeight : 180, 12, 800) : MECHANISM_THICKNESS
+      const w = lift ? 140 : horizontal ? clamp(Math.abs(end.x - start.x) || 180, 30, 600) : MECHANISM_THICKNESS
+      trial.mechanisms.push({ id: newLevelId(), kind: lift ? 'lift' : 'gate', x: clamp(moving ? start.x : x, 24, trial.width - w - 24),
+        y: Math.max(0, Math.min(trial.floor - h, moving ? start.y : lift ? Math.max(start.y, end.y) : horizontal || drawnHeight > 10 ? y : point.y - h)), w, h,
+        travel: lift ? clamp((moving ? Math.abs(end.x - start.x) : drawnHeight) || 300, 60, 1200) : horizontal ? w : h,
+        ...(horizontal ? { orientation: 'horizontal' as const } : {}),
+        ...(moving && end.x > start.x ? { flipX: true } : {}) })
       return { level: trial, selection: { kind: 'mechanism', index: trial.mechanisms.length - 1 } }
     }
   }

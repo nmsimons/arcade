@@ -13,6 +13,7 @@ import type { Goal } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
+import { wallTextBounds } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
 import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
@@ -107,7 +108,7 @@ export function levelProblems(level: JumpLevel): string[] {
   if (!level.name.trim()) issues.push('Give the level a name.')
   if (spawn) issues.push(spawn)
   if (level.platforms.some(b => b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level))) issues.push('Keep terrain inside the level rectangle.')
-  if (level.texts?.some(t => t.x < 0 || t.y < 0 || t.x + t.w > level.width || t.y + t.h > levelHeight(level))) issues.push('Keep wall text inside the level rectangle.')
+  if (level.texts?.some(t => { const b = wallTextBounds(t); return b.x < -.001 || b.y < -.001 || b.x + b.w > level.width + .001 || b.y + b.h > levelHeight(level) + .001 })) issues.push('Keep wall text inside the level rectangle.')
   if (isPuzzleLevel(level)) {
     const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
     const left = Math.min(level.goal.x - GOAL_PLATE_WIDTH / 2, door.x), right = Math.max(level.goal.x + GOAL_PLATE_WIDTH / 2, door.x + door.w)
@@ -122,7 +123,7 @@ export function levelProblems(level: JumpLevel): string[] {
       issues.push('Place the goal plate, light and exit on a continuous flat surface, with a clear doorway inside the level.')
     }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
-    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id)))) issues.push('Connect each pressure plate or coin switch to one or more elevators or gates.')
+    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id)))) issues.push('Connect each pressure plate or coin switch to one or more elevators, moving platforms, or gates.')
     const coins = level.pickups?.filter(p => p.kind === 'coin').length ?? 0
     if (level.triggers.some(t => t.mode === 'coins' && t.threshold > coins)) issues.push('Add enough coins for every coin switch to reach its threshold.')
     if (level.triggers.some(t => {
@@ -252,7 +253,7 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
-      if (m.orientation !== undefined && (m.kind !== 'gate' || m.orientation !== 'horizontal')) fail()
+      if (m.orientation !== undefined && m.orientation !== 'horizontal') fail()
       if (m.flipX !== undefined && (m.orientation !== 'horizontal' || typeof m.flipX !== 'boolean')) fail()
       const w = num(m.w, m.kind === 'gate' ? MECHANISM_THICKNESS : 30, 600), h = num(m.h, 12, 800)
       return prepareMechanism({ ...objectName(m), id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h,
@@ -302,16 +303,28 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     if (v.pickups !== undefined) level.pickups = list(v.pickups, 80).map(item => {
       const pickup = object(item)
-      if (pickup.kind !== 'stopwatch' && pickup.kind !== 'coin') fail()
+      if (pickup.kind !== 'stopwatch' && pickup.kind !== 'fast-stopwatch' && pickup.kind !== 'coin' && pickup.kind !== 'time-bonus' && pickup.kind !== 'time-penalty' && pickup.kind !== 'emp') fail()
       const kind = pickup.kind as Pickup['kind'], bounds = pickupBounds({ kind, x: 0, y: 0 })
-      return { ...objectName(pickup), kind, x: num(pickup.x, -bounds.x, width - bounds.x - bounds.w), y: num(pickup.y, -bounds.y, level.floor! - bounds.y - bounds.h) }
+      const position = { ...objectName(pickup), x: num(pickup.x, -bounds.x, width - bounds.x - bounds.w), y: num(pickup.y, -bounds.y, level.floor! - bounds.y - bounds.h) }
+      if (kind === 'time-bonus' || kind === 'time-penalty') {
+        const seconds = num(pickup.seconds, 1, 9)
+        if (!Number.isInteger(seconds)) fail()
+        return { ...position, kind, seconds }
+      }
+      return { ...position, kind }
     })
   } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
-    const t = object(item), w = num(t.w, 40, Math.min(2000, width)), h = num(t.h, 24, Math.min(1200, levelHeight(level)))
+    const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
-    return { ...objectName(t), x: num(t.x, 0, width - w), y: num(t.y, 0, levelHeight(level) - h), w, h,
-      text: t.text as string, fontSize: num(t.fontSize, 12, 96), align: t.align as WallText['align'] }
+    if (t.style !== undefined && t.style !== 'official' && t.style !== 'graffiti') fail()
+    const text: WallText = { ...objectName(t), x: num(t.x, -1000, width), y: num(t.y, -600, levelHeight(level)), w, h,
+      text: t.text as string, fontSize: num(t.fontSize, 12, 96), align: t.align as WallText['align'],
+      ...(t.style === undefined ? {} : { style: t.style as WallText['style'] }),
+      ...(t.rotation === undefined ? {} : { rotation: num(t.rotation, -180, 180) }) }
+    const b = wallTextBounds(text)
+    if (b.x < -.001 || b.y < -.001 || b.x + b.w > width + .001 || b.y + b.h > levelHeight(level) + .001) fail()
+    return text
   })
   return level
 }

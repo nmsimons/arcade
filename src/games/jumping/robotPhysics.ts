@@ -1,10 +1,65 @@
-import type { Platform } from './model.ts'
+import type { Platform, Player } from './model.ts'
 import type { RobotState } from './challenge.ts'
-import { polygonIntersects, polygonPoints } from './geometry.ts'
+import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { groundAt } from './terrain.ts'
+import { disablePlatformLedges } from './terrainLedges.ts'
+import { playerContactBody, translatePlayer } from './playerContacts.ts'
+import type { ContactWorld } from './playerContacts.ts'
 
 const RADIUS = 9, HALF_AXLE = 17
+
+export const robotDrive = (r: Pick<RobotState, 'phase'>) => r.phase === 'charge' ? 540 : r.phase === 'chase' ? 235 : r.phase === 'patrol' ? 92 : 0
+export const robotTop = (r: Pick<RobotState, 'phase'>) => r.phase === 'windup' ? -39 : -46
+
+/** One sight line from the eye to the player's body. Range and shape bounds
+ * reject distant geometry before any polygon edges are tested. */
+export function robotSensesPlayer(r: RobotState, p: Player, obstacles: Iterable<Platform>) {
+  if (Math.abs(p.y - r.y) >= 240 || Math.abs(p.x - r.x) >= 850
+    || p.x < r.definition.left - 200 || p.x > r.definition.right + 200) return false
+  const c = Math.cos(r.angle), s = Math.sin(r.angle), eyeX = 13.5 * r.facing, eyeY = robotTop(r) + 21.5
+  const eye: Vec = [r.x + eyeX * c - eyeY * s, r.y - 9 + eyeX * s + eyeY * c]
+  const body = playerContactBody(p)
+  return !lineBlocked(eye, [body.x, body.y - body.height / 2], obstacles)
+}
+
+/** Reuse this step's solid shapes without allocating a filtered list per bot. */
+export function* robotSightObstacles(world: ContactWorld, observer: RobotState) {
+  for (const collider of world.colliders) if (collider.robot !== observer) yield collider.platform
+}
+
+/** Just the chassis and wheels: no projecting mechanism to trap a foot. */
+export function robotHulls(r: Pick<RobotState, 'x' | 'y' | 'angle' | 'facing' | 'phase'>): Vec[][] {
+  const c = Math.cos(r.angle), s = Math.sin(r.angle)
+  const rectangle = (x: number, y: number, w: number, h: number): Vec[] => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
+  const top = robotTop(r)
+  const pieces = [rectangle(-26, top, 51, -12 - top),
+    ...[-HALF_AXLE, HALF_AXLE].map(x => Array.from({ length: 32 }, (_, i): Vec => {
+      const angle = i * Math.PI / 16
+      return [x + RADIUS * Math.cos(angle), -RADIUS + RADIUS * Math.sin(angle)]
+    }))]
+  return pieces.map(piece => {
+    const points = piece.map(([x, y]): Vec => [r.x + x * r.facing * c - (y + RADIUS) * s, r.y - RADIUS + x * r.facing * s + (y + RADIUS) * c])
+    return r.facing < 0 ? points.reverse() : points
+  })
+}
+
+/** Player contact uses the same chassis and wheels as loose objects.
+ * Bots offer footing, but no ledge grabs that could tether a falling rider. */
+export function robotPlatforms(robot: Parameters<typeof robotHulls>[0]): Platform[] {
+  return robotHulls(robot).map(points => {
+    const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
+    const shape: Platform = { x, y, w: Math.max(...points.map(p => p[0])) - x, h: Math.max(...points.map(p => p[1])) - y,
+      polygon: points.map(p => [p[0] - x, p[1] - y]) }
+    disablePlatformLedges(shape)
+    return shape
+  })
+}
+
+export function robotTouchesProps(robot: RobotState, props: readonly Platform[], distance = 0) {
+  const hulls = robotHulls({ ...robot, x: robot.x + robot.facing * distance })
+  return props.some(prop => hulls.some(hull => polygonIntersects(hull, prop, .001)))
+}
 
 /** Height of a round wheel against exposed edges and their rounded corners. */
 function wheelHeight(platforms: readonly Platform[], x: number, nearY: number, reach: number) {
@@ -28,7 +83,7 @@ function wheelHeight(platforms: readonly Platform[], x: number, nearY: number, r
 }
 
 /** Solve both wheel contacts together, preserving the axle length at seams. */
-export function robotSupport(platforms: readonly Platform[], x: number, y: number, angle = 0, reach = 6) {
+export function robotSupport(platforms: readonly Platform[], x: number, y: number, angle = 0, reach = 6, obstacles = platforms) {
   let centerY = y - RADIUS
   for (let i = 0; i < 12; i++) {
     const dx = HALF_AXLE * Math.cos(angle), dy = HALF_AXLE * Math.sin(angle)
@@ -38,8 +93,8 @@ export function robotSupport(platforms: readonly Platform[], x: number, y: numbe
     angle = Math.atan2(right - left, dx * 2); centerY = (left + right) / 2
   }
   const c = Math.cos(angle), s = Math.sin(angle)
-  const hull: Vec[] = [[-25, -37], [24, -37], [24, -3], [-25, -3]].map(([px, py]) => [x + px * c - py * s, centerY + px * s + py * c])
-  if (platforms.some(p => polygonIntersects(hull, p, .05))) return null
+  const hull: Vec[] = [[-26, -37], [26, -37], [26, -3], [-26, -3]].map(([px, py]) => [x + px * c - py * s, centerY + px * s + py * c])
+  if (obstacles.some(p => polygonIntersects(hull, p, .05))) return null
   return { x, y: centerY + RADIUS, angle }
 }
 
@@ -50,11 +105,30 @@ export function prepareRobots(platforms: readonly Platform[], robots: RobotState
   }
 }
 
-export function moveRobot(platforms: readonly Platform[], robot: RobotState, destination: number) {
+export function moveRobot(platforms: readonly Platform[], robot: RobotState, destination: number, props: readonly Platform[] = [], player?: Player, footing?: Platform) {
   const distance = destination - robot.x, steps = Math.max(1, Math.ceil(Math.abs(distance) / 2)), dx = distance / steps
   for (let i = 0; i < steps; i++) {
-    const next = robotSupport(platforms, robot.x + dx, robot.y, robot.angle, Math.abs(dx) * 2 + 2)
+    // A prop being separated by the contact solver may already support a
+    // wheel. Include its surface without rejecting the unresolved body contact.
+    const next = robotSupport(footing ? [...platforms, footing] : platforms, robot.x + dx, robot.y, robot.angle, Math.abs(dx) * 2 + 2, platforms)
     if (!next) return false
+    const pose = { ...robot, ...next }
+    if (robotTouchesProps(pose, props)) return false
+    if (player) {
+      const contactBody = playerContactBody(player), { height } = contactBody
+      const hulls = robotPlatforms(pose)
+      // Only the advancing bot can initiate this correction. A distant bot
+      // must not resolve a ledge animation against the ordinary upright hull
+      // and transport its grip away from the actual corner.
+      if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height))) {
+        if (player.hang || player.mantle || player.climbing) return false
+        const obstacles = [...platforms, ...hulls]
+        // A pinned player blocks the bot; neither actor can pass through a wall.
+        const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height)
+        if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height))) return false
+        translatePlayer(player, safe.x - player.x, safe.y - player.y)
+      }
+    }
     Object.assign(robot, next)
   }
   return true

@@ -1,5 +1,6 @@
 import type { Platform, Player } from './model.ts'
 import { groundAt } from './terrain.ts'
+import { polygonPoints } from './geometry.ts'
 
 type Point = [number, number]
 export interface FootContact {
@@ -90,8 +91,27 @@ export function sampleStride(cycle: number, run: number, moving = 1) {
   return { ankle: [sample(1), sample(2)] as Point, angle: sample(3), planted: false }
 }
 
-function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: number) {
+function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: number, bodyX: number) {
   const toe = toeBend(foot.angle - foot.groundAngle * foot.facing)
+  // A tall riser is a side contact, not a lower floor beyond the current tread.
+  // Keep the whole sole on this side before choosing its supporting surface.
+  const sole = FOOT_CONTACT.map(point => footPoint(point, foot.angle, toe)[0] * foot.facing)
+  for (const b of platforms) {
+    if (Math.max(bodyX, foot.x) + 8 < b.x || Math.min(bodyX, foot.x) - 8 > b.x + b.w) continue
+    const points = polygonPoints(b), probeY = Math.min(foot.y, y - 2.8)
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], end = points[(i + 1) % points.length]
+      if (Math.abs(a[0] - end[0]) > 1e-7 || probeY <= Math.min(a[1], end[1]) || probeY >= Math.max(a[1], end[1])) continue
+      const normal = Math.sign(end[1] - a[1])
+      if ((bodyX - a[0]) * normal < 0) continue
+      const intrusion = Math.max(...sole.map(offset => -(foot.x + offset - a[0]) * normal))
+      if (intrusion > 0) {
+        const shift = (intrusion + .05) * normal
+        foot.x += shift
+        if (foot.planted) foot.anchorX += shift
+      }
+    }
+  }
   // A planted sole follows the actual surface even when its roll crosses a
   // crease below the anchor's tangent plane. Swinging feet only move upward.
   let penetration = foot.planted ? -Infinity : 0
@@ -104,12 +124,12 @@ function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: numb
   foot.groundY = groundAt(platforms, foot.x, y)?.y ?? y
 }
 
-function plantFoot(foot: FootContact, platforms: readonly Platform[], y: number) {
+function plantFoot(foot: FootContact, platforms: readonly Platform[], y: number, bodyX: number) {
   const roll = footRoll(foot.angle - foot.groundAngle * foot.facing)
   const c = Math.cos(foot.groundAngle), s = Math.sin(foot.groundAngle)
   foot.x = foot.anchorX + roll[0] * foot.facing * c - roll[1] * s
   foot.y = foot.anchorY + roll[0] * foot.facing * s + roll[1] * c
-  clearTerrain(foot, platforms, y)
+  clearTerrain(foot, platforms, y, bodyX)
 }
 
 function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[], advancing = false): Footwork {
@@ -117,17 +137,20 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   const surface = p.contacts?.support?.platform ?? groundAt(platforms, p.x, p.y, .15)?.platform
   const center = surface ? Math.max(surface.x + 3, Math.min(surface.x + surface.w - 3, p.x)) : p.x
   const brace = p.pushing?.amount ?? 0
-  const pushingForward = !!p.pushing?.effort && advancing
-  // During a moving push either foot steps ahead of the hips. Keeping one
+  const shortSteps = p.crouch > 0 || !!p.pushing?.effort
+  const stepDistance = 14
+  const steppingForward = shortSteps && advancing
+  // During a crouch walk or moving push either foot steps ahead of the hips. Keeping one
   // foot permanently behind them stretched that leg on an uphill slope and
   // forced the whole torso to drop abruptly as the other foot took a step.
-  const targets = pushingForward ? [center + 8 * p.facing, center + 8 * p.facing]
+  const lead = lerp(8, 4, p.crouch)
+  const targets = steppingForward ? [center + lead * p.facing, center + lead * p.facing]
     : [center + 2 * p.facing, center - (2 + brace * 8) * p.facing]
   const corrections = previous.feet.map((foot, i) => Math.abs(foot.anchorX - targets[i]) + (foot.facing !== p.facing ? 4 : 0))
   // A braced foot stays planted until the body has actually moved far enough
   // to need another step. Retargeting every fraction of a pixel caused a fast
   // shuffle even when a heavy box was barely moving.
-  const threshold = pushingForward ? 14 : p.pushing?.effort ? 12 : .15
+  const threshold = steppingForward ? stepDistance : p.pushing?.effort ? 12 : .15
   // Finish airborne feet first, then reposition the remaining support foot with a small step.
   const adjusting = previous.feet.some(foot => !foot.planted) ? -1
     : corrections[0] >= corrections[1] && corrections[0] > threshold ? 0 : corrections[1] > threshold ? 1 : -1
@@ -137,17 +160,17 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
       const rest = foot.groundAngle * foot.facing || 0
       foot.angle = lerp(foot.angle, rest, 1 - Math.exp(-dt / .035))
       if (Math.abs(foot.angle - rest) < .001) foot.angle = rest
-      plantFoot(foot, platforms, p.y)
+      plantFoot(foot, platforms, p.y, p.x)
       foot.settle = null
       return foot
     }
     const start = foot.settle ?? { x: foot.x, y: foot.y, angle: foot.angle, facing: foot.facing, time: 0,
-      duration: p.pushing?.effort ? .24 : .12 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
+      duration: shortSteps ? .24 : .12 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
     // A rolling ball can travel much faster than a heavy box. Complete each
-    // step within fourteen units of body travel so the planted leg does not
-    // get dragged behind and pull the whole torso toward the floor.
+    // step within fourteen units of travel so the planted leg does not drag
+    // behind the hips. Crouch walking shares the same cadence as pushing.
     const speed = p.contacts?.motion.speed ?? Math.abs(p.vx)
-    const rate = p.pushing?.effort ? Math.max(1, speed * start.duration / 14) : 1
+    const rate = shortSteps ? Math.max(1, speed * start.duration / stepDistance) : 1
     const time = Math.min(start.duration, start.time + dt * rate), t = time / start.duration, blend = smooth(t)
     const lift = .9 + Math.min(2.1, Math.abs(start.x - targets[i]) * .09)
     const target = groundAt(platforms, targets[i], p.y)
@@ -157,10 +180,10 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
     foot.angle = lerp(start.angle, angle * p.facing, blend); foot.facing = lerp(start.facing, p.facing, blend)
     foot.groundAngle = angle
     foot.y = lerp(start.y, groundY - 2.8 * Math.cos(angle), blend) - Math.sin(t * Math.PI) ** 2 * lift
-    clearTerrain(foot, platforms, p.y)
+    clearTerrain(foot, platforms, p.y, p.x)
     if (t === 1 && target) {
       foot.planted = true; foot.anchorX = targets[i]; foot.anchorY = groundY; foot.angle = angle * p.facing || 0
-      foot.facing = p.facing; foot.settle = null; plantFoot(foot, platforms, p.y)
+      foot.facing = p.facing; foot.settle = null; plantFoot(foot, platforms, p.y, p.x)
     }
     return foot
   }) as [FootContact, FootContact]
@@ -176,11 +199,11 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     const x = oldX + offset * p.facing, ground = groundAt(platforms, x, p.y)
     const foot = { x, anchorX: x, anchorY: ground?.y ?? p.y, y: p.y - 2.8, groundAngle: ground?.angle ?? 0, groundY: ground?.y ?? p.y,
       angle: (ground?.angle ?? 0) * p.facing, facing: p.facing, planted: !!ground, blockedCycle: -Infinity, release: null, settle: null }
-    plantFoot(foot, platforms, p.y)
+    plantFoot(foot, platforms, p.y, p.x)
     return foot
   }
   const previous: Footwork = p.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
-  if (!traveling || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing > .0001); return }
+  if (!traveling || p.crouch > 0 || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing > .0001); return }
   const rephased = traveling && (!previous.moving || previous.facing !== p.facing)
   if (rephased) {
     const support = previous.feet[0].planted !== previous.feet[1].planted ? (previous.feet[0].planted ? 0 : 1)
@@ -202,7 +225,7 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     }
     if (foot.planted) {
       foot.angle = lerp(foot.angle, step.angle + foot.groundAngle * foot.facing, 1 - Math.exp(-dt / .02))
-      plantFoot(foot, platforms, p.y)
+      plantFoot(foot, platforms, p.y, p.x)
       return foot
     }
     if (foot.settle || rephased) {
@@ -220,9 +243,9 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
       const roll = footRoll(step.angle), c = Math.cos(surface.angle), s = Math.sin(surface.angle)
       foot.anchorX = foot.x - roll[0] * foot.facing * c + roll[1] * s
       foot.anchorY = groundAt(platforms, foot.anchorX, p.y)?.y ?? surface.y
-      plantFoot(foot, platforms, p.y)
+      plantFoot(foot, platforms, p.y, p.x)
     }
-    else clearTerrain(foot, platforms, p.y)
+    else clearTerrain(foot, platforms, p.y, p.x)
     return foot
   }) as [FootContact, FootContact]
   p.footwork = { feet, moving: traveling, facing: p.facing, terrain: platforms }

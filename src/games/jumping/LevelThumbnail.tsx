@@ -4,9 +4,11 @@ import { isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRope
 import { createPreviewRun } from './challenge'
 import { drawPuzzleWorld } from './challengeRender'
 import { drawAthlete, drawClimbables, drawLevelBackdrop, drawTerrain } from './render'
+import { useWallTextFont } from './useWallTextFont'
 
 /** Draw authored geometry only, and allocate canvas pixels only while visible. */
 export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = false }: { level: JumpLevel; preview?: boolean }) {
+  const wallTextFontReady = useWallTextFont()
   const ref = useRef<HTMLCanvasElement>(null)
   useEffect(() => {
     const canvas = ref.current!, ctx = canvas.getContext('2d')!
@@ -44,6 +46,6 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = fa
     })
     visibility.observe(canvas)
     return () => { observer.disconnect(); visibility.disconnect() }
-  }, [level, preview])
+  }, [level, preview, wallTextFontReady])
   return <canvas ref={ref} className="level-thumbnail" aria-hidden="true" />
 })

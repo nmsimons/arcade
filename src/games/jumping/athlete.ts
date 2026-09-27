@@ -2,7 +2,7 @@ import { gaitPose } from './model.ts'
 import type { Player } from './model.ts'
 import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
-import { nearestBoundary, pointInside } from './geometry.ts'
+import { nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { stepFootOffsets } from './stepUp.ts'
@@ -69,7 +69,7 @@ function solveRear(root: Point, target: Point, upper: number, lower: number, sid
   return { ...solved, joint: mix(center, solved.joint, spread), jointDepth: depth }
 }
 /** Turn between the ladder and ledge rigs without snapping elbows/knees into a different bend plane. */
-function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: number, offset: Point = [0, 0], reachClearance = 0): AthletePose {
+function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: number, offset: Point = [0, 0], reachClearance = 0, turning = false): AthletePose {
   const point = (a: Point, b: Point) => add(mix(add(a, shift), b, t), offset)
   const limb = (a: Limb, b: Limb, upper: number, lower: number, clearance = 0): Limb => {
     const root = point(a.root, b.root), target = point(a.end, b.end)
@@ -79,7 +79,7 @@ function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: numbe
     const axis = actual > .001 ? vector.map(v => v / actual) : [0, 1, 0]
     const along = (upper * upper - lower * lower + length * length) / (2 * length)
     const center = axis.map(v => v * along), preferred = point(a.joint, b.joint)
-    const bend = [preferred[0] - root[0] - center[0], preferred[1] - root[1] - center[1], lerp(a.jointDepth ?? 0, b.jointDepth ?? 0, t) - center[2]]
+    const bend = [preferred[0] - root[0] - center[0], preferred[1] - root[1] - center[1], lerp(a.jointDepth ?? 0, b.jointDepth ?? 0, t) - center[2] + (turning ? Math.sin(Math.PI * t) * 8 : 0)]
     const parallel = bend.reduce((sum, v, i) => sum + v * axis[i], 0)
     let perpendicular = bend.map((v, i) => v - axis[i] * parallel)
     if (Math.hypot(...perpendicular) < .001) perpendicular = [-axis[1], axis[0], 0]
@@ -127,17 +127,37 @@ function footAngle(limb: Limb, desired: number): number {
   return neutral + Math.max(-.35, Math.min(.7, delta))
 }
 function solveLeg(root: Point, target: Point, desired: number, grounded: boolean, planted = false, footFacing = 1, load = Number(grounded), kneeDirection = -1,
-  groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null): Leg {
+  groundY = 0, surfaceAngle = 0, terrainHeight?: (x: number) => number | null, lowStep = 0): Leg {
   const ankle: Point = [...target]
   // Deep, supported crouches need more knee flexion than an airborne leg.
   // Forcing a nearby foot away from the hip can drive it through the floor;
   // lifting that displaced foot then flips the solver to the other side.
   const kneeOpening = grounded ? Math.PI / 12 : MIN_KNEE_OPENING
   let limb = solve(root, ankle, 15, 14.5, kneeDirection, kneeOpening)
-  const swingAngle = () => lerp(desired, footAngle(limb, desired), grounded ? smooth((groundY - ankle[1] - 2.8) / 3) : 1)
+  // A crouch step skims the floor with a level sole. The airborne ankle curl
+  // would otherwise rotate the foot upward against the deeply folded shin.
+  const swingAngle = () => lerp(desired, footAngle(limb, desired), grounded ? smooth((groundY - ankle[1] - 2.8) / 3) * (1 - lowStep) : 1)
   let angle = swingAngle()
   const flex = () => toeBend((angle - surfaceAngle) * footFacing, load * smooth((limb.end[1] - groundY + 10) / 6)) * footFacing
-  if (planted) return { ...limb, footAngle: desired, toeAngle: toeBend((desired - surfaceAngle) * footFacing) * footFacing, footFacing, planted }
+  const clearKnee = () => {
+    if (!grounded || !lowStep || !terrainHeight) return limb
+    const surface = terrainHeight(limb.joint[0])
+    if (surface === null || limb.joint[1] <= surface - 1.8) return limb
+    // A low trailing knee can graze an incline. Fold slightly in depth while
+    // preserving both bone lengths, the foot contact, and the body posture.
+    const dx = limb.end[0] - root[0], dy = limb.end[1] - root[1], length2 = dx * dx + dy * dy
+    const along = (15 ** 2 - 14.5 ** 2 + length2) / (2 * length2)
+    const center: Point = [root[0] + dx * along, root[1] + dy * along]
+    let low = 0, high = 1
+    for (let i = 0; i < 10; i++) {
+      const t = (low + high) / 2, point = mix(center, limb.joint, t), floor = terrainHeight(point[0])
+      if (floor === null || point[1] <= floor - 1.8) low = t
+      else high = t
+    }
+    return { ...limb, joint: mix(center, limb.joint, low),
+      jointDepth: Math.hypot(limb.joint[0] - center[0], limb.joint[1] - center[1]) * Math.sqrt(1 - low ** 2) }
+  }
+  if (planted) return { ...clearKnee(), footAngle: desired, toeAngle: toeBend((desired - surfaceAngle) * footFacing) * footFacing, footFacing, planted }
   if (grounded) for (let i = 0; i < 4; i++) {
     const bottom = terrainHeight ? Math.max(...FOOT_CONTACT.map(point => {
       const sole = footPoint(point, angle * footFacing, flex() * footFacing)
@@ -148,7 +168,7 @@ function solveLeg(root: Point, target: Point, desired: number, grounded: boolean
     ankle[1] -= bottom
     limb = solve(root, ankle, 15, 14.5, kneeDirection, kneeOpening); angle = swingAngle()
   }
-  return { ...limb, footAngle: angle, toeAngle: flex(), footFacing, planted }
+  return { ...clearKnee(), footAngle: angle, toeAngle: flex(), footFacing, planted }
 }
 function footPath(ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1): Path2D {
   const at = (x: number, y: number, toe = false): Point => {
@@ -239,7 +259,14 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
  * then bring the trailing foot up. It never passes through the hanging rig. */
 function stepUpPose(p: Player): AthletePose {
   const m = p.mantle!, s = m.step!, t = clamp(m.time / s.duration), side = m.side
-  const source = athletePose({ ...p, ...s.caught, climbing: s.climbing ?? null, mantle: null, pushing: null, landing: 0, groundAngle: 0 })
+  const source = athletePose({ ...p, ...s.caught, climbing: s.climbing ?? null, mantle: null, pushing: s.caught.pushing ?? null, landing: 0, groundAngle: 0 })
+  if (s.rise > 40.01 && !s.climbing) {
+    // A head-height obstacle needs hands and a knee on the lip. Reuse the
+    // established pull-up rig, starting above its hanging phase, at step timing.
+    const start = (74 - s.rise) / 100
+    const target = ledgePose({ ...p, mantle: { ...m, time: lerp(start, 1, t) * LEDGE_CLIMB_TIME } })
+    return t < .18 ? transferPose(source, target, [(s.caught.x - p.x) * side, s.caught.y - p.y], smooth(t / .18)) : target
+  }
   const weight = Math.sin(Math.PI * t), high = smooth((s.rise - 20) / 20)
   const hip = mix(source.hip, [0, -32.7], smooth(t))
   hip[0] += weight * 2; hip[1] += weight * (2 + high * 5)
@@ -276,13 +303,25 @@ function stepUpPose(p: Player): AthletePose {
   // Preserve the exact entry silhouette while the first foot starts lifting.
   const result = t < .18 && !s.climbing ? transferPose(source, pose, [0, 0], smooth(t / .18)) : pose
   if (p.terrain) {
-    result.frontLeg = clearAirborneFoot(p, result.frontLeg, 16); result.backLeg = clearAirborneFoot(p, result.backLeg, 16)
+    result.frontLeg = clearRiserLeg(p, clearAirborneFoot(p, result.frontLeg, 16))
+    result.backLeg = clearRiserLeg(p, clearAirborneFoot(p, result.backLeg, 16))
   }
   return s.climbing && t < .18 ? transferPose(source, result, [0, 0], smooth(t / .18)) : result
 }
 
 /** All supports are authored relative to the corner, independent of the camera and player root. */
 function ledgePose(p: Player): AthletePose {
+  const descent = p.mantle?.crouched && p.mantle.descending
+  if (descent && p.mantle!.time < LEDGE_CATCH_TIME) {
+    const caught = descent.caught, turn = (caught.facing ?? p.facing) * p.facing
+    const source = athletePose({ ...p, ...caught, mantle: null, hang: null, climbing: null, pushing: null, landing: 0 })
+    const mirror = (point: Point): Point => [point[0] * turn, point[1]]
+    const limb = <T extends Limb>(part: T): T => ({ ...part, root: mirror(part.root), joint: mirror(part.joint), end: mirror(part.end), hand: part.hand && mirror(part.hand) })
+    const from = { ...source, hip: mirror(source.hip), waist: mirror(source.waist), shoulder: mirror(source.shoulder), head: mirror(source.head),
+      frontArm: limb(source.frontArm), backArm: limb(source.backArm), frontLeg: limb(source.frontLeg), backLeg: limb(source.backLeg) }
+    const target = ledgePose({ ...p, mantle: { ...p.mantle!, time: LEDGE_CATCH_TIME } })
+    return transferPose(from, target, [(caught.x - p.x) * p.facing, caught.y - p.y], smooth(p.mantle!.time / LEDGE_CATCH_TIME), [0, 0], 0, turn < 0)
+  }
   const catchTime = p.hang?.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME
   if (p.hang?.caught.climbing && p.hang.time < catchTime) {
     const h = p.hang, source = athletePose({ ...p, ...h.caught, hang: null, mantle: null, landing: 0 })
@@ -295,7 +334,7 @@ function ledgePose(p: Player): AthletePose {
   }
   const edge = p.mantle ?? p.hang!
   const t = p.mantle ? p.mantle.descending ? 1 - clamp((p.mantle.time - LEDGE_CATCH_TIME) / LEDGE_CLIMB_TIME) : clamp(p.mantle.time / LEDGE_CLIMB_TIME) : 0
-  const frame = climbFrame(t, edge.braced, edge.slope)
+  const crouched = !!p.mantle?.crouched, frame = climbFrame(t, edge.braced, edge.slope, crouched)
   const origin: Point = [(edge.edgeX - p.x) * p.facing, edge.edgeY - p.y]
   const at = (point: Point) => add(origin, point)
   let hip = at(frame.hip), waist = at(frame.waist), shoulder = at(frame.shoulder), head = at(frame.head)
@@ -303,6 +342,11 @@ function ledgePose(p: Player): AthletePose {
   const balance = smooth((t - .48) / .09) * (1 - smooth((t - .8) / .2))
   let frontFree = armPose(add(shoulder, [0, .7]), -.03 + balance * 1.1, .1 + balance * 1.1)
   let backFree = armPose(add(shoulder, [0, .7]), -.03 - balance * .8, .1 + balance * 1.7)
+  if (crouched) {
+    const fold = smooth((t - .73) / .23)
+    frontFree = armPose(add(shoulder, [0, .7]), lerp(-.03 + balance * 1.1, -.65, fold), lerp(.1 + balance * 1.1, 2.1, fold))
+    backFree = armPose(add(shoulder, [0, .7]), lerp(-.03 - balance * .8, -.75, fold), lerp(.1 + balance * 1.7, 2.2, fold))
+  }
   let catchWeight = 1, catchFeet: [Leg, Leg] | null = null
   const catching = p.hang && p.hang.time < LEDGE_CATCH_TIME ? { caught: p.hang.caught, time: p.hang.time }
     : p.mantle?.descending && p.mantle.time < LEDGE_CATCH_TIME ? { caught: p.mantle.descending.caught, time: p.mantle.time } : null
@@ -323,8 +367,9 @@ function ledgePose(p: Player): AthletePose {
   const frontArm = grippingArm(root, grip(FRONT_WRIST), grip(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
   const backArm = grippingArm(root, grip(BACK_WRIST), grip(BACK_GRIP), backFree, catchWeight * (1 - frame.backRelease), .9)
   const legRoot = add(hip, [0, 1])
-  const frontLeg = solveLeg(legRoot, frontFoot, .15 * (1 - smooth(t / .45)), false, frame.frontPlanted)
-  const backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), false, frame.backPlanted)
+  const folded = crouched && t > .73
+  const frontLeg = solveLeg(legRoot, frontFoot, .15 * (1 - smooth(t / .45)), folded, frame.frontPlanted)
+  const backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), folded, frame.backPlanted)
   // Soften ankle flex before contact; the support foot then remains exactly flat.
   const flatten = (leg: Leg, weight: number) => { leg.footAngle = lerp(leg.footAngle, Math.atan(edge.slope ?? 0), weight); leg.toeAngle *= 1 - weight }
   flatten(frontLeg, smooth((t - .86) / .1)); flatten(backLeg, smooth((t - .56) / .07))
@@ -487,13 +532,14 @@ export function athletePose(p: Player): AthletePose {
   // A quick, eased compression absorbs the impact, followed by a longer recovery.
   const landing = (landingTime < .28 ? smooth(landingTime / .28) : 1 - smooth((landingTime - .28) / .72)) * (1 - air * .7)
   const landingDepth = landing * lerp(2.5, 16, p.landingImpact) * (1 - squat)
-  const dip = squat * 22 + landingDepth + charge
+  // The idle crouch must fit the same 40-unit opening as its walking pose.
+  const dip = squat * (13.4 + 1.8 * (1 - moving)) + landingDepth + charge
   const slopeLean = -p.groundAngle * p.facing * (1 - air) * .3
   const hipHeight = lerp(lerp(-33.2, lerp(-31.4, -28.3, run), moving), -31.5 + tuck * 2.5, air)
-  const pelvicPitch = (.025 + run * .2 + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .35 + air * (.08 + tuck * .28) + landingDepth * .014
+  const pelvicPitch = (.025 + run * .2 + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014
   const chestPitch = (.035 + run * .4 + Math.sin(cycle * 2 - .55) * lerp(.035, .1, run)
-    + Math.sin(cycle - .3) * run * .035) * gait + squat * .55 + air * (.12 + speed * .18 + tuck * .18) + landingDepth * .035 + slopeLean
-  const hip: Point = [-squat * 7 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4), hipHeight + dip + hipBob]
+    + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + air * (.12 + speed * .18 + tuck * .18) + landingDepth * .035 + slopeLean
+  const hip: Point = [-squat * 3 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4), hipHeight + dip + hipBob]
   const waist: Point = [hip[0] + Math.sin(pelvicPitch) * 6.5, hip[1] - Math.cos(pelvicPitch) * 6.5]
   const shoulder: Point = [waist[0] + Math.sin(chestPitch) * 10.1, waist[1] - Math.cos(chestPitch) * 10.1 + chestBob - hipBob]
   // The head leads the run while its vertical motion lags behind the shoulders.
@@ -504,15 +550,17 @@ export function athletePose(p: Player): AthletePose {
   const frontStep = sampleStride(cycle, run, moving), backStep = sampleStride(cycle + Math.PI, run, moving)
   const pushing = smooth(p.pushing?.amount ?? 0)
   if (pushing) {
-    hip[0] -= pushing * 3; hip[1] += pushing * 4
-    waist[0] += pushing; waist[1] += pushing * 3
-    shoulder[0] += pushing * 4; shoulder[1] += pushing * 3
-    head[0] += pushing * 5; head[1] += pushing * 3
+    // Crouching already lowers the body; do not add a second squat when pushing.
+    const pushDip = pushing * (1 - squat)
+    hip[0] -= pushing * 3; hip[1] += pushDip * 4
+    waist[0] += pushing; waist[1] += pushDip * 3
+    shoulder[0] += pushing * 4; shoulder[1] += pushDip * 3
+    head[0] += pushing * 5; head[1] += pushDip * 3
     // Lower the hips and hinge at the waist to reach short objects. Keep the
     // planted feet and limb lengths, and retain the tall-box stance at height 43.
     const low = smooth((43 - (p.pushing!.height ?? 43)) / 28)
     if (low) {
-      hip[1] += pushing * low * 15
+      hip[1] += pushDip * low * 15
       const pelvis = .25 + low * .2, chest = .35 + low * .65
       const lowWaist = add(hip, [Math.sin(pelvis) * 6.5, -Math.cos(pelvis) * 6.5])
       const lowShoulder = add(lowWaist, [Math.sin(chest) * 10.1, -Math.cos(chest) * 10.1])
@@ -530,10 +578,10 @@ export function athletePose(p: Player): AthletePose {
   backAnkle = mix(backAnkle, [-5 - Math.sin(cycle) * speed * 3, -2.8], squat)
 
   const swing = Math.cos(cycle - run * .12) * moving * lerp(.38, 1.05, run)
-  let frontAngle = lerp(-swing - .03 - run * .13, .55, squat), backAngle = lerp(swing - .03 - run * .13, .45, squat)
+  let frontAngle = lerp(-swing - .03 - run * .13, -.65, squat), backAngle = lerp(swing - .03 - run * .13, -.75, squat)
   // The backward arm opens; the forward arm folds up toward the chest.
-  let frontFlex = lerp(.1 + moving * lerp(.12, 1.2 - Math.cos(cycle - .12) * .5, run), 1.6, squat)
-  let backFlex = lerp(.1 + moving * lerp(.12, 1.2 + Math.cos(cycle - .12) * .5, run), 1.6, squat)
+  let frontFlex = lerp(.1 + moving * lerp(.12, 1.2 - Math.cos(cycle - .12) * .5, run), 2.1, squat)
+  let backFlex = lerp(.1 + moving * lerp(.12, 1.2 + Math.cos(cycle - .12) * .5, run), 2.2, squat)
   if (air > 0) {
     // Stretch off the ground, tuck during ascent, then gather before descending.
     const airborneFront = mix([2, -3], mix([9, -15], [11, -8], extension), rising)
@@ -607,13 +655,15 @@ export function athletePose(p: Player): AthletePose {
     return ground ? ground.y - p.y : null
   } : undefined
   const frontLeg = solveLeg(add(hip, [0, 1]), frontAnkle, contacts ? contacts[0].angle * frontFacing : lerp(frontStep.angle * (1 - squat) * moving, -.15, air), p.grounded, frontPlanted, frontFacing, 1 - air, -1,
-    contacts ? contacts[0].groundY - p.y : 0, (contacts?.[0].groundAngle ?? 0) * p.facing, terrainHeight)
+    contacts ? contacts[0].groundY - p.y : 0, (contacts?.[0].groundAngle ?? 0) * p.facing, terrainHeight, squat)
   const backLeg = solveLeg(add(hip, [0, 1]), backAnkle, contacts ? contacts[1].angle * backFacing : lerp(backStep.angle * (1 - squat) * moving, .12, air), p.grounded, backPlanted, backFacing, 1 - air, -1,
-    contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight)
+    contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight, squat)
   const result = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
   const resolved = p.sliding ? slidingPose(p, result) : p.wallBrace ? wallBracePose(p, result) : result
   if ((!p.grounded || p.sliding) && p.terrain) {
     resolved.frontLeg = clearAirborneFoot(p, resolved.frontLeg); resolved.backLeg = clearAirborneFoot(p, resolved.backLeg)
+  } else if (p.terrain) {
+    resolved.frontLeg = clearRiserLeg(p, resolved.frontLeg); resolved.backLeg = clearRiserLeg(p, resolved.backLeg)
   }
   return resolved
 }
@@ -637,6 +687,46 @@ function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
     }
     if (!moved) break
     current = { ...current, ...solve(current.root, target, 15, 14.5, -1, MIN_KNEE_OPENING) }
+  }
+  return current
+}
+
+/** A stair riser blocks the visible toe and knee before the body starts climbing.
+ * Fold the knee in depth, keeping bone lengths and the rest of the pose intact. */
+function clearRiserLeg(p: Player, leg: Leg): Leg {
+  let current = leg
+  const rootX = p.x + leg.root[0] * p.facing
+  for (const b of p.terrain!) {
+    if (rootX + 36 < b.x || rootX - 36 > b.x + b.w || p.y < b.y || p.y - 62 > b.y + b.h) continue
+    const points = polygonPoints(b)
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i], end = points[(i + 1) % points.length]
+      if (Math.abs(a[0] - end[0]) > 1e-7) continue
+      const normal = Math.sign(end[1] - a[1]), gap = (rootX - a[0]) * normal
+      if (gap < 0 || gap > 36) continue
+      const side = -normal * p.facing, wall = (a[0] - p.x) * p.facing
+      const top = Math.min(a[1], end[1]), bottom = Math.max(a[1], end[1])
+      let intrusion = 0
+      for (const point of FOOT_CONTACT) {
+        const sole = footPoint(point, current.footAngle * current.footFacing, current.toeAngle * current.footFacing)
+        const y = p.y + current.end[1] + sole[1]
+        if (y > top + .01 && y < bottom - .01) intrusion = Math.max(intrusion,
+          (current.end[0] + sole[0] * current.footFacing - wall) * side + .05)
+      }
+      if (intrusion > 0) current = clearAirborneFoot(p, { ...current, ...solve(current.root,
+        [current.end[0] - intrusion * side, current.end[1]], 15, 14.5, -1, p.grounded ? Math.PI / 12 : MIN_KNEE_OPENING) }, 16)
+      const kneeY = p.y + current.joint[1]
+      if (kneeY < top || kneeY > bottom || (current.joint[0] - wall) * side < -1.8) continue
+      const dx = current.end[0] - current.root[0], dy = current.end[1] - current.root[1], length2 = dx * dx + dy * dy
+      const along = (15 ** 2 - 14.5 ** 2 + length2) / (2 * length2)
+      const center: Point = [current.root[0] + dx * along, current.root[1] + dy * along]
+      const out = (current.joint[0] - center[0]) * side
+      if (out <= 0) continue
+      const amount = clamp(((wall - center[0]) * side - 1.8) / out)
+      current = { ...current, joint: mix(center, current.joint, amount),
+        jointDepth: Math.sqrt((current.jointDepth ?? 0) ** 2
+          + Math.hypot(current.joint[0] - center[0], current.joint[1] - center[1]) ** 2 * (1 - amount ** 2)) }
+    }
   }
   return current
 }

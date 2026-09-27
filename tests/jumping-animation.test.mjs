@@ -39,6 +39,38 @@ test('braced pushing steps follow distance travelled and stop when blocked', () 
   assert.ok(counts[1]>counts[0]*2 && counts[2]>counts[1]*2,`steps scale with travel: ${counts}`)
 })
 
+test('crouch walking uses a full pushing stride with low feet and grounded knees', () => {
+  for (const direction of [-1, 1]) for (const speed of [50, 125]) for (const slope of [-.3, 0, .3]) {
+    const surface = x => slope < 0 ? 1100 + x * slope : slope > 0 ? 320 + x * slope : 620
+    const floor = { x: 0, y: 320, w: 2600, h: 780, profile: [[0, surface(0) - 320], [2600, surface(2600) - 320]] }
+    const p = createPlayer(); p.x = 1300; p.y = surface(p.x)
+    let steps = 0, planted = [true, true]
+    for (let frame = 0; frame < 300; frame++) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, move: direction * speed / 125, descend: true }, STEP, [floor])
+      const feet = p.footwork.feet, pose = athletePose(p)
+      steps += feet.filter((foot, i) => !foot.planted && planted[i]).length
+      planted = feet.map(foot => foot.planted)
+      if (p.crouch < 1) continue
+      assert.ok(feet.some(foot => foot.planted), 'one foot supports the crouched body throughout each step')
+      for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
+        assert.ok(feet[i].groundY - feet[i].y < 6, 'the ankle stays close to its local ground surface')
+        assert.ok(Math.abs(leg.footAngle - feet[i].groundAngle * direction) < .4, 'the foot does not kick up behind the calf')
+        assert.ok(p.y + leg.joint[1] < surface(p.x + leg.joint[0] * direction) - 1.5, 'bent knees stay above the floor')
+        assert.ok(Math.abs(Math.hypot(leg.joint[0] - leg.root[0], leg.joint[1] - leg.root[1], leg.jointDepth ?? 0) - 15) < .01)
+        assert.ok(Math.abs(Math.hypot(leg.joint[0] - leg.end[0], leg.joint[1] - leg.end[1], leg.jointDepth ?? 0) - 14.5) < .01)
+        if (!slope) assert.ok(leg.end[1] > pose.hip[1], 'the ankle stays below the lowered hips')
+      }
+    }
+    assert.ok(steps > 3, 'the check spans multiple alternating steps')
+    assert.ok(Math.abs(p.x - 1300) / steps > 10, 'crouch steps cover ground instead of rapidly shuffling')
+    for (let i = 0; i < 120; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, [floor])
+    assert.ok(p.footwork.feet.every(foot => foot.planted))
+    const stopped = athletePose(p)
+    for (let i = 0; i < 60; i++) stepPlayer(p, { ...NEUTRAL_INPUT, descend: true }, STEP, [floor])
+    assert.deepEqual(athletePose(p), stopped, 'stopping keeps the crouched feet still')
+  }
+})
+
 test('expressive strides keep limb lengths, safe knee bends, and continuous poses', () => {
   for (const vx of [0, 70, 125, 240, 350]) for (const charging of [false, true]) {
     let previous

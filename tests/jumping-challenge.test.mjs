@@ -191,12 +191,14 @@ test('pushers spot distant players, close the distance quickly, and repeat their
   const level = blankTrial(); level.robots = [{ x: 1000, y: 920, left: 80, right: 1700 }]
   const run = createRun(level); run.player.x = 440; advance(run, 120, { climb: true })
   assert.equal(run.robots[0].phase, 'chase'); assert.ok(run.robots[0].x < 770)
-  const seen = new Set(); let hits = 0, wasHit = false
+  const seen = new Set(); let charges = 0, previous = run.robots[0].phase
+  const startX = run.player.x
   for (let i = 0; i < 720; i++) {
     advance(run, 1); const r = run.robots[0]; seen.add(r.phase)
-    if (r.hit && !wasHit) hits++; wasHit = r.hit
+    if (r.phase === 'charge' && previous !== 'charge') charges++; previous = r.phase
   }
-  assert.ok(seen.has('windup')); assert.ok(seen.has('charge')); assert.ok(hits >= 2, 'pusher comes back after the first shove')
+  assert.ok(seen.has('windup')); assert.ok(seen.has('charge')); assert.ok(charges >= 2, 'pusher repeats its charge')
+  assert.ok(run.player.x < startX - 100, 'physical contact pushes the player back')
   assert.ok(run.player.x >= 12); assert.equal(run.finished, false)
 })
 test('pushers respect a pit and solid pillar while chasing', () => {

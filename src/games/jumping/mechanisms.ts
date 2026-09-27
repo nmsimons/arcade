@@ -3,7 +3,7 @@ import type { Mechanism } from './level.ts'
 export const MECHANISM_THICKNESS = 20
 export const isHorizontalGate = (m: Mechanism) => m.kind === 'gate' && m.orientation === 'horizontal'
 export const mechanismTravel = (m: Mechanism) => m.kind === 'gate' ? isHorizontalGate(m) ? m.w : m.h : m.travel
-export const mechanismLabel = (m: Mechanism) => m.kind === 'lift' ? 'Elevator' : isHorizontalGate(m) ? 'Horizontal gate' : 'Gate'
+export const mechanismLabel = (m: Mechanism) => m.kind === 'lift' ? m.orientation === 'horizontal' ? 'Moving platform' : 'Elevator' : isHorizontalGate(m) ? 'Horizontal gate' : 'Gate'
 
 /** Preserve gate centers and elevator standing surfaces when loading older sizes. */
 export function prepareMechanism(m: Mechanism, floor: number): Mechanism {
@@ -14,7 +14,7 @@ export function prepareMechanism(m: Mechanism, floor: number): Mechanism {
     ? { ...m, y: Math.min(m.y, floor - MECHANISM_THICKNESS), h: MECHANISM_THICKNESS } : m
 }
 
-export const mechanismOpenPosition = (m: Mechanism) => isHorizontalGate(m)
+export const mechanismOpenPosition = (m: Mechanism) => m.orientation === 'horizontal'
   ? { x: m.x + (m.flipX ? 1 : -1) * mechanismTravel(m), y: m.y }
   : { x: m.x, y: m.y - mechanismTravel(m) }
 

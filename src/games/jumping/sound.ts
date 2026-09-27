@@ -103,6 +103,19 @@ export class JumpingSound {
         }
         return (note(0, 660) + note(.14, 440)) * .18 * Math.min(1, (.46 - t) / .03)
       }),
+      'time-penalty': makeBuffer(ctx, .46, t => {
+        const note = (start: number, frequency: number) => {
+          const age = t - start
+          return age < 0 ? 0 : Math.sin(age * Math.PI * 2 * frequency) * Math.min(1, age / .006) * Math.exp(-age * 18)
+        }
+        return (note(0, 330) + note(.14, 220)) * .18 * Math.min(1, (.46 - t) / .03)
+      }),
+      // A soft electrical power-down, with a rounded attack and no crackle.
+      emp: makeBuffer(ctx, .42, t => {
+        const phase = Math.PI * 2 * (110 * t + 420 * (1 - Math.exp(-t * 12)) / 12)
+        const envelope = Math.min(1, t / .008) * Math.exp(-t * 9) * Math.min(1, (.42 - t) / .04)
+        return (Math.sin(phase) + .18 * Math.sin(phase * 2)) * envelope * .2
+      }),
     }
   }
 

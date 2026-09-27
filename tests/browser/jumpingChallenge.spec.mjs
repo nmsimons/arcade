@@ -2,7 +2,7 @@ import { test, expect } from './helpers/test.mjs'
 import { hold } from './helpers/controller.mjs'
 import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
-import { blankTrial } from '../../src/games/jumping/level.ts'
+import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { ropeSlope, slopedLip } from '../helpers/rope-slope.mjs'
 
 async function setup(page, lesson = 0, levels = CAMPAIGN) {
@@ -18,7 +18,7 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
       return arc.apply(this, args)
     }
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { window.levelCamera = this.getTransform(); window.wallTimerReadings = []; window.goalDoor = null }
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { window.levelCamera = this.canvas.levelCamera = this.getTransform(); window.wallTimerReadings = []; window.goalDoor = null }
       if (this.fillStyle === '#000000' && args[3] === 80) window.goalDoor = { x: args[0], y: args[1], w: args[2], h: args[3] }
       return rect.apply(this, args)
     }
@@ -423,6 +423,205 @@ for (const slope of [-.2, .2]) test(`Up climbs around a sloped lip (${slope})`, 
   await page.screenshot({ path: info.outputPath('sloped-lip-standing.png') })
   await page.keyboard.up('w'); await page.keyboard.down('a'); await page.clock.runFor(160); await page.keyboard.up('a')
   expect((await position(page)).x).toBeLessThan(landed.x - 10)
+})
+
+test('a pointed ramp with an inward-slanting face supports a jump, hang, and pull-up', async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Pointed ramp'; level.width = 1200; level.height = level.floor = 600
+  level.spawn = { x: 514, y: 580 }; level.goal = { x: 1040, y: 580 }
+  level.platforms = [{ x: 0, y: 300, w: 1200, h: 300,
+    polygon: [[0,280],[320,280],[500,180],[480,280],[1200,280],[1200,300],[0,300]] }]
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('a'); await page.keyboard.down('Space'); await page.clock.runFor(32)
+  await page.keyboard.up('Space'); await page.clock.runFor(550); await page.keyboard.up('a'); await page.clock.runFor(150)
+  await expect(page.locator('.jumping-state')).toHaveText('Hanging')
+  expect((await position(page)).x).toBeCloseTo(514); expect((await position(page)).y).toBeCloseTo(554)
+  await page.screenshot({ path: info.outputPath('pointed-ramp-hanging.png') })
+  await page.keyboard.down('w'); await page.clock.runFor(1500); await page.keyboard.up('w')
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  expect((await position(page)).x).toBeCloseTo(480); expect((await position(page)).y).toBeCloseTo(480 + 20 * 100 / 180)
+  await page.screenshot({ path: info.outputPath('pointed-ramp-climbed.png') })
+})
+
+test('objects occlude collectibles, wall timers and text in thumbnails and gameplay', async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Wall layers'; level.width = 1280; level.height = level.floor = 620
+  level.spawn = { x: 80, y: 620 }; level.goal = { x: 1120, y: 620 }
+  const kinds = ['coin', 'stopwatch', 'fast-stopwatch', 'time-bonus', 'time-penalty', 'emp']
+  level.pickups = kinds.map((kind, i) => ({ kind, x: 200 + i * 160, y: 560,
+    ...(['time-bonus', 'time-penalty'].includes(kind) ? { seconds: 5 } : {}) }))
+  level.props = kinds.map((_, i) => ({ kind: i % 2 ? 'box' : 'ball', x: 200 + i * 160, y: 620, size: 120 }))
+  level.props.push({ kind: 'box', x: 430, y: 350, size: 200 }, { kind: 'box', x: 800, y: 350, size: 200 })
+  level.platforms = [{ x: 310, y: 350, w: 240, h: 20 }, { x: 680, y: 350, w: 240, h: 20 }]
+  level.timers = [{ x: 330, y: 220 }]
+  level.texts = [{ x: 715, y: 225, w: 150, h: 60, text: 'BEHIND', fontSize: 24, align: 'left' }]
+  expect(levelProblems(level)).toEqual([])
+  const regions = [...level.pickups.map(p => ({ x: p.x - 24, y: p.y - 32, w: 48, h: 60 })),
+    { x: 330, y: 220, w: 200, h: 60 }, { x: 715, y: 225, w: 150, h: 60 }]
+  const exposed = level.pickups.map(p => ({ ...p, y: 430 }))
+  level.pickups.push(...exposed)
+  const exposedRegions = exposed.map(p => ({ x: p.x - 24, y: p.y - 32, w: 48, h: 60 }))
+  const visibleInk = (canvas, areas = regions) => canvas.evaluate((c, regions) => {
+    const ctx = c.getContext('2d'), m = c.levelCamera
+    const wall = new Set(['ba8542', 'dfb44f', 'ac7b35', '94433f', '718074', 'e2e7da', '40574a'])
+    const objects = new Set(['8f9e98', '667b72', 'b3a28d', '938777'])
+    return regions.map(r => {
+      const x = Math.ceil(r.x * m.a + m.e), y = Math.ceil(r.y * m.d + m.f)
+      const data = ctx.getImageData(x, y, Math.floor(r.w * m.a), Math.floor(r.h * m.d)).data
+      let leaked = 0, object = 0
+      for (let i = 0; i < data.length; i += 4) {
+        const color = [data[i], data[i + 1], data[i + 2]].map(v => v.toString(16).padStart(2, '0')).join('')
+        if (wall.has(color)) leaked++
+        if (objects.has(color)) object++
+      }
+      return { leaked, object }
+    })
+  }, areas)
+  const check = async canvas => {
+    const samples = await visibleInk(canvas)
+    for (const sample of samples) { expect(sample.leaked).toBe(0); expect(sample.object).toBeGreaterThan(0) }
+  }
+  await setup(page, 0, [level])
+  const thumbnail = page.locator('.jumping-level-card[aria-pressed=true] canvas')
+  await expect.poll(() => thumbnail.evaluate(c => c.width)).toBeGreaterThan(1)
+  await check(thumbnail)
+  await enter(page)
+  await check(page.locator('canvas[role="img"]'))
+  for (const sample of await visibleInk(page.locator('canvas[role="img"]'), exposedRegions)) {
+    expect(sample.leaked, 'each uncovered collectible is still drawn').toBeGreaterThan(0)
+  }
+  await page.screenshot({ path: info.outputPath('wall-items-behind-objects.png') })
+})
+
+test('the first staircase approach and a restart keep the rendered leg outside the second step', async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Staircase clearance'; level.width = 1200; level.height = level.floor = 620
+  level.spawn = { x: 268, y: 620 }; level.goal = { x: 1040, y: 620 }
+  level.platforms = [{ x: 300, y: 420, w: 380, h: 200,
+    polygon: [[0,180],[80,180],[80,140],[180,140],[180,80],[280,80],[280,0],[380,0],[380,200],[0,200]] }]
+  expect(levelProblems(level)).toEqual([])
+  await setup(page, 0, [level]); await enter(page)
+  for (const attempt of ['first', 'restart']) {
+    if (attempt === 'restart') { await restartFromPause(page); await page.clock.runFor(64) }
+    await page.keyboard.down('d')
+    let sampled = 0, saved = false
+    for (let i = 0; i < 110 && (await position(page)).x < 420; i++) {
+      await page.clock.runFor(16)
+      const p = await position(page)
+      if (p.x < 345) continue
+      const ink = await page.evaluate(feetY => {
+        const canvas = document.querySelector('canvas[role="img"]'), camera = window.levelCamera
+        // Restrict the pixel probe to the legs; a hand can legitimately grip the lip.
+        const x = Math.ceil(381 * camera.a + camera.e), y = Math.ceil(Math.max(561, feetY - 28) * camera.d + camera.f)
+        const w = Math.floor(477 * camera.a + camera.e) - x, h = Math.floor(619 * camera.d + camera.f) - y
+        const pixels = canvas.getContext('2d').getImageData(x, y, w, h).data
+        let count = 0
+        for (let j = 0; j < pixels.length; j += 4) if (pixels[j] === 104 && pixels[j + 1] === 107 && pixels[j + 2] === 110) count++
+        return count
+      }, p.y)
+      expect(ink, `${attempt} approach at ${p.x},${p.y}: leg silhouette inside solid terrain`).toBe(0)
+      sampled++
+      if (!saved && p.x > 367 && p.y > 580) {
+        await page.screenshot({ path: info.outputPath(`staircase-${attempt}-leg-clearance.png`) }); saved = true
+      }
+    }
+    await page.keyboard.up('d')
+    expect(sampled).toBeGreaterThan(15)
+    expect((await position(page)).x).toBeGreaterThanOrEqual(420)
+    expect((await position(page)).y).toBeCloseTo(560)
+  }
+})
+
+test('sustained walking pulls up a three-tile ledge without a jump', async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Three tile climb'; level.width = 1200; level.height = level.floor = 620
+  level.spawn = { x: 220, y: 620 }; level.goal = { x: 1040, y: 620 }
+  level.platforms = [{ x: 300, y: 560, w: 300, h: 60 }]
+  expect(levelProblems(level)).toEqual([])
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('d')
+  for (let i = 0; i < 40 && await page.locator('.jumping-state').innerText() !== 'Pushing'; i++) await page.clock.runFor(16)
+  expect((await position(page)).y).toBeCloseTo(620)
+  await expect(page.locator('.jumping-state')).toHaveText('Pushing')
+  for (let i = 0; i < 30 && await page.locator('.jumping-state').innerText() !== 'Climbing'; i++) await page.clock.runFor(16)
+  await expect(page.locator('.jumping-state')).toHaveText('Climbing')
+  await page.clock.runFor(32)
+  await page.screenshot({ path: info.outputPath('three-tile-pull-up.png') })
+  await page.clock.runFor(450); await page.keyboard.up('d'); await page.clock.runFor(200)
+  expect((await position(page)).x).toBeGreaterThan(320)
+  expect((await position(page)).y).toBeCloseTo(560)
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+})
+
+test('crouch walking passes through a two-tile opening after bracing against it', async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Two tile clearance'; level.width = 1200; level.height = level.floor = 620
+  level.spawn = { x: 220, y: 620 }; level.goal = { x: 1040, y: 620 }
+  level.platforms = [{ x: 300, y: 540, w: 160, h: 40 }]
+  expect(levelProblems(level)).toEqual([])
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('d'); await page.clock.runFor(700)
+  expect((await position(page)).x).toBeCloseTo(274.5)
+  await page.keyboard.down('s'); await page.clock.runFor(800)
+  expect((await position(page)).x).toBeGreaterThan(350)
+  expect((await position(page)).x).toBeLessThan(390)
+  await page.screenshot({ path: info.outputPath('two-tile-crouch-walk.png') })
+  await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(300)
+  await expect(page.locator('.jumping-state')).toHaveText('Crouching')
+  await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(1200)
+  await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(300)
+  expect((await position(page)).x).toBeGreaterThan(480)
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+})
+
+for (const pointed of [false, true]) test(`crouch-walking lowers from a ${pointed ? 'pointed' : 'flat'} lip under a low ceiling and pulls back up`, async ({ page }, info) => {
+  const level = blankTrial(); level.name = 'Low ceiling ledge'; level.width = 1800; level.height = level.floor = 700
+  level.spawn = { x: 360, y: pointed ? 560 : 480 }; level.goal = { x: 1640, y: 700 }
+  level.robots = [{ x: 1200, y: 700, left: 900, right: 1500 }]
+  level.platforms = [
+    { x: 260, y: 380, w: 400, h: pointed ? 240 : 200,
+      polygon: pointed ? [[0,240],[400,0],[360,240]] : [[0,200],[200,0],[400,0],[400,200]] },
+    { x: 460, y: 300, w: 360, h: 40 },
+  ]
+  expect(levelProblems(level)).toEqual([])
+  await setup(page, 0, [level]); await enter(page)
+  await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(5500)
+  await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(80)
+  await expect(page.locator('.jumping-state')).toHaveText('Hanging')
+  expect((await position(page)).x).toBeCloseTo(674); expect((await position(page)).y).toBeCloseTo(454)
+  await page.screenshot({ path: info.outputPath('low-ceiling-hanging.png') })
+  await page.keyboard.down('w'); await page.clock.runFor(650)
+  await page.screenshot({ path: info.outputPath('low-ceiling-pull-up.png') })
+  await page.clock.runFor(650); await page.keyboard.up('w'); await page.clock.runFor(200)
+  await expect(page.locator('.jumping-state')).toHaveText('Crouching')
+  expect((await position(page)).x).toBeCloseTo(640); expect((await position(page)).y).toBeCloseTo(pointed ? 392 : 380)
+  await page.screenshot({ path: info.outputPath('low-ceiling-crouched.png') })
+})
+
+test('clutter below a low ledge keeps a stable grip and allows a crouched pull-up after restart', async ({ page }, info) => {
+  const level = { ...blankTrial(), name: 'Cluttered ledge', width: 1400, height: 700, floor: 620,
+    spawn: { x: 460, y: 560 }, goal: { x: 1240, y: 620 },
+    platforms: [
+      { x: 400, y: 520, w: 300, h: 100, polygon: [[0,100],[100,0],[300,0],[300,100]] },
+      { x: 540, y: 440, w: 320, h: 40 },
+    ],
+    props: [{ kind: 'box', x: 715, y: 620, size: 30 }, { kind: 'ball', x: 745, y: 620, size: 30 }],
+    robots: [{ x: 820, y: 620, left: 400, right: 1000 }],
+  }
+  expect(levelProblems(level)).toEqual([])
+  await setup(page, 0, [level]); await enter(page)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) { await restartFromPause(page); await page.clock.runFor(64) }
+    await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(4000)
+    await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(80)
+    await expect(page.locator('.jumping-state')).toHaveText('Hanging')
+    expect((await position(page)).x).toBeCloseTo(714); expect((await position(page)).y).toBeCloseTo(594)
+    for (let i = 0; i < 20; i++) {
+      await page.clock.runFor(32)
+      expect((await position(page)).x).toBeCloseTo(714); expect((await position(page)).y).toBeCloseTo(594)
+    }
+    await page.screenshot({ path: info.outputPath(`cluttered-ledge-hang-${attempt}.png`) })
+    await page.keyboard.down('w'); await page.clock.runFor(450)
+    await page.screenshot({ path: info.outputPath(`cluttered-ledge-pull-${attempt}.png`) })
+    await page.clock.runFor(1050); await page.keyboard.up('w')
+    await expect(page.locator('.jumping-state')).toHaveText('Crouching')
+    expect((await position(page)).x).toBeCloseTo(680); expect((await position(page)).y).toBeCloseTo(520)
+  }
 })
 
 test('Up climbs a narrow post joined to a platform above a closed gate', async ({ page }, info) => {

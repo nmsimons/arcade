@@ -26,8 +26,12 @@ export function platformLedges(platform: Platform): readonly TerrainLedge[] {
     const slope = (b[1] - a[1]) / (b[0] - a[0])
     if (!canGrip(Math.atan(slope))) continue
     const before = points[(i + points.length - 1) % points.length], after = points[(i + 2) % points.length]
-    if (Math.abs(before[0] - a[0]) < 1e-7 && before[1] > a[1]) found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}) })
-    if (Math.abs(after[0] - b[0]) < 1e-7 && after[1] > b[1]) found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}) })
+    // A hanging face may retreat underneath the top instead of being exactly
+    // vertical. Keep only outward corners; a concave recess is not a lip.
+    const leftTurn = (a[0] - before[0]) * (b[1] - a[1]) - (a[1] - before[1]) * (b[0] - a[0])
+    const rightTurn = (b[0] - a[0]) * (after[1] - b[1]) - (b[1] - a[1]) * (after[0] - b[0])
+    if (before[0] >= a[0] - 1e-7 && before[1] > a[1] && leftTurn > 1e-7) found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}) })
+    if (after[0] <= b[0] + 1e-7 && after[1] > b[1] && rightTurn > 1e-7) found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}) })
   }
   ledges.set(platform, found)
   return found

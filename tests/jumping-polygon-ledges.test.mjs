@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
+import { platformLedges } from '../src/games/jumping/terrainLedges.ts'
 
 // The cap belongs to the same polygon as a much wider base, so neither cap edge is a bounds edge.
 const tower = { x: 100, y: 100, w: 400, h: 420,
@@ -72,6 +73,55 @@ test('a sloping top supports a normal catch, pull-up and return to the same edge
     assert.equal(p.hang.edgeX, edgeX); assert.equal(p.hang.slope, .2 * side)
     climbOnto(p, [ramp], edgeX + side * 20, edgeY + side * 4)
   }
+})
+
+test('a pointed ramp with an inward-slanting face offers an exposed grip on either side', () => {
+  const outline = [[0,200],[40,200],[220,100],[200,200],[420,200],[420,240],[0,240]]
+  for (const side of [-1, 1]) {
+    const points = outline.map(([x, y]) => [side === -1 ? x : 420 - x, y])
+    const subdivided = points.flatMap((a, i) => {
+      const b = points[(i + 1) % points.length]
+      return [a, [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]]
+    })
+    for (const polygon of [points, [...points].reverse(), subdivided]) {
+      const terrain = [{ x: 100, y: 100, w: 420, h: 240, polygon }], edgeX = side === -1 ? 320 : 300
+      const p = catchCorner(terrain, edgeX, 200, side)
+      assert.equal(p.hang.braced, false, 'the face retreats from the hanging feet')
+      assert.equal(p.hang.slope, 100 / 180)
+      climbOnto(p, terrain, edgeX + side * 20, 200 + 20 * 100 / 180)
+      for (let i = 0; i < 180; i++) tick(p, terrain, { descend: true })
+      assert.ok(p.hang, 'the same tip supports lowering back into a hang')
+      assert.equal(p.hang.edgeX, edgeX)
+      tick(p, terrain)
+      tick(p, terrain, { drop: true })
+      assert.equal(p.hang, null, 'the player can still let go')
+    }
+  }
+})
+
+test('tap and partial jumps catch an inward-slanting face during ordinary movement', () => {
+  const outline = [[0,200],[40,200],[220,100],[200,200],[420,200],[420,240],[0,240]]
+  for (const side of [-1, 1]) for (const chargeFrames of [1, 6, 12]) {
+    const terrain = [{ x: 100, y: 100, w: 420, h: 240,
+      polygon: outline.map(([x, y]) => [side === -1 ? x : 420 - x, y]) }]
+    const edgeX = side === -1 ? 320 : 300, p = createPlayer({ x: edgeX - side * 14, y: 300 })
+    p.facing = side
+    for (let i = 0; i < 180 && !p.hang; i++) {
+      tick(p, terrain, { jump: i < chargeFrames, move: i >= chargeFrames ? side : 0 })
+      assert.ok(!bodyIntersects(p.x, p.y, terrain[0]), 'the catch never pulls the body through the slanted face')
+    }
+    assert.ok(p.hang, `catch from a ${chargeFrames}-frame jump on side ${side}`)
+    for (let i = 0; i < 90; i++) tick(p, terrain)
+    assert.ok(p.hang && !bodyIntersects(p.x, p.y, terrain[0]), 'the hanging pose stays clear')
+    climbOnto(p, terrain, edgeX + side * 20, 200 + 20 * 100 / 180)
+  }
+})
+
+test('sloped joins and inward-facing recesses do not become ledges', () => {
+  const hill = { x: 0, y: 0, w: 400, h: 240, polygon: [[0,200],[200,100],[400,200],[400,240],[0,240]] }
+  assert.ok(platformLedges(hill).every(edge => edge.edgeX !== 200), 'a walkable crest has no hanging face')
+  const recess = { x: 0, y: 0, w: 400, h: 240, polygon: [[0,200],[200,100],[100,120],[400,0],[400,240],[0,240]] }
+  assert.ok(platformLedges(recess).every(edge => edge.edgeX !== 200), 'an inward corner is not a grip')
 })
 
 test('inset vertical posts brace the feet against their actual face', () => {

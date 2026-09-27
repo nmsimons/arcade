@@ -3,11 +3,13 @@ import type { Prop, Run } from './challenge.ts'
 import type { Platform } from './model.ts'
 import type { PlayerContacts } from './playerContacts.ts'
 import { TUNING } from './model.ts'
-import { bodyPolygon, convexParts, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
+import { bodyPolygon, convexParts, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
-import { translatePlayer } from './playerContacts.ts'
+import { playerContactBody, translatePlayer } from './playerContacts.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { flatBoxSupport } from './boxSupport.ts'
+import { moveRobot, robotDrive, robotHulls } from './robotPhysics.ts'
+import type { Vec } from './geometry.ts'
 
 const { Bodies, Body, Collision, Composite, Engine, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[] }
@@ -15,6 +17,11 @@ const worlds = new WeakMap<Run, PropWorld>()
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const material = { friction: .55, frictionStatic: 1.4, frictionAir: 0, restitution: 0, slop: .0001 }
 const PLAYER_MASS = 2.5
+
+function controlledHull(points: readonly Vec[]) {
+  const vertices = points.map(([x, y]) => ({ x, y }))
+  return Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
+}
 
 function terrainBodies(s: Platform, run: Run) {
   // Bound the room's half-spaces to keep the solver's broad phase well-scaled.
@@ -77,9 +84,13 @@ export function prepareProps(run: Run) {
 
 /** Rigid corners, angular momentum and Coulomb contact friction are resolved
  * together for terrain, moving platforms, balls and boxes. */
-export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number) {
+export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = run.empRemaining === 0) {
   const world = worldFor(run), push = playerContact.push
+  const barriers = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
   const driven = new Set<Matter.Body>()
+  const robots = run.robots.map(robot => ({ robot, hulls: robotHulls(robot).map(controlledHull) }))
+  const robotProbes = run.robots.filter(robot => powered && robotDrive(robot)).map(robot => ({ robot,
+    hulls: robotHulls({ ...robot, x: robot.x + robot.facing * 3 }).map(controlledHull) }))
   run.mechanisms.forEach((m, i) => {
     if (Math.hypot(world.mechanisms[i].position.x - m.x - m.definition.w / 2, world.mechanisms[i].position.y - m.y - m.definition.h / 2) > 1e-7) {
       // Moving a static support must also wake its sleeping passengers.
@@ -93,6 +104,22 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const accelerated = Math.abs(velocity.x * 60 - b.vx) + Math.abs(velocity.y * 60 - b.vy) > 1e-5
     if (moved) { Body.setPosition(body, { x: b.x, y: b.y - b.size / 2 }); Body.setAngle(body, angle) }
     if (moved || accelerated) Sleeping.set(body, false)
+    // Motors push only at an actual forward contact, using the same bounded
+    // forces as the player. A charge has a faster target, never a velocity reset.
+    for (const { robot, hulls } of robotProbes) {
+      const touching = hulls.some(hull => {
+        const hit = Collision.collides(body, hull)
+        const point = hit?.supports[0]
+        return hit && point && hit.normal.x * (hit.bodyA === body ? 1 : -1) * robot.facing > .2
+          && !lineBlocked([robot.x, robot.y - 23], [point.x, point.y], barriers)
+      })
+      if (!touching) continue
+      driven.add(body); Sleeping.set(body, false)
+      const target = robot.facing * (robot.phase === 'charge' ? (b.kind === 'ball' ? 500 : 280) : 90)
+      const maximum = b.kind === 'ball' ? 3800 : 1900, response = b.kind === 'ball' ? 70 : 35
+      const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
+      Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
+    }
     const contact = playerContact.body.find(c => c.collider.prop === b)
     const braced = push && playerContact.support?.collider.prop === b && push.collider.prop !== b
     if (push?.collider.prop === b || braced || contact) {
@@ -133,35 +160,35 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   }
   Engine.update(world.engine, dt * 1000)
   const p = run.player, height = p.crouching ? TUNING.crouchHeight : TUNING.height
-  const barriers = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
+  const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
+  const heldBox = grip ? run.props.filter(b => b.kind === 'box')[grip.platform! - run.terrain.length - run.mechanisms.length] : undefined
   const transport = (x: number, y: number) => {
     const safe = moveBody([p.x, p.y], [x, y], barriers, height)
     translatePlayer(p, safe.x - p.x, safe.y - p.y)
   }
   for (const [b, body] of world.bodies) {
     const riding = playerContact.support?.collider.prop === b
-    const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
-    const holding = b.kind === 'box' && grip?.platform === run.terrain.length + run.mechanisms.length + run.props.filter(other => other.kind === 'box').indexOf(b)
+    const holding = b === heldBox
     if (!riding && !holding) continue
     const angle = b.kind === 'box' ? body.angle - b.angle : 0, x = p.x - b.x, y = p.y - b.y + b.size / 2
     transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle))
   }
-  const vertices = bodyPolygon(p.x, p.y, height).map(([x, y]) => ({ x, y }))
-  const playerHull = Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
+  const contactBody = playerContactBody(p)
+  const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height))
   // Props may displace the controlled player only along a clear sweep. Any
   // blocked part of that displacement is resolved back into the prop, in the
   // same iterations as prop/terrain and prop/prop contacts.
-  const resolvePlayer = (body: Matter.Body) => {
-    const hit = Collision.collides(body, playerHull)
+  const resolveActor = (body: Matter.Body, hull: Matter.Body, actor: { x: number; y: number }, transportActor: (x: number, y: number) => void) => {
+    const hit = Collision.collides(body, hull)
     if (!hit || hit.depth < 1e-7) return false
-    const sign = hit.bodyA === playerHull ? 1 : -1
+    const sign = hit.bodyA === hull ? 1 : -1
     const nx = hit.normal.x * sign, ny = hit.normal.y * sign, depth = hit.depth + .00001
-    const startX = p.x, startY = p.y
+    const startX = actor.x, startY = actor.y
     let blocked = depth, dx = nx * depth, dy = ny * depth
     for (let pass = 0; pass < 8; pass++) {
-      const x = p.x, y = p.y
-      transport(x + dx, y + dy)
-      const movedX = p.x - x, movedY = p.y - y, separated = movedX * nx + movedY * ny
+      const x = actor.x, y = actor.y
+      transportActor(x + dx, y + dy)
+      const movedX = actor.x - x, movedY = actor.y - y, separated = movedX * nx + movedY * ny
       blocked -= separated
       if (blocked <= 1e-7 || separated <= 1e-7) break
       // A floor may remove the downward component of a tilted face's push.
@@ -169,7 +196,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       // player as pinned and transferring an impulse back to the prop.
       dx = movedX * blocked / separated; dy = movedY * blocked / separated
     }
-    Body.translate(playerHull, { x: p.x - startX, y: p.y - startY })
+    Body.translate(hull, { x: actor.x - startX, y: actor.y - startY })
     if (blocked > 1e-7) {
       Sleeping.set(body, false)
       Body.translate(body, { x: -nx * blocked, y: -ny * blocked })
@@ -201,7 +228,40 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       if (wb) Body.translate(b, { x: -hit.normal.x * distance * wb, y: -hit.normal.y * distance * wb })
       corrected = true
     }
-    for (const body of world.bodies.values()) corrected = resolvePlayer(body) || corrected
+    for (const [prop, body] of world.bodies) {
+      // The authored climb clears its supporting top, just as ledgeObstacles
+      // does for terrain. It cannot exert a separating force on its own support.
+      if (prop !== heldBox) corrected = resolveActor(body, playerHull, p, (x, y) => {
+        // Only the held support can carry a grip (above). Other bodies resolve
+        // against it, just as a bot does, rather than relocating the anchor.
+        if (!p.hang && (!p.mantle || p.mantle.step) && !p.climbing) transport(x, y)
+      }) || corrected
+      for (const { robot, hulls } of robots) for (const hull of hulls) {
+        const moved = resolveActor(body, hull, robot, x => {
+          if (!powered) return // The unpowered chassis stays solid without its motor or yielding motion.
+          const props = [...world.bodies].filter(([, other]) => other !== body).map(([prop, other]) => {
+            const moved = { ...prop, x: other.position.x, y: other.position.y + prop.size / 2, angle: other.angle }
+            return prop.kind === 'box' ? boxShape(moved) : ballShape(moved)
+          })
+          const oldX = p.x, oldY = p.y
+          // The contacted prop can also be under a wheel. Keep it in the
+          // support query so yielding does not drive the bot down through it.
+          const prop = [...world.bodies].find(([, candidate]) => candidate === body)![0]
+          const movedProp = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2, angle: body.angle }
+          const footing = prop.kind === 'box' ? boxShape(movedProp) : ballShape(movedProp)
+          moveRobot([...barriers, ...props], robot, x, props, p, footing)
+          Body.translate(playerHull, { x: p.x - oldX, y: p.y - oldY })
+        })
+        if (moved) {
+          // Contact can change wheel height and tilt as well as position.
+          robotHulls(robot).forEach((points, i) => {
+            const vertices = points.map(([x, y]) => ({ x, y }))
+            Body.setPosition(hulls[i], Vertices.centre(vertices)); Body.setVertices(hulls[i], vertices)
+          })
+          corrected = true
+        }
+      }
+    }
     if (!corrected) break
   }
   const byBody = new Map([...world.bodies].map(([prop, body]) => [body, prop]))
@@ -295,7 +355,7 @@ function contactTranslation(body: Matter.Body, hits: Matter.Collision[]) {
 
 /** Try a kinematic lift step against the same hulls used by prop physics.
  * Nothing is committed until the entire contact chain has room to separate. */
-export function planLiftPropMotion(run: Run, index: number, next: Platform, passengers: readonly Prop[], riding: boolean, support: Prop | undefined, dt: number) {
+export function planLiftPropMotion(run: Run, index: number, next: Platform, passengers: readonly Prop[], riding: boolean, support: Prop | undefined, dt: number, boarding = false) {
   const m = run.mechanisms[index], dx = next.x - m.x, dy = next.y - m.y
   const shapes = run.mechanisms.map((other, i) => i === index ? next : mechanismShape(other))
   const fixed = [...worldFor(run).terrain, ...shapes.flatMap(s => terrainBodies(s, run))]
@@ -312,7 +372,7 @@ export function planLiftPropMotion(run: Run, index: number, next: Platform, pass
       const body = bodies.get(support)!
       return { x: p.x + body.position.x - support.x, y: p.y + body.position.y - support.y + support.size / 2 }
     }
-    return { x: p.x + (riding ? dx : 0), y: p.y + (riding ? dy : 0) }
+    return { x: p.x + (riding ? dx : 0), y: boarding ? Math.min(p.y, next.y) : p.y + (riding ? dy : 0) }
   }
   const vertices = bodyPolygon(p.x, p.y, height).map(([x, y]) => ({ x, y }))
   const playerHull = Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })

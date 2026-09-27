@@ -5,10 +5,11 @@ import { formatTime } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, GOAL_POLE_OFFSET, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
-import { drawPickup } from './pickups.ts'
+import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
 import { drawCoinSwitch } from './coins.ts'
 import { levelHeight } from './level.ts'
 import { isHorizontalGate } from './mechanisms.ts'
+import { robotTop } from './robotPhysics.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number) {
@@ -34,23 +35,19 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
     ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
   }
 }
-export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed: number) {
-  const brace = r.phase === 'windup', charge = r.phase === 'charge', hunting = r.phase === 'chase'
+export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed: number, angry = false, powered = true) {
   ctx.save(); ctx.translate(r.x, r.y - 9); ctx.rotate(r.angle); ctx.translate(0, 9); ctx.scale(r.facing, 1)
   for (const x of [-17, 17]) {
     ctx.fillStyle = '#68736e'; ctx.beginPath(); ctx.arc(x, -9, 9, 0, Math.PI * 2); ctx.fill()
     const angle = r.x / 9
     ctx.strokeStyle = '#a5afa8'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, -9); ctx.lineTo(x + Math.cos(angle) * 5, -9 + Math.sin(angle) * 5); ctx.stroke()
   }
-  const top = brace ? -39 : -46
+  const top = robotTop(r)
   ctx.fillStyle = '#b3a28d'; rounded(ctx, -26, top, 51, -12 - top, 4); ctx.fill()
   ctx.fillStyle = '#687b71'; rounded(ctx, -2, top + 8, 21, 9, 2); ctx.fill()
-  ctx.fillStyle = brace || charge ? '#c68d78' : hunting ? '#c7bc9e' : '#a5b3a7'; ctx.fillRect(11, top + 10, 5, 5)
+  if (powered) { ctx.fillStyle = angry ? TIME_PENALTY_COLOR : '#a5b3a7'; ctx.fillRect(11, top + 10, 5, 5) }
   for (let y = top + 13; y <= top + 23; y += 5) { ctx.fillStyle = '#938777'; ctx.fillRect(-19, y, 9, 1.5) }
-  const reach = charge ? 42 : brace ? 29 : 33
-  ctx.strokeStyle = '#7e8b7e'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(20, -23); ctx.lineTo(reach, -23); ctx.stroke()
-  ctx.fillStyle = '#687b71'; rounded(ctx, reach, -38, 8, 31, 2); ctx.fill()
-  if (r.phase === 'recover') { ctx.strokeStyle = '#859384'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -55, 10, elapsed * 9, elapsed * 9 + 2); ctx.stroke() }
+  if (powered && r.phase === 'recover') { ctx.strokeStyle = '#859384'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -55, 10, elapsed * 9, elapsed * 9 + 2); ctx.stroke() }
   ctx.restore()
 }
 export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, depression = 0) {
@@ -78,17 +75,26 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   // Wall displays sit behind solid terrain and actors, and have no physics shape.
   ctx.save(); ctx.font = '500 28px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
   const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
+  const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
   for (const timer of level.timers ?? []) {
-    ctx.fillStyle = clockStopped ? '#eee3ce' : '#e2e7da'; ctx.fillRect(timer.x, timer.y, WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT)
-    ctx.fillStyle = clockFinished ? '#66844e' : clockStopped ? '#91652f' : '#40574a'
+    ctx.fillStyle = clockFast ? TIME_PENALTY_COLOR : clockStopped ? '#eee3ce' : '#e2e7da'; ctx.fillRect(timer.x, timer.y, WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT)
+    ctx.fillStyle = clockFinished ? '#66844e' : clockFast ? '#f1f1ed' : clockStopped ? '#91652f' : '#40574a'
     ctx.fillText(formatTime(run.elapsed), timer.x + WALL_TIMER_WIDTH / 2, timer.y + WALL_TIMER_HEIGHT / 2 + 1)
     if (clockStopped) {
       ctx.fillRect(timer.x + 9, timer.y + WALL_TIMER_HEIGHT / 2 - 4, 3, 10)
       ctx.fillRect(timer.x + 15, timer.y + WALL_TIMER_HEIGHT / 2 - 4, 3, 10)
+    } else if (clockFast) {
+      for (const x of [timer.x + 7, timer.x + 14]) {
+        ctx.beginPath(); ctx.moveTo(x, timer.y + WALL_TIMER_HEIGHT / 2 - 4)
+        ctx.lineTo(x + 6, timer.y + WALL_TIMER_HEIGHT / 2 + 1); ctx.lineTo(x, timer.y + WALL_TIMER_HEIGHT / 2 + 6)
+        ctx.closePath(); ctx.fill()
+      }
     }
   }
   ctx.restore()
-  for (const trigger of level.triggers) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected)
+  for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active)
+  // Collectibles belong to the back wall, behind terrain and movable objects.
+  for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime)
   drawTerrain(ctx, run.terrain)
   for (const m of run.mechanisms) {
     const d = m.definition
@@ -111,8 +117,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   drawGoal(ctx, level.goal, run.goalLit, run.goalDepression)
   for (const b of run.props) drawProp(ctx, b)
   drawClimbables(ctx, p, level.climbables)
-  for (const r of run.robots) drawRobot(ctx, r, run.activeTime)
-  for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime)
+  for (const r of run.robots) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0)
   if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
     drawAthlete(ctx, p); ctx.restore()

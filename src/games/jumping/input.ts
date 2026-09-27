@@ -16,7 +16,7 @@ export function createJumpController() {
       return { ...sample, move: Number(held(15)) - Number(held(14)) || sample.direction.x,
         jump: held(0), climb: held(12) || sample.direction.y < -.5, drop: held(1) || held(13) || sample.direction.y > .65,
         descend: held(13) || sample.direction.y > .65, detach: held(1),
-        crouch: false, reach: false,
+        crouch: held(13) || sample.direction.y > .65, reach: false,
         pause: sample.pressed.includes(9) }
     },
   }

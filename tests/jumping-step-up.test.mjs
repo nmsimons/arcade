@@ -9,7 +9,7 @@ import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
 const floor = { x: -400, y: 0, w: 800, h: 80 }
 const setup = (height, side = 1, x = 0) => ({
   p: createPlayer({ x, y: 0 }),
-  terrain: [floor, { x: side === 1 ? 100 : -300, y: -height, w: 200, h: height }],
+  terrain: [{ ...floor }, { x: side === 1 ? 100 : -300, y: -height, w: 200, h: height }],
 })
 const tick = (p, terrain, input = {}, world = staticContactWorld(terrain)) =>
   stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, STEP, terrain, undefined, undefined, world)
@@ -21,8 +21,8 @@ function approach(p, terrain, input = {}, world) {
   return false
 }
 
-test('one and two tile terrain steps climb in either direction without penetrating any solid', () => {
-  for (const height of [20, 40]) for (const side of [1, -1]) for (const start of [0, 88]) {
+test('one through three tile terrain steps climb in either direction without penetrating any solid', () => {
+  for (const height of [20, 40, 60]) for (const side of [1, -1]) for (const start of [0, 88]) {
     const { p, terrain } = setup(height, side, start * side)
     assert.ok(approach(p, terrain, { move: side }))
     const duration = p.mantle.step.duration, vx = p.mantle.step.caught.vx
@@ -42,14 +42,14 @@ test('one and two tile terrain steps climb in either direction without penetrati
     }
     assert.ok(p.grounded && !p.mantle)
     assert.equal(p.y, -height)
-    assert.equal(p.x, side * 112)
+    assert.equal(p.x, side * (height > 40 ? 120 : 112))
     assert.equal(p.vx, vx, 'resume the incoming movement speed')
     assert.ok(frames * STEP <= duration + STEP)
   }
 })
 
-test('three tile ledges retain deliberate jumping', () => {
-  const { p, terrain } = setup(60)
+test('ledges above three tiles retain deliberate jumping', () => {
+  const { p, terrain } = setup(61)
   assert.equal(approach(p, terrain), false)
   assert.equal(p.y, 0)
   for (let i = 0; i < 42; i++) tick(p, terrain, { move: 1, jump: true })
@@ -57,23 +57,26 @@ test('three tile ledges retain deliberate jumping', () => {
   assert.ok(p.vy < -500 && !p.grounded)
 })
 
-test('two tile mantles need a sustained push at the face, while one tile steps remain immediate', () => {
+test('two and three tile mantles need the same sustained push and climb time, while one tile steps remain immediate', () => {
   const low = setup(20, 1, 88)
   tick(low.p, low.terrain, { move: 1 })
   assert.ok(low.p.mantle?.step)
-  const { p, terrain } = setup(40, 1, 88)
-  for (let i = 0; i < 20; i++) {
-    tick(p, terrain, { move: 1 })
-    assert.equal(p.mantle, null, 'brief contact does not climb')
-    assert.equal(p.y, 0)
+  for (const height of [40, 60]) {
+    const { p, terrain } = setup(height, 1, height === 60 ? 74.5 : 88)
+    for (let i = 0; i < 20; i++) {
+      tick(p, terrain, { move: 1 })
+      assert.equal(p.mantle, null, 'brief contact does not climb')
+      assert.equal(p.y, 0)
+    }
+    for (let i = 0; i < 6; i++) tick(p, terrain, { move: 1 })
+    assert.ok(p.mantle?.step, 'continuing to push starts the mantle')
+    assert.equal(p.mantle.step.duration, .34)
   }
-  for (let i = 0; i < 6; i++) tick(p, terrain, { move: 1 })
-  assert.ok(p.mantle?.step, 'continuing to push starts the mantle')
 })
 
 test('releasing, reversing, jumping, or a light stick input cannot accumulate mantle intent', () => {
-  for (const interruption of [{}, { move: -1 }, { move: .3 }, { move: 1, jump: true }]) {
-    const { p, terrain } = setup(40, 1, 88)
+  for (const height of [40, 60]) for (const interruption of [{}, { move: -1 }, { move: .3 }, { move: 1, jump: true }]) {
+    const { p, terrain } = setup(height, 1, height > 40 ? 74.5 : 88)
     for (let i = 0; i < 18; i++) tick(p, terrain, { move: 1 })
     tick(p, terrain, interruption)
     assert.equal(p.stepIntent, null)
@@ -88,8 +91,8 @@ test('releasing, reversing, jumping, or a light stick input cannot accumulate ma
 })
 
 test('stepping requires grounded directional intent and does not take over crouching or jump charging', () => {
-  for (const input of [{}, { move: -1 }, { move: 1, crouch: true }, { move: 1, jump: true }, { move: 1, descend: true }]) {
-    const { p, terrain } = setup(40, 1, 80)
+  for (const height of [40, 60]) for (const input of [{}, { move: -1 }, { move: 1, crouch: true }, { move: 1, jump: true }, { move: 1, descend: true }]) {
+    const { p, terrain } = setup(height, 1, 80)
     for (let i = 0; i < 25; i++) { tick(p, terrain, input); assert.equal(p.mantle?.step, undefined) }
   }
   const { p, terrain } = setup(40, 1, 80)
@@ -99,8 +102,8 @@ test('stepping requires grounded directional intent and does not take over crouc
 })
 
 test('boxes and moving mechanisms are not automatic terrain steps', () => {
-  for (const id of ['prop:box', 'prop:ball', 'mechanism:gate', 'mechanism:lift']) {
-    const { p, terrain } = setup(40)
+  for (const height of [40, 60]) for (const id of ['prop:box', 'prop:ball', 'mechanism:gate', 'mechanism:lift']) {
+    const { p, terrain } = setup(height)
     const world = staticContactWorld(terrain)
     world.colliders[1].id = id
     assert.equal(approach(p, terrain, {}, world), false)
@@ -109,13 +112,46 @@ test('boxes and moving mechanisms are not automatic terrain steps', () => {
 })
 
 test('low ceilings, occupied landings, short ledges and gaps prevent automatic climbs', () => {
-  for (const variant of ['ceiling', 'landing', 'narrow', 'gap']) {
-    const { p, terrain } = setup(40)
-    if (variant === 'ceiling') terrain.push({ x: 50, y: -105, w: 220, h: 20 })
-    if (variant === 'landing') terrain.push({ x: 117, y: -130, w: 100, h: 90 })
+  for (const height of [40, 60]) for (const variant of ['ceiling', 'landing', 'narrow', 'gap']) {
+    const { p, terrain } = setup(height)
+    if (variant === 'ceiling') terrain.push({ x: 50, y: -height - 65, w: 220, h: 20 })
+    if (variant === 'landing') terrain.push({ x: 117, y: -height - 90, w: 100, h: 90 })
     if (variant === 'narrow') terrain[1].w = 10
     if (variant === 'gap') terrain[0] = { ...floor, w: 480 }
     assert.equal(approach(p, terrain), false, variant)
+  }
+})
+
+test('three-tile climb height is measured from an elevated support, not the level floor', () => {
+  for (const height of [41, 50, 60]) for (const side of [-1, 1]) {
+    const { p, terrain } = setup(height, side)
+    for (const b of terrain) b.y -= 240
+    p.y = -240
+    assert.ok(approach(p, terrain, { move: side }))
+    for (let i = 0; i < 60 && p.mantle; i++) tick(p, terrain, { move: side })
+    assert.equal(p.y, -240 - height)
+    assert.equal(p.grounded, true)
+  }
+})
+
+test('three-tile pull-ups keep both hands on the lip during the lift', () => {
+  for (const side of [-1, 1]) {
+    const { p, terrain } = setup(60, side)
+    assert.ok(approach(p, terrain, { move: side }))
+    let samples = 0
+    while (p.mantle) {
+      const t = p.mantle.time / p.mantle.step.duration
+      if (t >= .2 && t <= .4) {
+        const pose = athletePose(p)
+        for (const [arm, inset] of [[pose.frontArm, 2], [pose.backArm, -.5]]) {
+          assert.ok(Math.abs(p.x + arm.hand[0] * side - (100 + inset) * side) < .01)
+          assert.ok(Math.abs(p.y + arm.hand[1] - (-60 - 1.3)) < .01)
+        }
+        samples++
+      }
+      tick(p, terrain, { move: side })
+    }
+    assert.ok(samples > 5)
   }
 })
 
@@ -133,6 +169,41 @@ test('stairs work in one polygon and as separate terrain blocks', () => {
     assert.deepEqual([...climbs], [-20, -40, -60])
     assert.equal(p.y, -60)
     assert.ok(p.x > 240)
+  }
+})
+
+test('a fresh run up one- then two-tile stairs keeps the whole leg outside the second riser', () => {
+  for (const joined of [false, true]) for (const side of [-1, 1]) for (const start of [0, 68]) {
+    const shapes = joined ? [{ x: -100, y: -60, w: 500, h: 140,
+      polygon: [[0,60],[200,60],[200,40],[280,40],[280,0],[500,0],[500,140],[0,140]] }]
+      : [{ x: -100, y: 0, w: 500, h: 80 }, { x: 100, y: -20, w: 80, h: 20 }, { x: 180, y: -60, w: 220, h: 60 }]
+    const terrain = side > 0 ? shapes : shapes.map(b => ({ ...b, x: -b.x - b.w,
+      polygon: b.polygon?.map(([x, y]) => [b.w - x, y]) }))
+    const p = createPlayer({ x: start * side, y: 0 }), climbs = new Set()
+    const outside = (x, y, label) => {
+      for (const b of terrain) if (pointInside(b, x, y)) {
+        assert.ok(nearestBoundary(b, x, y).distance < .1,
+          `${label} enters the stair: joined ${joined}, side ${side}, start ${start}, player ${p.x},${p.y}`)
+      }
+    }
+    // Sample every fixed simulation tick, including the initial unprimed gait.
+    for (let frame = 0; frame < 180 && p.x * side < 230; frame++) {
+      tick(p, terrain, { move: side })
+      if (p.mantle?.step) climbs.add(p.mantle.step.rise)
+      const pose = athletePose(p)
+      for (const [name, leg] of [['front', pose.frontLeg], ['back', pose.backLeg]]) {
+        for (const [a, b] of [[leg.root, leg.joint], [leg.joint, leg.end]]) for (let i = 0; i <= 12; i++) {
+          outside(p.x + (a[0] + (b[0] - a[0]) * i / 12) * side,
+            p.y + a[1] + (b[1] - a[1]) * i / 12, `${name} leg`)
+        }
+        for (const point of FOOT_CONTACT) {
+          const sole = footPoint(point, leg.footAngle * leg.footFacing, leg.toeAngle * leg.footFacing)
+          outside(p.x + (leg.end[0] + sole[0] * leg.footFacing) * side, p.y + leg.end[1] + sole[1], `${name} sole`)
+        }
+      }
+    }
+    assert.deepEqual([...climbs], [20, 40])
+    assert.ok(p.x * side >= 230 && p.y === -60, 'both stairs remain traversable')
   }
 })
 
@@ -186,7 +257,7 @@ test('external displacement interrupts a terrain step without shifting its desti
 })
 
 test('step animation keeps planted soles fixed and toes outside the riser, without a torso snap', () => {
-  for (const height of [20, 40]) for (const side of [1, -1]) {
+  for (const height of [20, 40, 60]) for (const side of [1, -1]) {
     const { p, terrain } = setup(height, side)
     assert.ok(approach(p, terrain, { move: side }))
     let previous = null

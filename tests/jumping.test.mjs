@@ -89,15 +89,26 @@ test('landing strength uses contact speed and never locks movement or another ju
   advance(p, STEP, { jump: true, move: 1 }); advance(p, STEP, { move: 1 })
   assert.equal(p.grounded, false); assert.ok(p.vy < 0 && p.vx > 0)
 })
-test('squatting ducks under a low ceiling and waits for clearance before standing', () => {
+test('Down ducks under a low ceiling and waits for clearance before standing', () => {
   const p = createPlayer(), world = [...floor, { x: 260, y: 540, w: 120, h: 35 }]
   advance(p, .4, { move: 1 }, world); assert.equal(p.x, 248)
-  advance(p, .6, { move: 1, crouch: true }, world)
+  advance(p, .6, { move: 1, descend: true }, world)
   assert.ok(p.x > 300); assert.equal(p.y, 620); assert.equal(p.crouch, 1)
   advance(p, .2, { reach: true }, world)
   assert.equal(p.crouching, true); assert.equal(p.reach, 0)
   advance(p, 1, { move: 1 }, world); advance(p, .2, {}, world)
   assert.ok(p.x > 392); assert.equal(p.crouching, false); assert.equal(p.crouch, 0); assert.equal(p.y, 620)
+})
+test('Down replaces looking down with a slow grounded crouch; Up still looks up', () => {
+  const p = createPlayer()
+  advance(p, .3, { descend: true })
+  assert.equal(p.crouching, true); assert.equal(p.crouch, 1); assert.equal(p.look, 0)
+  advance(p, .4, { move: 1, descend: true })
+  assert.equal(p.vx, TUNING.walkSpeed)
+  advance(p, .4, { move: 1 })
+  assert.equal(p.crouching, false); assert.equal(p.vx, TUNING.runSpeed)
+  advance(p, .8, { climb: true }); assert.equal(p.look, 1)
+  advance(p, .8, { descend: true }); assert.equal(p.look, 0)
 })
 test('held reach raises and lowers the arms without changing running or charging', () => {
   const p = createPlayer(); advance(p, .3, { move: 1 })
@@ -167,9 +178,13 @@ test('drop releases the grip without instant regrab; away + jump pushes off', ()
   advance(q, STEP, { move: -1 }, w)
   assert.equal(q.hang, null); assert.ok(q.vx < 0); assert.ok(q.vy < 0)
 })
-test('climbing refuses a blocked standing space', () => {
-  const { p, world } = hanging(1, [{ x: 500, y: 310, w: 160, h: 40 }])
-  advance(p, .5, { climb: true }, world); assert.ok(p.hang); assert.equal(p.mantle, null)
+test('pull-ups use crouch clearance and still refuse openings below crouch height', () => {
+  for (const gap of [39, 40, 50]) {
+    const { p, world } = hanging(1, [{ x: 500, y: 360 - gap, w: 160, h: 40 }])
+    advance(p, 1.5, { climb: true }, world)
+    if (gap < 40) { assert.ok(p.hang); assert.equal(p.mantle, null) }
+    else { assert.ok(p.grounded && p.crouching); assert.equal(p.hang, null); assert.equal(p.y, 400) }
+  }
 })
 test('falling and manual reset restore the last safe reset point', () => {
   const p = createPlayer(); p.x = 1500; advance(p, STEP, {}, PLATFORMS)
@@ -178,12 +193,14 @@ test('falling and manual reset restore the last safe reset point', () => {
   p.x = 1000; respawn(p); assert.equal(p.x, 1500)
 })
 const makePad = () => ({ index: 0, id: 'Test pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) })
-test('controller directions only request ledge actions, without crouch or reach', () => {
+test('Down requests crouch or descent while B only detaches', () => {
   const reader = createJumpController(), pad = makePad(); reader.sample([pad], 'playing', 0)
   pad.buttons[13] = { pressed: true, value: 1 }
   const down = reader.sample([pad], 'playing', 16)
   assert.equal(down.drop, true); assert.equal(down.descend, true); assert.equal(down.detach, false)
-  assert.equal(down.crouch, false); assert.equal(down.reach, false)
+  assert.equal(down.crouch, true); assert.equal(down.reach, false)
+  pad.buttons[13] = { pressed: false, value: 0 }; pad.axes[1] = 1
+  assert.equal(reader.sample([pad], 'playing', 24).crouch, true)
   pad.buttons[13] = { pressed: false, value: 0 }; pad.axes[1] = -1
   const up = reader.sample([pad], 'playing', 32)
   assert.equal(up.climb, true); assert.equal(up.crouch, false); assert.equal(up.reach, false)

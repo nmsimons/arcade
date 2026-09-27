@@ -1,4 +1,4 @@
-import type { Prop } from './challenge.ts'
+import type { Prop, RobotState } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { STEP, TUNING } from './model.ts'
 import type { GroundSurface } from './terrain.ts'
@@ -8,7 +8,7 @@ import { boxPushFace, propBounds, propPushHands } from './propGeometry.ts'
 import type { PushHands } from './propGeometry.ts'
 import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
-import { climbContactRoot, LEDGE_CLIMB_TIME } from './ledge.ts'
+import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles } from './terrainLedges.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
@@ -16,6 +16,7 @@ export interface PlayerCollider {
   id: string
   platform: Platform
   prop?: Prop
+  robot?: RobotState
 }
 export interface ContactWorld {
   platforms: readonly Platform[]
@@ -41,13 +42,29 @@ export function staticContactWorld(platforms: readonly Platform[]): ContactWorld
   return { platforms, colliders: platforms.map((platform, i) => ({ id: `terrain:${i}`, platform })) }
 }
 
+/** Use the existing climb envelope for every solid contact, including props
+ * and bots. The locomotion root lies below the feet during a folded hang. */
+export function playerContactBody(p: Player) {
+  const m = p.mantle?.step ? null : p.mantle, h = p.hang, grip = m ?? h
+  if (!grip) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
+  const progress = m ? Math.max(0, Math.min(1, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME)) : 0
+  const t = m?.descending ? 1 - progress : progress, crouched = !!m?.crouched
+  const pose = climbFrame(t, grip.braced, grip.slope, crouched)
+  const root = climbContactRoot(t, grip.braced, grip.slope, crouched)
+  const blend = h ? ledgeEase(h.time / (h.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME))
+    : m?.descending ? ledgeEase(m.time / LEDGE_CATCH_TIME) : 1
+  return { x: p.x + (root[0] - pose.root[0]) * grip.side * blend,
+    y: p.y + (root[1] - pose.root[1]) * blend, height: climbBodyHeight(t, crouched) }
+}
+
 /** The climb motor and prop forces use the same next-pose contact. */
 export function mantleContact(m: NonNullable<Player['mantle']>, world: ContactWorld, dt = STEP) {
-  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced, m.slope)
-  const next = climbContactRoot(Math.min(1, (m.time + dt) / LEDGE_CLIMB_TIME), m.braced, m.slope)
+  const progress = Math.min(1, (m.time + dt) / LEDGE_CLIMB_TIME)
+  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced, m.slope, m.crouched)
+  const next = climbContactRoot(progress, m.braced, m.slope, m.crouched)
   const from: Vec = [m.edgeX + before[0] * m.side, m.edgeY + before[1]]
   const target: Vec = [m.edgeX + next[0] * m.side, m.edgeY + next[1]]
-  const sweep = moveBody(from, target, ledgeObstacles(world.colliders.filter(c => c.prop).map(c => c.platform), m))
+  const sweep = moveBody(from, target, ledgeObstacles(world.colliders.filter(c => c.prop || c.robot).map(c => c.platform), m), climbBodyHeight(progress, m.crouched))
   return { from, target, sweep }
 }
 
@@ -63,8 +80,10 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
   // Prop forces run before the player sweep. A released/buffered jump is
   // already a departure intent and must not receive one last grounded shove.
   const departing = !input.jump && (p.charging || p.buffer > 0)
-  if (support && direction && !p.knockback && !departing) for (const c of world.colliders) {
+  if (support && direction && !departing) for (const c of world.colliders) {
     if (c.prop && c === collider) continue
+    // Standing hand reach must not turn a ceiling above the crouched body into a wall.
+    if (p.crouching && c.platform.y + c.platform.h <= p.y - TUNING.crouchHeight) continue
     const b = c.prop
     if (b) {
       const bounds = propBounds(b)
@@ -124,7 +143,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
 /** Constrain the walking motor before integration instead of undoing its work
  * afterward. Solve the hand face and footing together on a tilted box. */
 export function pushingVelocity(p: Player, contact: PushContact | null, world: ContactWorld, dt: number): number | null {
-  if (!contact?.hands || !p.grounded || p.knockback) return null
+  if (!contact?.hands || !p.grounded) return null
   const { hands, direction } = contact
   let target = hands.wallX - direction * 25.5
   for (let i = 0; i < 8; i++) {
@@ -157,10 +176,15 @@ export function translatePlayer(p: Player, dx: number, dy: number) {
   // An automatic step targets static terrain. A prop pushing the player away
   // interrupts it rather than moving the destination off the real ledge.
   if (p.mantle?.step && Math.hypot(dx, dy) > .001) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
+  translateFeet(p, dx, dy)
+  if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
+  if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }
+}
+
+/** A planted foot follows its support independently of the body's inertia. */
+export function translateFeet(p: Player, dx: number, dy: number) {
   if (p.footwork) for (const foot of p.footwork.feet) {
     foot.x += dx; foot.y += dy; foot.anchorX += dx; foot.anchorY += dy; foot.groundY += dy
     if (foot.settle) foot.settle = { ...foot.settle, x: foot.settle.x + dx, y: foot.settle.y + dy }
   }
-  if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
-  if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }
 }

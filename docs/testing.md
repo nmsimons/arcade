@@ -4,6 +4,29 @@ Use Node from `.nvmrc`: `npm ci`, `npm test`, `npm run lint`, `npm run build`,
 `npx playwright install chromium`, `npm run test:browser`. CI installs Chromium
 with OS dependencies and runs the same commands before deployment.
 
+## Regressions for reported bugs
+
+Every reported bug needs a permanent regression test alongside its fix. Reproduce
+the reported geometry, input sequence, and initial state; confirm the test catches
+the faulty behavior before applying the fix when possible. Exercise the actual
+game simulation or public UI, and assert the player-visible outcome rather than
+copying the implementation into the test.
+
+For Untitled Jumping Game, keep physics and animation regressions in
+`tests/jumping-*.test.mjs`. Include relevant boundary cases such as both approach
+directions, exact tile clearances, interrupted input, and the first attempt after
+loading or restarting. Animation checks should cover contact positions and motion
+through the transition, not just the final pose. Add browser coverage for input,
+rendering, editor, and dialog bugs, and visually inspect the affected animation or
+layout. Screenshots supplement assertions; merely saving a screenshot does not
+make it a regression test. If a report cannot yet be reproduced, say so explicitly.
+
+Run the affected checks after each fix. These test locations are included in the
+existing unit and browser CI jobs; a separate manual regression command must not
+be the only way to exercise a reported bug.
+
+## Game acceptance coverage
+
 Node imports the same `createGameSession` used by React. `sessionReplay.mjs`
 records seed and tick-indexed commands; assertion diagnostics include those
 inputs, ship, mode, campaign and tether. Its pilot turns/thrusts through the real

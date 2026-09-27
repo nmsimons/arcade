@@ -2,7 +2,7 @@ import type { Run } from './challenge.ts'
 import type { Player } from './model.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator'
-export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'switch' | 'timer-paused' | 'coin'
+export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -22,6 +22,9 @@ function snapshot(p: Player, run: Run | null) {
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
     coins: run?.coinsCollected ?? 0,
+    timeBonuses: run?.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length ?? 0,
+    penalties: run?.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length ?? 0,
+    emps: run?.pickups.filter(p => p.definition.kind === 'emp' && p.collectedAge !== null).length ?? 0,
     goalLit: run?.goalLit ?? false, stopped: run?.timeStopRemaining ?? 0, exiting: !!run?.exit,
   }
 }
@@ -110,8 +113,11 @@ export class JumpingAudioState {
       })
       if (run.goalLit && !before.goalLit) cue('switch', run.level.goal.x, run.level.goal.y, .8)
       if (run.coinsCollected > before.coins) cue('coin', p.x, p.y - 30)
+      if (run.pickups.filter(p => p.definition.kind === 'emp' && p.collectedAge !== null).length > before.emps) cue('emp', p.x, p.y - 30)
+      if (run.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length > before.penalties) cue('time-penalty', p.x, p.y - 30)
       // Another stopwatch extends an existing pause and still deserves feedback.
-      if (run.timeStopRemaining > before.stopped + .01 || run.exit && !before.exiting) cue('timer-paused', p.x, p.y - 30)
+      if (run.timeStopRemaining > before.stopped + .01 || run.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length > before.timeBonuses
+        || run.exit && !before.exiting) cue('timer-paused', p.x, p.y - 30)
     }
     this.previous = snapshot(p, run)
   }

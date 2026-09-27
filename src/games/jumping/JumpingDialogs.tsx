@@ -29,6 +29,7 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
               <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
               <div><dt>Hold, release to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
               <div><dt>Climb / descend</dt><dd><kbd>{connected ? '↑ ↓' : 'W S / ↑ ↓'}</kbd></dd></div>
+              <div><dt>Crouch / crouch walk</dt><dd><kbd>{connected ? '↓ + move' : 'S / ↓ + move'}</kbd></dd></div>
               <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
               {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
             </dl>

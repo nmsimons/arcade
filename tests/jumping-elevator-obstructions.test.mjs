@@ -39,6 +39,42 @@ function cycles(turns, top, bottom, tolerance = 1.1) {
   assert.ok(turns.filter(t => Math.abs(t.y - bottom) < tolerance && t.wait === 2).length >= 2, 'repeat the lower endpoint and its normal pause')
 }
 
+for (const dt of [STEP, 1 / 60]) for (const vy of [-40, 0, 180]) {
+  test(`boarding a rising lift at ${vy} vertical speed does not reverse it (${dt})`, () => {
+    const level = fixture()
+    level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }]
+    const run = start(level, 850), lift = run.mechanisms[0]
+    run.triggers[0].held = 1
+    Object.assign(run.player, { x: 780, y: 849.6, vy, grounded: false })
+    trace(run, .7, () => {
+      assert.equal(lift.direction, -1, 'landing is not an obstruction')
+      assert.equal(lift.wait, 0)
+    }, dt)
+    assert.ok(lift.y < 760)
+    assert.ok(Math.abs(run.player.y - lift.y) < .01, 'the new passenger rides normally')
+  })
+}
+
+test('boarding still respects a ceiling and an underside contact still reverses', () => {
+  const level = fixture()
+  level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }]
+  level.platforms = [{ x: 700, y: 760, w: 160, h: 27.4 }]
+  const run = start(level, 850)
+  run.triggers[0].held = 1
+  Object.assign(run.player, { x: 780, y: 849.6, grounded: false })
+  stepRun(run, NEUTRAL_INPUT)
+  assert.equal(run.mechanisms[0].direction, 1)
+  assert.equal(run.mechanisms[0].y, 850)
+
+  level.platforms = []
+  const below = start(level, 750, 1)
+  below.triggers[0].held = 1
+  Object.assign(below.player, { x: 780, y: 832.4, grounded: false })
+  stepRun(below, NEUTRAL_INPUT)
+  assert.equal(below.mechanisms[0].direction, -1)
+  assert.equal(below.mechanisms[0].y, 750)
+})
+
 for (const obstacle of ['platform', 'slope', 'concave terrain', 'gate', 'elevator']) {
   test(`an elevator keeps cycling above an obstructing ${obstacle}`, () => {
     const level = fixture()

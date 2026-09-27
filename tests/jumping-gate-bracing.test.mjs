@@ -87,7 +87,7 @@ function joinedGateLedge(side, reversed = false, ceiling = false) {
   const mirror = b => side === 1 ? b : { ...b, x: 1200 - b.x - b.w }
   // The narrow post and adjacent beam form the same top as a single L shape.
   level.platforms = [{ x: 600, y: 500, w: 20, h: 80 }, { x: 620, y: 500, w: 280, h: 20 }].map(mirror)
-  if (ceiling) level.platforms.push(mirror({ x: 610, y: 400, w: 100, h: 60 }))
+  if (ceiling) level.platforms.push(mirror({ x: 610, y: 400, w: 100, h: 61 }))
   if (reversed) level.platforms.reverse()
   level.mechanisms = [{ id: 'gate', kind: 'gate', ...mirror({ x: 600, y: 580, w: 20, h: 80 }), travel: 80 }]
   const run = createRun(level); run.started = true
@@ -113,7 +113,7 @@ test('a narrow post joined to a beam above a gate allows pulling up from either 
   }
 })
 
-test('a real ceiling still blocks pulling up onto joined terrain above a gate', () => {
+test('a ceiling with less than crouching clearance still blocks pulling up above a gate', () => {
   for (const side of [-1, 1]) {
     const run = joinedGateLedge(side, false, true), p = run.player
     for (let i = 0; i < 180; i++) {

@@ -1218,6 +1218,17 @@
       "w": 20,
       "h": 180,
       "travel": 180
+    },
+    {
+      "id": "lab-moving-platform",
+      "kind": "lift",
+      "orientation": "horizontal",
+      "flipX": true,
+      "x": 900,
+      "y": 550,
+      "w": 140,
+      "h": 20,
+      "travel": 240
     }
   ],
   "triggers": [
@@ -1232,7 +1243,7 @@
       "x": 2700,
       "y": 1400,
       "w": 100,
-      "target": "lab-gate",
+      "targets": ["lab-gate", "lab-moving-platform"],
       "mode": "touch"
     }
   ],
@@ -1262,6 +1273,8 @@
       "w": 580,
       "h": 120,
       "text": "Try another way.\nEvery fall is recoverable.",
+      "style": "graffiti",
+      "rotation": -10,
       "fontSize": 24,
       "align": "center"
     }
@@ -1276,6 +1289,33 @@
       "kind": "stopwatch",
       "x": 1150,
       "y": 740
+    },
+    {
+      "kind": "time-bonus",
+      "seconds": 5,
+      "x": 340,
+      "y": 1360
+    },
+    {
+      "kind": "coin",
+      "x": 300,
+      "y": 1360
+    },
+    {
+      "kind": "time-penalty",
+      "seconds": 5,
+      "x": 420,
+      "y": 1360
+    },
+    {
+      "kind": "fast-stopwatch",
+      "x": 500,
+      "y": 1360
+    },
+    {
+      "kind": "emp",
+      "x": 600,
+      "y": 1360
     }
   ]
 }

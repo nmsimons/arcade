@@ -29,7 +29,7 @@ export interface Climbing {
   rappelPull?: number
   rappelMotion?: number
   surfaceSupport?: number
-  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang'] }
+  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number }
 }
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v))
 export const ease = (v: number) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t) }

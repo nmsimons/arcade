@@ -13,6 +13,77 @@ const advance = (run, frames, input = {}) => {
   for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input })
 }
 
+test('crouch walking clears a two-tile opening without pushing its overhead edge', () => {
+  for (const dt of [STEP, 1 / 60]) for (const direction of [-1, 1]) for (const braceFirst of [false, true]) {
+    const ceiling = { x: 300, y: 540, w: 160, h: 40 }
+    const world = [{ x: 0, y: 620, w: 1200, h: 40 }, ceiling]
+    const p = createPlayer({ x: direction > 0 ? 200 : 560, y: 620 })
+    const step = input => stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, dt, world)
+    if (braceFirst) {
+      for (let t = 0; t < 1; t += dt) step({ move: direction })
+      assert.ok(p.pushing, 'standing still braces against the block')
+    }
+    for (let t = 0; t < .3; t += dt) step({ descend: true })
+    let crossedMiddle = false
+    for (let t = 0; t < 3; t += dt) {
+      step({ move: direction, descend: true })
+      assert.equal(p.contacts.push, null, 'the overhead face cannot arrest the crouch walk')
+      assert.equal(p.grounded, true)
+      assert.equal(p.y, 620)
+      const pose = athletePose(p), headX = p.x + pose.head[0] * p.facing
+      if (headX + 6.2 > ceiling.x && headX - 6.2 < ceiling.x + ceiling.w) {
+        assert.ok(p.y + pose.head[1] - 6.2 >= 580, 'the existing crouch pose clears the ceiling')
+      }
+      if (!crossedMiddle && Math.abs(p.x - 380) < 3) {
+        crossedMiddle = true
+        for (let idle = 0; idle < .3; idle += dt) step({})
+        assert.equal(p.crouching, true, 'releasing Down cannot stand up through the ceiling')
+      }
+    }
+    assert.ok(crossedMiddle)
+    assert.ok(direction > 0 ? p.x > 480 : p.x < 280, 'walks completely through the opening')
+    assert.equal(p.vx, direction * TUNING.walkSpeed, 'crouch speed stays unchanged')
+    for (let t = 0; t < .3; t += dt) step({})
+    assert.equal(p.crouching, false, 'stands normally after clearing the opening')
+  }
+})
+
+test('crouching still respects openings smaller than two tiles and real walls', () => {
+  for (const gap of [0, 39]) for (const direction of [-1, 1]) {
+    const ceiling = { x: 300, y: 500, w: 160, h: 120 - gap }
+    const world = [{ x: 0, y: 620, w: 1200, h: 40 }, ceiling]
+    const p = createPlayer({ x: direction > 0 ? 200 : 560, y: 620 })
+    for (let i = 0; i < 360; i++) stepPlayer(p, { ...NEUTRAL_INPUT, move: direction, descend: true }, STEP, world)
+    assert.ok(direction > 0 ? p.x < 300 : p.x > 460)
+    assert.ok(p.contacts.push, 'a genuinely obstructing face still supports pushing')
+    assert.equal(bodyIntersects(p.x, p.y, ceiling, TUNING.crouchHeight), false)
+  }
+})
+
+test('pressing Down while still pushing an overhead edge enters the two-tile opening', () => {
+  for (const direction of [-1, 1]) for (const down of [{ crouch: true }, { descend: true }]) {
+    const level = blankTrial(); level.width = 1200; level.height = level.floor = 620
+    level.spawn = { x: direction > 0 ? 200 : 560, y: 620 }; level.goal = { x: 1040, y: 620 }
+    level.platforms = [{ x: 300, y: 540, w: 160, h: 40 }]
+    const run = createRun(level), p = run.player
+    advance(run, 90, { move: direction })
+    assert.ok(p.contacts.push, 'the first approach reaches the standing push pose')
+    const outside = p.x
+    advance(run, 1, { move: direction, ...down })
+    assert.equal(p.crouching, true)
+    assert.equal(p.contacts.push, null, 'Down releases the false wall contact without releasing movement')
+    advance(run, 120, { move: direction, ...down })
+    assert.ok((p.x - outside) * direction > 100, 'the player enters without backing away or retrying')
+    assert.ok(p.x > 320 && p.x < 440)
+    advance(run, 36)
+    assert.equal(p.crouching, true, 'stopping under the block keeps the player crouched')
+    assert.ok(p.y + athletePose(p).head[1] - 6.2 >= 580, 'the resting head also clears the ceiling')
+    advance(run, 180, { move: direction, ...down })
+    assert.ok(direction > 0 ? p.x > 480 : p.x < 280, 'the same held input finishes the crossing')
+    assert.equal(p.y, 620)
+  }
+})
+
 test('pushing varied prop sizes keeps palms on the surface and feet moving with the body', () => {
   for (const kind of ['box', 'ball']) for (const size of [30, 40, 50, 60, 100, 200]) for (const direction of [-1, 1]) {
     const level = blankTrial(); level.props = [{ kind, x: 900, y: 920, size }]

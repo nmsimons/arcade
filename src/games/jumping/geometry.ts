@@ -213,7 +213,7 @@ export function bodyContact(b: Platform, x: number, y: number, normal: Vec, heig
   return nearestBoundary(b, touching.reduce((sum, p) => sum + p[0], 0) / touching.length,
     touching.reduce((sum, p) => sum + p[1], 0) / touching.length, normal)
 }
-export function lineBlocked(a: Vec, b: Vec, terrain: readonly Platform[]) {
+export function lineBlocked(a: Vec, b: Vec, terrain: Iterable<Platform>) {
   const rx = b[0] - a[0], ry = b[1] - a[1]
   for (const shape of terrain) {
     if (Math.max(a[0], b[0]) < shape.x || Math.min(a[0], b[0]) > shape.x + shape.w

@@ -9,7 +9,7 @@ import { ledgeExposed, platformLedges, sameLedge } from './terrainLedges.ts'
 import { ledgeEase } from './ledge.ts'
 
 export interface StepUp {
-  caught: Climbing['caught']
+  caught: Climbing['caught'] & { pushing?: Player['pushing'] }
   duration: number
   rise: number
   lead: 0 | 1
@@ -20,6 +20,7 @@ export interface StepUp {
 type Mantle = NonNullable<Player['mantle']>
 
 export function stepFootOffsets(step: StepUp): [number, number] {
+  if (step.rise > 40.01 && !step.climbing) return [2, -2]
   const lead = -4, trail = 2
   return step.lead === 0 ? [lead, trail] : [trail, lead]
 }
@@ -90,25 +91,29 @@ export function findStepUp(p: Player, move: number, dt: number, world: ContactWo
   if (Math.abs(move) < .1 || p.vx * side < 0) return null
   const reach = 26 + Math.max(0, p.vx * side) * dt
   const edges = world.colliders.filter(c => c.id.startsWith('terrain:')).flatMap(c => platformLedges(c.platform))
-    .filter(edge => !edge.slope && edge.side === side && p.y - edge.edgeY > .2 && p.y - edge.edgeY <= 40.01
+    .filter(edge => !edge.slope && edge.side === side && p.y - edge.edgeY > .2 && p.y - edge.edgeY <= 60.01
       && (edge.edgeX - p.x) * side >= 11.99 && (edge.edgeX - p.x) * side <= reach)
     .sort((a, b) => Math.abs(a.edgeX - p.x) - Math.abs(b.edgeX - p.x))
   for (const edge of edges) {
     if (!ledgeExposed(platforms, edge)) continue
     // Approach over continuous support, never use a step to bridge a hole.
     if (!followGround(platforms, p.x, edge.edgeX - side * 12, p.y)) continue
-    const toX = edge.edgeX + side * 12, toY = edge.edgeY
+    const tall = p.y - edge.edgeY > 40.01
+    const toX = edge.edgeX + side * (tall ? 20 : 12), toY = edge.edgeY
     if (!groundAt(platforms, toX, toY, .01, ground => Math.abs(ground.angle) < .01)) continue
     const rise = p.y - toY, distance = Math.abs(toX - p.x)
     if (rise > 20.01) {
       // Taller steps need a firm, sustained push against the actual face.
       // Running past a corner or lightly brushing it must not commit a climb.
-      if (Math.abs(move) < .5 || (edge.edgeX - p.x) * side > 12.15) continue
+      const push = p.contacts?.push
+      const braced = rise > 40.01 && push?.direction === side && Math.abs(push.wallX - edge.edgeX) < .01
+      if (Math.abs(move) < .5 || (edge.edgeX - p.x) * side > (braced ? 26 : 12.15)) continue
       p.stepIntent = { ...edge, time: (intent && sameLedge(intent, edge) ? intent.time : 0) + dt }
       if (p.stepIntent.time < .2) return null
     }
     const duration = rise <= 20.01 ? Math.max(.12, Math.min(.28, distance / Math.max(100, Math.abs(p.vx)))) : .34
-    const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork }
+    const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork,
+      pushing: tall ? p.pushing : undefined }
     const lead = p.footwork?.feet[0].planted && !p.footwork.feet[1].planted ? 1 : 0
     const mantle: Mantle = { ...edge, toX, toY, time: 0, braced: false, step: { caught, duration, rise, lead } }
     let previous: [number, number] = [p.x, p.y], clear = true

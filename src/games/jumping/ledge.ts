@@ -27,7 +27,22 @@ const frames: LedgeFrame[] = [
   { time: 1, root: [20, 0], hip: [20, restHip], waist: [20, restHip - 6.5], shoulder: [20, restHip - 16.6], head: [20.45, restHip - 23.9], frontFoot: [22, -2.8], backFoot: [18, -2.8] },
 ]
 const bracedFrames: LedgeFrame[] = [{ ...frames[0], hip: [-18, 32], waist: [-14, 26], frontFoot: [-2.8, 58], backFoot: [-2.8, 55] }, ...frames.slice(1)]
+// Keep the knee-supported pull, then bring both feet under a folded torso.
+// The final pose matches the resting crouch instead of standing into a ceiling.
+const crouchHip: Point = [17, -18]
+const crouchWaist: Point = [crouchHip[0] + Math.sin(.65) * 6.5, crouchHip[1] - Math.cos(.65) * 6.5]
+const crouchShoulder: Point = [crouchWaist[0] + Math.sin(1.25) * 10.1, crouchWaist[1] - Math.cos(1.25) * 10.1]
+const crouchHead: Point = [crouchShoulder[0] + .45 + Math.sin(1.25) * 2.2, crouchShoulder[1] - 7.3]
+const crouchFrames: LedgeFrame[] = [
+  ...frames.filter(frame => frame.time < .73),
+  { ...frames.find(frame => frame.time === .73)!, waist: [7, -21], shoulder: [14, -25.5], head: [15, -32.8] },
+  { time: .81, root: [12, 9], hip: [10, -18], waist: [14, -23], shoulder: [22, -26], head: [24, -33], frontFoot: [-9, -9], backFoot: [15, -2.8] },
+  { time: .9, root: [18, 3], hip: [15, -18], waist: [19, -23], shoulder: [28, -26], head: [31, -33.6], frontFoot: [22, -5], backFoot: [15, -2.8] },
+  ...[.96, 1].map(time => ({ time, root: [20, 0] as Point, hip: crouchHip, waist: crouchWaist, shoulder: crouchShoulder, head: crouchHead, frontFoot: [24, -2.8] as Point, backFoot: [15, -2.8] as Point })),
+]
+const bracedCrouchFrames = [bracedFrames[0], ...crouchFrames.slice(1)]
 export const ledgeEase = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
+export const climbBodyHeight = (progress: number, crouched = false) => 62 - (crouched ? 22 * ledgeEase((progress - .25) / .35) : 0)
 
 /** Clear an overhang sideways before lifting from a rope into the ledge hang. */
 export function ropeCatchRoot(from: Point, progress: number): Point {
@@ -38,9 +53,9 @@ export function ropeCatchRoot(from: Point, progress: number): Point {
 }
 
 /** Edge-relative choreography: pull, knee support, trailing foot, then stand. */
-export function climbFrame(progress: number, braced = false, slope = 0) {
+export function climbFrame(progress: number, braced = false, slope = 0, crouched = false) {
   const t = Math.max(0, Math.min(1, progress))
-  const poses = braced ? bracedFrames : frames
+  const poses = crouched ? braced ? bracedCrouchFrames : crouchFrames : braced ? bracedFrames : frames
   const index = Math.max(1, poses.findIndex((frame, i) => i > 0 && frame.time >= t))
   const a = poses[index - 1], b = poses[index], span = b.time - a.time, u = (t - a.time) / span
   const sample = (key: Exclude<keyof LedgeFrame, 'time'>): Point => [0, 1].map(axis => {
@@ -72,8 +87,8 @@ export function climbFrame(progress: number, braced = false, slope = 0) {
 /** The torso leans ahead of the movement root while climbing. Loose objects
  * must meet that reach, rather than pass through the head before hitting the
  * upright locomotion hull. Terrain keeps its existing corner clearance. */
-export function climbContactRoot(progress: number, braced = false, slope = 0): Point {
-  const pose = climbFrame(progress, braced, slope)
+export function climbContactRoot(progress: number, braced = false, slope = 0, crouched = false): Point {
+  const pose = climbFrame(progress, braced, slope, crouched)
   return [Math.max(pose.root[0], pose.head[0] + 6.2 - 12, pose.shoulder[0] + 4 - 12),
-    Math.min(pose.root[1], pose.head[1] - 6.2 + 62)]
+    Math.min(pose.root[1], pose.head[1] - 6.2 + climbBodyHeight(progress, crouched))]
 }

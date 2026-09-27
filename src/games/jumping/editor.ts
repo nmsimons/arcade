@@ -13,9 +13,10 @@ import { ropePath, ropeSegmentCount } from './climbables.ts'
 import { goalBounds } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { pickupBounds } from './pickups.ts'
+import { COIN_SWITCH_THICKNESS, COIN_SWITCH_LENGTH, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch'
+export type Tool = 'select' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'coin-switch'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup'; index: number }
@@ -76,7 +77,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'prop') { const b = level.props?.[i]; return b ? { x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size } : null }
   if (selection.kind === 'robot') { const r = level.robots?.[i]; return r ? { x: r.x - 26, y: r.y - 50, w: 52, h: 50 } : null }
   if (selection.kind === 'mechanism') return level.mechanisms?.[i] ?? null
-  if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? { x: t.x, y: t.y - 8, w: t.w, h: 8 } : null }
+  if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? t.mode === 'coins' ? coinSwitchBounds(t) : { x: t.x, y: t.y - 8, w: t.w, h: 8 } : null }
   if (selection.kind === 'goal') return level.goal ? { ...level.goal, w: 0, h: 0 } : null
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
@@ -109,8 +110,29 @@ export function setElevatorTravel(level: JumpLevel, index: number, travel: numbe
 }
 export function setTriggerTargets(level: JumpLevel, index: number, targets: readonly string[]): JumpLevel {
   if (!level.triggers?.[index]) return level
-  const next = copyLevel(level), { x, y, w, mode, name } = next.triggers![index]
-  next.triggers![index] = { x, y, w, mode, ...(name ? { name } : {}), targets: [...new Set(targets.filter(id => next.mechanisms?.some(m => m.id === id)))] }
+  const next = copyLevel(level), trigger = next.triggers![index]
+  delete trigger.target
+  trigger.targets = [...new Set(targets.filter(id => next.mechanisms?.some(m => m.id === id)))]
+  return next
+}
+export function setCoinThreshold(level: JumpLevel, index: number, threshold: number): JumpLevel {
+  if (level.triggers?.[index]?.mode !== 'coins' || !Number.isFinite(threshold)) return level
+  const next = copyLevel(level), trigger = next.triggers![index]
+  if (trigger.mode === 'coins') trigger.threshold = clamp(Math.round(threshold), 1, 80)
+  return next
+}
+export function setCoinSwitchOrientation(level: JumpLevel, index: number, orientation: 'horizontal' | 'vertical'): JumpLevel {
+  const before = level.triggers?.[index]
+  if (before?.mode !== 'coins' || (before.orientation ?? 'horizontal') === orientation) return level
+  const next = copyLevel(level), trigger = next.triggers![index]
+  if (trigger.mode !== 'coins') return level
+  const bounds = coinSwitchBounds(trigger), length = trigger.orientation === 'vertical' ? trigger.h : trigger.w
+  const dimensions = orientation === 'vertical' ? { orientation: 'vertical' as const, w: COIN_SWITCH_THICKNESS, h: length } : { w: length }
+  const h = dimensions.h ?? COIN_SWITCH_THICKNESS
+  const x = clamp(bounds.x + (bounds.w - dimensions.w) / 2, 24, level.width - dimensions.w - 24)
+  const y = clamp(bounds.y + (bounds.h - h) / 2, 0, levelHeight(level) - h)
+  const connection = trigger.targets ? { targets: trigger.targets } : { target: trigger.target }
+  next.triggers![index] = { x, y, ...dimensions, ...connection, mode: 'coins', threshold: trigger.threshold, ...(trigger.name ? { name: trigger.name } : {}) }
   return next
 }
 export function hitItem(level: JumpLevel, x: number, y: number, tolerance: number): Selection | null {
@@ -207,7 +229,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'timer') Object.assign(next.timers![selection.index], { x, y })
   if (selection.kind === 'text') Object.assign(next.texts![selection.index], { x, y })
   if (selection.kind === 'pickup') {
-    const bounds = pickupBounds({ x: 0, y: 0 })
+    const bounds = pickupBounds({ kind: next.pickups![selection.index].kind, x: 0, y: 0 })
     Object.assign(next.pickups![selection.index], { x: x - bounds.x, y: y - bounds.y })
   }
   if (selection.kind === 'prop') Object.assign(next.props![selection.index], { x: clamp(x + b.w / 2, 24 + b.w / 2, level.width - 24 - b.w / 2), y: Math.min(next.floor!, y + b.h) })
@@ -216,7 +238,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     Object.assign(r, point, pusherRange(next, point.x, point.y))
   }
   if (selection.kind === 'mechanism') Object.assign(next.mechanisms![selection.index], { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
-  if (selection.kind === 'trigger') { const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = y + 8 }
+  if (selection.kind === 'trigger') { const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' ? y : y + 8 }
   return next
 }
 export function resizeItem(level: JumpLevel, selection: Selection, w: number, h: number, handle?: ResizeHandle): JumpLevel {
@@ -267,9 +289,16 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
     m.travel = mechanismTravel(m)
   }
   if (selection.kind === 'trigger') {
-    const t = next.triggers![selection.index], right = t.x + t.w
-    t.w = clamp(w, 40, Math.min(240, left ? right - 24 : next.width - t.x - 24))
-    if (left) t.x = right - t.w
+    const t = next.triggers![selection.index]
+    if (t.mode === 'coins' && t.orientation === 'vertical') {
+      const bottom = t.y + t.h
+      t.h = clamp(h, COIN_SWITCH_MIN_LENGTH, Math.min(240, top ? bottom : levelHeight(next) - t.y))
+      if (top) t.y = bottom - t.h
+    } else {
+      const right = t.x + t.w
+      t.w = clamp(w, t.mode === 'coins' ? COIN_SWITCH_MIN_LENGTH : 40, Math.min(240, left ? right - 24 : next.width - t.x - 24))
+      if (left) t.x = right - t.w
+    }
   }
   return next
 }
@@ -352,11 +381,19 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     timers.push({ x: clamp(start.x, 0, trial.width - WALL_TIMER_WIDTH), y: clamp(start.y, 0, levelHeight(trial) - WALL_TIMER_HEIGHT) })
     return { level: trial, selection: { kind: 'timer', index: timers.length - 1 } }
   }
-  if (tool === 'stopwatch') {
-    const trial = asTrial(level), pickups = trial.pickups ??= [], bounds = pickupBounds({ x: 0, y: 0 })
-    if (pickups.length >= 80) throw new Error('This level already has 80 power-ups.')
-    pickups.push({ kind: 'stopwatch', x: clamp(start.x, 0, trial.width - bounds.w) - bounds.x, y: clamp(start.y, 0, levelHeight(trial) - bounds.h) - bounds.y })
+  if (tool === 'stopwatch' || tool === 'coin') {
+    const trial = asTrial(level), pickups = trial.pickups ??= [], bounds = pickupBounds({ kind: tool, x: 0, y: 0 })
+    if (pickups.length >= 80) throw new Error('This level already has 80 power-ups and coins.')
+    pickups.push({ kind: tool, x: clamp(start.x, 0, trial.width - bounds.w) - bounds.x, y: clamp(start.y, 0, levelHeight(trial) - bounds.h) - bounds.y })
     return { level: trial, selection: { kind: 'pickup', index: pickups.length - 1 } }
+  }
+  if (tool === 'coin-switch') {
+    const trial = asTrial(level)
+    if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
+    const nearest = [...trial.mechanisms].sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
+    trial.triggers.push({ x: clamp(start.x, 24, trial.width - COIN_SWITCH_LENGTH - 24), y: clamp(start.y, 0, levelHeight(trial) - COIN_SWITCH_THICKNESS),
+      w: COIN_SWITCH_LENGTH, mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
+    return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
   if (['goal', 'box', 'ball', 'pusher', 'plate', 'lift', 'gate', 'horizontal-gate'].includes(tool)) {
     const trial = asTrial(level), point = snapToGround(trial, clamp(x, 70, trial.width - 110), y)
@@ -374,7 +411,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       return { level: trial, selection: { kind: 'robot', index: trial.robots.length - 1 } }
     }
     if (tool === 'plate') {
-      if (trial.triggers.length >= 40) throw new Error('This level already has 40 pressure plates.')
+      if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
       const nearest = [...trial.mechanisms].sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
       trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }

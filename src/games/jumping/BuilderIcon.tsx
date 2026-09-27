@@ -13,6 +13,8 @@ const paths: Record<Exclude<Tool, 'stopwatch'>, string> = {
   'horizontal-gate': 'M3 9h18v6H3zM7 11v2M12 11v2M17 11v2',
   timer: 'M2 6h20v12H2zM6 10v4M10 10v4M14 10v4M18 10v4',
   text: 'M4 7V4h16v3M12 4v16M8 20h8',
+  coin: 'M17 12a6 9 0 1 1-12 0 6 9 0 1 1 12 0ZM11 3h3a6 9 0 0 1 0 18h-3',
+  'coin-switch': 'M2 7h20v10H2zM5 10h7v4H5z',
 }
 export function BuilderIcon({ kind }: { kind: Tool }) {
   if (kind === 'stopwatch') return <svg width="22" height="22" viewBox="-26 -32 52 56" fill="currentColor" aria-hidden="true"><path d={STOPWATCH_FACE_PATH} fillRule="evenodd" /><path d={STOPWATCH_DETAILS_PATH} /></svg>

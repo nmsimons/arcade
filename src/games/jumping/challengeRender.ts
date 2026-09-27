@@ -6,6 +6,7 @@ import type { Goal } from './goal.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, GOAL_POLE_OFFSET, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { drawPickup } from './pickups.ts'
+import { drawCoinSwitch } from './coins.ts'
 import { levelHeight } from './level.ts'
 import { isHorizontalGate } from './mechanisms.ts'
 
@@ -87,6 +88,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     }
   }
   ctx.restore()
+  for (const trigger of level.triggers) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected)
   drawTerrain(ctx, run.terrain)
   for (const m of run.mechanisms) {
     const d = m.definition
@@ -103,13 +105,14 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     }
   }
   for (const [i, plate] of level.triggers.entries()) {
+    if (plate.mode === 'coins') continue
     drawPressurePlate(ctx, plate.x, plate.y, plate.w, run.triggers[i].active, run.triggers[i].depression)
   }
   drawGoal(ctx, level.goal, run.goalLit, run.goalDepression)
   for (const b of run.props) drawProp(ctx, b)
   drawClimbables(ctx, p, level.climbables)
   for (const r of run.robots) drawRobot(ctx, r, run.activeTime)
-  for (const pickup of run.pickups) drawPickup(ctx, pickup)
+  for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime)
   if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
     drawAthlete(ctx, p); ctx.restore()

@@ -15,6 +15,8 @@ import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
+import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
+import type { CoinSwitchOrientation } from './coins.ts'
 import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 import { isTerrainMaterial } from './terrainMaterials.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
@@ -25,7 +27,8 @@ export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: n
 export interface Mechanism extends NamedObject { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
-export type Trigger = NamedObject & { x: number; y: number; w: number; mode: 'weight' | 'touch' } & TriggerConnection
+export type Trigger = NamedObject & { x: number; y: number; w: number } & TriggerConnection
+  & ({ mode: 'weight' | 'touch' } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
 export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number }
@@ -119,10 +122,17 @@ export function levelProblems(level: JumpLevel): string[] {
       issues.push('Place the goal plate, light and exit on a continuous flat surface, with a clear doorway inside the level.')
     }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
-    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id)))) issues.push('Connect each pressure plate to one or more elevators or gates.')
+    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id)))) issues.push('Connect each pressure plate or coin switch to one or more elevators or gates.')
+    const coins = level.pickups?.filter(p => p.kind === 'coin').length ?? 0
+    if (level.triggers.some(t => t.mode === 'coins' && t.threshold > coins)) issues.push('Add enough coins for every coin switch to reach its threshold.')
+    if (level.triggers.some(t => {
+      if (t.mode !== 'coins') return false
+      const b = coinSwitchBounds(t)
+      return b.x < 24 || b.y < 0 || b.x + b.w > level.width - 24 || b.y + b.h > levelHeight(level)
+    })) issues.push('Keep coin switches inside the level rectangle.')
     if (level.robots.some(r => !groundAt(levelTerrain(level), r.x, r.y, .2))) issues.push('Place each shovebot on a terrain surface.')
     if (level.timers?.some(t => t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level))) issues.push('Keep wall timers inside the level rectangle.')
-    if (level.pickups?.some(p => { const b = pickupBounds(p); return b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level) })) issues.push('Keep power-ups inside the level rectangle.')
+    if (level.pickups?.some(p => { const b = pickupBounds(p); return b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level) })) issues.push('Keep power-ups and coins inside the level rectangle.')
   }
   return issues
 }
@@ -252,7 +262,7 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     if (new Set(level.mechanisms.map(m => m.id)).size !== level.mechanisms.length) fail()
     level.triggers = list(v.triggers, 40).map(item => {
-      const t = object(item); if (t.mode !== 'touch' && t.mode !== 'weight') fail()
+      const t = object(item); if (t.mode !== 'touch' && t.mode !== 'weight' && t.mode !== 'coins') fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
         if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > 40
@@ -261,6 +271,20 @@ export function parseLevel(value: unknown): JumpLevel {
       } else {
         if (typeof t.target !== 'string' || t.target.length > 100) fail()
         connection = { target: t.target as string }
+      }
+      if (t.mode === 'coins') {
+        const threshold = num(t.threshold, 1, 80)
+        if (!Number.isInteger(threshold)) fail()
+        if (t.orientation !== undefined && t.orientation !== 'vertical') fail()
+        if (t.orientation === undefined && t.h !== undefined) fail()
+        // Preserve vertical switches saved with the original, thicker housing.
+        if (t.orientation === 'vertical' && ![COIN_SWITCH_THICKNESS, 24, 40, 60].includes(t.w as number)) fail()
+        const dimensions = t.orientation === 'vertical'
+          ? { orientation: 'vertical' as const, w: COIN_SWITCH_THICKNESS, h: num(t.h, COIN_SWITCH_MIN_LENGTH, 240) }
+          : { w: num(t.w, COIN_SWITCH_MIN_LENGTH, 240) }
+        const h = dimensions.h ?? COIN_SWITCH_THICKNESS
+        const x = num(t.x, 24, width - (t.w as number) - 24) + (t.orientation === 'vertical' ? ((t.w as number) - dimensions.w) / 2 : 0)
+        return { ...objectName(t), x, y: num(t.y, 0, level.floor! - h), ...dimensions, ...connection, mode: 'coins', threshold }
       }
       const w = num(t.w, 40, 240)
       return { ...objectName(t), x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!), w, ...connection, mode: t.mode as 'touch' | 'weight' }
@@ -277,9 +301,10 @@ export function parseLevel(value: unknown): JumpLevel {
         y: Math.min(num(timer.y, 0, level.floor! - 52), level.floor! - WALL_TIMER_HEIGHT) }
     })
     if (v.pickups !== undefined) level.pickups = list(v.pickups, 80).map(item => {
-      const pickup = object(item), bounds = pickupBounds({ x: 0, y: 0 })
-      if (pickup.kind !== 'stopwatch') fail()
-      return { ...objectName(pickup), kind: 'stopwatch', x: num(pickup.x, -bounds.x, width - bounds.x - bounds.w), y: num(pickup.y, -bounds.y, level.floor! - bounds.y - bounds.h) }
+      const pickup = object(item)
+      if (pickup.kind !== 'stopwatch' && pickup.kind !== 'coin') fail()
+      const kind = pickup.kind as Pickup['kind'], bounds = pickupBounds({ kind, x: 0, y: 0 })
+      return { ...objectName(pickup), kind, x: num(pickup.x, -bounds.x, width - bounds.x - bounds.w), y: num(pickup.y, -bounds.y, level.floor! - bounds.y - bounds.h) }
     })
   } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {

@@ -2,7 +2,7 @@ import type { Run } from './challenge.ts'
 import type { Player } from './model.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator'
-export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'switch' | 'timer-paused'
+export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'switch' | 'timer-paused' | 'coin'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -21,6 +21,7 @@ function snapshot(p: Player, run: Run | null) {
     props: run?.props.map(b => ({ x: b.x, y: b.y, vy: b.vy, grounded: b.grounded, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
+    coins: run?.coinsCollected ?? 0,
     goalLit: run?.goalLit ?? false, stopped: run?.timeStopRemaining ?? 0, exiting: !!run?.exit,
   }
 }
@@ -108,6 +109,7 @@ export class JumpingAudioState {
         if (t.active && before.triggers[i] === false) cue('switch', plate.x + plate.w / 2, plate.y)
       })
       if (run.goalLit && !before.goalLit) cue('switch', run.level.goal.x, run.level.goal.y, .8)
+      if (run.coinsCollected > before.coins) cue('coin', p.x, p.y - 30)
       // Another stopwatch extends an existing pause and still deserves feedback.
       if (run.timeStopRemaining > before.stopped + .01 || run.exit && !before.exiting) cue('timer-paused', p.x, p.y - 30)
     }

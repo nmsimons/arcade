@@ -16,13 +16,14 @@ function placementSolids(level: JumpLevel, selection: Selection) {
     ...props]
 }
 
-export function canPlaceOnSurface(selection: Selection) {
+export function canPlaceOnSurface(selection: Selection, level?: JumpLevel) {
+  if (selection.kind === 'trigger' && level?.triggers?.[selection.index]?.mode === 'coins') return false
   return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'spawn', 'checkpoint', 'goal', 'ladder'].includes(selection.kind)
 }
 
 /** Find an exposed support under the actual footprint, not a distant nearest center point. */
 export function surfacePlacement(level: JumpLevel, selection: Selection, reach = Infinity) {
-  if (!canPlaceOnSurface(selection)) return null
+  if (!canPlaceOnSurface(selection, level)) return null
   const bounds = itemBounds(level, selection)
   if (!bounds) return null
   const marker = ['spawn', 'checkpoint', 'goal'].includes(selection.kind)

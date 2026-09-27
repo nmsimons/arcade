@@ -94,6 +94,8 @@ export class JumpingSound {
       }),
       switch: makeBuffer(ctx, .16, (t, noise) => Math.min(1, t / .002) *
         (noise * .16 * Math.exp(-t * 90) + Math.sin(t * Math.PI * 2 * 480) * .2 * Math.exp(-t * 55)) * Math.min(1, (.16 - t) / .01)),
+      coin: makeBuffer(ctx, .28, t => Math.min(1, t / .004) *
+        (Math.sin(t * Math.PI * 2 * 1046.5) + .3 * Math.sin(t * Math.PI * 2 * 1568)) * .13 * Math.exp(-t * 19) * Math.min(1, (.28 - t) / .025)),
       'timer-paused': makeBuffer(ctx, .46, t => {
         const note = (start: number, frequency: number) => {
           const age = t - start

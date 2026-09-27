@@ -1,0 +1,129 @@
+import { test, expect } from './helpers/folderTest.mjs'
+import { blankTrial } from '../../src/games/jumping/level.ts'
+import { installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+
+const level = (orientation = 'horizontal') => ({ ...blankTrial(), id: 'coins-browser-test', name: 'Coin collection', width: 1200, height: 600, floor: 600,
+  spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 },
+  pickups: [300, 500, 700].map(x => ({ kind: 'coin', x, y: 568 })),
+  triggers: [{ mode: 'coins', x: 360, y: 320, ...(orientation === 'vertical' ? { orientation, w: 20, h: 200 } : { w: 200 }), threshold: 3, targets: ['gate'] }],
+  mechanisms: [{ id: 'gate', kind: 'gate', x: 820, y: 420, w: 20, h: 180, travel: 180 }] })
+
+async function open(page, editor = false, orientation = 'horizontal') {
+  await useLevelFixtures(page, [level(orientation)])
+  if (editor) await installTestFolder(page, { 'fixture.json': level() })
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, rounded = proto.roundRect
+    proto.fillRect = function (...args) {
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
+        this.canvas.coinCamera = this.getTransform(); this.canvas.coinWidths = []; this.canvas.coinMeter = null; this.canvas.coinSegments = 0
+      }
+      if (args[0] === 4 && ['#dfb44f', '#91ad69'].includes(this.fillStyle)) this.canvas.coinMeter = { x: args[0], y: args[1], width: args[2], height: args[3], full: this.fillStyle === '#91ad69' }
+      if (this.fillStyle === '#e2e7da' && (args[2] === 1 || args[3] === 1)) this.canvas.coinSegments++
+      return rect.apply(this, args)
+    }
+    proto.ellipse = function (...args) {
+      if (this.fillStyle === '#dfb44f' && args[3] === 18 && this.canvas.coinCamera && this.getTransform().a / this.canvas.coinCamera.a > .9) this.canvas.coinWidths.push(args[2])
+      return ellipse.apply(this, args)
+    }
+    proto.roundRect = function (...args) {
+      if (args[0] === 820 && args[2] === 20 && args[3] === 180) this.canvas.coinGateY = args[1]
+      return rounded.apply(this, args)
+    }
+  })
+  await page.goto('/untitled-jumping-game')
+  await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  if (editor) {
+    await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+    await page.getByRole('button', { name: 'Library', exact: true }).click()
+    await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
+    await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
+  } else {
+    await page.locator('.jumping-level-card[aria-pressed=true]').click()
+    await expect(page.getByRole('img', { name: 'Coin collection: activate the goal' })).toBeFocused()
+  }
+  await page.clock.runFor(64)
+}
+const state = page => page.getByRole('img', { name: 'Coin collection: activate the goal' }).evaluate(c => ({ coins: c.coinWidths, meter: c.coinMeter, segments: c.coinSegments, gate: c.coinGateY }))
+
+for (const orientation of ['horizontal', 'vertical']) test(`${orientation} meters fill in the correct direction, open a gate, pause, and reset`, async ({ page }, info) => {
+  await open(page, false, orientation)
+  const vertical = orientation === 'vertical', fillSize = meter => vertical ? meter.height : meter.width
+  const ready = await state(page)
+  expect(ready.segments).toBe(2)
+  expect(ready.coins).toHaveLength(3); expect(ready.meter).toEqual(vertical
+    ? { x: 4, y: 196, width: 12, height: 0, full: false }
+    : { x: 4, y: 4, width: 0, height: 12, full: false }); expect(ready.gate).toBe(420)
+  await page.clock.runFor(500)
+  expect((await state(page)).coins).not.toEqual(ready.coins)
+  await page.screenshot({ path: info.outputPath('coins-ready.png') })
+  await page.keyboard.down('d')
+  for (let i = 0; i < 80 && fillSize((await state(page)).meter) === 0; i++) await page.clock.runFor(16)
+  await page.keyboard.up('d'); await page.clock.runFor(400)
+  const partial = await state(page)
+  expect(partial.coins).toHaveLength(2); expect(fillSize(partial.meter)).toBeCloseTo(192 / 3)
+  if (vertical) expect(partial.meter.y + partial.meter.height).toBeCloseTo(196, 8)
+  else expect(partial.meter.x).toBe(4)
+  expect(partial.meter.full).toBe(false); expect(partial.gate).toBe(420)
+  await page.screenshot({ path: info.outputPath('coin-meter-partial.png') })
+  await page.keyboard.press('Escape'); await page.clock.runFor(1000)
+  expect(await state(page)).toEqual(partial)
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await page.keyboard.down('d')
+  for (let i = 0; i < 160 && !(await state(page)).meter.full; i++) await page.clock.runFor(16)
+  await page.keyboard.up('d'); await page.clock.runFor(1500)
+  const full = await state(page)
+  expect(full.coins).toHaveLength(0); expect(full.meter).toEqual(vertical
+    ? { x: 4, y: 4, width: 12, height: 192, full: true }
+    : { x: 4, y: 4, width: 192, height: 12, full: true }); expect(full.gate).toBe(240)
+  await page.screenshot({ path: info.outputPath('coin-switch-active.png') })
+  await restartFromPause(page); await page.clock.runFor(64)
+  const reset = await state(page)
+  expect(reset.coins).toHaveLength(3); expect(reset.meter).toEqual(ready.meter); expect(reset.gate).toBe(420)
+})
+
+test('Coin is visible in the toolbox; coins and switches place, edit, undo, save and reopen', async ({ page }, info) => {
+  await open(page, true)
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  const selected = page.getByRole('combobox', { name: 'Selected object' })
+  const coin = page.getByRole('button', { name: 'Coin', exact: true })
+  await expect(coin).toBeVisible(); await expect(page.getByRole('heading', { name: 'Collectibles', exact: true })).toBeVisible()
+  const collectibles = page.locator('.builder-tool-group').filter({ has: page.getByRole('heading', { name: 'Collectibles', exact: true }) })
+  await expect(collectibles.getByRole('button', { name: 'Stopwatch', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Power-ups', exact: true })).toHaveCount(0)
+  await coin.click(); await canvas.click({ position: { x: 240, y: 250 } }); await page.clock.runFor(32)
+  await expect(selected).toHaveValue('pickup:3')
+  await expect(selected.locator('option:checked')).toHaveText('Coin 4')
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await expect(selected).toHaveValue('pickup:4')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await expect(selected.locator('option[value="pickup:4"]')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Coin switch', exact: true }).click()
+  await canvas.click({ position: { x: 300, y: 160 } }); await page.clock.runFor(32)
+  await expect(selected).toHaveValue('trigger:1')
+  await expect(page.getByRole('button', { name: /Place on surface/ })).toHaveCount(0)
+  const threshold = page.getByRole('spinbutton', { name: 'Coins required', exact: true })
+  await threshold.fill('4'); await threshold.press('Enter')
+  const connection = page.getByRole('checkbox', { name: 'Gate 1', exact: true })
+  await connection.uncheck(); await connection.check()
+  await expect(threshold).toHaveValue('4')
+  const orientation = page.getByRole('combobox', { name: 'Coin switch orientation', exact: true })
+  await orientation.selectOption('vertical')
+  const height = page.getByRole('spinbutton', { name: 'Object h', exact: true })
+  await expect(height).toHaveValue('200')
+  await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await selected.selectOption('trigger:1'); await expect(orientation).toHaveValue('horizontal')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await selected.selectOption('trigger:1'); await expect(orientation).toHaveValue('vertical')
+  await height.fill('160'); await height.press('Enter')
+  await page.clock.runFor(32)
+  await page.screenshot({ path: info.outputPath('coin-switch-inspector.png') })
+  const saved = await saveTestLevel(page)
+  expect(saved.level.pickups).toHaveLength(4)
+  expect(saved.level.triggers[1]).toMatchObject({ mode: 'coins', threshold: 4, targets: ['gate'], orientation: 'vertical', w: 20, h: 160 })
+  await reopenTestLevel(page, saved); await selected.selectOption('trigger:1')
+  await expect(threshold).toHaveValue('4'); await expect(connection).toBeChecked()
+  await expect(orientation).toHaveValue('vertical'); await expect(height).toHaveValue('160')
+})

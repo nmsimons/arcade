@@ -1,7 +1,7 @@
 import { polygonPoints } from './geometry'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets } from './editor'
+import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets, setCoinThreshold, setCoinSwitchOrientation } from './editor'
 import type { ResizeHandle, Selection, Tool } from './editor'
 import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, parseLevel, prepareLevelRopes, triggerTargets } from './level'
 import type { JumpLevel } from './level'
@@ -49,13 +49,14 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
   const bounds = itemBounds(level, selection)
   if (!bounds) return []
   const mechanism = selection.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
+  const trigger = selection.kind === 'trigger' ? level.triggers?.[selection.index] : null
   if (selection.kind === 'rope') {
     const point = itemHandle(level, selection)
     return point ? [{ ...point, y: point.y + 8 / zoom, corner: 'bottom' }] : []
   }
   const corners: ResizeHandle[] = selection.kind === 'ladder' ? ['top', 'bottom']
     : mechanism ? mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? ['top', 'bottom'] : ['left', 'right']
-    : selection.kind === 'trigger' ? ['left', 'right']
+    : trigger ? trigger.mode === 'coins' && trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
     : ['prop', 'text'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
   return corners.map(corner => ({ corner,
     x: bounds.x + (corner.endsWith('left') ? -8 / zoom : corner.endsWith('right') ? bounds.w + 8 / zoom : bounds.w / 2),
@@ -71,18 +72,20 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click for a standard ball, or drag to choose its size. Corner handles resize it.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click for a standard box, or drag to choose its size. Corner handles resize it.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Set its patrol limits in the inspector.' },
-  { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate to move it.' },
+  { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose which elevators and gates it activates in the inspector. The player, boxes, and balls can hold it down.' },
+  { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a coin switch on the back wall. Choose horizontal or vertical orientation in the inspector. Its meter fills with collected coins; reaching Coins required activates its connected gates and elevators until restart.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Edit the text, size, and alignment in the inspector. Text never blocks movement.' },
-  { id: 'stopwatch', group: 'Power-ups', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
+  { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
+  { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
 ]
 const defaultSelectionLabel = (s: Selection, level: JumpLevel) => {
   const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
-    : s.kind === 'pickup' ? 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
+    : s.kind === 'pickup' ? level.pickups?.[s.index]?.kind === 'coin' ? 'Coin' : 'Stopwatch' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
   return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 const selectionLabel = (s: Selection, level: JumpLevel) => {
@@ -153,6 +156,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const travelHandleAt = (p: Point) => travelHandle && Math.hypot(p.x - travelHandle.x, p.y - travelHandle.y) < 10 / view.zoom
   const adjustingTravel = drag.current?.mode === 'travel' || pointer && travelHandleAt(pointer)
   const trigger = selection?.kind === 'trigger' ? level.triggers?.[selection.index] : null
+  const verticalCoinSwitch = trigger?.mode === 'coins' && trigger.orientation === 'vertical'
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const quantize = useCallback((v: number) => snap ? Math.round(v / LEVEL_GRID_SIZE) * LEVEL_GRID_SIZE : Math.round(v), [snap])
@@ -531,7 +535,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       <div className="builder-control-group" role="group" aria-label="Canvas view"><button title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</button><button title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
     </div>
     <aside className="builder-tools" aria-label="Building tools">
-        {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Power-ups', 'Back wall'].map(group => {
+        {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
           const items = TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level)))
           return items.length ? <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div> : null
         })}
@@ -555,8 +559,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           placeholder={defaultSelectionLabel(selection, level)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
         <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
           {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
-            || axis === 'w' && ['platform', 'prop', 'mechanism', 'text', 'trigger'].includes(selection.kind)
-            || axis === 'h' && ['platform', 'mechanism', 'text', 'rope', 'ladder'].includes(selection.kind)).map(axis => {
+            || axis === 'w' && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger'].includes(selection.kind)
+            || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder'].includes(selection.kind))).map(axis => {
             const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h')
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
               : ({ x: bounds.w ? 'Left' : 'X', y: bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
@@ -567,7 +571,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
           const next = copyLevel(history.present); next.platforms[selection.index].material = material; commit(next)
         }} />}
-        {canPlaceOnSurface(selection) && <div className="builder-surface-placement">
+        {canPlaceOnSurface(selection, level) && <div className="builder-surface-placement">
           <button disabled={!support || Math.abs(support.delta) < .1} title="Place on the next surface below · End" onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">↓</span></button>
           <span className={support && Math.abs(support.delta) < .1 ? 'is-supported' : ''}>{support ? Math.abs(support.delta) < .1 ? 'On surface' : support.delta > 0 ? `${Math.round(support.delta)} above surface` : 'Overlaps surface' : 'No clear surface below'}</span>
         </div>}
@@ -595,6 +599,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           if (m.flipX) delete m.flipX; else m.flipX = true
           commit(next)
         }}>Flip horizontally</button>}
+        {trigger?.mode === 'coins' && <>
+          <label>Orientation<select aria-label="Coin switch orientation" value={trigger.orientation ?? 'horizontal'} onChange={e => commit(setCoinSwitchOrientation(history.present, selection.index, e.target.value === 'vertical' ? 'vertical' : 'horizontal'))}>
+            <option value="horizontal">Horizontal</option><option value="vertical">Vertical</option>
+          </select></label>
+          <label>Coins required<NumberField label="Coins required" min={1} max={80} step={1} value={trigger.threshold} onCommit={value => commit(setCoinThreshold(history.present, selection.index, value))} /></label>
+          <p className="builder-hint">All coins in the level count toward this switch. Once full, it stays active until restart.</p>
+        </>}
         {trigger && <fieldset className="builder-connections"><legend>Activates</legend>
           {level.mechanisms?.length ? level.mechanisms.map((m, i) => <label key={m.id}><input type="checkbox" checked={triggerTargets(trigger).includes(m.id)} onChange={e => {
             const targets = triggerTargets(trigger)

@@ -312,9 +312,9 @@ and position follow the world camera. There is no visible HUD clock; levels
 without `timers` simply have no wall display. Older files may omit the array.
 
 Optional `pickups: [{ "kind": "stopwatch", "x": 260, "y": 1360 }, ...]` places
-up to 80 power-ups in a timed trial. Coordinates mark the center of the watch
+up to 80 pickups (stopwatches and coins combined) in a timed trial. Coordinates mark the center of the watch
 face; its bounds extend 24 units left/right, 32 above, and 20 below and must fit
-inside the room. Choose **Power-ups → Stopwatch** in the builder to place one,
+inside the room. Choose **Collectibles → Stopwatch** in the builder to place one,
 then move, duplicate, delete, or undo it like other objects. Inspector X/Y use
 the top-left of those bounds; increasing level height preserves its height
 above the floor. Older level files may omit `pickups`.
@@ -331,6 +331,35 @@ collected at the start keeps its full duration until the first movement starts
 the run. Restarting restores every pickup, clears the effect, and resets the time
 to zero. Once the goal lights, the result is locked. Crates, balls, and pushers
 cannot collect pickups, and pickups do not obstruct movement.
+
+**Collectibles → Coin** places a plain gold disc with a thick edge that spins slowly, pulses and
+disappears on player contact, with a short chime. Coins use
+`{ "kind": "coin", "x": 260, "y": 1360 }` in the same `pickups` array.
+Their center-based bounds extend 20 units in each direction. They increase the
+level-wide collected total once each and do not change the timer. Their spin and
+collection animation pause with the game; restart restores all coins and clears
+the total. Collection remains available until the player enters the exit.
+
+**Mechanisms → Coin switch** mounts a progress meter on the back wall, behind
+terrain and actors with no collision. Set **Coins required** (1–80, default 3)
+and check gates or elevators in **Activates**. Each switch uses the same collected
+total, with its own threshold. Coins are not spent. The gold meter fills as coins
+are gathered, then turns green when full. The switch is a slim progress bar with one segment per required coin.
+Choose **Horizontal** to fill left to right or **Vertical** to fill bottom to top
+using **Orientation** in the inspector. It keeps its connected
+mechanisms active until restart. An ordinary plate or another full coin switch
+can also power the same mechanism. The editor flags thresholds above the number
+of coins placed in the level.
+
+Coin switches share the 40-switch limit with pressure plates. Their file shape is
+`{ "mode": "coins", "x": 400, "y": 1200, "w": 200, "threshold": 3, "targets": ["gate-id"] }`.
+Coordinates mark the top-left of a one-tile-thick (20-unit) display; its length is editable
+from 120 to 240 units. Horizontal switches omit `orientation` and use `w` for
+their length. Vertical switches use `"orientation": "vertical", "w": 20, "h": 200`;
+their height is editable in the inspector or with the top and bottom handles.
+Changing orientation preserves the center where room bounds allow it.
+They stay on the wall when terrain moves, and support names,
+duplication, undo/redo, saving, and reopening like other objects.
 
 Optional `texts` places up to 80 text areas on the back wall, in both trials and
 playgrounds. Each entry has `x`, `y` (top-left in JSON coordinates), `w`, `h`,

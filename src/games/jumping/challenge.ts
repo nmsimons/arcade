@@ -26,7 +26,7 @@ export interface RobotState { definition: Pusher; x: number; y: number; angle: n
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; active: boolean; depression: number }[]; robots: RobotState[]; shoveCooldown: number
-  pickups: PickupState[]; activeTime: number; timeStopRemaining: number
+  pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number
   elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
   finished: boolean; goalDepression: number; medal: Medal | null
 }
@@ -64,7 +64,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     }),
     triggers: level.triggers.map(() => ({ held: 0, active: false, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, angle: 0, facing: -1, phase: 'patrol', time: 0, hit: false })),
-    pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), activeTime: 0, timeStopRemaining: 0,
+    pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0,
     shoveCooldown: 0, elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, goalDepression: 0, medal: null }
   if (!preview) {
     prepareProps(run); syncPlatforms(run)
@@ -175,6 +175,11 @@ function stepTriggers(run: Run, dt: number) {
   const activeTargets = new Set<string>()
   run.level.triggers.forEach((plate, index) => {
     const sensor = run.triggers[index]
+    if (plate.mode === 'coins') {
+      sensor.active = run.coinsCollected >= plate.threshold
+      if (sensor.active) for (const id of triggerTargets(plate)) activeTargets.add(id)
+      return
+    }
     const weighted = run.props.some(b => propLoadsPlate(b, plate.x, plate.y, plate.w))
     const touched = run.player.grounded && Math.abs(run.player.y - plate.y) < 3 && run.player.x >= plate.x && run.player.x <= plate.x + plate.w
     sensor.held = weighted || touched ? sensor.held + dt : 0
@@ -182,7 +187,7 @@ function stepTriggers(run: Run, dt: number) {
     if (sensor.active) for (const id of triggerTargets(plate)) activeTargets.add(id)
     sensor.depression = approach(sensor.depression, weighted || touched ? 1 : 0, dt / .12)
   })
-  // Any held plate can power a shared mechanism; released plates never latch it on.
+  // Any active switch can power a shared mechanism.
   for (const mechanism of run.mechanisms) mechanism.active = activeTargets.has(mechanism.definition.id)
 }
 function stepRobots(run: Run, dt: number) {
@@ -225,10 +230,16 @@ function goalPressed(run: Run) {
     body.grounded && Math.abs(body.y - goal.y) < 2 && Math.abs(body.x - goal.x) < half + footprint - 2
   return contact(run.player, TUNING.width / 2) || run.props.some(prop => propLoadsPlate(prop, goal.x - half, goal.y, GOAL_PLATE_WIDTH))
 }
+function collectPickups(run: Run, dt: number) {
+  const collected = stepPickups(run.pickups, run.player, dt, true)
+  run.timeStopRemaining += collected.seconds
+  run.coinsCollected += collected.coins
+}
 export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (run.finished) return
+  if (run.pickups.length) run.pickupTime += dt
   if (!run.started && (Math.abs(input.move) > .01 || input.jump || input.climb || input.descend)) run.started = true
-  if (!run.started) { run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, true); return }
+  if (!run.started) { collectPickups(run, dt); stepTriggers(run, 0); return }
   run.activeTime += dt
   if (run.goalLit) run.goalElapsed = Math.min(GOAL_OPEN_SECONDS, run.goalElapsed + dt)
   if (!run.exit) {
@@ -263,7 +274,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   }
   stepPlayer(run.player, input, dt, run.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world)
   // Pickups remain available until entry, including one touched on the entry step.
-  run.timeStopRemaining += stepPickups(run.pickups, run.player, dt, true)
+  collectPickups(run, dt)
   stepTriggers(run, 0)
   const pressed = goalPressed(run)
   run.goalDepression = approach(run.goalDepression, pressed ? 1 : 0, dt / .12)

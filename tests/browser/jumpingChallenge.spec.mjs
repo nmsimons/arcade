@@ -63,6 +63,8 @@ test('the new level menu presents a readable progression', async ({ page }, info
   await expect(page.locator('.jumping-level-detail .jumping-medal-times')).toHaveText('Gold 11sSilver 18sBronze 32s')
 })
 test('the trial waits, pauses, restarts, completes, saves a best and advances to the next lesson', async ({ page }, info) => {
+  // Advancing the virtual clock still renders every frame on the CI runner.
+  test.setTimeout(60000)
   await setup(page); await enter(page)
   await page.clock.runFor(1500); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')
@@ -383,6 +385,8 @@ test('an object can open a distant exit without moving the camera or completing;
 })
 
 for (const anchor of ['summit', 'shoulder']) test(`Up climbs a rope draped over a steep shoulder (${anchor} anchor)`, async ({ page }, info) => {
+  // The full rope simulation can render slower than real time on shared runners.
+  test.setTimeout(60000)
   await setup(page, 0, [ropeSlope(false, { anchor, length: anchor === 'shoulder' ? 180 : 380 })]); await enter(page)
   await page.keyboard.down('Space'); await page.clock.runFor(370); await page.keyboard.up('Space')
   await page.keyboard.down('d'); await page.keyboard.down('w')

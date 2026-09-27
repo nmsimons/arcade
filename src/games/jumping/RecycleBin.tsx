@@ -9,7 +9,7 @@ export function RecycleBin({ local }: { local: LocalLevels }) {
   const [deleted, setDeleted] = useState<DeletedLevel | null>(null)
   return <>
     <div className="builder-bin-header">
-      <div><h3>Recycle bin</h3><p>Recover a level or delete it permanently.</p></div>
+      <p>Recover a level or delete it permanently.</p>
       <div className="builder-library-actions">
         <button className="level-file-danger" disabled={local.busy || !local.canWrite || !local.trash.deleted.length} onClick={() => setEmpty([...local.trash.deleted])}>Empty recycle bin</button>
       </div>

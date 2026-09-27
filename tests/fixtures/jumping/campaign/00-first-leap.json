@@ -2,7 +2,6 @@
   "version": 1,
   "id": "first-leap",
   "name": "First Leap",
-  "description": "Hold your jump to charge it, then release near the edge. Missed it? The ladder takes you back for another try.",
   "width": 1280,
   "height": 920,
   "floor": 920,

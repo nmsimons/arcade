@@ -1,3 +1,4 @@
+import type { NamedObject } from './objectNames.ts'
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
 import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend } from './geometry.ts'
@@ -8,8 +9,8 @@ export const ROPE_CLEARANCE = 1.5
 export const ROPE_SEGMENT_LENGTH = 8
 const ROPE_PUSH_STRENGTH = 268.8
 export const ropeSegmentCount = (length: number) => Math.ceil(length / ROPE_SEGMENT_LENGTH)
-export interface Ladder { x: number; top: number; bottom: number; platform: number; side: number }
-export interface Rope {
+export interface Ladder extends NamedObject { x: number; top: number; bottom: number; platform: number; side: number }
+export interface Rope extends NamedObject {
   x: number; y: number; length: number; segments: number; anchor?: { platform: number; x: number; y: number }
   rest?: { key: string; points: Point[]; distances?: number[]; bends?: (Point | null)[] }
 }

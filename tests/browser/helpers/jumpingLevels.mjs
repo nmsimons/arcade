@@ -51,7 +51,7 @@ export async function readTestLevel(page, fileName) {
 
 export async function saveTestLevel(page, button = 'Save level') {
   const { expect } = await import('@playwright/test')
-  const fileName = await page.getByRole('textbox', { name: 'Level file name', exact: true }).inputValue()
+  const fileName = await page.getByRole('textbox', { name: 'Level file name', exact: true, includeHidden: true }).inputValue()
   const writes = await page.evaluate(() => window.testFolderWrites)
   await page.getByRole('button', { name: button, exact: true }).click()
   await expect.poll(() => page.evaluate(() => window.testFolderWrites)).toBeGreaterThan(writes)

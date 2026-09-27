@@ -152,8 +152,8 @@ Choose **Local folder → Choose folder** in the game menu. The game reads JSON 
 directly in that folder, applies its manifest (or filename order), and lets you play them or choose
 **Edit** on a level tile. Click a tile, press Enter, or press controller A while
 it is selected to play immediately. Thumbnails fill the width of the picker.
-Focus or hover a tile to show its description and medal times in the compact strip
-below the grid; long descriptions scroll there without moving the tiles.
+Focus or hover a tile to show its name and medal times in the compact strip
+below the grid. Add wall text to give players guidance inside a level.
 Each tile has **Play** at the bottom right, beside **Edit** for local
 levels. Controller Y (or keyboard Y) edits the selected local level. Built-in
 levels remain available as templates in the builder's Library. Files in nested
@@ -284,11 +284,19 @@ hidden built-ins.
 
 ## File format
 
-The version 1 file contains `id`, `name`, `description`, `width`, `height`,
+The version 1 file contains `id`, `name`, `width`, `height`,
 `spawn`, `platforms`, `checkpoints`, and `climbables` (ladders and ropes). A timed
 trial also includes `floor`, `goal`, `times`, `props`, `robots`, `mechanisms`, and
 `triggers`. Empty arrays are explicit. Old playground files without trial fields
-remain readable.
+remain readable. Legacy `description` fields are ignored; use wall text for
+in-level guidance.
+
+Every object, including start and goal, accepts an optional `name` string of up to
+80 characters. The Inspector's **Name** field sets it; clearing it restores the
+default label. Names appear in the object picker and pressure-plate connections.
+They survive edits, duplication, templates, and saves. Surrounding whitespace is
+trimmed, and empty names are omitted. Mechanism connections still use their stable
+IDs, so renaming an elevator or gate does not change its connections.
 
 Optional `timers: [{ "x": 80, "y": 1220 }, ...]` places up to 40 wall displays.
 Each point is the top-left of a 192 × 52 display in file coordinates. The entire

@@ -1,8 +1,9 @@
+import type { NamedObject } from './objectNames.ts'
 import { TUNING } from './model.ts'
 import type { Player } from './model.ts'
 
 /** Pickup coordinates mark the center of the stopwatch face. */
-export interface Pickup { kind: 'stopwatch'; x: number; y: number }
+export interface Pickup extends NamedObject { kind: 'stopwatch'; x: number; y: number }
 export interface PickupState { definition: Pickup; collectedAge: number | null }
 export const STOPWATCH_SECONDS = 10
 export const PICKUP_ANIMATION_SECONDS = .34

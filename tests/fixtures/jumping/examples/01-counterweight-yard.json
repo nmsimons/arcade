@@ -5,7 +5,6 @@
   "width": 2600,
   "height": 1080,
   "floor": 1080,
-  "description": "An experiment with crates, counterweights, and a very persistent pusher.",
   "spawn": {
     "x": 155,
     "y": 1080

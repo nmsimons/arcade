@@ -144,6 +144,14 @@ test('legacy flags import as goal plates, and exports use only the new goal poin
   assert.throws(() => parseLevel({ ...legacy, goal: null }))
 })
 
+test('legacy player hints are ignored on import and omitted from subsequent saves', () => {
+  const imported = decodeLevelFile(JSON.stringify({ ...JSON_LAB, description: 'An obsolete player hint.' }))
+  assert.deepEqual(imported, JSON_LAB)
+  assert.equal('description' in imported, false)
+  assert.equal('description' in JSON.parse(JSON.stringify(imported)), false)
+  assert.deepEqual(imported.texts, JSON_LAB.texts)
+})
+
 test('the whole goal plate needs a flat floor and its light must fit inside the level', () => {
   for (const goal of [{ x: 0, y: 1400 }, { x: 3190, y: 1400 }, { x: 3050, y: 1300 }]) {
     const level = structuredClone(JSON_LAB); level.goal = goal

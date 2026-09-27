@@ -19,19 +19,22 @@ export function FileActionDialog({ title, children, confirmLabel, destructive = 
     catch (error) { setError((error as Error).message) }
     finally { pending.current = false; setBusy(false) }
   }
-  return <dialog ref={dialog} className="game-dialog level-file-dialog" role="alertdialog" aria-modal="true" aria-label={title}
+  return <dialog ref={dialog} className={`game-dialog level-file-dialog jumping-ui${destructive ? ' is-destructive' : ''}`} role="alertdialog" aria-modal="true" aria-label={title}
     data-dialog-screen="level-file-action" data-controller-mode="menu" onCancel={event => { event.preventDefault(); event.stopPropagation(); if (!pending.current) onClose() }}
     onKeyDown={event => {
+      event.currentTarget.dataset.inputMethod = 'keyboard'
       event.stopPropagation()
       if (event.key === 'Escape') { event.preventDefault(); if (!pending.current) onClose() }
       else if (event.target instanceof HTMLButtonElement && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
         event.preventDefault(); moveDialogSelection(event.currentTarget, ['ArrowLeft', 'ArrowUp'].includes(event.key) ? 'previous' : 'next')
       }
-    }}>
+    }} onPointerDownCapture={event => { event.currentTarget.dataset.inputMethod = 'pointer' }}>
     <form onSubmit={event => { event.preventDefault(); void confirm() }}>
-      <h2>{title}</h2>
-      <fieldset disabled={busy}>{children}</fieldset>
-      {error && <p role="alert" className="level-file-error">{error}</p>}
+      <header className="jumping-ui-heading"><p className="jumping-eyebrow">LEVEL FILES</p><h2>{title}</h2></header>
+      <div className="jumping-notice-copy">
+        <fieldset disabled={busy}>{children}</fieldset>
+        {error && <p role="alert" className="level-file-error">{error}</p>}
+      </div>
       <div className="level-file-actions">
         <button ref={cancel} type="button" data-initial-focus disabled={busy} onClick={onClose}>Cancel</button>
         <button className={destructive ? 'level-file-danger' : 'level-file-primary'} type="submit" disabled={busy} aria-busy={busy}>{busy ? 'Working…' : confirmLabel}</button>
@@ -54,7 +57,7 @@ export function DeleteLevelButton({ fileName, disabled, onClick, primary = false
 }) {
   return <button className={`level-file-delete${primary ? ' level-file-delete-labeled' : ''}`} type="button" aria-label={`${permanent ? 'Delete permanently' : 'Delete'} ${fileName}`} title={permanent ? 'Delete permanently' : 'Delete level'} disabled={disabled} onClick={onClick}
     data-menu-primary={primary || undefined} data-menu-secondary={!primary || undefined}>
-    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 5h14M8 5V3h4v2M5 5l1 12h8l1-12M8 8v6m4-6v6" /></svg>
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter"><path d="M3 5h14M8 5V3h4v2M5 5l1 12h8l1-12M8 8l.5 6M12 8l-.5 6" /></svg>
     {primary && <span>Delete</span>}
   </button>
 }

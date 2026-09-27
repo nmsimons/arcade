@@ -568,9 +568,10 @@ filename based on its new name. Save the new level to create its file; the sourc
 - Snap catches nearby surfaces while dragging. **Place on surface** (End) rests
   the selection on the next clear support below; the inspector shows its clearance.
   Hold Alt while dragging to bypass grid and surface snapping.
-- Set room width and height, medal times and the player hint. All four outer
-  boundaries are structural and cannot be erased.
-- V selects, H or held Space pans, scrolling pans, and Ctrl/Cmd+scroll zooms.
+- Set room width and height and medal times. Add wall text for player guidance.
+  All four outer boundaries are structural and cannot be erased.
+- V selects, N edits nodes, and the scroll wheel zooms. Hold Space and drag
+  or use middle-button drag to pan.
   **Fit level** or the overview fits the map; **Find start** returns to the player.
 
 **Save and Test** saves the level to its folder before running the authored trial.
@@ -593,7 +594,7 @@ or reloading the game; edits remain in memory during playtests and menu visits.
 read folders show **Reselect folder** instead; they remember the folder name but
 require reselection after reload. Editing and saving requires writable folder access.
 
-The header exposes both **Level name** and **File name**. New drafts create no
+The inspector’s **Level settings** section contains both **Level name** and **File name**. New drafts create no
 level file until the first save, using the level name unless you specify a filename.
 Changing a saved filename renames that file on Save and keeps the level ID.
 Connecting a writable folder creates a missing `index.json` automatically in

@@ -1,0 +1,46 @@
+/* UI palette: four structural colors and three semantic accents.
+   Reuse these values for every surface and state; do not add component shades.
+   Game artwork (including level thumbnails) has its own palette. */
+.jumping-game {
+  --jumping-color-paper: #f4f2e9;
+  --jumping-color-ink: #303c36;
+  --jumping-color-sage: #abb9a7;
+  --jumping-color-steel: #d2d9d6;
+  --jumping-color-rust: #753e2c;
+  --jumping-color-gold: #c4a364;
+  --jumping-color-bronze: #b68c72;
+
+  --jumping-paper: var(--jumping-color-paper);
+  --jumping-ink: var(--jumping-color-ink);
+  --jumping-muted: var(--jumping-color-ink);
+  --jumping-soft: var(--jumping-color-sage);
+  --jumping-rule: var(--jumping-color-steel);
+  --jumping-header: var(--jumping-color-ink);
+  --jumping-section: var(--jumping-color-steel);
+  --jumping-card: var(--jumping-color-sage);
+  --jumping-card-selected: var(--jumping-color-steel);
+  --jumping-card-actions: var(--jumping-color-steel);
+  --jumping-danger: var(--jumping-color-rust);
+  --jumping-selection: var(--jumping-color-ink);
+  --jumping-selection-text: var(--jumping-color-paper);
+  --jumping-hover-ink: var(--jumping-color-ink);
+  /* Only the shared scrim and inactive controls use transparency. */
+  --jumping-backdrop: color-mix(in srgb, var(--jumping-color-ink) 40%, transparent);
+  --jumping-inactive-opacity: .45;
+
+  --jumping-type-large: clamp(2.5rem, 8vw, 3.5rem);
+  --jumping-type-normal: 1rem;
+  --jumping-type-small: .75rem;
+  --jumping-inset: clamp(20px, 3vw, 48px);
+  --jumping-header-padding-block: 28px;
+}
+
+/* Every dialog title band uses the same inversion, including Pause/Controls. */
+.jumping-game :is(.jumping-dialog-heading, .jumping-menu-header, .builder-library-header, .jumping-ui-heading) {
+  --jumping-ink: var(--jumping-color-paper);
+  --jumping-muted: var(--jumping-color-paper);
+  --jumping-soft: var(--jumping-color-steel);
+  --jumping-selection: var(--jumping-color-paper);
+  --jumping-selection-text: var(--jumping-color-ink);
+  color: var(--jumping-ink);
+}

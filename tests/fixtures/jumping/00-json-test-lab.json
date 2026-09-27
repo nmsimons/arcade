@@ -2,7 +2,6 @@
   "version": 1,
   "id": "json-lab",
   "name": "JSON Test Lab",
-  "description": "A reference level covering every supported JSON field: terrain, checkpoints, ladders, ropes, props, triggers, mechanisms, a pusher, stopwatch pickups, wall timers, and wall text.",
   "width": 3200,
   "height": 1400,
   "floor": 1400,

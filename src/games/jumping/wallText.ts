@@ -1,5 +1,6 @@
+import type { NamedObject } from './objectNames.ts'
 /** A non-solid text area, positioned by its top-left corner in world coordinates. */
-export interface WallText {
+export interface WallText extends NamedObject {
   x: number; y: number; w: number; h: number
   text: string; fontSize: number; align: 'left' | 'center' | 'right'
 }

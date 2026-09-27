@@ -16,5 +16,5 @@ const paths: Record<Exclude<Tool, 'stopwatch'>, string> = {
 }
 export function BuilderIcon({ kind }: { kind: Tool }) {
   if (kind === 'stopwatch') return <svg width="22" height="22" viewBox="-26 -32 52 56" fill="currentColor" aria-hidden="true"><path d={STOPWATCH_FACE_PATH} fillRule="evenodd" /><path d={STOPWATCH_DETAILS_PATH} /></svg>
-  return <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[kind]} /></svg>
+  return <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true"><path d={paths[kind]} /></svg>
 }

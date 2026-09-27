@@ -1,0 +1,119 @@
+/* Solid panels and quiet secondary actions, using the same flat palette as the level. */
+.jumping-game .jumping-dialog-overlay {
+  background: var(--jumping-backdrop);
+  backdrop-filter: none;
+  padding: 24px;
+}
+.jumping-dialog-panel {
+  --dialog-inset: 32px;
+  --dialog-button-inset: 14px;
+  --dialog-text-inset: calc(var(--dialog-inset) + var(--dialog-button-inset));
+  display: flex;
+  flex-direction: column;
+  width: min(30em, 100%);
+  height: 620px;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  border-radius: 2px;
+  background: var(--jumping-paper);
+  color: var(--jumping-ink);
+  font-size: var(--jumping-type-normal);
+  text-align: left;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: var(--jumping-color-ink) transparent;
+}
+/* Copy lines up with button labels; the button fills hang into the margin. */
+.jumping-dialog-panel .jumping-dialog-heading { flex: none; padding: 28px var(--dialog-text-inset) 24px; background: var(--jumping-header); }
+.jumping-dialog-kicker { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; min-width: 0; }
+.jumping-dialog-kicker p {
+  min-width: 0;
+  min-height: 3em;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: var(--jumping-type-small)/1.5 ui-monospace, monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--jumping-muted);
+}
+.jumping-dialog-light { flex: none; width: 15px; height: 15px; margin-top: 2px; border-radius: 50%; background: var(--jumping-color-sage); }
+.jumping-dialog-light.is-lit { background: var(--jumping-color-paper); }
+.jumping-pause h2 { margin: 13px 0 0; font-size: var(--jumping-type-large); font-weight: 800; letter-spacing: -.055em; line-height: 1; }
+.jumping-pause-reason { min-height: 3em; margin: 14px 0 0; font-size: var(--jumping-type-small); line-height: 1.5; color: var(--jumping-muted); }
+/* Keep a usable body when enlarged headings/footer exceed the panel height;
+   the panel can then scroll too, without clipping or collapsing its actions. */
+.jumping-dialog-body { flex: 1; min-height: 8em; display: flex; flex-direction: column; padding: 24px calc(var(--dialog-inset) - 6px) 20px var(--dialog-inset); overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--jumping-color-ink) transparent; }
+.jumping-dialog-body > * { flex-shrink: 0; }
+.jumping-pause-menu { padding-inline: var(--dialog-inset); padding-bottom: 12px; scrollbar-gutter: auto; }
+.jumping-dialog-actions { display: flex; flex-direction: column; gap: 6px; }
+/* Section colors reach the panel edges; spacing belongs inside the section. */
+.jumping-pause-destinations { flex: none; padding: 12px var(--dialog-inset) 20px; background: var(--jumping-section); }
+.jumping-game .jumping-dialog-panel button {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; min-width: 0; min-height: 50px; padding: 12px var(--dialog-button-inset);
+  border: 0; border-radius: 2px; background: transparent; color: var(--jumping-ink);
+  font-size: var(--jumping-type-normal); font-weight: 600; line-height: 1.3; text-align: left;
+  /* Focus and blur must switch together, without a departing highlight fading out. */
+  transition: none;
+}
+.jumping-game .jumping-dialog-panel button:is(:hover, :focus):not(:disabled) { background: var(--jumping-soft); color: var(--jumping-hover-ink); box-shadow: none; }
+.jumping-game .jumping-dialog-panel button:focus:not(:disabled) { outline: none; }
+.jumping-game .jumping-dialog-panel button:active:not(:disabled) { background: var(--jumping-soft); }
+/* Pointer hover stays quiet; keyboard/controller selection needs 3:1 contrast
+   against both section backgrounds, without adding a selection stroke. */
+.jumping-game .jumping-dialog-overlay:not([data-input-method="pointer"]) .jumping-dialog-panel button:focus:not(:disabled),
+.jumping-game .jumping-dialog-panel button:focus-visible:not(:disabled) {
+  background: var(--jumping-selection);
+  color: var(--jumping-selection-text);
+}
+.jumping-dialog-panel button > span { flex-shrink: 0; }
+.jumping-dialog-icon { flex: none; width: 20px; height: 20px; }
+.jumping-game .jumping-dialog-panel kbd { border: 0; border-radius: 0; padding: 0; font: var(--jumping-type-small)/1.5 ui-monospace, monospace; color: inherit; white-space: normal; }
+.jumping-dialog-controls { padding-inline: var(--dialog-button-inset); color: var(--jumping-ink); }
+.jumping-dialog-controls dl { display: grid; gap: 16px; margin: 0; }
+.jumping-dialog-controls dl > div { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 16px; }
+.jumping-dialog-controls dd { margin: 0; color: var(--jumping-muted); }
+.jumping-dialog-controls p { margin: 24px 0; line-height: 1.5; color: var(--jumping-muted); }
+.jumping-controls-actions { margin-top: auto; }
+/* Results read top to bottom: outcome, targets, another run, other destinations. */
+.jumping-dialog-panel.jumping-result { height: auto; }
+.jumping-result > * { flex: none; }
+.jumping-result .jumping-result-heading { margin: 0 0 12px; font: 600 var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif; }
+.jumping-result .jumping-result-time { margin: 0; font: 600 var(--jumping-type-large)/1.15 ui-monospace, monospace; font-variant-numeric: tabular-nums; letter-spacing: -.065em; color: var(--jumping-ink); }
+.jumping-result-fraction { font-size: var(--jumping-type-normal); letter-spacing: normal; }
+.jumping-result-summary { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; margin-top: 20px; }
+.jumping-result-award { display: flex; align-items: center; gap: 10px; margin: 0; font-size: var(--jumping-type-normal); font-weight: 600; }
+.jumping-result-medal { flex: none; width: 24px; height: 32px; color: var(--jumping-color-gold); }
+.jumping-result-medal.silver { color: var(--jumping-color-steel); }
+.jumping-result-medal.bronze { color: var(--jumping-color-bronze); }
+.jumping-result-best { margin: 0; font-size: var(--jumping-type-small); line-height: 1.5; color: var(--jumping-muted); }
+.jumping-result-best span { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.jumping-result-targets { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 4em), 1fr)); gap: 16px; margin: 0; padding: 20px var(--dialog-text-inset); background: var(--jumping-section); }
+.jumping-result-targets dt { margin-bottom: 6px; font-size: var(--jumping-type-small); line-height: 1.5; }
+.jumping-result-targets dd { margin: 0; font: var(--jumping-type-normal)/1.5 ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+.jumping-result-actions { padding: 16px var(--dialog-inset); }
+.jumping-result-destinations { padding: 12px var(--dialog-inset) 20px; background: var(--jumping-section); }
+.jumping-result-storage { margin: 12px var(--dialog-button-inset) 0; font-size: var(--jumping-type-small); line-height: 1.5; }
+@media (forced-colors: active) {
+  .jumping-game .jumping-dialog-overlay {
+    --jumping-selection: Highlight;
+    --jumping-selection-text: HighlightText;
+  }
+  .jumping-game .jumping-dialog-overlay .jumping-dialog-panel button:focus:not(:disabled) {
+    forced-color-adjust: none;
+    background: Highlight;
+    color: HighlightText;
+  }
+}
+@media (max-width: 420px) {
+  .jumping-game .jumping-dialog-overlay { padding: 16px; }
+  .jumping-dialog-panel { --dialog-inset: 22px; max-height: calc(100dvh - 32px); }
+  .jumping-result-targets { gap: 12px; }
+}
+@media (max-height: 540px) {
+  .jumping-game .jumping-dialog-overlay { padding: 12px; }
+  .jumping-dialog-panel { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  .jumping-dialog-panel .jumping-dialog-heading { padding-block: 20px; }
+  .jumping-dialog-body { flex: none; overflow: visible; }
+}

@@ -1,0 +1,130 @@
+import { useLayoutEffect, useRef, useState } from 'react'
+import type { Tool } from './editor'
+import { BuilderIcon } from './BuilderIcon'
+
+const SECTIONS = ['Canvas', 'Inspector', 'Objects', 'Levels', 'Shortcuts'] as const
+type Section = typeof SECTIONS[number]
+const OBJECT_NOTES: Partial<Record<Tool, string>> = {
+  platform: 'Square handles resize the whole shape. A terrain shape must keep at least three nodes.',
+  rope: 'An attached anchor moves with its terrain. Use the inspector to attach or detach it.',
+  ladder: 'During play, Up and Down climb; jump leaves the ladder.',
+  pusher: 'Shovebots chase the player on sight, wind up, then shove.',
+  lift: 'The elevator moves while its plate is held and pauses when released. Obstructions limit its travel.',
+  gate: 'Gates are 20 units thick. Vertical gates rise by their own height while activated.',
+  'horizontal-gate': 'Horizontal gates are 20 units thick. Releasing the plate closes either kind of gate. If closing catches the player or an object, the gate reopens and waits for the path to clear.',
+  plate: 'Add an elevator or gate before connecting it. One plate can activate several mechanisms.',
+  timer: 'The timer stops when the goal activates.',
+  text: 'Text wraps inside its area. Resize the area to show more lines.',
+  stopwatch: 'Each watch adds 10 seconds to the remaining pause. Collected watches return on restart.',
+}
+const SHORTCUTS = [
+  { group: 'Tools', items: [['V', 'Pointer'], ['N', 'Node'], ['P / R / L', 'Terrain / Rope / Ladder'], ['Esc', 'Clear selection and return to Pointer'], ['F1', 'Open Help']] },
+  { group: 'Editing', items: [['Ctrl/⌘ + Z', 'Undo'], ['Ctrl/⌘ + Shift + Z', 'Redo (Ctrl/⌘ + Y also works)'], ['Ctrl/⌘ + D', 'Duplicate'], ['Ctrl/⌘ + S', 'Save'], ['Arrow keys', 'Move the selected object or node on the canvas'], ['Shift + Arrow keys', 'Move in one-unit steps'], ['Delete / Backspace', 'Remove the selected object or node on the canvas'], ['End', 'Place the selected object on the surface below'], ['Alt + drag', 'Bypass snapping']] },
+  { group: 'View', items: [['Scroll wheel', 'Zoom in or out'], ['Space + drag', 'Pan'], ['Middle-button drag', 'Pan']] },
+  { group: 'Number fields', items: [['Enter', 'Apply (leaving the field also applies)'], ['Esc', 'Cancel the current entry'], ['↑ / ↓', 'Step the value'], ['Shift + ↑ / ↓', 'Take larger steps'], ['Alt + ↑ / ↓', 'Step one unit']] },
+]
+
+function CanvasDiagram({ kind }: { kind: 'move' | 'resize' | 'node' }) {
+  const shape = kind === 'node' ? '56,150 56,95 150,45 224,95 224,150' : '56,150 56,70 224,70 224,150'
+  return <svg viewBox="0 0 280 190" className="builder-help-diagram" aria-hidden="true">
+    <path className="help-grid" d="M0 30H280M0 70H280M0 110H280M0 150H280M20 0V190M60 0V190M100 0V190M140 0V190M180 0V190M220 0V190M260 0V190" />
+    <polygon className="help-solid" points={shape} />
+    {kind === 'move' ? <g className="help-ink-stroke"><path d="M105 109H175M140 84V134M105 109L114 100M105 109L114 118M175 109L166 100M175 109L166 118M140 84L131 93M140 84L149 93M140 134L131 125M140 134L149 125" /></g> : kind === 'resize' ? <>
+      <path className="help-selection" d="M44 58H236V162H44Z" strokeDasharray="6 5" />
+      {[[44, 58], [236, 58], [44, 162], [236, 162]].map(([x, y]) => <rect key={`${x}-${y}`} className="help-handle" x={x - 5} y={y - 5} width="10" height="10" />)}
+      <path className="help-ink-stroke" d="M234 59L254 39M242 39H254V51" />
+    </> : <>
+      <polyline className="help-selection" points={shape + ' 56,150'} />
+      {[[56, 150], [56, 95], [150, 45], [224, 95], [224, 150]].map(([cx, cy]) => <circle key={`${cx}-${cy}`} className="help-node" cx={cx} cy={cy} r="5" />)}
+      <path className="help-ink-stroke" d="M150 72V104M140 84L150 72L160 84" />
+    </>}
+  </svg>
+}
+
+function InspectorDiagram() {
+  return <svg viewBox="0 0 640 200" className="builder-help-diagram builder-help-surface" aria-hidden="true">
+    <path className="help-grid" d="M0 40H640M0 80H640M0 120H640M0 160H640M40 0V200M80 0V200M120 0V200M160 0V200M200 0V200M240 0V200M280 0V200M320 0V200M360 0V200M400 0V200M440 0V200M480 0V200M520 0V200M560 0V200M600 0V200" />
+    <path className="help-solid" d="M0 164H180V144H280V184H360V164H640V200H0Z" />
+    <rect className="help-object" x="192" y="40" width="64" height="64" />
+    <path className="help-selection" strokeDasharray="6 5" d="M192 80H256V144H192Z" />
+    <path className="help-ink-stroke" d="M304 58V130M294 118L304 130L314 118" />
+    <rect className="help-object" x="456" y="100" width="64" height="64" />
+    <path className="help-ink-stroke" d="M480 135L488 143L502 125" />
+  </svg>
+}
+
+export function BuilderHelp({ tools, onClose }: {
+  tools: readonly { id: Tool; group: string; label: string; help: string }[]
+  onClose: () => void
+}) {
+  const [section, setSection] = useState<Section>('Canvas')
+  const dialog = useRef<HTMLDialogElement>(null), close = useRef<HTMLButtonElement>(null)
+  useLayoutEffect(() => {
+    const previous = document.activeElement, node = dialog.current!
+    node.showModal(); close.current?.focus()
+    return () => {
+      node.close()
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true })
+    }
+  }, [])
+  return <dialog ref={dialog} className="builder-help-dialog jumping-ui" aria-label="Level builder help" aria-modal="true"
+    onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose() }}
+    onKeyDown={event => {
+      event.stopPropagation()
+      if (event.key === 'Escape') { event.preventDefault(); onClose() }
+    }}>
+    <header className="jumping-ui-heading builder-help-heading">
+      <h2>Help.</h2>
+      <button ref={close} aria-label="Close help" title="Close help" onClick={onClose}>Close</button>
+    </header>
+    <div className="builder-help-tabs" role="tablist" aria-label="Help topics" onKeyDown={event => {
+      const index = SECTIONS.indexOf(section)
+      const next = event.key === 'ArrowRight' ? (index + 1) % SECTIONS.length : event.key === 'ArrowLeft' ? (index + SECTIONS.length - 1) % SECTIONS.length : event.key === 'Home' ? 0 : event.key === 'End' ? SECTIONS.length - 1 : -1
+      if (next < 0) return
+      event.preventDefault(); setSection(SECTIONS[next])
+      event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=tab]')[next].focus()
+    }}>
+      {SECTIONS.map(name => <button key={name} role="tab" id={`builder-help-tab-${name}`} aria-controls={`builder-help-panel-${name}`} aria-selected={name === section} tabIndex={name === section ? 0 : -1} onClick={() => setSection(name)}>{name}</button>)}
+    </div>
+    {SECTIONS.map(name => <div key={name} id={`builder-help-panel-${name}`} role="tabpanel" aria-labelledby={`builder-help-tab-${name}`} hidden={section !== name} className="builder-help-content" tabIndex={0}>
+      {name === 'Canvas' && <>
+        <div className="builder-help-guides">
+          <figure><CanvasDiagram kind="move" /><figcaption><h3>Move</h3><p>Choose Pointer and drag an object to move it.</p></figcaption></figure>
+          <figure><CanvasDiagram kind="resize" /><figcaption><h3>Resize</h3><p>Select an object, then drag a square handle to change its size.</p></figcaption></figure>
+          <figure><CanvasDiagram kind="node" /><figcaption><h3>Reshape</h3><p>Choose Node to drag terrain points. Click an edge to add a point.</p></figcaption></figure>
+        </div>
+        <dl className="builder-help-copy">
+          <div><dt>Place objects</dt><dd>Choose a tool, then click for its default size or drag to set its size. Keep placing leaves that tool active for the next object. Pointer and Node stay active until you switch tools.</dd></div>
+          <div><dt>Snap to fit</dt><dd>Snap aligns objects to the 20-unit grid and nearby surfaces. Turn it off for free placement.</dd></div>
+          <div><dt>Find your way</dt><dd>Fit level shows the whole map. Find start returns to the player. The overview in the corner also fits the level.</dd></div>
+        </dl>
+      </>}
+      {name === 'Inspector' && <>
+        <figure className="builder-help-feature"><InspectorDiagram /><figcaption><h3>Place on surface</h3><p>Drop an object onto the next clear surface below. The inspector shows whether it is supported, above a surface, or overlapping one.</p></figcaption></figure>
+        <dl className="builder-help-copy">
+          <div><dt>Object names</dt><dd>Give any object a name to find it in the object picker and pressure-plate connections. Names are saved with the level. Leave the name blank to restore its default label.</dd></div>
+          <div><dt>Position &amp; size</dt><dd>Coordinates start at the bottom left of the map. Top measures the object’s top edge from the floor. Type a value and leave the field to apply it. Fixed dimensions, such as a gate’s thickness, cannot be changed.</dd></div>
+          <div><dt>Terrain &amp; materials</dt><dd>Square handles resize the whole shape; round nodes change its outline. A terrain shape must keep at least three nodes. Terrain and floor materials change appearance only.</dd></div>
+          <div><dt>Object actions</dt><dd>Duplicate creates another copy. Delete removes the selection. Use Undo to reverse an edit. Start and goal are part of every time trial and cannot be deleted.</dd></div>
+        </dl>
+      </>}
+      {name === 'Objects' && <dl className="builder-help-objects">
+        {tools.filter(tool => tool.group !== 'Editing').map(tool => <div key={tool.id}>
+          <dt><BuilderIcon kind={tool.id} />{tool.label}</dt><dd>{tool.help}{OBJECT_NOTES[tool.id] && ` ${OBJECT_NOTES[tool.id]}`}</dd>
+        </div>)}
+        <div><dt><BuilderIcon kind="goal" />Start &amp; goal</dt><dd>Select them on the canvas or in the inspector to move them. The player, a box, or a ball can depress the goal plate. Flip horizontally moves the light to the other side.</dd></div>
+      </dl>}
+      {name === 'Levels' && <dl className="builder-help-copy">
+        <div><dt>Name &amp; filename</dt><dd>Edit these in the inspector’s Level settings. The level name suggests its filename unless you enter one yourself. A file is created on the first save. Changing a saved filename renames that file on the next save.</dd></div>
+        <div><dt>Save &amp; test</dt><dd>Save level writes to the selected folder. Save and Test saves first, then starts the game. Return to builder brings you back to your draft.</dd></div>
+        <div><dt>Library</dt><dd>Choose the save folder, open a level, create a new one, or use a level as a template. In development, built-in levels can be edited too. Opening another level prompts you to save unsaved changes.</dd></div>
+        <div><dt>Recycle bin</dt><dd>Deleted levels can be recovered from the library’s recycle bin. Permanent deletion and emptying the bin require confirmation.</dd></div>
+        <div><dt>Map dimensions</dt><dd>Changing the height adds or removes space at the top; the floor stays at Y = 0. The width and height must leave room for your objects.</dd></div>
+        <div><dt>Medal times</dt><dd>Set gold, silver, and bronze times in seconds.</dd></div>
+      </dl>}
+      {name === 'Shortcuts' && <div className="builder-help-shortcuts">
+        {SHORTCUTS.map(group => <section key={group.group}><h3>{group.group}</h3><dl>{group.items.map(([keys, action]) => <div key={keys}><dt>{keys}</dt><dd>{action}</dd></div>)}</dl></section>)}
+      </div>}
+    </div>)}
+  </dialog>
+}

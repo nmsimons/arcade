@@ -1,3 +1,5 @@
+import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
+import type { NamedObject } from './objectNames.ts'
 import { createPlayer } from './model.ts'
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
 import { createRope, ropeSegmentCount } from './climbables.ts'
@@ -19,19 +21,19 @@ import type { TerrainMaterial } from './terrainMaterials.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
-export interface PropDefinition { kind: 'box' | 'ball'; x: number; y: number; size: number }
-export interface Mechanism { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean }
+export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number }
+export interface Mechanism extends NamedObject { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
-export type Trigger = { x: number; y: number; w: number; mode: 'weight' | 'touch' } & TriggerConnection
+export type Trigger = NamedObject & { x: number; y: number; w: number; mode: 'weight' | 'touch' } & TriggerConnection
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
-export interface Pusher { x: number; y: number; left: number; right: number }
+export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number }
 export interface JumpLevel {
   version: 1; id: string; name: string; width: number; height?: number
   spawn: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
-  description?: string; floor?: number; goal?: Goal
+  floor?: number; goal?: Goal
   floorMaterial?: TerrainMaterial
   times?: { gold: number; silver: number; bronze: number }
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
@@ -131,13 +133,19 @@ export function parseLevel(value: unknown): JumpLevel {
   const object = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : fail()
   const num = (v: unknown, min: number, max: number): number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fail()
   const list = (v: unknown, max: number): unknown[] => Array.isArray(v) && v.length <= max ? v : fail()
-  const point = (v: unknown): Checkpoint => { const p = object(v); return { x: num(p.x, 0, 20000), y: num(p.y, -2000, 6000),
+  const objectName = (v: Record<string, unknown>): NamedObject => {
+    if (v.name === undefined) return {}
+    if (typeof v.name !== 'string' || v.name.length > OBJECT_NAME_MAX_LENGTH) return fail()
+    const name = v.name.trim()
+    return name ? { name } : {}
+  }
+  const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, 20000), y: num(p.y, -2000, 6000),
     ...(p.radius === undefined ? {} : { radius: num(p.radius, 10, 1000) }) } }
   const v = object(value)
   if (v.version !== 1 || typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80 || typeof v.id !== 'string' || v.id.length > 100) fail()
   const width = num(v.width, 800, 20000)
   const platforms = list(v.platforms, 160).map(item => {
-    const b = object(item), platform: Platform = { x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
+    const b = object(item), platform: Platform = { ...objectName(b), x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
     if (platform.x + platform.w > width) fail()
     if (b.material !== undefined) {
       if (!isTerrainMaterial(b.material)) return fail()
@@ -167,7 +175,7 @@ export function parseLevel(value: unknown): JumpLevel {
   const ladders = list(climbables.ladders, 40).map(item => {
     const b = object(item), platform = num(b.platform ?? -1, -1, Math.max(-1, platforms.length - 1)), side = num(b.side ?? 1, -1, 1)
     if (!Number.isInteger(platform) || Math.abs(side) !== 1 || platform >= 0 && (platforms[platform].profile || platforms[platform].polygon)) fail()
-    const ladder = { x: num(b.x, 0, width), top: num(b.top, -2000, 6000), bottom: num(b.bottom, -2000, 6000), platform, side }
+    const ladder = { ...objectName(b), x: num(b.x, 0, width), top: num(b.top, -2000, 6000), bottom: num(b.bottom, -2000, 6000), platform, side }
     const support = platforms[platform]
     if (ladder.bottom - ladder.top < 80 || support && (ladder.top !== support.y || Math.abs(ladder.x - (side === 1 ? support.x - 16 : support.x + support.w + 16)) > .1)) fail()
     return ladder
@@ -175,7 +183,7 @@ export function parseLevel(value: unknown): JumpLevel {
   const ropes = list(climbables.ropes, 40).map(item => {
     const r = object(item), segments = num(r.segments, 4, ropeSegmentCount(2000))
     if (!Number.isInteger(segments)) fail()
-    const rope: ClimbableWorld['ropes'][number] = { x: num(r.x, 0, width), y: num(r.y, -2000, 6000), length: num(r.length, 80, 2000), segments }
+    const rope: ClimbableWorld['ropes'][number] = { ...objectName(r), x: num(r.x, 0, width), y: num(r.y, -2000, 6000), length: num(r.length, 80, 2000), segments }
     if (r.anchor !== undefined) {
       const a = object(r.anchor), platform = num(a.platform, 0, platforms.length - 1)
       if (!Number.isInteger(platform)) fail()
@@ -214,7 +222,6 @@ export function parseLevel(value: unknown): JumpLevel {
   const level: JumpLevel = { version: 1, id: v.id as string, name: (v.name as string).trim(), width,
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
     platforms, spawn, checkpoints, climbables: { ladders, ropes } }
-  if (v.description !== undefined) { if (typeof v.description !== 'string' || v.description.length > 600) fail(); level.description = v.description as string }
   if (v.floorMaterial !== undefined) {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()
     level.floorMaterial = v.floorMaterial
@@ -225,20 +232,20 @@ export function parseLevel(value: unknown): JumpLevel {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
     const location = point(goal), flipX = object(goal).flipX
     if (flipX !== undefined && typeof flipX !== 'boolean') fail()
-    level.goal = { x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }) }; if (level.goal.x > width) fail()
+    level.goal = { ...objectName(object(goal)), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }) }; if (level.goal.x > width) fail()
     const times = object(v.times); level.times = { gold: num(times.gold, .1, 3600), silver: num(times.silver, .1, 3600), bronze: num(times.bronze, .1, 3600) }
     if (!(level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) fail()
     level.props = list(v.props, 80).map(item => {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
       const size = num(b.size, 30, 200)
-      return { kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2 + 24, width - size / 2 - 24), y: num(b.y, -1800, level.floor!), size }
+      return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2 + 24, width - size / 2 - 24), y: num(b.y, -1800, level.floor!), size }
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
       if (m.orientation !== undefined && (m.kind !== 'gate' || m.orientation !== 'horizontal')) fail()
       if (m.flipX !== undefined && (m.orientation !== 'horizontal' || typeof m.flipX !== 'boolean')) fail()
       const w = num(m.w, m.kind === 'gate' ? MECHANISM_THICKNESS : 30, 600), h = num(m.h, 12, 800)
-      return prepareMechanism({ id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h,
+      return prepareMechanism({ ...objectName(m), id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h,
         travel: num(m.travel, m.kind === 'gate' ? 12 : 60, 1200),
         ...(m.orientation === 'horizontal' ? { orientation: 'horizontal' as const } : {}),
         ...(m.flipX === undefined ? {} : { flipX: m.flipX as boolean }) }, level.floor!)
@@ -256,36 +263,36 @@ export function parseLevel(value: unknown): JumpLevel {
         connection = { target: t.target as string }
       }
       const w = num(t.w, 40, 240)
-      return { x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!), w, ...connection, mode: t.mode as 'touch' | 'weight' }
+      return { ...objectName(t), x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!), w, ...connection, mode: t.mode as 'touch' | 'weight' }
     })
     level.robots = list(v.robots, 30).map(item => {
       const r = object(item), left = num(r.left, 50, width - 100), right = num(r.right, left + 50, width - 50)
-      return { x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right }
+      return { ...objectName(r), x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right }
     })
     if (v.timers !== undefined) level.timers = list(v.timers, 40).map(item => {
       const timer = object(item)
       // Preserve files authored with the old 192 × 52 display at a room edge.
       // The larger, tile-aligned display only needs a small inward adjustment.
-      return { x: Math.min(num(timer.x, 0, width - 192), width - WALL_TIMER_WIDTH),
+      return { ...objectName(timer), x: Math.min(num(timer.x, 0, width - 192), width - WALL_TIMER_WIDTH),
         y: Math.min(num(timer.y, 0, level.floor! - 52), level.floor! - WALL_TIMER_HEIGHT) }
     })
     if (v.pickups !== undefined) level.pickups = list(v.pickups, 80).map(item => {
       const pickup = object(item), bounds = pickupBounds({ x: 0, y: 0 })
       if (pickup.kind !== 'stopwatch') fail()
-      return { kind: 'stopwatch', x: num(pickup.x, -bounds.x, width - bounds.x - bounds.w), y: num(pickup.y, -bounds.y, level.floor! - bounds.y - bounds.h) }
+      return { ...objectName(pickup), kind: 'stopwatch', x: num(pickup.x, -bounds.x, width - bounds.x - bounds.w), y: num(pickup.y, -bounds.y, level.floor! - bounds.y - bounds.h) }
     })
   } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, Math.min(2000, width)), h = num(t.h, 24, Math.min(1200, levelHeight(level)))
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
-    return { x: num(t.x, 0, width - w), y: num(t.y, 0, levelHeight(level) - h), w, h,
+    return { ...objectName(t), x: num(t.x, 0, width - w), y: num(t.y, 0, levelHeight(level) - h), w, h,
       text: t.text as string, fontSize: num(t.fontSize, 12, 96), align: t.align as WallText['align'] }
   })
   return level
 }
 /** An empty editor document; all authored maps are external JSON assets. */
 export function blankTrial(): PuzzleLevel {
-  return { version: 1, id: newLevelId(), name: 'Untitled level', description: '', width: 1800, height: 920, floor: 920,
+  return { version: 1, id: newLevelId(), name: 'Untitled level', width: 1800, height: 920, floor: 920,
     spawn: { x: 160, y: 920 }, goal: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
     climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], timers: [], texts: [], pickups: [], times: { gold: 10, silver: 20, bronze: 40 } }
 }

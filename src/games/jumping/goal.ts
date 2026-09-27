@@ -1,5 +1,6 @@
+import type { NamedObject } from './objectNames.ts'
 /** The saved point is the center of the plate at its supporting floor surface. */
-export interface Goal { x: number; y: number; flipX?: boolean }
+export interface Goal extends NamedObject { x: number; y: number; flipX?: boolean }
 export const GOAL_PLATE_WIDTH = 56
 export const GOAL_POLE_OFFSET = 44
 export const GOAL_LIGHT_HEIGHT = 96

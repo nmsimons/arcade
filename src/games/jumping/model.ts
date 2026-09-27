@@ -1,3 +1,4 @@
+import type { NamedObject } from './objectNames.ts'
 import { advanceFootwork } from './footwork.ts'
 import type { Footwork } from './footwork.ts'
 import { climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
@@ -16,7 +17,7 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 
-export interface Platform { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; material?: TerrainMaterial }
+export interface Platform extends NamedObject { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; material?: TerrainMaterial }
 export const TUNING = {
   runSpeed: 350, walkSpeed: 125, acceleration: 2200, airAcceleration: 300,
   braking: 2800, gravity: 1550, jumpSpeed: 303, chargedJumpSpeed: 800,
@@ -25,7 +26,7 @@ export const TUNING = {
   climbTime: LEDGE_CLIMB_TIME,
 } as const
 export const STEP = 1 / 120
-export interface Checkpoint { x: number; y: number; radius?: number }
+export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
 export interface JumpInput { move: number; jump: boolean; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }

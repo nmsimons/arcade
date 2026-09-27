@@ -1,0 +1,313 @@
+/* Levels, file dialogs, and playtest actions share the flat, three-size language of Pause. */
+.jumping-game .jumping-ui {
+  color: var(--jumping-ink);
+  font-size: var(--jumping-type-normal);
+  line-height: 1.5;
+  text-align: left;
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+  scrollbar-color: var(--jumping-color-ink) transparent;
+}
+.jumping-game .jumping-ui button,
+.jumping-game .jumping-builder-return {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-width: 0; min-height: 48px; padding: 12px 14px;
+  border: 0; border-radius: 2px; box-shadow: none;
+  background: transparent; color: var(--jumping-ink);
+  font: 600 var(--jumping-type-normal)/1.3 'Segoe UI', sans-serif;
+  text-align: left; white-space: normal; overflow-wrap: anywhere;
+  transition: none;
+}
+.jumping-game .jumping-builder-return { background: var(--jumping-paper); }
+.jumping-game .jumping-ui button:disabled { opacity: var(--jumping-inactive-opacity); cursor: default; }
+.jumping-game .jumping-ui h2 {
+  margin: 0; color: var(--jumping-ink);
+  font: 800 var(--jumping-type-large)/1 'Segoe UI', sans-serif;
+  letter-spacing: -.055em; text-transform: none;
+}
+.jumping-game .jumping-ui h3 { font-size: var(--jumping-type-normal); color: var(--jumping-ink); }
+.jumping-game .jumping-ui kbd {
+  padding: 0; border: 0; background: transparent; color: inherit;
+  font: var(--jumping-type-small)/1.5 ui-monospace, monospace;
+}
+.jumping-game .jumping-ui :is(.level-file-danger, .level-file-delete, .builder-delete) { color: var(--jumping-danger); }
+.jumping-ui :is(.level-file-delete, .local-folder-refresh) svg { width: 20px; height: 20px; flex: none; }
+
+/* Each band owns its background all the way to the panel edges. */
+.jumping-game .jumping-level-screen { background: var(--jumping-paper); }
+.jumping-ui .jumping-level-menu {
+  padding: 0; background: var(--jumping-paper); border: 0; border-radius: 0;
+  width: 100%; height: 100%; max-width: none; box-shadow: none; overflow-y: auto;
+}
+.jumping-ui .builder-library-header {
+  display: flex; flex: none; align-items: center; justify-content: space-between;
+  gap: 24px; padding: var(--jumping-header-padding-block) var(--jumping-inset); border: 0;
+  background: var(--jumping-header);
+}
+/* Both full-screen headers share insets, title alignment, and action geometry. */
+.jumping-game :is(.builder-header, .jumping-level-menu .jumping-menu-header) {
+  display: flex; justify-content: space-between; align-items: center; gap: 24px;
+  padding: var(--jumping-header-padding-block) var(--jumping-inset);
+  border: 0;
+}
+.jumping-ui .jumping-level-menu .jumping-menu-header {
+  flex: none;
+  background: var(--jumping-header);
+}
+.jumping-game :is(.builder-main-actions, .jumping-menu-navigation) button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 10px 12px;
+  font: 600 var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif;
+  white-space: nowrap;
+}
+.jumping-ui :is(.jumping-menu-heading, .builder-library-header > div:first-child) { min-width: 0; }
+.jumping-ui .jumping-menu-navigation,
+.jumping-ui .builder-library-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.jumping-ui .jumping-menu-navigation { flex-shrink: 0; justify-content: flex-end; }
+.jumping-ui .jumping-library-bar {
+  flex: none; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center;
+  min-height: 76px; margin: 0; padding: 14px var(--jumping-inset); background: var(--jumping-section);
+}
+.jumping-ui .jumping-library-folder { color: var(--jumping-muted); font-size: var(--jumping-type-small); }
+.jumping-ui .jumping-collection-tabs { padding: 0; gap: 8px; border-radius: 0; background: transparent; }
+.jumping-game .jumping-ui .jumping-collection-tabs button { min-height: 48px; font-size: var(--jumping-type-normal); }
+.jumping-game .jumping-ui .jumping-collection-tabs button[aria-pressed="true"] {
+  --jumping-tab-hover: var(--jumping-color-sage);
+  background: var(--jumping-color-sage); color: var(--jumping-ink); box-shadow: none;
+}
+.jumping-ui .jumping-library-bar .local-folder-actions { margin-left: auto; gap: 8px; }
+.jumping-game .jumping-ui .local-folder-actions button { min-width: 0; font-size: var(--jumping-type-normal); background: transparent; color: var(--jumping-ink); }
+.jumping-ui :is(.jumping-library-status, .jumping-route-notice) { padding-inline: var(--jumping-inset); }
+.jumping-ui .jumping-library-status:empty { display: none; }
+.jumping-ui .jumping-library-status p { margin: 12px 0; }
+.jumping-ui :is(.jumping-load-error, .jumping-route-notice, .jumping-folder-note) {
+  color: var(--jumping-danger); font-size: var(--jumping-type-small); line-height: 1.5;
+}
+.jumping-ui .jumping-level-browser { gap: 0; min-height: min-content; }
+.jumping-ui .jumping-level-cards {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 20px; padding: 24px var(--jumping-inset); margin: 0; scroll-padding: 24px; min-height: 10em;
+}
+.jumping-game .jumping-ui .jumping-level-card {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+  padding: 16px; gap: 0; border: 0; border-radius: 2px; background: var(--jumping-card);
+  box-shadow: none; color: var(--jumping-ink); text-align: left;
+}
+.jumping-game .jumping-ui .jumping-level-card[aria-pressed="true"] { background: var(--jumping-card-selected); box-shadow: none; }
+.jumping-ui .jumping-level-card .level-thumbnail { height: 150px; }
+.jumping-ui .jumping-level-card strong {
+  margin-top: 16px; height: 3em; font-size: var(--jumping-type-normal); line-height: 1.5;
+  font-weight: 600; -webkit-line-clamp: 2;
+}
+.jumping-ui .jumping-level-tile .jumping-level-card::after { height: 56px; }
+.jumping-ui .jumping-level-tile-actions {
+  gap: 8px; bottom: 0; left: 0; right: 0; justify-content: flex-end;
+  padding: 12px; background: var(--jumping-card-actions);
+}
+.jumping-game .jumping-ui .jumping-level-tile-actions button { min-height: 44px; padding: 10px 12px; font-size: var(--jumping-type-normal); }
+.jumping-ui .jumping-level-detail {
+  padding: 18px var(--jumping-inset); border: 0; background: var(--jumping-section);
+  grid-template-rows: auto; gap: 8px;
+}
+.jumping-ui .jumping-level-detail h3 { font-size: var(--jumping-type-normal); line-height: 1.5; }
+.jumping-ui .jumping-level-problems p { color: var(--jumping-muted); font-size: var(--jumping-type-small); line-height: 1.5; }
+.jumping-ui .jumping-level-problems .jumping-load-error { color: var(--jumping-danger); }
+.jumping-ui .jumping-medal-times { color: var(--jumping-muted); font-size: var(--jumping-type-small); line-height: 1.5; }
+.jumping-ui .jumping-medal-times :is(.gold, .bronze) { color: inherit; }
+
+/* Library and recycle bin use identical cards and a stable, centered shell. */
+.jumping-game .builder-library.jumping-ui {
+  padding: 0; border: 0; border-radius: 2px; background: var(--jumping-paper); box-shadow: none;
+  --library-padding: var(--jumping-inset); overflow-y: auto;
+}
+.jumping-ui.builder-library::backdrop,
+.jumping-ui.level-file-dialog::backdrop { background: var(--jumping-backdrop); backdrop-filter: none; }
+.jumping-ui .builder-library-folder {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px;
+  padding: 12px var(--jumping-inset); background: var(--jumping-section); max-height: 35%;
+  scrollbar-width: thin;
+}
+.jumping-ui .builder-library-folder > .jumping-collection-tabs { margin: 0; flex: none; max-width: 100%; flex-wrap: wrap; }
+.jumping-ui .builder-library-folder > .local-folder { flex: 1 1 24em; min-width: 0; }
+.jumping-ui .builder-library-folder > p { flex-basis: 100%; margin: 0; }
+.jumping-ui .builder-library-content { padding: 8px var(--jumping-inset) 28px; min-height: 8em; }
+.jumping-ui .builder-local-heading { gap: 16px; margin: 12px 0 8px; }
+.jumping-ui .builder-library-content h3 { margin: 24px 0 8px; font-size: var(--jumping-type-normal); }
+.jumping-ui .builder-local-heading h3 { margin: 0; }
+.jumping-ui :is(.builder-library-description, .builder-library-message, .builder-library-empty) {
+  font-size: var(--jumping-type-small); color: var(--jumping-muted); line-height: 1.5;
+}
+.jumping-ui .builder-library-message { color: var(--jumping-danger); }
+.jumping-ui .builder-library-empty { padding: 32px; border: 0; border-radius: 0; background: var(--jumping-soft); }
+.jumping-ui :is(.builder-local-files, .builder-templates) {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 20px; align-items: start;
+}
+.jumping-ui .builder-local-file {
+  grid-template-rows: auto minmax(60px, auto); gap: 0; padding: 0; border: 0; border-radius: 2px; background: var(--jumping-card-actions);
+}
+.jumping-game .jumping-ui :is(.builder-file-preview, .builder-templates > button) {
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
+  gap: 16px; width: 100%; padding: 16px; border: 0; border-radius: 2px;
+  background: var(--jumping-card); color: var(--jumping-ink);
+}
+.jumping-ui.builder-library .level-thumbnail { height: 150px; }
+.jumping-ui :is(.builder-file-preview, .builder-templates) strong {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; white-space: normal;
+  height: 3em; margin: 0; color: inherit; font-size: var(--jumping-type-normal); font-weight: 600; line-height: 1.5;
+}
+.jumping-ui .builder-file-preview small, .jumping-ui .builder-templates span {
+  display: block; min-width: 0; height: 1.5em; margin: 6px 0 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: inherit; font: var(--jumping-type-small)/1.5 ui-monospace, monospace;
+}
+.jumping-ui .builder-templates > button { gap: 0; }
+.jumping-ui .builder-templates strong { margin-top: 16px; }
+.jumping-ui .builder-file-actions { padding: 8px; gap: 8px; }
+.jumping-game .jumping-ui .builder-file-actions button {
+  display: flex; flex-direction: row; justify-content: center; align-items: center;
+  min-height: 44px; padding: 8px 10px; background: transparent; font-size: var(--jumping-type-normal);
+}
+.jumping-game .jumping-ui .builder-local-file > .level-file-delete { margin: 8px; min-height: 44px; }
+.jumping-game .jumping-ui .level-file-delete-labeled { font-size: var(--jumping-type-normal); }
+.jumping-ui .level-thumbnail.level-file-placeholder { border: 0; border-radius: 0; background: var(--jumping-section); color: var(--jumping-muted); font-size: var(--jumping-type-normal); }
+.jumping-ui .level-file-placeholder span { font-size: var(--jumping-type-small); }
+.jumping-ui .builder-bin-header { padding: 16px var(--jumping-inset); border: 0; background: var(--jumping-section); flex: none; }
+.jumping-ui .builder-bin-header p { margin: 0; color: var(--jumping-muted); font-size: var(--jumping-type-small); }
+.jumping-ui .builder-bin-content { padding: 24px var(--jumping-inset); min-height: 8em; }
+.jumping-ui .builder-local-file.drop-before::before,
+.jumping-ui .builder-local-file.drop-after::after { width: 4px; border-radius: 0; background: var(--jumping-selection); }
+
+/* Folder information belongs to the toolbar, not a card within a card. */
+.jumping-ui .local-folder {
+  padding: 0; gap: 8px 20px; align-items: center; border: 0; border-radius: 0; background: transparent;
+}
+.jumping-ui .local-folder-icon { width: 28px; height: 28px; border: 0; border-radius: 0; background: transparent; color: var(--jumping-ink); }
+.jumping-ui .local-folder-icon svg { stroke-width: 2.5; }
+.jumping-ui .local-folder-title strong { font-size: var(--jumping-type-normal); color: var(--jumping-ink); }
+.jumping-ui .local-folder-title span { margin-top: 0; }
+.jumping-ui .local-folder-actions { gap: 8px; }
+.jumping-ui .local-folder-title span,
+.jumping-ui .local-folder .local-folder-note,
+.jumping-ui .local-folder-errors { font-size: var(--jumping-type-small); line-height: 1.5; color: var(--jumping-muted); }
+.jumping-ui .local-folder.is-empty .local-folder-note { border: 0; padding: 0; }
+.jumping-ui .local-folder-errors { color: var(--jumping-danger); border: 0; padding: 0; }
+
+/* Confirmations keep the same section bands and equally weighted actions. */
+.jumping-game .level-file-dialog.jumping-ui,
+.jumping-ui .jumping-notice-panel {
+  width: min(34em, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
+  margin: auto; padding: 0; border: 0; border-radius: 2px;
+  overflow: auto; background: var(--jumping-paper); box-shadow: none;
+}
+.jumping-ui .jumping-ui-heading { padding: 28px 32px; background: var(--jumping-header); }
+.jumping-ui.is-destructive .jumping-ui-heading { --jumping-header: var(--jumping-danger); }
+.jumping-ui .jumping-notice-copy { padding: 28px 32px; }
+.jumping-ui .jumping-notice-copy p { font-size: var(--jumping-type-normal); line-height: 1.5; margin: 0 0 16px; }
+.jumping-ui .jumping-notice-copy p:last-child { margin-bottom: 0; }
+.jumping-ui .jumping-notice-copy :is(.level-file-note, .level-file-error) { font-size: var(--jumping-type-small); }
+.jumping-ui .level-file-error { color: var(--jumping-danger); }
+.jumping-ui :is(.level-file-actions, .jumping-notice-actions) {
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px;
+  margin: 0; padding: 20px 32px; background: var(--jumping-section);
+}
+.jumping-ui .jumping-notice-actions { flex-direction: column; }
+.jumping-ui .jumping-notice-actions button { justify-content: flex-start; }
+.jumping-ui .jumping-notice-panel { --notice-inset: 32px; }
+.jumping-ui .jumping-notice-panel :is(.jumping-ui-heading, .jumping-notice-copy) { padding-inline: calc(var(--notice-inset) + 14px); }
+.jumping-ui .jumping-notice-panel .jumping-notice-actions { padding-inline: var(--notice-inset); }
+.jumping-ui .level-file-actions button { flex: 1 1 9em; }
+.jumping-ui.level-file-dialog label { color: var(--jumping-muted); font-size: var(--jumping-type-small); }
+.jumping-game .jumping-ui input {
+  min-width: 0; min-height: 48px; padding: 12px; border: 0; border-bottom: 2px solid var(--jumping-muted);
+  border-radius: 0; background: var(--jumping-soft); color: var(--jumping-ink); font: var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif;
+}
+.jumping-game .jumping-ui input:focus-visible { outline: 3px solid var(--jumping-selection); outline-offset: 0; }
+.jumping-ui .builder-library-confirm { display: flex; flex-direction: column; width: 100%; margin: 0; padding: 0; flex: 1; min-height: 0; }
+.jumping-ui .builder-library-confirm-copy { width: min(42em, 100%); margin: auto; padding: 32px var(--jumping-inset); }
+.jumping-ui .builder-library-confirm h3 { margin: 0 0 16px; font-size: var(--jumping-type-normal); }
+.jumping-ui .builder-library-confirm p { font-size: var(--jumping-type-normal); line-height: 1.5; }
+.jumping-ui .builder-library-confirm-actions { margin-top: auto; padding: 20px var(--jumping-inset); background: var(--jumping-section); justify-content: flex-end; }
+
+/* Last in the cascade: neither hover nor a persistent selected tab hides focus. */
+.jumping-game .jumping-ui button:is(:hover, :focus):not(:disabled),
+.jumping-game .jumping-builder-return:hover { outline: none; background: var(--jumping-soft); color: var(--jumping-hover-ink); box-shadow: none; }
+.jumping-game .jumping-ui :is(.jumping-level-card, .builder-file-preview, .builder-templates > button):is(:hover, :focus):not(:disabled) { background: var(--jumping-card-selected); }
+.jumping-game .jumping-ui .jumping-collection-tabs button:is(:hover, :focus):not(:disabled) { outline: none; background: var(--jumping-tab-hover, var(--jumping-paper)); color: var(--jumping-hover-ink); box-shadow: none; }
+/* Pointer selection still updates the details/controller target, but only the
+   preview under the pointer gets its hover fill, never its sibling actions. */
+.jumping-game .jumping-ui[data-input-method="pointer"] :is(.jumping-level-card, .builder-file-preview, .builder-templates > button):not(:hover):not(:disabled) { background: var(--jumping-card); color: var(--jumping-ink); }
+.jumping-game .jumping-ui:not([data-input-method="pointer"]) button:focus:not(:disabled),
+.jumping-game .jumping-builder-return:focus-visible {
+  outline: none; background: var(--jumping-selection); color: var(--jumping-selection-text); box-shadow: none;
+}
+.jumping-game .jumping-ui button:focus :is(strong, small, span, kbd) { color: inherit; }
+@media (forced-colors: active) {
+  .jumping-game .jumping-ui,
+  .jumping-ui :is(.jumping-menu-header, .builder-library-header, .jumping-ui-heading) { --jumping-selection: Highlight; --jumping-selection-text: HighlightText; }
+  .jumping-game .jumping-ui button:focus:not(:disabled),
+  .jumping-game .jumping-builder-return:focus-visible { forced-color-adjust: none; background: Highlight; color: HighlightText; }
+  .jumping-game .jumping-ui button[aria-pressed="true"]::before { content: '✓'; }
+}
+@media (max-width: 960px) and (min-width: 761px) and (min-height: 541px) {
+  .jumping-game :is(.builder-header, .jumping-level-menu .jumping-menu-header) {
+    --jumping-header-padding-block: 16px;
+    flex-direction: column; align-items: stretch; gap: 12px;
+  }
+}
+@media (max-width: 760px) {
+  .jumping-game :is(.builder-header, .jumping-level-menu .jumping-menu-header) {
+    --jumping-header-padding-block: 12px;
+    flex-direction: column; align-items: stretch; gap: 12px;
+  }
+  :is(.builder-brand, .jumping-menu-heading) .jumping-eyebrow { display: none; }
+  .jumping-game :is(.builder-main-actions, .jumping-menu-navigation) button { white-space: normal; }
+}
+@media (max-width: 620px) {
+  .jumping-ui .jumping-library-bar { padding: 12px 20px; gap: 8px; }
+  .jumping-ui .jumping-library-bar .local-folder-actions { width: auto; margin-left: auto; }
+  .jumping-ui .jumping-library-folder { flex-basis: auto; }
+  .jumping-ui .jumping-level-detail-heading { gap: 6px; }
+  .jumping-ui .jumping-level-detail .jumping-medal-times { gap: 12px; font-size: var(--jumping-type-small); }
+  .jumping-ui .builder-library-header { padding: 20px; gap: 16px; }
+  .jumping-ui .builder-library-header > div:first-child { flex: 1 0 100%; }
+  .jumping-ui .builder-library-header > .builder-library-actions { width: 100%; justify-content: flex-end; }
+  .jumping-ui .builder-library-actions { gap: 8px; }
+  .jumping-ui .builder-library-folder { padding: 12px 20px; gap: 8px; }
+  .jumping-ui .local-folder { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  .jumping-ui .local-folder:has(.local-folder-actions > button:nth-child(3)) { grid-template-columns: minmax(0, 1fr); }
+  .jumping-ui .local-folder-heading { gap: 8px; }
+  .jumping-ui .local-folder-actions { justify-content: flex-start; }
+  .jumping-ui .local-folder-actions > button { flex: none; }
+  .jumping-ui .local-folder .local-folder-label-full,
+  .jumping-ui .local-folder .local-folder-refresh span { display: none; }
+  .jumping-ui .local-folder .local-folder-label-short { display: inline; }
+  .jumping-game .jumping-ui .local-folder-actions button { min-width: 44px; padding-inline: 8px; }
+  .jumping-ui .builder-library-confirm-actions { flex-direction: column; }
+  .jumping-ui .builder-library-confirm-actions button { justify-content: flex-start; }
+  .jumping-ui .jumping-ui-heading, .jumping-ui .jumping-notice-copy { padding: 24px; }
+  .jumping-ui .jumping-notice-panel { --notice-inset: 24px; }
+  .jumping-ui :is(.level-file-actions, .jumping-notice-actions) { padding: 16px 24px; }
+}
+@media (max-height: 650px) and (min-width: 621px) {
+  .jumping-ui .builder-library-header { padding-block: 12px; }
+  .jumping-ui .builder-library-header .jumping-eyebrow { display: none; }
+  .jumping-ui .jumping-library-bar { min-height: 64px; padding-block: 8px; }
+  .jumping-ui .jumping-level-cards { padding-block: 16px; }
+  .jumping-ui :is(.jumping-level-card, .builder-file-preview, .builder-templates) .level-thumbnail { height: 100px; }
+  .jumping-ui .jumping-level-detail { padding-block: 12px; }
+  .jumping-ui .builder-library-folder { padding-block: 12px; }
+}
+@media (max-height: 540px) and (min-width: 761px) {
+  .jumping-game :is(.builder-header, .jumping-level-menu .jumping-menu-header) {
+    --jumping-header-padding-block: 10px;
+  }
+  .jumping-menu-heading .jumping-eyebrow { display: none; }
+  .jumping-game .jumping-menu-heading h2 { font: 600 var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif; letter-spacing: normal; }
+}
+@media (max-height: 300px) {
+  .jumping-ui .jumping-level-menu { overflow: auto; }
+  .jumping-ui .jumping-level-browser { flex: none; }
+  .jumping-ui .jumping-level-cards { flex: none; overflow: visible; }
+}

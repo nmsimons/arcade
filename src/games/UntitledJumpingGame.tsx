@@ -16,6 +16,7 @@ import type { LevelCatalog, LevelFile, MissingLevelFile } from './jumping/levelA
 import { levelFileName, missingManifestPrompt, useLocalLevels } from './jumping/localLevels'
 import { LocalFolderActions } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
+import { JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, DeleteLevelDialog, MissingLevelNotice } from './jumping/LevelFileActions'
 import { drawChallenge } from './jumping/challengeRender'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
@@ -25,7 +26,10 @@ import { clonePreparedLevel, prepareLevelInWorker } from './jumping/levelPrepara
 import type { PreparedLevel } from './jumping/levelPreparation'
 import { createDevLevelRepository } from './jumping/devLevelRepository'
 import type { LevelSource } from './jumping/routes'
+import './jumping/theme.css'
 import './jumping/jumping.css'
+import './jumping/dialogs.css'
+import './jumping/interface.css'
 
 type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
 const COLLECTION_KEY = 'arcade.jumping.collection.v1'
@@ -113,7 +117,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   useEffect(() => () => { playPreparation.current?.abort(); playPreparation.current = null }, [location.key])
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
-  const [pauseReason, setPauseReason] = useState('Take a breath. Pick up where you left off.')
+  const [pauseReason, setPauseReason] = useState('')
   const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
@@ -123,7 +127,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
     jumpQueue.current = []; keyboardJump.current = false
     screenRef.current = next; setScreen(next)
-    if (next === 'paused') setPauseReason(reason ?? 'Take a breath. Pick up where you left off.')
+    if (next === 'paused') setPauseReason(reason ?? '')
   }
   useLayoutEffect(() => {
     if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
@@ -403,39 +407,34 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   return <div className="jumping-game" ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: activate the goal` : 'Untitled Jumping Game movement playground'} />
     {screen === 'playing' && <>
-      {testing && <button className="jumping-builder-return" onClick={openBuilder}>Return to builder</button>}
+      {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
         {challenge && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}
       </aside>
     </>}
-    {preparing && <KeyboardDialog label="Preparing level" focusKey="jumping-preparing" onClose={cancelPreparation} className="jumping-overlay">
-      <div className="jumping-menu jumping-result"><h2>Preparing level…</h2><p>{preparing}</p><button onClick={cancelPreparation}>Cancel</button></div>
-    </KeyboardDialog>}
-    {screen === 'complete' && <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={startChallenge} className="jumping-overlay">
-      <div className="jumping-menu jumping-result">
-        <p className="jumping-eyebrow">{trial.name.toUpperCase()} / {testing ? 'TEST COMPLETE' : 'COMPLETE'}</p><h2>Level complete.</h2>
-        <div className={`jumping-medal ${result.medal.toLowerCase().replace(' ', '-')}`} aria-hidden="true">{result.medal === 'No medal' ? '⚑' : '★'}</div>
-        <p className="jumping-result-time">{formatTime(result.elapsed)}</p>
-        <p>{result.medal === 'No medal' ? 'Level complete. Another run, another route.' : `${result.medal} medal`}</p>
-        <div className="jumping-medal-times"><span className="gold">Gold ≤ {trial.times.gold}s</span><span>Silver ≤ {trial.times.silver}s</span><span className="bronze">Bronze ≤ {trial.times.bronze}s</span></div>
-        {!testing && best !== null && <p>Personal best {formatTime(best)}</p>}
-        {saveError && <p role="status">Your time is kept for this visit. Browser storage is unavailable.</p>}
-        <div className="jumping-actions">{!testing && campaignIndex >= 0 && nextFile && <button className="jumping-primary" onClick={() => playFile(nextFile, playingFile.collection as 'built-in' | 'local')}>Next level <span aria-hidden="true">→</span></button>}{testing && <button className="jumping-primary" onClick={openBuilder}>Return to builder</button>}<button onClick={startChallenge}>Try again <span aria-hidden="true">↗</span></button><button onClick={showMenu}>Level menu</button><button onClick={onExit}>Back to arcade</button></div>
+    {preparing && <KeyboardDialog label="Preparing level" focusKey="jumping-preparing" onClose={cancelPreparation} className="jumping-overlay jumping-dialog-overlay jumping-ui">
+      <div className="jumping-notice-panel">
+        <header className="jumping-ui-heading"><p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h2>Preparing level.</h2></header>
+        <div className="jumping-notice-copy"><p role="status">{preparing}</p></div>
+        <div className="jumping-notice-actions"><button onClick={cancelPreparation}>Cancel</button></div>
       </div>
     </KeyboardDialog>}
-    {!preparing && (screen === 'menu' || screen === 'paused') && <KeyboardDialog label={screen === 'menu' ? 'Untitled Jumping Game' : 'Game paused'} focusKey={`jumping-${screen}`}
-      onClose={() => screen === 'menu' ? onExit() : changeScreen('playing')} className={`jumping-overlay ${screen === 'menu' ? 'jumping-level-screen' : ''}`}>
-      <div className={`jumping-menu ${screen === 'menu' ? 'jumping-level-menu' : ''}`}>
+    {screen === 'complete' && <JumpingResultDialog level={trial} elapsed={result.elapsed} medal={result.medal} best={best}
+      testing={testing} saveError={saveError} onNext={!testing && campaignIndex >= 0 && nextFile ? () => playFile(nextFile, playingFile.collection as 'built-in' | 'local') : undefined}
+      onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
+    {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevel.current.name} reason={pauseReason}
+      connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
+      onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
+    {!preparing && screen === 'menu' && <KeyboardDialog label="Untitled Jumping Game" focusKey="jumping-menu"
+      onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">
+      <div className="jumping-menu jumping-level-menu">
         <div className="jumping-menu-header">
           <div className="jumping-menu-heading">
-            {screen === 'menu' ? <h2>Untitled Jumping Game</h2> : <>
-              <p className="jumping-eyebrow">PAUSED</p><h2>Find your footing.</h2><p>{pauseReason}</p>
-            </>}
+            <p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h2>Levels.</h2>
           </div>
-          {screen === 'menu' && <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button></div>}
+          <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button></div>
         </div>
-        {screen === 'menu' && <>
           <div className="jumping-library-bar">
             <div className="jumping-collection-tabs" role="group" aria-label="Level source">
               {hasBuiltIns && <button aria-label="Built-in levels" aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in<span className="jumping-source-label-extra"> levels</span></button>}
@@ -452,17 +451,27 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
           </div>
           {routeNotice && <p className="jumping-route-notice" role="status">{routeNotice}</p>}
           <div className="jumping-level-browser">
-          <div key={collection} className="jumping-level-cards" data-menu-grid data-controller-scroll>{files.map((file, index) => {
+          <div key={collection} className="jumping-level-cards" data-menu-grid data-controller-scroll onPointerMove={event => {
+            if (event.pointerType === 'mouse') {
+              const dialog = event.currentTarget.closest<HTMLElement>('.game-dialog')
+              if (dialog) dialog.dataset.inputMethod = 'pointer'
+            }
+          }}>{files.map((file, index) => {
             if ('missing' in file) return <div key={file.fileName} className="jumping-level-tile jumping-missing-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)}>
               <div className="jumping-level-card"><MissingLevelNotice fileName={file.fileName} compact /></div>
               <div className="jumping-level-tile-actions"><DeleteLevelButton fileName={file.fileName} primary disabled={menuStore.busy || !menuStore.canWrite} onClick={() => setDeleteTarget(file)} /></div>
             </div>
             const level = file.level
             const needsRepair = levelProblems(level).length > 0
-            return <div key={file.fileName} className="jumping-level-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)} onPointerEnter={event => {
-              if (event.pointerType === 'mouse') event.currentTarget.querySelector<HTMLButtonElement>('[data-menu-primary]')?.focus({ preventScroll: true })
-            }}>
+            return <div key={file.fileName} className="jumping-level-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)}>
             <button className="jumping-level-card" data-menu-primary data-initial-focus={selected?.fileName === file.fileName || undefined}
+              onPointerEnter={event => {
+                if (event.pointerType === 'mouse') {
+                  const dialog = event.currentTarget.closest<HTMLElement>('.game-dialog')
+                  if (dialog) dialog.dataset.inputMethod = 'pointer'
+                  event.currentTarget.focus({ preventScroll: true })
+                }
+              }}
               aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
               <LevelThumbnail level={level} /><strong>{level.name}</strong>
             </button>
@@ -478,30 +487,11 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
               <h3 title={selected?.level.name}>{selected?.level.name}</h3>
               <div className="jumping-medal-times">{selected && isPuzzleLevel(selected.level) && <><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span className="bronze">Bronze {selected.level.times.bronze}s</span></>}</div>
             </div>
-            <div key={`${collection}:${selected?.fileName}`} className="jumping-level-description" role="region" aria-label="Level description" data-controller-scroll>
+            {selectedProblems.length > 0 && <div key={`${collection}:${selected?.fileName}`} className="jumping-level-problems" role="region" aria-label="Level issues" data-controller-scroll>
               {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
-              <p>{selected?.level.description}</p>
-            </div>
+            </div>}
           </div>
           </div>
-        </>}
-        {screen === 'paused' && <section className="jumping-controls" aria-label="How to play">
-          <dl>
-            <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
-            <div><dt>Hold, release to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
-            <div><dt>Climb / descend</dt><dd><kbd>{connected ? '↑ ↓' : 'W S / ↑ ↓'}</kbd></dd></div>
-            <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
-            {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
-          </dl>
-          <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Hold Jump to charge; release to jump, including from ledges, ropes, ladders, walls, and slopes.</p>
-        </section>}
-        {screen === 'paused' && <div className="jumping-actions">
-            <button data-initial-focus className="jumping-primary" onClick={() => changeScreen('playing')}>Resume <kbd aria-hidden="true">{connected ? 'Menu' : 'Esc'}</kbd></button>
-            <button onClick={() => { resetPosition(); changeScreen('playing') }}>{challenge ? 'Restart level' : 'Reset position'}</button>
-            <button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button>
-            <button onClick={showMenu}>Level menu</button>
-            <button onClick={onExit}>Back to arcade</button>
-        </div>}
       </div>
     </KeyboardDialog>}
     {screen === 'menu' && deleteTarget && <DeleteLevelDialog entry={deleteTarget} local={menuStore} onClose={() => setDeleteTarget(null)} onDeleted={() => setRouteNotice('')} />}

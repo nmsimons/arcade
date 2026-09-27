@@ -247,8 +247,8 @@ test('folder picker handles cancel, busy, errors and empty folders without losin
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Change folder' }).click()
   await page.evaluate(() => window.finishFolderPicker('empty'))
-  await expect(page.getByText('0 levels · Save directly to folder')).toBeVisible()
-  await expect(page.getByText('No level files yet. Save a level here from the builder.')).toBeVisible()
+  await expect(page.locator('.local-folder-title span')).toHaveText('0 levels')
+  await expect(page.getByText('Create a new level to start this collection.')).toBeVisible()
   await expect(page.getByRole('group', { name: 'Local level files' })).toHaveCount(0)
 })
 

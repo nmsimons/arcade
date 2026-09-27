@@ -3,6 +3,8 @@ import { copyLevel, snapToGround, newLevelId, levelTerrain, levelHeight } from '
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
+import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
+import type { NamedObject } from './objectNames.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
@@ -18,6 +20,26 @@ export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-ri
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+
+/** Return the saved definition, not the derived bounds used for canvas handles. */
+export function itemDefinition(level: JumpLevel, selection: Selection): NamedObject | undefined {
+  if (selection.kind === 'spawn') return level.spawn
+  if (selection.kind === 'goal') return level.goal
+  const collections = {
+    platform: level.platforms, rope: level.climbables.ropes, ladder: level.climbables.ladders,
+    checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
+    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups,
+  }
+  return collections[selection.kind]?.[selection.index]
+}
+export function renameItem(level: JumpLevel, selection: Selection, value: string): JumpLevel {
+  const item = itemDefinition(level, selection), name = value.trim().slice(0, OBJECT_NAME_MAX_LENGTH)
+  if (!item || (item.name ?? '') === name) return level
+  const next = copyLevel(level), target = itemDefinition(next, selection)!
+  if (name) target.name = name
+  else delete target.name
+  return next
+}
 
 /** The editor's origin is the bottom-left; version 1 files and physics use Y-down. */
 export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLevel {
@@ -87,8 +109,8 @@ export function setElevatorTravel(level: JumpLevel, index: number, travel: numbe
 }
 export function setTriggerTargets(level: JumpLevel, index: number, targets: readonly string[]): JumpLevel {
   if (!level.triggers?.[index]) return level
-  const next = copyLevel(level), { x, y, w, mode } = next.triggers![index]
-  next.triggers![index] = { x, y, w, mode, targets: [...new Set(targets.filter(id => next.mechanisms?.some(m => m.id === id)))] }
+  const next = copyLevel(level), { x, y, w, mode, name } = next.triggers![index]
+  next.triggers![index] = { x, y, w, mode, ...(name ? { name } : {}), targets: [...new Set(targets.filter(id => next.mechanisms?.some(m => m.id === id)))] }
   return next
 }
 export function hitItem(level: JumpLevel, x: number, y: number, tolerance: number): Selection | null {
@@ -145,7 +167,7 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
 }
 export function replacePlatform(level: JumpLevel, index: number, platform: Platform): JumpLevel {
   const next = copyLevel(level), before = level.platforms[index]
-  next.platforms[index] = platform
+  next.platforms[index] = { ...(before.name ? { name: before.name } : {}), ...platform }
   for (const ladder of next.climbables.ladders) if (ladder.platform === index) {
     ladder.x = ladder.side === 1 ? platform.x - 16 : platform.x + platform.w + 16
     ladder.bottom += platform.y - before.y; ladder.top = platform.y

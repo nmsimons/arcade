@@ -2,8 +2,9 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
+import { expectAccessibleSelection } from './helpers/jumpingAccessibility.mjs'
 
-const levels = () => ['First room', 'Second room', 'Third room'].map((name, i) => ({ ...blankTrial(), id: `menu-${i}`, name, description: `Route ${i + 1}` }))
+const levels = () => ['First room', 'Second room', 'Third room'].map((name, i) => ({ ...blankTrial(), id: `menu-${i}`, name }))
 async function open(page, local = false, maps = levels()) {
   await useLevelFixtures(page, maps)
   await page.addInitScript(maps => {
@@ -42,7 +43,7 @@ test('level tiles launch immediately by click, Enter or controller A, with focus
   const second = page.getByRole('button', { name: 'Level 2: Second room', exact: true })
   await second.hover()
   await expect(second).toBeFocused(); await expect(second).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.jumping-level-detail')).toContainText('Route 2')
+  await expect(page.locator('.jumping-level-detail')).toContainText('Second room')
   await tap(page, 3)
   await expect(page.getByRole('dialog', { name: 'Untitled Jumping Game', exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('direct-level-menu.png') })
@@ -60,15 +61,150 @@ test('level tiles launch immediately by click, Enter or controller A, with focus
   await hold(page, 0, 0)
 })
 
+test('pause controls keep their panel size and return controller focus without resuming the game', async ({ page }, info) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Play First room', exact: true }).click()
+  await expect(page.locator('canvas[role="img"]')).toBeFocused()
+  await page.clock.runFor(64); await tap(page, 9)
+  const panel = page.locator('.jumping-dialog-panel')
+  const pause = page.getByRole('dialog', { name: 'Game paused' })
+  await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
+  for (const size of [{ width: 1280, height: 800 }, { width: 320, height: 740 }, { width: 844, height: 390 }]) {
+    await page.setViewportSize(size); await page.clock.runFor(64)
+    const bounds = await panel.boundingBox()
+    await page.getByRole('button', { name: 'Controls', exact: true }).focus()
+    await tap(page, 0)
+    await expect(page.getByRole('region', { name: 'How to play' })).toContainText('B / ○')
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeFocused()
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport()
+    expect(await panel.boundingBox()).toEqual(bounds)
+    expect(await panel.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+    await tap(page, 1)
+    await expect(pause).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Controls', exact: true })).toBeFocused()
+    await page.getByRole('button', { name: 'Back to arcade', exact: true }).focus()
+    await expect(page.getByRole('button', { name: 'Back to arcade', exact: true })).toBeInViewport()
+    await page.screenshot({ path: info.outputPath(`pause-panel-${size.width}.png`) })
+  }
+  await tap(page, 9)
+  await expect(pause).toHaveCount(0)
+  await expect(page.locator('canvas[role="img"]')).toBeFocused()
+})
+
+test('pause selection stays distinct for keyboard, controller and forced colors while hover remains quiet', async ({ page }, info) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Play First room', exact: true }).click()
+  await expect(page.locator('canvas[role="img"]')).toBeFocused()
+  await page.keyboard.press('Escape')
+  await page.mouse.move(0, 0)
+  const button = name => page.getByRole('button', { name, exact: true })
+  const names = ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level builder', 'Back to arcade']
+  for (const name of names) {
+    await expectAccessibleSelection(button(name))
+    await page.keyboard.press('Tab')
+  }
+  await button('Controls').hover()
+  await expect(button('Controls')).toHaveCSS('background-color', 'rgb(171, 185, 167)')
+  await button('Controls').click()
+  await button('Back').click()
+  await page.mouse.move(0, 0)
+  // Controller input after a pointer click must restore visible focus even if
+  // the browser would not give programmatic focus :focus-visible styling.
+  await page.clock.runFor(64); await tap(page, 13)
+  await expectAccessibleSelection(button('Level builder'))
+  await expect(button('Controls')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  expect(await button('Controls').evaluate(el => el.getAnimations().length)).toBe(0)
+  await page.screenshot({ path: info.outputPath('accessible-selection.png') })
+  for (const colorScheme of ['light', 'dark']) {
+    await page.emulateMedia({ forcedColors: 'active', colorScheme })
+    await page.keyboard.press('Home')
+    for (const name of names) {
+      await expectAccessibleSelection(button(name))
+      await expect(button(name)).toHaveCSS('forced-color-adjust', 'none')
+      await page.keyboard.press('Tab')
+    }
+    await tap(page, 13)
+    await expectAccessibleSelection(button('Restart level'))
+    await page.screenshot({ path: info.outputPath(`high-contrast-${colorScheme}.png`) })
+  }
+})
+
+test('pause and controls reflow at double text size with every action reachable', async ({ page }, info) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Play First room', exact: true }).click()
+  await expect(page.locator('canvas[role="img"]')).toBeFocused()
+  await page.keyboard.press('Escape')
+  const panel = page.locator('.jumping-dialog-panel')
+  // Enlarge type independently of the viewport, as text-only zoom does.
+  await page.getByRole('dialog', { name: 'Game paused' }).evaluate(el => {
+    el.style.setProperty('--jumping-type-large', '112px')
+    el.style.setProperty('--jumping-type-normal', '32px')
+    el.style.setProperty('--jumping-type-small', '24px')
+  })
+  for (const size of [{ width: 1280, height: 800 }, { width: 320, height: 740 }]) {
+    await page.setViewportSize(size)
+    const bounds = await panel.boundingBox()
+    await page.keyboard.press('Home')
+    for (const name of ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level builder', 'Back to arcade']) {
+      const button = page.getByRole('button', { name, exact: true })
+      await expect(button).toBeFocused()
+      await expect(button).toBeInViewport({ ratio: 1 })
+      await page.keyboard.press('Tab')
+    }
+    await page.getByRole('button', { name: 'Controls', exact: true }).click()
+    await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport({ ratio: 1 })
+    expect(await panel.boundingBox()).toEqual(bounds)
+    const clipped = await panel.evaluate(el => [el, ...el.querySelectorAll('h2, p, button, dl, dt, dd')]
+      .filter(node => node.clientWidth && node.scrollWidth > node.clientWidth + 1).map(node => node.textContent))
+    expect(clipped).toEqual([])
+    await page.getByRole('heading', { name: 'Controls.' }).scrollIntoViewIfNeeded()
+    await page.screenshot({ path: info.outputPath(`double-text-${size.width}.png`) })
+    await page.keyboard.press('Escape')
+  }
+})
+
+test('completion actions retain accessible selection and reflow with enlarged text', async ({ page }, info) => {
+  const maps = levels()
+  maps[0].goal = { ...maps[0].spawn }
+  await open(page, false, maps)
+  await page.getByRole('button', { name: 'Play First room', exact: true }).click()
+  await expect(page.locator('canvas[role="img"]')).toBeFocused()
+  // Cross the plate and continue through the exit door beside it.
+  await page.keyboard.down('d'); await page.clock.runFor(2500); await page.keyboard.up('d')
+  await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
+  await page.mouse.move(0, 0)
+  const names = ['Next level', 'Try again', 'Level menu', 'Back to arcade']
+  for (const forcedColors of ['none', 'active']) {
+    await page.emulateMedia({ forcedColors })
+    for (const name of names) {
+      await expectAccessibleSelection(page.getByRole('button', { name, exact: true }))
+      await page.keyboard.press('Tab')
+    }
+  }
+  await page.emulateMedia({ forcedColors: 'none' })
+  // Also honor the user's default font size, without dialog-specific overrides.
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' })
+  await expect(page.getByRole('button', { name: 'Next level' })).toHaveCSS('font-size', '32px')
+  await page.setViewportSize({ width: 320, height: 740 })
+  for (const name of names) {
+    await expect(page.getByRole('button', { name, exact: true })).toBeFocused()
+    await expect(page.getByRole('button', { name, exact: true })).toBeInViewport({ ratio: 1 })
+    await page.keyboard.press('Tab')
+  }
+  expect(await page.locator('.jumping-dialog-panel').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await page.screenshot({ path: info.outputPath('completion-double-text.png') })
+})
+
 test('local tiles edit independently by button and Y while arrows browse tiles and A plays', async ({ page }, info) => {
   await open(page, true)
   const first = page.getByRole('button', { name: 'Level 1: First room', exact: true })
   await first.focus(); await page.clock.runFor(64)
   await tap(page, 15)
   await expect(page.getByRole('button', { name: 'Level 2: Second room', exact: true })).toBeFocused()
-  await expect(page.locator('.jumping-level-detail')).toContainText('Route 2')
+  await expect(page.locator('.jumping-level-detail')).toContainText('Second room')
   await tap(page, 3)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Second room')
+  await expect(page.getByRole('textbox', { name: 'Player hint', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Back to game', exact: true }).click()
   await page.getByRole('button', { name: 'Edit Third room', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Third room')
@@ -206,7 +342,7 @@ test('builder and playtest routes save edits and preserve undo history when goin
   await page.getByRole('textbox', { name: 'Level name' }).fill('Temporary draft')
   await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toBeVisible()
-  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Choose a writable level folder')
+  await expect(page.getByRole('dialog', { name: 'Level library', exact: true }).locator('.builder-library-message')).toContainText('Choose a writable level folder')
   await page.getByRole('button', { name: /^(Choose|Reselect) folder$/, exact: true }).click()
   await page.getByRole('button', { name: 'Close library', exact: true }).click()
   await page.getByRole('button', { name: 'Save and Test', exact: true }).click()

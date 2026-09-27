@@ -511,7 +511,7 @@ test('Save and Test requires a writable folder and never downloads a fallback fi
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Ready to save')
   await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toBeVisible()
-  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Choose a writable level folder')
+  await expect(page.getByRole('dialog', { name: 'Level library', exact: true }).locator('.builder-library-message')).toContainText('Choose a writable level folder')
   await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(page.getByRole('button', { name: 'Close library', exact: true })).toBeInViewport()

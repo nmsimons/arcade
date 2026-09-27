@@ -295,7 +295,7 @@ test('the JSON reference fixture survives builder template copying, playtest and
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('JSON Test Lab — copy')
   const exported = (await saveTestLevel(page)).level
   expect(exported.platforms).toHaveLength(5); expect(exported.climbables.ropes).toHaveLength(3)
-  expect(exported.mechanisms.map(m => m.kind)).toEqual(['lift', 'gate'])
+  expect(exported.mechanisms).toEqual(JSON_LAB.mechanisms)
   expect(exported.props.map(p => p.kind)).toEqual(['box', 'ball'])
   await page.screenshot({ path: info.outputPath('json-test-lab.png') })
   await page.getByRole('button', { name: 'Save and Test' }).click()

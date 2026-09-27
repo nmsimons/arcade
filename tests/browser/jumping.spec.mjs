@@ -502,20 +502,26 @@ test('the playground remains readable at compact sizes', async ({ page }, info) 
   }
 })
 
-for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} vertical directions leave the standing pose unchanged`, async ({ page }) => {
+for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} vertical input crouches on Down while keeping the feet in place`, async ({ page }) => {
   await setup(page, controller); await enter(page)
+  const standing = await position(page), standingHead = await page.evaluate(() => window.jumpHead)
   for (const direction of controller ? [13, 12, 1, -1] : ['ArrowDown', 'ArrowUp', 's', 'w']) {
+    const down = controller ? direction === 13 || direction === 1 : direction === 'ArrowDown' || direction === 's'
     if (controller) {
       if (Math.abs(direction) === 1) await page.evaluate(y => { window.testPad.axes[1] = y }, direction)
       else await hold(page, direction, 1)
     } else await page.keyboard.down(direction)
     await page.clock.runFor(200)
-    await expect(page.locator('.jumping-state')).toHaveText('Ready')
-    expect((await position(page)).y).toBeCloseTo(620)
+    await expect(page.locator('.jumping-state')).toHaveText(down ? 'Crouching' : 'Ready')
+    expect(await position(page)).toEqual(standing)
+    if (down) expect((await page.evaluate(() => window.jumpHead)).y).toBeGreaterThan(standingHead.y + 15)
     if (controller) {
       if (Math.abs(direction) === 1) await page.evaluate(() => { window.testPad.axes[1] = 0 })
       else await hold(page, direction, 0)
     } else await page.keyboard.up(direction)
-    await page.clock.runFor(200)
+    await page.clock.runFor(400)
+    await expect(page.locator('.jumping-state')).toHaveText('Ready')
+    expect(await position(page)).toEqual(standing)
+    expect((await page.evaluate(() => window.jumpHead)).y).toBeLessThan(standingHead.y + 2)
   }
 })

@@ -24,9 +24,21 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
   const deleting = useRef(false)
   const [pending, setPending] = useState<LibraryChoice | null>(null)
   const grid = useRef<HTMLDivElement>(null), dragging = useRef<string | null>(null), writingOrder = useRef(false)
+  const orderFocus = useRef<HTMLButtonElement | null>(null)
   const [dragged, setDragged] = useState<string | null>(null), [dropSlot, setDropSlot] = useState<number | null>(null)
   const [orderSaving, setOrderSaving] = useState(false), [orderMessage, setOrderMessage] = useState(''), [orderError, setOrderError] = useState('')
   const canReorder = local.canWrite && !local.busy && !orderSaving && local.entries.length > 1
+  useLayoutEffect(() => {
+    if (orderSaving || local.busy) return
+    const focus = orderFocus.current
+    orderFocus.current = null
+    // Wait for React to re-enable the card before restoring keyboard focus.
+    // A user who has already focused another action keeps that selection.
+    const active = document.activeElement
+    if (focus?.isConnected && (active === document.body || active === dialog.current || active === focus)) {
+      focus.focus({ preventScroll: true }); focus.scrollIntoView({ block: 'nearest' })
+    }
+  }, [orderSaving, local.busy])
   useLayoutEffect(() => {
     const node = dialog.current!
     node.showModal()
@@ -54,14 +66,7 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
       setOrderMessage(order === 'filename' ? 'Filename order restored.' : `${moved ? `${moved} moved. ` : ''}Order saved.`)
     } catch (error) { setOrderError((error as Error).message); setOrderMessage('') }
     finally {
-      writingOrder.current = false; setOrderSaving(false)
-      requestAnimationFrame(() => {
-        // Restoring a disabled button must not steal focus from the next action.
-        const active = document.activeElement
-        if (focus?.isConnected && (active === document.body || active === dialog.current || active === focus)) {
-          focus.focus({ preventScroll: true }); focus.scrollIntoView({ block: 'nearest' })
-        }
-      })
+      writingOrder.current = false; orderFocus.current = focus; setOrderSaving(false)
     }
   }
   function move(from: number, to: number) {

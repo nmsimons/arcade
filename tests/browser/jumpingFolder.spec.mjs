@@ -958,5 +958,8 @@ test('finishing a Library reorder does not steal focus from the next selected le
   await expect(next).toBeFocused()
   await page.keyboard.press('Alt+ArrowLeft')
   await expect.poll(() => grid.locator('strong').allTextContents()).toEqual(['C', 'B', 'A'])
+  // Finishing the DOM update must restore keyboard focus even before another
+  // animation frame; the save temporarily disables the selected card.
+  await expect(next).toBeFocused()
   await page.clock.runFor(64); await expect(next).toBeFocused()
 })

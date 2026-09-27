@@ -57,6 +57,7 @@ export interface Player {
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
+  look: number // Presentation only: positive looks up, negative looks down.
   gait: GaitPose | null
   footwork: Footwork | null
   contacts: PlayerContacts | null
@@ -67,7 +68,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
     charge: 0, charging: false, chargeSource: null, coyote: TUNING.coyoteTime, buffer: 0, jumpHeld: false,
     grabCooldown: 0, knockback: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
-    crouching: false, crouch: 0, reach: 0, gait: null, footwork: null, contacts: null }
+    crouching: false, crouch: 0, reach: 0, look: 0, gait: null, footwork: null, contacts: null }
 }
 function settleGait(p: Player, dt: number) {
   const speed = p.climbing ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
@@ -251,6 +252,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms)) {
   p.terrain = platforms
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle
+  const verticalUsed = !!(p.climbing || p.hang || p.mantle)
   const initialContacts = playerContacts(p, input, world), previousGround = initialContacts.support
   if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts)) return
   const leavingGround = previousGround && !p.grounded
@@ -314,17 +316,21 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       }
     }
   }
-  finishPlayerStep(p, input, dt, world, from)
+  finishPlayerStep(p, input, dt, world, from, verticalUsed)
 }
 
 /** All movement modes publish contacts and advance presentation once, after
  * their final world position is known, including an authored level exit. */
-export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number]) {
+export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number], verticalUsed = false) {
   const contacts = playerContacts(p, input, world)
   contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
   updatePushingPose(p, contacts.push, dt)
   p.contacts = contacts
   settleGait(p, dt)
+  // Climbing and ledge actions own the pose; unused vertical input gets a quiet glance.
+  const look = verticalUsed || p.climbing || p.hang || p.mantle ? 0 : Number(input.climb) - Number(input.descend ?? (input.drop && !input.detach))
+  p.look += (look - p.look) * (1 - Math.exp(-dt / .1))
+  if (Math.abs(p.look - look) < .001) p.look = look
   advanceFootwork(p, dt, from[0], world.platforms)
 }
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,

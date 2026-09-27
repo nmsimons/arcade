@@ -498,6 +498,9 @@ export function athletePose(p: Player): AthletePose {
   const shoulder: Point = [waist[0] + Math.sin(chestPitch) * 10.1, waist[1] - Math.cos(chestPitch) * 10.1 + chestBob - hipBob]
   // The head leads the run while its vertical motion lags behind the shoulders.
   const head: Point = [shoulder[0] + .45 + Math.sin(chestPitch) * 2.2, shoulder[1] - 7.3 + headBob - chestBob]
+  // The round head reads as looking by leaning at the neck, without moving the body.
+  head[0] -= p.look * 2
+  head[1] -= p.look * (p.look > 0 ? .45 : .8)
   const frontStep = sampleStride(cycle, run, moving), backStep = sampleStride(cycle + Math.PI, run, moving)
   const pushing = smooth(p.pushing?.amount ?? 0)
   if (pushing) {

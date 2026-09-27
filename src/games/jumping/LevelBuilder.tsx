@@ -22,6 +22,7 @@ import { TerrainMaterialPicker } from './TerrainMaterialPicker'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
 import { BuilderLibrary } from './BuilderLibrary'
+import { SaveFailureDialog } from './LevelFileActions'
 import { BuilderHelp } from './BuilderHelp'
 import type { LibraryChoice } from './BuilderLibrary'
 import type { LevelSource } from './routes'
@@ -108,6 +109,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false), savePending = useRef(false)
+  const [saveFailure, setSaveFailure] = useState<{ fileName: string; reason: string; returnFocus: HTMLElement | null } | null>(null)
   const savePreparation = useRef<AbortController | null>(null)
   useEffect(() => () => savePreparation.current?.abort(), [])
   const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
@@ -221,17 +223,18 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     } catch (error) { setMessage((error as Error).message) }
   }
   async function save(testAfter = false, updateRoute = true): Promise<LevelFile | undefined> {
-    if (savePending.current || local.busy) return undefined
+    if (savePending.current || local.busy || saveFailure) return undefined
     if (!local.canWrite) {
       setMessage(local.hasHandle ? 'Enable saving in this folder before saving your level.' : 'Choose a writable level folder before saving your level.')
       setLibraryOpen(true)
       return undefined
     }
-    savePending.current = true; setSaving(true)
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const name = suggestFileName.current ? levelFileName(level.name) : fileName
+    savePending.current = true; setSaving(true); setMessage('')
     try {
       const controller = new AbortController(); savePreparation.current = controller
       const next = parseLevel((await prepareLevelInWorker(level, { signal: controller.signal })).level)
-      const name = suggestFileName.current ? levelFileName(next.name) : fileName
       const ownsFile = fileSource.folderId === local.folderId && fileSource.text !== undefined
       const previousName = ownsFile ? fileSource.fileName! : name
       if (local.files.some(file => file.fileName !== previousName && file.fileName !== name && file.level.id === next.id)) {
@@ -245,7 +248,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (updateRoute) onFileChange(name)
       if (testAfter) onPlay(copyLevel(next))
       return { fileName: name, level: next, sourceText: source }
-    } catch (error) { setMessage(`Could not save: ${(error as Error).message}`); return undefined }
+    } catch (error) {
+      const reason = (error instanceof Error ? error.message : String(error)).trim() || 'The file could not be written. Try saving again.'
+      setSaveFailure({ fileName: name, reason, returnFocus })
+      return undefined
+    }
     finally { savePreparation.current = null; savePending.current = false; setSaving(false) }
   }
   useEffect(() => {
@@ -475,7 +482,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }
 
   return <section className="jumping-builder" hidden={!active} aria-label="Level builder" onKeyDown={event => {
-    if (libraryOpen || helpOpen) return
+    if (libraryOpen || helpOpen || saveFailure) return
     if (event.key === 'F1') { event.preventDefault(); setHelpOpen(true); return }
     if ((event.target as HTMLElement).matches('input, select, textarea')) return
     if (event.code === 'Space' && event.target === canvasRef.current) { event.preventDefault(); panHeld.current = true }
@@ -619,5 +626,6 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     {active && helpOpen && <BuilderHelp tools={TOOLS} onClose={() => setHelpOpen(false)} />}
     {active && libraryOpen && <BuilderLibrary local={local} collections={collections} templates={templates} level={level} dirty={dirty} saving={saving}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}
+    {active && saveFailure && <SaveFailureDialog {...saveFailure} onClose={() => setSaveFailure(null)} />}
   </section>
 }

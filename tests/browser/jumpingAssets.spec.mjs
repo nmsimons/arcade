@@ -3,7 +3,7 @@ import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIRST_LEVEL as first, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
-import { useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel, dismissSaveFailure } from './helpers/jumpingLevels.mjs'
 const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
@@ -170,7 +170,7 @@ test('native folder saves update the loaded file, protect external edits, and re
   await page.getByRole('button', { name: 'Refresh folder', exact: true }).click()
   await page.getByRole('button', { name: 'Close library', exact: true }).click()
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('changed on disk')
+  await dismissSaveFailure(page, 'changed on disk')
   expect(await page.evaluate(() => window.folderWrites)).toEqual(['index.json', '00-first.json'])
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.screenshot({ path: info.outputPath('builder-folder-files.png') })

@@ -60,6 +60,16 @@ export async function saveTestLevel(page, button = 'Save level') {
   return { fileName, level: await readTestLevel(page, fileName) }
 }
 
+export async function dismissSaveFailure(page, reason) {
+  const { expect } = await import('@playwright/test')
+  const dialog = page.getByRole('alertdialog', { name: 'Save failed', exact: true })
+  await expect(dialog).toContainText(reason)
+  await expect(dialog).toContainText('Your changes are still in the editor.')
+  await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused()
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(dialog).toHaveCount(0)
+}
+
 export async function reopenTestLevel(page, saved) {
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const open = page.getByRole('button', { name: `Open ${saved.fileName}`, exact: true })

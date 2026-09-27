@@ -214,9 +214,9 @@
 }
 .jumping-ui .jumping-notice-actions { flex-direction: column; }
 .jumping-ui .jumping-notice-actions button { justify-content: flex-start; }
-.jumping-ui .jumping-notice-panel { --notice-inset: 32px; }
-.jumping-ui .jumping-notice-panel :is(.jumping-ui-heading, .jumping-notice-copy) { padding-inline: calc(var(--notice-inset) + 14px); }
-.jumping-ui .jumping-notice-panel .jumping-notice-actions { padding-inline: var(--notice-inset); }
+:is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) { --notice-inset: 32px; }
+:is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) :is(.jumping-ui-heading, .jumping-notice-copy) { padding-inline: calc(var(--notice-inset) + 14px); }
+:is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) .jumping-notice-actions { padding-inline: var(--notice-inset); }
 .jumping-ui .level-file-actions button { flex: 1 1 9em; }
 .jumping-ui.level-file-dialog label { color: var(--jumping-muted); font-size: var(--jumping-type-small); }
 .jumping-game .jumping-ui input {
@@ -287,7 +287,7 @@
   .jumping-ui .builder-library-confirm-actions { flex-direction: column; }
   .jumping-ui .builder-library-confirm-actions button { justify-content: flex-start; }
   .jumping-ui .jumping-ui-heading, .jumping-ui .jumping-notice-copy { padding: 24px; }
-  .jumping-ui .jumping-notice-panel { --notice-inset: 24px; }
+  :is(.jumping-ui .jumping-notice-panel, .jumping-ui.jumping-save-failure) { --notice-inset: 24px; }
   .jumping-ui :is(.level-file-actions, .jumping-notice-actions) { padding: 16px 24px; }
 }
 @media (max-height: 650px) and (min-width: 621px) {

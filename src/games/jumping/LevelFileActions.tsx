@@ -1,9 +1,43 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { moveDialogSelection } from '../hardVacuum/dialogNavigation'
 import type { MissingLevelFile } from './levelAssets'
 import type { LocalLevels } from './localLevels'
 import './localFolder.css'
+
+export function SaveFailureDialog({ fileName, reason, returnFocus, onClose }: {
+  fileName: string; reason: string; returnFocus: HTMLElement | null; onClose: () => void
+}) {
+  const dialog = useRef<HTMLDialogElement>(null), close = useRef<HTMLButtonElement>(null)
+  const descriptionId = useId()
+  useLayoutEffect(() => {
+    const node = dialog.current!
+    node.showModal(); close.current?.focus()
+    return () => {
+      node.close()
+      if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
+    }
+  }, [returnFocus])
+  return <dialog ref={dialog} className="game-dialog level-file-dialog jumping-ui jumping-save-failure" role="alertdialog"
+    aria-modal="true" aria-label="Save failed" aria-describedby={descriptionId}
+    data-dialog-screen="level-save-failed" data-controller-mode="menu"
+    onCancel={event => { event.preventDefault(); event.stopPropagation(); onClose() }}
+    onKeyDown={event => {
+      event.currentTarget.dataset.inputMethod = 'keyboard'
+      event.stopPropagation()
+      if (event.key === 'Escape') { event.preventDefault(); onClose() }
+      else if (event.key === 'Tab') { event.preventDefault(); close.current?.focus() }
+      else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') event.preventDefault()
+    }} onPointerDownCapture={event => { event.currentTarget.dataset.inputMethod = 'pointer' }}>
+    <header className="jumping-ui-heading"><p className="jumping-eyebrow">LEVEL STUDIO</p><h2>Save failed.</h2></header>
+    <div className="jumping-notice-copy" id={descriptionId}>
+      <p>Could not save <strong>{fileName}</strong>.</p>
+      <p>{reason}</p>
+      <p>Your changes are still in the editor.</p>
+    </div>
+    <div className="jumping-notice-actions"><button ref={close} type="button" data-initial-focus onClick={onClose}>Close</button></div>
+  </dialog>
+}
 
 export function FileActionDialog({ title, children, confirmLabel, destructive = false, onConfirm, onClose }: {
   title: string; children: ReactNode; confirmLabel: string; destructive?: boolean

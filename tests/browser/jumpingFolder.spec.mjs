@@ -5,6 +5,7 @@ import { join, basename } from 'node:path'
 import { FIRST_LEVEL, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
 import { levelFileName } from '../../src/games/jumping/localLevels.ts'
 import { parseLevel, prepareLevelRopes } from '../../src/games/jumping/level.ts'
+import { dismissSaveFailure } from './helpers/jumpingLevels.mjs'
 
 const level = (id, name) => ({ ...structuredClone(FIRST_LEVEL), id, name })
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
@@ -116,7 +117,8 @@ test('Save and Test waits for the file, preserves edits on failure, and tests re
   await seed(page, 'My levels', { '00-first.json': level('first', 'Changed on disk') })
   await page.getByRole('textbox', { name: 'Level name' }).fill('Keep my edits')
   await testButton.click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('changed on disk')
+  await dismissSaveFailure(page, 'changed on disk')
+  await expect(testButton).toBeFocused()
   await expect(testButton).toBeEnabled()
   await expect(page).toHaveURL(/\/builder\/local\/00-first.json$/)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Keep my edits')
@@ -125,7 +127,7 @@ test('Save and Test waits for the file, preserves edits on failure, and tests re
   // Renaming also checks the original; it cannot evade an external-edit conflict.
   await page.getByRole('textbox', { name: 'Level file name' }).fill('01-renamed.json')
   await testButton.click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('changed on disk')
+  await dismissSaveFailure(page, 'changed on disk')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Refresh folder', exact: true }).click()
   await page.getByRole('button', { name: 'Open 00-first.json', exact: true }).click()
@@ -185,7 +187,7 @@ for (const writable of [true, false]) test(`local templates create independent l
   if (!writable) {
     await page.getByRole('button', { name: 'Save level', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toBeVisible()
-    await expect(page.getByRole('dialog').getByRole('status')).toContainText('Enable saving')
+    await expect(page.getByRole('dialog', { name: 'Level library', exact: true }).locator('.builder-library-message')).toContainText('Enable saving')
     await page.getByRole('button', { name: 'Enable saving', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Enable saving', exact: true })).toHaveCount(0)
     await page.getByRole('button', { name: 'Close library', exact: true }).click()
@@ -193,7 +195,7 @@ for (const writable of [true, false]) test(`local templates create independent l
   // Even explicitly reusing the source filename cannot overwrite the template.
   await page.getByRole('textbox', { name: 'Level file name' }).fill(originalName)
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('already exists or changed on disk')
+  await dismissSaveFailure(page, `“${originalName}” already exists in this folder`)
   await page.getByRole('textbox', { name: 'Level file name' }).fill(copyName)
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText(`Saved “${copyName}”`)
@@ -478,7 +480,8 @@ test('a failed save cannot replace the draft, and changing folders cannot overwr
   await page.getByRole('button', { name: 'Change folder', exact: true }).click()
   await page.getByRole('button', { name: 'New level', exact: true }).click()
   await page.getByRole('button', { name: 'Save and continue', exact: true }).click()
-  await expect(page.getByRole('alertdialog').getByRole('status')).toContainText('already exists or changed on disk')
+  await dismissSaveFailure(page, '“00-first.json” already exists in this folder')
+  await expect(page.getByRole('button', { name: 'Save and continue', exact: true })).toBeFocused()
   await expect(page.getByRole('alertdialog')).toBeVisible()
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.getByRole('button', { name: 'Close library', exact: true }).click()
@@ -487,7 +490,7 @@ test('a failed save cannot replace the draft, and changing folders cannot overwr
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Open 00-first.json', exact: true }).click()
   await page.getByRole('button', { name: 'Save and continue', exact: true }).click()
-  await expect(page.getByRole('alertdialog').getByRole('status')).toContainText('Another file in this folder uses this level’s ID')
+  await dismissSaveFailure(page, 'Another file in this folder uses this level’s ID')
   await page.getByRole('button', { name: 'Discard changes', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('First local level')
   const contents = await page.evaluate(async () => {
@@ -554,7 +557,7 @@ async function folderContents(page) {
   })
 }
 
-test('new drafts create no level file until Save, derive filenames from titles, and rename the same saved level', async ({ page }) => {
+test('new drafts create no level file until Save, derive filenames from titles, and rename the same saved level', async ({ page }, info) => {
   await openFolder(page, {})
   await page.getByRole('button', { name: 'Level builder', exact: true }).click()
   const title = page.getByRole('textbox', { name: 'Level name', exact: true }), filename = page.getByRole('textbox', { name: 'Level file name', exact: true })
@@ -590,9 +593,55 @@ test('new drafts create no level file until Save, derive filenames from titles, 
   expect(chosen.id).not.toBe(original.id)
   await filename.fill('different-name.json')
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('already exists')
+  await expect(page.getByRole('alertdialog', { name: 'Save failed', exact: true })).toBeVisible()
+  await page.getByRole('alertdialog', { name: 'Save failed', exact: true }).screenshot({ path: info.outputPath('save-name-collision.png') })
+  await dismissSaveFailure(page, '“different-name.json” already exists in this folder')
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
+  await dismissSaveFailure(page, 'Choose a different File name in Level settings and save again.')
+  await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toHaveCount(0)
   expect(JSON.parse((await folderContents(page))['chosen.json'])).toEqual(chosen)
   expect((await folderContents(page))['different-name.json']).toBe(renamed['different-name.json'])
+})
+
+test('save failure dialogs explain disk errors, preserve keyboard focus and drafts, and allow retry', async ({ page }, info) => {
+  await openFolder(page)
+  await page.getByRole('button', { name: 'Edit First local level', exact: true }).click()
+  await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Keep this draft')
+  const before = await folderContents(page)
+  await page.evaluate(() => {
+    const createWritable = FileSystemFileHandle.prototype.createWritable
+    FileSystemFileHandle.prototype.createWritable = async function (...args) {
+      if (this.name !== '00-first.json') return createWritable.apply(this, args)
+      FileSystemFileHandle.prototype.createWritable = createWritable
+      throw new DOMException('There is not enough free space to save this file.', 'QuotaExceededError')
+    }
+  })
+  const node = page.getByRole('button', { name: 'Node', exact: true }), canvas = page.getByRole('application', { name: 'Level canvas' })
+  await node.click(); await canvas.focus(); await page.keyboard.press('ControlOrMeta+s')
+  const dialog = page.getByRole('alertdialog', { name: 'Save failed', exact: true }), close = dialog.getByRole('button', { name: 'Close', exact: true })
+  await expect(dialog).toContainText('00-first.json')
+  await expect(dialog).toContainText('There is not enough free space')
+  await expect(close).toBeFocused()
+  await page.keyboard.press('Tab'); await expect(close).toBeFocused()
+  await page.keyboard.press('Shift+Tab'); await expect(close).toBeFocused()
+  // Save, undo, and tool shortcuts must not reach the editor behind the notice.
+  await page.keyboard.press('ControlOrMeta+s'); await page.keyboard.press('ControlOrMeta+z'); await page.keyboard.press('v')
+  expect(await folderContents(page)).toEqual(before)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addStyleTag({ content: 'html { font-size: 200%; }' })
+  await close.scrollIntoViewIfNeeded()
+  await expect(close).toBeInViewport({ ratio: 1 })
+  expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await dialog.screenshot({ path: info.outputPath('save-failed-enlarged-text.png') })
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0); await expect(canvas).toBeFocused()
+  await expect(node).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Keep this draft')
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await page.addStyleTag({ content: 'html { font-size: 100%; }' })
+  await page.getByRole('button', { name: 'Save level', exact: true }).click()
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved “00-first.json”')
+  expect(JSON.parse((await folderContents(page))['00-first.json']).name).toBe('Keep this draft')
 })
 
 test('drag and keyboard ordering in Library preserve drafts and level files, survive renames, and restore filename mode', async ({ page }, info) => {

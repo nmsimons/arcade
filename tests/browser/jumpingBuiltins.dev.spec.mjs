@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
-import { installTestFolder, readTestLevel } from './helpers/jumpingLevels.mjs'
+import { installTestFolder, readTestLevel, dismissSaveFailure } from './helpers/jumpingLevels.mjs'
 
 // Real dev middleware and Git worktree files, without touching authored repo maps.
 const test = base.extend({
@@ -47,7 +47,7 @@ test('built-in maps edit, rename, save and test directly in the Git checkout', a
   await writeFile(join(project.assets, 'renamed.json'), JSON.stringify({ ...(await project.read('renamed.json')), name: 'Edited outside the game' }))
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Keep my unsaved work')
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('changed on disk')
+  await dismissSaveFailure(page, 'changed on disk')
   expect((await project.read('renamed.json')).name).toBe('Edited outside the game')
   await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Keep my unsaved work')
 })

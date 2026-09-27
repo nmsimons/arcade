@@ -527,7 +527,7 @@ test('edits and collisions during budget preflight cannot be overwritten by a sa
       f.contents.set('level.json', 'Concurrent edit')
       yield { kind: 'file', name: 'level.json', getFile: async () => new File(['Concurrent edit'], 'level.json') }
     }
-    await assert.rejects(writeLocalLevel(f.directory, 'level.json', FIRST_LEVEL, creating ? undefined : source), /already exists or changed/)
+    await assert.rejects(writeLocalLevel(f.directory, 'level.json', FIRST_LEVEL, creating ? undefined : source), creating ? /“level.json” already exists/ : /changed on disk/)
     assert.equal(f.contents.get('level.json'), 'Concurrent edit')
     assert.deepEqual(f.writes, [])
   }

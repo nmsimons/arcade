@@ -22,7 +22,8 @@ const failure = (error: unknown) => error instanceof Error ? error.message : Str
 export function levelFileName(name: string) {
   return `${name.replace(/[^a-z0-9 _-]/gi, '').trim().replace(/\s+/g, ' ') || 'untitled'}.jump-level.json`
 }
-const conflict = () => new Error('This file already exists or changed on disk. Refresh the folder and open the latest file before saving.')
+const conflict = () => new Error('This file changed on disk. Refresh the folder and open the latest file before saving.')
+const nameCollision = (fileName: string) => new Error(`“${fileName}” already exists in this folder. Choose a different File name in Level settings and save again.`)
 async function findFile(directory: LocalDirectory, name: string) {
   try { return await directory.getFileHandle(name) }
   catch (error) { if (!(error instanceof DOMException) || error.name !== 'NotFoundError') throw error }
@@ -59,7 +60,7 @@ export async function writeLocalLevel(directory: LocalDirectory, fileName: strin
   if (renaming) await unchanged(original, expected)
   let target = await findFile(directory, fileName)
   if (target) {
-    if (renaming) throw conflict()
+    if (renaming || expected === undefined) throw nameCollision(fileName)
     await unchanged(target, expected)
   } else if (!renaming && expected !== undefined) throw conflict()
   const index = await readManifest(directory)
@@ -76,7 +77,7 @@ export async function writeLocalLevel(directory: LocalDirectory, fileName: strin
   if (manifestSource !== undefined) decodeLevelManifest(manifestSource)
   await checkWriteSize(directory, fileName, text, previousName, manifestSource)
   if (target) await unchanged(target, expected)
-  else if (await findFile(directory, fileName)) throw conflict()
+  else if (await findFile(directory, fileName)) throw nameCollision(fileName)
   target ??= await directory.getFileHandle(fileName, { create: true })
   try {
     await writeText(target, text); levelWritten = true

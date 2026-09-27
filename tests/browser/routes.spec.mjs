@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 
-const games=[['hard-vacuum','Hard Vacuum'],['bumper-ball','BUMPER BALL'],['no-exit','No Exit'],['final-approach','Final Approach'],['urban-fire','Urban Fire'],['sling-load','Sling Load'],['hello-world',null],['untitled-jumping-game','Untitled Jumping Game']]
+const games=[['hard-vacuum','Hard Vacuum'],['bumper-ball','BUMPER BALL'],['no-exit','No Exit'],['final-approach','Final Approach'],['urban-fire','Urban Fire'],['sling-load','Sling Load'],['hello-world',null],['untitled-jumping-game','Levels.']]
 for(const [path,title]of games) test(`${path}: direct route, compatibility redirect, rendering and exit`,async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message))
   for(const prefix of ['', '/games']) {

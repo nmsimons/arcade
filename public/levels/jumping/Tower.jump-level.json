@@ -1783,30 +1783,12 @@
     "ambient": 0,
     "lights": [
       {
-        "id": "124994c0-ac33-40c3-85ff-57a9bb9594f0",
-        "x": 500,
-        "y": 1600,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
         "id": "da0cafc3-de73-49f3-86aa-a9c9ab248b79",
         "x": 500,
         "y": 1380,
         "intensity": 100,
         "direction": 90,
         "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "49cd0919-adb5-4e87-b1b9-49330304be22",
-        "x": 500,
-        "y": 1160,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 75,
         "power": "always"
       },
       {
@@ -1824,25 +1806,7 @@
         "y": 700,
         "intensity": 100,
         "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "1ab72923-4b3e-4c37-af67-9e029800e280",
-        "x": 1140,
-        "y": 940,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 75,
-        "power": "always"
-      },
-      {
-        "id": "c7122af8-3d61-4809-91a2-6bbfe3926d5f",
-        "x": 1140,
-        "y": 1160,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
+        "spread": 160,
         "power": "always"
       },
       {
@@ -1855,27 +1819,9 @@
         "power": "always"
       },
       {
-        "id": "850bb0c5-6a96-4beb-a5e8-64ea66683c01",
-        "x": 1140,
-        "y": 1600,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
         "id": "70f208a5-1900-4b9b-803e-e0632c03f380",
         "x": 160,
         "y": 1660,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "03fbcde5-4b52-4e55-a16e-ca855b3d7fdd",
-        "x": 820,
-        "y": 480,
         "intensity": 100,
         "direction": 90,
         "spread": 70,

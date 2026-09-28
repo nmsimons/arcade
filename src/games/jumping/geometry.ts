@@ -193,6 +193,10 @@ export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec)
     const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (length * length)))
     const px = a[0] + dx * t, py = a[1] + dy * t, distance = Math.hypot(px - x, py - y)
     const nx = dy / length, ny = -dx / length
+    // A collision query must keep a face that can supply its separating normal.
+    // The midpoint of a tall body's side can lie above a short box: a tiny
+    // overlap must not relabel that side contact as the box's walkable top.
+    if (normal && nx * normal[0] + ny * normal[1] <= EPS) continue
     // Adjacent faces can share the contact point. Prefer the face that supplied
     // the collision normal instead of depending on vertex order or roundoff.
     const tied = normal && Math.abs(distance - best.distance) < 1e-5

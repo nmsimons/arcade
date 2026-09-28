@@ -8,7 +8,7 @@ import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { playerContactBody, translatePlayer } from './playerContacts.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { flatBoxSupport } from './boxSupport.ts'
-import { moveRobot, robotDrive, robotHulls } from './robotPhysics.ts'
+import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysics.ts'
 import type { Vec } from './geometry.ts'
 
 const { Bodies, Body, Collision, Composite, Engine, Query, Sleeping, Vertices } = Matter
@@ -162,8 +162,15 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const p = run.player, height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
   const heldBox = grip ? run.props.filter(b => b.kind === 'box')[grip.platform! - run.terrain.length - run.mechanisms.length] : undefined
-  const transport = (x: number, y: number) => {
-    const safe = moveBody([p.x, p.y], [x, y], barriers, height)
+  const propShapes = (except: Matter.Body) => [...world.bodies].filter(([, body]) => body !== except).map(([prop, body]) => {
+    const moved = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2, angle: body.angle }
+    return prop.kind === 'box' ? boxShape(moved) : ballShape(moved)
+  })
+  const transport = (x: number, y: number, source: Matter.Body) => {
+    // Contact corrections change props during this solve. Sweep against their
+    // current hulls, so separating one contact cannot bury the player in the
+    // next prop or bot. The source receives any blocked travel below.
+    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height)
     translatePlayer(p, safe.x - p.x, safe.y - p.y)
   }
   for (const [b, body] of world.bodies) {
@@ -171,7 +178,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const holding = b === heldBox
     if (!riding && !holding) continue
     const angle = b.kind === 'box' ? body.angle - b.angle : 0, x = p.x - b.x, y = p.y - b.y + b.size / 2
-    transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle))
+    transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle), body)
   }
   const contactBody = playerContactBody(p)
   const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height))
@@ -234,15 +241,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       if (prop !== heldBox) corrected = resolveActor(body, playerHull, p, (x, y) => {
         // Only the held support can carry a grip (above). Other bodies resolve
         // against it, just as a bot does, rather than relocating the anchor.
-        if (!p.hang && (!p.mantle || p.mantle.step) && !p.climbing) transport(x, y)
+        if (!p.hang && (!p.mantle || p.mantle.step) && !p.climbing) transport(x, y, body)
       }) || corrected
       for (const { robot, hulls } of robots) for (const hull of hulls) {
         const moved = resolveActor(body, hull, robot, x => {
           if (!powered) return // The unpowered chassis stays solid without its motor or yielding motion.
-          const props = [...world.bodies].filter(([, other]) => other !== body).map(([prop, other]) => {
-            const moved = { ...prop, x: other.position.x, y: other.position.y + prop.size / 2, angle: other.angle }
-            return prop.kind === 'box' ? boxShape(moved) : ballShape(moved)
-          })
+          const props = propShapes(body)
           const oldX = p.x, oldY = p.y
           // The contacted prop can also be under a wheel. Keep it in the
           // support query so yielding does not drive the bot down through it.

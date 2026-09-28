@@ -6,6 +6,8 @@ import { NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { bodyIntersects, bodyPolygon, polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { mechanismShape } from '../src/games/jumping/mechanisms.ts'
+import { robotHulls, robotPlatforms } from '../src/games/jumping/robotPhysics.ts'
+import { athletePose } from '../src/games/jumping/athlete.ts'
 
 function clear(run) {
   const p = run.player, barriers = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
@@ -63,4 +65,79 @@ test('a ball still pushes a player through open space', () => {
   const run = createRun(level); run.started = true; run.props[0].vx = 400
   for (let i = 0; i < 120; i++) { stepRun(run, NEUTRAL_INPUT); clear(run) }
   assert.ok(run.player.x > 900, 'an unobstructed impact still displaces the player')
+})
+
+test('moving toward a short box while a bot presses a ball behind the player keeps the torso continuous', () => {
+  for (const direction of [-1, 1]) for (const reverse of [false, true]) {
+    const x = value => direction === -1 ? value : 1200 - value
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500,
+      spawn: { x: x(650), y: 500 }, goal: { x: 100, y: 500 },
+      platforms: [{ x: direction === -1 ? 400 : 600, y: 200, w: 200, h: 300 }],
+      props: [{ kind: 'box', x: x(615), y: 500, size: 30 }, { kind: 'ball', x: x(668), y: 500, size: 30 }],
+      robots: [{ x: x(710), y: 500, left: 300, right: 1000 }] }
+    if (reverse) level.props.reverse()
+    const run = createRun(level), p = run.player
+    run.started = true; run.robots[0].facing = direction
+    let previous, sliding = 0, bracing = 0
+    // Settle under pressure, then hold toward the box, release, and try again.
+    for (let i = 0; i < 660; i++) {
+      const move = i >= 120 && i < 420 || i >= 480 ? direction : 0
+      stepRun(run, { ...NEUTRAL_INPUT, move })
+      const pose = athletePose(p), torso = [pose.hip, pose.shoulder, pose.head].map(point => [p.x + point[0] * p.facing, p.y + point[1]])
+      if (i > 132 && previous) for (const [j, point] of torso.entries()) {
+        assert.ok(Math.hypot(point[0] - previous[j][0], point[1] - previous[j][1]) < 3,
+          `the drawn torso cannot hop between the box and ball: direction ${direction}, reverse ${reverse}, frame ${i}`)
+      }
+      if (p.sliding?.active) {
+        sliding++
+        assert.ok(p.sliding.angle * direction > .5, 'the slide follows the ball, never the box top')
+      }
+      bracing += Number(!!p.wallBrace?.active)
+      assert.ok(Math.abs(p.x - x(642)) < 10, 'the player remains in the original gap')
+      previous = torso
+    }
+    assert.ok(sliding > 120 && bracing > 120, 'both opposing contacts participate in the regression')
+  }
+})
+
+for (const pinned of [false, true]) test(`a bot pushing a box cannot squeeze the player into ${pinned ? 'wall-blocked' : 'free'} balls`, () => {
+  for (const direction of [-1, 1]) for (const reverse of [false, true]) {
+    const level = blankTrial(), x = n => direction === 1 ? n : level.width - n
+    level.spawn = { x: x(650), y: 920 }
+    const wall = pinned ? 744 : 880
+    level.platforms = [{ x: direction === 1 ? wall : x(wall) - 20, y: 600, w: 20, h: 320 }]
+    level.robots = [{ x: x(450), y: 920, left: 200, right: 1600 }]
+    level.props = [
+      { kind: 'box', x: x(520), y: 920, size: 80 },
+      { kind: 'ball', x: x(594), y: 920, size: 68 },
+      { kind: 'ball', x: x(710), y: 920, size: 68 },
+    ]
+    if (reverse) level.props.reverse()
+    const run = createRun(level); run.started = true; run.robots[0].facing = direction
+    let lastX = run.player.x, lateTravel = 0
+    const check = () => {
+      clear(run)
+      const hull = bodyPolygon(run.player.x, run.player.y, run.player.crouching ? TUNING.crouchHeight : TUNING.height)
+      const shapes = run.props.map(b => b.kind === 'ball' ? ballShape(b) : boxShape(b))
+      for (const [i, shape] of shapes.entries()) {
+        for (const other of shapes.slice(i + 1)) assert.equal(polygonIntersects(polygonPoints(shape), other, .03), false, 'the shove keeps every prop separate')
+        for (const botHull of robotHulls(run.robots[0])) assert.equal(polygonIntersects(botHull, shape, .03), false, 'the box cannot retreat inside the bot')
+      }
+      for (const shape of robotPlatforms(run.robots[0])) assert.equal(polygonIntersects(hull, shape, .002), false)
+    }
+    for (let i = 0; i < 360; i++) {
+      stepRun(run, NEUTRAL_INPUT); check()
+      if (i > 240) lateTravel += Math.abs(run.player.x - lastX)
+      lastX = run.player.x
+    }
+    assert.ok((run.player.x - x(650)) * direction > 10, 'the incoming ball actually displaces the player before the gap fills')
+    assert.ok(lateTravel < .01, `sustained pressure holds a stable position: ${lateTravel}`)
+    assert.equal(run.player.grounded, true)
+    // Collision resistance does not trap the controls. A normal charged jump
+    // can rise out of the gap while the bot is still pressing from behind.
+    for (let i = 0; i < 24; i++) { stepRun(run, { ...NEUTRAL_INPUT, jump: true }); check() }
+    let highest = run.player.y
+    for (let i = 0; i < 72; i++) { stepRun(run, NEUTRAL_INPUT); check(); highest = Math.min(highest, run.player.y) }
+    assert.ok(highest < 840, 'the player can jump clear of the balls')
+  }
 })

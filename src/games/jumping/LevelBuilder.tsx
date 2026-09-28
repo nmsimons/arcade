@@ -1,8 +1,8 @@
 import { polygonPoints } from './geometry'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, replacePlatform, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets, setCoinThreshold, setCoinSwitchOrientation } from './editor'
-import type { ResizeHandle, Selection, Tool } from './editor'
+import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets, setCoinThreshold, setCoinSwitchOrientation } from './editor'
+import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, parseLevel, prepareLevelRopes, triggerTargets } from './level'
 import type { JumpLevel } from './level'
 import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
@@ -17,7 +17,7 @@ import { prepareLevelInWorker } from './levelPreparation'
 import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
-import { setPickupSeconds, setWallTextRotation } from './editor'
+import { setPickupSeconds, setWallTextRotation, transformTerrain } from './editor'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
 import { pickupLabel } from './pickups'
@@ -72,6 +72,8 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
   { id: 'node', group: 'Editing', label: 'Node', help: 'Drag an existing node to reshape terrain, or click an edge to add one. N activates this tool.' },
   { id: 'platform', group: 'Terrain', label: 'Terrain', help: 'Drag to create terrain, then reshape it with the white nodes. Use the Node tool to add points along an edge.' },
+  { id: 'steps-narrow', group: 'Terrain', label: 'Steps narrow', help: 'Click to place five steps with a stepped underside and a two-square top landing. Each rise and tread is one grid square. Resize, reshape, rotate, or flip after placing.' },
+  { id: 'steps-wide', group: 'Terrain', label: 'Steps wide', help: 'Click to place five steps with a stepped underside and a four-square top landing. Each rise is one grid square; each tread is two squares wide. Resize, reshape, rotate, or flip after placing.' },
   { id: 'rope', group: 'Movement', label: 'Rope', help: 'Drag down from the anchor. Start near a terrain edge to attach the anchor to it.' },
   { id: 'ladder', group: 'Movement', label: 'Ladder', help: 'Drag down anywhere to place a ladder. Move it or change its height in the inspector.' },
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click for a standard ball, or drag to choose its size. Corner handles resize it.' },
@@ -230,6 +232,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     try {
       const next = deleteTerrainNode(history.present, selection.index, selectedNode)
       commit(next); setSelectedNode(Math.min(selectedNode, polygonPoints(next.platforms[selection.index]).length - 1))
+    } catch (error) { setMessage((error as Error).message) }
+  }
+  function transformSelectedTerrain(transform: TerrainTransform) {
+    if (selection?.kind !== 'platform') return
+    try {
+      commit(transformTerrain(history.present, selection.index, transform)); setSelectedNode(null)
     } catch (error) { setMessage((error as Error).message) }
   }
   function add(tool: Tool, start: Point, end: Point, free = false) {
@@ -556,6 +564,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       <div className="builder-control-group builder-mode-controls" role="group" aria-label="Editing tools">
         {TOOLS.filter(item => item.group === 'Editing').map(item => <button key={item.id} aria-label={item.label} aria-pressed={tool === item.id} aria-keyshortcuts={item.id === 'select' ? 'V' : 'N'} title={item.id === 'select' ? 'Pointer (V): select, move, and resize objects' : 'Node (N): move terrain nodes or add them along an edge'} onClick={() => { setTool(item.id); setMessage('') }}><BuilderIcon kind={item.id} /></button>)}
       </div>
+      <div className="builder-control-group" role="group" aria-label="Terrain transforms">
+        {([
+          ['rotate-left', 'Rotate left', 'Rotate selected terrain 90° counterclockwise'],
+          ['rotate-right', 'Rotate right', 'Rotate selected terrain 90° clockwise'],
+          ['flip-horizontal', 'Flip horizontal', 'Mirror selected terrain left to right'],
+          ['flip-vertical', 'Flip vertical', 'Mirror selected terrain top to bottom'],
+        ] as const).map(([kind, label, title]) => <button key={kind} aria-label={label} title={title} disabled={!chosen} onClick={() => transformSelectedTerrain(kind)}><BuilderIcon kind={kind} /></button>)}
+      </div>
       <div className="builder-control-group builder-placement-options" role="group" aria-label="Placement options">
         <label className="builder-inline-check" title={`Snap to the ${LEVEL_GRID_SIZE}-unit grid and nearby surfaces. Hold Alt to bypass.`}><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap</label>
         <label className="builder-inline-check" title="Keep the object tool active after placing an object. Pointer and Node stay active until you switch tools."><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} />Keep placing</label>
@@ -567,9 +583,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     <aside className="builder-tools" aria-label="Building tools">
         {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {
           const items = TOOLS.filter(item => item.group === group && (item.id !== 'checkpoint' || !isPuzzleLevel(level)))
-          return items.length ? <div className="builder-tool-group" key={group}><h2>{group}</h2><div className="builder-tool-grid">{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div></div> : null
+          return items.length ? <div className="builder-tool-group" key={group}><h2>{group}</h2>
+            <div className={`builder-tool-grid${group === 'Terrain' ? ' builder-terrain-tools' : ''}`}>{items.map(item => <button key={item.id} aria-pressed={tool === item.id} title={item.help} onClick={() => { setTool(tool === item.id ? 'select' : item.id); setMessage('') }}><BuilderIcon kind={item.id} /><span>{item.label}</span></button>)}</div>
+          </div> : null
         })}
-        {!['select', 'node'].includes(tool) && <div className="builder-tool-options"><button className="builder-add" title="Place this object at the center of the current view" onClick={() => { const p = { x: quantize(view.x + size.width / view.zoom / 2), y: quantizeY(view.y + size.height / view.zoom / 2) }; add(tool, p, p) }}>Add at view center</button></div>}
     </aside>
     <div className="builder-stage">
       <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes} style={{ cursor: drag.current?.mode === 'pan' || drag.current?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
@@ -610,7 +627,6 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           if (next.goal) { if (next.goal.flipX) delete next.goal.flipX; else next.goal.flipX = true }
           commit(next)
         }}>Flip horizontally</button>}
-        {chosen?.profile && <button className="builder-property-action" title="Mirror this slope horizontally" onClick={() => commit(replacePlatform(history.present, selection.index, { ...chosen, profile: [...chosen.profile!].reverse().map(([x, y]) => [chosen.w - x, y]) }))}>Flip slope</button>}
         {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || polygonPoints(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
         {wallText && <>
           <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>

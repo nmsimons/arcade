@@ -1,7 +1,7 @@
 import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { bodyIntersects, moveBody, pointInside, validPolygon } from '../src/games/jumping/geometry.ts'
+import { bodyContact, bodyIntersects, moveBody, pointInside, validPolygon } from '../src/games/jumping/geometry.ts'
 import { STEP, NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { newLevel, levelTerrain, levelPlayer, levelHeight, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, addPolygon, anchorRope, deleteItem, moveItem, resizeItem } from '../src/games/jumping/editor.ts'
@@ -13,6 +13,19 @@ import { nearestBoundary } from '../src/games/jumping/geometry.ts'
 const rules = { checkpoints: [], fallY: Infinity }
 const tick = (p, terrain, input = {}, world = NO_CLIMBABLES) => stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, STEP, terrain, world, rules)
 const clear = (p, terrain) => assert.ok(terrain.every(b => !bodyIntersects(p.x, p.y, b)), `body intersects at ${p.x}, ${p.y}`)
+
+test('a short box side contact cannot become a top contact when the body shifts slightly', () => {
+  const box = { x: 600, y: 470, w: 30, h: 30 }
+  for (const side of [-1, 1]) for (const height of [40, 62]) for (const offset of [-.1, -.01, 0, .01, .1]) {
+    const wall = side > 0 ? 630 : 600
+    const contact = bodyContact(box, wall + side * (12 + offset), 497, [side, 0], height)
+    assert.equal(contact.nx, side)
+    assert.ok(contact.ny === 0, 'a lateral collision cannot supply upward footing')
+    assert.equal(contact.x, wall)
+  }
+  const top = bodyContact(box, 615, 470, [0, -1])
+  assert.equal(top.nx, 0); assert.equal(top.ny, -1, 'real top contacts still support the player')
+})
 
 test('all four level edges are solid, including fast travel and corner contacts', () => {
   const level = newLevel(), terrain = levelTerrain(level), h = levelHeight(level)

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
+import { createPlayer, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { playerContacts } from '../src/games/jumping/playerContacts.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { platformSurface } from '../src/games/jumping/terrain.ts'
@@ -12,6 +12,44 @@ import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 const advance = (run, frames, input = {}) => {
   for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input })
 }
+
+test('briefly losing a pushing surface resumes the existing pose without snapping', () => {
+  for (const dt of [STEP, 1 / 60]) for (const direction of [-1, 1]) for (const kind of ['box', 'ball', 'bot']) {
+    const p = createPlayer({ x: 500, y: 620 }); p.facing = direction
+    const floor = { id: 'floor', platform: { x: 0, y: 620, w: 1200, h: 40 } }
+    const prop = { kind, x: p.x + direction * 65.5, y: 620, size: 80, angle: 0 }
+    const obstacle = { id: kind, ...(kind === 'bot' ? {} : { prop }), platform: kind === 'ball' ? ballShape(prop) : boxShape(prop) }
+    const settle = (present = true) => {
+      // Model a final contact dropping out for one tick as movable hulls settle.
+      const colliders = present ? [floor, obstacle] : [floor]
+      finishPlayerStep(p, { ...NEUTRAL_INPUT, move: direction }, dt,
+        { colliders, platforms: colliders.map(c => c.platform) }, [p.x, p.y])
+    }
+    for (let i = 0; i < 60; i++) settle()
+    let previous = athletePose(p)
+    for (let i = 0; i < 24; i++) {
+      settle(i % 2 !== 0)
+      assert.ok(p.pushing.amount > .85, `${kind}: a brief gap cannot restart a settled pose`)
+      if (i % 2 === 0) {
+        assert.equal(p.contacts.push, null, 'the lost contact releases its physical constraint immediately')
+        assert.equal(p.pushing.effort, 0, 'only the fading presentation survives')
+      }
+      const pose = athletePose(p)
+      for (const arm of ['frontArm', 'backArm']) {
+        assert.ok(Math.hypot(...pose[arm].end.map((v, j) => v - previous[arm].end[j])) < 2,
+          `${kind}: reacquiring the same surface must not throw the hands down`)
+      }
+      previous = pose
+    }
+    obstacle.id = `${kind}:different`
+    settle()
+    assert.ok(p.pushing.amount < .13, 'a different surface does not inherit the old contact blend')
+    for (let i = 0; i < 30; i++) settle(false)
+    assert.equal(p.pushing, null, 'a sustained release still returns to the ordinary pose')
+    settle()
+    assert.ok(p.pushing.amount < .13, 'a fresh approach starts a new blend after release')
+  }
+})
 
 test('crouch walking clears a two-tile opening without pushing its overhead edge', () => {
   for (const dt of [STEP, 1 / 60]) for (const direction of [-1, 1]) for (const braceFirst of [false, true]) {
@@ -285,6 +323,40 @@ test('an airborne player wedged between a ball and a wall transfers load and can
     assert.ok((ball.x - start) * direction < 0, 'the ball yields instead of trapping the player')
     assert.equal(bodyIntersects(p.x, p.y, ballShape(ball)), false, 'the resolved body has room beside the ball')
     assert.ok(supported, 'the player regains usable footing')
+  }
+})
+
+test('descending beside a yielding ball blends intermittent sliding contacts without snapping the pose', () => {
+  for (const joined of [false, true]) for (const direction of [-1, 1]) {
+    const level = blankTrial(), mirror = x => direction > 0 ? x : level.width - x
+    const shapes = joined ? [{ x: 600, y: 420, w: 160, h: 120,
+      polygon: [[0,80],[120,80],[120,0],[160,0],[160,120],[0,120]] }]
+      : [{ x: 600, y: 500, w: 160, h: 40 }, { x: 720, y: 420, w: 40, h: 80 }]
+    level.platforms = direction > 0 ? shapes : shapes.map(b => ({ ...b, x: mirror(b.x + b.w),
+      polygon: b.polygon?.map(([x, y]) => [b.w - x, y]) }))
+    level.spawn = { x: mirror(708), y: 400 }
+    level.props = [{ kind: 'ball', x: mirror(666), y: 500, size: 100 }]
+    const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
+    Object.assign(p, { grounded: false, footwork: null, facing: -direction })
+    let previous = null, contacts = 0, releases = 0, loaded = false
+    for (let i = 0; i < 300; i++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: i < 26 ? -direction : 0 })
+      const pose = athletePose(p), current = { sliding: !!p.sliding?.active, free: !p.hang && !p.mantle && !p.grounded,
+        facing: p.facing, points: [pose.hip, pose.shoulder, pose.head, pose.frontArm.end, pose.backArm.end,
+          pose.frontLeg.joint, pose.backLeg.joint, pose.frontLeg.end, pose.backLeg.end] }
+      loaded ||= p.contacts.body.some(c => c.collider.prop === ball && c.load > 0)
+      assert.equal(bodyIntersects(p.x, p.y, ballShape(ball)), false)
+      for (const b of run.terrain) assert.equal(bodyIntersects(p.x, p.y, b), false)
+      if (previous?.free && current.free && previous.facing === current.facing && previous.sliding !== current.sliding) {
+        if (current.sliding) contacts++; else releases++
+        for (const [j, point] of current.points.entries()) assert.ok(Math.hypot(...point.map((v, axis) => v - previous.points[j][axis])) < 4,
+          `brief ball contact must blend every joint: side ${direction}, joined ${joined}, frame ${i}, joint ${j}`)
+      }
+      previous = current
+    }
+    assert.ok(contacts >= 6 && releases >= 6, 'the moving ball really produces repeated contact/release cycles')
+    assert.ok(loaded && (ball.x - mirror(666)) * direction < -20, 'the descending body still rolls the ball away')
+    assert.ok(p.y >= 494, 'the descent reaches the lower platform or its ledge grip')
   }
 })
 

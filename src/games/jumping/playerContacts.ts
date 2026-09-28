@@ -49,8 +49,8 @@ export function playerContactBody(p: Player) {
   if (!grip) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
   const progress = m ? Math.max(0, Math.min(1, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME)) : 0
   const t = m?.descending ? 1 - progress : progress, crouched = !!m?.crouched
-  const pose = climbFrame(t, grip.braced, grip.slope, crouched)
-  const root = climbContactRoot(t, grip.braced, grip.slope, crouched)
+  const pose = climbFrame(t, grip.braced, grip.slope, crouched, m?.inset)
+  const root = climbContactRoot(t, grip.braced, grip.slope, crouched, m?.inset)
   const blend = h ? ledgeEase(h.time / (h.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME))
     : m?.descending ? ledgeEase(m.time / LEDGE_CATCH_TIME) : 1
   return { x: p.x + (root[0] - pose.root[0]) * grip.side * blend,
@@ -58,14 +58,42 @@ export function playerContactBody(p: Player) {
 }
 
 /** The climb motor and prop forces use the same next-pose contact. */
-export function mantleContact(m: NonNullable<Player['mantle']>, world: ContactWorld, dt = STEP) {
+export function mantleContact(m: NonNullable<Player['mantle']>, world: ContactWorld, dt = STEP, inset = m.inset ?? 20) {
   const progress = Math.min(1, (m.time + dt) / LEDGE_CLIMB_TIME)
-  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced, m.slope, m.crouched)
-  const next = climbContactRoot(progress, m.braced, m.slope, m.crouched)
+  const before = climbContactRoot(m.time / LEDGE_CLIMB_TIME, m.braced, m.slope, m.crouched, m.inset)
+  const next = climbContactRoot(progress, m.braced, m.slope, m.crouched, inset)
   const from: Vec = [m.edgeX + before[0] * m.side, m.edgeY + before[1]]
   const target: Vec = [m.edgeX + next[0] * m.side, m.edgeY + next[1]]
   const sweep = moveBody(from, target, ledgeObstacles(world.colliders.filter(c => c.prop || c.robot).map(c => c.platform), m), climbBodyHeight(progress, m.crouched))
   return { from, target, sweep }
+}
+
+/** Follow the authored curve only as far as the obstacle has yielded this tick.
+ * Rejecting the entire step makes a slow shove look like low-frame-rate playback. */
+export function mantleAdvance(m: NonNullable<Player['mantle']>, world: ContactWorld, dt: number) {
+  const clear = (advance: number) => {
+    const { target, sweep } = mantleContact(m, world, advance)
+    return Math.hypot(sweep.x - target[0], sweep.y - target[1]) < 1e-7
+  }
+  if (clear(dt)) return dt
+  let low = 0, high = dt
+  // Search time on the curve, not a linear blend of collision-resolved roots:
+  // the torso, head and changing crouch height must all use the same progress.
+  for (let i = 0; i < 14; i++) {
+    const mid = (low + high) / 2
+    if (clear(mid)) low = mid; else high = mid
+  }
+  return low > 1e-6 ? low : 0
+}
+
+/** Reposition a stopped pull along the ledge without changing its progress or grip. */
+export function narrowMantle(m: NonNullable<Player['mantle']>, world: ContactWorld, targetInset: number, dt: number) {
+  const inset = Math.max(targetInset, (m.inset ?? 20) - dt * 60)
+  const { from, target } = mantleContact(m, world, 0, inset)
+  const safe = moveBody(from, target, ledgeObstacles(world.platforms, m), climbBodyHeight(m.time / LEDGE_CLIMB_TIME, m.crouched))
+  if (Math.hypot(safe.x - target[0], safe.y - target[1]) > 1e-7) return false
+  m.inset = inset
+  return true
 }
 
 /** One policy for the motor, prop forces, support transport and animation.
@@ -161,8 +189,10 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
 /** Presentation consumes the solved contact; it never moves the player. */
 export function updatePushingPose(p: Player, contact: PushContact | null, dt: number) {
   if (contact?.hands && p.grounded && !p.hang && !p.mantle && !p.climbing) {
-    const previous = p.pushing?.direction === contact.direction && p.contacts?.push?.collider.id === contact.collider.id ? p.pushing.amount : 0
-    p.pushing = { ...contact.hands, direction: contact.direction, amount: Math.min(1, previous + dt / .14), effort: contact.effort }
+    // The fading pose owns its source identity. A one-tick contact gap must not
+    // restart the hands at rest when that same moving surface is reacquired.
+    const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing.amount : 0
+    p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction, amount: Math.min(1, previous + dt / .14), effort: contact.effort }
   } else if (p.pushing) {
     const amount = Math.max(0, p.pushing.amount - dt / .16)
     p.pushing = amount && p.grounded && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing

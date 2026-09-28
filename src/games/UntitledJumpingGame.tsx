@@ -21,6 +21,7 @@ import { DeleteLevelButton, DeleteLevelDialog, MissingLevelNotice } from './jump
 import { drawChallenge } from './jumping/challengeRender'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import { JumpingAudioState } from './jumping/audioState'
+import { JumpingMotionDiagnostics } from './jumping/motionDiagnostics'
 import { JumpingSoundSession } from './jumping/sound'
 import { clonePreparedLevel, prepareLevelInWorker } from './jumping/levelPreparation'
 import type { PreparedLevel } from './jumping/levelPreparation'
@@ -346,6 +347,11 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!
     // The context itself is deferred until a pointer, keyboard or controller action.
     const sound = new JumpingSoundSession()
+    const motion = import.meta.env.DEV || new URLSearchParams(window.location.search).get('motionDebug') === '1'
+      ? new JumpingMotionDiagnostics() : null
+    const debugWindow = window as Window & { jumpingMotion?: { read: () => ReturnType<JumpingMotionDiagnostics['read']> } }
+    const motionView = motion ? { read: () => motion.read() } : undefined
+    if (motionView) debugWindow.jumpingMotion = motionView
     audio.current = sound
     audioState.reset(player.current, run.current)
     let width = 0, height = 0, ratio = 1, frame = 0, previous = 0, accumulator = 0, published = 0
@@ -381,12 +387,14 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
           const controls = { ...input, jump: input.jump || keyboardJump.current }
           if (run.current) stepRun(run.current, controls)
           else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
+          const report = motion?.step(player.current, controls, STEP, (run.current?.level ?? activeLevel.current).id)
+          if (report) console.warn('[Jumping motion] Repeated oscillation detected', report)
           audioState.step(player.current, run.current, STEP)
           accumulator -= STEP
           if (run.current?.finished) { finishRun(); accumulator = 0; break }
         }
         sound.update(audioState.drain())
-      } else accumulator = 0
+      } else { accumulator = 0; motion?.reset() }
       paint()
       if (now - published > 80) {
         const p = player.current
@@ -399,6 +407,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     frame = requestAnimationFrame(tick)
     return () => {
       sound.dispose(); audio.current = null
+      if (motionView && debugWindow.jumpingMotion === motionView) delete debugWindow.jumpingMotion
       cancelAnimationFrame(frame); observer.disconnect()
       window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', suspend); document.removeEventListener('visibilitychange', visibility)

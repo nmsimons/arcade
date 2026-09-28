@@ -63,10 +63,9 @@
 .jumping-game .builder-tool-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 72px; padding: 10px 4px; background: var(--jumping-paper); font-size: var(--jumping-type-small); }
 .jumping-game .builder-tool-grid button:hover:not(:disabled) { color: var(--jumping-color-paper); }
 .builder-tool-grid svg { width: 24px; height: 24px; flex: none; color: inherit; }
+.builder-terrain-tools > button:first-child { grid-column: 1 / -1; }
 .jumping-game .jumping-builder .builder-tool-grid button[aria-pressed=true] { background: var(--jumping-soft); color: var(--jumping-ink); }
-.builder-tool-options { padding: 16px; background: var(--jumping-soft); }
 .jumping-builder .builder-inline-check { display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; white-space: nowrap; }
-.jumping-game .jumping-builder .builder-add { width: 100%; background: var(--jumping-paper); }
 
 /* Matching sage bands frame the workspace controls and status. */
 .builder-stage { position: relative; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; }
@@ -143,7 +142,7 @@
 }
 @media (max-width: 1100px) {
   .jumping-builder { grid-template-columns: 184px minmax(0, 1fr) 252px; }
-  .builder-tool-group, .builder-tool-options { padding-inline: 12px; }
+  .builder-tool-group { padding-inline: 12px; }
   .builder-inspector-heading, .builder-property-card, .builder-level-settings, .builder-validation { padding-inline: 16px; }
 }
 @media (max-width: 760px) {
@@ -151,7 +150,7 @@
   .builder-main-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .builder-main-actions .builder-back { grid-column: 2; }
   .builder-tools { grid-column: 1; grid-row: 3; }
-  .builder-tool-group, .builder-tool-options { padding: 12px 8px; }
+  .builder-tool-group { padding: 12px 8px; }
   .builder-tool-grid { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .jumping-game .builder-tool-grid button { min-height: 64px; padding: 8px 4px; gap: 6px; }
   .builder-stage { grid-column: 2; grid-row: 3; }

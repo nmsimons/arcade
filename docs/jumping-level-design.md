@@ -9,6 +9,10 @@ Use this alongside [level files and authoring](jumping-levels.md) and
 [the physics contract](jumping-physics.md). This document describes design intent;
 it does not introduce new mechanics or change the file format.
 
+[Flat lighting](jumping-lighting.md) is a proposed future feature, with an
+object-by-object visibility contract and lighting-specific authoring checks. It
+is not implemented; do not assume lamps or ambient settings work in current maps.
+
 ## The promise
 
 A good level feels like a small place worth figuring out. Its ordinary use is

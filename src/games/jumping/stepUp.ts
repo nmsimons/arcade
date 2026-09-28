@@ -7,6 +7,7 @@ import { canGrip } from './friction.ts'
 import { groundAt, followGround } from './terrain.ts'
 import { ledgeExposed, platformLedges, sameLedge } from './terrainLedges.ts'
 import { ledgeEase } from './ledge.ts'
+import { FOOT_CONTACT } from './footwork.ts'
 
 export interface StepUp {
   caught: Climbing['caught'] & { pushing?: Player['pushing'] }
@@ -99,9 +100,7 @@ export function findStepUp(p: Player, move: number, dt: number, world: ContactWo
     // Approach over continuous support, never use a step to bridge a hole.
     if (!followGround(platforms, p.x, edge.edgeX - side * 12, p.y)) continue
     const tall = p.y - edge.edgeY > 40.01
-    const toX = edge.edgeX + side * (tall ? 20 : 12), toY = edge.edgeY
-    if (!groundAt(platforms, toX, toY, .01, ground => Math.abs(ground.angle) < .01)) continue
-    const rise = p.y - toY, distance = Math.abs(toX - p.x)
+    const toY = edge.edgeY, rise = p.y - toY
     if (rise > 20.01) {
       // Taller steps need a firm, sustained push against the actual face.
       // Running past a corner or lightly brushing it must not commit a climb.
@@ -111,18 +110,29 @@ export function findStepUp(p: Player, move: number, dt: number, world: ContactWo
       p.stepIntent = { ...edge, time: (intent && sameLedge(intent, edge) ? intent.time : 0) + dt }
       if (p.stepIntent.time < .2) return null
     }
-    const duration = rise <= 20.01 ? Math.max(.12, Math.min(.28, distance / Math.max(100, Math.abs(p.vx)))) : .34
     const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork,
       pushing: tall ? p.pushing : undefined }
     const lead = p.footwork?.feet[0].planted && !p.footwork.feet[1].planted ? 1 : 0
-    const mantle: Mantle = { ...edge, toX, toY, time: 0, braced: false, step: { caught, duration, rise, lead } }
-    let previous: [number, number] = [p.x, p.y], clear = true
-    for (let i = 1; i <= 32; i++) {
-      const target = stepUpRoot(mantle, i / 32), safe = moveBody(previous, target, platforms)
-      if (Math.hypot(safe.x - target[0], safe.y - target[1]) > .01 || platforms.some(b => bodyIntersects(...target, b))) { clear = false; break }
-      previous = target
+    // Keep the usual stride when it fits. Short steps can plant nearer the lip
+    // on a narrow tread, leaving room for the body before the next riser.
+    // The hand-assisted tall climb retains its authored landing and pose.
+    for (let inset = tall ? 20 : 12; inset >= (tall ? 20 : 8); inset--) {
+      const toX = edge.edgeX + side * inset, distance = Math.abs(toX - p.x)
+      if (!groundAt(platforms, toX, toY, .01, ground => Math.abs(ground.angle) < .01)) continue
+      const duration = rise <= 20.01 ? Math.max(.12, Math.min(.28, distance / Math.max(100, Math.abs(p.vx)))) : .34
+      const mantle: Mantle = { ...edge, toX, toY, time: 0, braced: false, step: { caught, duration, rise, lead } }
+      // Both flat soles need actual footing, not just a supported body center.
+      // A shorter landing must not turn a tiny isolated shelf into a step.
+      if (stepFootOffsets(mantle.step!).some(offset => FOOT_CONTACT.filter(([, y]) => y === 2.8).some(([x]) =>
+        !groundAt(platforms, toX + (offset + x) * side, toY, .01, ground => Math.abs(ground.angle) < .01)))) continue
+      let previous: [number, number] = [p.x, p.y], clear = true
+      for (let i = 1; i <= 32; i++) {
+        const target = stepUpRoot(mantle, i / 32), safe = moveBody(previous, target, platforms)
+        if (Math.hypot(safe.x - target[0], safe.y - target[1]) > .01 || platforms.some(b => bodyIntersects(...target, b))) { clear = false; break }
+        previous = target
+      }
+      if (clear) { p.stepIntent = null; return mantle }
     }
-    if (clear) { p.stepIntent = null; return mantle }
   }
   return null
 }

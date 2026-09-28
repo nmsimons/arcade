@@ -338,3 +338,19 @@ test('the sliding pose stays continuous through slow reversals and is still at z
   p.sliding.time += 1
   assert.deepEqual(athletePose(p), stopped)
 })
+
+test('brief sliding contacts blend the falling rig and foot clearance instead of switching them', () => {
+  for (const facing of [-1, 1]) for (const braced of [false, true]) {
+    const p = { ...createPlayer(), x: 0, y: 0, grounded: false, facing, vx: 20 * facing, vy: 70, gait: gaitPose(20, true),
+      wallBrace: braced ? { wallX: 12 * facing, direction: facing, active: true, hands: [.6, .5], feet: [.7, .7] } : null }
+    const free = athletePose(p)
+    p.sliding = { angle: facing * 1.05, amount: 0, time: .4, active: true, x: -8 * facing, y: -5 }
+    assert.deepEqual(athletePose(p), free, 'a zero-weight slide leaves the current pose intact, including a wall brace')
+    p.sliding.amount = STEP / .12
+    const touching = athletePose(p)
+    p.sliding.active = false
+    assert.deepEqual(athletePose(p), touching, 'the contact flag does not bypass the presentation blend')
+    for (const [i, point] of points(touching).entries()) assert.ok(distance(point, points(free)[i]) < 1,
+      'one tick of contact cannot snap the torso, hands or feet to a different rig')
+  }
+})

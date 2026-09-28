@@ -629,6 +629,10 @@ validates them without a build. See [jumping level files](docs/jumping-levels.md
 for the full workflow and [Making a fun jumping level](docs/jumping-level-design.md)
 for the level-design brief.
 
+The [flat-lighting specification](docs/jumping-lighting.md) covers the proposed
+ambient/light-source system, object visibility, shadows, editor workflow, and
+performance requirements. It is a design draft, not an implemented feature.
+
 Level validation lives in `src/games/jumping/level.ts`, asset loading in
 `levelAssets.ts`, puzzle simulation in `challenge.ts`, and editing operations in
 `editor.ts` and `puzzleEditor.ts`.

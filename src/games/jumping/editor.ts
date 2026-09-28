@@ -1,5 +1,5 @@
 import type { JumpLevel } from './level.ts'
-import { copyLevel, snapToGround, newLevelId, levelTerrain, levelHeight } from './level.ts'
+import { copyLevel, snapToGround, newLevelId, levelTerrain, levelHeight, LEVEL_GRID_SIZE } from './level.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
@@ -17,7 +17,8 @@ import { pickupBounds, TIME_BONUS_DEFAULT_SECONDS } from './pickups.ts'
 import { COIN_SWITCH_THICKNESS, COIN_SWITCH_LENGTH, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch'
+export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup'; index: number }
@@ -222,6 +223,43 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
   }
   return next
 }
+
+/** Transform the selected terrain and its rope anchors without moving other objects. */
+export function transformTerrain(level: JumpLevel, index: number, transform: TerrainTransform): JumpLevel {
+  const before = level.platforms[index]
+  if (!before) return level
+  const rotate = transform === 'rotate-left' || transform === 'rotate-right'
+  const w = rotate ? before.h : before.w, h = rotate ? before.w : before.h
+  if (w > level.width || h > levelHeight(level)) throw new Error('This terrain is too large to rotate inside the level. Resize it or enlarge the level first.')
+  if (w < 10 || h < 8) throw new Error('This terrain is too thin to rotate. Resize it first.')
+  const point = (x: number, y: number): [number, number] => {
+    if (transform === 'rotate-left') return [y, before.w - x]
+    if (transform === 'rotate-right') return [before.h - y, x]
+    if (transform === 'flip-horizontal') return [before.w - x, y]
+    return [x, before.h - y]
+  }
+  const next = copyLevel(level), terrain = next.platforms[index]
+  // Preserve the center wherever possible; translate only enough to fit the room.
+  terrain.x = clamp(before.x + (before.w - w) / 2, 0, level.width - w)
+  terrain.y = clamp(before.y + (before.h - h) / 2, 0, levelHeight(level) - h)
+  terrain.w = w; terrain.h = h
+  if (before.profile || before.polygon) {
+    const polygon = polygonPoints({ ...before, x: 0, y: 0 }).map(([x, y]) => point(x, y))
+    if (!validPolygon(polygon)) throw new Error('This terrain cannot be transformed as an editable polygon. Simplify its outline first.')
+    delete terrain.profile
+    terrain.polygon = polygon
+  }
+  for (const rope of next.climbables.ropes) if (rope.anchor?.platform === index) {
+    const [x, y] = point(rope.anchor.x, rope.anchor.y)
+    rope.anchor.x = x; rope.anchor.y = y
+    rope.x = terrain.x + x; rope.y = terrain.y + y
+    delete rope.rest
+  }
+  // Legacy ladders are always upright. Leave them in place as independent ladders.
+  if (rotate) for (const ladder of next.climbables.ladders) if (ladder.platform === index) ladder.platform = -1
+  return next
+}
+
 export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy: number): JumpLevel {
   const b = itemBounds(level, selection)
   if (!b) return level
@@ -347,6 +385,17 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'steps-narrow' || tool === 'steps-wide') {
+    if (next.platforms.length >= 160) throw new Error('This level already has 160 terrain pieces.')
+    const tread = LEVEL_GRID_SIZE * (tool === 'steps-wide' ? 2 : 1), w = tread * 6, h = LEVEL_GRID_SIZE * 5
+    const polygon: [number, number][] = [[0, h]]
+    for (let step = 0; step < 5; step++) polygon.push([step * tread, h - (step + 1) * LEVEL_GRID_SIZE], [(step + (step === 4 ? 2 : 1)) * tread, h - (step + 1) * LEVEL_GRID_SIZE])
+    // The top landing and foot are two treads wide, joined by a stepped underside.
+    for (let step = 6; step >= 3; step--) polygon.push([step * tread, (7 - step) * LEVEL_GRID_SIZE], [(step - 1) * tread, (7 - step) * LEVEL_GRID_SIZE])
+    polygon.push([2 * tread, h])
+    next.platforms.push({ x: clamp(end.x, 0, next.width - w), y: clamp(end.y, 0, levelHeight(next) - h), w, h, polygon })
+    return { level: next, selection: { kind: 'platform', index: next.platforms.length - 1 } }
+  }
   if (tool === 'text') {
     const texts = next.texts ??= []
     if (texts.length >= 80) throw new Error('This level already has 80 wall text areas.')

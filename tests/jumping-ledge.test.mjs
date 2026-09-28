@@ -11,6 +11,37 @@ const landmarks = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
   ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end])]
 const close = (a, b, message) => assert.ok(distance(a, b) < 1e-6, message)
 
+test('compact pull-up poses keep their supports, limb lengths and corner clearance', () => {
+  for (const inset of [8, 12, 16]) for (const braced of [false, true]) {
+    let previous
+    for (let i = 0; i <= 2000; i++) {
+      const t = i / 2000, frame = climbFrame(t, braced, 0, false, inset), p = createPlayer()
+      Object.assign(p, { x: frame.root[0], y: frame.root[1], facing: 1, grounded: false,
+        mantle: { edgeX: 0, edgeY: 0, side: 1, toX: inset, toY: 0, time: t * LEDGE_CLIMB_TIME, braced, inset } })
+      const pose = athletePose(p), edge = a => [a[0] + p.x, a[1] + p.y]
+      assert.ok(distance(pose.hip, pose.shoulder) > 12)
+      for (const [j, prefix] of ['front', 'back'].entries()) {
+        const arm = pose[`${prefix}Arm`], leg = pose[`${prefix}Leg`]
+        for (const [limb, upper, lower] of [[arm, 10, 9], [leg, 15, 14.5]]) {
+          assert.ok(Math.abs(distance(limb.root, limb.joint) - upper) < 1e-6)
+          assert.ok(Math.abs(distance(limb.joint, limb.end) - lower) < 1e-6)
+        }
+        if (frame[`${prefix}Release`] === 0) close(edge(arm.hand), j ? BACK_GRIP : FRONT_GRIP)
+        close(edge(leg.end), frame[`${prefix}Foot`], 'the foot target remains reachable')
+        if (leg.planted) close(edge(leg.end), [inset + (j ? -2 : 2), -2.8], 'planted feet do not slide')
+        for (const point of FOOT_CONTACT) {
+          const offset = footPoint(point, leg.footAngle, leg.toeAngle), ankle = edge(leg.end)
+          assert.ok(ankle[0] + offset[0] <= .03 || ankle[1] + offset[1] <= .03, 'feet clear the ledge corner')
+        }
+      }
+      if (frame.kneePlanted) close(edge(pose.frontLeg.joint), KNEE_CONTACT)
+      const points = landmarks(pose).map(edge)
+      if (previous) points.forEach((point, j) => assert.ok(distance(point, previous[j]) < .8, `compact pose discontinuity at ${t}`))
+      previous = points
+    }
+  }
+})
+
 test('the climb preserves limb lengths, ledge supports and clearance on either side', () => {
   for (const braced of [false, true]) for (const side of [-1, 1]) {
     let previous

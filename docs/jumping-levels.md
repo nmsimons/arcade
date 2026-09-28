@@ -7,6 +7,10 @@ empty documents, and the engine receives the selected level as data.
 For route design, teaching, wall guidance, puzzles, and playtesting, see
 [Making a fun jumping level](jumping-level-design.md).
 
+The [flat-lighting specification](jumping-lighting.md) describes a proposed
+version-2 extension. It is not implemented; the format documented below is the
+currently supported format.
+
 ## Built-in levels
 
 The asset folder is `public/levels/jumping/` in the repository and `levels/jumping/`
@@ -150,6 +154,23 @@ inspector to remove it. At least three nodes must remain, and the outline cannot
 cross itself. Arrow keys nudge the selected node; Shift nudges one unit.
 Resizing keeps the opposite corner fixed and scales the existing nodes. Resizing
 and node edits follow Snap; new points snap along the edge without changing its slope.
+
+With terrain selected, the top toolbar enables **Rotate left/right**
+(90° per click) and **Flip horizontal/vertical**. Transforms preserve
+the bounding-box center, moving inward only when needed to stay inside the room;
+rotation is refused if the shape cannot fit without resizing. Names and materials
+are preserved. Attached rope anchors follow the same transform. Other objects stay
+in place; legacy attached ladders become independent when their terrain rotates.
+Each action can be undone or redone. Slopes become ordinary editable polygons when
+transformed; no new level-file fields or gameplay rules are involved.
+
+**Terrain → Steps narrow / Steps wide** stamps five one-grid-square
+rises with treads one or two squares wide. Both have a stepped underside and a top
+landing twice the tread width. The overall size is 6 × 5 or 12 × 5 grid squares
+(120 × 100 or 240 × 100 units). Click to place the full-sized template; it stays
+inside the room even near an edge. **Keep placing** repeats it. Each template
+becomes one ordinary terrain piece with editable nodes,
+dimensions, material, duplication, transforms, and undo/redo.
 
 Choose **Local folder → Choose folder** in the game menu. The game reads JSON files
 directly in that folder, applies its manifest (or filename order), and lets you play them or choose

@@ -334,7 +334,7 @@ function ledgePose(p: Player): AthletePose {
   }
   const edge = p.mantle ?? p.hang!
   const t = p.mantle ? p.mantle.descending ? 1 - clamp((p.mantle.time - LEDGE_CATCH_TIME) / LEDGE_CLIMB_TIME) : clamp(p.mantle.time / LEDGE_CLIMB_TIME) : 0
-  const crouched = !!p.mantle?.crouched, frame = climbFrame(t, edge.braced, edge.slope, crouched)
+  const crouched = !!p.mantle?.crouched, frame = climbFrame(t, edge.braced, edge.slope, crouched, p.mantle?.inset)
   const origin: Point = [(edge.edgeX - p.x) * p.facing, edge.edgeY - p.y]
   const at = (point: Point) => add(origin, point)
   let hip = at(frame.hip), waist = at(frame.waist), shoulder = at(frame.shoulder), head = at(frame.head)
@@ -367,7 +367,7 @@ function ledgePose(p: Player): AthletePose {
   const frontArm = grippingArm(root, grip(FRONT_WRIST), grip(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
   const backArm = grippingArm(root, grip(BACK_WRIST), grip(BACK_GRIP), backFree, catchWeight * (1 - frame.backRelease), .9)
   const legRoot = add(hip, [0, 1])
-  const folded = crouched && t > .73
+  const folded = crouched && t > .73 || (p.mantle?.inset ?? 20) < 20 && t > .54
   const frontLeg = solveLeg(legRoot, frontFoot, .15 * (1 - smooth(t / .45)), folded, frame.frontPlanted)
   const backLeg = solveLeg(legRoot, backFoot, .25 * (1 - smooth(t / .65)), folded, frame.backPlanted)
   // Soften ankle flex before contact; the support foot then remains exactly flat.
@@ -516,9 +516,9 @@ export function athletePose(p: Player): AthletePose {
   if (p.mantle?.step) return stepUpPose(p)
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
-  // A slipping foot is still in contact: do not layer a falling/running cycle
-  // underneath the balance pose while the surface is supporting the body.
-  const pose = p.sliding?.active ? gaitPose(0) : p.gait ?? gaitPose(p.vx, !p.grounded)
+  // Sliding blends from the same locomotion pose on contact and release. A
+  // momentary slip must not replace the airborne gait before its blend begins.
+  const pose = p.gait ?? gaitPose(p.vx, !p.grounded)
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
   const cycle = p.stride * p.facing
   const gait = moving * (1 - p.crouch) * (1 - air)
@@ -659,7 +659,10 @@ export function athletePose(p: Player): AthletePose {
   const backLeg = solveLeg(add(hip, [0, 1]), backAnkle, contacts ? contacts[1].angle * backFacing : lerp(backStep.angle * (1 - squat) * moving, .12, air), p.grounded, backPlanted, backFacing, 1 - air, -1,
     contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight, squat)
   const result = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
-  const resolved = p.sliding ? slidingPose(p, result) : p.wallBrace ? wallBracePose(p, result) : result
+  // Wall and slope contacts can coexist in a narrow gap. Blend each contact
+  // instead of switching the entire rig when a brief slide starts or ends.
+  const braced = p.wallBrace ? wallBracePose(p, result) : result
+  const resolved = p.sliding ? slidingPose(p, braced) : braced
   if ((!p.grounded || p.sliding) && p.terrain) {
     resolved.frontLeg = clearAirborneFoot(p, resolved.frontLeg); resolved.backLeg = clearAirborneFoot(p, resolved.backLeg)
   } else if (p.terrain) {
@@ -734,6 +737,7 @@ function clearRiserLeg(p: Player, leg: Leg): Leg {
 /** Keep weight over staggered feet, with soft knees and small balance corrections. */
 function slidingPose(p: Player, free: AthletePose): AthletePose {
   const s = p.sliding!, weight = smooth(s.amount)
+  if (!weight) return free
   const tx = Math.cos(s.angle), ty = Math.sin(s.angle), nx = ty, ny = -tx
   const velocity = p.vx * tx + p.vy * ty, speed = smooth(Math.abs(velocity) / 450)
   const balance = Math.tanh(velocity / 150) * p.facing, correction = Math.sin(s.time * 5.5) * speed
@@ -754,7 +758,10 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
   const leg = (original: Leg, foot: Point): Leg => {
     const target = mix(original.end, foot, weight), origin = at(0, 0)
     const above = (target[0] - origin[0]) * nx * p.facing + (target[1] - origin[1]) * ny
-    if (above < 2.8) { target[0] += nx * p.facing * (2.8 - above); target[1] += ny * (2.8 - above) }
+    // The sliding contact plane belongs to this blend, too. Actual terrain
+    // clearance is applied to the finished feet below; a faint slip must not
+    // project them fully onto a plane extending beyond a round obstacle.
+    if (above < 2.8) { target[0] += nx * p.facing * (2.8 - above) * weight; target[1] += ny * (2.8 - above) * weight }
     const limb = solve(add(hip, [0, 1]), target, 15, 14.5, -1, MIN_KNEE_OPENING)
     return { ...limb, footAngle: lerp(original.footAngle, s.angle * p.facing, weight), toeAngle: original.toeAngle * (1 - weight), footFacing: 1, planted: false }
   }
@@ -775,7 +782,7 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
   // from the wall. The physical capsule stays at the collision boundary.
   const pushDistance = 25.5
   const pushing = athletePose({ ...p, x: brace.wallX - p.facing * pushDistance,
-    grounded: true, vx: 0, vy: 0, wallBrace: null, footwork: null, gait: gaitPose(0),
+    grounded: true, vx: 0, vy: 0, wallBrace: null, sliding: null, footwork: null, gait: gaitPose(0),
     crouch: 0, crouching: false, charging: false, reach: 0, landing: 0, groundAngle: 0,
     pushing: { wallX: brace.wallX, direction: p.facing, amount: 1, effort: 1 } })
   const offset: Point = [wall - pushDistance, 0]

@@ -53,7 +53,7 @@ export function ropeCatchRoot(from: Point, progress: number): Point {
 }
 
 /** Edge-relative choreography: pull, knee support, trailing foot, then stand. */
-export function climbFrame(progress: number, braced = false, slope = 0, crouched = false) {
+export function climbFrame(progress: number, braced = false, slope = 0, crouched = false, inset = 20) {
   const t = Math.max(0, Math.min(1, progress))
   const poses = crouched ? braced ? bracedCrouchFrames : crouchFrames : braced ? bracedFrames : frames
   const index = Math.max(1, poses.findIndex((frame, i) => i > 0 && frame.time >= t))
@@ -69,17 +69,32 @@ export function climbFrame(progress: number, braced = false, slope = 0, crouched
     return (2 * u ** 3 - 3 * u ** 2 + 1) * a[key][axis] + (u ** 3 - 2 * u ** 2 + u) * span * tangent(index - 1)
       + (-2 * u ** 3 + 3 * u ** 2) * b[key][axis] + (u ** 3 - u ** 2) * span * tangent(index)
   }) as Point
+  // A narrow landing keeps the torso closer to the edge. The hand and knee
+  // supports stay fixed; each foot shifts only before its planted interval.
+  const inward = 20 - inset, shift = inward * ledgeEase((t - .23) / .5)
+  const compact = (key: Exclude<keyof LedgeFrame, 'time'>): Point => {
+    const point = sample(key)
+    point[0] -= key === 'frontFoot' ? inward * ledgeEase((t - .73) / .23) : shift
+    return point
+  }
   // Keep the hanging pose outside the face; supports on top follow its incline.
   const onSlope = (point: Point): Point => [point[0], point[1] + Math.max(0, point[0]) * slope]
-  const hip = onSlope(sample('hip')), knee = onSlope(KNEE_CONTACT)
-  if (t >= .56 && t <= .73) {
+  const hip = onSlope(compact('hip')), knee = onSlope(KNEE_CONTACT)
+  const kneeWeight = ledgeEase((t - .54) / .02) * (1 - ledgeEase((t - .73) / .08))
+  hip[1] += inward / 3 * kneeWeight
+  if (t >= .56 && t <= .73 || inward && kneeWeight > 0) {
     const dx = hip[0] - knee[0], dy = hip[1] + 1 - knee[1], length = Math.hypot(dx, dy)
-    hip[0] = knee[0] + dx / length * 15; hip[1] = knee[1] + dy / length * 15 - 1
+    const weight = inward ? kneeWeight : 1
+    hip[0] += (knee[0] + dx / length * 15 - hip[0]) * weight
+    hip[1] += (knee[1] + dy / length * 15 - 1 - hip[1]) * weight
   }
-  const frontFoot = onSlope(sample('frontFoot'))
+  const frontFoot = onSlope(compact('frontFoot'))
   frontFoot[1] += knee[0] * slope * ledgeEase((t - .54) / .02) * (1 - ledgeEase((t - .73) / .08))
-  return { root: onSlope(sample('root')), hip, waist: onSlope(sample('waist')), shoulder: onSlope(sample('shoulder')), head: onSlope(sample('head')),
-    frontFoot, backFoot: onSlope(sample('backFoot')),
+  const waist = onSlope(compact('waist')), shoulder = onSlope(compact('shoulder')), head = onSlope(compact('head'))
+  const upright = inward / 4 * ledgeEase((t - .56) / .06) * (1 - ledgeEase((t - .81) / .15))
+  waist[1] -= upright * .4; shoulder[1] -= upright; head[1] -= upright
+  return { root: onSlope(compact('root')), hip, waist, shoulder, head,
+    frontFoot, backFoot: onSlope(compact('backFoot')),
     frontRelease: ledgeEase((t - .56) / .15), backRelease: ledgeEase((t - .54) / .14),
     frontPlanted: t >= .96, backPlanted: t >= .73, kneePlanted: t >= .56 && t <= .73 }
 }
@@ -87,8 +102,8 @@ export function climbFrame(progress: number, braced = false, slope = 0, crouched
 /** The torso leans ahead of the movement root while climbing. Loose objects
  * must meet that reach, rather than pass through the head before hitting the
  * upright locomotion hull. Terrain keeps its existing corner clearance. */
-export function climbContactRoot(progress: number, braced = false, slope = 0, crouched = false): Point {
-  const pose = climbFrame(progress, braced, slope, crouched)
+export function climbContactRoot(progress: number, braced = false, slope = 0, crouched = false, inset = 20): Point {
+  const pose = climbFrame(progress, braced, slope, crouched, inset)
   return [Math.max(pose.root[0], pose.head[0] + 6.2 - 12, pose.shoulder[0] + 4 - 12),
     Math.min(pose.root[1], pose.head[1] - 6.2 + climbBodyHeight(progress, crouched))]
 }

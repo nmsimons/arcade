@@ -172,6 +172,44 @@ test('stairs work in one polygon and as separate terrain blocks', () => {
   }
 })
 
+test('one-tile treads use a compact landing and climb every riser with clear legs and supported feet', () => {
+  for (const joined of [false, true]) for (const side of [-1, 1]) for (const start of [0, 70, 88]) {
+    const steps = Array.from({ length: 5 }, (_, i) => ({ x: 100 + i * 20, y: -20 * (i + 1), w: i === 4 ? 220 : 20, h: 20 * (i + 1) }))
+    const shapes = joined ? [{ x: -400, y: -100, w: 800, h: 180,
+      polygon: [[0,100],[500,100], ...steps.flatMap(s => [[s.x + 400, s.y + 100], [s.x + s.w + 400, s.y + 100]]), [800,180],[0,180]] }]
+      : [floor, ...steps]
+    const terrain = side > 0 ? shapes : shapes.map(b => ({ ...b, x: -b.x - b.w,
+      polygon: b.polygon?.map(([x, y]) => [b.w - x, y]) }))
+    const p = createPlayer({ x: start * side, y: 0 }), climbs = new Set(), insets = new Set()
+    let previousHead = null
+    const outside = (x, y) => {
+      for (const b of terrain) if (pointInside(b, x, y)) assert.ok(nearestBoundary(b, x, y).distance < .1, 'the pose stays outside each riser')
+    }
+    for (let frame = 0; frame < 280 && p.x * side < 240; frame++) {
+      const before = [p.x, p.y]
+      tick(p, terrain, { move: side })
+      if (p.mantle?.step) { climbs.add(p.mantle.edgeY); insets.add((p.mantle.toX - p.mantle.edgeX) * side) }
+      assert.ok(terrain.every(b => !bodyIntersects(p.x, p.y, b)))
+      assert.ok(Math.hypot(p.x - before[0], p.y - before[1]) < 9, 'the root advances continuously')
+      const pose = athletePose(p), head = [p.x + pose.head[0] * side, p.y + pose.head[1]]
+      if (previousHead) assert.ok(Math.hypot(head[0] - previousHead[0], head[1] - previousHead[1]) < 8, 'the head has no transition snap')
+      previousHead = head
+      for (const leg of [pose.frontLeg, pose.backLeg]) {
+        for (const [a, b] of [[leg.root, leg.joint], [leg.joint, leg.end]]) for (let i = 0; i <= 12; i++) {
+          outside(p.x + (a[0] + (b[0] - a[0]) * i / 12) * side, p.y + a[1] + (b[1] - a[1]) * i / 12)
+        }
+        for (const point of FOOT_CONTACT) {
+          const sole = footPoint(point, leg.footAngle * leg.footFacing, leg.toeAngle * leg.footFacing)
+          outside(p.x + (leg.end[0] + sole[0] * leg.footFacing) * side, p.y + leg.end[1] + sole[1])
+        }
+      }
+    }
+    assert.deepEqual([...climbs], [-20, -40, -60, -80, -100])
+    assert.deepEqual([...insets], [8, 12], 'compact treads shorten the landing; the open top keeps the ordinary stride')
+    assert.ok(p.x * side >= 240 && p.y === -100 && p.grounded)
+  }
+})
+
 test('a fresh run up one- then two-tile stairs keeps the whole leg outside the second riser', () => {
   for (const joined of [false, true]) for (const side of [-1, 1]) for (const start of [0, 68]) {
     const shapes = joined ? [{ x: -100, y: -60, w: 500, h: 140,

@@ -26,6 +26,13 @@ without an active player load or shove. Otherwise it can cancel the force on a
 large ball every physics step and leave the player suspended beside a wall.
 The normal settling behavior resumes when the player releases contact.
 
+Prop-driven player displacement and carrying sweep against terrain, mechanisms,
+other props and shovebots. During the shared contact solve, these sweeps use
+the latest corrected prop positions, excluding only the object supplying the
+motion. Any blocked displacement resolves back into that object. This keeps a
+shove from squeezing the player inside a neighbouring ball or box, regardless
+of contact order, while leaving normal movement and jumping available.
+
 Mechanisms share position and travel geometry for both axes. A closing
 gate reverses when blocked, completes its opening stroke, and waits for its full
 closing path to clear for 0.6 seconds. Safety clearance checks the gate's actual
@@ -85,12 +92,55 @@ waits until this exit finishes.
 Geometry must be refreshed after moving objects, and final contacts must be
 revalidated after a jump or collision. These are successive stages of the same
 contact policy, not independent object-specific decisions about the player.
+When identifying the contacted face, retain only faces whose outward normal
+can supply the collision's separating normal. A tall body's side midpoint may
+sit above a short box; tiny solver overlap must not turn that lateral contact
+into footing on the box's top. Otherwise a player pressed between that box and
+a ball can alternate between distant slide-pose anchors while barely moving.
+Nearly vertical faces remain wall contacts for slide selection: an upward normal
+component below 0.01 can come from a resting box's slight solver tilt, and does
+not provide a sliding foot placement. The solid body sweep still resolves those
+faces normally.
 
 Ledge grabs, ladder exits, rope transfers and lowering over an edge share the
 terrain's actual exposed top corners. Inset towers and shelves within a single
 polygon work like separate terrain pieces. Climbing exempts only the supporting
 corner from the standing-body hull; ceilings and other parts of the same polygon
 still obstruct the climb.
+
+Automatic steps up low terrain prefer their normal 12-unit landing inset, but
+can shorten it to 8 units when the next riser leaves a narrow tread. Both flat
+soles need supported landing contacts, and the entire path uses the ordinary
+player hull against every solid, including the supporting stair. This allows
+20-unit treads without skipping risers, bridging gaps or accepting unsupported
+tiny shelves. The hand-assisted climb above 40 units retains its existing path.
+
+Pull-ups first choose a clear, supported landing with all current solids present,
+including loose props. Prefer the usual reach, then a compact stance near the lip.
+This lets the player climb at the normal pace into an existing pocket beside a
+box and use the ordinary grounded shove when continuing forward. Only plan a
+route through a movable prop when no clear landing route exists.
+
+When a loose object resists that pull-up, advance the climb by the collision-safe
+fraction of the current physics step along its authored curve. Waiting for an
+entire animation step to fit creates long frozen poses punctuated by full-step
+jumps, even when rendering is fast. The root, torso/head contact hull and limbs
+must share the accepted progress. Prop forces still probe the next requested
+step, so a yielding box permits continuous progress while a pinned obstacle
+holds a stable pose. Returning to the ledge remains available.
+
+The usual pull-up lands 20 units inside the lip. If a resisted pull stays below
+half its normal pace for 0.15 seconds, look again for a clear near-edge stance.
+This includes space opened by a still-moving prop, without waiting for it to
+stop. The pull may reposition smoothly onto a tighter path with an inset as
+small as 8 units. Check the full path and supported destination against the
+current collision world before choosing it, then sweep both repositioning and
+progress. The compact pose keeps its hand/knee supports at the same corner and
+plants its feet at the nearer destination. Lowering searches the same paths,
+so a narrow standing space reached by a jump or pull-up can still lead back to
+a hang. Moving props continue to receive the normal shove; an obstruction with
+no clear alternative still stops the climb. These are shared movement rules,
+not exceptions for particular objects or levels.
 
 ## Boundaries to preserve
 
@@ -111,3 +161,42 @@ still obstruct the climb.
 `tests/jumping-player-contacts.test.mjs` covers contact selection, bracing,
 release and support transport. The slope, friction, prop-collision, animation
 and climbing suites cover the movement behavior around that boundary.
+
+## Motion continuity and diagnostics
+
+A fading pushing pose remembers its collider identity until the blend reaches
+zero. Reacquiring that same surface resumes the existing blend, including after
+a brief gap in a moving box, ball or bot contact. A new surface starts its own
+blend. This memory is presentation only: missing contacts release physical forces
+immediately, and jumping or turning away still clears the pose.
+
+Sliding uses the same blended locomotion pose on contact and release. The raw
+`sliding.active` flag must not instantly replace the falling or running rig;
+the slide amount blends both the body pose and its foot-plane correction. The
+finished feet still clear actual terrain. This matters when a falling player
+repeatedly touches a ball as it rolls away: real contact gaps can occur without
+the limbs snapping back and forth. A separate wall brace keeps its own contact
+and release blend when a slope contact starts, and both poses compose through
+their existing weights.
+
+Development builds observe the final player state after each physics step with
+`JumpingMotionDiagnostics`. For a production build, open the game with
+`?motionDebug=1` to enable the same observer. It reports repeated contact/state
+reversals, abrupt joint reversals relative to the body, and physical root
+oscillation separately. These are diagnostic candidates, not proof of a bug.
+Intent changes, pauses, new players, respawns and teleports break the detection
+window. Ordinary single transitions and continuously changing surface identities
+do not count as repeated reversals.
+
+Each episode emits one `[Jumping motion]` console warning. In browser developer
+tools, `window.jumpingMotion.read()` returns detached copies of the most recent
+two seconds (at most 240 samples) and the last eight reports, including level ID,
+inputs, positions, velocities, contact identities, blend weights and local joint
+positions. Reports survive pauses/restarts so they can be inspected afterward;
+they remain in memory and are never sent to a server. Production play without
+the flag does not sample poses for diagnostics.
+
+The observer never changes physics or filters the rendered pose. Use captures to
+find and fix unstable contacts or interrupted blends at their source. Do not
+hold a physical contact alive, delay controls, move the player root, or smooth
+planted feet away from their surface merely to conceal an oscillation.

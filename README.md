@@ -636,8 +636,9 @@ remains available for visual and performance checks. Version-2 level files suppo
 ambient light and wall spotlights. Add them in the studio under Level settings
 and Back wall; version-1 levels keep their original full-bright appearance.
 
-Press **F2** during play (or toggle **Performance monitor** in the pause menu)
-to show a lightweight performance overlay in development or production. It shows
+In development, press **F2** during play (or toggle **Performance monitor** in the pause menu)
+to show a lightweight performance overlay. Production builds omit the monitor,
+F2 shortcut and performance-mode controls, and ignore their saved preferences. It shows
 FPS, a two-second frame-time graph, average/p95/worst frame intervals, frames over
 33.3 ms, average CPU update/draw time, physics steps per frame, canvas resolution
 and render scale, lighting backend, light counts and estimated buffer memory. The dashed
@@ -656,7 +657,7 @@ artwork, lights and full shadow silhouettes. The complete Canvas renderer handle
 unsupported capabilities and graphics-context loss. The monitor shows which is
 active; editor and library previews continue to use Canvas.
 
-**Lighting performance mode** in the pause menu is a separate, optional setting;
+**Lighting performance mode** in the development pause menu is a separate, optional setting;
 full lighting remains the default on every device. With it enabled, two consecutive
 one-second windows below 35 FPS turn off shadows from the player, loose props and
 robots and reduce rendering to at most pixel ratio 1 and one million pixels for

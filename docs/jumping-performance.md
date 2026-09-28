@@ -10,12 +10,14 @@ hide distracting stutters. Keep the GPU renderer and prioritize measured,
 low-risk improvements before considering a wider engine change.
 
 The in-game monitor is available with F2 or from the pause menu in development
-and production. It records raw animation-frame intervals, not the simulation's
+only. Production hides the monitor, F2 shortcut and performance-mode controls,
+ignores their saved preferences, and does not allocate the monitor or adaptive
+controller. GPU lighting and full quality remain enabled in production. It records raw animation-frame intervals, not the simulation's
 50 ms catch-up cap. CPU update and draw measurements do not include asynchronous
 GPU execution or browser compositing. The rolling history is bounded and the UI
 updates at most twice per second. Paused and hidden time is excluded.
 
-Full quality remains the default on every device. The optional **Lighting
+Full quality remains the default on every device. The development-only **Lighting
 performance mode** observes two consecutive one-second windows below 35 FPS,
 then omits shadows from the player, loose props and robots for that run and caps
 rendering at pixel ratio 1 and one million pixels. This trades some sharpness for

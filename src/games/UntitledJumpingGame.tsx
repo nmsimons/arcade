@@ -111,27 +111,31 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const audio = useRef<JumpingSoundSession | null>(null)
   const paintFrame = useRef<() => void>(() => {})
   const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto' }))
-  const [performanceMonitor] = useState(() => new PerformanceMonitor())
+  const [performanceMonitor] = useState(() => import.meta.env.DEV ? new PerformanceMonitor() : null)
   const [showPerformance, setShowPerformance] = useState(() => {
+    if (!import.meta.env.DEV) return false
     try { return localStorage.getItem('jumping:performance-monitor') === 'true' } catch { return false }
   })
   const performanceEnabled = useRef(showPerformance)
-  const [adaptiveLighting] = useState(() => new AdaptiveLighting())
+  const [adaptiveLighting] = useState(() => import.meta.env.DEV ? new AdaptiveLighting() : null)
   const [performanceMode, setPerformanceMode] = useState(() => {
+    if (!import.meta.env.DEV) return false
     try { return localStorage.getItem('jumping:lighting-performance-mode') === 'true' } catch { return false }
   })
   const adaptiveEnabled = useRef(performanceMode)
   const [lightingShadows, setLightingShadows] = useState<'full' | 'structural'>('full')
   function changePerformanceMode(value: boolean) {
+    if (!import.meta.env.DEV) return
     adaptiveEnabled.current = value; setPerformanceMode(value)
-    adaptiveLighting.reset(); setLightingShadows('full')
-    performanceMonitor.reset(); setPerformanceSnapshot(null)
+    adaptiveLighting?.reset(); setLightingShadows('full')
+    performanceMonitor?.reset(); setPerformanceSnapshot(null)
     try { localStorage.setItem('jumping:lighting-performance-mode', String(value)) } catch { /* Keep the choice for this visit. */ }
   }
   const [performanceSnapshot, setPerformanceSnapshot] = useState<PerformanceSnapshot | null>(null)
   function changePerformance(value: boolean) {
+    if (!import.meta.env.DEV) return
     performanceEnabled.current = value; setShowPerformance(value)
-    performanceMonitor.reset(); setPerformanceSnapshot(null)
+    performanceMonitor?.reset(); setPerformanceSnapshot(null)
     try { localStorage.setItem('jumping:performance-monitor', String(value)) } catch { /* Keep the choice for this visit. */ }
   }
   const [brighterDarkLevels, setBrighterDarkLevels] = useState(() => { try { return localStorage.getItem('jumping:brighter-dark-levels') === 'true' } catch { return false } })
@@ -163,9 +167,9 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
-    if (next !== screenRef.current) { performanceMonitor.reset(); adaptiveLighting.suspend() }
+    if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
     if (next === 'menu' || next === 'building') {
-      setPerformanceSnapshot(null); adaptiveLighting.reset(); setLightingShadows('full')
+      setPerformanceSnapshot(null); adaptiveLighting?.reset(); setLightingShadows('full')
     }
     audio.current?.silence()
     if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
@@ -180,8 +184,8 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
   }, [screen])
   function resetPosition() {
-    performanceMonitor.reset(); setPerformanceSnapshot(null)
-    adaptiveLighting.reset(); setLightingShadows('full')
+    performanceMonitor?.reset(); setPerformanceSnapshot(null)
+    adaptiveLighting?.reset(); setLightingShadows('full')
     if (preparedStart.current?.run) {
       const world = clonePreparedLevel(preparedStart.current)
       run.current = world.run; player.current = world.player!
@@ -339,7 +343,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     changeScreen('complete')
   })
   const handleKey = useEffectEvent((event: KeyboardEvent) => {
-    if (event.code === 'F2' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+    if (import.meta.env.DEV && event.code === 'F2' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
       && (screenRef.current === 'playing' || screenRef.current === 'paused')
       && !(event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]'))) {
       event.preventDefault()
@@ -416,14 +420,14 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     const paint = (dt = 0) => {
       if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
       const level = run.current?.level ?? activeLevel.current
-      const nextRatio = level.lighting ? lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.shadows === 'structural') : Math.min(window.devicePixelRatio || 1, 2)
+      const nextRatio = level.lighting ? lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting?.shadows === 'structural') : Math.min(window.devicePixelRatio || 1, 2)
       if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       if (level.lighting) {
         const camera = gameCamera(width, height, player.current, level, !!run.current)
         const definition = brighterRef.current ? { ...level.lighting, nightMode: nightModeEnabled(level.lighting), ambient: 100 } : level.lighting
         lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), definition,
-          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting.shadows)
+          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting?.shadows ?? 'full')
         return
       }
       lightingStats = null
@@ -448,7 +452,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     window.addEventListener('keydown', handleKey); window.addEventListener('keyup', keyup)
     window.addEventListener('blur', suspend); document.addEventListener('visibilitychange', visibility)
     const tick = (now: number) => {
-      const measuring = performanceEnabled.current && screenRef.current === 'playing' && !document.hidden
+      const measuring = import.meta.env.DEV && performanceEnabled.current && screenRef.current === 'playing' && !document.hidden
       const started = measuring ? performance.now() : 0
       let steps = 0
       const dt = previous ? Math.min(.05, (now - previous) / 1000) : 0; previous = now
@@ -471,18 +475,18 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
         sound.update(audioState.drain())
       } else { accumulator = 0; motion?.reset() }
       const lighting = (run.current?.level ?? activeLevel.current).lighting
-      if (adaptiveEnabled.current && input && lighting && nightModeEnabled(lighting) && !document.hidden) {
+      if (adaptiveLighting && adaptiveEnabled.current && input && lighting && nightModeEnabled(lighting) && !document.hidden) {
         const before = adaptiveLighting.shadows, after = adaptiveLighting.observe(now)
-        if (after !== before) { setLightingShadows(after); performanceMonitor.reset() }
-      } else adaptiveLighting.suspend()
+        if (after !== before) { setLightingShadows(after); performanceMonitor?.reset() }
+      } else adaptiveLighting?.suspend()
       const updated = measuring ? performance.now() : 0
       paint(input ? dt : 0)
       if (measuring && input && screenRef.current === 'playing') {
-        const summary = performanceMonitor.record(now, updated - started, performance.now() - updated, steps)
+        const summary = performanceMonitor?.record(now, updated - started, performance.now() - updated, steps)
         if (summary) setPerformanceSnapshot({ ...summary, width: canvas.width, height: canvas.height, scale: ratio,
-          dpr: window.devicePixelRatio || 1, shadows: adaptiveLighting.shadows,
+          dpr: window.devicePixelRatio || 1, shadows: adaptiveLighting?.shadows ?? 'full',
           lighting: lightingStats && { lights: lightingStats.lights, edges: lightingStats.edges, bufferBytes: lightingStats.bufferBytes, backend: lightingStats.backend } })
-      } else performanceMonitor.reset()
+      } else performanceMonitor?.reset()
       if (now - published > 80) {
         const p = player.current
         setMetrics({ state: run.current?.exit ? 'Entering the exit' : run.current?.goalLit ? 'Exit open' : playerState(p),
@@ -505,7 +509,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   return <div className="jumping-game" ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: activate the goal` : 'Untitled Jumping Game movement playground'} />
     {screen === 'playing' && <>
-      {showPerformance && <PerformancePanel snapshot={performanceSnapshot} />}
+      {import.meta.env.DEV && showPerformance && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
@@ -523,7 +527,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       testing={testing} saveError={saveError} onNext={!testing && campaignIndex >= 0 && nextFile ? () => playFile(nextFile, playingFile.collection as 'built-in' | 'local') : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog brighterDarkLevels={brighterDarkLevels} onBrightnessChange={changeBrightness} name={challenge ? trial.name : activeLevel.current.name} reason={pauseReason}
-      showPerformance={showPerformance} onPerformanceChange={changePerformance} performancePanel={showPerformance ? <PerformancePanel snapshot={performanceSnapshot} paused /> : null}
+      showPerformance={showPerformance} onPerformanceChange={changePerformance} performancePanel={import.meta.env.DEV && showPerformance ? <PerformancePanel snapshot={performanceSnapshot} paused /> : null}
       performanceMode={performanceMode} onPerformanceModeChange={changePerformanceMode} objectShadows={lightingShadows === 'full'}
       connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}

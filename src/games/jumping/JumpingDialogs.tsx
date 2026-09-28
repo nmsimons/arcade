@@ -49,13 +49,17 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
             <button onClick={onRestart}>{challenge ? 'Restart level' : 'Reset position'} <RestartIcon /></button>
             <button onClick={onLevels}>Level menu</button>
             <button onClick={() => setControls(true)}>Controls</button>
+            {import.meta.env.DEV && <>
             <button role="switch" aria-checked={showPerformance} aria-label="Performance monitor" title="Toggle performance monitor (F2)" onClick={() => onPerformanceChange(!showPerformance)}>Performance monitor <span>{showPerformance ? 'On' : 'Off'}</span></button>
             <button role="switch" aria-checked={performanceMode} aria-label="Lighting performance mode" aria-describedby="jumping-performance-mode-help" onClick={() => onPerformanceModeChange(!performanceMode)}>Lighting performance mode <span>{performanceMode ? 'On' : 'Off'}</span></button>
+            </>}
           </nav>
+          {import.meta.env.DEV && <>
           <p id="jumping-performance-mode-help" className="jumping-performance-mode-help">{performanceMode
             ? `${objectShadows ? 'Full quality is on. After two seconds below 35 FPS, object shadows switch off and rendering resolution drops for this run.' : 'Object shadows are off for this run, and rendering resolution is reduced.'} Walls and mechanisms still cast shadows. Restart or turn this mode off to restore full quality.`
             : 'Full quality. Enable to reduce object shadows and rendering resolution during sustained low frame rates.'}</p>
           {performancePanel}
+          </>}
         </>}
       </div>
       {!controls && <nav className="jumping-dialog-actions jumping-pause-destinations" aria-label="Other destinations">

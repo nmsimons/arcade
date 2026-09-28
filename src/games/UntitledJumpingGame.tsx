@@ -1,3 +1,7 @@
+import { nightModeEnabled } from './jumping/ambientLight'
+import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
+import { playgroundLightingWorld } from './jumping/lightingModel'
+import { gameCamera } from './jumping/camera'
 import { levelTerrain } from './jumping/level'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -101,6 +105,14 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const run = useRef<Run | null>(initialRun)
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
   const audio = useRef<JumpingSoundSession | null>(null)
+  const paintFrame = useRef<() => void>(() => {})
+  const [lightingRenderer] = useState(() => new LightingRenderer())
+  const [brighterDarkLevels, setBrighterDarkLevels] = useState(() => { try { return localStorage.getItem('jumping:brighter-dark-levels') === 'true' } catch { return false } })
+  const brighterRef = useRef(brighterDarkLevels)
+  function changeBrightness(value: boolean) {
+    brighterRef.current = value; setBrighterDarkLevels(value)
+    try { localStorage.setItem('jumping:brighter-dark-levels', String(value)) } catch { /* Keep the preference for this visit. */ }
+  }
   const [audioState] = useState(() => new JumpingAudioState())
   const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
   const [challenge, setChallenge] = useState(true)
@@ -130,6 +142,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
     jumpQueue.current = []; keyboardJump.current = false
     screenRef.current = next; setScreen(next)
+    if (next === 'building' || next === 'menu') lightingRenderer.release()
     if (next === 'paused') setPauseReason(reason ?? '')
   }
   useLayoutEffect(() => {
@@ -139,6 +152,8 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     if (preparedStart.current?.run) {
       const world = clonePreparedLevel(preparedStart.current)
       run.current = world.run; player.current = world.player!
+      lightingRenderer.state.reset()
+      if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
     }
     else respawn(player.current)
     keys.current.clear(); controller.reset()
@@ -155,10 +170,12 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       preparedStart.current = prepared
       const world = clonePreparedLevel(prepared)
       run.current = world.run; player.current = world.player!
+      lightingRenderer.state.reset()
+      if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
       activePlayKey.current = location.key
       if (world.run) { setTrial(world.run.level); setRecordKey(key) }
       else { activeLevel.current = world.level; terrain.current = levelTerrain(world.level); rules.current = levelRules(world.level) }
-      setChallenge(!!world.run); setTesting(fromBuilder); setSaveError(false); changeScreen('playing')
+      setChallenge(!!world.run); setTesting(fromBuilder); setSaveError(false); changeScreen('playing'); paintFrame.current()
     } catch (error) {
       if (controller.signal.aborted) return
       activePlayKey.current = ''; changeScreen('menu'); setTesting(false)
@@ -355,11 +372,23 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     audio.current = sound
     audioState.reset(player.current, run.current)
     let width = 0, height = 0, ratio = 1, frame = 0, previous = 0, accumulator = 0, published = 0
-    const paint = () => {
+    const paint = (dt = 0) => {
+      if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
+      const level = run.current?.level ?? activeLevel.current
+      const nextRatio = level.lighting ? lightingPixelRatio(width, height, window.devicePixelRatio || 1) : Math.min(window.devicePixelRatio || 1, 2)
+      if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+      if (level.lighting) {
+        const camera = gameCamera(width, height, player.current, level, !!run.current)
+        const definition = brighterRef.current ? { ...level.lighting, nightMode: nightModeEnabled(level.lighting), ambient: 100 } : level.lighting
+        lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), definition,
+          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
+        return
+      }
       if (run.current) drawChallenge(ctx, width, height, run.current)
       else drawPlayground(ctx, width, height, player.current, activeLevel.current)
     }
+    paintFrame.current = paint
     const resize = () => {
       const rect = canvas.getBoundingClientRect(); width = rect.width; height = rect.height
       ratio = Math.min(window.devicePixelRatio || 1, 2)
@@ -395,7 +424,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
         }
         sound.update(audioState.drain())
       } else { accumulator = 0; motion?.reset() }
-      paint()
+      paint(input ? dt : 0)
       if (now - published > 80) {
         const p = player.current
         setMetrics({ state: run.current?.exit ? 'Entering the exit' : run.current?.goalLit ? 'Exit open' : playerState(p),
@@ -406,13 +435,13 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     }
     frame = requestAnimationFrame(tick)
     return () => {
-      sound.dispose(); audio.current = null
+      sound.dispose(); audio.current = null; lightingRenderer.dispose(); paintFrame.current = () => {}
       if (motionView && debugWindow.jumpingMotion === motionView) delete debugWindow.jumpingMotion
       cancelAnimationFrame(frame); observer.disconnect()
       window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', suspend); document.removeEventListener('visibilitychange', visibility)
     }
-  }, [audioState])
+  }, [audioState, lightingRenderer])
 
   const manifestPrompt = missingManifestPrompt(local)
   return <div className="jumping-game" ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
@@ -434,7 +463,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     {screen === 'complete' && <JumpingResultDialog level={trial} elapsed={result.elapsed} medal={result.medal} best={best}
       testing={testing} saveError={saveError} onNext={!testing && campaignIndex >= 0 && nextFile ? () => playFile(nextFile, playingFile.collection as 'built-in' | 'local') : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
-    {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevel.current.name} reason={pauseReason}
+    {!preparing && screen === 'paused' && <JumpingPauseDialog brighterDarkLevels={brighterDarkLevels} onBrightnessChange={changeBrightness} name={challenge ? trial.name : activeLevel.current.name} reason={pauseReason}
       connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label="Untitled Jumping Game" focusKey="jumping-menu"

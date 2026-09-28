@@ -14,13 +14,14 @@ const OBJECT_NOTES: Partial<Record<Tool, string>> = {
   gate: 'Gates are 20 units thick. Vertical gates rise by their own height while activated.',
   'horizontal-gate': 'Horizontal gates are 20 units thick. Releasing the plate closes either kind of gate. If closing catches the player or an object, the gate reopens and waits for the path to clear.',
   plate: 'Add an elevator, moving platform, or gate before connecting it. One plate can activate several mechanisms.',
+  light: 'Night mode and Ambient light belong to Level settings. Night mode off is fully lit. When on, ambient 0–100 smoothly adjusts brightness from 35% to 57%, keeping spotlights distinct. Turning Night mode off preserves the ambient value and lamps. Direction is clockwise: 0 right, 90 down. Always on lights work until an EMP; Switched lights use one or more pressure plates or coin switches. Mount follows an elevator or gate. Hold to preview and the canvas Lighting toggle never change saved settings.',
   timer: 'The timer stops when the player enters the open exit.',
   text: 'Official uses clean lettering; Graffiti uses red marker lettering. Rotation turns the text around the center of its area, in degrees. Resize handles follow the rotated area. Text wraps inside its area; resize it to show more lines.',
   stopwatch: 'Each watch adds 10 seconds to the remaining pause. Collected watches return on restart.',
   'time-bonus': 'Seconds off sets the number inside the arrow, from 1 to 9. Collection subtracts that many elapsed seconds, stopping at zero. Any unused seconds are lost. Restarting restores the item.',
   'time-penalty': 'Seconds added sets the number inside the clockwise arrow, from 1 to 9. Collection immediately adds that many seconds, even while the clock is frozen. Restarting restores the item.',
   'fast-stopwatch': 'The clock runs at double speed for 5 seconds of gameplay. Extra fast watches extend the duration, never the speed. A normal stopwatch freezes the clock while both effects count down. Pausing the game pauses both effects; restarting clears them.',
-  emp: 'Cuts power for 5 seconds. Gates, elevators, moving platforms, and shovebots stop in place, then resume. The exit and clock keep working. Coins still fill their switches, but a full switch waits for power before activating. Activated coin switches stay latched. Extra EMPs add 5 seconds; pausing pauses the outage, and restarting clears it.',
+  emp: 'Cuts power for 5 seconds. Gates, elevators, moving platforms, and shovebots stop in place, then resume. Spotlights fade off while ambient light stays unchanged. The exit and clock keep working. Coins still fill their switches, but a full switch waits for power before activating. Activated coin switches stay latched. Extra EMPs add 5 seconds; pausing pauses the outage, and restarting clears it.',
 }
 const SHORTCUTS = [
   { group: 'Tools', items: [['V', 'Pointer'], ['N', 'Node'], ['P / R / L', 'Terrain / Rope / Ladder'], ['Esc', 'Clear selection and return to Pointer'], ['F1', 'Open Help']] },

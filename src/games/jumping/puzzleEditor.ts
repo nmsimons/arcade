@@ -10,7 +10,18 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
   return { ...defaults, ...copyLevel(level), height: Math.max(floor + 120, level.height ?? 1040), floor,
     goal: snapToGround(level, level.width - 160, level.spawn.y), times: defaults.times, props: [], mechanisms: [], triggers: [], robots: [] }
 }
-export function copyForEditing(level: JumpLevel): JumpLevel { return { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` } }
+export function copyForEditing(level: JumpLevel): JumpLevel {
+  const next = { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` }
+  if (next.version === 1) return next
+  const ids = new Map([...(next.mechanisms ?? []), ...(next.lighting?.lights ?? [])].map(item => [item.id, newLevelId()]))
+  for (const item of [...(next.mechanisms ?? []), ...(next.lighting?.lights ?? [])]) item.id = ids.get(item.id)!
+  for (const light of next.lighting?.lights ?? []) if (light.mount) light.mount = ids.get(light.mount) ?? light.mount
+  for (const trigger of next.triggers ?? []) {
+    if (trigger.targets) trigger.targets = trigger.targets.map(id => ids.get(id) ?? id)
+    else if (trigger.target) trigger.target = ids.get(trigger.target) ?? trigger.target
+  }
+  return next
+}
 /** Carve rectangular terrain and provide a bottom floor and a return ladder in one gesture. */
 export function carvePit(source: JumpLevel, start: { x: number; y: number }, end: { x: number; y: number }): PuzzleLevel {
   const level = asTrial(source), x = Math.max(100, Math.min(start.x, end.x)), w = Math.min(level.width - x - 160, Math.max(240, Math.abs(end.x - start.x)))

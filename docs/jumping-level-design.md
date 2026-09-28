@@ -9,9 +9,13 @@ Use this alongside [level files and authoring](jumping-levels.md) and
 [the physics contract](jumping-physics.md). This document describes design intent;
 it does not introduce new mechanics or change the file format.
 
-[Flat lighting](jumping-lighting.md) is a proposed future feature, with an
-object-by-object visibility contract and lighting-specific authoring checks. It
-is not implemented; do not assume lamps or ambient settings work in current maps.
+[Flat lighting](jumping-lighting.md) provides an
+object-by-object visibility contract and lighting-specific authoring checks. Version-2 files support spotlights and per-level ambient light.
+When authoring lighting-enabled levels  place fixtures as part
+of the building and generally let one or two spotlights organize each playable
+area. Enable Night mode for lighting; its ambient 0–100 spans 35–57% brightness.
+Night mode off is fully lit. Zero is a readable baseline, not black;
+the goal's green indicator remains readable without lighting the room.
 
 ## The promise
 

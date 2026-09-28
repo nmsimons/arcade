@@ -1,4 +1,5 @@
-import { TUNING } from './model.ts'
+import { gameCamera } from './camera.ts'
+export { LEVEL_BOTTOM_PADDING } from './camera.ts'
 import type { Platform, Player } from './model.ts'
 import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
 import type { JumpLevel } from './level.ts'
@@ -12,7 +13,6 @@ import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
 
 const ACCENT = '#df633f'
-export const LEVEL_BOTTOM_PADDING = 32
 
 export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: ClimbableWorld) {
   for (const ladder of world.ladders) {
@@ -45,10 +45,19 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[]) {
+  // Fill consecutive terrain of the same material as one compound silhouette.
+  // Separate antialiased fills leave partial coverage along their shared edges.
+  let material: Platform['material'], started = false
   for (const b of platforms) {
-    ctx.fillStyle = terrainFill(ctx, b.material)
-    ctx.beginPath(); polygonPoints(b).forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill()
+    const next = b.material ?? 'stone'
+    if (!started || next !== material) {
+      if (started) ctx.fill()
+      ctx.fillStyle = terrainFill(ctx, next); ctx.beginPath()
+      material = next; started = true
+    }
+    polygonPoints(b).forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath()
   }
+  if (started) ctx.fill()
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player) {
   if (!p.sliding) return
@@ -64,9 +73,7 @@ export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player) {
   ctx.restore()
 }
 export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel) {
-  const zoom = Math.max(.45, Math.min(1.6, height / 760))
-  const x = p.x - width / zoom / 2
-  const y = Math.min(p.y - TUNING.height / 2 - height / zoom / 2, levelHeight(level) - (height - LEVEL_BOTTOM_PADDING) / zoom)
+  const { zoom, x, y } = gameCamera(width, height, p, level, false)
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
   drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, p, level.climbables)

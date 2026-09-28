@@ -1,0 +1,57 @@
+{
+  "level": {
+    "version": 1,
+    "id": "lighting-prototype",
+    "name": "After hours",
+    "width": 1280,
+    "height": 640,
+    "floor": 640,
+    "floorMaterial": "earth",
+    "spawn": { "x": 160, "y": 640 },
+    "checkpoints": [],
+    "goal": { "x": 1150, "y": 640 },
+    "times": { "gold": 25, "silver": 40, "bronze": 60 },
+    "platforms": [
+      { "x": 0, "y": 440, "w": 260, "h": 30, "material": "steel" },
+      { "x": 420, "y": 250, "w": 220, "h": 200, "material": "stone", "polygon": [[0, 0], [220, 0], [220, 200], [190, 200], [190, 30], [30, 30], [30, 200], [0, 200]] },
+      { "x": 760, "y": 200, "w": 210, "h": 50, "material": "chalk", "polygon": [[0, 30], [210, 0], [210, 20], [0, 50]] },
+      { "x": 1020, "y": 460, "w": 100, "h": 20, "material": "steel" }
+    ],
+    "climbables": {
+      "ladders": [{ "x": 276, "top": 440, "bottom": 640, "platform": 0, "side": -1 }],
+      "ropes": [{ "x": 770, "y": 230, "length": 230, "segments": 20 }]
+    },
+    "props": [{ "kind": "box", "x": 700, "y": 640, "size": 90 }, { "kind": "ball", "x": 900, "y": 640, "size": 130 }],
+    "mechanisms": [
+      { "id": "lift", "kind": "lift", "x": 320, "y": 620, "w": 100, "h": 20, "travel": 180 },
+      { "id": "gate", "kind": "gate", "x": 1080, "y": 540, "w": 20, "h": 100, "travel": 100 }
+    ],
+    "triggers": [
+      { "x": 200, "y": 640, "w": 60, "mode": "weight", "target": "lift" },
+      { "x": 1120, "y": 470, "w": 120, "mode": "coins", "threshold": 1, "target": "gate" }
+    ],
+    "robots": [{ "x": 470, "y": 640, "left": 430, "right": 590 }],
+    "timers": [{ "x": 1030, "y": 60 }],
+    "texts": [
+      { "x": 60, "y": 65, "w": 450, "h": 50, "fontSize": 26, "align": "left", "text": "AFTER HOURS", "style": "official" },
+      { "x": 65, "y": 350, "w": 190, "h": 70, "fontSize": 18, "align": "left", "text": "the lights are out.\nyou aren't.", "style": "graffiti", "rotation": -4 }
+    ],
+    "pickups": [
+      { "kind": "coin", "x": 100, "y": 240 },
+      { "kind": "stopwatch", "x": 210, "y": 240 },
+      { "kind": "time-bonus", "x": 320, "y": 240, "seconds": 5 },
+      { "kind": "time-penalty", "x": 100, "y": 310, "seconds": 5 },
+      { "kind": "fast-stopwatch", "x": 210, "y": 310 },
+      { "kind": "emp", "x": 320, "y": 310 },
+      { "kind": "time-bonus", "x": 705, "y": 595, "seconds": 3 }
+    ]
+  },
+  "lighting": {
+    "ambient": 0,
+    "lights": [
+      { "id": "spot-left", "x": 280, "y": 180, "intensity": 85, "direction": 90, "spread": 140, "power": "always" },
+      { "id": "spot-middle", "x": 750, "y": 490, "intensity": 85, "direction": 160, "spread": 100, "power": "always" },
+      { "id": "spot-right", "x": 1140, "y": 190, "intensity": 100, "direction": 115, "spread": 70, "power": "always" }
+    ]
+  }
+}

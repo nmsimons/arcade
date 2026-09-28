@@ -16,6 +16,7 @@ const NoExitGame = lazy(() => import('./games/NoExitGame').then(m => ({ default:
 const SlingLoadGame = lazy(() => import('./games/SlingLoadGame').then(m => ({ default: m.SlingLoadGame })))
 const UrbanFireGame = lazy(() => import('./games/UrbanFireGame').then(m => ({ default: m.UrbanFireGame })))
 const UntitledJumpingGame = lazy(() => import('./games/UntitledJumpingGame').then(m => ({ default: m.UntitledJumpingGame })))
+const LightingLab = import.meta.env.DEV ? lazy(() => import('./games/jumping/LightingLab')) : null
 
 export default function App() {
   const navigate = useNavigate()
@@ -84,6 +85,7 @@ export default function App() {
       <Route path="/bumper-ball" element={<GameViewport><KickballGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
       <Route path="/sling-load" element={<GameViewport><SlingLoadGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
       <Route path="/hello-world" element={<GameViewport><HelloWorldGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
+      {LightingLab && <Route path="/untitled-jumping-game/lighting-lab" element={<LightingLab />} />}
       <Route path="/untitled-jumping-game/*" element={<GameViewport><UntitledJumpingGame onExit={onExit} /></GameViewport>} />
 
       {/* Back-compat redirects */}

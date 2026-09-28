@@ -57,8 +57,8 @@ test('the player casts a moving shadow, keeps readable ink, and releases light w
     Object.assign(h.run.player, { x: 500, y: 400, grounded: true })
     const head = athletePose(h.run.player).head, x = 500 + head[0], y = 400 + head[1]
     const light = { id: 'side', x: x - 100, y, intensity: 100, power: 'always', direction: 0, spread: 120 }
-    h.run.level.platforms = [{ x: x + 85, y: y - 30, w: 40, h: 60 }]; h.run.terrain = h.run.level.platforms
-    const pixel = frame => h.pixel(frame, x + 100, y)
+    h.run.level.platforms = [{ x: x + 25, y: y - 30, w: 15, h: 60 }]; h.run.terrain = h.run.level.platforms
+    const pixel = frame => h.pixel(frame, x + 30, y)
     const full = h.render(100), ambient = h.render(0), standing = h.render(0, [light])
     h.run.player.crouch = 1
     const crouched = h.render(0, [light])
@@ -236,7 +236,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
   }
 })
 
-test('spotlights reach distant viewports without fading, with offscreen shadows preserved', async ({ page }) => {
+test('spotlights reach distant viewports; offscreen structures still block while object shadows fade', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -247,11 +247,14 @@ test('spotlights reach distant viewports without fading, with offscreen shadows 
     h.view.x = 10000
     for (const spread of [40, 120]) {
       h.run.props = []
+      h.run.level = { ...h.run.level, platforms: [{ x: 10050, y: 60, w: 1400, h: 80 }] }; h.run.terrain = h.run.level.platforms
       const source = { id: 'distant', x: 300, y: 100, intensity: 100, power: 'always', direction: 0, spread }
       const bright = h.render(100), lit = h.render(20, [source])
       h.run.props = [box]
+      const faded = h.render(20, [source])
+      h.run.props = []; h.run.level = { ...h.run.level, platforms: [...h.run.level.platforms, { x: 5960, y: 60, w: 80, h: 80 }] }; h.run.terrain = h.run.level.platforms
       const shadow = h.render(20, [source]), ambient = h.render(20)
-      results.push({ near: h.pixel(lit, 10101, 101), far: h.pixel(lit, 11101, 101),
+      results.push({ faded: h.pixel(faded, 11101, 101), near: h.pixel(lit, 10101, 101), far: h.pixel(lit, 11101, 101),
         original: h.pixel(bright, 11101, 101), shadow: h.pixel(shadow, 11101, 101), ambient: h.pixel(ambient, 11101, 101) })
     }
     h.renderer.dispose(); return results
@@ -259,6 +262,7 @@ test('spotlights reach distant viewports without fading, with offscreen shadows 
   for (const result of results) {
     expect(result.near).toEqual(result.original)
     expect(result.far).toEqual(result.original)
+    expect(result.faded).toEqual(result.original)
     expect(result.shadow).toEqual(result.ambient)
     expect(result.shadow[0]).toBeLessThan(result.far[0])
   }

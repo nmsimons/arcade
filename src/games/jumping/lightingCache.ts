@@ -3,7 +3,7 @@ import type { CasterGroup } from './lightingModel.ts'
 
 const samePoints = (a?: readonly Vec[], b?: readonly Vec[]) => a === b || !!a && !!b
   && a.length === b.length && a.every((p, i) => p[0] === b[i][0] && p[1] === b[i][1])
-const sameCaster = (a: CasterGroup, b: CasterGroup) => a === b || a.opacity === b.opacity
+const sameCaster = (a: CasterGroup, b: CasterGroup) => a === b || a.opacity === b.opacity && a.fadingShadow === b.fadingShadow
   && a.length === b.length && a.every((s, i) => {
     const t = b[i]
     return s.x === t.x && s.y === t.y && s.w === t.w && s.h === t.h

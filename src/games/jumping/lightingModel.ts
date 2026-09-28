@@ -18,7 +18,7 @@ import type { CornerRadii } from './mechanismAppearance.ts'
 import type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
 export type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
 export interface LightSource extends LevelLight { fade: number }
-export type CasterGroup = readonly Platform[] & { opacity?: number; player?: true; mechanism?: true; boundary?: readonly TerrainEdge[] }
+export type CasterGroup = readonly Platform[] & { opacity?: number; fadingShadow?: true; player?: true; mechanism?: true; boundary?: readonly TerrainEdge[] }
 export type LightingWorld = Run | { level: JumpLevel; player: Player; props: []; mechanisms: []; robots: []; triggers: []; empRemaining: number; exit: null }
 export const playgroundLightingWorld = (level: JumpLevel, player: Player): LightingWorld => ({ level, player, props: [], mechanisms: [], robots: [], triggers: [], empRemaining: 0, exit: null })
 export const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
@@ -47,6 +47,20 @@ export function combineExposure(ambient: number, contributions: readonly number[
 export function sourceCovered(light: Pick<LevelLight, 'x' | 'y'>, groups: readonly CasterGroup[]) {
   return groups.some(group => (group.opacity ?? 1) === 1 && group.some(shape => pointInside(shape, light.x, light.y)))
 }
+// Fade only free objects' projected shadows. Structural blockers stay opaque.
+// Measure along the light rays, beyond the farthest point of the whole silhouette,
+// so adjoining body parts share one fade and contact shadows remain solid.
+export function shadowFadeRange(light: Pick<LevelLight, 'x' | 'y'>, group: CasterGroup) {
+  if (!group.fadingShadow || !group.length) return undefined
+  let farthest = 0
+  for (const shape of group) for (const [x, y] of polygonPoints(shape)) {
+    farthest = Math.max(farthest, Math.hypot(x - light.x, y - light.y))
+  }
+  return { start: farthest + 40, end: farthest + 280 }
+}
+export const shadowFadeOpacity = (distance: number, range: { start: number; end: number }) =>
+  1 - smooth((distance - range.start) / (range.end - range.start))
+
 export function exposureAt(ambient: number, sources: readonly LightSource[], groups: readonly CasterGroup[], x: number, y: number, bounds?: { width: number; height: number }) {
   if (bounds && (x < 0 || y < 0 || x >= bounds.width || y >= bounds.height)) return combineExposure(ambient, [])
   return combineExposure(ambient, sources.map(light => {
@@ -55,7 +69,10 @@ export function exposureAt(ambient: number, sources: readonly LightSource[], gro
     return groups.reduce((transmission, group) => {
       const blocked = group.boundary ? terrainShadowsPoint(light, group.boundary, x, y)
         : !group.some(shape => pointInside(shape, x, y)) && lineBlocked([light.x, light.y], [x, y], group)
-      return blocked ? transmission * (1 - (group.opacity ?? 1)) : transmission
+      if (!blocked) return transmission
+      const range = shadowFadeRange(light, group)
+      const fade = range ? shadowFadeOpacity(Math.hypot(x - light.x, y - light.y), range) : 1
+      return transmission * (1 - (group.opacity ?? 1) * fade)
     }, value)
   }))
 }
@@ -132,10 +149,10 @@ function roundedCaster(rect: Platform, radius: number | CornerRadii): Platform {
 export function dynamicCasters(run: LightingWorld): CasterGroup[] {
   const corners = mechanismCornerRadii(run)
   const opacity = run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
-  return [...run.props.map(prop => [prop.kind === 'ball' ? ballShape(prop) : roundedCaster(boxShape(prop), 2)]),
+  return [...run.props.map(prop => Object.assign([prop.kind === 'ball' ? ballShape(prop) : roundedCaster(boxShape(prop), 2)], { fadingShadow: true as const })),
     ...run.mechanisms.map((m, i) => Object.assign([roundedCaster({ x: m.x, y: m.y, w: m.definition.w, h: m.definition.h }, corners[i])], { mechanism: true as const })),
-    ...run.robots.map(robot => robotPlatforms(robot).map((shape, i) => i === 0 ? roundedCaster(shape, 4) : shape)),
-    ...(opacity > 0 ? [Object.assign(athleteCasters(run.player), { player: true as const, opacity })] : [])]
+    ...run.robots.map(robot => Object.assign(robotPlatforms(robot).map((shape, i) => i === 0 ? roundedCaster(shape, 4) : shape), { fadingShadow: true as const })),
+    ...(opacity > 0 ? [Object.assign(athleteCasters(run.player), { player: true as const, fadingShadow: true as const, opacity })] : [])]
 }
 export class LightingState {
   private fades = new Map<string, number>()

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, exposureAt, groupTerrain, lightContribution, lightReachesView, LightingState, shadowQuad, sourceCovered, staticCasters } from '../src/games/jumping/lightingModel.ts'
+import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, exposureAt, groupTerrain, lightContribution, lightReachesView, LightingState, shadowFadeRange, shadowQuad, sourceCovered, staticCasters } from '../src/games/jumping/lightingModel.ts'
 import { pointInside, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { robotPlatforms } from '../src/games/jumping/robotPhysics.ts'
 import { createPreviewRun } from '../src/games/jumping/challenge.ts'
@@ -37,7 +37,7 @@ test('player shadows fade with the exiting figure and do not add a collider', ()
   for (const [elapsed, expected] of [[0, .35], [.5, .675], [.75, 1]]) {
     world.exit = { elapsed }
     const groups = dynamicCasters(world).filter(group => group.player)
-    close(exposureAt(0, [source], groups, x + 100, y), expected)
+    close(exposureAt(0, [source], groups, x + 30, y), expected)
   }
   assert.equal(JSON.stringify(world.terrain), before)
 })
@@ -223,4 +223,22 @@ test('cone culling rejects only views outside the cone and keeps unlimited dista
       for (const dx of [0, 75, 150]) for (const dy of [0, 75, 150]) assert.ok(lightContribution(source, x + dx, y + dy) < 1e-10)
     }
   }
+})
+
+
+test('free-object shadows keep contact contrast then fade with world distance; structures stay opaque', () => {
+  const shape = { x: 80, y: -20, w: 40, h: 40 }, source = light()
+  const group = Object.assign([shape], { fadingShadow: true })
+  const range = shadowFadeRange(source, group)
+  for (const [distance, expected] of [[range.start - 1, .35], [(range.start + range.end) / 2, .675], [range.end + 1, 1]]) {
+    close(exposureAt(0, [source], [group], distance, 0), expected)
+  }
+  // Side edges are still crisp and a structural shadow cannot be filled by a faded prop.
+  close(exposureAt(0, [source], [group], 160, 80), 1)
+  const wall = groupTerrain([{ x: 50, y: -100, w: 20, h: 200 }])
+  close(exposureAt(0, [source], [...wall, group], range.end + 100, 0), .35)
+  close(exposureAt(0, [source], [Object.assign([...group], { fadingShadow: true, opacity: .5 })], (range.start + range.end) / 2, 0), .8375)
+  const world = run(), groups = dynamicCasters(world)
+  assert.equal(groups.filter(group => group.fadingShadow).length, world.props.length + world.robots.length + 1)
+  assert.ok(groups.filter(group => group.mechanism).every(group => !shadowFadeRange(source, group)))
 })

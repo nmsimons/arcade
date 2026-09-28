@@ -11,7 +11,7 @@ import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
 import { emissionPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
-import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
+import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, lightReachesView, LightingState, shadowFadeOpacity, shadowFadeRange, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
@@ -179,6 +179,20 @@ export class LightingRenderer {
             shadow.ctx.globalCompositeOperation = 'destination-out'; shadow.ctx.beginPath()
             for (const shape of candidates) polygonPath(shadow.ctx, polygonPoints(shape))
             shadow.ctx.fill()
+          }
+          const range = shadowFadeRange(light, group)
+          if (range) {
+            const x = (light.x - view.x) * view.zoom, y = (light.y - view.y) * view.zoom
+            shadow.ctx.resetTransform(); shadow.ctx.globalCompositeOperation = 'destination-in'
+            shadow.ctx.fillStyle = this.gradient(`shadow:${x}:${y}:${range.start}:${range.end}:${view.zoom}`, () => {
+              const gradient = shadow.ctx.createRadialGradient(x, y, range.start * view.zoom, x, y, range.end * view.zoom)
+              for (let i = 0; i <= 16; i++) {
+                const t = i / 16
+                gradient.addColorStop(t, `rgba(255,255,255,${shadowFadeOpacity(range.start + t * (range.end - range.start), range)})`)
+              }
+              return gradient
+            })
+            shadow.ctx.fillRect(0, 0, width, height)
           }
           lamp.ctx.globalCompositeOperation = 'destination-out'; lamp.ctx.globalAlpha = group.opacity ?? 1
           lamp.ctx.drawImage(shadow.canvas, 0, 0); lamp.ctx.globalAlpha = 1

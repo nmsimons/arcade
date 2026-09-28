@@ -301,3 +301,14 @@ GPU timings or a general frame-rate guarantee; the unchanged frame interval is
 already near the display's 60 Hz cadence. Reproduce with
 `LIGHTING_CHANNEL=chromium LIGHTING_QUICK=1 LIGHTING_AMBIENT=0` using the benchmark
 script. Moving cameras and large numbers of active mechanisms benefit less.
+
+### Projected object shadow fade
+
+Player, box, ball and bot shadows now keep their crisp contact silhouette for
+40 world units beyond the caster, then fade smoothly over 240 more. Structural
+shadows remain opaque. A radial alpha mask follows light rays using the farthest
+point of the assembled caster, reusing the current scratch canvas and resting
+cache without increasing the buffer count. Browser regressions cover contact,
+midpoint and fully faded receivers at multiple zooms, distant structural blockers,
+and cached/fresh equivalence (within one 8-bit channel step for regrouped
+fractional alpha masks). Lamp intensity still has unlimited reach.

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "first-leap",
   "name": "Second Leap",
   "width": 1304,
@@ -19,7 +19,7 @@
     }
   ],
   "spawn": {
-    "x": 147.08955223880596,
+    "x": 40,
     "y": 1200
   },
   "checkpoints": [],
@@ -45,9 +45,41 @@
     "silver": 6,
     "bronze": 15
   },
-  "props": [],
+  "props": [
+    {
+      "kind": "ball",
+      "x": 175,
+      "y": 1200,
+      "size": 30
+    }
+  ],
   "mechanisms": [],
-  "triggers": [],
+  "triggers": [
+    {
+      "x": 200,
+      "y": 1200,
+      "w": 40,
+      "targets": [
+        "7d131188-8f9e-4b1e-a594-dd763a16b0a7"
+      ],
+      "mode": "touch"
+    }
+  ],
   "robots": [],
-  "timers": []
+  "timers": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "7d131188-8f9e-4b1e-a594-dd763a16b0a7",
+        "x": 740,
+        "y": 720,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched"
+      }
+    ]
+  }
 }

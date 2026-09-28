@@ -56,11 +56,10 @@ This is an object/geometry study, not a campaign level with established medal ti
   and effects, powered bot eyes, and the activated goal lens. Shared paint passes
   preserve the original draw order and translucent effects, including foreground
   occlusion. These readable parts do not illuminate nearby surfaces.
-- Player color depends only on Night mode: warm paper at night, dark ink
-  in daytime. There are no intermediate shades or color fades. Night mode off
-  bypasses environmental lighting.
-  Walking into spotlights or shadows,
-  including the overhead head-shadow case, and toggling EMP cannot change it.
+- The player is near-white in direct light and matches the ball's darker material
+  under ambient light. Spotlights, external shadows and EMP use the same light
+  field as props, including partial coverage. A bounded correction reuses the
+  inverse-light scratch surface. Night mode off bypasses environmental lighting.
   Pose-following player shadows use the same vector skin curves as the artwork,
   flattened to within 0.2 world units. Body parts form one caster group, preserving
   gaps between limbs. Exit shadows fade with the figure. This uses no collision
@@ -84,9 +83,9 @@ nonzero ambient values refer to the former linear scale. Historical 100 means
 fully lit daytime, now controlled by the Night mode toggle. Night zero is unchanged.
 
 `tests/jumping-lighting.test.mjs` covers the field math, shadow geometry, power
-transitions, mount displacement, fixture validity and player inks.
+transitions, mount displacement, fixture validity and player shadows.
 `tests/browser/jumpingLighting.dev.spec.mjs` checks actual Canvas pixels for
-normal environmental rendering at 100 (with the chosen player ink), overlap,
+normal environmental rendering in daytime, overlap,
 source coverage, readable displays, foreground occlusion
 and the EMP/exit relationship, unlimited reach and clipping at the level edges.
 It also checks resolved source markers, isolation without scene mutations, and
@@ -96,10 +95,9 @@ earlier position. Bot pixel tests cover chassis and wheels under narrow and wide
 lights, external shadows, powered eyes and EMP, both facings, tilted poses and
 windup. Distant cone-edge pixels are checked against exposure sampling. Player
 tests compare shadow geometry with the actual artwork across running, crouching
-and airborne poses in both facings, plus shadow movement, exit fades and readable
-ink. Day/night color is checked at eight ambient settings under spotlights,
-self-shadows, obstructions and EMP, including the Night mode transition and readable contrast throughout the remapped
-dark-room range. The integration suite adds editor save/reopen/playtest, nonpersistent preview,
+and airborne poses in both facings, plus shadow movement and exit fades. Canvas
+and GPU checks cover ambient exposure, near-white direct light, ball-matched dark
+contrast, partial shadows, obstructions, EMP and daytime. The integration suite adds editor save/reopen/playtest, nonpersistent preview,
 undo, mounts, file validation, template references, unchanged physics and coin
 latching through EMP. Cache invalidation and high-DPI buffer limits have pixel
 regressions too. The gate suite checks both orientations open/closed, ambient-only

@@ -6,4 +6,7 @@ export const ARCADE_GAMES = [
   { id: 'jumping', path: '/untitled-jumping-game', label: 'Untitled Jumping Game', theme: 'jumping', genre: 'Movement playground', detail: 'Find your stride. Reach a little higher.' },
 ] as const
 export type GameTheme = typeof ARCADE_GAMES[number]['theme']
-export const gameForPath = (path: string) => ARCADE_GAMES.find(game => game.path === path.replace(/^\/games\//, '/'))
+export const gameForPath = (path: string) => {
+  const normalized = path.replace(/^\/games\//, '/')
+  return ARCADE_GAMES.find(game => normalized === game.path || normalized.startsWith(`${game.path}/`))
+}

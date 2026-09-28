@@ -47,12 +47,14 @@ test('airborne beams stay behind clocks, collectibles, wall text and the player'
     const h = await lightingHarness()
     h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []
     h.run.level = { ...h.run.level, platforms: [], timers: [{ x: 650, y: 180 }], triggers: [], climbables: { ropes: [], ladders: [] },
-      texts: [{ x: 800, y: 180, w: 130, h: 50, fontSize: 24, align: 'left', style: 'official', text: 'BEAM' }] }
+      // Larger glyphs provide opaque interiors with Windows and Linux fonts.
+      texts: [{ x: 800, y: 180, w: 130, h: 50, fontSize: 32, align: 'left', style: 'official', text: 'BEAM' }] }
     h.run.terrain = []; h.run.player.x = 980; h.run.player.y = 240
     h.run.pickups = [{ definition: { kind: 'coin', x: 450, y: 200 }, collectedAge: null }]
     const source = { id: 'beam', x: 100, y: 200, intensity: 100, direction: 0, spread: 100, power: 'always' }
-    const base = h.render(0), lit = h.render(0, [source])
-    const samples = [[455, 200], [655, 185], [980, 182]].map(point => ({ base: h.pixel(base, ...point), lit: h.pixel(lit, ...point) }))
+    const base = h.render(0), lit = h.render(0, [source]), full = h.render(100)
+    const samples = [[455, 200], [655, 185]].map(point => ({ base: h.pixel(base, ...point), lit: h.pixel(lit, ...point) }))
+    const player = { base: h.pixel(base, 980, 182), lit: h.pixel(lit, 980, 182), full: h.pixel(full, 980, 182) }
     const text = []
     // Compare opaque glyph interiors; antialiased edges correctly reveal the
     // faint beam behind the text rather than changing the ink itself.
@@ -61,11 +63,14 @@ test('airborne beams stay behind clocks, collectibles, wall text and the player'
       if (pixel.every((c, i) => Math.abs(c - [39, 45, 41][i]) <= 1)) text.push({ base: pixel, lit: h.pixel(lit, x, y) })
     }
     const wall = { base: h.pixel(base, 1000, 300), lit: h.pixel(lit, 1000, 300) }
-    h.renderer.dispose(); return { samples, text, wall }
+    h.renderer.dispose(); return { samples, text, wall, player }
   })
   expect(result.wall.lit[0]).toBeGreaterThan(result.wall.base[0])
   // Allow one channel step from the existing 8-bit exposure compositor.
   for (const sample of result.samples) sample.lit.forEach((c, i) => expect(Math.abs(c - sample.base[i])).toBeLessThanOrEqual(1))
+  // The figure receives the spotlight, but the airborne haze cannot wash it out.
+  result.player.lit.forEach((c, i) => expect(Math.abs(c - result.player.full[i])).toBeLessThanOrEqual(1))
+  expect(result.player.lit[0]).toBeGreaterThan(result.player.base[0])
   expect(result.text.length).toBeGreaterThan(20)
   for (const sample of result.text) sample.lit.forEach((c, i) => expect(Math.abs(c - sample.base[i])).toBeLessThanOrEqual(1))
 })

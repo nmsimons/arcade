@@ -77,7 +77,7 @@ switched, or affected by EMP. It does not change while playing a level.
 
 | Setting | Suggested use, not a guarantee of readability |
 | --- | --- |
-| Night mode off | Full original brightness, dark player ink for version-2 levels. |
+| Night mode off | Full brightness, including the player's near-white grey material. |
 | Night mode on, 60–100 | Lighter dark rooms; spotlights retain strong contrast. |
 | Night mode on, 25–59 | Lamps establish rooms, destinations, and routes. |
 | Night mode on, 1–24 | Separated light pools with a visible underlying layout. |
@@ -85,8 +85,8 @@ switched, or affected by EMP. It does not change while playing a level.
 
 Disabling Night mode preserves ambient and lamps. The ambient controls remain
 visible but disabled until Night mode is on. Toggling is undoable and saved with
-the level. EMP and shadows never reduce the 35% baseline. Readable elements and
-player treatment remain separate from this environmental minimum.
+the level. EMP and shadows never reduce the 35% environmental baseline.
+Readable elements retain their separate minimum exposures.
 
 ### Light shape and boundaries
 
@@ -150,8 +150,8 @@ a physical lighting measurement. Do not mix competing gamma/falloff conventions
 between render paths. Pixels at brightness 1 are unchanged.
 
 Night mode off bypasses the environmental-lighting work. Existing version-1 levels
-without lighting continue to use their original renderer and player color.
-Version-2 levels use the day/night player ink below.
+without lighting continue to use their original renderer. All levels use the same
+near-white grey player material; version-2 lighting changes its exposure.
 Authored lamp fixtures remain visible in daytime, but their pools add no brightness.
 
 ## 4. Object-by-object contract
@@ -200,7 +200,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Wall clock: entire face | Minimum 65% exposure, as described below. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
 | Official wall text | Ambient only. | No. | No. | Unchanged. |
 | Red graffiti | Ambient only, including its red strokes. | No. | No. | Unchanged. |
-| Player | Dedicated flat-silhouette readability treatment below. | Yes, using the current animated silhouette. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
+| Player | Near-white when lit, matching the ball's dark material under ambient light; see below. | Yes, using the current animated silhouette. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
 | Shovebot chassis, wheels, and antenna | Ordinary. | Yes, using chassis and wheels, not the antenna. | No. | Stops; silhouette remains solid and casts shadows. |
 | Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | No headlight or beam. | Eye goes dark, matching existing behavior. |
 | Coin | Full face and edge colors; retains its spin and thickness. | No. | No. | Remains collectible and animated. |
@@ -258,34 +258,28 @@ These are back-wall items. A box, ball, terrain piece, or gate can cover them.
 The self-lit icon, floating number, and pickup ring must retain that same layer
 ordering. Do not render all emissive artwork at the very end of the frame.
 
-### Player readability
+### Player lighting
 
-Simply leaving the grey player fully bright is insufficient: a partly darkened
-wall can become the same grey. Multiplying everything equally can also lose the
-silhouette against the dimmed environment.
+The player's lit material is near-white grey `#e5e7e6`. In ambient-only light,
+match the ball's shaded material `#8f9e98` multiplied by ambient exposure. Using
+near-white at both ends would make the unlit figure disappear into the pale wall.
+Interpolate between these endpoints using the same light field as movable props,
+including partial shadows, overlapping lamps, EMP, and lamp power fades. Daytime
+uses the near-white material. This replaces the earlier full-bright day/night ink
+override.
 
-Choose one of exactly two flat player colors from **authored Night mode alone**:
-warm paper `#f4f2e9` at every night ambient value; dark ink `#303c36` in daytime.
-Do not interpolate between them or fade through intermediate greys. The same
-color covers the whole figure at full exposure; the exit's existing fade still
-multiplies its opacity. The ink changes only when switching to fully lit mode.
-
-Spotlights, shadows (including the player's own), position, and EMP never change
-this color. There is no local brightness sampling, temporal hysteresis,
-or delayed initialization. Toggling Night mode in the study switches
-the ink immediately. Changing ambient does not. Night mode is fixed within a level, so normal movement never
-switches it. This is a readability treatment with no halo or emitted
-light, and no change to pose, contact points, or animation timing.
-
-An overhead head shadow exposed poor contrast in the initial torso-exposure
-experiment. A subsequent continuous ambient-only blend lost the figure against
-the wall around ambient 56 on the former linear scale. The two-ink rule removes that intermediate-grey
-failure. Review both inks against bright spotlight patches as well as shadows;
-it does not guarantee contrast against every possible background.
+The whole posed silhouette is one receiver and caster, so overlapping body parts
+do not shade one another. Other objects can cast partial shadows across the
+figure. There is no player-specific exposure floor, halo, or brightness sampling.
+Reuse the existing inverse-light scratch field for a correction confined to the
+figure's bounds, without another light calculation or framebuffer. Existing exit opacity, pose, contact points, and
+animation timing remain unchanged. Review the figure against both lit and
+shadowed backgrounds when authoring a level; illumination does not guarantee
+contrast against every material.
 
 ## 5. Shadows, receiving surfaces, and coverage
 
-Loose physical objects receive surface shadows. Terrain, gates, elevators,
+The player and loose physical objects receive surface shadows. Terrain, gates, elevators,
 moving platforms, the back-wall grid, and wall artwork receive ambient illumination
 only. They never display another object’s shadow or a spotlight patch. Occlusion also interrupts the
 faint airborne beam in dark rooms; it never subtracts ambient from the wall.
@@ -309,8 +303,8 @@ and room illumination are equivalent queries.
   travel range. A stopped or EMP-disabled object still blocks light.
 - The player casts from the same posed outline used to draw its head, torso,
   arms, hands, legs and feet. Preserve gaps between limbs. Group the silhouette
-  as one caster, so overlapping body parts do not shade one another. Keep its
-  readability treatment independent of this shadow. During the exit animation,
+  as one caster, so overlapping body parts do not shade one another. Its surface
+  receives shadows from other casters. During the exit animation,
   shadow opacity follows the figure's fade. No collision or pose changes.
 - Static and moving occluders are independent of whether the player can currently
   see them. An offscreen lamp or obstruction can affect the visible room.
@@ -631,8 +625,8 @@ Conceptually, each frame consists of:
 4. Render the back wall, terrain, gates, elevators, and moving platforms at
    ambient only. Preserve the established layer order and apply direct light
    only to receiving objects. Keep all minimum-exposure treatments intact.
-5. Render the readable player at its established place in that order and apply
-   existing exit opacity. Composite the faint airborne beam in dark rooms behind
+5. Render the player with the same light field as other receiving objects at its
+   established place in that order, with existing exit opacity. Composite the faint airborne beam in dark rooms behind
    physical objects and readable wall art, preserving the stronger source glow.
    Draw UI and editor overlays outside world lighting.
 
@@ -777,7 +771,8 @@ screenshots support, but do not replace, human review in motion.
 - Correctly lit caster faces; a box shadow on a ball; no bounding-box ball shadow;
   no shadow from triangulation seams, ropes, or ladders. Player shadows follow
   the animated silhouette in both facings, including crouches and jumps, and
-  fade with the exiting figure without changing the player's readable ink.
+  fade with the exiting figure. The player receives ambient, direct light, other
+  objects' shadows, and EMP fades in both Canvas and GPU rendering.
 - Actual gate/lift positions, blocked travel, rotated crates, moving bots,
   offscreen lamps/casters, camera scrolling, zoom, resize, and pixel-ratio changes.
 - Clock normal/stopped/fast/finished states in darkness; all coin-meter states;
@@ -789,8 +784,8 @@ screenshots support, but do not replace, human review in motion.
 - Switched OR logic, shared gate/lamp targets, pressure release during EMP,
   already-latched versus newly-reached coin thresholds, stacked EMPs, spawn EMP,
   time freeze/acceleration, pause/resume, restart, and exit completion.
-- Player color initialization, both day/night inks and the mode toggle, the
-  ambient-56 regression, repeated movement across light/shadow boundaries,
+- Near-white player material in direct light, ball-matched contrast in ambient,
+  partial shadows, the mode toggle, repeated movement across light/shadow boundaries,
   crouching, and exit fade; no changes to physics/poses.
 - Mounted light rest position, obstruction-shortened motion, detach, host delete,
   flip, resize, duplication, target cleanup, and template ID mapping.

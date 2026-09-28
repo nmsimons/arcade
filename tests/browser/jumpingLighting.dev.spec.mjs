@@ -47,7 +47,7 @@ test('player shadow outlines match the actual artwork in standing, running, crou
   expect(result.worstAreaError).toBeLessThan(.035)
 })
 
-test('the player casts a moving shadow, keeps readable ink, and releases light while exiting', async ({ page }) => {
+test('the player receives light, casts a moving shadow, and releases light while exiting', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -74,8 +74,8 @@ test('the player casts a moving shadow, keeps readable ink, and releases light w
   expect(result.crouched).toEqual(result.full)
   expect(result.gone).toEqual(result.full)
   expect(result.outage).toEqual(result.ambient)
-  expectColor(result.ink, result.ambientInk)
-  expect(result.ink).toEqual([244, 242, 233])
+  expectColor(result.ink, [229, 231, 230])
+  expectColor(result.ambientInk, [143, 158, 152].map(channel => Math.round(channel * ambientExposure(0))))
   expect(result.fading[0]).toBeGreaterThan(result.standing[0])
   expect(result.fading[0]).toBeLessThan(result.gone[0])
 })
@@ -97,38 +97,37 @@ test('lighting lab loads independently, exposes keyboard controls, and preserves
   await expect(page.locator('[role="alert"]')).toHaveCount(0)
 })
 
-test('night mode determines player color across ambient settings, spotlights, shadows and EMP', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
-  const results = await page.evaluate(async () => {
+for (const backend of ['canvas', 'gpu']) test(`${backend}: the player receives ambient, spotlights, shadows and EMP like other objects`, async ({ page }) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const results = await page.evaluate(async backend => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { athletePose } = await import('/src/games/jumping/athlete.ts')
-    const h = await lightingHarness(), results = [], box = { ...h.run.props[0], x: 500, y: 250, size: 120, angle: 0 }
+    const h = await lightingHarness({ backend }), results = [], box = { ...h.run.props[0], x: 500, y: 250, size: 120, angle: 0 }
     h.run.level.platforms = []; h.run.terrain = []; h.run.props = []; h.run.mechanisms = []; h.run.robots = []
     const lamp = { id: 'overhead', x: 500, y: 80, intensity: 100, power: 'always', direction: 90, spread: 40 }
-    for (const [ambient, nightMode] of [[0, true], [34, true], [50, true], [56, true], [85, true], [99, true], [100, true], [100, false]]) for (const x of [350, 500]) {
+    for (const [ambient, nightMode] of [[0, true], [50, true], [100, true], [100, false]]) for (const x of [350, 500]) {
       Object.assign(h.run.player, { x, y: 400, grounded: true })
       const { head, hip } = athletePose(h.run.player)
       for (const condition of ['unlit', 'spotlight', 'blocked', 'emp']) {
         h.run.props = condition === 'blocked' ? [box] : []
         h.run.empRemaining = condition === 'emp' ? 5 : 0
         const frame = h.render(ambient, condition === 'unlit' ? [] : [lamp], .2, undefined, nightMode)
-        results.push({ ambient, nightMode, x, condition,
-          head: h.pixel(frame, x + head[0], 400 + head[1]), torso: h.pixel(frame, x + hip[0], 400 + hip[1]),
-          background: h.pixel(frame, x + 32, 400 + head[1]) })
+        results.push({ ambient, nightMode, x, condition, backend: frame.stats.backend,
+          head: h.pixel(frame, x + head[0], 400 + head[1]), torso: h.pixel(frame, x + hip[0], 400 + hip[1]) })
       }
     }
     h.renderer.dispose(); return results
-  })
+  }, backend)
   for (const result of results) {
-    const expected = result.nightMode ? [244, 242, 233] : [48, 60, 54]
+    const lit = !result.nightMode || (result.x === 500 && result.condition === 'spotlight')
+    const expected = lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(result.ambient)))
     for (const part of ['head', 'torso']) result[part].forEach((channel, i) =>
       expect(Math.abs(channel - expected[i]), JSON.stringify(result)).toBeLessThanOrEqual(1))
-    result.head.forEach((channel, i) =>
-      expect(Math.abs(result.background[i] - channel), JSON.stringify(result)).toBeGreaterThan(80))
+    expect(result.backend).toBe(result.nightMode ? backend : 'canvas')
   }
 })
 
-test('daytime uses normal world rendering with dark player ink and no lighting surfaces', async ({ page }) => {
+test('daytime keeps the light grey player material with no lighting surfaces', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -137,12 +136,75 @@ test('daytime uses normal world rendering with dark player ink and no lighting s
     for (const time of [0, .17, .3]) {
       h.run.pickupTime = time; h.run.goalLit = time > 0
       h.run.goalElapsed = time; h.run.pickups[2].collectedAge = time || null
-      const normal = h.normal('rgb(48,60,54)', h.fixture.lighting.lights), lit = h.render(100, h.fixture.lighting.lights)
+      const normal = h.normal(h.fixture.lighting.lights), lit = h.render(100, h.fixture.lighting.lights)
       comparisons.push({ difference: h.difference(normal, lit), bytes: lit.stats.bufferBytes })
     }
     h.renderer.dispose(); return comparisons
   })
   expect(result).toEqual(Array.from({ length: 3 }, () => ({ difference: 0, bytes: 0 })))
+})
+
+test('playground players receive lighting with full or reduced object shadows', async ({ page }) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const samples = await page.evaluate(async () => {
+    const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { playgroundLightingWorld } = await import('/src/games/jumping/lightingModel.ts')
+    const { athletePose } = await import('/src/games/jumping/athlete.ts')
+    const h = await lightingHarness(), samples = []
+    h.run.level = { ...h.run.level, platforms: [], texts: [], climbables: { ladders: [], ropes: [] } }
+    Object.assign(h.run.player, { x: 500, y: 400, grounded: true })
+    const head = athletePose(h.run.player).head, x = 500 + head[0], y = 400 + head[1]
+    const world = playgroundLightingWorld(h.run.level, h.run.player), ctx = h.canvas.getContext('2d')
+    const lamp = { id: 'side', x: x - 100, y, intensity: 100, power: 'always', direction: 0, spread: 120 }
+    for (const shadows of ['full', 'structural']) for (const lit of [false, true]) {
+      h.renderer.render(ctx, world, { nightMode: true, ambient: 50, lights: lit ? [lamp] : [] }, h.view, .2, undefined, false, shadows)
+      samples.push({ lit, pixel: [...ctx.getImageData(Math.floor(x), Math.floor(y - h.view.y), 1, 1).data].slice(0, 3) })
+    }
+    h.renderer.dispose(); return samples
+  })
+  for (const sample of samples) expectColor(sample.pixel, sample.lit ? [229, 231, 230] : [143, 158, 152].map(channel => channel * ambientExposure(50)))
+})
+
+for (const backend of ['canvas', 'gpu']) test(`${backend}: the player matches ball contrast in darkness and receives partial shadows`, async ({ page }, info) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const result = await page.evaluate(async backend => {
+    const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { athletePose } = await import('/src/games/jumping/athlete.ts')
+    const h = await lightingHarness({ backend })
+    h.run.level = { ...h.run.level, platforms: [], texts: [], timers: [], triggers: [], climbables: { ladders: [], ropes: [] } }
+    h.run.terrain = []; h.run.mechanisms = []; h.run.robots = []; h.run.triggers = []; h.run.pickups = []
+    Object.assign(h.run.player, { x: 500, y: 400, grounded: true })
+    const { head, hip } = athletePose(h.run.player), x = 500 + head[0], y = 400 + head[1]
+    const ball = { kind: 'ball', x: 600, y: 400, size: 60, angle: 0 }
+    h.run.props = [ball]
+    const lamp = { id: 'side', x: x - 100, y, intensity: 100, power: 'always', direction: 0, spread: 120 }
+    const comparison = document.createElement('canvas'); comparison.width = 720; comparison.height = 210
+    const ctx = comparison.getContext('2d')
+    const capture = (label, index) => {
+      ctx.fillStyle = '#f4f2e9'; ctx.fillRect(index * 240, 0, 240, 210)
+      ctx.fillStyle = '#303c36'; ctx.font = '16px sans-serif'; ctx.fillText(label, index * 240 + 16, 26)
+      ctx.drawImage(h.canvas, 470, 345, 180, 110, index * 240, 50, 240, 147)
+    }
+    const dark = h.render(0); capture('Ambient only', 0)
+    const lit = h.render(0, [lamp]); capture('In the beam', 1)
+    h.run.props = [ball, { kind: 'box', x: x - 50, y: y + 7, size: 14, angle: 0 }]
+    const partial = h.render(0, [lamp]); capture('Partial shadow', 2)
+    h.run.props = [ball]; h.run.exit = { elapsed: .5 }
+    const fading = h.render(0)
+    h.run.exit.elapsed = .75; const gone = h.render(0)
+    const result = { dark: h.pixel(dark, x, y), ball: h.pixel(dark, 600, 370), wall: h.pixel(dark, 550, y),
+      lit: h.pixel(lit, x, y), partialHead: h.pixel(partial, x, y), partialTorso: h.pixel(partial, 500 + hip[0], 400 + hip[1]),
+      fading: h.pixel(fading, x, y), gone: h.pixel(gone, x, y) }
+    document.body.replaceChildren(comparison)
+    h.renderer.dispose(); return result
+  }, backend)
+  expectColor(result.dark, result.ball)
+  expect(result.wall[0] - result.dark[0]).toBeGreaterThan(25)
+  expectColor(result.lit, [229, 231, 230])
+  expectColor(result.partialHead, result.dark)
+  expectColor(result.partialTorso, result.lit)
+  expectColor(result.fading, result.dark.map((channel, i) => (channel + result.gone[i]) / 2))
+  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-player-and-ball.png`) })
 })
 
 test('darkness preserves pickup color and display exposure without painting through foreground objects', async ({ page }) => {

@@ -17,6 +17,7 @@ import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
+export const BALL_COLOR = '#8f9e98'
 function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number) {
   ctx.fillStyle = '#738575'; ctx.fillRect(x - 3, y - 3, width + 6, 3)
   ctx.fillStyle = active ? '#9bb878' : '#c4a66b'; ctx.fillRect(x, y - 7 + depression * 4, width, 3)
@@ -34,7 +35,7 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
     ctx.restore()
   } else {
     const cy = b.y - r
-    ctx.fillStyle = '#8f9e98'; ctx.beginPath(); ctx.arc(b.x, cy, r, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = BALL_COLOR; ctx.beginPath(); ctx.arc(b.x, cy, r, 0, Math.PI * 2); ctx.fill()
     // A flat marking makes rolling visible without suggesting a shaded sphere.
     ctx.fillStyle = '#667b72'; ctx.beginPath()
     ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
@@ -82,7 +83,7 @@ export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening:
   }
 }
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
-export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all') {
+export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, lights: readonly LightSource[] = [], layer: WorldLayer = 'all') {
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
@@ -148,11 +149,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const r of run.robots) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint)
   if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
-    paint(ctx, 1, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
+    paint(ctx, 0, () => drawAthlete(ctx, p)); ctx.restore()
   }
   else {
     paint(ctx, 0, () => drawMovementEffects(ctx, p))
-    paint(ctx, 1, () => drawAthlete(ctx, p, playerInk))
+    paint(ctx, 0, () => drawAthlete(ctx, p))
   }
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {

@@ -8,20 +8,21 @@ import { gameForPath } from './arcade/games'
 function RouteMessage({ failed, onExit }: { failed?: boolean; onExit: () => void }) {
   const { hint } = useControlHints()
   const { pathname } = useLocation()
-  const game = gameForPath(pathname), theme = game?.theme
-  const surface = theme === 'bumper' ? 'bumper-menu' : theme === 'urban' ? 'urban-menu' : 'menu-surface max-w-lg'
-  const button = theme === 'bumper' ? 'menu-button bumper-button' : theme === 'urban' ? 'urban-button' : 'menu-button'
+  const game = gameForPath(pathname)
   return <KeyboardDialog label={failed ? 'Game unavailable' : 'Loading game'} focusKey={failed ? 'load-failed' : 'loading'} globalMenu onClose={onExit}
-    className={theme === 'bumper' ? 'bumper-overlay' : theme === 'urban' ? 'urban-overlay' : 'menu-overlay'}>
-    <div className={`${surface} route-message space-y-5`}>
-      {game && <p className={theme === 'bumper' ? 'bumper-eyebrow' : theme === 'urban' ? 'urban-eyebrow' : 'menu-eyebrow'}>{game.label}</p>}
-      <h1 role={failed ? 'alert' : 'status'} className="route-message-title text-xl">{failed ? 'This game could not be loaded' : 'Loading game…'}</h1>
-      {failed && <p className="text-sm opacity-80">Check your connection, then reload to try again.</p>}
-      <div className={theme === 'urban' ? 'urban-actions' : 'flex flex-col gap-3'}>
-        {failed && <button className={button} onClick={() => window.location.reload()}>Reload game</button>}
-        <button className={`${button} ${theme === 'bumper' && failed ? 'bumper-button-secondary' : ''}`} onClick={onExit}>Back to game selector</button>
+    className="arcade-overlay arcade-route-overlay">
+    <div className="arcade-route-panel">
+      <header>
+        <p className="arcade-eyebrow">THE ARCADE</p>
+        <h1 role={failed ? 'alert' : 'status'}>{failed ? 'This game could not be loaded' : 'Loading game…'}</h1>
+        {game && <p className="arcade-route-game">{game.label}</p>}
+      </header>
+      {failed && <p className="arcade-route-description">Check your connection, then reload to try again.</p>}
+      <div className="arcade-route-actions">
+        {failed && <button className="arcade-route-button arcade-route-primary" onClick={() => window.location.reload()}>Reload game</button>}
+        <button className="arcade-route-button" onClick={onExit}>Back to game selector</button>
       </div>
-      <p className={theme === 'bumper' ? 'menu-help bumper-help' : theme === 'urban' ? 'menu-help urban-help' : 'menu-help'}>{hint('back', 'Esc')} <span>Back</span></p>
+      <p className="arcade-route-help">{hint('back', 'Esc')} <span>Back</span></p>
     </div>
   </KeyboardDialog>
 }

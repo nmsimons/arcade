@@ -20,10 +20,10 @@ export async function lightingHarness(options) {
     const i = (Math.floor((y - view.y) * view.zoom) * canvas.width + Math.floor((x - view.x) * view.zoom)) * 4
     return [...image.pixels.slice(i, i + 3)]
   }
-  const normal = (playerInk, lights = []) => {
+  const normal = (lights = []) => {
     ctx.save(); ctx.translate(0, 40)
     drawLevelBackdrop(ctx, run.level, { x: 0, y: -40, w: 1280, h: 720 }, 1)
-    drawPuzzleWorld(ctx, run, false, undefined, playerInk, lights.map(l => ({ ...l, fade: 1 }))); ctx.restore()
+    drawPuzzleWorld(ctx, run, false, undefined, lights.map(l => ({ ...l, fade: 1 }))); ctx.restore()
     return { pixels: ctx.getImageData(0, 0, 1280, 720).data }
   }
   const difference = (a, b) => a.pixels.reduce((max, channel, i) => Math.max(max, Math.abs(channel - b.pixels[i])), 0)

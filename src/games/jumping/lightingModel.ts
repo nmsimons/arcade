@@ -1,5 +1,5 @@
 import { ambientExposure } from './ambientLight.ts'
-export { ambientExposure, lightingPlayerInk } from './ambientLight.ts'
+export { ambientExposure } from './ambientLight.ts'
 import type { Run } from './challenge.ts'
 import type { Platform, Player } from './model.ts'
 import type { Vec } from './geometry.ts'

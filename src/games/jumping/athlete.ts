@@ -855,8 +855,9 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
     frontLeg: leg(free.frontLeg, brace.feet[0], -13), backLeg: leg(free.backLeg, brace.feet[1], -17) }
 }
 
-/** A single dark-grey silhouette, shared by every pose and viewing direction. */
-export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e') {
+export const PLAYER_COLOR = '#e5e7e6'
+/** A single near-white grey material, shared by every pose and viewing direction. */
+export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = PLAYER_COLOR) {
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0 } = athletePose(p)
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, 1)
   const backPose = !!p.climbing || backView > 0

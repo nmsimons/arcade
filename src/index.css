@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @import "./menu.css";
 @import "./arcade/arcade.css";
+/* Loading and recovery must be styled before the game chunk arrives. */
+@import "./arcade/routeMessage.css";
 @import "./games/bumperBall/bumperBall.css";
 @import "./games/urbanFire/urbanFire.css";
 

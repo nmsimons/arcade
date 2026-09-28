@@ -11,7 +11,7 @@ import { gameCamera } from './camera.ts'
 import { isHorizontalGate } from './mechanisms.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
 import { robotTop } from './robotPhysics.ts'
-import { paintNormally } from './worldPaint.ts'
+import { ambientPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
@@ -85,10 +85,11 @@ export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening:
 export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all') {
   const { level, player: p } = run
   if (layer !== 'objects') {
-    drawLightFixtures(ctx, lights, paint)
-    paint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
+    const wallPaint = ambientPaint(paint)
+    drawLightFixtures(ctx, lights, wallPaint)
+    wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
-    paint(ctx, .65, () => {
+    wallPaint(ctx, .65, () => {
       ctx.save(); ctx.font = '500 28px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
       const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
       const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
@@ -111,7 +112,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
       for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active)
     })
     // Collectibles belong to the back wall, behind terrain and movable objects.
-    paint(ctx, 1, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime) })
+    wallPaint(ctx, 1, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime) })
   }
   if (layer === 'wall') return
   paint(ctx, 0, () => {
@@ -132,6 +133,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
         for (let x = m.x + 12; x < m.x + d.w - 8; x += 16) ctx.fillRect(x, m.y + d.h * .35, 3, d.h * .3)
       }
     }
+  }, false)
+  paint(ctx, 0, () => {
     for (const [i, plate] of level.triggers.entries()) {
       if (plate.mode === 'coins') continue
       drawPressurePlate(ctx, plate.x, plate.y, plate.w, run.triggers[i].active, run.triggers[i].depression)

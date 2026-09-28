@@ -35,9 +35,9 @@ export function drawLightHaze(ctx: CanvasRenderingContext2D, light: LevelLight &
   ctx.restore()
 }
 
-/** Preserve the reviewed haze at equivalent brightness across the dark-room scale.
- * Disabling night mode bypasses both haze effects in the renderer. */
+/** The airborne cone carries the lighting on ambient-only architecture.
+ * Keep it restrained across the night range; daytime bypasses both effects. */
 export function beamHazeStrength(ambient: number) {
   const t = Math.max(0, Math.min(1, 1 - ambientLightFraction(ambient) / .5))
-  return .025 * t * t * (3 - 2 * t)
+  return .06 * t * t * (3 - 2 * t)
 }

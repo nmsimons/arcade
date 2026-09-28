@@ -1,0 +1,106 @@
+import { test, expect } from './helpers/test.mjs'
+import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
+
+async function play(page, lighting = false) {
+  const level = structuredClone(FIRST_LEVEL)
+  if (lighting) {
+    level.version = 2
+    level.lighting = { nightMode: true, ambient: 25, lights: [] }
+  }
+  await useLevelFixtures(page, [level])
+  await page.goto('/untitled-jumping-game')
+  await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+}
+
+test('performance monitor is opt-in, keeps gameplay focus, freezes on pause and persists its toggle', async ({ page }) => {
+  await play(page)
+  const panel = page.getByRole('complementary', { name: 'Performance monitor' })
+  await expect(panel).toHaveCount(0)
+  await page.keyboard.press('F2')
+  await expect(panel).toContainText('FPS')
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(panel).toContainText('Off')
+  await page.keyboard.press('Escape')
+  const toggle = page.getByRole('switch', { name: 'Performance monitor', exact: true })
+  await expect(toggle).toBeChecked()
+  await expect(panel).toContainText('Paused · last sample')
+  await page.clock.install()
+  const frozen = await panel.innerText()
+  await page.clock.runFor(5000)
+  expect(await panel.innerText()).toBe(frozen)
+  await page.getByRole('button', { name: 'Resume', exact: false }).click()
+  await page.clock.runFor(600)
+  await expect(panel).not.toContainText('Paused')
+  const worst = panel.locator('dl > div').filter({ has: page.getByText('Worst frame', { exact: true }) }).locator('dd')
+  expect(parseFloat(await worst.innerText())).toBeLessThan(100)
+  await page.reload()
+  await expect(panel).toBeVisible()
+  await page.keyboard.press('Escape')
+  await toggle.click()
+  await expect(toggle).not.toBeChecked()
+  await expect(panel).toHaveCount(0)
+  await page.getByRole('button', { name: 'Resume', exact: false }).click()
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(panel).toHaveCount(0)
+})
+
+test('shows actual lighting resolution and fits a narrow viewport', async ({ page }, info) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await play(page, true)
+  await page.keyboard.press('F2')
+  const panel = page.getByRole('complementary', { name: 'Performance monitor' })
+  await expect(panel).toContainText('FPS')
+  const pixels = await page.locator('.jumping-game > canvas').evaluate(canvas => `${canvas.width} × ${canvas.height}`)
+  await expect(panel).toContainText(pixels)
+  await expect(panel).toContainText('0 / 0')
+  const bounds = await panel.boundingBox()
+  expect(bounds.x).toBeGreaterThanOrEqual(0)
+  expect(bounds.x + bounds.width).toBeLessThanOrEqual(390)
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual(844)
+  await page.screenshot({ path: info.outputPath('performance-monitor-mobile.png') })
+  await page.keyboard.press('Escape')
+  await page.getByRole('switch', { name: 'Performance monitor', exact: true }).focus()
+  await page.keyboard.press('Enter')
+  await expect(panel).toHaveCount(0)
+})
+
+test('low FPS only removes object shadows after opting in, and switching off restores them', async ({ page }) => {
+  // Exercise real resizing without rendering hundreds of 2 MP software frames.
+  await page.setViewportSize({ width: 640, height: 360 })
+  await page.addInitScript(() => {
+    localStorage.setItem('jumping:performance-monitor', 'true')
+    Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
+  })
+  await page.clock.install()
+  await play(page, true)
+  await page.evaluate(() => {
+    // Install after Playwright's clock, which also wraps animation callbacks.
+    window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 100)
+    window.cancelAnimationFrame = id => window.clearTimeout(id)
+  })
+  await page.clock.runFor(3000)
+  const panel = page.getByRole('complementary', { name: 'Performance monitor' })
+  const shadows = panel.locator('dl > div').filter({ has: page.getByText('Object shadows', { exact: true }) }).locator('dd')
+  await expect(shadows).toHaveText('On')
+  const fullPixels = await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)
+  await page.keyboard.press('Escape')
+  const mode = page.getByRole('switch', { name: 'Lighting performance mode', exact: true })
+  await expect(mode).not.toBeChecked()
+  await mode.click()
+  await page.getByRole('button', { name: 'Resume', exact: false }).click()
+  await page.clock.runFor(2800)
+  await expect(shadows).toHaveText('Off · adaptive')
+  const reducedPixels = await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)
+  expect(reducedPixels).toBeLessThan(fullPixels)
+  expect(reducedPixels).toBeLessThan(1_005_000)
+  await page.keyboard.press('Escape')
+  await expect(mode).toBeChecked()
+  await expect(page.getByText(/Object shadows are off for this run/)).toBeVisible()
+  await mode.click()
+  await page.getByRole('button', { name: 'Resume', exact: false }).click()
+  await page.clock.runFor(600)
+  await expect(shadows).toHaveText('On')
+  expect(await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)).toBe(fullPixels)
+})

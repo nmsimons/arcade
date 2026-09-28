@@ -22,13 +22,13 @@ test('full beams are faint, constant with distance, and fade across the dark-roo
     const off = delta(h.render(0, [source], .1), base, 11000, 200)
     h.renderer.dispose(); return { samples, distant, fading, off }
   })
-  let previous = 10
+  let previous = 18
   for (const sample of result.samples) {
     expect(sample.outside).toEqual([0, 0, 0])
     expect(sample.near).toEqual(sample.far)
     const strength = Math.max(...sample.far)
     expect(strength).toBeLessThanOrEqual(previous)
-    if (sample.nightMode) { expect(strength).toBeGreaterThan(0); expect(strength).toBeLessThanOrEqual(8) }
+    if (sample.nightMode) { expect(strength).toBeGreaterThan(0); expect(strength).toBeLessThanOrEqual(18) }
     else expect(sample.far).toEqual([0, 0, 0])
     if (sample.nightMode) expect(Math.max(...sample.source)).toBeGreaterThan(strength)
     else expect(sample.source).toEqual([0, 0, 0])

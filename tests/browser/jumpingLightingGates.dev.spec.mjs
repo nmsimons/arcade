@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 
-for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'vertical'} gates shadow terrain and objects and stop the faint airborne beam`, async ({ page }) => {
+for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'vertical'} gates stay ambient-only, shadow objects and stop the airborne beam`, async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async horizontal => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -39,17 +39,18 @@ for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'ver
   expect(result.wall.closed).toEqual(result.wall.ambient)
   result.wall.open.forEach((value, i) => {
     expect(value).toBeGreaterThan(result.wall.ambient[i])
-    expect(value - result.wall.ambient[i]).toBeLessThanOrEqual(8)
+    expect(value - result.wall.ambient[i]).toBeLessThanOrEqual(18)
   })
   expect(result.wall.reclosed).toEqual(result.wall.ambient)
   expect(result.terrain.closed).toEqual(result.terrain.ambient)
   expect(result.terrain.reclosed).toEqual(result.terrain.ambient)
-  expect(result.terrain.open).toEqual(result.terrain.bright)
+  // Removing illumination from a lit surface adds an 8-bit compositing round.
+  result.terrain.open.forEach((value, i) => expect(Math.abs(value - result.terrain.ambient[i])).toBeLessThanOrEqual(1))
   expect(result.box.open).toEqual(result.box.bright)
   result.box.closed.forEach((value, i) => expect(Math.abs(value - result.box.bright[i] * .35)).toBeLessThanOrEqual(2))
 })
 
-test('terrain blocks light on other solids while wall art stays ambient-only', async ({ page }) => {
+test('terrain and wall art stay ambient-only in and out of the beam', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -71,11 +72,11 @@ test('terrain blocks light on other solids while wall art stays ambient-only', a
   })
   for (const point of result.wall) {
     if (point.clock) point.open.forEach((value, i) => expect(Math.abs(value - point.ambient[i])).toBeLessThanOrEqual(1))
-    else point.open.forEach((value, i) => expect(Math.abs(value - point.ambient[i])).toBeLessThanOrEqual(8))
+    else point.open.forEach((value, i) => expect(Math.abs(value - point.ambient[i])).toBeLessThanOrEqual(18))
     expect(point.closed).toEqual(point.ambient)
   }
   expect(result.receiver.closed).toEqual(result.receiver.ambient)
-  expect(result.receiver.open).toEqual(result.receiver.bright)
+  result.receiver.open.forEach((value, i) => expect(Math.abs(value - result.receiver.ambient[i])).toBeLessThanOrEqual(1))
 })
 
 test('gates seal the photographed stepped-floor layout with two spotlights', async ({ page }) => {
@@ -88,6 +89,7 @@ test('gates seal the photographed stepped-floor layout with two spotlights', asy
     Object.assign(h.run, createPreviewRun(level)); h.run.props = []
     h.view.zoom = .65
     const points = [[340, 880], [1420, 900]]
+    h.run.props = points.map(([x, y]) => ({ kind: 'box', x, y: y + 10, size: 20, angle: 0 }))
     const ambient = h.render(0), bright = h.render(100), closed = h.render(0, level.lighting.lights)
     h.run.mechanisms = []
     const open = h.render(0, level.lighting.lights)
@@ -100,7 +102,7 @@ test('gates seal the photographed stepped-floor layout with two spotlights', asy
   }
 })
 
-test('a wall joined to the room boundary shadows the floor beyond it', async ({ page }, testInfo) => {
+test('a wall joined to the room boundary blocks light beyond it while the gate stays ambient', async ({ page }, testInfo) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -108,11 +110,12 @@ test('a wall joined to the room boundary shadows the floor beyond it', async ({ 
     const { parseLevel } = await import('/src/games/jumping/level.ts')
     const h = await lightingHarness(), level = parseLevel(await (await fetch('/tests/fixtures/jumping/lighting-gates.json')).json())
     Object.assign(h.run, createPreviewRun(level)); h.view.zoom = .65
-    const bright = h.render(100), ambient = h.render(0), lit = h.render(0, level.lighting.lights)
-    const seam = { bright: h.pixel(bright, 1356, 690), lit: h.pixel(lit, 1356, 690) }
+    h.run.props = [{ kind: 'box', x: 1530, y: 932, size: 80, angle: 0 }]
+    const ambient = h.render(0), lit = h.render(0, level.lighting.lights)
+    const seam = { ambient: h.pixel(ambient, 1356, 690), lit: h.pixel(lit, 1356, 690) }
     const screenshot = h.canvas.toDataURL('image/png')
-    // These rays cross the wall above the gate. The floor connects to that wall
-    // through the outer boundary, but must still receive its shadow.
+    // These rays cross the wall above the gate. The prop beyond it must
+    // remain in shadow even though that wall connects to the floor.
     const points = [[1505, 905], [1520, 908], [1540, 912]]
     const samples = points.map(point => ({ point, ambient: h.pixel(ambient, ...point), lit: h.pixel(lit, ...point) }))
     h.renderer.dispose(); return { samples, seam, screenshot }
@@ -121,7 +124,7 @@ test('a wall joined to the room boundary shadows the floor beyond it', async ({ 
   await writeFile(screenshot, Buffer.from(result.screenshot.split(',')[1], 'base64'))
   await testInfo.attach('connected-wall-shadow', { path: screenshot, contentType: 'image/png' })
   for (const sample of result.samples) expect(sample.lit, JSON.stringify(sample)).toEqual(sample.ambient)
-  expect(result.seam.lit).toEqual(result.seam.bright)
+  expect(result.seam.lit).toEqual(result.seam.ambient)
 })
 
 test('source glow remains stronger than the full beam, fades with EMP, and stops at a nearby gate', async ({ page }) => {
@@ -151,7 +154,7 @@ test('source glow remains stronger than the full beam, fades with EMP, and stops
 })
 
 for (const kind of ['gate', 'lift']) for (const horizontal of [true, false]) {
-  test(`${horizontal ? 'horizontal' : 'vertical'} ${kind} joins terrain only while its surface is continuous`, async ({ page }) => {
+  test(`${horizontal ? 'horizontal' : 'vertical'} ${kind} stays ambient-only through terrain contact and travel, preserving downstream shadows`, async ({ page }) => {
     await page.goto('/untitled-jumping-game/lighting-lab')
     const result = await page.evaluate(async ({ kind, horizontal }) => {
       const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -161,7 +164,8 @@ for (const kind of ['gate', 'lift']) for (const horizontal of [true, false]) {
       h.run.level.climbables = { ropes: [], ladders: [] }; h.run.level.timers = []; h.run.level.triggers = []; h.run.level.texts = []
       const terrain = horizontal ? { x: 300, y: 300, w: 200, h: 40 } : { x: 300, y: 120, w: 40, h: 200 }
       const receiver = horizontal ? { x: 740, y: 300, w: 80, h: 40 } : { x: 300, y: 520, w: 40, h: 40 }
-      h.run.level = { ...h.run.level, platforms: [terrain, receiver] }; h.run.terrain = h.run.level.platforms
+      h.run.level = { ...h.run.level, platforms: [terrain] }; h.run.terrain = h.run.level.platforms
+      h.run.props = [{ kind: 'box', x: receiver.x + receiver.w / 2, y: receiver.y + receiver.h / 2 + 20, size: 40, angle: 0 }]
       const definition = { id: 'moving', kind, x: horizontal ? 500 : 300, y: horizontal ? 300 : 320,
         w: horizontal ? 120 : 40, h: horizontal ? 40 : 120, travel: 120, ...(horizontal ? { orientation: 'horizontal' } : {}) }
       const m = { ...h.run.mechanisms[0], x: definition.x, y: definition.y, definition }
@@ -188,7 +192,7 @@ for (const kind of ['gate', 'lift']) for (const horizontal of [true, false]) {
     }, { kind, horizontal })
     for (const sample of result) {
       expect(sample.cacheDifference).toBe(0)
-      const exposure = sample.gap > 0 ? .35 : 1
+      const exposure = .35
       for (let channel = 0; channel < 3; channel++) {
         expect(Math.abs(sample.lit[channel] - sample.full[channel] * exposure), JSON.stringify(sample)).toBeLessThanOrEqual(2)
         expect(Math.abs(sample.reverse[channel] - sample.reverseFull[channel] * exposure), JSON.stringify(sample)).toBeLessThanOrEqual(2)
@@ -205,7 +209,8 @@ test('an offscreen mechanism cannot remove the visible shadow of a long terrain 
     const h = await lightingHarness()
     h.run.props = []; h.run.robots = []
     const wall = { x: 300, y: 0, w: 20, h: 1200 }, receiver = { x: 600, y: 60, w: 80, h: 80 }
-    h.run.level = { ...h.run.level, height: 1500, floor: 1500, platforms: [wall, receiver] }; h.run.terrain = [wall, receiver]
+    h.run.level = { ...h.run.level, height: 1500, floor: 1500, platforms: [wall] }; h.run.terrain = [wall]
+    h.run.props = [{ kind: 'box', x: receiver.x + 40, y: receiver.y + 80, size: 80, angle: 0 }]
     const definition = { id: 'offscreen', kind: 'lift', x: 320, y: 950, w: 100, h: 20, travel: 100 }
     h.run.mechanisms = [{ x: 320, y: 950, definition }]
     const source = { id: 'lamp', x: 100, y: 100, direction: 0, spread: 100, intensity: 100, power: 'always' }
@@ -225,9 +230,9 @@ test('a flush gate corner leaves no diagonal pinhole shadow through its face', a
     const h = await lightingHarness(), level = parseLevel(await (await fetch('/tests/fixtures/jumping/lighting-gates.json')).json())
     Object.assign(h.run, createPreviewRun(level))
     Object.assign(h.view, { x: 1250, y: 625, zoom: 3 })
-    const bright = h.render(100), lit = h.render(0, level.lighting.lights), failures = []
+    const ambient = h.render(0), lit = h.render(0, level.lighting.lights), failures = []
     for (let x = 1343; x < 1358; x++) for (let y = 684; y < 718; y++) {
-      const expected = h.pixel(bright, x, y), actual = h.pixel(lit, x, y)
+      const expected = h.pixel(ambient, x, y), actual = h.pixel(lit, x, y)
       if (actual.some((value, i) => Math.abs(value - expected[i]) > 2)) failures.push({ x, y, actual, expected })
     }
     const screenshot = h.canvas.toDataURL('image/png')

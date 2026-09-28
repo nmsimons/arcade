@@ -1,23 +1,26 @@
 import { test, expect } from './helpers/test.mjs'
 
-test('terrain and level boundaries form seamless silhouettes at fractional zoom', async ({ page }, info) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
-  const result = await page.evaluate(async () => {
+const seams = [
+  ...['stone', 'earth', 'chalk', 'steel'].map(material => ({ edge: 'floor', material, axis: 'y', boundary: 600,
+    shape: { x: 100, y: 400, w: 800, h: 200, polygon: [[0, 200], [200, 60], [600, 0], [800, 100], [800, 200]], material },
+    cover: { x: 450, y: 580, w: 100, h: 40, material } })),
+  { edge: 'ceiling', material: 'stone', axis: 'y', boundary: 0, shape: { x: 100, y: 0, w: 800, h: 200 }, cover: { x: 450, y: -20, w: 100, h: 40 } },
+  { edge: 'left', material: 'stone', axis: 'x', boundary: 0, shape: { x: 0, y: 100, w: 200, h: 400 }, cover: { x: -20, y: 250, w: 40, h: 100 } },
+  { edge: 'right', material: 'stone', axis: 'x', boundary: 1000, shape: { x: 800, y: 100, w: 200, h: 400 }, cover: { x: 980, y: 250, w: 40, h: 100 } },
+]
+
+for (const seam of seams) test(`${seam.material} ${seam.edge} forms a seamless silhouette at fractional zoom`, async ({ page }, info) => {
+  // Separate materials/boundaries keep each software-rendered sweep bounded.
+  // The inert fixture also avoids running the lab's animation loop in parallel.
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const result = await page.evaluate(async c => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { levelTerrain } = await import('/src/games/jumping/level.ts')
     const h = await lightingHarness(), samples = []
     h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []; h.run.pickups = []
     h.run.level = { ...h.run.level, width: 1000, floor: 600, height: 600, texts: [], timers: [], triggers: [], climbables: { ropes: [], ladders: [] },
       platforms: [{ x: 100, y: 400, w: 800, h: 200, material: 'chalk' }], floorMaterial: 'chalk' }
-    const cases = [
-      ...['stone', 'earth', 'chalk', 'steel'].map(material => ({ edge: 'floor', material, axis: 'y', boundary: 600,
-        shape: { x: 100, y: 400, w: 800, h: 200, polygon: [[0, 200], [200, 60], [600, 0], [800, 100], [800, 200]], material },
-        cover: { x: 450, y: 580, w: 100, h: 40, material } })),
-      { edge: 'ceiling', material: 'stone', axis: 'y', boundary: 0, shape: { x: 100, y: 0, w: 800, h: 200 }, cover: { x: 450, y: -20, w: 100, h: 40 } },
-      { edge: 'left', material: 'stone', axis: 'x', boundary: 0, shape: { x: 0, y: 100, w: 200, h: 400 }, cover: { x: -20, y: 250, w: 40, h: 100 } },
-      { edge: 'right', material: 'stone', axis: 'x', boundary: 1000, shape: { x: 800, y: 100, w: 200, h: 400 }, cover: { x: 980, y: 250, w: 40, h: 100 } },
-    ]
-    for (const c of cases) for (const ambient of [0, 100]) for (const zoom of [.63, .81, 1, 1.37, 2]) for (const phase of [.15, .5, .85]) {
+    for (const ambient of [0, 100]) for (const zoom of [.63, .81, 1, 1.37, 2]) for (const phase of [.15, .5, .85]) {
       h.run.level = { ...h.run.level, platforms: [c.shape], floorMaterial: c.material }
       h.view.zoom = zoom; h.view.x = c.axis === 'x' ? c.boundary - (640 + phase) / zoom : 0
       h.view.y = c.axis === 'y' ? c.boundary - (450 + phase) / zoom : -40
@@ -36,7 +39,7 @@ test('terrain and level boundaries form seamless silhouettes at fractional zoom'
     h.run.terrain = levelTerrain(h.run.level); h.render(0)
     const screenshot = h.canvas.toDataURL()
     h.renderer.dispose(); return { samples, screenshot }
-  })
+  }, seam)
   await info.attach('floor-seam', { body: Buffer.from(result.screenshot.split(',')[1], 'base64'), contentType: 'image/png' })
   for (const sample of result.samples) expect(sample.joined, JSON.stringify(sample)).toEqual(sample.continuous)
 })

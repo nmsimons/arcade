@@ -1,0 +1,26 @@
+.jumping-performance {
+  position: absolute; top: 12px; right: 12px; width: min(290px, calc(100% - 24px));
+  box-sizing: border-box; padding: 12px; pointer-events: none; contain: content;
+  color: var(--jumping-color-paper); background: var(--jumping-color-ink);
+  border: 1px solid var(--jumping-color-sage); border-radius: 3px;
+  font: 11px/1.5 ui-monospace, monospace; font-variant-numeric: tabular-nums;
+}
+.jumping-performance header, .jumping-performance-rate, .jumping-performance-legend,
+.jumping-performance dl > div { display: flex; justify-content: space-between; gap: 8px; }
+.jumping-performance header { align-items: baseline; }
+.jumping-performance header strong { font-size: 12px; }
+.jumping-performance header span, .jumping-performance-legend, .jumping-performance p { color: var(--jumping-color-steel); }
+.jumping-performance-rate { align-items: baseline; margin-top: 4px; }
+.jumping-performance-rate strong { font-size: 26px; line-height: 1.4; }
+.jumping-performance-rate small { font-size: 12px; }
+.jumping-performance svg { display: block; width: 100%; height: 44px; color: var(--jumping-color-sage); }
+.jumping-performance-legend { font-size: 10px; margin-bottom: 8px; }
+.jumping-performance dl { margin: 0; }
+.jumping-performance dd { margin: 0; text-align: right; white-space: nowrap; }
+.jumping-performance p { margin: 8px 0 0; font-size: 10px; }
+.jumping-performance.is-paused { position: static; width: 100%; margin-top: 16px; flex-shrink: 0; }
+.jumping-performance-mode-help { margin: 12px 14px 0; font-size: var(--jumping-type-small); line-height: 1.5; }
+@media (max-height: 440px) {
+  .jumping-performance:not(.is-paused) { top: 6px; right: 6px; padding: 8px; font-size: 10px; }
+  .jumping-performance:not(.is-paused) svg { height: 28px; }
+}

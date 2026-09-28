@@ -23,11 +23,18 @@ export class GpuShadowMask {
     if (!cached) { cached = { points: polygonPoints(shape) }; this.silhouettes.set(shape, cached) }
     return cached
   }
-  constructor() {
-    const gl = this.canvas.getContext('webgl2', { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true })
+  constructor(allowSoftware = false) {
+    // A software WebGL implementation can be much slower than the Canvas
+    // fallback. Let the browser decline it without reducing lighting quality.
+    const gl = this.canvas.getContext('webgl2', { alpha: true, antialias: false, depth: false, stencil: false, premultipliedAlpha: true, failIfMajorPerformanceCaveat: !allowSoftware })
     if (!gl) throw new Error('WebGL2 unavailable')
     this.gl = gl
     try {
+    const info = gl.getExtension('WEBGL_debug_renderer_info')
+    // Some browsers accept the caveat flag even when ANGLE uses a CPU driver.
+    // Explicit GPU experiments may opt in; live play keeps full-quality Canvas.
+    if (!allowSoftware && info && /SwiftShader|llvmpipe|softpipe|Software Rasterizer|Microsoft Basic Render Driver/i.test(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)))
+      throw new Error('Software WebGL is unsuitable for live lighting')
     const shader = (type: number, source: string) => {
       const s = gl.createShader(type)!; gl.shaderSource(s, source); gl.compileShader(s)
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)!)

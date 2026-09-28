@@ -4,6 +4,7 @@ import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 
 for (const savedPreference of ['false', 'true']) {
   test(`production hides performance tools and ignores saved preference ${savedPreference}`, async ({ page }) => {
+    await page.setViewportSize({ width: 640, height: 360 })
     const level = structuredClone(FIRST_LEVEL)
     level.version = 2
     level.lighting = { nightMode: true, ambient: 25, lights: [] }
@@ -19,9 +20,9 @@ for (const savedPreference of ['false', 'true']) {
     const canvas = page.locator('.jumping-game > canvas')
     await expect(canvas).toBeFocused()
     const fullPixels = await canvas.evaluate(c => c.width * c.height)
-    expect(fullPixels).toBeGreaterThan(1_005_000)
+    expect(fullPixels).toBeGreaterThan(640 * 360)
     await page.evaluate(() => {
-      window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 40)
+      window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 100)
       window.cancelAnimationFrame = id => window.clearTimeout(id)
     })
     await page.clock.runFor(3200)

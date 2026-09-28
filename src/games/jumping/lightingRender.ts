@@ -54,7 +54,13 @@ export class LightingRenderer {
   private gpu?: GpuLightingField
   private gpuUnavailable = false
   private preferGpu: boolean
-  constructor(options: { backend?: 'canvas' | 'auto' } = {}) { this.preferGpu = options.backend === 'auto' }
+  private allowSoftware: boolean
+  // Explicit 'gpu' is for renderer experiments, including software-only CI.
+  // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu' } = {}) {
+    this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
+    this.allowSoftware = options.backend === 'gpu'
+  }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
   private terrain?: { level: LightingWorld['level']; groups: CasterGroup[] }
@@ -157,7 +163,7 @@ export class LightingRenderer {
     const ambientColor = gray(ambientExposure(definition.ambient))
     let lighting: { lights: number; edges: number; bufferBytes: number; backend: 'gpu' | 'canvas'; drawField: (target: CanvasRenderingContext2D) => void } | undefined
     if (this.preferGpu && !this.gpuUnavailable) {
-      this.gpu ??= GpuLightingField.create() ?? undefined
+      this.gpu ??= GpuLightingField.create(this.allowSoftware) ?? undefined
       if (!this.gpu) this.gpuUnavailable = true
       else try {
         const gpu = this.gpu

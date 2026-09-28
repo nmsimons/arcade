@@ -20,9 +20,9 @@ export class GpuLightingField {
   samples: number
   private width = 0
   private height = 0
-  static create() {
+  static create(allowSoftware = false) {
     let shadows: GpuShadowMask | undefined
-    try { shadows = new GpuShadowMask(); return new GpuLightingField(shadows) }
+    try { shadows = new GpuShadowMask(allowSoftware); return new GpuLightingField(shadows) }
     catch { shadows?.dispose(); return null }
   }
   private constructor(shadows: GpuShadowMask) {

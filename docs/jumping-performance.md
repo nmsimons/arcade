@@ -35,6 +35,11 @@ full shadow silhouettes at the normal render resolution until the player opts
 into adaptive reduction. Editor/library previews retain Canvas. Unsupported GPU
 capabilities, context loss, unsupported silhouettes or an exceeded buffer budget
 fall back to the complete Canvas renderer.
+Automatic selection also falls back for known software WebGL drivers such as
+SwiftShader and llvmpipe, even if the browser accepts the performance-caveat flag.
+This retains full graphics quality while avoiding CPU-emulated WebGL in live play.
+Explicit `backend: 'gpu'` renderer experiments allow software WebGL so the GPU
+visual and context-loss tests still execute on CI machines without a GPU.
 
 ### Full-quality changes
 

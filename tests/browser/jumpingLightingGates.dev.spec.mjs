@@ -44,7 +44,8 @@ for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'ver
   expect(result.wall.reclosed).toEqual(result.wall.ambient)
   expect(result.terrain.closed).toEqual(result.terrain.ambient)
   expect(result.terrain.reclosed).toEqual(result.terrain.ambient)
-  expect(result.terrain.open).toEqual(result.terrain.ambient)
+  // Removing illumination from a lit surface adds an 8-bit compositing round.
+  result.terrain.open.forEach((value, i) => expect(Math.abs(value - result.terrain.ambient[i])).toBeLessThanOrEqual(1))
   expect(result.box.open).toEqual(result.box.bright)
   result.box.closed.forEach((value, i) => expect(Math.abs(value - result.box.bright[i] * .35)).toBeLessThanOrEqual(2))
 })
@@ -75,7 +76,7 @@ test('terrain and wall art stay ambient-only in and out of the beam', async ({ p
     expect(point.closed).toEqual(point.ambient)
   }
   expect(result.receiver.closed).toEqual(result.receiver.ambient)
-  expect(result.receiver.open).toEqual(result.receiver.ambient)
+  result.receiver.open.forEach((value, i) => expect(Math.abs(value - result.receiver.ambient[i])).toBeLessThanOrEqual(1))
 })
 
 test('gates seal the photographed stepped-floor layout with two spotlights', async ({ page }) => {

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 async function requireGpu(page) {
   const available = await page.evaluate(async () => {
     const { GpuLightingField } = await import('/src/games/jumping/lightingGpuField.ts')
-    const gpu = GpuLightingField.create()
+    const gpu = GpuLightingField.create(true)
     if (!gpu) return false
     try { gpu.render([], [], { width: 16, height: 16, x: 0, y: 0, zoom: 1 }, 0, 16, 16); return true }
     catch { return false }
@@ -24,7 +24,7 @@ test('GPU lighting retains Tower artwork through movement, rotation, camera chan
     const canvases = [document.createElement('canvas'), document.createElement('canvas')]
     for (const canvas of canvases) { canvas.width = 800; canvas.height = 500 }
     const contexts = canvases.map(canvas => canvas.getContext('2d', { willReadFrequently: true }))
-    const renderers = [new LightingRenderer(), new LightingRenderer({ backend: 'auto' })], results = []
+    const renderers = [new LightingRenderer(), new LightingRenderer({ backend: 'gpu' })], results = []
     const view = { ...gameCamera(800, 500, run.player, level, true), width: 800, height: 500 }
     for (let i = 0; i < 14; i++) {
       if (i === 4) run.props[0].x += .01
@@ -61,7 +61,7 @@ test('GPU light field preserves max blending, occlusion, fades and stamp rollove
   await requireGpu(page)
   const result = await page.evaluate(async () => {
     const { GpuLightingField } = await import('/src/games/jumping/lightingGpuField.ts')
-    const gpu = GpuLightingField.create()
+    const gpu = GpuLightingField.create(true)
     if (!gpu) throw new Error('GPU unavailable in this test environment')
     const view = { width: 320, height: 240, x: 0, y: 0, zoom: 1 }
     const canvas = document.createElement('canvas'); canvas.width = 320; canvas.height = 240
@@ -113,7 +113,7 @@ test('GPU resize stays within 64 MiB and a lost context restores Canvas shadows'
       if (kind === 'webgl2') gl = result
       return result
     }
-    const h = await lightingHarness({ backend: 'auto' }), reference = await lightingHarness()
+    const h = await lightingHarness({ backend: 'gpu' }), reference = await lightingHarness()
     const before = h.render(0, h.fixture.lighting.lights)
     const bytes = [before.stats.bufferBytes]
     h.view.width = 1600; h.view.height = 1250; h.canvas.width = 1600; h.canvas.height = 1250
@@ -139,18 +139,29 @@ test('GPU resize stays within 64 MiB and a lost context restores Canvas shadows'
   for (const bytes of result.bytes) expect(bytes).toBeLessThanOrEqual(64 * 1024 * 1024)
 })
 
-test('unavailable WebGL preserves the Canvas renderer without changing shadow quality', async ({ page }) => {
+for (const reason of ['unavailable', 'software']) test(`${reason} WebGL preserves the Canvas renderer without changing shadow quality`, async ({ page }) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async reason => {
     const getContext = HTMLCanvasElement.prototype.getContext
-    HTMLCanvasElement.prototype.getContext = function (kind, ...options) { return kind === 'webgl2' ? null : getContext.call(this, kind, ...options) }
+    HTMLCanvasElement.prototype.getContext = function (kind, ...options) {
+      if (kind !== 'webgl2') return getContext.call(this, kind, ...options)
+      if (reason === 'unavailable') return null
+      // Emulate a CPU driver even on hardware-accelerated developer machines.
+      const gl = getContext.call(this, kind, { ...options[0], failIfMajorPerformanceCaveat: false })
+      if (gl) {
+        const parameter = gl.getParameter.bind(gl), extension = gl.getExtension.bind(gl)
+        gl.getExtension = name => name === 'WEBGL_debug_renderer_info' ? { UNMASKED_RENDERER_WEBGL: 0x9246 } : extension(name)
+        gl.getParameter = key => key === 0x9246 ? 'ANGLE (SwiftShader Device (Subzero))' : parameter(key)
+      }
+      return gl
+    }
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness({ backend: 'auto' }), reference = await lightingHarness()
     let image, expected
     for (let i = 0; i < 4; i++) { image = h.render(0, h.fixture.lighting.lights); expected = reference.render(0, reference.fixture.lighting.lights) }
     const result = { backend: image.stats.backend, edges: image.stats.edges, difference: h.difference(image, expected) }
     h.renderer.dispose(); reference.renderer.dispose(); HTMLCanvasElement.prototype.getContext = getContext; return result
-  })
+  }, reason)
   expect(result.backend).toBe('canvas')
   expect(result.edges).toBeGreaterThan(0)
   expect(result.difference).toBeLessThanOrEqual(1)

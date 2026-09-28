@@ -67,6 +67,8 @@ test('shows actual lighting resolution and fits a narrow viewport', async ({ pag
 })
 
 test('low FPS only removes object shadows after opting in, and switching off restores them', async ({ page }) => {
+  // Exercise real resizing without rendering hundreds of 2 MP software frames.
+  await page.setViewportSize({ width: 640, height: 360 })
   await page.addInitScript(() => {
     localStorage.setItem('jumping:performance-monitor', 'true')
     Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
@@ -75,7 +77,7 @@ test('low FPS only removes object shadows after opting in, and switching off res
   await play(page, true)
   await page.evaluate(() => {
     // Install after Playwright's clock, which also wraps animation callbacks.
-    window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 40)
+    window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 100)
     window.cancelAnimationFrame = id => window.clearTimeout(id)
   })
   await page.clock.runFor(3000)

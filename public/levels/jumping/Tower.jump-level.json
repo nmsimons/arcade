@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "16f44bef-1ff7-42d7-ad5a-f8966310cd4b",
   "name": "Tower I",
   "width": 1500,
@@ -1688,7 +1688,9 @@
       "w": 40,
       "targets": [
         "1f53dd60-0892-4a9e-acda-1a33012a28f0",
-        "6dbfcf3b-fd0e-44f4-97f5-dac3f17bc8ed"
+        "fa397910-981e-4a56-afc2-af12604bf131",
+        "ea5ca90b-69cc-46ac-bbc5-8073552adc01",
+        "cef638c3-c451-4305-9b6a-472b1578fc86"
       ],
       "mode": "touch"
     },
@@ -1706,7 +1708,7 @@
       "y": 1320,
       "w": 40,
       "targets": [
-        "103801c2-427e-4644-9cdb-5815c5b50ba8"
+        "00aa808b-cafe-49f7-907e-f5c06bc99c66"
       ],
       "mode": "touch"
     },
@@ -1715,7 +1717,7 @@
       "y": 1760,
       "w": 40,
       "targets": [
-        "fa397910-981e-4a56-afc2-af12604bf131"
+        "6dbfcf3b-fd0e-44f4-97f5-dac3f17bc8ed"
       ],
       "mode": "touch"
     },
@@ -1768,6 +1770,126 @@
       "y": 1800
     }
   ],
-  "pickups": [],
-  "texts": []
+  "pickups": [
+    {
+      "x": 244,
+      "y": 1924,
+      "kind": "emp"
+    }
+  ],
+  "texts": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "124994c0-ac33-40c3-85ff-57a9bb9594f0",
+        "x": 500,
+        "y": 1600,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "da0cafc3-de73-49f3-86aa-a9c9ab248b79",
+        "x": 500,
+        "y": 1380,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "49cd0919-adb5-4e87-b1b9-49330304be22",
+        "x": 500,
+        "y": 1160,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 75,
+        "power": "always"
+      },
+      {
+        "id": "9a81e303-cd2c-4d41-95b6-f5af8ed46b98",
+        "x": 500,
+        "y": 940,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 35,
+        "power": "always"
+      },
+      {
+        "id": "524e21b1-17b5-4e53-95ab-7e1367385f10",
+        "x": 820,
+        "y": 700,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "1ab72923-4b3e-4c37-af67-9e029800e280",
+        "x": 1140,
+        "y": 940,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 75,
+        "power": "always"
+      },
+      {
+        "id": "c7122af8-3d61-4809-91a2-6bbfe3926d5f",
+        "x": 1140,
+        "y": 1160,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "1233c07f-3812-4b17-bfd6-01dd99fcd741",
+        "x": 1140,
+        "y": 1380,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 40,
+        "power": "always"
+      },
+      {
+        "id": "850bb0c5-6a96-4beb-a5e8-64ea66683c01",
+        "x": 1140,
+        "y": 1600,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "70f208a5-1900-4b9b-803e-e0632c03f380",
+        "x": 160,
+        "y": 1660,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "03fbcde5-4b52-4e55-a16e-ca855b3d7fdd",
+        "x": 820,
+        "y": 480,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "330f94e8-ccc5-4fc3-98ca-94297cfd2257",
+        "x": 500,
+        "y": 1800,
+        "intensity": 100,
+        "direction": 70,
+        "spread": 115,
+        "power": "always"
+      }
+    ]
+  }
 }

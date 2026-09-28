@@ -106,7 +106,10 @@ Ledge grabs, ladder exits, rope transfers and lowering over an edge share the
 terrain's actual exposed top corners. Inset towers and shelves within a single
 polygon work like separate terrain pieces. Climbing exempts only the supporting
 corner from the standing-body hull; ceilings and other parts of the same polygon
-still obstruct the climb.
+still obstruct the climb. A flush wall beneath a separate cap continues the same
+supporting face, so its internal seam cannot block a rope transfer, pull-up or
+lowering motion. Follow only touching face intervals; real gaps retain separate
+collision geometry.
 
 Automatic steps up low terrain prefer their normal 12-unit landing inset, but
 can shorten it to 8 units when the next riser leaves a narrow tread. Both flat

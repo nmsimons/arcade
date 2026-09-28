@@ -70,6 +70,24 @@ export function ledgeObstacles(platforms: readonly Platform[], edge: TerrainLedg
     if (top.from > reach + .01) break
     support.add(top.platform); reach = Math.max(reach, top.to)
   }
+  // Follow the continuous outside face down from the grip too. A thin cap
+  // and a flush wall beneath it are the same supporting corner as one polygon.
+  // Keep genuine gaps separate, and retain anything above/outside via clipping.
+  const faces = platforms.flatMap(platform => {
+    const points = polygonPoints(platform)
+    return points.flatMap((a, i) => {
+      const b = points[(i + 1) % points.length]
+      if (Math.abs(a[0] - edge.edgeX) > 1e-7 || Math.abs(b[0] - edge.edgeX) > 1e-7
+        || (b[1] - a[1]) * edge.side >= 0) return []
+      return [{ platform, from: Math.min(a[1], b[1]) - edge.edgeY, to: Math.max(a[1], b[1]) - edge.edgeY }]
+    })
+  }).sort((a, b) => a.from - b.from)
+  let depth = 0
+  for (const face of faces) {
+    if (face.to < 0) continue
+    if (face.from > depth + 1e-7) break
+    support.add(face.platform); depth = Math.max(depth, face.to)
+  }
   return platforms.flatMap(b => support.has(b)
     ? outsideCorner(b, edge.edgeX, edge.edgeY, edge.side, edge.slope) : [b])
 }

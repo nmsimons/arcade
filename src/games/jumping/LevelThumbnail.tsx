@@ -1,51 +1,62 @@
-import { memo, useEffect, useRef } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { JumpLevel } from './level'
 import { isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level'
 import { createPreviewRun } from './challenge'
 import { drawPuzzleWorld } from './challengeRender'
 import { drawAthlete, drawClimbables, drawLevelBackdrop, drawTerrain } from './render'
 import { useWallTextFont } from './useWallTextFont'
+import { LightingRenderer, lightingPixelRatio } from './lightingRender'
+import { playgroundLightingWorld } from './lightingModel'
+import { useLightingGeometry } from './useLightingGeometry'
 
-/** Draw authored geometry only, and allocate canvas pixels only while visible. */
+/** Prepare and allocate only visible previews. Lighting uses the same initial world as play. */
 export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = false }: { level: JumpLevel; preview?: boolean }) {
   const wallTextFontReady = useWallTextFont()
   const ref = useRef<HTMLCanvasElement>(null)
+  const [visible, setVisible] = useState(false)
+  const scene = useMemo(() => {
+    if (!visible) return null
+    const prepared = preview ? level : prepareLevelRopes(level, true)
+    const run = isPuzzleLevel(prepared) ? createPreviewRun(prepared) : null
+    return { prepared, run, player: run?.player ?? levelPlayer(prepared, true) }
+  }, [level, preview, visible])
+  const geometry = useLightingGeometry(scene?.prepared ?? level, visible)
+  useEffect(() => {
+    const visibility = new IntersectionObserver(entries => setVisible(entries[0].isIntersecting))
+    visibility.observe(ref.current!)
+    return () => visibility.disconnect()
+  }, [])
   useEffect(() => {
     const canvas = ref.current!, ctx = canvas.getContext('2d')!
-    let visible = false
-    let scene: ReturnType<typeof createScene> | undefined
-    const createScene = () => {
-      const prepared = preview ? level : prepareLevelRopes(level, true)
-      const run = isPuzzleLevel(prepared) ? createPreviewRun(prepared) : null
-      return { prepared, run, player: run?.player ?? levelPlayer(prepared, true) }
-    }
+    if (!visible) { canvas.width = canvas.height = 1; return }
+    if (!scene || !geometry.ready) return
+    const { prepared, run, player } = scene
     const paint = () => {
-      if (!visible) return
-      const { prepared, run, player } = scene ??= createScene()
       const { width, height } = canvas.getBoundingClientRect()
       if (!width || !height) return
-      const ratio = Math.min(window.devicePixelRatio || 1, 2), roomHeight = levelHeight(prepared)
+      const ratio = lightingPixelRatio(width, height, window.devicePixelRatio || 1), roomHeight = levelHeight(prepared)
       canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio)
       const zoom = Math.min(width / (prepared.width + 60), height / (roomHeight + 60))
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-      ctx.clearRect(0, 0, width, height)
-      ctx.translate((width - prepared.width * zoom) / 2, (height - roomHeight * zoom) / 2); ctx.scale(zoom, zoom)
-      drawLevelBackdrop(ctx, prepared, { x: -30, y: -30, w: prepared.width + 60, h: roomHeight + 60 }, zoom)
+      const x = (prepared.width - width / zoom) / 2, y = (roomHeight - height / zoom) / 2
+      if (prepared.lighting) {
+        const renderer = new LightingRenderer()
+        try {
+          if (geometry.groups) renderer.prepare(prepared, geometry.groups)
+          renderer.render(ctx, run ?? playgroundLightingWorld(prepared, player), prepared.lighting,
+            { x, y, width: canvas.width, height: canvas.height, zoom: zoom * ratio }, 0, undefined, true)
+        } finally { renderer.dispose() }
+        return
+      }
+      ctx.setTransform(ratio * zoom, 0, 0, ratio * zoom, -x * zoom * ratio, -y * zoom * ratio)
+      drawLevelBackdrop(ctx, prepared, { x, y, w: width / zoom, h: height / zoom }, zoom)
       if (run) drawPuzzleWorld(ctx, run, true)
       else { drawTerrain(ctx, levelTerrain(prepared)); drawClimbables(ctx, player, prepared.climbables); drawAthlete(ctx, player) }
       for (const [index, point] of [prepared.spawn, ...prepared.checkpoints].entries()) {
-        ctx.fillStyle = index ? '#a0a3a4' : '#df633f'
-        ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
+        ctx.fillStyle = index ? '#a0a3a4' : '#df633f'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
       }
     }
-    const observer = new ResizeObserver(paint); observer.observe(canvas)
-    const visibility = new IntersectionObserver(entries => {
-      visible = entries[0].isIntersecting
-      if (visible) paint()
-      else { canvas.width = 1; canvas.height = 1; scene = undefined }
-    })
-    visibility.observe(canvas)
-    return () => { observer.disconnect(); visibility.disconnect() }
-  }, [level, preview, wallTextFontReady])
+    const observer = new ResizeObserver(paint); observer.observe(canvas); paint()
+    return () => observer.disconnect()
+  }, [scene, visible, geometry.ready, geometry.groups, wallTextFontReady])
   return <canvas ref={ref} className="level-thumbnail" aria-hidden="true" />
 })

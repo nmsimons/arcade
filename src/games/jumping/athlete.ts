@@ -12,6 +12,8 @@ type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: n
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
 type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number }
 const TAU = Math.PI * 2
+const HEAD_RADIUS = 6.2
+export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
 const UPPER_ARM = 10, FOREARM = 9
 const MIN_KNEE_OPENING = Math.PI / 4
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
@@ -110,15 +112,18 @@ function joined(parts: Path2D[]): Path2D {
 }
 /** Simple connected shapes, with just enough taper to keep bent limbs readable. */
 function segmentPath(a: Point, b: Point, r0: number, r1: number, belly: number): Path2D {
+  const path = new Path2D(); traceSegment(path, a, b, r0, r1, belly); return path
+}
+function traceSegment(path: AthleteOutline, a: Point, b: Point, r0: number, r1: number, belly: number) {
   const length = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
   const ux = (b[0] - a[0]) / length, uy = (b[1] - a[1]) / length, nx = -uy, ny = ux
   const side = (t: number, radius: number): Point => [lerp(a[0], b[0], t) + nx * radius, lerp(a[1], b[1], t) + ny * radius]
   const p0 = side(0, r0), p1 = side(1, r1), p2 = side(1, -r1), p3 = side(0, -r0)
   const mid0 = side(.38, belly), mid1 = side(.38, -belly)
-  const path = new Path2D(); path.moveTo(...p0); path.quadraticCurveTo(...mid0, ...p1)
+  path.moveTo(...p0); path.quadraticCurveTo(...mid0, ...p1)
   path.quadraticCurveTo(b[0] + ux * r1, b[1] + uy * r1, ...p2)
   path.quadraticCurveTo(...mid1, ...p3); path.quadraticCurveTo(a[0] - ux * r0, a[1] - uy * r0, ...p0)
-  path.closePath(); return path
+  path.closePath()
 }
 function footAngle(limb: Limb, desired: number): number {
   const neutral = Math.atan2(limb.end[1] - limb.joint[1], limb.end[0] - limb.joint[0]) - Math.PI / 2
@@ -171,17 +176,19 @@ function solveLeg(root: Point, target: Point, desired: number, grounded: boolean
   return { ...clearKnee(), footAngle: angle, toeAngle: flex(), footFacing, planted }
 }
 function footPath(ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1): Path2D {
+  const path = new Path2D(); traceFoot(path, ankle, angle, facing, toeAngle, profile); return path
+}
+function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1) {
   const at = (x: number, y: number, toe = false): Point => {
     const point = footPoint([x, y], angle * facing, toeAngle * facing, toe)
     return [ankle[0] + point[0] * facing * profile, ankle[1] + point[1]]
   }
-  const path = new Path2D(); path.moveTo(...at(-1.6, -1.6)); path.lineTo(...at(-2.4, .4))
+  path.moveTo(...at(-1.6, -1.6)); path.lineTo(...at(-2.4, .4))
   path.quadraticCurveTo(...at(-3, 2.5), ...at(-1.8, 2.8)); path.lineTo(...at(2.2, 2.8)); path.lineTo(...at(2.2, -.6))
   path.quadraticCurveTo(...at(1.3, -2), ...at(-1.6, -1.6)); path.closePath()
   path.moveTo(...at(2.2, 2.8, true)); path.lineTo(...at(4.5, 2.8, true))
   path.quadraticCurveTo(...at(6.2, 2.6, true), ...at(6, 1.5, true))
   path.bezierCurveTo(...at(5.6, .2, true), ...at(3.1, .2, true), ...at(2.2, -.6, true)); path.closePath()
-  return path
 }
 function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string) {
   const path = joined([segmentPath(limb.root, limb.joint, 2.2, 1.65, 2.2), roundPath(limb.joint, 1.7),
@@ -199,25 +206,31 @@ function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string) {
   fillShape(ctx, path, color)
 }
 function drawTorso(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string) {
+  ctx.beginPath(); traceTorso(ctx, hip, waist, shoulder); ctx.fillStyle = color; ctx.fill()
+}
+function traceTorso(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Point) {
   // A single bean-shaped body, like a clean animation construction drawing.
   const at = (p: Point, x: number, y = 0): Point => {
     const a = p === hip ? waist : shoulder, b = p === shoulder ? waist : hip
     const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy) || 1
     return [p[0] + (dy * x + dx * y) / length, p[1] + (dy * y - dx * x) / length]
   }
-  ctx.beginPath(); ctx.moveTo(...at(shoulder, -1.2, -.7))
+  ctx.moveTo(...at(shoulder, -1.2, -.7))
   ctx.bezierCurveTo(...at(shoulder, -2.2, 2), ...at(waist, -2.3, -3), ...at(waist, -2.6))
   ctx.bezierCurveTo(...at(hip, -3.3, -3), ...at(hip, -3.6, -1), ...at(hip, -3, 1.5))
   ctx.quadraticCurveTo(...at(hip, -.5, 4), ...at(hip, 2.4, 1.8))
   ctx.bezierCurveTo(...at(hip, 4.8, -1.5), ...at(waist, 4.6, 2), ...at(waist, 3.2, -1))
   ctx.quadraticCurveTo(...at(shoulder, 2.5, 4), ...at(shoulder, 1.4, -.7))
-  ctx.closePath(); ctx.fillStyle = color; ctx.fill()
+  ctx.closePath()
 }
 function drawHead(ctx: CanvasRenderingContext2D, head: Point, color: string) {
-  ctx.beginPath(); ctx.ellipse(head[0], head[1], 6.2, 6.2, 0, 0, TAU)
+  ctx.beginPath(); ctx.ellipse(head[0], head[1], HEAD_RADIUS, HEAD_RADIUS, 0, 0, TAU)
   ctx.fillStyle = color; ctx.fill()
 }
 function drawBack(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string, turn: number, facing = 1) {
+  ctx.beginPath(); traceBack(ctx, hip, waist, shoulder, turn, facing); ctx.fillStyle = color; ctx.fill()
+}
+function traceBack(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Point, turn: number, facing = 1) {
   const width = lerp(1.6, 4.5, turn), hips = lerp(3.2, 4.9, turn), waistWidth = lerp(3.2, 5, turn)
   // Width follows the spine's normal. Screen-horizontal offsets collapse a bent torso into a strip.
   const at = (p: Point, x: number, y = 0): Point => {
@@ -228,14 +241,37 @@ function drawBack(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoul
   // Keep the same rounded lower abdomen as the standing figure as the body turns into profile.
   // The back joins the outer thighs in one continuous contour, without separate hip bumps.
   const belly = 1.8 * (1 - turn), left = facing < 0 ? belly : 0, right = facing > 0 ? belly : 0
-  ctx.beginPath(); ctx.moveTo(...at(shoulder, -width))
+  ctx.moveTo(...at(shoulder, -width))
   ctx.quadraticCurveTo(...at(shoulder, -waistWidth, 6), ...at(waist, -waistWidth - left * .35))
   ctx.bezierCurveTo(...at(waist, -waistWidth - left, 2), ...at(hip, -hips - left, -1), ...at(hip, -hips, 1))
   ctx.quadraticCurveTo(...at(hip, 0, 4), ...at(hip, hips, 1))
   ctx.bezierCurveTo(...at(hip, hips + right, -1), ...at(waist, waistWidth + right, 2), ...at(waist, waistWidth + right * .35))
   ctx.quadraticCurveTo(...at(shoulder, waistWidth, 6), ...at(shoulder, width))
   ctx.quadraticCurveTo(...at(shoulder, 0, -2), ...at(shoulder, -width)); ctx.closePath()
-  ctx.fillStyle = color; ctx.fill()
+}
+
+/** Trace the same skin and current pose for lighting, without altering the rig or artwork. */
+export function traceAthlete(path: AthleteOutline, p: Player) {
+  const pose = athletePose(p), { hip, waist, shoulder, head, backView = 0 } = pose
+  const round = (center: Point, rx: number, ry = rx, angle = 0) => {
+    path.ellipse(...center, rx, ry, angle, 0, TAU, true); path.closePath()
+  }
+  for (const leg of [pose.backLeg, pose.frontLeg]) {
+    traceSegment(path, leg.root, leg.joint, 2.2, 1.65, 2.2); round(leg.joint, 1.7)
+    traceSegment(path, leg.joint, leg.end, 1.7, 1.25, 1.8); round(leg.end, 1.3)
+    if (leg.rear) round(add(leg.end, [0, 1]), 2.1 * leg.rear, 1.8)
+    if ((leg.rear ?? 0) < 1) traceFoot(path, leg.end, leg.footAngle, leg.footFacing, leg.toeAngle, 1 - (leg.rear ?? 0))
+  }
+  for (const arm of [pose.backArm, pose.frontArm]) {
+    const angle = arm.handAngle ?? Math.atan2(arm.end[1] - arm.joint[1], arm.end[0] - arm.joint[0])
+    const palm: Point = arm.hand ?? [arm.end[0] + Math.cos(angle) * 1.4, arm.end[1] + Math.sin(angle) * 1.4]
+    round(arm.root, 1.65); traceSegment(path, arm.root, arm.joint, 1.6, 1.35, 1.6); round(arm.joint, 1.4)
+    traceSegment(path, arm.joint, arm.end, 1.4, 1.05, 1.45); round(palm, 2.1, 1.6, angle)
+  }
+  if (p.climbing || backView > 0) traceBack(path, hip, waist, shoulder, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
+  else traceTorso(path, hip, waist, shoulder)
+  traceSegment(path, [shoulder[0], shoulder[1] - 1], [head[0], head[1] + 4], 1.15, 1.15, 1.15)
+  round(head, HEAD_RADIUS)
 }
 
 /** The wrist reaches the corner; the palm rests on top instead of pointing through it. */
@@ -820,10 +856,10 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
 }
 
 /** A single dark-grey silhouette, shared by every pose and viewing direction. */
-export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player) {
+export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e') {
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0 } = athletePose(p)
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, 1)
-  const body = '#686b6e', backPose = !!p.climbing || backView > 0
+  const backPose = !!p.climbing || backView > 0
   drawLeg(ctx, backLeg, body)
   drawArm(ctx, backArm, body)
   if (backPose) drawArm(ctx, frontArm, body)

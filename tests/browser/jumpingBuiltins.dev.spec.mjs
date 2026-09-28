@@ -28,6 +28,10 @@ const test = base.extend({
 })
 
 test('built-in maps edit, rename, save and test directly in the Git checkout', async ({ page, project }) => {
+  const lit = { ...(await project.read('00.json')), version: 2, lighting: { ambient: 0, lights: [
+    { id: 'ceiling-light', x: 600, y: 200, direction: 90, spread: 60, intensity: 100, power: 'always' },
+  ] } }
+  await writeFile(join(project.assets, '00.json'), JSON.stringify(lit))
   await page.goto(`${project.url}/untitled-jumping-game`)
   await page.getByRole('button', { name: 'Edit First Leap', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/built-in\/00.json$/)
@@ -42,6 +46,11 @@ test('built-in maps edit, rename, save and test directly in the Git checkout', a
   expect((await project.read('index.json')).levels).toEqual(['renamed.json', '01.json'])
   expect(execFileSync('git', ['-C', project.root, 'diff', '--name-only'], { encoding: 'utf8' })).toContain('public/levels/jumping/index.json')
   await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
+  // A reload used to hide a crash when the lit editor returned from playtest.
+  await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
+  await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
+  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Repository edit')
+  await expect(page.getByRole('spinbutton', { name: 'Ambient light', exact: true })).toHaveValue('0')
   await page.reload()
   await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Repository edit')
   await writeFile(join(project.assets, 'renamed.json'), JSON.stringify({ ...(await project.read('renamed.json')), name: 'Edited outside the game' }))

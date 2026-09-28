@@ -1,0 +1,177 @@
+{
+  "version": 2,
+  "id": "lighting-gate-regression",
+  "name": "Lighting gate regression",
+  "width": 1800,
+  "height": 920,
+  "platforms": [
+    {
+      "x": 0,
+      "y": 780,
+      "w": 1800,
+      "h": 140,
+      "polygon": [
+        [
+          0,
+          120
+        ],
+        [
+          200,
+          120
+        ],
+        [
+          480,
+          60
+        ],
+        [
+          820,
+          120
+        ],
+        [
+          1000,
+          80
+        ],
+        [
+          1280,
+          0
+        ],
+        [
+          1560,
+          120
+        ],
+        [
+          1800,
+          120
+        ],
+        [
+          1800,
+          140
+        ],
+        [
+          0,
+          140
+        ]
+      ]
+    },
+    {
+      "x": 1340,
+      "y": 0,
+      "w": 20,
+      "h": 680
+    },
+    {
+      "x": 0,
+      "y": 640,
+      "w": 280,
+      "h": 20
+    },
+    {
+      "x": 400,
+      "y": 640,
+      "w": 280,
+      "h": 20
+    }
+  ],
+  "spawn": {
+    "x": 160,
+    "y": 900
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "floor": 920,
+  "goal": {
+    "x": 1660,
+    "y": 900
+  },
+  "times": {
+    "gold": 15,
+    "silver": 25,
+    "bronze": 60
+  },
+  "props": [
+    {
+      "kind": "ball",
+      "x": 1306,
+      "y": 788.1325521391534,
+      "size": 68
+    },
+    {
+      "kind": "box",
+      "x": 340,
+      "y": 640,
+      "size": 80
+    }
+  ],
+  "mechanisms": [
+    {
+      "id": "1a4c7e61-be8f-49e8-9cf9-3218002cfc87",
+      "kind": "gate",
+      "x": 1340,
+      "y": 680,
+      "w": 20,
+      "h": 140,
+      "travel": 140
+    },
+    {
+      "id": "db5ce895-4c06-4795-8b91-3eb023dcaa47",
+      "kind": "gate",
+      "x": 280,
+      "y": 640,
+      "w": 120,
+      "h": 20,
+      "travel": 120,
+      "orientation": "horizontal"
+    }
+  ],
+  "triggers": [
+    {
+      "x": 24,
+      "y": 900,
+      "w": 100,
+      "target": "1a4c7e61-be8f-49e8-9cf9-3218002cfc87",
+      "mode": "touch"
+    },
+    {
+      "x": 24,
+      "y": 640,
+      "w": 100,
+      "target": "db5ce895-4c06-4795-8b91-3eb023dcaa47",
+      "mode": "touch"
+    }
+  ],
+  "robots": [],
+  "timers": [
+    {
+      "x": 1500,
+      "y": 460
+    }
+  ],
+  "pickups": [],
+  "texts": [],
+  "lighting": {
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "6a451abf-625e-4f83-89a9-39c6f0d33fd1",
+        "x": 340,
+        "y": 300,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "2ccbbc0c-e924-44d5-ae95-497ea5956303",
+        "x": 1120,
+        "y": 300,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      }
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "ade313c6-a64a-48ea-a77e-85e0565acaf8",
   "name": "Slow is Smooth",
   "width": 1800,
@@ -1079,10 +1079,15 @@
   ],
   "pickups": [
     {
-      "kind": "stopwatch",
       "x": 1764,
-      "y": 732
+      "y": 732,
+      "kind": "stopwatch"
     }
   ],
-  "texts": []
+  "texts": [],
+  "lighting": {
+    "nightMode": false,
+    "ambient": 0,
+    "lights": []
+  }
 }

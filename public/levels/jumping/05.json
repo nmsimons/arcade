@@ -1,7 +1,7 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
-  "name": "Level 5",
+  "name": "Lights out",
   "width": 1800,
   "height": 920,
   "platforms": [
@@ -145,10 +145,43 @@
   "robots": [],
   "timers": [
     {
-      "x": 1500,
-      "y": 460
+      "x": 1580,
+      "y": 20
     }
   ],
   "pickups": [],
-  "texts": []
+  "texts": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "39411786-c214-4e56-ab41-adb1bb163bc5",
+        "x": 340,
+        "y": 420,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "57a83bf1-9876-47ff-87e7-b85ff8d36e91",
+        "x": 1020,
+        "y": 420,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "49fd0df0-7ff9-4018-9508-2c7faf225982",
+        "x": 1660,
+        "y": 420,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      }
+    ]
+  }
 }

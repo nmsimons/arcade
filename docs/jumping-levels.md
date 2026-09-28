@@ -7,9 +7,10 @@ empty documents, and the engine receives the selected level as data.
 For route design, teaching, wall guidance, puzzles, and playtesting, see
 [Making a fun jumping level](jumping-level-design.md).
 
-The [flat-lighting specification](jumping-lighting.md) describes a proposed
-version-2 extension. It is not implemented; the format documented below is the
-currently supported format.
+Version 1 remains supported unchanged. Version 2 adds authored lighting, described
+below and in the [flat-lighting specification](jumping-lighting.md). The studio
+upgrades a level on its first Night mode, ambient, or spotlight edit; it never silently
+removes lighting when saving.
 
 ## Built-in levels
 
@@ -640,3 +641,88 @@ both now have this same behavior.
 Opening a file preserves the level ID. Structural validation rejects malformed or
 unbounded geometry; editor validation checks clear starts and goals, room bounds,
 and legacy connections. Neither replaces actually playing the route.
+
+## Lighting (version 2)
+
+The back wall and wall text receive ambient illumination. Dark rooms also show
+a very faint full spotlight beam, fading smoothly across night ambient 0–100. The
+short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at solid objects and room boundaries.
+Spotlights illuminate terrain and physical objects, which cast shadows on each
+other. Wall displays keep their readability floor, and haze never washes out
+wall text, collectibles, or the player.
+
+Ambient light belongs to the level. Spotlights belong to the back wall and do not
+block movement. In the studio, enable **Level settings → Night mode**, adjust **Ambient light**, and use the
+**Back wall → Spotlight** tool. Click to place, or drag to aim. Select a lamp to
+change its direction, spread, power, mount and name. The middle handle
+aims; the outer handles change spread. Snap uses five-degree angle increments;
+Alt bypasses it. Position fields refer to the light's center.
+
+```json
+"version": 2,
+"lighting": {
+  "nightMode": true,
+  "ambient": 85,
+  "lights": [
+    {
+      "id": "stairs-lamp",
+      "name": "Stairs",
+      "x": 640,
+      "y": 80,
+      "direction": 90,
+      "spread": 70,
+      "power": "always"
+    }
+  ]
+}
+```
+
+This is a fragment of the existing level object; retain its other fields.
+Night mode is off by default: the level is fully lit. With Night mode on, ambient
+0–100 smoothly spans 35–57% actual brightness. Turning Night mode off preserves
+the ambient value and lights. New saves include boolean `nightMode`. Experimental
+version-2 files without the flag infer it from `ambient < 100`; version-1 levels
+stay fully lit.
+Lamps extend indefinitely within their cone,
+stop at the level boundary, cast sharp shadows with narrow antialiased edges,
+and never add their intensities together. Existing levels are not darkened.
+
+Every lamp requires a unique stable ID across mechanisms and lights, center
+coordinates, direction (−180–180°, positive clockwise, 90 down), whole-cone spread
+(20–160°), and power (`always` or `switched`). Lamps always use full intensity.
+The optional legacy `intensity` field accepts integers 1–100 and normalizes them
+to 100; omission defaults to 100. Optional
+`name` uses the normal object-name rules. There is no range, color, glow or texture
+field. The 20×20 fixture footprint must fit inside the level.
+
+A switched light connects to one or more pressure plates or coin switches by ID
+in the existing `targets` array. Any active connected switch powers it. Changing
+the light to Always on removes incoming connections. An unconnected switched
+light must be connected before saving a playable file. Version 2 allows up to
+56 switch targets; version 1 retains 40.
+
+Optional `mount` names a gate, elevator or moving platform. The lamp follows its
+actual displacement, including shortened travel when obstructed. Its center must
+sit outside and within one tile of its mount, and its whole travel footprint must
+fit inside the room. Moving/resizing the host carries the lamp; deleting the host
+detaches it in place. Templates remap IDs and references together.
+
+EMP switches all lamps off with a brief fade; ambient stays unchanged. Coin
+switches keep their existing latching rules. The green exit indicator stays
+visible and never casts light. Pickups keep their full colors; clocks and coin
+meters remain readable. The player uses light ink in Night mode and
+dark ink in daytime, and casts a shadow matching its pose.
+
+The **Lighting** canvas checkbox temporarily shows the scene fully lit. **Hold to
+preview** temporarily powers a selected switched lamp. Neither changes the file,
+undo history, thumbnails or playtest. Thumbnails show the authored initial state.
+**Brighter dark levels** in the game's Controls uses night ambient 100 (57%
+brightness), preserving Night mode. It is saved only as a browser preference.
+
+Files allow at most 16 lights, including 4 mounted lights. Rooms with Night mode
+on are limited to 4,096 static contour edges per light and 32,768 summed across
+lights (counting the whole room conservatively). Excess complexity or malformed
+fields produce a validation error before play. Geometry preparation runs in a
+cancellable worker. Prefer one or two architecturally positioned beams per area;
+the count limit is a safety bound, not a promise that sixteen overlapping beams
+will be inexpensive on every device.

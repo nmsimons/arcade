@@ -2,9 +2,10 @@ import type { JumpLevel } from './level.ts'
 import type { Player } from './model.ts'
 import type { Run } from './challenge.ts'
 import { initRopeSleep } from './ropeSleep.ts'
+import type { CasterGroup } from './lightingModel.ts'
 
 export const LEVEL_PREPARATION_TIMEOUT = 5000
-export interface PreparedLevel { level: JumpLevel; run: Run | null; player: Player | null }
+export interface PreparedLevel { level: JumpLevel; run: Run | null; player: Player | null; lighting?: CasterGroup[] }
 export type PreparationReply = { result: PreparedLevel } | { error: string }
 
 /** Worker transfer and restart copies do not preserve WeakMap simulation caches. */

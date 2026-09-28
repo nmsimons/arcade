@@ -27,6 +27,7 @@
   border: 0; border-radius: 2px; background: var(--builder-field); color: var(--jumping-color-ink);
   font: inherit; resize: vertical;
 }
+.jumping-builder input[type=range] { padding: 0; accent-color: var(--jumping-color-ink); cursor: pointer; }
 .jumping-builder input[type=number] { font-variant-numeric: tabular-nums; }
 .jumping-builder input:disabled { opacity: var(--jumping-inactive-opacity); }
 .builder-number::-webkit-inner-spin-button { opacity: 1; }
@@ -111,6 +112,9 @@
 .jumping-game .builder-property-action { width: 100%; }
 .jumping-game .jumping-builder .builder-delete { color: var(--jumping-danger); }
 .builder-level-settings { --builder-field: var(--jumping-color-paper); padding: 20px; background: var(--jumping-section); }
+.builder-lighting-settings { display: grid; gap: 6px; }
+.builder-lighting-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.jumping-builder .builder-night-mode { white-space: nowrap; flex-direction: row; align-items: center; gap: 8px; min-height: 44px; }
 .builder-level-settings summary { cursor: pointer; font-weight: 600; }
 .builder-level-settings > :not(summary) { margin-top: 20px; }
 .builder-save-field { display: grid; gap: 6px; }

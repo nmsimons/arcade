@@ -21,6 +21,8 @@ import type { CoinSwitchOrientation } from './coins.ts'
 import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
 import { isTerrainMaterial } from './terrainMaterials.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
+import { lightingProblems, parseLighting } from './lightingDefinition.ts'
+import type { LightingDefinition } from './lightingDefinition.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
@@ -34,7 +36,8 @@ export type Trigger = NamedObject & { x: number; y: number; w: number } & Trigge
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
 export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number }
 export interface JumpLevel {
-  version: 1; id: string; name: string; width: number; height?: number
+  version: 1 | 2; id: string; name: string; width: number; height?: number
+  lighting?: LightingDefinition
   spawn: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
@@ -123,7 +126,7 @@ export function levelProblems(level: JumpLevel): string[] {
       issues.push('Place the goal plate, light and exit on a continuous flat surface, with a clear doorway inside the level.')
     }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
-    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id)))) issues.push('Connect each pressure plate or coin switch to one or more elevators, moving platforms, or gates.')
+    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id) && !level.lighting?.lights.some(l => l.id === id && l.power === 'switched')))) issues.push('Connect each pressure plate or coin switch to one or more mechanisms or switched lights.')
     const coins = level.pickups?.filter(p => p.kind === 'coin').length ?? 0
     if (level.triggers.some(t => t.mode === 'coins' && t.threshold > coins)) issues.push('Add enough coins for every coin switch to reach its threshold.')
     if (level.triggers.some(t => {
@@ -135,7 +138,7 @@ export function levelProblems(level: JumpLevel): string[] {
     if (level.timers?.some(t => t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level))) issues.push('Keep wall timers inside the level rectangle.')
     if (level.pickups?.some(p => { const b = pickupBounds(p); return b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level) })) issues.push('Keep power-ups and coins inside the level rectangle.')
   }
-  return issues
+  return [...issues, ...lightingProblems(level)]
 }
 
 /** Imported files and browser storage both pass through the same bounded decoder. */
@@ -153,7 +156,9 @@ export function parseLevel(value: unknown): JumpLevel {
   const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, 20000), y: num(p.y, -2000, 6000),
     ...(p.radius === undefined ? {} : { radius: num(p.radius, 10, 1000) }) } }
   const v = object(value)
-  if (v.version !== 1 || typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80 || typeof v.id !== 'string' || v.id.length > 100) fail()
+  if (v.version !== 1 && v.version !== 2) throw new Error('Unsupported jumping level version. This game reads versions 1 and 2.')
+  if (v.version === 1 && v.lighting !== undefined) throw new Error('Lighting requires a version 2 level file.')
+  if (typeof v.name !== 'string' || !v.name.trim() || v.name.length > 80 || typeof v.id !== 'string' || v.id.length > 100) fail()
   const width = num(v.width, 800, 20000)
   const platforms = list(v.platforms, 160).map(item => {
     const b = object(item), platform: Platform = { ...objectName(b), x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
@@ -230,7 +235,7 @@ export function parseLevel(value: unknown): JumpLevel {
   })
   const spawn = point(v.spawn), checkpoints = list(v.checkpoints, 30).map(point)
   if (spawn.x > width || checkpoints.some(p => p.x > width)) fail()
-  const level: JumpLevel = { version: 1, id: v.id as string, name: (v.name as string).trim(), width,
+  const level: JumpLevel = { version: v.version as 1 | 2, id: v.id as string, name: (v.name as string).trim(), width,
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
     platforms, spawn, checkpoints, climbables: { ladders, ropes } }
   if (v.floorMaterial !== undefined) {
@@ -266,7 +271,7 @@ export function parseLevel(value: unknown): JumpLevel {
       const t = object(item); if (t.mode !== 'touch' && t.mode !== 'weight' && t.mode !== 'coins') fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
-        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > 40
+        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 56 : 40)
           || t.targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(t.targets).size !== t.targets.length) fail()
         connection = { targets: [...t.targets as string[]] }
       } else {
@@ -326,6 +331,11 @@ export function parseLevel(value: unknown): JumpLevel {
     if (b.x < -.001 || b.y < -.001 || b.x + b.w > width + .001 || b.y + b.h > levelHeight(level) + .001) fail()
     return text
   })
+  if (level.version === 2) {
+    level.lighting = parseLighting(v.lighting)
+    const issues = lightingProblems(level)
+    if (issues.length) throw new Error(issues[0])
+  }
   return level
 }
 /** An empty editor document; all authored maps are external JSON assets. */

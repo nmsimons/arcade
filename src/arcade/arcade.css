@@ -22,14 +22,17 @@
 .arcade-choice-urban .arcade-card-heading { padding-top: 22px; }
 .arcade-choice-urban .arcade-title { font-family: Impact, 'Arial Narrow', sans-serif; font-size: 43px; letter-spacing: .02em; line-height: .98; }
 .arcade-choice-urban .arcade-card-footer { border-color: #64705d44; }
-.arcade-overlay .arcade-choice-jumping { --entry-focus: #c65332; background: #f1f0e9; color: #334b3c; border-color: #b8c2b3; border-top: 4px solid #df633f; font-family: 'Segoe UI', sans-serif; }
-.arcade-choice-jumping .arcade-title { max-width: 15ch; font-size: 28px; font-weight: 600; text-transform: none; letter-spacing: -.04em; }
-.arcade-choice-jumping .arcade-card-footer { border-color: #c6cfc2; }
+.arcade-overlay .arcade-choice-jumping { --entry-focus: var(--jumping-color-ink); background: var(--jumping-paper); color: var(--jumping-ink); border-color: var(--jumping-rule); border-radius: 2px; box-shadow: none; font-family: 'Segoe UI', sans-serif; }
+.arcade-choice-jumping .arcade-card-heading { padding-bottom: 24px; background: var(--jumping-header); }
+.arcade-choice-jumping .arcade-genre { font-family: ui-monospace, monospace; letter-spacing: .1em; }
+.arcade-choice-jumping .arcade-title { max-width: 15ch; font-size: 32px; font-weight: 800; line-height: 1.05; text-transform: none; letter-spacing: -.055em; }
+.arcade-choice-jumping .arcade-card-footer { background: var(--jumping-section); border-color: var(--jumping-section); font-size: 12px; }
+.arcade-choice-jumping .arcade-play { font-size: 16px; font-weight: 600; letter-spacing: normal; }
 .arcade-overlay .arcade-choice:hover:not(:disabled), .arcade-overlay .arcade-choice:focus:not(:disabled) { background-color: revert; border-color: var(--entry-focus); color: inherit; }
 .arcade-overlay .arcade-choice-vacuum:hover:not(:disabled), .arcade-overlay .arcade-choice-vacuum:focus:not(:disabled) { background: #091612; color: #e2f3e9; border-color: #a5cbb3; }
 .arcade-overlay .arcade-choice-bumper:hover:not(:disabled), .arcade-overlay .arcade-choice-bumper:focus:not(:disabled) { color: #315562; background: linear-gradient(145deg, #fffbed, #eee5ce); }
 .arcade-overlay .arcade-choice-urban:hover:not(:disabled), .arcade-overlay .arcade-choice-urban:focus:not(:disabled) { color: #36453c; background: #dfdfca; }
-.arcade-overlay .arcade-choice-jumping:hover:not(:disabled), .arcade-overlay .arcade-choice-jumping:focus:not(:disabled) { color: #334b3c; background: #f1f0e9; }
+.arcade-overlay .arcade-choice-jumping:hover:not(:disabled), .arcade-overlay .arcade-choice-jumping:focus:not(:disabled) { color: var(--jumping-ink); background: var(--jumping-paper); }
 .arcade-overlay .arcade-choice:focus:not(:disabled) { outline: 2px solid var(--entry-focus); outline-offset: 3px; border-color: transparent; box-shadow: 0 8px 20px #263e3c25; }
 .arcade-overlay .arcade-choice:hover:not(:disabled) { box-shadow: 0 10px 24px #263e3c30; }
 .arcade-overlay .arcade-choice:is(:hover, :focus) .arcade-play > span { transform: translateX(3px); }

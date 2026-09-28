@@ -83,7 +83,7 @@ export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening:
   }
 }
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
-export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, lights: readonly LightSource[] = [], layer: WorldLayer = 'all') {
+export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all') {
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
@@ -149,11 +149,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const r of run.robots) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint)
   if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
-    paint(ctx, 0, () => drawAthlete(ctx, p)); ctx.restore()
+    paint(ctx, 0, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
   }
   else {
     paint(ctx, 0, () => drawMovementEffects(ctx, p))
-    paint(ctx, 0, () => drawAthlete(ctx, p))
+    paint(ctx, 0, () => drawAthlete(ctx, p, playerInk))
   }
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {

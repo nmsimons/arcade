@@ -52,7 +52,7 @@ test('airborne beams stay behind clocks, collectibles, wall text and the player'
     h.run.terrain = []; h.run.player.x = 980; h.run.player.y = 240
     h.run.pickups = [{ definition: { kind: 'coin', x: 450, y: 200 }, collectedAge: null }]
     const source = { id: 'beam', x: 100, y: 200, intensity: 100, direction: 0, spread: 100, power: 'always' }
-    const base = h.render(0), lit = h.render(0, [source]), full = h.render(100)
+    const base = h.render(0), lit = h.render(0, [source]), full = h.normal('#e5e7e6')
     const samples = [[455, 200], [655, 185]].map(point => ({ base: h.pixel(base, ...point), lit: h.pixel(lit, ...point) }))
     const player = { base: h.pixel(base, 980, 182), lit: h.pixel(lit, 980, 182), full: h.pixel(full, 980, 182) }
     const text = []

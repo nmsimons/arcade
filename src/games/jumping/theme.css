@@ -1,7 +1,7 @@
 /* UI palette: four structural colors and three semantic accents.
    Reuse these values for every surface and state; do not add component shades.
    Game artwork (including level thumbnails) has its own palette. */
-.jumping-game {
+.jumping-game, .arcade-choice-jumping {
   --jumping-color-paper: #f4f2e9;
   --jumping-color-ink: #303c36;
   --jumping-color-sage: #abb9a7;
@@ -36,7 +36,8 @@
 }
 
 /* Every dialog title band uses the same inversion, including Pause/Controls. */
-.jumping-game :is(.jumping-dialog-heading, .jumping-menu-header, .builder-library-header, .jumping-ui-heading) {
+.jumping-game :is(.jumping-dialog-heading, .jumping-menu-header, .builder-library-header, .jumping-ui-heading),
+.arcade-choice-jumping .arcade-card-heading {
   --jumping-ink: var(--jumping-color-paper);
   --jumping-muted: var(--jumping-color-paper);
   --jumping-soft: var(--jumping-color-steel);

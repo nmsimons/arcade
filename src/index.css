@@ -3,6 +3,8 @@
 @import "./arcade/arcade.css";
 /* Loading and recovery must be styled before the game chunk arrives. */
 @import "./arcade/routeMessage.css";
+/* Entry branding shares the palette without loading the game engine. */
+@import "./games/jumping/theme.css";
 @import "./games/bumperBall/bumperBall.css";
 @import "./games/urbanFire/urbanFire.css";
 

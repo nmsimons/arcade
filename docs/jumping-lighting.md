@@ -77,7 +77,7 @@ switched, or affected by EMP. It does not change while playing a level.
 
 | Setting | Suggested use, not a guarantee of readability |
 | --- | --- |
-| Night mode off | Full brightness, including the player's near-white grey material. |
+| Night mode off | Full original brightness, with the existing dark player ink. |
 | Night mode on, 60–100 | Lighter dark rooms; spotlights retain strong contrast. |
 | Night mode on, 25–59 | Lamps establish rooms, destinations, and routes. |
 | Night mode on, 1–24 | Separated light pools with a visible underlying layout. |
@@ -150,8 +150,8 @@ a physical lighting measurement. Do not mix competing gamma/falloff conventions
 between render paths. Pixels at brightness 1 are unchanged.
 
 Night mode off bypasses the environmental-lighting work. Existing version-1 levels
-without lighting continue to use their original renderer. All levels use the same
-near-white grey player material; version-2 lighting changes its exposure.
+without lighting continue to use their original renderer and grey player material
+`#686b6e`. Version-2 daytime keeps dark player ink `#303c36`.
 Authored lamp fixtures remain visible in daytime, but their pools add no brightness.
 
 ## 4. Object-by-object contract
@@ -264,9 +264,9 @@ The player's lit material is near-white grey `#e5e7e6`. In ambient-only light,
 match the ball's shaded material `#8f9e98` multiplied by ambient exposure. Using
 near-white at both ends would make the unlit figure disappear into the pale wall.
 Interpolate between these endpoints using the same light field as movable props,
-including partial shadows, overlapping lamps, EMP, and lamp power fades. Daytime
-uses the near-white material. This replaces the earlier full-bright day/night ink
-override.
+including partial shadows, overlapping lamps, EMP, and lamp power fades. This
+treatment applies only to night-mode levels; daytime retains its existing dark
+ink. It replaces the earlier full-bright night-mode ink override.
 
 The whole posed silhouette is one receiver and caster, so overlapping body parts
 do not shade one another. Other objects can cast partial shadows across the

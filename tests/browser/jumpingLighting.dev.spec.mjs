@@ -119,29 +119,33 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player receives a
     h.renderer.dispose(); return results
   }, backend)
   for (const result of results) {
-    const lit = !result.nightMode || (result.x === 500 && result.condition === 'spotlight')
-    const expected = lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(result.ambient)))
+    const lit = result.x === 500 && result.condition === 'spotlight'
+    const expected = !result.nightMode ? [48, 60, 54] : lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(result.ambient)))
     for (const part of ['head', 'torso']) result[part].forEach((channel, i) =>
       expect(Math.abs(channel - expected[i]), JSON.stringify(result)).toBeLessThanOrEqual(1))
     expect(result.backend).toBe(result.nightMode ? backend : 'canvas')
   }
 })
 
-test('daytime keeps the light grey player material with no lighting surfaces', async ({ page }) => {
+test('daytime preserves the original dark player ink with no lighting surfaces', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { athletePose } = await import('/src/games/jumping/athlete.ts')
     const h = await lightingHarness()
     const comparisons = []
     for (const time of [0, .17, .3]) {
       h.run.pickupTime = time; h.run.goalLit = time > 0
       h.run.goalElapsed = time; h.run.pickups[2].collectedAge = time || null
-      const normal = h.normal(h.fixture.lighting.lights), lit = h.render(100, h.fixture.lighting.lights)
+      const normal = h.normal('#303c36', h.fixture.lighting.lights), lit = h.render(100, h.fixture.lighting.lights)
       comparisons.push({ difference: h.difference(normal, lit), bytes: lit.stats.bufferBytes })
     }
-    h.renderer.dispose(); return comparisons
+    const legacy = h.normal(), { head } = athletePose(h.run.player)
+    const legacyInk = h.pixel(legacy, h.run.player.x + head[0], h.run.player.y + head[1])
+    h.renderer.dispose(); return { comparisons, legacyInk }
   })
-  expect(result).toEqual(Array.from({ length: 3 }, () => ({ difference: 0, bytes: 0 })))
+  expect(result.comparisons).toEqual(Array.from({ length: 3 }, () => ({ difference: 0, bytes: 0 })))
+  expectColor(result.legacyInk, [104, 107, 110])
 })
 
 test('playground players receive lighting with full or reduced object shadows', async ({ page }) => {

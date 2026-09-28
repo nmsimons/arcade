@@ -130,13 +130,13 @@ function roundedCaster(rect: Platform, radius: number | CornerRadii): Platform {
   }
   return { ...rect, polygon: points.map(([x, y]) => [x - rect.x, y - rect.y]) }
 }
-export function dynamicCasters(run: LightingWorld): CasterGroup[] {
+export function dynamicCasters(run: LightingWorld, objectShadows = true): CasterGroup[] {
   const corners = mechanismCornerRadii(run)
   const opacity = run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
-  return [...run.props.map(prop => [prop.kind === 'ball' ? ballShape(prop) : roundedCaster(boxShape(prop), 2)]),
+  return [...(objectShadows ? run.props.map(prop => [prop.kind === 'ball' ? ballShape(prop) : roundedCaster(boxShape(prop), 2)]) : []),
     ...run.mechanisms.map((m, i) => Object.assign([roundedCaster({ x: m.x, y: m.y, w: m.definition.w, h: m.definition.h }, corners[i])], { mechanism: true as const })),
-    ...run.robots.map(robot => robotPlatforms(robot).map((shape, i) => i === 0 ? roundedCaster(shape, 4) : shape)),
-    ...(opacity > 0 ? [Object.assign(athleteCasters(run.player), { player: true as const, opacity })] : [])]
+    ...(objectShadows ? run.robots.map(robot => robotPlatforms(robot).map((shape, i) => i === 0 ? roundedCaster(shape, 4) : shape)) : []),
+    ...(objectShadows && opacity > 0 ? [Object.assign(athleteCasters(run.player), { player: true as const, opacity })] : [])]
 }
 export class LightingState {
   private fades = new Map<string, number>()

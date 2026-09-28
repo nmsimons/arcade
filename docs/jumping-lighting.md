@@ -667,8 +667,8 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
   ball does. A rotating box does invalidate its silhouette.
 - Do not scan every polygon for every ray at 120 physics updates per second.
   Lighting is render work, independent of the simulation's step frequency.
-- Do not allocate an offscreen full-resolution canvas for every lamp. Reuse
-  scratch buffers; cap the complete lighting cache at 64 MiB with eviction.
+- Reuse scratch buffers and bound the number of full-resolution stationary-light
+  caches by viewport size; cap complete lighting buffers at 64 MiB with eviction.
   Avoid canvas readback in the frame loop.
 - Static preparation must be chunked or done in a worker. Bound jobs, cancel
   outdated editor revisions, and discard stale results rather than overwriting
@@ -696,9 +696,19 @@ and retain the game's 60 fps target. Also measure 1920×1080 and device pixel
 ratios 1 and 2, startup work, editor dragging, memory, and maximum legal overlap.
 Report actual results; passing a unit test proves no frame-time claim.
 
-If resolution reduction is necessary, keep the same lights, shadows, power,
-and exposure rules. Never simplify by dropping the farthest lamp, skipping
-dynamic shadows, or adding distance cutoffs on a slower computer. Thin terrain must
+In default full quality, keep the same lights, shadows, power, and exposure rules.
+Never silently drop lamps, dynamic shadows, or add distance cutoffs based on device
+type. An explicitly enabled **Lighting performance mode** may remove player, loose
+prop, and robot shadows after two consecutive one-second windows below 35 FPS.
+It also caps render pixel ratio at 1 and render area at one million pixels,
+trading some artwork sharpness for smoother motion while retaining native UI
+resolution. It retains all lights and their power/fades, beam effects, object
+artwork, exposure rules, and terrain and moving-mechanism shadows. The reduction lasts for
+that run to avoid oscillation; restarting, entering another level, or disabling
+the setting restores full shadows and render resolution. Paused/hidden time does not count. The monitor
+and pause menu report the current state. This is a local preference, never authored
+level data or a lower default for particular operating systems or architectures.
+Thin terrain must
 continue blocking light at every quality level. The feasibility prototype must
 resolve this before authoring levels whose solution relies on those shadows.
 

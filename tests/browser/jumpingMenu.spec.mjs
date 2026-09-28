@@ -97,8 +97,8 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.keyboard.press('Escape')
   await page.mouse.move(0, 0)
-  const button = name => page.getByRole('button', { name, exact: true })
-  const names = ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level builder', 'Back to arcade']
+  const button = name => page.getByRole(['Performance monitor', 'Lighting performance mode'].includes(name) ? 'switch' : 'button', { name, exact: true })
+  const names = ['Resume', 'Restart level', 'Level menu', 'Controls', 'Performance monitor', 'Lighting performance mode', 'Level builder', 'Back to arcade']
   for (const name of names) {
     await expectAccessibleSelection(button(name))
     await page.keyboard.press('Tab')
@@ -111,7 +111,7 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   // Controller input after a pointer click must restore visible focus even if
   // the browser would not give programmatic focus :focus-visible styling.
   await page.clock.runFor(64); await tap(page, 13)
-  await expectAccessibleSelection(button('Level builder'))
+  await expectAccessibleSelection(button('Performance monitor'))
   await expect(button('Controls')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   expect(await button('Controls').evaluate(el => el.getAnimations().length)).toBe(0)
   await page.screenshot({ path: info.outputPath('accessible-selection.png') })
@@ -145,8 +145,8 @@ test('pause and controls reflow at double text size with every action reachable'
     await page.setViewportSize(size)
     const bounds = await panel.boundingBox()
     await page.keyboard.press('Home')
-    for (const name of ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level builder', 'Back to arcade']) {
-      const button = page.getByRole('button', { name, exact: true })
+    for (const name of ['Resume', 'Restart level', 'Level menu', 'Controls', 'Performance monitor', 'Lighting performance mode', 'Level builder', 'Back to arcade']) {
+      const button = page.getByRole(['Performance monitor', 'Lighting performance mode'].includes(name) ? 'switch' : 'button', { name, exact: true })
       await expect(button).toBeFocused()
       await expect(button).toBeInViewport({ ratio: 1 })
       await page.keyboard.press('Tab')

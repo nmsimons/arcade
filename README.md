@@ -636,6 +636,39 @@ remains available for visual and performance checks. Version-2 level files suppo
 ambient light and wall spotlights. Add them in the studio under Level settings
 and Back wall; version-1 levels keep their original full-bright appearance.
 
+Press **F2** during play (or toggle **Performance monitor** in the pause menu)
+to show a lightweight performance overlay in development or production. It shows
+FPS, a two-second frame-time graph, average/p95/worst frame intervals, frames over
+33.3 ms, average CPU update/draw time, physics steps per frame, canvas resolution
+and render scale, lighting backend, light counts and estimated buffer memory. The dashed
+graph line is the 16.7 ms budget for 60 FPS, not an assumed display refresh rate.
+CPU timings measure JavaScript and canvas submission; they exclude asynchronous
+GPU work and browser compositing. Compare FPS and frame intervals as well as CPU
+times when investigating differences between machines.
+
+The display updates twice per second and collects timings only during visible
+gameplay, including builder playtests. Pausing preserves the last sample in the
+pause menu; resuming or restarting begins a fresh measurement window. The toggle
+is remembered locally. Level menus and the editor are not measured.
+
+Live play uses the GPU light-field renderer when supported, keeping the existing
+artwork, lights and full shadow silhouettes. The complete Canvas renderer handles
+unsupported capabilities and graphics-context loss. The monitor shows which is
+active; editor and library previews continue to use Canvas.
+
+**Lighting performance mode** in the pause menu is a separate, optional setting;
+full lighting remains the default on every device. With it enabled, two consecutive
+one-second windows below 35 FPS turn off shadows from the player, loose props and
+robots and reduce rendering to at most pixel ratio 1 and one million pixels for
+the rest of that run. This trades some artwork sharpness for smoother motion;
+the interface keeps its native resolution. All lights, beam effects, object artwork, exposure
+rules, and shadows from terrain and moving mechanisms remain. Restarting, loading
+another level, or disabling the mode restores full shadows and resolution; quality stays stable
+during the run rather than repeatedly switching back and forth. The monitor shows
+whether object shadows are currently on. This preference is local, not level data.
+See [lighting performance notes](docs/jumping-performance.md) for the Tower
+measurements, renderer changes and benchmark command.
+
 Level validation lives in `src/games/jumping/level.ts`, asset loading in
 `levelAssets.ts`, puzzle simulation in `challenge.ts`, and editing operations in
 `editor.ts` and `puzzleEditor.ts`.

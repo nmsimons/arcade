@@ -5,15 +5,15 @@ import { LightingRenderer } from '../../../src/games/jumping/lightingRender.ts'
 import { drawPuzzleWorld } from '../../../src/games/jumping/challengeRender.ts'
 import { drawLevelBackdrop } from '../../../src/games/jumping/render.ts'
 
-export async function lightingHarness() {
+export async function lightingHarness(options) {
   const fixture = await (await fetch('/tests/fixtures/jumping/lighting-prototype.json')).json()
   const run = createPreviewRun(parseLevel(fixture.level))
   const canvas = document.createElement('canvas'); canvas.width = 1280; canvas.height = 720
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const view = { x: 0, y: -40, width: 1280, height: 720, zoom: 1 }
-  const renderer = new LightingRenderer()
-  const render = (ambient, lights = [], dt = .2, onlyLight, nightMode = ambient < 100) => {
-    const stats = renderer.render(ctx, run, { nightMode, ambient, lights }, view, dt, onlyLight)
+  const renderer = new LightingRenderer(options)
+  const render = (ambient, lights = [], dt = .2, onlyLight, nightMode = ambient < 100, shadows = 'full') => {
+    const stats = renderer.render(ctx, run, { nightMode, ambient, lights }, view, dt, onlyLight, false, shadows)
     return { pixels: new Uint8ClampedArray(ctx.getImageData(0, 0, 1280, 720).data), stats }
   }
   const pixel = (image, x, y) => {

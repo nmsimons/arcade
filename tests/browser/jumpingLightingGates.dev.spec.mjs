@@ -50,7 +50,7 @@ for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'ver
   result.box.closed.forEach((value, i) => expect(Math.abs(value - result.box.bright[i] * .35)).toBeLessThanOrEqual(2))
 })
 
-test('terrain and wall art stay ambient-only in and out of the beam', async ({ page }) => {
+test('terrain stays ambient-only while wall displays receive the beam behind a blocker', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -58,22 +58,22 @@ test('terrain and wall art stay ambient-only in and out of the beam', async ({ p
     h.run.mechanisms = []; h.run.robots = []; h.run.props = []; h.run.pickups = []
     h.run.level.climbables = { ropes: [], ladders: [] }; h.run.level.triggers = []; h.run.triggers = []
     h.run.level.timers = [{ x: 610, y: 80 }]
-    h.run.level.texts = [{ x: 600, y: 160, w: 120, h: 40, text: 'Keep going', size: 20, align: 'left', style: 'graffiti' }]
+    h.run.level.texts = []
     const receiver = { x: 600, y: 240, w: 140, h: 150 }, blocker = { x: 340, y: 80, w: 20, h: 420 }
     h.run.level.platforms = [blocker, receiver]; h.run.terrain = h.run.level.platforms
     const source = { id: 'lamp', x: 180, y: 160, intensity: 100, power: 'always', direction: 0, spread: 120 }
-    const ambient = h.render(0), closed = h.render(0, [source]), bright = h.render(100)
+    const ambient = h.render(0), closed = h.render(0, [source]), bright = h.normal('#e5e7e6')
     h.run.level = { ...h.run.level, platforms: [receiver] }; h.run.terrain = h.run.level.platforms
     const open = h.render(0, [source])
     const points = [[630, 110], [620, 130], [620, 170], [660, 180], [660, 210]]
-    const wall = points.map((point, i) => ({ clock: i < 2, ambient: h.pixel(ambient, ...point), open: h.pixel(open, ...point), closed: h.pixel(closed, ...point) }))
+    const wall = points.map((point, i) => ({ clock: i < 2, ambient: h.pixel(ambient, ...point), open: h.pixel(open, ...point), closed: h.pixel(closed, ...point), bright: h.pixel(bright, ...point) }))
     const result = { wall, receiver: { ambient: h.pixel(ambient, 650, 300), closed: h.pixel(closed, 650, 300), open: h.pixel(open, 650, 300), bright: h.pixel(bright, 650, 300) } }
     h.renderer.dispose(); return result
   })
   for (const point of result.wall) {
-    if (point.clock) point.open.forEach((value, i) => expect(Math.abs(value - point.ambient[i])).toBeLessThanOrEqual(1))
+    if (point.clock) point.open.forEach((value, i) => expect(Math.abs(value - point.bright[i])).toBeLessThanOrEqual(1))
     else point.open.forEach((value, i) => expect(Math.abs(value - point.ambient[i])).toBeLessThanOrEqual(18))
-    expect(point.closed).toEqual(point.ambient)
+    point.closed.forEach((value, i) => expect(Math.abs(value - point.ambient[i])).toBeLessThanOrEqual(1))
   }
   expect(result.receiver.closed).toEqual(result.receiver.ambient)
   result.receiver.open.forEach((value, i) => expect(Math.abs(value - result.receiver.ambient[i])).toBeLessThanOrEqual(1))

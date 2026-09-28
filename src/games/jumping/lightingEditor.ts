@@ -7,16 +7,9 @@ import { nearestBoundary, pointInside } from './geometry.ts'
 export function setLevelNightMode(level: JumpLevel, enabled: boolean): JumpLevel {
   if (nightModeEnabled(level.lighting) === enabled) return level
   const next = copyLevel(level)
-  next.version = 2; next.lighting ??= { ambient: 100, lights: [] }
+  next.version = 2; next.lighting ??= { ambient: 0, lights: [] }
   next.lighting.nightMode = enabled
-  return next
-}
-export function setLevelAmbient(level: JumpLevel, value: number): JumpLevel {
-  if (!Number.isFinite(value)) return level
-  const ambient = Math.max(0, Math.min(100, Math.round(value)))
-  if (ambient === (level.lighting?.ambient ?? 100)) return level
-  const next = copyLevel(level)
-  next.version = 2; next.lighting ??= { nightMode: false, ambient: 100, lights: [] }; next.lighting.nightMode = nightModeEnabled(level.lighting); next.lighting.ambient = ambient
+  next.lighting.ambient = 0
   return next
 }
 export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<LevelLight, 'direction' | 'spread' | 'power' | 'mount'>>): JumpLevel {

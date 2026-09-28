@@ -23,7 +23,7 @@ It should still look like this game's flat, muted world.
 
 The first release includes:
 
-- One constant ambient-light value per level.
+- One shared ambient-light value for every night level (the original 0 setting).
 - Directional spotlights with neutral light; ambient provides general fill.
 - Shadows from terrain and substantial physical objects, including moving ones.
 - Lamps powered continuously or by existing pressure plates and coin switches.
@@ -50,7 +50,7 @@ No lighting-specific collision exceptions are permitted.
 | Concept | Meaning | Examples |
 | --- | --- | --- |
 | Receives light | Its existing colors become darker with its surroundings. | Terrain, crates, ladders, wall writing. |
-| Self-lit/readable | Its own artwork retains some or all brightness. It does not brighten adjacent pixels outside that artwork. | Clock face, collectible, powered bot eye, activated green goal lamp. |
+| Self-lit/readable | Its own artwork retains some or all brightness. It does not brighten adjacent pixels outside that artwork. | Clock face, powered bot eye, activated green goal lamp. |
 | Emits light | Illuminates unobstructed space inside the level, without distance attenuation. | Authored spotlight. |
 
 A readable clock is **not** an invisible room lamp. A gold coin is **not** a light
@@ -65,28 +65,15 @@ These distinctions are fixed by object type, not dozens of per-object toggles.
 ### Ambient
 
 **Night mode** is a saved level toggle, off by default. Off means full original
-brightness and bypasses environmental lighting. On enables spotlights and
-**Ambient light**, an integer artistic scale from 0 to 100, default **100**.
-Ambient controls minimum illumination everywhere, including cast shadows:
-`A = 0.35 + 0.22 × clamp(ambient / 100, 0, 1)`. Zero means **35% brightness**,
-our darkest usable room; 100 means **57% brightness**. The entire slider is smooth;
-daytime is selected with the toggle, never an exceptional slider value.
-Display ambient as a number without a percent sign. Keep its conversion shared
-by rendering and sampling. Ambient is not blocked by geometry, consumed,
-switched, or affected by EMP. It does not change while playing a level.
+brightness and bypasses environmental lighting. On enables spotlights with a
+fixed **35% ambient brightness**, matching the original ambient-0 setting.
+Every night level uses this same baseline, including older files with other
+ambient values. There is no ambient slider or player brightness override.
 
-| Setting | Suggested use, not a guarantee of readability |
-| --- | --- |
-| Night mode off | Full original brightness, with the existing dark player ink. |
-| Night mode on, 60–100 | Lighter dark rooms; spotlights retain strong contrast. |
-| Night mode on, 25–59 | Lamps establish rooms, destinations, and routes. |
-| Night mode on, 1–24 | Separated light pools with a visible underlying layout. |
-| Night mode on, 0 | Darkest supported setting: 35% brightness before spotlights. |
-
-Disabling Night mode preserves ambient and lamps. The ambient controls remain
-visible but disabled until Night mode is on. Toggling is undoable and saved with
-the level. EMP and shadows never reduce the 35% environmental baseline.
-Readable elements retain their separate minimum exposures.
+Ambient is not blocked by geometry, consumed, switched, or affected by EMP.
+Disabling Night mode preserves lamps. Toggling is undoable and saved with the
+level. Daytime retains its existing dark player ink. Displays retain their
+separate minimum exposures.
 
 ### Light shape and boundaries
 
@@ -121,7 +108,7 @@ The player's exit opacity still fades its shadow with the figure.
 For a receiver point, use `A` from the shared ambient mapping above.
 Each unobstructed lamp
 contributes `angularFalloff × powerFade`, both in 0–1. Authored lamps always
-use full intensity (100); brightness is controlled by the level ambient.
+use full intensity (100) against the shared night baseline.
 A blocked lamp contributes zero.
 At the emission center itself, angular falloff is 1; there is no undefined
 direction or division by zero. Use this smoothstep curve for the cone edge:
@@ -167,8 +154,8 @@ the studio, thumbnails, and the lab.
 
 Each powered fixture retains its short cone of source glow (56 world units).
 Darker rooms also show a **very faint full-length airborne beam**, with no distance
-falloff. Its maximum strength is 6% at ambient 0, fading smoothly to about
-1.5% at 100; both beam and source haze disappear when Night mode is off.
+falloff. Its maximum strength is 6%; both beam and source haze disappear when
+Night mode is off.
 Haze follows the same remapped brightness as surfaces, preserving its appearance
 throughout the reviewed dark-room range.
 Both effects stop at occluders and room boundaries and follow power and EMP
@@ -196,19 +183,19 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Elevator cable/guide or other thin mechanical decoration | Ordinary. | No. | No. | Follows its mechanism's existing appearance. |
 | Ladder and rope, including anchors | Ordinary; authors must illuminate important exits and catches. | No. | No. | Existing movement remains unchanged. |
 | Pressure plate and its active/inactive strip | Ordinary. Its active color is a state indicator, not a luminous surface. | No; too small to justify extra shadow noise. | No. | Existing load/activation behavior; no invented glow. |
-| Coin switch: entire display | Minimum 65% exposure; preserve segments, empty track, progress, and active-state contrast together. | No. | No. | Readout remains visible and counts coins. Switching still obeys EMP and latching rules. |
-| Wall clock: entire face | Minimum 65% exposure, as described below. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
-| Official wall text | Ambient only. | No. | No. | Unchanged. |
-| Red graffiti | Ambient only, including its red strokes. | No. | No. | Unchanged. |
+| Coin switch | Filled gold/green segments retain at least 65% exposure; housing, empty track and dividers receive ordinary lighting. | No. | No. | Readout remains visible and counts coins. Switching still obeys EMP and latching rules. |
+| Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
+| Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
+| Red graffiti | Ordinary, including its red strokes. | No. | No. | Unchanged. |
 | Player | Near-white when lit, matching the ball's dark material under ambient light; see below. | Yes, using the current animated silhouette. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
 | Shovebot chassis, wheels, and antenna | Ordinary. | Yes, using chassis and wheels, not the antenna. | No. | Stops; silhouette remains solid and casts shadows. |
 | Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | No headlight or beam. | Eye goes dark, matching existing behavior. |
-| Coin | Full face and edge colors; retains its spin and thickness. | No. | No. | Remains collectible and animated. |
-| Good stopwatch | Full existing amber artwork and backwards-moving hand. | No. | No. | Remains collectible and animated. |
-| Time bonus | Full amber arrow and number; retains counterclockwise rotation. | No. | No. | Remains collectible and animated. |
-| Time penalty | Full dark-red arrow and number; retains clockwise rotation. | No. | No. | Remains collectible and animated. |
-| Fast stopwatch | Full dark-red artwork and fast clockwise hand. | No. | No. | Remains collectible and animated. |
-| EMP pickup | Full gold face/edge colors and bolt animation. | No. | No, including during collection. | Remains collectible; another pickup extends the existing outage. |
+| Coin | Ordinary face and edge colors; retains its spin and thickness. | No. | No. | Remains collectible and animated. |
+| Good stopwatch | Ordinary amber artwork and backwards-moving hand. | No. | No. | Remains collectible and animated. |
+| Time bonus | Ordinary amber arrow and number; retains counterclockwise rotation. | No. | No. | Remains collectible and animated. |
+| Time penalty | Ordinary dark-red arrow and number; retains clockwise rotation. | No. | No. | Remains collectible and animated. |
+| Fast stopwatch | Ordinary dark-red artwork and fast clockwise hand. | No. | No. | Remains collectible and animated. |
+| EMP pickup | Ordinary gold face/edge colors and bolt animation. | No. | No, including during collection. | Remains collectible; another pickup extends the existing outage. |
 | Goal plate, pole, and closed-door surroundings | Ordinary. | No extra shadows from the small plate/pole. The back-wall door is not new solid geometry. | No. | Protected goal logic continues. |
 | Goal lamp before activation | Ordinary inactive lens. It must not look switched on in darkness. | No. | No. | Unchanged. |
 | Goal lamp after activation | Full existing green lens, visible even at ambient 0. | No. | No; the indicator never lights nearby surfaces. | Stays visibly green. |
@@ -217,23 +204,23 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Authored lamp lens | Full neutral lens at full power; follows its power fade when switching. | No. | Its defined spotlight cone. | All authored lamps lose power. |
 | Start/checkpoint floor markings in legacy playgrounds | Ordinary. | No. | No navigation beacon. | Unchanged. |
 | Dust, foot/contact effects, and slide marks | Ordinary at their world position. | No. | No. | Existing effect behavior. |
-| Pickup pulse/shrink, floating `−n`/`+n`, and EMP ring | Full source color, multiplied by the existing animation opacity. | No. | No flash of environmental light. | Animation continues unless the game is paused. |
+| Pickup pulse/shrink, floating `−n`/`+n`, and EMP ring | Ordinary source color, multiplied by the existing animation opacity. | No. | No flash of environmental light. | Animation continues unless the game is paused. |
 | Menus, dialogs, HUD, focus indicators, editor handles/guides | Outside world lighting. | No. | No. | Unchanged. |
 
 ### Clocks and coin displays
 
-Apply `max(ambientExposure, 0.65)` to the **whole display composition**. These
-back-wall displays do not react to spotlights or passing shadows.
-Do not leave dark digits invisible on a dimmed panel or illuminate only the filled
-coin segments while making the threshold unreadable. Preserve the clock's normal,
-stopped, fast, and finished palettes and symbols. Preserve the coin meter's empty,
-partially filled, reached-but-unpowered, and activated appearances.
+Only clock digits/status symbols and filled coin segments glow. Apply
+`max(localExposure, 0.65)` to those marks, including under a shadow or during
+EMP. Spotlights raise them to their full material colors. Frames, panels,
+empty coin tracks, and segment dividers use ordinary lighting with no brightness
+floor. None of these items casts shadows or lights nearby objects.
 
-The 65% floor keeps a display useful without making every clock a bright white
-rectangle in a dark room. Its suitability at minimum gameplay zoom is a prototype
-acceptance item; tune one shared floor if necessary, not individual maps. Displays
-do not illuminate graffiti, platforms, or the player beside them. Their wall
-placement should remain discreet as required by the level-design brief.
+The timer uses the same dark face with pale normal digits, amber stopped digits,
+red fast digits, and green finished digits in both modes. Daytime shows full
+material colors; night mode applies the light field with a floor only for digits. Coin segments keep their existing gold and active green colors,
+including the fully collected but not yet powered state. Existing foreground
+objects still cover all display parts. The implementation uses the existing
+light field and emission passes, with no extra light calculation or framebuffer.
 
 Keeping these readouts alive during EMP is intentional: EMP interrupts mechanism
 power, not the player's information about time and collection progress. A coin
@@ -241,12 +228,12 @@ meter remaining visible does not mean it can activate a new output during EMP.
 
 ### Collectibles and their effects
 
-All six collectible types remain self-lit. A harmful pickup must not become a
-harder-to-see trap just because it is red. Keep its shape, number, direction, and
-movement distinguishable; test the dark red explicitly on the darkest back wall.
-If the existing red fails that check, revise one shared dark-scene rendering
-treatment for harmful icons and angry eyes, preserving their relationship. Do
-not silently recolor individual pickups or require color alone to identify them.
+All six collectible types and their collection effects receive ordinary ambient,
+spotlights, and cast shadows from other objects. They never cast shadows or emit
+light. Their existing gold, amber, and red colors, shapes, numbers, and animations
+stay intact; daylight keeps the original artwork. Authors must illuminate
+important pickups and wall hints. Wall text and graffiti use the same light
+field and remain non-casting back-wall artwork.
 
 A visible coin can suggest a route through darkness, but cannot prove that a
 landing exists. Authors must provide the necessary environmental light too.
@@ -255,7 +242,7 @@ as they are. Numbered collection labels still start at the numeral inside the
 collectible; lighting must not recenter them or draw a second numeral.
 
 These are back-wall items. A box, ball, terrain piece, or gate can cover them.
-The self-lit icon, floating number, and pickup ring must retain that same layer
+The icon, floating number, and pickup ring must retain that same layer
 ordering. Do not render all emissive artwork at the very end of the frame.
 
 ### Player lighting
@@ -279,9 +266,10 @@ contrast against every material.
 
 ## 5. Shadows, receiving surfaces, and coverage
 
-The player and loose physical objects receive surface shadows. Terrain, gates, elevators,
-moving platforms, the back-wall grid, and wall artwork receive ambient illumination
-only. They never display another object’s shadow or a spotlight patch. Occlusion also interrupts the
+The player, loose physical objects, collectibles, wall text, and graffiti receive
+surface shadows. Terrain, gates, elevators, moving platforms, the back-wall grid,
+receive ambient illumination only. They never display another
+object’s shadow or a spotlight patch. Occlusion also interrupts the
 faint airborne beam in dark rooms; it never subtracts ambient from the wall.
 
 Use light-to-world geometry, not the shovebot's single sight ray. Reuse appropriate
@@ -461,9 +449,8 @@ Do not support mounts to the player, ropes, bots, props, or other lights yet.
 
 ## 8. Builder and collection experience
 
-Add **Night mode** and **Ambient light** to Level settings. Disable ambient
-controls when Night mode is off, preserving their values. Use the existing number-field style
-and a synchronized slider. A drag makes one undo action. Add a single **Light**
+Use **Night mode** in Level settings with the fixed ambient-0 appearance.
+There are no ambient number or slider controls. Add a single **Light**
 tool under Back wall. Every light is a spotlight; there is no shape picker.
 Default placement is direction 90 (down), spread 70, intensity 100, Always on,
 unmounted.
@@ -509,8 +496,7 @@ only; it is not a light source.
 
 Level picker, Library, templates, and recycle-bin cards share the same thumbnail
 renderer. Show authored initial lighting, with fixed simulation state and no
-preview override or animated flicker. Use standard visibility, not the viewer's
-brightness preference, so collection cards stay consistent. Dark maps may have
+preview override or animated flicker. Use the same fixed night brightness so collection cards stay consistent. Dark maps may have
 dark thumbnails; authors should compose the start view deliberately. Do not
 secretly brighten thumbnails to promise visibility the level does not provide.
 
@@ -526,7 +512,7 @@ version 2**. This does not change the collection manifest's version or ordering.
 - Version 2 keeps existing geometry/coordinate fields and adds required `lighting`
   with required `ambient` and `lights`, plus boolean `nightMode` in new saves.
   Older experimental version-2 files without the flag infer Night mode from
-  `ambient < 100`; loading does not rewrite the file. Invalid flag types are rejected. Other existing mechanics retain their
+  `ambient < 100` before normalizing ambient to 0 in memory and on subsequent saves; loading does not rewrite the file. Invalid flag types are rejected. Other existing mechanics retain their
   semantics. Version 2 supports both puzzle levels and legacy-style playgrounds.
 - Saving the first nondefault lighting edit upgrades that level to version 2.
   Preview overrides do not upgrade it. Keep version 2 on subsequent saves even
@@ -581,7 +567,7 @@ sources remain invalid rather than creating implicit puzzle machinery.
 | Field | Contract |
 | --- | --- |
 | `nightMode` | Boolean. New saves include it; older files infer it from `ambient < 100`. |
-| `ambient` | Finite integer 0–100. Maps to 35–57% brightness when Night mode is on. |
+| `ambient` | Legacy finite integer 0–100, normalized to 0. Every night uses 35% baseline brightness. |
 | `lights` | Array, initially limited to 16 authored spotlights, including at most 4 mounted lights. The goal indicator is not a source and has no entry. |
 | `id` | Nonempty stable string, at most 100 characters; unique across lights and mechanisms. Editor generates fresh IDs. |
 | `name` | Optional, using existing object-name rules. Never HTML. |
@@ -726,7 +712,7 @@ cases, not as the default visual composition.
 Darkness should conceal information worth discovering, not make reliable input
 feel broken. Before a required jump or rope release, the necessary landing or
 catch must be readable in time to act. Near-black mandatory geometry cannot be
-justified by a nearby self-lit coin. Hidden optional rewards are different from
+justified by a nearby illuminated coin. Hidden optional rewards are different from
 an invisible mandatory obstacle.
 
 Graffiti is not fluorescent. Put a lamp where a hint should be read, preferably
@@ -740,12 +726,8 @@ where the consequence is understandable and recoverable. Do not force an early
 player to restart merely because every route marker disappeared. A later dark
 machine room can be challenging once the relationship has been taught.
 
-Add **Brighter dark levels** as a player preference in Controls/accessibility,
-without adding a HUD widget or another pause-menu action. It raises effective
-night ambient to 100 (57% brightness), without changing Night mode, and changes no sources, physics, timers, medals, records,
-or bot behavior. Persist the preference locally; never write it into a level.
-It is not a competitive ruleset. This is a readability aid, not a claim that one
-brightness value solves every visual-accessibility need.
+Night brightness is consistent across players, previews, and levels. The retired
+Brighter dark levels preference is ignored.
 
 UI stays at normal contrast. Controls have names, keyboard access, visible focus,
 and controller behavior consistent with their existing peers. Do not rely on
@@ -763,7 +745,7 @@ screenshots support, but do not replace, human review in motion.
 
 - Legacy version-1 round trips and full-bright visual parity, including all
   existing materials, collectible animations, and goal states.
-- Night ambient 0/50/100 maps to brightness 0.35/0.46/0.57; daytime is 1; constant intensity at near
+- All legacy night ambient values map to brightness 0.35; daytime is 1; constant intensity at near
   and far distances; cone limits; all four level boundaries; exact beam 0/1 endpoints; identical
   overlapping lamps; order independence; a second source illuminating a shadow.
 - Concave terrain, a canted beam, thin walls, adjacent rectangles, overlapping
@@ -802,7 +784,7 @@ screenshots support, but do not replace, human review in motion.
 
 Create dedicated test fixtures, not new built-in campaign levels by default:
 
-1. **Lighting contact sheet:** every object and state, at ambient 100/65/35/10/0,
+1. **Lighting contact sheet:** every object and state, in daytime and fixed night lighting,
    in light, at a falloff boundary, in shadow, and covered by another object.
 2. **Service corridor:** ambient 0, one or two architecturally placed spotlights
    influencing each playable area, a ladder access route, a jumping
@@ -823,7 +805,7 @@ jumps, and an EMP at an inconvenient moment. Apply the level-design checklist.
 This document authorizes no implementation by itself. When implementation is
 requested, keep the steps small and reviewable:
 
-1. **Feasibility/art prototype:** one room, ambient control, two overlapping
+1. **Feasibility/art prototype:** one room, night toggle, two overlapping
    sources, one concave caster, a moving box, the object contact sheet, and the
    performance measurements. Resolve solid-face shadows and player inks here.
 2. **Core rendering:** stable light field, static/dynamic occlusion, layering,

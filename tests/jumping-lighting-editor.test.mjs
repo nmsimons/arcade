@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { blankTrial, levelHeight, parseLevel, levelProblems, triggerTargets } from '../src/games/jumping/level.ts'
 import { addItem, allSelections, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, renameItem, resizeItem, resizeLevelHeight, setTriggerTargets } from '../src/games/jumping/editor.ts'
-import { editLight, lightHandles, setLevelAmbient, setLevelNightMode } from '../src/games/jumping/lightingEditor.ts'
+import { editLight, lightHandles, setLevelNightMode } from '../src/games/jumping/lightingEditor.ts'
 import { nightModeEnabled } from '../src/games/jumping/ambientLight.ts'
 import { lightTravelBounds } from '../src/games/jumping/lightingDefinition.ts'
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
@@ -17,12 +17,12 @@ const selection = { kind: 'light', index: 0 }
 
 test('lighting upgrades only edited documents; legacy levels round-trip unchanged', () => {
   const level = blankTrial()
-  assert.equal(setLevelAmbient(level, 100), level)
+  assert.equal(setLevelNightMode(level, false), level)
   assert.equal(parseLevel(level).version, 1)
   assert.equal(parseLevel(level).lighting, undefined)
-  const next = setLevelAmbient(level, 35)
-  assert.equal(next.version, 2); assert.deepEqual(next.lighting, { nightMode: false, ambient: 35, lights: [] })
-  assert.equal(setLevelAmbient(next, 100).version, 2)
+  const next = setLevelNightMode(level, true)
+  assert.equal(next.version, 2); assert.deepEqual(next.lighting, { nightMode: true, ambient: 0, lights: [] })
+  assert.equal(setLevelNightMode(next, false).version, 2)
   assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(lit()))), lit())
   assert.deepEqual(levelProblems(lit()), [])
 })
@@ -159,15 +159,14 @@ test('EMP and a last coin collected together defer lamp activation, and later EM
 })
 
 
-test('night mode round-trips independently of ambient and preserves lamps when disabled', () => {
+test('night mode normalizes legacy ambient and preserves lamps when disabled', () => {
   const legacy = blankTrial()
   assert.equal(nightModeEnabled(legacy.lighting), false)
   assert.equal(setLevelNightMode(legacy, false), legacy)
   const night = setLevelNightMode(legacy, true)
   assert.equal(night.version, 2)
-  assert.deepEqual(night.lighting, { nightMode: true, ambient: 100, lights: [] })
-  const dim = setLevelAmbient(night, 0)
-  assert.equal(nightModeEnabled(dim.lighting), true)
+  assert.deepEqual(night.lighting, { nightMode: true, ambient: 0, lights: [] })
+  assert.equal(nightModeEnabled(night.lighting), true)
   const source = lit(), day = setLevelNightMode(source, false)
   assert.equal(source.lighting.nightMode, true)
   assert.equal(day.lighting.nightMode, false)
@@ -175,11 +174,14 @@ test('night mode round-trips independently of ambient and preserves lamps when d
   assert.equal(day.lighting.ambient, source.lighting.ambient)
   assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(day))).lighting, day.lighting)
   assert.deepEqual(setLevelNightMode(day, true).lighting, source.lighting)
-  assert.equal(setLevelAmbient(day, 0).lighting.nightMode, false)
   for (const ambient of [0, 34, 99, 100]) {
     const file = { ...legacy, version: 2, lighting: { ambient, lights: [] } }
     assert.equal(parseLevel(file).lighting.nightMode, ambient < 100)
-    for (const nightMode of [true, false]) assert.equal(parseLevel({ ...file, lighting: { ...file.lighting, nightMode } }).lighting.nightMode, nightMode)
+    assert.equal(parseLevel(file).lighting.ambient, 0)
+    for (const nightMode of [true, false]) {
+      const parsed = parseLevel({ ...file, lighting: { ...file.lighting, nightMode } }).lighting
+      assert.equal(parsed.nightMode, nightMode); assert.equal(parsed.ambient, 0)
+    }
     for (const nightMode of [null, 0, 1, 'true', {}]) assert.throws(() => parseLevel({ ...file, lighting: { ...file.lighting, nightMode } }))
   }
 })

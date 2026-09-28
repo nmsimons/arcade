@@ -1,3 +1,6 @@
+import { paintNormally } from './worldPaint.ts'
+import type { WorldPaint } from './worldPaint.ts'
+
 /** Plain gold discs with a substantial edge turn slowly about their vertical axis. */
 export const COIN_RADIUS = 18
 export const COIN_COLOR = '#dfb44f'
@@ -23,19 +26,26 @@ export function drawCoin(ctx: CanvasRenderingContext2D, time = 0, phase = 0) {
   ctx.restore()
 }
 
-export function drawCoinSwitch(ctx: CanvasRenderingContext2D, switch_: { x: number; y: number; w: number; threshold: number } & CoinSwitchOrientation, collected: number, active = collected >= switch_.threshold) {
+export function drawCoinSwitch(ctx: CanvasRenderingContext2D, switch_: { x: number; y: number; w: number; threshold: number } & CoinSwitchOrientation, collected: number, active = collected >= switch_.threshold, paint: WorldPaint = paintNormally) {
   const { x, y, w, h } = coinSwitchBounds(switch_), progress = Math.min(1, collected / switch_.threshold)
   const inset = 4, width = w - inset * 2, height = h - inset * 2
   ctx.save(); ctx.translate(x, y)
-  ctx.fillStyle = '#e2e7da'; ctx.fillRect(0, 0, w, h)
-  ctx.fillStyle = '#c5ccbd'; ctx.fillRect(inset, inset, width, height)
-  ctx.fillStyle = active ? '#91ad69' : COIN_COLOR
-  if (switch_.orientation === 'vertical') ctx.fillRect(inset, inset + height * (1 - progress), width, height * progress)
-  else ctx.fillRect(inset, inset, width * progress, height)
-  ctx.fillStyle = '#e2e7da'
-  for (let i = 1; i < switch_.threshold; i++) {
-    if (switch_.orientation === 'vertical') ctx.fillRect(inset, inset + height * i / switch_.threshold - .5, width, 1)
-    else ctx.fillRect(inset + width * i / switch_.threshold - .5, inset, 1, height)
-  }
+  paint(ctx, 0, () => {
+    ctx.fillStyle = '#e2e7da'; ctx.fillRect(0, 0, w, h)
+    ctx.fillStyle = '#c5ccbd'; ctx.fillRect(inset, inset, width, height)
+  })
+  // Only filled segments glow. Empty slots, dividers and housing take room light.
+  paint(ctx, .65, () => {
+    ctx.fillStyle = active ? '#91ad69' : COIN_COLOR
+    if (switch_.orientation === 'vertical') ctx.fillRect(inset, inset + height * (1 - progress), width, height * progress)
+    else ctx.fillRect(inset, inset, width * progress, height)
+  })
+  paint(ctx, 0, () => {
+    ctx.fillStyle = '#e2e7da'
+    for (let i = 1; i < switch_.threshold; i++) {
+      if (switch_.orientation === 'vertical') ctx.fillRect(inset, inset + height * i / switch_.threshold - .5, width, 1)
+      else ctx.fillRect(inset + width * i / switch_.threshold - .5, inset, 1, height)
+    }
+  })
   ctx.restore()
 }

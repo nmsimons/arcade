@@ -69,5 +69,6 @@ export function parseLighting(value: unknown): LightingDefinition {
   })
   const ambient = number(v.ambient, 0, 100, true)
   if (v.nightMode !== undefined && typeof v.nightMode !== 'boolean') return fail()
-  return { nightMode: v.nightMode === undefined ? ambient < 100 : v.nightMode, ambient, lights }
+  // Infer older day/night files before normalizing the retired ambient setting.
+  return { nightMode: v.nightMode === undefined ? ambient < 100 : v.nightMode, ambient: 0, lights }
 }

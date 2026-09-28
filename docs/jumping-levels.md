@@ -9,7 +9,7 @@ For route design, teaching, wall guidance, puzzles, and playtesting, see
 
 Version 1 remains supported unchanged. Version 2 adds authored lighting, described
 below and in the [flat-lighting specification](jumping-lighting.md). The studio
-upgrades a level on its first Night mode, ambient, or spotlight edit; it never silently
+upgrades a level on its first Night mode or spotlight edit; it never silently
 removes lighting when saving.
 
 ## Built-in levels
@@ -644,15 +644,17 @@ and legacy connections. Neither replaces actually playing the route.
 
 ## Lighting (version 2)
 
-The back wall and wall text receive ambient illumination. Dark rooms also show
-a very faint full spotlight beam, fading smoothly across night ambient 0–100. The
+The back wall receives ambient illumination. Wall text and collectibles receive
+spotlights and shadows, without casting shadows. Night rooms use the fixed
+ambient-0 appearance (35% baseline brightness) with a very faint full spotlight beam. The
 short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at solid objects and room boundaries.
-Spotlights illuminate terrain and physical objects, which cast shadows on each
-other. Wall displays keep their readability floor, and haze never washes out
+Spotlights illuminate movable objects. Terrain and mechanisms retain ambient
+colors while casting shadows. Only timer digits/status symbols and filled coin segments keep a 65% brightness
+floor. Panels, frames, and empty tracks follow room lighting. Haze never washes out
 wall text, collectibles, or the player.
 
-Ambient light belongs to the level. Spotlights belong to the back wall and do not
-block movement. In the studio, enable **Level settings → Night mode**, adjust **Ambient light**, and use the
+Spotlights belong to the back wall and do not block movement. In the studio,
+enable **Level settings → Night mode** and use the
 **Back wall → Spotlight** tool. Click to place, or drag to aim. Select a lamp to
 change its direction, spread, power, mount and name. The middle handle
 aims; the outer handles change spread. Snap uses five-degree angle increments;
@@ -662,7 +664,7 @@ Alt bypasses it. Position fields refer to the light's center.
 "version": 2,
 "lighting": {
   "nightMode": true,
-  "ambient": 85,
+  "ambient": 0,
   "lights": [
     {
       "id": "stairs-lamp",
@@ -678,11 +680,11 @@ Alt bypasses it. Position fields refer to the light's center.
 ```
 
 This is a fragment of the existing level object; retain its other fields.
-Night mode is off by default: the level is fully lit. With Night mode on, ambient
-0–100 smoothly spans 35–57% actual brightness. Turning Night mode off preserves
-the ambient value and lights. New saves include boolean `nightMode`. Experimental
-version-2 files without the flag infer it from `ambient < 100`; version-1 levels
-stay fully lit.
+Night mode is off by default: the level is fully lit. With Night mode on, every level uses
+35% ambient brightness. Turning Night mode off preserves the lights. New saves include boolean `nightMode`. Experimental
+version-2 files without the flag infer it from `ambient < 100` before normalizing
+ambient to 0. Valid older ambient values are accepted but no longer affect
+brightness. Version-1 levels stay fully lit.
 Lamps extend indefinitely within their cone,
 stop at the level boundary, cast sharp shadows with narrow antialiased edges,
 and never add their intensities together. Existing levels are not darkened.
@@ -709,15 +711,15 @@ detaches it in place. Templates remap IDs and references together.
 
 EMP switches all lamps off with a brief fade; ambient stays unchanged. Coin
 switches keep their existing latching rules. The green exit indicator stays
-visible and never casts light. Pickups keep their full colors; clocks and coin
+visible and never casts light. Pickups dim with their surroundings; clocks and coin
 meters remain readable. The player uses light ink in Night mode and
 dark ink in daytime, and casts a shadow matching its pose.
 
 The **Lighting** canvas checkbox temporarily shows the scene fully lit. **Hold to
 preview** temporarily powers a selected switched lamp. Neither changes the file,
 undo history, thumbnails or playtest. Thumbnails show the authored initial state.
-**Brighter dark levels** in the game's Controls uses night ambient 100 (57%
-brightness), preserving Night mode. It is saved only as a browser preference.
+Night brightness is fixed for gameplay, previews, and thumbnails. The former
+Brighter dark levels preference is ignored.
 
 Files allow at most 16 lights, including 4 mounted lights. Rooms with Night mode
 on are limited to 4,096 static contour edges per light and 32,768 summed across

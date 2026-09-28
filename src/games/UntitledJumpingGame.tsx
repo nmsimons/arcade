@@ -137,12 +137,6 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
     try { localStorage.setItem('jumping:performance-monitor', String(value)) } catch { /* Keep the choice for this visit. */ }
   }
-  const [brighterDarkLevels, setBrighterDarkLevels] = useState(() => { try { return localStorage.getItem('jumping:brighter-dark-levels') === 'true' } catch { return false } })
-  const brighterRef = useRef(brighterDarkLevels)
-  function changeBrightness(value: boolean) {
-    brighterRef.current = value; setBrighterDarkLevels(value)
-    try { localStorage.setItem('jumping:brighter-dark-levels', String(value)) } catch { /* Keep the preference for this visit. */ }
-  }
   const [audioState] = useState(() => new JumpingAudioState())
   const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
   const [challenge, setChallenge] = useState(true)
@@ -424,8 +418,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       if (level.lighting) {
         const camera = gameCamera(width, height, player.current, level, !!run.current)
-        const definition = brighterRef.current ? { ...level.lighting, nightMode: nightModeEnabled(level.lighting), ambient: 100 } : level.lighting
-        lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), definition,
+        lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), level.lighting,
           { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting?.shadows ?? 'full')
         return
       }
@@ -525,7 +518,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     {screen === 'complete' && <JumpingResultDialog level={trial} elapsed={result.elapsed} medal={result.medal} best={best}
       testing={testing} saveError={saveError} onNext={!testing && campaignIndex >= 0 && nextFile ? () => playFile(nextFile, playingFile.collection as 'built-in' | 'local') : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
-    {!preparing && screen === 'paused' && <JumpingPauseDialog brighterDarkLevels={brighterDarkLevels} onBrightnessChange={changeBrightness} name={challenge ? trial.name : activeLevel.current.name} reason={pauseReason}
+    {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevel.current.name} reason={pauseReason}
       showPerformance={showPerformance} onPerformanceChange={changePerformance} performancePanel={import.meta.env.DEV && showPerformance ? <PerformancePanel snapshot={performanceSnapshot} paused /> : null}
       performanceMode={performanceMode} onPerformanceModeChange={changePerformanceMode} objectShadows={lightingShadows === 'full'}
       connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}

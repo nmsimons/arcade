@@ -15,7 +15,6 @@ export default function LightingLab() {
   const canvas = useRef<HTMLCanvasElement>(null)
   const scene = useRef<{ run: Run; lighting: LightingDefinition; renderer: LightingRenderer; time: number; liftTime: number; debt: number; samples: number[] } | null>(null)
   const keys = useRef(new Set<string>())
-  const [ambient, setAmbient] = useState(0)
   const [nightMode, setNightMode] = useState(true)
   const [blackout, setBlackout] = useState(false)
   const [goal, setGoal] = useState(false)
@@ -64,7 +63,7 @@ export default function LightingLab() {
     }
     const lights = state.lighting.lights.map(light => ({ ...light }))
     if (overlap) Object.assign(lights[1], { ...lights[0], id: lights[1].id })
-    const definition = { nightMode, ambient, lights }
+    const definition = { nightMode, ambient: 0, lights }
     const subject = focus === 'bot' ? { x: run.robots[0].x, y: run.robots[0].y - 35, w: 220, h: 160 }
       : focus === 'player' ? { x: run.player.x, y: run.player.y - 45, w: 320, h: 220 }
       : focus === 'props' ? { x: (run.props[0].x + run.props[1].x) / 2, y: 565, w: 460, h: 300 }
@@ -118,7 +117,6 @@ export default function LightingLab() {
     <header><div><p>UNTITLED JUMPING GAME · DEVELOPMENT</p><h1>After hours.</h1></div><Link to="/untitled-jumping-game">Back to game</Link></header>
     <div className="lighting-lab-controls">
       <button type="button" role="switch" aria-checked={nightMode} title="Switch between full daylight and authored night lighting" onClick={() => setNightMode(!nightMode)}>Night mode</button>
-      <label className="lighting-lab-ambient">Ambient <output>{ambient}</output><input aria-label="Ambient light" disabled={!nightMode} title="Night brightness: 0 is 35%; 100 is 57%" type="range" min="0" max="100" value={ambient} onChange={e => setAmbient(Number(e.target.value))} /></label>
       <button type="button" aria-pressed={blackout} disabled={playing} onClick={() => setBlackout(!blackout)}>EMP blackout</button>
       <button type="button" aria-pressed={goal} disabled={playing} onClick={() => setGoal(!goal)}>Exit light</button>
       <button type="button" aria-pressed={overlap} onClick={() => setOverlap(!overlap)}>Overlap lamps</button>

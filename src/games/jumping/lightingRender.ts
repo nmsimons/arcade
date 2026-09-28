@@ -115,11 +115,15 @@ export class LightingRenderer {
     })
     ctx.fillRect(0, 0, view.width, view.height); ctx.restore()
   }
-  private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, ink: string, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
+  private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, nightMode: boolean, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
+    const ink = nightMode ? NIGHT_PLAYER_COLOR : '#303c36'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
     if (backdrop && layer !== 'objects') drawLevelBackdrop(ctx, run.level,
-      { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom)
+      { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false)
+    // Text is the first wall artwork: empty emission masks need no text erase.
+    // Replay it only with the backdrop or when masking the airborne beam.
+    if (layer !== 'objects' && (backdrop || layer === 'wall')) paint(ctx, 0, () => drawWallTexts(ctx, run.level.texts ?? []))
     if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer)
     else {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
@@ -149,10 +153,10 @@ export class LightingRenderer {
     // Study isolation changes the view, never power state or the saved definition.
     const bounds = { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }
     const activeSources = sources.filter(source => (!onlyLight || source.id === onlyLight) && source.fade > 0 && lightReachesView(source, bounds))
-    const nightMode = nightModeEnabled(definition), ink = nightMode ? NIGHT_PLAYER_COLOR : '#303c36'
+    const nightMode = nightModeEnabled(definition)
     if (!nightMode) {
       if (this.buffers) this.release()
-      this.world(ctx, run, view, ink, paintNormally, sources, editor)
+      this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
       return { lights: 0, edges: 0, bufferBytes: 0, backend: 'canvas' as const, sources }
     }
     if (view.width * view.height > 2_100_000) throw new Error('Lighting viewport exceeds its buffer budget.')
@@ -292,7 +296,7 @@ export class LightingRenderer {
     const playerRight = Math.min(width, Math.ceil((Math.max(...playerShapes.map(shape => shape.x + shape.w)) - view.x + 1) * view.zoom) + 1)
     const playerBottom = Math.min(height, Math.ceil((Math.max(...playerShapes.map(shape => shape.y + shape.h)) - view.y + 1) * view.zoom) + 1)
     const playerWidth = playerRight - playerX, playerHeight = playerBottom - playerY
-    this.world(ctx, run, view, ink, paintNormally, sources, editor)
+    this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
     ctx.save(); ctx.resetTransform(); ctx.globalCompositeOperation = 'multiply'; drawField(ctx)
     for (const floor of [1, .65] as const) {
       clear(correction, width, height)
@@ -300,7 +304,7 @@ export class LightingRenderer {
       correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height)
       correction.ctx.globalCompositeOperation = 'difference'; drawField(correction.ctx)
       clear(emission, width, height)
-      this.world(emission.ctx, run, view, ink, emissionPaint(floor), sources, editor)
+      this.world(emission.ctx, run, view, nightMode, emissionPaint(floor), sources, editor)
       emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, width, height)
       emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
       ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, 0, 0)
@@ -324,8 +328,8 @@ export class LightingRenderer {
     // Foreground coverage keeps both airborne light effects behind solid art.
     // Draw it once per frame; only alpha is used, including the player's fade.
     clear(shadow, width, height)
-    this.world(shadow.ctx, run, view, ink, paintNormally, sources, editor, 'objects')
-    // Structural solids and wall artwork receive ambient only. Replay the
+    this.world(shadow.ctx, run, view, nightMode, paintNormally, sources, editor, 'objects')
+    // Structural solids and the back wall receive ambient only. Replay the
     // full artwork order to remove direct light from their visible pixels,
     // preserving objects, emissions and translucent silhouettes in front.
     for (const floor of [0, .65] as const) {
@@ -334,7 +338,7 @@ export class LightingRenderer {
       correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambientExposure(definition.ambient)))
       correction.ctx.fillRect(0, 0, width, height)
       clear(emission, width, height)
-      this.world(emission.ctx, run, view, ink, ambientSurfacePaint(floor), sources, editor, 'all', floor === 0)
+      this.world(emission.ctx, run, view, nightMode, ambientSurfacePaint(floor), sources, editor, 'all', floor === 0)
       emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, width, height)
       emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
       ctx.globalCompositeOperation = 'difference'; ctx.drawImage(emission.canvas, 0, 0)
@@ -352,9 +356,7 @@ export class LightingRenderer {
       correction.ctx.globalCompositeOperation = 'destination-out'; correction.ctx.drawImage(shadow.canvas, 0, 0)
       // The beam is airborne scenery behind readable wall art and physical
       // objects. It must not wash out clocks, coins, text or the player's ink.
-      this.world(correction.ctx, run, view, ink, erase, sources, editor, 'wall')
-      correction.ctx.save(); transform(correction.ctx, view)
-      drawWallTexts(correction.ctx, run.level.texts ?? []); correction.ctx.restore()
+      this.world(correction.ctx, run, view, nightMode, erase, sources, editor, 'wall')
       ctx.save(); ctx.globalCompositeOperation = 'lighter'
       ctx.globalAlpha *= beamStrength / (1 - ambientExposure(definition.ambient))
       ctx.drawImage(correction.canvas, 0, 0); ctx.restore()

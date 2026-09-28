@@ -31,7 +31,7 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
 }
 
 export const TERRAIN_COLOR = terrainMaterial().color
-export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom = 1) {
+export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom = 1, includeText = true) {
   ctx.fillStyle = TERRAIN_COLOR; ctx.fillRect(view.x, view.y, view.w, view.h)
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
   ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level))
@@ -42,7 +42,7 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   const bottom = levelHeight(level), firstY = bottom - Math.floor((bottom - Math.max(0, view.y)) / grid) * grid
   for (let y = firstY; y <= Math.min(bottom, view.y + view.h); y += grid) { ctx.moveTo(view.x, y); ctx.lineTo(view.x + view.w, y) }
   ctx.stroke(); ctx.restore()
-  drawWallTexts(ctx, level.texts ?? [])
+  if (includeText) drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[]) {
   // Fill consecutive terrain of the same material as one compound silhouette.

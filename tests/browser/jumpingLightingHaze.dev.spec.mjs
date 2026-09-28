@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 
-test('full beams are faint, constant with distance, and fade across the dark-room range and disappear when night mode is off', async ({ page }) => {
+test('full beams stay faint and consistent regardless of legacy ambient and disappear when night mode is off', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -8,6 +8,7 @@ test('full beams are faint, constant with distance, and fade across the dark-roo
     h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []; h.run.pickups = []
     h.run.level = { ...h.run.level, width: 12000, platforms: [], texts: [], timers: [], triggers: [], climbables: { ropes: [], ladders: [] } }; h.run.terrain = []
     const source = { id: 'beam', x: 100, y: 200, intensity: 100, direction: 0, spread: 70, power: 'always' }
+    h.render(0, [source]) // Settle the first-readback raster path before comparing fields.
     const delta = (lit, base, x, y) => h.pixel(lit, x, y).map((c, i) => c - h.pixel(base, x, y)[i])
     const samples = []
     for (const [ambient, nightMode] of [[0, true], [33, true], [66, true], [99, true], [100, true], [100, false]]) {
@@ -28,7 +29,11 @@ test('full beams are faint, constant with distance, and fade across the dark-roo
     expect(sample.near).toEqual(sample.far)
     const strength = Math.max(...sample.far)
     expect(strength).toBeLessThanOrEqual(previous)
-    if (sample.nightMode) { expect(strength).toBeGreaterThan(0); expect(strength).toBeLessThanOrEqual(18) }
+    if (sample.nightMode) {
+      expect(strength).toBeGreaterThan(0); expect(strength).toBeLessThanOrEqual(18)
+      expect(sample.far).toEqual(result.samples[0].far)
+      expect(sample.source).toEqual(result.samples[0].source)
+    }
     else expect(sample.far).toEqual([0, 0, 0])
     if (sample.nightMode) expect(Math.max(...sample.source)).toBeGreaterThan(strength)
     else expect(sample.source).toEqual([0, 0, 0])
@@ -53,24 +58,26 @@ test('airborne beams stay behind clocks, collectibles, wall text and the player'
     h.run.pickups = [{ definition: { kind: 'coin', x: 450, y: 200 }, collectedAge: null }]
     const source = { id: 'beam', x: 100, y: 200, intensity: 100, direction: 0, spread: 100, power: 'always' }
     const base = h.render(0), lit = h.render(0, [source]), full = h.normal('#e5e7e6')
-    const samples = [[455, 200], [655, 185]].map(point => ({ base: h.pixel(base, ...point), lit: h.pixel(lit, ...point) }))
+    const clock = { base: h.pixel(base, 655, 185), lit: h.pixel(lit, 655, 185), full: h.pixel(full, 655, 185) }
+    const coin = { base: h.pixel(base, 455, 200), lit: h.pixel(lit, 455, 200), full: h.pixel(full, 455, 200) }
     const player = { base: h.pixel(base, 980, 182), lit: h.pixel(lit, 980, 182), full: h.pixel(full, 980, 182) }
     const text = []
     // Compare opaque glyph interiors; antialiased edges correctly reveal the
     // faint beam behind the text rather than changing the ink itself.
     for (let y = 180; y < 230; y++) for (let x = 800; x < 930; x++) {
-      const pixel = h.pixel(base, x, y)
-      if (pixel.every((c, i) => Math.abs(c - [39, 45, 41][i]) <= 1)) text.push({ base: pixel, lit: h.pixel(lit, x, y) })
+      const original = h.pixel(full, x, y)
+      if (original.every((c, i) => c === [113, 128, 116][i])) text.push({ base: h.pixel(base, x, y), lit: h.pixel(lit, x, y), full: original })
     }
     const wall = { base: h.pixel(base, 1000, 300), lit: h.pixel(lit, 1000, 300) }
-    h.renderer.dispose(); return { samples, text, wall, player }
+    h.renderer.dispose(); return { clock, coin, text, wall, player }
   })
   expect(result.wall.lit[0]).toBeGreaterThan(result.wall.base[0])
   // Allow one channel step from the existing 8-bit exposure compositor.
-  for (const sample of result.samples) sample.lit.forEach((c, i) => expect(Math.abs(c - sample.base[i])).toBeLessThanOrEqual(1))
-  // The figure receives the spotlight, but the airborne haze cannot wash it out.
-  result.player.lit.forEach((c, i) => expect(Math.abs(c - result.player.full[i])).toBeLessThanOrEqual(1))
-  expect(result.player.lit[0]).toBeGreaterThan(result.player.base[0])
+  // Displays, collectibles and the figure receive light without a haze overlay.
+  for (const sample of [result.clock, result.coin, result.player]) {
+    sample.lit.forEach((c, i) => expect(Math.abs(c - sample.full[i])).toBeLessThanOrEqual(1))
+    expect(sample.lit[0]).toBeGreaterThan(sample.base[0])
+  }
   expect(result.text.length).toBeGreaterThan(20)
-  for (const sample of result.text) sample.lit.forEach((c, i) => expect(Math.abs(c - sample.base[i])).toBeLessThanOrEqual(1))
+  for (const sample of result.text) sample.lit.forEach((c, i) => expect(Math.abs(c - sample.full[i])).toBeLessThanOrEqual(2))
 })

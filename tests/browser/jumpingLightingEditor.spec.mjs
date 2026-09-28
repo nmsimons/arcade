@@ -33,11 +33,11 @@ async function point(page, x, y) {
 }
 async function select(page, value) { await page.getByRole('combobox', { name: 'Selected object' }).selectOption(value) }
 
-test('spotlight placement, aim handles, ambient, undo, save/reopen and playtest work together', async ({ page }) => {
+test('spotlight placement, aim handles, night mode, undo, save/reopen and playtest work together', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message))
   await open(page)
   await page.getByRole('checkbox', { name: 'Night mode', exact: true }).check()
-  await number(page, 'Ambient light', 25)
+  await expect(page.getByRole('spinbutton', { name: 'Ambient light', exact: true })).toHaveCount(0)
   await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
   await page.getByRole('button', { name: 'Spotlight', exact: true }).click()
   const a = await point(page, 600, 200), b = await point(page, 620, 400)
@@ -62,7 +62,7 @@ test('spotlight placement, aim handles, ambient, undo, save/reopen and playtest 
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('700')
   await page.getByRole('checkbox', { name: 'Lighting', exact: true }).uncheck()
   const saved = await saveTestLevel(page)
-  expect(saved.level.version).toBe(2); expect(saved.level.lighting.ambient).toBe(25)
+  expect(saved.level.version).toBe(2); expect(saved.level.lighting.ambient).toBe(0)
   expect(saved.level.lighting.lights).toHaveLength(1)
   expect(saved.level.lighting.lights[0]).toMatchObject({ x: 640, y: 220, direction: 0, spread: 60, intensity: 100, power: 'always' })
   expect(Object.keys(saved.level.lighting).sort()).toEqual(['ambient', 'lights', 'nightMode'])
@@ -70,14 +70,11 @@ test('spotlight placement, aim handles, ambient, undo, save/reopen and playtest 
   await expect(page.getByRole('spinbutton', { name: 'Light spread' })).toHaveValue('60')
   await saveTestLevel(page, 'Save and Test')
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  const brighter = page.getByRole('switch', { name: /Brighter dark levels/ })
-  await expect(brighter).toHaveAttribute('aria-checked', 'false'); await brighter.click()
-  await expect(brighter).toHaveAttribute('aria-checked', 'true')
-  expect(await page.evaluate(() => localStorage.getItem('jumping:brighter-dark-levels'))).toBe('true')
+  await expect(page.getByRole('switch', { name: /Brighter dark levels/ })).toHaveCount(0)
   await page.getByRole('button', { name: 'Back', exact: true }).click()
   await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
-  expect((await saveTestLevel(page)).level.lighting.ambient).toBe(25)
+  expect((await saveTestLevel(page)).level.lighting.ambient).toBe(0)
   expect(errors).toEqual([])
 })
 
@@ -107,20 +104,17 @@ test('switched light previews never persist; mount and switch links survive save
   expect(detached.level.triggers[0].targets).toEqual([lamp.id])
 })
 
-test('a slider gesture is one undo and preserves saved ambient when full-bright preview is selected', async ({ page }) => {
-  await open(page)
-  await page.getByRole('checkbox', { name: 'Night mode', exact: true }).check()
-  const slider = page.getByRole('slider', { name: 'Ambient light slider' })
-  await slider.scrollIntoViewIfNeeded()
-  const bounds = await slider.boundingBox()
-  await page.mouse.move(bounds.x + bounds.width * .9, bounds.y + bounds.height / 2); await page.mouse.down()
-  await page.mouse.move(bounds.x + bounds.width * .2, bounds.y + bounds.height / 2, { steps: 8 }); await page.mouse.up()
-  expect(Number(await page.getByRole('spinbutton', { name: 'Ambient light', exact: true }).inputValue())).toBeLessThan(30)
-  await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await expect(page.getByRole('spinbutton', { name: 'Ambient light', exact: true })).toHaveValue('100')
-  expect((await saveTestLevel(page)).level.lighting).toEqual({ nightMode: true, ambient: 100, lights: [] })
+test('older ambient settings normalize on open and full-bright preview leaves night mode unchanged', async ({ page }) => {
+  const level = blankTrial()
+  level.version = 2; level.lighting = { nightMode: true, ambient: 85, lights: [] }
+  await page.addInitScript(() => localStorage.setItem('jumping:brighter-dark-levels', 'true'))
+  await open(page, level)
+  await expect(page.getByRole('checkbox', { name: 'Night mode', exact: true })).toBeChecked()
+  await expect(page.getByRole('slider', { name: 'Ambient light slider' })).toHaveCount(0)
+  await expect(page.getByRole('spinbutton', { name: 'Ambient light', exact: true })).toHaveCount(0)
+  await page.getByRole('checkbox', { name: 'Lighting', exact: true }).uncheck()
+  expect((await saveTestLevel(page)).level.lighting).toEqual({ nightMode: true, ambient: 0, lights: [] })
 })
-
 
 test('returning from repeated lit playtests restores the editor without reloading', async ({ page }) => {
   const errors = []
@@ -131,40 +125,37 @@ test('returning from repeated lit playtests restores the editor without reloadin
   level.lighting = { ambient: 0, lights: [{ id: 'ceiling-light', x: 600, y: 200, direction: 90, spread: 60, intensity: 100, power: 'always' }] }
   await open(page, level)
   for (let i = 0; i < 3; i++) {
-    await number(page, 'Ambient light', i * 20)
+    await select(page, 'light:0'); await number(page, 'Light spread', 60 + i * 20)
     await expect(page.getByRole('checkbox', { name: 'Lighting', exact: true })).toBeChecked()
     await saveTestLevel(page, 'Save and Test')
     await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
     await expect(page.getByRole('application', { name: 'Level canvas' }), errors.join('\n')).toBeVisible()
     await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
-    await expect(page.getByRole('spinbutton', { name: 'Ambient light', exact: true })).toHaveValue(String(i * 20))
+    await select(page, 'light:0')
+    await expect(page.getByRole('spinbutton', { name: 'Light spread' })).toHaveValue(String(60 + i * 20))
   }
   expect(errors).toEqual([])
 })
 
 
-test('night mode saves independently and preserves ambient through undo, reload and playtest', async ({ page }, info) => {
+test('night mode uses fixed brightness through undo, reload and playtest', async ({ page }, info) => {
   await open(page)
   const night = page.getByRole('checkbox', { name: 'Night mode', exact: true })
   const field = page.getByRole('spinbutton', { name: 'Ambient light', exact: true })
   const slider = page.getByRole('slider', { name: 'Ambient light slider' })
-  await expect(night).not.toBeChecked(); await expect(field).toBeDisabled(); await expect(slider).toBeDisabled()
-  await night.check(); await expect(field).toBeEnabled()
-  await field.press('ArrowDown'); await expect(field).toHaveValue('99')
-  await field.press('ArrowUp'); await expect(field).toHaveValue('100')
-  await number(page, 'Ambient light', 40)
-  await night.uncheck(); await expect(field).toHaveValue('40'); await expect(field).toBeDisabled()
+  await expect(night).not.toBeChecked(); await expect(field).toHaveCount(0); await expect(slider).toHaveCount(0)
+  await night.check(); await night.uncheck()
   const saved = await saveTestLevel(page)
-  expect(saved.level.lighting).toEqual({ nightMode: false, ambient: 40, lights: [] })
+  expect(saved.level.lighting).toEqual({ nightMode: false, ambient: 0, lights: [] })
   await page.reload()
-  await expect(night).not.toBeChecked(); await expect(field).toHaveValue('40')
-  await night.check(); await expect(field).toBeEnabled()
+  await expect(night).not.toBeChecked(); await expect(field).toHaveCount(0)
+  await night.check()
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await expect(night).not.toBeChecked()
   await page.getByRole('button', { name: 'Redo', exact: true }).click(); await expect(night).toBeChecked()
   const tested = await saveTestLevel(page, 'Save and Test')
-  expect(tested.level.lighting).toEqual({ nightMode: true, ambient: 40, lights: [] })
+  expect(tested.level.lighting).toEqual({ nightMode: true, ambient: 0, lights: [] })
   await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
-  await expect(night).toBeChecked(); await expect(field).toHaveValue('40')
+  await expect(night).toBeChecked(); await expect(field).toHaveCount(0)
   await night.scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('night-mode-inspector.png') })
 })

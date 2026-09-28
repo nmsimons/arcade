@@ -14,8 +14,6 @@
 .lighting-lab-study select { min-height: 44px; border: 0; border-radius: 0; padding: 10px 32px 10px 12px; background: var(--slate); color: var(--ink); font: inherit; }
 .lighting-lab-lift input { width: 150px; accent-color: var(--ink); }
 .lighting-lab-lift output { min-width: 4ch; text-align: right; font-variant-numeric: tabular-nums; }
-.lighting-lab-ambient { display: grid; grid-template-columns: 1fr auto; gap: 0 20px; margin-right: 20px; min-width: 180px; font-weight: 700; }
-.lighting-lab-ambient input { grid-column: 1 / -1; width: 100%; accent-color: var(--ink); }
 .lighting-lab canvas { display: block; width: 100%; flex: 1; min-height: 160px; }
 .lighting-lab footer { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--slate); padding: 14px 40px; font: 12px/1.4 ui-monospace, monospace; }
 @media (max-width: 700px) { .lighting-lab header, .lighting-lab-controls, .lighting-lab-study, .lighting-lab footer { padding: 16px; } }

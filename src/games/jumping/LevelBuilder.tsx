@@ -34,7 +34,7 @@ import type { LevelSource } from './routes'
 import { isHorizontalGate, mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
-import { editLight, lightHandles, setLevelAmbient, setLevelNightMode } from './lightingEditor'
+import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
 import { lightTravelBounds } from './lightingDefinition'
 import { useLightingGeometry } from './useLightingGeometry'
 import './builder.css'
@@ -752,11 +752,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           keepFloorInView(next); commit(next)
         }} /></label></div>
         <div className="builder-lighting-settings" role="group" aria-label="Level lighting">
-          <div className="builder-lighting-heading"><span>Ambient light</span><label className="builder-night-mode" title="Use spotlights and adjustable ambient lighting for this level"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(history.present, e.target.checked))} />Night mode</label></div>
-          <NumberField disabled={!nightModeEnabled(level.lighting)} label="Ambient light" value={level.lighting?.ambient ?? 100} min={0} max={100} step={1} onCommit={value => commit(setLevelAmbient(history.present, value))} />
-          <input type="range" aria-label="Ambient light slider" disabled={!nightModeEnabled(level.lighting)} title="Night brightness: 0 is 35%; 100 is 57%" min={0} max={100} value={level.lighting?.ambient ?? 100}
-            onChange={e => { const next = setLevelAmbient(history.present, Number(e.target.value)); latestPreview.current = next; setPreview(next) }}
-            onPointerUp={() => { if (latestPreview.current) commit(latestPreview.current) }} onKeyUp={() => { if (latestPreview.current) commit(latestPreview.current) }} onBlur={() => { if (latestPreview.current) commit(latestPreview.current) }} />
+          <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(history.present, e.target.checked))} />Night mode</label></div>
         </div>
         <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
         {isPuzzleLevel(level) && <fieldset className="builder-medals"><legend>Medal times (seconds)</legend><div className="builder-medal-inputs">{(['gold', 'silver', 'bronze'] as const).map(medal => <label key={medal}>{medal[0].toUpperCase() + medal.slice(1)}<NumberField label={`${medal} time`} min={.1} max={3600} step={.5} value={level.times[medal]} onCommit={value => commit({ ...history.present, times: { ...level.times, [medal]: value } })} /></label>)}</div></fieldset>}

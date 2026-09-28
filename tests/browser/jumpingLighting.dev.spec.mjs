@@ -80,13 +80,12 @@ test('the player receives light, casts a moving shadow, and releases light while
   expect(result.fading[0]).toBeLessThan(result.gone[0])
 })
 
-test('lighting lab loads independently, exposes keyboard controls, and preserves the ambient setting during EMP', async ({ page }) => {
+test('lighting lab loads independently, exposes keyboard controls, and uses fixed night brightness during EMP', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   await expect(page.locator('canvas')).toHaveAttribute('data-ready', 'true')
-  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveValue('0')
-  await page.getByRole('slider', { name: 'Ambient light' }).fill('35')
+  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveCount(0)
   await page.getByRole('button', { name: 'EMP blackout' }).click()
-  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveValue('35')
+  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'EMP blackout' })).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('player')
   await expect(page.getByRole('combobox', { name: 'View', exact: true })).toHaveValue('player')
@@ -211,7 +210,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player matches ba
   await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-player-and-ball.png`) })
 })
 
-test('darkness preserves pickup color and display exposure without painting through foreground objects', async ({ page }) => {
+test('darkness shades pickups and preserves display exposure without painting through foreground objects', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -219,20 +218,24 @@ test('darkness preserves pickup color and display exposure without painting thro
     const results = {
       coin: h.pixel(dark, 100, 240), originalCoin: h.pixel(bright, 100, 240),
       wall: h.pixel(dark, 400, 100), originalWall: h.pixel(bright, 400, 100),
-      clock: h.pixel(dark, 1035, 65), originalClock: h.pixel(bright, 1035, 65),
+      clock: h.pixel(dark, 1035, 65),
       hiddenPickup: h.pixel(dark, 705, 592), originalCover: h.pixel(bright, 705, 592),
     }
     h.run.props[0].x = 780
     const uncovered = h.render(0)
-    results.revealedPixels = []
-    for (let y = 580; y < 604; y++) for (let x = 697; x < 713; x++) results.revealedPixels.push(...h.pixel(uncovered, x, y))
+    h.run.pickups = []
+    const without = h.render(0)
+    results.revealedPixels = 0
+    for (let y = 580; y < 604; y++) for (let x = 697; x < 713; x++) {
+      if (h.pixel(uncovered, x, y).some((c, i) => Math.abs(c - h.pixel(without, x, y)[i]) > 5)) results.revealedPixels++
+    }
     h.renderer.dispose(); return results
   })
-  expectColor(result.coin, result.originalCoin)
+  expectColor(result.coin, result.originalCoin.map(c => Math.round(c * .35)))
   result.wall.forEach((channel, i) => expect(Math.abs(channel - result.originalWall[i] * .35)).toBeLessThanOrEqual(2))
   result.hiddenPickup.forEach((channel, i) => expect(Math.abs(channel - result.originalCover[i] * .35)).toBeLessThanOrEqual(2))
-  result.clock.forEach((channel, i) => expect(Math.abs(channel - result.originalClock[i] * .65)).toBeLessThanOrEqual(2))
-  expect(Math.max(...result.revealedPixels)).toBeGreaterThan(150)
+  expectColor(result.clock, [48, 60, 54].map(c => Math.round(c * .35)))
+  expect(result.revealedPixels).toBeGreaterThan(20)
 })
 
 test('lamp overlap, order, ambient-only terrain and source occlusion agree at the pixel level', async ({ page }) => {
@@ -287,7 +290,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
         results.push({ lens: h.pixel(after, pole, lampY), outsideChanges,
           lights: after.stats.lights, sources: after.stats.sources.map(source => source.id),
           outageDifference: emp ? h.difference(after, ambient) : 0,
-          clock: h.pixel(after, 1035, 65), coin: h.pixel(after, 100, 240) })
+          clock: h.pixel(after, 1035, 65) })
       }
     }
     h.renderer.dispose(); return results
@@ -297,8 +300,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
     expect(entry.outsideChanges).toBe(0)
     expect(entry.outageDifference).toBe(0)
     expect(entry.sources).toEqual(['spot-left', 'spot-middle', 'spot-right'])
-    expect(entry.clock[0]).toBeGreaterThan(100)
-    expect(entry.coin[0]).toBeGreaterThan(150)
+    expectColor(entry.clock, [48, 60, 54].map(c => Math.round(c * .35)))
   }
 })
 
@@ -580,7 +582,7 @@ test('empty lighting viewports release buffers and resume with an unchanged imag
 })
 
 
-test('night mode retains lighting contrast through ambient 100 and daytime bypasses it', async ({ page }) => {
+test('night mode ignores legacy ambient values and daytime bypasses lighting', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -597,7 +599,7 @@ test('night mode retains lighting contrast through ambient 100 and daytime bypas
     h.renderer.dispose(); return samples
   })
   for (const sample of results) {
-    const exposure = sample.nightMode ? .35 + .22 * sample.ambient / 100 : 1
+    const exposure = sample.nightMode ? .35 : 1
     sample.base.forEach((value, i) => expect(Math.abs(value - sample.original[i] * exposure)).toBeLessThanOrEqual(2))
     sample.lit.forEach((value, i) => expect(Math.abs(value - sample.original[i])).toBeLessThanOrEqual(1))
     if (!sample.nightMode) expect(sample.buffers).toBe(0)

@@ -46,15 +46,15 @@ test('prototype fixture uses a valid existing level, without changing the level 
   assert.deepEqual(levelProblems(parseLevel(fixture.level)), [])
   assert.equal(fixture.level.version, 1)
 })
-test('night ambient is a smooth 35–57% brightness scale including its upper endpoint', () => {
+test('night ambient stays at the original zero setting for every legacy value', () => {
   close(ambientExposure(0), .35)
-  close(ambientExposure(50), .46)
-  close(ambientExposure(99), .5678)
-  close(ambientExposure(100), .57)
+  close(ambientExposure(50), .35)
+  close(ambientExposure(99), .35)
+  close(ambientExposure(100), .35)
   close(ambientExposure(-10), .35)
-  close(ambientExposure(150), .57)
+  close(ambientExposure(150), .35)
   for (let ambient = 0; ambient <= 100; ambient++) {
-    const expected = .35 + .22 * ambient / 100
+    const expected = .35
     close(ambientExposure(ambient), expected)
     close(combineExposure(ambient, []), expected)
     close(combineExposure(ambient, [1]), 1)
@@ -106,7 +106,7 @@ test('maximum blending is order independent, duplicate independent and never exc
   close(combineExposure(20, [.5]), .5 + .5 * ambientExposure(20))
   close(combineExposure(20, [.5, .5, .5]), .5 + .5 * ambientExposure(20))
   close(combineExposure(20, [.8, .5]), combineExposure(20, [.5, .8]))
-  close(combineExposure(100, []), .57)
+  close(combineExposure(100, []), .35)
   assert.equal(combineExposure(0, []), .35)
 })
 test('solid geometry shadows receivers but not its own front; a covered source emits nothing', () => {

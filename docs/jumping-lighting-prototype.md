@@ -305,7 +305,7 @@ script. Moving cameras and large numbers of active mechanisms benefit less.
 ### Projected object shadow fade
 
 Player, box, ball and bot shadows now keep their crisp contact silhouette for
-40 world units beyond the caster, then fade smoothly over 240 more. Structural
+20 world units beyond the caster, then fade smoothly over 160 more. Structural
 shadows remain opaque. A radial alpha mask follows light rays using the farthest
 point of the assembled caster, reusing the current scratch canvas and resting
 cache without increasing the buffer count. Browser regressions cover contact,

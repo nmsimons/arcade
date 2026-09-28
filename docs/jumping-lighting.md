@@ -111,8 +111,8 @@ narrow smooth transition and no broad gradient. Authors do not edit softness
 curves. Use one shared result for the game, editor, and thumbnails. Shadows have
 crisp, antialiased boundaries; the first release has no penumbra or blurred shadow
 that leaks through a wall. The player, boxes, balls, and shovebots retain full
-shadow contrast for 40 world units past their farthest silhouette point, then
-smoothly fade the projected shadow to zero over the next 240 units. This is an
+shadow contrast for 20 world units past their farthest silhouette point, then
+smoothly fade the projected shadow to zero over the next 160 units. This is an
 art-direction choice to keep long shadows from dominating large terrain faces;
 the sideways edges remain crisp. Terrain, gates, elevators, and moving platforms
 keep opaque shadows at all distances. Neither lamp intensity nor ambient changes.

@@ -1086,36 +1086,8 @@
   ],
   "texts": [],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
-    "lights": [
-      {
-        "id": "032b7909-1f95-44a6-8373-a8359d5a19cd",
-        "x": 700,
-        "y": 380,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "37992ce0-240a-4b34-9f13-301f1a326f91",
-        "x": 260,
-        "y": 140,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "f41caa12-df6a-4ce4-bad1-cdccadaefa1a",
-        "x": 1340,
-        "y": 300,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      }
-    ]
+    "lights": []
   }
 }

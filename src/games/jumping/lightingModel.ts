@@ -56,7 +56,7 @@ export function shadowFadeRange(light: Pick<LevelLight, 'x' | 'y'>, group: Caste
   for (const shape of group) for (const [x, y] of polygonPoints(shape)) {
     farthest = Math.max(farthest, Math.hypot(x - light.x, y - light.y))
   }
-  return { start: farthest + 40, end: farthest + 280 }
+  return { start: farthest + 20, end: farthest + 180 }
 }
 export const shadowFadeOpacity = (distance: number, range: { start: number; end: number }) =>
   1 - smooth((distance - range.start) / (range.end - range.start))

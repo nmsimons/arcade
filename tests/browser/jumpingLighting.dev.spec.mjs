@@ -317,6 +317,7 @@ test('bot body and wheels share lighting while its eye stays readable until EMP,
   const cases = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { robotTop } = await import('/src/games/jumping/robotPhysics.ts')
+    const { dynamicCasters, exposureAt } = await import('/src/games/jumping/lightingModel.ts')
     const h = await lightingHarness(), box = { ...h.run.props[0], x: 600, y: 330, size: 150, angle: 0 }
     h.run.level.platforms = []; h.run.terrain = []; h.run.props = []; h.run.mechanisms = []
     const robot = h.run.robots[0], results = []
@@ -329,12 +330,13 @@ test('bot body and wheels share lighting while its eye stays readable until EMP,
       h.run.empRemaining = 0; h.run.props = []
       const bright = h.render(100), dark = h.render(0)
       const lit = lamps.map(lamp => h.render(20, [lamp]))
-      h.run.props = [box]; const shadow = h.render(20, [lamps[0]])
+      h.run.props = [box]; const shadow = h.render(20, [lamps[0]]), shadowGroups = dynamicCasters(h.run)
       h.run.props = []; h.run.empRemaining = 5
       const outage = h.render(20, [lamps[0]]), unpoweredBright = h.render(100)
       results.push({
         body: ordinary.map(point => ({ bright: h.pixel(bright, ...point), dark: h.pixel(dark, ...point),
-          lit: lit.map(image => h.pixel(image, ...point)), shadow: h.pixel(shadow, ...point), outage: h.pixel(outage, ...point) })),
+          lit: lit.map(image => h.pixel(image, ...point)), shadow: h.pixel(shadow, ...point), outage: h.pixel(outage, ...point),
+          shadowExposure: exposureAt(20, [{ ...lamps[0], fade: 1 }], shadowGroups, Math.floor(point[0]) + .5, Math.floor(point[1]) + .5) })),
         eye: { bright: h.pixel(bright, ...eye), dark: h.pixel(dark, ...eye), shadow: h.pixel(shadow, ...eye),
           outage: h.pixel(outage, ...eye), unpowered: h.pixel(unpoweredBright, ...eye) },
       })
@@ -345,7 +347,8 @@ test('bot body and wheels share lighting while its eye stays readable until EMP,
     for (const part of pose.body) {
       part.dark.forEach((value, i) => expect(Math.abs(value - part.bright[i] * .35)).toBeLessThanOrEqual(2))
       for (const lit of part.lit) expect(lit).toEqual(part.bright)
-      for (const dim of [part.shadow, part.outage]) dim.forEach((value, i) => expect(Math.abs(value - part.bright[i] * ambientExposure(20))).toBeLessThanOrEqual(2))
+      part.shadow.forEach((value, i) => expect(Math.abs(value - part.bright[i] * part.shadowExposure)).toBeLessThanOrEqual(2))
+      part.outage.forEach((value, i) => expect(Math.abs(value - part.bright[i] * ambientExposure(20))).toBeLessThanOrEqual(2))
     }
     expectColor(pose.eye.dark, pose.eye.bright)
     expectColor(pose.eye.shadow, pose.eye.bright)

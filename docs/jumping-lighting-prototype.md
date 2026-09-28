@@ -68,8 +68,9 @@ This is an object/geometry study, not a campaign level with established medal ti
 - EMP-aware source fades and a green exit indicator that remains readable but
   emits no environmental light. Model tests also cover
   switch activation and mounted positions; the studio now authors both.
-- The back wall, grid and wall text receive ambient only. Physical objects and
-  terrain receive and block spotlights. Each lamp retains its short source glow;
+- The back wall, grid, wall text, terrain, gates, elevators, and moving
+  platforms receive ambient only. Structural solids still block spotlights;
+  loose objects receive direct illumination and shadows. Each lamp retains its short source glow;
   a much fainter full beam fades across the dark-room range; both disappear with Night mode off.
   Both respect occlusion, power, foreground artwork and level boundaries. The
   full beam reuses the resolved light field and existing scratch surfaces.
@@ -256,8 +257,8 @@ gaps and returning to contact with the benchmark script.
 
 ### Faint full beams in dark rooms
 
-The short source glow is preserved. The full beam contributes at most 2.5% at
-night ambient 0 and fades to about 0.6% at 100, disappearing in daytime, with constant reach and the
+The short source glow is preserved. The full beam contributes at most 6% at
+night ambient 0 and fades to about 1.5% at 100, disappearing in daytime, with constant reach and the
 existing narrow cone edges. It reuses the final max light field and scratch
 buffer, so overlap, occlusion, EMP and room clipping require no additional light
 geometry or framebuffer. Foreground and wall-art masks preserve readable colors.
@@ -302,13 +303,22 @@ already near the display's 60 Hz cadence. Reproduce with
 `LIGHTING_CHANNEL=chromium LIGHTING_QUICK=1 LIGHTING_AMBIENT=0` using the benchmark
 script. Moving cameras and large numbers of active mechanisms benefit less.
 
-### Projected object shadow fade
+### Ambient-only architecture and full-length shadows
 
-Player, box, ball and bot shadows now keep their crisp contact silhouette for
-20 world units beyond the caster, then fade smoothly over 160 more. Structural
-shadows remain opaque. A radial alpha mask follows light rays using the farthest
-point of the assembled caster, reusing the current scratch canvas and resting
-cache without increasing the buffer count. Browser regressions cover contact,
-midpoint and fully faded receivers at multiple zooms, distant structural blockers,
-and cached/fresh equivalence (within one 8-bit channel step for regrouped
-fractional alpha masks). Lamp intensity still has unlimited reach.
+Terrain, gates, elevators, and moving platforms retain ambient material colors
+throughout the cone. They cast shadows but no longer display direct illumination
+or another caster's shadow. The shared paint callbacks distinguish receiving
+artwork from ambient-only artwork, preserving ordinary layer order, antialiasing,
+and readable elements without changing collision geometry.
+
+The earlier distance-fade experiment is removed. Player, box, ball, and bot
+shadows remain opaque at every distance; only the player's exit animation changes
+its shadow opacity. Shadows interrupt the airborne cone and shade loose objects,
+without creating long dark stripes across architecture. The cone is slightly
+stronger at 6% maximum, retaining the short source glow and narrow edges.
+
+The renderer retains six scratch surfaces and up to two cached fields. No new
+framebuffers, pixel readbacks, or extra light-geometry passes are introduced.
+Browser regressions sample nearby and distant player/object shadows, verify
+ambient-only structures through mechanism travel, and retain gate leakage,
+room-boundary, cache invalidation, readable-artwork and EMP coverage.

@@ -9,9 +9,9 @@ import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
 import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
-import { emissionPaint, paintNormally } from './worldPaint.ts'
+import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
-import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, lightReachesView, LightingState, shadowFadeOpacity, shadowFadeRange, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
+import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
@@ -101,10 +101,13 @@ export class LightingRenderer {
       { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom)
     if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer)
     else {
-      if (layer !== 'objects') drawLightFixtures(ctx, sources, paint)
+      if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
       if (layer !== 'wall') {
         paint(ctx, 0, () => {
-          drawTerrain(ctx, levelTerrain(run.level)); drawClimbables(ctx, run.player, run.level.climbables)
+          drawTerrain(ctx, levelTerrain(run.level))
+        }, false)
+        paint(ctx, 0, () => {
+          drawClimbables(ctx, run.player, run.level.climbables)
           for (const [i, point] of [run.level.spawn, ...run.level.checkpoints].entries()) {
             ctx.fillStyle = run.player.checkpoint >= i ? '#df633f' : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
           }
@@ -180,20 +183,6 @@ export class LightingRenderer {
             for (const shape of candidates) polygonPath(shadow.ctx, polygonPoints(shape))
             shadow.ctx.fill()
           }
-          const range = shadowFadeRange(light, group)
-          if (range) {
-            const x = (light.x - view.x) * view.zoom, y = (light.y - view.y) * view.zoom
-            shadow.ctx.resetTransform(); shadow.ctx.globalCompositeOperation = 'destination-in'
-            shadow.ctx.fillStyle = this.gradient(`shadow:${x}:${y}:${range.start}:${range.end}:${view.zoom}`, () => {
-              const gradient = shadow.ctx.createRadialGradient(x, y, range.start * view.zoom, x, y, range.end * view.zoom)
-              for (let i = 0; i <= 16; i++) {
-                const t = i / 16
-                gradient.addColorStop(t, `rgba(255,255,255,${shadowFadeOpacity(range.start + t * (range.end - range.start), range)})`)
-              }
-              return gradient
-            })
-            shadow.ctx.fillRect(0, 0, width, height)
-          }
           lamp.ctx.globalCompositeOperation = 'destination-out'; lamp.ctx.globalAlpha = group.opacity ?? 1
           lamp.ctx.drawImage(shadow.canvas, 0, 0); lamp.ctx.globalAlpha = 1
         }
@@ -237,21 +226,20 @@ export class LightingRenderer {
       emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
       ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, 0, 0)
     }
-    // The same foreground coverage masks both wall corrections and source haze.
+    // Foreground coverage keeps both airborne light effects behind solid art.
     // Draw it once per frame; only alpha is used, including the player's fade.
     clear(shadow, width, height)
     this.world(shadow.ctx, run, view, ink, paintNormally, sources, editor, 'objects')
-    // Remove direct illumination from the back-wall layer: it receives ambient
-    // only. Masking this subtraction with solid artwork preserves antialiasing
-    // and translucent player fades without weakening object-to-object shadows.
+    // Structural solids and wall artwork receive ambient only. Replay the
+    // full artwork order to remove direct light from their visible pixels,
+    // preserving objects, emissions and translucent silhouettes in front.
     for (const floor of [0, .65] as const) {
       clear(correction, width, height); correction.ctx.drawImage(field.canvas, 0, 0)
       if (floor) { correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height) }
       correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambientExposure(definition.ambient)))
       correction.ctx.fillRect(0, 0, width, height)
       clear(emission, width, height)
-      this.world(emission.ctx, run, view, ink, emissionPaint(floor), sources, editor, 'wall', floor === 0)
-      emission.ctx.globalCompositeOperation = 'destination-out'; emission.ctx.drawImage(shadow.canvas, 0, 0)
+      this.world(emission.ctx, run, view, ink, ambientSurfacePaint(floor), sources, editor, 'all', floor === 0)
       emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, width, height)
       emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
       ctx.globalCompositeOperation = 'difference'; ctx.drawImage(emission.canvas, 0, 0)

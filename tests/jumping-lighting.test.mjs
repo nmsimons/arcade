@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, exposureAt, groupTerrain, lightContribution, lightReachesView, LightingState, shadowFadeRange, shadowQuad, sourceCovered, staticCasters } from '../src/games/jumping/lightingModel.ts'
+import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, exposureAt, groupTerrain, lightContribution, lightReachesView, LightingState, shadowQuad, sourceCovered, staticCasters } from '../src/games/jumping/lightingModel.ts'
 import { pointInside, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { robotPlatforms } from '../src/games/jumping/robotPhysics.ts'
 import { createPreviewRun } from '../src/games/jumping/challenge.ts'
@@ -226,19 +226,16 @@ test('cone culling rejects only views outside the cone and keeps unlimited dista
 })
 
 
-test('free-object shadows keep contact contrast then fade with world distance; structures stay opaque', () => {
+test('object and player shadows retain contrast at any distance, with only exit opacity changing it', () => {
   const shape = { x: 80, y: -20, w: 40, h: 40 }, source = light()
-  const group = Object.assign([shape], { fadingShadow: true })
-  const range = shadowFadeRange(source, group)
-  for (const [distance, expected] of [[range.start - 1, .35], [(range.start + range.end) / 2, .675], [range.end + 1, 1]]) {
-    close(exposureAt(0, [source], [group], distance, 0), expected)
+  for (const distance of [140, 240, 1000, 100000]) {
+    close(exposureAt(0, [source], [[shape]], distance, 0), .35)
+    close(exposureAt(0, [source], [Object.assign([shape], { opacity: .5 })], distance, 0), .675)
   }
-  // Side edges are still crisp and a structural shadow cannot be filled by a faded prop.
-  close(exposureAt(0, [source], [group], 160, 80), 1)
-  const wall = groupTerrain([{ x: 50, y: -100, w: 20, h: 200 }])
-  close(exposureAt(0, [source], [...wall, group], range.end + 100, 0), .35)
-  close(exposureAt(0, [source], [Object.assign([...group], { fadingShadow: true, opacity: .5 })], (range.start + range.end) / 2, 0), .8375)
-  const world = run(), groups = dynamicCasters(world)
-  assert.equal(groups.filter(group => group.fadingShadow).length, world.props.length + world.robots.length + 1)
-  assert.ok(groups.filter(group => group.mechanism).every(group => !shadowFadeRange(source, group)))
+  close(exposureAt(0, [source], [[shape]], 160, 80), 1)
+  const world = run(), player = dynamicCasters(world).filter(group => group.player)
+  const head = athletePose(world.player).head
+  const x = world.player.x + head[0], y = world.player.y + head[1]
+  const side = light({ x: x - 100, y })
+  for (const distance of [30, 300, 10000]) close(exposureAt(0, [side], player, x + distance, y), .35)
 })

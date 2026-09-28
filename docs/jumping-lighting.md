@@ -110,14 +110,11 @@ Keep spotlight edges deliberately sharper than realistic lighting, with just a
 narrow smooth transition and no broad gradient. Authors do not edit softness
 curves. Use one shared result for the game, editor, and thumbnails. Shadows have
 crisp, antialiased boundaries; the first release has no penumbra or blurred shadow
-that leaks through a wall. The player, boxes, balls, and shovebots retain full
-shadow contrast for 20 world units past their farthest silhouette point, then
-smoothly fade the projected shadow to zero over the next 160 units. This is an
-art-direction choice to keep long shadows from dominating large terrain faces;
-the sideways edges remain crisp. Terrain, gates, elevators, and moving platforms
-keep opaque shadows at all distances. Neither lamp intensity nor ambient changes.
-Measure the fade in world units along rays from the light, using one radial mask
-per assembled caster; movement, zoom, and resting-shadow caching must agree.
+that leaks through a wall. Every caster retains full shadow contrast at every
+distance, including the player, boxes, balls, and shovebots. There is no radial
+shadow fade. Shadows appear in the airborne cone and on spotlight-receiving
+objects; terrain, gates, elevators, and moving platforms remain ambient-only.
+The player's exit opacity still fades its shadow with the figure.
 
 ### Combining lights
 
@@ -160,15 +157,18 @@ Authored lamp fixtures remain visible in daytime, but their pools add no brightn
 ## 4. Object-by-object contract
 
 The back wall is a separate depth layer and its surface receives **ambient
-only**. Terrain and physical objects receive spotlight illumination, block it,
-and cast shadows onto other terrain and objects. Wall artwork and readable
+only**. Terrain, gates, elevators, and moving platforms also receive **ambient
+only**: their flat material colors never acquire bright patches or cast-shadow
+stripes. They still block spotlights at their actual silhouettes. Loose objects
+receive spotlight illumination and shadows; all solid casters interrupt the
+airborne cone. Wall artwork and readable
 indicators keep their specified exposure. The same separation applies in play,
 the studio, thumbnails, and the lab.
 
 Each powered fixture retains its short cone of source glow (56 world units).
 Darker rooms also show a **very faint full-length airborne beam**, with no distance
-falloff. Its maximum strength is 2.5% at ambient 0, fading smoothly to about
-0.6% at 100; both beam and source haze disappear when Night mode is off.
+falloff. Its maximum strength is 6% at ambient 0, fading smoothly to about
+1.5% at 100; both beam and source haze disappear when Night mode is off.
 Haze follows the same remapped brightness as surfaces, preserving its appearance
 throughout the reviewed dark-room range.
 Both effects stop at occluders and room boundaries and follow power and EMP
@@ -189,10 +189,10 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Object or part | Response to ambient and lamps | Casts shadows? | Emits into the world? | EMP response |
 | --- | --- | --- | --- | --- |
 | Back wall and grid | Ambient surface; grid fades with its wall. A faint airborne beam may be visible in front at low ambient. | No. | No. | Ambient unchanged; beam fades out. |
-| Terrain, pillars, platforms, slopes, enclosing floor/walls/ceiling | Ordinary; retain material colors and texture relationships. | Yes, using actual outlines. | No. | Unchanged. |
+| Terrain, pillars, platforms, slopes, enclosing floor/walls/ceiling | Ambient only; retain material colors and texture relationships. | Yes, using actual outlines. | No. | Unchanged. |
 | Box, including its seams | Ordinary; all parts share exposure. | Yes, using its rotated shape. | No. | Keeps its existing loose-body behavior. |
 | Ball and its rolling marker | Ordinary; marker remains part of the same shaded artwork. | Yes, using its round silhouette. | No. | Keeps moving normally. |
-| Elevator, moving platform, vertical/horizontal gate | Ordinary; markings dim with the structure. | Yes, at its actual current position. | No, unless a separate lamp is mounted to it. | Stops as currently specified; remains an occluder. |
+| Elevator, moving platform, vertical/horizontal gate | Ambient only; markings dim with the structure. No direct light or received shadows. | Yes, at its actual current position. | No, unless a separate lamp is mounted to it. | Stops as currently specified; remains an occluder. |
 | Elevator cable/guide or other thin mechanical decoration | Ordinary. | No. | No. | Follows its mechanism's existing appearance. |
 | Ladder and rope, including anchors | Ordinary; authors must illuminate important exits and catches. | No. | No. | Existing movement remains unchanged. |
 | Pressure plate and its active/inactive strip | Ordinary. Its active color is a state indicator, not a luminous surface. | No; too small to justify extra shadow noise. | No. | Existing load/activation behavior; no invented glow. |
@@ -285,8 +285,9 @@ it does not guarantee contrast against every possible background.
 
 ## 5. Shadows, receiving surfaces, and coverage
 
-Only terrain and physical objects receive surface shadows. The back-wall grid
-and wall artwork receive ambient illumination. Occlusion also interrupts the
+Loose physical objects receive surface shadows. Terrain, gates, elevators,
+moving platforms, the back-wall grid, and wall artwork receive ambient illumination
+only. They never display another object’s shadow or a spotlight patch. Occlusion also interrupts the
 faint airborne beam in dark rooms; it never subtracts ambient from the wall.
 
 Use light-to-world geometry, not the shovebot's single sight ray. Reuse appropriate
@@ -327,10 +328,11 @@ seams must neither leak light nor introduce shadows that depend on how an author
 split one slab into rectangles. Prepare its exposed union boundary once, splitting
 edges at crossings and shared endpoints and removing internal seams. Shadows
 start at exposed edges where rays leave solid material. The first continuous
-solid face receives light through its thickness; later terrain across an air gap
-receives its shadow. This also applies to concave polygons and terrain connected
+solid face is ambient-only and masks the cone through its thickness; the
+shadow continues beyond it through open air and onto receiving objects. This also applies to concave polygons and terrain connected
 around the room boundary. **Never erase a shadow from an entire connected terrain
-mass**: a wall can shade the floor behind it even when they join elsewhere.
+mass**: a wall can block light farther into the room even when it joins the
+floor elsewhere.
 
 Gates, elevators, and horizontal moving platforms participate in this same
 structural boundary at their actual positions. Remove only shared/overlapping
@@ -626,9 +628,9 @@ Conceptually, each frame consists of:
 2. Gather lights and occluders capable of affecting the viewport.
 3. Construct the environmental illumination field with correct strongest-light
    combination and surface/shadow coverage.
-4. Render the back wall at ambient only; render terrain and objects in their
-   established layer order, applying environmental or
-   minimum-exposure treatment to each relevant composition.
+4. Render the back wall, terrain, gates, elevators, and moving platforms at
+   ambient only. Preserve the established layer order and apply direct light
+   only to receiving objects. Keep all minimum-exposure treatments intact.
 5. Render the readable player at its established place in that order and apply
    existing exit opacity. Composite the faint airborne beam in dark rooms behind
    physical objects and readable wall art, preserving the stronger source glow.

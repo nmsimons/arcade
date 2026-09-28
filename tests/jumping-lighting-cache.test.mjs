@@ -31,7 +31,6 @@ test('shape, opacity and joined-boundary changes invalidate resting silhouettes'
     group => { group[0].polygon = [[0, 0], [30, 0], [20, 30]] },
     group => { group[0].profile = [[0, 0], [30, 5]] },
     group => { group.opacity = .5 },
-    group => { group.fadingShadow = true },
     group => { group.boundary[0][1][0] += .01 },
   ]) {
     const cache = new RestingCasters()

@@ -57,7 +57,7 @@ test('the player casts a moving shadow, keeps readable ink, and releases light w
     Object.assign(h.run.player, { x: 500, y: 400, grounded: true })
     const head = athletePose(h.run.player).head, x = 500 + head[0], y = 400 + head[1]
     const light = { id: 'side', x: x - 100, y, intensity: 100, power: 'always', direction: 0, spread: 120 }
-    h.run.level.platforms = [{ x: x + 25, y: y - 30, w: 15, h: 60 }]; h.run.terrain = h.run.level.platforms
+    h.run.props = [{ kind: 'box', x: x + 55, y: y + 30, size: 60, angle: 0 }]
     const pixel = frame => h.pixel(frame, x + 30, y)
     const full = h.render(100), ambient = h.render(0), standing = h.render(0, [light])
     h.run.player.crouch = 1
@@ -169,7 +169,7 @@ test('darkness preserves pickup color and display exposure without painting thro
   expect(Math.max(...result.revealedPixels)).toBeGreaterThan(150)
 })
 
-test('lamp overlap, order, solid-face lighting and source occlusion agree at the pixel level', async ({ page }) => {
+test('lamp overlap, order, ambient-only terrain and source occlusion agree at the pixel level', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -193,7 +193,7 @@ test('lamp overlap, order, solid-face lighting and source occlusion agree at the
   expect(result.duplicate).toBe(0)
   expect(result.order).toBe(0)
   expect(result.covered).toBe(0)
-  result.front.forEach((value, i) => expect(Math.abs(value - result.brightFront[i] )).toBeLessThanOrEqual(3))
+  result.front.forEach((value, i) => expect(Math.abs(value - result.brightFront[i] * ambientExposure(20))).toBeLessThanOrEqual(3))
   result.wall.forEach((value, i) => expect(Math.abs(value - result.brightWall[i] * ambientExposure(20))).toBeLessThanOrEqual(3))
 })
 
@@ -236,33 +236,32 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
   }
 })
 
-test('spotlights reach distant viewports; offscreen structures still block while object shadows fade', async ({ page }) => {
+test('spotlights reach distant viewports; offscreen objects and structures block without distance fade', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness(), results = []
     const box = { ...h.run.props[0], x: 6000, y: 140, size: 80, angle: 0 }
     h.run.level.width = 12000; h.run.level.platforms = []; h.run.terrain = []; h.run.mechanisms = []; h.run.robots = []
-    h.run.level.platforms = [{ x: 10050, y: 60, w: 1400, h: 80 }]; h.run.terrain = h.run.level.platforms
+    const receivers = [{ kind: 'box', x: 11100, y: 140, size: 80, angle: 0 }]
     h.view.x = 10000
     for (const spread of [40, 120]) {
-      h.run.props = []
-      h.run.level = { ...h.run.level, platforms: [{ x: 10050, y: 60, w: 1400, h: 80 }] }; h.run.terrain = h.run.level.platforms
+      h.run.props = receivers
+      h.run.level = { ...h.run.level, platforms: [] }; h.run.terrain = []
       const source = { id: 'distant', x: 300, y: 100, intensity: 100, power: 'always', direction: 0, spread }
       const bright = h.render(100), lit = h.render(20, [source])
-      h.run.props = [box]
-      const faded = h.render(20, [source])
-      h.run.props = []; h.run.level = { ...h.run.level, platforms: [...h.run.level.platforms, { x: 5960, y: 60, w: 80, h: 80 }] }; h.run.terrain = h.run.level.platforms
+      h.run.props = [...receivers, box]
+      const objectShadow = h.render(20, [source])
+      h.run.props = receivers; h.run.level = { ...h.run.level, platforms: [...h.run.level.platforms, { x: 5960, y: 60, w: 80, h: 80 }] }; h.run.terrain = h.run.level.platforms
       const shadow = h.render(20, [source]), ambient = h.render(20)
-      results.push({ faded: h.pixel(faded, 11101, 101), near: h.pixel(lit, 10101, 101), far: h.pixel(lit, 11101, 101),
+      results.push({ objectShadow: h.pixel(objectShadow, 11101, 101), far: h.pixel(lit, 11101, 101),
         original: h.pixel(bright, 11101, 101), shadow: h.pixel(shadow, 11101, 101), ambient: h.pixel(ambient, 11101, 101) })
     }
     h.renderer.dispose(); return results
   })
   for (const result of results) {
-    expect(result.near).toEqual(result.original)
     expect(result.far).toEqual(result.original)
-    expect(result.faded).toEqual(result.original)
+    expect(result.objectShadow).toEqual(result.ambient)
     expect(result.shadow).toEqual(result.ambient)
     expect(result.shadow[0]).toBeLessThan(result.far[0])
   }
@@ -274,7 +273,7 @@ test('spotlights stop at all four room edges', async ({ page }) => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
     h.run.level.platforms = []; h.run.terrain = []; h.run.props = []; h.run.mechanisms = []; h.run.robots = []
-    h.run.level.platforms = [{ x: 1150, y: 460, w: 100, h: 100, material: 'chalk' }]; h.run.terrain = h.run.level.platforms
+    h.run.props = [{ kind: 'box', x: 1200, y: 560, size: 100, angle: 0 }]
     Object.assign(h.view, { x: -160, y: -130, zoom: .8 })
     const bright = h.render(100)
     const ambient = h.render(20), source = { id: 'lamp', x: 600, y: 300, intensity: 100, power: 'always' }
@@ -369,7 +368,7 @@ test('spotlight edges remain narrow at long distances and agree with exposure sa
     for (const distance of [400, 4000, 10000]) {
       // The lower edge is y=x; move the viewport along it without changing the light.
       h.view.x = distance - 200; h.view.y = distance - 200
-      h.run.level = { ...h.run.level, platforms: [{ x: distance - 10, y: distance - 30, w: 60, h: 60 }] }; h.run.terrain = h.run.level.platforms
+      h.run.props = [{ kind: 'box', x: distance + 20, y: distance + 30, size: 60, angle: 0 }]
       const bright = h.render(100), lit = h.render(20, [lamp])
       for (const inward of [-3, 1, 6, 20]) {
         const x = distance + 3, y = distance + 3 - inward
@@ -431,7 +430,7 @@ test('elevator shadows match visibility rays throughout travel, including crossi
     const h = await lightingHarness()
     h.run.level.platforms = []; h.run.terrain = []; h.run.props = []; h.run.robots = []
     h.run.mechanisms = [h.run.mechanisms[0]]
-    h.run.level.platforms = [{ x: 0, y: 0, w: 300, h: 640 }]; h.run.terrain = h.run.level.platforms
+    h.run.props = [{ kind: 'box', x: -20, y: 640, size: 640, angle: 0 }]
     h.run.player.x = 1200; h.run.level.climbables = { ropes: [], ladders: [] }
     const source = h.fixture.lighting.lights[1], mismatches = [], shadowCounts = []
     let checked = 0
@@ -520,8 +519,9 @@ test('night mode retains lighting contrast through ambient 100 and daytime bypas
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
-    h.run.level = { ...h.run.level, platforms: [{ x: 600, y: 240, w: 140, h: 150 }], texts: [], timers: [], triggers: [], climbables: { ropes: [], ladders: [] } }
+    h.run.level = { ...h.run.level, platforms: [], texts: [], timers: [], triggers: [], climbables: { ropes: [], ladders: [] } }
     h.run.terrain = h.run.level.platforms; h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []; h.run.pickups = []
+    h.run.props = [{ kind: 'box', x: 670, y: 390, size: 150, angle: 0 }]
     const source = { id: 'lamp', x: 180, y: 160, direction: 0, spread: 120, intensity: 100, power: 'always' }
     const bright = h.render(100), original = h.pixel(bright, 650, 300), samples = []
     for (const [ambient, nightMode] of [[0, true], [50, true], [99, true], [100, true], [100, false], [0, false], [100, true]]) {

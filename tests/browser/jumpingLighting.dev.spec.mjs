@@ -1,4 +1,10 @@
 import { ambientExposure } from '../../src/games/jumping/ambientLight.ts'
+
+// Canvas multiply/add emission correction can round one 8-bit channel differently
+// across Skia backends. Keep geometry and same-renderer cache checks exact.
+function expectColor(actual, expected) {
+  actual.forEach((value, i) => expect(Math.abs(value - expected[i])).toBeLessThanOrEqual(1))
+}
 import { test, expect } from './helpers/test.mjs'
 
 test('player shadow outlines match the actual artwork in standing, running, crouching and airborne poses', async ({ page }) => {
@@ -68,7 +74,7 @@ test('the player casts a moving shadow, keeps readable ink, and releases light w
   expect(result.crouched).toEqual(result.full)
   expect(result.gone).toEqual(result.full)
   expect(result.outage).toEqual(result.ambient)
-  expect(result.ink).toEqual(result.ambientInk)
+  expectColor(result.ink, result.ambientInk)
   expect(result.ink).toEqual([244, 242, 233])
   expect(result.fading[0]).toBeGreaterThan(result.standing[0])
   expect(result.fading[0]).toBeLessThan(result.gone[0])
@@ -156,7 +162,7 @@ test('darkness preserves pickup color and display exposure without painting thro
     for (let y = 580; y < 604; y++) for (let x = 697; x < 713; x++) results.revealedPixels.push(...h.pixel(uncovered, x, y))
     h.renderer.dispose(); return results
   })
-  expect(result.coin).toEqual(result.originalCoin)
+  expectColor(result.coin, result.originalCoin)
   result.wall.forEach((channel, i) => expect(Math.abs(channel - result.originalWall[i] * .35)).toBeLessThanOrEqual(2))
   result.hiddenPickup.forEach((channel, i) => expect(Math.abs(channel - result.originalCover[i] * .35)).toBeLessThanOrEqual(2))
   result.clock.forEach((channel, i) => expect(Math.abs(channel - result.originalClock[i] * .65)).toBeLessThanOrEqual(2))
@@ -221,7 +227,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
     h.renderer.dispose(); return results
   })
   for (const entry of result) {
-    expect(entry.lens).toEqual([169, 213, 107])
+    expectColor(entry.lens, [169, 213, 107])
     expect(entry.outsideChanges).toBe(0)
     expect(entry.outageDifference).toBe(0)
     expect(entry.sources).toEqual(['spot-left', 'spot-middle', 'spot-right'])
@@ -337,8 +343,8 @@ test('bot body and wheels share lighting while its eye stays readable until EMP,
       for (const lit of part.lit) expect(lit).toEqual(part.bright)
       for (const dim of [part.shadow, part.outage]) dim.forEach((value, i) => expect(Math.abs(value - part.bright[i] * ambientExposure(20))).toBeLessThanOrEqual(2))
     }
-    expect(pose.eye.dark).toEqual(pose.eye.bright)
-    expect(pose.eye.shadow).toEqual(pose.eye.bright)
+    expectColor(pose.eye.dark, pose.eye.bright)
+    expectColor(pose.eye.shadow, pose.eye.bright)
     expect(pose.eye.outage).not.toEqual(pose.eye.bright)
     pose.eye.outage.forEach((value, i) => expect(Math.abs(value - pose.eye.unpowered[i] * ambientExposure(20))).toBeLessThanOrEqual(2))
   }

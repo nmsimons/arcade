@@ -1780,7 +1780,7 @@
   "texts": [],
   "lighting": {
     "nightMode": true,
-    "ambient": 100,
+    "ambient": 0,
     "lights": [
       {
         "id": "124994c0-ac33-40c3-85ff-57a9bb9594f0",

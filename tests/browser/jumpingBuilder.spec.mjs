@@ -432,6 +432,9 @@ test('one pressure plate controls a gate and elevator through editing, save and 
 })
 
 test('moving platforms edit horizontal stops, flip, save and cycle during play', async ({ page }, info) => {
+  // This exercises several complete trips and a stopped interval. CI's software
+  // renderer takes longer than real time to advance the virtual animation clock.
+  test.setTimeout(60_000)
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.addInitScript(() => {
     const roundRect = CanvasRenderingContext2D.prototype.roundRect
@@ -1559,4 +1562,21 @@ test('surface placement and Alt dragging are predictable off the grid', async ({
   await page.getByRole('button', { name: 'Place on surface', exact: true }).click()
   expect((await saveTestLevel(page)).level.props[0].y).toBe(713)
   await page.screenshot({ path: info.outputPath('surface-placement.png') })
+})
+
+
+for (const side of [-1, 1]) test(`rope exits onto a thin cap with a separate flush wall, side ${side}`, async ({ page }, info) => {
+  const level = { ...blankTrial(), width: 1040, height: 800, floor: 800,
+    spawn: { x: 520 - side * 22, y: 600 }, goal: { x: 100, y: 800 },
+    platforms: [{ x: side === -1 ? 0 : 520, y: 460, w: 520, h: 20 },
+      { x: side === -1 ? 500 : 520, y: 480, w: 20, h: 220 },
+      { x: side === -1 ? 520 : 480, y: 600, w: 40, h: 20 }],
+    climbables: { ladders: [], ropes: [{ x: 520, y: 460, length: 180, segments: 23 }] } }
+  await open(page, level); await saveTestLevel(page, 'Save and Test')
+  await page.keyboard.down('w'); await page.clock.runFor(4500); await page.keyboard.up('w')
+  await expect(page.locator('.jumping-state')).toHaveText('Ready')
+  const player = await page.evaluate(() => window.jumpPlayer)
+  expect(player.x).toBeCloseTo(520 + side * 20, 1)
+  expect(player.y).toBeCloseTo(460, 1)
+  await page.screenshot({ path: info.outputPath('joined-rope-exit.png') })
 })

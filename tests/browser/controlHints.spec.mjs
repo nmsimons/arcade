@@ -132,9 +132,10 @@ test('arcade and loading prompts follow connection state; unsupported pads keep 
   await page.route('**/assets/HardVacuumGame-*.js', async route => { await pending; await route.abort('failed') })
   try {
     await tap(page, 0)
-    await expect(page.getByRole('dialog', { name: 'Loading game', exact: true }).locator('.menu-help')).toHaveText('B / ○ Back')
+    const loading = page.getByRole('dialog', { name: 'Loading game', exact: true })
+    await expect(loading.getByText('B / ○ Back', { exact: true })).toBeVisible()
     await connection(page, false)
-    await expect(help).toHaveText('Esc Back')
+    await expect(loading.getByText('Esc Back', { exact: true })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('button', { name: 'Hard Vacuum', exact: true })).toBeFocused()
   } finally { release() }

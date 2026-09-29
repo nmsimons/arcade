@@ -165,7 +165,8 @@ test('playground players receive lighting with full or reduced object shadows', 
     }
     h.renderer.dispose(); return samples
   })
-  for (const sample of samples) expectColor(sample.pixel, sample.lit ? [229, 231, 230] : [143, 158, 152].map(channel => channel * ambientExposure(50)))
+  // Compare with quantized pixel channels, matching the other ambient checks.
+  for (const sample of samples) expectColor(sample.pixel, sample.lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(50))))
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: the player matches ball contrast in darkness and receives partial shadows`, async ({ page }, info) => {

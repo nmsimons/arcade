@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "d810f5f5-1a01-431f-804b-575b1b731a3d",
   "name": "A Bigger Swing",
   "width": 1890,
@@ -25,7 +25,7 @@
     }
   ],
   "spawn": {
-    "x": 147.08955223880596,
+    "x": 160,
     "y": 1200
   },
   "checkpoints": [],
@@ -411,8 +411,42 @@
   "robots": [],
   "timers": [
     {
-      "x": 1698,
-      "y": 1020
+      "x": 1690,
+      "y": 780
     }
-  ]
+  ],
+  "pickups": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "741eb0b8-553c-4883-98a6-af0a849e6351",
+        "x": 1800,
+        "y": 900,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "65ef7150-54bd-4782-b4a2-6e9b21d82cf0",
+        "x": 160,
+        "y": 880,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 20,
+        "power": "always"
+      },
+      {
+        "id": "9238ee52-d5a0-43e7-b377-8d9b24772d2e",
+        "x": 1000,
+        "y": 600,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 110,
+        "power": "always"
+      }
+    ]
+  }
 }

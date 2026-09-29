@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, exposureAt, groupTerrain, lightContribution, lightReachesView, LightingState, shadowQuad, sourceCovered, staticCasters } from '../src/games/jumping/lightingModel.ts'
+import { ambientExposure, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, exposureAt, groupTerrain, lightContribution, lightReachesView, LightingState, shadowQuad, sourceCovered, staticCasters } from '../src/games/jumping/lightingModel.ts'
 import { pointInside, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { robotPlatforms } from '../src/games/jumping/robotPhysics.ts'
 import { createPreviewRun } from '../src/games/jumping/challenge.ts'
@@ -46,15 +46,15 @@ test('prototype fixture uses a valid existing level, without changing the level 
   assert.deepEqual(levelProblems(parseLevel(fixture.level)), [])
   assert.equal(fixture.level.version, 1)
 })
-test('night ambient is a smooth 35–57% brightness scale including its upper endpoint', () => {
+test('night ambient stays at the original zero setting for every legacy value', () => {
   close(ambientExposure(0), .35)
-  close(ambientExposure(50), .46)
-  close(ambientExposure(99), .5678)
-  close(ambientExposure(100), .57)
+  close(ambientExposure(50), .35)
+  close(ambientExposure(99), .35)
+  close(ambientExposure(100), .35)
   close(ambientExposure(-10), .35)
-  close(ambientExposure(150), .57)
+  close(ambientExposure(150), .35)
   for (let ambient = 0; ambient <= 100; ambient++) {
-    const expected = .35 + .22 * ambient / 100
+    const expected = .35
     close(ambientExposure(ambient), expected)
     close(combineExposure(ambient, []), expected)
     close(combineExposure(ambient, [1]), 1)
@@ -106,7 +106,7 @@ test('maximum blending is order independent, duplicate independent and never exc
   close(combineExposure(20, [.5]), .5 + .5 * ambientExposure(20))
   close(combineExposure(20, [.5, .5, .5]), .5 + .5 * ambientExposure(20))
   close(combineExposure(20, [.8, .5]), combineExposure(20, [.5, .8]))
-  close(combineExposure(100, []), .57)
+  close(combineExposure(100, []), .35)
   assert.equal(combineExposure(0, []), .35)
 })
 test('solid geometry shadows receivers but not its own front; a covered source emits nothing', () => {
@@ -191,12 +191,12 @@ test('EMP fades spotlights on visual time without changing ambient or adding an 
   world.empRemaining = 0
   close(state.sources(definition, world, .1)[0].fade, .5)
 })
-test('mounts follow actual mechanism displacement and switched lights respect existing latched activation', () => {
+test('wall lights ignore legacy mounts and mechanism displacement while switched power respects latched activation', () => {
   const world = run(), state = new LightingState()
   const definition = { ambient: 20, lights: [light({ id: 'gate', mount: 'lift', x: 360, y: 570, power: 'switched' })] }
   world.mechanisms[0].x += 25; world.mechanisms[0].y -= 60
   let source = state.sources(definition, world, 0)[0]
-  assert.equal(source.x, 385); assert.equal(source.y, 510); assert.equal(source.fade, 0)
+  assert.equal(source.x, 360); assert.equal(source.y, 570); assert.equal(source.fade, 0)
   world.triggers[1].active = true
   source = state.sources(definition, world, .2)[0]; assert.equal(source.fade, 1)
   world.empRemaining = 5
@@ -205,11 +205,6 @@ test('mounts follow actual mechanism displacement and switched lights respect ex
   world.empRemaining = 0
   assert.equal(state.sources(definition, world, .2)[0].fade, 1)
 })
-test('night mode chooses light player ink and daytime chooses dark ink', () => {
-  assert.equal(lightingPlayerInk(true), 'rgb(244,242,233)')
-  assert.equal(lightingPlayerInk(false), 'rgb(48,60,54)')
-})
-
 test('cone culling rejects only views outside the cone and keeps unlimited distant reach', () => {
   const view = { x: 10000, y: 40, w: 1280, h: 720 }
   assert.equal(lightReachesView(light({ x: 300, y: 100, direction: 0 }), view), true)

@@ -1,6 +1,9 @@
 import { GpuLightingField } from './lightingGpuField.ts'
 import { nightModeEnabled } from './ambientLight.ts'
-import { drawPuzzleWorld } from './challengeRender.ts'
+import { BALL_COLOR, drawPuzzleWorld } from './challengeRender.ts'
+import { NIGHT_PLAYER_COLOR } from './athlete.ts'
+import { athleteCasters } from './athleteShadow.ts'
+import { goalEase } from './goal.ts'
 import { drawAthlete, drawClimbables, drawLevelBackdrop, drawMovementEffects, drawTerrain } from './render.ts'
 import { levelHeight, levelTerrain } from './level.ts'
 import { beamHazeStrength, drawLightFixtures, drawLightHaze } from './lightFixture.ts'
@@ -12,7 +15,7 @@ import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
 import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
-import { ambientExposure, lightingPlayerInk, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
+import { ambientExposure, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
@@ -21,6 +24,7 @@ const BUFFER_BUDGET = 64 * 1024 * 1024
 export const lightingPixelRatio = (width: number, height: number, dpr = 1, reduced = false) =>
   Math.min(dpr, reduced ? 1 : 2, Math.sqrt((reduced ? 1_000_000 : 2_000_000) / Math.max(1, width * height)))
 const gray = (value: number) => { const c = Math.round(value * 255); return `rgb(${c},${c},${c})` }
+const playerContrast = [1, 3, 5].map(i => parseInt(NIGHT_PLAYER_COLOR.slice(i, i + 2), 16) - parseInt(BALL_COLOR.slice(i, i + 2), 16))
 const surface = () => {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')!
@@ -111,11 +115,15 @@ export class LightingRenderer {
     })
     ctx.fillRect(0, 0, view.width, view.height); ctx.restore()
   }
-  private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, ink?: string, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
+  private world(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView, nightMode: boolean, paint: WorldPaint = paintNormally, sources: readonly LightSource[] = [], editor = false, layer: WorldLayer = 'all', backdrop = paint === paintNormally) {
+    const ink = nightMode ? NIGHT_PLAYER_COLOR : '#303c36'
     ctx.save(); transform(ctx, view)
     // The backdrop precedes every emission, so it cannot occlude one.
     if (backdrop && layer !== 'objects') drawLevelBackdrop(ctx, run.level,
-      { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom)
+      { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false)
+    // Text is the first wall artwork: empty emission masks need no text erase.
+    // Replay it only with the backdrop or when masking the airborne beam.
+    if (layer !== 'objects' && (backdrop || layer === 'wall')) paint(ctx, 0, () => drawWallTexts(ctx, run.level.texts ?? []))
     if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer)
     else {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
@@ -130,7 +138,7 @@ export class LightingRenderer {
           }
           drawMovementEffects(ctx, run.player)
         })
-        paint(ctx, 1, () => drawAthlete(ctx, run.player, ink))
+        paint(ctx, 0, () => drawAthlete(ctx, run.player, ink))
       }
     }
     ctx.restore()
@@ -145,10 +153,10 @@ export class LightingRenderer {
     // Study isolation changes the view, never power state or the saved definition.
     const bounds = { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }
     const activeSources = sources.filter(source => (!onlyLight || source.id === onlyLight) && source.fade > 0 && lightReachesView(source, bounds))
-    const nightMode = nightModeEnabled(definition), ink = lightingPlayerInk(nightMode)
+    const nightMode = nightModeEnabled(definition)
     if (!nightMode) {
       if (this.buffers) this.release()
-      this.world(ctx, run, view, ink, paintNormally, sources, editor)
+      this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
       return { lights: 0, edges: 0, bufferBytes: 0, backend: 'canvas' as const, sources }
     }
     if (view.width * view.height > 2_100_000) throw new Error('Lighting viewport exceeds its buffer budget.')
@@ -185,7 +193,7 @@ export class LightingRenderer {
       // Small viewports can retain more stationary lights within the same 64 MiB
       // budget. At the maximum render size this still permits only two fields.
       const cacheLimit = Math.max(0, Math.floor(BUFFER_BUDGET / (width * height * 4)) - 6)
-      const cacheable = new Set(activeSources.filter(l => !l.mount && l.fade === 1).slice(0, cacheLimit).map(l => l.id))
+      const cacheable = new Set(activeSources.filter(l => l.fade === 1).slice(0, cacheLimit).map(l => l.id))
       for (const [id, cached] of this.staticFields) {
         // Covered lamps may skip rendering, so evict old-size fields now rather
         // than waiting for a cache miss to resize them beyond the current budget.
@@ -281,7 +289,14 @@ export class LightingRenderer {
         drawField: target => target.drawImage(field.canvas, 0, 0) }
     }
     const { lights, edges, bufferBytes, backend, drawField } = lighting
-    this.world(ctx, run, view, ink, paintNormally, sources, editor)
+    const playerOpacity = run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
+    const playerShapes = playerOpacity ? dynamic.find(group => group.player) ?? athleteCasters(run.player) : []
+    const playerX = Math.max(0, Math.floor((Math.min(...playerShapes.map(shape => shape.x)) - view.x - 1) * view.zoom) - 1)
+    const playerY = Math.max(0, Math.floor((Math.min(...playerShapes.map(shape => shape.y)) - view.y - 1) * view.zoom) - 1)
+    const playerRight = Math.min(width, Math.ceil((Math.max(...playerShapes.map(shape => shape.x + shape.w)) - view.x + 1) * view.zoom) + 1)
+    const playerBottom = Math.min(height, Math.ceil((Math.max(...playerShapes.map(shape => shape.y + shape.h)) - view.y + 1) * view.zoom) + 1)
+    const playerWidth = playerRight - playerX, playerHeight = playerBottom - playerY
+    this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
     ctx.save(); ctx.resetTransform(); ctx.globalCompositeOperation = 'multiply'; drawField(ctx)
     for (const floor of [1, .65] as const) {
       clear(correction, width, height)
@@ -289,16 +304,32 @@ export class LightingRenderer {
       correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height)
       correction.ctx.globalCompositeOperation = 'difference'; drawField(correction.ctx)
       clear(emission, width, height)
-      this.world(emission.ctx, run, view, ink, emissionPaint(floor), sources, editor)
+      this.world(emission.ctx, run, view, nightMode, emissionPaint(floor), sources, editor)
       emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, width, height)
       emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
       ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, 0, 0)
+      if (floor === 1 && playerWidth > 0 && playerHeight > 0) {
+        // Match the ball's ambient color while retaining near-white in direct
+        // light. The existing (1 - light) field also preserves partial shadows
+        // and power fades. Reuse scratch pixels only within the posed figure.
+        const ambient = ambientExposure(definition.ambient)
+        const tint = `rgb(${playerContrast.map(channel => Math.round(channel * ambient / (1 - ambient))).join(',')})`
+        emission.ctx.clearRect(playerX, playerY, playerWidth, playerHeight)
+        emission.ctx.save(); emission.ctx.globalCompositeOperation = 'source-over'; emission.ctx.globalAlpha = playerOpacity
+        transform(emission.ctx, view); drawAthlete(emission.ctx, run.player, tint); emission.ctx.restore()
+        emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'
+        emission.ctx.fillRect(playerX, playerY, playerWidth, playerHeight)
+        emission.ctx.globalCompositeOperation = 'multiply'
+        emission.ctx.drawImage(correction.canvas, playerX, playerY, playerWidth, playerHeight, playerX, playerY, playerWidth, playerHeight)
+        ctx.globalCompositeOperation = 'difference'
+        ctx.drawImage(emission.canvas, playerX, playerY, playerWidth, playerHeight, playerX, playerY, playerWidth, playerHeight)
+      }
     }
     // Foreground coverage keeps both airborne light effects behind solid art.
     // Draw it once per frame; only alpha is used, including the player's fade.
     clear(shadow, width, height)
-    this.world(shadow.ctx, run, view, ink, paintNormally, sources, editor, 'objects')
-    // Structural solids and wall artwork receive ambient only. Replay the
+    this.world(shadow.ctx, run, view, nightMode, paintNormally, sources, editor, 'objects')
+    // Structural solids and the back wall receive ambient only. Replay the
     // full artwork order to remove direct light from their visible pixels,
     // preserving objects, emissions and translucent silhouettes in front.
     for (const floor of [0, .65] as const) {
@@ -307,7 +338,7 @@ export class LightingRenderer {
       correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambientExposure(definition.ambient)))
       correction.ctx.fillRect(0, 0, width, height)
       clear(emission, width, height)
-      this.world(emission.ctx, run, view, ink, ambientSurfacePaint(floor), sources, editor, 'all', floor === 0)
+      this.world(emission.ctx, run, view, nightMode, ambientSurfacePaint(floor), sources, editor, 'all', floor === 0)
       emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, width, height)
       emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
       ctx.globalCompositeOperation = 'difference'; ctx.drawImage(emission.canvas, 0, 0)
@@ -325,9 +356,7 @@ export class LightingRenderer {
       correction.ctx.globalCompositeOperation = 'destination-out'; correction.ctx.drawImage(shadow.canvas, 0, 0)
       // The beam is airborne scenery behind readable wall art and physical
       // objects. It must not wash out clocks, coins, text or the player's ink.
-      this.world(correction.ctx, run, view, ink, erase, sources, editor, 'wall')
-      correction.ctx.save(); transform(correction.ctx, view)
-      drawWallTexts(correction.ctx, run.level.texts ?? []); correction.ctx.restore()
+      this.world(correction.ctx, run, view, nightMode, erase, sources, editor, 'wall')
       ctx.save(); ctx.globalCompositeOperation = 'lighter'
       ctx.globalAlpha *= beamStrength / (1 - ambientExposure(definition.ambient))
       ctx.drawImage(correction.canvas, 0, 0); ctx.restore()

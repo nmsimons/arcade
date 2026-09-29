@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
-import { installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'emp-browser-test', name: 'Power cut', width: 1200, height: 600, floor: 600,
   spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
@@ -109,16 +109,18 @@ test('EMP places, undoes, saves, reopens and playtests in the builder', async ({
   const selected = page.getByRole('combobox', { name: 'Selected object' })
   await page.getByRole('button', { name: 'EMP', exact: true }).click()
   await page.getByRole('application', { name: 'Level canvas' }).click({ position: { x: 420, y: 200 } })
-  await expect(selected).toHaveValue('pickup:2'); await expect(selected.locator('option:checked')).toHaveText('EMP 3')
+  await expect(selected).toHaveAttribute('data-value', 'pickup:2'); await expect(selected).toHaveText('EMP 3')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await expect(selected.locator('option[value="pickup:2"]')).toHaveCount(0)
+  await selected.click()
+  await expect(page.getByRole('listbox').locator('[role=option][data-value="pickup:2"]')).toHaveCount(0)
+  await selected.press('Escape')
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
-  await selected.selectOption('pickup:2'); await expect(selected.locator('option:checked')).toHaveText('EMP 3')
+  await selectBuilderObject(page, 'pickup:2'); await expect(selected).toHaveText('EMP 3')
   await page.screenshot({ path: info.outputPath('emp-builder.png') })
   const saved = await saveTestLevel(page)
   expect(saved.level.pickups[2]).toMatchObject({ kind: 'emp' })
-  await reopenTestLevel(page, saved); await selected.selectOption('pickup:2')
-  await expect(selected.locator('option:checked')).toHaveText('EMP 3')
+  await reopenTestLevel(page, saved); await selectBuilderObject(page, 'pickup:2')
+  await expect(selected).toHaveText('EMP 3')
   await saveTestLevel(page, 'Save and Test'); await page.clock.runFor(64)
   expect((await state(page)).bolts).toBe(2)
 })

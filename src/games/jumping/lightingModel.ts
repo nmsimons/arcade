@@ -1,5 +1,5 @@
 import { ambientExposure } from './ambientLight.ts'
-export { ambientExposure, lightingPlayerInk } from './ambientLight.ts'
+export { ambientExposure } from './ambientLight.ts'
 import type { Run } from './challenge.ts'
 import type { Platform, Player } from './model.ts'
 import type { Vec } from './geometry.ts'
@@ -152,9 +152,7 @@ export class LightingState {
       const previous = this.fades.get(light.id) ?? target
       const fade = previous + Math.max(-dt / .2, Math.min(dt / .2, target - previous))
       this.fades.set(light.id, fade)
-      const host = light.mount ? run.mechanisms.find(m => m.definition.id === light.mount) : undefined
-      sources.push({ ...light, intensity: 100, x: light.x + (host ? host.x - host.definition.x : 0),
-        y: light.y + (host ? host.y - host.definition.y : 0), fade })
+      sources.push({ ...light, intensity: 100, fade })
     }
     return sources
   }

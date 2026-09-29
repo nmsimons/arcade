@@ -2,24 +2,16 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { copyLevel } from './level.ts'
 import type { JumpLevel } from './level.ts'
 import type { LevelLight } from './lightingDefinition.ts'
-import { nearestBoundary, pointInside } from './geometry.ts'
 
 export function setLevelNightMode(level: JumpLevel, enabled: boolean): JumpLevel {
   if (nightModeEnabled(level.lighting) === enabled) return level
   const next = copyLevel(level)
-  next.version = 2; next.lighting ??= { ambient: 100, lights: [] }
+  next.version = 2; next.lighting ??= { ambient: 0, lights: [] }
   next.lighting.nightMode = enabled
+  next.lighting.ambient = 0
   return next
 }
-export function setLevelAmbient(level: JumpLevel, value: number): JumpLevel {
-  if (!Number.isFinite(value)) return level
-  const ambient = Math.max(0, Math.min(100, Math.round(value)))
-  if (ambient === (level.lighting?.ambient ?? 100)) return level
-  const next = copyLevel(level)
-  next.version = 2; next.lighting ??= { nightMode: false, ambient: 100, lights: [] }; next.lighting.nightMode = nightModeEnabled(level.lighting); next.lighting.ambient = ambient
-  return next
-}
-export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<LevelLight, 'direction' | 'spread' | 'power' | 'mount'>>): JumpLevel {
+export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<LevelLight, 'direction' | 'spread' | 'power'>>): JumpLevel {
   if (!level.lighting?.lights[index]) return level
   const next = copyLevel(level), light = next.lighting!.lights[index]
   for (const field of ['direction', 'spread'] as const) {
@@ -34,15 +26,6 @@ export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<L
       if (trigger.targets) trigger.targets = trigger.targets.filter(id => id !== light.id)
       else if (trigger.target === light.id) trigger.target = ''
     }
-  }
-  if ('mount' in patch) {
-    const host = next.mechanisms?.find(m => m.id === patch.mount)
-    if (host) {
-      light.mount = host.id
-      if (pointInside(host, light.x, light.y) || nearestBoundary(host, light.x, light.y).distance > 20) {
-        light.x = host.x + host.w / 2; light.y = host.y - 10
-      }
-    } else delete light.mount
   }
   return next
 }

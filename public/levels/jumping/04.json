@@ -199,9 +199,9 @@
       "material": "steel"
     },
     {
-      "x": 600,
+      "x": 580,
       "y": 860,
-      "w": 100,
+      "w": 120,
       "h": 120,
       "material": "steel"
     },
@@ -1073,8 +1073,8 @@
   "robots": [],
   "timers": [
     {
-      "x": 0,
-      "y": 280
+      "x": 320,
+      "y": 60
     }
   ],
   "pickups": [
@@ -1086,8 +1086,63 @@
   ],
   "texts": [],
   "lighting": {
-    "nightMode": false,
+    "nightMode": true,
     "ambient": 0,
-    "lights": []
+    "lights": [
+      {
+        "id": "473fe088-4fdc-405e-9f47-5636665d7465",
+        "x": 40,
+        "y": 500,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 20,
+        "power": "always"
+      },
+      {
+        "id": "b75016a1-d7c2-4d87-910c-f76e0ccff9b6",
+        "x": 460,
+        "y": 500,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 20,
+        "power": "always"
+      },
+      {
+        "id": "38e9f2b3-5bfa-4a0e-92ed-a2dcd972a3ed",
+        "x": 640,
+        "y": 1000,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 85,
+        "power": "always"
+      },
+      {
+        "id": "7bad39d5-cbfc-45a4-9fe0-d62e18d7f05b",
+        "x": 860,
+        "y": 40,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "63ca77d6-f457-4ce1-aebc-30ad2e6d253b",
+        "x": 1120,
+        "y": 40,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "0adfc216-d4e5-44b7-a789-66437599cbc8",
+        "x": 140,
+        "y": 40,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 35,
+        "power": "always"
+      }
+    ]
   }
 }

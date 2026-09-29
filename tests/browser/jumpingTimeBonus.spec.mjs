@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'time-bonus-browser-test', name: 'Time bonus trial', width: 1200, height: 600, floor: 600,
   spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
@@ -94,20 +94,20 @@ test('Time bonus places, edits its number, undoes, saves and reopens', async ({ 
   const selected = page.getByRole('combobox', { name: 'Selected object' })
   await page.getByRole('button', { name: 'Time bonus', exact: true }).click()
   await page.getByRole('application', { name: 'Level canvas' }).click({ position: { x: 280, y: 200 } })
-  await expect(selected).toHaveValue('pickup:2')
-  await expect(selected.locator('option:checked')).toHaveText('Time bonus 3')
+  await expect(selected).toHaveAttribute('data-value', 'pickup:2')
+  await expect(selected).toHaveText('Time bonus 3')
   const seconds = page.getByRole('spinbutton', { name: 'Seconds off', exact: true })
   await expect(seconds).toHaveValue('5')
   await seconds.fill('7'); await seconds.press('Enter')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await selected.selectOption('pickup:2'); await expect(seconds).toHaveValue('5')
+  await selectBuilderObject(page, 'pickup:2'); await expect(seconds).toHaveValue('5')
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
-  await selected.selectOption('pickup:2'); await expect(seconds).toHaveValue('7')
+  await selectBuilderObject(page, 'pickup:2'); await expect(seconds).toHaveValue('7')
   await page.clock.runFor(32)
   await page.screenshot({ path: info.outputPath('time-bonus-inspector.png') })
   const saved = await saveTestLevel(page)
   expect(saved.level.pickups[2]).toMatchObject({ kind: 'time-bonus', seconds: 7 })
-  await reopenTestLevel(page, saved); await selected.selectOption('pickup:2')
+  await reopenTestLevel(page, saved); await selectBuilderObject(page, 'pickup:2')
   await expect(seconds).toHaveValue('7')
 })
 

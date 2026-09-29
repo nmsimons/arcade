@@ -47,7 +47,7 @@ test('player shadow outlines match the actual artwork in standing, running, crou
   expect(result.worstAreaError).toBeLessThan(.035)
 })
 
-test('the player casts a moving shadow, keeps readable ink, and releases light while exiting', async ({ page }) => {
+test('the player receives light, casts a moving shadow, and releases light while exiting', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -74,19 +74,18 @@ test('the player casts a moving shadow, keeps readable ink, and releases light w
   expect(result.crouched).toEqual(result.full)
   expect(result.gone).toEqual(result.full)
   expect(result.outage).toEqual(result.ambient)
-  expectColor(result.ink, result.ambientInk)
-  expect(result.ink).toEqual([244, 242, 233])
+  expectColor(result.ink, [229, 231, 230])
+  expectColor(result.ambientInk, [143, 158, 152].map(channel => Math.round(channel * ambientExposure(0))))
   expect(result.fading[0]).toBeGreaterThan(result.standing[0])
   expect(result.fading[0]).toBeLessThan(result.gone[0])
 })
 
-test('lighting lab loads independently, exposes keyboard controls, and preserves the ambient setting during EMP', async ({ page }) => {
+test('lighting lab loads independently, exposes keyboard controls, and uses fixed night brightness during EMP', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   await expect(page.locator('canvas')).toHaveAttribute('data-ready', 'true')
-  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveValue('0')
-  await page.getByRole('slider', { name: 'Ambient light' }).fill('35')
+  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveCount(0)
   await page.getByRole('button', { name: 'EMP blackout' }).click()
-  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveValue('35')
+  await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'EMP blackout' })).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('combobox', { name: 'View', exact: true }).selectOption('player')
   await expect(page.getByRole('combobox', { name: 'View', exact: true })).toHaveValue('player')
@@ -97,55 +96,122 @@ test('lighting lab loads independently, exposes keyboard controls, and preserves
   await expect(page.locator('[role="alert"]')).toHaveCount(0)
 })
 
-test('night mode determines player color across ambient settings, spotlights, shadows and EMP', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
-  const results = await page.evaluate(async () => {
+for (const backend of ['canvas', 'gpu']) test(`${backend}: the player receives ambient, spotlights, shadows and EMP like other objects`, async ({ page }) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const results = await page.evaluate(async backend => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { athletePose } = await import('/src/games/jumping/athlete.ts')
-    const h = await lightingHarness(), results = [], box = { ...h.run.props[0], x: 500, y: 250, size: 120, angle: 0 }
+    const h = await lightingHarness({ backend }), results = [], box = { ...h.run.props[0], x: 500, y: 250, size: 120, angle: 0 }
     h.run.level.platforms = []; h.run.terrain = []; h.run.props = []; h.run.mechanisms = []; h.run.robots = []
     const lamp = { id: 'overhead', x: 500, y: 80, intensity: 100, power: 'always', direction: 90, spread: 40 }
-    for (const [ambient, nightMode] of [[0, true], [34, true], [50, true], [56, true], [85, true], [99, true], [100, true], [100, false]]) for (const x of [350, 500]) {
+    for (const [ambient, nightMode] of [[0, true], [50, true], [100, true], [100, false]]) for (const x of [350, 500]) {
       Object.assign(h.run.player, { x, y: 400, grounded: true })
       const { head, hip } = athletePose(h.run.player)
       for (const condition of ['unlit', 'spotlight', 'blocked', 'emp']) {
         h.run.props = condition === 'blocked' ? [box] : []
         h.run.empRemaining = condition === 'emp' ? 5 : 0
         const frame = h.render(ambient, condition === 'unlit' ? [] : [lamp], .2, undefined, nightMode)
-        results.push({ ambient, nightMode, x, condition,
-          head: h.pixel(frame, x + head[0], 400 + head[1]), torso: h.pixel(frame, x + hip[0], 400 + hip[1]),
-          background: h.pixel(frame, x + 32, 400 + head[1]) })
+        results.push({ ambient, nightMode, x, condition, backend: frame.stats.backend,
+          head: h.pixel(frame, x + head[0], 400 + head[1]), torso: h.pixel(frame, x + hip[0], 400 + hip[1]) })
       }
     }
     h.renderer.dispose(); return results
-  })
+  }, backend)
   for (const result of results) {
-    const expected = result.nightMode ? [244, 242, 233] : [48, 60, 54]
+    const lit = result.x === 500 && result.condition === 'spotlight'
+    const expected = !result.nightMode ? [48, 60, 54] : lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(result.ambient)))
     for (const part of ['head', 'torso']) result[part].forEach((channel, i) =>
       expect(Math.abs(channel - expected[i]), JSON.stringify(result)).toBeLessThanOrEqual(1))
-    result.head.forEach((channel, i) =>
-      expect(Math.abs(result.background[i] - channel), JSON.stringify(result)).toBeGreaterThan(80))
+    expect(result.backend).toBe(result.nightMode ? backend : 'canvas')
   }
 })
 
-test('daytime uses normal world rendering with dark player ink and no lighting surfaces', async ({ page }) => {
+test('daytime preserves the original dark player ink with no lighting surfaces', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { athletePose } = await import('/src/games/jumping/athlete.ts')
     const h = await lightingHarness()
     const comparisons = []
     for (const time of [0, .17, .3]) {
       h.run.pickupTime = time; h.run.goalLit = time > 0
       h.run.goalElapsed = time; h.run.pickups[2].collectedAge = time || null
-      const normal = h.normal('rgb(48,60,54)', h.fixture.lighting.lights), lit = h.render(100, h.fixture.lighting.lights)
+      const normal = h.normal('#303c36', h.fixture.lighting.lights), lit = h.render(100, h.fixture.lighting.lights)
       comparisons.push({ difference: h.difference(normal, lit), bytes: lit.stats.bufferBytes })
     }
-    h.renderer.dispose(); return comparisons
+    const legacy = h.normal(), { head } = athletePose(h.run.player)
+    const legacyInk = h.pixel(legacy, h.run.player.x + head[0], h.run.player.y + head[1])
+    h.renderer.dispose(); return { comparisons, legacyInk }
   })
-  expect(result).toEqual(Array.from({ length: 3 }, () => ({ difference: 0, bytes: 0 })))
+  expect(result.comparisons).toEqual(Array.from({ length: 3 }, () => ({ difference: 0, bytes: 0 })))
+  expectColor(result.legacyInk, [104, 107, 110])
 })
 
-test('darkness preserves pickup color and display exposure without painting through foreground objects', async ({ page }) => {
+test('playground players receive lighting with full or reduced object shadows', async ({ page }) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const samples = await page.evaluate(async () => {
+    const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { playgroundLightingWorld } = await import('/src/games/jumping/lightingModel.ts')
+    const { athletePose } = await import('/src/games/jumping/athlete.ts')
+    const h = await lightingHarness(), samples = []
+    h.run.level = { ...h.run.level, platforms: [], texts: [], climbables: { ladders: [], ropes: [] } }
+    Object.assign(h.run.player, { x: 500, y: 400, grounded: true })
+    const head = athletePose(h.run.player).head, x = 500 + head[0], y = 400 + head[1]
+    const world = playgroundLightingWorld(h.run.level, h.run.player), ctx = h.canvas.getContext('2d')
+    const lamp = { id: 'side', x: x - 100, y, intensity: 100, power: 'always', direction: 0, spread: 120 }
+    for (const shadows of ['full', 'structural']) for (const lit of [false, true]) {
+      h.renderer.render(ctx, world, { nightMode: true, ambient: 50, lights: lit ? [lamp] : [] }, h.view, .2, undefined, false, shadows)
+      samples.push({ lit, pixel: [...ctx.getImageData(Math.floor(x), Math.floor(y - h.view.y), 1, 1).data].slice(0, 3) })
+    }
+    h.renderer.dispose(); return samples
+  })
+  // Compare with quantized pixel channels, matching the other ambient checks.
+  for (const sample of samples) expectColor(sample.pixel, sample.lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(50))))
+})
+
+for (const backend of ['canvas', 'gpu']) test(`${backend}: the player matches ball contrast in darkness and receives partial shadows`, async ({ page }, info) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const result = await page.evaluate(async backend => {
+    const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { athletePose } = await import('/src/games/jumping/athlete.ts')
+    const h = await lightingHarness({ backend })
+    h.run.level = { ...h.run.level, platforms: [], texts: [], timers: [], triggers: [], climbables: { ladders: [], ropes: [] } }
+    h.run.terrain = []; h.run.mechanisms = []; h.run.robots = []; h.run.triggers = []; h.run.pickups = []
+    Object.assign(h.run.player, { x: 500, y: 400, grounded: true })
+    const { head, hip } = athletePose(h.run.player), x = 500 + head[0], y = 400 + head[1]
+    const ball = { kind: 'ball', x: 600, y: 400, size: 60, angle: 0 }
+    h.run.props = [ball]
+    const lamp = { id: 'side', x: x - 100, y, intensity: 100, power: 'always', direction: 0, spread: 120 }
+    const comparison = document.createElement('canvas'); comparison.width = 720; comparison.height = 210
+    const ctx = comparison.getContext('2d')
+    const capture = (label, index) => {
+      ctx.fillStyle = '#f4f2e9'; ctx.fillRect(index * 240, 0, 240, 210)
+      ctx.fillStyle = '#303c36'; ctx.font = '16px sans-serif'; ctx.fillText(label, index * 240 + 16, 26)
+      ctx.drawImage(h.canvas, 470, 345, 180, 110, index * 240, 50, 240, 147)
+    }
+    const dark = h.render(0); capture('Ambient only', 0)
+    const lit = h.render(0, [lamp]); capture('In the beam', 1)
+    h.run.props = [ball, { kind: 'box', x: x - 50, y: y + 7, size: 14, angle: 0 }]
+    const partial = h.render(0, [lamp]); capture('Partial shadow', 2)
+    h.run.props = [ball]; h.run.exit = { elapsed: .5 }
+    const fading = h.render(0)
+    h.run.exit.elapsed = .75; const gone = h.render(0)
+    const result = { dark: h.pixel(dark, x, y), ball: h.pixel(dark, 600, 370), wall: h.pixel(dark, 550, y),
+      lit: h.pixel(lit, x, y), partialHead: h.pixel(partial, x, y), partialTorso: h.pixel(partial, 500 + hip[0], 400 + hip[1]),
+      fading: h.pixel(fading, x, y), gone: h.pixel(gone, x, y) }
+    document.body.replaceChildren(comparison)
+    h.renderer.dispose(); return result
+  }, backend)
+  expectColor(result.dark, result.ball)
+  expect(result.wall[0] - result.dark[0]).toBeGreaterThan(25)
+  expectColor(result.lit, [229, 231, 230])
+  expectColor(result.partialHead, result.dark)
+  expectColor(result.partialTorso, result.lit)
+  expectColor(result.fading, result.dark.map((channel, i) => (channel + result.gone[i]) / 2))
+  await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-player-and-ball.png`) })
+})
+
+test('darkness shades pickups and preserves display exposure without painting through foreground objects', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -153,20 +219,24 @@ test('darkness preserves pickup color and display exposure without painting thro
     const results = {
       coin: h.pixel(dark, 100, 240), originalCoin: h.pixel(bright, 100, 240),
       wall: h.pixel(dark, 400, 100), originalWall: h.pixel(bright, 400, 100),
-      clock: h.pixel(dark, 1035, 65), originalClock: h.pixel(bright, 1035, 65),
+      clock: h.pixel(dark, 1035, 65),
       hiddenPickup: h.pixel(dark, 705, 592), originalCover: h.pixel(bright, 705, 592),
     }
     h.run.props[0].x = 780
     const uncovered = h.render(0)
-    results.revealedPixels = []
-    for (let y = 580; y < 604; y++) for (let x = 697; x < 713; x++) results.revealedPixels.push(...h.pixel(uncovered, x, y))
+    h.run.pickups = []
+    const without = h.render(0)
+    results.revealedPixels = 0
+    for (let y = 580; y < 604; y++) for (let x = 697; x < 713; x++) {
+      if (h.pixel(uncovered, x, y).some((c, i) => Math.abs(c - h.pixel(without, x, y)[i]) > 5)) results.revealedPixels++
+    }
     h.renderer.dispose(); return results
   })
-  expectColor(result.coin, result.originalCoin)
+  expectColor(result.coin, result.originalCoin.map(c => Math.round(c * .35)))
   result.wall.forEach((channel, i) => expect(Math.abs(channel - result.originalWall[i] * .35)).toBeLessThanOrEqual(2))
   result.hiddenPickup.forEach((channel, i) => expect(Math.abs(channel - result.originalCover[i] * .35)).toBeLessThanOrEqual(2))
-  result.clock.forEach((channel, i) => expect(Math.abs(channel - result.originalClock[i] * .65)).toBeLessThanOrEqual(2))
-  expect(Math.max(...result.revealedPixels)).toBeGreaterThan(150)
+  expectColor(result.clock, [48, 60, 54].map(c => Math.round(c * .35)))
+  expect(result.revealedPixels).toBeGreaterThan(20)
 })
 
 test('lamp overlap, order, ambient-only terrain and source occlusion agree at the pixel level', async ({ page }) => {
@@ -221,7 +291,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
         results.push({ lens: h.pixel(after, pole, lampY), outsideChanges,
           lights: after.stats.lights, sources: after.stats.sources.map(source => source.id),
           outageDifference: emp ? h.difference(after, ambient) : 0,
-          clock: h.pixel(after, 1035, 65), coin: h.pixel(after, 100, 240) })
+          clock: h.pixel(after, 1035, 65) })
       }
     }
     h.renderer.dispose(); return results
@@ -231,8 +301,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
     expect(entry.outsideChanges).toBe(0)
     expect(entry.outageDifference).toBe(0)
     expect(entry.sources).toEqual(['spot-left', 'spot-middle', 'spot-right'])
-    expect(entry.clock[0]).toBeGreaterThan(100)
-    expect(entry.coin[0]).toBeGreaterThan(150)
+    expectColor(entry.clock, [48, 60, 54].map(c => Math.round(c * .35)))
   }
 })
 
@@ -391,7 +460,7 @@ test('source markers use resolved positions and isolation does not mutate the sc
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { drawLightSources } = await import('/src/games/jumping/lightingStudy.ts')
     const h = await lightingHarness(), lights = structuredClone(h.fixture.lighting.lights)
-    lights[0].mount = 'lift'; h.run.mechanisms[0].y -= 80
+    h.run.mechanisms[0].y -= 80
     const before = JSON.stringify({ level: h.run.level, mechanisms: h.run.mechanisms, lights })
     const isolated = h.render(20, lights, .2, 'spot-middle')
     const after = JSON.stringify({ level: h.run.level, mechanisms: h.run.mechanisms, lights })
@@ -410,15 +479,15 @@ test('source markers use resolved positions and isolation does not mutate the sc
     drawLightSources(ctx, isolated.stats.sources, h.view, 'spot-middle')
     const marked = { pixels: ctx.getImageData(0, 0, h.canvas.width, h.canvas.height).data }
     const result = { before, after, difference,
-      moved: h.pixel(marked, 280, 100), active: h.pixel(marked, 750, 490),
-      old: h.pixel(marked, 280, 180), sources: isolated.stats.sources.map(s => ({ id: s.id, fade: s.fade })) }
+      wallPosition: h.pixel(marked, 280, 180), active: h.pixel(marked, 750, 490),
+      displaced: h.pixel(marked, 280, 100), sources: isolated.stats.sources.map(s => ({ id: s.id, fade: s.fade })) }
     h.renderer.dispose(); return result
   })
   expect(result.before).toBe(result.after)
   expect(result.difference).toBe(0)
-  expect(result.moved).toEqual([211, 220, 216])
+  expect(result.wallPosition).toEqual([211, 220, 216])
   expect(result.active).toEqual([223, 180, 79])
-  expect(result.old).toEqual([0, 0, 0])
+  expect(result.displaced).toEqual([0, 0, 0])
   expect(result.sources.slice(0, 3).every(s => s.fade === 1)).toBe(true)
 })
 
@@ -514,7 +583,7 @@ test('empty lighting viewports release buffers and resume with an unchanged imag
 })
 
 
-test('night mode retains lighting contrast through ambient 100 and daytime bypasses it', async ({ page }) => {
+test('night mode ignores legacy ambient values and daytime bypasses lighting', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -531,7 +600,7 @@ test('night mode retains lighting contrast through ambient 100 and daytime bypas
     h.renderer.dispose(); return samples
   })
   for (const sample of results) {
-    const exposure = sample.nightMode ? .35 + .22 * sample.ambient / 100 : 1
+    const exposure = sample.nightMode ? .35 : 1
     sample.base.forEach((value, i) => expect(Math.abs(value - sample.original[i] * exposure)).toBeLessThanOrEqual(2))
     sample.lit.forEach((value, i) => expect(Math.abs(value - sample.original[i])).toBeLessThanOrEqual(1))
     if (!sample.nightMode) expect(sample.buffers).toBe(0)

@@ -9,7 +9,7 @@ For route design, teaching, wall guidance, puzzles, and playtesting, see
 
 Version 1 remains supported unchanged. Version 2 adds authored lighting, described
 below and in the [flat-lighting specification](jumping-lighting.md). The studio
-upgrades a level on its first Night mode, ambient, or spotlight edit; it never silently
+upgrades a level on its first Night mode or spotlight edit; it never silently
 removes lighting when saving.
 
 ## Built-in levels
@@ -141,7 +141,13 @@ to this default interaction after one use unless **Keep placing** is enabled;
 press Esc or click the active tool again to stop placing. Zoom centers on the
 selected object, or on the cursor for wheel zoom when nothing is selected.
 Start and goal markers are already part of each time trial. Drag the existing
-markers, or select **Start** / **Goal light** in the inspector to edit their position.
+markers, or select **Start** / **Goal light** in the Inspector’s **Object** tab to edit their position.
+
+The Inspector separates **Level** settings (names, save location, dimensions,
+night mode, floor material, and medal times) from **Object** properties. Selecting
+or placing an object opens **Object** automatically; switching tabs preserves the
+selection. The tabs stay visible while scrolling. With a tab focused, Left/Right
+arrows switch tabs and Home/End select the first/last tab.
 
 The **Terrain** tool draws a rectangular starting shape. Select it to resize the
 whole shape with the four square handles outside its bounding corners, or drag
@@ -200,8 +206,9 @@ In the builder, **Library** opens a centered, nearly full-screen dialog. It cont
 selects the destination for **Save level**. Replacing a draft with unsaved changes
 offers **Save and continue**, **Discard changes**, or **Cancel**.
 Click any file in the folder's list to open it for editing. **Change folder**
-switches folders; the inspector's **Save location** takes you back to Library. The
-filename and level name are independently editable in the header. A new draft
+switches folders; the **Save location** control in the
+Inspector’s **Level** tab takes you back to Library. The
+filename and level name are independently editable in the **Level** tab. A new draft
 creates no level file until its first save. Until then, its filename follows the level
 name unless you type a filename yourself. Clearing the filename restores that
 automatic suggestion. After saving, changing the level name leaves the filename
@@ -316,12 +323,14 @@ trial also includes `floor`, `goal`, `times`, `props`, `robots`, `mechanisms`, a
 remain readable. Legacy `description` fields are ignored; use wall text for
 in-level guidance.
 
-Every object, including start and goal, accepts an optional `name` string of up to
+Every object, including start, goal, and spotlights, accepts an optional `name` string of up to
 80 characters. The Inspector's **Name** field sets it; clearing it restores the
-default label. Names appear in the object picker and pressure-plate connections.
+default label. Names appear in the inspector heading, object picker, switch
+connections, rope anchors, and object-specific validation errors. Labels retain
+the object type and number to distinguish unnamed objects and duplicate names.
 They survive edits, duplication, templates, and saves. Surrounding whitespace is
 trimmed, and empty names are omitted. Mechanism connections still use their stable
-IDs, so renaming an elevator or gate does not change its connections.
+IDs, so renaming a mechanism or spotlight does not change its connections.
 
 Optional `timers: [{ "x": 80, "y": 1220 }, ...]` places up to 40 wall displays.
 Each point is the top-left of a 200 × 60 display in file coordinates. The entire
@@ -539,7 +548,7 @@ smooth, pale sage; Steel is a blue-gray with fine, horizontal brush marks.
 The level's optional `floorMaterial` applies the same palette
 to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a
-terrain piece's material in the inspector, or the floor material in Level settings.
+terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.
 Materials are saved in the JSON and appear in the game, editor and thumbnails.
 
 Ladders contain `x`, `top`, `bottom`, `platform: -1`, and `side: 1` for independent
@@ -587,7 +596,8 @@ charge. Terrain, boxes, balls, mechanisms, and other bots can provide cover;
 wall decorations and collectibles do not. Losing sight restores ordinary patrol
 and the calm eye color. Crouching behind low cover can hide the player.
 The **Mechanisms** tools place elevators, moving platforms, vertical and horizontal gates, and pressure plates. Select a
-plate and check one or more mechanisms in **Activates**; new plates connect to
+plate and check one or more mechanisms in **Activates**, or select a gate,
+elevator, or moving platform and check its switches in **Switched by**; new plates connect to
 the nearest mechanism when possible. All support moving, duplication, undo/redo,
 playtesting, and portable level files.
 
@@ -644,17 +654,19 @@ and legacy connections. Neither replaces actually playing the route.
 
 ## Lighting (version 2)
 
-The back wall and wall text receive ambient illumination. Dark rooms also show
-a very faint full spotlight beam, fading smoothly across night ambient 0–100. The
+The back wall receives ambient illumination. Wall text and collectibles receive
+spotlights and shadows, without casting shadows. Night rooms use the fixed
+ambient-0 appearance (35% baseline brightness) with a very faint full spotlight beam. The
 short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at solid objects and room boundaries.
-Spotlights illuminate terrain and physical objects, which cast shadows on each
-other. Wall displays keep their readability floor, and haze never washes out
+Spotlights illuminate movable objects. Terrain and mechanisms retain ambient
+colors while casting shadows. Only timer digits/status symbols and filled coin segments keep a 65% brightness
+floor. Panels, frames, and empty tracks follow room lighting. Haze never washes out
 wall text, collectibles, or the player.
 
-Ambient light belongs to the level. Spotlights belong to the back wall and do not
-block movement. In the studio, enable **Level settings → Night mode**, adjust **Ambient light**, and use the
+Spotlights belong to the back wall and do not block movement. In the studio,
+enable **Level tab → Night mode** and use the
 **Back wall → Spotlight** tool. Click to place, or drag to aim. Select a lamp to
-change its direction, spread, power, mount and name. The middle handle
+change its direction, spread, power and name. The middle handle
 aims; the outer handles change spread. Snap uses five-degree angle increments;
 Alt bypasses it. Position fields refer to the light's center.
 
@@ -662,7 +674,7 @@ Alt bypasses it. Position fields refer to the light's center.
 "version": 2,
 "lighting": {
   "nightMode": true,
-  "ambient": 85,
+  "ambient": 0,
   "lights": [
     {
       "id": "stairs-lamp",
@@ -678,11 +690,11 @@ Alt bypasses it. Position fields refer to the light's center.
 ```
 
 This is a fragment of the existing level object; retain its other fields.
-Night mode is off by default: the level is fully lit. With Night mode on, ambient
-0–100 smoothly spans 35–57% actual brightness. Turning Night mode off preserves
-the ambient value and lights. New saves include boolean `nightMode`. Experimental
-version-2 files without the flag infer it from `ambient < 100`; version-1 levels
-stay fully lit.
+Night mode is off by default: the level is fully lit. With Night mode on, every level uses
+35% ambient brightness. Turning Night mode off preserves the lights. New saves include boolean `nightMode`. Experimental
+version-2 files without the flag infer it from `ambient < 100` before normalizing
+ambient to 0. Valid older ambient values are accepted but no longer affect
+brightness. Version-1 levels stay fully lit.
 Lamps extend indefinitely within their cone,
 stop at the level boundary, cast sharp shadows with narrow antialiased edges,
 and never add their intensities together. Existing levels are not darkened.
@@ -696,30 +708,34 @@ to 100; omission defaults to 100. Optional
 field. The 20×20 fixture footprint must fit inside the level.
 
 A switched light connects to one or more pressure plates or coin switches by ID
-in the existing `targets` array. Any active connected switch powers it. Changing
+in the existing `targets` array. Its **Switched by** section lists every pressure
+plate and coin switch, just like the inspector for gates, elevators, and moving
+platforms. Editing either this list or a switch’s **Activates** list updates the
+same connections. Any active connected switch powers it. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light must be connected before saving a playable file. Version 2 allows up to
 56 switch targets; version 1 retains 40.
 
-Optional `mount` names a gate, elevator or moving platform. The lamp follows its
-actual displacement, including shortened travel when obstructed. Its center must
-sit outside and within one tile of its mount, and its whole travel footprint must
-fit inside the room. Moving/resizing the host carries the lamp; deleting the host
-detaches it in place. Templates remap IDs and references together.
+Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
+elevators, and moving platforms cannot carry them. An older file's `mount` field
+is discarded on load, keeping the light's position and switch connections even
+if the former host no longer exists. Saving writes a wall light without `mount`.
+Moving, resizing, or deleting mechanisms leaves lights in place. Templates remap
+light and switch IDs together without changing wall positions.
 
 EMP switches all lamps off with a brief fade; ambient stays unchanged. Coin
 switches keep their existing latching rules. The green exit indicator stays
-visible and never casts light. Pickups keep their full colors; clocks and coin
+visible and never casts light. Pickups dim with their surroundings; clocks and coin
 meters remain readable. The player uses light ink in Night mode and
 dark ink in daytime, and casts a shadow matching its pose.
 
 The **Lighting** canvas checkbox temporarily shows the scene fully lit. **Hold to
 preview** temporarily powers a selected switched lamp. Neither changes the file,
 undo history, thumbnails or playtest. Thumbnails show the authored initial state.
-**Brighter dark levels** in the game's Controls uses night ambient 100 (57%
-brightness), preserving Night mode. It is saved only as a browser preference.
+Night brightness is fixed for gameplay, previews, and thumbnails. The former
+Brighter dark levels preference is ignored.
 
-Files allow at most 16 lights, including 4 mounted lights. Rooms with Night mode
+Files allow at most 16 wall lights. Rooms with Night mode
 on are limited to 4,096 static contour edges per light and 32,768 summed across
 lights (counting the whole room conservatively). Excess complexity or malformed
 fields produce a validation error before play. Geometry preparation runs in a

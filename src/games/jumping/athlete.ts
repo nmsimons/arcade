@@ -855,7 +855,8 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
     frontLeg: leg(free.frontLeg, brace.feet[0], -13), backLeg: leg(free.backLeg, brace.feet[1], -17) }
 }
 
-/** A single dark-grey silhouette, shared by every pose and viewing direction. */
+export const NIGHT_PLAYER_COLOR = '#e5e7e6'
+/** Original daytime silhouette; night rendering supplies its own lit material. */
 export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e') {
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0 } = athletePose(p)
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, 1)

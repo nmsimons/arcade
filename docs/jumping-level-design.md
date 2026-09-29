@@ -10,10 +10,10 @@ Use this alongside [level files and authoring](jumping-levels.md) and
 it does not introduce new mechanics or change the file format.
 
 [Flat lighting](jumping-lighting.md) provides an
-object-by-object visibility contract and lighting-specific authoring checks. Version-2 files support spotlights and per-level ambient light.
+object-by-object visibility contract and lighting-specific authoring checks. Version-2 files support spotlights and a shared night-lighting baseline.
 When authoring lighting-enabled levels  place fixtures as part
 of the building and generally let one or two spotlights organize each playable
-area. Enable Night mode for lighting; its ambient 0–100 spans 35–57% brightness.
+area. Enable Night mode for lighting; every night uses 35% ambient brightness (the original 0 setting).
 Night mode off is fully lit. Zero is a readable baseline, not black;
 the goal's green indicator remains readable without lighting the room.
 

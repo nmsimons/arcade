@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { TIME_PENALTY_COLOR } from '../../src/games/jumping/pickups.ts'
-import { installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'time-penalty-browser-test', name: 'Bad timing', width: 1200, height: 600, floor: 600,
   spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
@@ -97,26 +97,26 @@ test('both harmful pickups place, edit, undo, save and reopen in the builder', a
   const selected = page.getByRole('combobox', { name: 'Selected object' })
   await page.getByRole('button', { name: 'Time penalty', exact: true }).click()
   await page.getByRole('application', { name: 'Level canvas' }).click({ position: { x: 280, y: 200 } })
-  await expect(selected).toHaveValue('pickup:2')
-  await expect(selected.locator('option:checked')).toHaveText('Time penalty 3')
+  await expect(selected).toHaveAttribute('data-value', 'pickup:2')
+  await expect(selected).toHaveText('Time penalty 3')
   const amount = page.getByRole('spinbutton', { name: 'Seconds added', exact: true })
   await expect(amount).toHaveValue('5')
   await amount.fill('9'); await amount.press('Enter')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
-  await selected.selectOption('pickup:2'); await expect(amount).toHaveValue('5')
+  await selectBuilderObject(page, 'pickup:2'); await expect(amount).toHaveValue('5')
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
-  await selected.selectOption('pickup:2'); await expect(amount).toHaveValue('9')
+  await selectBuilderObject(page, 'pickup:2'); await expect(amount).toHaveValue('9')
   await page.getByRole('button', { name: 'Fast stopwatch', exact: true }).click()
   await page.getByRole('application', { name: 'Level canvas' }).click({ position: { x: 420, y: 200 } })
-  await expect(selected).toHaveValue('pickup:3')
-  await expect(selected.locator('option:checked')).toHaveText('Fast stopwatch 4')
+  await expect(selected).toHaveAttribute('data-value', 'pickup:3')
+  await expect(selected).toHaveText('Fast stopwatch 4')
   await expect(amount).toHaveCount(0)
-  await selected.selectOption('pickup:2'); await page.clock.runFor(32)
+  await selectBuilderObject(page, 'pickup:2'); await page.clock.runFor(32)
   await page.screenshot({ path: info.outputPath('harmful-pickup-inspector.png') })
   const saved = await saveTestLevel(page)
   expect(saved.level.pickups[2]).toMatchObject({ kind: 'time-penalty', seconds: 9 })
   expect(saved.level.pickups[3]).toMatchObject({ kind: 'fast-stopwatch' })
-  await reopenTestLevel(page, saved); await selected.selectOption('pickup:2')
+  await reopenTestLevel(page, saved); await selectBuilderObject(page, 'pickup:2')
   await expect(amount).toHaveValue('9')
   await saveTestLevel(page, 'Save and Test')
   await page.clock.runFor(64)

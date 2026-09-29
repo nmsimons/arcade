@@ -15,7 +15,6 @@ export function copyForEditing(level: JumpLevel): JumpLevel {
   if (next.version === 1) return next
   const ids = new Map([...(next.mechanisms ?? []), ...(next.lighting?.lights ?? [])].map(item => [item.id, newLevelId()]))
   for (const item of [...(next.mechanisms ?? []), ...(next.lighting?.lights ?? [])]) item.id = ids.get(item.id)!
-  for (const light of next.lighting?.lights ?? []) if (light.mount) light.mount = ids.get(light.mount) ?? light.mount
   for (const trigger of next.triggers ?? []) {
     if (trigger.targets) trigger.targets = trigger.targets.map(id => ids.get(id) ?? id)
     else if (trigger.target) trigger.target = ids.get(trigger.target) ?? trigger.target

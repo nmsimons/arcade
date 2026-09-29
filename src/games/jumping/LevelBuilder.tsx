@@ -18,11 +18,12 @@ import { prepareLevelInWorker } from './levelPreparation'
 import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
+import { BuilderSelect } from './BuilderSelect'
 import { setPickupSeconds, setWallTextRotation, transformTerrain } from './editor'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
-import { pickupLabel } from './pickups'
 import { ObjectNameField } from './ObjectNameField'
+import { defaultObjectLabel, objectLabel } from './objectLabels'
 import { TerrainMaterialPicker } from './TerrainMaterialPicker'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
@@ -31,11 +32,10 @@ import { SaveFailureDialog } from './LevelFileActions'
 import { BuilderHelp } from './BuilderHelp'
 import type { LibraryChoice } from './BuilderLibrary'
 import type { LevelSource } from './routes'
-import { isHorizontalGate, mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
+import { isHorizontalGate, mechanismAnchor, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
-import { editLight, lightHandles, setLevelAmbient, setLevelNightMode } from './lightingEditor'
-import { lightTravelBounds } from './lightingDefinition'
+import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
 import { useLightingGeometry } from './useLightingGeometry'
 import './builder.css'
 
@@ -93,7 +93,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a coin switch on the back wall. Choose horizontal or vertical orientation in the inspector. Its meter fills with collected coins; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
-  { id: 'light', group: 'Back wall', label: 'Spotlight', help: 'Click to mount a spotlight, or drag to aim it. Drag its center handle to aim and its outer handles to widen the beam. Lights have no range limit. EMP cuts their power.' },
+  { id: 'light', group: 'Back wall', label: 'Spotlight', help: 'Click to place a spotlight on the back wall, or drag to aim it. Drag its center handle to aim and its outer handles to widen the beam. Lights have no range limit. EMP cuts their power.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Choose Official or red Graffiti, and edit the text, size, alignment, and rotation in the inspector. Text never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
@@ -102,15 +102,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'fast-stopwatch', group: 'Collectibles', label: 'Fast stopwatch', help: 'A dark-red stopwatch. Touching it makes the clock run twice as fast for 5 seconds. Extra watches extend the effect.' },
   { id: 'emp', group: 'Collectibles', label: 'EMP', help: 'A gold lightning bolt. Cuts power to mechanisms, switches, shovebots, and spotlights for 5 seconds. Ambient light remains. The exit keeps working.' },
 ]
-const defaultSelectionLabel = (s: Selection, level: JumpLevel) => {
-  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
-    : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'light' ? 'Spotlight' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
-  return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
-}
-const selectionLabel = (s: Selection, level: JumpLevel) => {
-  const fallback = defaultSelectionLabel(s, level), name = itemDefinition(level, s)?.name
-  return name ? `${name} · ${fallback}` : fallback
-}
+const selectionLabel = (s: Selection, level: JumpLevel) => objectLabel(level, s)
 
 export function LevelBuilder({ active, onPlay, onClose, templates, local, collections, initialFile, onFileChange }: {
   active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
@@ -170,6 +162,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
   const [size, setSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<HTMLCanvasElement>(null), drag = useRef<Drag | null>(null)
+  const inspectorRef = useRef<HTMLElement>(null)
+  const [inspectorTab, setInspectorTab] = useState<'level' | 'object'>('level')
   const latestPreview = useRef<JumpLevel | null>(null)
   const framed = useRef(false)
   const bounds = useMemo(() => selection ? itemBounds(level, selection) : null, [level, selection])
@@ -190,6 +184,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const verticalCoinSwitch = trigger?.mode === 'coins' && trigger.orientation === 'vertical'
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
+  const switchedObject = mechanism ?? (light?.power === 'switched' ? light : null)
   const aimHandles = useMemo(() => light ? lightHandles(light, view.zoom) : [], [light, view.zoom])
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
@@ -200,7 +195,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const nodeTarget = useMemo(() => tool === 'node' && pointer && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null,
     [tool, pointer, hoveredNode, level, view.zoom, snap])
 
-  function chooseSelection(next: Selection | null) { setSelection(next); setSelectedNode(null); setPreviewLight(null) }
+  function chooseInspectorTab(tab: 'level' | 'object') {
+    setInspectorTab(tab); setPreviewLight(null)
+    inspectorRef.current?.scrollTo({ top: 0 })
+  }
+  function chooseSelection(next: Selection | null) {
+    if (next && inspectorTab !== 'object') chooseInspectorTab('object')
+    if (next?.kind !== selection?.kind || next?.index !== selection?.index) inspectorRef.current?.scrollTo({ top: 0 })
+    setSelection(next); setSelectedNode(null); setPreviewLight(null)
+  }
   function commit(next: JumpLevel) {
     next = prepareLevelRopes(next, true)
     setHistory(h => JSON.stringify(next) === JSON.stringify(h.present) ? h : { past: [...h.past, h.present].slice(-60), present: next, future: [] })
@@ -231,7 +234,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     setHistory({ past: [], present: next, future: [] })
     setSaved({ level: editSignature(next), fileName: name })
     setPreview(null); latestPreview.current = null; drag.current = null
-    chooseSelection(null); setTool('select'); setView(homeView(next, size.height)); setMessage('')
+    chooseSelection(null); chooseInspectorTab('level'); setTool('select'); setView(homeView(next, size.height)); setMessage('')
     onFileChange(file?.fileName, source)
   }
   function chooseLibraryItem(choice: LibraryChoice) {
@@ -428,18 +431,20 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     }
     if (tool !== 'select') { drag.current = { mode: 'draw', start: event.altKey ? p : { x: quantize(p.x), y: quantizeY(p.y) }, screen, base, view, selection: null }; return }
     const aimHandle = aimHandles.find(h => Math.hypot(p.x - h.x, p.y - h.y) < 10 / view.zoom)
-    if (selection?.kind === 'light' && aimHandle) { drag.current = { mode: aimHandle.kind, start: p, screen, base, view, selection }; return }
+    if (selection?.kind === 'light' && aimHandle) { chooseInspectorTab('object'); drag.current = { mode: aimHandle.kind, start: p, screen, base, view, selection }; return }
     if (selection && travelHandleAt(p)) {
+      chooseInspectorTab('object')
       drag.current = { mode: 'travel', start: p, screen, base, view, selection }; return
     }
     const handle = resizeHandleAt(p)
     if (selection && handle) {
+      chooseInspectorTab('object')
       setSelectedNode(null)
       drag.current = { mode: 'resize', start: p, screen, base, view, selection, corner: handle.corner }; return
     }
     if (selection && chosen) {
       const point = polygonPoints(chosen).findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
-      if (point >= 0) { setSelectedNode(point); drag.current = { mode: 'point', start: p, screen, base, view, selection, point }; return }
+      if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); drag.current = { mode: 'point', start: p, screen, base, view, selection, point }; return }
     }
     const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
     chooseSelection(hit); drag.current = { mode: hit ? 'move' : 'pan', start: p, screen, base, view, selection: hit }
@@ -645,16 +650,28 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         onPointerLeave={() => { if (!drag.current) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
     </div>
-    <aside className="builder-inspector" aria-label="Object properties">
+    <aside className="builder-inspector" aria-label="Inspector" ref={inspectorRef}>
+      <div className="builder-inspector-tabs" role="tablist" aria-label="Inspector" onKeyDown={event => {
+        const next = event.key === 'Home' ? 'level' : event.key === 'End' ? 'object'
+          : event.key === 'ArrowLeft' || event.key === 'ArrowRight' ? inspectorTab === 'level' ? 'object' : 'level' : null
+        if (!next) return
+        event.preventDefault(); event.stopPropagation(); chooseInspectorTab(next)
+        event.currentTarget.querySelector<HTMLButtonElement>(`#builder-inspector-tab-${next}`)?.focus()
+      }}>
+        {(['level', 'object'] as const).map(tab => <button key={tab} role="tab" id={`builder-inspector-tab-${tab}`}
+          aria-controls={`builder-inspector-panel-${tab}`} aria-selected={inspectorTab === tab} tabIndex={inspectorTab === tab ? 0 : -1}
+          title={tab === 'level' ? 'Edit level settings' : 'Inspect the selected object'} onClick={() => chooseInspectorTab(tab)}>{tab === 'level' ? 'Level' : 'Object'}</button>)}
+      </div>
+      <div id="builder-inspector-panel-object" role="tabpanel" aria-labelledby="builder-inspector-tab-object" hidden={inspectorTab !== 'object'}>
       <div className="builder-inspector-heading">
-      <h2>Inspector</h2>
-      <label>Selected object<select aria-label="Selected object" value={selection ? `${selection.kind}:${selection.index}` : ''} onChange={e => { const [kind, index] = e.target.value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform') setTool('select') }}>
-        <option value="">Nothing selected</option>{allSelections(level).map(s => <option key={`${s.kind}:${s.index}`} value={`${s.kind}:${s.index}`}>{selectionLabel(s, level)}</option>)}
-      </select></label>
+      <BuilderSelect label="Selected object" value={selection ? `${selection.kind}:${selection.index}` : ''}
+        options={[{ value: '', label: 'Nothing selected' }, ...allSelections(level).map(s => ({ value: `${s.kind}:${s.index}`, label: selectionLabel(s, level) }))]}
+        onChange={value => { const [kind, index] = value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform') setTool('select') }} />
       </div>
       {selection && bounds ? <div className="builder-property-card">
+        <h3 className="builder-object-heading">{selectionLabel(selection, level)}</h3>
         <label>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemDefinition(level, selection)?.name ?? ''}
-          placeholder={defaultSelectionLabel(selection, level)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
+          placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
         <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
           {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
             || axis === 'w' && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger'].includes(selection.kind)
@@ -684,30 +701,18 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             <label>Direction (°)<NumberField label="Light direction" value={light.direction} min={-180} max={180} step={5} onCommit={value => changeObject('direction', value)} /></label>
             <label>Spread (°)<NumberField label="Light spread" value={light.spread} min={20} max={160} step={5} onCommit={value => changeObject('spread', value)} /></label>
           </div>
-          <label>Power<select aria-label="Light power" value={light.power} onChange={e => changeObject('power', e.target.value)}><option value="always">Always on</option><option value="switched">Switched</option></select></label>
-          <label>Mount<select aria-label="Light mount" value={light.mount ?? ''} onChange={e => changeObject('mount', e.target.value)}><option value="">Back wall</option>{level.mechanisms?.map((m, i) => <option key={m.id} value={m.id}>{selectionLabel({ kind: 'mechanism', index: i }, level)}</option>)}</select></label>
-          {light.power === 'switched' && <>
-            <fieldset className="builder-connections"><legend>Powered by</legend>
-              {level.triggers?.map((t, i) => <label key={i}><input type="checkbox" checked={triggerTargets(t).includes(light.id)} onChange={e => {
-                const ids = triggerTargets(t); commit(setTriggerTargets(history.present, i, e.target.checked ? [...ids, light.id] : ids.filter(id => id !== light.id)))
-              }} />{selectionLabel({ kind: 'trigger', index: i }, level)}</label>)}
-              {!level.triggers?.length && <span>No switches</span>}
-            </fieldset>
-            <button title="Hold to preview this light without changing its power connections" aria-pressed={previewLight === light.id}
-              onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setPreviewLight(light.id) }} onPointerUp={() => setPreviewLight(null)} onPointerCancel={() => setPreviewLight(null)} onBlur={() => setPreviewLight(null)}
-              onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setPreviewLight(light.id) } }} onKeyUp={() => setPreviewLight(null)}>Hold to preview</button>
-          </>}
+          <BuilderSelect label="Power" accessibleLabel="Light power" value={light.power} options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]} onChange={value => changeObject('power', value)} />
         </>}
         {wallText && <>
           <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>
           <div className="builder-dimensions">
-            <label>Style<select aria-label="Text style" title="Official lettering or red marker graffiti" value={wallText.style ?? 'official'} onChange={e => changeObject('style', e.target.value)}><option value="official">Official</option><option value="graffiti">Graffiti</option></select></label>
+            <BuilderSelect label="Style" accessibleLabel="Text style" title="Official lettering or red marker graffiti" value={wallText.style ?? 'official'} options={[{ value: 'official', label: 'Official' }, { value: 'graffiti', label: 'Graffiti' }]} onChange={value => changeObject('style', value)} />
             <label>Rotation (°)<NumberField label="Text rotation" min={-180} max={180} step={5} value={wallText.rotation ?? 0} onCommit={value => changeObject('rotation', value)} /></label>
             <label>Font size<NumberField label="Text font size" min={12} max={96} step={2} value={wallText.fontSize} onCommit={value => changeObject('fontSize', value)} /></label>
-            <label>Alignment<select aria-label="Text alignment" value={wallText.align} onChange={e => changeObject('align', e.target.value)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+            <BuilderSelect label="Alignment" accessibleLabel="Text alignment" value={wallText.align} options={['left', 'center', 'right'].map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) }))} onChange={value => changeObject('align', value)} />
           </div>
         </>}
-        {selection.kind === 'rope' && <div className="builder-anchor"><span>{level.climbables.ropes[selection.index].anchor ? 'Anchored to terrain' : 'Free anchor'}</span><button className="builder-property-action" title="Attach the rope anchor to nearby terrain, or detach it" onClick={() => {
+        {selection.kind === 'rope' && <div className="builder-anchor"><span>{level.climbables.ropes[selection.index].anchor ? `Anchored to ${selectionLabel({ kind: 'platform', index: level.climbables.ropes[selection.index].anchor!.platform }, level)}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach the rope anchor to nearby terrain, or detach it" onClick={() => {
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
@@ -718,10 +723,21 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           if (m.flipX) delete m.flipX; else m.flipX = true
           commit(next)
         }}>Flip horizontally</button>}
+        {switchedObject && <fieldset className="builder-connections"><legend>Switched by</legend>
+          {level.triggers?.map((t, i) => <label key={i}><input type="checkbox" checked={triggerTargets(t).includes(switchedObject.id)} onChange={e => {
+            const ids = triggerTargets(t)
+            commit(setTriggerTargets(history.present, i, e.target.checked ? [...ids, switchedObject.id] : ids.filter(id => id !== switchedObject.id)))
+          }} />{selectionLabel({ kind: 'trigger', index: i }, level)}</label>)}
+          {!level.triggers?.length && <span>No switches</span>}
+        </fieldset>}
+        {light?.power === 'switched' &&
+          <button title="Hold to preview this light without changing its power connections" aria-pressed={previewLight === light.id}
+            onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setPreviewLight(light.id) }} onPointerUp={() => setPreviewLight(null)} onPointerCancel={() => setPreviewLight(null)} onBlur={() => setPreviewLight(null)}
+            onKeyDown={e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setPreviewLight(light.id) } }} onKeyUp={() => setPreviewLight(null)}>Hold to preview</button>}
         {trigger?.mode === 'coins' && <>
-          <label>Orientation<select aria-label="Coin switch orientation" value={trigger.orientation ?? 'horizontal'} onChange={e => commit(setCoinSwitchOrientation(history.present, selection.index, e.target.value === 'vertical' ? 'vertical' : 'horizontal'))}>
-            <option value="horizontal">Horizontal</option><option value="vertical">Vertical</option>
-          </select></label>
+          <BuilderSelect label="Orientation" accessibleLabel="Coin switch orientation" value={trigger.orientation ?? 'horizontal'}
+            options={[{ value: 'horizontal', label: 'Horizontal' }, { value: 'vertical', label: 'Vertical' }]}
+            onChange={value => commit(setCoinSwitchOrientation(history.present, selection.index, value === 'vertical' ? 'vertical' : 'horizontal'))} />
           <label>Coins required<NumberField label="Coins required" min={1} max={80} step={1} value={trigger.threshold} onCommit={value => commit(setCoinThreshold(history.present, selection.index, value))} /></label>
           <p className="builder-hint">All coins in the level count toward this switch. Once full, it stays active until restart.</p>
         </>}
@@ -730,21 +746,22 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             const targets = triggerTargets(trigger)
             commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...targets, m.id] : targets.filter(id => id !== m.id)))
           }} />{selectionLabel({ kind: 'mechanism', index: i }, level)}</label>) : null}
-          {level.lighting?.lights.filter(l => l.power === 'switched').map(l => <label key={l.id}><input type="checkbox" checked={triggerTargets(trigger).includes(l.id)} onChange={e => {
+          {level.lighting?.lights.map((l, i) => l.power === 'switched' && <label key={l.id}><input type="checkbox" checked={triggerTargets(trigger).includes(l.id)} onChange={e => {
             const ids = triggerTargets(trigger); commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...ids, l.id] : ids.filter(id => id !== l.id)))
-          }} />{l.name || 'Spotlight'}</label>)}
+          }} />{selectionLabel({ kind: 'light', index: i }, level)}</label>)}
           {!level.mechanisms?.length && !level.lighting?.lights.some(l => l.power === 'switched') && <span>No mechanisms or switched lights</span>}
         </fieldset>}
         {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" step={snap ? LEVEL_GRID_SIZE : 1} value={robot.left} onCommit={value => changeObject('left', value)} /></label><label>Right limit<NumberField label="Shovebot right limit" step={snap ? LEVEL_GRID_SIZE : 1} value={robot.right} onCommit={value => changeObject('right', value)} /></label></div>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
-      </div> : null}
-      <details className="builder-level-settings" open={!selection}>
-        <summary>Level settings</summary>
+      </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}
+      </div>
+      <div id="builder-inspector-panel-level" role="tabpanel" aria-labelledby="builder-inspector-tab-level" hidden={inspectorTab !== 'level'}>
+      <div className="builder-level-settings">
         <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value)); commit({ ...history.present, name: e.target.value }) }} /></label>
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
         <div className="builder-save-field"><span id="builder-save-label">Save location</span><button className="builder-save-location" aria-labelledby="builder-save-label builder-save-value" aria-haspopup="dialog" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => { setMessage(''); setLibraryOpen(true) }}><span id="builder-save-value">{local.name || 'Choose level folder'}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="miter"><path d="M3 7V4h7l2 3h9v13H3ZM3 9h18" /></svg></button></div>
         <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} onCommit={value => {
-          const extent = Math.max(800, level.spawn.x + 40, ...allSelections(level).map(s => { const b = s.kind === 'light' ? lightTravelBounds(level, level.lighting!.lights[s.index]) : itemBounds(level, s)!; return b.x + b.w + (level.floor === undefined ? 0 : 24) }))
+          const extent = Math.max(800, level.spawn.x + 40, ...allSelections(level).map(s => { const b = itemBounds(level, s)!; return b.x + b.w + (level.floor === undefined ? 0 : 24) }))
           commit({ ...history.present, width: clamp(value, extent, 20000) })
         }} /></label>
         <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} onCommit={value => {
@@ -752,15 +769,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           keepFloorInView(next); commit(next)
         }} /></label></div>
         <div className="builder-lighting-settings" role="group" aria-label="Level lighting">
-          <div className="builder-lighting-heading"><span>Ambient light</span><label className="builder-night-mode" title="Use spotlights and adjustable ambient lighting for this level"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(history.present, e.target.checked))} />Night mode</label></div>
-          <NumberField disabled={!nightModeEnabled(level.lighting)} label="Ambient light" value={level.lighting?.ambient ?? 100} min={0} max={100} step={1} onCommit={value => commit(setLevelAmbient(history.present, value))} />
-          <input type="range" aria-label="Ambient light slider" disabled={!nightModeEnabled(level.lighting)} title="Night brightness: 0 is 35%; 100 is 57%" min={0} max={100} value={level.lighting?.ambient ?? 100}
-            onChange={e => { const next = setLevelAmbient(history.present, Number(e.target.value)); latestPreview.current = next; setPreview(next) }}
-            onPointerUp={() => { if (latestPreview.current) commit(latestPreview.current) }} onKeyUp={() => { if (latestPreview.current) commit(latestPreview.current) }} onBlur={() => { if (latestPreview.current) commit(latestPreview.current) }} />
+          <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(history.present, e.target.checked))} />Night mode</label></div>
         </div>
         <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
         {isPuzzleLevel(level) && <fieldset className="builder-medals"><legend>Medal times (seconds)</legend><div className="builder-medal-inputs">{(['gold', 'silver', 'bronze'] as const).map(medal => <label key={medal}>{medal[0].toUpperCase() + medal.slice(1)}<NumberField label={`${medal} time`} min={.1} max={3600} step={.5} value={level.times[medal]} onCommit={value => commit({ ...history.present, times: { ...level.times, [medal]: value } })} /></label>)}</div></fieldset>}
-      </details>
+      </div>
+      </div>
       {problems.length > 0 && <div className="builder-validation"><strong>Before you play</strong>{problems.map(issue => <p key={issue} role="alert">{issue}</p>)}</div>}
     </aside>
     <footer className="builder-status"><span role="status" aria-label="Builder status">{lightingGeometry.error || message || (dirty ? 'Unsaved changes' : fileSource.text ? 'Saved' : 'New level')}</span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>

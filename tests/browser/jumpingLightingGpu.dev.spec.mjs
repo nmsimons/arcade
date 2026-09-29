@@ -16,14 +16,16 @@ test('GPU lighting retains Tower artwork through movement, rotation, camera chan
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   await requireGpu(page)
   const result = await page.evaluate(async () => {
-    const [{ LightingRenderer }, { parseLevel }, { createPreviewRun }, { gameCamera }] = await Promise.all([
+    const [{ LightingRenderer }, { parseLevel }, { createPreviewRun }, { gameCamera }, { drawAthlete }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/level.ts'),
-      import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/camera.ts'),
+      import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/camera.ts'), import('/src/games/jumping/athlete.ts'),
     ])
     const level = parseLevel(await (await fetch('/levels/jumping/Tower.jump-level.json')).json()), run = createPreviewRun(level)
     const canvases = [document.createElement('canvas'), document.createElement('canvas')]
     for (const canvas of canvases) { canvas.width = 800; canvas.height = 500 }
     const contexts = canvases.map(canvas => canvas.getContext('2d', { willReadFrequently: true }))
+    const silhouette = document.createElement('canvas'); silhouette.width = 800; silhouette.height = 500
+    const mask = silhouette.getContext('2d', { willReadFrequently: true })
     const renderers = [new LightingRenderer(), new LightingRenderer({ backend: 'gpu' })], results = []
     const view = { ...gameCamera(800, 500, run.player, level, true), width: 800, height: 500 }
     for (let i = 0; i < 14; i++) {
@@ -38,11 +40,23 @@ test('GPU lighting retains Tower artwork through movement, rotation, camera chan
       if (i === 12) run.exit = { elapsed: .5 }
       const stats = renderers.map((renderer, j) => renderer.render(contexts[j], run, level.lighting, view, .05))
       const pixels = contexts.map(ctx => ctx.getImageData(0, 0, 800, 500).data)
-      let total = 0, worst = 0, overEight = 0
+      mask.resetTransform(); mask.clearRect(0, 0, 800, 500)
+      mask.setTransform(view.zoom, 0, 0, view.zoom, -view.x * view.zoom, -view.y * view.zoom); drawAthlete(mask, run.player, '#fff')
+      const player = mask.getImageData(0, 0, 800, 500).data
+      let total = 0, worst = 0, overEight = 0, worstAwayFromPlayerEdge = 0
       for (let j = 0; j < pixels[0].length; j++) {
         const delta = Math.abs(pixels[0][j] - pixels[1][j]); total += delta; worst = Math.max(worst, delta); if (delta > 8) overEight++
+        if (delta > 40) {
+          const x = Math.floor(j / 4) % 800, y = Math.floor(j / 3200)
+          let min = 255, max = 0
+          for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) {
+            const alpha = x + dx < 0 || x + dx >= 800 || y + dy < 0 || y + dy >= 500 ? 0 : player[((y + dy) * 800 + x + dx) * 4 + 3]
+            min = Math.min(min, alpha); max = Math.max(max, alpha)
+          }
+          if (max === 0 || min === 255) worstAwayFromPlayerEdge = Math.max(worstAwayFromPlayerEdge, delta)
+        }
       }
-      results.push({ backend: stats[1].backend, mean: total / pixels[0].length, worst, largeDifferenceFraction: overEight / pixels[0].length })
+      results.push({ backend: stats[1].backend, mean: total / pixels[0].length, worst, worstAwayFromPlayerEdge, largeDifferenceFraction: overEight / pixels[0].length })
     }
     renderers.forEach(renderer => renderer.dispose())
     return results
@@ -52,7 +66,10 @@ test('GPU lighting retains Tower artwork through movement, rotation, camera chan
     // Different antialiasing coverage is confined to a small set of edge pixels.
     expect(frame.mean).toBeLessThan(.3)
     expect(frame.largeDifferenceFraction).toBeLessThan(.001)
-    expect(frame.worst).toBeLessThanOrEqual(40)
+    expect(frame.worstAwayFromPlayerEdge).toBeLessThanOrEqual(40)
+    // The player's stronger light-to-dark response magnifies silhouette-edge
+    // coverage differences; all other pixels retain the original tolerance.
+    expect(frame.worst).toBeLessThanOrEqual(64)
   }
 })
 

@@ -17,6 +17,7 @@ import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
+export const BALL_COLOR = '#8f9e98'
 function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number) {
   ctx.fillStyle = '#738575'; ctx.fillRect(x - 3, y - 3, width + 6, 3)
   ctx.fillStyle = active ? '#9bb878' : '#c4a66b'; ctx.fillRect(x, y - 7 + depression * 4, width, 3)
@@ -34,7 +35,7 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
     ctx.restore()
   } else {
     const cy = b.y - r
-    ctx.fillStyle = '#8f9e98'; ctx.beginPath(); ctx.arc(b.x, cy, r, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = BALL_COLOR; ctx.beginPath(); ctx.arc(b.x, cy, r, 0, Math.PI * 2); ctx.fill()
     // A flat marking makes rolling visible without suggesting a shaded sphere.
     ctx.fillStyle = '#667b72'; ctx.beginPath()
     ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
@@ -89,13 +90,19 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawLightFixtures(ctx, lights, wallPaint)
     wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
-    wallPaint(ctx, .65, () => {
-      ctx.save(); ctx.font = '500 28px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-      const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
-      const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
-      for (const timer of level.timers ?? []) {
-        ctx.fillStyle = clockFast ? TIME_PENALTY_COLOR : clockStopped ? '#eee3ce' : '#e2e7da'; ctx.fillRect(timer.x, timer.y, WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT)
-        ctx.fillStyle = clockFinished ? '#66844e' : clockFast ? '#f1f1ed' : clockStopped ? '#91652f' : '#40574a'
+    ctx.save(); ctx.font = '500 28px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
+    const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
+    for (const timer of level.timers ?? []) {
+      const panel = clockFast ? TIME_PENALTY_COLOR : clockStopped ? '#eee3ce' : '#e2e7da'
+      paint(ctx, 0, () => {
+        ctx.fillStyle = panel; ctx.fillRect(timer.x, timer.y, WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT)
+        ctx.fillStyle = '#303c36'; ctx.fillRect(timer.x + 4, timer.y + 4, WALL_TIMER_WIDTH - 8, WALL_TIMER_HEIGHT - 8)
+      })
+      // Both modes share light digits on a dark face. In darkness only the
+      // digits and status symbols retain brightness.
+      paint(ctx, .65, () => {
+        ctx.fillStyle = clockFinished ? '#a9d56b' : clockFast ? '#e98678' : clockStopped ? '#e6b96f' : '#e5e7e6'
         ctx.fillText(formatTime(run.elapsed), timer.x + WALL_TIMER_WIDTH / 2, timer.y + WALL_TIMER_HEIGHT / 2 + 1)
         if (clockStopped) {
           ctx.fillRect(timer.x + 9, timer.y + WALL_TIMER_HEIGHT / 2 - 4, 3, 10)
@@ -107,12 +114,13 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
             ctx.closePath(); ctx.fill()
           }
         }
-      }
-      ctx.restore()
-      for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active)
-    })
-    // Collectibles belong to the back wall, behind terrain and movable objects.
-    wallPaint(ctx, 1, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime) })
+      })
+    }
+    ctx.restore()
+    for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active, paint)
+    // Collectibles receive the light field without casting shadows. Keep their
+    // artwork and collection effects behind terrain and movable objects.
+    paint(ctx, 0, () => { for (const pickup of run.pickups) drawPickup(ctx, pickup, run.pickupTime) })
   }
   if (layer === 'wall') return
   paint(ctx, 0, () => {
@@ -148,11 +156,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const r of run.robots) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint)
   if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
-    paint(ctx, 1, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
+    paint(ctx, 0, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
   }
   else {
     paint(ctx, 0, () => drawMovementEffects(ctx, p))
-    paint(ctx, 1, () => drawAthlete(ctx, p, playerInk))
+    paint(ctx, 0, () => drawAthlete(ctx, p, playerInk))
   }
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {

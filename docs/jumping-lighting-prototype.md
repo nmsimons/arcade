@@ -7,7 +7,7 @@ See [the specification](jumping-lighting.md) and [authoring guide](jumping-level
 
 Run `npm run dev`, then open `/untitled-jumping-game/lighting-lab` on the URL Vite
 prints. The initial preview for this branch uses port 5175. The controls provide
-Night mode and ambient 0–100 (35–57% actual brightness), a sustained EMP blackout, a completed exit, identical overlapping
+Night mode with fixed 35% ambient brightness, a sustained EMP blackout, a completed exit, identical overlapping
 lamps, and a moving/rotating crate. Play room switches to the normal movement and
 simulation; arrows/WASD move and Space charges/releases a jump. Inspect room
 returns to the controlled scene. Nothing saves level files, scores or settings.
@@ -38,7 +38,7 @@ This is an object/geometry study, not a campaign level with established medal ti
 ## Implemented for evaluation
 
 - Full-intensity spotlight fields with no distance attenuation, maximum blending,
-  ambient control and a daytime bypass. Authored lights
+  a shared ambient-0 baseline and a daytime bypass. Authored lights
   stop at the level rectangle. Only spotlight sides retain a narrow soft edge.
   Its width is capped at two world units, so distant objects do not acquire a
   broad shaded band when a spotlight edge crosses them.
@@ -52,23 +52,27 @@ This is an object/geometry study, not a campaign level with established medal ti
   Dynamic shapes use their current positions. Rounded box,
   mechanism, and bot chassis corners follow the artwork rather than collision
   rectangles.
-- Readable clocks and coin meters at minimum 65% exposure, full-color pickups
-  and effects, powered bot eyes, and the activated goal lens. Shared paint passes
+- Clock digits/status symbols and filled coin segments retain at least 65%
+  exposure. Their panels, empty tracks, dividers and frames receive ordinary
+  lighting. Timers share a dark face and light state-colored digits in both modes;
+  only digits and status symbols retain brightness in darkness. Powered bot eyes and the activated goal
+  lens retain their existing brightness. Collectibles, their effects, wall text and graffiti
+  receive the existing light field without casting shadows. Shared paint passes
   preserve the original draw order and translucent effects, including foreground
   occlusion. These readable parts do not illuminate nearby surfaces.
-- Player color depends only on Night mode: warm paper at night, dark ink
-  in daytime. There are no intermediate shades or color fades. Night mode off
-  bypasses environmental lighting.
-  Walking into spotlights or shadows,
-  including the overhead head-shadow case, and toggling EMP cannot change it.
+- The player is near-white in direct light and matches the ball's darker material
+  under ambient light. Spotlights, external shadows and EMP use the same light
+  field as props, including partial coverage. A bounded correction reuses the
+  inverse-light scratch surface. Night mode off bypasses environmental lighting
+  and preserves the original dark player ink; unlit legacy levels keep their grey silhouette.
   Pose-following player shadows use the same vector skin curves as the artwork,
   flattened to within 0.2 world units. Body parts form one caster group, preserving
   gaps between limbs. Exit shadows fade with the figure. This uses no collision
   changes, additional framebuffer, or pixel readback.
 - EMP-aware source fades and a green exit indicator that remains readable but
   emits no environmental light. Model tests also cover
-  switch activation and mounted positions; the studio now authors both.
-- The back wall, grid, wall text, terrain, gates, elevators, and moving
+  switch activation and fixed wall positions; the studio authors both.
+- The back wall, grid, terrain, gates, elevators, and moving
   platforms receive ambient only. Structural solids still block spotlights;
   loose objects receive direct illumination and shadows. Each lamp retains its short source glow;
   a much fainter full beam fades across the dark-room range; both disappear with Night mode off.
@@ -84,9 +88,9 @@ nonzero ambient values refer to the former linear scale. Historical 100 means
 fully lit daytime, now controlled by the Night mode toggle. Night zero is unchanged.
 
 `tests/jumping-lighting.test.mjs` covers the field math, shadow geometry, power
-transitions, mount displacement, fixture validity and player inks.
+transitions, fixed wall positions, fixture validity and player shadows.
 `tests/browser/jumpingLighting.dev.spec.mjs` checks actual Canvas pixels for
-normal environmental rendering at 100 (with the chosen player ink), overlap,
+normal environmental rendering in daytime, overlap,
 source coverage, readable displays, foreground occlusion
 and the EMP/exit relationship, unlimited reach and clipping at the level edges.
 It also checks resolved source markers, isolation without scene mutations, and
@@ -96,18 +100,17 @@ earlier position. Bot pixel tests cover chassis and wheels under narrow and wide
 lights, external shadows, powered eyes and EMP, both facings, tilted poses and
 windup. Distant cone-edge pixels are checked against exposure sampling. Player
 tests compare shadow geometry with the actual artwork across running, crouching
-and airborne poses in both facings, plus shadow movement, exit fades and readable
-ink. Day/night color is checked at eight ambient settings under spotlights,
-self-shadows, obstructions and EMP, including the Night mode transition and readable contrast throughout the remapped
-dark-room range. The integration suite adds editor save/reopen/playtest, nonpersistent preview,
-undo, mounts, file validation, template references, unchanged physics and coin
+and airborne poses in both facings, plus shadow movement and exit fades. Canvas
+and GPU checks cover ambient exposure, near-white direct light, ball-matched dark
+contrast, partial shadows, obstructions, EMP and daytime. The integration suite adds editor save/reopen/playtest, nonpersistent preview,
+undo, legacy mount migration, file validation, template references, unchanged physics and coin
 latching through EMP. Cache invalidation and high-DPI buffer limits have pixel
 regressions too. The gate suite checks both orientations open/closed, ambient-only
 wall art, the photographed layout with connected boundary terrain, and source
 haze during obstruction and EMP. It also covers gate/platform seams in both
 orientations and lighting directions, opening/reclosing small gaps, partial and
 concave contacts, cache reuse/invalidation, offscreen joins, and the photographed
-corner pinhole. Full-beam tests check faintness, ambient fading, constant distant
+corner pinhole. Full-beam tests check faintness, fixed night brightness, constant distant
 reach, EMP, and unchanged readable artwork. Terrain raster tests cover shared level boundaries at fractional zoom in day/night
 views, texture alignment, real gaps and material paint order. Resting-shadow tests compare warm caches with fresh renders across movement,
 rotation, gate travel, deletion, light edits, EMP and release. There are 41 lighting
@@ -115,8 +118,9 @@ browser cases and 42 lighting model/editor/cache cases.
 
 The study and implemented authoring model use spotlights with adjustable aim/spread
 and ambient for general fill. Round sources have been removed. Ambient zero maps
-to the previously reviewed 35% brightness. Night ambient 0–100 spans 35–57% brightness. Disabling Night mode restores
-full brightness without forgetting the ambient value or lamps. The study starts at zero. EMP preserves that baseline. The activated exit
+to the previously reviewed 35% brightness, now shared by every night level.
+Disabling Night mode restores full brightness without forgetting lamps. Older
+ambient values normalize to zero. EMP preserves that baseline. The activated exit
 retains its green lens during an outage without illuminating any nearby surfaces.
 The current three-source arrangement remains a stress study. Authored rooms
 should use architectural fixture placement and generally one or two spotlights
@@ -258,7 +262,7 @@ gaps and returning to contact with the benchmark script.
 ### Faint full beams in dark rooms
 
 The short source glow is preserved. The full beam contributes at most 6% at
-night ambient 0 and fades to about 1.5% at 100, disappearing in daytime, with constant reach and the
+the shared night ambient-0 setting, disappearing in daytime, with constant reach and the
 existing narrow cone edges. It reuses the final max light field and scratch
 buffer, so overlap, occlusion, EMP and room clipping require no additional light
 geometry or framebuffer. Foreground and wall-art masks preserve readable colors.

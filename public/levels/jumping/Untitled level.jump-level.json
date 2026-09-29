@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "5adc6677-fb33-4064-a4ce-507e37130bc4",
   "name": "jk",
   "width": 1800,
@@ -323,9 +323,10 @@
     {
       "x": 24,
       "y": 1400,
-      "w": 100,
+      "w": 76,
       "targets": [
-        "9a3882b8-1e4b-47df-a5b0-301b62e12145"
+        "9a3882b8-1e4b-47df-a5b0-301b62e12145",
+        "f1ea7865-fc1c-47a2-a81e-c477b6ee8208"
       ],
       "mode": "touch"
     }
@@ -333,5 +334,47 @@
   "robots": [],
   "timers": [],
   "pickups": [],
-  "texts": []
+  "texts": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "68de3c98-9fee-40a6-8a14-a3f16b5c3750",
+        "x": 1060,
+        "y": 640,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 30,
+        "power": "always"
+      },
+      {
+        "id": "7508615c-d5e6-438c-85fc-8d3b2935ad0f",
+        "x": 1440,
+        "y": 1020,
+        "intensity": 100,
+        "direction": 125,
+        "spread": 80,
+        "power": "always"
+      },
+      {
+        "id": "6516b8c6-9054-4056-9059-5be62e826498",
+        "x": 80,
+        "y": 920,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 45,
+        "power": "always"
+      },
+      {
+        "id": "f1ea7865-fc1c-47a2-a81e-c477b6ee8208",
+        "x": 1660,
+        "y": 1160,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "switched"
+      }
+    ]
+  }
 }

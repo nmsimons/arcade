@@ -1,4 +1,5 @@
-import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
+import { parseObjectName } from './objectNames.ts'
+import { objectReference } from './objectLabels.ts'
 import type { NamedObject } from './objectNames.ts'
 import { createPlayer } from './model.ts'
 import type { Checkpoint, LevelRules, Platform } from './model.ts'
@@ -100,9 +101,9 @@ export function spawnProblem(level: JumpLevel): string | null {
   const terrain = levelTerrain(level)
   const { x, y } = level.spawn
   const ground = groundAt(terrain, x, y, .15)
-  if (!ground || !canGrip(ground.angle)) return 'Place the start point on a surface with enough grip to stand still.'
+  if (!ground || !canGrip(ground.angle)) return `Place ${objectReference(level, 'spawn')} on a surface with enough grip to stand still.`
   if (terrain.some(b => bodyIntersects(x, y, b))) {
-    return 'The start point needs enough space for the player to stand.'
+    return `${objectReference(level, 'spawn')} needs enough space for the player to stand.`
   }
   return null
 }
@@ -110,8 +111,11 @@ export function levelProblems(level: JumpLevel): string[] {
   const issues: string[] = [], spawn = spawnProblem(level)
   if (!level.name.trim()) issues.push('Give the level a name.')
   if (spawn) issues.push(spawn)
-  if (level.platforms.some(b => b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level))) issues.push('Keep terrain inside the level rectangle.')
-  if (level.texts?.some(t => { const b = wallTextBounds(t); return b.x < -.001 || b.y < -.001 || b.x + b.w > level.width + .001 || b.y + b.h > levelHeight(level) + .001 })) issues.push('Keep wall text inside the level rectangle.')
+  for (const [i, b] of level.platforms.entries()) if (b.y < 0 || b.x < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'platform', i)} inside the level rectangle.`)
+  for (const [i, t] of (level.texts ?? []).entries()) {
+    const b = wallTextBounds(t)
+    if (b.x < -.001 || b.y < -.001 || b.x + b.w > level.width + .001 || b.y + b.h > levelHeight(level) + .001) issues.push(`Keep ${objectReference(level, 'text', i)} inside the level rectangle.`)
+  }
   if (isPuzzleLevel(level)) {
     const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
     const left = Math.min(level.goal.x - GOAL_PLATE_WIDTH / 2, door.x), right = Math.max(level.goal.x + GOAL_PLATE_WIDTH / 2, door.x + door.w)
@@ -123,20 +127,22 @@ export function levelProblems(level: JumpLevel): string[] {
     const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
       [door.x + door.w, door.y + door.h], [door.x, door.y + door.h]], b))
     if (!plateSupported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
-      issues.push('Place the goal plate, light and exit on a continuous flat surface, with a clear doorway inside the level.')
+      issues.push(`Place the goal plate, light and exit for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
     }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
-    if (level.triggers.some(t => !triggerTargets(t).length || triggerTargets(t).some(id => !level.mechanisms.some(m => m.id === id) && !level.lighting?.lights.some(l => l.id === id && l.power === 'switched')))) issues.push('Connect each pressure plate or coin switch to one or more mechanisms or switched lights.')
     const coins = level.pickups?.filter(p => p.kind === 'coin').length ?? 0
-    if (level.triggers.some(t => t.mode === 'coins' && t.threshold > coins)) issues.push('Add enough coins for every coin switch to reach its threshold.')
-    if (level.triggers.some(t => {
-      if (t.mode !== 'coins') return false
+    for (const [i, t] of level.triggers.entries()) {
+      if (t.mode !== 'coins') continue
+      if (t.threshold > coins) issues.push(`Add enough coins for ${objectReference(level, 'trigger', i)} to reach its threshold (${coins} available, ${t.threshold} required).`)
       const b = coinSwitchBounds(t)
-      return b.x < 24 || b.y < 0 || b.x + b.w > level.width - 24 || b.y + b.h > levelHeight(level)
-    })) issues.push('Keep coin switches inside the level rectangle.')
-    if (level.robots.some(r => !groundAt(levelTerrain(level), r.x, r.y, .2))) issues.push('Place each shovebot on a terrain surface.')
-    if (level.timers?.some(t => t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level))) issues.push('Keep wall timers inside the level rectangle.')
-    if (level.pickups?.some(p => { const b = pickupBounds(p); return b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level) })) issues.push('Keep power-ups and coins inside the level rectangle.')
+      if (b.x < 24 || b.y < 0 || b.x + b.w > level.width - 24 || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'trigger', i)} inside the level rectangle.`)
+    }
+    for (const [i, r] of level.robots.entries()) if (!groundAt(terrain, r.x, r.y, .2)) issues.push(`Place ${objectReference(level, 'robot', i)} on a terrain surface.`)
+    for (const [i, t] of (level.timers ?? []).entries()) if (t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'timer', i)} inside the level rectangle.`)
+    for (const [i, p] of (level.pickups ?? []).entries()) {
+      const b = pickupBounds(p)
+      if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'pickup', i)} inside the level rectangle.`)
+    }
   }
   return [...issues, ...lightingProblems(level)]
 }
@@ -147,12 +153,7 @@ export function parseLevel(value: unknown): JumpLevel {
   const object = (v: unknown): Record<string, unknown> => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : fail()
   const num = (v: unknown, min: number, max: number): number => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max ? v : fail()
   const list = (v: unknown, max: number): unknown[] => Array.isArray(v) && v.length <= max ? v : fail()
-  const objectName = (v: Record<string, unknown>): NamedObject => {
-    if (v.name === undefined) return {}
-    if (typeof v.name !== 'string' || v.name.length > OBJECT_NAME_MAX_LENGTH) return fail()
-    const name = v.name.trim()
-    return name ? { name } : {}
-  }
+  const objectName = (v: Record<string, unknown>): NamedObject => parseObjectName(v.name, fail)
   const point = (v: unknown): Checkpoint => { const p = object(v); return { ...objectName(p), x: num(p.x, 0, 20000), y: num(p.y, -2000, 6000),
     ...(p.radius === undefined ? {} : { radius: num(p.radius, 10, 1000) }) } }
   const v = object(value)

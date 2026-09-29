@@ -10,10 +10,9 @@ function RestartIcon() {
   </svg>
 }
 
-export function JumpingPauseDialog({ name, reason, connected, testing, challenge, onResume, onRestart, onBuilder, onLevels, onExit, brighterDarkLevels, onBrightnessChange, showPerformance, onPerformanceChange, performancePanel, performanceMode, onPerformanceModeChange, objectShadows }: {
+export function JumpingPauseDialog({ name, reason, connected, testing, challenge, onResume, onRestart, onBuilder, onLevels, onExit, showPerformance, onPerformanceChange, performancePanel, performanceMode, onPerformanceModeChange, objectShadows }: {
   performanceMode: boolean; onPerformanceModeChange: (value: boolean) => void; objectShadows: boolean
   showPerformance: boolean; onPerformanceChange: (value: boolean) => void; performancePanel: ReactNode
-  brighterDarkLevels: boolean; onBrightnessChange: (value: boolean) => void
   name: string; reason: string; connected: boolean; testing: boolean; challenge: boolean
   onResume: () => void; onRestart: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
@@ -39,7 +38,6 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
             </dl>
             <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Hold Jump to charge; release to jump, including from ledges, ropes, ladders, walls, and slopes.</p>
           </section>
-          <div className="jumping-dialog-actions"><button role="switch" aria-checked={brighterDarkLevels} title="Raise the ambient brightness of dark levels without changing the level" onClick={() => onBrightnessChange(!brighterDarkLevels)}>Brighter dark levels <span>{brighterDarkLevels ? 'On' : 'Off'}</span></button></div>
           <nav className="jumping-dialog-actions jumping-controls-actions" aria-label="Controls actions">
             <button data-initial-focus onClick={() => setControls(false)}>Back</button>
           </nav>

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "11234f12-817c-4966-a141-54e70573fae0",
   "name": "Spire II",
   "width": 1800,
@@ -1192,70 +1192,130 @@
   ],
   "pickups": [
     {
-      "kind": "coin",
       "x": 940,
-      "y": 400
+      "y": 400,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 280,
-      "y": 1060
+      "y": 1060,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 280,
-      "y": 880
+      "y": 880,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 420,
-      "y": 340
+      "y": 340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1180,
-      "y": 880
+      "y": 880,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1200,
-      "y": 1060
+      "y": 1060,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 280,
-      "y": 560
+      "y": 560,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 540,
-      "y": 400
+      "y": 400,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1180,
-      "y": 720
+      "y": 720,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 280,
-      "y": 720
+      "y": 720,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1180,
-      "y": 560
+      "y": 560,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 1060,
-      "y": 340
+      "y": 340,
+      "kind": "coin"
     },
     {
-      "kind": "coin",
       "x": 740,
-      "y": 640
+      "y": 640,
+      "kind": "coin"
     }
   ],
-  "texts": []
+  "texts": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "11ce90ef-1399-4140-94ac-bba98bd09eac",
+        "x": 20,
+        "y": 40,
+        "intensity": 100,
+        "direction": 70,
+        "spread": 100,
+        "power": "always"
+      },
+      {
+        "id": "a02008ea-32e3-4f1a-97d9-4aed9faa087f",
+        "x": 1460,
+        "y": 20,
+        "intensity": 100,
+        "direction": 100,
+        "spread": 85,
+        "power": "always"
+      },
+      {
+        "id": "72926f4d-151e-478d-87b5-ab77410c5b9d",
+        "x": 560,
+        "y": 200,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "50153c13-d7c7-4fa6-b8fd-75735b618b18",
+        "x": 920,
+        "y": 200,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "7644ab7a-c7e3-442c-b17f-35a7e5e1fab9",
+        "x": 280,
+        "y": 1140,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "63e44397-1ffe-4e82-88bf-434b9f98a77d",
+        "x": 1200,
+        "y": 1140,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      }
+    ]
+  }
 }

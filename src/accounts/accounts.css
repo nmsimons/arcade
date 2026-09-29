@@ -1,0 +1,19 @@
+.arcade-account-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: -8px 0 24px; color: #52625b; font-size: 12px; }
+.arcade-account-bar button { border: 1px solid #829386; border-radius: 5px; background: #f8f8ef; color: #254c3f; padding: 10px 15px; font: inherit; font-weight: 700; }
+.arcade-account-bar span { max-width: 70ch; }
+.account-overlay { position: fixed; inset: 0; z-index: 100; background: #14241ecc; color: #253d35; display: flex; align-items: center; justify-content: center; padding: 20px; font: 15px/1.55 'Segoe UI', sans-serif; }
+.account-panel { width: min(700px, 100%); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #829386; border-radius: 12px; background: #f8f7ef; padding: clamp(20px, 4vw, 32px); box-shadow: 0 24px 80px #0005; }
+.account-panel header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.account-panel h2 { font-size: 26px; line-height: 1.2; font-weight: 750; overflow-wrap: anywhere; }
+.account-panel h3 { font-size: 17px; font-weight: 700; margin-top: 24px; }
+.account-panel p { margin: 14px 0; }
+.account-panel button { padding: 10px 14px; border: 1px solid #6e8578; border-radius: 5px; background: #fffef6; color: #254c3f; font: inherit; font-size: 14px; text-align: left; cursor: pointer; }
+.account-panel button:focus-visible, .arcade-account-bar button:focus-visible { outline: 3px solid #237152; outline-offset: 3px; }
+.account-panel button:disabled { opacity: .5; cursor: default; }
+.account-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+.account-note { color: #52625b; font-size: 13px; }
+.account-note a { text-decoration: underline; }
+.account-status { border-top: 1px solid #bcc7b9; padding-top: 14px; overflow-wrap: anywhere; }
+.account-conflict { border: 1px solid #af814b; background: #fff3d9; border-radius: 6px; padding: 4px 18px 18px; }
+.account-conflict button, .account-history button { display: block; margin-top: 10px; }
+.account-confirmation { z-index: 110; }

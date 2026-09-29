@@ -9,6 +9,18 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 - Tailwind CSS
 - ESLint
 
+## Optional accounts and cloud saves
+
+Players can keep playing anonymously, or sign in with Google or a personal
+Microsoft account. Enabling cloud storage separately uses Google's hidden app
+data or OneDrive's app folder. Saves, personal bests and account custom levels
+sync directly from the browser when the player returns to the arcade. Conflicts
+retain both versions; no player database or save service is required.
+
+Sign-in buttons remain disabled until public OAuth client IDs are configured.
+See [account and cloud storage setup](docs/account-cloud-saves.md) for provider
+registrations, production configuration, security boundaries and live testing.
+
 ## Included Games
 
 - **Hard Vacuum: The Last Shift** — a six-region exploration campaign with power circuits, ship upgrades, and the mobile tender Haven

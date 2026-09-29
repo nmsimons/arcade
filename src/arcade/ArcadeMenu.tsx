@@ -2,6 +2,8 @@ import { KeyboardDialog } from '../games/hardVacuum/KeyboardDialog'
 import { useControlHints } from '../games/hardVacuum/controlHints'
 import { ARCADE_GAMES } from './games'
 import { GameArt } from './GameArt'
+import { lazy, Suspense } from 'react'
+const AccountControls = lazy(() => import('../accounts/AccountControls'))
 
 export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
   selectedIndex: number; onSelection: (index: number) => void; onPlay: (path: string) => void
@@ -13,6 +15,7 @@ export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
         <div><p className="arcade-eyebrow">THE ARCADE</p><h1>Select Game</h1></div>
         <p className="arcade-edition">{String(ARCADE_GAMES.length).padStart(2, '0')} <span>games to get lost in</span></p>
       </header>
+      <Suspense fallback={null}><AccountControls /></Suspense>
       <div className="arcade-games" data-menu-grid>
         {ARCADE_GAMES.map((game, index) => <button key={game.id}
           data-menu-id={game.id} data-initial-focus={selectedIndex === index || undefined}

@@ -28,7 +28,7 @@ export function missingManifestPrompt(local: FolderState) {
 }
 
 /** The selected folder stays on disk. Only an explicit save writes a level file. */
-export function useLocalLevels(repository?: LevelRepository | null) {
+export function useLocalLevels(repository?: LevelRepository | null, repositoryName = 'Built-in levels', repositoryKind: 'built-in' | 'account' = 'built-in') {
   const directory = useRef<LocalDirectory | null>(null)
   const picker = useRef<HTMLInputElement>(null)
   const revision = useRef(0)
@@ -45,7 +45,7 @@ export function useLocalLevels(repository?: LevelRepository | null) {
         if (repository === null) return
         if (repository) {
           const result = await repository.read()
-          if (current()) setState(previous => ({ ...previous, ...result, folderId: -1, name: 'Built-in levels', canWrite: true, hasHandle: true, status: 'ready' }))
+          if (current()) setState(previous => ({ ...previous, ...result, folderId: -1, name: repositoryName, canWrite: true, hasHandle: true, status: 'ready' }))
           return
         }
         const saved = await readRememberedFolder()
@@ -67,7 +67,7 @@ export function useLocalLevels(repository?: LevelRepository | null) {
     }
     void restore()
     return () => { active = false }
-  }, [repository])
+  }, [repository, repositoryName])
 
   function storage() { return repository === null ? null : repository ?? (directory.current ? directoryRepository(directory.current) : null) }
   function begin() {
@@ -206,6 +206,6 @@ export function useLocalLevels(repository?: LevelRepository | null) {
       if (current()) setState(previous => ({ ...previous, busy: false }))
     }
   }
-  return { ...state, repository: !!repository, entries, trash, loadDeleted, restoreDeleted, deletePermanently, reorder, remove, busy: state.busy || state.restoring, picker, open, importFolder, reconnect, refresh, save }
+  return { ...state, repository: !!repository, repositoryKind, entries, trash, loadDeleted, restoreDeleted, deletePermanently, reorder, remove, busy: state.busy || state.restoring, picker, open, importFolder, reconnect, refresh, save }
 }
 export type LocalLevels = ReturnType<typeof useLocalLevels>

@@ -36,6 +36,8 @@ import type { PreparedLevel } from './jumping/levelPreparation'
 import { createDevLevelRepository } from './jumping/devLevelRepository'
 import type { LevelSource } from './jumping/routes'
 import { useWallTextFont } from './jumping/useWallTextFont'
+import { currentProfile, gameStorage } from '../accounts/profileStorage'
+import { accountLevelRepository } from '../accounts/levelLibrary'
 import './jumping/jumping.css'
 import './jumping/dialogs.css'
 import './jumping/interface.css'
@@ -46,6 +48,7 @@ const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'A
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   useWallTextFont()
+  const [accountLevels, setAccountLevels] = useState(() => !!currentProfile())
   const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
   useEffect(() => {
     let active = true
@@ -54,16 +57,18 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     })
     return () => { active = false }
   }, [])
-  return catalog ? <JumpingGameSession initialCatalog={catalog} onExit={onExit} /> : <div className="jumping-game jumping-loading"><p role="status">Loading levels…</p><button onClick={onExit}>Back to arcade</button></div>
+  return catalog ? <JumpingGameSession key={String(accountLevels)} accountLevels={accountLevels} onAccountLevels={setAccountLevels} initialCatalog={catalog} onExit={onExit} /> : <div className="jumping-game jumping-loading"><p role="status">Loading levels…</p><button onClick={onExit}>Back to arcade</button></div>
 }
 
-function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelCatalog; onExit: () => void }) {
+function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLevels }: { initialCatalog: LevelCatalog; onExit: () => void; accountLevels: boolean; onAccountLevels: (value: boolean) => void }) {
   const location = useLocation(), navigate = useNavigate()
   const handledRoute = useRef(''), activePlayKey = useRef(''), builderPath = useRef(JUMPING_BUILDER)
   const editorPath = useRef(JUMPING_BUILDER), playtests = useRef(new Map<number, { level: JumpLevel; path: string; builderPath: string }>())
   const editorRevision = useRef(0)
   const [routeNotice, setRouteNotice] = useState('')
-  const local = useLocalLevels()
+  const [playerStorage] = useState(() => gameStorage())
+  const [accountRepository] = useState(() => accountLevels ? accountLevelRepository(playerStorage) : undefined)
+  const local = useLocalLevels(accountRepository, 'Account levels', 'account')
   const [repository] = useState(() => createDevLevelRepository())
   const builtIn = useLocalLevels(repository ?? null), devEditing = !!repository
   const catalog = devEditing && !builtIn.restoring ? builtIn : initialCatalog
@@ -142,7 +147,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const [challenge, setChallenge] = useState(true)
   const [trial, setTrial] = useState<PuzzleLevel>(initialRun.level)
   const [bestTimes, setBestTimes] = useState<Record<string, number | null>>({})
-  function bestTime(id: string) { try { return bestTimes[id] ?? readBest(localStorage, id) } catch { return null } }
+  function bestTime(id: string) { try { return bestTimes[id] ?? readBest(playerStorage, id) } catch { return null } }
   const best = bestTime(recordKey)
   const [saveError, setSaveError] = useState(false)
   const terrain = useRef(levelTerrain(initialRun.level))
@@ -330,7 +335,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
     if (!testing) {
       const { elapsed } = run.current
-      try { const time = saveBest(localStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: time })); setSaveError(false) }
+      try { const time = saveBest(playerStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: time })); setSaveError(false) }
       catch { setBestTimes(previous => ({ ...previous, [recordKey]: Math.min(previous[recordKey] ?? Infinity, elapsed) })); setSaveError(true) }
     }
     changeScreen('complete')
@@ -535,10 +540,11 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
           <div className="jumping-library-bar">
             <div className="jumping-collection-tabs" role="group" aria-label="Level source">
               {hasBuiltIns && <button aria-label="Built-in levels" aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in<span className="jumping-source-label-extra"> levels</span></button>}
-              <button aria-label="Local folder" aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>Local<span className="jumping-source-label-extra"> folder</span></button>
+              <button aria-label={accountLevels ? 'Account levels' : 'Local folder'} aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>{accountLevels ? 'Account levels' : <>Local<span className="jumping-source-label-extra"> folder</span></>}</button>
             </div>
             {collection === 'local' && local.name && <span className="jumping-library-folder" title={local.name}>{local.name}</span>}
             {canEditCollection && <LocalFolderActions local={menuStore} />}
+            {!!currentProfile() && <button onClick={() => onAccountLevels(!accountLevels)}>{accountLevels ? 'Use local folder' : 'Use account levels'}</button>}
           </div>
           <div className="jumping-library-status">
             {collection === 'local' && manifestPrompt && <p className="jumping-folder-note" role="status">{manifestPrompt}</p>}

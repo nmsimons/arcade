@@ -225,7 +225,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     setView(v => ({ ...v, y: v.y + dy }))
     setPointer(p => p && { ...p, y: p.y + dy })
   }
-  function load(next: JumpLevel, file?: LevelFile, source: LevelSource = local.repository ? 'built-in' : 'local') {
+  function load(next: JumpLevel, file?: LevelFile, source: LevelSource = local.repository && local.repositoryKind !== 'account' ? 'built-in' : 'local') {
     next = prepareLevelRopes(copyLevel(next), true)
     const name = file?.fileName ?? levelFileName(next.name)
     suggestFileName.current = !file

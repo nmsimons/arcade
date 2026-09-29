@@ -23,6 +23,7 @@
     "prebuild": "npm run levels:index"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.23.0",
     "matter-js": "^0.20.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

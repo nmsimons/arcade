@@ -459,7 +459,7 @@ test('source markers use resolved positions and isolation does not mutate the sc
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { drawLightSources } = await import('/src/games/jumping/lightingStudy.ts')
     const h = await lightingHarness(), lights = structuredClone(h.fixture.lighting.lights)
-    lights[0].mount = 'lift'; h.run.mechanisms[0].y -= 80
+    h.run.mechanisms[0].y -= 80
     const before = JSON.stringify({ level: h.run.level, mechanisms: h.run.mechanisms, lights })
     const isolated = h.render(20, lights, .2, 'spot-middle')
     const after = JSON.stringify({ level: h.run.level, mechanisms: h.run.mechanisms, lights })
@@ -478,15 +478,15 @@ test('source markers use resolved positions and isolation does not mutate the sc
     drawLightSources(ctx, isolated.stats.sources, h.view, 'spot-middle')
     const marked = { pixels: ctx.getImageData(0, 0, h.canvas.width, h.canvas.height).data }
     const result = { before, after, difference,
-      moved: h.pixel(marked, 280, 100), active: h.pixel(marked, 750, 490),
-      old: h.pixel(marked, 280, 180), sources: isolated.stats.sources.map(s => ({ id: s.id, fade: s.fade })) }
+      wallPosition: h.pixel(marked, 280, 180), active: h.pixel(marked, 750, 490),
+      displaced: h.pixel(marked, 280, 100), sources: isolated.stats.sources.map(s => ({ id: s.id, fade: s.fade })) }
     h.renderer.dispose(); return result
   })
   expect(result.before).toBe(result.after)
   expect(result.difference).toBe(0)
-  expect(result.moved).toEqual([211, 220, 216])
+  expect(result.wallPosition).toEqual([211, 220, 216])
   expect(result.active).toEqual([223, 180, 79])
-  expect(result.old).toEqual([0, 0, 0])
+  expect(result.displaced).toEqual([0, 0, 0])
   expect(result.sources.slice(0, 3).every(s => s.fade === 1)).toBe(true)
 })
 

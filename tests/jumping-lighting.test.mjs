@@ -191,12 +191,12 @@ test('EMP fades spotlights on visual time without changing ambient or adding an 
   world.empRemaining = 0
   close(state.sources(definition, world, .1)[0].fade, .5)
 })
-test('mounts follow actual mechanism displacement and switched lights respect existing latched activation', () => {
+test('wall lights ignore legacy mounts and mechanism displacement while switched power respects latched activation', () => {
   const world = run(), state = new LightingState()
   const definition = { ambient: 20, lights: [light({ id: 'gate', mount: 'lift', x: 360, y: 570, power: 'switched' })] }
   world.mechanisms[0].x += 25; world.mechanisms[0].y -= 60
   let source = state.sources(definition, world, 0)[0]
-  assert.equal(source.x, 385); assert.equal(source.y, 510); assert.equal(source.fade, 0)
+  assert.equal(source.x, 360); assert.equal(source.y, 570); assert.equal(source.fade, 0)
   world.triggers[1].active = true
   source = state.sources(definition, world, .2)[0]; assert.equal(source.fade, 1)
   world.empRemaining = 5

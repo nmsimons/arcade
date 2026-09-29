@@ -17,7 +17,7 @@ import { fitWallText, wallTextBounds, wallTextLocalPoint, wallTextPoint } from '
 import { pickupBounds, TIME_BONUS_DEFAULT_SECONDS } from './pickups.ts'
 import { COIN_SWITCH_THICKNESS, COIN_SWITCH_LENGTH, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
-import { lightBounds, lightTravelBounds, MAX_LIGHTS } from './lightingDefinition.ts'
+import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 
 export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
@@ -55,7 +55,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   const before = levelHeight(level)
   // Shrink from the ceiling, stopping before any authored object is cropped.
   const tops = allSelections(level).map(s => {
-    const b = s.kind === 'light' ? lightTravelBounds(level, level.lighting!.lights[s.index]) : itemOutline(level, s)!
+    const b = itemOutline(level, s)!
     const clearance = s.kind === 'spawn' || s.kind === 'checkpoint' ? TUNING.height : 0
     return b.y - clearance
   })
@@ -289,9 +289,8 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     Object.assign(r, point, pusherRange(next, point.x, point.y))
   }
   if (selection.kind === 'mechanism') {
-    const host = next.mechanisms![selection.index], before = { x: host.x, y: host.y }
-    Object.assign(host, { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
-    for (const light of next.lighting?.lights ?? []) if (light.mount === host.id) { light.x += host.x - before.x; light.y += host.y - before.y }
+    const mechanism = next.mechanisms![selection.index]
+    Object.assign(mechanism, { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
   }
   if (selection.kind === 'light') Object.assign(next.lighting!.lights[selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') { const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' ? y : y + 8 }
@@ -343,7 +342,6 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
     m.h = vertical ? clamp(h, 12, Math.min(800, keepBottom ? m.y + m.h : next.floor! - m.y)) : MECHANISM_THICKNESS
     if (left) m.x = before.x + before.w - m.w
     if (keepBottom) m.y = before.y + before.h - m.h
-    for (const light of next.lighting?.lights ?? []) if (light.mount === m.id) { light.x += m.x - before.x; light.y += m.y - before.y }
     m.travel = mechanismTravel(m)
   }
   if (selection.kind === 'trigger') {
@@ -385,7 +383,6 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'mechanism') {
     const [m] = next.mechanisms!.splice(i, 1)
     next.triggers!.forEach(t => { if (t.targets) t.targets = t.targets.filter(id => id !== m.id); else if (t.target === m.id) t.target = '' })
-    for (const light of next.lighting?.lights ?? []) if (light.mount === m.id) delete light.mount
   }
   else next.checkpoints.splice(i, 1)
   return next

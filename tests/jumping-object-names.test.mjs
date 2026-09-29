@@ -91,13 +91,13 @@ test('validation identifies every offending named object, including individual s
   assert.equal(issues.filter(issue => issue.startsWith('Connect “Door switch')).length, 1)
 })
 
-test('spotlight errors use names and numbered fallbacks, identify mounts, and never substitute UUIDs', () => {
+test('spotlight errors use names and numbered fallbacks and never substitute UUIDs', () => {
   const level = { ...blankTrial(), version: 2, lighting: { nightMode: true, ambient: 0, lights: [
-    { id: 'internal-lamp-id', x: 500, y: 500, direction: 90, spread: 60, intensity: 100, power: 'switched', name: 'Stairs', mount: 'host' },
+    { id: 'internal-lamp-id', x: 500, y: 500, direction: 90, spread: 60, intensity: 100, power: 'switched', name: 'Stairs' },
     { id: 'other-internal-id', x: 700, y: 500, direction: 90, spread: 60, intensity: 100, power: 'switched' },
   ] }, mechanisms: [{ id: 'host', kind: 'gate', x: 900, y: 700, w: 20, h: 220, travel: 220, name: 'East door' }] }
   const issues = levelProblems(level).join('\n')
-  assert.match(issues, /“Stairs · Spotlight 1”.*mount, “East door · Gate 1”/)
+  assert.match(issues, /Connect switched light “Stairs · Spotlight 1”/)
   assert.match(issues, /Connect switched light “Spotlight 2”/)
   assert.doesNotMatch(issues, /internal-lamp-id|other-internal-id/)
   level.lighting.lights[1].id = 'host'

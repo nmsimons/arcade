@@ -77,3 +77,14 @@ export async function reopenTestLevel(page, saved) {
   await open.click()
   if (await page.getByRole('alertdialog', { name: 'Unsaved changes' }).count()) await page.getByRole('button', { name: 'Discard changes', exact: true }).click()
 }
+
+/** Select through the Object tab, including after opening or reloading a level. */
+export async function selectBuilderObject(page, value) {
+  await page.getByRole('tab', { name: 'Object', exact: true }).click()
+  await selectBuilderOption(page, 'Selected object', value)
+}
+
+export async function selectBuilderOption(page, label, value) {
+  await page.getByRole('combobox', { name: label, exact: true }).click()
+  await page.getByRole('listbox', { name: label, exact: true }).locator(`[role=option][data-value=${JSON.stringify(value)}]`).click()
+}

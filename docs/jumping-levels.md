@@ -141,7 +141,13 @@ to this default interaction after one use unless **Keep placing** is enabled;
 press Esc or click the active tool again to stop placing. Zoom centers on the
 selected object, or on the cursor for wheel zoom when nothing is selected.
 Start and goal markers are already part of each time trial. Drag the existing
-markers, or select **Start** / **Goal light** in the inspector to edit their position.
+markers, or select **Start** / **Goal light** in the Inspector’s **Object** tab to edit their position.
+
+The Inspector separates **Level** settings (names, save location, dimensions,
+night mode, floor material, and medal times) from **Object** properties. Selecting
+or placing an object opens **Object** automatically; switching tabs preserves the
+selection. The tabs stay visible while scrolling. With a tab focused, Left/Right
+arrows switch tabs and Home/End select the first/last tab.
 
 The **Terrain** tool draws a rectangular starting shape. Select it to resize the
 whole shape with the four square handles outside its bounding corners, or drag
@@ -200,8 +206,9 @@ In the builder, **Library** opens a centered, nearly full-screen dialog. It cont
 selects the destination for **Save level**. Replacing a draft with unsaved changes
 offers **Save and continue**, **Discard changes**, or **Cancel**.
 Click any file in the folder's list to open it for editing. **Change folder**
-switches folders; the inspector's **Save location** takes you back to Library. The
-filename and level name are independently editable in the header. A new draft
+switches folders; the **Save location** control in the
+Inspector’s **Level** tab takes you back to Library. The
+filename and level name are independently editable in the **Level** tab. A new draft
 creates no level file until its first save. Until then, its filename follows the level
 name unless you type a filename yourself. Clearing the filename restores that
 automatic suggestion. After saving, changing the level name leaves the filename
@@ -319,7 +326,7 @@ in-level guidance.
 Every object, including start, goal, and spotlights, accepts an optional `name` string of up to
 80 characters. The Inspector's **Name** field sets it; clearing it restores the
 default label. Names appear in the inspector heading, object picker, switch
-connections, light mounts, rope anchors, and object-specific validation errors. Labels retain
+connections, rope anchors, and object-specific validation errors. Labels retain
 the object type and number to distinguish unnamed objects and duplicate names.
 They survive edits, duplication, templates, and saves. Surrounding whitespace is
 trimmed, and empty names are omitted. Mechanism connections still use their stable
@@ -541,7 +548,7 @@ smooth, pale sage; Steel is a blue-gray with fine, horizontal brush marks.
 The level's optional `floorMaterial` applies the same palette
 to its enclosing floor. Both default to Stone for existing files. These are
 visual choices only: collision, friction and climbing are identical. Choose a
-terrain piece's material in the inspector, or the floor material in Level settings.
+terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.
 Materials are saved in the JSON and appear in the game, editor and thumbnails.
 
 Ladders contain `x`, `top`, `bottom`, `platform: -1`, and `side: 1` for independent
@@ -589,7 +596,8 @@ charge. Terrain, boxes, balls, mechanisms, and other bots can provide cover;
 wall decorations and collectibles do not. Losing sight restores ordinary patrol
 and the calm eye color. Crouching behind low cover can hide the player.
 The **Mechanisms** tools place elevators, moving platforms, vertical and horizontal gates, and pressure plates. Select a
-plate and check one or more mechanisms in **Activates**; new plates connect to
+plate and check one or more mechanisms in **Activates**, or select a gate,
+elevator, or moving platform and check its switches in **Switched by**; new plates connect to
 the nearest mechanism when possible. All support moving, duplication, undo/redo,
 playtesting, and portable level files.
 
@@ -656,9 +664,9 @@ floor. Panels, frames, and empty tracks follow room lighting. Haze never washes 
 wall text, collectibles, or the player.
 
 Spotlights belong to the back wall and do not block movement. In the studio,
-enable **Level settings → Night mode** and use the
+enable **Level tab → Night mode** and use the
 **Back wall → Spotlight** tool. Click to place, or drag to aim. Select a lamp to
-change its direction, spread, power, mount and name. The middle handle
+change its direction, spread, power and name. The middle handle
 aims; the outer handles change spread. Snap uses five-degree angle increments;
 Alt bypasses it. Position fields refer to the light's center.
 
@@ -700,16 +708,20 @@ to 100; omission defaults to 100. Optional
 field. The 20×20 fixture footprint must fit inside the level.
 
 A switched light connects to one or more pressure plates or coin switches by ID
-in the existing `targets` array. Any active connected switch powers it. Changing
+in the existing `targets` array. Its **Switched by** section lists every pressure
+plate and coin switch, just like the inspector for gates, elevators, and moving
+platforms. Editing either this list or a switch’s **Activates** list updates the
+same connections. Any active connected switch powers it. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light must be connected before saving a playable file. Version 2 allows up to
 56 switch targets; version 1 retains 40.
 
-Optional `mount` names a gate, elevator or moving platform. The lamp follows its
-actual displacement, including shortened travel when obstructed. Its center must
-sit outside and within one tile of its mount, and its whole travel footprint must
-fit inside the room. Moving/resizing the host carries the lamp; deleting the host
-detaches it in place. Templates remap IDs and references together.
+Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
+elevators, and moving platforms cannot carry them. An older file's `mount` field
+is discarded on load, keeping the light's position and switch connections even
+if the former host no longer exists. Saving writes a wall light without `mount`.
+Moving, resizing, or deleting mechanisms leaves lights in place. Templates remap
+light and switch IDs together without changing wall positions.
 
 EMP switches all lamps off with a brief fade; ambient stays unchanged. Coin
 switches keep their existing latching rules. The green exit indicator stays
@@ -723,7 +735,7 @@ undo history, thumbnails or playtest. Thumbnails show the authored initial state
 Night brightness is fixed for gameplay, previews, and thumbnails. The former
 Brighter dark levels preference is ignored.
 
-Files allow at most 16 lights, including 4 mounted lights. Rooms with Night mode
+Files allow at most 16 wall lights. Rooms with Night mode
 on are limited to 4,096 static contour edges per light and 32,768 summed across
 lights (counting the whole room conservatively). Excess complexity or malformed
 fields produce a validation error before play. Geometry preparation runs in a

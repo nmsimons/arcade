@@ -71,7 +71,7 @@ This is an object/geometry study, not a campaign level with established medal ti
   changes, additional framebuffer, or pixel readback.
 - EMP-aware source fades and a green exit indicator that remains readable but
   emits no environmental light. Model tests also cover
-  switch activation and mounted positions; the studio now authors both.
+  switch activation and fixed wall positions; the studio authors both.
 - The back wall, grid, terrain, gates, elevators, and moving
   platforms receive ambient only. Structural solids still block spotlights;
   loose objects receive direct illumination and shadows. Each lamp retains its short source glow;
@@ -88,7 +88,7 @@ nonzero ambient values refer to the former linear scale. Historical 100 means
 fully lit daytime, now controlled by the Night mode toggle. Night zero is unchanged.
 
 `tests/jumping-lighting.test.mjs` covers the field math, shadow geometry, power
-transitions, mount displacement, fixture validity and player shadows.
+transitions, fixed wall positions, fixture validity and player shadows.
 `tests/browser/jumpingLighting.dev.spec.mjs` checks actual Canvas pixels for
 normal environmental rendering in daytime, overlap,
 source coverage, readable displays, foreground occlusion
@@ -103,7 +103,7 @@ tests compare shadow geometry with the actual artwork across running, crouching
 and airborne poses in both facings, plus shadow movement and exit fades. Canvas
 and GPU checks cover ambient exposure, near-white direct light, ball-matched dark
 contrast, partial shadows, obstructions, EMP and daytime. The integration suite adds editor save/reopen/playtest, nonpersistent preview,
-undo, mounts, file validation, template references, unchanged physics and coin
+undo, legacy mount migration, file validation, template references, unchanged physics and coin
 latching through EMP. Cache invalidation and high-DPI buffer limits have pixel
 regressions too. The gate suite checks both orientations open/closed, ambient-only
 wall art, the photographed layout with connected boundary terrain, and source

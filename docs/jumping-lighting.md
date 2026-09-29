@@ -27,7 +27,7 @@ The first release includes:
 - Directional spotlights with neutral light; ambient provides general fill.
 - Shadows from terrain and substantial physical objects, including moving ones.
 - Lamps powered continuously or by existing pressure plates and coin switches.
-- EMP behavior, lamps mounted to mechanisms, and a readable green exit indicator.
+- EMP behavior, switched wall lamps, and a readable green exit indicator.
 - Consistent treatment of clocks, collectibles, characters, and other objects.
 - Editing, previewing, saving, thumbnails, accessibility, and performance limits.
 
@@ -179,7 +179,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Terrain, pillars, platforms, slopes, enclosing floor/walls/ceiling | Ambient only; retain material colors and texture relationships. | Yes, using actual outlines. | No. | Unchanged. |
 | Box, including its seams | Ordinary; all parts share exposure. | Yes, using its rotated shape. | No. | Keeps its existing loose-body behavior. |
 | Ball and its rolling marker | Ordinary; marker remains part of the same shaded artwork. | Yes, using its round silhouette. | No. | Keeps moving normally. |
-| Elevator, moving platform, vertical/horizontal gate | Ambient only; markings dim with the structure. No direct light or received shadows. | Yes, at its actual current position. | No, unless a separate lamp is mounted to it. | Stops as currently specified; remains an occluder. |
+| Elevator, moving platform, vertical/horizontal gate | Ambient only; markings dim with the structure. No direct light or received shadows. | Yes, at its actual current position. | No. | Stops as currently specified; remains an occluder. |
 | Elevator cable/guide or other thin mechanical decoration | Ordinary. | No. | No. | Follows its mechanism's existing appearance. |
 | Ladder and rope, including anchors | Ordinary; authors must illuminate important exits and catches. | No. | No. | Existing movement remains unchanged. |
 | Pressure plate and its active/inactive strip | Ordinary. Its active color is a state indicator, not a luminous surface. | No; too small to justify extra shadow noise. | No. | Existing load/activation behavior; no invented glow. |
@@ -341,8 +341,8 @@ There is no collision shape and no automatic terrain carving.
 A light inside an opaque solid contributes no environmental illumination. Do
 not silently move its origin to an arbitrary nearest free point or let it shine
 through its covering object. A moving crate can temporarily cover a lamp; moving
-the crate away restores the same source. A mounted light does not ignore its
-host's shadow. Its source must sit outside the host, on the intended side.
+the crate away restores the same source. Gates, elevators, and moving platforms
+can also cover a wall light; they never carry it with them.
 
 Invalid initial terrain placement is an editor/playability error. A movable
 object covering an otherwise valid source at runtime is normal behavior, not a
@@ -414,53 +414,40 @@ game rules. The lighting feature changes none of those events. An author must
 provide a readable approach to the goal and doorway; the indicator does not
 illuminate that route.
 
-## 7. Lamps mounted to mechanisms
+## 7. Wall lights
 
-Support mounting to a gate, elevator, or moving platform by stable mechanism ID.
-The lamp translates with the host's actual displacement, including shortened
-travel caused by obstruction. It never follows an imaginary unobstructed path.
-It stops with the host during EMP; its own power follows section 6.
+All spotlights are fixed to the back wall at their authored world coordinates.
+They cannot attach to gates, elevators, moving platforms, players, or other
+objects. Mechanism motion, resizing, flipping, duplication, and deletion do not
+move or delete lights. Switch connections remain independent: a pressure plate
+or coin switch can power both a wall lamp and a mechanism.
 
-Mounting and switching are separate relationships. A lamp on an elevator may be
-Always on even when the elevator's plate is released. A switched lamp may share
-the elevator's plate or use another. The inspector names both relationships.
+Older version-2 files may contain a retired `mount` field. Ignore and remove it
+on load, preserving the lamp's saved world coordinates, ID, name, direction,
+spread, and power connections. Do not require the old host to exist, move the
+lamp to a guessed position, or persist the retired field when saving again.
 
-Lamp position in a file is its world position with the host at its authored
-starting position. Runtime position is that point plus the host's displacement.
-There is no second saved offset that can disagree with it. Direction stays in
-world coordinates: flipping a horizontal mechanism changes its travel direction,
-not the lamp's aim. Authors can rotate a spotlight separately.
-
-In the editor, moving a host carries its mounted lights; resizing preserves their
-offsets without changing spread or aim. Detaching preserves the current authored
-world position. Deleting a host detaches its lamps rather than deleting them.
-Deleting a lamp removes only that lamp's switch connections. Each operation is
-one undoable edit. Whole-level templates remap host and target IDs consistently.
-Duplicating one lamp creates a new ID and preserves its mount and Power setting,
-but does not silently add the duplicate to existing switches. Duplicating a
-mechanism alone does not duplicate its mounted lamps.
-
-Keep mounted emission centers outside the host and within 20 units of its
-perimeter at the authored position. The full fixture must stay within the room
-through its configured travel. Other terrain covering it during travel is
-allowed, but is previewed and reported as an authoring warning.
-
-Do not support mounts to the player, ropes, bots, props, or other lights yet.
+Duplicating a lamp gives it a new ID without inheriting incoming switch
+connections. Whole-level templates remap lamp, mechanism, and switch target IDs
+together while preserving the wall positions.
 
 ## 8. Builder and collection experience
 
-Use **Night mode** in Level settings with the fixed ambient-0 appearance.
+Use **Night mode** in the Inspector’s **Level** tab with the fixed ambient-0 appearance.
 There are no ambient number or slider controls. Add a single **Light**
 tool under Back wall. Every light is a spotlight; there is no shape picker.
 Default placement is direction 90 (down), spread 70, intensity 100, Always on,
-unmounted.
+at a fixed wall position.
 
 The inspector exposes these controls in this order:
 
 1. Existing object name and position controls.
 2. Direction and spread.
-3. Power, with connected switches named when switched.
-4. Mount, with eligible mechanisms named.
+3. Power.
+4. **Switched by** when Power is Switched, listing every pressure plate and coin
+   switch with its current connection checked. Gates, elevators, and moving
+   platforms use the same section. This edits the same target IDs as the switch’s
+   **Activates** section; changes from either side remain synchronized.
 
 Use the existing typography, field sizes, button treatment, spacing, and Help
 dialog. No permanent explanation panel, new badge vocabulary, or live notices
@@ -488,9 +475,9 @@ verified in playtest with normal controls.
 
 Keep the existing coordinate contract: editor origin is bottom-left, while JSON
 Y increases downwards. Growing level height shifts lamp world Y with every other
-authored object, adding space at the top. Mounted lamps shift exactly once.
+authored object, adding space at the top. Wall lamps shift exactly once.
 Shrinking checks fixture bounds; illumination always stops at the new room
-boundary. Mounted travel must still fit. Changing level dimensions
+boundary. Changing level dimensions
 invalidates affected lighting caches. Moving/flipping the goal updates its artwork
 only; it is not a light source.
 
@@ -525,7 +512,7 @@ version 2**. This does not change the collection manifest's version or ordering.
   retain their existing level identity behavior; no unrelated record migration.
 
 The following is a **fragment**, to merge into a complete proposed version-2
-level. The mounted example assumes the level contains mechanism `service-lift`:
+level. Both lamps stay at their authored wall positions:
 
 ```json
 {
@@ -550,25 +537,25 @@ level. The mounted example assumes the level contains mechanism `service-lift`:
         "y": 500,
         "direction": 90,
         "spread": 70,
-        "power": "switched",
-        "mount": "service-lift"
+        "power": "switched"
       }
     ]
   }
 }
 ```
 
-An existing pressure plate or coin switch can include both IDs in
+If the level contains a mechanism called `service-lift`, a pressure plate or
+coin switch can include its ID and a lamp ID in
 `targets: ["service-lift", "shaft-lamp"]`. The light and mechanism then share
 activation without sharing identity. A playground without puzzle mechanisms or
-switches can use stationary Always on lamps; unresolved mounts and switched
-sources remain invalid rather than creating implicit puzzle machinery.
+switches can use Always on wall lamps; unconnected switched sources remain
+invalid rather than creating implicit puzzle machinery.
 
 | Field | Contract |
 | --- | --- |
 | `nightMode` | Boolean. New saves include it; older files infer it from `ambient < 100`. |
 | `ambient` | Legacy finite integer 0–100, normalized to 0. Every night uses 35% baseline brightness. |
-| `lights` | Array, initially limited to 16 authored spotlights, including at most 4 mounted lights. The goal indicator is not a source and has no entry. |
+| `lights` | Array, limited to 16 authored wall spotlights. The goal indicator is not a source and has no entry. |
 | `id` | Nonempty stable string, at most 100 characters; unique across lights and mechanisms. Editor generates fresh IDs. |
 | `name` | Optional, using existing object-name rules. Never HTML. |
 | `x`, `y` | Finite world coordinates for the emission center in the authored start state; fixture inside playable room. |
@@ -576,7 +563,7 @@ sources remain invalid rather than creating implicit puzzle machinery.
 | `power` | Exactly `always` or `switched`. |
 | `direction` | Required; finite −180 to 180 degrees, zero right, positive clockwise in both editor label and saved file. Thus 90 points down. |
 | `spread` | Required; finite 20–160 degrees for the whole cone, default 70. |
-| `mount` | Optional mechanism ID, never an object index, light ID, or recursive attachment. |
+| `mount` | Retired legacy field; discarded on load. The lamp stays at its saved world coordinates. Never written by the editor. |
 
 Required light fields are explicit in saved files. Do not infer missing fields
 from arbitrary values on import. New-object defaults belong to the editor.
@@ -657,10 +644,8 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
   Editor rebuilds retain the last coherent preview until its replacement is
   ready; any preparation status uses existing reserved space, not a new banner.
 
-Initial safety limits are 16 authored lights and 4 mounts. Also
-limit static candidate contour edges to 4096 per light and 32768 summed across
-the authored lights, using mounted travel envelopes for candidate
-bounds. With unlimited reach, count the whole room's static contours unless they
+The safety limit is 16 authored wall lights. Also limit static candidate contour
+edges to 4096 per light and 32768 summed across the authored lights. With unlimited reach, count the whole room's static contours unless they
 can be conservatively excluded by direction. Diagnose excess complexity before
 starting play; do not silently remove
 lamps or shadows. This additional budget applies only to lighting-enabled levels
@@ -769,12 +754,12 @@ screenshots support, but do not replace, human review in motion.
 - Near-white player material in direct light, ball-matched contrast in ambient,
   partial shadows, the mode toggle, repeated movement across light/shadow boundaries,
   crouching, and exit fade; no changes to physics/poses.
-- Mounted light rest position, obstruction-shortened motion, detach, host delete,
-  flip, resize, duplication, target cleanup, and template ID mapping.
+- Fixed wall-light positions through mechanism motion, resize, flip, duplication,
+  and deletion; legacy mount migration; target cleanup and template ID mapping.
 - Save/reopen, file version failures, malformed/oversized inputs, load cancellation,
   complexity limits, and old version-1 assets remaining playable unchanged.
-- Editor Snap, handles, number edits, undo/redo, grow-at-top coordinates, mounted
-  coordinates shifting once, preview overrides never saved, and Save and Test.
+- Editor Snap, handles, number edits, undo/redo, grow-at-top wall coordinates
+  shifting once, preview overrides never saved, and Save and Test.
 - One deterministic thumbnail appearance across picker/library/recycle bin;
   returning from playtest preserves the authored document and unsaved edits.
 - Repeat existing physics tests and compare identical input runs with lighting
@@ -790,7 +775,7 @@ Create dedicated test fixtures, not new built-in campaign levels by default:
    influencing each playable area, a ladder access route, a jumping
    shortcut, one gate/lamp switch, and an ambient-readable wall hint. Demonstrate
    a fresh completion, an alternate route, and recovery.
-3. **Moving light and outage:** platform-mounted cone, a crate that casts and
+3. **Moving shadows and outage:** fixed wall cone, a moving platform, a crate that casts and
    receives a shadow, a coin switch, EMP, and the readable green exit indicator.
 4. **Tower-scale stress fixture:** dense static terrain, offscreen sources,
    maximum legal lights and moving occluders, and scrolling at multiple zooms.
@@ -812,7 +797,7 @@ requested, keep the steps small and reviewable:
    readable elements, legacy parity, and bounded resource use.
 3. **Level data and editor:** version 2, validation, placement/handles, undo,
    persistence, thumbnails, and full-bright editing override.
-4. **World integration:** switched/mounted lamps, EMP, readable goal indicator, deterministic
+4. **World integration:** switched wall lamps, EMP, readable goal indicator, deterministic
    initialization and time behavior, and their regression tests.
 5. **Playable demonstration:** the service corridor and outage fixture, visual
    review, accessibility check, performance regression check, and full CI.

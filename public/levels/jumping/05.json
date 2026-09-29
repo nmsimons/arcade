@@ -1,55 +1,48 @@
 {
   "version": 2,
   "id": "0c899985-9bba-44ef-bb9b-ef2cfba7d6bd",
-  "name": "Lights out",
+  "name": "Level Five",
   "width": 1800,
   "height": 920,
   "platforms": [
     {
-      "x": 0,
-      "y": 780,
-      "w": 1800,
-      "h": 140,
+      "x": 200,
+      "y": 800,
+      "w": 1360,
+      "h": 120,
+      "material": "earth",
       "polygon": [
         [
           0,
           120
         ],
         [
-          200,
-          120
-        ],
-        [
-          480,
+          280,
           60
         ],
         [
-          820,
-          120
+          620,
+          100
         ],
         [
-          1000,
+          800,
           80
         ],
         [
-          1280,
+          1080,
           0
         ],
         [
-          1560,
+          1140,
+          20
+        ],
+        [
+          1160,
+          20
+        ],
+        [
+          1360,
           120
-        ],
-        [
-          1800,
-          120
-        ],
-        [
-          1800,
-          140
-        ],
-        [
-          0,
-          140
         ]
       ]
     },
@@ -73,18 +66,19 @@
     }
   ],
   "spawn": {
-    "x": 160,
-    "y": 900
+    "x": 320.8888888888889,
+    "y": 894.0952380952381
   },
   "checkpoints": [],
   "climbables": {
     "ladders": [],
     "ropes": []
   },
+  "floorMaterial": "earth",
   "floor": 920,
   "goal": {
     "x": 1660,
-    "y": 900
+    "y": 920
   },
   "times": {
     "gold": 15,
@@ -94,8 +88,8 @@
   "props": [
     {
       "kind": "ball",
-      "x": 1306,
-      "y": 788.1325521391534,
+      "x": 1294,
+      "y": 802.7928718884351,
       "size": 68
     },
     {
@@ -129,7 +123,7 @@
   "triggers": [
     {
       "x": 24,
-      "y": 900,
+      "y": 920,
       "w": 100,
       "target": "1a4c7e61-be8f-49e8-9cf9-3218002cfc87",
       "mode": "touch"
@@ -152,36 +146,8 @@
   "pickups": [],
   "texts": [],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
-    "lights": [
-      {
-        "id": "39411786-c214-4e56-ab41-adb1bb163bc5",
-        "x": 340,
-        "y": 420,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "57a83bf1-9876-47ff-87e7-b85ff8d36e91",
-        "x": 1020,
-        "y": 420,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "49fd0df0-7ff9-4018-9508-2c7faf225982",
-        "x": 1660,
-        "y": 420,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      }
-    ]
+    "lights": []
   }
 }

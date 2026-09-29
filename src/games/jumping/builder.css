@@ -95,9 +95,10 @@
 .builder-inspector { background: var(--jumping-paper); }
 .builder-inspector-heading { --builder-field: var(--jumping-color-paper); padding: 20px; background: var(--jumping-section); }
 .builder-property-card { display: grid; gap: 20px; padding: 20px; }
+.jumping-builder .builder-object-heading { margin: 0; font-size: 1rem; line-height: 1.4; overflow-wrap: anywhere; }
 .builder-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 .builder-surface-placement, .builder-anchor { display: grid; gap: 8px; }
-.builder-surface-placement > span, .builder-anchor > span { font-size: inherit; }
+.builder-surface-placement > span, .builder-anchor > span { font-size: inherit; overflow-wrap: anywhere; }
 .builder-materials, .builder-connections, .builder-medals { min-width: 0; margin: 0; padding: 0; border: 0; }
 .builder-inspector legend { margin-bottom: 8px; padding: 0; font: inherit; }
 .builder-materials > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
@@ -125,7 +126,7 @@
 .jumping-builder .builder-medal-inputs input { padding-inline: 8px; }
 .builder-validation { padding: 20px; background: var(--jumping-color-rust); color: var(--jumping-color-paper); }
 .builder-validation strong { font-weight: 600; }
-.builder-validation p { margin: 12px 0 0; font: inherit; }
+.builder-validation p { margin: 12px 0 0; font: inherit; overflow-wrap: anywhere; }
 .builder-status { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 32px; padding: 6px 20px; background: var(--jumping-soft); color: var(--jumping-ink); font-size: var(--jumping-type-small); }
 
 /* Focus has the same flat, high-contrast treatment as the dialogs. */

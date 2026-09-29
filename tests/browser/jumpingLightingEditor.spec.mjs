@@ -33,6 +33,66 @@ async function point(page, x, y) {
 }
 async function select(page, value) { await page.getByRole('combobox', { name: 'Selected object' }).selectOption(value) }
 
+test('spotlight names identify the inspector, errors, connections and mounts and survive undo and save', async ({ page }, info) => {
+  const level = blankTrial()
+  level.version = 2
+  level.lighting = { nightMode: false, ambient: 0, lights: [
+    { id: 'lamp-a', x: 400, y: 200, direction: 90, spread: 60, intensity: 100, power: 'always' },
+    { id: 'lamp-b', x: 600, y: 200, direction: 90, spread: 60, intensity: 100, power: 'always' },
+  ] }
+  level.mechanisms = [{ id: 'host', kind: 'lift', x: 800, y: 700, w: 160, h: 20, travel: 200, name: 'Cargo lift' }]
+  level.triggers = [{ x: 400, y: 920, w: 80, mode: 'weight', targets: ['host'], name: 'Entry switch' }]
+  await open(page, level)
+  const selected = page.getByRole('combobox', { name: 'Selected object' })
+  const name = page.getByRole('textbox', { name: 'Object name', exact: true })
+  const inspector = page.getByRole('complementary', { name: 'Object properties' })
+  await select(page, 'light:0')
+  await expect(name).toBeEditable()
+  await expect(name).toHaveAttribute('placeholder', 'Spotlight 1')
+  await name.fill('  Stair light  '); await name.press('Enter')
+  await expect(name).toHaveValue('Stair light')
+  await expect(inspector.getByRole('heading', { name: 'Stair light · Spotlight 1', exact: true })).toBeVisible()
+  await expect(selected.locator('option:checked')).toHaveText('Stair light · Spotlight 1')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await select(page, 'light:0')
+  await expect(name).toHaveValue('')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); await select(page, 'light:0')
+  await expect(name).toHaveValue('Stair light')
+  await name.fill('Discard me'); await name.press('Escape')
+  await expect(name).toHaveValue('Stair light')
+  await page.getByRole('combobox', { name: 'Light power' }).selectOption('switched')
+  await expect(inspector.getByRole('alert')).toHaveText('Connect switched light “Stair light · Spotlight 1” to a pressure plate or coin switch.')
+  await page.getByRole('group', { name: 'Powered by' }).getByRole('checkbox', { name: 'Entry switch · Pressure plate 1', exact: true }).check()
+  await page.getByRole('combobox', { name: 'Light mount' }).selectOption({ label: 'Cargo lift · Elevator 1' })
+  await select(page, 'light:1')
+  await page.getByRole('combobox', { name: 'Light power' }).selectOption('switched')
+  await page.getByRole('group', { name: 'Powered by' }).getByRole('checkbox').check()
+  await select(page, 'trigger:0')
+  await expect(page.getByRole('checkbox', { name: 'Stair light · Spotlight 1', exact: true })).toBeChecked()
+  await expect(page.getByRole('checkbox', { name: 'Spotlight 2', exact: true })).toBeChecked()
+  const saved = await saveTestLevel(page)
+  expect(saved.level.lighting.lights[0]).toMatchObject({ id: 'lamp-a', name: 'Stair light', mount: 'host' })
+  expect(saved.level.triggers[0].targets).toEqual(['host', 'lamp-a', 'lamp-b'])
+  await reopenTestLevel(page, saved); await select(page, 'light:0')
+  await expect(name).toHaveValue('Stair light')
+  await name.fill(''); await name.press('Tab')
+  await expect(inspector.getByRole('heading', { name: 'Spotlight 1', exact: true })).toBeVisible()
+  await name.fill('Stair light'); await name.press('Enter')
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await expect(selected.locator('option:checked')).toHaveText('Stair light · Spotlight 3')
+  await expect(inspector.getByRole('alert')).toContainText('Stair light · Spotlight 3')
+  await name.fill('W'.repeat(80)); await name.press('Enter')
+  expect(await inspector.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+  await name.fill('Upper light'); await name.press('Enter')
+  await inspector.evaluate(el => { el.scrollTop = 0 })
+  await page.screenshot({ path: info.outputPath('spotlight-names.png') })
+  await inspector.evaluate(el => { el.scrollTop = el.scrollHeight })
+  const lamp = await point(page, 600, 200)
+  await page.mouse.click(lamp.x, lamp.y)
+  await expect(selected).toHaveValue('light:1')
+  await expect(name).toBeInViewport()
+  await expect(inspector.getByRole('heading', { name: 'Spotlight 2', exact: true })).toBeInViewport()
+})
+
 test('spotlight placement, aim handles, night mode, undo, save/reopen and playtest work together', async ({ page }) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message))
   await open(page)

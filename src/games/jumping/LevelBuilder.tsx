@@ -21,8 +21,8 @@ import { NumberField } from './NumberField'
 import { setPickupSeconds, setWallTextRotation, transformTerrain } from './editor'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
-import { pickupLabel } from './pickups'
 import { ObjectNameField } from './ObjectNameField'
+import { defaultObjectLabel, objectLabel } from './objectLabels'
 import { TerrainMaterialPicker } from './TerrainMaterialPicker'
 import { BuilderIcon } from './BuilderIcon'
 import { LevelThumbnail } from './LevelThumbnail'
@@ -31,7 +31,7 @@ import { SaveFailureDialog } from './LevelFileActions'
 import { BuilderHelp } from './BuilderHelp'
 import type { LibraryChoice } from './BuilderLibrary'
 import type { LevelSource } from './routes'
-import { isHorizontalGate, mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
+import { isHorizontalGate, mechanismAnchor, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
@@ -102,15 +102,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'fast-stopwatch', group: 'Collectibles', label: 'Fast stopwatch', help: 'A dark-red stopwatch. Touching it makes the clock run twice as fast for 5 seconds. Extra watches extend the effect.' },
   { id: 'emp', group: 'Collectibles', label: 'EMP', help: 'A gold lightning bolt. Cuts power to mechanisms, switches, shovebots, and spotlights for 5 seconds. Ambient light remains. The exit keeps working.' },
 ]
-const defaultSelectionLabel = (s: Selection, level: JumpLevel) => {
-  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
-    : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'light' ? 'Spotlight' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
-  return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
-}
-const selectionLabel = (s: Selection, level: JumpLevel) => {
-  const fallback = defaultSelectionLabel(s, level), name = itemDefinition(level, s)?.name
-  return name ? `${name} · ${fallback}` : fallback
-}
+const selectionLabel = (s: Selection, level: JumpLevel) => objectLabel(level, s)
 
 export function LevelBuilder({ active, onPlay, onClose, templates, local, collections, initialFile, onFileChange }: {
   active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
@@ -170,6 +162,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
   const [size, setSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<HTMLCanvasElement>(null), drag = useRef<Drag | null>(null)
+  const inspectorRef = useRef<HTMLElement>(null)
   const latestPreview = useRef<JumpLevel | null>(null)
   const framed = useRef(false)
   const bounds = useMemo(() => selection ? itemBounds(level, selection) : null, [level, selection])
@@ -200,7 +193,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const nodeTarget = useMemo(() => tool === 'node' && pointer && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null,
     [tool, pointer, hoveredNode, level, view.zoom, snap])
 
-  function chooseSelection(next: Selection | null) { setSelection(next); setSelectedNode(null); setPreviewLight(null) }
+  function chooseSelection(next: Selection | null) {
+    if (next?.kind !== selection?.kind || next?.index !== selection?.index) inspectorRef.current?.scrollTo({ top: 0 })
+    setSelection(next); setSelectedNode(null); setPreviewLight(null)
+  }
   function commit(next: JumpLevel) {
     next = prepareLevelRopes(next, true)
     setHistory(h => JSON.stringify(next) === JSON.stringify(h.present) ? h : { past: [...h.past, h.present].slice(-60), present: next, future: [] })
@@ -645,7 +641,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         onPointerLeave={() => { if (!drag.current) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
     </div>
-    <aside className="builder-inspector" aria-label="Object properties">
+    <aside className="builder-inspector" aria-label="Object properties" ref={inspectorRef}>
       <div className="builder-inspector-heading">
       <h2>Inspector</h2>
       <label>Selected object<select aria-label="Selected object" value={selection ? `${selection.kind}:${selection.index}` : ''} onChange={e => { const [kind, index] = e.target.value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform') setTool('select') }}>
@@ -653,8 +649,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       </select></label>
       </div>
       {selection && bounds ? <div className="builder-property-card">
+        <h3 className="builder-object-heading">{selectionLabel(selection, level)}</h3>
         <label>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemDefinition(level, selection)?.name ?? ''}
-          placeholder={defaultSelectionLabel(selection, level)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
+          placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
         <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
           {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
             || axis === 'w' && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger'].includes(selection.kind)
@@ -707,7 +704,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             <label>Alignment<select aria-label="Text alignment" value={wallText.align} onChange={e => changeObject('align', e.target.value)}><option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
           </div>
         </>}
-        {selection.kind === 'rope' && <div className="builder-anchor"><span>{level.climbables.ropes[selection.index].anchor ? 'Anchored to terrain' : 'Free anchor'}</span><button className="builder-property-action" title="Attach the rope anchor to nearby terrain, or detach it" onClick={() => {
+        {selection.kind === 'rope' && <div className="builder-anchor"><span>{level.climbables.ropes[selection.index].anchor ? `Anchored to ${selectionLabel({ kind: 'platform', index: level.climbables.ropes[selection.index].anchor!.platform }, level)}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach the rope anchor to nearby terrain, or detach it" onClick={() => {
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
@@ -730,9 +727,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             const targets = triggerTargets(trigger)
             commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...targets, m.id] : targets.filter(id => id !== m.id)))
           }} />{selectionLabel({ kind: 'mechanism', index: i }, level)}</label>) : null}
-          {level.lighting?.lights.filter(l => l.power === 'switched').map(l => <label key={l.id}><input type="checkbox" checked={triggerTargets(trigger).includes(l.id)} onChange={e => {
+          {level.lighting?.lights.map((l, i) => l.power === 'switched' && <label key={l.id}><input type="checkbox" checked={triggerTargets(trigger).includes(l.id)} onChange={e => {
             const ids = triggerTargets(trigger); commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...ids, l.id] : ids.filter(id => id !== l.id)))
-          }} />{l.name || 'Spotlight'}</label>)}
+          }} />{selectionLabel({ kind: 'light', index: i }, level)}</label>)}
           {!level.mechanisms?.length && !level.lighting?.lights.some(l => l.power === 'switched') && <span>No mechanisms or switched lights</span>}
         </fieldset>}
         {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" step={snap ? LEVEL_GRID_SIZE : 1} value={robot.left} onCommit={value => changeObject('left', value)} /></label><label>Right limit<NumberField label="Shovebot right limit" step={snap ? LEVEL_GRID_SIZE : 1} value={robot.right} onCommit={value => changeObject('right', value)} /></label></div>}

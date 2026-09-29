@@ -316,12 +316,14 @@ trial also includes `floor`, `goal`, `times`, `props`, `robots`, `mechanisms`, a
 remain readable. Legacy `description` fields are ignored; use wall text for
 in-level guidance.
 
-Every object, including start and goal, accepts an optional `name` string of up to
+Every object, including start, goal, and spotlights, accepts an optional `name` string of up to
 80 characters. The Inspector's **Name** field sets it; clearing it restores the
-default label. Names appear in the object picker and pressure-plate connections.
+default label. Names appear in the inspector heading, object picker, switch
+connections, light mounts, rope anchors, and object-specific validation errors. Labels retain
+the object type and number to distinguish unnamed objects and duplicate names.
 They survive edits, duplication, templates, and saves. Surrounding whitespace is
 trimmed, and empty names are omitted. Mechanism connections still use their stable
-IDs, so renaming an elevator or gate does not change its connections.
+IDs, so renaming a mechanism or spotlight does not change its connections.
 
 Optional `timers: [{ "x": 80, "y": 1220 }, ...]` places up to 40 wall displays.
 Each point is the top-left of a 200 × 60 display in file coordinates. The entire

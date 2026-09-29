@@ -33,7 +33,7 @@ test('duplicated mechanisms have unique identities; deleting one leaves an expli
   assert.notEqual(duplicate.level.mechanisms[0].id, duplicate.level.mechanisms[1].id)
   let level = addItem(duplicate.level, 'plate', { x: 400, y: 920 }, { x: 400, y: 920 }).level
   level = deleteItem(level, { kind: 'mechanism', index: 0 })
-  assert.deepEqual(triggerTargets(level.triggers[0]), []); assert.match(levelProblems(level).join(), /Connect each pressure plate/)
+  assert.deepEqual(triggerTargets(level.triggers[0]), []); assert.match(levelProblems(level).join(), /Connect “Pressure plate 1”/)
 })
 test('multi-target plates preserve their other connections when a mechanism is deleted', () => {
   let level = addItem(blankTrial(), 'lift', { x: 700, y: 890 }, { x: 700, y: 600 }).level
@@ -53,7 +53,7 @@ test('multi-target plates preserve their other connections when a mechanism is d
   assert.deepEqual(levelProblems(deleted), [])
   const empty = deleteItem(deleted, { kind: 'mechanism', index: 0 })
   assert.deepEqual(triggerTargets(empty.triggers[0]), [])
-  assert.match(levelProblems(empty).join(), /Connect each pressure plate/)
+  assert.match(levelProblems(empty).join(), /Connect “Pressure plate 1”/)
 })
 
 test('plate files accept legacy connections and validate multiple targets', () => {
@@ -70,7 +70,7 @@ test('plate files accept legacy connections and validate multiple targets', () =
   }
   for (const targets of [[], [id, 'missing']]) {
     const invalid = parseLevel({ ...level, triggers: [{ ...plate, targets }] })
-    assert.match(levelProblems(invalid).join(), /Connect each pressure plate/)
+    assert.match(levelProblems(invalid).join(), /Connect “Pressure plate 1”/)
   }
 })
 

@@ -4,7 +4,8 @@ import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { OBJECT_NAME_MAX_LENGTH } from './objectNames.ts'
-import type { NamedObject } from './objectNames.ts'
+import { itemDefinition, objectReference } from './objectLabels.ts'
+export { itemDefinition } from './objectLabels.ts'
 import { asTrial, carvePit, pusherRange } from './puzzleEditor.ts'
 import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
@@ -39,17 +40,6 @@ export function setPickupSeconds(level: JumpLevel, index: number, seconds: numbe
   return next
 }
 
-/** Return the saved definition, not the derived bounds used for canvas handles. */
-export function itemDefinition(level: JumpLevel, selection: Selection): NamedObject | undefined {
-  if (selection.kind === 'spawn') return level.spawn
-  if (selection.kind === 'goal') return level.goal
-  const collections = {
-    platform: level.platforms, rope: level.climbables.ropes, ladder: level.climbables.ladders,
-    checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
-    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights,
-  }
-  return collections[selection.kind]?.[selection.index]
-}
 export function renameItem(level: JumpLevel, selection: Selection, value: string): JumpLevel {
   const item = itemDefinition(level, selection), name = value.trim().slice(0, OBJECT_NAME_MAX_LENGTH)
   if (!item || (item.name ?? '') === name) return level
@@ -236,8 +226,8 @@ export function transformTerrain(level: JumpLevel, index: number, transform: Ter
   if (!before) return level
   const rotate = transform === 'rotate-left' || transform === 'rotate-right'
   const w = rotate ? before.h : before.w, h = rotate ? before.w : before.h
-  if (w > level.width || h > levelHeight(level)) throw new Error('This terrain is too large to rotate inside the level. Resize it or enlarge the level first.')
-  if (w < 10 || h < 8) throw new Error('This terrain is too thin to rotate. Resize it first.')
+  if (w > level.width || h > levelHeight(level)) throw new Error(`${objectReference(level, 'platform', index)} is too large to rotate inside the level. Resize it or enlarge the level first.`)
+  if (w < 10 || h < 8) throw new Error(`${objectReference(level, 'platform', index)} is too thin to rotate. Resize it first.`)
   const point = (x: number, y: number): [number, number] => {
     if (transform === 'rotate-left') return [y, before.w - x]
     if (transform === 'rotate-right') return [before.h - y, x]
@@ -251,7 +241,7 @@ export function transformTerrain(level: JumpLevel, index: number, transform: Ter
   terrain.w = w; terrain.h = h
   if (before.profile || before.polygon) {
     const polygon = polygonPoints({ ...before, x: 0, y: 0 }).map(([x, y]) => point(x, y))
-    if (!validPolygon(polygon)) throw new Error('This terrain cannot be transformed as an editable polygon. Simplify its outline first.')
+    if (!validPolygon(polygon)) throw new Error(`${objectReference(level, 'platform', index)} cannot be transformed as an editable polygon. Simplify its outline first.`)
     delete terrain.profile
     terrain.polygon = polygon
   }
@@ -625,7 +615,7 @@ export function terrainNodeTarget(level: JumpLevel, x: number, y: number, tolera
 
 export function insertTerrainNode(level: JumpLevel, target: TerrainNodeTarget): JumpLevel {
   const points = polygonPoints(level.platforms[target.index])
-  if (points.length >= 64) throw new Error('This terrain already has 64 nodes.')
+  if (points.length >= 64) throw new Error(`${objectReference(level, 'platform', target.index)} already has 64 nodes.`)
   points.splice(target.edge + 1, 0, [target.x, target.y])
   if (!validPolygon(points)) throw new Error('Choose a point on the edge away from an existing node.')
   // Inserting on an edge leaves the surface and all supported objects in place.
@@ -642,7 +632,7 @@ export function deleteTerrainNode(level: JumpLevel, index: number, vertex: numbe
   if (!terrain) return level
   const points = polygonPoints(terrain)
   if (!Number.isInteger(vertex) || vertex < 0 || vertex >= points.length) return level
-  if (points.length <= 3) throw new Error('Terrain needs at least three nodes.')
+  if (points.length <= 3) throw new Error(`${objectReference(level, 'platform', index)} needs at least three nodes.`)
   points.splice(vertex, 1)
   return replacePlatform(level, index, polygonPlatform(points, terrain.material))
 }

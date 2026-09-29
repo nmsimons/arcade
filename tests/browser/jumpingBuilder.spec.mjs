@@ -2,6 +2,9 @@ import { test, expect } from './helpers/folderTest.mjs'
 import { restartFromPause, useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { ropeTower } from '../helpers/rope-tower.mjs'
+import { JSON_LAB } from '../helpers/jumping-fixtures.mjs'
+import { allSelections, itemDefinition } from '../../src/games/jumping/editor.ts'
+import { defaultObjectLabel } from '../../src/games/jumping/objectLabels.ts'
 
 async function open(page, level) {
   if (level) await useLevelFixtures(page, [level])
@@ -200,6 +203,35 @@ test('object names apply as one edit, label mechanism connections, and survive f
   await selected.selectOption('trigger:0')
   await expect(page.getByRole('checkbox', { name: `${'W'.repeat(80)} · Gate 1`, exact: true })).toBeVisible()
   expect(await page.getByRole('complementary', { name: 'Object properties' }).evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+})
+
+test('every selectable item can be named in the inspector and reopened with its name', async ({ page }) => {
+  const level = { ...structuredClone(JSON_LAB), version: 2, lighting: { nightMode: false, ambient: 0, lights: [
+    { id: 'lamp', x: 600, y: 200, direction: 90, spread: 60, intensity: 100, power: 'always' },
+  ] } }
+  level.platforms[0].name = 'Rope support'
+  await open(page, level)
+  const selected = page.getByRole('combobox', { name: 'Selected object' })
+  const field = page.getByRole('textbox', { name: 'Object name', exact: true })
+  const selections = [...new Map(allSelections(level).map(s => [s.kind, s])).values()]
+  expect(selections).toHaveLength(14)
+  for (const selection of selections) {
+    await selected.selectOption(`${selection.kind}:${selection.index}`)
+    const name = `Named ${selection.kind}`
+    await expect(field).toBeEditable()
+    await field.fill(name); await field.press('Enter')
+    await expect(field).toHaveValue(name)
+    await expect(selected.locator('option:checked')).toHaveText(`${name} · ${defaultObjectLabel(level, selection)}`)
+  }
+  const saved = await saveTestLevel(page)
+  for (const selection of selections) expect(itemDefinition(saved.level, selection).name).toBe(`Named ${selection.kind}`)
+  await reopenTestLevel(page, saved)
+  for (const selection of selections) {
+    await selected.selectOption(`${selection.kind}:${selection.index}`)
+    await expect(field).toHaveValue(`Named ${selection.kind}`)
+  }
+  await selected.selectOption('rope:0')
+  await expect(page.locator('.builder-anchor')).toContainText('Anchored to Rope support · Terrain 1')
 })
 
 test('terrain and floor materials undo, save and render consistently in the editor and game', async ({ page }, info) => {

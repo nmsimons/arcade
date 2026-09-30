@@ -12,7 +12,8 @@ export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
     <div className="arcade-menu">
       <header className="arcade-heading">
         <div>
-          <img className="arcade-logo" src={`${import.meta.env.BASE_URL}arcade-logo.svg`} width="264" height="64" alt="Arcade" />
+          <img className="arcade-logo" src={`${import.meta.env.BASE_URL}arcade-logo.svg`} width="264" height="64" alt="Dream Large Arcade" />
+          <p className="arcade-brand-name">Dream Large Arcade</p>
           <h1>Select Game</h1>
         </div>
         <p className="arcade-edition">{String(ARCADE_GAMES.length).padStart(2, '0')} <span>games to get lost in</span></p>

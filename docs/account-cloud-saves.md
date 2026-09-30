@@ -142,8 +142,10 @@ Sources: [Google file metadata](https://developers.google.com/workspace/drive/ap
 
 ## Setup
 
-1. Choose the canonical HTTPS production origin. Use separate development clients
-   and do not allow arbitrary preview domains on production clients.
+1. The canonical HTTPS production origin is `https://arcade.dreamlarge.com`.
+   Use **Dream Large Arcade** as the OAuth app name, matching the visible homepage
+   name and document title. Use separate development clients and do not allow
+   arbitrary preview domains on production clients.
 2. In Google Cloud, enable the Drive API, configure the external OAuth consent
    screen, and create a **Web application** OAuth client. Register the exact
    Authorized JavaScript origins, including scheme and port for development.
@@ -151,6 +153,13 @@ Sources: [Google file metadata](https://developers.google.com/workspace/drive/ap
    plus `/privacy.html` for the privacy-policy URL and `/terms.html` for the
    terms-of-service URL after reviewing both pages for your deployment. Both
    pages are public static HTML, linked from the arcade without signing in.
+   Set the authorized domain to `dreamlarge.com`. Verify ownership of that parent
+   domain in Google Search Console using an account that is an Owner or Editor
+   of the OAuth project. A Search Console Domain property verified with its DNS
+   TXT record covers the arcade subdomain. Keep the verification record in DNS;
+   connecting a custom domain in Azure alone does not verify it with Google.
+   If Google's rejection asks you to wait 24 hours after verification, allow
+   that time before retrying. See [Google's branding and domain requirements](https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification).
    Add test users while the consent screen is in testing, and complete Google's
    applicable branding/verification requirements before general release.
    For **Choose from Google Drive**, also enable the Google Picker API and create

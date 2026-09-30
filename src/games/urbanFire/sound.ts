@@ -334,4 +334,21 @@ export class ArmorSoundSystem {
     osc.start(now)
     osc.stop(now + 0.2)
   }
+
+  private signal(frequencies:readonly number[],spacing:number){
+    if(!this.ctx)return
+    const now=this.ctx.currentTime
+    for(const [i,frequency] of frequencies.entries()){
+      const osc=this.ctx.createOscillator(),gain=this.ctx.createGain(),start=now+i*spacing
+      osc.type='triangle';osc.frequency.setValueAtTime(frequency,start)
+      gain.gain.setValueAtTime(.0001,start);gain.gain.exponentialRampToValueAtTime(.11,start+.02)
+      gain.gain.exponentialRampToValueAtTime(.0001,start+.32)
+      osc.connect(gain);gain.connect(this.ctx.destination)
+      osc.onended=()=>{osc.disconnect();gain.disconnect()}
+      osc.start(start);osc.stop(start+.34)
+    }
+  }
+
+  waveSecured(){this.signal([330,440],.15)}
+  victory(){this.signal([330,440,550,660],.2)}
 }

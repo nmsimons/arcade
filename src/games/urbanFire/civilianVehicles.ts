@@ -5,6 +5,7 @@ import { clamp, segmentEntry } from './navigation.ts'
 import { FIELD } from './types.ts'
 import type { Vector2, Wall } from './types'
 import { terrainAt } from './terrain.ts'
+import { createWallIndex } from './spatial.ts'
 
 export type CivilianVehicle = {
   prop: CityProp; pos: Vector2; vel: Vector2; angle: number; spin: number
@@ -130,11 +131,35 @@ function resolveActor(car:CivilianVehicle,actor:ContactVehicle){
 const bounds:Wall[]=[{x:-200,y:-200,width:200,height:FIELD.height+400},{x:FIELD.width,y:-200,width:200,height:FIELD.height+400},
   {x:0,y:-200,width:FIELD.width,height:200},{x:0,y:FIELD.height,width:FIELD.width,height:200}]
 
+const solidCache=new WeakMap<Wall[],{nearby:ReturnType<typeof createWallIndex>;boxes:Map<Wall,Box>}>()
+const resolvedPoses=new WeakMap<CivilianVehicle,{x:number;y:number;angle:number;length:number;width:number;solids:ReturnType<typeof staticSolids>}>()
+function staticSolids(walls:Wall[]){
+  let cached=solidCache.get(walls)
+  if(!cached){
+    const all=[...walls,...bounds]
+    cached={nearby:createWallIndex(all),boxes:new Map(all.map(wall=>[wall,wallBox(wall)]))}
+    solidCache.set(walls,cached)
+  }
+  return cached
+}
+function resolveStaticCar(car:CivilianVehicle,solids:ReturnType<typeof staticSolids>){
+  // Resting bodies still check actors and other cars, which can wake them.
+  // Comparing poses also catches externally moved or rotated bodies.
+  const previous=resolvedPoses.get(car)
+  if(previous&&previous.solids===solids&&previous.length===car.length&&previous.width===car.width&&
+    previous.x===car.pos.x&&previous.y===car.pos.y&&previous.angle===car.angle&&
+    car.vel.x===0&&car.vel.y===0&&car.spin===0)return
+  for(const wall of solids.nearby(car.pos,Math.hypot(car.length,car.width)/2))resolveBoxes(car,solids.boxes.get(wall)!)
+}
+
+export const civilianSettled=(car:CivilianVehicle)=>car.vel.x===0&&car.vel.y===0&&car.spin===0&&car.hit===0&&
+  Math.abs(car.roll)<.0001&&Math.abs(car.pitch)<.0001&&Math.abs(car.rollSpeed)<.0001&&Math.abs(car.pitchSpeed)<.0001&&Math.abs(car.steer)<.0001
+
 /** Heavy unpowered bodies: tires roll longitudinally, scrub sideways, and stop
  * rapidly. Fixed substeps prevent fast impacts skipping narrow obstructions. */
 export function stepCivilianVehicles(cars:CivilianVehicle[],walls:Wall[],dt:number,actors:ContactVehicle[]=[]){
   if(dt<=0)return
-  const solids=[...walls,...bounds].map(wallBox)
+  const solids=staticSolids(walls)
   for(let remaining=Math.min(dt,.1);remaining>1e-8;){
     const step=Math.min(remaining,1/120);remaining-=step
     for(const car of cars){
@@ -149,7 +174,7 @@ export function stepCivilianVehicles(cars:CivilianVehicle[],walls:Wall[],dt:numb
       car.pos.x+=car.vel.x*step;car.pos.y+=car.vel.y*step;car.angle+=car.spin*step
       // Actors push back; parked vehicles never become a traversable surface.
       for(const actor of actors)resolveActor(car,actor)
-      for(let pass=0;pass<3;pass++)for(const solid of solids)resolveBoxes(car,solid)
+      for(let pass=0;pass<3;pass++)resolveStaticCar(car,solids)
       const travel=(car.pos.x-old.x)*forward.x+(car.pos.y-old.y)*forward.y,turn=car.angle-angle
       car.leftTravel+=travel+turn*car.width/2;car.rightTravel+=travel-turn*car.width/2
       car.steer+=(clamp(car.spin*.22,-.22,.22)-car.steer)*(1-Math.exp(-9*step))
@@ -159,23 +184,32 @@ export function stepCivilianVehicles(cars:CivilianVehicle[],walls:Wall[],dt:numb
     }
     for(let pass=0;pass<3;pass++){
       for(let i=0;i<cars.length;i++)for(let j=i+1;j<cars.length;j++)resolveBoxes(cars[i],cars[j],cars[j])
-      for(const car of cars)for(const solid of solids)resolveBoxes(car,solid)
+      for(const car of cars)resolveStaticCar(car,solids)
     }
+    for(const car of cars)resolvedPoses.set(car,{x:car.pos.x,y:car.pos.y,angle:car.angle,length:car.length,width:car.width,solids})
   }
 }
 
 /** Swept, nearest-surface hit: a building in front shields a car, and a shot
  * cannot shove several cars or pass through its current rotated silhouette. */
-export function hitCivilianBullet(cars:CivilianVehicle[],walls:Wall[],from:Vector2,to:Vector2,velocity:Vector2,enemy=false){
-  let first=Infinity,car:CivilianVehicle|undefined
-  for(const wall of walls){const t=segmentEntry(from,to,wall);if(t!==null)first=Math.min(first,t)}
+export function hitBulletCover(cars:CivilianVehicle[],walls:Wall[],from:Vector2,to:Vector2,velocity:Vector2,enemy=false){
+  let first=Infinity,car:CivilianVehicle|undefined,wall:Wall|undefined
+  for(const candidate of walls){const t=segmentEntry(from,to,candidate);if(t!==null&&t<first){first=t;wall=candidate}}
   for(const candidate of cars){
     const t=segmentEntry(from,to,civilianCover(candidate))
     if(t!==null&&t<first){first=t;car=candidate}
   }
-  if(!car)return null
-  const point={x:from.x+(to.x-from.x)*first,y:from.y+(to.y-from.y)*first},speed=Math.hypot(velocity.x,velocity.y)
+  if(first===Infinity)return null
+  const point={x:from.x+(to.x-from.x)*first,y:from.y+(to.y-from.y)*first}
+  if(!car)return {kind:'wall' as const,wall:wall!,point}
+  const speed=Math.hypot(velocity.x,velocity.y)
   if(speed>0){const force=(enemy?135:75)/speed;impulse(car,{x:velocity.x*force,y:velocity.y*force},point)}
   car.hit=.55
-  return {car,point}
+  return {kind:'car' as const,car,point}
+}
+
+// Existing callers that only need movable-body impacts retain their contract.
+export function hitCivilianBullet(cars:CivilianVehicle[],walls:Wall[],from:Vector2,to:Vector2,velocity:Vector2,enemy=false){
+  const hit=hitBulletCover(cars,walls,from,to,velocity,enemy)
+  return hit?.kind==='car'?hit:null
 }

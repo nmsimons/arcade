@@ -43,8 +43,22 @@ for (const width of [320, 390, 768, 1280]) {
     await page.keyboard.press('Enter')
     const account = page.getByRole('dialog', { name: 'Player account', exact: true })
     await expect(account).toBeVisible()
-    await expect(account.getByRole('button', { name: 'Sign in with Microsoft', exact: true })).toBeVisible()
-    await expect(account.getByRole('button', { name: 'Sign in with Google', exact: true })).toBeVisible()
+    // PR builds omit production clients; configured builds can offer either
+    // provider or both. Provider authentication also has dedicated dev tests.
+    const unavailable = account.getByText('Sign-in isn’t available here yet. Your games still save on this device.', { exact: true })
+    const providers = account.locator('.account-provider')
+    if (await unavailable.count()) {
+      await expect(unavailable).toBeVisible()
+      await expect(providers).toHaveCount(0)
+    } else {
+      const count = await providers.count()
+      expect(count).toBeGreaterThan(0)
+      expect(count).toBeLessThanOrEqual(2)
+      for (const provider of await providers.all()) {
+        await expect(provider).toHaveAccessibleName(/^Sign in with (Microsoft|Google)$/)
+        await expect(provider).toBeVisible()
+      }
+    }
     await page.getByRole('button', { name: 'Close account', exact: true }).click()
     await expect(account).toHaveCount(0)
     await expect(signIn).toBeFocused()

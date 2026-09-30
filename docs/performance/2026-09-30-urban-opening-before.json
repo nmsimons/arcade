@@ -1,0 +1,216 @@
+{
+  "label": "opening-before",
+  "recordedAt": "2026-09-30T21:41:53.656Z",
+  "profiling": false,
+  "seed": 713,
+  "scenario": "opening",
+  "revision": "HEAD",
+  "fixture": "Unmodified opening-wave production adapter.",
+  "hardware": {
+    "platform": "win32",
+    "arch": "arm64",
+    "cpu": "Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz",
+    "logicalCPUs": 12
+  },
+  "browser": "154.0.4258.37",
+  "channel": "msedge",
+  "viewport": {
+    "width": 1280,
+    "height": 800,
+    "dpr": 1
+  },
+  "headless": true,
+  "gpuRequested": true,
+  "gpu": {
+    "devices": [
+      {
+        "vendorId": 1297040209,
+        "deviceId": 909329200,
+        "subSysId": 808989496,
+        "revision": 136,
+        "vendorString": "",
+        "deviceString": "Qualcomm(R) Adreno(TM) X1-85 GPU",
+        "driverVendor": "Qualcomm",
+        "driverVersion": "31.0.133.1"
+      },
+      {
+        "vendorId": 5140,
+        "deviceId": 140,
+        "subSysId": 0,
+        "revision": 0,
+        "vendorString": "",
+        "deviceString": "Microsoft Basic Render Driver",
+        "driverVendor": "",
+        "driverVersion": "10.0.26100.9278"
+      }
+    ],
+    "features": {
+      "2d_canvas": "enabled",
+      "direct_rendering_display_compositor": "disabled_off_ok",
+      "gpu_compositing": "enabled",
+      "multiple_raster_threads": "enabled_on",
+      "opengl": "enabled_on",
+      "rasterization": "enabled",
+      "raw_draw": "disabled_off_ok",
+      "skia_graphite": "unavailable_off",
+      "trees_in_viz": "disabled_off",
+      "video_decode": "enabled",
+      "video_encode": "enabled",
+      "webgl": "enabled",
+      "webgpu": "enabled",
+      "webnn": "disabled_off"
+    },
+    "renderer": "ANGLE (Qualcomm, Qualcomm(R) Adreno(TM) X1-85 GPU (0x36334330) Direct3D11 vs_5_0 ps_5_0, D3D11-31.0.133.1)"
+  },
+  "method": "3 fresh production-adapter episodes: 600 game RAF callbacks while driving/firing, then 60 paused callbacks. The game callback is identified by its battlefield draw; unrelated app/menu RAF callbacks are excluded. Transition latency includes browser/Playwright scheduling. No synthetic clock or developer hooks.",
+  "episodes": [
+    {
+      "deployMs": 153.11739999999918,
+      "pauseMs": 29.460800000000745,
+      "resumeMs": 64.02709999999934,
+      "cityBuilds": 1,
+      "lastHostiles": "2 HOSTILES",
+      "playing": {
+        "work": {
+          "samples": 604,
+          "mean": 5.096688741139624,
+          "p50": 4.800000011920929,
+          "p95": 7.699999988079071,
+          "p99": 10.699999988079071,
+          "max": 22.299999982118607
+        },
+        "frameInterval": {
+          "samples": 603,
+          "mean": 19.791708126036482,
+          "p50": 16.700000000000045,
+          "p95": 33.400000000001455,
+          "p99": 34.5,
+          "max": 66.89999999999964
+        }
+      },
+      "paused": {
+        "work": {
+          "samples": 60,
+          "mean": 0.12166666388511657,
+          "p50": 0.09999999403953552,
+          "p95": 0.20000001788139343,
+          "p99": 0.3999999761581421,
+          "max": 0.9000000059604645
+        },
+        "frameInterval": {
+          "samples": 59,
+          "mean": 16.66440677966103,
+          "p50": 16.600000000000364,
+          "p95": 17.899999999999636,
+          "p99": 18.400000000001455,
+          "max": 18.799999999999272
+        }
+      },
+      "heap": {
+        "usedSize": 7097000,
+        "totalSize": 10285056,
+        "embedderHeapUsedSize": 1552728,
+        "backingStorageSize": 688082
+      }
+    },
+    {
+      "deployMs": 124.24659999999858,
+      "pauseMs": 11.453300000001036,
+      "resumeMs": 54.486500000006345,
+      "cityBuilds": 1,
+      "lastHostiles": "2 HOSTILES",
+      "playing": {
+        "work": {
+          "samples": 600,
+          "mean": 5.275166666358709,
+          "p50": 5,
+          "p95": 7.800000011920929,
+          "p99": 9.5,
+          "max": 14.200000017881393
+        },
+        "frameInterval": {
+          "samples": 599,
+          "mean": 20.047746243739564,
+          "p50": 16.700000000000273,
+          "p95": 33.400000000000546,
+          "p99": 34.400000000000546,
+          "max": 41.69999999999982
+        }
+      },
+      "paused": {
+        "work": {
+          "samples": 62,
+          "mean": 0.08387096754966243,
+          "p50": 0.09999999403953552,
+          "p95": 0.19999998807907104,
+          "p99": 0.30000001192092896,
+          "max": 0.4000000059604645
+        },
+        "frameInterval": {
+          "samples": 61,
+          "mean": 16.80491803278689,
+          "p50": 16.69999999999891,
+          "p95": 17.899999999999636,
+          "p99": 18.5,
+          "max": 25
+        }
+      },
+      "heap": {
+        "usedSize": 7009236,
+        "totalSize": 10547200,
+        "embedderHeapUsedSize": 1456552,
+        "backingStorageSize": 687638
+      }
+    },
+    {
+      "deployMs": 81.85319999999774,
+      "pauseMs": 14.044600000001083,
+      "resumeMs": 113.92289999999775,
+      "cityBuilds": 1,
+      "lastHostiles": "2 HOSTILES",
+      "playing": {
+        "work": {
+          "samples": 603,
+          "mean": 5.281260364684299,
+          "p50": 5,
+          "p95": 7.5,
+          "p99": 10,
+          "max": 20.30000001192093
+        },
+        "frameInterval": {
+          "samples": 602,
+          "mean": 19.850996677740863,
+          "p50": 16.700000000000045,
+          "p95": 33.5,
+          "p99": 34.30000000000109,
+          "max": 50
+        }
+      },
+      "paused": {
+        "work": {
+          "samples": 66,
+          "mean": 0.10909090981338963,
+          "p50": 0.09999999403953552,
+          "p95": 0.20000001788139343,
+          "p99": 0.20000001788139343,
+          "max": 0.30000001192092896
+        },
+        "frameInterval": {
+          "samples": 65,
+          "mean": 16.67384615384617,
+          "p50": 16.600000000000364,
+          "p95": 17.600000000000364,
+          "p99": 18.600000000000364,
+          "max": 18.799999999999272
+        }
+      },
+      "heap": {
+        "usedSize": 7177416,
+        "totalSize": 10547200,
+        "embedderHeapUsedSize": 1562280,
+        "backingStorageSize": 687666
+      }
+    }
+  ],
+  "errors": []
+}

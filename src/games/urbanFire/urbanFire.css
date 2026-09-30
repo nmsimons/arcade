@@ -26,7 +26,8 @@
 .urban-field-note { margin-block: 10px; }
 .urban-report { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 28px; border-block: 1px solid #8a96716b; background: #f8f4de80; }
 .urban-report > span { padding: 16px; color: #526348; font-size: 10px; letter-spacing: .1em; }
-.urban-report > span + span { border-left: 1px solid #8a96716b; }
+.urban-report > span:nth-child(even) { border-left: 1px solid #8a96716b; }
+.urban-report > span:nth-child(n+3) { border-top: 1px solid #8a96716b; }
 .urban-report strong { display: block; margin-top: 5px; font: 28px ui-monospace, monospace; color: #344536; letter-spacing: -.04em; }
 @media (max-height: 650px), (max-width: 480px) {
   .urban-overlay { padding: 20px 16px; }

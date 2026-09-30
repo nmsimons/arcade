@@ -3,7 +3,8 @@ import test from 'node:test'
 import { CITY } from '../src/games/urbanFire/cityPlan.ts'
 import { isMovableProp } from '../src/games/urbanFire/cityLifePlan.ts'
 import { createStaticCityWalls } from '../src/games/urbanFire/battlefield.ts'
-import { createCivilianVehicles, civilianCover, civilianCircleContact, boxContact, hitCivilianBullet, stepCivilianVehicles } from '../src/games/urbanFire/civilianVehicles.ts'
+import { createCivilianVehicles, civilianCover, civilianCircleContact, boxContact, hitCivilianBullet, hitBulletCover, stepCivilianVehicles } from '../src/games/urbanFire/civilianVehicles.ts'
+import {createWallIndex} from '../src/games/urbanFire/spatial.ts'
 import { clear, segmentEntry } from '../src/games/urbanFire/navigation.ts'
 import { driveJeep } from '../src/games/urbanFire/driving.ts'
 
@@ -131,4 +132,43 @@ test('impact outcomes stay consistent at common frame rates',()=>{
     assert.ok(Math.hypot(c.pos.x-poses[0].pos.x,c.pos.y-poses[0].pos.y)<.02)
     assert.ok(Math.abs(c.angle-poses[0].angle)<.001)
   }
+})
+
+test('a single swept cover query returns the closest wall or car with correct shielding and impulses',()=>{
+  const c=car(),from={x:730,y:550},to={x:860,y:550},velocity={x:400,y:0}
+  const front={x:750,y:520,width:8,height:60},back={x:840,y:520,width:8,height:60}
+  const wallHit=hitBulletCover([c],[back,front],from,to,velocity)
+  assert.equal(wallHit.kind,'wall');assert.equal(wallHit.wall,front)
+  assert.deepEqual(wallHit.point,{x:750,y:550});assert.equal(c.vel.x,0)
+  const carHit=hitBulletCover([c],[back],from,to,velocity)
+  assert.equal(carHit.kind,'car');assert.equal(carHit.car,c)
+  assert.equal(carHit.point.x,764);assert.ok(c.vel.x>0)
+  assert.equal(hitBulletCover([],[],from,to,velocity),null)
+})
+
+test('the static index preserves long and rotated obstacles, solver order, and local queries',()=>{
+  const walls=[{x:830,y:100,width:10,height:900},{x:720,y:544,width:120,height:12,angle:Math.PI/4},
+    {x:50,y:50,width:20,height:20}]
+  const nearby=createWallIndex(walls)
+  assert.deepEqual(nearby({x:824,y:594},6),walls.slice(0,2))
+  assert.deepEqual(nearby({x:60,y:60},6),[walls[2]])
+  assert.deepEqual(nearby({x:1400,y:950},6),[])
+})
+
+test('resting bodies wake on bullets, actor rams, moved poses, geometry changes and new scenery',()=>{
+  const walls=[],c=car();settle([c],walls)
+  hitBulletCover([c],walls,{x:730,y:550},{x:790,y:550},{x:400,y:0})
+  stepCivilianVehicles([c],walls,1/60);assert.ok(c.pos.x>780)
+  settle([c],walls)
+  const actor={pos:{x:c.pos.x-26,y:550},vel:{x:100,y:0},radius:12,mass:1}
+  const x=c.pos.x;stepCivilianVehicles([c],walls,1/60,[actor]);assert.ok(c.pos.x>x)
+  settle([c],walls)
+  const solid={x:800,y:500,width:10,height:100}
+  c.pos.x=800;c.vel.x=c.vel.y=c.spin=0
+  stepCivilianVehicles([c],[solid],1/60)
+  assert.ok(!boxContact(c,wallBox(solid)))
+  const nextWalls=[{x:820,y:500,width:10,height:100}]
+  c.pos.x=800;stepCivilianVehicles([c],nextWalls,1/60)
+  c.length=60;stepCivilianVehicles([c],nextWalls,1/60)
+  assert.ok(!boxContact(c,wallBox(nextWalls[0])))
 })

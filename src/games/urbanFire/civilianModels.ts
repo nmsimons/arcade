@@ -1,6 +1,9 @@
 import { bevel, drawModel } from '../model3d.ts'
 import type { Outline, Part, V3 } from '../model3d'
 import type { CivilianVehicle } from './civilianVehicles'
+import { civilianSettled } from './civilianVehicles.ts'
+import { inView } from './spatial.ts'
+import type { ViewBounds } from './spatial'
 
 const rectangle=(x:number,y:number,w:number,h:number):Outline=>[[x,y],[x+w,y],[x+w,y+h],[x,y+h]]
 const rounded=(l:number,w:number,r:number):Outline=>[[-l/2,-w/2+r],[-l/2+r,-w/2],[l/2-r,-w/2],[l/2,-w/2+r],
@@ -40,8 +43,7 @@ function model(car:CivilianVehicle){
 
 /** Four rounded tires, separate cab/glass, grounded shadow and a sprung body.
  * Tire markings follow signed travel, including the two sides of a turn. */
-export function drawCivilianVehicles(ctx:CanvasRenderingContext2D,cars:readonly CivilianVehicle[]){
-  for(const car of cars){
+function drawCivilianVehicle(ctx:CanvasRenderingContext2D,car:CivilianVehicle,x=car.pos.x,y=car.pos.y){
     const {body,wheel,axle,track,wheelLength}=model(car)
     const wheels:Part[]=[-1,1].flatMap(side=>[-axle,axle].map(x=>{
       const travel=side<0?car.leftTravel:car.rightTravel,phase=((travel%3)+3)%3
@@ -50,12 +52,35 @@ export function drawCivilianVehicles(ctx:CanvasRenderingContext2D,cars:readonly 
         verts:[[tx,-.9,-1.31],[tx+.35,-.9,-1.31],[tx+.35,.9,-1.31],[tx,.9,-1.31]]})
       return {...wheel,markings,at:[x,side*track,0] as V3,rotation:[0,0,x>0?car.steer:0] as V3}
     }))
-    ctx.save();ctx.translate(car.pos.x+2,car.pos.y+3);ctx.rotate(car.angle)
+    ctx.save();ctx.translate(x+2,y+3);ctx.rotate(car.angle)
     ctx.shadowBlur=3;ctx.shadowColor='#0a100c70';ctx.fillStyle='#0a100c70';ctx.beginPath();ctx.roundRect(-car.length/2,-car.width/2,car.length,car.width,3);ctx.fill();ctx.restore()
-    ctx.save();ctx.translate(car.pos.x,car.pos.y);ctx.rotate(car.angle)
+    ctx.save();ctx.translate(x,y);ctx.rotate(car.angle)
     // Wheels stay planted while impact energy rocks only the sprung chassis.
     drawModel(ctx,{x:0,y:0},wheels,[0,0,0],0,1,0,'solid',car.angle)
     drawModel(ctx,{x:0,y:0},body,[car.roll,car.pitch,0],0,1,car.hit*.3,'solid',car.angle)
     ctx.restore()
+}
+
+const images=new WeakMap<CivilianVehicle,{canvas:HTMLCanvasElement;signature:number[];radius:number;scale:number}>()
+export function drawCivilianVehicles(ctx:CanvasRenderingContext2D,cars:readonly CivilianVehicle[],view?:ViewBounds,scale=1){
+  for(const car of cars){
+    const radius=Math.ceil(Math.hypot(car.length,car.width)/2+14)
+    if(view&&!inView(view,car.pos,radius))continue
+    const document=ctx.canvas?.ownerDocument
+    if(!document||!civilianSettled(car)){drawCivilianVehicle(ctx,car);continue}
+    // Bake world-space lighting and heading into a local image. Movement,
+    // damage, wheel travel, suspension or viewport scale invalidate it.
+    const signature=[car.angle,car.leftTravel,car.rightTravel,car.length,car.width]
+    let cached=images.get(car)
+    if(!cached||cached.radius!==radius||cached.scale!==scale||signature.some((value,i)=>value!==cached!.signature[i])){
+      const canvas=cached?.canvas??document.createElement('canvas')
+      canvas.width=canvas.height=Math.ceil(radius*2*scale)
+      const context=canvas.getContext('2d')
+      if(!context){drawCivilianVehicle(ctx,car);continue}
+      context.scale(scale,scale);context.translate(radius,radius)
+      drawCivilianVehicle(context,car,0,0)
+      cached={canvas,signature,radius,scale};images.set(car,cached)
+    }
+    ctx.drawImage(cached.canvas,car.pos.x-radius,car.pos.y-radius,cached.canvas.width/scale,cached.canvas.height/scale)
   }
 }

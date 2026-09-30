@@ -3,16 +3,40 @@ import { chromium } from '@playwright/test'
 import { mkdtemp, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 
 // Real production React adapter, isolated browser/save storage, real RAF clock.
 // Run CPU profiling separately: it must not contaminate reported timing samples.
 const output=process.argv[2]??path.join(os.tmpdir(),'urban-fire-performance.json')
 const outDir=process.env.BENCHMARK_BUILD??await mkdtemp(path.join(os.tmpdir(),'urban-fire-benchmark-'))
 const profiling=process.env.BENCHMARK_PROFILE==='1'
+const scenario=process.env.BENCHMARK_SCENARIO??'opening'
+if(!['opening','mixed'].includes(scenario))throw new Error('BENCHMARK_SCENARIO must be opening or mixed')
+const revision=process.env.BENCHMARK_REF
+const root=process.cwd()
+const sourcePath=id=>path.relative(root,id.split('?')[0]).replaceAll('\\','/')
+const plugins=[{
+  name:'urban-fire-benchmark-fixture',enforce:'pre',
+  load(id){
+    const relative=sourcePath(id)
+    if(revision&&(relative==='src/games/UrbanFireGame.tsx'||relative.startsWith('src/games/urbanFire/')))
+      return execFileSync('git',['show',`${revision}:${relative}`],{cwd:root,encoding:'utf8'})
+  },
+  transform(code,id){
+    if(scenario!=='mixed')return
+    const relative=sourcePath(id)
+    if(relative==='src/games/urbanFire/reinforcements.ts')
+      return code.replace(/export function create(?:Tank|Helicopter)Reinforcements[^\r\n]*\{/g,'$&\n  wave=5;')
+    // A controlled load fixture keeps combat running for the whole sample.
+    // It changes initial armor, not enemy behavior, physics, or rendering.
+    if(relative==='src/games/UrbanFireGame.tsx')return code.replaceAll('health: JEEP_MAX_HEALTH','health: 99')
+  },
+}]
 const viewport={width:Number(process.env.BENCHMARK_WIDTH??1280),height:Number(process.env.BENCHMARK_HEIGHT??800)}
 const dpr=Number(process.env.BENCHMARK_DPR??1)
 const episodes=profiling?1:Number(process.env.BENCHMARK_EPISODES??3),frames=Number(process.env.BENCHMARK_FRAMES??300)
-if(!process.env.BENCHMARK_BUILD)await build({logLevel:'warn',build:{outDir,emptyOutDir:false,minify:profiling?false:'esbuild'}})
+const warmupFrames=Number(process.env.BENCHMARK_WARMUP??(scenario==='mixed'?600:0))
+if(!process.env.BENCHMARK_BUILD)await build({plugins,logLevel:'warn',build:{outDir,emptyOutDir:false,minify:profiling?false:'esbuild'}})
 const server=await preview({logLevel:'warn',build:{outDir},preview:{host:'127.0.0.1',port:4178,strictPort:true}})
 const gpuRequested=process.env.BENCHMARK_GPU==='1',channel=process.env.BENCHMARK_BROWSER
 const browser=await chromium.launch({channel,args:gpuRequested?['--enable-gpu']:[]})
@@ -46,10 +70,11 @@ try {
       const context=getContext.apply(this,args)
       if(args[0]==='2d'&&this.getAttribute('aria-label')==='Urban Fire battlefield'&&!context.perfObserved){
         context.perfObserved=true
-        for(const method of ['fillRect','drawImage']){
+        for(const method of ['fillRect','drawImage','fillText']){
           const original=context[method]
           context[method]=function(...args){
             if(activeCallback)gameCallbacks.add(activeCallback)
+            if(method==='fillText'&&String(args[0]).includes('HOSTILES'))window.perf.hostiles=args[0]
             return original.apply(this,args)
           }
         }
@@ -71,11 +96,12 @@ try {
       await new Promise(resolve=>setTimeout(resolve,100))
     }
   }
-  const data={label:process.argv[3]??'current',recordedAt:new Date().toISOString(),profiling,seed:713,
+  const data={label:process.argv[3]??'current',recordedAt:new Date().toISOString(),profiling,seed:713,scenario,revision:revision??null,
+    fixture:scenario==='mixed'?'Production adapter with wave-five reinforcements and 99 starting armor; normal AI, physics and controls.':'Unmodified opening-wave production adapter.',
     hardware:{platform:os.platform(),arch:os.arch(),cpu:os.cpus()[0]?.model,logicalCPUs:os.cpus().length},
     browser:browser.version(),channel:channel??'headless-shell',viewport:{...viewport,dpr},headless:true,gpuRequested,
     gpu:{devices:gpu.devices,features:gpu.featureStatus,renderer:gpu.auxAttributes?.glRenderer},
-    method:`${episodes} fresh production-adapter episodes: ${frames} game RAF callbacks while driving/firing, then 60 paused callbacks. The game callback is identified by its battlefield draw; unrelated app/menu RAF callbacks are excluded. Transition latency includes browser/Playwright scheduling. No synthetic clock or developer hooks.`,episodes:[]}
+    method:`${episodes} fresh production-adapter episodes: ${warmupFrames} warmup callbacks, then ${frames} sampled game RAF callbacks after driving/firing, then 60 paused callbacks. The game callback is identified by its battlefield draw; unrelated app/menu RAF callbacks are excluded. Transition latency includes browser/Playwright scheduling. No synthetic clock or developer hooks.`,episodes:[]}
   for(let episode=0;episode<episodes;episode++){
     await page.goto('http://127.0.0.1:4178/urban-fire')
     await page.getByRole('button',{name:'Deploy',exact:true}).waitFor()
@@ -87,6 +113,10 @@ try {
     await page.keyboard.down('ArrowUp')
     await page.evaluate(()=>{window.perf.enabled=true})
     for(let shot=0;shot<8;shot++){await page.keyboard.press('Space');await page.waitForTimeout(100)}
+    if(warmupFrames){
+      await waitForSamples(warmupFrames)
+      await page.evaluate(()=>{window.perf.samples=[];window.perf.intervals=[];window.perf.previous=0})
+    }
     await waitForSamples(frames)
     const playing=await page.evaluate(()=>{window.perf.enabled=false;return structuredClone(window.perf)})
     await page.keyboard.up('ArrowUp')
@@ -103,7 +133,7 @@ try {
     await page.getByRole('heading',{name:'PAUSED',exact:true}).waitFor({state:'hidden'})
     const resumeMs=performance.now()-resumed
     await cdp.send('HeapProfiler.collectGarbage')
-    data.episodes.push({deployMs,pauseMs,resumeMs,cityBuilds:await page.evaluate(()=>window.perf.cities),
+    data.episodes.push({deployMs,pauseMs,resumeMs,cityBuilds:await page.evaluate(()=>window.perf.cities),lastHostiles:playing.hostiles,
       playing:{work:stats(playing.samples),frameInterval:stats(playing.intervals)},paused:{work:stats(pause.samples),frameInterval:stats(pause.intervals)},heap:await cdp.send('Runtime.getHeapUsage')})
     if(profiling){const {profile}=await cdp.send('Profiler.stop');await writeFile(output+'.cpuprofile',JSON.stringify(profile))}
     await writeFile(output,JSON.stringify({...data,errors},null,2)+'\n')

@@ -3,16 +3,17 @@ import { FIELD, JEEP_MAX_HEALTH, JEEP_TUNING } from './urbanFire/types'
 import type { ArmorUpgrade, Bullet, Debris, Helicopter, Jeep, RepairKit, Tank, Vector2, Wall } from './urbanFire/types'
 import { ArmorSoundSystem } from './urbanFire/sound'
 import { createStaticCityWalls } from './urbanFire/battlefield'
-import { civilianCover, createCivilianVehicles, hitCivilianBullet, stepCivilianVehicles } from './urbanFire/civilianVehicles'
+import { civilianCover, createCivilianVehicles, hitBulletCover, stepCivilianVehicles } from './urbanFire/civilianVehicles'
 import { CITY } from './urbanFire/cityPlan'
 import { driveJeep, steerJeep } from './urbanFire/driving'
 import { closingImpactSpeed, createCollisionFeedback, stepCollisionFeedback } from './urbanFire/collisionFeedback'
 import type { JeepCollisionContact } from './urbanFire/collisionFeedback'
 import type { CivilianVehicle } from './urbanFire/civilianVehicles'
 import { collectSupplies, createArmorUpgrade, createSupplyArrival, stepSupplyArrivals } from './urbanFire/supplies'
-import { createHelicopterReinforcements, createTankReinforcements, stepHelicopterArrival, stepTankArrival, tankGrounded, tanksRemaining } from './urbanFire/reinforcements'
+import { createHelicopterReinforcements, createTankReinforcements, stepHelicopterArrival, stepTankArrival, tankGrounded } from './urbanFire/reinforcements'
 import { SCENERY_MARGIN } from './urbanFire/perimeter'
-import { clamp, clear, createNavigator, segmentEntry } from './urbanFire/navigation'
+import { clamp, clear, createNavigator } from './urbanFire/navigation'
+import { createMission, MISSION_WAVES, missionTime, stepMission } from './urbanFire/mission'
 import { createImpactDebris, stepImpactDebris } from './urbanFire/combatEffects'
 import { aimTank, createContact, driveTank, flyHelicopter, observe } from './urbanFire/ai'
 import { drawBattle, drawCity } from './urbanFire/render'
@@ -28,16 +29,17 @@ type UrbanFireGameProps = { onExit: () => void }
 
 export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver'>('menu')
+  const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'gameOver' | 'victory'>('menu')
   const [score, setScore] = useState(0)
   const [wave, setWave] = useState(1)
+  const [report,setReport]=useState({armor:JEEP_MAX_HEALTH,elapsed:0})
   const rootRef = useRef<HTMLDivElement>(null)
   const [sounds] = useState(() => new ArmorSoundSystem())
   const [controller] = useState(() => createControllerReader())
   const controllerInputRef = useRef(neutralController())
   const [controllerConnected, setControllerConnected] = useState(false)
   const contactRef = useRef(createContact())
-  const waveDelayRef = useRef(0)
+  const missionRef = useRef(createMission())
   const visualsRef = useRef(createVehicleVisuals())
   const collisionFeedbackRef = useRef(createCollisionFeedback())
 
@@ -74,9 +76,10 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     const spawnMargin = clamp(Math.min(width, height) * 0.12, 70, 140)
     const kitRadius = 20
     const jeep = jeepRef.current
+    const cover=[...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)]
 
     const isInsideWall = (x: number, y: number, radius: number) => {
-      return !clear({x,y},{x,y},[...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)],radius)
+      return !clear({x,y},{x,y},cover,radius)
     }
 
     let best: Vector2 | null = null
@@ -158,7 +161,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     keysRef.current.clear()
     controller.reset()
     contactRef.current = createContact()
-    waveDelayRef.current = 0
+    missionRef.current = createMission()
     generateWalls()
     resetJeep()
     visualsRef.current = createVehicleVisuals()
@@ -170,6 +173,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     armorUpgradesRef.current = []
     setScore(0)
     setWave(1)
+    setReport({armor:JEEP_MAX_HEALTH,elapsed:0})
     spawnEnemies(1)
     spawnRepairKit()
     spawnArmorUpgrade(1)
@@ -201,9 +205,9 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     const jeep = jeepRef.current
     if (gameState !== 'playing' || jeep.state !== 'active') return
     const muzzle = { x: jeep.pos.x + Math.cos(jeep.angle) * 17, y: jeep.pos.y + Math.sin(jeep.angle) * 17 }
-    if (!clear(jeep.pos, muzzle, wallsRef.current)) return
     const velocity={ x: Math.cos(jeep.angle) * JEEP_TUNING.playerBulletSpeed, y: Math.sin(jeep.angle) * JEEP_TUNING.playerBulletSpeed }
-    const hit=hitCivilianBullet(civilianVehiclesRef.current,wallsRef.current,jeep.pos,muzzle,velocity)
+    const hit=hitBulletCover(civilianVehiclesRef.current,wallsRef.current,jeep.pos,muzzle,velocity)
+    if(hit?.kind==='wall')return
     if(hit)createDebris(hit.point.x,hit.point.y,3)
     else bulletsRef.current.push({ pos: muzzle, vel: velocity, life: JEEP_TUNING.playerBulletLifeMs, isEnemy: false })
     vehiclePose(visualsRef.current, jeep).recoil = 1
@@ -314,7 +318,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
     cityContext.translate(SCENERY_MARGIN, SCENERY_MARGIN); drawCity(cityContext, wallsRef.current)
 
     const update = (dt: number) => {
-      const {gameState,wave}=readFrameState()
+      const {gameState}=readFrameState()
       if (gameState !== 'playing') return
 
       const { width, height } = FIELD
@@ -324,12 +328,15 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
 
       // Fairness: cap concurrent enemy bullets so difficulty stays readable.
       const maxEnemyBullets = 6
+      let enemyBullets=0
+      for(const bullet of bulletsRef.current)if(bullet.isEnemy)enemyBullets++
 
       if (jeep.state === 'exploding') {
         jeep.explodeTime -= dt * 1000
         if (jeep.explodeTime <= 0) {
           jeep.state = 'dead'
           sounds.stopEngine()
+          setReport({armor:jeep.health,elapsed:missionRef.current.elapsed})
           setGameState('gameOver')
         }
         return
@@ -367,8 +374,8 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       jeep.pos.x = Math.max(JEEP_TUNING.screenMargin, Math.min(width - JEEP_TUNING.screenMargin, jeep.pos.x))
       jeep.pos.y = Math.max(JEEP_TUNING.screenMargin, Math.min(height - JEEP_TUNING.screenMargin, jeep.pos.y))
 
-      const cover=()=>[...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)]
-      observe(contactRef.current, jeep, [...tanksRef.current, ...helicoptersRef.current], cover(), dt)
+      const cover=[...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)]
+      observe(contactRef.current, jeep, [...tanksRef.current, ...helicoptersRef.current], cover, dt)
       tanksRef.current = tanksRef.current.filter(tank => {
         if (tank.state === 'exploding') { tank.explodeTime -= dt * 1000; return tank.explodeTime > 0 }
         if(tank.state==='incoming'){
@@ -391,10 +398,11 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
           collisionContacts.push({body:tank,material:'armor',speed:closingImpactSpeed(jeep.vel,{x:dx,y:dy},tankMotion)})
           jeep.pos.x += dx / dist * (40 - dist); jeep.pos.y += dy / dist * (40 - dist)
         }
-        const muzzle = tank.state==='active'?aimTank(tank, jeep, tanksRef.current, cover(), dt):null
-        if (muzzle && bulletsRef.current.filter(b => b.isEnemy).length < maxEnemyBullets) {
+        const muzzle = tank.state==='active'?aimTank(tank, jeep, tanksRef.current, cover, dt):null
+        if (muzzle && enemyBullets < maxEnemyBullets) {
           bulletsRef.current.push({ pos: muzzle, vel: { x: Math.cos(tank.turretAngle) * 250, y: Math.sin(tank.turretAngle) * 250 }, life: 2000, isEnemy: true })
           tank.shootCooldown = 2200 + Math.random() * 1700; tank.recoil = 1; sounds.tankShoot()
+          enemyBullets++
         }
         return true
       })
@@ -404,9 +412,10 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         const heliAudible=Math.hypot(heli.pos.x-jeep.pos.x,heli.pos.y-jeep.pos.y)<850
         if (heli.soundTimer <= 0) { heli.soundTimer = 180; if(heliAudible)sounds.helicopter() }
         if(heli.state==='incoming'){stepHelicopterArrival(heli,dt);return true}
-        if (flyHelicopter(heli, jeep, contactRef.current, cover(), dt) && bulletsRef.current.filter(b => b.isEnemy).length < maxEnemyBullets) {
+        if (flyHelicopter(heli, jeep, contactRef.current, cover, dt) && enemyBullets < maxEnemyBullets) {
           bulletsRef.current.push({ pos: { ...heli.pos }, vel: { x: Math.cos(heli.angle) * 220, y: Math.sin(heli.angle) * 220 }, life: 2000, isEnemy: true })
           heli.shootCooldown = 2400 + Math.random() * 1400; heli.recoil = 1; sounds.tankShoot()
+          enemyBullets++
         }
         return true
       })
@@ -426,7 +435,9 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       const impact=stepCollisionFeedback(collisionFeedbackRef.current,collisionContacts,dt)
       if(impact)sounds.jeepCollision(impact.material,impact.strength)
       steerJeep(jeep,turn,dt,previousPosition,previousAngle)
-      const supplies=collectSupplies(jeep,repairKitsRef.current,armorUpgradesRef.current,cover())
+      // Cars may have moved during contacts; collection uses their new poses.
+      const collectionCover=[...wallsRef.current,...civilianVehiclesRef.current.map(civilianCover)]
+      const supplies=collectSupplies(jeep,repairKitsRef.current,armorUpgradesRef.current,collectionCover)
       if(supplies.armor||supplies.repaired){
         if(supplies.armor)sounds.armorPickup();else sounds.repairPickup()
       }
@@ -439,19 +450,11 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         bullet.pos.y += bullet.vel.y * dt
         bullet.life -= dt * 1000
 
-        const carHit=hitCivilianBullet(civilianVehiclesRef.current,wallsRef.current,
+        const hit=hitBulletCover(civilianVehiclesRef.current,wallsRef.current,
           {x:prevX,y:prevY},bullet.pos,bullet.vel,bullet.isEnemy)
-        if(carHit){createDebris(carHit.point.x,carHit.point.y,3);return false}
-
-        // Wall collision (bullets don't pass through)
-        let wallHit=Infinity
-        for (const wall of wallsRef.current) {
-          const entry=segmentEntry({x:prevX,y:prevY},bullet.pos,wall)
-          if(entry!==null)wallHit=Math.min(wallHit,entry)
-        }
-        if(wallHit!==Infinity){
-          createDebris(prevX+(bullet.pos.x-prevX)*wallHit,prevY+(bullet.pos.y-prevY)*wallHit,
-            4,'masonry',Math.atan2(-bullet.vel.y,-bullet.vel.x))
+        if(hit){
+          createDebris(hit.point.x,hit.point.y,hit.kind==='car'?3:4,hit.kind==='car'?'metal':'masonry',
+            Math.atan2(-bullet.vel.y,-bullet.vel.x))
           return false
         }
 
@@ -543,16 +546,17 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
         }
       }
 
-      // Check wave complete
-      const activeHelis = helicoptersRef.current.filter((h) => h.state !== 'exploding').length
-      if (!tanksRemaining(tanksRef.current) && activeHelis === 0 && jeep.state === 'active') {
-        waveDelayRef.current += dt
-        if (waveDelayRef.current >= 1.5) {
-          const nextWave = wave + 1
-          setWave(nextWave); spawnEnemies(nextWave); spawnRepairKit()
-          spawnArmorUpgrade(nextWave)
-          waveDelayRef.current = 0
-        }
+      const mission=missionRef.current
+      const event=stepMission(mission,jeep,tanksRef.current,helicoptersRef.current,
+        bulletsRef.current.filter(b=>b.isEnemy).length,dt)
+      if(event==='secured'){
+        spawnRepairKit();spawnArmorUpgrade(mission.wave+1);sounds.waveSecured()
+      }else if(event==='deploy'){
+        setWave(mission.wave);spawnEnemies(mission.wave)
+      }else if(event==='victory'){
+        keysRef.current.clear();controller.reset();sounds.stopEngine();sounds.victory()
+        setReport({armor:jeep.health,elapsed:mission.elapsed})
+        setGameState('victory')
       }
     }
     const draw = () => {
@@ -562,7 +566,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       bullets: bulletsRef.current, debris: debrisRef.current, kits: repairKitsRef.current,
       armor: armorUpgradesRef.current,
       civilianVehicles: civilianVehiclesRef.current,
-      }, canvas.width, canvas.height, score, wave, visualsRef.current)
+      }, canvas.width, canvas.height, score, wave, visualsRef.current,missionRef.current)
     }
 
     const animate = (timestamp: number) => {
@@ -593,7 +597,7 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
       window.removeEventListener('resize', resize)
       if (rafRef.current) cancelAnimationFrame(rafRef.current)
     }
-  }, [spawnEnemies, spawnRepairKit, spawnArmorUpgrade, createDebris, sounds])
+  }, [spawnEnemies, spawnRepairKit, spawnArmorUpgrade, createDebris, sounds, controller])
 
   const exitToGameSelect = () => {
     sounds.stopEngine()
@@ -603,24 +607,25 @@ export function UrbanFireGame({ onExit }: UrbanFireGameProps) {
   return (
     <div ref={rootRef} className="relative w-screen h-screen overflow-hidden font-mono">
       <canvas ref={canvasRef} tabIndex={-1} role="img" aria-label="Urban Fire battlefield" className="absolute inset-0 outline-none" />
-      {gameState !== 'playing' && <KeyboardDialog label={gameState === 'menu' ? 'Urban Fire' : gameState === 'paused' ? 'Paused' : 'Mission ended'} focusKey={gameState} onClose={gameState === 'paused' ? resumeGame : exitToGameSelect} className="urban-overlay">
+      {gameState !== 'playing' && <KeyboardDialog label={gameState === 'menu' ? 'Urban Fire' : gameState === 'paused' ? 'Paused' : gameState === 'victory' ? 'District secured' : 'Mission ended'} focusKey={gameState} onClose={gameState === 'paused' ? resumeGame : exitToGameSelect} className="urban-overlay">
         <div className="urban-menu">
           <div className="urban-nameplate"><span className="urban-eyebrow">ARMORED RECON</span><span className="urban-sector">SECTOR <strong>04</strong></span></div>
           {gameState === 'menu' ? <>
             <h1>Urban Fire</h1>
             <div className="urban-cover"><GameArt theme="urban" compact /></div>
-            <p className="urban-brief"><strong>Hold the district.</strong> Break the armored advance.<br />Use the buildings for cover. Keep moving to stay out of the crossfire.</p>
+            <p className="urban-brief"><strong>Hold the district through {MISSION_WAVES} waves.</strong><br />Break the armored advance to secure the sector. Use cover, keep moving, and collect supplies between assaults.</p>
             <div className="urban-actions"><button className="urban-button urban-button-primary" onClick={startGame}>Deploy</button><button className="urban-button" onClick={exitToGameSelect}>Back</button></div>
           </> : gameState === 'paused' ? <>
             <p className="urban-game-label">URBAN FIRE / FIELD REPORT</p>
             <h2>PAUSED</h2>
-            <div className="urban-report"><span>WAVE <strong>{String(wave).padStart(2, '0')}</strong></span><span>POINTS <strong>{score.toString().padStart(6, '0')}</strong></span></div>
+            <div className="urban-report"><span>WAVE <strong>{wave} / {MISSION_WAVES}</strong></span><span>POINTS <strong>{score.toString().padStart(6, '0')}</strong></span></div>
             <div className="urban-actions"><button className="urban-button urban-button-primary" onClick={resumeGame}>Resume</button><button className="urban-button" onClick={exitToGameSelect}>Back</button></div>
           </> : <>
             <p className="urban-game-label">URBAN FIRE / AFTER ACTION</p>
-            <h2>MISSION ENDED</h2>
-            <div className="urban-report"><span>WAVE <strong>{String(wave).padStart(2, '0')}</strong></span><span>POINTS <strong>{score.toString().padStart(6, '0')}</strong></span></div>
-            <div className="urban-actions"><button className="urban-button urban-button-primary" onClick={startGame}>Redeploy</button><button className="urban-button" onClick={() => setGameState('menu')}>Main menu</button><button className="urban-button" onClick={exitToGameSelect}>Back</button></div>
+            <h2>{gameState==='victory'?'DISTRICT SECURED':'MISSION ENDED'}</h2>
+            {gameState==='victory'&&<p className="urban-brief">All five assaults repelled. The sector is yours.</p>}
+            <div className="urban-report"><span>WAVE <strong>{wave} / {MISSION_WAVES}</strong></span><span>POINTS <strong>{score.toString().padStart(6, '0')}</strong></span><span>ARMOR <strong>{report.armor}</strong></span><span>TIME <strong>{missionTime(report.elapsed)}</strong></span></div>
+            <div className="urban-actions"><button className="urban-button urban-button-primary" onClick={startGame}>{gameState==='victory'?'Play again':'Redeploy'}</button><button className="urban-button" onClick={() => setGameState('menu')}>Main menu</button><button className="urban-button" onClick={exitToGameSelect}>Back</button></div>
           </>}
           <div className="urban-help">
             {gameState === 'menu' ? <>

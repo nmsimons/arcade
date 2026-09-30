@@ -1,5 +1,5 @@
 import { TANK_DROP } from './reinforcements.ts'
-import { drawTankModel } from './vehicleModels.ts'
+import { drawTankModel, drawVehicleShadow } from './vehicleModels.ts'
 import { drawArmorUpgrade, drawRepairKit } from './pickupModel.ts'
 import { SUPPLY_DROP } from './supplies.ts'
 import type { VehicleVisuals } from './appearance'
@@ -60,7 +60,8 @@ function roundCanopy(ctx:CanvasRenderingContext2D,radius:number,phase:number){
 
 /** A shaded cargo canopy and real suspension lines make the descent legible
  * above the miniature city. On contact the fabric slackens, drifts and fades. */
-function cargoChute(ctx:CanvasRenderingContext2D,tank:Tank){
+export function drawTankCanopy(ctx:CanvasRenderingContext2D,tank:Tank){
+  if(!tank.arrival||tank.arrival.elapsed<0)return
   const a=tank.arrival!,settle=Math.max(0,(a.elapsed-TANK_DROP.descent)/TANK_DROP.settle)
   const alpha=Math.min(1,a.elapsed/.22)*Math.max(0,1-settle)
   if(alpha<=0)return
@@ -80,20 +81,22 @@ function cargoChute(ctx:CanvasRenderingContext2D,tank:Tank){
   ctx.restore()
 }
 
-export function drawTankArrival(ctx:CanvasRenderingContext2D,tank:Tank,visuals:VehicleVisuals){
+export function drawTankArrivalGround(ctx:CanvasRenderingContext2D,tank:Tank){
   const arrival=tank.arrival
   if(!arrival||arrival.elapsed< -TANK_DROP.warning)return
   landingSmoke(ctx,tank)
   if(arrival.elapsed<0)return
   landingDust(ctx,tank.pos,arrival.elapsed-TANK_DROP.descent,TANK_DROP.settle)
-  drawTankModel(ctx,tank,visuals)
-  cargoChute(ctx,tank)
 }
 
-export function drawSupplyArrival(ctx:CanvasRenderingContext2D,item:ArmorUpgrade|RepairKit,kind:'health'|'armor'){
+export function drawTankArrival(ctx:CanvasRenderingContext2D,tank:Tank,visuals:VehicleVisuals){
+  drawTankArrivalGround(ctx,tank);drawVehicleShadow(ctx,tank,'tank')
+  drawTankModel(ctx,tank,visuals,false);drawTankCanopy(ctx,tank)
+}
+
+export function drawSupplyArrivalGround(ctx:CanvasRenderingContext2D,item:ArmorUpgrade|RepairKit){
   const a=item.arrival
   if(!a||a.elapsed<0)return
-  const settle=Math.max(0,(a.elapsed-SUPPLY_DROP.descent)/SUPPLY_DROP.settle)
   const fade=Math.min(1,a.elapsed/.16),height=a.height*.8
   landingDust(ctx,item.pos,a.elapsed-SUPPLY_DROP.descent,SUPPLY_DROP.settle,.45)
   ctx.save();ctx.globalAlpha=fade
@@ -101,11 +104,26 @@ export function drawSupplyArrival(ctx:CanvasRenderingContext2D,item:ArmorUpgrade
     ctx.save();ctx.globalAlpha*=.65-a.height/300;ctx.fillStyle='#111b1780';ctx.shadowBlur=3+a.height*.02;ctx.shadowColor='#111b1740'
     ctx.beginPath();ctx.ellipse(item.pos.x+a.height*.2,item.pos.y+a.height*.15,15,12,.12,0,Math.PI*2);ctx.fill();ctx.restore()
   }
-  ctx.save();ctx.translate(item.pos.x,item.pos.y-height);ctx.scale(1+a.height*.001,1+a.height*.001)
+  ctx.restore()
+}
+
+export function drawSupplyCargo(ctx:CanvasRenderingContext2D,item:ArmorUpgrade|RepairKit,kind:'health'|'armor'){
+  const a=item.arrival
+  if(!a||a.elapsed<0)return
+  const height=a.height*.8
+  ctx.save();ctx.globalAlpha=Math.min(1,a.elapsed/.16)
+  ctx.translate(item.pos.x,item.pos.y-height);ctx.scale(1+a.height*.001,1+a.height*.001)
   if(kind==='health')drawRepairKit(ctx,{...(item as RepairKit),pos:{x:0,y:0}},height===0)
   else drawArmorUpgrade(ctx,{...item,pos:{x:0,y:0}},height===0)
   ctx.restore()
-  ctx.globalAlpha*=Math.max(0,1-settle)
+}
+
+export function drawSupplyCanopy(ctx:CanvasRenderingContext2D,item:ArmorUpgrade|RepairKit){
+  const a=item.arrival
+  if(!a||a.elapsed<0)return
+  const settle=Math.max(0,(a.elapsed-SUPPLY_DROP.descent)/SUPPLY_DROP.settle),height=a.height*.8
+  ctx.save();ctx.globalAlpha=Math.min(1,a.elapsed/.16)*Math.max(0,1-settle)
+  if(ctx.globalAlpha<=0){ctx.restore();return}
   const cx=item.pos.x+Math.sin(a.elapsed*2)*3+settle*17,cy=item.pos.y-height-35+settle*15
   ctx.strokeStyle='#b9b7a090';ctx.lineWidth=.6
   for(const side of [-1,1])for(const y of [-7,7]){
@@ -115,4 +133,8 @@ export function drawSupplyArrival(ctx:CanvasRenderingContext2D,item:ArmorUpgrade
   ctx.translate(cx,cy);ctx.scale(1+settle*.3,1-settle*.8)
   roundCanopy(ctx,24,a.elapsed)
   ctx.restore()
+}
+
+export function drawSupplyArrival(ctx:CanvasRenderingContext2D,item:ArmorUpgrade|RepairKit,kind:'health'|'armor'){
+  drawSupplyArrivalGround(ctx,item);drawSupplyCargo(ctx,item,kind);drawSupplyCanopy(ctx,item)
 }

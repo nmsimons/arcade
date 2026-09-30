@@ -37,7 +37,7 @@ async function setup(page, controller = false) {
           const frame = window.urbanFrame
           if (frame) {
             const { a, b, c, d, e, f } = this.getTransform(), transform = { a, b, c, d, e, f }
-            if (method === 'drawImage') frame.city = { width: args[0].width, height: args[0].height, transform }
+            if (method === 'drawImage' && args[0].width===3648 && args[0].height===3148) frame.city = { width: args[0].width, height: args[0].height, transform }
             // Ground shadows retain the physical centers and headings while
             // the projected armor banks and its turret articulates above them.
             if (method === 'ellipse' && args[2] === 16 && args[3] === 9) frame.jeep = transform
@@ -111,6 +111,8 @@ test('hard corners leave temporary rubber and squeal, while parked steering and 
 })
 
 test('tanks arrive under parachutes, freeze while paused and become active only after landing', async ({ page }) => {
+  // Include the whole district: offscreen models are deliberately culled.
+  await page.setViewportSize({width:1280,height:2000})
   await setup(page);await page.getByRole('button',{name:'Deploy',exact:true}).click()
   const warning=await frame(page)
   expect(warning.enemies).toHaveLength(0)

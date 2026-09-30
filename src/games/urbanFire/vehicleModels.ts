@@ -114,20 +114,28 @@ function muzzleFlash(ctx: CanvasRenderingContext2D, point: V3, angle: number, st
   const end=projectVehicle([point[0]+forward[0],point[1]+forward[1],point[2]],angles)
   drawMuzzleBurst(ctx,origin,Math.atan2(end.y-origin.y,end.x-origin.x),strength)
 }
-function drawVehicle(ctx: CanvasRenderingContext2D, vehicle: Vehicle, kind: VehicleKind, visuals: VehicleVisuals) {
+export function drawVehicleShadow(ctx:CanvasRenderingContext2D,vehicle:Vehicle,kind:VehicleKind){
+  const arrival=kind==='tank'?(vehicle as Tank).arrival:undefined
+  if(vehicle.state!=='active'&&!(vehicle.state==='incoming'&&(kind==='helicopter'||(arrival&&arrival.elapsed>=0))))return
+  const altitude=arrival?.height??0
+  ctx.save();ctx.translate(vehicle.pos.x,vehicle.pos.y)
+  if(arrival)ctx.globalAlpha*=Math.min(1,Math.max(0,arrival.elapsed/.22))
+  ctx.translate(kind==='helicopter'?10:0,kind==='helicopter'?14:0)
+  if(altitude>0){ctx.translate(altitude*.2,altitude*.15);ctx.scale(1+altitude*.0015,1+altitude*.0015);ctx.globalAlpha*=1-altitude/250}
+  ctx.rotate(vehicle.angle)
+  ctx.fillStyle=kind==='helicopter'?'#07100d48':'#07100d70';ctx.shadowColor='#07100d70';ctx.shadowBlur=kind==='helicopter'?9:4
+  ctx.beginPath();ctx.ellipse(-2,0,kind==='tank'?22:kind==='helicopter'?21:16,kind==='tank'?19:9,0,0,Math.PI*2);ctx.fill();ctx.restore()
+}
+
+function drawVehicle(ctx: CanvasRenderingContext2D, vehicle: Vehicle, kind: VehicleKind, visuals: VehicleVisuals,shadow=true) {
   const arrival=kind==='tank'?(vehicle as Tank).arrival:undefined
   if(vehicle.state!=='active'&&!(vehicle.state==='incoming'&&(kind==='helicopter'||(arrival&&arrival.elapsed>=0))))return
   const altitude=arrival?.height??0
   const pose=vehiclePose(visuals,vehicle), angles: V3=[pose.roll,pose.pitch,0]
   const parts = kind==='jeep' ? jeepParts(vehicle as Jeep,pose) : kind==='tank' ? tankParts(vehicle as Tank,pose,visuals.time) : helicopterParts(vehicle as Helicopter)
+  if(shadow)drawVehicleShadow(ctx,vehicle,kind)
   ctx.save();ctx.translate(vehicle.pos.x,vehicle.pos.y)
   if(arrival)ctx.globalAlpha*=Math.min(1,Math.max(0,arrival.elapsed/.22))
-  // A displaced, soft silhouette gives aircraft altitude; ground shadows stay tight.
-  ctx.save();ctx.translate(kind==='helicopter' ? 10 : 0,kind==='helicopter' ? 14 : 0)
-  if(altitude>0){ctx.translate(altitude*.2,altitude*.15);ctx.scale(1+altitude*.0015,1+altitude*.0015);ctx.globalAlpha*=1-altitude/250}
-  ctx.rotate(vehicle.angle)
-  ctx.fillStyle=kind==='helicopter' ? '#07100d48' : '#07100d70';ctx.shadowColor='#07100d70';ctx.shadowBlur=kind==='helicopter'?9:4
-  ctx.beginPath();ctx.ellipse(-2,0,kind==='tank'?22:kind==='helicopter'?21:16,kind==='tank'?19:9,0,0,Math.PI*2);ctx.fill();ctx.restore()
   if(altitude>0){ctx.translate(0,-altitude*.8);ctx.scale(1+altitude*.001,1+altitude*.001)}
   if(arrival?.landed){const t=arrival.elapsed-TANK_DROP.descent;ctx.translate(0,-(Math.sin(t*15)**2)*Math.exp(-t*5)*3)}
   // The shadow stays grounded while the body rises over wreckage or dips into a crater.
@@ -150,9 +158,9 @@ function drawVehicle(ctx: CanvasRenderingContext2D, vehicle: Vehicle, kind: Vehi
   muzzleFlash(ctx,origin,heading,recoil,angles)
   ctx.restore()
 }
-export const drawJeepModel = (ctx:CanvasRenderingContext2D,jeep:Jeep,visuals:VehicleVisuals) => drawVehicle(ctx,jeep,'jeep',visuals)
-export const drawTankModel = (ctx:CanvasRenderingContext2D,tank:Tank,visuals:VehicleVisuals) => drawVehicle(ctx,tank,'tank',visuals)
-export const drawHelicopterModel = (ctx:CanvasRenderingContext2D,heli:Helicopter,visuals:VehicleVisuals) => drawVehicle(ctx,heli,'helicopter',visuals)
+export const drawJeepModel = (ctx:CanvasRenderingContext2D,jeep:Jeep,visuals:VehicleVisuals,shadow=true) => drawVehicle(ctx,jeep,'jeep',visuals,shadow)
+export const drawTankModel = (ctx:CanvasRenderingContext2D,tank:Tank,visuals:VehicleVisuals,shadow=true) => drawVehicle(ctx,tank,'tank',visuals,shadow)
+export const drawHelicopterModel = (ctx:CanvasRenderingContext2D,heli:Helicopter,visuals:VehicleVisuals,shadow=true) => drawVehicle(ctx,heli,'helicopter',visuals,shadow)
 
 export function drawVehicleDamage(ctx:CanvasRenderingContext2D,visuals:VehicleVisuals) {
   drawDamageParticles(ctx,visuals.sparks)

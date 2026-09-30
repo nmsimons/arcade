@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { KeyboardDialog } from '../games/hardVacuum/KeyboardDialog'
 import { configured, prepareAuth, signIn } from './auth'
@@ -43,6 +43,14 @@ function download(text: string, name: string) {
 export default function AccountControls() {
   const account = useSyncExternalStore(subscribeSession, getSession)
   const surface = useSyncExternalStore(subscribeAccountRuntime, getAccountSurface)
+  useLayoutEffect(() => {
+    // Lazy account controls can move a menu's already-focused game below the
+    // viewport. Keep that selection visible after the portal is inserted.
+    const menu = surface?.node.closest('.game-dialog'), focused = document.activeElement
+    if (focused instanceof HTMLElement && menu?.contains(focused)) {
+      focused.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    }
+  }, [surface])
   const [open, setOpen] = useState(false), [screen, setScreen] = useState<Screen>('home')
   const [ready, setReady] = useState<Partial<Record<Provider, boolean>>>({})
   const [activity, setActivity] = useState<Notice>(), [notice, setNotice] = useState<Notice>()

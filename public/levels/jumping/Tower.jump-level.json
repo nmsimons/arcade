@@ -1777,7 +1777,62 @@
       "kind": "emp"
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 780,
+      "y": 1820,
+      "w": 80,
+      "h": 100,
+      "text": "G",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 780,
+      "y": 1620,
+      "w": 80,
+      "h": 100,
+      "text": "2",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 780,
+      "y": 1400,
+      "w": 80,
+      "h": 100,
+      "text": "3",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 780,
+      "y": 1180,
+      "w": 80,
+      "h": 100,
+      "text": "4\n",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 780,
+      "y": 960,
+      "w": 80,
+      "h": 100,
+      "text": "5",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 780,
+      "y": 740,
+      "w": 80,
+      "h": 100,
+      "text": "6",
+      "fontSize": 96,
+      "align": "center"
+    }
+  ],
   "lighting": {
     "nightMode": true,
     "ambient": 0,

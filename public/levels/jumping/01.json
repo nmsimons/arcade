@@ -67,6 +67,19 @@
   ],
   "robots": [],
   "timers": [],
+  "texts": [
+    {
+      "x": 620,
+      "y": 940,
+      "w": 240,
+      "h": 120,
+      "text": "Hold jump to charge",
+      "fontSize": 22,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": 5
+    }
+  ],
   "lighting": {
     "nightMode": true,
     "ambient": 0,

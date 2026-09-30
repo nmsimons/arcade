@@ -1,4 +1,7 @@
-import { lazy, Suspense, useEffect, useEffectEvent, useState } from 'react'
+import { lazy, Suspense, useEffect, useEffectEvent, useState, useSyncExternalStore } from 'react'
+import { currentProfile, subscribeProfile } from './accounts/profileStorage'
+import { useCloudDownloads } from './accounts/useCloudDownloads'
+import { getAccountGameRevision, subscribeAccountRuntime } from './accounts/runtime'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { GameLoadBoundary, GameLoading, GameViewport } from './GameRoute'
 import { createControllerReader } from './games/hardVacuum/controllerInput'
@@ -9,6 +12,7 @@ import { ControlHintsContext } from './games/hardVacuum/controlHints'
 import { ArcadeMenu } from './arcade/ArcadeMenu'
 
 const HardVacuumGame = lazy(() => import('./games/HardVacuumGame').then(m => ({ default: m.HardVacuumGame })))
+const AccountControls = lazy(() => import('./accounts/AccountControls'))
 const HelloWorldGame = lazy(() => import('./games/HelloWorldGame').then(m => ({ default: m.HelloWorldGame })))
 const KickballGame = lazy(() => import('./games/KickballGame').then(m => ({ default: m.KickballGame })))
 const FinalApproachGame = lazy(() => import('./games/FinalApproachGame').then(m => ({ default: m.FinalApproachGame })))
@@ -21,6 +25,9 @@ const LightingLab = import.meta.env.DEV ? lazy(() => import('./games/jumping/Lig
 export default function App() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const profile = useSyncExternalStore(subscribeProfile, currentProfile)
+  const accountGameRevision = useSyncExternalStore(subscribeAccountRuntime, getAccountGameRevision)
+  useCloudDownloads(pathname === '/')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [controller] = useState(createControllerReader)
   const [keyboard] = useState(createKeyboardGate)
@@ -68,7 +75,8 @@ export default function App() {
 
   return (
     <ControlHintsContext.Provider value={{ connected: controllerConnected, layout: controller.layout }}>
-    <GameLoadBoundary key={pathname.startsWith('/untitled-jumping-game/') ? '/untitled-jumping-game' : pathname} onExit={onExit}>
+    <Suspense fallback={null}><AccountControls /></Suspense>
+    <GameLoadBoundary key={`${profile}:${accountGameRevision}:${pathname.startsWith('/untitled-jumping-game/') ? '/untitled-jumping-game' : pathname}`} onExit={onExit}>
     <Suspense fallback={<GameLoading onExit={onExit} />}>
     <Routes>
       <Route

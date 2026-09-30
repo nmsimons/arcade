@@ -12,7 +12,7 @@ async function open(page, level = blankTrial()) {
     }
   })
   await page.goto('/untitled-jumping-game')
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })
   if (await local.count()) await local.click()
@@ -124,7 +124,7 @@ test('styled object picker supports type-ahead, keyboard commit, cancellation an
   await expect(page.getByRole('textbox', { name: 'Object name', exact: true })).toBeFocused()
   await picker.click(); await menu.getByRole('option', { name: 'Crate 04 · Box 4', exact: true }).click()
   await expect(picker).toHaveText('Crate 04 · Box 4'); await expect(picker).toBeFocused()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toHaveText('Saved')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved to folder')
   await picker.click(); await page.screenshot({ path: info.outputPath('styled-object-picker.png') })
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
   await expect(menu).toBeHidden()

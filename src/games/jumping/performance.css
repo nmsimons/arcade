@@ -20,6 +20,9 @@
 .jumping-performance p { margin: 8px 0 0; font-size: 10px; }
 .jumping-performance.is-paused { position: static; width: 100%; margin-top: 16px; flex-shrink: 0; }
 .jumping-performance-mode-help { margin: 12px 14px 0; font-size: var(--jumping-type-small); line-height: 1.5; }
+.jumping-development-overlay { z-index: 50; }
+.jumping-development h2 { margin: 12px 0; font-size: var(--jumping-type-large); line-height: 1.1; letter-spacing: -.04em; }
+.jumping-development .jumping-dialog-heading > p:last-child { margin: 0; font-size: var(--jumping-type-small); line-height: 1.5; }
 @media (max-height: 440px) {
   .jumping-performance:not(.is-paused) { top: 6px; right: 6px; padding: 8px; font-size: 10px; }
   .jumping-performance:not(.is-paused) svg { height: 28px; }

@@ -144,7 +144,28 @@
     }
   ],
   "pickups": [],
-  "texts": [],
+  "texts": [
+    {
+      "x": 1420,
+      "y": 520,
+      "w": 320,
+      "h": 100,
+      "text": "5",
+      "fontSize": 96,
+      "align": "center"
+    },
+    {
+      "x": 1620,
+      "y": 540,
+      "w": 120,
+      "h": 80,
+      "text": "But why?",
+      "fontSize": 16,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -10
+    }
+  ],
   "lighting": {
     "nightMode": false,
     "ambient": 0,

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Arcade — data and privacy</title>
+<style>body{max-width:720px;margin:48px auto;padding:0 24px;font:17px/1.65 system-ui,sans-serif;color:#253d35;background:#f8f7ef}h1,h2{line-height:1.2}a{color:#245f48}li{margin:8px 0}</style></head>
+<body>
+<h1>Your Arcade data</h1>
+<p>You can play without signing in. Anonymous saves and personal bests stay in your browser. Local level folders stay on your device.</p>
+<h2>Optional accounts and cloud storage</h2>
+<p>Signing in with Google or a personal Microsoft account creates a separate save space on this device. Arcade uses your provider account identifier to separate saves and displays your account name while you are signed in. Signing in does not automatically copy anonymous progress.</p>
+<p>Enabling cloud storage is a separate choice. Google Drive access covers files created or selected through this app, using a visible Dream Large Arcade folder in My Drive. It does not grant access to your whole Drive or automatically to every file placed in that folder elsewhere. OneDrive access is limited to this app's folder, normally Apps/Dream Large Arcade; its name comes from the Microsoft app registration. The account panel links directly to your cloud folder. Game data is organized in folders per game; custom levels are ordinary JSON files with a collection index. Cloud files contain game saves, custom levels, personal bests and version metadata. They are not public leaderboards.</p>
+<p>Your browser sends this data directly to your storage provider. Arcade has no account database, save upload service or server token store. Google's short-lived access token, expiry and selected account are held in browser session storage so refreshes keep the same profile and reuse unexpired access. Expired access requires an explicit Reconnect. Microsoft's sign-in library also stores authentication tokens and account details in session storage. Closing the tab ends that session. Arcade remembers whether cloud saves are connected; sign-out clears cached credentials, and disconnect clears Google's cached access. Google and Microsoft process sign-in and storage requests under their own privacy policies. The site host may retain ordinary request logs such as IP addresses and requested paths; this page does not promise that hosting providers keep no logs.</p>
+<h2>Control and recovery</h2>
+<ul>
+<li>Changes save locally first and sync in the background, including during play. Incoming saves wait for a safe menu or an explicit refresh or restore. Wait for sync to finish before closing the browser.</li>
+<li>Each cloud sync that changes data creates a version. Conflicting versions are retained until you choose which progress to continue.</li>
+<li>Sign-out clears the app's credentials and returns to anonymous play. It keeps your local and cloud saves. Browser caches are not encrypted private vaults; someone using the same browser profile may access them.</li>
+<li>Disconnecting stops cloud sync. To revoke the app's grant, use your provider's permissions settings. This is separate from signing out.</li>
+<li>Use Manage saves → Download backup to keep a portable JSON backup. You can restore that backup through Import backup.</li>
+<li>Choose from Google Drive grants Arcade access to the individual files you select. Levels already in the Arcade Levels folder sync in place; levels selected elsewhere are copied into it, leaving the originals intact. Files added to Drive later need to be selected separately.</li>
+<li>Clear the site's browser data to remove local copies. To remove cloud copies, delete the Arcade folder in OneDrive or Google Drive. Any hidden Google app data from an older version can be removed through Drive's Manage apps settings. Disconnect first so future syncs do not recreate data.</li>
+</ul>
+<p>Files count toward your storage quota. Arcade retains cloud versions and does not automatically delete older saves. Revoking permission alone does not necessarily delete data.</p>
+<p>Provider controls: <a href="https://myaccount.google.com/connections" rel="noreferrer">Google connections</a> · <a href="https://account.live.com/consent/Manage" rel="noreferrer">Microsoft permissions</a>.</p>
+<p>Questions or issues: <a href="https://github.com/nmsimons/arcade/issues" rel="noreferrer">Arcade project</a>.</p>
+<p><a href="./">Return to Arcade</a></p>
+</body></html>

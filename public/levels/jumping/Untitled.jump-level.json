@@ -37,5 +37,17 @@
   "robots": [],
   "timers": [],
   "pickups": [],
-  "texts": []
+  "texts": [
+    {
+      "x": 680,
+      "y": 1120,
+      "w": 320,
+      "h": 100,
+      "text": "Don't over think it",
+      "fontSize": 28,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -5
+    }
+  ]
 }

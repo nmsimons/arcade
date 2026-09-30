@@ -1,6 +1,7 @@
 import { SAVE_KEY } from './stationDefinitions.ts'
 import { parseExpedition, SAVE_SCHEMA_VERSION } from './saveMigrations.ts'
 import type { Expedition } from './expedition'
+import { gameStorage } from '../../accounts/profileStorage.ts'
 
 export const SAVE_BACKUP_KEY = `${SAVE_KEY}-backup`
 export const SAVE_RECOVERY_KEY = `${SAVE_KEY}-unreadable`
@@ -17,7 +18,8 @@ export type SaveWriteResult =
 
 type SaveStorage = Pick<Storage, 'getItem' | 'setItem'>
 type StorageProvider = () => SaveStorage
-const browserStorage: StorageProvider = () => window.localStorage
+const browserStorage: StorageProvider = () => gameStorage()
+const sessionBrowserStorage = (): StorageProvider => { const store = gameStorage(); return () => store }
 
 /** Classify before migrating, including the independently versioned campaign/finale. */
 export function parseSave(raw: string | null): SaveLoadResult {
@@ -41,7 +43,7 @@ export function readExpedition(storage: StorageProvider = browserStorage, key = 
 }
 
 /** Opening a menu is read-only. Only launching, restoring, or confirming New enables writes. */
-export function createExpeditionSaveSession(storage: StorageProvider = browserStorage) {
+export function createExpeditionSaveSession(storage: StorageProvider = sessionBrowserStorage()) {
   const load = readExpedition(storage)
   const backup = readExpedition(storage, SAVE_BACKUP_KEY)
   let active = false

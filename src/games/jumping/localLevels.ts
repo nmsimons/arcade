@@ -6,6 +6,8 @@ import { readRememberedFolder, rememberFolder } from './folderStorage.ts'
 import { directoryRepository, type LevelRepository } from './levelRepository.ts'
 import { readLocalLevelDirectory } from './levelFiles.ts'
 import type { LocalDirectory, DeletedLevel } from './levelFiles.ts'
+import { refreshAccountCloud } from '../../accounts/runtime'
+import { gameStorage, LEVELS_SLOT, subscribeGameStorage } from '../../accounts/profileStorage'
 export * from './levelFiles.ts'
 
 type FolderWindow = Window & { showDirectoryPicker?: (options: { id: string; mode: 'readwrite' }) => Promise<LocalDirectory> }
@@ -28,13 +30,29 @@ export function missingManifestPrompt(local: FolderState) {
 }
 
 /** The selected folder stays on disk. Only an explicit save writes a level file. */
-export function useLocalLevels(repository?: LevelRepository | null) {
+export function useLocalLevels(repository?: LevelRepository | null, repositoryName = 'Built-in levels', repositoryKind: 'built-in' | 'account' = 'built-in') {
   const directory = useRef<LocalDirectory | null>(null)
   const picker = useRef<HTMLInputElement>(null)
   const revision = useRef(0)
+  const [accountStore] = useState(() => gameStorage())
+  const [refreshing, setRefreshing] = useState(false)
   const [state, setState] = useState<FolderState>({ folderId: 0, files: [], missing: [], name: '', errors: [], busy: false, restoring: true, canWrite: false, hasHandle: false, canRequest: false, notice: '', status: 'closed' })
   const [trash, setTrash] = useState<{ deleted: DeletedLevel[]; errors: string[] }>({ deleted: [], errors: [] })
   const entries = useMemo(() => orderLevelFiles<LocalLevelEntry>([...state.files, ...state.missing], state.manifest), [state.files, state.missing, state.manifest])
+  useEffect(() => {
+    if (!repository || repositoryKind !== 'account') return
+    let active = true, version = 0, previous = accountStore.getItem(LEVELS_SLOT)
+    const unsubscribe = subscribeGameStorage(() => {
+      const next = accountStore.getItem(LEVELS_SLOT)
+      if (next === previous) return
+      previous = next
+      const ticket = ++version
+      void repository.read().then(result => {
+        if (active && ticket === version) setState(state => ({ ...state, ...result }))
+      }, error => { if (active && ticket === version) setState(state => ({ ...state, errors: [failure(error)] })) })
+    })
+    return () => { active = false; unsubscribe() }
+  }, [accountStore, repository, repositoryKind])
 
   useEffect(() => {
     let active = true
@@ -45,7 +63,7 @@ export function useLocalLevels(repository?: LevelRepository | null) {
         if (repository === null) return
         if (repository) {
           const result = await repository.read()
-          if (current()) setState(previous => ({ ...previous, ...result, folderId: -1, name: 'Built-in levels', canWrite: true, hasHandle: true, status: 'ready' }))
+          if (current()) setState(previous => ({ ...previous, ...result, folderId: -1, name: repositoryName, canWrite: true, hasHandle: true, status: 'ready' }))
           return
         }
         const saved = await readRememberedFolder()
@@ -67,7 +85,7 @@ export function useLocalLevels(repository?: LevelRepository | null) {
     }
     void restore()
     return () => { active = false }
-  }, [repository])
+  }, [repository, repositoryName])
 
   function storage() { return repository === null ? null : repository ?? (directory.current ? directoryRepository(directory.current) : null) }
   function begin() {
@@ -142,11 +160,18 @@ export function useLocalLevels(repository?: LevelRepository | null) {
     const backend = storage()
     if (!backend) { picker.current?.click(); return }
     const current = begin()
+    setRefreshing(true)
+    setState(previous => ({ ...previous, notice: '', errors: [] }))
     try {
+      if (repository && repositoryKind === 'account') await refreshAccountCloud()
       const result = await backend.read(state.canWrite)
-      if (current()) setState(previous => ({ ...previous, ...result, status: 'ready', ...(repository ? { folderId: -1, name: 'Built-in levels', canWrite: true, hasHandle: true } : {}) }))
-    } catch (error) { if (current()) setState(previous => ({ ...previous, files: [], missing: [], canWrite: false, status: 'reconnect', errors: [failure(error)] })) }
-    finally { if (current()) setState(previous => ({ ...previous, busy: false })) }
+      if (current()) setState(previous => ({ ...previous, ...result, notice: 'Levels are up to date.', status: 'ready', ...(repository ? { folderId: -1, name: repositoryName, canWrite: true, hasHandle: true } : {}) }))
+    } catch (error) {
+      if (current()) setState(previous => repository && repositoryKind === 'account'
+        ? { ...previous, errors: [failure(error)] }
+        : { ...previous, files: [], missing: [], canWrite: false, status: 'reconnect', errors: [failure(error)] })
+    }
+    finally { setRefreshing(false); if (current()) setState(previous => ({ ...previous, busy: false })) }
   }
   async function save(fileName: string, level: JumpLevel, expected?: string, previousName = fileName) {
     if (!storage() || !state.canWrite) throw new Error('Choose a writable level folder before saving.')
@@ -206,6 +231,6 @@ export function useLocalLevels(repository?: LevelRepository | null) {
       if (current()) setState(previous => ({ ...previous, busy: false }))
     }
   }
-  return { ...state, repository: !!repository, entries, trash, loadDeleted, restoreDeleted, deletePermanently, reorder, remove, busy: state.busy || state.restoring, picker, open, importFolder, reconnect, refresh, save }
+  return { ...state, repository: !!repository, repositoryKind, entries, trash, loadDeleted, restoreDeleted, deletePermanently, reorder, remove, busy: state.busy || state.restoring, refreshing, picker, open, importFolder, reconnect, refresh, save }
 }
 export type LocalLevels = ReturnType<typeof useLocalLevels>

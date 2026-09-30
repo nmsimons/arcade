@@ -35,7 +35,7 @@ async function open(page, editor = false, orientation = 'horizontal') {
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   if (editor) {
-    await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+    await page.getByRole('button', { name: 'Level studio', exact: true }).click()
     await page.getByRole('button', { name: 'Library', exact: true }).click()
     await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()

@@ -1,0 +1,71 @@
+.arcade-account-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: -8px 0 24px; color: #52625b; font-size: 12px; }
+.arcade-account-bar button { border: 1px solid #829386; border-radius: 5px; background: #f8f8ef; color: #254c3f; padding: 10px 15px; font: inherit; font-weight: 700; }
+.arcade-account-bar span { max-width: 70ch; }
+.account-surface { min-width: 0; }
+.arcade-account-bar .account-name { display: block; min-width: 0; max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.arcade-account-bar a, :root .account-overlay .account-option a { color: #254c3f; text-decoration: underline; text-underline-offset: 3px; }
+.account-compact { margin: 0; color: inherit; }
+.account-compact > button { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; white-space: nowrap; }
+.arcade-account-bar .account-indicator { display: block; flex: none; width: 18px; height: 18px; color: inherit; }
+.arcade-account-bar .account-indicator.is-busy { animation: account-spin 1s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .arcade-account-bar .account-indicator.is-busy { animation: none; } }
+.account-overlay { position: fixed; inset: 0; z-index: 100; background: #14241ecc; color: #253d35; display: flex; align-items: center; justify-content: center; padding: 20px; font: 15px/1.55 'Segoe UI', sans-serif; letter-spacing: normal; text-transform: none; }
+/* These controls also live inside game menus and native library dialogs. Keep
+   their typography and actions consistent despite inherited game styles. */
+:root .account-overlay .account-panel { width: min(560px, 100%); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #829386; border-radius: 16px; background: #f8f7ef; color: #253d35; padding: clamp(20px, 4vw, 32px); box-shadow: 0 24px 80px #0005; }
+:root .account-overlay .account-panel header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+:root .account-overlay .account-panel h2 { margin: 0; color: #253d35; font: 750 26px/1.2 'Segoe UI', sans-serif; letter-spacing: normal; overflow-wrap: anywhere; }
+:root .account-overlay .account-panel h3 { color: inherit; font-size: 17px; font-weight: 700; margin-top: 24px; }
+:root .account-overlay .account-panel p { margin: 14px 0; }
+:root .account-overlay .account-panel header .arcade-eyebrow { margin: 0 0 8px; }
+:root .account-overlay .account-panel header > button { flex-shrink: 0; }
+:root .account-overlay .account-panel .account-identity { margin: 6px 0 0; font-size: 13px; color: #52625b; }
+:root .account-overlay .account-panel button { display: inline-block; min-width: 0; min-height: 44px; padding: 10px 14px; border: 1px solid #6e8578; border-radius: 5px; background: #fffef6; color: #254c3f; font: 400 14px/1.55 'Segoe UI', sans-serif; text-align: left; white-space: normal; cursor: pointer; }
+:root .account-overlay .account-panel button:focus-visible:not(:disabled), .arcade-account-bar button:focus-visible { outline: 3px solid #237152; outline-offset: 3px; }
+:root .account-overlay .account-panel button:disabled { opacity: .5; cursor: default; }
+:root .account-overlay .account-panel button:is(:hover, :focus-visible):not(:disabled) { background: #e8ede3; color: #254c3f; }
+:root .account-overlay .account-panel button.account-primary { background: #265d48; border-color: #265d48; color: #fff; font-weight: 650; text-align: center; }
+:root .account-overlay .account-panel button.account-primary:is(:hover, :focus-visible):not(:disabled) { background: #174b37; color: #fff; }
+:root .account-overlay .account-panel button.account-text-button, :root .account-overlay .account-panel button.account-back { border-color: transparent; background: transparent; padding-inline: 0; text-decoration: underline; text-underline-offset: 4px; }
+:root .account-overlay .account-panel .account-back { margin-top: 16px; }
+:root .account-overlay .account-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0; }
+:root .account-overlay .account-actions > .account-primary { flex: 1; }
+:root .account-overlay .account-provider-actions { flex-direction: column; }
+:root .account-overlay .account-panel button.account-provider { display: flex; align-items: center; justify-content: center; gap: 12px; background: #fff; border-color: #747775; color: #1f1f1f; font-weight: 500; text-align: center; }
+:root .account-overlay .account-panel button.account-provider:is(:hover, :focus-visible):not(:disabled) { background: #fff; color: #1f1f1f; border-color: #253d35; box-shadow: inset 0 0 0 1px #253d35; }
+:root .account-overlay .account-panel .account-provider img { display: block; flex: none; width: 20px; height: 20px; object-fit: contain; }
+:root .account-overlay .account-note { color: #52625b; font-size: 13px; }
+:root .account-overlay .account-note a { text-decoration: underline; }
+:root .account-overlay .account-steps { display: flex; list-style: none; padding: 0; gap: 12px; margin: 28px 0 20px; color: #6a756e; font-size: 12px; }
+:root .account-overlay .account-steps li { flex: 1; border-top: 3px solid #d4dacf; padding-top: 8px; }
+:root .account-overlay .account-steps .is-current { border-color: #265d48; color: #254c3f; font-weight: 700; }
+:root .account-overlay .account-steps .is-complete { border-color: #849e8a; }
+:root .account-overlay .account-status { display: flex; align-items: flex-start; gap: 14px; padding: 20px; margin: 24px 0; border: 1px solid #c4d3c5; border-radius: 10px; background: #eaf0e6; overflow-wrap: anywhere; }
+:root .account-overlay .account-status strong { display: block; font-size: 18px; line-height: 1.35; }
+:root .account-overlay .account-status p { margin: 8px 0 0; font-size: 14px; color: #435e50; }
+:root .account-overlay .account-status-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; width: 26px; height: 26px; border: 1px solid #789a81; border-radius: 50%; font-size: 16px; font-weight: 700; }
+:root .account-overlay .account-status.is-busy .account-status-icon { border: 3px solid #b9cdbf; border-top-color: #265d48; animation: account-spin 1s linear infinite; }
+:root .account-overlay .account-status.is-error, :root .account-overlay .account-status.is-warning { background: #fff1dc; border-color: #c69d65; }
+:root .account-overlay .account-status.is-error p, :root .account-overlay .account-status.is-warning p { color: #745129; }
+:root .account-overlay .account-status.is-error .account-status-icon, :root .account-overlay .account-status.is-warning .account-status-icon { border-color: #aa7336; color: #81501e; }
+:root .account-overlay .account-secondary { display: flex; flex-wrap: wrap; gap: 12px; padding-top: 20px; margin-top: 24px; border-top: 1px solid #ccd3c7; }
+:root .account-overlay .account-secondary button { flex: 1; text-align: center; }
+:root .account-overlay .account-option { padding: 20px 0; border-bottom: 1px solid #ccd3c7; }
+:root .account-overlay .account-option h3 { margin: 0; }
+:root .account-overlay .account-option p { margin: 6px 0 14px; color: #52625b; font-size: 14px; overflow-wrap: anywhere; }
+:root .account-overlay .account-option .account-actions { margin-bottom: 0; }
+:root .account-overlay .account-option:last-of-type { border-bottom: 0; }
+:root .account-overlay .account-panel footer { border-top: 1px solid #ccd3c7; margin-top: 20px; padding-top: 8px; }
+:root .account-overlay .account-conflict > button, :root .account-overlay .account-history > button { display: block; width: 100%; margin-top: 10px; }
+:root .account-overlay .account-conflict > button span { display: block; font-size: 13px; margin-top: 4px; color: #52625b; }
+.account-confirmation { z-index: 110; }
+@keyframes account-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { :root .account-overlay .account-status.is-busy .account-status-icon { animation: none; } }
+@media (max-width: 420px) {
+  .account-overlay { padding: 12px; }
+  :root .account-overlay .account-panel { max-height: calc(100dvh - 24px); padding: 20px; }
+  :root .account-overlay .account-steps { gap: 8px; font-size: 11px; }
+  :root .account-overlay .account-status { padding: 16px; gap: 10px; }
+  :root .account-overlay .account-actions { flex-direction: column; }
+  :root .account-overlay .account-actions > button { flex: 1 1 auto; text-align: center; }
+}

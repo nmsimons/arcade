@@ -1,5 +1,8 @@
-import { nightModeEnabled } from './jumping/ambientLight'
 import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
+import { nightModeEnabled } from './jumping/ambientLight'
+import { LevelSaveStatus } from '../accounts/LevelSaveStatus'
+import { AccountSurface } from '../accounts/AccountSurface'
+import { useCloudDownloads } from '../accounts/useCloudDownloads'
 import { playgroundLightingWorld } from './jumping/lightingModel'
 import { gameCamera } from './jumping/camera'
 import { levelTerrain } from './jumping/level'
@@ -29,6 +32,7 @@ import { JumpingMotionDiagnostics } from './jumping/motionDiagnostics'
 import { PerformanceMonitor } from './jumping/performanceMonitor'
 import type { PerformanceSnapshot } from './jumping/performanceMonitor'
 import { PerformancePanel } from './jumping/PerformancePanel'
+import { JumpingDevelopmentPanel } from './jumping/JumpingDevelopmentPanel'
 import { AdaptiveLighting } from './jumping/adaptiveLighting'
 import { JumpingSoundSession } from './jumping/sound'
 import { clonePreparedLevel, prepareLevelInWorker } from './jumping/levelPreparation'
@@ -36,6 +40,8 @@ import type { PreparedLevel } from './jumping/levelPreparation'
 import { createDevLevelRepository } from './jumping/devLevelRepository'
 import type { LevelSource } from './jumping/routes'
 import { useWallTextFont } from './jumping/useWallTextFont'
+import { currentProfile, gameStorage } from '../accounts/profileStorage'
+import { accountLevelRepository } from '../accounts/levelLibrary'
 import './jumping/jumping.css'
 import './jumping/dialogs.css'
 import './jumping/interface.css'
@@ -46,6 +52,7 @@ const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'A
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   useWallTextFont()
+  const [accountLevels, setAccountLevels] = useState(() => !!currentProfile())
   const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
   useEffect(() => {
     let active = true
@@ -54,16 +61,19 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     })
     return () => { active = false }
   }, [])
-  return catalog ? <JumpingGameSession initialCatalog={catalog} onExit={onExit} /> : <div className="jumping-game jumping-loading"><p role="status">Loading levels…</p><button onClick={onExit}>Back to arcade</button></div>
+  return catalog ? <JumpingGameSession key={String(accountLevels)} accountLevels={accountLevels} onAccountLevels={setAccountLevels} initialCatalog={catalog} onExit={onExit} /> : <div className="jumping-game jumping-loading"><p role="status">Loading levels…</p><button onClick={onExit}>Back to arcade</button></div>
 }
 
-function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelCatalog; onExit: () => void }) {
+function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLevels }: { initialCatalog: LevelCatalog; onExit: () => void; accountLevels: boolean; onAccountLevels: (value: boolean) => void }) {
   const location = useLocation(), navigate = useNavigate()
   const handledRoute = useRef(''), activePlayKey = useRef(''), builderPath = useRef(JUMPING_BUILDER)
   const editorPath = useRef(JUMPING_BUILDER), playtests = useRef(new Map<number, { level: JumpLevel; path: string; builderPath: string }>())
   const editorRevision = useRef(0)
   const [routeNotice, setRouteNotice] = useState('')
-  const local = useLocalLevels()
+  const [playerStorage] = useState(() => gameStorage())
+  const [accountRepository] = useState(() => accountLevels ? accountLevelRepository(playerStorage) : undefined)
+  const local = useLocalLevels(accountRepository, 'Account levels', 'account')
+  const { picker: folderPicker } = local
   const [repository] = useState(() => createDevLevelRepository())
   const builtIn = useLocalLevels(repository ?? null), devEditing = !!repository
   const catalog = devEditing && !builtIn.restoring ? builtIn : initialCatalog
@@ -111,6 +121,8 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const paintFrame = useRef<() => void>(() => {})
   const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto' }))
   const [performanceMonitor] = useState(() => import.meta.env.DEV ? new PerformanceMonitor() : null)
+  const [devOpen, setDevOpen] = useState(false)
+  const devOpenRef = useRef(false), devReturnFocus = useRef<HTMLElement | null>(null)
   const [showPerformance, setShowPerformance] = useState(() => {
     if (!import.meta.env.DEV) return false
     try { return localStorage.getItem('jumping:performance-monitor') === 'true' } catch { return false }
@@ -142,15 +154,17 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   const [challenge, setChallenge] = useState(true)
   const [trial, setTrial] = useState<PuzzleLevel>(initialRun.level)
   const [bestTimes, setBestTimes] = useState<Record<string, number | null>>({})
-  function bestTime(id: string) { try { return bestTimes[id] ?? readBest(localStorage, id) } catch { return null } }
+  function bestTime(id: string) { try { return bestTimes[id] ?? readBest(playerStorage, id) } catch { return null } }
   const best = bestTime(recordKey)
   const [saveError, setSaveError] = useState(false)
   const terrain = useRef(levelTerrain(initialRun.level))
   const activeLevel = useRef<JumpLevel>(initialRun.level), rules = useRef(levelRules(initialRun.level))
+  const [activeLevelName, setActiveLevelName] = useState(initialRun.level.name)
   const [builderStarted, setBuilderStarted] = useState(false), [testing, setTesting] = useState(false)
   const jumpQueue = useRef<boolean[]>([]), keyboardJump = useRef(false)
   const [controller] = useState(createJumpController)
   const [screen, setScreen] = useState<Screen>('menu')
+  useCloudDownloads(screen === 'menu')
   const [preparing, setPreparing] = useState<string | null>(null)
   const playPreparation = useRef<AbortController | null>(null), preparedStart = useRef<PreparedLevel | null>(null)
   useEffect(() => () => { playPreparation.current?.abort(); playPreparation.current = null }, [location.key])
@@ -173,6 +187,19 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     if (next === 'building' || next === 'menu') lightingRenderer.release()
     if (next === 'paused') setPauseReason(reason ?? '')
   }
+  function changeDevOpen(open: boolean) {
+    if (!import.meta.env.DEV) return
+    if (open) devReturnFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    devOpenRef.current = open; setDevOpen(open)
+    // Clear held inputs and audio without changing the screen behind the panel.
+    changeScreen(screenRef.current)
+    performanceMonitor?.reset(); adaptiveLighting?.suspend()
+  }
+  useLayoutEffect(() => {
+    if (!devOpen && devReturnFocus.current) {
+      devReturnFocus.current.focus({ preventScroll: true }); devReturnFocus.current = null
+    }
+  }, [devOpen])
   useLayoutEffect(() => {
     if (screen === 'playing') canvasRef.current?.focus({ preventScroll: true })
   }, [screen])
@@ -204,7 +231,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
       activePlayKey.current = location.key
       if (world.run) { setTrial(world.run.level); setRecordKey(key) }
-      else { activeLevel.current = world.level; terrain.current = levelTerrain(world.level); rules.current = levelRules(world.level) }
+      else { activeLevel.current = world.level; setActiveLevelName(world.level.name); terrain.current = levelTerrain(world.level); rules.current = levelRules(world.level) }
       setChallenge(!!world.run); setTesting(fromBuilder); setSaveError(false); changeScreen('playing'); paintFrame.current()
     } catch (error) {
       if (controller.signal.aborted) return
@@ -324,25 +351,29 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     }
     handledRoute.current = location.key
   })
+  // Router/catalog changes transition the running game and retained editor together.
+  // This synchronizes imperative input, audio and preparation work after commit.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { followRoute() }, [location.key, location.pathname, catalog.files, local.files, local.status, local.busy, builtIn.restoring, builtIn.status, builtIn.busy])
   const finishRun = useEffectEvent(() => {
     if (!run.current?.finished || screenRef.current !== 'playing') return
     setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
     if (!testing) {
       const { elapsed } = run.current
-      try { const time = saveBest(localStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: time })); setSaveError(false) }
+      try { const time = saveBest(playerStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: time })); setSaveError(false) }
       catch { setBestTimes(previous => ({ ...previous, [recordKey]: Math.min(previous[recordKey] ?? Infinity, elapsed) })); setSaveError(true) }
     }
     changeScreen('complete')
   })
   const handleKey = useEffectEvent((event: KeyboardEvent) => {
-    if (import.meta.env.DEV && event.code === 'F2' && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
-      && (screenRef.current === 'playing' || screenRef.current === 'paused')
-      && !(event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable="true"]'))) {
+    if (import.meta.env.DEV && (event.code === 'Backquote' || event.key === '`') && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+      && !event.isComposing && !preparing && !deleteTarget
+      && !(event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) {
       event.preventDefault()
-      if (!event.repeat) changePerformance(!performanceEnabled.current)
+      if (!event.repeat) changeDevOpen(!devOpenRef.current)
       return
     }
+    if (devOpenRef.current) return
     if (screenRef.current === 'menu' && event.code === 'KeyY' && !event.altKey && !event.ctrlKey && !event.metaKey) {
       if (!deleteTarget && !event.repeat && canEditCollection && selected) { event.preventDefault(); editFile(selected) }
       return
@@ -369,6 +400,13 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     const pad = controller.sample(pads, screenRef.current, now, document.hasFocus() && !document.hidden)
     if (pad.pressed.length || Math.abs(pad.move) > .1) audio.current?.unlock()
     if (pad.connected !== connected) setConnected(pad.connected)
+    if (devOpenRef.current) {
+      const dialog = controllerDialog(rootRef.current)
+      if (pad.pause || pad.pressed.includes(1)) changeDevOpen(false)
+      else if (dialog && pad.pressed.includes(0)) controlDialog(dialog, 'confirm')
+      else if (dialog && pad.navigation) controlDialog(dialog, pad.navigation)
+      return null
+    }
     if (pad.disconnected && screenRef.current === 'playing') {
       changeScreen('paused', 'Controller disconnected. Reconnect, or continue with the keyboard.')
       return null
@@ -444,7 +482,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     window.addEventListener('keydown', handleKey); window.addEventListener('keyup', keyup)
     window.addEventListener('blur', suspend); document.addEventListener('visibilitychange', visibility)
     const tick = (now: number) => {
-      const measuring = import.meta.env.DEV && performanceEnabled.current && screenRef.current === 'playing' && !document.hidden
+      const measuring = import.meta.env.DEV && performanceEnabled.current && !devOpenRef.current && screenRef.current === 'playing' && !document.hidden
       const started = measuring ? performance.now() : 0
       let steps = 0
       const dt = previous ? Math.min(.05, (now - previous) / 1000) : 0; previous = now
@@ -501,7 +539,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
   return <div className="jumping-game" ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: activate the goal` : 'Untitled Jumping Game movement playground'} />
     {screen === 'playing' && <>
-      {import.meta.env.DEV && showPerformance && <PerformancePanel snapshot={performanceSnapshot} />}
+      {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
@@ -518,9 +556,7 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
     {screen === 'complete' && <JumpingResultDialog level={trial} elapsed={result.elapsed} medal={result.medal} best={best}
       testing={testing} saveError={saveError} onNext={!testing && campaignIndex >= 0 && nextFile ? () => playFile(nextFile, playingFile.collection as 'built-in' | 'local') : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
-    {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevel.current.name} reason={pauseReason}
-      showPerformance={showPerformance} onPerformanceChange={changePerformance} performancePanel={import.meta.env.DEV && showPerformance ? <PerformancePanel snapshot={performanceSnapshot} paused /> : null}
-      performanceMode={performanceMode} onPerformanceModeChange={changePerformanceMode} objectShadows={lightingShadows === 'full'}
+    {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label="Untitled Jumping Game" focusKey="jumping-menu"
@@ -530,15 +566,17 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
           <div className="jumping-menu-heading">
             <p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h2>Levels.</h2>
           </div>
-          <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button onClick={openBuilder}>{testing ? 'Return to builder' : 'Level builder'}</button></div>
+          <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button disabled={local.refreshing} onClick={openBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button></div>
+          <AccountSurface />
         </div>
           <div className="jumping-library-bar">
             <div className="jumping-collection-tabs" role="group" aria-label="Level source">
               {hasBuiltIns && <button aria-label="Built-in levels" aria-pressed={collection === 'built-in'} onClick={() => setCollection('built-in')}>Built-in<span className="jumping-source-label-extra"> levels</span></button>}
-              <button aria-label="Local folder" aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>Local<span className="jumping-source-label-extra"> folder</span></button>
+              <button aria-label={accountLevels ? 'Account levels' : 'Local folder'} aria-pressed={collection === 'local'} onClick={() => setCollection('local')}>{accountLevels ? 'Account levels' : <>Local<span className="jumping-source-label-extra"> folder</span></>}</button>
             </div>
-            {collection === 'local' && local.name && <span className="jumping-library-folder" title={local.name}>{local.name}</span>}
+            {collection === 'local' && local.name && <span className="jumping-library-folder" title={local.name}>{accountLevels ? 'Saved locally · Cloud sync is automatic' : local.name}</span>}
             {canEditCollection && <LocalFolderActions local={menuStore} />}
+            {!!currentProfile() && <button onClick={() => onAccountLevels(!accountLevels)}>{accountLevels ? 'Use local folder' : 'Use account levels'}</button>}
           </div>
           <div className="jumping-library-status">
             {collection === 'local' && manifestPrompt && <p className="jumping-folder-note" role="status">{manifestPrompt}</p>}
@@ -569,12 +607,13 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
                   event.currentTarget.focus({ preventScroll: true })
                 }
               }}
-              aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
+              disabled={local.refreshing} aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
               <LevelThumbnail level={level} /><strong>{level.name}</strong>
+              {collection === 'local' && accountLevels && <LevelSaveStatus kind="account" fileName={file.fileName} text={file.sourceText} />}
             </button>
             <div className="jumping-level-tile-actions">
-              <button className="jumping-level-play" data-menu-secondary aria-label={`Play ${level.name}`} disabled={needsRepair} onClick={() => playFile(file)}>Play{connected && <kbd aria-hidden="true">A</kbd>}</button>
-              {canEditCollection && <button className="jumping-level-edit" data-menu-secondary aria-label={`Edit ${level.name}`} onClick={() => editFile(file)}>Edit<kbd aria-hidden="true">Y</kbd></button>}
+              <button className="jumping-level-play" data-menu-secondary aria-label={`Play ${level.name}`} disabled={needsRepair || local.refreshing} onClick={() => playFile(file)}>Play{connected && <kbd aria-hidden="true">A</kbd>}</button>
+              {canEditCollection && <button className="jumping-level-edit" data-menu-secondary aria-label={`Edit ${level.name}`} disabled={local.refreshing} onClick={() => editFile(file)}>Edit<kbd aria-hidden="true">Y</kbd></button>}
               {canEditCollection && <DeleteLevelButton fileName={file.fileName} disabled={menuStore.busy || !menuStore.canWrite} onClick={() => void deleteFile(file)} />}
             </div>
             </div>
@@ -592,8 +631,11 @@ function JumpingGameSession({ initialCatalog, onExit }: { initialCatalog: LevelC
       </div>
     </KeyboardDialog>}
     {screen === 'menu' && deleteTarget && <DeleteLevelDialog entry={deleteTarget} local={menuStore} onClose={() => setDeleteTarget(null)} onDeleted={() => setRouteNotice('')} />}
-    <input ref={local.picker} aria-label="Open local level folder" type="file" {...{ webkitdirectory: '', directory: '' }} multiple hidden onChange={e => void local.importFolder(e.target.files)} />
-    {builderStarted && <LevelBuilder key={editorFile?.key ?? 'draft'} active={screen === 'building'} onPlay={testLevel} onClose={showMenu}
+    <input ref={folderPicker} aria-label="Open local level folder" type="file" {...{ webkitdirectory: '', directory: '' }} multiple hidden onChange={e => void local.importFolder(e.target.files)} />
+    {builderStarted && <LevelBuilder key={editorFile?.key ?? 'draft'} active={screen === 'building' && !devOpen} onPlay={testLevel} onClose={showMenu}
       templates={devEditing ? [] : catalog.files} local={editorSource === 'built-in' && devEditing ? builtIn : local} collections={devEditing ? { local, builtIn } : undefined} initialFile={editorFile?.file} onFileChange={builderFileChanged} /> }
+    {import.meta.env.DEV && devOpen && <JumpingDevelopmentPanel onClose={() => changeDevOpen(false)}
+      showPerformance={showPerformance} onPerformanceChange={changePerformance} snapshot={performanceSnapshot}
+      performanceMode={performanceMode} onPerformanceModeChange={changePerformanceMode} objectShadows={lightingShadows === 'full'} />}
   </div>
 }

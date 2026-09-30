@@ -258,6 +258,16 @@ selected folder, not in the operating system's Trash or Recycle Bin.
 
 To share a collection, send its level JSON files and `index.json` together.
 Leave out the `Deleted levels` subfolder.
+OneDrive account levels use this same structure under
+`Apps/Dream Large Arcade/Untitled Jumping Game/Levels`. Copy that folder's level
+JSON files and manifest to a local folder or built-in assets without conversion.
+Files copied into OneDrive appear in Account levels after automatic sync at the
+level chooser, or by using **Refresh** in Account levels. Saved edits upload in
+the background from the builder. Each account file shows its local/cloud state;
+sign-in and Cloud saves are available without leaving the game.
+Account-panel imports accept `index.json` alongside the level files and
+preserve its order and metadata. See [cloud storage](account-cloud-saves.md) for
+sync, conflicts, and recovery.
 Another player can put them in one folder and choose it in the game. To promote
 a local collection to built-in levels, copy the same files (including the
 manifest) into `public/levels/jumping/`, then run `npm run levels:index` or

@@ -14,7 +14,7 @@ const test = base.extend({
     let server
     try {
       await mkdir(assets, { recursive: true })
-      for (const name of ['src', 'node_modules']) await symlink(resolve(name), join(root, name))
+      for (const name of ['src', 'node_modules']) await symlink(resolve(name), join(root, name), process.platform === 'win32' ? 'junction' : 'dir')
       for (const name of ['index.html', 'postcss.config.js', 'package.json']) await copyFile(resolve(name), join(root, name))
       await writeFile(join(assets, '00.json'), JSON.stringify(CAMPAIGN[0]))
       await writeFile(join(assets, '01.json'), JSON.stringify(CAMPAIGN[1]))
@@ -64,7 +64,7 @@ test('built-in maps edit, rename, save and test directly in the Git checkout', a
 
 test('built-in library creates, reorders, recycles and recovers maps without publishing recovery files', async ({ page, project }, info) => {
   await page.goto(`${project.url}/untitled-jumping-game`)
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.locator('.builder-save-location')).toContainText('Built-in levels')
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('New repository map')
   expect((await readdir(project.assets)).sort()).toEqual(['00.json', '01.json', 'index.json'])

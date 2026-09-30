@@ -9,8 +9,10 @@ and repeated long frames as well as average FPS; an average above 30 can still
 hide distracting stutters. Keep the GPU renderer and prioritize measured,
 low-risk improvements before considering a wider engine change.
 
-The in-game monitor is available with F2 or from the pause menu in development
-only. Production hides the monitor, F2 shortcut and performance-mode controls,
+In development, backtick (`) opens the developer panel with the **Performance
+monitor** and **Lighting performance mode** controls. Backtick or Escape closes
+the panel. Gameplay and measurements pause while it is open; the enabled monitor
+remains visible during play. Production hides the panel, shortcut, monitor and performance-mode controls,
 ignores their saved preferences, and does not allocate the monitor or adaptive
 controller. GPU lighting and full quality remain enabled in production. It records raw animation-frame intervals, not the simulation's
 50 ms catch-up cap. CPU update and draw measurements do not include asynchronous

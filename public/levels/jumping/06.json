@@ -380,9 +380,9 @@
     "y": 800
   },
   "times": {
-    "gold": 8,
-    "silver": 18,
-    "bronze": 35
+    "gold": 5,
+    "silver": 10,
+    "bronze": 15
   },
   "props": [
     {
@@ -407,9 +407,9 @@
       "kind": "gate",
       "x": 540,
       "y": 800,
-      "w": 400,
+      "w": 280,
       "h": 20,
-      "travel": 400,
+      "travel": 280,
       "orientation": "horizontal",
       "flipX": true
     }

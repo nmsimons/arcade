@@ -147,8 +147,10 @@ Sources: [Google file metadata](https://developers.google.com/workspace/drive/ap
 2. In Google Cloud, enable the Drive API, configure the external OAuth consent
    screen, and create a **Web application** OAuth client. Register the exact
    Authorized JavaScript origins, including scheme and port for development.
-   Configure only the identity scopes and `drive.file`. Use `/privacy.html`
-   for the site's factual data notice after reviewing it for your deployment.
+   Configure only the identity scopes and `drive.file`. Use the canonical origin
+   plus `/privacy.html` for the privacy-policy URL and `/terms.html` for the
+   terms-of-service URL after reviewing both pages for your deployment. Both
+   pages are public static HTML, linked from the arcade without signing in.
    Add test users while the consent screen is in testing, and complete Google's
    applicable branding/verification requirements before general release.
    For **Choose from Google Drive**, also enable the Google Picker API and create
@@ -174,10 +176,16 @@ Sources: [Google file metadata](https://developers.google.com/workspace/drive/ap
    them only on main push builds. PR preview
    builds intentionally have sign-in disabled. Environment values are baked
    into the Vite build; changing a variable requires rebuilding.
-6. Deploy the generated `auth-redirect.html`, `privacy.html`, and hosting config
+6. Deploy the generated `auth-redirect.html`, `privacy.html`, `terms.html`, their
+   stylesheet and logo, and hosting config
    alongside the rest of `dist`. Do not redirect the auth bridge through React.
    Do not add a Cross-Origin-Opener-Policy header to the bridge: MSAL documents
    that it breaks its response channel. Verify the final host's response headers.
+   Open both legal URLs on the production origin and check that they show the
+   policy headings, not the game selector. A successful HTTP status alone is not
+   enough to verify a policy page on a host with a navigation fallback. Missing
+   HTML files are excluded from that fallback so incomplete deployments fail
+   visibly instead of presenting the game as a policy.
 
 ## Save versions and conflicts
 

@@ -490,7 +490,10 @@ export default function AccountControls() {
             })
           }} />
         </>}
-        {(screen === 'settings' || !login) && <footer><button className="account-text-button" disabled={busy && !!login} onClick={() => window.open(`${import.meta.env.BASE_URL}privacy.html`, '_blank', 'noopener,noreferrer')}>Data and privacy ↗</button></footer>}
+        {(screen === 'settings' || !login) && <footer className="account-actions">
+          <button className="account-text-button" disabled={busy && !!login} onClick={() => window.open(`${import.meta.env.BASE_URL}privacy.html`, '_blank', 'noopener,noreferrer')}>Data and privacy ↗</button>
+          <button className="account-text-button" disabled={busy && !!login} onClick={() => window.open(`${import.meta.env.BASE_URL}terms.html`, '_blank', 'noopener,noreferrer')}>Terms of service ↗</button>
+        </footer>}
       </section>
     </KeyboardDialog>}
     {confirmation && <KeyboardDialog label={confirmation.label} focusKey="account-confirm" confirmation globalMenu onClose={dismissConfirmation} className="account-overlay account-confirmation"><section className="account-panel"><h2>{confirmation.label}</h2><p>{confirmation.description}</p><div className="account-actions"><button data-initial-focus onClick={dismissConfirmation}>Cancel</button><button className="account-primary" onClick={() => { const task = confirmation.action; dismissConfirmation(); void task() }}>{confirmation.label}</button></div></section></KeyboardDialog>}

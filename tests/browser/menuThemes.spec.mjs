@@ -40,6 +40,8 @@ test('arcade entries have distinct materials, decorative covers and one clear ke
   await page.goto('/')
   const cards = titles.map(name => page.getByRole('button', { name, exact: true }))
   const signIn = page.getByRole('button', { name: 'Sign in', exact: true })
+  const privacy = page.getByRole('link', { name: 'Privacy policy', exact: true })
+  const terms = page.getByRole('link', { name: 'Terms of service', exact: true })
   await expect(signIn).toBeVisible()
   await expect(cards[0]).toBeFocused()
   await expect(page.locator('.arcade-games').getByRole('button')).toHaveCount(titles.length)
@@ -49,7 +51,7 @@ test('arcade entries have distinct materials, decorative covers and one clear ke
   const fills = await Promise.all(cards.map(async card => (await paint(card)).fill))
   expect(new Set(fills).size).toBe(titles.length)
   expect(scripts.filter(url => /Game-[^/]+\.js/.test(url))).toEqual([])
-  for (const [key, target] of [['ArrowRight', cards[1]], ['ArrowDown', cards[2]], ['Tab', cards[3]], ['Tab', signIn], ['Tab', cards[0]], ['End', cards[3]], ['Home', signIn], ['Tab', cards[0]]]) {
+  for (const [key, target] of [['ArrowRight', cards[1]], ['ArrowDown', cards[2]], ['Tab', cards[3]], ['Tab', privacy], ['Tab', terms], ['Tab', signIn], ['Tab', cards[0]], ['End', terms], ['Home', signIn], ['Tab', cards[0]]]) {
     await page.keyboard.press(key)
     await expect(target).toBeFocused()
     if (target !== signIn) await expect(target).toHaveCSS('outline-width', '2px')
@@ -107,11 +109,11 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 620, height: 360 }
       await page.goto(path)
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
       if (path === '/') await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
-      const dialog = page.getByRole('dialog'), buttons = dialog.getByRole('button')
+      const dialog = page.getByRole('dialog'), buttons = dialog.locator('button, a[data-menu-link]')
       expect(await dialog.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
       await page.screenshot({ path: info.outputPath(`${path.replaceAll('/', '') || 'arcade'}-${viewport.width}.png`) })
       for (let i = 0; i < await buttons.count(); i++) {
-        const active = dialog.locator('button:focus')
+        const active = dialog.locator('button:focus, a[data-menu-link]:focus')
         await expect(active).toHaveCount(1)
         const bounds = await active.boundingBox()
         expect(bounds.x).toBeGreaterThanOrEqual(0)

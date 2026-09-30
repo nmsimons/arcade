@@ -1,14 +1,28 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Arcade — data and privacy</title>
-<style>body{max-width:720px;margin:48px auto;padding:0 24px;font:17px/1.65 system-ui,sans-serif;color:#253d35;background:#f8f7ef}h1,h2{line-height:1.2}a{color:#245f48}li{margin:8px 0}</style></head>
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="How Arcade uses account information, browser storage, and optional Google Drive or OneDrive cloud saves, and how to control and delete your data.">
+<title>Privacy policy — Arcade</title>
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="stylesheet" href="./legal.css">
+</head>
 <body>
-<h1>Your Arcade data</h1>
+<header>
+<a class="brand" href="./" aria-label="Arcade home"><img src="./arcade-logo.svg" width="264" height="64" alt="Arcade"></a>
+<nav aria-label="Legal pages"><a href="./privacy.html" aria-current="page">Privacy policy</a><a href="./terms.html">Terms of service</a></nav>
+</header>
+<main>
+<h1>Privacy policy</h1>
+<p>This policy covers the Arcade website, its browser games, level tools, and optional account and cloud-save features. The account consent screen and cloud folders may identify the app as Dream Large Arcade.</p>
 <p>You can play without signing in. Anonymous saves and personal bests stay in your browser. Local level folders stay on your device.</p>
 <h2>Optional accounts and cloud storage</h2>
-<p>Signing in with Google or a personal Microsoft account creates a separate save space on this device. Arcade uses your provider account identifier to separate saves and displays your account name while you are signed in. Signing in does not automatically copy anonymous progress.</p>
+<p>Signing in with Google or a personal Microsoft account creates a separate save space on this device. Your provider returns an account identifier and basic profile information such as your name and email address. Arcade uses the identifier to separate saves and your name, or email address when a name is unavailable, as the displayed account label. Signing in does not automatically copy anonymous progress.</p>
 <p>Enabling cloud storage is a separate choice. Google Drive access covers files created or selected through this app, using a visible Dream Large Arcade folder in My Drive. It does not grant access to your whole Drive or automatically to every file placed in that folder elsewhere. OneDrive access is limited to this app's folder, normally Apps/Dream Large Arcade; its name comes from the Microsoft app registration. The account panel links directly to your cloud folder. Game data is organized in folders per game; custom levels are ordinary JSON files with a collection index. Cloud files contain game saves, custom levels, personal bests and version metadata. They are not public leaderboards.</p>
 <p>Your browser sends this data directly to your storage provider. Arcade has no account database, save upload service or server token store. Google's short-lived access token, expiry and selected account are held in browser session storage so refreshes keep the same profile and reuse unexpired access. Expired access requires an explicit Reconnect. Microsoft's sign-in library also stores authentication tokens and account details in session storage. Closing the tab ends that session. Arcade remembers whether cloud saves are connected; sign-out clears cached credentials, and disconnect clears Google's cached access. Google and Microsoft process sign-in and storage requests under their own privacy policies. The site host may retain ordinary request logs such as IP addresses and requested paths; this page does not promise that hosting providers keep no logs.</p>
+<h2>How data is used and shared</h2>
+<p>Arcade uses account information and provider access to identify your save space, display your account, and provide the cloud saves and file selection you enable. Arcade does not sell this information or use your Google or Microsoft data for advertising. Files are sent to the storage provider you connect to provide these features.</p>
+<p>If you choose to export and share a level or backup, the recipients can access the information in that file. If you email support, the maintainer receives your email address and the information you include and uses it to respond to your request. Your email provider and the maintainer's email provider also process the message. Do not send passwords or access tokens. Include game files only when needed for your request and when you are comfortable sharing their contents.</p>
 <h2>Control and recovery</h2>
 <ul>
 <li>Changes save locally first and sync in the background, including during play. Incoming saves wait for a safe menu or an explicit refresh or restore. Wait for sync to finish before closing the browser.</li>
@@ -21,6 +35,10 @@
 </ul>
 <p>Files count toward your storage quota. Arcade retains cloud versions and does not automatically delete older saves. Revoking permission alone does not necessarily delete data.</p>
 <p>Provider controls: <a href="https://myaccount.google.com/connections" rel="noreferrer">Google connections</a> · <a href="https://account.live.com/consent/Manage" rel="noreferrer">Microsoft permissions</a>.</p>
-<p>Questions or issues: <a href="https://github.com/nmsimons/arcade/issues" rel="noreferrer">Arcade project</a>.</p>
-<p><a href="./">Return to Arcade</a></p>
+<p>Provider privacy policies: <a href="https://policies.google.com/privacy" rel="noreferrer">Google</a> · <a href="https://privacy.microsoft.com/privacystatement" rel="noreferrer">Microsoft</a>.</p>
+<h2>Changes and contact</h2>
+<p>Updates to this policy will be published on this page to reflect changes to Arcade's features or data handling.</p>
+<p>For privacy questions, support, or requests about information you have sent to the maintainer, email <a href="mailto:nick@dreamlarge.com">nick@dreamlarge.com</a>.</p>
+</main>
+<footer><a href="./">Return to Arcade</a></footer>
 </body></html>

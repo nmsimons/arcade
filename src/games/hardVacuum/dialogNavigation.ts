@@ -1,21 +1,27 @@
 import type { ControllerNavigation } from './controllerInput'
 
+export type DialogControl = HTMLButtonElement | HTMLAnchorElement
+// Links opt in so adding policy navigation does not change other dialogs' order.
+export const DIALOG_CONTROL_SELECTOR = 'button, a[data-menu-link][href]'
+export const isDialogControl = (element: Element | null): element is DialogControl =>
+  element instanceof HTMLElement && element.matches(DIALOG_CONTROL_SELECTOR)
+
 export function isVisibleControl(element: HTMLElement) {
   return !element.closest('[hidden], [inert]') && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
 }
-export const dialogButtons = (root: HTMLElement) => [...root.querySelectorAll<HTMLButtonElement>('button')]
-  .filter(button => !button.disabled && button.getAttribute('aria-disabled') !== 'true' && isVisibleControl(button) && button.closest('.game-dialog') === root)
+export const dialogButtons = (root: HTMLElement) => [...root.querySelectorAll<DialogControl>(DIALOG_CONTROL_SELECTOR)]
+  .filter(button => !(button instanceof HTMLButtonElement && button.disabled) && button.getAttribute('aria-disabled') !== 'true' && isVisibleControl(button) && button.closest('.game-dialog') === root)
 export const topDialog = (root: ParentNode = document) => [...root.querySelectorAll<HTMLElement>('.game-dialog')].filter(isVisibleControl).at(-1)
-export const dialogButtonKey = (button: HTMLButtonElement) => button.dataset.menuId ?? button.getAttribute('aria-label') ?? button.textContent ?? ''
-export function focusDialogButton(button: HTMLButtonElement) {
+export const dialogButtonKey = (button: DialogControl) => button.dataset.menuId ?? button.getAttribute('aria-label') ?? button.textContent ?? ''
+export function focusDialogButton(button: DialogControl) {
   button.focus({ preventScroll: true })
   button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
 }
-export function restoreDialogSelection(root: HTMLElement, key = root.dataset.selectionKey, previous?: HTMLButtonElement | null) {
+export function restoreDialogSelection(root: HTMLElement, key = root.dataset.selectionKey, previous?: DialogControl | null) {
   const buttons = dialogButtons(root)
   let selected = buttons.find(button => dialogButtonKey(button) === key)
   if (!selected && previous && root.contains(previous)) {
-    const all = [...root.querySelectorAll<HTMLButtonElement>('button')], index = all.indexOf(previous)
+    const all = [...root.querySelectorAll<DialogControl>(DIALOG_CONTROL_SELECTOR)], index = all.indexOf(previous)
     selected = [...all.slice(index + 1), ...all.slice(0, index)].find(button => buttons.includes(button))
   }
   selected ??= buttons.find(button => button.hasAttribute('data-initial-focus')) ?? buttons[0]
@@ -25,7 +31,7 @@ export function restoreDialogSelection(root: HTMLElement, key = root.dataset.sel
 
 /** Linear menus visit every action. Explicit grids also respect their visual columns. */
 export function moveDialogSelection(root: HTMLElement, direction: ControllerNavigation | 'first' | 'last' | 'next' | 'previous') {
-  const all = dialogButtons(root), current = document.activeElement as HTMLButtonElement
+  const all = dialogButtons(root), current = document.activeElement as DialogControl
   // Tile accessories remain reachable with Tab; directional browsing visits
   // the tiles themselves, with their primary action on the controller's A button.
   const linear = direction === 'next' || direction === 'previous'

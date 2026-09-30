@@ -1,4 +1,4 @@
-import { dialogButtons, isVisibleControl, moveDialogSelection, restoreDialogSelection, scrollDialog } from './dialogNavigation'
+import { dialogButtons, isDialogControl, isVisibleControl, moveDialogSelection, restoreDialogSelection, scrollDialog } from './dialogNavigation'
 import type { ControllerNavigation } from './controllerInput'
 export { scrollDialog }
 
@@ -12,7 +12,7 @@ export function controlDialog(dialog: HTMLElement, action: ControllerNavigation 
   if (action !== 'confirm' && action !== 'back') { moveDialogSelection(dialog, action); return }
   if (action === 'confirm') {
     const button = document.activeElement
-    if (button instanceof HTMLButtonElement && dialogButtons(dialog).includes(button)) button.click()
+    if (isDialogControl(button) && dialogButtons(dialog).includes(button)) button.click()
     else restoreDialogSelection(dialog)
     return
   }

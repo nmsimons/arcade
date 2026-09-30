@@ -805,6 +805,30 @@
       "seconds": 9
     }
   ],
+  "texts": [
+    {
+      "x": 880,
+      "y": 880,
+      "w": 320,
+      "h": 100,
+      "text": "Stop time ->",
+      "fontSize": 16,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -30
+    },
+    {
+      "x": 1060,
+      "y": 1420,
+      "w": 300,
+      "h": 24,
+      "text": "<- Make time",
+      "fontSize": 16,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": 10
+    }
+  ],
   "lighting": {
     "nightMode": true,
     "ambient": 0,

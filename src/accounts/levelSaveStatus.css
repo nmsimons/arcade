@@ -1,0 +1,9 @@
+.level-save-status { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; color: var(--jumping-ink, #52625b); font: 400 11px/1.5 'Segoe UI', sans-serif; }
+.level-save-status > span { flex: 0 0 auto; font-size: 12px; }
+.level-save-status.is-pending, .level-save-status.is-unsaved, .level-save-status.is-attention { color: #805321; }
+.level-save-status.is-synced { color: #356447; }
+.builder-file-preview .level-save-status { margin-top: 5px; }
+.jumping-level-card .level-save-status { margin-bottom: 6px; }
+.builder-status-copy { display: flex; align-items: center; gap: 12px; min-width: 0; flex-wrap: wrap; }
+.builder-status-copy > .level-save-status { flex: 0 0 auto; font-size: inherit; }
+.builder-status-message { color: var(--jumping-muted, #52625b); }

@@ -37,7 +37,7 @@ async function open(page, level) {
     }
   })
   await page.goto('/untitled-jumping-game')
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.clock.runFor(64)

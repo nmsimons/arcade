@@ -8,6 +8,7 @@ import { LevelThumbnail } from './LevelThumbnail'
 import { DeleteLevelButton, DeleteLevelDialog, MissingLevelNotice } from './LevelFileActions'
 import { RecycleBin } from './RecycleBin'
 import type { LevelSource } from './routes'
+import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
 
 export type LibraryChoice = ({ kind: 'new' } | { kind: 'open' | 'template'; file: LevelFile }) & { source?: LevelSource }
 
@@ -95,13 +96,13 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') event.preventDefault()
     }} onPointerDownCapture={event => { event.currentTarget.dataset.inputMethod = 'pointer' }}>
     <header className="builder-library-header">
-      <div><p className="jumping-eyebrow">LEVEL STUDIO</p><h2>{pending ? 'Unsaved changes.' : binOpen ? 'Recycle bin.' : 'Library.'}</h2></div>
+      <div><h2>{pending ? 'Unsaved changes' : binOpen ? 'Recycle bin' : 'Library'}</h2></div>
       <div className="builder-library-actions">
         {!pending && !binOpen && <button className="builder-play" disabled={local.busy} onClick={() => choose({ kind: 'new' })}><span aria-hidden="true">+ </span>New level</button>}
         {!pending && !binOpen && local.hasHandle && <button disabled={local.busy} onClick={() => { setBinOpen(true); void local.loadDeleted() }}>Recycle bin</button>}
         {binOpen && <button disabled={local.busy} onClick={() => setBinOpen(false)}>Back to levels</button>}
-        <button ref={close} aria-label="Close library" disabled={saving || orderSaving || local.busy} onClick={onClose}>Close</button>
       </div>
+      <button className="builder-library-close" ref={close} aria-label="Close library" disabled={saving || orderSaving || local.busy} onClick={onClose}>Close</button>
     </header>
     {binOpen ? <RecycleBin local={local} /> : pending ? <div className="builder-library-confirm">
       <div className="builder-library-confirm-copy">
@@ -165,7 +166,9 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
           <button className="builder-file-preview" disabled={local.busy} aria-label={`Open ${file.fileName}`}
             aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown"
             onClick={() => choose({ kind: 'open', file })}>
-            <LevelThumbnail level={file.level} /><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small></span>
+            <LevelThumbnail level={file.level} /><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small>
+              {local.repositoryKind === 'account' && <LevelSaveStatus kind="account" fileName={file.fileName} text={file.sourceText} />}
+            </span>
           </button>
           <div className="builder-file-actions"><button className="builder-use-template" disabled={local.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => choose({ kind: 'template', file })}>Use as template</button>
           <DeleteLevelButton fileName={file.fileName} disabled={local.busy || !local.canWrite} onClick={() => void deleteFile(file)} /></div>

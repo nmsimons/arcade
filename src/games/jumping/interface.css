@@ -40,13 +40,25 @@
   width: 100%; height: 100%; max-width: none; box-shadow: none; overflow-y: auto;
 }
 .jumping-ui .builder-library-header {
-  display: flex; flex: none; align-items: center; justify-content: space-between;
-  gap: 24px; padding: var(--jumping-header-padding-block) var(--jumping-inset); border: 0;
-  background: var(--jumping-header);
+  display: grid; flex: none; align-items: center;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: 'title actions close';
+  gap: 12px; padding: 12px var(--jumping-inset);
+  border: 0; border-bottom: 1px solid var(--jumping-rule);
+  background: var(--jumping-paper);
 }
-/* Both full-screen headers share insets, title alignment, and action geometry. */
-.jumping-game :is(.builder-header, .jumping-level-menu .jumping-menu-header) {
-  display: flex; justify-content: space-between; align-items: center; gap: 24px;
+.builder-library-header > div:first-child { grid-area: title; }
+.builder-library-header > .builder-library-actions { grid-area: actions; }
+.builder-library-header > .builder-library-close { grid-area: close; }
+.builder-library-header > .builder-library-actions:empty { display: none; }
+.jumping-game .jumping-ui .builder-library-header h2 { font: 600 20px/1.3 'Segoe UI', sans-serif; letter-spacing: -.02em; }
+.jumping-game .jumping-ui .builder-library-header button { min-height: 44px; padding: 8px 12px; }
+/* Account controls occupy the right edge of each header, separate from actions. */
+.jumping-game .builder-header,
+.jumping-game .jumping-level-menu .jumping-menu-header {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-areas: 'heading navigation account';
+  align-items: center; gap: 24px;
   padding: var(--jumping-header-padding-block) var(--jumping-inset);
   border: 0;
 }
@@ -54,7 +66,11 @@
   flex: none;
   background: var(--jumping-header);
 }
-.jumping-game :is(.builder-main-actions, .jumping-menu-navigation) button {
+:is(.builder-header, .jumping-menu-header) > div:first-child { grid-area: heading; min-width: 0; }
+:is(.builder-main-actions, .jumping-menu-navigation) { grid-area: navigation; min-width: 0; }
+:is(.builder-header, .jumping-menu-header) > .account-surface { grid-area: account; justify-self: end; max-width: min(40vw, 22ch); }
+.jumping-game :is(.builder-main-actions, .jumping-menu-navigation) button,
+.jumping-game .builder-header > .account-surface > .arcade-account-bar > button {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-height: 44px; padding: 10px 12px;
   font: 600 var(--jumping-type-normal)/1.5 'Segoe UI', sans-serif;
@@ -256,6 +272,22 @@
     flex-direction: column; align-items: stretch; gap: 12px;
   }
 }
+@media (max-width: 1200px) {
+  .jumping-game .jumping-builder .builder-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'heading account' 'navigation navigation';
+    align-items: center; gap: 12px;
+  }
+}
+@media (max-width: 960px) {
+  .jumping-game .builder-header,
+  .jumping-ui .jumping-level-menu .jumping-menu-header {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: 'heading account' 'navigation navigation';
+    align-items: center; gap: 12px;
+  }
+  .builder-header > .account-surface { align-self: start; }
+}
 @media (max-width: 760px) {
   .jumping-game :is(.builder-header, .jumping-level-menu .jumping-menu-header) {
     --jumping-header-padding-block: 12px;
@@ -265,14 +297,15 @@
   .jumping-game :is(.builder-main-actions, .jumping-menu-navigation) button { white-space: normal; }
 }
 @media (max-width: 620px) {
+  .jumping-game .builder-header { --jumping-type-large: clamp(28px, 7vw, 40px); }
   .jumping-ui .jumping-library-bar { padding: 12px 20px; gap: 8px; }
   .jumping-ui .jumping-library-bar .local-folder-actions { width: auto; margin-left: auto; }
   .jumping-ui .jumping-library-folder { flex-basis: auto; }
   .jumping-ui .jumping-level-detail-heading { gap: 6px; }
   .jumping-ui .jumping-level-detail .jumping-medal-times { gap: 12px; font-size: var(--jumping-type-small); }
-  .jumping-ui .builder-library-header { padding: 20px; gap: 16px; }
-  .jumping-ui .builder-library-header > div:first-child { flex: 1 0 100%; }
-  .jumping-ui .builder-library-header > .builder-library-actions { width: 100%; justify-content: flex-end; }
+  .jumping-ui .builder-library-header { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title close' 'actions actions'; padding: 12px 20px; gap: 8px; }
+  .jumping-ui .builder-library-header:has(.builder-library-actions:empty) { grid-template-areas: 'title close'; }
+  .jumping-ui .builder-library-header > .builder-library-actions { justify-content: flex-start; }
   .jumping-ui .builder-library-actions { gap: 8px; }
   .jumping-ui .builder-library-folder { padding: 12px 20px; gap: 8px; }
   .jumping-ui .local-folder { grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
@@ -292,7 +325,6 @@
 }
 @media (max-height: 650px) and (min-width: 621px) {
   .jumping-ui .builder-library-header { padding-block: 12px; }
-  .jumping-ui .builder-library-header .jumping-eyebrow { display: none; }
   .jumping-ui .jumping-library-bar { min-height: 64px; padding-block: 8px; }
   .jumping-ui .jumping-level-cards { padding-block: 16px; }
   .jumping-ui :is(.jumping-level-card, .builder-file-preview, .builder-templates) .level-thumbnail { height: 100px; }

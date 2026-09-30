@@ -12,7 +12,7 @@ async function open(page, level = blankTrial()) {
     }
   })
   await page.goto('/untitled-jumping-game')
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })
   if (await local.count()) await local.click()

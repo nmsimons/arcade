@@ -8,7 +8,7 @@ const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
   await page.goto('/untitled-jumping-game')
-  await expect(page.getByRole('button', { name: 'Level builder', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Level studio', exact: true })).toBeVisible()
 }
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
 
@@ -37,7 +37,7 @@ test('an empty catalog hides built-ins and the builder ignores browser copies an
   await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Enter playground' })).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('local-level-menu.png') })
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Untitled level')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await expect(page.getByText('Browser copies', { exact: true })).toHaveCount(0)
@@ -78,7 +78,7 @@ test('built-in JSON changes and newly indexed files load without changing the ap
   expect(await page.locator('script[src]').evaluateAll(nodes => nodes.map(n => n.src))).toEqual(scripts)
   await page.screenshot({ path: info.outputPath('runtime-level-assets.png') })
   await expect(page.locator('.jumping-level-edit')).toHaveCount(0)
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.locator('.builder-templates').getByRole('button', { name: /Changed on disk/ }).click()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Changed on disk — copy')
@@ -288,7 +288,7 @@ test('the JSON reference fixture survives builder template copying, playtest and
   const errors = []; page.on('pageerror', e => errors.push(e.message))
   await installTestFolder(page)
   await useLevelFixtures(page, [JSON_LAB])
-  await open(page); await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await open(page); await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await page.getByRole('button', { name: /JSON Test Lab/ }).click()

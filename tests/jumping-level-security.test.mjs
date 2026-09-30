@@ -165,7 +165,7 @@ test('asset publishing rejects HTML, directories, symlinks and invalid JSON befo
       }
       // Calling Vite directly must also fail before it copies public assets.
       if (mode === 'html') {
-        await symlink(resolve('scripts'), join(root, 'scripts'))
+        await symlink(resolve('scripts'), join(root, 'scripts'), process.platform === 'win32' ? 'junction' : 'dir')
         await writeFile(join(root, 'index.html'), '<p>test</p>')
         assert.throws(() => execFileSync(process.execPath, [resolve('node_modules/vite/bin/vite.js'), 'build', '--config', resolve('vite.config.ts')], { cwd: root, stdio: 'pipe' }), /Unexpected level asset/)
       }

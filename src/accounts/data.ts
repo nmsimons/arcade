@@ -1,4 +1,4 @@
-import { SAVE_SLOTS, LEVELS_SLOT } from './profileStorage.ts'
+import { SAVE_SLOTS, LEVELS_SLOT, withWorkspaceLock } from './profileStorage.ts'
 import type { KeyStorage } from './profileStorage.ts'
 import { decodeLevelFile, decodeLevelManifest, isLevelFileName } from '../games/jumping/levelAssets.ts'
 import { textBytes, MAX_LEVEL_BYTES, MAX_LEVEL_FILES } from '../games/jumping/levelLimits.ts'
@@ -12,7 +12,7 @@ export const emptyLibrary = (): LevelLibrary => ({ files: {}, deleted: [] })
 export const emptyWorkspace = (): Workspace => ({ version: 1, slots: {}, levels: emptyLibrary() })
 export function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value) }
 export function validateLibrary(value: unknown): LevelLibrary {
-  if (!object(value) || !object(value.files) || !Array.isArray(value.deleted) || Object.keys(value.files).length + value.deleted.length > MAX_LEVEL_FILES + 1) throw new Error('Invalid account level library.')
+  if (!object(value) || !object(value.files) || !Array.isArray(value.deleted) || Object.keys(value.files).filter(name => name !== 'index.json').length + value.deleted.length > MAX_LEVEL_FILES) throw new Error('Invalid account level library.')
   const files: Record<string, string> = {}, ids = new Set<string>()
   for (const [name, text] of Object.entries(value.files)) {
     if (typeof text !== 'string' || textBytes(text) > MAX_LEVEL_BYTES || name.length > 200) throw new Error('Invalid level file.')
@@ -31,6 +31,9 @@ export function validateLibrary(value: unknown): LevelLibrary {
     return { id: item.id, name: item.name, text: item.text, at: item.at }
   })
   if (new Set(deleted.map(item => item.id)).size !== deleted.length) throw new Error('Duplicate deleted level.')
+  // A collection imported without an index gets the same filename-order index
+  // as a writable local folder. Existing manifests and level bytes are retained.
+  if (!files['index.json'] && Object.keys(files).length) files['index.json'] = JSON.stringify({ version: 1, order: 'filename', levels: Object.keys(files).sort() }, null, 2) + '\n'
   return { files, deleted }
 }
 export function parseWorkspace(text: string): Workspace {
@@ -54,25 +57,30 @@ export function readWorkspace(store: KeyStorage): Workspace {
   const slots = Object.fromEntries(SAVE_SLOTS.flatMap(key => { const raw = store.getItem(key); return raw === null ? [] : [[key, raw]] }))
   return parseWorkspace(JSON.stringify({ version: 1, slots, levels: JSON.parse(store.getItem(LEVELS_SLOT) ?? JSON.stringify(emptyLibrary())) }))
 }
+/** Refresh the library from its committed transaction before taking a snapshot. */
+export const readCurrentWorkspace = (store: KeyStorage) => withWorkspaceLock(store, readWorkspace)
 export function serializeWorkspace(data: Workspace) {
-  return JSON.stringify({ version: 1, slots: Object.fromEntries(Object.entries(data.slots).sort()), levels: { files: Object.fromEntries(Object.entries(data.levels.files).sort()), deleted: data.levels.deleted } })
+  return JSON.stringify({ version: 1, slots: Object.fromEntries(Object.entries(data.slots).sort()), levels: { files: Object.fromEntries(Object.entries(data.levels.files).sort()), deleted: [...data.levels.deleted].sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0) } })
 }
 export async function digest(text: string) { return [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)))].map(byte => byte.toString(16).padStart(2, '0')).join('') }
 
 /** Retain a recovery copy before replacing any local data. Roll back partial writes. */
-export function replaceWorkspace(store: KeyStorage, data: Workspace, expected: string) {
-  const previous = readWorkspace(store)
-  if (serializeWorkspace(previous) !== expected) throw new Error('Progress changed in another tab. Sync again before replacing it.')
-  const next = parseWorkspace(serializeWorkspace(data))
-  store.setItem('arcade.cloud.recovery.v1', serializeWorkspace(previous))
-  try {
-    for (const key of SAVE_SLOTS) { if (next.slots[key] === undefined) store.removeItem(key); else store.setItem(key, next.slots[key]) }
-    store.setItem(LEVELS_SLOT, JSON.stringify(next.levels))
-  } catch {
+export function replaceWorkspace(store: KeyStorage, data: Workspace, expected: string, beforeWrite: () => void = () => {}) {
+  return withWorkspaceLock(store, current => {
+    beforeWrite()
+    const previous = readWorkspace(current)
+    if (serializeWorkspace(previous) !== expected) throw new Error('Progress changed in another tab. Sync again before replacing it.')
+    const next = parseWorkspace(serializeWorkspace(data))
+    current.setItem('arcade.cloud.recovery.v1', serializeWorkspace(previous))
     try {
-      for (const key of SAVE_SLOTS) { if (previous.slots[key] === undefined) store.removeItem(key); else store.setItem(key, previous.slots[key]) }
-      store.setItem(LEVELS_SLOT, JSON.stringify(previous.levels))
-    } catch { /* The complete pre-restore workspace remains in the recovery slot. */ }
-    throw new Error('Browser storage is full or unavailable. A recovery copy was kept; free space before restoring it.')
-  }
+      for (const key of SAVE_SLOTS) { if (next.slots[key] === undefined) current.removeItem(key); else current.setItem(key, next.slots[key]) }
+      current.setItem(LEVELS_SLOT, JSON.stringify(next.levels))
+    } catch {
+      try {
+        for (const key of SAVE_SLOTS) { if (previous.slots[key] === undefined) current.removeItem(key); else current.setItem(key, previous.slots[key]) }
+        current.setItem(LEVELS_SLOT, JSON.stringify(previous.levels))
+      } catch { /* The complete pre-restore workspace remains in the recovery slot. */ }
+      throw new Error('Browser storage is full or unavailable. A recovery copy was kept; free space before restoring it.')
+    }
+  })
 }

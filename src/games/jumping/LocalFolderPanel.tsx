@@ -9,7 +9,7 @@ export function LocalFolderActions({ local }: { local: LocalLevels }) {
   return <div className="local-folder-actions">
     {reconnect && <button className="local-folder-open" aria-label="Reconnect folder" disabled={local.busy} onClick={() => void local.reconnect()}>{label('Reconnect folder')}</button>}
     {!local.repository && <button className={!remembered || local.status === 'reselect' ? 'local-folder-open' : ''} aria-label={openLabel} disabled={local.busy} onClick={() => void local.open()}>{label(openLabel)}</button>}
-    {(local.repository || connected && local.hasHandle) && <button className="local-folder-refresh" aria-label={local.repository ? local.repositoryKind === 'account' ? 'Refresh account levels' : 'Refresh built-in levels' : 'Refresh folder'} title="Reload files changed outside the game" disabled={local.busy} onClick={() => void local.refresh()}><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><path d="M16 7a6.5 6.5 0 1 0 .2 5M16 3v4h-4" /></svg><span>Refresh</span></button>}
+    {(local.repository || connected && local.hasHandle) && <button className="local-folder-refresh" aria-label={local.repository ? local.repositoryKind === 'account' ? 'Refresh account levels' : 'Refresh built-in levels' : 'Refresh folder'} aria-busy={local.refreshing} title={local.repositoryKind === 'account' && local.repository ? 'Check cloud storage and reload your account levels' : 'Reload files changed outside the game'} disabled={local.busy} onClick={() => void local.refresh()}><svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><path d="M16 7a6.5 6.5 0 1 0 .2 5M16 3v4h-4" /></svg><span>{local.refreshing ? 'Refreshing…' : 'Refresh'}</span></button>}
     {connected && !local.canWrite && local.canRequest && <button aria-label="Enable saving" title="Allow edits to save directly to this folder" disabled={local.busy} onClick={() => void local.reconnect()}>{label('Enable saving', 'Save')}</button>}
   </div>
 }
@@ -20,7 +20,7 @@ export function LocalFolderPanel({ local, compact = false, summary = false }: { 
   const title = local.repository ? account ? 'Account levels' : 'public/levels/jumping' : remembered ? local.name : 'No folder selected'
   const status = local.restoring ? 'Restoring folder…' : reconnect ? 'Folder remembered · Access needed'
     : local.status === 'reselect' ? 'Folder remembered · Reselect to load levels'
-    : connected ? `${local.files.length} ${local.files.length === 1 ? 'level' : 'levels'}${local.missing.length ? ` · ${local.missing.length} missing` : ''}${local.repository ? account ? ' · Sync from the arcade' : ' · Saved in this checkout' : local.canWrite ? '' : ' · Read only'}` : 'Choose a folder for your level files.'
+    : connected ? `${local.files.length} ${local.files.length === 1 ? 'level' : 'levels'}${local.missing.length ? ` · ${local.missing.length} missing` : ''}${local.repository ? account ? ' · Saved locally · Automatic cloud sync' : ' · Saved in this checkout' : local.canWrite ? '' : ' · Read only'}` : 'Choose a folder for your level files.'
   const note = local.repository || local.restoring ? ''
     : reconnect ? 'Allow access to reopen this folder. Your level files stay on disk.'
     : local.status === 'reselect' ? 'This browser requires you to select the folder again after a reload.'

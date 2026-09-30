@@ -98,7 +98,7 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   await page.keyboard.press('Escape')
   await page.mouse.move(0, 0)
   const button = name => page.getByRole('button', { name, exact: true })
-  const names = ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level builder', 'Back to arcade']
+  const names = ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level studio', 'Back to arcade']
   for (const name of names) {
     await expectAccessibleSelection(button(name))
     await page.keyboard.press('Tab')
@@ -111,7 +111,7 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   // Controller input after a pointer click must restore visible focus even if
   // the browser would not give programmatic focus :focus-visible styling.
   await page.clock.runFor(64); await tap(page, 13)
-  await expectAccessibleSelection(button('Level builder'))
+  await expectAccessibleSelection(button('Level studio'))
   await expect(button('Controls')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   expect(await button('Controls').evaluate(el => el.getAnimations().length)).toBe(0)
   await page.screenshot({ path: info.outputPath('accessible-selection.png') })
@@ -145,7 +145,7 @@ test('pause and controls reflow at double text size with every action reachable'
     await page.setViewportSize(size)
     const bounds = await panel.boundingBox()
     await page.keyboard.press('Home')
-    for (const name of ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level builder', 'Back to arcade']) {
+    for (const name of ['Resume', 'Restart level', 'Level menu', 'Controls', 'Level studio', 'Back to arcade']) {
       const button = page.getByRole('button', { name, exact: true })
       await expect(button).toBeFocused()
       await expect(button).toBeInViewport({ ratio: 1 })
@@ -281,7 +281,7 @@ test('all object types appear in menu, library and overview previews through the
   }
   await check(page.locator('.jumping-level-card .level-thumbnail'))
   await page.screenshot({ path: info.outputPath('all-objects-menu.png') })
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click(); await page.clock.runFor(64)
   await check(page.locator('.builder-templates .level-thumbnail'))
   await page.locator('.builder-templates').getByRole('button', { name: /All objects/ }).click(); await page.clock.runFor(64)

@@ -12,10 +12,21 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 ## Optional accounts and cloud saves
 
 Players can keep playing anonymously, or sign in with Google or a personal
-Microsoft account. Enabling cloud storage separately uses Google's hidden app
-data or OneDrive's app folder. Saves, personal bests and account custom levels
-sync directly from the browser when the player returns to the arcade. Conflicts
+Microsoft account. Enabling cloud storage separately uses a visible Google Drive
+folder or OneDrive's app folder. Saves, personal bests and account custom levels
+sync directly from the browser while the player stays in a game. Sign-in and cloud
+controls are available in the arcade, Levels and Level Studio; Account-level Refresh checks the cloud. Conflicts
 retain both versions; no player database or save service is required.
+
+OneDrive files live in `Apps/Dream Large Arcade`; Google Drive uses
+`My Drive/Dream Large Arcade`. Both are organized by game. The jumping
+game's `Levels` folder contains ordinary level JSON files and `index.json`, just
+like local and built-in collections. Copy them together to move a collection;
+files added or edited in OneDrive are read on the next sync. Google grants access
+per file: use **Manage saves → Choose from Google Drive** to select levels copied
+into Drive, or **Import level files** for files on your computer. Both accounts survive
+refresh in the same tab; expired Google access offers Reconnect without switching
+away from the player's local saves.
 
 Sign-in buttons remain disabled until public OAuth client IDs are configured.
 See [account and cloud storage setup](docs/account-cloud-saves.md) for provider
@@ -648,9 +659,11 @@ remains available for visual and performance checks. Version-2 level files suppo
 ambient light and wall spotlights. Add them in the studio under Level settings
 and Back wall; version-1 levels keep their original full-bright appearance.
 
-In development, press **F2** during play (or toggle **Performance monitor** in the pause menu)
-to show a lightweight performance overlay. Production builds omit the monitor,
-F2 shortcut and performance-mode controls, and ignore their saved preferences. It shows
+In development, press **backtick (`)** to open the **Developer panel**, then toggle
+**Performance monitor** to show a lightweight performance overlay during play.
+Backtick or Escape closes the panel. Gameplay pauses while the panel is open.
+Production builds omit the panel, shortcut, monitor and performance-mode controls,
+and ignore their saved preferences. The monitor shows
 FPS, a two-second frame-time graph, average/p95/worst frame intervals, frames over
 33.3 ms, average CPU update/draw time, physics steps per frame, canvas resolution
 and render scale, lighting backend, light counts and estimated buffer memory. The dashed
@@ -661,7 +674,7 @@ times when investigating differences between machines.
 
 The display updates twice per second and collects timings only during visible
 gameplay, including builder playtests. Pausing preserves the last sample in the
-pause menu; resuming or restarting begins a fresh measurement window. The toggle
+developer panel; resuming or restarting begins a fresh measurement window. The toggle
 is remembered locally. Level menus and the editor are not measured.
 
 Live play uses the GPU light-field renderer when supported, keeping the existing
@@ -669,7 +682,7 @@ artwork, lights and full shadow silhouettes. The complete Canvas renderer handle
 unsupported capabilities and graphics-context loss. The monitor shows which is
 active; editor and library previews continue to use Canvas.
 
-**Lighting performance mode** in the development pause menu is a separate, optional setting;
+**Lighting performance mode** in the developer panel is a separate, optional setting;
 full lighting remains the default on every device. With it enabled, two consecutive
 one-second windows below 35 FPS turn off shadows from the player, loose props and
 robots and reduce rendering to at most pixel ratio 1 and one million pixels for

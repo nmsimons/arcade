@@ -35,8 +35,8 @@
   --jumping-header-padding-block: 28px;
 }
 
-/* Every dialog title band uses the same inversion, including Pause/Controls. */
-.jumping-game :is(.jumping-dialog-heading, .jumping-menu-header, .builder-library-header, .jumping-ui-heading),
+/* Full-screen title bands share the same inversion, including Pause/Controls. */
+.jumping-game :is(.jumping-dialog-heading, .jumping-menu-header, .jumping-ui-heading),
 .arcade-choice-jumping .arcade-card-heading {
   --jumping-ink: var(--jumping-color-paper);
   --jumping-muted: var(--jumping-color-paper);

@@ -19,8 +19,12 @@ export interface LocalDirectory {
   requestPermission?(options: { mode: 'read' | 'readwrite' }): Promise<PermissionState>
 }
 const failure = (error: unknown) => error instanceof Error ? error.message : String(error)
-export function levelFileName(name: string) {
-  return `${name.replace(/[^a-z0-9 _-]/gi, '').trim().replace(/\s+/g, ' ') || 'untitled'}.jump-level.json`
+export function levelFileName(name: string, existing: Iterable<string> = []) {
+  const base = name.replace(/[^a-z0-9 _-]/gi, '').trim().replace(/\s+/g, ' ') || 'untitled'
+  const names = new Set([...existing].map(value => value.toLowerCase()))
+  let candidate = `${base}.jump-level.json`, suffix = 2
+  while (names.has(candidate.toLowerCase())) candidate = `${base} ${suffix++}.jump-level.json`
+  return candidate
 }
 const conflict = () => new Error('This file changed on disk. Refresh the folder and open the latest file before saving.')
 const nameCollision = (fileName: string) => new Error(`“${fileName}” already exists in this folder. Choose a different File name in Level settings and save again.`)

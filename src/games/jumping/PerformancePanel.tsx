@@ -15,7 +15,7 @@ export const PerformancePanel = memo(function PerformancePanel({ snapshot, pause
   }
   const path = [...buckets].map(([x, ms], i) => `${i ? 'L' : 'M'}${x * 2},${y(ms).toFixed(1)}`).join(' ')
   return <aside className={`jumping-performance${paused ? ' is-paused' : ''}`} aria-label="Performance monitor" aria-live="off">
-    <header><strong>Performance</strong><span>{paused ? 'Paused · last sample' : 'F2 to hide'}</span></header>
+    <header><strong>Performance</strong><span>{paused ? 'Paused · last sample' : '` for developer panel'}</span></header>
     {snapshot ? <>
       <div className="jumping-performance-rate"><strong>{snapshot.fps.toFixed(0)} <small>FPS</small></strong><span>Last {snapshot.seconds.toFixed(1)} s</span></div>
       <svg viewBox="0 0 240 44" role="img" aria-label={`Frame times over the last two seconds; worst ${snapshot.worstMs.toFixed(1)} milliseconds. Dashed line: 16.7 milliseconds, or 60 FPS.`}>

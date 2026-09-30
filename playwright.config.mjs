@@ -24,7 +24,7 @@ export default defineConfig({
   }, {
     command: 'npm run dev -- --host 127.0.0.1 --port 4176 --strictPort',
     // Public, deliberately nonfunctional IDs; account tests intercept the providers.
-    env: { VITE_GOOGLE_CLIENT_ID: 'arcade-browser-test.apps.googleusercontent.com', VITE_MICROSOFT_CLIENT_ID: '00000000-0000-4000-8000-000000000001' },
+    env: { VITE_GOOGLE_CLIENT_ID: 'arcade-browser-test.apps.googleusercontent.com', VITE_GOOGLE_PICKER_API_KEY: 'browser-test-picker-key', VITE_GOOGLE_PROJECT_NUMBER: '123456789', VITE_MICROSOFT_CLIENT_ID: '00000000-0000-4000-8000-000000000001' },
     url: 'http://127.0.0.1:4176',
     reuseExistingServer: false,
   }],

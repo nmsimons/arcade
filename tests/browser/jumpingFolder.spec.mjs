@@ -173,7 +173,7 @@ for (const writable of [true, false]) test(`local templates create independent l
     await expect(page.locator('.jumping-level-card')).toHaveCount(3)
     await page.setViewportSize({ width: 390, height: 844 })
   }
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const template = page.getByRole('button', { name: `Use ${originalName} as template`, exact: true })
   await template.scrollIntoViewIfNeeded()
@@ -225,7 +225,7 @@ test('the last selected collection survives reload independently of the remember
   await page.reload()
   await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
   // Wait for restored folder access through the UI, then verify it did not switch the picker.
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Change folder', exact: true })).toBeEnabled()
   await page.getByRole('button', { name: 'Close library', exact: true }).click()
@@ -247,7 +247,7 @@ test('a remembered folder without a collection preference does not override buil
   })
   await page.reload()
   await expect(page.getByRole('button', { name: 'Built-in levels', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Reconnect folder', exact: true })).toBeEnabled()
   await page.getByRole('button', { name: 'Close library', exact: true }).click()
@@ -526,7 +526,7 @@ test('Save and Test requires a writable folder and never downloads a fallback fi
 
 test('Library stays centered and nearly fills the viewport while the level grid scrolls', async ({ page }, info) => {
   await openFolder(page, Object.fromEntries(Array.from({ length: 30 }, (_, i) => [`${String(i).padStart(2, '0')}-level.json`, level(`level-${i}`, `Level ${i + 1}`)])))
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Level library', exact: true })
   for (const viewport of [{ width: 1440, height: 1000 }, { width: 2560, height: 1440 }, { width: 844, height: 390 }, { width: 390, height: 844 }]) {
@@ -559,7 +559,7 @@ async function folderContents(page) {
 
 test('new drafts create no level file until Save, derive filenames from titles, and rename the same saved level', async ({ page }, info) => {
   await openFolder(page, {})
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   const title = page.getByRole('textbox', { name: 'Level name', exact: true }), filename = page.getByRole('textbox', { name: 'Level file name', exact: true })
   await title.fill('My first route')
   await expect(filename).toHaveValue('My first route.jump-level.json')
@@ -845,7 +845,7 @@ test('the recycle bin can be viewed read-only and emptied only after permanent-d
   }
   await page.evaluate(() => sessionStorage.setItem('folderPermission', 'read-only'))
   await page.reload()
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Recycle bin', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Recover a.json', exact: true })).toBeDisabled()
@@ -881,7 +881,7 @@ test('permanently deleting one recycled level requires confirmation and leaves t
     await expect(page.getByRole('alertdialog')).toHaveCount(0)
   }
   const before = await folderContents(page), backups = await recoveryContents(page)
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const liveCard = await page.locator('.builder-local-file').boundingBox()
   await page.getByRole('button', { name: 'Recycle bin', exact: true }).click()
@@ -910,7 +910,7 @@ test('a level recovered to its original filename opens as a saved file and can b
   await openFolder(page)
   await page.getByRole('button', { name: 'Delete 00-first.json', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Delete 00-first.json', exact: true })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   await page.getByRole('button', { name: 'Recycle bin', exact: true }).click()
   await page.getByRole('button', { name: 'Recover 00-first.json', exact: true }).click()

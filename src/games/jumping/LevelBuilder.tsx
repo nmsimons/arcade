@@ -38,6 +38,9 @@ import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
 import { useLightingGeometry } from './useLightingGeometry'
 import './builder.css'
+import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
+import { AccountSurface } from '../../accounts/AccountSurface'
+import { protectUnsavedDraft } from '../../accounts/runtime'
 
 // Rope rest shapes are derived asynchronously, not unsaved author edits.
 function editSignature(level: JumpLevel) {
@@ -112,7 +115,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
 }) {
   const wallTextFontReady = useWallTextFont()
   const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial(), true) }))
-  const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name))
+  const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name, local.entries.map(file => file.fileName)))
   const suggestFileName = useRef(!initialFile)
   const [fileSource, setFileSource] = useState({ text: initialFile?.sourceText, fileName: initialFile?.fileName, folderId: local.folderId })
   const [saved, setSaved] = useState<{ level: string | null; fileName: string }>({ level: editSignature(initial.level), fileName })
@@ -145,6 +148,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const observedRemoval = useRef(local.lastRemoved)
   const signature = useMemo(() => editSignature(history.present), [history.present])
   const dirty = saved.level !== signature || saved.fileName !== fileName
+  useEffect(() => { if (dirty || !fileSource.text) return protectUnsavedDraft() }, [dirty, fileSource.text])
   const detachDeletedFile = useEffectEvent(() => {
     if (local.lastRemoved?.folderId !== fileSource.folderId || local.lastRemoved?.fileName !== fileSource.fileName) return
     setFileSource({ text: undefined, fileName: undefined, folderId: local.folderId })
@@ -154,6 +158,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   useEffect(() => {
     if (observedRemoval.current === local.lastRemoved) return
     observedRemoval.current = local.lastRemoved
+    // A library deletion detaches the saved file and updates the parent route while
+    // retaining this mounted editor's draft; it cannot be applied during render.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (local.lastRemoved) detachDeletedFile()
   }, [local.lastRemoved])
   const [keepTool, setKeepTool] = useState(false)
@@ -161,7 +168,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [pointer, setPointer] = useState<Point | null>(null)
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
   const [size, setSize] = useState({ width: 800, height: 600 })
-  const canvasRef = useRef<HTMLCanvasElement>(null), drag = useRef<Drag | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [drag, setDrag] = useState<Drag | null>(null)
   const inspectorRef = useRef<HTMLElement>(null)
   const [inspectorTab, setInspectorTab] = useState<'level' | 'object'>('level')
   const latestPreview = useRef<JumpLevel | null>(null)
@@ -173,13 +181,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const resizeHandles = useMemo(() => selectionHandles(level, selection, view.zoom), [level, selection, view.zoom])
   const resizeHandleAt = (p: Point) => resizeHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
   const hoverHandle = pointer && resizeHandleAt(pointer)
-  const resizeCorner = drag.current?.mode === 'resize' ? drag.current.corner : hoverHandle?.corner
+  const resizeCorner = drag?.mode === 'resize' ? drag.corner : hoverHandle?.corner
   const resizeCursor = resizeCorner === 'top' || resizeCorner === 'bottom' ? 'ns-resize' : resizeCorner === 'left' || resizeCorner === 'right' ? 'ew-resize' : resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
   const problems = useMemo(() => levelProblems(level), [level]), problem = problems[0]
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
   const travelHandle = mechanism?.kind === 'lift' ? mechanismAnchor(mechanism) : null
   const travelHandleAt = (p: Point) => travelHandle && Math.hypot(p.x - travelHandle.x, p.y - travelHandle.y) < 10 / view.zoom
-  const adjustingTravel = drag.current?.mode === 'travel' || pointer && travelHandleAt(pointer)
+  const adjustingTravel = drag?.mode === 'travel' || pointer && travelHandleAt(pointer)
   const trigger = selection?.kind === 'trigger' ? level.triggers?.[selection.index] : null
   const verticalCoinSwitch = trigger?.mode === 'coins' && trigger.orientation === 'vertical'
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
@@ -212,12 +220,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function undo() {
     if (history.past.length) keepFloorInView(history.past.at(-1)!)
     setHistory(h => h.past.length ? { past: h.past.slice(0, -1), present: h.past.at(-1)!, future: [h.present, ...h.future] } : h)
-    chooseSelection(null); setPreview(null); latestPreview.current = null; drag.current = null
+    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null)
   }
   function redo() {
     if (history.future.length) keepFloorInView(history.future[0])
     setHistory(h => h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h)
-    chooseSelection(null); setPreview(null); latestPreview.current = null; drag.current = null
+    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null)
   }
   function keepFloorInView(next: JumpLevel) {
     const dy = levelHeight(next) - levelHeight(history.present)
@@ -227,13 +235,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }
   function load(next: JumpLevel, file?: LevelFile, source: LevelSource = local.repository && local.repositoryKind !== 'account' ? 'built-in' : 'local') {
     next = prepareLevelRopes(copyLevel(next), true)
-    const name = file?.fileName ?? levelFileName(next.name)
     suggestFileName.current = !file
     const target = collections ? source === 'built-in' ? collections.builtIn : collections.local : local
+    const name = file?.fileName ?? levelFileName(next.name, target.entries.map(file => file.fileName))
     setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName, folderId: target.folderId })
     setHistory({ past: [], present: next, future: [] })
     setSaved({ level: editSignature(next), fileName: name })
-    setPreview(null); latestPreview.current = null; drag.current = null
+    setPreview(null); latestPreview.current = null; setDrag(null)
     chooseSelection(null); chooseInspectorTab('level'); setTool('select'); setView(homeView(next, size.height)); setMessage('')
     onFileChange(file?.fileName, source)
   }
@@ -277,7 +285,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       return undefined
     }
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const name = suggestFileName.current ? levelFileName(level.name) : fileName
+    const name = suggestFileName.current ? levelFileName(level.name, local.entries.map(file => file.fileName)) : fileName
     savePending.current = true; setSaving(true); setMessage('')
     try {
       const controller = new AbortController(); savePreparation.current = controller
@@ -291,7 +299,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       suggestFileName.current = false
       setFileName(name); setFileSource({ text: source, fileName: name, folderId: local.folderId })
       setSaved({ level: editSignature(history.present), fileName: name })
-      setMessage(previousName !== name ? `Renamed “${previousName}” to “${name}” and saved.` : `Saved “${name}” to ${local.name}.`)
+      const savedMessage = previousName !== name ? `Renamed “${previousName}” to “${name}” and saved.` : `Saved “${name}” to ${local.name}.`
+      setMessage(local.repositoryKind === 'account' ? '' : savedMessage)
       if (updateRoute) onFileChange(name)
       if (testAfter) onPlay(copyLevel(next))
       return { fileName: name, level: next, sourceText: source }
@@ -411,13 +420,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = history.present
     setPointer(p)
     latestPreview.current = null
-    if (panHeld.current || event.button === 1) { drag.current = { mode: 'pan', start: p, screen, base, view, selection: null }; return }
+    if (panHeld.current || event.button === 1) { setDrag({ mode: 'pan', start: p, screen, base, view, selection: null }); return }
     if (tool === 'node') {
       const node = terrainVertexTarget(base, p.x, p.y, 10 / view.zoom)
       if (node) {
         const selected = { kind: 'platform' as const, index: node.index }
         chooseSelection(selected); setSelectedNode(node.vertex); setMessage('')
-        drag.current = { mode: 'point', start: p, screen, base, view, selection: selected, point: node.vertex }
+        setDrag({ mode: 'point', start: p, screen, base, view, selection: selected, point: node.vertex })
         return
       }
       const target = terrainNodeTarget(base, p.x, p.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0)
@@ -425,32 +434,32 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       try {
         const next = insertTerrainNode(base, target), selected = { kind: 'platform' as const, index: target.index }
         chooseSelection(selected); setSelectedNode(target.edge + 1); setMessage(''); setPreview(next); latestPreview.current = next
-        drag.current = { mode: 'point', start: p, screen, base: next, view, selection: selected, point: target.edge + 1, inserted: true }
+        setDrag({ mode: 'point', start: p, screen, base: next, view, selection: selected, point: target.edge + 1, inserted: true })
       } catch (error) { setMessage((error as Error).message) }
       return
     }
-    if (tool !== 'select') { drag.current = { mode: 'draw', start: event.altKey ? p : { x: quantize(p.x), y: quantizeY(p.y) }, screen, base, view, selection: null }; return }
+    if (tool !== 'select') { setDrag({ mode: 'draw', start: event.altKey ? p : { x: quantize(p.x), y: quantizeY(p.y) }, screen, base, view, selection: null }); return }
     const aimHandle = aimHandles.find(h => Math.hypot(p.x - h.x, p.y - h.y) < 10 / view.zoom)
-    if (selection?.kind === 'light' && aimHandle) { chooseInspectorTab('object'); drag.current = { mode: aimHandle.kind, start: p, screen, base, view, selection }; return }
+    if (selection?.kind === 'light' && aimHandle) { chooseInspectorTab('object'); setDrag({ mode: aimHandle.kind, start: p, screen, base, view, selection }); return }
     if (selection && travelHandleAt(p)) {
       chooseInspectorTab('object')
-      drag.current = { mode: 'travel', start: p, screen, base, view, selection }; return
+      setDrag({ mode: 'travel', start: p, screen, base, view, selection }); return
     }
     const handle = resizeHandleAt(p)
     if (selection && handle) {
       chooseInspectorTab('object')
       setSelectedNode(null)
-      drag.current = { mode: 'resize', start: p, screen, base, view, selection, corner: handle.corner }; return
+      setDrag({ mode: 'resize', start: p, screen, base, view, selection, corner: handle.corner }); return
     }
     if (selection && chosen) {
       const point = polygonPoints(chosen).findIndex(([x, y]) => Math.hypot(p.x - x, p.y - y) < 10 / view.zoom)
-      if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); drag.current = { mode: 'point', start: p, screen, base, view, selection, point }; return }
+      if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); setDrag({ mode: 'point', start: p, screen, base, view, selection, point }); return }
     }
     const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
-    chooseSelection(hit); drag.current = { mode: hit ? 'move' : 'pan', start: p, screen, base, view, selection: hit }
+    chooseSelection(hit); setDrag({ mode: hit ? 'move' : 'pan', start: p, screen, base, view, selection: hit })
   }
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
-    const d = drag.current
+    const d = drag
     if (!d) { setPointer(position(event)); return }
     if (d.mode === 'pan') { setView({ ...d.view, x: d.view.x - (event.clientX - d.screen.x) / d.view.zoom, y: d.view.y - (event.clientY - d.screen.y) / d.view.zoom }); return }
     const p = position(event), dx = p.x - d.start.x, dy = p.y - d.start.y
@@ -504,7 +513,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (next) { latestPreview.current = next; setPreview(next) }
   }
   function pointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
-    const d = drag.current; drag.current = null
+    const d = drag; setDrag(null)
     setPointer(position(event))
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     if (!d) return
@@ -588,7 +597,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save() }
-    else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); drag.current = null; setPreview(null); latestPreview.current = null }
+    else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); setDrag(null); setPreview(null); latestPreview.current = null }
     else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) }
     else if (event.target === canvasRef.current && selection) {
       if (event.key === 'End') { event.preventDefault(); commit(placeOnSurface(history.present, selection)) }
@@ -615,6 +624,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         <button aria-haspopup="dialog" title="Open the library to create or choose a level" disabled={saving} onClick={() => { setMessage(''); setLibraryOpen(true) }}>Library</button>
         <button className="builder-back" title="Return to the game" disabled={saving} onClick={onClose}>Back to game</button>
       </div>
+      <AccountSurface active={active} />
     </header>
     <div className="builder-view-controls" role="group" aria-label="Canvas controls">
       <div className="builder-control-group builder-mode-controls" role="group" aria-label="Editing tools">
@@ -645,9 +655,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         })}
     </aside>
     <div className="builder-stage">
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: drag.current?.mode === 'pan' || drag.current?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
-        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { drag.current = null; setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
-        onPointerLeave={() => { if (!drag.current) setPointer(null) }} />
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setDrag(null); setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
+        onPointerLeave={() => { if (!drag) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
     </div>
     <aside className="builder-inspector" aria-label="Inspector" ref={inspectorRef}>
@@ -757,7 +767,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       </div>
       <div id="builder-inspector-panel-level" role="tabpanel" aria-labelledby="builder-inspector-tab-level" hidden={inspectorTab !== 'level'}>
       <div className="builder-level-settings">
-        <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value)); commit({ ...history.present, name: e.target.value }) }} /></label>
+        <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value, local.entries.map(file => file.fileName))); commit({ ...history.present, name: e.target.value }) }} /></label>
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
         <div className="builder-save-field"><span id="builder-save-label">Save location</span><button className="builder-save-location" aria-labelledby="builder-save-label builder-save-value" aria-haspopup="dialog" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => { setMessage(''); setLibraryOpen(true) }}><span id="builder-save-value">{local.name || 'Choose level folder'}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="miter"><path d="M3 7V4h7l2 3h9v13H3ZM3 9h18" /></svg></button></div>
         <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} onCommit={value => {
@@ -777,7 +787,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       </div>
       {problems.length > 0 && <div className="builder-validation"><strong>Before you play</strong>{problems.map(issue => <p key={issue} role="alert">{issue}</p>)}</div>}
     </aside>
-    <footer className="builder-status"><span role="status" aria-label="Builder status">{lightingGeometry.error || message || (dirty ? 'Unsaved changes' : fileSource.text ? 'Saved' : 'New level')}</span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
+    <footer className="builder-status"><span className="builder-status-copy" role="status" aria-label="Builder status">
+      <LevelSaveStatus context="builder" kind={local.repository ? local.repositoryKind === 'account' ? 'account' : 'built-in' : 'folder'}
+        fileName={fileSource.fileName ?? fileName} text={fileSource.text} dirty={dirty || !fileSource.text} saving={saving} />
+      {(lightingGeometry.error || message) && <span className="builder-status-message">{lightingGeometry.error || message}</span>}
+    </span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
     {active && helpOpen && <BuilderHelp tools={TOOLS} onClose={() => setHelpOpen(false)} />}
     {active && libraryOpen && <BuilderLibrary local={local} collections={collections} templates={templates} level={level} dirty={dirty} saving={saving}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}

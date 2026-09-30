@@ -1,4 +1,5 @@
 import type { AccountInfo, IPublicClientApplication } from '@azure/msal-browser'
+import { CloudAccessError } from './errors'
 
 export type Provider = 'google' | 'microsoft'
 export interface Identity { provider: Provider; id: string; name: string }
@@ -9,12 +10,12 @@ export interface Login {
   disconnect(): void
   signOut(): Promise<void>
 }
-export const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata'
+export const GOOGLE_SCOPE = 'https://www.googleapis.com/auth/drive.file'
 export const MICROSOFT_SCOPE = 'Files.ReadWrite.AppFolder'
 const googleId = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
 const microsoftId = import.meta.env.VITE_MICROSOFT_CLIENT_ID?.trim()
 export const configured = { google: !!googleId, microsoft: !!microsoftId }
-const reconnect = () => new Error('Cloud access expired or was revoked. Reconnect to continue; your local progress is safe.')
+const reconnect = () => new CloudAccessError('Cloud access expired or was revoked. Reconnect to continue; your local progress is safe.')
 
 interface GoogleResponse { access_token: string; expires_in: number; scope: string; error?: string }
 interface GoogleSDK {
@@ -33,7 +34,7 @@ export function prepareAuth(provider: Provider): Promise<unknown> {
     microsoftLoad ??= import('@azure/msal-browser').then(async ({ PublicClientApplication, BrowserCacheLocation }) => {
       const app = new PublicClientApplication({
         auth: { clientId: microsoftId!, authority: 'https://login.microsoftonline.com/consumers', redirectUri: new URL(`${import.meta.env.BASE_URL}auth-redirect.html`, location.origin).href },
-        cache: { cacheLocation: BrowserCacheLocation.MemoryStorage },
+        cache: { cacheLocation: BrowserCacheLocation.SessionStorage },
         system: { loggerOptions: { piiLoggingEnabled: false, loggerCallback: () => {} } },
       })
       await app.initialize(); microsoft = app; return app
@@ -87,30 +88,76 @@ function microsoftIdentity(account: AccountInfo): Identity {
 }
 /** Called directly by a click after prepareAuth, preserving popup activation. */
 export async function signIn(provider: Provider): Promise<Login> {
-  let live = true, cloud = false
   if (provider === 'google') {
     const response = await googleToken(false)
     const identity = await googleIdentity(response.access_token)
-    let access = '', expires = 0
-    return {
-      identity,
-      async authorize() {
-        if (!live) throw reconnect()
-        const next = await googleToken(true, identity.id)
-        const actual = await googleIdentity(next.access_token)
-        if (!live || actual.id !== identity.id) throw new Error('The account changed. Sign out before connecting a different account.')
-        access = next.access_token; expires = Date.now() + Math.max(0, Math.min(Number(next.expires_in) || 0, 3600) - 60) * 1000; cloud = true
-      },
-      async token() { if (!live || !cloud || !access || Date.now() >= expires) throw reconnect(); return access },
-      disconnect() { cloud = false; access = ''; expires = 0 },
-      async signOut() { live = false; cloud = false; access = ''; expires = 0 },
-    }
+    clearGoogleAccess()
+    return googleLogin(identity, false)
   }
   if (!microsoft) throw new Error('Microsoft sign-in is still loading.')
   const app = microsoft
   const result = await app.loginPopup({ scopes: ['openid', 'profile'], prompt: 'select_account' })
   if (!result.account) throw new Error('Microsoft sign-in did not return an account.')
-  const account = result.account, identity = microsoftIdentity(account)
+  return microsoftLogin(app, result.account, false)
+}
+
+const GOOGLE_ACCESS = 'arcade.google.access.v1'
+function clearGoogleAccess() { try { sessionStorage.removeItem(GOOGLE_ACCESS) } catch { /* Session storage can be disabled. */ } }
+/** Keep the selected local profile on refresh, including when access needs renewal. */
+export function restoreGoogleLogin(identity: Identity, cloudEnabled: boolean): Login {
+  if (!configured.google || identity.provider !== 'google') throw new Error('Google sign-in has not been configured.')
+  return googleLogin(identity, cloudEnabled)
+}
+function googleLogin(identity: Identity, cloud: boolean): Login {
+  let live = true, access = '', expires = 0, verified = false, verifying: Promise<void> | undefined
+  try {
+    const cached = JSON.parse(sessionStorage.getItem(GOOGLE_ACCESS) ?? 'null')
+    if (cloud && cached?.id === identity.id && cached.client === googleId && typeof cached.access === 'string' && cached.access.length < 16000 && Number.isFinite(cached.expires) && cached.expires > Date.now() && cached.expires <= Date.now() + 3600000) {
+      access = cached.access; expires = cached.expires
+    } else clearGoogleAccess()
+  } catch { clearGoogleAccess() }
+  const clear = () => { access = ''; expires = 0; verified = false; clearGoogleAccess() }
+  return {
+    identity,
+    async authorize() {
+      if (!live) throw reconnect()
+      const next = await googleToken(true, identity.id)
+      const actual = await googleIdentity(next.access_token)
+      if (!live || actual.id !== identity.id) throw new Error('The account changed. Sign out before connecting a different account.')
+      access = next.access_token; expires = Date.now() + Math.max(0, Math.min(Number(next.expires_in) || 0, 3600) - 60) * 1000
+      cloud = true; verified = true
+      // Tab-scoped, short-lived access only. No refresh token or localStorage token.
+      try { sessionStorage.setItem(GOOGLE_ACCESS, JSON.stringify({ client: googleId, id: identity.id, access, expires })) } catch { /* This page can still sync; reload will ask to reconnect. */ }
+    },
+    async token() {
+      if (!live || !cloud || !access || Date.now() >= expires) { clear(); throw reconnect() }
+      if (!verified) {
+        const candidate = access
+        verifying ??= googleIdentity(candidate).then(actual => {
+          if (!live || !cloud || candidate !== access || actual.id !== identity.id) { clear(); throw reconnect() }
+          verified = true
+        }).catch(() => { clear(); throw reconnect() }).finally(() => { verifying = undefined })
+        await verifying
+      }
+      if (!live || !cloud || Date.now() >= expires) throw reconnect()
+      return access
+    },
+    disconnect() { cloud = false; clear() },
+    async signOut() { live = false; cloud = false; clear() },
+  }
+}
+
+/** Restore only the previously selected account from the SDK's cache, without a popup. */
+export async function restoreMicrosoftLogin(id: string, cloudEnabled: boolean): Promise<Login | undefined> {
+  await prepareAuth('microsoft')
+  const app = microsoft!
+  const account = app.getAccount({ homeAccountId: id, tenantId: '9188040d-6c67-4c5b-b112-36a304b66dad' })
+  return account ? microsoftLogin(app, account, cloudEnabled) : undefined
+}
+
+function microsoftLogin(app: IPublicClientApplication, account: AccountInfo, cloud: boolean): Login {
+  let live = true
+  const identity = microsoftIdentity(account)
   const verify = (next: { account: AccountInfo | null; accessToken: string; scopes: string[] }) => {
     if (!live || !next.account || microsoftIdentity(next.account).id !== identity.id || !next.scopes.some(scope => scope.toLowerCase().endsWith('files.readwrite.appfolder'))) throw reconnect()
     return next.accessToken
@@ -122,7 +169,7 @@ export async function signIn(provider: Provider): Promise<Login> {
       if (!live || !cloud) throw reconnect()
       try { return verify(await app.acquireTokenSilent({ scopes: [MICROSOFT_SCOPE], account })) } catch { throw reconnect() }
     },
-    disconnect() { cloud = false; void app.clearCache({ account }).catch(() => {}) },
+    disconnect() { cloud = false },
     async signOut() { live = false; cloud = false; await app.clearCache({ account }) },
   }
 }

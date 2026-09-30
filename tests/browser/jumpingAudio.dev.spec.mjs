@@ -90,7 +90,7 @@ test('gameplay unlocks sound, pause/builder silence it, and leaving closes the c
   await page.evaluate(() => window.dispatchEvent(new Event('blur')))
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await expect.poll(() => peakGain(page)).toBe(0)
-  await page.getByRole('button', { name: 'Level builder', exact: true }).click()
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/built-in$/)
   await expect.poll(() => peakGain(page)).toBe(0)
   // SPA navigation must dispose the game audio, rather than relying on tab closure.

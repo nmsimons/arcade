@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
-import { dialogButtons, dialogButtonKey, isVisibleControl, moveDialogSelection, restoreDialogSelection, scrollDialog, topDialog } from './dialogNavigation'
+import { DIALOG_CONTROL_SELECTOR, dialogButtons, dialogButtonKey, isDialogControl, isVisibleControl, moveDialogSelection, restoreDialogSelection, scrollDialog, topDialog } from './dialogNavigation'
+import type { DialogControl } from './dialogNavigation'
 
 /** Use actual DOM focus as the selection, shared by mouse, Tab and arrow keys. */
 export function KeyboardDialog({ children, label, focusKey, onClose, className = 'menu-overlay', confirmation = false, controllerMode = 'menu', globalMenu = false }: {
@@ -16,7 +17,7 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className =
   const rootRef = useRef<HTMLDivElement>(null)
   const lastScreenRef = useRef('')
   const selections = useRef(new Map<string, string>())
-  const lastFocused = useRef<HTMLButtonElement | null>(null)
+  const lastFocused = useRef<DialogControl | null>(null)
 
   useLayoutEffect(() => {
     const root = rootRef.current
@@ -27,7 +28,7 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className =
     const active = document.activeElement
     // A purchase can disable the focused button. Move to another available
     // action immediately instead of leaving keyboard input on a dead control.
-    if (changed || !dialogButtons(root).includes(active as HTMLButtonElement)) {
+    if (changed || !dialogButtons(root).includes(active as DialogControl)) {
       // Reopening a destructive confirmation always defaults to Cancel, even
       // if the pilot highlighted the destructive choice on an earlier visit.
       restoreDialogSelection(root, changed && confirmation ? '' : selections.current.get(focusKey), changed ? undefined : lastFocused.current)
@@ -57,7 +58,7 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className =
       event.preventDefault(); event.stopPropagation()
       if (!event.repeat) {
         const active = document.activeElement
-        if (active instanceof HTMLButtonElement && dialogButtons(event.currentTarget).includes(active)) active.click()
+        if (isDialogControl(active) && dialogButtons(event.currentTarget).includes(active)) active.click()
         else restoreDialogSelection(event.currentTarget)
       }
       return
@@ -84,11 +85,11 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className =
     data-global-menu={globalMenu || undefined} data-dialog-screen={focusKey} data-controller-mode={controllerMode} className={`game-dialog ${className}`} onKeyDown={navigate}
     onPointerDownCapture={event => {
       event.currentTarget.dataset.inputMethod = 'pointer'
-      const button = (event.target as HTMLElement).closest('button')
+      const button = (event.target as HTMLElement).closest<DialogControl>(DIALOG_CONTROL_SELECTOR)
       if (button && dialogButtons(event.currentTarget).includes(button)) button.focus({ preventScroll: true })
     }}
     onFocusCapture={event => {
-      if (!(event.target instanceof HTMLButtonElement)) return
+      if (!isDialogControl(event.target)) return
       const key = dialogButtonKey(event.target)
       selections.current.set(focusKey, key); event.currentTarget.dataset.selectionKey = key; lastFocused.current = event.target
     }}>

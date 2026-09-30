@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="264" height="64" viewBox="0 0 264 64" role="img" aria-labelledby="title">
+  <title id="title">Arcade</title>
+  <!-- A cabinet-shaped A with a single orange token. -->
+  <rect width="64" height="64" rx="14" fill="#243e36"/>
+  <path fill="#faf5e8" fill-rule="evenodd" d="M10 50 25 14h14l15 36H42l-4-10H26l-4 10Zm20-20h4l-2-6Z"/>
+  <circle cx="32" cy="49" r="5" fill="#ef8b45"/>
+  <!-- The icon supplies A; RCADE aligns with its cap height and baseline. -->
+  <g transform="translate(74 14) scale(.9)" fill="#243e36" fill-rule="evenodd">
+    <path d="M0 40V0h20q15 0 15 13 0 9-9 12l11 15H24L14 27h-3v13Zm11-30v8h9q4 0 4-4t-4-4Z"/>
+    <path transform="translate(43)" d="M35 0v10H16q-5 0-5 5v10q0 5 5 5h19v10H15Q0 40 0 25V15Q0 0 15 0Z"/>
+    <path transform="translate(84)" d="M0 40 14 0h12l14 40H28l-2-7H14l-2 7Zm17-17h6l-3-10Z"/>
+    <path transform="translate(130)" d="M0 0h18q19 0 19 20T18 40H0Zm11 10v20h7q8 0 8-10t-8-10Z"/>
+    <path transform="translate(173)" d="M0 0h33v10H11v5h19v10H11v5h22v10H0Z"/>
+  </g>
+</svg>

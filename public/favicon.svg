@@ -1,29 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- background -->
-  <rect x="0" y="0" width="64" height="64" fill="#000"/>
-
-  <!-- rock -->
-  <g fill="none"
-     stroke="#38ff7a"
-     stroke-width="2"
-     stroke-linecap="round"
-     stroke-linejoin="round">
-
-    <!-- outer hull -->
-    <path d="M18 16
-             L30 12
-             L44 18
-             L50 30
-             L46 44
-             L34 50
-             L20 46
-             L14 32 Z"/>
-
-    <!-- internal facets -->
-    <path d="M30 12 L28 26 L44 18"/>
-    <path d="M18 16 L28 26 L14 32"/>
-    <path d="M28 26 L46 44"/>
-    <path d="M20 46 L28 26 L34 50"/>
-
-  </g>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <title>Arcade</title>
+  <rect width="64" height="64" rx="14" fill="#243e36"/>
+  <path fill="#faf5e8" fill-rule="evenodd" d="M10 50 25 14h14l15 36H42l-4-10H26l-4 10Zm20-20h4l-2-6Z"/>
+  <circle cx="32" cy="49" r="5" fill="#ef8b45"/>
 </svg>

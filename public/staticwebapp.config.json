@@ -4,6 +4,7 @@
     "exclude": [
       "/assets/*",
       "/levels/*",
+      "/*.html",
       "/*.css",
       "/*.js",
       "/*.mjs",

@@ -1,0 +1,18 @@
+:root { font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; color: #243e36; background: #f8f7ef; color-scheme: light; }
+* { box-sizing: border-box; }
+body { max-width: 780px; margin: 0 auto; padding: clamp(24px, 6vw, 64px) 24px; font-size: 17px; line-height: 1.7; }
+.brand { display: inline-block; }
+.brand img { display: block; width: 218px; max-width: 100%; height: auto; }
+nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 28px; font-size: 14px; }
+nav [aria-current='page'] { font-weight: 700; }
+main { margin-top: 44px; }
+h1, h2 { line-height: 1.2; letter-spacing: -.035em; }
+h1 { margin: 0 0 24px; font-size: clamp(36px, 7vw, 52px); }
+h2 { margin-top: 36px; font-size: 24px; }
+p, ul { margin: 16px 0; }
+ul { padding-left: 24px; }
+li { margin: 10px 0; }
+a { color: #245f48; text-underline-offset: 4px; overflow-wrap: anywhere; }
+a:hover { color: #122f24; }
+a:focus-visible { outline: 3px solid #245f48; outline-offset: 5px; border-radius: 2px; }
+footer { margin-top: 48px; padding-top: 24px; border-top: 1px solid #cbd3c7; font-size: 14px; }

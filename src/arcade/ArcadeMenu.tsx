@@ -11,7 +11,10 @@ export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
   return <KeyboardDialog label="Arcade" focusKey="arcade" globalMenu onClose={() => {}} className="arcade-overlay">
     <div className="arcade-menu">
       <header className="arcade-heading">
-        <div><p className="arcade-eyebrow">THE ARCADE</p><h1>Select Game</h1></div>
+        <div>
+          <img className="arcade-logo" src={`${import.meta.env.BASE_URL}arcade-logo.svg`} width="264" height="64" alt="Arcade" />
+          <h1>Select Game</h1>
+        </div>
         <p className="arcade-edition">{String(ARCADE_GAMES.length).padStart(2, '0')} <span>games to get lost in</span></p>
       </header>
       <AccountSurface compact={false} />
@@ -29,6 +32,13 @@ export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
       <div className="menu-help arcade-help">{connected
         ? <p>Stick / D-pad <span>Choose</span> · {hint('confirm', '')} <span>Play</span></p>
         : <p>Arrow keys / Tab <span>Choose</span> · Enter <span>Play</span></p>}</div>
+      <footer className="arcade-footer">
+        <p>Free browser games. Play locally, with optional cloud saves.</p>
+        <nav aria-label="Policies">
+          <a data-menu-link href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy policy</a>
+          <a data-menu-link href={`${import.meta.env.BASE_URL}terms.html`}>Terms of service</a>
+        </nav>
+      </footer>
     </div>
   </KeyboardDialog>
 }

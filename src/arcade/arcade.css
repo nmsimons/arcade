@@ -3,8 +3,10 @@
 .arcade-menu { width: 100%; max-width: 1320px; margin-block: auto; }
 .arcade-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
 .arcade-logo { display: block; width: clamp(174px, 20vw, 218px); max-width: 100%; height: auto; }
-.arcade-brand-name { margin-top: 8px; color: #52625b; font-size: 12px; font-weight: 600; letter-spacing: .04em; }
-.arcade-heading h1 { font-size: clamp(32px, 4vw, 48px); font-weight: 800; letter-spacing: -.045em; line-height: 1.15; margin-top: 16px; }
+.arcade-brand-name { margin: 0 0 10px; color: #52625b; font-size: 11px; font-weight: 700; letter-spacing: .18em; line-height: 1.4; text-transform: uppercase; }
+.arcade-heading h1 { margin: 0; }
+.arcade-overlay .arcade-account-bar button:is(:hover, :focus):not(:disabled) { background: #e8ede3; color: #254c3f; border-color: #527b65; }
+.arcade-overlay .arcade-account-bar button:focus:not(:disabled) { outline-color: #237152; }
 .arcade-edition { font: 24px ui-monospace, monospace; color: #52625b; }
 .arcade-edition span { display: block; font: 11px 'Trebuchet MS', sans-serif; margin-top: 5px; }
 .arcade-games { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
@@ -23,7 +25,7 @@
 .arcade-choice-urban .arcade-card-heading { padding-top: 22px; }
 .arcade-choice-urban .arcade-title { font-family: Impact, 'Arial Narrow', sans-serif; font-size: 43px; letter-spacing: .02em; line-height: .98; }
 .arcade-choice-urban .arcade-card-footer { border-color: #64705d44; }
-.arcade-overlay .arcade-choice-jumping { --entry-focus: var(--jumping-color-ink); background: var(--jumping-paper); color: var(--jumping-ink); border-color: var(--jumping-rule); border-radius: 2px; box-shadow: none; font-family: 'Segoe UI', sans-serif; }
+.arcade-overlay .arcade-choice-jumping { --entry-focus: var(--jumping-color-ink); background: var(--jumping-paper); color: var(--jumping-ink); border-color: var(--jumping-rule); border-radius: 2px; box-shadow: var(--ui-shadow-card); font-family: 'Segoe UI', sans-serif; }
 .arcade-choice-jumping .arcade-card-heading { padding-bottom: 24px; background: var(--jumping-header); }
 .arcade-choice-jumping .arcade-genre { font-family: ui-monospace, monospace; letter-spacing: .1em; }
 .arcade-choice-jumping .arcade-title { max-width: 15ch; font-size: 32px; font-weight: 800; line-height: 1.05; text-transform: none; letter-spacing: -.055em; }

@@ -7,7 +7,7 @@
   border: 1px solid #b9c1bb;
   border-radius: 12px;
   background: #fcfaf4;
-  box-shadow: 0 16px 48px #23392b12;
+  box-shadow: var(--ui-shadow-overlay);
   overflow-wrap: anywhere;
 }
 .arcade-route-panel h1 { margin: 18px 0 0; font-size: clamp(28px, 5vw, 36px); font-weight: 800; letter-spacing: -.045em; line-height: 1.15; }

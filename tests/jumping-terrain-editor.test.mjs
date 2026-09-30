@@ -7,18 +7,24 @@ import { nearestBoundary, pointInside, polygonArea, polygonPoints } from '../src
 const outline = terrain => polygonPoints(terrain).map(p => p.join(',')).sort()
 const transforms = ['rotate-left', 'rotate-right', 'flip-horizontal', 'flip-vertical']
 
-test('step templates match the stepped underside and extended landing, at both tread widths', () => {
-  const expected = [[0,5],[0,4],[1,4],[1,3],[2,3],[2,2],[3,2],[3,1],[4,1],[4,0],
-    [6,0],[6,1],[5,1],[5,2],[4,2],[4,3],[3,3],[3,4],[2,4],[2,5]]
-  for (const [tool, tread] of [['steps-narrow', 20], ['steps-wide', 40]]) {
+test('step templates have five thin steps with one-square overlaps and correctly sized landings', () => {
+  const templates = [
+    ['steps-narrow', 6, [[0,5],[0,4],[1,4],[1,3],[2,3],[2,2],[3,2],[3,1],[4,1],[4,0],
+      [6,0],[6,1],[5,1],[5,2],[4,2],[4,3],[3,3],[3,4],[2,4],[2,5]], [[4,5],[3,4],[2,3],[1,2],[0,1]]],
+    ['steps-wide', 11, [[0,5],[0,4],[2,4],[2,3],[4,3],[4,2],[6,2],[6,1],[8,1],[8,0],
+      [11,0],[11,1],[9,1],[9,2],[7,2],[7,3],[5,3],[5,4],[3,4],[3,5]], [[8,9,10],[6,7,8],[4,5,6],[2,3,4],[0,1,2]]],
+  ]
+  for (const [tool, columns, expected, occupiedRows] of templates) {
     const source = blankTrial(), original = copyLevel(source)
     const added = addItem(source, tool, { x: 200, y: 300 }, { x: 200, y: 300 })
     const terrain = added.level.platforms[0]
     assert.deepEqual(added.selection, { kind: 'platform', index: 0 })
-    assert.deepEqual([terrain.x, terrain.y, terrain.w, terrain.h], [200, 300, 6 * tread, 100])
-    assert.deepEqual(terrain.polygon, expected.map(([x, y]) => [x * tread, y * 20]))
-    assert.equal(pointInside(terrain, 200 + tread * 3.5, 390), false, 'the space under the steps remains open')
-    assert.equal(pointInside(terrain, 200 + tread * 5.5, 310), true, 'the upper landing is two treads long')
+    assert.deepEqual([terrain.x, terrain.y, terrain.w, terrain.h], [200, 300, columns * 20, 100])
+    assert.deepEqual(terrain.polygon, expected.map(([x, y]) => [x * 20, y * 20]))
+    for (let row = 0; row < 5; row++) for (let column = 0; column < columns; column++) {
+      assert.equal(pointInside(terrain, 200 + column * 20 + 10, 300 + row * 20 + 10), occupiedRows[row].includes(column),
+        `${tool}: cell ${column},${row} matches the stepped silhouette`)
+    }
     assert.deepEqual(parseLevel(added.level).platforms, added.level.platforms)
     assert.deepEqual(source, original)
     for (const transform of transforms) assert.doesNotThrow(() => parseLevel(transformTerrain(added.level, 0, transform)))

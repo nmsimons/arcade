@@ -285,7 +285,7 @@ test('keyboard walks and runs, quick taps jump, and a charged jump goes higher',
   await page.clock.runFor(700); await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await page.getByRole('button', { name: 'Back to arcade' }).click()
-  await expect(page.getByRole('heading', { name: 'Select Game' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Dream Large Arcade' })).toBeVisible()
   expect(errors).toEqual([])
 })
 

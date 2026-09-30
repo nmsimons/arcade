@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
+import './vectorMenus.css'
 
 // Sound system for No Exit
 class OmegaSoundSystem {
@@ -217,8 +219,6 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
   const [score, setScore] = useState(0)
   const [lives, setLives] = useState(3)
   const [wave, setWave] = useState(1)
-  const [menuIndex, setMenuIndex] = useState(0)
-  const [gameOverIndex, setGameOverIndex] = useState(0)
 
   const shipRef = useRef<Ship>({ pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 }, angle: 0, radius: 12 })
   const bulletsRef = useRef<Bullet[]>([])
@@ -423,41 +423,6 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
       } else if (e.key === 'p' && gameState === 'paused') {
         setGameState('playing')
       }
-
-      // Menu navigation
-      if (gameState === 'menu') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setMenuIndex((i) => (i > 0 ? i - 1 : 1))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setMenuIndex((i) => (i < 1 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (menuIndex === 0) startGame()
-          else onExit()
-        }
-      }
-
-      // Game Over navigation
-      if (gameState === 'gameOver') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i > 0 ? i - 1 : 2))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i < 2 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (gameOverIndex === 0) startGame()
-          else if (gameOverIndex === 1) setGameState('menu')
-          else onExit()
-        }
-      }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -471,7 +436,7 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, startGame, onExit])
+  }, [gameState, onExit])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1076,8 +1041,8 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
       <canvas ref={canvasRef} className="absolute inset-0" />
 
       {gameState === 'menu' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="No Exit" focusKey={gameState} onClose={exitToGameSelect} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] uppercase">No Exit</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2">
@@ -1096,56 +1061,49 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button vector-menu-primary"
+                data-initial-focus
               >
                 Start
               </button>
               <button
                 onClick={exitToGameSelect}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
-                }`}
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
-            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • Enter to confirm • Esc to exit</p>
+            <p className="text-[#00ff88]/70 text-xs text-center mt-4 tracking-wider">Arrows / Tab to select • Enter to confirm • Esc to exit</p>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
 
       {gameState === 'paused' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="No Exit paused" focusKey={gameState} onClose={exitToGameSelect} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h2 className="text-4xl text-[#00ff88] mb-4 tracking-[0.3em] uppercase">Paused</h2>
             <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={() => setGameState('playing')}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="vector-menu-button"
               >
                 Resume
               </button>
               <button
                 onClick={exitToGameSelect}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
 
       {gameState === 'gameOver' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="No Exit result" focusKey={gameState} onClose={exitToGameSelect} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h2 className="text-4xl text-[#ff4444] mb-2 tracking-[0.3em] uppercase">Game Over</h2>
             <div className="text-center mb-8">
               <div className="text-[#00ff88] text-2xl mb-2 tracking-wider">{score.toString().padStart(6, '0')}</div>
@@ -1154,38 +1112,27 @@ export function NoExitGame({ onExit }: NoExitGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button vector-menu-primary"
+                data-initial-focus
               >
                 Play Again
               </button>
               <button
                 onClick={() => setGameState('menu')}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
-                }`}
+                className="vector-menu-button"
               >
                 Main Menu
               </button>
               <button
                 onClick={exitToGameSelect}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 2
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#ff4444] bg-black text-[#ff4444] hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
-                }`}
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
-            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • Enter to confirm</p>
+            <p className="text-[#00ff88]/70 text-xs text-center mt-4 tracking-wider">Arrows / Tab to select • Enter to confirm</p>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
     </div>
   )

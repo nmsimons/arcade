@@ -7,6 +7,30 @@ const paint = button => button.evaluate(element => {
   return { font: style.fontFamily, fill: style.backgroundColor, outline: style.outlineColor, width: style.outlineWidth }
 })
 
+test('homepage account label stays readable on hover and keyboard focus', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await page.goto('/')
+  const button = page.getByRole('button', { name: 'Sign in', exact: true })
+  await expect(button).toBeVisible()
+  const contrast = () => button.evaluate(element => {
+    const luminance = color => {
+      const rgb = color.match(/[\d.]+/g).slice(0, 3).map(Number).map(value => value / 255)
+        .map(value => value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4)
+      return rgb[0] * .2126 + rgb[1] * .7152 + rgb[2] * .0722
+    }
+    const text = luminance(getComputedStyle(element.querySelector('.account-name')).color)
+    const background = luminance(getComputedStyle(element).backgroundColor)
+    return (Math.max(text, background) + .05) / (Math.min(text, background) + .05)
+  })
+  expect(await contrast()).toBeGreaterThanOrEqual(4.5)
+  await button.hover()
+  await expect.poll(contrast).toBeGreaterThanOrEqual(4.5)
+  await page.mouse.move(0, 0)
+  await page.keyboard.press('Home')
+  await expect(button).toBeFocused()
+  expect(await contrast()).toBeGreaterThanOrEqual(4.5)
+})
+
 for (const [path, title] of [['bumper-ball', 'BUMPER BALL'], ['urban-fire', 'Urban Fire']]) {
   test(`${path} action labels retain contrast in default, selected and hovered states`, async ({ page }) => {
     await page.goto(`/${path}`)
@@ -105,7 +129,7 @@ test('controller selection, themed pause, connection hints and return focus work
 for (const viewport of [{ width: 360, height: 640 }, { width: 620, height: 360 }, { width: 1280, height: 800 }]) {
   test(`all themed menus fit horizontally and scroll focused actions into view at ${viewport.width}×${viewport.height}`, async ({ page }, info) => {
     await page.setViewportSize(viewport)
-    for (const [path, title] of [['/', 'Select Game'], ['/urban-fire', 'Urban Fire'], ['/bumper-ball', 'BUMPER BALL'], ['/hard-vacuum', 'Hard Vacuum']]) {
+    for (const [path, title] of [['/', 'Dream Large Arcade'], ['/urban-fire', 'Urban Fire'], ['/bumper-ball', 'BUMPER BALL'], ['/hard-vacuum', 'Hard Vacuum']]) {
       await page.goto(path)
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
       if (path === '/') await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible()
@@ -262,7 +286,7 @@ for (const [path, chunk, title, viewport = { width: 1280, height: 800 }] of [
         await page.keyboard.press('Tab')
       }
       await page.keyboard.press('Escape')
-      await expect(page.getByRole('heading', { name: 'Select Game' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Dream Large Arcade' })).toBeVisible()
     } finally { release() }
   })
 }

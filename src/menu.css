@@ -1,3 +1,10 @@
+/* Quiet depth shared by the arcade and jumping UI, independent of focus. */
+:root {
+  --ui-shadow-header: 0 2px 3px rgb(36 62 54 / 8%), 0 5px 10px -4px rgb(36 62 54 / 12%);
+  --ui-shadow-card: 0 2px 4px rgb(36 62 54 / 7%), 0 6px 14px rgb(36 62 54 / 5%);
+  --ui-shadow-overlay: 0 4px 12px rgb(36 62 54 / 10%), 0 16px 40px rgb(36 62 54 / 14%);
+}
+
 /* One selection language for pointer, keyboard and controller. Focus is not
    the same as a selected tab, a toggled option, or an unavailable upgrade. */
 .game-dialog {

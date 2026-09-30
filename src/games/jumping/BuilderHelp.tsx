@@ -101,7 +101,7 @@ export function BuilderHelp({ tools, onClose }: {
         </div>
         <dl className="builder-help-copy">
           <div><dt>Place objects</dt><dd>Choose a tool, then click for its default size or drag to set its size. Keep placing leaves that tool active for the next object. Pointer and Node stay active until you switch tools.</dd></div>
-          <div><dt>Terrain templates</dt><dd>Steps narrow and Steps wide in Terrain place five one-square rises, with one-square or two-square treads. Both have a stepped underside and a top landing twice the tread width. Click to place, then resize or reshape like any terrain.</dd></div>
+          <div><dt>Terrain templates</dt><dd>Steps narrow and Steps wide in Terrain place five one-square rises, with one-square or two-square treads. Both have a stepped underside with a one-square overlap between steps. The top landing is two squares wide for narrow steps and three for wide steps. Click to place, then resize or reshape like any terrain.</dd></div>
           <div><dt>Rotate &amp; flip terrain</dt><dd>Select terrain to enable Rotate left, Rotate right, Flip horizontal, and Flip vertical in the top toolbar. Rotations turn 90° around the center, shifting inward if needed to fit the level. Rope anchors follow the shape. Other objects stay in place; attached ladders become independent when terrain rotates. Undo reverses each action.</dd></div>
           <div><dt>Snap to fit</dt><dd>Snap aligns objects to the 20-unit grid and nearby surfaces. Turn it off for free placement.</dd></div>
           <div><dt>Find your way</dt><dd>Fit level shows the whole map. Find start returns to the player. The overview in the corner also fits the level.</dd></div>

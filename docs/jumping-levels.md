@@ -172,9 +172,11 @@ Each action can be undone or redone. Slopes become ordinary editable polygons wh
 transformed; no new level-file fields or gameplay rules are involved.
 
 **Terrain → Steps narrow / Steps wide** stamps five one-grid-square
-rises with treads one or two squares wide. Both have a stepped underside and a top
-landing twice the tread width. The overall size is 6 × 5 or 12 × 5 grid squares
-(120 × 100 or 240 × 100 units). Click to place the full-sized template; it stays
+rises with treads one or two squares wide. Both have a stepped underside formed
+by five one-square-thick steps overlapping their neighbors by one square.
+Narrow steps are two squares wide; wide steps are three squares wide, including
+the top landing. The overall size is 6 × 5 or 11 × 5 grid squares
+(120 × 100 or 220 × 100 units). Click to place the full-sized template; it stays
 inside the room even near an edge. **Keep placing** repeats it. Each template
 becomes one ordinary terrain piece with editable nodes,
 dimensions, material, duplication, transforms, and undo/redo.

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
+import './vectorMenus.css'
 
 type SlingLoadGameProps = {
   onExit: () => void
@@ -101,8 +103,6 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
   const [deliveries, setDeliveries] = useState(0)
   const [missionQueue, setMissionQueue] = useState<Mission[]>([])
   const [failedMissions, setFailedMissions] = useState(0)
-  const [menuIndex, setMenuIndex] = useState(0)
-  const [gameOverIndex, setGameOverIndex] = useState(0)
 
   const exitToArcade = useCallback(() => {
     setIsExiting(true)
@@ -409,43 +409,6 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         return
       }
 
-      // Menu navigation
-      if (gameState === 'menu') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setMenuIndex((i) => (i > 0 ? i - 1 : 1))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setMenuIndex((i) => (i < 1 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (menuIndex === 0) startGame()
-          else exitToArcade()
-        }
-        return
-      }
-
-      // Game Over navigation
-      if (gameState === 'gameOver') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i > 0 ? i - 1 : 2))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setGameOverIndex((i) => (i < 2 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (gameOverIndex === 0) startGame()
-          else if (gameOverIndex === 1) setGameState('menu')
-          else exitToArcade()
-        }
-        return
-      }
-
       // Sling attach / release
       if (gameState === 'playing' && (e.key === ' ' || e.code === 'Space')) {
         e.preventDefault()
@@ -497,7 +460,7 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, menuIndex, gameOverIndex, startGame, exitToArcade, getHookPoint, getCrateAttachPoint])
+  }, [gameState, exitToArcade, getHookPoint, getCrateAttachPoint])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -1892,23 +1855,38 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
         const nowMs = gameClockMsRef.current || performance.now()
         const q = missionQueue
         const active = q[0]
+        // Cargo names and destinations can exceed a narrow viewport. Advance
+        // the queue below the wrapped mission instead of painting over it.
+        const drawHudText = (text: string, y: number) => {
+          let line = ''
+          for (const word of text.split(' ')) {
+            const next = line ? `${line} ${word}` : word
+            if (line && ctx.measureText(next).width > width - 32) {
+              ctx.fillText(line, 16, y)
+              y += 18
+              line = word
+            } else line = next
+          }
+          ctx.fillText(line, 16, y)
+          return y + 18
+        }
+        let queueY = 108
         if (active) {
           const remainingMs = Math.max(0, active.dueAtMs - nowMs)
           const mm = Math.floor(remainingMs / 60000)
           const ss = Math.floor((remainingMs % 60000) / 1000)
           ctx.fillStyle = 'rgba(255,255,255,0.9)'
-          ctx.fillText(
+          queueY = drawHudText(
             `MISSION: DELIVER ${active.cargo.toUpperCase()} TO ${active.outpost}  (${mm}:${ss
               .toString()
               .padStart(2, '0')})`,
-            16,
             108,
-          )
+          ) + 2
         }
 
         if (q.length > 1) {
           ctx.fillStyle = 'rgba(0,255,136,0.7)'
-          ctx.fillText(`QUEUE ${q.length - 1}  FAILED ${failedMissions}`, 16, 128)
+          queueY = drawHudText(`QUEUE ${q.length - 1}  FAILED ${failedMissions}`, queueY)
 
           ctx.fillStyle = 'rgba(0,255,136,0.55)'
           const maxShow = Math.min(q.length - 1, 3)
@@ -1917,20 +1895,15 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
             const remainingMs = Math.max(0, m.dueAtMs - nowMs)
             const mm = Math.floor(remainingMs / 60000)
             const ss = Math.floor((remainingMs % 60000) / 1000)
-            ctx.fillText(
+            queueY = drawHudText(
               `NEXT ${i}: ${m.cargo.toUpperCase()} → ${m.outpost}  (${mm}:${ss.toString().padStart(2, '0')})`,
-              16,
-              128 + 18 * i,
+              queueY,
             )
           }
         } else if (failedMissions > 0) {
           ctx.fillStyle = 'rgba(0,255,136,0.7)'
-          ctx.fillText(`FAILED ${failedMissions}`, 16, 128)
+          drawHudText(`FAILED ${failedMissions}`, queueY)
         }
-
-        // Minimal instructions
-        ctx.fillStyle = 'rgba(0,255,136,0.65)'
-        ctx.fillText('ARROWS/WASD: THRUST  •  SPACE: HOOK/RELEASE  •  SHIFT: STABILIZE  •  P: PAUSE  •  ESC: EXIT', 16, height - 18)
       }
     }
 
@@ -1975,9 +1948,20 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
     <div className="relative w-screen h-screen overflow-hidden font-mono">
       <canvas ref={canvasRef} className="absolute inset-0 z-0" />
 
+      {gameState === 'playing' && (
+        <div className="sling-control-hints" aria-label="Flight controls">
+          <span>ARROWS/WASD: THRUST</span>
+          <span>SPACE: HOOK/RELEASE</span>
+          <span>X: ROTOR</span>
+          <span>SHIFT: STABILIZE</span>
+          <span>P: PAUSE</span>
+          <span>ESC: EXIT</span>
+        </div>
+      )}
+
       {gameState === 'menu' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="Sling Load" focusKey={gameState} onClose={exitToArcade} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] uppercase">Sling Load</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2"><span className="text-white">›</span> Arrows / WASD: Thrust</div>
@@ -1989,11 +1973,8 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button vector-menu-primary"
+                data-initial-focus
               >
                 Start
               </button>
@@ -2004,47 +1985,43 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
                   e.stopPropagation()
                   exitToArcade()
                 }}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
-            <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ to select • Enter to confirm • Esc to exit</p>
+            <p className="mt-6 text-[#00ff88]/70 text-xs tracking-widest text-center">Arrows / Tab to select • Enter to confirm • Esc to exit</p>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
 
       {gameState === 'paused' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="Sling Load paused" focusKey={gameState} onClose={exitToArcade} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h2 className="text-4xl text-[#00ff88] mb-4 tracking-[0.3em] uppercase">Paused</h2>
             <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={() => setGameState('playing')}
-                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="vector-menu-button"
               >
                 Resume
               </button>
               <button
                 onClick={exitToArcade}
-                className="w-64 px-8 py-3 bg-black border-2 border-[#00ff88] text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
 
       {gameState === 'gameOver' && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
-            <h1 className="text-4xl text-[#00ff88] mb-2 tracking-[0.3em] uppercase">Game Over</h1>
+        <KeyboardDialog label="Sling Load result" focusKey={gameState} onClose={exitToArcade} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
+            <h2 className="text-4xl text-[#00ff88] mb-2 tracking-[0.3em] uppercase">Game Over</h2>
             <div className="text-[#00ff88] text-sm mb-8 tracking-wider text-center">
               <div>Score {score.toString().padStart(6, '0')}</div>
               <div>Delivered {deliveries}</div>
@@ -2052,38 +2029,27 @@ export function SlingLoadGame({ onExit }: SlingLoadGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button vector-menu-primary"
+                data-initial-focus
               >
                 Play Again
               </button>
               <button
                 onClick={() => setGameState('menu')}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button"
               >
                 Main Menu
               </button>
               <button
                 onClick={exitToArcade}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  gameOverIndex === 2
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'bg-black border-[#00ff88] text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
-            <p className="mt-6 text-[#00ff88]/50 text-xs tracking-widest text-center">↑ ↓ to select • Enter to confirm • Esc to exit</p>
+            <p className="mt-6 text-[#00ff88]/70 text-xs tracking-widest text-center">Arrows / Tab to select • Enter to confirm • Esc to exit</p>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
     </div>
   )

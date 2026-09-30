@@ -2,10 +2,11 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { bodyPolygon, polygonIntersects } from '../../src/games/jumping/geometry.ts'
+import { addItem } from '../../src/games/jumping/editor.ts'
 
-for (const tread of [20, 40]) test(`${tread}-unit stair treads climb with ordinary movement controls`, async ({ page }, info) => {
+for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${template ? 'Steps wide template' : `${tread}-unit stair treads`} climb with ordinary movement controls`, async ({ page }, info) => {
   const steps = Array.from({ length: 5 }, (_, i) => ({ x: 300 + i * tread, y: 400 - i * 20, w: i === 4 ? 420 - i * tread : tread }))
-  const stairs = { x: 300, y: 320, w: 420, h: 100,
+  const stairs = template ? addItem(blankTrial(), 'steps-wide', { x: 300, y: 320 }, { x: 300, y: 320 }).level.platforms[0] : { x: 300, y: 320, w: 420, h: 100,
     polygon: [...steps.flatMap(s => [[s.x - 300, s.y - 320], [s.x + s.w - 300, s.y - 320]]), [420,100],[0,100]] }
   const level = { ...blankTrial(), name: 'Stair treads', width: 1000, height: 420, floor: 420,
     spawn: { x: 250, y: 420 }, goal: { x: 100, y: 420 }, platforms: [stairs] }
@@ -39,7 +40,7 @@ for (const tread of [20, 40]) test(`${tread}-unit stair treads climb with ordina
   await page.screenshot({ path: info.outputPath('climbing-stairs.png') })
   for (let i = 0; i < 30; i++) {
     const last = await canvas.evaluate(c => c.stairFrames.at(-1))
-    if (last.x > 330 + 4 * tread && Math.abs(last.y - 320) < .01) break
+    if (last.x > (template ? 320 : 330) + 4 * tread && Math.abs(last.y - 320) < .01) break
     await page.clock.runFor(32)
   }
   await page.keyboard.up('d'); await page.clock.runFor(200)

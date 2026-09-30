@@ -52,7 +52,7 @@ test('keyboard flight, map, recorder, pause, saving and HUD stay synchronized',a
   await expect(page.getByRole('dialog',{name:'Developer panel',exact:true})).toHaveCount(0)
   await page.keyboard.press('p')
   await page.getByRole('button',{name:'Save & exit',exact:true}).press('Enter')
-  await expect(page.getByRole('heading',{name:'Select Game'})).toBeVisible()
+  await expect(page.getByRole('heading',{name:'Dream Large Arcade'})).toBeVisible()
   const saved=await page.evaluate(key=>JSON.parse(localStorage.getItem(key)),SAVE_KEY)
   expect(saved.blasterCharges).toBe(2);expect(saved.banked).toBe(12345)
 })

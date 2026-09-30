@@ -30,7 +30,7 @@ test('homepage policy links are reachable and open with the keyboard', async ({ 
   for (const [path, heading] of policies) {
     await page.goto('/')
     await expect(page).toHaveTitle('Dream Large Arcade')
-    await expect(page.locator('.arcade-brand-name')).toHaveText('Dream Large Arcade')
+    await expect(page.locator('.arcade-brand-name')).toHaveText('Dream Large')
     await expect(page.getByRole('button', { name: 'Hard Vacuum', exact: true })).toBeFocused()
     await page.keyboard.press('End')
     if (path === 'privacy.html') await page.keyboard.press('Shift+Tab')

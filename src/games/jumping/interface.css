@@ -12,13 +12,13 @@
 .jumping-game .jumping-builder-return {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;
   min-width: 0; min-height: 48px; padding: 12px 14px;
-  border: 0; border-radius: 2px; box-shadow: none;
+  border: 0; border-radius: 2px; box-shadow: var(--jumping-button-shadow, none);
   background: transparent; color: var(--jumping-ink);
   font: 600 var(--jumping-type-normal)/1.3 'Segoe UI', sans-serif;
   text-align: left; white-space: normal; overflow-wrap: anywhere;
   transition: none;
 }
-.jumping-game .jumping-builder-return { background: var(--jumping-paper); }
+.jumping-game .jumping-builder-return { --jumping-button-shadow: var(--ui-shadow-card); background: var(--jumping-paper); }
 .jumping-game .jumping-ui button:disabled { opacity: var(--jumping-inactive-opacity); cursor: default; }
 .jumping-game .jumping-ui h2 {
   margin: 0; color: var(--jumping-ink);
@@ -63,8 +63,12 @@
   border: 0;
 }
 .jumping-ui .jumping-level-menu .jumping-menu-header {
-  flex: none;
+  position: relative; z-index: 2; flex: none;
   background: var(--jumping-header);
+}
+/* Lift each title band above the next surface so its lower shadow stays visible. */
+.jumping-game :is(.builder-header, .builder-library-header, .jumping-ui-heading, .jumping-dialog-heading) {
+  position: relative; z-index: 2; box-shadow: var(--ui-shadow-header);
 }
 :is(.builder-header, .jumping-menu-header) > div:first-child { grid-area: heading; min-width: 0; }
 :is(.builder-main-actions, .jumping-menu-navigation) { grid-area: navigation; min-width: 0; }
@@ -81,6 +85,8 @@
 .jumping-ui .builder-library-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .jumping-ui .jumping-menu-navigation { flex-shrink: 0; justify-content: flex-end; }
 .jumping-ui .jumping-library-bar {
+  /* The Levels header is one two-tone bar; its shadow belongs below both bands. */
+  position: relative; z-index: 1; box-shadow: var(--ui-shadow-header);
   flex: none; display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center;
   min-height: 76px; margin: 0; padding: 14px var(--jumping-inset); background: var(--jumping-section);
 }
@@ -104,6 +110,8 @@
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
   gap: 20px; padding: 24px var(--jumping-inset); margin: 0; scroll-padding: 24px; min-height: 10em;
 }
+/* Shadow the complete tile, including its action strip, without changing focus. */
+.jumping-ui :is(.jumping-level-tile, .builder-local-file) { box-shadow: var(--ui-shadow-card); }
 .jumping-game .jumping-ui .jumping-level-card {
   display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start;
   padding: 16px; gap: 0; border: 0; border-radius: 2px; background: var(--jumping-card);
@@ -133,7 +141,7 @@
 
 /* Library and recycle bin use identical cards and a stable, centered shell. */
 .jumping-game .builder-library.jumping-ui {
-  padding: 0; border: 0; border-radius: 2px; background: var(--jumping-paper); box-shadow: none;
+  padding: 0; border: 0; border-radius: 2px; background: var(--jumping-paper); box-shadow: var(--ui-shadow-overlay);
   --library-padding: var(--jumping-inset); overflow-y: auto;
 }
 .jumping-ui.builder-library::backdrop,
@@ -178,7 +186,7 @@
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   color: inherit; font: var(--jumping-type-small)/1.5 ui-monospace, monospace;
 }
-.jumping-ui .builder-templates > button { gap: 0; }
+.jumping-ui .builder-templates > button { --jumping-button-shadow: var(--ui-shadow-card); gap: 0; }
 .jumping-ui .builder-templates strong { margin-top: 16px; }
 .jumping-ui .builder-file-actions { padding: 8px; gap: 8px; }
 .jumping-game .jumping-ui .builder-file-actions button {
@@ -215,7 +223,7 @@
 .jumping-ui .jumping-notice-panel {
   width: min(34em, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
   margin: auto; padding: 0; border: 0; border-radius: 2px;
-  overflow: auto; background: var(--jumping-paper); box-shadow: none;
+  overflow: auto; background: var(--jumping-paper); box-shadow: var(--ui-shadow-overlay);
 }
 .jumping-ui .jumping-ui-heading { padding: 28px 32px; background: var(--jumping-header); }
 .jumping-ui.is-destructive .jumping-ui-heading { --jumping-header: var(--jumping-danger); }
@@ -248,7 +256,7 @@
 
 /* Last in the cascade: neither hover nor a persistent selected tab hides focus. */
 .jumping-game .jumping-ui button:is(:hover, :focus):not(:disabled),
-.jumping-game .jumping-builder-return:hover { outline: none; background: var(--jumping-soft); color: var(--jumping-hover-ink); box-shadow: none; }
+.jumping-game .jumping-builder-return:hover { outline: none; background: var(--jumping-soft); color: var(--jumping-hover-ink); box-shadow: var(--jumping-button-shadow, none); }
 .jumping-game .jumping-ui :is(.jumping-level-card, .builder-file-preview, .builder-templates > button):is(:hover, :focus):not(:disabled) { background: var(--jumping-card-selected); }
 .jumping-game .jumping-ui .jumping-collection-tabs button:is(:hover, :focus):not(:disabled) { outline: none; background: var(--jumping-tab-hover, var(--jumping-paper)); color: var(--jumping-hover-ink); box-shadow: none; }
 /* Pointer selection still updates the details/controller target, but only the
@@ -256,7 +264,7 @@
 .jumping-game .jumping-ui[data-input-method="pointer"] :is(.jumping-level-card, .builder-file-preview, .builder-templates > button):not(:hover):not(:disabled) { background: var(--jumping-card); color: var(--jumping-ink); }
 .jumping-game .jumping-ui:not([data-input-method="pointer"]) button:focus:not(:disabled),
 .jumping-game .jumping-builder-return:focus-visible {
-  outline: none; background: var(--jumping-selection); color: var(--jumping-selection-text); box-shadow: none;
+  outline: none; background: var(--jumping-selection); color: var(--jumping-selection-text); box-shadow: var(--jumping-button-shadow, none);
 }
 .jumping-game .jumping-ui button:focus :is(strong, small, span, kbd) { color: inherit; }
 @media (forced-colors: active) {

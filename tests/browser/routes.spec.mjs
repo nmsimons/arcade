@@ -11,7 +11,7 @@ for(const [path,title]of games) test(`${path}: direct route, compatibility redir
     await expect(page.locator('canvas:not([aria-hidden="true"])')).toBeVisible()
     await page.evaluate(()=>new Promise(requestAnimationFrame))
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('heading',{name:'Select Game'})).toBeVisible()
+    await expect(page.getByRole('heading',{name:'Dream Large Arcade'})).toBeVisible()
     await expect(page.getByRole('button',{name:'Hard Vacuum',exact:true})).toBeFocused()
   }
   expect(errors).toEqual([])

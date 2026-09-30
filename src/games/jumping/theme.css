@@ -24,7 +24,7 @@
   --jumping-selection: var(--jumping-color-ink);
   --jumping-selection-text: var(--jumping-color-paper);
   --jumping-hover-ink: var(--jumping-color-ink);
-  /* Only the shared scrim and inactive controls use transparency. */
+  /* Surface fills stay solid; the shared scrim, shadows and inactive controls use transparency. */
   --jumping-backdrop: color-mix(in srgb, var(--jumping-color-ink) 40%, transparent);
   --jumping-inactive-opacity: .45;
 

@@ -12,7 +12,7 @@
 .account-overlay { position: fixed; inset: 0; z-index: 100; background: #14241ecc; color: #253d35; display: flex; align-items: center; justify-content: center; padding: 20px; font: 15px/1.55 'Segoe UI', sans-serif; letter-spacing: normal; text-transform: none; }
 /* These controls also live inside game menus and native library dialogs. Keep
    their typography and actions consistent despite inherited game styles. */
-:root .account-overlay .account-panel { width: min(560px, 100%); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #829386; border-radius: 16px; background: #f8f7ef; color: #253d35; padding: clamp(20px, 4vw, 32px); box-shadow: 0 24px 80px #0005; }
+:root .account-overlay .account-panel { width: min(560px, 100%); max-height: calc(100dvh - 40px); overflow: auto; border: 1px solid #829386; border-radius: 16px; background: #f8f7ef; color: #253d35; padding: clamp(20px, 4vw, 32px); box-shadow: var(--ui-shadow-overlay); }
 :root .account-overlay .account-panel header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 :root .account-overlay .account-panel h2 { margin: 0; color: #253d35; font: 750 26px/1.2 'Segoe UI', sans-serif; letter-spacing: normal; overflow-wrap: anywhere; }
 :root .account-overlay .account-panel h3 { color: inherit; font-size: 17px; font-weight: 700; margin-top: 24px; }

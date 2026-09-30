@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
+import './vectorMenus.css'
 
 // Sound system for Final Approach using Web Audio API
 class LanderSoundSystem {
@@ -299,8 +301,6 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
 
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'paused' | 'landed' | 'crashed' | 'exploding'>('menu')
   const [finalScore, setFinalScore] = useState(0)
-  const [resultIndex, setResultIndex] = useState(0)
-  const [menuIndex, setMenuIndex] = useState(0)
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy')
   const fuelRef = useRef(100)
   const explosionTimerRef = useRef(0)
@@ -357,8 +357,6 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
   }, [resetWorld])
 
   useEffect(() => {
-    const difficulties: Array<'easy' | 'medium' | 'hard'> = ['easy', 'medium', 'hard']
-    
     const handleKeyDown = (e: KeyboardEvent) => {
       keysRef.current.add(e.key.toLowerCase())
 
@@ -374,46 +372,6 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
       if (e.key.toLowerCase() === 'r' && (gameState === 'landed' || gameState === 'crashed')) {
         startGame()
       }
-      // Menu keyboard navigation
-      if (gameState === 'menu') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setMenuIndex((i) => (i > 0 ? i - 1 : 1))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setMenuIndex((i) => (i < 1 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (menuIndex === 0) startGame()
-          else onExit()
-        }
-        if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') {
-          const idx = difficulties.indexOf(difficulty)
-          if (idx > 0) setDifficulty(difficulties[idx - 1])
-        }
-        if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') {
-          const idx = difficulties.indexOf(difficulty)
-          if (idx < difficulties.length - 1) setDifficulty(difficulties[idx + 1])
-        }
-      }
-      // Result screen keyboard navigation
-      if (gameState === 'landed' || gameState === 'crashed') {
-        if (e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') {
-          e.preventDefault()
-          setResultIndex((i) => (i > 0 ? i - 1 : 1))
-        }
-        if (e.key === 'ArrowDown' || e.key.toLowerCase() === 's') {
-          e.preventDefault()
-          setResultIndex((i) => (i < 1 ? i + 1 : 0))
-        }
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (resultIndex === 0) startGame()
-          else onExit()
-        }
-      }
     }
 
     const handleKeyUp = (e: KeyboardEvent) => {
@@ -427,7 +385,7 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
       window.removeEventListener('keydown', handleKeyDown)
       window.removeEventListener('keyup', handleKeyUp)
     }
-  }, [gameState, startGame, difficulty, resultIndex, menuIndex, onExit])
+  }, [gameState, startGame, onExit])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -848,8 +806,8 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
       <canvas ref={canvasRef} className="absolute inset-0" />
 
       {gameState === 'menu' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="Final Approach" focusKey={gameState} onClose={exitToGameSelect} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h1 className="text-6xl text-[#00ff88] mb-2 tracking-[0.2em] uppercase">Final Approach</h1>
             <div className="text-[#00ff88] text-sm space-y-2 mb-8 tracking-wider">
               <div className="flex items-center gap-2">
@@ -869,11 +827,8 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
                   <button
                     key={d}
                     onClick={() => setDifficulty(d)}
-                    className={`flex-1 border-2 py-2 uppercase tracking-widest text-sm transition-colors ${
-                      difficulty === d
-                        ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                        : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
-                    }`}
+                    aria-pressed={difficulty === d}
+                    className="vector-menu-difficulty"
                   >
                     {d}
                   </button>
@@ -883,56 +838,49 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button vector-menu-primary"
+                data-initial-focus
               >
                 Start
               </button>
               <button
                 onClick={exitToGameSelect}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  menuIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88]/50 bg-black text-[#00ff88]/50 hover:border-[#00ff88] hover:text-[#00ff88]'
-                }`}
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
-            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • ← → difficulty • Enter to confirm • Esc to exit</p>
+            <p className="text-[#00ff88]/70 text-xs text-center mt-4 tracking-wider">Arrows / Tab to select • Enter to confirm • Esc to exit</p>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
 
       {gameState === 'paused' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="Final Approach paused" focusKey={gameState} onClose={exitToGameSelect} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h2 className="text-4xl text-[#00ff88] mb-4 tracking-[0.3em] uppercase">Paused</h2>
             <p className="text-[#00ff88]/70 text-center mb-6 tracking-wider">Press P to resume • Press Esc to exit</p>
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={() => setGameState('playing')}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="vector-menu-button"
               >
                 Resume
               </button>
               <button
                 onClick={exitToGameSelect}
-                className="w-64 px-8 py-3 border-2 border-[#00ff88] bg-black text-[#00ff88] uppercase tracking-widest hover:bg-[#00ff88] hover:text-black transition-colors"
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
 
       {(gameState === 'landed' || gameState === 'crashed') && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-          <div className="text-center max-w-md px-8">
+        <KeyboardDialog label="Final Approach result" focusKey={gameState} onClose={exitToGameSelect} className="vector-menu-overlay">
+          <div className="vector-menu-panel">
             <h2
               className={`text-4xl mb-6 text-center tracking-[0.3em] uppercase ${
                 gameState === 'landed' ? 'text-[#00ff88]' : 'text-[#ff4444]'
@@ -948,28 +896,21 @@ export function FinalApproachGame({ onExit }: FinalApproachGameProps) {
             <div className="flex flex-col gap-3 items-center">
               <button
                 onClick={startGame}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  resultIndex === 0
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#00ff88] bg-black text-[#00ff88] hover:bg-[#00ff88] hover:text-black'
-                }`}
+                className="vector-menu-button vector-menu-primary"
+                data-initial-focus
               >
                 Play Again
               </button>
               <button
                 onClick={exitToGameSelect}
-                className={`w-64 px-8 py-3 border-2 uppercase tracking-widest transition-colors ${
-                  resultIndex === 1
-                    ? 'border-[#00ff88] bg-[#00ff88] text-black'
-                    : 'border-[#ff4444] bg-black text-[#ff4444] hover:bg-[#00ff88] hover:text-black hover:border-[#00ff88]'
-                }`}
+                className="vector-menu-button"
               >
                 Back
               </button>
             </div>
-            <p className="text-[#00ff88]/50 text-xs text-center mt-4 tracking-wider">↑ ↓ to select • Enter to confirm</p>
+            <p className="text-[#00ff88]/70 text-xs text-center mt-4 tracking-wider">Arrows / Tab to select • Enter to confirm</p>
           </div>
-        </div>
+        </KeyboardDialog>
       )}
     </div>
   )

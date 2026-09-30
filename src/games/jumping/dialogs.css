@@ -16,6 +16,7 @@
   margin: auto;
   border-radius: 2px;
   background: var(--jumping-paper);
+  box-shadow: var(--ui-shadow-overlay);
   color: var(--jumping-ink);
   font-size: var(--jumping-type-normal);
   text-align: left;

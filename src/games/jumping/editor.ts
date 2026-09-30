@@ -391,12 +391,13 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
   if (tool === 'steps-narrow' || tool === 'steps-wide') {
     if (next.platforms.length >= 160) throw new Error('This level already has 160 terrain pieces.')
-    const tread = LEVEL_GRID_SIZE * (tool === 'steps-wide' ? 2 : 1), w = tread * 6, h = LEVEL_GRID_SIZE * 5
+    const tread = LEVEL_GRID_SIZE * (tool === 'steps-wide' ? 2 : 1), stepWidth = tread + LEVEL_GRID_SIZE
+    const w = tread * 4 + stepWidth, h = LEVEL_GRID_SIZE * 5
     const polygon: [number, number][] = [[0, h]]
-    for (let step = 0; step < 5; step++) polygon.push([step * tread, h - (step + 1) * LEVEL_GRID_SIZE], [(step + (step === 4 ? 2 : 1)) * tread, h - (step + 1) * LEVEL_GRID_SIZE])
-    // The top landing and foot are two treads wide, joined by a stepped underside.
-    for (let step = 6; step >= 3; step--) polygon.push([step * tread, (7 - step) * LEVEL_GRID_SIZE], [(step - 1) * tread, (7 - step) * LEVEL_GRID_SIZE])
-    polygon.push([2 * tread, h])
+    for (let step = 0; step < 5; step++) polygon.push([step * tread, h - (step + 1) * LEVEL_GRID_SIZE], [step === 4 ? w : (step + 1) * tread, h - (step + 1) * LEVEL_GRID_SIZE])
+    // Five one-square-thick steps overlap their neighbors by one square.
+    for (let step = 4; step >= 1; step--) polygon.push([step * tread + stepWidth, (5 - step) * LEVEL_GRID_SIZE], [(step - 1) * tread + stepWidth, (5 - step) * LEVEL_GRID_SIZE])
+    polygon.push([stepWidth, h])
     next.platforms.push({ x: clamp(end.x, 0, next.width - w), y: clamp(end.y, 0, levelHeight(next) - h), w, h, polygon })
     return { level: next, selection: { kind: 'platform', index: next.platforms.length - 1 } }
   }

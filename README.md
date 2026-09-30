@@ -815,9 +815,29 @@ This repo includes a GitHub Actions workflow for Azure Static Web Apps deploymen
 - Build output: `dist/`
 - Required secret: `AZURE_STATIC_WEB_APPS_API_TOKEN_AGREEABLE_GLACIER_048815C10`
 
-Pushes to `main` and pull requests targeting `main` run the **Validate and deploy**
-check: Node 24, `npm ci`, `npm test`, `npm run lint`, `npm run build`, and browser
-route, save-recovery and control tests. Every validation step must succeed before deployment.
+Pushes to `main` and pull requests targeting `main` automatically select deployment
+checks. Both paths run Node 24, `npm ci`, dependency advisory checks, lint, and the
+production build (including TypeScript and level-asset checks).
+
+- **Fast homepage path:** only modifications to `src/arcade/ArcadeMenu.tsx`,
+  `src/arcade/arcade.css`, `public/arcade-logo.svg`, and `public/favicon.svg` qualify.
+  It skips gameplay/save tests and the full browser suite, and runs
+  `npm run test:homepage` in one browser job instead. These smoke checks cover
+  320px, 390px, 768px, and desktop layouts, keyboard navigation, Sign in controls,
+  and policy links without starting a game.
+- **Full path:** every other change runs `npm test` and all three browser shards.
+  Changes to shared styles, accounts, games, levels, dependencies, tests, or CI
+  always take this path, as do added, deleted, renamed, or type-changed files.
+
+Selection compares the complete checkout against a successful production
+workflow run that is an ancestor of it, looking through the latest 100 workflow
+runs. A later homepage-only push cannot hide earlier unvalidated game
+changes. Missing API access/history or an uncertain diff falls back to full
+validation. The chosen path and baseline appear in the GitHub run summary.
+No commit-message or label override bypasses checks.
+
+Every selected check must pass before deployment. The fast browser job has the
+same required dependency on the validated build as the full browser jobs.
 Azure uploads that same `dist/` using
 [`skip_app_build`](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration#skip-building-front-end-app)
 instead of rebuilding. Pushes to `main` deploy to production; same-repository
@@ -825,7 +845,7 @@ pull requests deploy previews, which are removed when the PR closes. Fork and
 Dependabot PRs run validation without using deployment secrets.
 
 To prevent merging failed checks, configure a `main` branch rule requiring a
-pull request and the **Validate and deploy** status check (and require the branch
+pull request and the deployment workflow status checks (and require the branch
 to be up to date). Adding the workflow does not enable branch protection.
 As checked on September 19, 2026, GitHub rejects branch-protection and ruleset
 access for this private repository with “Upgrade to GitHub Pro or make this

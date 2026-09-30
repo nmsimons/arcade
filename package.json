@@ -11,6 +11,7 @@
     "lint": "eslint .",
     "test": "node --test tests/*.test.mjs",
     "test:browser": "playwright test",
+    "test:homepage": "playwright test --config=playwright.homepage.config.mjs",
     "security:check": "npm audit --audit-level=moderate",
     "generate:power": "node scripts/generate-power.mjs",
     "benchmark": "node scripts/benchmark.mjs",

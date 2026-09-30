@@ -14,25 +14,37 @@ jobs:
     if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
     runs-on: ubuntu-latest
     name: Validate and build
+    outputs:
+      fast: ${{ steps.scope.outputs.fast }}
     timeout-minutes: 15
     permissions:
       contents: read
+      actions: read
       pull-requests: write
     steps:
       - uses: actions/checkout@v7
         with:
           submodules: true
           lfs: false
+          fetch-depth: 0 # Compare the entire change against a successful deployment.
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
+      - name: Choose deployment checks
+        id: scope
+        run: node scripts/deploy-scope.mjs
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Test deployment selection
+        run: node --test tests/deploy-scope.test.mjs
       - name: Install dependencies
         run: npm ci
       - name: Check dependency advisories
         run: npm run security:check
       - name: Test gameplay and saves
+        if: steps.scope.outputs.fast != 'true'
         run: npm test
       - name: Lint
         run: npm run lint
@@ -55,14 +67,14 @@ jobs:
   browser:
     needs: validate
     runs-on: ubuntu-latest
-    name: Browser checks (${{ matrix.shard }}/3)
+    name: ${{ needs.validate.outputs.fast == 'true' && 'Homepage smoke checks' || format('Browser checks ({0}/3)', matrix.shard) }}
     timeout-minutes: 20
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: ${{ fromJSON(needs.validate.outputs.fast == 'true' && '[1]' || '[1, 2, 3]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -76,7 +88,11 @@ jobs:
           path: dist/
       - name: Install browser
         run: npx playwright install --with-deps chromium
+      - name: Test homepage layout, navigation and sign-in controls
+        if: needs.validate.outputs.fast == 'true'
+        run: npm run test:homepage -- --reporter=line
       - name: Test browser routes, recovery and controls
+        if: needs.validate.outputs.fast != 'true'
         run: npm run test:browser -- --shard=${{ matrix.shard }}/3 --reporter=line
       - name: Retain browser failure diagnostics
         if: failure() || cancelled()

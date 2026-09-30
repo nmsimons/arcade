@@ -46,6 +46,8 @@ test('homepage policy links are reachable and open with the keyboard', async ({ 
 test('controller navigation can select and open a homepage policy link', async ({ page }) => {
   await setup(page, undefined, 'standard', '/')
   for (let i = 0; i < 4; i++) await tap(page, 13)
+  await expect(page.getByRole('link', { name: 'Piggy Banks Online', exact: true })).toBeFocused()
+  await tap(page, 13)
   await expect(page.getByRole('link', { name: 'Privacy policy', exact: true })).toBeFocused()
   // This leaves the app document, so there is no gamepad context to release in.
   await hold(page, 0, 1)

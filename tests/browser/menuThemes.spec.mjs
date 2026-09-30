@@ -64,6 +64,7 @@ test('arcade entries have distinct materials, decorative covers and one clear ke
   await page.goto('/')
   const cards = titles.map(name => page.getByRole('button', { name, exact: true }))
   const signIn = page.getByRole('button', { name: 'Sign in', exact: true })
+  const piggyBanks = page.getByRole('link', { name: 'Piggy Banks Online', exact: true })
   const privacy = page.getByRole('link', { name: 'Privacy policy', exact: true })
   const terms = page.getByRole('link', { name: 'Terms of service', exact: true })
   await expect(signIn).toBeVisible()
@@ -75,7 +76,7 @@ test('arcade entries have distinct materials, decorative covers and one clear ke
   const fills = await Promise.all(cards.map(async card => (await paint(card)).fill))
   expect(new Set(fills).size).toBe(titles.length)
   expect(scripts.filter(url => /Game-[^/]+\.js/.test(url))).toEqual([])
-  for (const [key, target] of [['ArrowRight', cards[1]], ['ArrowDown', cards[2]], ['Tab', cards[3]], ['Tab', privacy], ['Tab', terms], ['Tab', signIn], ['Tab', cards[0]], ['End', terms], ['Home', signIn], ['Tab', cards[0]]]) {
+  for (const [key, target] of [['ArrowRight', cards[1]], ['ArrowDown', cards[2]], ['Tab', cards[3]], ['Tab', piggyBanks], ['Tab', privacy], ['Tab', terms], ['Tab', signIn], ['Tab', cards[0]], ['End', terms], ['Home', signIn], ['Tab', cards[0]]]) {
     await page.keyboard.press(key)
     await expect(target).toBeFocused()
     if (target !== signIn) await expect(target).toHaveCSS('outline-width', '2px')

@@ -34,6 +34,10 @@ export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
         : <p>Arrow keys / Tab <span>Choose</span> · Enter <span>Play</span></p>}</div>
       <footer className="arcade-footer">
         <p>Free browser games. Play locally, with optional cloud saves.</p>
+        <div className="arcade-also">
+          <img className="arcade-also-logo" src={`${import.meta.env.BASE_URL}piggy-banks-logo.svg`} width="52" height="52" alt="" />
+          <p>I also make <a data-menu-link href="https://piggybanksonline.com" target="_blank" rel="noopener noreferrer">Piggy Banks Online</a>, a simple budgeting app built around virtual piggy banks.</p>
+        </div>
         <nav aria-label="Policies">
           <a data-menu-link href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy policy</a>
           <a data-menu-link href={`${import.meta.env.BASE_URL}terms.html`}>Terms of service</a>

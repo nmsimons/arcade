@@ -34,7 +34,7 @@ for (const width of [320, 390, 768, 1280]) {
       await expect(card).toBeFocused()
       await expect(card).toBeInViewport()
     }
-    for (const name of ['Privacy policy', 'Terms of service']) {
+    for (const name of ['Piggy Banks Online', 'Privacy policy', 'Terms of service']) {
       await page.keyboard.press('Tab')
       await expect(page.getByRole('link', { name, exact: true })).toBeFocused()
     }

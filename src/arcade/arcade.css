@@ -48,6 +48,10 @@
 .arcade-help { display: flex; justify-content: center; margin-top: 32px; padding-top: 22px; color: #3f5451; font-size: 12px; border-color: #536c5c30; }
 .arcade-help span { color: #5f6e66; }
 .arcade-footer { margin-top: 18px; color: #52625b; font-size: 12px; line-height: 1.6; text-align: center; }
+.arcade-also { display: flex; align-items: center; gap: 16px; max-width: 660px; margin: 18px auto 14px; padding: 14px 20px; border: 1px solid #dce3dc; border-radius: 10px; background: #fff; box-shadow: 0 3px 12px #293c3d08; text-align: left; font-size: 13px; }
+.arcade-also-logo { flex: 0 0 52px; width: 52px; height: 52px; object-fit: contain; }
+.arcade-also p { min-width: 0; margin: 0; }
+.arcade-also a { font-weight: 600; }
 .arcade-footer nav { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 24px; margin-top: 8px; }
 .arcade-footer a { padding: 6px 0; color: #245f48; text-decoration: underline; text-underline-offset: 3px; }
 .arcade-footer a:focus { outline: 2px solid #1b5b4a; outline-offset: 4px; border-radius: 2px; }
@@ -59,6 +63,8 @@
 @media (max-width: 700px) {
   .arcade-overlay { padding: 24px; }
   .arcade-menu { max-width: 540px; }
+  .arcade-also { gap: 12px; padding: 12px 14px; }
+  .arcade-also-logo { flex-basis: 44px; width: 44px; height: 44px; }
   .arcade-heading { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 24px; }
   .arcade-brand > * { grid-column: 1; }
   .arcade-logo { width: 190px; }

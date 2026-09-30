@@ -1,8 +1,8 @@
 import type { ControllerNavigation } from './controllerInput'
 
-export type DialogControl = HTMLButtonElement | HTMLAnchorElement
+export type DialogControl = HTMLButtonElement | HTMLAnchorElement | HTMLInputElement
 // Links opt in so adding policy navigation does not change other dialogs' order.
-export const DIALOG_CONTROL_SELECTOR = 'button, a[data-menu-link][href]'
+export const DIALOG_CONTROL_SELECTOR = 'button, a[data-menu-link][href], input[type="range"][data-menu-range]'
 export const isDialogControl = (element: Element | null): element is DialogControl =>
   element instanceof HTMLElement && element.matches(DIALOG_CONTROL_SELECTOR)
 
@@ -10,12 +10,13 @@ export function isVisibleControl(element: HTMLElement) {
   return !element.closest('[hidden], [inert]') && element.getClientRects().length > 0 && getComputedStyle(element).visibility !== 'hidden'
 }
 export const dialogButtons = (root: HTMLElement) => [...root.querySelectorAll<DialogControl>(DIALOG_CONTROL_SELECTOR)]
-  .filter(button => !(button instanceof HTMLButtonElement && button.disabled) && button.getAttribute('aria-disabled') !== 'true' && isVisibleControl(button) && button.closest('.game-dialog') === root)
+  .filter(button => !('disabled' in button && button.disabled) && button.getAttribute('aria-disabled') !== 'true' && isVisibleControl(button) && button.closest('.game-dialog') === root)
 export const topDialog = (root: ParentNode = document) => [...root.querySelectorAll<HTMLElement>('.game-dialog')].filter(isVisibleControl).at(-1)
 export const dialogButtonKey = (button: DialogControl) => button.dataset.menuId ?? button.getAttribute('aria-label') ?? button.textContent ?? ''
 export function focusDialogButton(button: DialogControl) {
   button.focus({ preventScroll: true })
-  button.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+  const visibleControl = button.closest('[data-menu-control]') ?? button
+  visibleControl.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
 }
 export function restoreDialogSelection(root: HTMLElement, key = root.dataset.selectionKey, previous?: DialogControl | null) {
   const buttons = dialogButtons(root)
@@ -43,6 +44,12 @@ export function moveDialogSelection(root: HTMLElement, direction: ControllerNavi
     if (primary && buttons.includes(primary)) { focusDialogButton(primary); return }
   }
   if (!buttons.includes(current)) { restoreDialogSelection(root); return }
+  // Up/down leave a slider; left/right adjust it with the controller.
+  if (current instanceof HTMLInputElement && current.type === 'range' && (direction === 'left' || direction === 'right')) {
+    if (direction === 'left') current.stepDown(); else current.stepUp()
+    current.dispatchEvent(new Event('input', { bubbles: true }))
+    return
+  }
   const grid = current.closest('[data-menu-grid]')
   if (grid && root.contains(grid) && direction !== 'next' && direction !== 'previous') {
     const from = current.getBoundingClientRect(), vertical = direction === 'up' || direction === 'down'

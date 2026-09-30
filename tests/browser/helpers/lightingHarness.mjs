@@ -12,8 +12,8 @@ export async function lightingHarness(options) {
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
   const view = { x: 0, y: -40, width: 1280, height: 720, zoom: 1 }
   const renderer = new LightingRenderer(options)
-  const render = (ambient, lights = [], dt = .2, onlyLight, nightMode = ambient < 100, shadows = 'full') => {
-    const stats = renderer.render(ctx, run, { nightMode, ambient, lights }, view, dt, onlyLight, false, shadows)
+  const render = (ambient, lights = [], dt = .2, onlyLight, nightMode = ambient < 100, shadows = 'full', nightAmbient) => {
+    const stats = renderer.render(ctx, run, { nightMode, ambient, lights }, view, dt, onlyLight, false, shadows, nightAmbient)
     return { pixels: new Uint8ClampedArray(ctx.getImageData(0, 0, 1280, 720).data), stats }
   }
   const pixel = (image, x, y) => {

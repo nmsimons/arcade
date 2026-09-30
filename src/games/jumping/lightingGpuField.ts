@@ -106,11 +106,11 @@ export class GpuLightingField {
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Resolve framebuffer incomplete')
     this.width = width; this.height = height
   }
-  render(groups: readonly CasterGroup[], sources: readonly LightSource[], view: LightingView, ambient: number, roomWidth: number, roomHeight: number) {
+  render(groups: readonly CasterGroup[], sources: readonly LightSource[], view: LightingView, ambient: number, roomWidth: number, roomHeight: number, nightAmbient?: number) {
     if (this.gl.isContextLost()) throw new Error('Lighting graphics context lost.')
     this.resize(view.width, view.height)
     const gl = this.gl, u = this.uniforms, { width, height } = view
-    const a = Math.round(ambientExposure(ambient)*255)/255
+    const exposure = ambientExposure(ambient, nightAmbient), a = Math.round(exposure*255)/255
     gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.colorMask(true,true,true,true); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT)
     gl.enable(gl.SCISSOR_TEST); gl.scissor(0,0,width,height); gl.clearColor(a,a,a,1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST)
     let lights=0, edges=0, vertexBytes=this.shadows.vertexBytes
@@ -127,7 +127,7 @@ export class GpuLightingField {
       gl.uniform2f(u.viewport,width,height); gl.uniform2f(u.source,(light.x-view.x)*view.zoom,(light.y-view.y)*view.zoom)
       const angle=light.direction*Math.PI/180
       gl.uniform2f(u.aim,Math.cos(angle),Math.sin(angle)); gl.uniform1f(u.halfAngle,light.spread*Math.PI/360)
-      gl.uniform1f(u.fade,light.fade); gl.uniform1f(u.zoom,view.zoom); gl.uniform1f(u.ambient,ambientExposure(ambient))
+      gl.uniform1f(u.fade,light.fade); gl.uniform1f(u.zoom,view.zoom); gl.uniform1f(u.ambient,exposure)
       gl.uniform4f(u.room,-view.x*view.zoom,-view.y*view.zoom,(roomWidth-view.x)*view.zoom,(roomHeight-view.y)*view.zoom)
       gl.viewport(0,0,width,height); gl.uniform1f(u.mode,0); gl.blendEquation(gl.MAX); gl.drawArrays(gl.TRIANGLES,0,6)
       gl.viewport(width,0,width,height); gl.uniform1f(u.mode,1); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLES,0,6)

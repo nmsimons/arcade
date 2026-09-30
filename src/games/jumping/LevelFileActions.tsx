@@ -1,8 +1,6 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { moveDialogSelection } from '../hardVacuum/dialogNavigation'
-import type { MissingLevelFile } from './levelAssets'
-import type { LocalLevels } from './localLevels'
 import './localFolder.css'
 
 export function SaveFailureDialog({ fileName, reason, returnFocus, onClose }: {
@@ -75,15 +73,6 @@ export function FileActionDialog({ title, children, confirmLabel, destructive = 
       </div>
     </form>
   </dialog>
-}
-
-export function DeleteLevelDialog({ entry, local, onDeleted, onClose }: {
-  entry: MissingLevelFile; local: LocalLevels; onDeleted: () => void; onClose: () => void
-}) {
-  return <FileActionDialog title="Remove missing level?" confirmLabel="Delete" destructive onClose={onClose} onConfirm={async () => { await local.remove(entry); onDeleted() }}>
-    <p><strong>{entry.fileName}</strong></p>
-    <p>The file is already missing. This removes its entry from index.json only.</p>
-  </FileActionDialog>
 }
 
 export function DeleteLevelButton({ fileName, disabled, onClick, primary = false, permanent = false }: {

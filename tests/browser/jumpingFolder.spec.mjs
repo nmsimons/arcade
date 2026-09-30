@@ -798,23 +798,22 @@ test('immediate delete preserves an open draft and recovers exact files from the
 })
 
 test('manually missing levels keep their places with only Delete, and removing them only updates the index', async ({ page }, info) => {
-  const manifest = { version: 1, order: 'listed', levels: ['00-first.json', 'Balls-copy.jump-level.json', 'last.json'] }
+  const manifest = { version: 1, order: 'listed', levels: ['00-first.json', 'Balls-copy.jump-level.json', 'library-missing.json', 'last.json'] }
   await openFolder(page, { '00-first.json': level('first', 'First'), 'last.json': level('last', 'Last'), 'index.json': manifest })
   await expect(page.getByRole('alert')).toHaveCount(0)
-  expect(await names(page)).toEqual(['First', 'Balls-copy.jump-level.json', 'Last'])
+  expect(await names(page)).toEqual(['First', 'Balls-copy.jump-level.json', 'library-missing.json', 'Last'])
   const missing = page.locator('.jumping-level-tile').filter({ hasText: 'Balls-copy.jump-level.json' })
   await expect(missing.getByRole('button')).toHaveCount(1)
   await expect(missing.getByRole('button', { name: 'Delete Balls-copy.jump-level.json', exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('missing-level-picker.png') })
   const before = await folderContents(page)
   await missing.getByRole('button', { name: 'Delete Balls-copy.jump-level.json', exact: true }).click()
-  const confirm = page.getByRole('alertdialog', { name: 'Remove missing level?', exact: true })
-  await expect(confirm).toContainText('index.json only')
-  await confirm.getByRole('button', { name: 'Cancel', exact: true }).click()
-  expect(await folderContents(page)).toEqual(before)
+  await expect(missing).toHaveCount(0)
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
+  expect(JSON.parse((await folderContents(page))['index.json'])).toEqual({ ...manifest, levels: ['00-first.json', 'library-missing.json', 'last.json'] })
   await page.getByRole('button', { name: 'Edit First', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
-  const card = page.locator('.builder-local-file').filter({ hasText: 'Balls-copy.jump-level.json' })
+  const card = page.locator('.builder-local-file').filter({ hasText: 'library-missing.json' })
   await expect(card.getByRole('button')).toHaveCount(1)
   await expect(card).toHaveAttribute('draggable', 'false')
   for (const size of [{ width: 1280, height: 800 }, { width: 390, height: 844 }, { width: 1280, height: 600 }]) {
@@ -826,9 +825,9 @@ test('manually missing levels keep their places with only Delete, and removing t
     expect(missingPreview.height).toBe(validPreview.height)
     await page.screenshot({ path: info.outputPath(`missing-level-library-${size.width}-${size.height}.png`) })
   }
-  await card.getByRole('button', { name: 'Delete Balls-copy.jump-level.json', exact: true }).click()
-  await confirm.getByRole('button', { name: 'Delete', exact: true }).click()
-  await expect(confirm).toHaveCount(0)
+  await card.getByRole('button', { name: 'Delete library-missing.json', exact: true }).click()
+  await expect(card).toHaveCount(0)
+  await expect(page.getByRole('alertdialog')).toHaveCount(0)
   const after = await folderContents(page)
   expect(JSON.parse(after['index.json'])).toEqual({ ...manifest, levels: ['00-first.json', 'last.json'] })
   for (const [name, text] of Object.entries(before)) if (name !== 'index.json') expect(after[name]).toBe(text)

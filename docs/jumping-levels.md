@@ -246,7 +246,8 @@ and reports the problem; external manifest edits require refreshing first.
 a confirmation. The game verifies a recovery copy before removing the original
 file and its index entry. An open draft stays in the editor; saving it again
 creates a new file. If a file was deleted outside the game, its **Missing file**
-card stays visible until Delete is confirmed, which removes only the index entry.
+card stays visible until **Delete** is clicked, which immediately removes only the
+index entry without confirmation.
 The game cannot recover externally deleted files it has not backed up.
 
 **Library → Recycle bin** displays the same level thumbnails and filenames as the
@@ -476,7 +477,8 @@ height. Font sizes range from 12 to 96 world units, text is limited to 1,000
 characters, and areas are 40–2,000 units wide and 24–1,200 units high, bounded by
 the level. Choose **Back wall → Wall text** in the builder, then edit content,
 font size, alignment, position, and dimensions in the inspector. **Style** selects
-clean **Official** lettering or muted-red **Graffiti** marker lettering. The
+clean **Official** lettering or **Graffiti** marker lettering, muted red in daytime
+and warm yellow in night mode for readability. The
 graffiti font is bundled with the game and works offline. **Rotation (°)** turns
 the area around its center, from −180 to 180 degrees; positive values turn
 clockwise. The selection frame and resize handles rotate with it. In JSON,
@@ -667,8 +669,10 @@ and legacy connections. Neither replaces actually playing the route.
 ## Lighting (version 2)
 
 The back wall receives ambient illumination. Wall text and collectibles receive
-spotlights and shadows, without casting shadows. Night rooms use the fixed
-ambient-0 appearance (35% baseline brightness) with a very faint full spotlight beam. The
+spotlights and shadows, without casting shadows. Night rooms default to the
+ambient-0 appearance (35% baseline brightness), with a saved player adjustment
+from 35% to 45% in the pause menu and a very faint full spotlight beam. Studio
+previews and thumbnails use the 35% default. The
 short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at solid objects and room boundaries.
 Spotlights illuminate movable objects. Terrain and mechanisms retain ambient
 colors while casting shadows. Only timer digits/status symbols and filled coin segments keep a 65% brightness

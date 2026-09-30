@@ -23,7 +23,7 @@ It should still look like this game's flat, muted world.
 
 The first release includes:
 
-- One shared ambient-light value for every night level (the original 0 setting).
+- A shared 35% ambient-light default for night levels, with a saved player adjustment up to 45%.
 - Directional spotlights with neutral light; ambient provides general fill.
 - Shadows from terrain and substantial physical objects, including moving ones.
 - Lamps powered continuously or by existing pressure plates and coin switches.
@@ -65,10 +65,14 @@ These distinctions are fixed by object type, not dozens of per-object toggles.
 ### Ambient
 
 **Night mode** is a saved level toggle, off by default. Off means full original
-brightness and bypasses environmental lighting. On enables spotlights with a
-fixed **35% ambient brightness**, matching the original ambient-0 setting.
-Every night level uses this same baseline, including older files with other
-ambient values. There is no ambient slider or player brightness override.
+brightness and bypasses environmental lighting. On enables spotlights with
+**35% ambient brightness** by default, matching the original ambient-0 setting.
+The pause menu's **Night brightness** slider adjusts this to **35–45%**, in
+one-percentage-point steps, and remembers the player's choice in browser storage.
+The adjustment applies immediately, including while paused, across night levels
+and playtests. It does not change level files, daytime, or full spotlight exposure.
+Older files' retired ambient values remain ignored. Studio previews and thumbnails
+use the 35% default so authors review the darkest supported appearance.
 
 Ambient is not blocked by geometry, consumed, switched, or affected by EMP.
 Disabling Night mode preserves lamps. Toggling is undoable and saved with the
@@ -186,7 +190,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Coin switch | Filled gold/green segments retain at least 65% exposure; housing, empty track and dividers receive ordinary lighting. | No. | No. | Readout remains visible and counts coins. Switching still obeys EMP and latching rules. |
 | Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
 | Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
-| Red graffiti | Ordinary, including its red strokes. | No. | No. | Unchanged. |
+| Graffiti | Warm yellow (`#f4d35e`) in night mode, muted red in daytime. Ordinary exposure, including spotlights and shadows; no brightness floor. | No. | No. | Unchanged. |
 | Player | Near-white when lit, matching the ball's dark material under ambient light; see below. | Yes, using the current animated silhouette. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
 | Shovebot chassis, wheels, and antenna | Ordinary. | Yes, using chassis and wheels, not the antenna. | No. | Stops; silhouette remains solid and casts shadows. |
 | Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | No headlight or beam. | Eye goes dark, matching existing behavior. |
@@ -434,7 +438,8 @@ together while preserving the wall positions.
 ## 8. Builder and collection experience
 
 Use **Night mode** in the Inspector’s **Level** tab with the fixed ambient-0 appearance.
-There are no ambient number or slider controls. Add a single **Light**
+There are no authored ambient number or slider controls in the Inspector. The
+player's pause-menu brightness preference does not change this preview. Add a single **Light**
 tool under Back wall. Every light is a spotlight; there is no shape picker.
 Default placement is direction 90 (down), spread 70, intensity 100, Always on,
 at a fixed wall position.

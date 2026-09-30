@@ -10,6 +10,7 @@ export const WALL_TEXT_COLOR = '#718074'
 export const WALL_TEXT_FONT = 'ui-monospace, monospace'
 export const GRAFFITI_FONT = 'UJG Graffiti'
 export const GRAFFITI_COLOR = '#94433f'
+export const NIGHT_GRAFFITI_COLOR = '#f4d35e'
 export const WALL_TEXT_LINE_HEIGHT = 1.3
 
 export function wallTextPoint(text: WallText, x: number, y: number) {
@@ -62,7 +63,7 @@ export function wallTextLines(text: string, width: number, measure: (text: strin
 
 let layouts = new WeakMap<WallText, { text: string; width: number; font: string; lines: string[] }>()
 export function clearWallTextLayouts() { layouts = new WeakMap() }
-export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[]) {
+export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false) {
   for (const text of texts) {
     ctx.save(); ctx.translate(text.x + text.w / 2, text.y + text.h / 2); ctx.rotate((text.rotation ?? 0) * Math.PI / 180)
     ctx.translate(-text.w / 2, -text.h / 2)
@@ -70,7 +71,7 @@ export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
     const graffiti = text.style === 'graffiti'
     const font = graffiti ? `400 ${text.fontSize}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize}px ${WALL_TEXT_FONT}`
     ctx.font = font
-    ctx.fillStyle = graffiti ? GRAFFITI_COLOR : WALL_TEXT_COLOR; ctx.textAlign = text.align; ctx.textBaseline = 'top'
+    ctx.fillStyle = graffiti ? nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR : WALL_TEXT_COLOR; ctx.textAlign = text.align; ctx.textBaseline = 'top'
     let layout = layouts.get(text)
     if (!layout || layout.text !== text.text || layout.width !== text.w || layout.font !== font) {
       layout = { text: text.text, width: text.w, font, lines: wallTextLines(text.text, text.w, value => ctx.measureText(value).width) }

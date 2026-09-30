@@ -1,11 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { JumpLevel } from './level'
-import type { LevelFile, LocalLevelEntry, MissingLevelFile } from './levelAssets'
+import type { LevelFile, LocalLevelEntry } from './levelAssets'
 import { compareFileNames } from './levelAssets'
 import type { LocalLevels } from './localLevels'
 import { LocalFolderPanel } from './LocalFolderPanel'
 import { LevelThumbnail } from './LevelThumbnail'
-import { DeleteLevelButton, DeleteLevelDialog, MissingLevelNotice } from './LevelFileActions'
+import { DeleteLevelButton, MissingLevelNotice } from './LevelFileActions'
 import { RecycleBin } from './RecycleBin'
 import type { LevelSource } from './routes'
 import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
@@ -21,7 +21,7 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
   const [source, setSource] = useState<LevelSource>(editorStore.repository && editorStore.repositoryKind !== 'account' ? 'built-in' : 'local')
   const local = collections ? source === 'built-in' ? collections.builtIn : collections.local : editorStore
   const dialog = useRef<HTMLDialogElement>(null), cancel = useRef<HTMLButtonElement>(null), close = useRef<HTMLButtonElement>(null)
-  const [deleted, setDeleted] = useState<MissingLevelFile | null>(null), [binOpen, setBinOpen] = useState(false)
+  const [binOpen, setBinOpen] = useState(false)
   const deleting = useRef(false)
   const [pending, setPending] = useState<LibraryChoice | null>(null)
   const grid = useRef<HTMLDivElement>(null), dragging = useRef<string | null>(null), writingOrder = useRef(false)
@@ -51,7 +51,7 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
     if (dirty) setPending(target)
     else onChoose(target)
   }
-  async function deleteFile(file: LevelFile) {
+  async function deleteFile(file: LocalLevelEntry) {
     if (deleting.current || local.busy) return
     deleting.current = true; setOrderError(''); setOrderMessage('')
     try { await local.remove(file) }
@@ -161,7 +161,7 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
           }}>
           {'missing' in file ? <>
             <MissingLevelNotice fileName={file.fileName} />
-            <DeleteLevelButton fileName={file.fileName} disabled={local.busy || !local.canWrite} primary onClick={() => setDeleted(file)} />
+            <DeleteLevelButton fileName={file.fileName} disabled={local.busy || !local.canWrite} primary onClick={() => void deleteFile(file)} />
           </> : <>
           <button className="builder-file-preview" disabled={local.busy} aria-label={`Open ${file.fileName}`}
             aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown"
@@ -180,6 +180,5 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
           </button>)}</div></>}
       </div>
     </>}
-    {deleted && <DeleteLevelDialog entry={deleted} local={local} onClose={() => setDeleted(null)} onDeleted={() => { setOrderMessage(''); setOrderError('') }} />}
   </dialog>
 }

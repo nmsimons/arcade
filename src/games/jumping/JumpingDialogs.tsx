@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { KeyboardDialog } from '../hardVacuum/KeyboardDialog'
 import { formatTime } from './challenge'
 import type { PuzzleLevel } from './level'
+import { MAX_NIGHT_AMBIENT, MIN_NIGHT_AMBIENT } from './ambientLight'
 
 function RestartIcon() {
   return <svg className="jumping-dialog-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="square" strokeLinejoin="miter" aria-hidden="true">
@@ -9,8 +10,9 @@ function RestartIcon() {
   </svg>
 }
 
-export function JumpingPauseDialog({ name, reason, connected, testing, challenge, onResume, onRestart, onBuilder, onLevels, onExit }: {
+export function JumpingPauseDialog({ name, reason, connected, testing, challenge, nightAmbient, onNightAmbient, onResume, onRestart, onBuilder, onLevels, onExit }: {
   name: string; reason: string; connected: boolean; testing: boolean; challenge: boolean
+  nightAmbient: number; onNightAmbient: (value: number) => void
   onResume: () => void; onRestart: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
   const [controls, setControls] = useState(false)
@@ -20,7 +22,7 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
       <header className="jumping-dialog-heading">
         <div className="jumping-dialog-kicker"><p title={name}>{name}</p><span className="jumping-dialog-light" aria-hidden="true" /></div>
         <h2>{controls ? 'Controls.' : 'Paused.'}</h2>
-        <p className="jumping-pause-reason" role="status">{reason}</p>
+        {reason && <p className="jumping-pause-reason" role="status">{reason}</p>}
       </header>
       <div className={`jumping-dialog-body${controls ? '' : ' jumping-pause-menu'}`} data-controller-scroll>
         {controls ? <>
@@ -45,6 +47,12 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
             <button onClick={onLevels}>Level menu</button>
             <button onClick={() => setControls(true)}>Controls</button>
           </nav>
+          <div className="jumping-night-ambient" data-menu-control>
+            <label htmlFor="jumping-night-ambient">Night brightness</label>
+            <input id="jumping-night-ambient" type="range" data-menu-range data-menu-id="night-ambient" aria-label="Night brightness"
+              aria-valuetext={`${nightAmbient}%`} min={MIN_NIGHT_AMBIENT} max={MAX_NIGHT_AMBIENT} step={1} value={nightAmbient}
+              onChange={event => onNightAmbient(Number(event.target.value))} />
+          </div>
         </>}
       </div>
       {!controls && <nav className="jumping-dialog-actions jumping-pause-destinations" aria-label="Other destinations">

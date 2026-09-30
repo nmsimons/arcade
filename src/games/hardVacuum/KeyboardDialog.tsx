@@ -54,6 +54,10 @@ export function KeyboardDialog({ children, label, focusKey, onClose, className =
       if (!event.repeat) onClose()
       return
     }
+    // Preserve native slider adjustment, including Home/End and key repeat.
+    // Tab and up/down still use the dialog's shared focus navigation.
+    if (event.target instanceof HTMLInputElement && event.target.type === 'range'
+      && ['arrowleft', 'arrowright', 'home', 'end'].includes(key)) return
     if (key === 'enter' || key === ' ') {
       event.preventDefault(); event.stopPropagation()
       if (!event.repeat) {

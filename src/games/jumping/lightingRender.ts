@@ -1,5 +1,5 @@
 import { GpuLightingField } from './lightingGpuField.ts'
-import { nightModeEnabled } from './ambientLight.ts'
+import { MIN_NIGHT_AMBIENT, nightModeEnabled } from './ambientLight.ts'
 import { BALL_COLOR, drawPuzzleWorld } from './challengeRender.ts'
 import { NIGHT_PLAYER_COLOR } from './athlete.ts'
 import { athleteCasters } from './athleteShadow.ts'
@@ -15,7 +15,7 @@ import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
 import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
-import { ambientExposure, angularFalloff, betweenLightAndView, combineExposure, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
+import { ambientExposure, angularFalloff, betweenLightAndView, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
@@ -80,7 +80,7 @@ export class LightingRenderer {
     const x = (light.x - view.x) * view.zoom, y = (light.y - view.y) * view.zoom
     const direction = light.direction * Math.PI / 180, half = light.spread / 720
     const strength = light.fade
-    const color = (amount: number) => gray(combineExposure(ambient, [strength * amount]))
+    const color = (amount: number) => gray(ambient + (1 - ambient) * strength * amount)
     const key = `${x}:${y}:${direction}:${half}:${view.zoom}:${ambient}:${strength}`
     ctx.save()
     ctx.fillStyle = color(1); ctx.fillRect(0, 0, view.width, view.height)
@@ -123,7 +123,7 @@ export class LightingRenderer {
       { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false)
     // Text is the first wall artwork: empty emission masks need no text erase.
     // Replay it only with the backdrop or when masking the airborne beam.
-    if (layer !== 'objects' && (backdrop || layer === 'wall')) paint(ctx, 0, () => drawWallTexts(ctx, run.level.texts ?? []))
+    if (layer !== 'objects' && (backdrop || layer === 'wall')) paint(ctx, 0, () => drawWallTexts(ctx, run.level.texts ?? [], nightMode))
     if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer)
     else {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
@@ -143,7 +143,7 @@ export class LightingRenderer {
     }
     ctx.restore()
   }
-  render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'full') {
+  render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'full', nightAmbient = MIN_NIGHT_AMBIENT) {
     const sources = this.state.sources(definition, run, dt)
     // Hidden/resizing canvases have no drawable area; drawImage rejects empty buffers.
     if (view.width < 1 || view.height < 1) {
@@ -168,14 +168,14 @@ export class LightingRenderer {
     const structures = activeSources.length ? this.structures.update(this.terrain!.groups, dynamic.filter(group => group.mechanism)) : { fixed: [], moving: [] }
     const moving = [...structures.moving, ...dynamic.filter(group => !group.mechanism)]
     const groups = [...structures.fixed, ...moving]
-    const ambientColor = gray(ambientExposure(definition.ambient))
+    const ambient = ambientExposure(definition.ambient, nightAmbient), ambientColor = gray(ambient)
     let lighting: { lights: number; edges: number; bufferBytes: number; backend: 'gpu' | 'canvas'; drawField: (target: CanvasRenderingContext2D) => void } | undefined
     if (this.preferGpu && !this.gpuUnavailable) {
       this.gpu ??= GpuLightingField.create(this.allowSoftware) ?? undefined
       if (!this.gpu) this.gpuUnavailable = true
       else try {
         const gpu = this.gpu
-        const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level))
+        const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level), nightAmbient)
         const bufferBytes = stats.bufferBytes + width * height * 16
         if (bufferBytes > BUFFER_BUDGET) throw new Error('GPU lighting exceeds its buffer budget.')
         clear(haze, width, height)
@@ -259,14 +259,14 @@ export class LightingRenderer {
           }
         }
         clear(lamp, width, height)
-        const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${definition.ambient}:${light.x}:${light.y}:${light.direction}:${light.spread}`
+        const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}:${light.x}:${light.y}:${light.direction}:${light.spread}`
         const cached = this.staticFields.get(light.id)
         if (cached?.key === key && cached.groups === structures.fixed && cached.resting === resting.fixed) {
           lamp.ctx.drawImage(cached.buffer.canvas, 0, 0)
         } else {
           lamp.ctx.save(); transform(lamp.ctx, view)
           lamp.ctx.beginPath(); lamp.ctx.rect(0, 0, run.level.width, levelHeight(run.level)); lamp.ctx.clip()
-          lamp.ctx.resetTransform(); this.cone(lamp.ctx, light, view, definition.ambient); lamp.ctx.restore()
+          lamp.ctx.resetTransform(); this.cone(lamp.ctx, light, view, ambient); lamp.ctx.restore()
           cast(structures.fixed); cast(resting.fixed)
           if (cacheable.has(light.id)) {
             const buffer = cached?.buffer ?? surface()
@@ -278,7 +278,7 @@ export class LightingRenderer {
         // Reuse this lamp's actual shadow mask, before its ambient underlay. The
         // short haze must stop at gates and terrain just like the real beam.
         clear(correction, width, height); transform(correction.ctx, view)
-        drawLightHaze(correction.ctx, light, definition.ambient)
+        drawLightHaze(correction.ctx, light, definition.ambient, nightAmbient)
         correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'destination-in'; correction.ctx.drawImage(lamp.canvas, 0, 0)
         haze.ctx.drawImage(correction.canvas, 0, 0)
         lamp.ctx.globalCompositeOperation = 'destination-over'; lamp.ctx.fillStyle = ambientColor; lamp.ctx.fillRect(0, 0, width, height)
@@ -312,7 +312,6 @@ export class LightingRenderer {
         // Match the ball's ambient color while retaining near-white in direct
         // light. The existing (1 - light) field also preserves partial shadows
         // and power fades. Reuse scratch pixels only within the posed figure.
-        const ambient = ambientExposure(definition.ambient)
         const tint = `rgb(${playerContrast.map(channel => Math.round(channel * ambient / (1 - ambient))).join(',')})`
         emission.ctx.clearRect(playerX, playerY, playerWidth, playerHeight)
         emission.ctx.save(); emission.ctx.globalCompositeOperation = 'source-over'; emission.ctx.globalAlpha = playerOpacity
@@ -335,7 +334,7 @@ export class LightingRenderer {
     for (const floor of [0, .65] as const) {
       clear(correction, width, height); drawField(correction.ctx)
       if (floor) { correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height) }
-      correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambientExposure(definition.ambient)))
+      correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambient))
       correction.ctx.fillRect(0, 0, width, height)
       clear(emission, width, height)
       this.world(emission.ctx, run, view, nightMode, ambientSurfacePaint(floor), sources, editor, 'all', floor === 0)
@@ -344,7 +343,7 @@ export class LightingRenderer {
       ctx.globalCompositeOperation = 'difference'; ctx.drawImage(emission.canvas, 0, 0)
     }
     const erase: WorldPaint = (target, _exposure, draw) => { target.save(); target.globalCompositeOperation = 'destination-out'; draw(); target.restore() }
-    const beamStrength = beamHazeStrength(definition.ambient)
+    const beamStrength = beamHazeStrength(definition.ambient, nightAmbient)
     if (beamStrength > 0 && lights) {
       // Reuse the resolved max light field: real occlusion, narrow cone edges,
       // power fades and room clipping, without another light pass or buffer.
@@ -358,7 +357,7 @@ export class LightingRenderer {
       // objects. It must not wash out clocks, coins, text or the player's ink.
       this.world(correction.ctx, run, view, nightMode, erase, sources, editor, 'wall')
       ctx.save(); ctx.globalCompositeOperation = 'lighter'
-      ctx.globalAlpha *= beamStrength / (1 - ambientExposure(definition.ambient))
+      ctx.globalAlpha *= beamStrength / (1 - ambient)
       ctx.drawImage(correction.canvas, 0, 0); ctx.restore()
     }
     // Keep the stronger short source glow behind physical objects and fixtures.

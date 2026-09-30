@@ -1,5 +1,5 @@
 import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
-import { nightModeEnabled } from './jumping/ambientLight'
+import { clampNightAmbient, nightModeEnabled, readNightAmbient, saveNightAmbient } from './jumping/ambientLight'
 import { LevelSaveStatus } from '../accounts/LevelSaveStatus'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
@@ -19,12 +19,12 @@ import { LevelBuilder } from './jumping/LevelBuilder'
 import { createRun, formatTime, readBest, saveBest, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
 import { loadLevelCatalog } from './jumping/levelAssets'
-import type { LevelCatalog, LevelFile, MissingLevelFile } from './jumping/levelAssets'
+import type { LevelCatalog, LevelFile, LocalLevelEntry } from './jumping/levelAssets'
 import { levelFileName, missingManifestPrompt, useLocalLevels } from './jumping/localLevels'
 import { LocalFolderActions } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
-import { DeleteLevelButton, DeleteLevelDialog, MissingLevelNotice } from './jumping/LevelFileActions'
+import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
 import { drawChallenge } from './jumping/challengeRender'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import { JumpingAudioState } from './jumping/audioState'
@@ -96,10 +96,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const files = collection === 'built-in' ? devEditing && !builtIn.restoring ? builtIn.entries : catalog.files : local.entries
   const selectedEntry = files.find(file => file.fileName === selectedName) ?? files[0]
   const selected = selectedEntry && 'level' in selectedEntry ? selectedEntry : undefined
-  const [deleteTarget, setDeleteTarget] = useState<MissingLevelFile | null>(null)
   const deleting = useRef(false)
   const [deleteError, setDeleteError] = useState('')
-  async function deleteFile(file: LevelFile) {
+  async function deleteFile(file: LocalLevelEntry) {
     if (deleting.current || menuStore.busy) return
     deleting.current = true; setDeleteError('')
     try { await menuStore.remove(file); setRouteNotice('') }
@@ -119,6 +118,13 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
   const audio = useRef<JumpingSoundSession | null>(null)
   const paintFrame = useRef<() => void>(() => {})
+  const [nightAmbient, setNightAmbient] = useState(readNightAmbient)
+  const nightAmbientRef = useRef(nightAmbient)
+  function changeNightAmbient(value: number) {
+    const brightness = clampNightAmbient(value)
+    nightAmbientRef.current = brightness; setNightAmbient(brightness); saveNightAmbient(brightness)
+    paintFrame.current()
+  }
   const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto' }))
   const [performanceMonitor] = useState(() => import.meta.env.DEV ? new PerformanceMonitor() : null)
   const [devOpen, setDevOpen] = useState(false)
@@ -367,7 +373,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   })
   const handleKey = useEffectEvent((event: KeyboardEvent) => {
     if (import.meta.env.DEV && (event.code === 'Backquote' || event.key === '`') && !event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
-      && !event.isComposing && !preparing && !deleteTarget
+      && !event.isComposing && !preparing
       && !(event.target instanceof HTMLElement && event.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])'))) {
       event.preventDefault()
       if (!event.repeat) changeDevOpen(!devOpenRef.current)
@@ -375,7 +381,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     }
     if (devOpenRef.current) return
     if (screenRef.current === 'menu' && event.code === 'KeyY' && !event.altKey && !event.ctrlKey && !event.metaKey) {
-      if (!deleteTarget && !event.repeat && canEditCollection && selected) { event.preventDefault(); editFile(selected) }
+      if (!event.repeat && canEditCollection && selected) { event.preventDefault(); editFile(selected) }
       return
     }
     if (screenRef.current !== 'playing' || event.altKey || event.ctrlKey || event.metaKey || !PLAY_KEYS.has(event.code)) return
@@ -416,10 +422,10 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       const dialog = controllerDialog(rootRef.current)
       if (dialog) {
         if (pad.pause && screenRef.current === 'paused') changeScreen('playing')
-        else if (!deleteTarget && screenRef.current === 'menu' && pad.pressed.includes(3) && canEditCollection && selected) editFile(selected)
+        else if (screenRef.current === 'menu' && pad.pressed.includes(3) && canEditCollection && selected) editFile(selected)
         else if (pad.pressed.includes(1)) controlDialog(dialog, 'back')
         else if (pad.pressed.includes(0)) {
-          if (!deleteTarget && screenRef.current === 'menu' && selected && document.activeElement?.closest('[data-menu-item]') && !document.activeElement.classList.contains('level-file-delete')) playFile(selected)
+          if (screenRef.current === 'menu' && selected && document.activeElement?.closest('[data-menu-item]') && !document.activeElement.classList.contains('level-file-delete')) playFile(selected)
           else controlDialog(dialog, 'confirm')
         }
         else if (pad.navigation) controlDialog(dialog, pad.navigation)
@@ -457,7 +463,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (level.lighting) {
         const camera = gameCamera(width, height, player.current, level, !!run.current)
         lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), level.lighting,
-          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting?.shadows ?? 'full')
+          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting?.shadows ?? 'full', nightAmbientRef.current)
         return
       }
       lightingStats = null
@@ -558,6 +564,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
+      nightAmbient={nightAmbient} onNightAmbient={changeNightAmbient}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label="Untitled Jumping Game" focusKey="jumping-menu"
       onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">
@@ -594,7 +601,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
           }}>{files.map((file, index) => {
             if ('missing' in file) return <div key={file.fileName} className="jumping-level-tile jumping-missing-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)}>
               <div className="jumping-level-card"><MissingLevelNotice fileName={file.fileName} compact /></div>
-              <div className="jumping-level-tile-actions"><DeleteLevelButton fileName={file.fileName} primary disabled={menuStore.busy || !menuStore.canWrite} onClick={() => setDeleteTarget(file)} /></div>
+              <div className="jumping-level-tile-actions"><DeleteLevelButton fileName={file.fileName} primary disabled={menuStore.busy || !menuStore.canWrite} onClick={() => void deleteFile(file)} /></div>
             </div>
             const level = file.level
             const needsRepair = levelProblems(level).length > 0
@@ -630,7 +637,6 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
           </div>
       </div>
     </KeyboardDialog>}
-    {screen === 'menu' && deleteTarget && <DeleteLevelDialog entry={deleteTarget} local={menuStore} onClose={() => setDeleteTarget(null)} onDeleted={() => setRouteNotice('')} />}
     <input ref={folderPicker} aria-label="Open local level folder" type="file" {...{ webkitdirectory: '', directory: '' }} multiple hidden onChange={e => void local.importFolder(e.target.files)} />
     {builderStarted && <LevelBuilder key={editorFile?.key ?? 'draft'} active={screen === 'building' && !devOpen} onPlay={testLevel} onClose={showMenu}
       templates={devEditing ? [] : catalog.files} local={editorSource === 'built-in' && devEditing ? builtIn : local} collections={devEditing ? { local, builtIn } : undefined} initialFile={editorFile?.file} onFileChange={builderFileChanged} /> }

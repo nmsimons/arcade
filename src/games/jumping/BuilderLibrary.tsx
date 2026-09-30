@@ -167,7 +167,7 @@ export function BuilderLibrary({ local: editorStore, collections, templates, lev
             aria-keyshortcuts="Alt+ArrowLeft Alt+ArrowRight Alt+ArrowUp Alt+ArrowDown"
             onClick={() => choose({ kind: 'open', file })}>
             <LevelThumbnail level={file.level} /><span><strong>{file.level.name}</strong><small title={file.fileName}>{file.fileName}</small>
-              {local.repositoryKind === 'account' && <LevelSaveStatus kind="account" fileName={file.fileName} text={file.sourceText} />}
+              {local.repository && local.repositoryKind === 'account' && <LevelSaveStatus kind="account" fileName={file.fileName} text={file.sourceText} />}
             </span>
           </button>
           <div className="builder-file-actions"><button className="builder-use-template" disabled={local.busy} aria-label={`Use ${file.fileName} as template`} onClick={() => choose({ kind: 'template', file })}>Use as template</button>

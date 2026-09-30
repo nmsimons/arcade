@@ -1,14 +1,19 @@
 /* The arcade is a neutral shelf. Each title owns its materials and typography. */
 .arcade-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; overflow: auto; padding: clamp(24px, 5vw, 72px); background: radial-gradient(ellipse at 50% 5%, #fcfaf4, #e8e7df 75%); color: #293c3d; font-family: 'Trebuchet MS', 'Segoe UI', sans-serif; scrollbar-color: #85918a #e8e7df; }
 .arcade-menu { width: 100%; max-width: 1320px; margin-block: auto; }
-.arcade-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 32px; }
+.arcade-heading { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; gap: 10px 20px; margin-bottom: 32px; }
+.arcade-brand { display: contents; }
+.arcade-brand > * { grid-column: 1 / 3; min-width: 0; }
+.arcade-heading > .account-surface { grid-area: 2 / 3 / 3 / 5; min-width: 0; }
+.arcade-heading .arcade-account-bar { flex-direction: row; align-items: center; justify-content: flex-end; gap: 12px; margin: 0; text-align: right; }
+.arcade-heading .arcade-account-bar > * { max-width: 100%; }
+.arcade-heading .arcade-account-bar > button { order: 1; }
 .arcade-logo { display: block; width: clamp(174px, 20vw, 218px); max-width: 100%; height: auto; }
-.arcade-brand-name { margin: 0 0 10px; color: #52625b; font-size: 11px; font-weight: 700; letter-spacing: .18em; line-height: 1.4; text-transform: uppercase; }
+.arcade-brand-name { margin: 0; color: #52625b; font-size: 11px; font-weight: 700; letter-spacing: .18em; line-height: 1.4; text-transform: uppercase; }
 .arcade-heading h1 { margin: 0; }
+.arcade-slogan { margin: 0; font-size: 16px; font-weight: 600; color: #52625b; }
 .arcade-overlay .arcade-account-bar button:is(:hover, :focus):not(:disabled) { background: #e8ede3; color: #254c3f; border-color: #527b65; }
 .arcade-overlay .arcade-account-bar button:focus:not(:disabled) { outline-color: #237152; }
-.arcade-edition { font: 24px ui-monospace, monospace; color: #52625b; }
-.arcade-edition span { display: block; font: 11px 'Trebuchet MS', sans-serif; margin-top: 5px; }
 .arcade-games { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
 .game-art { display: block; width: 100%; height: auto; aspect-ratio: 360 / 230; flex-shrink: 0; overflow: hidden; pointer-events: none; object-fit: cover; }
 .arcade-overlay .arcade-choice { --entry-focus: #1b5b4a; display: flex; flex-direction: column; padding: 0; overflow: hidden; min-width: 0; text-align: left; border: 1px solid #4b6258; border-radius: 4px; background: #091612; color: #d4e8dd; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; box-shadow: 0 10px 22px #23392b18; transition: box-shadow 140ms ease, border-color 140ms ease; }
@@ -48,17 +53,39 @@
 .arcade-footer a:focus { outline: 2px solid #1b5b4a; outline-offset: 4px; border-radius: 2px; }
 @media (max-width: 1050px) {
   .arcade-overlay { padding: 28px; }
-  .arcade-menu { max-width: 540px; }
-  .arcade-games { grid-template-columns: 1fr; gap: 22px; }
-  .arcade-overlay .arcade-choice { display: grid; grid-template-columns: 1fr 42%; }
-  .arcade-card-heading { min-height: 0; padding: 24px 22px 18px; }
-  .arcade-choice-urban .arcade-card-heading { padding-top: 20px; }
-  .arcade-choice .game-art { height: 100%; object-fit: cover; align-self: center; }
-  .arcade-card-footer { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 12px; padding: 16px 22px; }
-  .arcade-play { margin: 0 0 0 auto; gap: 18px; }
-  .arcade-title { font-size: 25px; }
-  .arcade-choice-bumper .arcade-title, .arcade-choice-urban .arcade-title { font-size: 34px; }
-  .arcade-heading { margin-bottom: 24px; }
+  .arcade-menu { max-width: 900px; }
+  .arcade-games { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-@media (max-width: 420px) { .arcade-overlay { padding: 24px 18px; } .arcade-edition { display: none; } .arcade-card-footer { font-size: 10px; } .arcade-genre { font-size: 9px; letter-spacing: .06em; } }
+@media (max-width: 700px) {
+  .arcade-overlay { padding: 24px; }
+  .arcade-menu { max-width: 540px; }
+  .arcade-heading { grid-template-columns: minmax(0, 1fr); gap: 8px; margin-bottom: 24px; }
+  .arcade-brand > * { grid-column: 1; }
+  .arcade-logo { width: 190px; }
+  .arcade-heading > .account-surface { grid-area: 4 / 1 / 5 / 2; margin-top: 12px; }
+  .arcade-heading .arcade-account-bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; text-align: left; }
+  .arcade-heading .arcade-account-bar > button { grid-area: 1 / 2; order: 0; min-height: 44px; max-width: min(45vw, 20ch); }
+  .arcade-heading .arcade-account-bar > span { grid-area: 1 / 1; line-height: 1.5; }
+  .arcade-heading .arcade-account-bar > a { grid-column: 1 / -1; }
+  .arcade-games { grid-template-columns: 1fr; gap: 20px; }
+  .arcade-overlay .arcade-choice { display: grid; grid-template-columns: minmax(0, 1fr) 40%; }
+  .arcade-card-heading { min-width: 0; min-height: 0; padding: 20px 18px 16px; }
+  .arcade-choice-urban .arcade-card-heading { padding-top: 16px; }
+  .arcade-choice-jumping .arcade-card-heading { padding-bottom: 18px; }
+  .arcade-choice .game-art { height: 100%; object-fit: cover; align-self: center; }
+  .arcade-card-footer { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 12px; padding: 14px 18px; font-size: 11px; }
+  .arcade-card-footer > span:first-child { min-width: 0; }
+  .arcade-play { flex-shrink: 0; margin: 0 0 0 auto; gap: 12px; }
+  .arcade-title { font-size: 26px; }
+  .arcade-choice-bumper .arcade-title, .arcade-choice-urban .arcade-title { font-size: 34px; }
+  .arcade-choice-jumping .arcade-title { font-size: 30px; }
+}
+@media (max-width: 380px) {
+  .arcade-overlay { padding: 20px 16px; }
+  .arcade-card-heading { padding-inline: 16px; }
+  .arcade-card-footer { padding-inline: 16px; }
+  .arcade-genre { font-size: 9px; letter-spacing: .06em; }
+  .arcade-choice-bumper .arcade-title, .arcade-choice-urban .arcade-title { font-size: 30px; }
+  .arcade-choice-jumping .arcade-title { font-size: 27px; }
+}
 @media (prefers-reduced-motion: reduce) { .arcade-overlay .arcade-choice, .arcade-play > span { transition: none; } .arcade-overlay .arcade-choice .arcade-play > span { transform: none; } }

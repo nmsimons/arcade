@@ -149,6 +149,12 @@ or placing an object opens **Object** automatically; switching tabs preserves th
 selection. The tabs stay visible while scrolling. With a tab focused, Left/Right
 arrows switch tabs and Home/End select the first/last tab.
 
+Numeric inspector edits preview on the canvas as you type a complete number.
+Press Enter or leave the field to apply the edit as one undo step; Esc restores
+the original value. Fields accept whole numbers, including seconds, and enforce
+their supported bounds. Blank or incomplete entries leave the level unchanged;
+decimal and scientific-notation entries are rejected.
+
 The **Terrain** tool draws a rectangular starting shape. Select it to resize the
 whole shape with the four square handles outside its bounding corners, or drag
 the white nodes to change its geometry. Choose **Node** (N), or **Add node** in
@@ -599,6 +605,10 @@ moving; a blocked climb retains the grip and allows retreat along the rope.
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
 The builder's **Objects** tools place balls, boxes, and shovebots on a surface.
 Select a ball or box to change its size, or a shovebot to set its patrol limits.
+Drag either square handle on the shovebot's patrol line to move that endpoint;
+the inspector follows while dragging. Snap aligns endpoints to the grid, and
+Alt bypasses snapping. Limits include the bot's starting position, stay inside
+the level, and keep at least 50 units between endpoints.
 Shovebots are solid bodies on wheels, with no projecting arm or bumper. The
 player can stand, crouch, walk, and jump on their roof. Limited shoe traction
 keeps up with ordinary movement but allows a sudden charge to pull the bot out

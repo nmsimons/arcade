@@ -11,10 +11,15 @@ async function open(page, level) {
   await installTestFolder(page, level ? { 'fixture.json': level } : {})
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, text = proto.fillText
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, text = proto.fillText, arc = proto.arc
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = [] }
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = []; this.canvas.builderHandles = []; this.canvas.builderLabels = [] }
+      if (this.fillStyle === '#c65231' && args[2] === args[3]) this.canvas.builderHandles?.push({ x: args[0] + args[2] / 2, y: args[1] + args[3] / 2 })
       return rect.apply(this, args)
+    }
+    proto.arc = function (...args) {
+      if (this.fillStyle === '#c65231') this.canvas.builderHandles?.push({ x: args[0], y: args[1] })
+      return arc.apply(this, args)
     }
     proto.ellipse = function (...args) {
       if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.jumpCamera) {
@@ -24,6 +29,7 @@ async function open(page, level) {
       return ellipse.apply(this, args)
     }
     proto.fillText = function (value, x, y, ...rest) {
+      this.canvas.builderLabels?.push(String(value))
       if (['#718074', '#94433f'].includes(this.fillStyle)) {
         const t = this.getTransform()
         this.canvas.wallTexts?.push({ text: value, x, y, color: this.fillStyle, font: this.font, rotation: Math.atan2(t.b, t.a) * 180 / Math.PI,
@@ -49,12 +55,20 @@ async function open(page, level) {
     await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false', { timeout: 15000 })
   } else await page.getByRole('button', { name: 'Close library', exact: true }).click()
 }
-async function dragWorld(page, start, end) {
+async function worldPoint(page, point) {
   const canvas = await page.getByRole('application', { name: 'Level canvas' }).boundingBox()
   const camera = await page.getByRole('application', { name: 'Level canvas' }).evaluate(canvas => { const c = canvas.jumpCamera; return { a: c.a, d: c.d, e: c.e, f: c.f, ratio: devicePixelRatio } })
   const x = v => canvas.x + (v * camera.a + camera.e) / camera.ratio, y = v => canvas.y + (v * camera.d + camera.f) / camera.ratio
-  await page.mouse.move(x(start.x), y(start.y)); await page.mouse.down()
-  await page.mouse.move(x(end.x), y(end.y), { steps: 8 }); await page.mouse.up()
+  return { x: x(point.x), y: y(point.y) }
+}
+async function dragWorld(page, start, end) {
+  const a = await worldPoint(page, start), b = await worldPoint(page, end)
+  await page.mouse.move(a.x, a.y); await page.mouse.down()
+  await page.mouse.move(b.x, b.y, { steps: 8 }); await page.mouse.up()
+}
+async function expectHandle(page, point) {
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  await expect.poll(() => canvas.evaluate((c, p) => c.builderHandles.some(h => Math.hypot(h.x - p.x, h.y - p.y) < .01), point)).toBe(true)
 }
 
 test('Terrain step templates and toolbar transforms support undo, redo and folder round trips', async ({ page }, info) => {
@@ -1503,7 +1517,12 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   const canvas = page.getByRole('application', { name: 'Level canvas' })
   const camera = () => canvas.evaluate(c => ({ a: c.jumpCamera.a, f: c.jumpCamera.f }))
   const originalView = await camera()
-  await page.getByRole('spinbutton', { name: 'Level height', exact: true }).fill('1037'); await page.getByRole('spinbutton', { name: 'Level height', exact: true }).press('Enter')
+  const levelHeight = page.getByRole('spinbutton', { name: 'Level height', exact: true })
+  await levelHeight.fill('900'); await expect(levelHeight).toBeFocused()
+  const previewView = await camera()
+  expect(900 * previewView.a + previewView.f).toBeCloseTo(600 * originalView.a + originalView.f, 5)
+  await levelHeight.press('Escape'); expect(await camera()).toEqual(originalView)
+  await levelHeight.fill(''); await levelHeight.pressSequentially('1037'); await levelHeight.press('Enter')
   const tallerView = await camera()
   expect(tallerView.a).toBe(originalView.a)
   expect(1037 * tallerView.a + tallerView.f).toBeCloseTo(600 * originalView.a + originalView.f, 5)
@@ -1552,20 +1571,152 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('460')
 })
 
+test('shovebot patrol endpoints drag and preview live with snap, cancellation, undo and saved limits', async ({ page }, info) => {
+  const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
+  await open(page, level); await selectBuilderObject(page, 'robot:0')
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  const left = page.getByRole('spinbutton', { name: 'Shovebot left limit' }), right = page.getByRole('spinbutton', { name: 'Shovebot right limit' })
+  const a = await worldPoint(page, { x: 400, y: 855 }), b = await worldPoint(page, { x: 433, y: 830 })
+  await page.mouse.move(a.x, a.y); await expect(canvas).toHaveCSS('cursor', 'ew-resize'); await page.mouse.down()
+  await page.mouse.move(b.x, b.y, { steps: 8 })
+  await expect(left).toHaveValue('440'); await expect(right).toHaveValue('1000')
+  await expectHandle(page, { x: 440, y: 855 }); await page.mouse.up()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await selectBuilderObject(page, 'robot:0')
+  await expect(left).toHaveValue('400')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); await selectBuilderObject(page, 'robot:0')
+  await expect(left).toHaveValue('440')
+  await dragWorld(page, { x: 1000, y: 855 }, { x: 1127, y: 855 }); await expect(right).toHaveValue('1120')
+  await page.keyboard.down('Alt'); await dragWorld(page, { x: 1120, y: 855 }, { x: 1143, y: 855 }); await page.keyboard.up('Alt')
+  await expect(right).toHaveValue('1143')
+  await page.getByRole('checkbox', { name: 'Snap' }).uncheck()
+  await dragWorld(page, { x: 440, y: 855 }, { x: 457, y: 855 }); await expect(left).toHaveValue('457')
+  const from = await worldPoint(page, { x: 457, y: 855 }), to = await worldPoint(page, { x: 520, y: 855 })
+  await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(to.x, to.y)
+  await expect(left).toHaveValue('520')
+  await page.keyboard.press('Escape'); await page.mouse.up(); await selectBuilderObject(page, 'robot:0')
+  await expect(left).toHaveValue('457'); await expectHandle(page, { x: 457, y: 855 })
+  await dragWorld(page, { x: 457, y: 855 }, { x: 760, y: 855 }); await expect(left).toHaveValue('700')
+  await dragWorld(page, { x: 1143, y: 855 }, { x: 660, y: 855 }); await expect(right).toHaveValue('750')
+  await left.fill('0'); await expectHandle(page, { x: 50, y: 855 })
+  await expect(left).toBeFocused(); await left.press('Escape'); await expectHandle(page, { x: 700, y: 855 })
+  await left.fill(''); await left.pressSequentially('300'); await expectHandle(page, { x: 300, y: 855 })
+  await left.press('Enter')
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await selectBuilderObject(page, 'robot:0')
+  await expect(left).toHaveValue('700')
+  await left.fill('300'); await left.press('Tab')
+  await right.fill('9999'); await expectHandle(page, { x: 1750, y: 855 })
+  await right.press('Enter')
+  await page.getByRole('tab', { name: 'Level', exact: true }).click()
+  const width = page.getByRole('spinbutton', { name: 'Level width', exact: true })
+  await width.fill('800'); await width.press('Enter'); await expect(width).toHaveValue('1800')
+  const saved = await saveTestLevel(page)
+  expect(saved.level.robots[0]).toEqual({ ...level.robots[0], left: 300, right: 1750 })
+  await reopenTestLevel(page, saved); await selectBuilderObject(page, 'robot:0')
+  await expect(left).toHaveValue('300'); await expect(right).toHaveValue('1750')
+  await page.screenshot({ path: info.outputPath('shovebot-patrol-handles.png') })
+})
+
+test('mechanism travel, climbable dimensions, spotlight angles and text settings preview before leaving the inspector', async ({ page }) => {
+  const level = blankTrial()
+  level.mechanisms = [
+    { id: 'lift', kind: 'lift', x: 500, y: 900, w: 180, h: 20, travel: 240 },
+    { id: 'slider', kind: 'lift', orientation: 'horizontal', x: 900, y: 700, w: 160, h: 20, travel: 200 },
+  ]
+  level.climbables.ladders = [{ x: 300, top: 300, bottom: 700, platform: -1, side: 1 }]
+  level.climbables.ropes = [{ x: 1100, y: 100, length: 200, segments: 16 }]
+  level.texts = [{ x: 400, y: 200, w: 300, h: 180, text: 'LIVE', fontSize: 28, align: 'left' }]
+  level.version = 2; level.lighting = { nightMode: false, ambient: 0, lights: [{ id: 'lamp', x: 700, y: 300, direction: 90, spread: 60, intensity: 100, power: 'always' }] }
+  await open(page, level)
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  await selectBuilderObject(page, 'mechanism:0')
+  const travel = page.getByRole('spinbutton', { name: 'Travel height', exact: true })
+  await travel.fill('360'); await expect(travel).toBeFocused(); await expectHandle(page, { x: 590, y: 540 })
+  await travel.press('Escape'); await expectHandle(page, { x: 590, y: 660 })
+  await travel.fill('360'); await travel.press('Enter')
+  await selectBuilderObject(page, 'mechanism:1')
+  const distance = page.getByRole('spinbutton', { name: 'Travel distance', exact: true })
+  await distance.fill('300'); await expectHandle(page, { x: 680, y: 700 }); await distance.press('Tab')
+  await selectBuilderObject(page, 'ladder:0')
+  const height = page.getByRole('spinbutton', { name: 'Object h', exact: true })
+  const padding = await canvas.evaluate(c => 8 * devicePixelRatio / c.jumpCamera.a)
+  await height.fill('500'); await expectHandle(page, { x: 300, y: 800 + padding }); await height.press('Tab')
+  await selectBuilderObject(page, 'rope:0')
+  await height.fill('300'); await expect(height).toBeFocused()
+  await expect.poll(() => canvas.evaluate(c => c.builderHandles.some(h => Math.abs(h.x - 1100) < 1 && h.y > 395))).toBe(true)
+  await height.press('Enter')
+  await selectBuilderObject(page, 'light:0')
+  const direction = page.getByRole('spinbutton', { name: 'Light direction', exact: true }), spread = page.getByRole('spinbutton', { name: 'Light spread', exact: true })
+  const radius = await canvas.evaluate(c => 60 * devicePixelRatio / c.jumpCamera.a)
+  await direction.fill('0'); await expectHandle(page, { x: 700 + radius, y: 300 }); await direction.press('Escape')
+  await expectHandle(page, { x: 700, y: 300 + radius })
+  await spread.fill('120'); await expectHandle(page, { x: 700 + radius * Math.cos(Math.PI / 6), y: 300 + radius / 2 }); await spread.press('Enter')
+  await selectBuilderObject(page, 'text:0')
+  const font = page.getByRole('spinbutton', { name: 'Text font size', exact: true }), rotation = page.getByRole('spinbutton', { name: 'Text rotation', exact: true })
+  await font.fill('48'); await expect.poll(() => canvas.evaluate(c => c.wallTexts[0]?.font)).toContain('48px')
+  await font.press('Tab')
+  await rotation.fill('45'); await expect.poll(() => canvas.evaluate(c => Math.round(c.wallTexts[0]?.rotation))).toBe(45)
+  await rotation.press('Escape'); await expect.poll(() => canvas.evaluate(c => Math.round(c.wallTexts[0]?.rotation))).toBe(0)
+  const saved = (await saveTestLevel(page)).level
+  expect(saved.mechanisms.map(m => m.travel)).toEqual([360, 300])
+  expect(saved.climbables.ladders[0].bottom).toBe(800)
+  expect(saved.climbables.ropes[0].length).toBe(300)
+  expect(saved.lighting.lights[0]).toMatchObject({ direction: 90, spread: 120 })
+  expect(saved.texts[0].fontSize).toBe(48); expect(saved.texts[0].rotation ?? 0).toBe(0)
+})
+
+test('seconds accept only whole numbers, preview live, and respect pickup and medal bounds', async ({ page }) => {
+  const level = blankTrial(); level.pickups = [
+    { kind: 'time-bonus', x: 400, y: 700, seconds: 5 },
+    { kind: 'time-penalty', x: 600, y: 700, seconds: 3 },
+  ]
+  await open(page, level); await selectBuilderObject(page, 'pickup:0')
+  const canvas = page.getByRole('application', { name: 'Level canvas' }), seconds = page.getByRole('spinbutton', { name: 'Seconds off', exact: true })
+  await seconds.fill('7'); await expect(seconds).toBeFocused()
+  await expect.poll(() => canvas.evaluate(c => c.builderLabels.includes('7'))).toBe(true)
+  await seconds.press('Escape'); await expect(seconds).toHaveValue('5')
+  await seconds.fill('2.5'); await expect(seconds).toHaveValue('5')
+  await seconds.fill('0'); await expect.poll(() => canvas.evaluate(c => c.builderLabels.includes('1'))).toBe(true)
+  await seconds.press('Tab'); await expect(seconds).toHaveValue('1')
+  await selectBuilderObject(page, 'pickup:1')
+  const added = page.getByRole('spinbutton', { name: 'Seconds added', exact: true })
+  await added.fill('100'); await expect.poll(() => canvas.evaluate(c => c.builderLabels.includes('9'))).toBe(true)
+  await added.press('Enter'); await expect(added).toHaveValue('9')
+  await page.getByRole('tab', { name: 'Level', exact: true }).click()
+  const gold = page.getByRole('spinbutton', { name: 'gold time', exact: true }), silver = page.getByRole('spinbutton', { name: 'silver time', exact: true }), bronze = page.getByRole('spinbutton', { name: 'bronze time', exact: true })
+  await gold.fill('10.5'); await expect(gold).toHaveValue('10')
+  await gold.fill('1e2'); await expect(gold).toHaveValue('10')
+  await gold.fill('9999'); await gold.press('Enter'); await expect(gold).toHaveValue('19')
+  await silver.fill('0'); await silver.press('Enter'); await expect(silver).toHaveValue('20')
+  await bronze.fill('9999'); await bronze.press('Enter'); await expect(bronze).toHaveValue('3600')
+  const saved = (await saveTestLevel(page)).level
+  expect(saved.pickups.map(p => p.seconds)).toEqual([1, 9]); expect(saved.times).toEqual({ gold: 19, silver: 20, bronze: 3600 })
+})
+
 test('numeric inspector edits commit once, accept complete values, cancel cleanly, and keep boxes on the floor', async ({ page }) => {
   const level = blankTrial(); level.props = [{ kind: 'box', x: 500, y: 920, size: 80 }]
   await open(page, level)
   const selected = page.getByRole('combobox', { name: 'Selected object' }), size = page.getByRole('spinbutton', { name: 'Object w', exact: true })
   await selectBuilderObject(page, 'prop:0')
   await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toHaveCount(0)
-  await size.fill(''); await size.pressSequentially('160')
-  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('80')
+  await size.fill(''); await size.pressSequentially('1')
+  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('30')
+  await size.pressSequentially('60')
+  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('160')
+  const padding = await page.getByRole('application', { name: 'Level canvas' }).evaluate(c => 8 * devicePixelRatio / c.jumpCamera.a)
+  await expectHandle(page, { x: 420 - padding, y: 760 - padding })
   await size.press('Enter')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('160')
   expect((await saveTestLevel(page)).level.props[0]).toEqual({ kind: 'box', x: 500, y: 920, size: 160 })
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await selectBuilderObject(page, 'prop:0')
   await expect(size).toHaveValue('80')
-  await size.fill('130'); await size.press('Escape'); await expect(size).toHaveValue('80')
+  await size.fill('130')
+  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('130')
+  await size.press('Escape'); await expect(size).toHaveValue('80')
+  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('80')
+  for (const invalid of ['130.5', '1e2', '9007199254740992']) {
+    await size.fill(invalid); await expect(size).toHaveValue('80')
+    await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('80')
+  }
   await size.fill(''); await size.press('Tab'); await expect(size).toHaveValue('80')
   await size.fill('130'); await size.press('Enter'); await expect(size).toHaveValue('130')
   await size.press('ArrowUp'); await expect(size).toHaveValue('150')

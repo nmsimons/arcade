@@ -26,10 +26,19 @@ export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
+/** Patrol endpoints stay in the room and include the shovebot's starting position. */
+export function setShovebotLimit(level: JumpLevel, index: number, side: 'left' | 'right', value: number): JumpLevel {
+  if (!level.robots?.[index] || !Number.isFinite(value)) return level
+  const next = copyLevel(level), robot = next.robots![index]
+  robot[side] = side === 'left' ? clamp(Math.round(value), 50, Math.floor(Math.min(robot.x, robot.right - 50)))
+    : clamp(Math.round(value), Math.ceil(Math.max(robot.x, robot.left + 50)), Math.floor(next.width - 50))
+  return next
+}
+
 export function setWallTextRotation(level: JumpLevel, index: number, rotation: number): JumpLevel {
   if (!level.texts?.[index] || !Number.isFinite(rotation)) return level
   const next = copyLevel(level), text = next.texts![index]
-  text.rotation = clamp(rotation, -180, 180)
+  text.rotation = clamp(Math.round(rotation), -180, 180)
   next.texts![index] = fitWallText(text, next.width, levelHeight(next))
   return next
 }
@@ -114,7 +123,7 @@ export function itemHandle(level: JumpLevel, selection: Selection) {
 export function setElevatorTravel(level: JumpLevel, index: number, travel: number): JumpLevel {
   if (level.mechanisms?.[index]?.kind !== 'lift' || !Number.isFinite(travel)) return level
   const next = copyLevel(level)
-  next.mechanisms![index].travel = clamp(travel, 60, 1200)
+  next.mechanisms![index].travel = clamp(Math.round(travel), 60, 1200)
   return next
 }
 export function setTriggerTargets(level: JumpLevel, index: number, targets: readonly string[]): JumpLevel {

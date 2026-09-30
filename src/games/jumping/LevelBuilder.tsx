@@ -19,7 +19,7 @@ import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
 import { BuilderSelect } from './BuilderSelect'
-import { setPickupSeconds, setWallTextRotation, transformTerrain } from './editor'
+import { setPickupSeconds, setWallTextRotation, setShovebotLimit, transformTerrain } from './editor'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
 import { ObjectNameField } from './ObjectNameField'
@@ -76,7 +76,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
   return selection.kind === 'text' ? handles.map(p => ({ ...p, ...wallTextPoint(level.texts![selection.index], p.x - bounds.x, p.y - bounds.y) })) : handles
 }
-type Drag = { mode: 'move' | 'resize' | 'travel' | 'point' | 'draw' | 'pan' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeHandle; inserted?: boolean }
+type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'draw' | 'pan' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
   { id: 'node', group: 'Editing', label: 'Node', help: 'Drag an existing node to reshape terrain, or click an edge to add one. N activates this tool.' },
@@ -87,7 +87,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'ladder', group: 'Movement', label: 'Ladder', help: 'Drag down anywhere to place a ladder. Move it or change its height in the inspector.' },
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click for a standard ball, or drag to choose its size. Corner handles resize it.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click for a standard box, or drag to choose its size. Corner handles resize it.' },
-  { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Set its patrol limits in the inspector.' },
+  { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click a surface to place a shovebot. Drag either end of its patrol range, or set the limits in the inspector.' },
   { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate or coin switch to move it.' },
   { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
@@ -191,6 +191,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const trigger = selection?.kind === 'trigger' ? level.triggers?.[selection.index] : null
   const verticalCoinSwitch = trigger?.mode === 'coins' && trigger.orientation === 'vertical'
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
+  const patrolHandles = robot ? (['left', 'right'] as const).map(side => ({ side, x: robot[side], y: robot.y - 65 })) : []
+  const patrolHandleAt = (p: Point) => patrolHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
+  const adjustingPatrol = drag?.mode === 'patrol' || pointer && patrolHandleAt(pointer)
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
   const switchedObject = mechanism ?? (light?.power === 'switched' ? light : null)
   const aimHandles = useMemo(() => light ? lightHandles(light, view.zoom) : [], [light, view.zoom])
@@ -227,11 +230,30 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     setHistory(h => h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h)
     chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null)
   }
-  function keepFloorInView(next: JumpLevel) {
-    const dy = levelHeight(next) - levelHeight(history.present)
+  function keepFloorInView(next: JumpLevel, previous = history.present) {
+    const dy = levelHeight(next) - levelHeight(previous)
     if (!dy) return
     setView(v => ({ ...v, y: v.y + dy }))
     setPointer(p => p && { ...p, y: p.y + dy })
+  }
+  function numberEdit(update: (base: JumpLevel, value: number) => JumpLevel, followFloor = false) {
+    // Always derive from the committed level, so intermediate/clamped typing
+    // cannot shift an object's fixed edge or permanently crop its geometry.
+    return {
+      onPreview: (value: number | null) => {
+        const next = value === null ? null : update(history.present, value)
+        // Returned callbacks run only from NumberField events, never during render.
+        // eslint-disable-next-line react-hooks/refs
+        if (followFloor) keepFloorInView(next ?? history.present, latestPreview.current ?? history.present)
+        latestPreview.current = next; setPreview(next)
+      },
+      onCommit: (value: number) => {
+        const next = update(history.present, value)
+        if (followFloor) keepFloorInView(next, latestPreview.current ?? history.present)
+        // eslint-disable-next-line react-hooks/refs
+        commit(next)
+      },
+    }
   }
   function load(next: JumpLevel, file?: LevelFile, source: LevelSource = local.repository && local.repositoryKind !== 'account' ? 'built-in' : 'local') {
     next = prepareLevelRopes(copyLevel(next), true)
@@ -370,7 +392,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     }
     if (robot) {
       ctx.strokeStyle = '#cc6a49'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom]); ctx.beginPath(); ctx.moveTo(robot.left, robot.y - 65); ctx.lineTo(robot.right, robot.y - 65); ctx.stroke(); ctx.setLineDash([])
-      for (const x of [robot.left, robot.right]) { ctx.beginPath(); ctx.arc(x, robot.y - 65, 3 / view.zoom, 0, Math.PI * 2); ctx.fill() }
+      const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
+      for (const x of [robot.left, robot.right]) ctx.fillRect(x - handle / 2, robot.y - 65 - handle / 2, handle, handle)
     }
     if (support && Math.abs(support.delta) < .1) {
       ctx.strokeStyle = '#60826a'; ctx.lineWidth = 3 / view.zoom
@@ -417,7 +440,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function pointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (event.button !== 0 && event.button !== 1) return
     event.preventDefault(); event.currentTarget.focus({ preventScroll: true }); event.currentTarget.setPointerCapture(event.pointerId)
-    const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = history.present
+    const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = preview ?? history.present
     setPointer(p)
     latestPreview.current = null
     if (panHeld.current || event.button === 1) { setDrag({ mode: 'pan', start: p, screen, base, view, selection: null }); return }
@@ -444,6 +467,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (selection && travelHandleAt(p)) {
       chooseInspectorTab('object')
       setDrag({ mode: 'travel', start: p, screen, base, view, selection }); return
+    }
+    const patrolHandle = patrolHandleAt(p)
+    if (selection?.kind === 'robot' && patrolHandle) {
+      chooseInspectorTab('object')
+      setDrag({ mode: 'patrol', start: p, screen, base, view, selection, side: patrolHandle.side }); return
     }
     const handle = resizeHandleAt(p)
     if (selection && handle) {
@@ -492,6 +520,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           ? (elevator.flipX ? 1 : -1) * (qx(stop.x + dx) - elevator.x)
           : elevator.y - qy(stop.y + dy)
         next = setElevatorTravel(d.base, d.selection.index, travel)
+      }
+      if (d.mode === 'patrol' && d.side) {
+        const robot = d.base.robots![d.selection.index]
+        next = setShovebotLimit(d.base, d.selection.index, d.side, qx(robot[d.side] + dx))
       }
       if (d.mode === 'resize') {
         const text = d.selection.kind === 'text' ? d.base.texts![d.selection.index] : null
@@ -542,10 +574,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     canvas.addEventListener('wheel', handleWheel, { passive: false })
     return () => canvas.removeEventListener('wheel', handleWheel)
   }, [active])
-  function setDimension(axis: 'x' | 'y' | 'w' | 'h', value: number) {
-    if (!selection || !bounds || !Number.isFinite(value)) return
-    commit(axis === 'x' || axis === 'y' ? moveItem(history.present, selection, axis === 'x' ? value - (light?.x ?? bounds.x) : 0, axis === 'y' ? roomHeight - value - (light?.y ?? bounds.y) : 0)
-      : resizeItem(history.present, selection, axis === 'w' ? value : bounds.w, axis === 'h' ? value : bounds.h))
+  function setDimension(base: JumpLevel, axis: 'x' | 'y' | 'w' | 'h', value: number) {
+    const bounds = selection && itemBounds(base, selection)
+    if (!selection || !bounds || !Number.isFinite(value)) return base
+    const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : null
+    return axis === 'x' || axis === 'y' ? moveItem(base, selection, axis === 'x' ? value - (light?.x ?? bounds.x) : 0, axis === 'y' ? levelHeight(base) - value - (light?.y ?? bounds.y) : 0)
+      : resizeItem(base, selection, axis === 'w' ? value : bounds.w, axis === 'h' ? value : bounds.h)
   }
 
   function duplicate() {
@@ -563,16 +597,17 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     setMessage(`Created a new level from “${template.name}”. Its file will be created when you save.`)
     requestAnimationFrame(() => canvasRef.current?.focus())
   }
-  function changeObject(field: string, value: number | string) {
-    if (!selection) return
-    if (selection.kind === 'light') { commit(editLight(history.present, selection.index, { [field]: value })); return }
+  function changedObject(base: JumpLevel, field: string, value: number | string) {
+    if (!selection) return base
+    if (selection.kind === 'light') return editLight(base, selection.index, { [field]: value })
     if (selection.kind === 'mechanism' && field === 'travel') {
-      commit(setElevatorTravel(history.present, selection.index, Number(value))); return
+      return setElevatorTravel(base, selection.index, Number(value))
     }
     if (selection.kind === 'text' && field === 'rotation') {
-      commit(setWallTextRotation(history.present, selection.index, Number(value))); return
+      return setWallTextRotation(base, selection.index, Number(value))
     }
-    const next = copyLevel(history.present)
+    if (selection.kind === 'robot' && (field === 'left' || field === 'right')) return setShovebotLimit(base, selection.index, field, Number(value))
+    const next = copyLevel(base)
     if (selection.kind === 'text') {
       const text = next.texts![selection.index]
       if (field === 'text') text.text = String(value).slice(0, 1000)
@@ -580,12 +615,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (field === 'align' && (value === 'left' || value === 'center' || value === 'right')) text.align = value
       if (field === 'style' && (value === 'official' || value === 'graffiti')) text.style = value
     }
-    if (selection.kind === 'robot') {
-      const r = next.robots![selection.index]
-      if (field === 'left') r.left = clamp(Number(value), 50, Math.min(r.x, r.right - 50))
-      else r.right = clamp(Number(value), Math.max(r.x, r.left + 50), next.width - 50)
-    }
-    commit(next)
+    return next
+  }
+  function changeObject(field: string, value: number | string) {
+    commit(changedObject(history.present, field, value))
   }
 
   return <section className="jumping-builder" hidden={!active} aria-label="Level builder" onKeyDown={event => {
@@ -655,7 +688,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         })}
     </aside>
     <div className="builder-stage">
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setDrag(null); setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
@@ -690,7 +723,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
               : ({ x: light ? 'X' : bounds.w ? 'Left' : 'X', y: light ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
             return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? LEVEL_GRID_SIZE : 1}
-              value={axis === 'y' ? roomHeight - (light?.y ?? bounds.y) : axis === 'x' ? light?.x ?? bounds.x : bounds[axis]} onCommit={value => setDimension(axis, value)} /></label>
+              value={axis === 'y' ? roomHeight - (light?.y ?? bounds.y) : axis === 'x' ? light?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
           })}
         </div>
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
@@ -708,8 +741,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || polygonPoints(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
         {light && <>
           <div className="builder-dimensions">
-            <label>Direction (°)<NumberField label="Light direction" value={light.direction} min={-180} max={180} step={5} onCommit={value => changeObject('direction', value)} /></label>
-            <label>Spread (°)<NumberField label="Light spread" value={light.spread} min={20} max={160} step={5} onCommit={value => changeObject('spread', value)} /></label>
+            <label>Direction (°)<NumberField label="Light direction" value={light.direction} min={-180} max={180} step={5} {...numberEdit((base, value) => changedObject(base, 'direction', value))} /></label>
+            <label>Spread (°)<NumberField label="Light spread" value={light.spread} min={20} max={160} step={5} {...numberEdit((base, value) => changedObject(base, 'spread', value))} /></label>
           </div>
           <BuilderSelect label="Power" accessibleLabel="Light power" value={light.power} options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]} onChange={value => changeObject('power', value)} />
         </>}
@@ -717,8 +750,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>
           <div className="builder-dimensions">
             <BuilderSelect label="Style" accessibleLabel="Text style" title="Official lettering or marker graffiti (red by day, yellow at night)" value={wallText.style ?? 'official'} options={[{ value: 'official', label: 'Official' }, { value: 'graffiti', label: 'Graffiti' }]} onChange={value => changeObject('style', value)} />
-            <label>Rotation (°)<NumberField label="Text rotation" min={-180} max={180} step={5} value={wallText.rotation ?? 0} onCommit={value => changeObject('rotation', value)} /></label>
-            <label>Font size<NumberField label="Text font size" min={12} max={96} step={2} value={wallText.fontSize} onCommit={value => changeObject('fontSize', value)} /></label>
+            <label>Rotation (°)<NumberField label="Text rotation" min={-180} max={180} step={5} value={wallText.rotation ?? 0} {...numberEdit((base, value) => changedObject(base, 'rotation', value))} /></label>
+            <label>Font size<NumberField label="Text font size" min={12} max={96} step={2} value={wallText.fontSize} {...numberEdit((base, value) => changedObject(base, 'fontSize', value))} /></label>
             <BuilderSelect label="Alignment" accessibleLabel="Text alignment" value={wallText.align} options={['left', 'center', 'right'].map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) }))} onChange={value => changeObject('align', value)} />
           </div>
         </>}
@@ -726,8 +759,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           const next = copyLevel(history.present), r = next.climbables.ropes[selection.index]
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
-        {(pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && <label>{pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'}<NumberField label={pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'} min={1} max={9} step={1} value={pickup.seconds} onCommit={value => commit(setPickupSeconds(history.present, selection.index, value))} /></label>}
-        {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? LEVEL_GRID_SIZE : 1} value={mechanism.travel} onCommit={value => changeObject('travel', value)} /></label>}
+        {(pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && <label>{pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'}<NumberField label={pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'} min={1} max={9} step={1} value={pickup.seconds} {...numberEdit((base, value) => setPickupSeconds(base, selection.index, value))} /></label>}
+        {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? LEVEL_GRID_SIZE : 1} value={mechanism.travel} {...numberEdit((base, value) => changedObject(base, 'travel', value))} /></label>}
         {mechanism?.orientation === 'horizontal' && <button className="builder-property-action" title={mechanism.kind === 'lift' ? 'Reverse the platform’s travel direction' : 'Reverse the gate’s opening direction'} aria-pressed={!!mechanism.flipX} onClick={() => {
           const next = copyLevel(level), m = next.mechanisms![selection.index]
           if (m.flipX) delete m.flipX; else m.flipX = true
@@ -748,7 +781,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <BuilderSelect label="Orientation" accessibleLabel="Coin switch orientation" value={trigger.orientation ?? 'horizontal'}
             options={[{ value: 'horizontal', label: 'Horizontal' }, { value: 'vertical', label: 'Vertical' }]}
             onChange={value => commit(setCoinSwitchOrientation(history.present, selection.index, value === 'vertical' ? 'vertical' : 'horizontal'))} />
-          <label>Coins required<NumberField label="Coins required" min={1} max={80} step={1} value={trigger.threshold} onCommit={value => commit(setCoinThreshold(history.present, selection.index, value))} /></label>
+          <label>Coins required<NumberField label="Coins required" min={1} max={80} step={1} value={trigger.threshold} {...numberEdit((base, value) => setCoinThreshold(base, selection.index, value))} /></label>
           <p className="builder-hint">All coins in the level count toward this switch. Once full, it stays active until restart.</p>
         </>}
         {trigger && <fieldset className="builder-connections"><legend>Activates</legend>
@@ -761,7 +794,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           }} />{selectionLabel({ kind: 'light', index: i }, level)}</label>)}
           {!level.mechanisms?.length && !level.lighting?.lights.some(l => l.power === 'switched') && <span>No mechanisms or switched lights</span>}
         </fieldset>}
-        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" step={snap ? LEVEL_GRID_SIZE : 1} value={robot.left} onCommit={value => changeObject('left', value)} /></label><label>Right limit<NumberField label="Shovebot right limit" step={snap ? LEVEL_GRID_SIZE : 1} value={robot.right} onCommit={value => changeObject('right', value)} /></label></div>}
+        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}
       </div>
@@ -770,19 +803,20 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value, local.entries.map(file => file.fileName))); commit({ ...history.present, name: e.target.value }) }} /></label>
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
         <div className="builder-save-field"><span id="builder-save-label">Save location</span><button className="builder-save-location" aria-labelledby="builder-save-label builder-save-value" aria-haspopup="dialog" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => { setMessage(''); setLibraryOpen(true) }}><span id="builder-save-value">{local.name || 'Choose level folder'}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="miter"><path d="M3 7V4h7l2 3h9v13H3ZM3 9h18" /></svg></button></div>
-        <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} onCommit={value => {
-          const extent = Math.max(800, level.spawn.x + 40, ...allSelections(level).map(s => { const b = itemBounds(level, s)!; return b.x + b.w + (level.floor === undefined ? 0 : 24) }))
-          commit({ ...history.present, width: clamp(value, extent, 20000) })
-        }} /></label>
-        <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} onCommit={value => {
-          const next = resizeLevelHeight(history.present, value)
-          keepFloorInView(next); commit(next)
-        }} /></label></div>
+        <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} {...numberEdit((base, value) => {
+          const extent = Math.ceil(Math.max(800, base.spawn.x + 40, ...(base.robots ?? []).map(robot => robot.right + 50), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w + (base.floor === undefined ? 0 : 24) })))
+          return { ...base, width: clamp(value, extent, 20000) }
+        })} /></label>
+        <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>
         <div className="builder-lighting-settings" role="group" aria-label="Level lighting">
           <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(history.present, e.target.checked))} />Night mode</label></div>
         </div>
         <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
-        {isPuzzleLevel(level) && <fieldset className="builder-medals"><legend>Medal times (seconds)</legend><div className="builder-medal-inputs">{(['gold', 'silver', 'bronze'] as const).map(medal => <label key={medal}>{medal[0].toUpperCase() + medal.slice(1)}<NumberField label={`${medal} time`} min={.1} max={3600} step={.5} value={level.times[medal]} onCommit={value => commit({ ...history.present, times: { ...level.times, [medal]: value } })} /></label>)}</div></fieldset>}
+        {isPuzzleLevel(level) && <fieldset className="builder-medals"><legend>Medal times (seconds)</legend><div className="builder-medal-inputs">{(['gold', 'silver', 'bronze'] as const).map(medal => {
+          const min = medal === 'gold' ? 1 : Math.floor(level.times[medal === 'silver' ? 'gold' : 'silver']) + 1
+          const max = medal === 'bronze' ? 3600 : Math.ceil(level.times[medal === 'gold' ? 'silver' : 'bronze']) - 1
+          return <label key={medal}>{medal[0].toUpperCase() + medal.slice(1)}<NumberField label={`${medal} time`} min={min} max={max} step={1} value={level.times[medal]} {...numberEdit((base, value) => ({ ...base, times: { ...base.times!, [medal]: value } }))} /></label>
+        })}</div></fieldset>}
       </div>
       </div>
       {problems.length > 0 && <div className="builder-validation"><strong>Before you play</strong>{problems.map(issue => <p key={issue} role="alert">{issue}</p>)}</div>}

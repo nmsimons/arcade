@@ -8,7 +8,7 @@ const OBJECT_NOTES: Partial<Record<Tool, string>> = {
   platform: 'Square handles resize the whole shape. A terrain shape must keep at least three nodes.',
   rope: 'An attached anchor moves with its terrain. Use the inspector to attach or detach it.',
   ladder: 'During play, Up and Down climb; jump leaves the ladder.',
-  pusher: 'Shovebots chase the player, wind up, then charge. Their body pushes through contact. You can stand on top, but a sudden charge can pull the bot out from under your feet.',
+  pusher: 'Drag either square handle on the patrol line to set its range, or edit the limits in the inspector. Shovebots chase the player, wind up, then charge. Their body pushes through contact. You can stand on top, but a sudden charge can pull the bot out from under your feet.',
   lift: 'The elevator moves while its plate is held and pauses when released. Obstructions limit its travel.',
   'moving-platform': 'Works like an elevator, traveling horizontally. It carries riders and objects, pauses at each end, and reverses at obstructions. Travel distance sets the range; Flip horizontally reverses the direction without moving its starting position.',
   gate: 'Gates are 20 units thick. Vertical gates rise by their own height while activated.',
@@ -114,7 +114,7 @@ export function BuilderHelp({ tools, onClose }: {
           <div><dt>Object names</dt><dd>Give any object, including spotlights, a name. Press Enter or leave the field to apply it. Names appear in the inspector, object picker, connections and validation errors, and are saved with the level. Leave the name blank to restore its default label.</dd></div>
           <div><dt>Switch connections</dt><dd>Select a gate, elevator, moving platform, or switched spotlight and choose its pressure plates or coin switches in Switched by. You can also select a switch and choose its targets in Activates. Both views edit the same connections; any active connected switch activates the object.</dd></div>
           <div><dt>Coins and coin switches</dt><dd>Place coins from Collectibles and a coin switch from Mechanisms. Set Coins required and choose its connections. Choose Horizontal to fill left to right, or Vertical to fill bottom to top. Every collected coin fills every switch; a full switch stays active until restart. Coins and switches never block movement.</dd></div>
-          <div><dt>Position &amp; size</dt><dd>Coordinates start at the bottom left of the map. Top measures the object’s top edge from the floor. Type a value and leave the field to apply it. Fixed dimensions, such as a gate’s thickness, cannot be changed.</dd></div>
+          <div><dt>Position &amp; size</dt><dd>Coordinates start at the bottom left of the map. Top measures the object’s top edge from the floor. Whole-number values preview as you type. Press Enter or leave the field to apply one undoable edit; Esc cancels it. Fixed dimensions, such as a gate’s thickness, cannot be changed.</dd></div>
           <div><dt>Terrain &amp; materials</dt><dd>Square handles resize the whole shape; round nodes change its outline. A terrain shape must keep at least three nodes. Terrain and floor materials change appearance only.</dd></div>
           <div><dt>Object actions</dt><dd>Duplicate creates another copy. Delete removes the selection. Use Undo to reverse an edit. Start and goal are part of every time trial and cannot be deleted.</dd></div>
         </dl>

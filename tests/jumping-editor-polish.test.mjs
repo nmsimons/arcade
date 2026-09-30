@@ -1,10 +1,28 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
-import { addItem, resizeItem } from '../src/games/jumping/editor.ts'
+import { addItem, resizeItem, setShovebotLimit } from '../src/games/jumping/editor.ts'
 import { placeOnSurface, surfacePlacement } from '../src/games/jumping/editorPlacement.ts'
 import { polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
+
+test('patrol limits preserve the shovebot spawn, room clearance and minimum span', () => {
+  const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
+  assert.deepEqual(setShovebotLimit(level, 0, 'left', 300).robots[0], { ...level.robots[0], left: 300 })
+  assert.equal(setShovebotLimit(level, 0, 'left', -100).robots[0].left, 50)
+  assert.equal(setShovebotLimit(level, 0, 'left', 1200).robots[0].left, 700)
+  assert.equal(setShovebotLimit(level, 0, 'right', 300).robots[0].right, 700)
+  assert.equal(setShovebotLimit(level, 0, 'right', 5000).robots[0].right, 1750)
+  const narrow = setShovebotLimit(level, 0, 'left', 700)
+  assert.equal(setShovebotLimit(narrow, 0, 'right', 650).robots[0].right, 750)
+  const other = setShovebotLimit(level, 0, 'right', 700)
+  assert.equal(setShovebotLimit(other, 0, 'left', 720).robots[0].left, 650)
+  assert.deepEqual(level.robots[0], { x: 700, y: 920, left: 400, right: 1000 })
+  assert.equal(setShovebotLimit(level, 0, 'left', NaN), level)
+  assert.equal(setShovebotLimit(level, 1, 'right', 900), level)
+  assert.equal(setShovebotLimit(level, 0, 'left', 300.4).robots[0].left, 300)
+  assert.equal(setShovebotLimit(level, 0, 'right', 1000.8).robots[0].right, 1001)
+})
 
 test('boxes draw to size and inspector resizing preserves the center and floor contact', () => {
   const source = blankTrial(), selection = { kind: 'prop', index: 0 }

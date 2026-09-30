@@ -18,7 +18,7 @@ export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<L
     const value = patch[field]
     if (value === undefined || !Number.isFinite(value)) continue
     const [min, max] = field === 'direction' ? [-180, 180] : [20, 160]
-    light[field] = Math.max(min, Math.min(max, value))
+    light[field] = Math.max(min, Math.min(max, Math.round(value)))
   }
   if (patch.power === 'always' || patch.power === 'switched') {
     light.power = patch.power

@@ -300,7 +300,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       setFileName(name); setFileSource({ text: source, fileName: name, folderId: local.folderId })
       setSaved({ level: editSignature(history.present), fileName: name })
       const savedMessage = previousName !== name ? `Renamed “${previousName}” to “${name}” and saved.` : `Saved “${name}” to ${local.name}.`
-      setMessage(local.repositoryKind === 'account' ? '' : savedMessage)
+      setMessage(local.repository && local.repositoryKind === 'account' ? '' : savedMessage)
       if (updateRoute) onFileChange(name)
       if (testAfter) onPlay(copyLevel(next))
       return { fileName: name, level: next, sourceText: source }

@@ -124,7 +124,7 @@ test('styled object picker supports type-ahead, keyboard commit, cancellation an
   await expect(page.getByRole('textbox', { name: 'Object name', exact: true })).toBeFocused()
   await picker.click(); await menu.getByRole('option', { name: 'Crate 04 · Box 4', exact: true }).click()
   await expect(picker).toHaveText('Crate 04 · Box 4'); await expect(picker).toBeFocused()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toHaveText('Saved')
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved to folder')
   await picker.click(); await page.screenshot({ path: info.outputPath('styled-object-picker.png') })
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
   await expect(menu).toBeHidden()

@@ -119,7 +119,9 @@ test('Drive picker imports from elsewhere, preserves collisions, and returns foc
   await page.evaluate(id => { window.testPickedFileIds = [id] }, file.id)
   await choose.click()
   await page.frameLocator('iframe[title="Google Drive picker"]').getByRole('button', { name: 'Select files' }).click()
-  await expect(page.locator('.account-status')).toContainText('Google Drive levels imported')
+  // Import completes only after the selected files, backup, and published
+  // workspace have all been written and verified, even on a busy CI worker.
+  await expect(page.locator('.account-status')).toContainText('Google Drive levels imported', { timeout: 15_000 })
   expect(drive.find('Untitled Jumping Game/Levels/External.json').text).toBe(levelText)
   expect(drive.find('Elsewhere/External.json').id).toBe(file.id)
   await choose.click()

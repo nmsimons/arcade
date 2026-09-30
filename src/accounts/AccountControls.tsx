@@ -65,11 +65,21 @@ export default function AccountControls() {
   const statusRef = useRef<HTMLDivElement>(null)
   const pickerOperation = useRef<AbortController | undefined>(undefined)
   const drivePickerTrigger = useRef<HTMLButtonElement>(null)
+  const [pickerCompleted, setPickerCompleted] = useState(0)
+  const pickerFocusRestored = useRef(0)
   const syncRef = useRef<{ run: (choice?: 'local' | CloudEntry, completed?: string) => Promise<SyncResult | undefined> } | null>(null)
   const login = account.login, owner = currentProfile(), busy = !!activity
   const drive = login ? label(login.identity.provider) : ''
   const connectReady = login?.identity.provider !== 'google' || !!ready.google
   const folder = login && cloudFolder?.owner === owner ? cloudFolder : undefined
+
+  useLayoutEffect(() => {
+    if (busy || pickerFocusRestored.current === pickerCompleted) return
+    pickerFocusRestored.current = pickerCompleted
+    // Wait for React to enable the button. An animation frame can run before
+    // that commit, when a disabled button silently rejects focus.
+    if (open && screen === 'saves') drivePickerTrigger.current?.focus({ preventScroll: true })
+  }, [busy, open, screen, pickerCompleted])
 
   useEffect(() => {
     const lifetimeRef = lifetime
@@ -372,7 +382,7 @@ export default function AccountControls() {
     } finally {
       unsubscribe(); op.release()
       if (pickerOperation.current === op.controller) pickerOperation.current = undefined
-      requestAnimationFrame(() => drivePickerTrigger.current?.focus({ preventScroll: true }))
+      if (!op.controller.signal.aborted) setPickerCompleted(previous => previous + 1)
     }
   }
   function closePanel() {

@@ -4,6 +4,15 @@ import { readFileSync } from 'node:fs'
 
 const testLevel = JSON.parse(readFileSync(new URL('../fixtures/jumping/00-json-test-lab.json', import.meta.url)))
 
+async function pauseClock(page) {
+  const now = await page.evaluate(() => Date.now())
+  // Freeze wall time before pausing so browser round trips cannot move the
+  // target into the past. Restore advancing dates for subsequent runFor calls.
+  await page.clock.setFixedTime(now)
+  await page.clock.pauseAt(now)
+  await page.clock.setSystemTime(now)
+}
+
 async function account(page, { delayConsent = false, progress = true, drive = oneDrive({ downloadOrigin: 'https://my.microsoftpersonalcontent.com' }) } = {}) {
   const handle = async route => {
     const request = route.request()
@@ -317,7 +326,7 @@ test('completing an older upload keeps the newer edit visibly pending', async ({
     await edit('Snapshot A')
     await expect(page.getByRole('button', { name: 'Alex Player', exact: true })).toHaveAttribute('title', /Saving to OneDrive/)
     await edit('Newer edit B')
-    await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+    await pauseClock(page)
     finishUpload()
     await expect(page.locator('.account-indicator.is-waiting')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Alex Player', exact: true })).toHaveAttribute('title', /Saved locally.*Waiting to sync/)
@@ -370,7 +379,7 @@ test('frequent game saves are batched, remain local immediately, and Sync now by
   const drive = await account(page)
   await page.getByRole('button', { name: 'Connect OneDrive', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Your saves are up to date')
-  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 100))
+  await pauseClock(page)
   const versions = () => drive.paths().filter(path => path.startsWith('Sync history/Versions/')).length
   const initialVersions = versions()
   const autosave = n => page.evaluate(async n => {

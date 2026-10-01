@@ -59,8 +59,11 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: collectibles and wall
         count++
         for (const [frame, exposure] of [[dark, .35], [lit, 1], [shadow, .35], [reduced, 1], [fading, .675], [emp, .35], [day, 1]]) {
           for (let c = 0; c < 3; c++) {
-            const error = Math.abs(frame.pixels[i + c] - full.pixels[i + c] * exposure)
-            if (error > maxError) { maxError = error; worst = { x, y, c, exposure, original: full.pixels[i + c], actual: frame.pixels[i + c] } }
+            // Graffiti changes from red to yellow at night before receiving light.
+            const original = region.kind === 'graffiti'
+              ? (frame === day ? [148, 67, 63] : [244, 211, 94])[c] : full.pixels[i + c]
+            const error = Math.abs(frame.pixels[i + c] - original * exposure)
+            if (error > maxError) { maxError = error; worst = { x, y, c, exposure, original, actual: frame.pixels[i + c] } }
           }
         }
       }

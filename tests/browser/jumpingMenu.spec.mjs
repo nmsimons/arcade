@@ -187,6 +187,8 @@ test('night ambient slider updates the paused scene, supports keyboard/controlle
   maps[0].version = 2; maps[0].lighting = { nightMode: true, ambient: 0, lights: [] }
   await open(page, false, maps)
   await page.getByRole('button', { name: 'Play First room', exact: true }).click()
+  // Level preparation runs in a worker; advancing the clock does not await it.
+  await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.clock.runFor(64); await page.evaluate(() => window.dispatchEvent(new Event('blur')))
   await expect(page.getByRole('status')).toContainText('Paused while the game was out of focus.')
   const scrollbars = await page.locator('.jumping-dialog-panel, .jumping-dialog-body').evaluateAll(elements => elements.map(el => el.scrollHeight > el.clientHeight + 1))

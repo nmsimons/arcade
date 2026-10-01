@@ -33,6 +33,8 @@ test('normal firing completes five fixture assaults, pause freezes resupply, and
     }
   })
   await page.goto('/urban-fire')
+  // Allow the lazy route and its Suspense transition to finish before freezing timers.
+  await expect(page.getByRole('button',{name:'Deploy',exact:true})).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button',{name:'Deploy',exact:true}).click()
   const hud=()=>page.evaluate(()=>window.urbanHud)

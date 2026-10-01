@@ -609,6 +609,12 @@ Drag either square handle on the shovebot's patrol line to move that endpoint;
 the inspector follows while dragging. Snap aligns endpoints to the grid, and
 Alt bypasses snapping. Limits include the bot's starting position, stay inside
 the level, and keep at least 50 units between endpoints.
+The shovebot's **Headlight** checkbox is off by default. In night mode it adds
+a 40° beam aimed 15° downward from the chassis, following its facing, slope tilt,
+and windup pose. It uses the same shadows as spotlights and fades out during EMP.
+The optional boolean `headlight` field is stored on the robot; omission means off.
+Daytime preserves the setting but emits no beam. Headlights do not change the
+bot's vision, movement, or collision hull.
 Shovebots are solid bodies on wheels, with no projecting arm or bumper. The
 player can stand, crouch, walk, and jump on their roof. Limited shoe traction
 keeps up with ordinary movement but allows a sudden charge to pull the bot out
@@ -761,7 +767,8 @@ undo history, thumbnails or playtest. Thumbnails show the authored initial state
 Night brightness is fixed for gameplay, previews, and thumbnails. The former
 Brighter dark levels preference is ignored.
 
-Files allow at most 16 wall lights. Rooms with Night mode
+Files allow at most 16 wall lights. Shovebot headlights also count toward the
+lighting complexity budget. Rooms with Night mode
 on are limited to 4,096 static contour edges per light and 32,768 summed across
 lights (counting the whole room conservatively). Excess complexity or malformed
 fields produce a validation error before play. Geometry preparation runs in a

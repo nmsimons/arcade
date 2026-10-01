@@ -2,14 +2,14 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { useEffect, useMemo, useState } from 'react'
 import type { JumpLevel } from './level'
 import { levelHeight } from './level'
-import { lightingProblems } from './lightingDefinition'
+import { lightingProblems, levelLightCount } from './lightingDefinition'
 import { prepareLightingGeometry } from './lightingPreparation'
 import type { CasterGroup } from './lightingModel'
 
 /** Terrain edits prepare off-thread; dragging lamps/props reuses the same geometry. */
 export function useLightingGeometry(level: JumpLevel, active: boolean) {
   const complexityError = useMemo(() => active ? lightingProblems(level).find(issue => issue.includes('too complex')) : undefined, [level, active])
-  const needed = !complexityError && active && !!level.lighting?.lights.length && nightModeEnabled(level.lighting)
+  const needed = !complexityError && active && !!levelLightCount(level) && nightModeEnabled(level.lighting)
   const key = useMemo(() => JSON.stringify([level.width, levelHeight(level), level.platforms]), [level])
   const [state, setState] = useState<{ key: string; groups?: CasterGroup[]; error?: string } | null>(null)
   useEffect(() => {

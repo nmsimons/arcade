@@ -4,8 +4,9 @@ import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 
 /** Flat rounded cone: the broad face points along the spotlight's aim. */
-export function drawLightFixtures(ctx: CanvasRenderingContext2D, lights: readonly (LevelLight & { fade: number })[], paint: WorldPaint = paintNormally) {
+export function drawLightFixtures(ctx: CanvasRenderingContext2D, lights: readonly (LevelLight & { fade: number; robot?: number })[], paint: WorldPaint = paintNormally) {
   for (const light of lights) {
+    if (light.robot !== undefined) continue
     ctx.save(); ctx.translate(light.x, light.y); ctx.rotate(light.direction * Math.PI / 180)
     paint(ctx, 0, () => {
       ctx.fillStyle = '#687b71'; ctx.beginPath(); ctx.moveTo(6, -6); ctx.lineTo(-6, -4)

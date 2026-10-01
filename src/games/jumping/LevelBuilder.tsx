@@ -19,7 +19,7 @@ import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
 import { BuilderSelect } from './BuilderSelect'
-import { setPickupSeconds, setWallTextRotation, setShovebotLimit, transformTerrain } from './editor'
+import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight, transformTerrain } from './editor'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
 import { ObjectNameField } from './ObjectNameField'
@@ -795,6 +795,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           {!level.mechanisms?.length && !level.lighting?.lights.some(l => l.power === 'switched') && <span>No mechanisms or switched lights</span>}
         </fieldset>}
         {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
+        {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}
       </div>

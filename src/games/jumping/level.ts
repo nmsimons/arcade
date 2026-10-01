@@ -35,7 +35,7 @@ export type Trigger = NamedObject & { x: number; y: number; w: number } & Trigge
   & ({ mode: 'weight' | 'touch' } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
-export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number }
+export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean }
 export interface JumpLevel {
   version: 1 | 2; id: string; name: string; width: number; height?: number
   lighting?: LightingDefinition
@@ -298,7 +298,9 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     level.robots = list(v.robots, 30).map(item => {
       const r = object(item), left = num(r.left, 50, width - 100), right = num(r.right, left + 50, width - 50)
-      return { ...objectName(r), x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right }
+      if (r.headlight !== undefined && typeof r.headlight !== 'boolean') fail()
+      return { ...objectName(r), x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right,
+        ...(r.headlight === undefined ? {} : { headlight: r.headlight as boolean }) }
     })
     if (v.timers !== undefined) level.timers = list(v.timers, 40).map(item => {
       const timer = object(item)

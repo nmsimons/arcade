@@ -193,7 +193,7 @@ export class LightingRenderer {
       // Small viewports can retain more stationary lights within the same 64 MiB
       // budget. At the maximum render size this still permits only two fields.
       const cacheLimit = Math.max(0, Math.floor(BUFFER_BUDGET / (width * height * 4)) - 6)
-      const cacheable = new Set(activeSources.filter(l => l.fade === 1).slice(0, cacheLimit).map(l => l.id))
+      const cacheable = new Set(activeSources.filter(l => l.fade === 1 && l.robot === undefined).slice(0, cacheLimit).map(l => l.id))
       for (const [id, cached] of this.staticFields) {
         // Covered lamps may skip rendering, so evict old-size fields now rather
         // than waiting for a cache miss to resize them beyond the current budget.

@@ -8,7 +8,7 @@ const OBJECT_NOTES: Partial<Record<Tool, string>> = {
   platform: 'Square handles resize the whole shape. A terrain shape must keep at least three nodes.',
   rope: 'An attached anchor moves with its terrain. Use the inspector to attach or detach it.',
   ladder: 'During play, Up and Down climb; jump leaves the ladder.',
-  pusher: 'Drag either square handle on the patrol line to set its range, or edit the limits in the inspector. Shovebots chase the player, wind up, then charge. Their body pushes through contact. You can stand on top, but a sudden charge can pull the bot out from under your feet.',
+  pusher: 'Drag either square handle on the patrol line to set its range, or edit the limits in the inspector. Headlight adds a narrow beam aimed ahead and downward in night mode; EMP switches it off. Shovebots chase the player, wind up, then charge. Their body pushes through contact. You can stand on top, but a sudden charge can pull the bot out from under your feet.',
   lift: 'The elevator moves while its plate is held and pauses when released. Obstructions limit its travel.',
   'moving-platform': 'Works like an elevator, traveling horizontally. It carries riders and objects, pauses at each end, and reverses at obstructions. Travel distance sets the range; Flip horizontally reverses the direction without moving its starting position.',
   gate: 'Gates are 20 units thick. Vertical gates rise by their own height while activated.',

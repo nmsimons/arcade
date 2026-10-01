@@ -11,6 +11,7 @@ import { gameCamera } from './camera.ts'
 import { isHorizontalGate } from './mechanisms.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
 import { robotTop } from './robotPhysics.ts'
+import { robotHeadlightY, ROBOT_HEADLIGHT_X } from './robotHeadlight.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { drawLightFixtures } from './lightFixture.ts'
@@ -41,7 +42,7 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
     ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
   }
 }
-export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed: number, angry = false, powered = true, paint: WorldPaint = paintNormally) {
+export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed: number, angry = false, powered = true, paint: WorldPaint = paintNormally, headlightFade = 0) {
   ctx.save(); ctx.translate(r.x, r.y - 9); ctx.rotate(r.angle); ctx.translate(0, 9); ctx.scale(r.facing, 1)
   const top = robotTop(r)
   paint(ctx, 0, () => {
@@ -54,6 +55,18 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
     ctx.fillStyle = '#687b71'; rounded(ctx, -2, top + 8, 21, 9, 2); ctx.fill()
   })
   if (powered) paint(ctx, 1, () => { ctx.fillStyle = angry ? TIME_PENALTY_COLOR : '#a5b3a7'; ctx.fillRect(11, top + 10, 5, 5) })
+  if (r.definition.headlight) {
+    const y = robotHeadlightY(r)
+    paint(ctx, 0, () => {
+      ctx.fillStyle = '#687b71'; ctx.fillRect(ROBOT_HEADLIGHT_X - 4, y - 6, 4, 12)
+      ctx.fillStyle = '#9aa38e'; ctx.fillRect(ROBOT_HEADLIGHT_X - 2, y - 4, 2, 8)
+    })
+    if (headlightFade > 0) {
+      ctx.save(); ctx.globalAlpha *= headlightFade
+      paint(ctx, 1, () => { ctx.fillStyle = '#f4f2e9'; ctx.fillRect(ROBOT_HEADLIGHT_X - 2, y - 4, 2, 8) })
+      ctx.restore()
+    }
+  }
   paint(ctx, 0, () => {
     for (let y = top + 13; y <= top + 23; y += 5) { ctx.fillStyle = '#938777'; ctx.fillRect(-19, y, 9, 1.5) }
     if (powered && r.phase === 'recover') { ctx.strokeStyle = '#859384'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -55, 10, elapsed * 9, elapsed * 9 + 2); ctx.stroke() }
@@ -153,7 +166,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     for (const b of run.props) drawProp(ctx, b)
     drawClimbables(ctx, p, level.climbables)
   })
-  for (const r of run.robots) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint)
+  for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint, lights.find(light => light.robot === i)?.fade ?? 0)
   if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
     paint(ctx, 0, () => drawAthlete(ctx, p, playerInk)); ctx.restore()

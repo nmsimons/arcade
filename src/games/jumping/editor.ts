@@ -35,6 +35,14 @@ export function setShovebotLimit(level: JumpLevel, index: number, side: 'left' |
   return next
 }
 
+export function setShovebotHeadlight(level: JumpLevel, index: number, enabled: boolean): JumpLevel {
+  if (!level.robots?.[index]) return level
+  const next = copyLevel(level), robot = next.robots![index]
+  if (enabled) robot.headlight = true
+  else delete robot.headlight
+  return next
+}
+
 export function setWallTextRotation(level: JumpLevel, index: number, rotation: number): JumpLevel {
   if (!level.texts?.[index] || !Number.isFinite(rotation)) return level
   const next = copyLevel(level), text = next.texts![index]

@@ -36,6 +36,49 @@ async function select(page, value) {
   await selectBuilderOption(page, 'Selected object', value)
 }
 
+test('optional shovebot headlights undo, preview at night, duplicate and round-trip through save and play', async ({ page }, info) => {
+  const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await page.addInitScript(() => {
+    window.headlightDraws = 0
+    const fill = CanvasRenderingContext2D.prototype.fillRect
+    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
+      if (this.fillStyle === '#f4f2e9' && args[0] === 25 && args[2] === 2 && args[3] === 8) window.headlightDraws++
+      return fill.apply(this, args)
+    }
+  })
+  await open(page, level); await select(page, 'robot:0')
+  const headlight = page.getByRole('checkbox', { name: 'Headlight', exact: true }), canvas = page.getByRole('application', { name: 'Level canvas' })
+  await expect(headlight).not.toBeChecked(); await headlight.check()
+  expect(await page.evaluate(() => window.headlightDraws)).toBe(0)
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await select(page, 'robot:0')
+  await expect(headlight).not.toBeChecked()
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); await select(page, 'robot:0')
+  await expect(headlight).toBeChecked()
+  await page.getByRole('tab', { name: 'Level', exact: true }).click(); await page.getByRole('checkbox', { name: 'Night mode', exact: true }).check()
+  await expect(canvas).toHaveAttribute('aria-busy', 'false')
+  await expect.poll(() => page.evaluate(() => window.headlightDraws)).toBeGreaterThan(0)
+  await select(page, 'robot:0'); await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await expect(headlight).toBeChecked()
+  let saved = await saveTestLevel(page)
+  expect(saved.level.lighting.lights).toEqual([]); expect(saved.level.robots.map(r => r.headlight)).toEqual([true, true])
+  await reopenTestLevel(page, saved); await select(page, 'robot:0'); await expect(headlight).toBeChecked()
+  await page.screenshot({ path: info.outputPath('shovebot-headlight-inspector.png') })
+  await headlight.uncheck(); saved = await saveTestLevel(page)
+  expect(saved.level.robots[0].headlight).toBeUndefined(); expect(saved.level.robots[1].headlight).toBe(true)
+  await saveTestLevel(page, 'Save and Test')
+  await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
+  await page.getByRole('tab', { name: 'Level', exact: true }).click(); await page.getByRole('checkbox', { name: 'Night mode', exact: true }).uncheck()
+  await select(page, 'robot:1'); await expect(headlight).toBeChecked()
+  await expect(canvas).toHaveAttribute('aria-busy', 'false')
+  await page.evaluate(() => { window.headlightDraws = 0 })
+  await page.getByRole('button', { name: 'Fit level', exact: true }).click()
+  expect(await page.evaluate(() => window.headlightDraws)).toBe(0)
+  expect((await saveTestLevel(page)).level.robots[1].headlight).toBe(true)
+  expect(errors).toEqual([])
+})
+
 test('spotlight names identify the inspector, errors and connections and survive undo and save', async ({ page }, info) => {
   const level = blankTrial()
   level.version = 2

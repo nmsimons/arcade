@@ -1,4 +1,4 @@
-import { ambientExposure } from './ambientLight.ts'
+import { ambientExposure, nightModeEnabled } from './ambientLight.ts'
 export { ambientExposure } from './ambientLight.ts'
 import type { Run } from './challenge.ts'
 import type { Platform, Player } from './model.ts'
@@ -6,6 +6,7 @@ import type { Vec } from './geometry.ts'
 import { lineBlocked, nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
 import { ballShape, boxShape } from './propGeometry.ts'
 import { robotPlatforms } from './robotPhysics.ts'
+import { robotHeadlightPose, ROBOT_HEADLIGHT_SPREAD } from './robotHeadlight.ts'
 import { levelHeight, triggerTargets } from './level.ts'
 import type { JumpLevel } from './level.ts'
 import { athleteCasters } from './athleteShadow.ts'
@@ -17,7 +18,7 @@ import type { CornerRadii } from './mechanismAppearance.ts'
 
 import type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
 export type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
-export interface LightSource extends LevelLight { fade: number }
+export interface LightSource extends LevelLight { fade: number; robot?: number }
 export type CasterGroup = readonly Platform[] & { opacity?: number; player?: true; mechanism?: true; boundary?: readonly TerrainEdge[] }
 export type LightingWorld = Run | { level: JumpLevel; player: Player; props: []; mechanisms: []; robots: []; triggers: []; empRemaining: number; exit: null }
 export const playgroundLightingWorld = (level: JumpLevel, player: Player): LightingWorld => ({ level, player, props: [], mechanisms: [], robots: [], triggers: [], empRemaining: 0, exit: null })
@@ -144,9 +145,18 @@ export class LightingState {
 
   sources(definition: LightingDefinition, run: LightingWorld, dt: number): LightSource[] {
     const sources: LightSource[] = []
+    const lights: (LevelLight & { robot?: number })[] = [...definition.lights]
     const ids = new Set(definition.lights.map(light => light.id))
+    if (nightModeEnabled(definition)) for (const [index, robot] of run.robots.entries()) {
+      if (!robot.definition.headlight) continue
+      let id = `shovebot-headlight:${index}`
+      // Authored lamp IDs are unrestricted; keep generated source IDs distinct.
+      while (ids.has(id)) id = `_${id}`
+      ids.add(id)
+      lights.push({ id, ...robotHeadlightPose(robot), robot: index, intensity: 100, spread: ROBOT_HEADLIGHT_SPREAD, power: 'always' })
+    }
     for (const id of this.fades.keys()) if (!ids.has(id)) this.fades.delete(id)
-    for (const light of definition.lights) {
+    for (const light of lights) {
       const target = Number(run.empRemaining <= 0
         && (light.power === 'always' || run.level.triggers?.some((t, i) => run.triggers[i]?.active && triggerTargets(t).includes(light.id))))
       const previous = this.fades.get(light.id) ?? target

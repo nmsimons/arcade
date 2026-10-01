@@ -11,6 +11,7 @@ export interface LevelLight extends NamedObject {
 }
 export interface LightingDefinition { nightMode?: boolean; ambient: number; lights: LevelLight[] }
 export const MAX_LIGHTS = 16, LIGHT_RADIUS = 10
+export const levelLightCount = (level: JumpLevel) => (level.lighting?.lights.length ?? 0) + (level.robots?.filter(robot => robot.headlight).length ?? 0)
 export const lightBounds = (light: Pick<LevelLight, 'x' | 'y'>) => ({ x: light.x - LIGHT_RADIUS, y: light.y - LIGHT_RADIUS, w: LIGHT_RADIUS * 2, h: LIGHT_RADIUS * 2 })
 export function lightingProblems(level: JumpLevel): string[] {
   const issues: string[] = []
@@ -38,10 +39,11 @@ export function lightingProblems(level: JumpLevel): string[] {
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > height) issues.push(`Keep ${name} inside the level.`)
     if (light.power === 'switched' && !level.triggers?.some(t => (t.targets ?? [t.target]).includes(light.id))) issues.push(`Connect switched light ${name} to a pressure plate or coin switch.`)
   }
-  if (nightModeEnabled(lighting) && lighting.lights.length) {
+  const lightCount = levelLightCount(level)
+  if (nightModeEnabled(lighting) && lightCount) {
     // Conservative whole-room bounds: unlimited lights can reach distant geometry.
     const edges = level.platforms.reduce((sum, p) => sum + polygonPoints(p).length, 16)
-    if (edges > 4096 || edges * lighting.lights.length > 32768) issues.push('This lighting setup is too complex. Simplify terrain or use fewer lights (4,096 edges per light; 32,768 total).')
+    if (edges > 4096 || edges * lightCount > 32768) issues.push('This lighting setup is too complex. Simplify terrain or use fewer lights (4,096 edges per light; 32,768 total).')
   }
   return issues
 }

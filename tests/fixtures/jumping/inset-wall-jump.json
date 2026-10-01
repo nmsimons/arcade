@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "id": "inset-wall-jump",
+  "name": "Inset wall jump",
+  "width": 1200,
+  "height": 920,
+  "floor": 920,
+  "spawn": { "x": 410, "y": 780 },
+  "goal": { "x": 1050, "y": 920 },
+  "platforms": [
+    {
+      "x": 300, "y": 100, "w": 400, "h": 800,
+      "polygon": [[0, 0], [80, 0], [80, 680], [400, 680], [400, 800], [0, 800]]
+    }
+  ],
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "checkpoints": [],
+  "climbables": { "ropes": [], "ladders": [] },
+  "timers": [],
+  "texts": [],
+  "pickups": [],
+  "times": { "gold": 10, "silver": 20, "bronze": 40 }
+}

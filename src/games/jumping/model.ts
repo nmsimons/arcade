@@ -4,7 +4,7 @@ import type { Footwork } from './footwork.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME, ledgeEase, ropeCatchRoot } from './ledge.ts'
 import { NO_CLIMBABLES, climbGait, climbRoot, constrainRopeBody, createRope, ease, findClimbable, findRope, ropeGripDistance, ropeImpulse, ropePoint, ropeSlopeSupport, settleRopeGrip, stepRope, updateRopeWall } from './climbables.ts'
 import type { ClimbableWorld, Climbing, Ladder, RopeState } from './climbables.ts'
-import { exposedSide, followGround, groundAt, platformSurface } from './terrain.ts'
+import { exposedSide, exposedWallFaces, followGround, groundAt, platformSurface } from './terrain.ts'
 import type { GroundSurface } from './terrain.ts'
 import { ledgeExposed, ledgeObstacles, platformLedges, sameLedge } from './terrainLedges.ts'
 import type { TerrainLedge } from './terrainLedges.ts'
@@ -111,15 +111,18 @@ function launch(p: Player, charge: number, minimum: number = TUNING.jumpSpeed) {
   p.jumpStart = p.y; p.jumpHeight = 0
   if (p.sliding) p.sliding.active = false
 }
+/** Wall contact follows the exposed outline, including faces inset in a polygon. */
+function touchesWallFace(platforms: readonly Platform[], wallX: number, direction: number, top: number, bottom: number) {
+  return platforms.some(wall => wallX >= wall.x - .15 && wallX <= wall.x + wall.w + .15
+    && exposedWallFaces(platforms, wall, direction, top, bottom).some(x => Math.abs(x - wallX) < .15))
+}
 function updateWallBrace(p: Player, move: number, dt: number, platforms: readonly Platform[]) {
   let contact: Player['wallBrace'] = null
   if (!p.grounded && !p.hang && !p.mantle && !p.climbing) {
     for (const direction of [p.facing, -p.facing]) {
       if (move * direction < -.01) continue
       const wallX = p.x + direction * TUNING.width / 2
-      const touches = (offset: number) => platforms.some(wall =>
-        Math.abs((direction === 1 ? wall.x : wall.x + wall.w) - wallX) < .15
-        && exposedSide(platforms, wall, direction, p.y + offset - .1, p.y + offset + .1))
+      const touches = (offset: number) => touchesWallFace(platforms, wallX, direction, p.y + offset - .1, p.y + offset + .1)
       const hands: [number, number] = [Number(touches(-43)), Number(touches(-46))]
       const feet: [number, number] = [Number(touches(-16)), Number(touches(-20))]
       if (![...hands, ...feet].some(Boolean)) continue
@@ -146,8 +149,7 @@ function tryWallJump(p: Player, platforms: readonly Platform[], held: boolean) {
   // Recheck the actual face in case a moving object or the player's movement
   // has removed the contact since the last frame.
   if (Math.abs((brace.wallX - p.x) * brace.direction - TUNING.width / 2) > .15
-    || !platforms.some(wall => Math.abs((brace.direction === 1 ? wall.x : wall.x + wall.w) - brace.wallX) < .15
-      && exposedSide(platforms, wall, brace.direction, p.y - TUNING.height + 8, p.y - 8))) return
+    || !touchesWallFace(platforms, brace.wallX, brace.direction, p.y - TUNING.height + 8, p.y - 8)) return
   launch(p, p.chargeSource === 'wall' ? p.charge : 0, TUNING.wallJumpSpeed)
   p.vx = -brace.direction * TUNING.wallJumpPush; p.facing = -brace.direction
   p.wallJump = { direction: -brace.direction, time: 0 }; p.wallJumpBuffer = 0

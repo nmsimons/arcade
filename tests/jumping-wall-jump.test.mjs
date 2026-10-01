@@ -2,6 +2,7 @@ import { createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { STEP, NEUTRAL_INPUT, TUNING, cancelJumpInput, playerState, respawn } from '../src/games/jumping/model.ts'
+import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 
 const floor = { x: 0, y: 620, w: 1000, h: 400 }
 const wall = { x: 350, y: 0, w: 100, h: 620 }
@@ -26,6 +27,34 @@ test('a fresh jump from either braced wall launches upward and away', () => {
     assert.equal(p.charging, false)
     assert.equal(p.hang, null)
     assert.equal(p.buffer, 0)
+  }
+})
+
+test('the inside face of an L supports bracing and charged wall jumps in either orientation', () => {
+  for (const side of [-1, 1]) for (const heldFrames of [1, 21, 42]) {
+    const points = [[0,0],[80,0],[80,520],[360,520],[360,600],[0,600]]
+    const shape = { x: 100, y: 100, w: 360, h: 600,
+      polygon: side === -1 ? points : points.map(([x,y]) => [360-x,y]) }
+    const wallX = side === -1 ? 180 : 380
+    const p = airborne({ x: wallX - side * TUNING.width / 2, y: 350, facing: side })
+    advance(p, .08, { move: side }, [shape])
+    assert.ok(p.wallBrace?.active, 'the inset vertical face must brace like a separate wall')
+    assert.ok(Math.abs(p.wallBrace.wallX - wallX) < .15)
+    assert.deepEqual(p.wallBrace.hands, [1, 1])
+    assert.deepEqual(p.wallBrace.feet, [1, 1])
+    const startX = p.x
+    for (let i = 0; i < heldFrames; i++) {
+      advance(p, STEP, { jump: true, move: side }, [shape])
+      assert.equal(p.wallJump, null, 'a wall jump still waits for release')
+      assert.equal(p.x, startX)
+      assert.equal(bodyIntersects(p.x, p.y, shape), false)
+    }
+    advance(p, STEP, { move: side }, [shape])
+    assert.equal(p.wallJump?.direction, -side)
+    assert.equal(p.vx, -side * TUNING.wallJumpPush)
+    assert.ok(p.vy < -530)
+    assert.equal(p.wallBrace, null)
+    assert.equal(bodyIntersects(p.x, p.y, shape), false)
   }
 })
 

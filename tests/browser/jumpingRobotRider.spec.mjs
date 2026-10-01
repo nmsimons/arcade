@@ -33,7 +33,7 @@ test('the player stands on the plain bot body and falls off its charge without a
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Bot rider: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Bot rider: reach the exit' })
   await expect(canvas).toBeFocused()
   const state = () => canvas.evaluate(c => ({ player: c.rider, bot: c.bot }))
   await page.clock.runFor(64)

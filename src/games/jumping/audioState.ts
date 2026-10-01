@@ -109,7 +109,7 @@ export class JumpingAudioState {
       }
       run.triggers.forEach((t, i) => {
         const plate = run.level.triggers[i]
-        if (t.active && before.triggers[i] === false) cue('switch', plate.x + plate.w / 2, plate.y)
+        if (t.active && before.triggers[i] === false || plate.mode !== 'coins' && plate.behavior === 'toggle' && !t.active && before.triggers[i] === true) cue('switch', plate.x + plate.w / 2, plate.y)
       })
       if (run.goalLit && !before.goalLit) cue('switch', run.level.goal.x, run.level.goal.y, .8)
       if (run.coinsCollected > before.coins) cue('coin', p.x, p.y - 30)

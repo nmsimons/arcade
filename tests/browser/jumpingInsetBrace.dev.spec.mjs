@@ -28,7 +28,7 @@ for (const side of [1, -1]) test(`ordinary movement braces on an inset wall and 
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Inset wall brace: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Inset wall brace: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   const start = await canvas.evaluate(c => c.braceBallX)
   await page.keyboard.down('Shift')

@@ -66,11 +66,11 @@ async function open(page, editor = false) {
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
   } else {
     await page.locator('.jumping-level-card[aria-pressed=true]').click()
-    await expect(page.getByRole('img', { name: 'Power cut: activate the goal' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Power cut: reach the exit' })).toBeFocused()
   }
   await page.clock.runFor(64)
 }
-const state = page => page.getByRole('img', { name: 'Power cut: activate the goal' }).evaluate(c => c.empFrame)
+const state = page => page.getByRole('img', { name: 'Power cut: reach the exit' }).evaluate(c => c.empFrame)
 
 test('EMP cuts power, defers a full coin switch, pauses, restores power and restarts in production', async ({ page }, info) => {
   await open(page)

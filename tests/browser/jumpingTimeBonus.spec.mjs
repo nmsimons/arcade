@@ -50,11 +50,11 @@ async function open(page, editor = false, crouch = false) {
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
   } else {
     await page.locator('.jumping-level-card[aria-pressed=true]').click()
-    await expect(page.getByRole('img', { name: 'Time bonus trial: activate the goal' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Time bonus trial: reach the exit' })).toBeFocused()
   }
   await page.clock.runFor(64)
 }
-const state = page => page.getByRole('img', { name: 'Time bonus trial: activate the goal' }).evaluate(c => ({ numbers: c.bonusNumbers, labels: c.bonusLabels, times: c.timerReadings, player: c.playerRoot }))
+const state = page => page.getByRole('img', { name: 'Time bonus trial: reach the exit' }).evaluate(c => ({ numbers: c.bonusNumbers, labels: c.bonusLabels, times: c.timerReadings, player: c.playerRoot }))
 
 test('numbered bonuses subtract elapsed time, clamp to zero, disappear and return on restart', async ({ page }, info) => {
   await open(page)

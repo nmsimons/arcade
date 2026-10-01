@@ -371,54 +371,42 @@
     },
     {
       "x": 900,
-      "y": 1300,
-      "w": 400,
-      "h": 140,
+      "y": 1320,
+      "w": 180,
+      "h": 120,
       "material": "steel",
       "polygon": [
         [
           0,
-          20
-        ],
-        [
-          380,
-          20
-        ],
-        [
-          380,
           0
         ],
         [
-          400,
+          180,
           0
         ],
         [
-          400,
-          40
-        ],
-        [
-          380,
-          40
+          180,
+          20
         ],
         [
           100,
-          40
+          20
         ],
         [
           100,
-          140
+          120
         ],
         [
           80,
-          140
+          120
         ],
         [
           80,
-          40
+          20
         ],
         [
           0,
-          40
+          20
         ]
       ]
     },
@@ -880,6 +868,39 @@
         [
           0,
           120
+        ]
+      ]
+    },
+    {
+      "x": 1180,
+      "y": 1300,
+      "w": 120,
+      "h": 40,
+      "material": "steel",
+      "polygon": [
+        [
+          120,
+          40
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          0,
+          20
+        ],
+        [
+          100,
+          20
+        ],
+        [
+          100,
+          0
+        ],
+        [
+          120,
+          0
         ]
       ]
     }
@@ -1494,13 +1515,13 @@
   "props": [
     {
       "kind": "ball",
-      "x": 495,
+      "x": 535,
       "y": 1100,
       "size": 30
     },
     {
       "kind": "ball",
-      "x": 1155,
+      "x": 1115,
       "y": 1540,
       "size": 30
     },
@@ -1627,6 +1648,7 @@
       "travel": 100
     },
     {
+      "name": "5R",
       "id": "ea5ca90b-69cc-46ac-bbc5-8073552adc01",
       "kind": "gate",
       "x": 980,
@@ -1680,6 +1702,17 @@
       "w": 20,
       "h": 100,
       "travel": 100
+    },
+    {
+      "id": "826c4cb7-35c6-4768-8267-b797c99bbdac",
+      "kind": "gate",
+      "x": 1080,
+      "y": 1320,
+      "w": 100,
+      "h": 20,
+      "travel": 100,
+      "orientation": "horizontal",
+      "flipX": true
     }
   ],
   "triggers": [
@@ -1704,12 +1737,14 @@
       "mode": "touch"
     },
     {
+      "name": "5L",
       "x": 580,
       "y": 1100,
       "w": 40,
       "targets": [
         "103801c2-427e-4644-9cdb-5815c5b50ba8",
-        "54445c7a-52f5-42ee-9467-fc914f1c7d36"
+        "54445c7a-52f5-42ee-9467-fc914f1c7d36",
+        "9a81e303-cd2c-4d41-95b6-f5af8ed46b98"
       ],
       "mode": "touch"
     },
@@ -1721,7 +1756,8 @@
       "targets": [
         "578832fb-09d0-45d6-8d16-adfe592b8b1c",
         "103801c2-427e-4644-9cdb-5815c5b50ba8",
-        "54445c7a-52f5-42ee-9467-fc914f1c7d36",
+        "1233c07f-3812-4b17-bfd6-01dd99fcd741",
+        "826c4cb7-35c6-4768-8267-b797c99bbdac",
         "f883ff7d-5b69-402f-b5b6-3c57dadd4c2c"
       ],
       "mode": "touch"
@@ -1735,8 +1771,8 @@
         "1f53dd60-0892-4a9e-acda-1a33012a28f0",
         "fa397910-981e-4a56-afc2-af12604bf131",
         "ea5ca90b-69cc-46ac-bbc5-8073552adc01",
-        "cef638c3-c451-4305-9b6a-472b1578fc86",
-        "da0cafc3-de73-49f3-86aa-a9c9ab248b79"
+        "da0cafc3-de73-49f3-86aa-a9c9ab248b79",
+        "a74deaba-731e-47ba-8b62-3da8f2bd66b8"
       ],
       "mode": "touch"
     },
@@ -1757,7 +1793,8 @@
       "y": 1320,
       "w": 40,
       "targets": [
-        "00aa808b-cafe-49f7-907e-f5c06bc99c66"
+        "00aa808b-cafe-49f7-907e-f5c06bc99c66",
+        "a74deaba-731e-47ba-8b62-3da8f2bd66b8"
       ],
       "mode": "touch"
     },
@@ -1790,7 +1827,8 @@
       "w": 40,
       "targets": [
         "ea5ca90b-69cc-46ac-bbc5-8073552adc01",
-        "cef638c3-c451-4305-9b6a-472b1578fc86"
+        "cef638c3-c451-4305-9b6a-472b1578fc86",
+        "f883ff7d-5b69-402f-b5b6-3c57dadd4c2c"
       ],
       "mode": "touch"
     },
@@ -1909,7 +1947,7 @@
         "intensity": 100,
         "direction": 90,
         "spread": 160,
-        "power": "always",
+        "power": "switched",
         "name": "5L"
       },
       {
@@ -1930,7 +1968,8 @@
         "intensity": 100,
         "direction": 90,
         "spread": 160,
-        "power": "always"
+        "power": "switched",
+        "name": "3R"
       },
       {
         "id": "70f208a5-1900-4b9b-803e-e0632c03f380",
@@ -1947,8 +1986,8 @@
         "x": 500,
         "y": 1800,
         "intensity": 100,
-        "direction": 70,
-        "spread": 115,
+        "direction": 90,
+        "spread": 160,
         "power": "always",
         "name": "Lobby"
       },
@@ -1979,7 +2018,7 @@
         "intensity": 100,
         "direction": 90,
         "spread": 160,
-        "power": "always",
+        "power": "switched",
         "name": "4L"
       },
       {

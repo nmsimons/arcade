@@ -32,7 +32,7 @@ async function open(page) {
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
 }
-const state = page => page.getByRole('img', { name: 'Stopwatch run: activate the goal' }).evaluate(c => ({ scales: c.pickupScales, times: c.timerReadings, stopped: c.clockStopped }))
+const state = page => page.getByRole('img', { name: 'Stopwatch run: reach the exit' }).evaluate(c => ({ scales: c.pickupScales, times: c.timerReadings, stopped: c.clockStopped }))
 
 test('stopwatches freeze only the clock, animate through the effect, pause and restart correctly, and save the stopped time', async ({ page }, info) => {
   // Simulate the full ten-second freeze and a second run; hosted runners need
@@ -79,7 +79,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   expect(saved).toBeGreaterThan(0); expect(saved).toBeLessThan(1)
   await page.screenshot({ path: info.outputPath('stopped-clock-result.png') })
   await page.clock.resume(); await page.reload()
-  await expect(page.getByRole('img', { name: 'Stopwatch run: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'Stopwatch run: reach the exit' })).toBeFocused()
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['stopwatch-browser-test'])).toBe(saved)
 })

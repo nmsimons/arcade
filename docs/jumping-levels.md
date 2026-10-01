@@ -315,7 +315,7 @@ preserves its ID. Using a built-in or local level as a template creates a new ID
 ## Validation and reference level
 
 `tests/fixtures/jumping/00-json-test-lab.json` exercises every supported field: rectangular,
-polygon and profile terrain; start, goal plate and checkpoint radius; attached and free
+polygon and profile terrain; start, exit and checkpoint radius; attached and free
 ladders; attached and free ropes with saved points, bends and material distances;
 boxes, balls, a pusher, pressure plates, an elevator, a gate, stopwatch pickups, wall timers,
 multiline wall text and medal times.
@@ -429,13 +429,15 @@ its placement bounds extend 24 units in each direction.
 Player contact cuts power to **all gates, elevators, moving platforms, switches, and shovebots for
 5 seconds**. Gates, elevators, moving platforms, and bots stop in place and resume from the same
 position and phase afterward. They remain solid; a disabled bot cannot shove.
-The exit plate, light, and door keep working. The clock, player, ropes, and loose
+Always-on exits and exits held open by latched switches keep working. The clock, player, ropes, and loose
 objects continue normally. Clock collectibles do not change the outage duration.
 
 Coins still collect and fill every coin meter during the outage. A full meter
 stays gold until power returns, then switches on and turns green. An already
-activated coin switch stays latched through an EMP. Pressure plates cannot power
-anything during the outage; after restoration they respond to their current load.
+activated coin switch stays latched through an EMP. Switch and Toggle plates also
+retain their state. Plates do not register new presses during the outage; Pressure
+plates turn off and respond to their current load when power returns. A switched
+exit follows its inputs, so a Pressure-powered exit closes during the outage.
 Extra EMPs add 5 seconds each. Pausing pauses the outage, a pickup collected before
 the run starts keeps its full duration, and restarting clears it.
 
@@ -526,34 +528,39 @@ Shovebots keep both wheels on connected slopes, tilt with the terrain, and stop
 at cliffs and walls. A gate can slide past a ball touching its side while still
 stopping before it would crush a prop beneath it.
 
-The goal is a self-contained pressure plate, pole light and hidden exit. Its `goal: { x, y }`
-point is the center of a 56-unit-wide plate at the supporting floor surface. The
-light stands 44 units to its right, 96 units above the floor. The door is 40 units
-wide and 80 high, centered 100 units to the plate's right. Leave continuous flat
-floor from the plate through the doorway, with clear space above it. In the
-builder, drag the existing goal to move this assembly as one object.
-Select the goal and choose **Flip horizontally** to put the light and door on the left
-without moving the plate. This is saved as `goal.flipX: true`; omitted or `false`
-keeps the light on the right.
-A grounded player or crate whose bottom overlaps the plate activates it; a ball's
-bottom contact must be over the plate. Airborne contact and touching the pole do
-not count. Activation latches the light on, locks the medal time, and opens a black
-doorway beyond the light. Before activation the closed door is indistinguishable
-from the back wall. The builder and level thumbnail show a dashed doorway guide.
-The expanded assembly occupies 154 units across, including its selection margin.
-Existing custom goals may need more space; their saved plate positions do not move.
+The goal is an exit door with a pole indicator; it has no built-in pressure plate.
+Select it in the builder to choose **Power: Always on** (the default) or **Switched**.
+Always-on exits start fully open. Switched exits use the same **Switched by** and
+**Activates** connections as gates, platforms, and spotlights. Any active input
+opens the exit; when all inputs turn off, it closes. For a permanently unlocked
+exit, connect a separate plate in Switch mode or a coin switch.
 
-Movement and physics continue with the timer stopped until the player walks into
-the open doorway. Passing above it or rolling an object through it does not finish
-the level. The player takes a short final step, then disappears into the
-door; only then does the results dialog appear and save the personal best. Pausing
-freezes the opening and exit animation. Restarting resets the plate, light, door,
-timer and exit. The camera continues following the player when a distant object
-activates the goal.
+The saved `goal: { x, y }` point remains the legacy assembly origin, at floor height,
+so existing doors and indicators do not move. The indicator stands 44 units to
+its right, 96 units above the floor. The door is 40 units wide and 80 high,
+centered 100 units to the origin's right. **Flip horizontally** mirrors both around
+the origin, saved as `goal.flipX: true`. Leave flat support from the indicator to
+the doorway and clear space above the door; the old plate area needs no support.
+Drag the exit and indicator together in the builder. Closed doors blend into the
+back wall; the builder and thumbnail show a dashed doorway guide.
 
-Existing version 1 files with `flag: { x, y }` remain readable: their flag point
-becomes the goal plate center. Saved files use `goal`; if both fields are
-present, `goal` takes precedence. No separate trigger link is needed for this goal.
+The optional `goal.power` is `"always"` or `"switched"`; omission means Always on,
+including in existing files. A switched goal also requires a unique `goal.id` for
+connections, for example `goal: { "x": 800, "y": 920, "id": "exit", "power": "switched" }`
+and a plate with `targets: ["exit"]`. The builder assigns the ID automatically.
+IDs must be unique across the exit, mechanisms, and spotlights.
+
+Opening the exit does not stop the clock or lock the medal. The player must walk
+into its fully open doorway. Passing above it or rolling an object through it
+does not finish the level. Entry locks scoring and takes a short final step into
+the door; only after that animation does the result appear and save the personal
+best. Once entry begins, a released switch cannot interrupt it. Pausing freezes
+door and entry animations. Restart restores all authored initial states. The
+camera follows the player when a distant switch opens the exit.
+
+Existing version 1 files with `flag: { x, y }` remain readable with their original
+door placement and default to Always on. Saved files use `goal`; if both fields
+are present, `goal` takes precedence. No built-in level files need rewriting.
 
 Player starts use a feet Y coordinate. Terrain uses a top-left `x, y`
 and a `w, h` bounding rectangle. Without additional fields, it is a solid rectangle.
@@ -626,17 +633,23 @@ charge. Terrain, boxes, balls, mechanisms, and other bots can provide cover;
 wall decorations and collectibles do not. Losing sight restores ordinary patrol
 and the calm eye color. Crouching behind low cover can hide the player.
 The **Mechanisms** tools place elevators, moving platforms, vertical and horizontal gates, and pressure plates. Select a
-plate and check one or more mechanisms in **Activates**, or select a gate,
-elevator, or moving platform and check its switches in **Switched by**; new plates connect to
+plate and check one or more switched items in **Activates**, or select a gate,
+switched elevator, moving platform, exit, or spotlight and check its switches in **Switched by**; new plates connect to
 the nearest mechanism when possible. All support moving, duplication, undo/redo,
 playtesting, and portable level files.
 
 Connections are optional. A pressure plate or coin switch may have `targets: []`,
-and any gate, elevator, moving platform, or switched light may have no incoming
-switches. These objects can be saved and played as placed. Unconnected mechanisms
-stay at their starting positions, switched lights stay off, and switches still
-respond to weight or collected coins. Supplied target IDs must identify existing
-mechanisms or switched lights.
+and any switched item may have no incoming switches. These objects can be saved
+and played as placed. Unconnected switched mechanisms stay at their starting
+positions, switched lights stay off, and switched exits stay closed. Switches
+still respond to weight or collected coins. Supplied target IDs must identify
+existing items whose power is Switched (gates always use switches).
+
+Elevators and moving platforms accept optional `power: "always"` or `"switched"`.
+Omission preserves existing switched behavior. **Always on** runs their normal
+travel cycle after the first gameplay input, including endpoint pauses and
+obstruction reversal. EMP still pauses them. Gates have no power setting.
+Changing any item's power to Always on removes its incoming connections.
 
 Vertical gates have a fixed width of 20, with no rope or anchor. Holding a connected
 pressure plate raises the gate exactly its own height; releasing the plate lowers
@@ -675,15 +688,31 @@ Level files use `kind: "lift"`, `orientation: "horizontal"`, and optional
 One plate can power several mechanisms simultaneously. Connections are saved as
 `targets: ["mechanism-id", "another-id"]`; legacy `target: "mechanism-id"`
 connections are still accepted. Deleting a mechanism removes only its connection
-from each plate. If multiple plates connect to one mechanism, any held plate powers it. A closing
+from each plate. If multiple switches connect to one item, any active switch powers it. A closing
 gate that meets a player or prop reopens completely. It stays open until the
 closing path has been clear for 0.6 seconds, then closes. This safety override
 also protects riders and carried props from being pinned against terrain.
 Opening gates stop if their retraction path is blocked. Older elevator
 thicknesses are normalized while preserving the standing surface where possible.
-Every pressure plate accepts the grounded player, crates, and balls. The legacy
-`mode` values `weight` and `touch` are still accepted and preserved in files, but
-both now have this same behavior.
+Every pressure plate accepts the grounded player, crates, and balls. Select **Mode**:
+
+- **Pressure** (default): on while held down, off on release.
+- **Switch**: the first press turns it on until restart, even after release.
+- **Toggle**: each press reverses its state; release before pressing again. Choose
+  **Starts: Off** (default) or **On**. Adding another load while held does not toggle.
+
+All modes keep the existing 0.15-second press debounce. The physical plate follows
+its load independently of its green active indicator. Restart resets Switch to
+off and Toggle to its chosen starting state. An initially on Toggle powers its
+targets in the first playable frame and in editor previews.
+
+Files use optional `behavior: "pressure"`, `"switch"`, or `"toggle"` on the plate,
+and optional boolean `startsOn` only for Toggle. Omitted `behavior` means Pressure;
+omitted `startsOn` means off. The legacy `mode` values `weight` and `touch` remain
+readable and preserved, with the same contact rules. Coin switches use
+`mode: "coins"` and retain their existing latching rules; they have no plate behavior.
+For example: `{ "mode": "weight", "behavior": "toggle", "startsOn": true,
+"x": 120, "y": 920, "w": 100, "targets": ["exit"] }`.
 
 Opening a file preserves the level ID. Structural validation rejects malformed or
 unbounded geometry; editor validation checks clear starts and goals, room bounds,
@@ -761,7 +790,7 @@ platforms. Editing either this list or a switch’s **Activates** list updates t
 same connections. Any active connected switch powers it. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light is valid and stays off during play. Version 2 allows up to
-56 switch targets; version 1 retains 40.
+57 switch targets (40 mechanisms, 16 lights, and one exit); version 1 allows 41.
 
 Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
 elevators, and moving platforms cannot carry them. An older file's `mount` field

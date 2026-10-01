@@ -1,7 +1,7 @@
 import type { NamedObject } from './objectNames.ts'
-/** The saved point is the center of the plate at its supporting floor surface. */
-export interface Goal extends NamedObject { x: number; y: number; flipX?: boolean }
-export const GOAL_PLATE_WIDTH = 56
+import type { PowerMode } from './switchPower.ts'
+/** Retain the legacy assembly origin so existing doors and indicators never move. */
+export interface Goal extends NamedObject { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode }
 export const GOAL_POLE_OFFSET = 44
 export const GOAL_LIGHT_HEIGHT = 96
 export const GOAL_DOOR_WIDTH = 40
@@ -23,7 +23,7 @@ export function goalExitPosition(exit: GoalExit) {
 }
 
 export function goalBounds(goal: Goal) {
-  const near = GOAL_PLATE_WIDTH / 2 + 3, far = GOAL_DOOR_OFFSET + GOAL_DOOR_WIDTH / 2 + 3
-  return { x: goal.x - (goal.flipX ? far : near), y: goal.y - GOAL_LIGHT_HEIGHT - 14,
-    w: near + far, h: GOAL_LIGHT_HEIGHT + 14 }
+  const near = GOAL_POLE_OFFSET - 14, far = GOAL_DOOR_OFFSET + GOAL_DOOR_WIDTH / 2 + 3
+  return { x: goal.x + (goal.flipX ? -far : near), y: goal.y - GOAL_LIGHT_HEIGHT - 14,
+    w: far - near, h: GOAL_LIGHT_HEIGHT + 14 }
 }

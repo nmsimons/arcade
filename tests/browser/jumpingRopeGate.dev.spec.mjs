@@ -31,7 +31,7 @@ for (const transfer of [false, true]) test(`${transfer ? 'rope to window transfe
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: `${level.name}: activate the goal` })
+  const canvas = page.getByRole('img', { name: `${level.name}: reach the exit` })
   await expect(canvas).toBeFocused()
   await page.keyboard.down('Shift')
   if (transfer) {

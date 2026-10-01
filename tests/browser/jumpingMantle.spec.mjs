@@ -31,7 +31,7 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Resisted pull-up: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Resisted pull-up: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await page.keyboard.down('Space'); await page.clock.runFor(100); await page.keyboard.up('Space')
   await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d')
@@ -90,7 +90,7 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Narrow ledge: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Narrow ledge: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   if (start === 'below') {
     await page.keyboard.down('Space'); await page.clock.runFor(100); await page.keyboard.up('Space')

@@ -135,7 +135,7 @@ test('EMP leaves the player, loose objects, and elapsed clock running; clock eff
   }
 })
 
-test('exit plate, light, and doorway still complete a level during an outage', () => {
+test('an always-on exit stays open and completes a level during an outage', () => {
   const level = blankTrial(); level.pickups = [emp(1620)]
   const run = createRun(level); run.started = true; Object.assign(run.player, level.goal)
   step(run); assert.equal(run.goalLit, true); assert.equal(run.empRemaining, 5)

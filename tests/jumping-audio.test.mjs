@@ -191,7 +191,7 @@ test('gate direction follows motion for both orientations; a waiting or blocked 
 })
 
 test('switch and goal activation are single cues; light alone does not play timer pause', () => {
-  const { run, audio } = setup(l => { l.goal.x = 300; l.triggers = [{ x: 200, y: 920, w: 60, mode: 'touch', targets: [] }] })
+  const { run, audio } = setup(l => { l.goal = { x: 300, y: 920, power: 'switched', id: 'exit' }; l.triggers = [{ x: 200, y: 920, w: 60, mode: 'touch', targets: [] }] })
   run.triggers[0].active = true; run.goalLit = true
   audio.step(run.player, run, STEP)
   assert.deepEqual(audio.drain().cues.map(c => c.kind), ['switch', 'switch'])

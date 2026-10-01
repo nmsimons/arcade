@@ -107,7 +107,7 @@ test('a missing index reports the failure and page reload recovers without a com
   await page.screenshot({ path: info.outputPath('built-in-levels.png') })
   for (const [index, level] of builtIns.slice(0, 2).entries()) {
     await page.getByRole('button', { name: `Level ${index + 1}: ${level.name}`, exact: true }).click()
-    await expect(page.getByRole('img', { name: `${level.name}: activate the goal` })).toBeFocused()
+    await expect(page.getByRole('img', { name: `${level.name}: reach the exit` })).toBeFocused()
     await page.goto('/untitled-jumping-game')
   }
 })
@@ -135,7 +135,7 @@ test('local folder fallback loads real JSON files in filename order and reloads 
     await expect(page.getByRole('button', { name: 'Level 1: Edited outside the game' })).toBeVisible()
     await page.screenshot({ path: info.outputPath('local-folder-levels.png') })
     await page.locator('.jumping-level-card[aria-pressed=true]').click()
-    await expect(page.getByRole('img', { name: 'Edited outside the game: activate the goal' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Edited outside the game: reach the exit' })).toBeFocused()
   } finally { await rm(dir, { recursive: true, force: true }) }
 })
 
@@ -273,11 +273,11 @@ test('local Next level follows manifest order and skips files that need repairs'
     await page.getByRole('button', { name: 'Level 1: Start here' }).focus()
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
     await page.locator('.jumping-level-card[aria-pressed=true]').click()
-    await expect(page.getByRole('img', { name: 'Start here: activate the goal' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Start here: reach the exit' })).toBeFocused()
     await page.keyboard.down('d'); await page.clock.runFor(2600); await page.keyboard.up('d')
     await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
     await page.getByRole('button', { name: 'Next level' }).click()
-    await expect(page.getByRole('img', { name: 'Alphabetically first title: activate the goal' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Alphabetically first title: reach the exit' })).toBeFocused()
     const records = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1')))
     expect(records['local:local-start']).toBeGreaterThan(0)
     expect(records['local-start']).toBeUndefined()
@@ -299,7 +299,7 @@ test('the JSON reference fixture survives builder template copying, playtest and
   expect(exported.props.map(p => p.kind)).toEqual(['box', 'ball'])
   await page.screenshot({ path: info.outputPath('json-test-lab.png') })
   await page.getByRole('button', { name: 'Save and Test' }).click()
-  await expect(page.getByRole('img', { name: 'JSON Test Lab — copy: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'JSON Test Lab — copy: reach the exit' })).toBeFocused()
   await page.keyboard.press('ArrowRight')
   expect(errors).toEqual([])
 })

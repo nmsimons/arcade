@@ -85,7 +85,15 @@ EMP pauses both driving and settling. Regression coverage lives in
    Update the pushing blend, gait and footwork exactly once, from that result.
 6. Evaluate pickups, pressure plates and goal completion at the final positions.
 
-Lighting the goal opens the exit. Entering the back-wall door locks scoring and
+The exit has no pressure plate. Always-on exits start open; switched exits follow
+the OR of their active inputs, opening and closing normally. Plate inputs use
+Pressure (while loaded), Switch (latched after one press), or Toggle (one reversal
+per press after release, with an authored initial state). Physical load and stored
+activation are distinct; two sensor samples in one physics step cannot toggle
+twice. Switch and Toggle retain their state during EMP; new presses wait for power.
+Always-on elevators and moving platforms still obey global EMP pauses.
+
+Entering the fully open back-wall door locks scoring and
 starts a short authored movement, followed by the same contact/animation
 finalization as normal movement. Its approach is swept against nearby objects;
 entry never requires reaching a center point blocked by a prop. The result dialog

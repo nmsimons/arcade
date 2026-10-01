@@ -1,0 +1,30 @@
+{
+  "version": 2,
+  "id": "switch-modes-regression",
+  "name": "Switch modes",
+  "width": 1800,
+  "height": 920,
+  "floor": 920,
+  "spawn": { "x": 160, "y": 920 },
+  "goal": { "x": 1100, "y": 920, "id": "exit", "power": "switched" },
+  "times": { "gold": 10, "silver": 20, "bronze": 40 },
+  "platforms": [],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "robots": [],
+  "mechanisms": [
+    { "id": "lift", "kind": "lift", "x": 700, "y": 600, "w": 120, "h": 20, "travel": 240 },
+    { "id": "platform", "kind": "lift", "orientation": "horizontal", "flipX": true, "x": 950, "y": 500, "w": 120, "h": 20, "travel": 200 },
+    { "id": "gate", "kind": "gate", "x": 1350, "y": 740, "w": 20, "h": 180, "travel": 180 }
+  ],
+  "triggers": [
+    { "mode": "weight", "x": 320, "y": 920, "w": 200, "targets": ["exit", "lift", "platform", "lamp"] }
+  ],
+  "lighting": { "nightMode": false, "ambient": 0, "lights": [
+    { "id": "lamp", "x": 600, "y": 200, "direction": 90, "spread": 70, "intensity": 100, "power": "switched" }
+  ] },
+  "timers": [{ "x": 1080, "y": 700 }],
+  "texts": [],
+  "pickups": []
+}

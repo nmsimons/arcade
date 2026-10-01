@@ -12,9 +12,9 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
 }
 export function copyForEditing(level: JumpLevel): JumpLevel {
   const next = { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` }
-  if (next.version === 1) return next
-  const ids = new Map([...(next.mechanisms ?? []), ...(next.lighting?.lights ?? [])].map(item => [item.id, newLevelId()]))
-  for (const item of [...(next.mechanisms ?? []), ...(next.lighting?.lights ?? [])]) item.id = ids.get(item.id)!
+  const items = [...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.goal?.id ? [next.goal] : [])]
+  const ids = new Map(items.map(item => [item.id!, newLevelId()]))
+  for (const item of items) item.id = ids.get(item.id!)!
   for (const trigger of next.triggers ?? []) {
     if (trigger.targets) trigger.targets = trigger.targets.map(id => ids.get(id) ?? id)
     else if (trigger.target) trigger.target = ids.get(trigger.target) ?? trigger.target

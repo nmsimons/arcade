@@ -27,7 +27,7 @@ test('a gate hides the player, opening reveals them, and closing restores the ca
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Bot sight: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Bot sight: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   const eye = () => canvas.evaluate(c => c.botEye)
   expect(await eye()).toBe('#a5b3a7')

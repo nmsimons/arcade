@@ -9,7 +9,8 @@ import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { bodyIntersects, nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
-import { GOAL_PLATE_WIDTH, goalBounds, goalDoor } from './goal.ts'
+import { goalBounds, goalDoor, goalPoleX } from './goal.ts'
+import type { PlateBehavior, PowerMode } from './switchPower.ts'
 import type { Goal } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
@@ -28,11 +29,11 @@ import type { LightingDefinition } from './lightingDefinition.ts'
 export const LEVEL_GRID_SIZE = 20
 
 export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number }
-export interface Mechanism extends NamedObject { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean }
+export interface Mechanism extends NamedObject { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
 export type Trigger = NamedObject & { x: number; y: number; w: number } & TriggerConnection
-  & ({ mode: 'weight' | 'touch' } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
+  & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
 export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean }
@@ -118,16 +119,16 @@ export function levelProblems(level: JumpLevel): string[] {
   }
   if (isPuzzleLevel(level)) {
     const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
-    const left = Math.min(level.goal.x - GOAL_PLATE_WIDTH / 2, door.x), right = Math.max(level.goal.x + GOAL_PLATE_WIDTH / 2, door.x + door.w)
+    const left = Math.min(goalPoleX(level.goal) - 2, door.x), right = Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
     const count = Math.ceil((right - left) / 8)
-    const plateSupported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
+    const supported = Array.from({ length: count + 1 }, (_, i) => left + (right - left) * i / count).every(x => {
       const support = groundAt(terrain, x, level.goal.y, .15)
       return support && Math.abs(support.angle) < .02
     })
     const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
       [door.x + door.w, door.y + door.h], [door.x, door.y + door.h]], b))
-    if (!plateSupported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
-      issues.push(`Place the goal plate, light and exit for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
+    if (!supported || blocked || bounds.x < 0 || bounds.x + bounds.w > level.width || bounds.y < 0 || level.goal.y > levelHeight(level)) {
+      issues.push(`Place the exit and indicator for ${objectReference(level, 'goal')} on a continuous flat surface, with a clear doorway inside the level.`)
     }
     if (!(level.times.gold > 0 && level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) issues.push('Medal times must increase from gold to silver to bronze.')
     const coins = level.pickups?.filter(p => p.kind === 'coin').length ?? 0
@@ -243,13 +244,17 @@ export function parseLevel(value: unknown): JumpLevel {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()
     level.floorMaterial = v.floorMaterial
   }
-  // Existing local files use "flag". Import it as the plate center; new exports use "goal".
+  // Existing local files use "flag". Preserve their assembly origin and export "goal".
   const goal = v.goal === undefined ? v.flag : v.goal
   if (goal !== undefined) {
     level.height = num(v.height, 400, 6000); level.floor = num(v.floor, 200, level.height)
-    const location = point(goal), flipX = object(goal).flipX
+    const location = point(goal), g = object(goal), flipX = g.flipX
     if (flipX !== undefined && typeof flipX !== 'boolean') fail()
-    level.goal = { ...objectName(object(goal)), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }) }; if (level.goal.x > width) fail()
+    if (g.power !== undefined && g.power !== 'always' && g.power !== 'switched') fail()
+    if (g.id !== undefined && (typeof g.id !== 'string' || !g.id.trim() || g.id.length > 100)) fail()
+    if (g.power === 'switched' && g.id === undefined) fail()
+    level.goal = { ...objectName(g), x: location.x, y: location.y, ...(flipX === undefined ? {} : { flipX: flipX as boolean }),
+      ...(g.id === undefined ? {} : { id: g.id as string }), ...(g.power === undefined ? {} : { power: g.power as PowerMode }) }; if (level.goal.x > width) fail()
     const times = object(v.times); level.times = { gold: num(times.gold, .1, 3600), silver: num(times.silver, .1, 3600), bronze: num(times.bronze, .1, 3600) }
     if (!(level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) fail()
     level.props = list(v.props, 80).map(item => {
@@ -261,18 +266,22 @@ export function parseLevel(value: unknown): JumpLevel {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
       if (m.orientation !== undefined && m.orientation !== 'horizontal') fail()
       if (m.flipX !== undefined && (m.orientation !== 'horizontal' || typeof m.flipX !== 'boolean')) fail()
+      if (m.power !== undefined && (m.kind === 'gate' || m.power !== 'always' && m.power !== 'switched')) fail()
       const w = num(m.w, m.kind === 'gate' ? MECHANISM_THICKNESS : 30, 600), h = num(m.h, 12, 800)
       return prepareMechanism({ ...objectName(m), id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h,
         travel: num(m.travel, m.kind === 'gate' ? 12 : 60, 1200),
+        ...(m.power === undefined ? {} : { power: m.power as PowerMode }),
         ...(m.orientation === 'horizontal' ? { orientation: 'horizontal' as const } : {}),
         ...(m.flipX === undefined ? {} : { flipX: m.flipX as boolean }) }, level.floor!)
     })
     if (new Set(level.mechanisms.map(m => m.id)).size !== level.mechanisms.length) fail()
     level.triggers = list(v.triggers, 40).map(item => {
       const t = object(item); if (t.mode !== 'touch' && t.mode !== 'weight' && t.mode !== 'coins') fail()
+      if (t.behavior !== undefined && (t.mode === 'coins' || !['pressure', 'switch', 'toggle'].includes(t.behavior as string))) fail()
+      if (t.startsOn !== undefined && (t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
-        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 56 : 40)
+        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 57 : 41)
           || t.targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(t.targets).size !== t.targets.length) fail()
         connection = { targets: [...t.targets as string[]] }
       } else {
@@ -294,7 +303,8 @@ export function parseLevel(value: unknown): JumpLevel {
         return { ...objectName(t), x, y: num(t.y, 0, level.floor! - h), ...dimensions, ...connection, mode: 'coins', threshold }
       }
       const w = num(t.w, 40, 240)
-      return { ...objectName(t), x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!), w, ...connection, mode: t.mode as 'touch' | 'weight' }
+      return { ...objectName(t), x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!), w, ...connection, mode: t.mode as 'touch' | 'weight',
+        ...(t.behavior === undefined ? {} : { behavior: t.behavior as PlateBehavior }), ...(t.startsOn === undefined ? {} : { startsOn: t.startsOn as boolean }) }
     })
     level.robots = list(v.robots, 30).map(item => {
       const r = object(item), left = num(r.left, 50, width - 100), right = num(r.right, left + 50, width - 50)
@@ -339,6 +349,7 @@ export function parseLevel(value: unknown): JumpLevel {
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
+  if (level.goal?.id && [...level.mechanisms ?? [], ...level.lighting?.lights ?? []].some(item => item.id === level.goal!.id)) fail()
   return level
 }
 /** An empty editor document; all authored maps are external JSON assets. */

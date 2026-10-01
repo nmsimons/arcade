@@ -36,6 +36,8 @@ import { isHorizontalGate, mechanismAnchor, mechanismOpenPosition, mechanismRope
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
+import { switchedItems } from './switchPower'
+import { setObjectPower, setPlateBehavior } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import './builder.css'
 import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
@@ -92,7 +94,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
-  { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate, then choose which mechanisms and spotlights it activates in the inspector. The player, boxes, and balls can hold it down.' },
+  { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click a surface to place a pressure plate. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a coin switch on the back wall. Choose horizontal or vertical orientation in the inspector. Its meter fills with collected coins; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
@@ -103,7 +105,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'time-bonus', group: 'Collectibles', label: 'Time bonus', help: 'Touch to remove time from the clock, down to zero. Set Seconds off from 1 to 9 in the inspector; the number appears inside the arrow.' },
   { id: 'time-penalty', group: 'Collectibles', label: 'Time penalty', help: 'A dark-red clockwise arrow. Touching it adds its number to the clock. Set Seconds added from 1 to 9 in the inspector.' },
   { id: 'fast-stopwatch', group: 'Collectibles', label: 'Fast stopwatch', help: 'A dark-red stopwatch. Touching it makes the clock run twice as fast for 5 seconds. Extra watches extend the effect.' },
-  { id: 'emp', group: 'Collectibles', label: 'EMP', help: 'A gold lightning bolt. Cuts power to mechanisms, switches, shovebots, and spotlights for 5 seconds. Ambient light remains. The exit keeps working.' },
+  { id: 'emp', group: 'Collectibles', label: 'EMP', help: 'A gold lightning bolt. Cuts power to mechanisms, switches, shovebots, and spotlights for 5 seconds. Ambient light remains. Always-on exits stay open; switched exits follow their inputs.' },
 ]
 const selectionLabel = (s: Selection, level: JumpLevel) => objectLabel(level, s)
 
@@ -195,7 +197,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const patrolHandleAt = (p: Point) => patrolHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
   const adjustingPatrol = drag?.mode === 'patrol' || pointer && patrolHandleAt(pointer)
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
-  const switchedObject = mechanism ?? (light?.power === 'switched' ? light : null)
+  const goal = selection?.kind === 'goal' ? level.goal : null
+  const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light
+  const objectPower = switchable ? switchable.power ?? (goal ? 'always' : 'switched') : null
+  const targets = switchedItems(level)
+  const switchedObject = targets.find(item => item.kind === selection?.kind && item.index === selection.index)
   const aimHandles = useMemo(() => light ? lightHandles(light, view.zoom) : [], [light, view.zoom])
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
@@ -749,7 +755,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <button disabled={!support || Math.abs(support.delta) < .1} title="Place on the next surface below · End" onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">↓</span></button>
           <span className={support && Math.abs(support.delta) < .1 ? 'is-supported' : ''}>{support ? Math.abs(support.delta) < .1 ? 'On surface' : support.delta > 0 ? `${Math.round(support.delta)} above surface` : 'Overlaps surface' : 'No clear surface below'}</span>
         </div>}
-        {selection.kind === 'goal' && level.goal && <button className="builder-property-action" title="Move the goal light to the other side of the plate" aria-pressed={!!level.goal.flipX} onClick={() => {
+        {selection.kind === 'goal' && level.goal && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
           const next = copyLevel(history.present)
           if (next.goal) { if (next.goal.flipX) delete next.goal.flipX; else next.goal.flipX = true }
           commit(next)
@@ -760,9 +766,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             <label>Direction (°)<NumberField label="Light direction" value={light.direction} min={-180} max={180} step={5} {...numberEdit((base, value) => changedObject(base, 'direction', value))} /></label>
             <label>Spread (°)<NumberField label="Light spread" value={light.spread} min={20} max={160} step={5} {...numberEdit((base, value) => changedObject(base, 'spread', value))} /></label>
           </div>
-          <BuilderSelect label="Power" accessibleLabel="Light power" value={light.power} options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]} onChange={value => changeObject('power', value)} />
           <label className="builder-headlight" title="Irregular dimming and brief dropouts, like a malfunctioning lamp"><input type="checkbox" checked={!!light.flicker} onChange={event => commit(editLight(history.present, selection.index, { flicker: event.target.checked }))} />Flicker</label>
         </>}
+        {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : 'Mechanism power'} value={objectPower}
+          options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]}
+          onChange={value => commit(setObjectPower(history.present, selection, value === 'always' ? 'always' : 'switched'))} />}
         {wallText && <>
           <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>
           <div className="builder-dimensions">
@@ -801,15 +809,22 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <label>Coins required<NumberField label="Coins required" min={1} max={80} step={1} value={trigger.threshold} {...numberEdit((base, value) => setCoinThreshold(base, selection.index, value))} /></label>
           <p className="builder-hint">All coins in the level count toward this switch. Once full, it stays active until restart.</p>
         </>}
+        {trigger && trigger.mode !== 'coins' && <>
+          <BuilderSelect label="Mode" accessibleLabel="Pressure plate mode" value={trigger.behavior ?? 'pressure'}
+            options={[{ value: 'pressure', label: 'Pressure' }, { value: 'switch', label: 'Switch' }, { value: 'toggle', label: 'Toggle' }]}
+            onChange={value => commit(setPlateBehavior(history.present, selection.index, value === 'switch' ? 'switch' : value === 'toggle' ? 'toggle' : 'pressure'))} />
+          {trigger.behavior === 'toggle' && <BuilderSelect label="Starts" accessibleLabel="Pressure plate initial state" value={trigger.startsOn ? 'on' : 'off'}
+            options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
+            onChange={value => commit(setPlateBehavior(history.present, selection.index, 'toggle', value === 'on'))} />}
+          <p className="builder-hint">{trigger.behavior === 'switch' ? 'The first press switches on until restart.'
+            : trigger.behavior === 'toggle' ? 'Each press reverses the state. Release before pressing again.' : 'On while held down; off when released.'}</p>
+        </>}
         {trigger && <fieldset className="builder-connections"><legend>Activates</legend>
-          {level.mechanisms?.length ? level.mechanisms.map((m, i) => <label key={m.id}><input type="checkbox" checked={triggerTargets(trigger).includes(m.id)} onChange={e => {
-            const targets = triggerTargets(trigger)
-            commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...targets, m.id] : targets.filter(id => id !== m.id)))
-          }} />{selectionLabel({ kind: 'mechanism', index: i }, level)}</label>) : null}
-          {level.lighting?.lights.map((l, i) => l.power === 'switched' && <label key={l.id}><input type="checkbox" checked={triggerTargets(trigger).includes(l.id)} onChange={e => {
-            const ids = triggerTargets(trigger); commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...ids, l.id] : ids.filter(id => id !== l.id)))
-          }} />{selectionLabel({ kind: 'light', index: i }, level)}</label>)}
-          {!level.mechanisms?.length && !level.lighting?.lights.some(l => l.power === 'switched') && <span>No mechanisms or switched lights</span>}
+          {targets.map(item => <label key={item.id}><input type="checkbox" checked={triggerTargets(trigger).includes(item.id)} onChange={e => {
+            const ids = triggerTargets(trigger)
+            commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))
+          }} />{selectionLabel(item, level)}</label>)}
+          {!targets.length && <span>No switched items</span>}
         </fieldset>}
         {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
         {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}

@@ -3,7 +3,7 @@ import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run } from './challenge.ts'
 import { formatTime } from './challenge.ts'
 import type { Goal } from './goal.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_PLATE_WIDTH, GOAL_POLE_OFFSET, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
 import { drawCoinSwitch } from './coins.ts'
@@ -73,18 +73,16 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
   })
   ctx.restore()
 }
-export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, depression = 0, paint: WorldPaint = paintNormally) {
-  const half = GOAL_PLATE_WIDTH / 2, pole = goalPoleX(goal), lamp = goal.y - GOAL_LIGHT_HEIGHT
+export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = false, paint: WorldPaint = paintNormally) {
+  const pole = goalPoleX(goal), lamp = goal.y - GOAL_LIGHT_HEIGHT
   paint(ctx, 0, () => {
     ctx.fillStyle = '#738575'
-    ctx.fillRect(goal.flipX ? pole : goal.x + half, goal.y - 2, GOAL_POLE_OFFSET - half, 2)
     ctx.fillRect(pole - 2, lamp, 4, GOAL_LIGHT_HEIGHT)
   })
   paint(ctx, complete ? 1 : 0, () => {
     ctx.fillStyle = complete ? '#a9d56b' : '#9aa38e'
     ctx.beginPath(); ctx.arc(pole, lamp, 11, 0, Math.PI * 2); ctx.fill()
   })
-  paint(ctx, 0, () => drawPressurePlate(ctx, goal.x - half, goal.y, GOAL_PLATE_WIDTH, complete, depression))
 }
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
   const door = goalDoor(goal), width = door.w * goalEase(opening)
@@ -161,7 +159,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
       drawPressurePlate(ctx, plate.x, plate.y, plate.w, run.triggers[i].active, run.triggers[i].depression)
     }
   })
-  drawGoal(ctx, level.goal, run.goalLit, run.goalDepression, paint)
+  drawGoal(ctx, level.goal, run.goalLit, paint)
   paint(ctx, 0, () => {
     for (const b of run.props) drawProp(ctx, b)
     drawClimbables(ctx, p, level.climbables)

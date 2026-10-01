@@ -65,7 +65,7 @@ test('plate files accept legacy connections and validate multiple targets', () =
     assert.deepEqual(levelProblems(level), [])
   }
   for (const connection of [{}, { targets: id }, { targets: [null] }, { targets: [''] }, { targets: [id, id] },
-    { targets: ['x'.repeat(101)] }, { targets: Array.from({ length: 41 }, (_, i) => String(i)) }, { target: id, targets: [id] }]) {
+    { targets: ['x'.repeat(101)] }, { targets: Array.from({ length: 42 }, (_, i) => String(i)) }, { target: id, targets: [id] }]) {
     assert.throws(() => parseLevel({ ...level, triggers: [{ ...plate, ...connection }] }))
   }
   const invalid = parseLevel({ ...level, triggers: [{ ...plate, targets: [id, 'missing'] }] })

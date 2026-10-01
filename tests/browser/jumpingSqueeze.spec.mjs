@@ -35,7 +35,7 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Small prop gap: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Small prop gap: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await page.keyboard.down('w'); await page.clock.runFor(16); await page.keyboard.up('w')
   await page.clock.runFor(2000)
@@ -101,7 +101,7 @@ test('a shovebot cannot squeeze the player inside two balls, and jumping remains
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Ball squeeze: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Ball squeeze: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   // A short movement input starts the run; the rest of the squeeze is passive.
   await page.keyboard.down('d'); await page.clock.runFor(16); await page.keyboard.up('d')

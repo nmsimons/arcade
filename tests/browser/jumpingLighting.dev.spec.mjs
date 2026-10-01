@@ -281,7 +281,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
         const before = h.render(0, h.fixture.lighting.lights)
         h.run.goalLit = true; const after = h.render(0, h.fixture.lighting.lights)
         let outsideChanges = 0
-        // All changes must stay within the goal's own lens and plate artwork.
+        // All changes must stay within the exit indicator's lens.
         for (let y = 0; y < 630; y++) for (let x = 0; x < 1280; x++) {
           if (Math.hypot(x + .5 - pole, y + .5 - lampY) < 13) continue
           const a = h.pixel(before, x, y), b = h.pixel(after, x, y)

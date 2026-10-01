@@ -41,11 +41,11 @@ async function open(page, editor = false, orientation = 'horizontal') {
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
   } else {
     await page.locator('.jumping-level-card[aria-pressed=true]').click()
-    await expect(page.getByRole('img', { name: 'Coin collection: activate the goal' })).toBeFocused()
+    await expect(page.getByRole('img', { name: 'Coin collection: reach the exit' })).toBeFocused()
   }
   await page.clock.runFor(64)
 }
-const state = page => page.getByRole('img', { name: 'Coin collection: activate the goal' }).evaluate(c => ({ coins: c.coinWidths, meter: c.coinMeter, segments: c.coinSegments, gate: c.coinGateY }))
+const state = page => page.getByRole('img', { name: 'Coin collection: reach the exit' }).evaluate(c => ({ coins: c.coinWidths, meter: c.coinMeter, segments: c.coinSegments, gate: c.coinGateY }))
 
 for (const orientation of ['horizontal', 'vertical']) test(`${orientation} meters fill in the correct direction, open a gate, pause, and reset`, async ({ page }, info) => {
   await open(page, false, orientation)

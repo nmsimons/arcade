@@ -6,7 +6,7 @@ import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
 import { moveRobot, prepareRobots, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
-import { GOAL_PLATE_WIDTH, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
+import { GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
@@ -26,10 +26,10 @@ export interface MechanismState { definition: Mechanism; x: number; y: number; d
 export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean }
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
-  mechanisms: MechanismState[]; triggers: { held: number; active: boolean; depression: number }[]; robots: RobotState[]
+  mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
   elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
-  finished: boolean; goalDepression: number; medal: Medal | null
+  finished: boolean; medal: Medal | null
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
 export function medalFor(seconds: number, level: PuzzleLevel): Medal {
@@ -63,10 +63,12 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
       const definition = prepareMechanism(m, level.floor)
       return { definition, x: definition.x, y: definition.y, direction: -1, wait: 0, active: false, safetyHold: null }
     }),
-    triggers: level.triggers.map(() => ({ held: 0, active: false, depression: 0 })),
+    triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && t.behavior === 'toggle' && !!t.startsOn, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
-    elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, goalDepression: 0, medal: null }
+    elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+  updateSwitchTargets(run)
+  if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
   if (!preview) {
     prepareProps(run); syncPlatforms(run)
     prepareRobots(run.platforms, run.robots)
@@ -190,25 +192,32 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number, powered: bool
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h, powered)
 }
 function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
-  const activeTargets = new Set<string>()
   run.level.triggers.forEach((plate, index) => {
     const sensor = run.triggers[index]
     if (plate.mode === 'coins') {
       // Coins still fill the meter without power. Once switched, it is latched
       // independently of the supply, including when another EMP is collected.
       sensor.active ||= powered && run.coinsCollected >= plate.threshold
-      if (sensor.active) for (const id of triggerTargets(plate)) activeTargets.add(id)
       return
     }
     const weighted = run.props.some(b => propLoadsPlate(b, plate.x, plate.y, plate.w))
     const touched = run.player.grounded && Math.abs(run.player.y - plate.y) < 3 && run.player.x >= plate.x && run.player.x <= plate.x + plate.w
     sensor.held = weighted || touched ? sensor.held + dt : 0
-    sensor.active = powered && sensor.held >= .15
-    if (sensor.active) for (const id of triggerTargets(plate)) activeTargets.add(id)
+    const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
+    if (behavior === 'pressure') sensor.active = powered && pressed
+    else if (powered && pressed && !sensor.pressed) sensor.active = behavior === 'switch' || !sensor.active
+    // Track the physical press separately: the final-position sample cannot
+    // toggle twice, and another load cannot retrigger an already held plate.
+    sensor.pressed = pressed
     sensor.depression = approach(sensor.depression, weighted || touched ? 1 : 0, dt / .12)
   })
+  updateSwitchTargets(run)
+}
+function updateSwitchTargets(run: Run) {
+  const activeTargets = new Set(run.level.triggers.flatMap((t, i) => run.triggers[i].active ? [...triggerTargets(t)] : []))
   // Any active switch can power a shared mechanism.
-  for (const mechanism of run.mechanisms) mechanism.active = activeTargets.has(mechanism.definition.id)
+  for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || activeTargets.has(mechanism.definition.id)
+  run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || activeTargets.has(run.level.goal.id ?? '')
 }
 function stepRobots(run: Run, dt: number, world: ContactWorld) {
   const p = run.player
@@ -246,13 +255,6 @@ function stepRobots(run: Run, dt: number, world: ContactWorld) {
   if (pushed > 0) p.vx = Math.max(p.vx, pushed)
   else if (pushed < 0) p.vx = Math.min(p.vx, pushed)
 }
-/** Only feet/bottom contact loads the plate; passing through the light or over it does not. */
-function goalPressed(run: Run) {
-  const goal = run.level.goal, half = GOAL_PLATE_WIDTH / 2
-  const contact = (body: { x: number; y: number; grounded: boolean }, footprint: number) =>
-    body.grounded && Math.abs(body.y - goal.y) < 2 && Math.abs(body.x - goal.x) < half + footprint - 2
-  return contact(run.player, TUNING.width / 2) || run.props.some(prop => propLoadsPlate(prop, goal.x - half, goal.y, GOAL_PLATE_WIDTH))
-}
 function collectPickups(run: Run, dt: number) {
   const collected = stepPickups(run.pickups, run.player, dt, true)
   run.timeStopRemaining += collected.seconds
@@ -268,7 +270,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (!run.started && (Math.abs(input.move) > .01 || input.jump || input.climb || input.descend || input.crouch)) run.started = true
   if (!run.started) { collectPickups(run, dt); stepTriggers(run, 0); return }
   run.activeTime += dt
-  if (run.goalLit) run.goalElapsed = Math.min(GOAL_OPEN_SECONDS, run.goalElapsed + dt)
+  run.goalElapsed = approach(run.goalElapsed, run.goalLit ? GOAL_OPEN_SECONDS : 0, dt)
   if (!run.exit) {
     const stopped = Math.min(dt, run.timeStopRemaining)
     // Both effects expire in gameplay time. Only the unfrozen part of a
@@ -284,7 +286,6 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     p.x = goalExitPosition(run.exit); p.vx = (p.x - from[0]) / dt
     finishPlayerStep(p, NEUTRAL_INPUT, dt, syncPlatforms(run), from)
     stepPickups(run.pickups, p, dt, false)
-    run.goalDepression = approach(run.goalDepression, 0, dt / .12)
     run.finished = run.exit.elapsed >= GOAL_EXIT_SECONDS
     return
   }
@@ -326,9 +327,6 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   // Pickups remain available until entry, including one touched on the entry step.
   collectPickups(run, dt)
   stepTriggers(run, 0)
-  const pressed = goalPressed(run)
-  run.goalDepression = approach(run.goalDepression, pressed ? 1 : 0, dt / .12)
-  if (pressed) run.goalLit = true
   const p = run.player, door = goalDoor(run.level.goal)
   if (run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4

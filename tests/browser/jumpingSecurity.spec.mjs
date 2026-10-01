@@ -37,10 +37,10 @@ test('complex imported geometry cannot block the picker and preparation can be c
   await expect(card).toBeVisible()
   expect(await page.evaluate(() => window.levelWorkers.every(worker => worker.terminated))).toBe(true)
   await page.getByRole('button', { name: 'Level 2: First Leap', exact: true }).click()
-  await expect(page.getByRole('img', { name: 'First Leap: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'First Leap: reach the exit' })).toBeFocused()
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Restart level', exact: true }).click()
-  await expect(page.getByRole('img', { name: 'First Leap: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'First Leap: reach the exit' })).toBeFocused()
 })
 
 test('a stalled level times out cleanly and leaves other levels playable', async ({ page }) => {
@@ -51,7 +51,7 @@ test('a stalled level times out cleanly and leaves other levels playable', async
   await expect(page.locator('.jumping-route-notice')).toContainText('took too long', { timeout: 10_000 })
   expect(await page.evaluate(() => window.levelWorkers.every(worker => worker.terminated))).toBe(true)
   await page.getByRole('button', { name: 'Level 2: First Leap', exact: true }).click()
-  await expect(page.getByRole('img', { name: 'First Leap: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'First Leap: reach the exit' })).toBeFocused()
 })
 
 test('offscreen thumbnails allocate pixels only when scrolled into view', async ({ page }) => {

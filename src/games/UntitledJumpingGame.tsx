@@ -518,7 +518,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       } else performanceMonitor?.reset()
       if (now - published > 80) {
         const p = player.current
-        setMetrics({ state: run.current?.exit ? 'Entering the exit' : run.current?.goalLit ? 'Exit open' : playerState(p),
+        setMetrics({ state: run.current?.exit ? 'Entering the exit' : playerState(p),
           elapsed: run.current?.elapsed ?? 0 })
         published = now
       }
@@ -536,7 +536,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
 
   const manifestPrompt = missingManifestPrompt(local)
   return <div className="jumping-game" ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
-    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: activate the goal` : 'Untitled Jumping Game movement playground'} />
+    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the exit` : 'Untitled Jumping Game movement playground'} />
     {screen === 'playing' && <>
       {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}

@@ -39,7 +39,7 @@ test('built-in maps edit, rename, save and test directly in the Git checkout', a
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Repository edit')
   await page.getByRole('textbox', { name: 'Level file name', exact: true }).fill('renamed.json')
   await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
-  await expect(page.getByRole('img', { name: 'Repository edit: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'Repository edit: reach the exit' })).toBeFocused()
   await expect(page).toHaveURL(/\/builder\/built-in\/renamed.json\/playtest$/)
   expect((await project.read('renamed.json')).name).toBe('Repository edit')
   expect(await readdir(project.assets)).not.toContain('00.json')

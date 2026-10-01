@@ -140,7 +140,7 @@ const malformed = {
   wallTimer: l => { l.timers[0].x = l.width },
 }
 
-test('legacy flags import as goal plates, and exports use only the new goal point', () => {
+test('legacy flags preserve exit placement, and exports use only the goal point', () => {
   const legacy = structuredClone(JSON_LAB); legacy.flag = legacy.goal; delete legacy.goal
   const imported = parseLevel(legacy)
   assert.deepEqual(imported.goal, JSON_LAB.goal); assert.equal('flag' in imported, false)
@@ -157,10 +157,10 @@ test('legacy player hints are ignored on import and omitted from subsequent save
   assert.deepEqual(imported.texts, JSON_LAB.texts)
 })
 
-test('the whole goal plate needs a flat floor and its light must fit inside the level', () => {
-  for (const goal of [{ x: 0, y: 1400 }, { x: 3190, y: 1400 }, { x: 3050, y: 1300 }]) {
+test('the exit needs flat support and its indicator must fit inside the level', () => {
+  for (const goal of [{ x: 0, y: 1400, flipX: true }, { x: 3190, y: 1400 }, { x: 3050, y: 1300 }]) {
     const level = structuredClone(JSON_LAB); level.goal = goal
-    assert.ok(levelProblems(level).some(problem => problem.includes('goal plate')))
+    assert.ok(levelProblems(level).some(problem => problem.includes('exit and indicator')))
   }
 })
 for (const [name, mutate] of Object.entries(malformed)) test(`JSON test lab rejects invalid ${name}`, () => {

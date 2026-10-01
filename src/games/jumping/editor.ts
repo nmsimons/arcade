@@ -12,6 +12,8 @@ import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geo
 import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
 import { goalBounds } from './goal.ts'
+import { switchedItems } from './switchPower.ts'
+import type { PlateBehavior, PowerMode } from './switchPower.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { fitWallText, wallTextBounds, wallTextLocalPoint, wallTextPoint } from './wallText.ts'
 import { pickupBounds, TIME_BONUS_DEFAULT_SECONDS } from './pickups.ts'
@@ -138,7 +140,32 @@ export function setTriggerTargets(level: JumpLevel, index: number, targets: read
   if (!level.triggers?.[index]) return level
   const next = copyLevel(level), trigger = next.triggers![index]
   delete trigger.target
-  trigger.targets = [...new Set(targets.filter(id => next.mechanisms?.some(m => m.id === id) || next.lighting?.lights.some(l => l.id === id && l.power === 'switched')))]
+  const available = new Set(switchedItems(next).map(item => item.id))
+  trigger.targets = [...new Set(targets.filter(id => available.has(id)))]
+  return next
+}
+export function setPlateBehavior(level: JumpLevel, index: number, behavior: PlateBehavior, startsOn = false): JumpLevel {
+  const before = level.triggers?.[index]
+  if (!before || before.mode === 'coins' || !['pressure', 'switch', 'toggle'].includes(behavior)) return level
+  const next = copyLevel(level), plate = next.triggers![index]
+  if (plate.mode === 'coins') return level
+  plate.behavior = behavior
+  delete plate.startsOn
+  if (behavior === 'toggle') plate.startsOn = startsOn
+  return next
+}
+export function setObjectPower(level: JumpLevel, selection: Selection, power: PowerMode): JumpLevel {
+  if (power !== 'always' && power !== 'switched') return level
+  const next = copyLevel(level)
+  const item = selection.kind === 'goal' ? next.goal : selection.kind === 'mechanism' ? next.mechanisms?.[selection.index]
+    : selection.kind === 'light' ? next.lighting?.lights[selection.index] : null
+  if (!item || 'kind' in item && item.kind === 'gate') return level
+  item.power = power
+  if (selection.kind === 'goal' && !item.id) item.id = newLevelId()
+  if (power === 'always') for (const trigger of next.triggers ?? []) {
+    if (trigger.targets) trigger.targets = trigger.targets.filter(id => id !== item.id)
+    else if (trigger.target === item.id) trigger.target = ''
+  }
   return next
 }
 export function setCoinThreshold(level: JumpLevel, index: number, threshold: number): JumpLevel {
@@ -231,8 +258,11 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
     rope.x = edge.x; rope.y = edge.y; rope.anchor.x = edge.x - platform.x; rope.anchor.y = edge.y - platform.y
   }
   // Carry start/checkpoint markers with the surface that supports them.
-  for (const p of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : [])]) if (p.x >= before.x && p.x <= before.x + before.w && Math.abs(p.y - platformSurface(before, p.x).y) < .1) {
-    p.x = platform.x + (p.x - before.x) / before.w * platform.w; p.y = platformSurface(platform, p.x).y
+  for (const p of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : [])]) {
+    const supportX = p === next.goal ? (() => { const b = goalBounds(next.goal); return b.x + b.w / 2 })() : p.x
+    if (supportX < before.x || supportX > before.x + before.w || Math.abs(p.y - platformSurface(before, supportX).y) >= .1) continue
+    const carriedX = platform.x + (supportX - before.x) / before.w * platform.w
+    p.x += carriedX - supportX; p.y = platformSurface(platform, carriedX).y
   }
   return next
 }
@@ -292,7 +322,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
-    next.goal = { ...next.goal, x: clamp(x, -b.x, level.width - b.x - b.w), y }
+    next.goal = { ...next.goal, x: clamp(x, Math.max(0, -b.x), Math.min(level.width, level.width - b.x - b.w)), y }
   }
   if (selection.kind === 'timer') Object.assign(next.timers![selection.index], { x, y })
   if (selection.kind === 'text') next.texts![selection.index] = fitWallText({ ...next.texts![selection.index], x: b.x + dx, y: b.y + dy }, next.width, levelHeight(next))
@@ -488,7 +518,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   if (tool === 'coin-switch') {
     const trial = asTrial(level)
     if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
-    const nearest = [...trial.mechanisms].sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
+    const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
     trial.triggers.push({ x: clamp(start.x, 24, trial.width - COIN_SWITCH_LENGTH - 24), y: clamp(start.y, 0, levelHeight(trial) - COIN_SWITCH_THICKNESS),
       w: COIN_SWITCH_LENGTH, mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
@@ -510,7 +540,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     }
     if (tool === 'plate') {
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
-      const nearest = [...trial.mechanisms].sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
+      const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
       trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }

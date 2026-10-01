@@ -101,13 +101,13 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toBeVisible()
   await page.clock.runFor(100)
   releasePreparation()
-  await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'A Little Swing: reach the exit' })).toBeFocused()
   // Read the new level only after it has rendered and published its reset timer.
   await page.clock.runFor(100)
   await page.unroute('**/ropeLayout.worker*', delayPreparation)
   expect((await position(page)).x).toBeCloseTo(170); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.clock.resume(); await page.reload()
-  await expect(page.getByRole('img', { name: 'A Little Swing: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'A Little Swing: reach the exit' })).toBeFocused()
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))['first-leap'])).toBe(record)
 })
@@ -320,8 +320,10 @@ test('the player can jump out from a ball beside a tilted box and closed gate', 
   expect((await position(page)).x).toBeLessThan(before.x - 80)
 })
 
-test('the light opens a hidden black door; entering stops the timer and a pausable exit saves results', async ({ page }, info) => {
+test('a separate Switch plate opens a hidden black door; entering stops the timer and a pausable exit saves results', async ({ page }, info) => {
   const level = blankTrial(); level.goal.x = 500; level.spawn.x = 450
+  level.goal.id = 'exit'; level.goal.power = 'switched'
+  level.triggers = [{ x: 480, y: 920, w: 80, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   level.timers = [{ x: 340, y: 740 }, { x: 740, y: 660 }]
   await setup(page, 0, [level]); await enter(page)
   expect(await page.evaluate(() => window.goalDoor)).toBeNull()
@@ -362,6 +364,8 @@ test('the light opens a hidden black door; entering stops the timer and a pausab
 
 test('an object can open a distant exit without moving the camera or completing; restart hides it again', async ({ page }, info) => {
   const level = blankTrial(); level.goal.x = 1500
+  level.goal.id = 'exit'; level.goal.power = 'switched'
+  level.triggers = [{ x: 1472, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   level.props = [{ kind: 'ball', x: 1500, y: level.floor - 80, size: 80 }]
   await setup(page, 0, [level]); await enter(page)
   await page.keyboard.down('w'); await page.clock.runFor(32); await page.keyboard.up('w')

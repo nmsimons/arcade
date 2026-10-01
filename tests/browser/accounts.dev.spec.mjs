@@ -46,7 +46,7 @@ test('account controls stay in menus and the studio, and switch jumping game sav
   await expect(page.getByRole('button', { name: 'Alice Example', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Built-in levels', exact: true }).click()
   await page.getByRole('button', { name: /^Level 1:/ }).click()
-  await expect(page.getByRole('img', { name: 'JSON Test Lab: activate the goal' })).toBeFocused()
+  await expect(page.getByRole('img', { name: 'JSON Test Lab: reach the exit' })).toBeFocused()
   await expect(page.getByRole('dialog', { name: 'Untitled Jumping Game', exact: true })).toHaveCount(0)
   await expect(page.locator('.arcade-account-bar')).toHaveCount(0)
   await page.keyboard.press('F8')

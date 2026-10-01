@@ -33,7 +33,7 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Stair treads: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Stair treads: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await canvas.evaluate(c => { c.stairFrames = [] })
   await page.keyboard.down('d'); await page.clock.runFor(850)

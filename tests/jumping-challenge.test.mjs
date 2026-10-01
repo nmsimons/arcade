@@ -7,7 +7,7 @@ import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { levelProblems, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
 import { NO_CLIMBABLES } from '../src/games/jumping/climbables.ts'
 import { playLesson } from './helpers/jumping-routes.mjs'
-import { GOAL_PLATE_WIDTH, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor } from '../src/games/jumping/goal.ts'
+import { GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor } from '../src/games/jumping/goal.ts'
 import { mechanismAnchor } from '../src/games/jumping/mechanisms.ts'
 const advance = (run, frames, input = {}) => { for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input }) }
 const weightPlate = (level, target = 'lift') => {
@@ -242,8 +242,10 @@ test('authored maps round-trip with their complete game data and continuous floo
   }
 })
 
-for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} goal lights only from its plate and finishes only through its open doorway`, () => {
+for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} switched exit opens from a separate switch and finishes only through its doorway`, () => {
   const level = blankTrial(); level.goal.x = 800; level.goal.flipX = flipX
+  level.goal.id = 'exit'; level.goal.power = 'switched'
+  level.triggers = [{ x: 480, y: 920, w: 80, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   const run = createRun(level), p = run.player, door = goalDoor(level.goal), direction = flipX ? -1 : 1
   run.started = true
   Object.assign(p, { x: 800, y: 860, grounded: false })
@@ -252,8 +254,8 @@ for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} goal li
   advance(run, 1); assert.equal(run.goalLit, false, 'standing at the pole is not plate contact')
   Object.assign(p, { x: door.x + door.w / 2, footwork: null })
   advance(run, 120); assert.equal(run.exit, null, 'the closed hidden door is inactive')
-  Object.assign(p, { x: 800, footwork: null })
-  advance(run, 1); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
+  Object.assign(p, { x: 520, footwork: null })
+  advance(run, 20); assert.equal(run.goalLit, true); assert.equal(run.finished, false)
   const time = run.elapsed
   advance(run, 600); assert.equal(run.finished, false); assert.equal(run.exit, null); assert.ok(Math.abs(run.elapsed - time - 5) < 1e-9)
   assert.equal(run.medal, null, 'opening the door does not award a medal')
@@ -273,12 +275,14 @@ for (const flipX of [false, true]) test(`${flipX ? 'flipped' : 'normal'} goal li
   advance(run, 240, { move: 1, jump: true }); assert.deepEqual(run, completed)
 })
 
-for (const kind of ['box', 'ball']) test(`a ${kind} can light the goal remotely without finishing the level`, () => {
+for (const kind of ['box', 'ball']) test(`a ${kind} can switch an exit remotely without finishing the level`, () => {
   const level = blankTrial(); level.goal.x = 1000
-  level.props = [{ kind, x: 1000, y: 920, size: 80 }]
+  level.goal.id = 'exit'; level.goal.power = 'switched'
+  level.triggers = [{ x: 772, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
+  level.props = [{ kind, x: 800, y: 920, size: 80 }]
   const run = createRun(level)
   advance(run, 100); assert.equal(run.goalLit, false, 'the puzzle still waits for first input')
-  advance(run, 1, { move: -1 })
+  advance(run, 20, { move: -1 })
   assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null); assert.ok(run.player.x < 200)
   const time = run.elapsed, player = structuredClone(run.player)
   advance(run, 240, { move: 1, jump: true })
@@ -295,28 +299,34 @@ for (const kind of ['box', 'ball']) test(`a ${kind} can light the goal remotely 
 test('a crate edge presses the plate, while a ball must put its bottom contact on the plate', () => {
   for (const kind of ['box', 'ball']) {
     const level = blankTrial(); level.goal.x = 1000
-    level.props = [{ kind, x: 1000 + GOAL_PLATE_WIDTH / 2 + 30, y: 920, size: 80 }]
-    const run = createRun(level); run.started = true; advance(run, 1)
+    level.goal.id = 'exit'; level.goal.power = 'switched'
+    level.triggers = [{ x: 972, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
+    level.props = [{ kind, x: 1000 + 28 + 30, y: 920, size: 80 }]
+    const run = createRun(level); run.started = true; advance(run, 20)
     assert.equal(run.goalLit, kind === 'box'); assert.equal(run.finished, false)
   }
 })
 
 test('an object above the plate only activates it after landing', () => {
   const level = blankTrial(); level.goal.x = 1000
+  level.goal.id = 'exit'; level.goal.power = 'switched'
+  level.triggers = [{ x: 972, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   level.props = [{ kind: 'ball', x: 1000, y: 840, size: 80 }]
   const run = createRun(level); run.started = true
   advance(run, 1); assert.equal(run.goalLit, false)
   advance(run, 90); assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.ok(Math.abs(run.props[0].y - level.goal.y) < .01)
 })
 
-test('walking away releases the plate while the exit stays open and the timer keeps running', () => {
+test('walking away releases a Switch plate while the exit stays open and the timer keeps running', () => {
   const level = blankTrial(); level.goal.x = 800
+  level.goal.id = 'exit'; level.goal.power = 'switched'
+  level.triggers = [{ x: 772, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   const run = createRun(level); run.started = true; run.player.x = 800
   advance(run, 20)
-  assert.equal(run.goalLit, true); assert.equal(run.goalDepression, 1)
+  assert.equal(run.goalLit, true); assert.equal(run.triggers[0].depression, 1)
   const time = run.elapsed
   advance(run, 100, { move: -1 })
-  assert.ok(run.player.x < 600); assert.equal(run.goalDepression, 0)
+  assert.ok(run.player.x < 600); assert.equal(run.triggers[0].depression, 0)
   assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
   assert.ok(Math.abs(run.elapsed - time - 100 * STEP) < 1e-9)
 })

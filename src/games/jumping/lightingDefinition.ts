@@ -4,6 +4,7 @@ import type { NamedObject } from './objectNames.ts'
 import { parseObjectName } from './objectNames.ts'
 import { objectReference } from './objectLabels.ts'
 import { polygonPoints } from './geometry.ts'
+import { switchedItems } from './switchPower.ts'
 
 export interface LevelLight extends NamedObject {
   id: string; x: number; y: number; intensity: number
@@ -16,11 +17,15 @@ export const levelLightCount = (level: JumpLevel) => (level.lighting?.lights.len
 export const lightBounds = (light: Pick<LevelLight, 'x' | 'y'>) => ({ x: light.x - LIGHT_RADIUS, y: light.y - LIGHT_RADIUS, w: LIGHT_RADIUS * 2, h: LIGHT_RADIUS * 2 })
 export function lightingProblems(level: JumpLevel): string[] {
   const issues: string[] = []
+  if (level.goal?.power === 'switched' && !level.goal.id) issues.push(`Give ${objectReference(level, 'goal')} an ID for its switch connections.`)
+  if (level.goal?.id && [...level.mechanisms ?? [], ...level.lighting?.lights ?? []].some(item => item.id === level.goal!.id)) {
+    issues.push(`${objectReference(level, 'goal')} must have a unique ID.`)
+  }
+  const targets = new Set(switchedItems(level).map(item => item.id))
   for (const [i, trigger] of (level.triggers ?? []).entries()) {
-    const targets = trigger.targets ?? (trigger.target ? [trigger.target] : [])
-    if (targets.some(id => !level.mechanisms?.some(m => m.id === id)
-      && !level.lighting?.lights.some(l => l.id === id && l.power === 'switched'))) {
-      issues.push(`Connect ${objectReference(level, 'trigger', i)} only to existing mechanisms or switched lights.`)
+    const connections = trigger.targets ?? (trigger.target ? [trigger.target] : [])
+    if (connections.some(id => !targets.has(id))) {
+      issues.push(`Connect ${objectReference(level, 'trigger', i)} only to existing switched items.`)
     }
   }
   const lighting = level.lighting

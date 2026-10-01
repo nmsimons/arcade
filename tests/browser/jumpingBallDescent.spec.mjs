@@ -22,7 +22,7 @@ for (const walking of [false, true]) test(`walking off a ledge beside a ball kee
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  const canvas = page.getByRole('img', { name: 'Ball descent: activate the goal' })
+  const canvas = page.getByRole('img', { name: 'Ball descent: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   if (walking) await page.keyboard.down('Shift')
   await page.keyboard.down('a'); await page.clock.runFor(walking ? 850 : 350)

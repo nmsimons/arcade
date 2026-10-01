@@ -243,7 +243,7 @@ These are patterns to prototype and playtest, not prevalidated layouts:
 | One switch, two consequences | A parked crate opens a door and retracts a bridge. | Restore the crossing, or use a rope and keep the door open. |
 | Weight handoff | A released ball takes over a plate from a crate. | Recover the crate and use it as a step elsewhere. |
 | Power interruption | EMP pauses machinery while a loose ball continues rolling into position. | Choose when to interrupt the machinery and where to be when it resumes. |
-| Remote exit | A delivered object depresses the goal plate and opens the exit. | Arrange the delivery, then travel to the doorway. |
+| Remote exit | A delivered object presses a separate plate connected to a switched exit. | Arrange the delivery, then travel to the doorway. |
 
 The chain should be understandable in motion. Show the first cause and its
 immediate effect together where possible. For a larger machine, let the player's
@@ -272,9 +272,17 @@ anything, and a gate, platform, or switched lamp may remain unconnected. Give
 these objects a considered role in the layout; saving and playtesting must not
 require wiring every object or invent a connection on the author's behalf.
 
+Choose each plate's behavior deliberately: Pressure needs a continuing load,
+Switch preserves a completed action, and Toggle allows the player to reverse it
+after releasing and pressing again. Make the consequence legible, especially
+for an initially on Toggle. Exits default to Always on; a locked exit needs an
+explicit switch connection. Use Always on for a continuously cycling lift when
+operating a switch adds no meaningful decision.
+
 EMP pauses mechanisms and shovers globally for five seconds. Coins still count,
 but a newly reached coin threshold waits for power before switching; an already
-latched switch stays latched. The exit keeps working. Loose props and the player
+latched switch stays latched. Always-on exits remain open; switched exits follow
+their inputs, including a Pressure plate turning off. Loose props and the player
 keep moving, and stopped machines and bots remain physical obstacles. These
 rules can create a puzzle, but should not become a hidden exception needed to
 understand an introductory one.
@@ -302,8 +310,8 @@ unless that is the level's explicit, satisfying discovery. Record both clock tim
 and real play duration when tuning a level with time effects.
 
 Set medals from completed runs, including the approach into the exit doorway.
-Lighting the goal opens the exit; scoring currently locks when the player enters
-the doorway. An object can light the goal, but it cannot complete that final
+Activating a switched exit opens it; scoring locks when the player enters
+the doorway. An object can activate a connected plate, but it cannot complete that final
 journey for the player.
 
 - **Gold:** an attainable, demonstrated run with a good plan and confident

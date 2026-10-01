@@ -43,8 +43,9 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
       const slope = dy / dx, surface = (x: number) => a[1] + (x - a[0]) * slope
       let y = Math.min(surface(left), surface(right))
       if (marker) {
-        if (bounds.x < a[0] || bounds.x > b[0]) continue
-        y = surface(bounds.x)
+        const supportX = selection.kind === 'goal' ? footprint.x + footprint.w / 2 : bounds.x
+        if (supportX < a[0] || supportX > b[0]) continue
+        y = surface(supportX)
         if (selection.kind === 'goal' && (Math.abs(slope) > .001 || Array.from({ length: Math.ceil(footprint.w / 8) + 1 }, (_, j) => {
           const support = groundAt(supports, footprint.x + Math.min(j * 8, footprint.w), y, .15)
           return !support || Math.abs(support.angle) > .001

@@ -197,7 +197,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Time penalty | Ordinary dark-red arrow and number; retains clockwise rotation. | No. | No. | Remains collectible and animated. |
 | Fast stopwatch | Ordinary dark-red artwork and fast clockwise hand. | No. | No. | Remains collectible and animated. |
 | EMP pickup | Ordinary gold face/edge colors and bolt animation. | No. | No, including during collection. | Remains collectible; another pickup extends the existing outage. |
-| Goal plate, pole, and closed-door surroundings | Ordinary. | No extra shadows from the small plate/pole. The back-wall door is not new solid geometry. | No. | Protected goal logic continues. |
+| Exit pole and closed-door surroundings | Ordinary. | No extra shadows from the small pole. The back-wall door is not new solid geometry. | No. | The exit follows its power setting and switch inputs. |
 | Goal lamp before activation | Ordinary inactive lens. It must not look switched on in darkness. | No. | No. | Unchanged. |
 | Goal lamp after activation | Full existing green lens, visible even at ambient 0. | No. | No; the indicator never lights nearby surfaces. | Stays visibly green. |
 | Open exit doorway | Retains its black opening; wall around it remains ambient-only. | No. | No. | Opens and accepts the player as usual. |
@@ -364,18 +364,19 @@ the environment. Readable artwork and the activated green exit indicator retain
 their specified appearance; none casts light into the environment.
 
 Switched lights are off until at least one active existing switch targets them.
-Use the same OR relationship as mechanisms. Existing weight/touch plate behavior,
-debounce, and coin latching remain the sole definitions of switch activation.
+Use the same OR relationship as mechanisms and exits. Pressure, Switch, and Toggle
+plate behavior, debounce, and coin latching define switch activation.
 Do not add a second sensor, delay, or coin counter for lamps.
 
 | Lamp | No EMP, no active target | No EMP, active target | During EMP |
 | --- | --- | --- | --- |
 | Always on | On | On | Off |
 | Switched | Off | On | Off |
-| Activated goal indicator (no emitted light) | Green, independently of targets | Green | Green |
+| Always-on exit indicator (no emitted light) | Green | Green | Green |
+| Switched exit indicator (no emitted light) | Off | Green | Follows stored switch state; Pressure inputs turn off |
 
-Only Switched lamps may appear as switch targets. The goal is never a target.
-A plate can operate a gate and lamps together; turning lamps off cannot deactivate
+Only Switched lamps may appear as switch targets. Switched exits also accept targets.
+A plate can operate a gate, exit, and lamps together; turning lamps off cannot deactivate
 the gate except through the plate's existing shared state.
 
 Coin pickup continues during an outage. A new threshold waits for restored power
@@ -424,9 +425,9 @@ halo, and adds no source to the light list. Its active appearance responds
 immediately to goal state. Nearby walls, floor, and objects retain their existing
 lighting when the indicator turns on.
 
-The goal remains self-contained: existing plate activation opens the door;
-entering the doorway completes the level and locks scoring under the current
-game rules. The lighting feature changes none of those events. An author must
+The exit has no built-in plate. It defaults to Always on; in Switched mode any
+active connected plate or coin switch opens it. Entering the doorway completes
+the level and locks scoring. The lighting feature changes none of those events. An author must
 provide a readable approach to the goal and doorway; the indicator does not
 illuminate that route.
 

@@ -27,13 +27,13 @@ test('every gameplay object survives editing and a portable JSON file round-trip
   assert.deepEqual(levelProblems(level), [])
   assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))), level)
 })
-test('duplicated mechanisms have unique identities; deleting one leaves an explicit missing connection', () => {
+test('duplicated mechanisms have unique identities; deleting one leaves a valid disconnected plate', () => {
   const first = addItem(blankTrial(), 'lift', { x: 700, y: 890 }, { x: 700, y: 600 })
   const duplicate = duplicateItem(first.level, first.selection)
   assert.notEqual(duplicate.level.mechanisms[0].id, duplicate.level.mechanisms[1].id)
   let level = addItem(duplicate.level, 'plate', { x: 400, y: 920 }, { x: 400, y: 920 }).level
   level = deleteItem(level, { kind: 'mechanism', index: 0 })
-  assert.deepEqual(triggerTargets(level.triggers[0]), []); assert.match(levelProblems(level).join(), /Connect “Pressure plate 1”/)
+  assert.deepEqual(triggerTargets(level.triggers[0]), []); assert.deepEqual(levelProblems(level), [])
 })
 test('multi-target plates preserve their other connections when a mechanism is deleted', () => {
   let level = addItem(blankTrial(), 'lift', { x: 700, y: 890 }, { x: 700, y: 600 }).level
@@ -53,13 +53,13 @@ test('multi-target plates preserve their other connections when a mechanism is d
   assert.deepEqual(levelProblems(deleted), [])
   const empty = deleteItem(deleted, { kind: 'mechanism', index: 0 })
   assert.deepEqual(triggerTargets(empty.triggers[0]), [])
-  assert.match(levelProblems(empty).join(), /Connect “Pressure plate 1”/)
+  assert.deepEqual(levelProblems(empty), [])
 })
 
 test('plate files accept legacy connections and validate multiple targets', () => {
   const level = addItem(blankTrial(), 'lift', { x: 700, y: 890 }, { x: 700, y: 600 }).level
   const id = level.mechanisms[0].id, plate = { x: 300, y: 920, w: 80, mode: 'touch' }
-  for (const connection of [{ target: id }, { targets: [id] }]) {
+  for (const connection of [{ target: id }, { targets: [id] }, { target: '' }, { targets: [] }]) {
     level.triggers = [{ ...plate, ...connection }]
     assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))), level)
     assert.deepEqual(levelProblems(level), [])
@@ -68,10 +68,8 @@ test('plate files accept legacy connections and validate multiple targets', () =
     { targets: ['x'.repeat(101)] }, { targets: Array.from({ length: 41 }, (_, i) => String(i)) }, { target: id, targets: [id] }]) {
     assert.throws(() => parseLevel({ ...level, triggers: [{ ...plate, ...connection }] }))
   }
-  for (const targets of [[], [id, 'missing']]) {
-    const invalid = parseLevel({ ...level, triggers: [{ ...plate, targets }] })
-    assert.match(levelProblems(invalid).join(), /Connect “Pressure plate 1”/)
-  }
+  const invalid = parseLevel({ ...level, triggers: [{ ...plate, targets: [id, 'missing'] }] })
+  assert.match(levelProblems(invalid).join(), /Connect “Pressure plate 1”/)
 })
 
 test('goals follow their supporting platform, and the start and goal cannot be deleted accidentally', () => {

@@ -267,6 +267,11 @@ requirement. One switch can control several mechanisms. More elaborate sequencin
 can come from geometry and motion; do not assume programmable delays or logic
 gates exist.
 
+Connections are optional. A switch may serve as a coin meter without activating
+anything, and a gate, platform, or switched lamp may remain unconnected. Give
+these objects a considered role in the layout; saving and playtesting must not
+require wiring every object or invent a connection on the author's behalf.
+
 EMP pauses mechanisms and shovers globally for five seconds. Coins still count,
 but a newly reached coin threshold waits for power before switching; an already
 latched switch stays latched. The exit keeps working. Loose props and the player

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "id": "inset-wall-brace",
+  "name": "Inset wall brace",
+  "width": 1200,
+  "height": 920,
+  "floor": 920,
+  "spawn": { "x": 758, "y": 850 },
+  "goal": { "x": 1050, "y": 920 },
+  "platforms": [
+    {
+      "x": 780, "y": 500, "w": 420, "h": 340,
+      "polygon": [[0, 0], [420, 0], [420, 340], [20, 340], [20, 180], [0, 160]]
+    },
+    { "x": 730, "y": 850, "w": 44, "h": 8 }
+  ],
+  "props": [{ "kind": "ball", "x": 773, "y": 920, "size": 54 }],
+  "mechanisms": [{ "id": "gate", "kind": "gate", "x": 800, "y": 840, "w": 20, "h": 80, "travel": 80 }],
+  "triggers": [],
+  "robots": [],
+  "checkpoints": [],
+  "climbables": { "ropes": [], "ladders": [] },
+  "timers": [],
+  "texts": [],
+  "pickups": [],
+  "times": { "gold": 10, "silver": 20, "bronze": 40 }
+}

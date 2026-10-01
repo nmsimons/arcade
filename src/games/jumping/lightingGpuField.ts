@@ -106,11 +106,11 @@ export class GpuLightingField {
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Resolve framebuffer incomplete')
     this.width = width; this.height = height
   }
-  render(groups: readonly CasterGroup[], sources: readonly LightSource[], view: LightingView, ambient: number, roomWidth: number, roomHeight: number, nightAmbient?: number) {
+  render(groups: readonly CasterGroup[], sources: readonly LightSource[], view: LightingView, ambient: number, roomWidth: number, roomHeight: number) {
     if (this.gl.isContextLost()) throw new Error('Lighting graphics context lost.')
     this.resize(view.width, view.height)
     const gl = this.gl, u = this.uniforms, { width, height } = view
-    const exposure = ambientExposure(ambient, nightAmbient), a = Math.round(exposure*255)/255
+    const exposure = ambientExposure(ambient), a = Math.round(exposure*255)/255
     gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.colorMask(true,true,true,true); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT)
     gl.enable(gl.SCISSOR_TEST); gl.scissor(0,0,width,height); gl.clearColor(a,a,a,1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST)
     let lights=0, edges=0, vertexBytes=this.shadows.vertexBytes

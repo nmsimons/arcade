@@ -11,7 +11,7 @@ export function setLevelNightMode(level: JumpLevel, enabled: boolean): JumpLevel
   next.lighting.ambient = 0
   return next
 }
-export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<LevelLight, 'direction' | 'spread' | 'power'>>): JumpLevel {
+export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<LevelLight, 'direction' | 'spread' | 'power' | 'flicker'>>): JumpLevel {
   if (!level.lighting?.lights[index]) return level
   const next = copyLevel(level), light = next.lighting!.lights[index]
   for (const field of ['direction', 'spread'] as const) {
@@ -27,6 +27,8 @@ export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<L
       else if (trigger.target === light.id) trigger.target = ''
     }
   }
+  if (patch.flicker === true) light.flicker = true
+  else if (patch.flicker === false) delete light.flicker
   return next
 }
 

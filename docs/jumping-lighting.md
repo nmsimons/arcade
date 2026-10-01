@@ -23,7 +23,7 @@ It should still look like this game's flat, muted world.
 
 The first release includes:
 
-- A shared 35% ambient-light default for night levels, with a saved player adjustment up to 45%.
+- A shared fixed 35% ambient-light baseline for night levels.
 - Directional spotlights with neutral light; ambient provides general fill.
 - Shadows from terrain and substantial physical objects, including moving ones.
 - Lamps powered continuously or by existing pressure plates and coin switches.
@@ -38,7 +38,7 @@ line of sight, even in complete darkness.
 
 Exclude colored illumination, reflections, surface highlights, material normals,
 3D shading, light bouncing, volumetric fog, bloom, lens flares, automatic exposure,
-flicker effects, programmable light sequences, and player-carried lights. Steel
+programmable light sequences, and player-carried lights. Steel
 does not become reflective. A spinning coin retains its existing face and edge
 colors; lighting does not introduce a new metallic highlight.
 
@@ -66,13 +66,9 @@ These distinctions are fixed by object type, not dozens of per-object toggles.
 
 **Night mode** is a saved level toggle, off by default. Off means full original
 brightness and bypasses environmental lighting. On enables spotlights with
-**35% ambient brightness** by default, matching the original ambient-0 setting.
-The pause menu's **Night brightness** slider adjusts this to **35–45%**, in
-one-percentage-point steps, and remembers the player's choice in browser storage.
-The adjustment applies immediately, including while paused, across night levels
-and playtests. It does not change level files, daytime, or full spotlight exposure.
-Older files' retired ambient values remain ignored. Studio previews and thumbnails
-use the 35% default so authors review the darkest supported appearance.
+**35% ambient brightness**, matching the original ambient-0 setting.
+Gameplay, playtests, studio previews, and thumbnails use the same fixed brightness.
+Older files' retired ambient values and saved player brightness preferences are ignored.
 
 Ambient is not blocked by geometry, consumed, switched, or affected by EMP.
 Disabling Night mode preserves lamps. Toggling is undoable and saved with the
@@ -111,7 +107,8 @@ The player's exit opacity still fades its shadow with the figure.
 
 For a receiver point, use `A` from the shared ambient mapping above.
 Each unobstructed lamp
-contributes `angularFalloff × powerFade`, both in 0–1. Authored lamps always
+contributes `angularFalloff × powerFade × flicker`, each in 0–1. Steady lamps use
+flicker 1. Authored lamps always
 use full intensity (100) against the shared night baseline.
 A blocked lamp contributes zero.
 At the emission center itself, angular falloff is 1; there is no undefined
@@ -406,6 +403,21 @@ Sources remain visible before the run starts; initialize the correct power state
 without a bright loading frame. A spawn-overlapping EMP can darken lamps before
 movement starts while retaining its full existing outage duration.
 
+Each wall spotlight also has an optional **Flicker** checkbox, off by default.
+It simulates a malfunctioning lamp with brief, irregular dimming and dropouts
+between longer steady stretches. The pattern is deterministic from the lamp's
+stable ID and visual time, so separate lamps stutter independently, frame rate
+does not change their pattern, and restarting repeats it. Flicker modulates the
+power fade without changing its stored state: it cannot relight a switched-off
+lamp or bypass EMP. Lens, source haze, airborne beam, and receiver illumination
+use the same resulting output. Ambient stays unchanged.
+
+Flicker freezes when paused or suspended and ignores race-clock effects. The
+studio animates powered flickering lamps while lighting preview is enabled;
+**Hold to preview** also previews a switched lamp's flicker. Thumbnails stay at the
+initial, steady part of the pattern. This option adds no switch sensor, physics
+rule, per-light timing controls, or authored animation data.
+
 The activated goal's existing lens stays green and readable, including on a
 flipped goal and during EMP. It emits **no environmental light**, creates no
 halo, and adds no source to the light list. Its active appearance responds
@@ -438,8 +450,7 @@ together while preserving the wall positions.
 ## 8. Builder and collection experience
 
 Use **Night mode** in the Inspector’s **Level** tab with the fixed ambient-0 appearance.
-There are no authored ambient number or slider controls in the Inspector. The
-player's pause-menu brightness preference does not change this preview. Add a single **Light**
+There are no ambient number or slider controls. Add a single **Light**
 tool under Back wall. Every light is a spotlight; there is no shape picker.
 Default placement is direction 90 (down), spread 70, intensity 100, Always on,
 at a fixed wall position.
@@ -449,7 +460,8 @@ The inspector exposes these controls in this order:
 1. Existing object name and position controls.
 2. Direction and spread.
 3. Power.
-4. **Switched by** when Power is Switched, listing every pressure plate and coin
+4. Flicker.
+5. **Switched by** when Power is Switched, listing every pressure plate and coin
    switch with its current connection checked. Gates, elevators, and moving
    platforms use the same section. This edits the same target IDs as the switch’s
    **Activates** section; changes from either side remain synchronized.
@@ -553,8 +565,8 @@ If the level contains a mechanism called `service-lift`, a pressure plate or
 coin switch can include its ID and a lamp ID in
 `targets: ["service-lift", "shaft-lamp"]`. The light and mechanism then share
 activation without sharing identity. A playground without puzzle mechanisms or
-switches can use Always on wall lamps; unconnected switched sources remain
-invalid rather than creating implicit puzzle machinery.
+switches can use Always on wall lamps. Unconnected switched sources are valid
+and remain off during play.
 
 | Field | Contract |
 | --- | --- |
@@ -566,6 +578,7 @@ invalid rather than creating implicit puzzle machinery.
 | `x`, `y` | Finite world coordinates for the emission center in the authored start state; fixture inside playable room. |
 | `intensity` | Optional legacy field. Valid integers 1–100 normalize to 100; omission defaults to 100. No authoring control. Off is a power state. |
 | `power` | Exactly `always` or `switched`. |
+| `flicker` | Optional boolean, off when omitted. True enables the shared malfunction pattern. False normalizes to omission when loaded or edited. |
 | `direction` | Required; finite −180 to 180 degrees, zero right, positive clockwise in both editor label and saved file. Thus 90 points down. |
 | `spread` | Required; finite 20–160 degrees for the whole cone, default 70. |
 | `mount` | Retired legacy field; discarded on load. The lamp stays at its saved world coordinates. Never written by the editor. |
@@ -577,10 +590,10 @@ Extend existing switch `targets` to resolve mechanism IDs and Switched light IDs
 Legacy singular `target` remains readable. Version 2 permits up to 56 unique
 targets (the existing 40-mechanism cap plus 16 lamps); version 1 keeps its existing
 limit. Reject duplicate/colliding IDs and unresolved references for playable
-files. A new unconnected Switched light is an editor validation error until
-connected or changed to Always on. Changing it to Always on removes its incoming
-switch connections in the same undo action. Removing a last target follows the
-existing unresolved-switch validation rather than inventing a hidden target.
+files. Switch connections are optional: an unconnected Switched light and a switch
+with an empty target list can be saved and played. Changing a light to Always on
+removes its incoming switch connections in the same undo action. Removing a last
+target leaves the switch disconnected without inventing a hidden target.
 
 The first release has no saved caches, shader programs, expressions, URLs,
 textures, arbitrary color strings, or user-provided animation data. Preserve
@@ -630,6 +643,9 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
 - Cache static exposed contours and stationary-light/static-shadow work. Camera
   motion alone must not rebuild all geometry. Cache keys include level revision,
   lamp geometry, room dimensions, and the relevant render scale.
+- Flickering stationary lamps cache their full-strength field and modulate its
+  output during composition; brief dropouts retain the cache. Flicker must not
+  rebuild stationary shadow geometry or add lighting buffers.
 - Reuse resting prop, bot and mechanism shadows in the existing stationary
   fields. Invalidate on any silhouette or opacity change, including subpixel
   motion; cache decisions must never delay movement or quantize shadows. Keep
@@ -721,9 +737,11 @@ Brighter dark levels preference is ignored.
 
 UI stays at normal contrast. Controls have names, keyboard access, visible focus,
 and controller behavior consistent with their existing peers. Do not rely on
-color alone for lamp power or switch state. Keep compulsory lighting transitions
-free of flashing/strobing; do not add decorative flicker. Reduced-motion settings
-must not introduce a different gameplay-visible source position or timing rule.
+color alone for lamp power or switch state. Power and EMP transitions retain their
+bounded fade. Malfunction flicker is an explicit per-lamp option, with brief
+faults separated by longer steady stretches rather than a continuous strobe.
+Reduced-motion settings must not introduce a different gameplay-visible source
+position or timing rule.
 
 Test the silhouette, harmful red icons, clock digits, meter segments, and hints
 at the smallest gameplay zoom and a dim display. Automated contrast samples and

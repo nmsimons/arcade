@@ -1,5 +1,5 @@
 import { GpuLightingField } from './lightingGpuField.ts'
-import { MIN_NIGHT_AMBIENT, nightModeEnabled } from './ambientLight.ts'
+import { nightModeEnabled } from './ambientLight.ts'
 import { BALL_COLOR, drawPuzzleWorld } from './challengeRender.ts'
 import { NIGHT_PLAYER_COLOR } from './athlete.ts'
 import { athleteCasters } from './athleteShadow.ts'
@@ -143,7 +143,7 @@ export class LightingRenderer {
     }
     ctx.restore()
   }
-  render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'full', nightAmbient = MIN_NIGHT_AMBIENT) {
+  render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'full') {
     const sources = this.state.sources(definition, run, dt)
     // Hidden/resizing canvases have no drawable area; drawImage rejects empty buffers.
     if (view.width < 1 || view.height < 1) {
@@ -152,7 +152,8 @@ export class LightingRenderer {
     }
     // Study isolation changes the view, never power state or the saved definition.
     const bounds = { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }
-    const activeSources = sources.filter(source => (!onlyLight || source.id === onlyLight) && source.fade > 0 && lightReachesView(source, bounds))
+    const visibleSources = sources.filter(source => (!onlyLight || source.id === onlyLight) && lightReachesView(source, bounds))
+    const activeSources = visibleSources.filter(source => source.fade > 0)
     const nightMode = nightModeEnabled(definition)
     if (!nightMode) {
       if (this.buffers) this.release()
@@ -163,19 +164,22 @@ export class LightingRenderer {
     const buffers = this.buffers ??= { haze: surface(), shadow: surface(), correction: surface(), emission: surface() }
     const { haze, shadow, correction, emission } = buffers
     const { width, height } = view
-    if (activeSources.length && this.terrain?.level !== run.level) this.terrain = { level: run.level, groups: staticCasters(run) }
-    const dynamic = activeSources.length ? dynamicCasters(run, shadows === 'full') : []
-    const structures = activeSources.length ? this.structures.update(this.terrain!.groups, dynamic.filter(group => group.mechanism)) : { fixed: [], moving: [] }
+    // Keep resting silhouettes current through a flicker dropout; clearing them
+    // would discard otherwise reusable shadow fields every time the lamp cuts out.
+    const geometryNeeded = activeSources.length > 0 || visibleSources.some(source => source.flicker)
+    if (geometryNeeded && this.terrain?.level !== run.level) this.terrain = { level: run.level, groups: staticCasters(run) }
+    const dynamic = geometryNeeded ? dynamicCasters(run, shadows === 'full') : []
+    const structures = geometryNeeded ? this.structures.update(this.terrain!.groups, dynamic.filter(group => group.mechanism)) : { fixed: [], moving: [] }
     const moving = [...structures.moving, ...dynamic.filter(group => !group.mechanism)]
     const groups = [...structures.fixed, ...moving]
-    const ambient = ambientExposure(definition.ambient, nightAmbient), ambientColor = gray(ambient)
+    const ambient = ambientExposure(definition.ambient), ambientColor = gray(ambient)
     let lighting: { lights: number; edges: number; bufferBytes: number; backend: 'gpu' | 'canvas'; drawField: (target: CanvasRenderingContext2D) => void } | undefined
     if (this.preferGpu && !this.gpuUnavailable) {
       this.gpu ??= GpuLightingField.create(this.allowSoftware) ?? undefined
       if (!this.gpu) this.gpuUnavailable = true
       else try {
         const gpu = this.gpu
-        const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level), nightAmbient)
+        const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level))
         const bufferBytes = stats.bufferBytes + width * height * 16
         if (bufferBytes > BUFFER_BUDGET) throw new Error('GPU lighting exceeds its buffer budget.')
         clear(haze, width, height)
@@ -193,7 +197,7 @@ export class LightingRenderer {
       // Small viewports can retain more stationary lights within the same 64 MiB
       // budget. At the maximum render size this still permits only two fields.
       const cacheLimit = Math.max(0, Math.floor(BUFFER_BUDGET / (width * height * 4)) - 6)
-      const cacheable = new Set(activeSources.filter(l => l.fade === 1 && l.robot === undefined).slice(0, cacheLimit).map(l => l.id))
+      const cacheable = new Set(visibleSources.filter(l => (l.fade === 1 || l.flicker) && l.robot === undefined).slice(0, cacheLimit).map(l => l.id))
       for (const [id, cached] of this.staticFields) {
         // Covered lamps may skip rendering, so evict old-size fields now rather
         // than waiting for a cache miss to resize them beyond the current budget.
@@ -266,7 +270,9 @@ export class LightingRenderer {
         } else {
           lamp.ctx.save(); transform(lamp.ctx, view)
           lamp.ctx.beginPath(); lamp.ctx.rect(0, 0, run.level.width, levelHeight(run.level)); lamp.ctx.clip()
-          lamp.ctx.resetTransform(); this.cone(lamp.ctx, light, view, ambient); lamp.ctx.restore()
+          // Flicker changes output, not geometry. Cache its full-strength field
+          // and modulate below so every stutter can reuse stationary shadows.
+          lamp.ctx.resetTransform(); this.cone(lamp.ctx, light.flicker ? { ...light, fade: 1 } : light, view, ambient); lamp.ctx.restore()
           cast(structures.fixed); cast(resting.fixed)
           if (cacheable.has(light.id)) {
             const buffer = cached?.buffer ?? surface()
@@ -275,10 +281,14 @@ export class LightingRenderer {
           }
         }
         cast(resting.moving)
+        if (light.flicker && light.fade < 1) {
+          lamp.ctx.globalCompositeOperation = 'source-atop'; lamp.ctx.globalAlpha = 1 - light.fade
+          lamp.ctx.fillStyle = ambientColor; lamp.ctx.fillRect(0, 0, width, height); lamp.ctx.globalAlpha = 1
+        }
         // Reuse this lamp's actual shadow mask, before its ambient underlay. The
         // short haze must stop at gates and terrain just like the real beam.
         clear(correction, width, height); transform(correction.ctx, view)
-        drawLightHaze(correction.ctx, light, definition.ambient, nightAmbient)
+        drawLightHaze(correction.ctx, light, definition.ambient)
         correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'destination-in'; correction.ctx.drawImage(lamp.canvas, 0, 0)
         haze.ctx.drawImage(correction.canvas, 0, 0)
         lamp.ctx.globalCompositeOperation = 'destination-over'; lamp.ctx.fillStyle = ambientColor; lamp.ctx.fillRect(0, 0, width, height)
@@ -343,7 +353,7 @@ export class LightingRenderer {
       ctx.globalCompositeOperation = 'difference'; ctx.drawImage(emission.canvas, 0, 0)
     }
     const erase: WorldPaint = (target, _exposure, draw) => { target.save(); target.globalCompositeOperation = 'destination-out'; draw(); target.restore() }
-    const beamStrength = beamHazeStrength(definition.ambient, nightAmbient)
+    const beamStrength = beamHazeStrength(definition.ambient)
     if (beamStrength > 0 && lights) {
       // Reuse the resolved max light field: real occlusion, narrow cone edges,
       // power fades and room clipping, without another light pass or buffer.

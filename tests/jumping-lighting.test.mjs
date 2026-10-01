@@ -9,7 +9,6 @@ import { levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { athleteCasters } from '../src/games/jumping/athleteShadow.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { gaitPose } from '../src/games/jumping/model.ts'
-import { ambientLightFraction, clampNightAmbient } from '../src/games/jumping/ambientLight.ts'
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/jumping/lighting-prototype.json', import.meta.url)))
 const light = (patch = {}) => ({ id: 'lamp', x: 0, y: 0, intensity: 100, fade: 1, direction: 0, spread: 160, power: 'always', ...patch })
@@ -62,16 +61,6 @@ test('night ambient stays at the original zero setting for every legacy value', 
   }
 })
 
-test('player ambient preferences cover 35–45% independently of retired level values', () => {
-  for (const legacy of [0, 50, 100]) for (let brightness = 35; brightness <= 45; brightness++) {
-    close(ambientExposure(legacy, brightness), brightness / 100)
-    close(ambientLightFraction(legacy, brightness), (brightness / 100 - .35) / .65)
-  }
-  for (const [value, expected] of [[-1, 35], [100, 45], [40.4, 40], [40.6, 41], [NaN, 35], [Infinity, 35]]) {
-    assert.equal(clampNightAmbient(value), expected)
-    close(ambientExposure(0, value), expected / 100)
-  }
-})
 test('lights have no distance attenuation; cone edges stay narrow at any distance', () => {
   const cone = light({ spread: 90 })
   for (const distance of [0, 1, 200, 1200, 20000, 1000000]) {

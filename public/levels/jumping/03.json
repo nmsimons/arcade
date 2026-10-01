@@ -773,8 +773,8 @@
       "y": 1200,
       "w": 100,
       "targets": [
-        "9238ee52-d5a0-43e7-b377-8d9b24772d2e",
-        "741eb0b8-553c-4883-98a6-af0a849e6351"
+        "741eb0b8-553c-4883-98a6-af0a849e6351",
+        "9238ee52-d5a0-43e7-b377-8d9b24772d2e"
       ],
       "mode": "touch"
     }
@@ -857,7 +857,7 @@
         "y": 600,
         "intensity": 100,
         "direction": 90,
-        "spread": 20,
+        "spread": 55,
         "power": "switched"
       }
     ]

@@ -1,5 +1,5 @@
 import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
-import { clampNightAmbient, nightModeEnabled, readNightAmbient, saveNightAmbient } from './jumping/ambientLight'
+import { nightModeEnabled } from './jumping/ambientLight'
 import { LevelSaveStatus } from '../accounts/LevelSaveStatus'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
@@ -118,13 +118,6 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
   const audio = useRef<JumpingSoundSession | null>(null)
   const paintFrame = useRef<() => void>(() => {})
-  const [nightAmbient, setNightAmbient] = useState(readNightAmbient)
-  const nightAmbientRef = useRef(nightAmbient)
-  function changeNightAmbient(value: number) {
-    const brightness = clampNightAmbient(value)
-    nightAmbientRef.current = brightness; setNightAmbient(brightness); saveNightAmbient(brightness)
-    paintFrame.current()
-  }
   const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto' }))
   const [performanceMonitor] = useState(() => import.meta.env.DEV ? new PerformanceMonitor() : null)
   const [devOpen, setDevOpen] = useState(false)
@@ -463,7 +456,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (level.lighting) {
         const camera = gameCamera(width, height, player.current, level, !!run.current)
         lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), level.lighting,
-          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting?.shadows ?? 'full', nightAmbientRef.current)
+          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting?.shadows ?? 'full')
         return
       }
       lightingStats = null
@@ -564,7 +557,6 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
-      nightAmbient={nightAmbient} onNightAmbient={changeNightAmbient}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label="Untitled Jumping Game" focusKey="jumping-menu"
       onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">

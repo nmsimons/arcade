@@ -631,6 +631,13 @@ elevator, or moving platform and check its switches in **Switched by**; new plat
 the nearest mechanism when possible. All support moving, duplication, undo/redo,
 playtesting, and portable level files.
 
+Connections are optional. A pressure plate or coin switch may have `targets: []`,
+and any gate, elevator, moving platform, or switched light may have no incoming
+switches. These objects can be saved and played as placed. Unconnected mechanisms
+stay at their starting positions, switched lights stay off, and switches still
+respond to weight or collected coins. Supplied target IDs must identify existing
+mechanisms or switched lights.
+
 Vertical gates have a fixed width of 20, with no rope or anchor. Holding a connected
 pressure plate raises the gate exactly its own height; releasing the plate lowers
 it again. Older gates are narrowed around their original
@@ -685,10 +692,9 @@ and legacy connections. Neither replaces actually playing the route.
 ## Lighting (version 2)
 
 The back wall receives ambient illumination. Wall text and collectibles receive
-spotlights and shadows, without casting shadows. Night rooms default to the
-ambient-0 appearance (35% baseline brightness), with a saved player adjustment
-from 35% to 45% in the pause menu and a very faint full spotlight beam. Studio
-previews and thumbnails use the 35% default. The
+spotlights and shadows, without casting shadows. Night rooms use the
+ambient-0 appearance (fixed 35% baseline brightness) and a very faint full spotlight
+beam. Gameplay, studio previews, and thumbnails share this brightness. The
 short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at solid objects and room boundaries.
 Spotlights illuminate movable objects. Terrain and mechanisms retain ambient
 colors while casting shadows. Only timer digits/status symbols and filled coin segments keep a 65% brightness
@@ -698,7 +704,7 @@ wall text, collectibles, or the player.
 Spotlights belong to the back wall and do not block movement. In the studio,
 enable **Level tab → Night mode** and use the
 **Back wall → Spotlight** tool. Click to place, or drag to aim. Select a lamp to
-change its direction, spread, power and name. The middle handle
+change its direction, spread, power, flicker and name. The middle handle
 aims; the outer handles change spread. Snap uses five-degree angle increments;
 Alt bypasses it. Position fields refer to the light's center.
 
@@ -739,13 +745,22 @@ to 100; omission defaults to 100. Optional
 `name` uses the normal object-name rules. There is no range, color, glow or texture
 field. The 20×20 fixture footprint must fit inside the level.
 
+Enable **Flicker** in the spotlight inspector for a malfunctioning lamp: irregular
+dim stutters and brief dropouts between steady stretches. The optional JSON field
+`"flicker": true` saves this choice; omission means steady, and other types are
+rejected. Each lamp has its own repeatable pattern. Flicker animates in the studio
+and during play, pauses with the game, and still obeys switched power and EMP.
+The lens and emitted light flicker together; ambient brightness stays unchanged.
+Thumbnails show the initial steady state. Duplicates and templates preserve the
+option and use their new IDs for independent patterns.
+
 A switched light connects to one or more pressure plates or coin switches by ID
 in the existing `targets` array. Its **Switched by** section lists every pressure
 plate and coin switch, just like the inspector for gates, elevators, and moving
 platforms. Editing either this list or a switch’s **Activates** list updates the
 same connections. Any active connected switch powers it. Changing
 the light to Always on removes incoming connections. An unconnected switched
-light must be connected before saving a playable file. Version 2 allows up to
+light is valid and stays off during play. Version 2 allows up to
 56 switch targets; version 1 retains 40.
 
 Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
@@ -764,8 +779,7 @@ dark ink in daytime, and casts a shadow matching its pose.
 The **Lighting** canvas checkbox temporarily shows the scene fully lit. **Hold to
 preview** temporarily powers a selected switched lamp. Neither changes the file,
 undo history, thumbnails or playtest. Thumbnails show the authored initial state.
-Night brightness is fixed for gameplay, previews, and thumbnails. The former
-Brighter dark levels preference is ignored.
+Night brightness is fixed for gameplay, previews, and thumbnails. Former saved player brightness preferences are ignored.
 
 Files allow at most 16 wall lights. Shovebot headlights also count toward the
 lighting complexity budget. Rooms with Night mode

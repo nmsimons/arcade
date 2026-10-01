@@ -48,11 +48,6 @@
 .jumping-dialog-body { flex: 1; min-height: 8em; display: flex; flex-direction: column; padding: 24px calc(var(--dialog-inset) - 6px) 20px var(--dialog-inset); overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--jumping-color-ink) transparent; }
 .jumping-dialog-body > * { flex-shrink: 0; }
 .jumping-pause-menu { padding-inline: var(--dialog-inset); padding-bottom: 12px; scrollbar-gutter: auto; }
-.jumping-night-ambient { display: flex; align-items: center; gap: 16px; margin-top: 12px; padding: 8px var(--dialog-button-inset); scroll-margin-block: 4px; }
-.jumping-night-ambient label { flex: 0 1 auto; min-width: 0; font-weight: 600; }
-.jumping-night-ambient input { display: block; flex: 1; width: 0; min-width: 48px; height: 24px; margin: 0; accent-color: var(--jumping-color-ink); }
-.jumping-night-ambient input:focus-visible { outline: 2px solid var(--jumping-ink); outline-offset: 3px; }
-.jumping-dialog-overlay[data-input-method="controller"] .jumping-night-ambient input:focus { outline: 2px solid var(--jumping-ink); outline-offset: 3px; }
 .jumping-dialog-actions { display: flex; flex-direction: column; gap: 6px; }
 /* Section colors reach the panel edges; spacing belongs inside the section. */
 .jumping-pause-destinations { flex: none; padding: 12px var(--dialog-inset) 20px; background: var(--jumping-section); }

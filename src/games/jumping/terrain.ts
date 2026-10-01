@@ -61,6 +61,22 @@ function solidSpans(platform: Platform, x: number): number[][] {
 /** Internal seams are not walls: subtract actual solids on the outside of this face. */
 export function exposedSide(platforms: readonly Platform[], platform: Platform, side: number, top: number, bottom: number): boolean {
   const x = side === 1 ? platform.x : platform.x + platform.w
+  return exposedFace(platforms, platform, side, top, bottom, x)
+}
+
+/** Reachable walls can be inset within a concave outline's bounding rectangle. */
+export function exposedWallFaces(platforms: readonly Platform[], platform: Platform, side: number, top: number, bottom: number): number[] {
+  if (platform.y >= bottom || platform.y + platform.h <= top) return []
+  const points = polygonPoints(platform)
+  const faces = points.flatMap((a, i) => {
+    const b = points[(i + 1) % points.length]
+    return Math.abs(a[0] - b[0]) < .01 && (b[1] - a[1]) * side < 0
+      && Math.min(a[1], b[1]) < bottom && Math.max(a[1], b[1]) > top ? [a[0]] : []
+  })
+  return [...new Set(faces)].filter(x => exposedFace(platforms, platform, side, top, bottom, x))
+}
+
+function exposedFace(platforms: readonly Platform[], platform: Platform, side: number, top: number, bottom: number, x: number): boolean {
   let spans: number[][]
   if (platform.polygon) {
     const points = polygonPoints(platform)

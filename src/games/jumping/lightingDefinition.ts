@@ -8,6 +8,7 @@ import { polygonPoints } from './geometry.ts'
 export interface LevelLight extends NamedObject {
   id: string; x: number; y: number; intensity: number
   direction: number; spread: number; power: 'always' | 'switched'
+  flicker?: boolean
 }
 export interface LightingDefinition { nightMode?: boolean; ambient: number; lights: LevelLight[] }
 export const MAX_LIGHTS = 16, LIGHT_RADIUS = 10
@@ -17,9 +18,9 @@ export function lightingProblems(level: JumpLevel): string[] {
   const issues: string[] = []
   for (const [i, trigger] of (level.triggers ?? []).entries()) {
     const targets = trigger.targets ?? (trigger.target ? [trigger.target] : [])
-    if (!targets.length || targets.some(id => !level.mechanisms?.some(m => m.id === id)
+    if (targets.some(id => !level.mechanisms?.some(m => m.id === id)
       && !level.lighting?.lights.some(l => l.id === id && l.power === 'switched'))) {
-      issues.push(`Connect ${objectReference(level, 'trigger', i)} to one or more mechanisms or switched lights.`)
+      issues.push(`Connect ${objectReference(level, 'trigger', i)} only to existing mechanisms or switched lights.`)
     }
   }
   const lighting = level.lighting
@@ -37,7 +38,6 @@ export function lightingProblems(level: JumpLevel): string[] {
   for (const [i, light] of lighting.lights.entries()) {
     const name = objectReference(level, 'light', i), b = lightBounds(light)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > height) issues.push(`Keep ${name} inside the level.`)
-    if (light.power === 'switched' && !level.triggers?.some(t => (t.targets ?? [t.target]).includes(light.id))) issues.push(`Connect switched light ${name} to a pressure plate or coin switch.`)
   }
   const lightCount = levelLightCount(level)
   if (nightModeEnabled(lighting) && lightCount) {
@@ -59,13 +59,14 @@ export function parseLighting(value: unknown): LightingDefinition {
   const lights = v.lights.map((item): LevelLight => {
     const l = object(item)
     if (l.power !== 'always' && l.power !== 'switched') return fail()
+    if (l.flicker !== undefined && typeof l.flicker !== 'boolean') return fail()
     const name = parseObjectName(l.name, fail)
     // Accept older files, but authored spotlights always use full intensity.
     if (l.intensity !== undefined) number(l.intensity, 1, 100, true)
     // Retired mechanism mounts are ignored; saved world coordinates remain fixed.
     return { id: id(l.id), x: number(l.x, 0, 20000), y: number(l.y, 0, 6000),
       intensity: 100, direction: number(l.direction, -180, 180), spread: number(l.spread, 20, 160),
-      power: l.power, ...name }
+      power: l.power, ...(l.flicker ? { flicker: true } : {}), ...name }
   })
   const ambient = number(v.ambient, 0, 100, true)
   if (v.nightMode !== undefined && typeof v.nightMode !== 'boolean') return fail()

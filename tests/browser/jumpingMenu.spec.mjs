@@ -75,9 +75,6 @@ test('pause controls keep their panel size and return controller focus without r
     if (size.height === 800) {
       const scrollbars = await pause.locator('.jumping-dialog-panel, .jumping-dialog-body').evaluateAll(elements => elements.map(el => el.scrollHeight > el.clientHeight + 1))
       expect(scrollbars).toEqual([false, false])
-      const row = page.locator('.jumping-night-ambient'), slider = page.getByRole('slider', { name: 'Night brightness' })
-      const rowBounds = await row.boundingBox(), sliderBounds = await slider.boundingBox()
-      expect(rowBounds.x + rowBounds.width - sliderBounds.x - sliderBounds.width).toBeCloseTo(14, 0)
     }
     await page.getByRole('button', { name: 'Controls', exact: true }).focus()
     await tap(page, 0)
@@ -109,10 +106,6 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   for (const name of names) {
     await expectAccessibleSelection(button(name))
     await page.keyboard.press('Tab')
-    if (name === 'Controls') {
-      await expect(page.getByRole('slider', { name: 'Night brightness' })).toBeFocused()
-      await page.keyboard.press('Tab')
-    }
   }
   await button('Controls').hover()
   await expect(button('Controls')).toHaveCSS('background-color', 'rgb(171, 185, 167)')
@@ -122,8 +115,6 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
   // Controller input after a pointer click must restore visible focus even if
   // the browser would not give programmatic focus :focus-visible styling.
   await page.clock.runFor(64); await tap(page, 13)
-  await expect(page.getByRole('slider', { name: 'Night brightness' })).toBeFocused()
-  await tap(page, 13)
   await expectAccessibleSelection(button('Level studio'))
   await expect(button('Controls')).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   expect(await button('Controls').evaluate(el => el.getAnimations().length)).toBe(0)
@@ -135,7 +126,6 @@ test('pause selection stays distinct for keyboard, controller and forced colors 
       await expectAccessibleSelection(button(name))
       await expect(button(name)).toHaveCSS('forced-color-adjust', 'none')
       await page.keyboard.press('Tab')
-      if (name === 'Controls') await page.keyboard.press('Tab')
     }
     await tap(page, 13)
     await expectAccessibleSelection(button('Restart level'))
@@ -164,11 +154,6 @@ test('pause and controls reflow at double text size with every action reachable'
       await expect(button).toBeFocused()
       await expect(button).toBeInViewport({ ratio: 1 })
       await page.keyboard.press('Tab')
-      if (name === 'Controls') {
-        const slider = page.getByRole('slider', { name: 'Night brightness' })
-        await expect(slider).toBeFocused(); await expect(slider).toBeInViewport({ ratio: 1 })
-        await page.keyboard.press('Tab')
-      }
     }
     await page.getByRole('button', { name: 'Controls', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport({ ratio: 1 })
@@ -182,20 +167,16 @@ test('pause and controls reflow at double text size with every action reachable'
   }
 })
 
-test('night ambient slider updates the paused scene, supports keyboard/controller and survives restarts and reload', async ({ page }, info) => {
+test('pause has no brightness control and night ignores the retired saved preference', async ({ page }, info) => {
   const maps = levels()
   maps[0].version = 2; maps[0].lighting = { nightMode: true, ambient: 0, lights: [] }
+  await page.addInitScript(() => localStorage.setItem('arcade.jumping.night-ambient.v1', '45'))
   await open(page, false, maps)
   await page.getByRole('button', { name: 'Play First room', exact: true }).click()
-  // Level preparation runs in a worker; advancing the clock does not await it.
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.clock.runFor(64); await page.evaluate(() => window.dispatchEvent(new Event('blur')))
   await expect(page.getByRole('status')).toContainText('Paused while the game was out of focus.')
-  const scrollbars = await page.locator('.jumping-dialog-panel, .jumping-dialog-body').evaluateAll(elements => elements.map(el => el.scrollHeight > el.clientHeight + 1))
-  expect(scrollbars).toEqual([false, false])
-  const slider = page.getByRole('slider', { name: 'Night brightness' })
-  await expect(slider).toHaveAttribute('min', '35'); await expect(slider).toHaveAttribute('max', '45')
-  await expect(slider).toHaveValue('35')
+  await expect(page.getByRole('slider', { name: 'Night brightness' })).toHaveCount(0)
   const wallColor = () => page.locator('canvas[role="img"]').evaluate(canvas => {
     const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data, counts = new Map()
     for (let i = 0; i < pixels.length; i += 4) {
@@ -203,52 +184,17 @@ test('night ambient slider updates the paused scene, supports keyboard/controlle
     }
     return [...counts].sort((a, b) => b[1] - a[1])[0][0].split(',').map(Number)
   })
-  const before = await wallColor()
-  await slider.focus(); await page.keyboard.press('End')
-  await expect(slider).toHaveValue('45'); await expect(slider).toBeFocused()
-  const after = await wallColor()
-  after.forEach((value, i) => expect(Math.abs(value - before[i] * 45 / 35)).toBeLessThanOrEqual(2))
-  await page.keyboard.press('ArrowRight'); await expect(slider).toHaveValue('45')
-  await page.keyboard.press('Home'); await page.keyboard.press('ArrowLeft'); await expect(slider).toHaveValue('35')
-  await page.clock.runFor(64) // Arm the controller after entering the pause screen.
-  await tap(page, 15); await expect(slider).toHaveValue('36'); await expect(slider).toBeFocused()
-  await tap(page, 14); await expect(slider).toHaveValue('35')
-  // Pointer adjustment and controller focus both keep the same saved value.
-  const bounds = await slider.boundingBox()
-  await slider.click({ position: { x: bounds.width * .65, y: bounds.height / 2 } })
-  const chosen = await slider.inputValue(); expect(Number(chosen)).toBeGreaterThan(35)
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('arcade.jumping.night-ambient.v1'))).toBe(chosen)
-  await tap(page, 13); await expect(page.getByRole('button', { name: 'Level studio', exact: true })).toBeFocused()
-  await tap(page, 12); await expect(slider).toBeFocused()
-  await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await page.getByRole('button', { name: 'Back', exact: true }).click(); await expect(slider).toHaveValue(chosen)
+  const expected = [241, 241, 237].map(channel => Math.round(channel * .35))
+  expect(await wallColor()).toEqual(expected)
   await page.getByRole('button', { name: 'Restart level', exact: true }).click()
-  await page.keyboard.press('Escape'); await expect(slider).toHaveValue(chosen)
-  await page.getByRole('button', { name: 'Level menu', exact: true }).click()
-  await page.getByRole('button', { name: 'Play Second room', exact: true }).click()
-  await expect(page.locator('canvas[role="img"]')).toBeFocused()
-  await page.keyboard.press('Escape'); await expect(slider).toHaveValue(chosen)
-  // Daytime ignores the setting, while the preference remains adjustable.
-  const dayBefore = await wallColor(); await slider.focus(); await page.keyboard.press('End'); expect(await wallColor()).toEqual(dayBefore)
-  await page.clock.resume(); await page.reload(); await expect(page.locator('canvas[role="img"]')).toBeFocused()
-  await page.keyboard.press('Escape'); await expect(slider).toHaveValue('45')
-  await page.screenshot({ path: info.outputPath('night-ambient-pause.png') })
-})
-
-test('night ambient slider stays usable when browser storage is unavailable', async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(window, 'localStorage', { configurable: true, get() { throw new DOMException('Storage disabled', 'SecurityError') } })
-  })
-  await open(page)
-  await page.getByRole('button', { name: 'Play First room', exact: true }).click()
+  await page.keyboard.press('Escape')
+  expect(await wallColor()).toEqual(expected)
+  await page.clock.resume(); await page.reload()
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.keyboard.press('Escape')
-  const slider = page.getByRole('slider', { name: 'Night brightness' })
-  await expect(slider).toHaveValue('35'); await slider.focus(); await page.keyboard.press('End')
-  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowLeft')
-  await expect(slider).toHaveValue('42')
-  await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.keyboard.press('Escape')
-  await expect(slider).toHaveValue('42')
+  await expect(page.getByRole('slider', { name: 'Night brightness' })).toHaveCount(0)
+  expect(await wallColor()).toEqual(expected)
+  await page.screenshot({ path: info.outputPath('fixed-night-pause.png') })
 })
 
 test('completion actions retain accessible selection and reflow with enlarged text', async ({ page }, info) => {

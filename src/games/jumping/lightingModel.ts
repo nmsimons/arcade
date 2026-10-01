@@ -14,6 +14,7 @@ import { goalEase } from './goal.ts'
 import { terrainBoundary, terrainShadowsPoint } from './lightingBoundary.ts'
 import type { TerrainEdge } from './lightingBoundary.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
+import { lightFlicker } from './lightFlicker.ts'
 import type { CornerRadii } from './mechanismAppearance.ts'
 
 import type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
@@ -141,9 +142,11 @@ export function dynamicCasters(run: LightingWorld, objectShadows = true): Caster
 }
 export class LightingState {
   private fades = new Map<string, number>()
-  reset() { this.fades.clear() }
+  private time = 0
+  reset() { this.fades.clear(); this.time = 0 }
 
   sources(definition: LightingDefinition, run: LightingWorld, dt: number): LightSource[] {
+    this.time += dt
     const sources: LightSource[] = []
     const lights: (LevelLight & { robot?: number })[] = [...definition.lights]
     const ids = new Set(definition.lights.map(light => light.id))
@@ -162,7 +165,7 @@ export class LightingState {
       const previous = this.fades.get(light.id) ?? target
       const fade = previous + Math.max(-dt / .2, Math.min(dt / .2, target - previous))
       this.fades.set(light.id, fade)
-      sources.push({ ...light, intensity: 100, fade })
+      sources.push({ ...light, intensity: 100, fade: fade * (light.flicker ? lightFlicker(light.id, this.time) : 1) })
     }
     return sources
   }

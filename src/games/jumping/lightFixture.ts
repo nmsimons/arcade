@@ -23,8 +23,8 @@ export function drawLightFixtures(ctx: CanvasRenderingContext2D, lights: readonl
 }
 
 /** A short source cue, not attenuation of the spotlight's unlimited reach. */
-export function drawLightHaze(ctx: CanvasRenderingContext2D, light: LevelLight & { fade: number }, ambient: number, nightAmbient?: number) {
-  const strength = .18 * light.fade * (1 - ambientLightFraction(ambient, nightAmbient))
+export function drawLightHaze(ctx: CanvasRenderingContext2D, light: LevelLight & { fade: number }, ambient: number) {
+  const strength = .18 * light.fade * (1 - ambientLightFraction(ambient))
   if (strength <= 0) return
   const radius = 56, half = light.spread * Math.PI / 360
   ctx.save(); ctx.translate(light.x, light.y); ctx.rotate(light.direction * Math.PI / 180)
@@ -37,8 +37,8 @@ export function drawLightHaze(ctx: CanvasRenderingContext2D, light: LevelLight &
 }
 
 /** The airborne cone carries the lighting on ambient-only architecture.
- * Keep it restrained across the night range; daytime bypasses both effects. */
-export function beamHazeStrength(ambient: number, nightAmbient?: number) {
-  const t = Math.max(0, Math.min(1, 1 - ambientLightFraction(ambient, nightAmbient) / .5))
+ * Keep it restrained at the shared night baseline; daytime bypasses both effects. */
+export function beamHazeStrength(ambient: number) {
+  const t = Math.max(0, Math.min(1, 1 - ambientLightFraction(ambient) / .5))
   return .06 * t * t * (3 - 2 * t)
 }

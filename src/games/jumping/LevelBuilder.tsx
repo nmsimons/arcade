@@ -354,83 +354,99 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (!active || !lightingGeometry.ready || size.width <= 0 || size.height <= 0) return
     const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!, ratio = level.lighting ? lightingPixelRatio(size.width, size.height, devicePixelRatio || 1) : Math.min(devicePixelRatio || 1, 2)
     canvas.width = Math.round(size.width * ratio); canvas.height = Math.round(size.height * ratio)
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.fillStyle = '#eeeee6'; ctx.fillRect(0, 0, size.width, size.height)
-    if (level.lighting) {
-      if (lightingGeometry.groups) lightingRenderer.prepare(level, lightingGeometry.groups)
-      const definition = { ...level.lighting, nightMode: lightingPreview && nightModeEnabled(level.lighting),
-        lights: level.lighting.lights.map(l => l.id === previewLight && !helpOpen && !libraryOpen ? { ...l, power: 'always' as const } : l) }
-      lightingRenderer.render(ctx, previewRun ?? playgroundLightingWorld(level, previewPlayer), definition,
-        { ...view, width: canvas.width, height: canvas.height, zoom: view.zoom * ratio }, .2, undefined, true)
-    }
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-    ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
-    if (!level.lighting) {
-      drawLevelBackdrop(ctx, level, { x: view.x, y: view.y, w: size.width / view.zoom, h: size.height / view.zoom }, view.zoom)
-      if (previewRun) drawPuzzleWorld(ctx, previewRun, true)
-      else { drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, previewPlayer, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, previewPlayer); ctx.globalAlpha = 1 }
-    }
-    ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
-    if (mechanism) {
-      const open = mechanismOpenPosition(mechanism)
-      ctx.strokeStyle = '#b78947'; ctx.lineWidth = 1 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
-      ctx.strokeRect(open.x, open.y, mechanism.w, mechanism.h)
-      ctx.setLineDash([])
-      if (mechanism.kind === 'lift') {
-        const anchor = mechanismAnchor(mechanism), end = mechanismRopeEnd(mechanism)
-        ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
-        ctx.beginPath(); ctx.moveTo(end.x, end.y); ctx.lineTo(anchor.x, anchor.y); ctx.stroke(); ctx.setLineDash([])
+    lightingRenderer.state.reset()
+    const draw = (dt: number) => {
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.fillStyle = '#eeeee6'; ctx.fillRect(0, 0, size.width, size.height)
+      if (level.lighting) {
+        if (lightingGeometry.groups) lightingRenderer.prepare(level, lightingGeometry.groups)
+        const definition = { ...level.lighting, nightMode: lightingPreview && nightModeEnabled(level.lighting),
+          lights: level.lighting.lights.map(l => l.id === previewLight && !helpOpen && !libraryOpen ? { ...l, power: 'always' as const } : l) }
+        lightingRenderer.render(ctx, previewRun ?? playgroundLightingWorld(level, previewPlayer), definition,
+          { ...view, width: canvas.width, height: canvas.height, zoom: view.zoom * ratio }, dt, undefined, true)
+      }
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+      ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
+      if (!level.lighting) {
+        drawLevelBackdrop(ctx, level, { x: view.x, y: view.y, w: size.width / view.zoom, h: size.height / view.zoom }, view.zoom)
+        if (previewRun) drawPuzzleWorld(ctx, previewRun, true)
+        else { drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, previewPlayer, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, previewPlayer); ctx.globalAlpha = 1 }
+      }
+      ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
+      if (mechanism) {
+        const open = mechanismOpenPosition(mechanism)
+        ctx.strokeStyle = '#b78947'; ctx.lineWidth = 1 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
+        ctx.strokeRect(open.x, open.y, mechanism.w, mechanism.h)
+        ctx.setLineDash([])
+        if (mechanism.kind === 'lift') {
+          const anchor = mechanismAnchor(mechanism), end = mechanismRopeEnd(mechanism)
+          ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
+          ctx.beginPath(); ctx.moveTo(end.x, end.y); ctx.lineTo(anchor.x, anchor.y); ctx.stroke(); ctx.setLineDash([])
+          const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
+          ctx.fillRect(anchor.x - handle / 2, anchor.y - handle / 2, handle, handle)
+        }
+      }
+      if (light) {
+        ctx.strokeStyle = '#c65231'; ctx.fillStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom
+        for (const handle of aimHandles) {
+          ctx.beginPath(); ctx.moveTo(light.x, light.y); ctx.lineTo(handle.x, handle.y); ctx.stroke()
+          ctx.beginPath(); ctx.arc(handle.x, handle.y, (handle.kind === 'aim' ? 5 : 4) / view.zoom, 0, Math.PI * 2); ctx.fill()
+        }
+      }
+      if (robot) {
+        ctx.strokeStyle = '#cc6a49'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom]); ctx.beginPath(); ctx.moveTo(robot.left, robot.y - 65); ctx.lineTo(robot.right, robot.y - 65); ctx.stroke(); ctx.setLineDash([])
         const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
-        ctx.fillRect(anchor.x - handle / 2, anchor.y - handle / 2, handle, handle)
+        for (const x of [robot.left, robot.right]) ctx.fillRect(x - handle / 2, robot.y - 65 - handle / 2, handle, handle)
       }
-    }
-    if (light) {
-      ctx.strokeStyle = '#c65231'; ctx.fillStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom
-      for (const handle of aimHandles) {
-        ctx.beginPath(); ctx.moveTo(light.x, light.y); ctx.lineTo(handle.x, handle.y); ctx.stroke()
-        ctx.beginPath(); ctx.arc(handle.x, handle.y, (handle.kind === 'aim' ? 5 : 4) / view.zoom, 0, Math.PI * 2); ctx.fill()
+      if (support && Math.abs(support.delta) < .1) {
+        ctx.strokeStyle = '#60826a'; ctx.lineWidth = 3 / view.zoom
+        ctx.beginPath(); ctx.moveTo(support.left, support.y); ctx.lineTo(support.right, support.y); ctx.stroke()
       }
-    }
-    if (robot) {
-      ctx.strokeStyle = '#cc6a49'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom]); ctx.beginPath(); ctx.moveTo(robot.left, robot.y - 65); ctx.lineTo(robot.right, robot.y - 65); ctx.stroke(); ctx.setLineDash([])
-      const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
-      for (const x of [robot.left, robot.right]) ctx.fillRect(x - handle / 2, robot.y - 65 - handle / 2, handle, handle)
-    }
-    if (support && Math.abs(support.delta) < .1) {
-      ctx.strokeStyle = '#60826a'; ctx.lineWidth = 3 / view.zoom
-      ctx.beginPath(); ctx.moveTo(support.left, support.y); ctx.lineTo(support.right, support.y); ctx.stroke()
-    }
-    if (outline) {
-      ctx.strokeStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
-      const padding = (chosen ? 16 : 8) / view.zoom
-      if (wallText) {
-        ctx.save(); ctx.translate(wallText.x + wallText.w / 2, wallText.y + wallText.h / 2); ctx.rotate((wallText.rotation ?? 0) * Math.PI / 180)
-        ctx.strokeRect(-wallText.w / 2 - padding, -wallText.h / 2 - padding, wallText.w + padding * 2, wallText.h + padding * 2); ctx.restore()
-      } else ctx.strokeRect(outline.x - padding, outline.y - padding - (outline.h ? 0 : 62), Math.max(8, outline.w + padding * 2), Math.max(8, outline.h + padding * 2 + (outline.h ? 0 : 62)))
-      ctx.setLineDash([])
-      for (const point of resizeHandles) {
-        const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
-        ctx.fillRect(point.x - handle / 2, point.y - handle / 2, handle, handle)
+      if (outline) {
+        ctx.strokeStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
+        const padding = (chosen ? 16 : 8) / view.zoom
+        if (wallText) {
+          ctx.save(); ctx.translate(wallText.x + wallText.w / 2, wallText.y + wallText.h / 2); ctx.rotate((wallText.rotation ?? 0) * Math.PI / 180)
+          ctx.strokeRect(-wallText.w / 2 - padding, -wallText.h / 2 - padding, wallText.w + padding * 2, wallText.h + padding * 2); ctx.restore()
+        } else ctx.strokeRect(outline.x - padding, outline.y - padding - (outline.h ? 0 : 62), Math.max(8, outline.w + padding * 2), Math.max(8, outline.h + padding * 2 + (outline.h ? 0 : 62)))
+        ctx.setLineDash([])
+        for (const point of resizeHandles) {
+          const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
+          ctx.fillRect(point.x - handle / 2, point.y - handle / 2, handle, handle)
+        }
+        if (chosen) for (const [i, [wx, wy]] of polygonPoints(chosen).entries()) {
+          ctx.beginPath(); ctx.arc(wx, wy, (i === selectedNode ? 6 : 4.5) / view.zoom, 0, Math.PI * 2)
+          ctx.fillStyle = i === selectedNode ? '#c65231' : '#fffdf5'; ctx.fill(); ctx.stroke()
+        }
       }
-      if (chosen) for (const [i, [wx, wy]] of polygonPoints(chosen).entries()) {
-        ctx.beginPath(); ctx.arc(wx, wy, (i === selectedNode ? 6 : 4.5) / view.zoom, 0, Math.PI * 2)
-        ctx.fillStyle = i === selectedNode ? '#c65231' : '#fffdf5'; ctx.fill(); ctx.stroke()
+      if (hoveredNode) {
+        ctx.beginPath(); ctx.arc(hoveredNode.x, hoveredNode.y, 6 / view.zoom, 0, Math.PI * 2)
+        ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
       }
+      if (nodeTarget) {
+        const points = polygonPoints(level.platforms[nodeTarget.index]), a = points[nodeTarget.edge], b = points[(nodeTarget.edge + 1) % points.length]
+        ctx.strokeStyle = '#c65231'; ctx.lineWidth = 3 / view.zoom
+        ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke()
+        ctx.beginPath(); ctx.arc(nodeTarget.x, nodeTarget.y, 6 / view.zoom, 0, Math.PI * 2)
+        ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
+        const cross = 3 / view.zoom
+        ctx.beginPath(); ctx.moveTo(nodeTarget.x - cross, nodeTarget.y); ctx.lineTo(nodeTarget.x + cross, nodeTarget.y)
+        ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
+      }
+      ctx.restore()
     }
-    if (hoveredNode) {
-      ctx.beginPath(); ctx.arc(hoveredNode.x, hoveredNode.y, 6 / view.zoom, 0, Math.PI * 2)
-      ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
+    draw(0)
+    if (!lightingPreview || helpOpen || libraryOpen || !level.lighting?.lights.some(l => l.flicker && (l.power === 'always' || l.id === previewLight))) return
+    let frame = 0, previous = 0
+    const tick = (now: number) => {
+      if (document.hidden) previous = 0
+      else {
+        draw(previous ? Math.min(.05, (now - previous) / 1000) : 0)
+        previous = now
+      }
+      frame = requestAnimationFrame(tick)
     }
-    if (nodeTarget) {
-      const points = polygonPoints(level.platforms[nodeTarget.index]), a = points[nodeTarget.edge], b = points[(nodeTarget.edge + 1) % points.length]
-      ctx.strokeStyle = '#c65231'; ctx.lineWidth = 3 / view.zoom
-      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke()
-      ctx.beginPath(); ctx.arc(nodeTarget.x, nodeTarget.y, 6 / view.zoom, 0, Math.PI * 2)
-      ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
-      const cross = 3 / view.zoom
-      ctx.beginPath(); ctx.moveTo(nodeTarget.x - cross, nodeTarget.y); ctx.lineTo(nodeTarget.x + cross, nodeTarget.y)
-      ctx.moveTo(nodeTarget.x, nodeTarget.y - cross); ctx.lineTo(nodeTarget.x, nodeTarget.y + cross); ctx.stroke()
-    }
-    ctx.restore()
+    frame = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frame)
   }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
 
   function position(event: { clientX: number; clientY: number }) {
@@ -745,6 +761,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             <label>Spread (°)<NumberField label="Light spread" value={light.spread} min={20} max={160} step={5} {...numberEdit((base, value) => changedObject(base, 'spread', value))} /></label>
           </div>
           <BuilderSelect label="Power" accessibleLabel="Light power" value={light.power} options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]} onChange={value => changeObject('power', value)} />
+          <label className="builder-headlight" title="Irregular dimming and brief dropouts, like a malfunctioning lamp"><input type="checkbox" checked={!!light.flicker} onChange={event => commit(editLight(history.present, selection.index, { flicker: event.target.checked }))} />Flicker</label>
         </>}
         {wallText && <>
           <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>

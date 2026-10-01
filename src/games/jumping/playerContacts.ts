@@ -2,7 +2,7 @@ import type { Prop, RobotState } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { STEP, TUNING } from './model.ts'
 import type { GroundSurface } from './terrain.ts'
-import { exposedSide, groundAt } from './terrain.ts'
+import { exposedWallFaces, groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { boxPushFace, propBounds, propPushHands } from './propGeometry.ts'
 import type { PushHands } from './propGeometry.ts'
@@ -122,9 +122,11 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
       if (wallX === undefined || (b.kind === 'box' && !face)) continue
       candidates.push({ collider: c, direction, effort: Math.min(1, Math.abs(input.move)), wallX, hands })
     } else {
-      const b = c.platform, wallX = direction === 1 ? b.x : b.x + b.w, gap = (wallX - p.x) * direction
-      if (gap < 11.9 || gap > 38 || !exposedSide(world.platforms, b, direction, p.y - 44.1, p.y - 43.9)) continue
-      candidates.push({ collider: c, direction, effort: Math.min(1, Math.abs(input.move)), wallX, hands: { wallX, slope: 0 } })
+      for (const wallX of exposedWallFaces(world.platforms, c.platform, direction, p.y - 44.1, p.y - 43.9)) {
+        const gap = (wallX - p.x) * direction
+        if (gap < 11.9 || gap > 38) continue
+        candidates.push({ collider: c, direction, effort: Math.min(1, Math.abs(input.move)), wallX, hands: { wallX, slope: 0 } })
+      }
     }
   }
   // The nearest reachable face wins, regardless of object creation order.

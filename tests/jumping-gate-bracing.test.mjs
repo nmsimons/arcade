@@ -4,9 +4,10 @@ import { blankTrial } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
-import { exposedSide, platformSurface } from '../src/games/jumping/terrain.ts'
+import { exposedSide, exposedWallFaces, platformSurface } from '../src/games/jumping/terrain.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { readLevelAsset } from './helpers/jumping-fixtures.mjs'
 
 // A beam, gate header and distant post share one terrain outline. The post
 // extends to the floor, but there is empty space under the beam beside the gate.
@@ -72,12 +73,52 @@ test('neutral contact beside the same gate leaves the supporting ball stationary
   }
 })
 
+test('bracing against an inset polygon face above a gate rolls the supporting ball away', () => {
+  for (const side of [1, -1]) for (const reversed of [false, true]) for (const effort of [.35, 1]) {
+    const level = structuredClone(readLevelAsset('inset-wall-brace.json'))
+    if (side === -1) {
+      level.spawn.x = level.width - level.spawn.x
+      level.props[0].x = level.width - level.props[0].x
+      level.platforms = level.platforms.map(b => ({ ...b, x: level.width - b.x - b.w,
+        polygon: b.polygon?.map(([x, y]) => [b.w - x, y]) }))
+      level.mechanisms[0].x = level.width - level.mechanisms[0].x - level.mechanisms[0].w
+    }
+    if (reversed) level.platforms[0].polygon.reverse()
+    const run = createRun(level), p = run.player, ball = run.props[0], wall = side === 1 ? 800 : 400
+    run.started = true
+    for (let i = 0; i < 120; i++) stepRun(run, NEUTRAL_INPUT)
+    const start = ball.x
+    assert.ok(p.grounded, 'the fresh spawn stands on its approach shelf')
+    assert.ok(p.y - 44 < level.mechanisms[0].y, 'the hands are above the gate, beside the inset stone face')
+    let braced = false, handsOnWall = false, onBall = false
+    for (let i = 0; i < 180; i++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: side * effort })
+      onBall ||= p.contacts.support?.collider.prop === ball
+      braced ||= p.contacts.push?.collider.id === 'terrain:0' && p.pushing?.effort > 0
+      if (p.pushing?.amount >= .7 && p.contacts.push?.collider.id === 'terrain:0' && p.contacts.support?.collider.prop === ball) {
+        const pose = athletePose(p)
+        handsOnWall ||= [pose.frontArm, pose.backArm].every(arm => arm.hand && Math.abs(p.x + arm.hand[0] * side - wall) < 3)
+      }
+      assert.ok(run.platforms.every(b => !bodyIntersects(p.x, p.y, b)), 'the player stays outside the wall, gate and ball')
+    }
+    assert.ok(braced, 'the inset stone face supplies the brace')
+    assert.ok(onBall, 'ordinary movement steps off the shelf onto the ball')
+    // Running rolls the ball away before the presentation blend finishes.
+    if (effort === .35) assert.ok(handsOnWall, 'the hands reach the actual face rather than the terrain bounding edge')
+    assert.ok((ball.x - start) * side < -8, 'the foot reaction rolls the ball away from the wall')
+    assert.equal(run.mechanisms[0].y, 840, 'bracing does not open the gate')
+  }
+})
+
 test('disjoint outer faces of one polygon do not fill its open side', () => {
   const shape = { x: 100, y: 100, w: 100, h: 200,
     polygon: [[0,0],[100,0],[100,200],[0,200],[0,180],[80,180],[80,20],[0,20]] }
   assert.equal(exposedSide([shape], shape, 1, 150, 160), false)
   assert.equal(exposedSide([shape], shape, 1, 110, 115), true)
   assert.equal(exposedSide([shape], shape, 1, 285, 290), true)
+  assert.deepEqual(exposedWallFaces([shape], shape, 1, 150, 160), [180], 'the inset face is the only wall inside the opening')
+  const cover = { x: 170, y: 140, w: 10, h: 30 }
+  assert.deepEqual(exposedWallFaces([shape, cover], shape, 1, 150, 160), [], 'a touching solid hides the inset seam')
 })
 
 function joinedGateLedge(side, reversed = false, ceiling = false) {

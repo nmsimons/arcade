@@ -17,6 +17,8 @@ ball roll back from a wall instead of behaving like fixed ground under the playe
 Standing on a grippable surface balances weight and traction; it does not apply
 a sideways force to that support. This keeps an idle player from propelling a
 ball simply by standing off its center. The foot reaction requires an active shove.
+Grounded bracing uses the actual exposed vertical face at hand height, including
+faces inset within a single terrain polygon, rather than its bounding edge.
 Body contacts also transfer normal load while airborne. A player wedged between
 a ball and a wall can therefore displace the ball and regain footing. Requested
 motion away from a contact does not cancel the weight on it when another wall
@@ -110,6 +112,15 @@ still obstruct the climb. A flush wall beneath a separate cap continues the same
 supporting face, so its internal seam cannot block a rope transfer, pull-up or
 lowering motion. Follow only touching face intervals; real gaps retain separate
 collision geometry.
+
+Rope contacts apply to the complete path, including spans between particles and
+corner bends. Body corrections during climbing must keep adjacent spans clear;
+clear endpoints alone cannot justify pulling a rope through an open gate or
+window post. If the final constraint solve cuts through a solid, shorten that
+step toward the previous clear configuration and reduce its stored velocity.
+Rope contacts include gates and terrain throughout climbing and window transfers.
+Regression coverage lives in `tests/jumping-rope-gate.test.mjs` and
+`tests/browser/jumpingRopeGate.dev.spec.mjs`.
 
 Automatic steps up low terrain prefer their normal 12-unit landing inset, but
 can shorten it to 8 units when the next riser leaves a narrow tread. Both flat

@@ -293,6 +293,13 @@ function solveRopeTension(rope: RopeState, count: number, weights: number[], str
   }
 }
 
+function ropeIsClear(rope: RopeState, terrain: readonly Platform[]) {
+  return rope.nodes.slice(1).every((b, i) => {
+    const a: Point = [rope.nodes[i].x, rope.nodes[i].y], end: Point = [b.x, b.y], bend = rope.bends[i]
+    return bend ? !lineBlocked(a, bend, terrain) && !lineBlocked(bend, end, terrain) : !lineBlocked(a, end, terrain)
+  })
+}
+
 /** Verlet particles, distance constraints, an anchored top and a heavier loaded grip. */
 export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
   body?: { climb: Climbing; from: Point; facing: number } } | null) {
@@ -311,6 +318,8 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   }
   const nearby = platforms.filter(b => b.x < right + 96 && b.x + b.w > left - 96 && b.y < bottom + 96 && b.y + b.h > top - 96)
   if (ropeCanSleep(rope, nearby, !!load)) return
+  const before = nodes.map(node => [node.x, node.y] as Point), previousBends = rope.bends.slice()
+  const wasClear = ropeIsClear(rope, nearby)
   const lengths = nodes.slice(1).map((_, i) => ropeDistance(rope, i + 1) - ropeDistance(rope, i))
   let loadDistance = load?.distance ?? 0
   if (load?.body) loadDistance = ropeGripDistance(load.body.climb)
@@ -415,6 +424,21 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     }
     if (load?.body) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, nearby)
   }
+  // Length and body constraints can reintroduce a crossing after contacts.
+  // Keep the final movement within the last clear rope configuration.
+  if (wasClear && !ropeIsClear(rope, nearby)) {
+    const proposed = nodes.map(node => ({ ...node }))
+    for (let attempt = 1; attempt <= 8; attempt++) {
+      const fraction = attempt < 8 ? 2 ** -attempt : 0
+      for (let i = 1; i < nodes.length; i++) {
+        const n = nodes[i], a = before[i], b = proposed[i]
+        n.x = a[0] + (b.x - a[0]) * fraction; n.y = a[1] + (b.y - a[1]) * fraction
+        n.oldX = n.x - (b.x - b.oldX) * fraction; n.oldY = n.y - (b.y - b.oldY) * fraction
+      }
+      rope.bends = fraction ? nodes.slice(1).map((b, i) => ropeBend([nodes[i].x, nodes[i].y], [b.x, b.y], nearby, ROPE_CLEARANCE)) : previousBends
+      if (ropeIsClear(rope, nearby)) break
+    }
+  }
   settleRopeSleep(rope, nearby, !!load, dt)
 }
 
@@ -446,26 +470,35 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
   support(climb.distance, 0, bracing * (1 - pull))
   for (const offset of [8, 18]) support(clamp(climbContact(climb.distance, offset, 20).distance, 0, rope.definition.length), 0, bracing * pull / 2)
   const norm = [0, 1].map(axis => weights.reduce((sum, weight) => sum + weight[axis] ** 2, 0))
-  for (let i = 1; i < rope.nodes.length; i++) {
-    const [wx, wy] = weights[i], weight = Math.min(1, Math.max(Math.abs(wx), Math.abs(wy)))
-    if (!weight) continue
-    const node = rope.nodes[i]
-    let vx = node.x - node.oldX, vy = node.y - node.oldY
-    for (const { normal } of safe.contacts) {
-      const into = vx * normal[0] + vy * normal[1]
-      if (into < 0) { vx -= into * normal[0] * weight; vy -= into * normal[1] * weight }
+  const before = rope.nodes.map(node => ({ ...node }))
+  const bends = rope.bends.slice()
+  // The body can move two clear particles to opposite sides of a solid. A
+  // correction must keep their connecting spans clear too, or retain the grip.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const fraction = attempt < 4 ? 2 ** -attempt : 0
+    for (let i = 1; i < rope.nodes.length; i++) {
+      const [wx, wy] = weights[i], weight = Math.min(1, Math.max(Math.abs(wx), Math.abs(wy)))
+      if (!weight) continue
+      const node = rope.nodes[i]
+      Object.assign(node, before[i])
+      let vx = node.x - node.oldX, vy = node.y - node.oldY
+      for (const { normal } of safe.contacts) {
+        const into = vx * normal[0] + vy * normal[1]
+        if (into < 0) { vx -= into * normal[0] * weight; vy -= into * normal[1] * weight }
+      }
+      const corrected = movePoint([node.x, node.y], [node.x + dx * wx / Math.max(norm[0], 1e-8) / blend * fraction,
+        node.y + dy * wy / Math.max(norm[1], 1e-8) / blend * fraction], terrain, ROPE_CLEARANCE)
+      node.x = corrected.x; node.y = corrected.y
+      node.oldX = node.x - vx; node.oldY = node.y - vy
     }
-    const corrected = movePoint([node.x, node.y], [node.x + dx * wx / Math.max(norm[0], 1e-8) / blend,
-      node.y + dy * wy / Math.max(norm[1], 1e-8) / blend], terrain, ROPE_CLEARANCE)
-    node.x = corrected.x; node.y = corrected.y
-    node.oldX = node.x - vx; node.oldY = node.y - vy
-  }
-  // Body correction runs after the regular collision pass (and again after a
-  // climbing step). Refresh its adjacent spans so a corner remains wrapped.
-  for (let i = 0; i < rope.bends.length; i++) {
-    if (!weights[i].some(Boolean) && !weights[i + 1].some(Boolean)) continue
-    const a = rope.nodes[i], b = rope.nodes[i + 1]
-    rope.bends[i] = ropeBend([a.x, a.y], [b.x, b.y], terrain, ROPE_CLEARANCE)
+    let blocked = false
+    for (let i = 0; i < rope.bends.length; i++) {
+      if (!weights[i].some(Boolean) && !weights[i + 1].some(Boolean)) continue
+      const a: Point = [rope.nodes[i].x, rope.nodes[i].y], b: Point = [rope.nodes[i + 1].x, rope.nodes[i + 1].y]
+      const bend = rope.bends[i] = fraction ? ropeBend(a, b, terrain, ROPE_CLEARANCE) : bends[i]
+      blocked ||= bend ? lineBlocked(a, bend, terrain) || lineBlocked(bend, b, terrain) : lineBlocked(a, b, terrain)
+    }
+    if (!blocked || !fraction) break
   }
   return safe
 }

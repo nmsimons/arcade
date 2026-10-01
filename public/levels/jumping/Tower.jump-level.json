@@ -841,10 +841,51 @@
           80
         ]
       ]
+    },
+    {
+      "x": 0,
+      "y": 1620,
+      "w": 180,
+      "h": 120,
+      "material": "steel",
+      "polygon": [
+        [
+          0,
+          60
+        ],
+        [
+          140,
+          0
+        ],
+        [
+          180,
+          0
+        ],
+        [
+          180,
+          20
+        ],
+        [
+          140,
+          20
+        ],
+        [
+          40,
+          60
+        ],
+        [
+          20,
+          80
+        ],
+        [
+          0,
+          120
+        ]
+      ]
     }
   ],
   "spawn": {
-    "x": 120,
+    "x": 140,
     "y": 2000
   },
   "checkpoints": [],
@@ -1312,7 +1353,7 @@
         "length": 140,
         "segments": 18,
         "rest": {
-          "key": "7:b24f5ed03a6cacfc",
+          "key": "7:2f49c50c0101e816",
           "points": [
             [
               340,
@@ -1489,7 +1530,7 @@
     },
     {
       "kind": "box",
-      "x": 520,
+      "x": 500,
       "y": 880,
       "size": 40
     }
@@ -1643,6 +1684,7 @@
   ],
   "triggers": [
     {
+      "name": "Outside",
       "x": 40,
       "y": 2000,
       "w": 40,
@@ -1672,17 +1714,20 @@
       "mode": "touch"
     },
     {
+      "name": "3R",
       "x": 1020,
       "y": 1540,
       "w": 40,
       "targets": [
         "578832fb-09d0-45d6-8d16-adfe592b8b1c",
         "103801c2-427e-4644-9cdb-5815c5b50ba8",
-        "54445c7a-52f5-42ee-9467-fc914f1c7d36"
+        "54445c7a-52f5-42ee-9467-fc914f1c7d36",
+        "f883ff7d-5b69-402f-b5b6-3c57dadd4c2c"
       ],
       "mode": "touch"
     },
     {
+      "name": "3L",
       "x": 580,
       "y": 1540,
       "w": 40,
@@ -1690,20 +1735,24 @@
         "1f53dd60-0892-4a9e-acda-1a33012a28f0",
         "fa397910-981e-4a56-afc2-af12604bf131",
         "ea5ca90b-69cc-46ac-bbc5-8073552adc01",
-        "cef638c3-c451-4305-9b6a-472b1578fc86"
+        "cef638c3-c451-4305-9b6a-472b1578fc86",
+        "da0cafc3-de73-49f3-86aa-a9c9ab248b79"
       ],
       "mode": "touch"
     },
     {
+      "name": "2R",
       "x": 1020,
       "y": 1760,
       "w": 40,
       "targets": [
-        "07e59a6e-1a5f-4681-9bd3-015a50402b9d"
+        "07e59a6e-1a5f-4681-9bd3-015a50402b9d",
+        "192512bb-e9f7-4fc6-baa1-763cbc445587"
       ],
       "mode": "touch"
     },
     {
+      "name": "4L",
       "x": 580,
       "y": 1320,
       "w": 40,
@@ -1713,24 +1762,29 @@
       "mode": "touch"
     },
     {
+      "name": "2L",
       "x": 580,
       "y": 1760,
       "w": 40,
       "targets": [
-        "6dbfcf3b-fd0e-44f4-97f5-dac3f17bc8ed"
+        "6dbfcf3b-fd0e-44f4-97f5-dac3f17bc8ed",
+        "1529891b-d9ee-409f-be76-4dd0a5250af5"
       ],
       "mode": "touch"
     },
     {
+      "name": "4R",
       "x": 1020,
       "y": 1320,
       "w": 40,
       "targets": [
-        "eb3069e7-7be9-4da1-a078-4bb8037e57b9"
+        "eb3069e7-7be9-4da1-a078-4bb8037e57b9",
+        "81b869d8-f997-4b8e-a044-805669e2b200"
       ],
       "mode": "touch"
     },
     {
+      "name": "4R",
       "x": 1020,
       "y": 1100,
       "w": 40,
@@ -1741,6 +1795,7 @@
       "mode": "touch"
     },
     {
+      "name": "6L",
       "x": 580,
       "y": 880,
       "w": 40,
@@ -1843,8 +1898,9 @@
         "y": 1380,
         "intensity": 100,
         "direction": 90,
-        "spread": 70,
-        "power": "always"
+        "spread": 160,
+        "power": "switched",
+        "name": "3L"
       },
       {
         "id": "9a81e303-cd2c-4d41-95b6-f5af8ed46b98",
@@ -1852,8 +1908,9 @@
         "y": 940,
         "intensity": 100,
         "direction": 90,
-        "spread": 35,
-        "power": "always"
+        "spread": 160,
+        "power": "always",
+        "name": "5L"
       },
       {
         "id": "524e21b1-17b5-4e53-95ab-7e1367385f10",
@@ -1862,7 +1919,9 @@
         "intensity": 100,
         "direction": 90,
         "spread": 160,
-        "power": "always"
+        "power": "always",
+        "flicker": true,
+        "name": "5C"
       },
       {
         "id": "1233c07f-3812-4b17-bfd6-01dd99fcd741",
@@ -1870,7 +1929,7 @@
         "y": 1380,
         "intensity": 100,
         "direction": 90,
-        "spread": 40,
+        "spread": 160,
         "power": "always"
       },
       {
@@ -1880,7 +1939,8 @@
         "intensity": 100,
         "direction": 90,
         "spread": 70,
-        "power": "always"
+        "power": "always",
+        "name": "Outside"
       },
       {
         "id": "330f94e8-ccc5-4fc3-98ca-94297cfd2257",
@@ -1889,7 +1949,58 @@
         "intensity": 100,
         "direction": 70,
         "spread": 115,
-        "power": "always"
+        "power": "always",
+        "name": "Lobby"
+      },
+      {
+        "id": "81b869d8-f997-4b8e-a044-805669e2b200",
+        "x": 1140,
+        "y": 940,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "4R"
+      },
+      {
+        "id": "f883ff7d-5b69-402f-b5b6-3c57dadd4c2c",
+        "x": 1140,
+        "y": 1160,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "4R"
+      },
+      {
+        "id": "a74deaba-731e-47ba-8b62-3da8f2bd66b8",
+        "x": 500,
+        "y": 1160,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "always",
+        "name": "4L"
+      },
+      {
+        "id": "192512bb-e9f7-4fc6-baa1-763cbc445587",
+        "x": 1140,
+        "y": 1600,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "2R"
+      },
+      {
+        "id": "1529891b-d9ee-409f-be76-4dd0a5250af5",
+        "x": 500,
+        "y": 1600,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 160,
+        "power": "switched",
+        "name": "2L"
       }
     ]
   }

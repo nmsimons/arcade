@@ -36,6 +36,52 @@ async function select(page, value) {
   await selectBuilderOption(page, 'Selected object', value)
 }
 
+test('spotlight flicker previews live, undoes, duplicates and survives saving and play', async ({ page }, info) => {
+  const level = blankTrial(); level.version = 2
+  level.lighting = { nightMode: true, ambient: 0, lights: [
+    { id: 'faulty-lamp', x: 400, y: 200, direction: 90, spread: 70, intensity: 100, power: 'always' },
+  ] }
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  await page.addInitScript(() => {
+    window.lampOutputs = []
+    const fill = CanvasRenderingContext2D.prototype.fillRect
+    CanvasRenderingContext2D.prototype.fillRect = function (...args) {
+      if (this.fillStyle === '#f4f2e9' && args[0] === 6 && args[1] === -6 && args[2] === 2 && args[3] === 12) window.lampOutputs.push(this.globalAlpha)
+      return fill.apply(this, args)
+    }
+  })
+  await open(page, level); await select(page, 'light:0')
+  const flicker = page.getByRole('checkbox', { name: 'Flicker', exact: true })
+  await expect(flicker).not.toBeChecked(); await flicker.check()
+  await page.getByRole('button', { name: 'Undo', exact: true }).click(); await select(page, 'light:0')
+  await expect(flicker).not.toBeChecked()
+  await page.getByRole('button', { name: 'Redo', exact: true }).click(); await select(page, 'light:0')
+  await expect(flicker).toBeChecked()
+  await page.evaluate(() => { window.lampOutputs = [] })
+  await expect.poll(() => page.evaluate(() => window.lampOutputs.some(a => a > 0 && a < .5)), { timeout: 10000 }).toBe(true)
+  await flicker.scrollIntoViewIfNeeded()
+  await page.screenshot({ path: info.outputPath('spotlight-flicker-inspector.png') })
+  await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
+  await expect(flicker).toBeChecked()
+  const saved = await saveTestLevel(page)
+  expect(saved.level.lighting.lights.map(l => l.flicker)).toEqual([true, true])
+  await reopenTestLevel(page, saved); await select(page, 'light:0'); await expect(flicker).toBeChecked()
+  await saveTestLevel(page, 'Save and Test')
+  await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
+  await page.locator('.jumping-game > canvas').focus(); await page.keyboard.press('ArrowRight')
+  await page.evaluate(() => { window.lampOutputs = [] })
+  await expect.poll(() => page.evaluate(() => window.lampOutputs.some(a => a > 0 && a < .5)), { timeout: 10000 }).toBe(true)
+  await page.keyboard.press('Escape')
+  await page.evaluate(() => { window.lampOutputs = [] })
+  await expect(page.getByRole('dialog', { name: 'Game paused', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
+  await select(page, 'light:0'); await flicker.uncheck()
+  const steady = await saveTestLevel(page)
+  expect(steady.level.lighting.lights[0].flicker).toBeUndefined()
+  expect(steady.level.lighting.lights[1].flicker).toBe(true)
+  expect(errors).toEqual([])
+})
+
 test('optional shovebot headlights undo, preview at night, duplicate and round-trip through save and play', async ({ page }, info) => {
   const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
   const errors = []; page.on('pageerror', error => errors.push(error.message))
@@ -106,7 +152,7 @@ test('spotlight names identify the inspector, errors and connections and survive
   await name.fill('Discard me'); await name.press('Escape')
   await expect(name).toHaveValue('Stair light')
   await selectBuilderOption(page, 'Light power', 'switched')
-  await expect(inspector.getByRole('alert')).toHaveText('Connect switched light “Stair light · Spotlight 1” to a pressure plate or coin switch.')
+  await expect(inspector.getByRole('alert')).toHaveCount(0)
   await page.getByRole('group', { name: 'Switched by' }).getByRole('checkbox', { name: 'Entry switch · Pressure plate 1', exact: true }).check()
   await expect(page.getByRole('combobox', { name: 'Light mount' })).toHaveCount(0)
   await select(page, 'light:1')
@@ -125,7 +171,7 @@ test('spotlight names identify the inspector, errors and connections and survive
   await name.fill('Stair light'); await name.press('Enter')
   await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
   await expect(selected).toHaveText('Stair light · Spotlight 3')
-  await expect(inspector.getByRole('alert')).toContainText('Stair light · Spotlight 3')
+  await expect(inspector.getByRole('alert')).toHaveCount(0)
   await name.fill('W'.repeat(80)); await name.press('Enter')
   expect(await inspector.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
   await name.fill('Upper light'); await name.press('Enter')
@@ -201,6 +247,20 @@ test('every switchable object shares a bidirectional Switched by list with undo 
   await select(page, 'mechanism:0')
   await incoming.scrollIntoViewIfNeeded()
   await page.screenshot({ path: info.outputPath('mechanism-switched-by.png') })
+  for (let i = 0; i < switches.length; i++) {
+    await select(page, `trigger:${i}`)
+    for (const [, label] of objects) await outgoing.getByRole('checkbox', { name: label, exact: true }).uncheck()
+  }
+  await expect(page.getByRole('complementary', { name: 'Inspector' }).getByRole('alert')).toHaveCount(0)
+  const disconnected = await saveTestLevel(page, 'Save and Test')
+  expect(disconnected.level.triggers.every(t => t.targets.length === 0)).toBe(true)
+  expect(disconnected.level.lighting.lights[0].power).toBe('switched')
+  await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
+  await reopenTestLevel(page, disconnected)
+  for (const [value] of objects) {
+    await select(page, value)
+    await expect(incoming.getByRole('checkbox', { checked: true })).toHaveCount(0)
+  }
 })
 
 test('switchable objects show a clear empty list until a switch exists', async ({ page }) => {
@@ -269,7 +329,7 @@ test('switched wall lights keep their position and power links through save and 
   const placement = await point(page, 600, 300)
   await page.mouse.click(placement.x, placement.y)
   await selectBuilderOption(page, 'Light power', 'switched')
-  await expect(page.getByRole('button', { name: 'Save and Test' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Save and Test' })).toBeEnabled()
   await page.getByRole('group', { name: 'Switched by' }).getByRole('checkbox').check()
   await number(page, 'Object x', 400); await number(page, 'Object y', 600)
   await expect(page.getByRole('combobox', { name: 'Light mount' })).toHaveCount(0)

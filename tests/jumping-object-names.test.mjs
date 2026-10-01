@@ -87,18 +87,18 @@ test('validation identifies every offending named object, including individual s
   for (const name of ['Arrival', 'Departure', 'West wall', 'Warning', 'Toll', 'Door switch', 'Guard', 'Clock', 'Prize']) {
     assert.ok(issues.some(issue => issue.includes(`“${name} · `)), `missing diagnostic for ${name}`)
   }
-  assert.equal(issues.filter(issue => issue.startsWith('Connect “Toll')).length, 1)
+  assert.equal(issues.filter(issue => issue.startsWith('Connect “Toll')).length, 0)
   assert.equal(issues.filter(issue => issue.startsWith('Connect “Door switch')).length, 1)
 })
 
 test('spotlight errors use names and numbered fallbacks and never substitute UUIDs', () => {
   const level = { ...blankTrial(), version: 2, lighting: { nightMode: true, ambient: 0, lights: [
-    { id: 'internal-lamp-id', x: 500, y: 500, direction: 90, spread: 60, intensity: 100, power: 'switched', name: 'Stairs' },
-    { id: 'other-internal-id', x: 700, y: 500, direction: 90, spread: 60, intensity: 100, power: 'switched' },
+    { id: 'internal-lamp-id', x: 9, y: 500, direction: 90, spread: 60, intensity: 100, power: 'switched', name: 'Stairs' },
+    { id: 'other-internal-id', x: 9, y: 500, direction: 90, spread: 60, intensity: 100, power: 'switched' },
   ] }, mechanisms: [{ id: 'host', kind: 'gate', x: 900, y: 700, w: 20, h: 220, travel: 220, name: 'East door' }] }
   const issues = levelProblems(level).join('\n')
-  assert.match(issues, /Connect switched light “Stairs · Spotlight 1”/)
-  assert.match(issues, /Connect switched light “Spotlight 2”/)
+  assert.match(issues, /Keep “Stairs · Spotlight 1” inside the level/)
+  assert.match(issues, /Keep “Spotlight 2” inside the level/)
   assert.doesNotMatch(issues, /internal-lamp-id|other-internal-id/)
   level.lighting.lights[1].id = 'host'
   assert.match(levelProblems(level).join('\n'), /“East door · Gate 1” and “Spotlight 2” must have unique IDs/)

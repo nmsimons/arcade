@@ -40,7 +40,6 @@ test('parser reconstructs lighting data and rejects duplicate targets, oversized
   bad(l => { l.lighting.lights[0].id = l.mechanisms[0].id })
   bad(l => { l.lighting.lights[1].id = l.lighting.lights[0].id })
   bad(l => { l.lighting.lights = Array.from({ length: 17 }, (_, i) => ({ ...l.lighting.lights[0], id: `light${i}` })) })
-  bad(l => { l.lighting.lights[0].power = 'switched' })
   bad(l => { l.triggers[0].targets = ['missing'] })
   bad(l => { l.triggers[0].targets = [l.lighting.lights[0].id] })
 })
@@ -131,7 +130,44 @@ test('templates preserve wall positions and remap switch references; copied ligh
   assert.deepEqual(triggerTargets(clone.triggers[0]), [clone.mechanisms[0].id, lamp.id])
   assert.doesNotThrow(() => parseLevel(clone))
   const duplicated = duplicateItem(level, selection).level
-  assert.ok(levelProblems(duplicated).some(s => s.includes('Connect switched light')))
+  assert.deepEqual(levelProblems(duplicated), [])
+  assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(duplicated))), duplicated)
+})
+test('unconnected switches and switchable objects save and play without implicit connections', () => {
+  for (const version of [1, 2]) {
+    const level = blankTrial(); level.version = version
+    level.mechanisms = [
+      { id: 'gate', kind: 'gate', x: 600, y: 740, w: 20, h: 180, travel: 180 },
+      { id: 'hatch', kind: 'gate', orientation: 'horizontal', x: 800, y: 600, w: 180, h: 20, travel: 180 },
+      { id: 'lift', kind: 'lift', x: 1000, y: 700, w: 140, h: 20, travel: 200 },
+      { id: 'platform', kind: 'lift', orientation: 'horizontal', x: 600, y: 450, w: 140, h: 20, travel: 200 },
+    ]
+    level.triggers = [
+      { x: 120, y: 920, w: 80, mode: 'weight', targets: [] },
+      { x: 320, y: 920, w: 80, mode: 'touch', target: '' },
+      { x: 1000, y: 180, w: 140, mode: 'coins', threshold: 1, targets: [] },
+    ]
+    level.pickups = [{ kind: 'coin', x: 160, y: 888 }]
+    if (version === 2) level.lighting = { nightMode: true, ambient: 0, lights: [
+      { id: 'lamp', x: 400, y: 200, direction: 90, spread: 60, intensity: 100, power: 'switched' },
+    ] }
+    const restored = parseLevel(JSON.parse(JSON.stringify(level)))
+    assert.deepEqual(levelProblems(restored), [])
+    assert.deepEqual(restored, level)
+    const run = createRun(restored), lighting = new LightingState()
+    for (let i = 0; i < 120; i++) {
+      stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+      if (version === 2) assert.equal(lighting.sources(restored.lighting, run, 1 / 120)[0].fade, 0, 'an unconnected switched lamp stays off')
+    }
+    assert.equal(run.triggers[0].active, true, 'an unconnected plate still responds to weight')
+    assert.equal(run.triggers[2].active, true, 'an unconnected coin switch still fills and latches')
+    for (const mechanism of run.mechanisms) {
+      assert.equal(mechanism.active, false)
+      assert.equal(mechanism.x, mechanism.definition.x)
+      assert.equal(mechanism.y, mechanism.definition.y)
+    }
+    assert.ok(restored.triggers.every(t => !triggerTargets(t).length))
+  }
 })
 test('lighting has no effect on movement, clocks, pickups, or mechanisms under identical inputs', () => {
   const base = parseLevel(fixture.level), litLevel = lit(), a = createRun(base), b = createRun(litLevel)

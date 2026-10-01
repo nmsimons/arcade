@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FIRST_LEVEL as first, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
 import { useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel, dismissSaveFailure } from './helpers/jumpingLevels.mjs'
+import { expectIndependentTemplateCopy } from './helpers/templateCopy.mjs'
 const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
@@ -295,7 +296,7 @@ test('the JSON reference fixture survives builder template copying, playtest and
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('JSON Test Lab — copy')
   const exported = (await saveTestLevel(page)).level
   expect(exported.platforms).toHaveLength(5); expect(exported.climbables.ropes).toHaveLength(3)
-  expect(exported.mechanisms).toEqual(JSON_LAB.mechanisms)
+  expectIndependentTemplateCopy(exported, JSON_LAB)
   expect(exported.props.map(p => p.kind)).toEqual(['box', 'ball'])
   await page.screenshot({ path: info.outputPath('json-test-lab.png') })
   await page.getByRole('button', { name: 'Save and Test' }).click()

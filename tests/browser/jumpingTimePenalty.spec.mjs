@@ -2,6 +2,8 @@ import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { TIME_PENALTY_COLOR } from '../../src/games/jumping/pickups.ts'
 import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
+import { DIGITAL_RED } from '../../src/games/jumping/digitalDisplay.ts'
 
 const level = () => ({ ...blankTrial(), id: 'time-penalty-browser-test', name: 'Bad timing', width: 1200, height: 600, floor: 600,
   spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
@@ -11,14 +13,14 @@ async function open(page, editor = false) {
   await useLevelFixtures(page, [fixture])
   if (editor) await installTestFolder(page, { 'fixture.json': fixture })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installDigitalClockSpy(page)
   await page.addInitScript(color => {
     const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
-        this.canvas.penaltyFrame = { numbers: [], labels: [], times: [], fast: false }
+        this.canvas.penaltyFrame = { numbers: [], labels: [] }
         this.canvas.penaltyCamera = this.getTransform()
       }
-      if (args[2] === 200 && args[3] === 60 && this.fillStyle === color && this.canvas.penaltyFrame) this.canvas.penaltyFrame.fast = true
       return rect.apply(this, args)
     }
     proto.fillText = function (value, ...args) {
@@ -29,7 +31,6 @@ async function open(page, editor = false) {
         if (/^[1-9]$/.test(value)) frame.numbers.push({ value, right: point.x + this.measureText(value).width / 2 })
         if (/^\+[1-9]$/.test(value)) frame.labels.push({ value, right: point.x, y: point.y, opacity: this.globalAlpha })
       }
-      if (/^\d+:\d{2}\.\d{2}$/.test(value)) frame?.times.push(value)
       return text.call(this, value, ...args)
     }
   }, TIME_PENALTY_COLOR)
@@ -47,7 +48,9 @@ async function open(page, editor = false) {
   }
   await page.clock.runFor(64)
 }
-const state = page => page.getByRole('img', { name: 'Bad timing: reach the exit' }).evaluate(c => c.penaltyFrame)
+const state = page => page.getByRole('img', { name: 'Bad timing: reach the exit' }).evaluate((c, red) => ({
+  ...c.penaltyFrame, times: c.digitalClocks.map(clock => clock.value), fast: c.digitalClocks.some(clock => clock.color === red),
+}), DIGITAL_RED)
 const seconds = frame => { const [m, s] = frame.times[0].split(':').map(Number); return m * 60 + s }
 
 test('red pickups penalize the clock, animate, pause, expire and reset in production gameplay', async ({ page }, info) => {
@@ -57,7 +60,8 @@ test('red pickups penalize the clock, animate, pause, expire and reset in produc
   await page.screenshot({ path: info.outputPath('harmful-pickups-ready.png') })
   await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d'); await page.clock.runFor(100)
   const first = await state(page)
-  expect(first.numbers).toEqual([]); expect(seconds(first)).toBeGreaterThan(5)
+  expect(first.numbers).toEqual([]); expect(seconds(first)).toBe(5)
+  expect(await page.getByTestId('level-time').innerText()).toMatch(/^0:05\./)
   expect(first.labels[0].value).toBe('+5')
   expect(first.labels[0].right).toBeCloseTo(before.numbers[0].right, 6)
   await page.clock.runFor(200)
@@ -88,7 +92,7 @@ test('red pickups penalize the clock, animate, pause, expire and reset in produc
   expect(seconds(await state(page)) - seconds(expired)).toBeCloseTo(1, 1)
   await restartFromPause(page); await page.clock.runFor(64)
   const reset = await state(page)
-  expect(reset.times).toEqual(['0:00.00']); expect(reset.fast).toBe(false)
+  expect(reset.times).toEqual(['00:00']); expect(reset.fast).toBe(false)
   expect(reset.numbers.map(n => n.value)).toEqual(['5']); expect(reset.labels).toEqual([])
 })
 

@@ -3,13 +3,15 @@ import { hold } from './helpers/controller.mjs'
 import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
+import { installDigitalClockSpy, wallTimeFromHud } from './helpers/digitalClock.mjs'
 import { ropeSlope, slopedLip } from '../helpers/rope-slope.mjs'
 
 async function setup(page, lesson = 0, levels = CAMPAIGN) {
   await useLevelFixtures(page, levels)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installDigitalClockSpy(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, arc = proto.arc, text = proto.fillText
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, arc = proto.arc
     proto.arc = function (...args) {
       if (args[2] === 11 && ['#a9d56b', '#9aa38e'].includes(this.fillStyle)) {
         const t = this.getTransform()
@@ -18,13 +20,9 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
       return arc.apply(this, args)
     }
     proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { window.levelCamera = this.canvas.levelCamera = this.getTransform(); window.wallTimerReadings = []; window.goalDoor = null }
+      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { window.levelCamera = this.canvas.levelCamera = this.getTransform(); window.goalDoor = null }
       if (this.fillStyle === '#000000' && args[3] === 80) window.goalDoor = { x: args[0], y: args[1], w: args[2], h: args[3] }
       return rect.apply(this, args)
-    }
-    proto.fillText = function (value, ...args) {
-      if (/^\d+:\d{2}\.\d{2}$/.test(value)) window.wallTimerReadings.push(value)
-      return text.call(this, value, ...args)
     }
     proto.ellipse = function (...args) {
       if (args[2] === 6.2 && args[3] === 6.2 && window.levelCamera) {
@@ -338,8 +336,9 @@ test('a separate Switch plate opens a hidden black door; entering stops the time
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByTestId('level-time')).not.toHaveText(time)
   const runningTime = await page.getByTestId('level-time').innerText()
-  const wallTimes = await page.evaluate(() => window.wallTimerReadings)
-  expect(wallTimes).toHaveLength(2); expect(wallTimes[0]).toBe(wallTimes[1]); expect(wallTimes[0]).not.toBe(time)
+  const wallTimes = await page.getByRole('img', { name: 'Untitled level: reach the exit' }).evaluate(c => c.digitalClocks.map(clock => clock.value))
+  expect(wallTimes).toEqual([wallTimeFromHud(runningTime), wallTimeFromHud(runningTime)])
+  expect(wallTimes[0]).not.toBe(wallTimeFromHud(time))
   expect(await page.evaluate(() => localStorage.getItem('arcade.jumping.times.v1'))).toBeNull()
   await page.screenshot({ path: info.outputPath('hidden-door-open.png') })
   await page.keyboard.down('d')
@@ -347,7 +346,8 @@ test('a separate Switch plate opens a hidden black door; entering stops the time
   await page.keyboard.up('d'); await page.clock.runFor(160)
   const finishTime = await page.getByTestId('level-time').innerText()
   expect(finishTime).not.toBe(runningTime)
-  expect(await page.evaluate(() => window.wallTimerReadings)).toEqual([finishTime, finishTime])
+  expect(await page.getByRole('img', { name: 'Untitled level: reach the exit' }).evaluate(c => c.digitalClocks.map(clock => clock.value)))
+    .toEqual([wallTimeFromHud(finishTime), wallTimeFromHud(finishTime)])
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('entering-hidden-door.png') })
   await page.keyboard.press('Escape')

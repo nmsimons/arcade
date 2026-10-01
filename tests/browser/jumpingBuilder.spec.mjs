@@ -620,7 +620,8 @@ test('goal lights flip horizontally, survive moving and save, and still activate
       return arc.apply(this, args)
     }
   })
-  const level = blankTrial(); level.goal.x = 500
+  const level = blankTrial(); level.goal = { x: 500, y: 920, id: 'exit', power: 'switched' }
+  level.triggers = [{ x: 520, y: 920, w: 80, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   await open(page, level)
   const selected = page.getByRole('combobox', { name: 'Selected object' }), editor = page.getByRole('application', { name: 'Level canvas' })
   await selectBuilderObject(page, 'goal:0')
@@ -643,7 +644,7 @@ test('goal lights flip horizontally, survive moving and save, and still activate
   await dragWorld(page, { x: 556, y: 824 }, { x: 556, y: 824 })
   await expect(selected).toHaveAttribute('data-value', 'goal:0')
   const exported = await saveTestLevel(page)
-  expect(exported.level.goal).toEqual({ x: 600, y: 920, flipX: true })
+  expect(exported.level.goal).toEqual({ x: 600, y: 920, id: 'exit', power: 'switched', flipX: true })
   await reopenTestLevel(page, exported); await page.clock.runFor(32)
   expect(await editor.evaluate(canvas => canvas.goalLight)).toEqual({ x: 556, y: 824, lit: false })
   await selectBuilderObject(page, 'goal:0')
@@ -1484,7 +1485,7 @@ test('start and goal move off the floor by dragging, nudging and height entry be
   await height.fill('200'); await height.blur()
   await expect(height).toHaveValue('200')
 
-  await dragWorld(page, { x: 800, y: 570 }, { x: 800, y: 470 })
+  await dragWorld(page, { x: 844, y: 570 }, { x: 844, y: 470 })
   await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveAttribute('data-value', 'goal:0')
   await expect(height).toHaveValue('100')
   await canvas.focus(); await page.keyboard.press('ArrowUp')

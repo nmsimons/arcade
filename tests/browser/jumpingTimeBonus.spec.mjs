@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'time-bonus-browser-test', name: 'Time bonus trial', width: 1200, height: 600, floor: 600,
   spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
@@ -14,11 +15,12 @@ async function open(page, editor = false, crouch = false) {
   await useLevelFixtures(page, [fixture])
   if (editor) await installTestFolder(page, { 'fixture.json': fixture })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installDigitalClockSpy(page)
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, ellipse = proto.ellipse
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
-        this.canvas.bonusNumbers = []; this.canvas.bonusLabels = []; this.canvas.timerReadings = []; this.canvas.bonusCamera = this.getTransform()
+        this.canvas.bonusNumbers = []; this.canvas.bonusLabels = []; this.canvas.bonusCamera = this.getTransform()
       }
       return rect.apply(this, args)
     }
@@ -29,7 +31,6 @@ async function open(page, editor = false, crouch = false) {
         const point = transform.transformPoint(new DOMPoint(args[0], args[1]))
         this.canvas.bonusLabels?.push({ value, y: point.y, opacity: this.globalAlpha })
       }
-      if (/^\d+:\d{2}\.\d{2}$/.test(value)) this.canvas.timerReadings?.push(value)
       return text.call(this, value, ...args)
     }
     proto.ellipse = function (x, y, rx, ry, ...args) {
@@ -54,7 +55,7 @@ async function open(page, editor = false, crouch = false) {
   }
   await page.clock.runFor(64)
 }
-const state = page => page.getByRole('img', { name: 'Time bonus trial: reach the exit' }).evaluate(c => ({ numbers: c.bonusNumbers, labels: c.bonusLabels, times: c.timerReadings, player: c.playerRoot }))
+const state = page => page.getByRole('img', { name: 'Time bonus trial: reach the exit' }).evaluate(c => ({ numbers: c.bonusNumbers, labels: c.bonusLabels, times: c.digitalClocks.map(clock => clock.value), player: c.playerRoot }))
 
 test('numbered bonuses subtract elapsed time, clamp to zero, disappear and return on restart', async ({ page }, info) => {
   await open(page)
@@ -62,14 +63,14 @@ test('numbered bonuses subtract elapsed time, clamp to zero, disappear and retur
   await page.screenshot({ path: info.outputPath('time-bonuses-ready.png') })
   await page.keyboard.down('w'); await page.clock.runFor(6000); await page.keyboard.up('w')
   const before = (await state(page)).times[0]
-  expect(before).toMatch(/^0:06\./)
+  expect(before).toBe('00:06')
   await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d'); await page.clock.runFor(100)
   const firstLabel = (await state(page)).labels[0]
   expect(firstLabel.value).toBe('−5')
   await page.clock.runFor(300)
   const collected = await state(page)
   expect(collected.numbers).toEqual(['9'])
-  expect(collected.times[0]).toMatch(/^0:02\./)
+  expect(collected.times[0]).toBe('00:02')
   expect(collected.labels).toHaveLength(1)
   expect(collected.labels[0].value).toBe('−5')
   expect(collected.labels[0].y).toBeLessThan(firstLabel.y)
@@ -78,15 +79,15 @@ test('numbered bonuses subtract elapsed time, clamp to zero, disappear and retur
   await page.screenshot({ path: info.outputPath('time-bonus-collected.png') })
   await page.keyboard.down('d'); await page.clock.runFor(700); await page.keyboard.up('d'); await page.clock.runFor(400)
   expect((await state(page)).numbers).toEqual([])
-  expect((await state(page)).times[0]).toMatch(/^0:00\./)
+  expect((await state(page)).times[0]).toBe('00:00')
   expect((await state(page)).labels.map(label => label.value)).toEqual(['−9'])
   await page.clock.runFor(1000)
-  expect((await state(page)).times[0]).toMatch(/^0:01\./)
+  expect((await state(page)).times[0]).toBe('00:01')
   expect((await state(page)).labels).toEqual([])
   await restartFromPause(page); await page.clock.runFor(64)
   expect((await state(page)).numbers).toEqual(['5', '9'])
   expect((await state(page)).labels).toEqual([])
-  expect((await state(page)).times).toEqual(['0:00.00'])
+  expect((await state(page)).times).toEqual(['00:00'])
 })
 
 test('Time bonus places, edits its number, undoes, saves and reopens', async ({ page }, info) => {

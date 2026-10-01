@@ -4,8 +4,8 @@ import { tmpdir } from 'node:os'
 import { join, basename } from 'node:path'
 import { FIRST_LEVEL, JSON_LAB } from '../helpers/jumping-fixtures.mjs'
 import { levelFileName } from '../../src/games/jumping/localLevels.ts'
-import { parseLevel, prepareLevelRopes } from '../../src/games/jumping/level.ts'
 import { dismissSaveFailure } from './helpers/jumpingLevels.mjs'
+import { expectIndependentTemplateCopy } from './helpers/templateCopy.mjs'
 
 const level = (id, name) => ({ ...structuredClone(FIRST_LEVEL), id, name })
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
@@ -203,8 +203,7 @@ for (const writable of [true, false]) test(`local templates create independent l
     const directory = await (await navigator.storage.getDirectory()).getDirectoryHandle('My levels')
     return JSON.parse(await (await (await directory.getFileHandle(name)).getFile()).text())
   }, copyName)
-  expect(copy.id).not.toBe(source.id)
-  expect(copy).toEqual({ ...parseLevel(prepareLevelRopes(source)), id: copy.id, name: `${source.name.slice(0, 73)} — copy` })
+  expectIndependentTemplateCopy(copy, source)
   await page.getByRole('textbox', { name: 'Level name' }).fill('My new route')
   await page.getByRole('spinbutton', { name: 'Level width', exact: true }).fill(String(source.width + 120))
   await page.getByRole('button', { name: 'Save level', exact: true }).click()

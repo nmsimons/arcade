@@ -60,7 +60,8 @@
       "text": "Press A",
       "fontSize": 38,
       "align": "left",
-      "style": "graffiti"
+      "style": "graffiti",
+      "rotation": -10
     },
     {
       "x": 600,
@@ -70,7 +71,8 @@
       "text": " (or  whatever the shape on the PS controler is)",
       "fontSize": 18,
       "align": "center",
-      "style": "graffiti"
+      "style": "graffiti",
+      "rotation": 5
     }
   ]
 }

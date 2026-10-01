@@ -1688,43 +1688,40 @@
   ],
   "triggers": [
     {
-      "x": 400,
-      "y": 160,
-      "orientation": "vertical",
-      "w": 20,
-      "h": 120,
+      "x": 350,
+      "y": 200,
+      "w": 120,
       "targets": [
         "227b95ec-871f-421a-8fa7-c8581177356a",
         "2b88b889-4233-4ae2-9585-f85966f57f8a"
       ],
       "mode": "coins",
-      "threshold": 3
+      "threshold": 3,
+      "display": "digital"
     },
     {
-      "x": 1240,
-      "y": 160,
-      "orientation": "vertical",
-      "w": 20,
-      "h": 120,
+      "x": 1190,
+      "y": 200,
+      "w": 120,
       "targets": [
         "4a9f2762-f1ff-4ffb-876e-937d561729c8",
         "debdb888-2d0a-4d94-982b-af31201dcb04"
       ],
       "mode": "coins",
-      "threshold": 9
+      "threshold": 9,
+      "display": "digital"
     },
     {
-      "x": 820,
-      "y": 160,
-      "orientation": "vertical",
-      "w": 20,
-      "h": 120,
+      "x": 770,
+      "y": 200,
+      "w": 120,
       "targets": [
         "809ee580-76bf-484c-872c-a2a7c1e7b875",
         "029fb23b-ff64-423d-ba0c-2fb849b297ca"
       ],
       "mode": "coins",
-      "threshold": 6
+      "threshold": 6,
+      "display": "digital"
     },
     {
       "x": 1600,
@@ -1807,44 +1804,7 @@
       "kind": "coin"
     }
   ],
-  "texts": [
-    {
-      "x": 391.0059019223298,
-      "y": 108.66866326440538,
-      "w": 40,
-      "h": 40,
-      "text": "3",
-      "fontSize": 28,
-      "align": "center"
-    },
-    {
-      "x": 1230.1667690291956,
-      "y": 110.12691159132362,
-      "w": 40,
-      "h": 40,
-      "text": "9",
-      "fontSize": 28,
-      "align": "center"
-    },
-    {
-      "x": 811.2100966899386,
-      "y": 120,
-      "w": 40,
-      "h": 40,
-      "text": "6",
-      "fontSize": 28,
-      "align": "center"
-    },
-    {
-      "x": 1588.5267041838827,
-      "y": 679.3440858207234,
-      "w": 40,
-      "h": 40,
-      "text": "10",
-      "fontSize": 28,
-      "align": "center"
-    }
-  ],
+  "texts": [],
   "lighting": {
     "nightMode": true,
     "ambient": 0,

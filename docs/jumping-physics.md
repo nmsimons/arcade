@@ -75,6 +75,11 @@ driving. The drive query retains its short support reach and cliff avoidance;
 EMP pauses both driving and settling. Regression coverage lives in
 `tests/jumping-robot-settling.test.mjs`.
 
+Shovebot sight uses its current left/right facing before checking range and cover.
+A player behind it cannot trigger a chase, windup, or charge or turn the bot around.
+Moving behind an aggressive bot loses sight and restores patrol; an ordinary
+patrol turn can reveal the player again. The eye color follows this same detection.
+
 ## Step order
 
 1. Read pressure plates and move mechanisms, carrying supported riders.

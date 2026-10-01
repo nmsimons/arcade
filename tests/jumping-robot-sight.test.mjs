@@ -19,6 +19,48 @@ const blockers = {
   'rotated box': boxShape({ x: 400, y: 580, size: 80, angle: Math.PI / 4 }),
   ball: ballShape({ x: 400, y: 600, size: 80 }),
 }
+
+test('sight only detects players ahead of the current facing in every phase', () => {
+  for (const facing of [-1, 1]) for (const phase of ['patrol', 'chase', 'windup', 'charge', 'recover']) {
+    const { r, p } = actors()
+    Object.assign(r, { x: 600, facing, phase })
+    p.x = r.x + facing * 200
+    assert.equal(robotSensesPlayer(r, p, []), true)
+    const unreadable = new Proxy([], { get() { assert.fail('players behind the bot must not scan geometry') } })
+    for (const distance of [0, -1, -200]) {
+      p.x = r.x + facing * distance
+      assert.equal(robotSensesPlayer(r, p, unreadable), false)
+    }
+  }
+})
+
+for (const facing of [-1, 1]) for (const phase of ['patrol', 'chase', 'windup', 'charge']) {
+  test(`a player behind a ${phase} bot cannot redirect it (${facing})`, () => {
+    const level = blankTrial()
+    level.spawn = { x: 900 - facing * 200, y: 920 }
+    level.robots = [{ x: 900, y: 920, left: 100, right: 1700 }]
+    const run = createRun(level), r = run.robots[0]
+    run.started = true; Object.assign(r, { facing, phase, time: .1 })
+    stepRun(run, NEUTRAL_INPUT)
+    assert.equal(r.seesPlayer, false)
+    assert.equal(r.phase, 'patrol')
+    assert.equal(r.facing, facing)
+    assert.ok(Math.abs(r.vx - facing * 92) < .001)
+  })
+}
+
+test('turning toward the player reacquires sight and returning behind it loses sight', () => {
+  const level = blankTrial()
+  level.spawn = { x: 1200, y: 920 }
+  level.robots = [{ x: 900, y: 920, left: 100, right: 1700 }]
+  const run = createRun(level), r = run.robots[0]; run.started = true
+  stepRun(run, NEUTRAL_INPUT)
+  assert.equal(r.seesPlayer, false); assert.equal(r.facing, -1)
+  r.facing = 1; stepRun(run, NEUTRAL_INPUT)
+  assert.equal(r.seesPlayer, true); assert.equal(r.phase, 'chase')
+  run.player.x = 600; stepRun(run, NEUTRAL_INPUT)
+  assert.equal(r.seesPlayer, false); assert.equal(r.phase, 'patrol'); assert.equal(r.facing, 1)
+})
 for (const [kind, shape] of Object.entries(blockers)) for (const direction of [-1, 1]) {
   test(`${kind} blocks the bot's sight ${direction < 0 ? 'left' : 'right'}`, () => {
     const { r, p } = actors()
@@ -55,8 +97,8 @@ test('range and bounds reject irrelevant geometry before testing polygon edges',
 })
 
 function gateLevel() {
-  return { ...blankTrial(), spawn: { x: 800, y: 920 },
-    robots: [{ x: 200, y: 920, left: 100, right: 1600 }],
+  return { ...blankTrial(), spawn: { x: 400, y: 920 },
+    robots: [{ x: 1000, y: 920, left: 100, right: 1600 }],
     mechanisms: [{ id: 'cover', kind: 'gate', x: 500, y: 700, w: 40, h: 220, travel: 300 }] }
 }
 for (const phase of ['chase', 'windup', 'charge']) test(`losing sight during ${phase} immediately returns to ordinary patrol`, () => {
@@ -73,7 +115,7 @@ test('opening and closing a gate updates perception using its current position',
   run.started = true
   assert.equal(r.seesPlayer, false)
   gate.y = 400; stepRun(run, NEUTRAL_INPUT)
-  assert.equal(r.seesPlayer, true); assert.equal(r.phase, 'chase'); assert.equal(r.facing, 1)
+  assert.equal(r.seesPlayer, true); assert.equal(r.phase, 'chase'); assert.equal(r.facing, -1)
   gate.y = 700; stepRun(run, NEUTRAL_INPUT)
   assert.equal(r.seesPlayer, false); assert.equal(r.phase, 'patrol')
 })
@@ -98,7 +140,7 @@ test('the initial game and editor preview agree, and wall decorations do not con
 })
 
 test('an unobstructed bot still winds up and charges', () => {
-  const level = gateLevel(); level.mechanisms = []; level.spawn.x = 310
+  const level = gateLevel(); level.mechanisms = []; level.spawn.x = 900
   const run = createRun(level); run.started = true
   stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.robots[0].phase, 'windup')

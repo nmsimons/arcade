@@ -649,8 +649,10 @@ keeps up with ordinary movement but allows a sudden charge to pull the bot out
 from under a rider. Departing preserves the player's earned momentum. Shovebots
 push the player through physical contact, with no proximity knockback or upward
 launch; a pinned player blocks the bot against a wall.
-Shovebots need a clear line from their eye to the player's body to pursue or
-charge. Terrain, boxes, balls, mechanisms, and other bots can provide cover;
+Shovebots only see ahead of their current left/right facing and need a clear line
+from their eye to the player's body to pursue or charge. Players behind them
+remain unseen until the bot turns toward them. Terrain, boxes, balls, mechanisms,
+and other bots can provide cover;
 wall decorations and collectibles do not. Losing sight restores ordinary patrol
 and the calm eye color. Crouching behind low cover can hide the player.
 The **Mechanisms** tools place elevators, moving platforms, vertical and horizontal gates, and pressure plates. Select a

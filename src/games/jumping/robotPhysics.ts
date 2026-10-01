@@ -12,10 +12,10 @@ const RADIUS = 9, HALF_AXLE = 17
 export const robotDrive = (r: Pick<RobotState, 'phase'>) => r.phase === 'charge' ? 540 : r.phase === 'chase' ? 235 : r.phase === 'patrol' ? 92 : 0
 export const robotTop = (r: Pick<RobotState, 'phase'>) => r.phase === 'windup' ? -39 : -46
 
-/** One sight line from the eye to the player's body. Range and shape bounds
- * reject distant geometry before any polygon edges are tested. */
+/** One forward sight line from the eye to the player's body. Facing, range and
+ * shape bounds reject irrelevant geometry before any polygon edges are tested. */
 export function robotSensesPlayer(r: RobotState, p: Player, obstacles: Iterable<Platform>) {
-  if (Math.abs(p.y - r.y) >= 240 || Math.abs(p.x - r.x) >= 850
+  if ((p.x - r.x) * r.facing <= 0 || Math.abs(p.y - r.y) >= 240 || Math.abs(p.x - r.x) >= 850
     || p.x < r.definition.left - 200 || p.x > r.definition.right + 200) return false
   const c = Math.cos(r.angle), s = Math.sin(r.angle), eyeX = 13.5 * r.facing, eyeY = robotTop(r) + 21.5
   const eye: Vec = [r.x + eyeX * c - eyeY * s, r.y - 9 + eyeX * s + eyeY * c]

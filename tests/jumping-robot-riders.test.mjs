@@ -38,6 +38,7 @@ test('a falling player lands on the chassis, can crouch there, and can jump away
 
 test('a rider follows the visible windup roof without a bounce or a forced launch', () => {
   const run = fixture(); run.robots[0].phase = 'chase'
+  run.player.x += 10 // Only a rider on the forward half can trigger a windup.
   advance(run, 1)
   assert.equal(run.robots[0].phase, 'windup'); assert.equal(run.player.y, 881)
   assert.equal(run.player.grounded, true); assert.equal(run.player.vy, 0)
@@ -68,16 +69,16 @@ for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 60]) {
       assert.ok(p.gait.moving < .01)
     }
   })
-  test(`a charge leaves the rider behind ${direction < 0 ? 'left' : 'right'} at ${1 / dt} Hz`, () => {
+  test(`charge-speed motion leaves the rider behind ${direction < 0 ? 'left' : 'right'} at ${1 / dt} Hz`, () => {
     const run = fixture(direction), start = run.player.x
     run.robots[0].phase = 'charge'; run.robots[0].time = 0
-    advance(run, Math.round(.15 / dt), NEUTRAL_INPUT, dt)
+    for (let i = 0; i < Math.round(.15 / dt); i++) drive(run, 540 * direction, dt)
     assert.equal(run.player.grounded, false)
     assert.equal(run.player.hang, null); assert.equal(run.player.mantle, null)
     assert.ok(run.player.y > 874); assert.ok(run.player.vy > 0, 'gravity supplies the fall, without an upward kick')
     assert.ok((run.robots[0].x - run.player.x) * direction > 45)
     assert.ok(Math.abs(run.player.x - start) < 20, 'body does not snap to the charging bot')
-    advance(run, Math.round(.2 / dt), NEUTRAL_INPUT, dt)
+    for (let i = 0; i < Math.round(.2 / dt); i++) drive(run, 540 * direction, dt)
     assert.equal(run.player.y, 920); assert.equal(run.player.grounded, true)
   })
 }

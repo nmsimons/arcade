@@ -40,11 +40,11 @@ for (const kind of ['box', 'ball']) for (const size of [20, 80, 200]) for (const
   })
 }
 for (const kind of ['box', 'ball']) test(`a charging bot shoves a ${kind} with bounded force`, () => {
-  // Keep the player visible behind the charge. A prop concealing the target
-  // now correctly cancels aggression, so that setup cannot test charge forces.
+  // An elevated player ahead stays visible above the cargo until the bot passes.
+  // Concealed or rear targets cancel aggression and cannot test charge forces.
   const run = fixture(kind, 80, 1, level => {
-    level.spawn = { x: 600, y: 920 }
-    level.platforms = []
+    level.spawn = { x: 810, y: 700 }
+    level.platforms = [{ x: 810, y: 700, w: 200, h: 20 }]
   }), start = run.props[0].x
   run.robots[0].phase = 'charge'
   let peak = 0

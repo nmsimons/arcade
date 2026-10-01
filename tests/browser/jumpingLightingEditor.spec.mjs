@@ -36,11 +36,14 @@ async function select(page, value) {
   await selectBuilderOption(page, 'Selected object', value)
 }
 
-test('spotlight flicker previews live, undoes, duplicates and survives saving and play', async ({ page }, info) => {
+function flickerLevel(flicker = false) {
   const level = blankTrial(); level.version = 2
   level.lighting = { nightMode: true, ambient: 0, lights: [
-    { id: 'faulty-lamp', x: 400, y: 200, direction: 90, spread: 70, intensity: 100, power: 'always' },
+    { id: 'faulty-lamp', x: 400, y: 200, direction: 90, spread: 70, intensity: 100, power: 'always', ...(flicker ? { flicker: true } : {}) },
   ] }
+  return level
+}
+async function captureLampOutputs(page) {
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.addInitScript(() => {
     window.lampOutputs = []
@@ -50,7 +53,14 @@ test('spotlight flicker previews live, undoes, duplicates and survives saving an
       return fill.apply(this, args)
     }
   })
-  await open(page, level); await select(page, 'light:0')
+  return errors
+}
+
+// Separate file editing and animated gameplay so slower CI runners have the
+// normal test time budget for each workflow.
+test('spotlight flicker previews live, undoes, duplicates and round-trips through saving', async ({ page }, info) => {
+  const errors = await captureLampOutputs(page)
+  await open(page, flickerLevel()); await select(page, 'light:0')
   const flicker = page.getByRole('checkbox', { name: 'Flicker', exact: true })
   await expect(flicker).not.toBeChecked(); await flicker.check()
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await select(page, 'light:0')
@@ -66,6 +76,16 @@ test('spotlight flicker previews live, undoes, duplicates and survives saving an
   const saved = await saveTestLevel(page)
   expect(saved.level.lighting.lights.map(l => l.flicker)).toEqual([true, true])
   await reopenTestLevel(page, saved); await select(page, 'light:0'); await expect(flicker).toBeChecked()
+  await flicker.uncheck()
+  const steady = await saveTestLevel(page)
+  expect(steady.level.lighting.lights[0].flicker).toBeUndefined()
+  expect(steady.level.lighting.lights[1].flicker).toBe(true)
+  expect(errors).toEqual([])
+})
+
+test('saved spotlight flicker runs during play and returns to the builder', async ({ page }) => {
+  const errors = await captureLampOutputs(page)
+  await open(page, flickerLevel(true))
   await saveTestLevel(page, 'Save and Test')
   await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
   await page.locator('.jumping-game > canvas').focus(); await page.keyboard.press('ArrowRight')
@@ -75,10 +95,8 @@ test('spotlight flicker previews live, undoes, duplicates and survives saving an
   await page.evaluate(() => { window.lampOutputs = [] })
   await expect(page.getByRole('dialog', { name: 'Game paused', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
-  await select(page, 'light:0'); await flicker.uncheck()
-  const steady = await saveTestLevel(page)
-  expect(steady.level.lighting.lights[0].flicker).toBeUndefined()
-  expect(steady.level.lighting.lights[1].flicker).toBe(true)
+  await select(page, 'light:0')
+  await expect(page.getByRole('checkbox', { name: 'Flicker', exact: true })).toBeChecked()
   expect(errors).toEqual([])
 })
 

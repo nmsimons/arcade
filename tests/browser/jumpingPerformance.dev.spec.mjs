@@ -89,15 +89,17 @@ test('shows actual lighting resolution and fits a narrow viewport', async ({ pag
   await expect(panel).toHaveCount(0)
 })
 
-test('low FPS only removes object shadows after opting in, and switching off restores them', async ({ page }) => {
+for (const savedPreference of [null, 'false', 'true']) test(`lighting performance preference ${savedPreference ?? 'default'} controls low-FPS reduction and switching off restores quality`, async ({ page }) => {
   // Exercise real resizing without rendering hundreds of 2 MP software frames.
   await page.setViewportSize({ width: 640, height: 360 })
-  await page.addInitScript(() => {
+  await page.addInitScript(value => {
     localStorage.setItem('jumping:performance-monitor', 'true')
+    if (value !== null) localStorage.setItem('jumping:lighting-performance-mode', value)
     Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
-  })
+  }, savedPreference)
   await page.clock.install()
   await play(page, true)
+  const fullPixels = await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)
   await page.evaluate(() => {
     // Install after Playwright's clock, which also wraps animation callbacks.
     window.requestAnimationFrame = callback => window.setTimeout(() => callback(performance.now()), 100)
@@ -106,12 +108,13 @@ test('low FPS only removes object shadows after opting in, and switching off res
   await page.clock.runFor(3000)
   const panel = page.getByRole('complementary', { name: 'Performance monitor' })
   const shadows = panel.locator('dl > div').filter({ has: page.getByText('Object shadows', { exact: true }) }).locator('dd')
-  await expect(shadows).toHaveText('On')
-  const fullPixels = await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)
+  await expect(shadows).toHaveText(savedPreference === 'false' ? 'On' : 'Off · adaptive')
   await page.keyboard.press('Backquote')
   const mode = page.getByRole('switch', { name: 'Lighting performance mode', exact: true })
-  await expect(mode).not.toBeChecked()
-  await mode.click()
+  if (savedPreference === 'false') {
+    await expect(mode).not.toBeChecked()
+    await mode.click()
+  } else await expect(mode).toBeChecked()
   await page.keyboard.press('Backquote')
   await page.clock.runFor(2800)
   await expect(shadows).toHaveText('Off · adaptive')
@@ -126,4 +129,5 @@ test('low FPS only removes object shadows after opting in, and switching off res
   await page.clock.runFor(600)
   await expect(shadows).toHaveText('On')
   expect(await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)).toBe(fullPixels)
+  expect(await page.evaluate(() => localStorage.getItem('jumping:lighting-performance-mode'))).toBe('false')
 })

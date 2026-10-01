@@ -96,7 +96,12 @@ function axes(points: readonly Vec[]) {
 }
 const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1]
 const interval = (points: readonly Vec[], axis: Vec) => {
-  const values = points.map(p => dot(p, axis)); return [Math.min(...values), Math.max(...values)]
+  let min = Infinity, max = -Infinity
+  for (const point of points) {
+    const value = dot(point, axis)
+    min = Math.min(min, value); max = Math.max(max, value)
+  }
+  return [min, max]
 }
 /** Feet meet slopes at the sole; the broad upper hull protects torso and head. */
 export function bodyPolygon(x: number, y: number, height: number): Vec[] {
@@ -207,6 +212,12 @@ export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec)
 }
 export { parts as convexParts }
 export function polygonIntersects(hull: readonly Vec[], terrain: Platform, tolerance = 0) {
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
+  for (const [x, y] of hull) {
+    left = Math.min(left, x); right = Math.max(right, x)
+    top = Math.min(top, y); bottom = Math.max(bottom, y)
+  }
+  if (right <= terrain.x || left >= terrain.x + terrain.w || bottom <= terrain.y || top >= terrain.y + terrain.h) return false
   return parts(terrain).some(piece => (penetration(hull, piece)?.depth ?? 0) > tolerance)
 }
 /** Locate the face at the part of the hull that actually made contact. At a

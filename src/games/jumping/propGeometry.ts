@@ -14,15 +14,25 @@ export function boxShape(b: Pick<Prop, 'x' | 'y' | 'size' | 'angle'>): Platform 
     polygon: points.map(p => [p[0] - x, p[1] - y]) }
 }
 
+const circleVertices = Array.from({ length: 64 }, (_, i) => {
+  const angle = (i + .5) * Math.PI / 32
+  return [Math.cos(angle), Math.sin(angle)] as Vec
+})
+const ballShapes = new WeakMap<object, { size: number; shape: Platform }>()
 /** Match the prop solver's round hull so feet, jumps and neighboring terrain
  * all participate in the same player contact resolution. */
 export function ballShape(b: Pick<Prop, 'x' | 'y' | 'size'>): Platform {
+  const cached = ballShapes.get(b)
   const r = b.size / 2, radius = r / Math.cos(Math.PI / 64)
-  return { x: b.x - r, y: b.y - b.size, w: b.size, h: b.size,
-    polygon: Array.from({ length: 64 }, (_, i) => {
-      const angle = (i + .5) * Math.PI / 32
-      return [r + Math.cos(angle) * radius, r + Math.sin(angle) * radius]
-    }) }
+  const x = b.x - r, y = b.y - b.size
+  if (cached?.size === b.size && cached.shape.x === x && cached.shape.y === y) return cached.shape
+  // Reuse the local outline during translation, and the entire shape at rest.
+  // A moving shape gets a new identity so world-space collision caches stay valid.
+  const polygon = cached?.size === b.size ? cached.shape.polygon
+    : circleVertices.map(([cx, cy]): Vec => [r + cx * radius, r + cy * radius])
+  const shape = { x, y, w: b.size, h: b.size, polygon }
+  ballShapes.set(b, { size: b.size, shape })
+  return shape
 }
 
 export function propBounds(b: Prop) {

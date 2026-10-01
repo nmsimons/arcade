@@ -13,14 +13,15 @@ In development, backtick (`) opens the developer panel with the **Performance
 monitor** and **Lighting performance mode** controls. Backtick or Escape closes
 the panel. Gameplay and measurements pause while it is open; the enabled monitor
 remains visible during play. Production hides the panel, shortcut, monitor and performance-mode controls,
-ignores their saved preferences, and does not allocate the monitor or adaptive
-controller. GPU lighting and full quality remain enabled in production. It records raw animation-frame intervals, not the simulation's
+ignores the monitor's saved preference, and does not allocate the monitor.
+Adaptive lighting runs in both development and production. The monitor records raw animation-frame intervals, not the simulation's
 50 ms catch-up cap. CPU update and draw measurements do not include asynchronous
 GPU execution or browser compositing. The rolling history is bounded and the UI
 updates at most twice per second. Paused and hidden time is excluded.
 
-Full quality remains the default on every device. The development-only **Lighting
-performance mode** observes two consecutive one-second windows below 35 FPS,
+Every run starts at full quality. **Lighting performance mode** is enabled by
+default in development and production; an explicitly saved off preference is
+honored in both builds. It observes two consecutive one-second windows below 35 FPS,
 then omits shadows from the player, loose props and robots for that run and caps
 rendering at pixel ratio 1 and one million pixels. This trades some sharpness for
 frame time; the HTML interface retains its native resolution. Terrain
@@ -33,8 +34,8 @@ quality at sustained rates in the high 30s and 40s.
 
 Live play now prefers a WebGL2 light field when supported. The monitor identifies
 the active backend as GPU or Canvas. The GPU pass keeps all authored lights and
-full shadow silhouettes at the normal render resolution until the player opts
-into adaptive reduction. Editor/library previews retain Canvas. Unsupported GPU
+full shadow silhouettes at the normal render resolution until performance mode
+detects sustained low frame rates. Editor/library previews retain Canvas. Unsupported GPU
 capabilities, context loss, unsupported silhouettes or an exceeded buffer budget
 fall back to the complete Canvas renderer.
 Automatic selection also falls back for known software WebGL drivers such as

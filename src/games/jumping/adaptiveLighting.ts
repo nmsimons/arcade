@@ -1,4 +1,4 @@
-/** Only an explicit opt-in can remove object shadows. Judge two complete slow
+/** Performance mode is enabled by default in every build. Judge two complete slow
  * seconds below 35 FPS, leaving headroom above the 30 FPS minimum rather than
  * chasing 60 FPS at the expense of quality. Ignore one hitch or device identity.
  * Latch for the run to avoid flicker

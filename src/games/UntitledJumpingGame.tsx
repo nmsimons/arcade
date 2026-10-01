@@ -127,10 +127,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     try { return localStorage.getItem('jumping:performance-monitor') === 'true' } catch { return false }
   })
   const performanceEnabled = useRef(showPerformance)
-  const [adaptiveLighting] = useState(() => import.meta.env.DEV ? new AdaptiveLighting() : null)
+  const [adaptiveLighting] = useState(() => new AdaptiveLighting())
   const [performanceMode, setPerformanceMode] = useState(() => {
-    if (!import.meta.env.DEV) return false
-    try { return localStorage.getItem('jumping:lighting-performance-mode') === 'true' } catch { return false }
+    try { return localStorage.getItem('jumping:lighting-performance-mode') !== 'false' } catch { return true }
   })
   const adaptiveEnabled = useRef(performanceMode)
   const [lightingShadows, setLightingShadows] = useState<'full' | 'structural'>('full')

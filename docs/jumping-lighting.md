@@ -689,18 +689,21 @@ Report actual results; passing a unit test proves no frame-time claim.
 
 In default full quality, keep the same lights, shadows, power, and exposure rules.
 Never silently drop lamps, dynamic shadows, or add distance cutoffs based on device
-type. In development, an explicitly enabled **Lighting performance mode** may remove player, loose
+type. **Lighting performance mode**, enabled by default in development and production,
+may remove player, loose
 prop, and robot shadows after two consecutive one-second windows below 35 FPS.
 It also caps render pixel ratio at 1 and render area at one million pixels,
 trading some artwork sharpness for smoother motion while retaining native UI
 resolution. It retains all lights and their power/fades, beam effects, object
 artwork, exposure rules, and terrain and moving-mechanism shadows. The reduction lasts for
 that run to avoid oscillation; restarting, entering another level, or disabling
-the setting restores full shadows and render resolution. Paused/hidden time does not count. The monitor
-and pause menu report the current state. This is a local preference, never authored
+the setting restores full shadows and render resolution. Paused/hidden time does not count. The development
+panel and monitor report the current state. This is a local preference, never authored
 level data or a lower default for particular operating systems or architectures.
-Production omits these controls and the monitor, ignores their saved preferences,
-and retains full-quality GPU lighting with Canvas fallback.
+Production omits these controls and the monitor, honors a saved performance-mode
+off preference, and uses adaptive GPU lighting with Canvas fallback. Every run
+starts with full shadows and resolution; adaptation occurs only during sustained
+low frame rates at night.
 Thin terrain must
 continue blocking light at every quality level. The feasibility prototype must
 resolve this before authoring levels whose solution relies on those shadows.

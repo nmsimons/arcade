@@ -11,7 +11,7 @@ import { flatBoxSupport } from './boxSupport.ts'
 import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysics.ts'
 import type { Vec } from './geometry.ts'
 
-const { Bodies, Body, Collision, Composite, Engine, Query, Sleeping, Vertices } = Matter
+const { Bodies, Body, Bounds, Collision, Composite, Engine, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[] }
 const worlds = new WeakMap<Run, PropWorld>()
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
@@ -108,6 +108,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     // forces as the player. A charge has a faster target, never a velocity reset.
     for (const { robot, hulls } of robotProbes) {
       const touching = hulls.some(hull => {
+        if (!Bounds.overlaps(body.bounds, hull.bounds)) return false
         const hit = Collision.collides(body, hull)
         const point = hit?.supports[0]
         return hit && point && hit.normal.x * (hit.bodyA === body ? 1 : -1) * robot.facing > .2
@@ -186,6 +187,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   // blocked part of that displacement is resolved back into the prop, in the
   // same iterations as prop/terrain and prop/prop contacts.
   const resolveActor = (body: Matter.Body, hull: Matter.Body, actor: { x: number; y: number }, transportActor: (x: number, y: number) => void) => {
+    // Collision.collides performs SAT directly; unlike Query.collides it has no
+    // broad phase. Distant 64-sided balls must not enter every correction pass.
+    if (!Bounds.overlaps(body.bounds, hull.bounds)) return false
     const hit = Collision.collides(body, hull)
     if (!hit || hit.depth < 1e-7) return false
     const sign = hit.bodyA === hull ? 1 : -1

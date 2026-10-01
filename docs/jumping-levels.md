@@ -352,14 +352,20 @@ trimmed, and empty names are omitted. Mechanism connections still use their stab
 IDs, so renaming a mechanism or spotlight does not change its connections.
 
 Optional `timers: [{ "x": 80, "y": 1220 }, ...]` places up to 40 wall displays.
-Each point is the top-left of a 200 × 60 display in file coordinates. The entire
-display must fit inside the room. **Back wall → Wall timer** places one in the
-builder; select it to move, duplicate, or delete it. Inspector Y measures its top
+Each point is the top-left of a 120 × 40 (six-by-two-tile) digital display
+in file coordinates. The entire display must fit inside the room.
+**Back wall → Wall timer** places one in the builder; select it to move,
+duplicate, or delete it. Inspector Y measures its top
 above the floor, and increasing level height preserves that height. Terrain edits
 do not move these wall objects.
 
-Every display shows the same elapsed time: zero before the first movement, paused
-with the game, latched when the player enters the exit, and zero again on restart.
+Every display shows the same elapsed time as glowing seven-segment `00:00`
+minutes and seconds, with no hours or fractions. The face saturates at `59:59`;
+the underlying run time, medals, and best times retain their full precision and
+range. Earlier, larger clocks keep their saved top-left positions. Digits are
+green normally and on completion; the left LED bay shows effect/status icons.
+The time is zero before the first movement, paused with the game, latched when
+the player enters the exit, and zero again on restart.
 Displays are drawn behind terrain and actors and have no collision. Their size
 and position follow the world camera. There is no visible HUD clock; levels
 without `timers` simply have no wall display. Older files may omit the array.
@@ -377,7 +383,7 @@ of gameplay, immediately pulses, then shrinks away over 0.34 seconds. The player
 enemies, and mechanisms keep moving normally. Extra watches add another 10 seconds
 to the remaining pause. Time is never subtracted; the clock resumes from the same
 value when the effect expires. Wall timers turn amber and show a small pause mark
-while stopped. Medals and saved best times use the displayed time.
+while stopped. Medals and saved best times use the full-precision run time.
 
 Pausing the game also pauses the remaining effect and pickup animation. A watch
 collected at the start keeps its full duration until the first movement starts
@@ -449,21 +455,36 @@ level-wide collected total once each and do not change the timer. Their spin and
 collection animation pause with the game; restart restores all coins and clears
 the total. Collection remains available until the player enters the exit.
 
-**Mechanisms → Coin switch** mounts a progress meter on the back wall, behind
+**Mechanisms → Coin switch** mounts a numeric display on the back wall, behind
 terrain and actors with no collision. Set **Coins required** (1–80, default 3)
 and check gates or elevators in **Activates**. Each switch uses the same collected
-total, with its own threshold. Coins are not spent. The gold meter fills as coins
-are gathered, then turns green when full. The switch is a slim progress bar with one segment per required coin.
-Choose **Horizontal** to fill left to right or **Vertical** to fill bottom to top
-using **Orientation** in the inspector. It keeps its connected
+total, with its own threshold. Coins are not spent. New switches have the same
+fixed 120 × 40 digital face as wall clocks, showing
+`00/00`: collected total / required goal, both with leading zeros. The numerator
+continues past the goal. Digits glow gold until activation, then green; a full
+switch awaiting power during EMP stays gold.
+
+Choose **Display → Numeric** to convert an existing bar, preserving its name,
+threshold, connections, and center where room bounds allow it. Conversion can be
+undone. Choose **Progress bar** for a segmented LED meter, then
+**Orientation → Horizontal** to fill left to right or **Vertical** to fill bottom
+to top. Every coin switch keeps its connected
 mechanisms active until restart. An ordinary plate or another full coin switch
 can also power the same mechanism. The editor flags thresholds above the number
 of coins placed in the level.
 
 Coin switches share the 40-switch limit with pressure plates. Their file shape is
 `{ "mode": "coins", "x": 400, "y": 1200, "w": 200, "threshold": 3, "targets": ["gate-id"] }`.
-Coordinates mark the top-left of a one-tile-thick (20-unit) display; its length is editable
-from 120 to 240 units. Horizontal switches omit `orientation` and use `w` for
+This older file shape remains supported unchanged and retains its bar style.
+Both bar orientations share the numeric face's dark frame and recessed glass.
+Separate LED cells glow gold as coins are collected, then green on activation;
+empty cells stay dim, and dark gaps separate the cells.
+Numeric switches add `"display": "digital"`, use `"w": 120`, and omit
+`orientation` and `h`. Their height is fixed at 40. Opening an old file does not
+convert bars or rewrite the file.
+
+For progress bars, coordinates mark the top-left of a one-tile-thick (20-unit) display;
+its length is editable from 120 to 240 units. Horizontal switches omit `orientation` and use `w` for
 their length. Vertical switches use `"orientation": "vertical", "w": 20, "h": 200`;
 their height is editable in the inspector or with the top and bottom handles.
 Changing orientation preserves the center where room bounds allow it.
@@ -726,8 +747,9 @@ ambient-0 appearance (fixed 35% baseline brightness) and a very faint full spotl
 beam. Gameplay, studio previews, and thumbnails share this brightness. The
 short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at solid objects and room boundaries.
 Spotlights illuminate movable objects. Terrain and mechanisms retain ambient
-colors while casting shadows. Only timer digits/status symbols and filled coin segments keep a 65% brightness
-floor. Panels, frames, and empty tracks follow room lighting. Haze never washes out
+colors while casting shadows. Only timer digits/status symbols, numeric coin
+digits/icons, and filled coin segments keep a 65% brightness floor. Panels,
+frames, and empty tracks follow room lighting. Haze never washes out
 wall text, collectibles, or the player.
 
 Spotlights belong to the back wall and do not block movement. In the studio,

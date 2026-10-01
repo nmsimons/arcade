@@ -1,10 +1,9 @@
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run } from './challenge.ts'
-import { formatTime } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
-import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
+import { drawWallTimer } from './wallTimer.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
 import { drawCoinSwitch } from './coins.ts'
 import { gameCamera } from './camera.ts'
@@ -101,33 +100,10 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawLightFixtures(ctx, lights, wallPaint)
     wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
-    ctx.save(); ctx.font = '500 28px ui-monospace, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
     const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
     const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
-    for (const timer of level.timers ?? []) {
-      const panel = clockFast ? TIME_PENALTY_COLOR : clockStopped ? '#eee3ce' : '#e2e7da'
-      paint(ctx, 0, () => {
-        ctx.fillStyle = panel; ctx.fillRect(timer.x, timer.y, WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT)
-        ctx.fillStyle = '#303c36'; ctx.fillRect(timer.x + 4, timer.y + 4, WALL_TIMER_WIDTH - 8, WALL_TIMER_HEIGHT - 8)
-      })
-      // Both modes share light digits on a dark face. In darkness only the
-      // digits and status symbols retain brightness.
-      paint(ctx, .65, () => {
-        ctx.fillStyle = clockFinished ? '#a9d56b' : clockFast ? '#e98678' : clockStopped ? '#e6b96f' : '#e5e7e6'
-        ctx.fillText(formatTime(run.elapsed), timer.x + WALL_TIMER_WIDTH / 2, timer.y + WALL_TIMER_HEIGHT / 2 + 1)
-        if (clockStopped) {
-          ctx.fillRect(timer.x + 9, timer.y + WALL_TIMER_HEIGHT / 2 - 4, 3, 10)
-          ctx.fillRect(timer.x + 15, timer.y + WALL_TIMER_HEIGHT / 2 - 4, 3, 10)
-        } else if (clockFast) {
-          for (const x of [timer.x + 7, timer.x + 14]) {
-            ctx.beginPath(); ctx.moveTo(x, timer.y + WALL_TIMER_HEIGHT / 2 - 4)
-            ctx.lineTo(x + 6, timer.y + WALL_TIMER_HEIGHT / 2 + 1); ctx.lineTo(x, timer.y + WALL_TIMER_HEIGHT / 2 + 6)
-            ctx.closePath(); ctx.fill()
-          }
-        }
-      })
-    }
-    ctx.restore()
+    const clockStatus = clockFinished ? 'finished' : clockStopped ? 'pause' : clockFast ? 'fast' : undefined
+    for (const timer of level.timers ?? []) drawWallTimer(ctx, timer, run.elapsed, clockStatus, paint)
     for (const [i, trigger] of level.triggers.entries()) if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, run.coinsCollected, run.triggers[i].active, paint)
     // Collectibles receive the light field without casting shadows. Keep their
     // artwork and collection effects behind terrain and movable objects.

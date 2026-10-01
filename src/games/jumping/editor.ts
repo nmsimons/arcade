@@ -17,7 +17,8 @@ import type { PlateBehavior, PowerMode } from './switchPower.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { fitWallText, wallTextBounds, wallTextLocalPoint, wallTextPoint } from './wallText.ts'
 import { pickupBounds, TIME_BONUS_DEFAULT_SECONDS } from './pickups.ts'
-import { COIN_SWITCH_THICKNESS, COIN_SWITCH_LENGTH, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
+import { DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT } from './digitalDisplay.ts'
+import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 
@@ -174,9 +175,22 @@ export function setCoinThreshold(level: JumpLevel, index: number, threshold: num
   if (trigger.mode === 'coins') trigger.threshold = clamp(Math.round(threshold), 1, 80)
   return next
 }
+/** Converting an old bar keeps its center where room bounds allow it. Undo restores the original. */
+export function setCoinSwitchDisplay(level: JumpLevel, index: number, display: 'digital' | 'bar'): JumpLevel {
+  const before = level.triggers?.[index]
+  if (before?.mode !== 'coins' || (before.display ?? 'bar') === display) return level
+  const next = copyLevel(level), bounds = coinSwitchBounds(before)
+  const w = DIGITAL_DISPLAY_WIDTH, h = display === 'digital' ? DIGITAL_DISPLAY_HEIGHT : COIN_SWITCH_THICKNESS
+  const x = clamp(bounds.x + (bounds.w - w) / 2, 24, level.width - w - 24)
+  const y = clamp(bounds.y + (bounds.h - h) / 2, 0, levelHeight(level) - h)
+  const connection = before.targets ? { targets: [...before.targets] } : { target: before.target }
+  next.triggers![index] = { x, y, w, ...connection, mode: 'coins', threshold: before.threshold,
+    ...(before.name ? { name: before.name } : {}), ...(display === 'digital' ? { display: 'digital' as const } : {}) }
+  return next
+}
 export function setCoinSwitchOrientation(level: JumpLevel, index: number, orientation: 'horizontal' | 'vertical'): JumpLevel {
   const before = level.triggers?.[index]
-  if (before?.mode !== 'coins' || (before.orientation ?? 'horizontal') === orientation) return level
+  if (before?.mode !== 'coins' || before.display === 'digital' || (before.orientation ?? 'horizontal') === orientation) return level
   const next = copyLevel(level), trigger = next.triggers![index]
   if (trigger.mode !== 'coins') return level
   const bounds = coinSwitchBounds(trigger), length = trigger.orientation === 'vertical' ? trigger.h : trigger.w
@@ -393,6 +407,7 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   }
   if (selection.kind === 'trigger') {
     const t = next.triggers![selection.index]
+    if (t.mode === 'coins' && t.display === 'digital') return level
     if (t.mode === 'coins' && t.orientation === 'vertical') {
       const bottom = t.y + t.h
       t.h = clamp(h, COIN_SWITCH_MIN_LENGTH, Math.min(240, top ? bottom : levelHeight(next) - t.y))
@@ -519,8 +534,8 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     const trial = asTrial(level)
     if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
     const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
-    trial.triggers.push({ x: clamp(start.x, 24, trial.width - COIN_SWITCH_LENGTH - 24), y: clamp(start.y, 0, levelHeight(trial) - COIN_SWITCH_THICKNESS),
-      w: COIN_SWITCH_LENGTH, mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
+    trial.triggers.push({ x: clamp(start.x, 24, trial.width - DIGITAL_DISPLAY_WIDTH - 24), y: clamp(start.y, 0, levelHeight(trial) - DIGITAL_DISPLAY_HEIGHT),
+      w: DIGITAL_DISPLAY_WIDTH, display: 'digital', mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
   if (['goal', 'box', 'ball', 'pusher', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {

@@ -16,10 +16,8 @@ async function open(page, editor = false, orientation = 'horizontal') {
     const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, rounded = proto.roundRect
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
-        this.canvas.coinCamera = this.getTransform(); this.canvas.coinWidths = []; this.canvas.coinMeter = null; this.canvas.coinSegments = 0
+        this.canvas.coinCamera = this.getTransform(); this.canvas.coinWidths = []; this.canvas.coinMeter = { cells: [], full: false }; this.canvas.coinSegments = 0
       }
-      if (args[0] === 4 && ['#dfb44f', '#91ad69'].includes(this.fillStyle)) this.canvas.coinMeter = { x: args[0], y: args[1], width: args[2], height: args[3], full: this.fillStyle === '#91ad69' }
-      if (this.fillStyle === '#e2e7da' && (args[2] === 1 || args[3] === 1)) this.canvas.coinSegments++
       return rect.apply(this, args)
     }
     proto.ellipse = function (...args) {
@@ -27,6 +25,13 @@ async function open(page, editor = false, orientation = 'horizontal') {
       return ellipse.apply(this, args)
     }
     proto.roundRect = function (...args) {
+      if (this.canvas.coinMeter && (args[2] === 8 || args[3] === 8) && ['#18271e', '#dfb44f', '#a9ef82'].includes(this.fillStyle)) {
+        this.canvas.coinSegments++
+        if (this.fillStyle !== '#18271e') {
+          this.canvas.coinMeter.cells.push({ x: args[0], y: args[1], width: args[2], height: args[3] })
+          this.canvas.coinMeter.full = this.fillStyle === '#a9ef82'
+        }
+      }
       if (args[0] === 820 && args[2] === 20 && args[3] === 180) this.canvas.coinGateY = args[1]
       return rounded.apply(this, args)
     }
@@ -49,12 +54,10 @@ const state = page => page.getByRole('img', { name: 'Coin collection: reach the 
 
 for (const orientation of ['horizontal', 'vertical']) test(`${orientation} meters fill in the correct direction, open a gate, pause, and reset`, async ({ page }, info) => {
   await open(page, false, orientation)
-  const vertical = orientation === 'vertical', fillSize = meter => vertical ? meter.height : meter.width
+  const vertical = orientation === 'vertical', fillSize = meter => meter.cells.length
   const ready = await state(page)
-  expect(ready.segments).toBe(2)
-  expect(ready.coins).toHaveLength(3); expect(ready.meter).toEqual(vertical
-    ? { x: 4, y: 196, width: 12, height: 0, full: false }
-    : { x: 4, y: 4, width: 0, height: 12, full: false }); expect(ready.gate).toBe(420)
+  expect(ready.segments).toBe(3)
+  expect(ready.coins).toHaveLength(3); expect(ready.meter).toEqual({ cells: [], full: false }); expect(ready.gate).toBe(420)
   await page.clock.runFor(500)
   expect((await state(page)).coins).not.toEqual(ready.coins)
   await page.screenshot({ path: info.outputPath('coins-ready.png') })
@@ -62,9 +65,13 @@ for (const orientation of ['horizontal', 'vertical']) test(`${orientation} meter
   for (let i = 0; i < 80 && fillSize((await state(page)).meter) === 0; i++) await page.clock.runFor(16)
   await page.keyboard.up('d'); await page.clock.runFor(400)
   const partial = await state(page)
-  expect(partial.coins).toHaveLength(2); expect(fillSize(partial.meter)).toBeCloseTo(192 / 3)
-  if (vertical) expect(partial.meter.y + partial.meter.height).toBeCloseTo(196, 8)
-  else expect(partial.meter.x).toBe(4)
+  expect(partial.coins).toHaveLength(2); expect(fillSize(partial.meter)).toBe(1)
+  const cell = partial.meter.cells[0]
+  if (vertical) {
+    expect(cell.y + cell.height).toBeCloseTo(192.5, 8); expect(cell.width).toBe(8)
+  } else {
+    expect(cell.x).toBe(7.5); expect(cell.height).toBe(8)
+  }
   expect(partial.meter.full).toBe(false); expect(partial.gate).toBe(420)
   await page.screenshot({ path: info.outputPath('coin-meter-partial.png') })
   await page.keyboard.press('Escape'); await page.clock.runFor(1000)
@@ -74,9 +81,7 @@ for (const orientation of ['horizontal', 'vertical']) test(`${orientation} meter
   for (let i = 0; i < 160 && !(await state(page)).meter.full; i++) await page.clock.runFor(16)
   await page.keyboard.up('d'); await page.clock.runFor(1500)
   const full = await state(page)
-  expect(full.coins).toHaveLength(0); expect(full.meter).toEqual(vertical
-    ? { x: 4, y: 4, width: 12, height: 192, full: true }
-    : { x: 4, y: 4, width: 192, height: 12, full: true }); expect(full.gate).toBe(240)
+  expect(full.coins).toHaveLength(0); expect(full.meter.cells).toHaveLength(3); expect(full.meter.full).toBe(true); expect(full.gate).toBe(240)
   await page.screenshot({ path: info.outputPath('coin-switch-active.png') })
   await restartFromPause(page); await page.clock.runFor(64)
   const reset = await state(page)
@@ -110,10 +115,11 @@ test('Coin is visible in the toolbox; coins and switches place, edit, undo, save
   const connection = page.getByRole('checkbox', { name: 'Gate 1', exact: true })
   await connection.uncheck(); await connection.check()
   await expect(threshold).toHaveValue('4')
+  await selectBuilderOption(page, 'Coin switch display', 'bar')
   const orientation = page.getByRole('combobox', { name: 'Coin switch orientation', exact: true })
   await selectBuilderOption(page, 'Coin switch orientation', 'vertical')
   const height = page.getByRole('spinbutton', { name: 'Object h', exact: true })
-  await expect(height).toHaveValue('200')
+  await expect(height).toHaveValue('120')
   await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await selectBuilderObject(page, 'trigger:1'); await expect(orientation).toHaveAttribute('data-value', 'horizontal')

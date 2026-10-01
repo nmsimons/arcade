@@ -4,7 +4,7 @@ import { blankTrial, levelProblems, parseLevel } from '../src/games/jumping/leve
 import { addItem, deleteItem, duplicateItem, hitItem, moveItem, resizeLevelHeight } from '../src/games/jumping/editor.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
-import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from '../src/games/jumping/wallTimer.ts'
+import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT, formatWallTime } from '../src/games/jumping/wallTimer.ts'
 
 test('multiple wall timers can be authored, moved, copied, deleted, and exported', () => {
   const added = addItem(blankTrial(), 'timer', { x: 320, y: 720 }, { x: 320, y: 720 })
@@ -49,7 +49,24 @@ test('wall timers do not obstruct players, boxes, or balls', () => {
 test('timer JSON is bounded and older files without timers remain readable', () => {
   const legacy = blankTrial(); delete legacy.timers
   assert.deepEqual(parseLevel(legacy), legacy)
-  for (const timers of [null, [{ x: NaN, y: 10 }], [{ x: 1700, y: 10 }], [{ x: 10, y: 900 }], Array.from({ length: 41 }, () => ({ x: 20, y: 20 }))]) {
+  for (const timers of [null, [{ x: NaN, y: 10 }], [{ x: 1681, y: 10 }], [{ x: 10, y: 900 }], Array.from({ length: 41 }, () => ({ x: 20, y: 20 }))]) {
     assert.throws(() => parseLevel({ ...legacy, timers }))
+  }
+})
+
+
+test('wall faces show whole minutes and seconds, saturating without truncating run scoring', () => {
+  for (const [seconds, face] of [[0, '00:00'], [9.99, '00:09'], [59.99, '00:59'], [60, '01:00'],
+    [3598.9, '59:58'], [3599, '59:59'], [3600, '59:59'], [7200, '59:59']]) assert.equal(formatWallTime(seconds), face)
+  const run = createRun(blankTrial()); run.elapsed = 3600; run.started = true
+  stepRun(run, NEUTRAL_INPUT)
+  assert.ok(run.elapsed > 3600)
+  assert.equal(formatWallTime(run.elapsed), '59:59')
+})
+
+test('old clock positions remain unchanged and smaller clocks fit at new room edges', () => {
+  const level = blankTrial()
+  for (const timer of [{ x: 1600, y: 860 }, { x: 1608, y: 868 }, { x: 1680, y: 880 }]) {
+    assert.deepEqual(parseLevel({ ...level, timers: [timer] }).timers, [timer])
   }
 })

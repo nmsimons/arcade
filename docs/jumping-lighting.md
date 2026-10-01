@@ -210,16 +210,20 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 
 ### Clocks and coin displays
 
-Only clock digits/status symbols and filled coin segments glow. Apply
-`max(localExposure, 0.65)` to those marks, including under a shadow or during
+Only clock digits/status symbols, numeric coin digits/icons, and filled legacy
+coin segments glow. Apply `max(localExposure, 0.65)` to those marks, including under a shadow or during
 EMP. Spotlights raise them to their full material colors. Frames, panels,
-empty coin tracks, and segment dividers use ordinary lighting with no brightness
-floor. None of these items casts shadows or lights nearby objects.
+inactive LED segments, empty coin tracks, and segment dividers use ordinary
+lighting with no brightness floor. None of these items casts shadows or lights nearby objects.
 
-The timer uses the same dark face with pale normal digits, amber stopped digits,
-red fast digits, and green finished digits in both modes. Daytime shows full
-material colors; night mode applies the light field with a floor only for digits. Coin segments keep their existing gold and active green colors,
-including the fully collected but not yet powered state. Existing foreground
+The timer uses a dark digital face with green normal/finished digits, amber
+stopped digits, and red fast digits in both modes. Its status icons sit in a
+small LED bay on the left. Numeric coin counters share the housing and use gold
+digits until activated, then green. Progress meters share the same dark housing, recessed face, dim inactive LED
+cells, and soft glow. Filled cells use the numeric counter's gold and active
+green, including gold when full but waiting for power.
+Daytime shows full material colors; night mode applies the light field with a
+floor only for digits, icons, and filled legacy segments. Existing foreground
 objects still cover all display parts. The implementation uses the existing
 light field and emission passes, with no extra light calculation or framebuffer.
 

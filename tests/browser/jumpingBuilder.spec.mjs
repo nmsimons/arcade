@@ -11,9 +11,19 @@ async function open(page, level) {
   await installTestFolder(page, level ? { 'fixture.json': level } : {})
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, text = proto.fillText, arc = proto.arc
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, text = proto.fillText, arc = proto.arc, begin = proto.beginPath, move = proto.moveTo, fill = proto.fill
+    proto.beginPath = function (...args) { this.jumpPath = []; return begin.apply(this, args) }
+    proto.moveTo = function (x, y) { this.jumpPath?.push([x, y]); return move.call(this, x, y) }
+    proto.fill = function (...args) {
+      if (this.shadowBlur === 3) this.jumpDigitalFace = JSON.stringify(this.jumpPath)
+      return fill.apply(this, args)
+    }
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') { this.canvas.jumpCamera = this.getTransform(); this.canvas.wallTimers = []; this.canvas.wallTexts = []; this.canvas.builderHandles = []; this.canvas.builderLabels = [] }
+      if (args[0] === 66 && args[1] === 12 && args[2] === 3 && args[3] === 3) {
+        const t = this.getTransform(), camera = this.canvas.jumpCamera
+        if (camera) this.canvas.wallTimers?.push({ face: this.jumpDigitalFace, x: (t.e - camera.e) / camera.a, screenX: t.e })
+      }
       if (this.fillStyle === '#c65231' && args[2] === args[3]) this.canvas.builderHandles?.push({ x: args[0] + args[2] / 2, y: args[1] + args[3] / 2 })
       return rect.apply(this, args)
     }
@@ -34,10 +44,6 @@ async function open(page, level) {
         const t = this.getTransform()
         this.canvas.wallTexts?.push({ text: value, x, y, color: this.fillStyle, font: this.font, rotation: Math.atan2(t.b, t.a) * 180 / Math.PI,
           screenX: x * t.a + y * t.c + t.e, screenY: x * t.b + y * t.d + t.f })
-      }
-      if (/^\d+:\d{2}\.\d{2}$/.test(value)) {
-        const t = this.getTransform()
-        this.canvas.wallTimers?.push({ text: value, x, y, screenX: x * t.a + t.e, screenY: y * t.d + t.f })
       }
       return text.call(this, value, x, y, ...rest)
     }
@@ -795,18 +801,18 @@ test('wall timers share the run clock, travel with the map, and allow the player
   const canvas = page.getByRole('img', { name: 'Untitled level: reach the exit' })
   const readings = () => canvas.evaluate(el => el.wallTimers)
   const initial = await readings()
-  expect(initial.map(timer => timer.text)).toEqual(['0:00.00', '0:00.00'])
+  expect(initial).toHaveLength(2); expect(initial[0].face).toBe(initial[1].face)
   await expect(page.locator('.jumping-race')).toHaveCount(0)
   await page.keyboard.down('d'); await page.clock.runFor(1100); await page.keyboard.up('d')
   const moving = await readings()
-  expect(moving).toHaveLength(2); expect(moving[0].text).toBe(moving[1].text); expect(moving[0].text).not.toBe('0:00.00')
+  expect(moving).toHaveLength(2); expect(moving[0].face).toBe(moving[1].face); expect(moving[0].face).not.toBe(initial[0].face)
   expect(moving[0].x).toBe(initial[0].x); expect(moving[0].screenX).toBeLessThan(initial[0].screenX - 80)
   expect((await page.evaluate(() => window.jumpPlayer)).x).toBeGreaterThan(1120)
   await page.screenshot({ path: info.outputPath('wall-timers-during-play.png') })
   await page.keyboard.press('Escape'); await page.clock.runFor(2000)
-  expect((await readings()).map(timer => timer.text)).toEqual(moving.map(timer => timer.text))
+  expect((await readings()).map(timer => timer.face)).toEqual(moving.map(timer => timer.face))
   await page.getByRole('button', { name: 'Restart level', exact: true }).click(); await page.clock.runFor(160)
-  expect((await readings()).map(timer => timer.text)).toEqual(['0:00.00', '0:00.00'])
+  expect((await readings()).map(timer => timer.face)).toEqual(initial.map(timer => timer.face))
 })
 
 test('build, edit, undo, save, playtest, return and reload a custom level', async ({ page }, info) => {
@@ -1774,4 +1780,31 @@ for (const side of [-1, 1]) test(`rope exits onto a thin cap with a separate flu
   expect(player.x).toBeCloseTo(520 + side * 20, 1)
   expect(player.y).toBeCloseTo(460, 1)
   await page.screenshot({ path: info.outputPath('joined-rope-exit.png') })
+})
+
+
+test('legacy coin bars convert to numeric faces with undo and folder round trips', async ({ page }, info) => {
+  const level = blankTrial()
+  level.pickups = [{ kind: 'coin', x: 160, y: 888 }]
+  level.triggers = [{ mode: 'coins', x: 400, y: 640, w: 20, h: 120, orientation: 'vertical', threshold: 1, targets: [], name: 'Toll' }]
+  level.timers = [{ x: 600, y: 680 }]
+  await open(page, level)
+  await selectBuilderObject(page, 'trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Coin switch display', exact: true })).toHaveAttribute('data-value', 'bar')
+  await selectBuilderOption(page, 'Coin switch display', 'digital')
+  await expect(page.getByRole('combobox', { name: 'Coin switch orientation', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveCount(0)
+  const saved = await saveTestLevel(page)
+  expect(saved.level.triggers).toEqual([{ mode: 'coins', x: 350, y: 680, w: 120, display: 'digital', threshold: 1, targets: [], name: 'Toll' }])
+  await page.getByRole('button', { name: 'Undo', exact: true }).click()
+  await selectBuilderObject(page, 'trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Coin switch orientation', exact: true })).toHaveAttribute('data-value', 'vertical')
+  await page.getByRole('button', { name: 'Redo', exact: true }).click()
+  await reopenTestLevel(page, saved)
+  await selectBuilderObject(page, 'trigger:0')
+  await expect(page.getByRole('combobox', { name: 'Coin switch display', exact: true })).toHaveAttribute('data-value', 'digital')
+  await page.screenshot({ path: info.outputPath('numeric-coin-counter-builder.png') })
+  await saveTestLevel(page, 'Save and Test'); await page.clock.runFor(64)
+  await page.keyboard.down('d'); await page.clock.runFor(1100); await page.keyboard.up('d')
+  await page.screenshot({ path: info.outputPath('numeric-coin-counter-play.png') })
 })

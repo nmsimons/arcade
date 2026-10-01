@@ -22,7 +22,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   text: 'M4 7V4h16v3M12 4v16M8 20h8',
   light: 'M6 4Q12 0 18 4L21 14H3ZM5 17h14M7 21l-1-2M17 21l1-2',
   coin: 'M17 12a6 9 0 1 1-12 0 6 9 0 1 1 12 0ZM11 3h3a6 9 0 0 1 0 18h-3',
-  'coin-switch': 'M2 7h20v10H2zM5 10h7v4H5z',
+  'coin-switch': 'M2 6h20v12H2zM5 10v4M8 10v4M13 9l-2 6M16 10v4M19 10v4',
 }
 export function BuilderIcon({ kind }: { kind: Tool | TerrainTransform }) {
   const color = kind === 'time-penalty' || kind === 'fast-stopwatch' ? TIME_PENALTY_COLOR : 'currentColor'

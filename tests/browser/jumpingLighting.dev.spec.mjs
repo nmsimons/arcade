@@ -235,7 +235,7 @@ test('darkness shades pickups and preserves display exposure without painting th
   expectColor(result.coin, result.originalCoin.map(c => Math.round(c * .35)))
   result.wall.forEach((channel, i) => expect(Math.abs(channel - result.originalWall[i] * .35)).toBeLessThanOrEqual(2))
   result.hiddenPickup.forEach((channel, i) => expect(Math.abs(channel - result.originalCover[i] * .35)).toBeLessThanOrEqual(2))
-  expectColor(result.clock, [48, 60, 54].map(c => Math.round(c * .35)))
+  expectColor(result.clock, [9, 15, 12].map(c => Math.round(c * .35)))
   expect(result.revealedPixels).toBeGreaterThan(20)
 })
 
@@ -301,7 +301,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
     expect(entry.outsideChanges).toBe(0)
     expect(entry.outageDifference).toBe(0)
     expect(entry.sources).toEqual(['spot-left', 'spot-middle', 'spot-right'])
-    expectColor(entry.clock, [48, 60, 54].map(c => Math.round(c * .35)))
+    expectColor(entry.clock, [9, 15, 12].map(c => Math.round(c * .35)))
   }
 })
 

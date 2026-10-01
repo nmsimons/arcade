@@ -1504,8 +1504,9 @@
   "floorMaterial": "earth",
   "floor": 2000,
   "goal": {
-    "x": 1140,
-    "y": 1980
+    "x": 1300,
+    "y": 1980,
+    "flipX": true
   },
   "times": {
     "gold": 90,

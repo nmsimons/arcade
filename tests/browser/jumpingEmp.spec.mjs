@@ -18,7 +18,9 @@ async function open(page, editor = false) {
   if (editor) await installTestFolder(page, { 'fixture.json': fixture })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, rounded = proto.roundRect, arc = proto.arc, fill = proto.fill, text = proto.fillText
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, rounded = proto.roundRect, arc = proto.arc, fill = proto.fill, begin = proto.beginPath, move = proto.moveTo
+    proto.beginPath = function (...args) { this.empPath = []; return begin.apply(this, args) }
+    proto.moveTo = function (x, y) { this.empPath?.push([x, y]); return move.call(this, x, y) }
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
         this.canvas.empFrame = { bolts: 0, eyes: 0, meter: null, discs: 0, edges: 0 }
@@ -26,10 +28,11 @@ async function open(page, editor = false) {
       }
       const frame = this.canvas.empFrame
       if (frame && args[2] === 5 && args[3] === 5 && ['#94433f', '#a5b3a7'].includes(this.fillStyle)) frame.eyes++
-      if (frame && args[2] === 192 && args[3] === 12 && ['#dfb44f', '#91ad69'].includes(this.fillStyle)) frame.meter = this.fillStyle
+      if (frame && args[0] === 66 && args[1] === 12 && args[2] === 3 && args[3] === 3) frame.clock = this.empDigits
       return rect.apply(this, args)
     }
     proto.roundRect = function (...args) {
+      if (this.canvas.empFrame && args[2] === 185 && args[3] === 8 && ['#dfb44f', '#a9ef82'].includes(this.fillStyle)) this.canvas.empFrame.meter = this.fillStyle
       if (this.canvas.empFrame && args[2] === 20 && args[3] === 180) this.canvas.empFrame.gateY = args[1]
       if (this.canvas.empFrame && args[2] === 140 && args[3] === 20) this.canvas.empFrame.liftY = args[1]
       return rounded.apply(this, args)
@@ -43,6 +46,7 @@ async function open(page, editor = false) {
       return arc.apply(this, args)
     }
     proto.fill = function (...args) {
+      if (this.shadowBlur === 3) this.empDigits = JSON.stringify(this.empPath)
       if (this.canvas.empFrame && this.fillStyle === '#ac7b35' && args[0] instanceof Path2D) this.canvas.empFrame.edges++
       if (this.canvas.empFrame && this.fillStyle === '#dfb44f' && args[0] instanceof Path2D) {
         this.canvas.empFrame.bolts++
@@ -51,10 +55,7 @@ async function open(page, editor = false) {
       }
       return fill.apply(this, args)
     }
-    proto.fillText = function (value, ...args) {
-      if (this.canvas.empFrame && /^\d+:\d{2}\.\d{2}$/.test(value)) this.canvas.empFrame.clock = value
-      return text.call(this, value, ...args)
-    }
+
   })
   await page.goto('/untitled-jumping-game')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
@@ -74,12 +75,13 @@ const state = page => page.getByRole('img', { name: 'Power cut: reach the exit' 
 
 test('EMP cuts power, defers a full coin switch, pauses, restores power and restarts in production', async ({ page }, info) => {
   await open(page)
-  expect(await state(page)).toMatchObject({ bolts: 1, edges: 1, discs: 0, eyes: 1, meter: null, clock: '0:00.00', gateY: 420, liftY: 560 })
+  const zeroClock = (await state(page)).clock; expect(zeroClock).toBeTruthy()
+  expect(await state(page)).toMatchObject({ bolts: 1, edges: 1, discs: 0, eyes: 1, meter: null, clock: zeroClock, gateY: 420, liftY: 560 })
   const idleWidth = (await state(page)).boltWidth
   await page.screenshot({ path: info.outputPath('emp-before.png') })
   await page.clock.runFor(600)
   expect(Math.abs((await state(page)).boltWidth - idleWidth)).toBeGreaterThan(.1)
-  expect((await state(page)).clock).toBe('0:00.00')
+  expect((await state(page)).clock).toBe(zeroClock)
   await page.screenshot({ path: info.outputPath('emp-turning.png') })
   await page.keyboard.down('d'); await page.clock.runFor(700)
   await page.screenshot({ path: info.outputPath('emp-pulse.png') })
@@ -97,11 +99,11 @@ test('EMP cuts power, defers a full coin switch, pauses, restores power and rest
   await page.getByRole('button', { name: /^Resume/ }).click()
   await page.clock.runFor(4000)
   const restored = await state(page)
-  expect(restored.eyes).toBe(1); expect(restored.meter).toBe('#91ad69')
+  expect(restored.eyes).toBe(1); expect(restored.meter).toBe('#a9ef82')
   expect(restored.gateY).toBeLessThan(420); expect(restored.liftY).toBeLessThan(560)
   await page.screenshot({ path: info.outputPath('emp-restored.png') })
   await restartFromPause(page); await page.clock.runFor(64)
-  expect(await state(page)).toMatchObject({ bolts: 1, eyes: 1, meter: null, clock: '0:00.00', gateY: 420, liftY: 560 })
+  expect(await state(page)).toMatchObject({ bolts: 1, eyes: 1, meter: null, clock: zeroClock, gateY: 420, liftY: 560 })
 })
 
 test('EMP places, undoes, saves, reopens and playtests in the builder', async ({ page }, info) => {

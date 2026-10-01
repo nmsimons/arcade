@@ -193,7 +193,7 @@ objects, so an important sentence can become obscured.
 
 ### Coin meters belong to an objective
 
-Treat a coin progress bar as a small status display. It does not need to dominate
+Treat a coin counter as a small status display. It does not need to dominate
 the room, sit beside every coin, or lie directly in the player's path. The player
 does not need to touch a coin switch to activate it.
 
@@ -207,9 +207,10 @@ clear through proximity and a short label where necessary. Group related meters
 with consistent spacing. Avoid several unexplained bars that appear to measure
 the same objective.
 
-Use the smallest supported size that remains readable for its count. Currently,
-a horizontal coin meter can be as small as six tiles wide and one tile tall;
-the vertical form swaps those dimensions. A high threshold may need more room.
+New numeric coin counters use a compact six-by-two-tile face, matching clocks.
+Older progress bars remain supported: horizontal bars can be six tiles wide and
+one tile tall, and the vertical form swaps those dimensions. Convert old bars
+deliberately and review nearby text and terrain after the footprint changes.
 
 ### Clocks should be easy to consult and easy to ignore
 
@@ -219,7 +220,7 @@ collectible, hint, or character silhouette.
 
 One display often serves a small level. Large levels may justify additional
 clocks at major rooms or return points. Every display shows the same time; each
-extra clock needs a visibility reason. Current clocks have a fixed ten-by-three
+extra clock needs a visibility reason. Current clocks have a fixed six-by-two
 tile footprint, so make them unobtrusive through placement rather than assuming
 they can be resized.
 

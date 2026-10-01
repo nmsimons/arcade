@@ -2,11 +2,12 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { blankTrial, levelProblems, parseLevel, triggerTargets } from '../src/games/jumping/level.ts'
-import { addItem, allSelections, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, resizeItem, resizeLevelHeight, setCoinThreshold, setCoinSwitchOrientation, setTriggerTargets } from '../src/games/jumping/editor.ts'
+import { addItem, allSelections, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, resizeItem, resizeLevelHeight, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, setTriggerTargets } from '../src/games/jumping/editor.ts'
 import { canPlaceOnSurface, placeOnSurface } from '../src/games/jumping/editorPlacement.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { PICKUP_ANIMATION_SECONDS } from '../src/games/jumping/pickups.ts'
 import { JumpingAudioState } from '../src/games/jumping/audioState.ts'
+import { formatCoinCount } from '../src/games/jumping/coins.ts'
 import { goalDoor } from '../src/games/jumping/goal.ts'
 
 const coin = (x, y = 888) => ({ kind: 'coin', x, y })
@@ -106,18 +107,18 @@ test('coin and wall-switch authoring preserves geometry, thresholds and connecti
   const selection = addedSwitch.selection
   assert.equal(canPlaceOnSurface(selection, addedSwitch.level), false)
   assert.equal(placeOnSurface(addedSwitch.level, selection), addedSwitch.level)
-  assert.equal(itemBounds(addedSwitch.level, selection).h, 20)
+  assert.equal(itemBounds(addedSwitch.level, selection).h, 40)
   let edited = setCoinThreshold(addedSwitch.level, 0, 2)
   edited = setTriggerTargets(edited, 0, ['gate', 'gate', 'missing'])
   assert.equal(edited.triggers[0].threshold, 2); assert.deepEqual(triggerTargets(edited.triggers[0]), ['gate'])
   edited = resizeItem(edited, selection, 160, 999)
   edited = moveItem(edited, selection, 10000, 10000)
-  assert.deepEqual(itemBounds(edited, selection), { x: 1616, y: 900, w: 160, h: 20 })
+  assert.deepEqual(itemBounds(edited, selection), { x: 1656, y: 880, w: 120, h: 40 })
   assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(edited))), edited)
   assert.deepEqual(levelProblems(edited), [])
   assert.ok(allSelections(edited).some(s => s.kind === 'trigger'))
   const taller = resizeLevelHeight(edited, 1200)
-  assert.equal(taller.triggers[0].y, 1180); assert.equal(taller.pickups[0].y, edited.pickups[0].y + 280)
+  assert.equal(taller.triggers[0].y, 1160); assert.equal(taller.pickups[0].y, edited.pickups[0].y + 280)
   const copiedSwitch = duplicateItem(taller, selection)
   assert.equal(copiedSwitch.level.triggers[1].threshold, 2)
   assert.equal(deleteItem(copiedSwitch.level, copiedSwitch.selection).triggers.length, 1)
@@ -181,4 +182,51 @@ test('vertical switch file validation bounds its height and requires its fixed w
   const run = createRun(level); step(run); run.player.x = 320; step(run)
   assert.equal(run.triggers[0].active, true); assert.equal(run.mechanisms[0].active, true)
   assert.equal(createRun(level).triggers[0].active, false)
+})
+
+
+test('numeric faces show the actual count beyond the goal and retain two-digit formatting', () => {
+  assert.equal(formatCoinCount(0, 3), '00/03')
+  assert.equal(formatCoinCount(4, 3), '04/03')
+  assert.equal(formatCoinCount(99, 99), '99/99')
+})
+
+test('legacy bars convert to bounded numeric faces without changing wiring, names, or gameplay', () => {
+  const original = setCoinSwitchOrientation(puzzle(), 0, 'vertical')
+  original.triggers[0].name = 'Upper gate'
+  const before = structuredClone(original), selection = { kind: 'trigger', index: 0 }
+  const numeric = setCoinSwitchDisplay(original, 0, 'digital')
+  assert.deepEqual(original, before, 'conversion leaves the undo state untouched')
+  assert.deepEqual(itemBounds(numeric, selection), { x: 460, y: 730, w: 120, h: 40 })
+  assert.equal(numeric.triggers[0].name, 'Upper gate')
+  assert.deepEqual(triggerTargets(numeric.triggers[0]), ['gate'])
+  assert.equal(numeric.triggers[0].threshold, 2)
+  assert.deepEqual(parseLevel(numeric), numeric)
+  assert.equal(resizeItem(numeric, selection, 240, 200), numeric)
+  assert.equal(setCoinSwitchOrientation(numeric, 0, 'vertical'), numeric)
+  assert.deepEqual(hitItem(numeric, 579, 769, 0), selection)
+  const edge = setCoinSwitchDisplay(moveItem(original, selection, 10000, 10000), 0, 'digital')
+  assert.deepEqual(levelProblems(edge), [])
+  assert.deepEqual(parseLevel(edge), edge)
+  const legacyConnection = { ...original, triggers: [{ ...original.triggers[0], targets: undefined, target: 'gate' }] }
+  assert.equal(setCoinSwitchDisplay(legacyConnection, 0, 'digital').triggers[0].target, 'gate')
+  assert.equal(setCoinSwitchDisplay(numeric, 0, 'bar').triggers[0].display, undefined)
+  const bars = createRun(original), digits = createRun(numeric)
+  for (let i = 0; i < 150; i++) {
+    const input = { ...NEUTRAL_INPUT, move: 1 }
+    stepRun(bars, input); stepRun(digits, input)
+    assert.deepEqual(digits.player, bars.player)
+    assert.equal(digits.coinsCollected, bars.coinsCollected)
+    assert.deepEqual(digits.triggers.map(t => t.active), bars.triggers.map(t => t.active))
+    assert.deepEqual(digits.mechanisms, bars.mechanisms)
+    assert.equal(digits.elapsed, bars.elapsed)
+  }
+})
+
+test('numeric switch files validate their fixed footprint and exclude legacy orientation fields', () => {
+  const numeric = setCoinSwitchDisplay(puzzle(), 0, 'digital')
+  for (const change of [{ display: 'numbers' }, { display: null }, { w: 200 }, { h: 40 },
+    { orientation: 'vertical' }, { x: 1657 }, { y: 881 }]) {
+    assert.throws(() => parseLevel({ ...numeric, triggers: [{ ...numeric.triggers[0], ...change }] }), JSON.stringify(change))
+  }
 })

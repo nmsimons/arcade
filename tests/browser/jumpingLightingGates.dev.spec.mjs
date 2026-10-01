@@ -65,7 +65,7 @@ test('terrain stays ambient-only while wall displays receive the beam behind a b
     const ambient = h.render(0), closed = h.render(0, [source]), bright = h.normal('#e5e7e6')
     h.run.level = { ...h.run.level, platforms: [receiver] }; h.run.terrain = h.run.level.platforms
     const open = h.render(0, [source])
-    const points = [[630, 110], [620, 130], [620, 170], [660, 180], [660, 210]]
+    const points = [[615, 85], [620, 110], [620, 170], [660, 180], [660, 210]]
     const wall = points.map((point, i) => ({ clock: i < 2, ambient: h.pixel(ambient, ...point), open: h.pixel(open, ...point), closed: h.pixel(closed, ...point), bright: h.pixel(bright, ...point) }))
     const result = { wall, receiver: { ambient: h.pixel(ambient, 650, 300), closed: h.pixel(closed, 650, 300), open: h.pixel(open, 650, 300), bright: h.pixel(bright, 650, 300) } }
     h.renderer.dispose(); return result

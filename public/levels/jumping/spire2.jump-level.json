@@ -2,33 +2,9 @@
   "version": 2,
   "id": "11234f12-817c-4966-a141-54e70573fae0",
   "name": "Spire II",
-  "width": 1800,
+  "width": 1500,
   "height": 1400,
   "platforms": [
-    {
-      "x": 1500,
-      "y": 0,
-      "w": 300,
-      "h": 1160,
-      "polygon": [
-        [
-          0,
-          0
-        ],
-        [
-          300,
-          0
-        ],
-        [
-          300,
-          1160
-        ],
-        [
-          0,
-          1160
-        ]
-      ]
-    },
     {
       "x": 100,
       "y": 1100,
@@ -404,8 +380,11 @@
   },
   "floor": 1400,
   "goal": {
-    "x": 1600,
-    "y": 1400
+    "x": 1260,
+    "y": 1400,
+    "flipX": true,
+    "id": "239e7a67-8276-4d8e-9e6c-4a56e76e48c3",
+    "power": "switched"
   },
   "times": {
     "gold": 10,
@@ -413,36 +392,25 @@
     "bronze": 40
   },
   "props": [],
-  "mechanisms": [
-    {
-      "id": "a0d3a48d-ba34-44b1-be16-a7dedb573c24",
-      "kind": "gate",
-      "x": 1500,
-      "y": 1160,
-      "w": 20,
-      "h": 240,
-      "travel": 240
-    }
-  ],
+  "mechanisms": [],
   "triggers": [
     {
-      "x": 1756,
-      "y": 1280,
-      "orientation": "vertical",
-      "w": 20,
-      "h": 120,
+      "x": 1140,
+      "y": 1180,
+      "w": 120,
       "targets": [
-        "a0d3a48d-ba34-44b1-be16-a7dedb573c24"
+        "239e7a67-8276-4d8e-9e6c-4a56e76e48c3"
       ],
       "mode": "coins",
-      "threshold": 12
+      "threshold": 12,
+      "display": "digital"
     }
   ],
   "robots": [],
   "timers": [
     {
-      "x": 1560,
-      "y": 1200
+      "x": 220,
+      "y": 1180
     }
   ],
   "pickups": [
@@ -517,15 +485,6 @@
     "nightMode": true,
     "ambient": 0,
     "lights": [
-      {
-        "id": "a02008ea-32e3-4f1a-97d9-4aed9faa087f",
-        "x": 1380,
-        "y": 1140,
-        "intensity": 100,
-        "direction": 60,
-        "spread": 80,
-        "power": "always"
-      },
       {
         "id": "72926f4d-151e-478d-87b5-ab77410c5b9d",
         "x": 560,

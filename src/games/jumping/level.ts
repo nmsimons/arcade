@@ -18,6 +18,7 @@ import type { WallText } from './wallText.ts'
 import { wallTextBounds } from './wallText.ts'
 import { pickupBounds } from './pickups.ts'
 import type { Pickup } from './pickups.ts'
+import { DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT } from './digitalDisplay.ts'
 import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
 import type { CoinSwitchOrientation } from './coins.ts'
 import { MECHANISM_THICKNESS, prepareMechanism } from './mechanisms.ts'
@@ -291,6 +292,13 @@ export function parseLevel(value: unknown): JumpLevel {
       if (t.mode === 'coins') {
         const threshold = num(t.threshold, 1, 80)
         if (!Number.isInteger(threshold)) fail()
+        if (t.display !== undefined && t.display !== 'digital') fail()
+        if (t.display === 'digital') {
+          if (t.orientation !== undefined || t.h !== undefined || t.w !== DIGITAL_DISPLAY_WIDTH) fail()
+          return { ...objectName(t), x: num(t.x, 24, width - DIGITAL_DISPLAY_WIDTH - 24),
+            y: num(t.y, 0, level.floor! - DIGITAL_DISPLAY_HEIGHT), w: DIGITAL_DISPLAY_WIDTH,
+            ...connection, mode: 'coins', threshold, display: 'digital' }
+        }
         if (t.orientation !== undefined && t.orientation !== 'vertical') fail()
         if (t.orientation === undefined && t.h !== undefined) fail()
         // Preserve vertical switches saved with the original, thicker housing.
@@ -314,10 +322,9 @@ export function parseLevel(value: unknown): JumpLevel {
     })
     if (v.timers !== undefined) level.timers = list(v.timers, 40).map(item => {
       const timer = object(item)
-      // Preserve files authored with the old 192 × 52 display at a room edge.
-      // The larger, tile-aligned display only needs a small inward adjustment.
-      return { ...objectName(timer), x: Math.min(num(timer.x, 0, width - 192), width - WALL_TIMER_WIDTH),
-        y: Math.min(num(timer.y, 0, level.floor! - 52), level.floor! - WALL_TIMER_HEIGHT) }
+      // All earlier clock footprints were larger. Preserve their top-left positions.
+      return { ...objectName(timer), x: num(timer.x, 0, width - WALL_TIMER_WIDTH),
+        y: num(timer.y, 0, level.floor! - WALL_TIMER_HEIGHT) }
     })
     if (v.pickups !== undefined) level.pickups = list(v.pickups, 80).map(item => {
       const pickup = object(item)

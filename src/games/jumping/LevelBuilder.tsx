@@ -39,6 +39,8 @@ import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
 import { switchedItems } from './switchPower'
 import { setObjectPower, setPlateBehavior } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
+import { useBuilderController } from './useBuilderController'
+import { BuilderTextEntry } from './BuilderTextEntry'
 import './builder.css'
 import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
 import { AccountSurface } from '../../accounts/AccountSurface'
@@ -172,6 +174,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
   const [size, setSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const builderRef = useRef<HTMLElement>(null)
+  const [textEntry, setTextEntry] = useState<HTMLInputElement | HTMLTextAreaElement | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const inspectorRef = useRef<HTMLElement>(null)
   const [inspectorTab, setInspectorTab] = useState<'level' | 'object'>('level')
@@ -463,7 +467,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }
   function pointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (event.button !== 0 && event.button !== 1) return
-    event.preventDefault(); event.currentTarget.focus({ preventScroll: true }); event.currentTarget.setPointerCapture(event.pointerId)
+    event.preventDefault(); event.currentTarget.focus({ preventScroll: true })
+    // Controller drags use the same editor events without a physical pointer ID.
+    if (event.nativeEvent.isTrusted) event.currentTarget.setPointerCapture(event.pointerId)
     const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = preview ?? history.present
     setPointer(p)
     latestPreview.current = null
@@ -645,7 +651,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     commit(changedObject(history.present, field, value))
   }
 
-  return <section className="jumping-builder" hidden={!active} aria-label="Level builder" onKeyDown={event => {
+  const builderController = useBuilderController({ active, root: builderRef, canvas: canvasRef,
+    onPan: (x, y) => setView(previous => ({ ...previous, x: previous.x + x / previous.zoom, y: previous.y + y / previous.zoom })),
+    onZoom: zoom, onUndo: undo, onRedo: redo, onDuplicate: duplicate,
+    onLibrary: () => { if (!saving && !local.busy) setLibraryOpen(true) },
+    onTest: () => { if (!drag && !problem && !saving && !local.busy) void save(true) }, onEditText: setTextEntry })
+
+  return <section ref={builderRef} className="jumping-builder" hidden={!active} aria-label="Level builder"
+    onKeyDownCapture={event => { if (event.nativeEvent.isTrusted) event.currentTarget.dataset.inputMethod = 'keyboard' }} onKeyDown={event => {
     if (libraryOpen || helpOpen || saveFailure) return
     if (event.key === 'F1') { event.preventDefault(); setHelpOpen(true); return }
     if ((event.target as HTMLElement).matches('input, select, textarea')) return
@@ -712,6 +725,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         })}
     </aside>
     <div className="builder-stage">
+      <div ref={builderController.cursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
       <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setDrag(null); setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
@@ -863,10 +877,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       <LevelSaveStatus context="builder" kind={local.repository ? local.repositoryKind === 'account' ? 'account' : 'built-in' : 'folder'}
         fileName={fileSource.fileName ?? fileName} text={fileSource.text} dirty={dirty || !fileSource.text} saving={saving} />
       {(lightingGeometry.error || message) && <span className="builder-status-message">{lightingGeometry.error || message}</span>}
-    </span><span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
+    </span>{builderController.connected && <span className="builder-controller-hint">Y / △: Canvas ↔ controls · A / ×: Select / drag · B / ○: Cancel · Help: Controller</span>}<span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
     {active && helpOpen && <BuilderHelp tools={TOOLS} onClose={() => setHelpOpen(false)} />}
     {active && libraryOpen && <BuilderLibrary local={local} collections={collections} templates={templates} level={level} dirty={dirty} saving={saving}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}
     {active && saveFailure && <SaveFailureDialog {...saveFailure} onClose={() => setSaveFailure(null)} />}
+    {active && textEntry && <BuilderTextEntry input={textEntry} onClose={() => setTextEntry(null)} />}
   </section>
 }

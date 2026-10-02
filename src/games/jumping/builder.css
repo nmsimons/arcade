@@ -86,6 +86,12 @@
 .builder-view-controls output { min-width: 3.5em; text-align: center; font: inherit; font-variant-numeric: tabular-nums; }
 .jumping-game .builder-stage > canvas { display: block; min-height: 0; min-width: 0; width: 100%; height: 100%; touch-action: none; }
 .builder-stage > canvas:focus-visible { outline: 4px solid var(--jumping-color-ink); outline-offset: -4px; }
+.builder-controller-cursor { position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; z-index: 3; pointer-events: none; border: 2px solid var(--jumping-color-ink); border-radius: 50%; background: var(--jumping-color-paper); box-shadow: 0 0 0 2px var(--jumping-color-paper); }
+.builder-controller-cursor[hidden] { display: none; }
+.builder-controller-cursor::before, .builder-controller-cursor::after { content: ''; position: absolute; background: var(--jumping-color-ink); }
+.builder-controller-cursor::before { left: 7px; top: -5px; width: 2px; height: 26px; }
+.builder-controller-cursor::after { left: -5px; top: 7px; width: 26px; height: 2px; }
+.builder-controller-cursor[data-dragging=true] { background: var(--jumping-selection); }
 .jumping-game .jumping-builder .builder-minimap { position: absolute; right: 16px; bottom: 16px; width: 148px; padding: 8px; background: var(--jumping-paper); box-shadow: var(--ui-shadow-card); }
 .builder-minimap .level-thumbnail { height: 56px; }
 .builder-minimap > span { display: block; margin-top: 6px; font-size: var(--jumping-type-small); font-weight: 400; }
@@ -130,6 +136,8 @@
 .builder-validation strong { font-weight: 600; }
 .builder-validation p { margin: 12px 0 0; font: inherit; overflow-wrap: anywhere; }
 .builder-status { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 32px; padding: 6px 20px; background: var(--jumping-soft); color: var(--jumping-ink); font-size: var(--jumping-type-small); }
+.builder-status:has(.builder-controller-hint) { flex-wrap: wrap; gap: 4px 16px; }
+.builder-controller-hint { flex: 1 1 360px; }
 
 /* Focus has the same flat, high-contrast treatment as the dialogs. */
 .jumping-game .jumping-builder button:where(:not([role=tab])):focus-visible:not(:disabled),
@@ -142,7 +150,16 @@
 .jumping-game .builder-header button:focus-visible:not(:disabled) { background: var(--jumping-color-paper); color: var(--jumping-color-ink); }
 .jumping-game .builder-view-controls button:focus-visible:not(:disabled) { outline: 3px solid var(--jumping-color-paper); outline-offset: -5px; }
 .jumping-builder :is(summary, input[type=checkbox]):focus-visible { outline: 3px solid var(--jumping-color-ink); outline-offset: 3px; }
+.jumping-builder[data-input-method=controller] :is(button, input, textarea, summary):focus:not(:disabled) { outline: 3px solid var(--jumping-selection); outline-offset: -3px; }
+.jumping-builder[data-input-method=controller] .builder-stage > canvas:focus { outline: 4px solid var(--jumping-color-ink); outline-offset: -4px; }
 .jumping-builder select option { background: var(--jumping-paper); color: var(--jumping-ink); }
+.builder-text-entry { position: fixed; inset: 0; width: min(680px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); margin: auto; padding: 24px; overflow: auto; border: 0; border-radius: 2px; color: var(--jumping-ink); background: var(--jumping-paper); }
+.builder-text-entry::backdrop { background: rgb(30 40 34 / .65); }
+.builder-text-preview { display: block; min-height: 60px; padding: 12px; margin-bottom: 16px; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--jumping-section); }
+.builder-text-keys { display: grid; gap: 4px; }
+.builder-text-keys > div { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+.jumping-game .builder-text-keys button { padding: 8px 2px; background: var(--jumping-section); }
+.builder-text-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 16px; }
 @media (forced-colors: active) {
   .jumping-game .jumping-builder :is(button, input, select, textarea):focus-visible { forced-color-adjust: none; background: Highlight; color: HighlightText; }
   .jumping-game .jumping-builder .builder-inspector-tabs button[aria-selected=true] { forced-color-adjust: none; background: Highlight; color: HighlightText; }

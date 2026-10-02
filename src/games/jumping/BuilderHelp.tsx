@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import type { Tool } from './editor'
 import { BuilderIcon } from './BuilderIcon'
 
-const SECTIONS = ['Canvas', 'Inspector', 'Objects', 'Levels', 'Shortcuts'] as const
+const SECTIONS = ['Canvas', 'Inspector', 'Objects', 'Levels', 'Shortcuts', 'Controller'] as const
 type Section = typeof SECTIONS[number]
 const OBJECT_NOTES: Partial<Record<Tool, string>> = {
   platform: 'Square handles resize the whole shape. A terrain shape must keep at least three nodes.',
@@ -135,6 +135,24 @@ export function BuilderHelp({ tools, onClose }: {
       </dl>}
       {name === 'Shortcuts' && <div className="builder-help-shortcuts">
         {SHORTCUTS.map(group => <section key={group.group}><h3>{group.group}</h3><dl>{group.items.map(([keys, action]) => <div key={keys}><dt>{keys}</dt><dd>{action}</dd></div>)}</dl></section>)}
+      </div>}
+      {name === 'Controller' && <div className="builder-help-shortcuts">
+        <p>Use a standard Xbox, PlayStation, or compatible controller. Release held buttons and sticks after changing screens.</p>
+        <dl>
+          <div><dt>Y / △</dt><dd>Switch between the canvas cursor and the editor controls. Return to the last control you used.</dd></div>
+          <div><dt>Left stick</dt><dd>Move the canvas cursor, or navigate controls, Help, and Library.</dd></div>
+          <div><dt>A / ×</dt><dd>Activate a control. On the canvas, press to select or place; hold while moving to drag, resize, draw terrain, or edit a node. Release to apply one undoable edit.</dd></div>
+          <div><dt>B / ○</dt><dd>Cancel a drag, close a list or dialog, or return from the canvas to the controls.</dd></div>
+          <div><dt>D-pad</dt><dd>Navigate controls. On the canvas, nudge the selected object or node; during a drag, move the cursor precisely.</dd></div>
+          <div><dt>Right stick</dt><dd>Pan the canvas. In the controls, scroll the focused panel.</dd></div>
+          <div><dt>LT / L2 · RT / R2</dt><dd>Zoom out / in on the canvas.</dd></div>
+          <div><dt>Left-stick click</dt><dd>Slow the cursor and bypass snapping while dragging. Use one-unit nudges and number-field steps.</dd></div>
+          <div><dt>LB / L1 · RB / R1</dt><dd>Undo / redo outside dialogs.</dd></div>
+          <div><dt>X / □</dt><dd>Duplicate the selected object on the canvas.</dd></div>
+          <div><dt>View / Share · Menu / Options</dt><dd>Open Library / Save and Test. During a canvas drag, Menu first cancels the drag; press again to test.</dd></div>
+          <div><dt>Inspector fields</dt><dd>Left / right changes a number; up / down moves to another control. A opens lists and an on-screen keyboard for names and wall text. B cancels; A confirms the selected list item or text-keyboard action.</dd></div>
+        </dl>
+        <p>Disconnecting the controller or leaving the window cancels an unfinished drag. A browser folder chooser may need the keyboard or mouse once; connected folders remain usable from Library.</p>
       </div>}
     </div>)}
   </dialog>

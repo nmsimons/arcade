@@ -209,6 +209,25 @@ the same folder without another folder chooser. If read access remains available
 but write permission has expired, levels load automatically and **Enable saving**
 restores direct saves. A missing folder can be replaced with **Change folder**.
 
+Level studio supports standard controllers. **Y / △** switches between editor
+controls and the canvas cursor. Navigate controls with the left stick or D-pad;
+**A / ×** activates buttons, checkboxes, and lists. Left/right steps number fields;
+A opens an on-screen keyboard for names and wall text. **B / ○** cancels or closes
+the current dialog. The right stick scrolls the focused panel. Help's
+**Controller** topic lists every binding.
+
+On the canvas, the left stick moves the cursor. Hold A while moving to draw,
+drag, resize, or edit terrain nodes, then release to apply one undoable edit.
+The D-pad nudges the selected object or node. The right stick pans; the triggers
+zoom out/in. Clicking the left stick gives fine movement, one-unit nudges, and
+drags without snapping. **X / □** duplicates; **LB / L1** and **RB / R1** undo and
+redo. **View / Share** opens Library; **Menu / Options** saves and playtests.
+During a canvas drag, Menu first cancels the preview; press again to test.
+Held inputs must be released after changing screens, opening a dialog, or
+reconnecting. Leaving the window or disconnecting cancels an unfinished drag.
+Native browser folder choosers may need the keyboard or mouse once; connected
+folders work with the controller.
+
 In the builder, **Library** opens a centered, nearly full-screen dialog. It contains
 **New level**, local files, built-in templates, and folder controls. **Choose folder**
 selects the destination for **Save level**. Replacing a draft with unsaved changes

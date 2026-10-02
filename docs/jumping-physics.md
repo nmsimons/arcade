@@ -94,8 +94,26 @@ patrol turn can reveal the player again. The eye color follows this same detecti
 6. Evaluate pickups, pressure plates and goal completion at the final positions.
 
 The exit has no pressure plate. Always-on exits start open; switched exits follow
-the OR of their active inputs, opening and closing normally. Plate inputs use
-Pressure (while loaded), Switch (latched after one press), or Toggle (one reversal
+their selected switch logic, opening and closing normally. Gates, elevators,
+moving platforms, wall lights, spotlights and switched exits share OR (any active input),
+AND (every connected input), or XOR (exactly one active input). Reversed flips
+the combined result. Unconnected items stay off normally and on when reversed.
+Omission preserves OR with reversal off. Enabling Relay makes an item's combined
+result an input to its connected targets; Relay is off by default. Acyclic relay
+chains settle immediately, independent of object order. Feedback loops are
+invalid. Previews and gameplay use the same initial inputs and rules. Relay
+outputs describe logical activation rather than physical gate position, safety
+holds, movement, light fading or flicker. They follow inputs during EMP while
+mechanisms pause and spotlights fade off normally.
+
+Pressure plates can mount on lifts: both contact samples, rendering and sound
+use the host's current position plus the plate's saved horizontal offset.
+The normal passenger solver carries player and prop loads. Mounting does not
+change contact rules, debounce, plate modes or EMP behavior. Wall lights use the
+goal indicator's activation colors and brightness, without emitting light or
+adding colliders.
+
+Plate inputs use Pressure (while loaded), Switch (latched after one press), or Toggle (one reversal
 per press after release, with an authored initial state). Physical load and stored
 activation are distinct; two sensor samples in one physics step cannot toggle
 twice. Switch and Toggle retain their state during EMP; new presses wait for power.

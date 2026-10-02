@@ -2,6 +2,7 @@ import type { JumpLevel, PuzzleLevel } from './level.ts'
 import { copyLevel, isPuzzleLevel, levelTerrain, newLevelId, snapToGround } from './level.ts'
 import { blankTrial } from './level.ts'
 import { groundAt } from './terrain.ts'
+import { switchSources } from './switchPower.ts'
 
 export function asTrial(level: JumpLevel): PuzzleLevel {
   if (isPuzzleLevel(level)) return copyLevel(level)
@@ -12,12 +13,16 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
 }
 export function copyForEditing(level: JumpLevel): JumpLevel {
   const next = { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` }
-  const items = [...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.goal?.id ? [next.goal] : [])]
+  const items = [...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.goal?.id ? [next.goal] : [])]
   const ids = new Map(items.map(item => [item.id!, newLevelId()]))
   for (const item of items) item.id = ids.get(item.id!)!
-  for (const trigger of next.triggers ?? []) {
-    if (trigger.targets) trigger.targets = trigger.targets.map(id => ids.get(id) ?? id)
-    else if (trigger.target) trigger.target = ids.get(trigger.target) ?? trigger.target
+  for (const source of switchSources(next)) {
+    const definition = source.definition
+    if (definition.targets) definition.targets = definition.targets.map(id => ids.get(id) ?? id)
+    else if (source.kind === 'trigger' && source.definition.target) source.definition.target = ids.get(source.definition.target) ?? source.definition.target
+    if (source.kind === 'trigger' && source.definition.mode !== 'coins' && source.definition.mount) {
+      source.definition.mount.mechanism = ids.get(source.definition.mount.mechanism) ?? source.definition.mount.mechanism
+    }
   }
   return next
 }

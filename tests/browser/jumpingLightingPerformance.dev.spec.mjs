@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test('structural shadows preserve gates and restore exact object shadows when full quality returns', async ({ page }) => {
+test('default structural shadows preserve gates and full shadow experiments remain reversible', async ({ page }) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -15,14 +15,17 @@ test('structural shadows preserve gates and restore exact object shadows when fu
     for (let i = 0; i < 4; i++) draw('full')
     const full = draw('full')
     const reduced = draw('structural')
+    h.renderer.render(h.canvas.getContext('2d'), h.run, { ambient: 0, nightMode: true, lights }, h.view, .2)
+    const defaults = { pixels: h.canvas.getContext('2d').getImageData(0, 0, 1280, 720).data }
     for (let i = 0; i < 4; i++) draw('structural')
     const restored = draw('full')
-    const result = { difference: h.difference(full, restored),
+    const result = { difference: h.difference(full, restored), defaultDifference: h.difference(reduced, defaults),
       gate: [h.pixel(full, 700, 220), h.pixel(reduced, 700, 220)],
       box: [h.pixel(full, 700, 460), h.pixel(reduced, 700, 460)] }
     h.renderer.dispose(); return result
   })
   expect(result.difference).toBeLessThanOrEqual(1)
+  expect(result.defaultDifference).toBeLessThanOrEqual(1)
   expect(result.gate[0]).toEqual(result.gate[1])
   expect(result.box[1][0]).toBeGreaterThan(result.box[0][0])
 })

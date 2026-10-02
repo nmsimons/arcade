@@ -65,7 +65,9 @@ This is an object/geometry study, not a campaign level with established medal ti
   field as props, including partial coverage. A bounded correction reuses the
   inverse-light scratch surface. Night mode off bypasses environmental lighting
   and preserves the original dark player ink; unlit legacy levels keep their grey silhouette.
-  Pose-following player shadows use the same vector skin curves as the artwork,
+  Gameplay, studio previews and thumbnails omit player, prop and robot shadows.
+  The optional full-shadow mode remains available to renderer experiments.
+  Its pose-following player shadows use the same vector skin curves as the artwork,
   flattened to within 0.2 world units. Body parts form one caster group, preserving
   gaps between limbs. Exit shadows fade with the figure. This uses no collision
   changes, additional framebuffer, or pixel readback.

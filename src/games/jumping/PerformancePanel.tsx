@@ -33,7 +33,7 @@ export const PerformancePanel = memo(function PerformancePanel({ snapshot, pause
         <div><dt>Render scale / DPR</dt><dd>{snapshot.scale.toFixed(2)} / {snapshot.dpr.toFixed(2)}</dd></div>
         <div><dt>Lighting renderer</dt><dd>{snapshot.lighting ? snapshot.lighting.backend === 'gpu' ? 'GPU' : 'Canvas' : 'Off'}</dd></div>
         <div><dt>Lights / shadow edges</dt><dd>{snapshot.lighting ? `${snapshot.lighting.lights} / ${snapshot.lighting.edges}` : 'Off'}</dd></div>
-        <div><dt>Object shadows</dt><dd>{snapshot.shadows === 'full' ? 'On' : 'Off · adaptive'}</dd></div>
+        <div><dt>Object shadows</dt><dd>{snapshot.shadows === 'full' ? 'On' : 'Off'}</dd></div>
         <div><dt>Lighting buffers (est.)</dt><dd>{((snapshot.lighting?.bufferBytes ?? 0) / 1048576).toFixed(1)} MiB</dd></div>
       </dl>
       <p>CPU averages exclude GPU and compositing.<br />p95: 95% of frames were this fast or faster.</p>

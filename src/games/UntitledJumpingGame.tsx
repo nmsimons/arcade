@@ -132,11 +132,11 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     try { return localStorage.getItem('jumping:lighting-performance-mode') !== 'false' } catch { return true }
   })
   const adaptiveEnabled = useRef(performanceMode)
-  const [lightingShadows, setLightingShadows] = useState<'full' | 'structural'>('full')
+  const [lightingReduced, setLightingReduced] = useState(false)
   function changePerformanceMode(value: boolean) {
     if (!import.meta.env.DEV) return
     adaptiveEnabled.current = value; setPerformanceMode(value)
-    adaptiveLighting?.reset(); setLightingShadows('full')
+    adaptiveLighting?.reset(); setLightingReduced(false)
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
     try { localStorage.setItem('jumping:lighting-performance-mode', String(value)) } catch { /* Keep the choice for this visit. */ }
   }
@@ -174,7 +174,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   function changeScreen(next: Screen, reason?: string) {
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
     if (next === 'menu' || next === 'building') {
-      setPerformanceSnapshot(null); adaptiveLighting?.reset(); setLightingShadows('full')
+      setPerformanceSnapshot(null); adaptiveLighting?.reset(); setLightingReduced(false)
     }
     audio.current?.silence()
     if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
@@ -203,7 +203,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   }, [screen])
   function resetPosition() {
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
-    adaptiveLighting?.reset(); setLightingShadows('full')
+    adaptiveLighting?.reset(); setLightingReduced(false)
     if (preparedStart.current?.run) {
       const world = clonePreparedLevel(preparedStart.current)
       run.current = world.run; player.current = world.player!
@@ -449,13 +449,13 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     const paint = (dt = 0) => {
       if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
       const level = run.current?.level ?? activeLevel.current
-      const nextRatio = level.lighting ? lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting?.shadows === 'structural') : Math.min(window.devicePixelRatio || 1, 2)
+      const nextRatio = level.lighting ? lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.reduced) : Math.min(window.devicePixelRatio || 1, 2)
       if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       if (level.lighting) {
         const camera = gameCamera(width, height, player.current, level, !!run.current)
         lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), level.lighting,
-          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt, undefined, false, adaptiveLighting?.shadows ?? 'full')
+          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
         return
       }
       lightingStats = null
@@ -504,15 +504,15 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       } else { accumulator = 0; motion?.reset() }
       const lighting = (run.current?.level ?? activeLevel.current).lighting
       if (adaptiveLighting && adaptiveEnabled.current && input && lighting && nightModeEnabled(lighting) && !document.hidden) {
-        const before = adaptiveLighting.shadows, after = adaptiveLighting.observe(now)
-        if (after !== before) { setLightingShadows(after); performanceMonitor?.reset() }
+        const before = adaptiveLighting.reduced, after = adaptiveLighting.observe(now)
+        if (after !== before) { setLightingReduced(after); performanceMonitor?.reset() }
       } else adaptiveLighting?.suspend()
       const updated = measuring ? performance.now() : 0
       paint(input ? dt : 0)
       if (measuring && input && screenRef.current === 'playing') {
         const summary = performanceMonitor?.record(now, updated - started, performance.now() - updated, steps)
         if (summary) setPerformanceSnapshot({ ...summary, width: canvas.width, height: canvas.height, scale: ratio,
-          dpr: window.devicePixelRatio || 1, shadows: adaptiveLighting?.shadows ?? 'full',
+          dpr: window.devicePixelRatio || 1, shadows: 'structural',
           lighting: lightingStats && { lights: lightingStats.lights, edges: lightingStats.edges, bufferBytes: lightingStats.bufferBytes, backend: lightingStats.backend } })
       } else performanceMonitor?.reset()
       if (now - published > 80) {
@@ -633,6 +633,6 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       templates={devEditing ? [] : catalog.files} local={editorSource === 'built-in' && devEditing ? builtIn : local} collections={devEditing ? { local, builtIn } : undefined} initialFile={editorFile?.file} onFileChange={builderFileChanged} /> }
     {import.meta.env.DEV && devOpen && <JumpingDevelopmentPanel onClose={() => changeDevOpen(false)}
       showPerformance={showPerformance} onPerformanceChange={changePerformance} snapshot={performanceSnapshot}
-      performanceMode={performanceMode} onPerformanceModeChange={changePerformanceMode} objectShadows={lightingShadows === 'full'} />}
+      performanceMode={performanceMode} onPerformanceModeChange={changePerformanceMode} reducedResolution={lightingReduced} />}
   </div>
 }

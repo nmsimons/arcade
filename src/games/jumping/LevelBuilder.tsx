@@ -2,9 +2,9 @@ import { nightModeEnabled } from './ambientLight'
 import { polygonPoints } from './geometry'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setTriggerTargets, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay } from './editor'
+import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, parseLevel, prepareLevelRopes, triggerTargets } from './level'
+import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, parseLevel, prepareLevelRopes } from './level'
 import type { JumpLevel } from './level'
 import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
 import { blankTrial } from './level'
@@ -36,12 +36,13 @@ import { isHorizontalGate, mechanismAnchor, mechanismOpenPosition, mechanismRope
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
-import { switchedItems } from './switchPower'
-import { setObjectPower, setPlateBehavior } from './editor'
+import { switchedItems, switchSources, switchTargets } from './switchPower'
+import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
 import { drawPlacementPreview, placementPreview } from './builderPlacement'
+import { ITEM_GRID_SIZE, selectionGridSize, toolGridSize } from './builderSnap'
 import './builder.css'
 import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
 import { AccountSurface } from '../../accounts/AccountSurface'
@@ -103,6 +104,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
   { id: 'light', group: 'Back wall', label: 'Spotlight', help: 'Click to place a spotlight on the back wall, or drag to aim it. Drag its center handle to aim and its outer handles to widen the beam. Lights have no range limit. EMP cuts their power.' },
+  { id: 'wall-light', group: 'Back wall', label: 'Wall light', help: 'Place the goal-style indicator on the wall, with a circular rim. Connect switches to turn it green. Supports Logic, Reversed and the optional Relay setting.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Choose Official or red Graffiti, and edit the text, size, alignment, and rotation in the inspector. Text never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
@@ -135,11 +137,6 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   useEffect(() => { if (!active) lightingRenderer.release() }, [active, lightingRenderer])
   const [lightingPreview, setLightingPreview] = useState(true)
   const [previewLight, setPreviewLight] = useState<string | null>(null)
-  useEffect(() => {
-    const clear = () => { setPreviewLight(null); setPointer(null) }
-    window.addEventListener('blur', clear)
-    return () => window.removeEventListener('blur', clear)
-  }, [])
   const lightingGeometry = useLightingGeometry(level, active && lightingPreview)
   const roomHeight = levelHeight(level)
   const [message, setMessage] = useState('')
@@ -172,6 +169,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [keepTool, setKeepTool] = useState(false)
   const panHeld = useRef(false)
   const [pointer, setPointer] = useState<(Point & { free?: boolean }) | null>(null)
+  useEffect(() => {
+    const clear = () => { setPreviewLight(null); setPointer(null) }
+    window.addEventListener('blur', clear)
+    return () => window.removeEventListener('blur', clear)
+  }, [])
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
   const [size, setSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -206,15 +208,22 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const adjustingPatrol = drag?.mode === 'patrol' || pointer && patrolHandleAt(pointer)
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
   const goal = selection?.kind === 'goal' ? level.goal : null
+  const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
   const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light
   const objectPower = switchable ? switchable.power ?? (goal ? 'always' : 'switched') : null
   const targets = switchedItems(level)
   const switchedObject = targets.find(item => item.kind === selection?.kind && item.index === selection.index)
+  const objectSwitchLogic = (goal ?? mechanism ?? light ?? wallLight)?.switchLogic ?? 'or'
+  const objectSwitchReversed = !!(goal ?? mechanism ?? light ?? wallLight)?.switchReversed
+  const sources = switchSources(level)
+  const selectedSource = sources.find(item => item.kind === selection?.kind && item.index === selection.index)
+  const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
+  const outgoingTargets = targets.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
   const aimHandles = useMemo(() => light ? lightHandles(light, view.zoom) : [], [light, view.zoom])
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
-  const quantize = useCallback((v: number) => snap ? Math.round(v / LEVEL_GRID_SIZE) * LEVEL_GRID_SIZE : Math.round(v), [snap])
-  const quantizeY = useCallback((y: number) => roomHeight - quantize(roomHeight - y), [roomHeight, quantize])
+  const quantize = useCallback((v: number, grid: number) => snap ? Math.round(v / grid) * grid : Math.round(v), [snap])
+  const quantizeY = useCallback((y: number, grid: number) => roomHeight - quantize(roomHeight - y, grid), [roomHeight, quantize])
   const hoveredNode = useMemo(() => tool === 'node' && pointer ? terrainVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom) : null,
     [tool, pointer, level, view.zoom])
   const nodeTarget = useMemo(() => tool === 'node' && pointer && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null,
@@ -516,7 +525,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       } catch (error) { setMessage((error as Error).message) }
       return
     }
-    if (tool !== 'select') { setDrag({ mode: 'draw', start: event.altKey ? p : { x: quantize(p.x), y: quantizeY(p.y) }, screen, base, view, selection: null }); return }
+    if (tool !== 'select') {
+      const grid = toolGridSize(tool)
+      setDrag({ mode: 'draw', start: event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, screen, base, view, selection: null }); return
+    }
     const aimHandle = aimHandles.find(h => Math.hypot(p.x - h.x, p.y - h.y) < 10 / view.zoom)
     if (selection?.kind === 'light' && aimHandle) { chooseInspectorTab('object'); setDrag({ mode: aimHandle.kind, start: p, screen, base, view, selection }); return }
     if (selection && travelHandleAt(p)) {
@@ -547,18 +559,20 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (d.mode === 'pan') { setView({ ...d.view, x: d.view.x - (event.clientX - d.screen.x) / d.view.zoom, y: d.view.y - (event.clientY - d.screen.y) / d.view.zoom }); return }
     const p = position(event), dx = p.x - d.start.x, dy = p.y - d.start.y
     setPointer(p)
-    const qx = (v: number) => event.altKey ? v : quantize(v), qy = (v: number) => event.altKey ? v : quantizeY(v)
+    const grid = d.mode === 'draw' ? toolGridSize(tool) : d.selection ? selectionGridSize(d.selection) : LEVEL_GRID_SIZE
+    const qx = (v: number) => event.altKey ? v : quantize(v, grid), qy = (v: number) => event.altKey ? v : quantizeY(v, grid)
     let next: JumpLevel | null = null
     if (d.mode === 'draw') {
       try {
-        const added = addItem(d.base, tool, d.start, event.altKey ? p : { x: quantize(p.x), y: quantizeY(p.y) })
+        const added = addItem(d.base, tool, d.start, { x: qx(p.x), y: qy(p.y) })
         next = added ? snap && !event.altKey ? placeOnSurface(added.level, added.selection, 12 / view.zoom) : added.level : null
       } catch { /* Explain invalid placement when released. */ }
     } else if (d.selection) {
       const rawBounds = itemBounds(d.base, d.selection)!
-      const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] } : rawBounds
+      const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] }
+        : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] } : rawBounds
       if (d.mode === 'move') {
-        next = moveItem(d.base, d.selection, event.altKey ? dx : quantize(b.x + dx) - b.x, event.altKey ? dy : quantizeY(b.y + dy) - b.y)
+        next = moveItem(d.base, d.selection, qx(b.x + dx) - b.x, qy(b.y + dy) - b.y)
         if (snap && !event.altKey) next = placeOnSurface(next, d.selection, 12 / view.zoom)
       }
       if (d.mode === 'aim' || d.mode === 'spread') {
@@ -589,7 +603,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           : d.corner === 'top' || d.corner === 'bottom' ? b.w : d.corner?.endsWith('left') ? b.x + b.w - qx(b.x + dx) : qx(b.x + b.w + dx) - b.x
         const height = text ? qx(b.h + (d.corner?.startsWith('top') ? -localY : localY))
           : d.corner === 'left' || d.corner === 'right' ? b.h : d.corner?.startsWith('top') ? b.y + b.h - qy(b.y + dy) : qy(b.y + b.h + dy) - b.y
-        next = resizeItem(d.base, d.selection, Math.max(snap && !event.altKey ? LEVEL_GRID_SIZE : 1, width), Math.max(snap && !event.altKey ? LEVEL_GRID_SIZE : 1, height), d.corner)
+        next = resizeItem(d.base, d.selection, Math.max(snap && !event.altKey ? grid : 1, width), Math.max(snap && !event.altKey ? grid : 1, height), d.corner)
       }
       if (d.mode === 'point') {
         const point = polygonPoints(d.base.platforms[d.selection.index])[d.point!]
@@ -604,7 +618,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     hover(position(event), event.altKey)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     if (!d) return
-    if (d.mode === 'draw') { const p = position(event); add(tool, d.start, event.altKey ? p : { x: quantize(p.x), y: quantizeY(p.y) }, event.altKey) }
+    if (d.mode === 'draw') {
+      const p = position(event), grid = toolGridSize(tool)
+      add(tool, d.start, event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, event.altKey)
+    }
     else if (latestPreview.current) commit(latestPreview.current)
     setPreview(null); latestPreview.current = null
   }
@@ -632,7 +649,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function setDimension(base: JumpLevel, axis: 'x' | 'y' | 'w' | 'h', value: number) {
     const bounds = selection && itemBounds(base, selection)
     if (!selection || !bounds || !Number.isFinite(value)) return base
-    const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : null
+    const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : selection.kind === 'wall-light' ? base.wallLights?.[selection.index] : null
     return axis === 'x' || axis === 'y' ? moveItem(base, selection, axis === 'x' ? value - (light?.x ?? bounds.x) : 0, axis === 'y' ? levelHeight(base) - value - (light?.y ?? bounds.y) : 0)
       : resizeItem(base, selection, axis === 'w' ? value : bounds.w, axis === 'h' ? value : bounds.h)
   }
@@ -676,7 +693,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     commit(changedObject(history.present, field, value))
   }
 
-  const builderController = useBuilderController({ active, root: builderRef, canvas: canvasRef,
+  const { connected: controllerConnected, cursorElement: controllerCursorElement } = useBuilderController({ active, root: builderRef, canvas: canvasRef,
     onPan: (x, y) => setView(previous => ({ ...previous, x: previous.x + x / previous.zoom, y: previous.y + y / previous.zoom })),
     onZoom: zoom, onUndo: undo, onRedo: redo, onDuplicate: duplicate,
     onLibrary: () => { if (!saving && !local.busy) setLibraryOpen(true) },
@@ -699,13 +716,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (event.key === 'End') { event.preventDefault(); commit(placeOnSurface(history.present, selection)) }
       else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && chosen) removeNode(); else remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
-        event.preventDefault(); const step = event.shiftKey ? 1 : snap ? LEVEL_GRID_SIZE : 5
+        event.preventDefault(); const grid = selectionGridSize(selection), step = event.shiftKey ? 1 : snap ? grid : 5
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
         const node = chosen && selectedNode !== null ? polygonPoints(chosen)[selectedNode] : null
-        const origin = node ? { x: node[0], y: node[1] } : light ?? bounds
-        const shiftX = snap && !event.shiftKey && origin && dx ? quantize(origin.x + dx) - origin.x : dx
-        const shiftY = snap && !event.shiftKey && origin && dy ? quantizeY(origin.y + dy) - origin.y : dy
+        const origin = node ? { x: node[0], y: node[1] } : light ?? wallLight ?? bounds
+        const shiftX = snap && !event.shiftKey && origin && dx ? quantize(origin.x + dx, grid) - origin.x : dx
+        const shiftY = snap && !event.shiftKey && origin && dy ? quantizeY(origin.y + dy, grid) - origin.y : dy
         commit(node ? moveVertex(history.present, selection.index, selectedNode!, shiftX, shiftY)
           : moveItem(history.present, selection, shiftX, shiftY))
       }
@@ -735,7 +752,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         ] as const).map(([kind, label, title]) => <button key={kind} aria-label={label} title={title} disabled={!chosen} onClick={() => transformSelectedTerrain(kind)}><BuilderIcon kind={kind} /></button>)}
       </div>
       <div className="builder-control-group builder-placement-options" role="group" aria-label="Placement options">
-        <label className="builder-inline-check" title={`Snap to the ${LEVEL_GRID_SIZE}-unit grid and nearby surfaces. Hold Alt to bypass.`}><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap</label>
+        <label className="builder-inline-check" title={`Snap item positions and sizes to ${ITEM_GRID_SIZE} units, terrain geometry to ${LEVEL_GRID_SIZE} units, and catch nearby surfaces. Hold Alt to bypass.`}><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap</label>
         <label className="builder-inline-check" title="Keep the object tool active after placing an object. Pointer and Node stay active until you switch tools."><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} />Keep placing</label>
       </div>
       <div className="builder-control-group" role="group" aria-label="Edit history"><button title="Undo the last edit (Ctrl/⌘ + Z)" disabled={!history.past.length} onClick={undo}>Undo</button><button title="Redo the last undone edit (Ctrl/⌘ + Shift + Z)" disabled={!history.future.length} onClick={redo}>Redo</button></div>
@@ -751,7 +768,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         })}
     </aside>
     <div className="builder-stage" data-placement-at-cursor={placementAtCursor || undefined}>
-      <div ref={builderController.cursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
+      <div ref={controllerCursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
       <canvas ref={placementCanvasRef} className="builder-placement-preview" aria-hidden="true" />
       <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
@@ -786,9 +803,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder'].includes(selection.kind))).map(axis => {
             const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h')
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
-              : ({ x: light ? 'X' : bounds.w ? 'Left' : 'X', y: light ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
-            return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? LEVEL_GRID_SIZE : 1}
-              value={axis === 'y' ? roomHeight - (light?.y ?? bounds.y) : axis === 'x' ? light?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
+              : ({ x: light || wallLight ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
+            return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? selectionGridSize(selection) : 1}
+              value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
           })}
         </div>
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
@@ -828,19 +845,27 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
         {(pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && <label>{pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'}<NumberField label={pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'} min={1} max={9} step={1} value={pickup.seconds} {...numberEdit((base, value) => setPickupSeconds(base, selection.index, value))} /></label>}
-        {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? LEVEL_GRID_SIZE : 1} value={mechanism.travel} {...numberEdit((base, value) => changedObject(base, 'travel', value))} /></label>}
+        {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? ITEM_GRID_SIZE : 1} value={mechanism.travel} {...numberEdit((base, value) => changedObject(base, 'travel', value))} /></label>}
         {mechanism?.orientation === 'horizontal' && <button className="builder-property-action" title={mechanism.kind === 'lift' ? 'Reverse the platform’s travel direction' : 'Reverse the gate’s opening direction'} aria-pressed={!!mechanism.flipX} onClick={() => {
           const next = copyLevel(level), m = next.mechanisms![selection.index]
           if (m.flipX) delete m.flipX; else m.flipX = true
           commit(next)
         }}>Flip horizontally</button>}
-        {switchedObject && <fieldset className="builder-connections"><legend>Switched by</legend>
-          {level.triggers?.map((t, i) => <label key={i}><input type="checkbox" checked={triggerTargets(t).includes(switchedObject.id)} onChange={e => {
-            const ids = triggerTargets(t)
-            commit(setTriggerTargets(history.present, i, e.target.checked ? [...ids, switchedObject.id] : ids.filter(id => id !== switchedObject.id)))
-          }} />{selectionLabel({ kind: 'trigger', index: i }, level)}</label>)}
-          {!level.triggers?.length && <span>No switches</span>}
-        </fieldset>}
+        {switchedObject && <><fieldset className="builder-connections"><legend>Switch behavior</legend>
+          <BuilderSelect label="Logic" accessibleLabel="Switch logic" value={objectSwitchLogic}
+            options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
+            onChange={value => commit(setObjectSwitchLogic(history.present, selection, value === 'and' ? 'and' : value === 'xor' ? 'xor' : 'or'))} />
+          <label><input type="checkbox" checked={objectSwitchReversed} onChange={e => commit(setObjectSwitchReversed(history.present, selection, e.target.checked))} />Reversed</label>
+          <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>
+          <p className="builder-hint">{objectSwitchReversed ? 'Off' : 'On'} when {objectSwitchLogic === 'and' ? 'every connected switch is active'
+            : objectSwitchLogic === 'xor' ? 'exactly one connected switch is active' : 'any connected switch is active'}. {objectSwitchReversed ? 'On' : 'Off'} otherwise.</p>
+        </fieldset><fieldset className="builder-connections"><legend>Switched by</legend>
+          {incomingSources.map(source => <label key={`${source.kind}:${source.index}`}><input type="checkbox" checked={switchTargets(source.definition).includes(switchedObject.id)} onChange={e => {
+            const ids = switchTargets(source.definition)
+            commit(setSwitchTargets(history.present, source, e.target.checked ? [...ids, switchedObject.id] : ids.filter(id => id !== switchedObject.id)))
+          }} />{selectionLabel(source, level)}{source.kind !== 'trigger' ? ' · Relay' : ''}</label>)}
+          {!incomingSources.length && <span>No switches</span>}
+        </fieldset></>}
         {light?.power === 'switched' &&
           <button title="Hold to preview this light without changing its power connections" aria-pressed={previewLight === light.id}
             onPointerDown={e => { e.currentTarget.setPointerCapture(e.pointerId); setPreviewLight(light.id) }} onPointerUp={() => setPreviewLight(null)} onPointerCancel={() => setPreviewLight(null)} onBlur={() => setPreviewLight(null)}
@@ -856,6 +881,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <p className="builder-hint">All coins in the level count toward this switch. Once full, it stays active until restart.</p>
         </>}
         {trigger && trigger.mode !== 'coins' && <>
+          <BuilderSelect label="Mount" accessibleLabel="Pressure plate mount" value={trigger.mount?.mechanism ?? 'none'}
+            options={[{ value: 'none', label: 'None' }, ...(level.mechanisms ?? []).flatMap((m, index) => m.kind === 'lift' && m.w >= trigger.w
+              ? [{ value: m.id, label: selectionLabel({ kind: 'mechanism', index }, level) }] : [])]}
+            onChange={value => commit(setPressurePlateMount(history.present, selection.index, value === 'none' ? null : value))} />
+          {trigger.mount && <p className="builder-hint">Travels with its platform. Slide it along the top to reposition, or move it away to detach.</p>}
           <BuilderSelect label="Mode" accessibleLabel="Pressure plate mode" value={trigger.behavior ?? 'pressure'}
             options={[{ value: 'pressure', label: 'Pressure' }, { value: 'switch', label: 'Switch' }, { value: 'toggle', label: 'Toggle' }]}
             onChange={value => commit(setPlateBehavior(history.present, selection.index, value === 'switch' ? 'switch' : value === 'toggle' ? 'toggle' : 'pressure'))} />
@@ -865,14 +895,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <p className="builder-hint">{trigger.behavior === 'switch' ? 'The first press switches on until restart.'
             : trigger.behavior === 'toggle' ? 'Each press reverses the state. Release before pressing again.' : 'On while held down; off when released.'}</p>
         </>}
-        {trigger && <fieldset className="builder-connections"><legend>Activates</legend>
-          {targets.map(item => <label key={item.id}><input type="checkbox" checked={triggerTargets(trigger).includes(item.id)} onChange={e => {
-            const ids = triggerTargets(trigger)
-            commit(setTriggerTargets(history.present, selection.index, e.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))
+        {selectedSource && <fieldset className="builder-connections"><legend>Activates</legend>
+          {selectedSource.kind !== 'trigger' && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed. Turning Relay off clears these outputs.</p>}
+          {outgoingTargets.map(item => <label key={item.id}><input type="checkbox" checked={switchTargets(selectedSource.definition).includes(item.id)} onChange={e => {
+            const ids = switchTargets(selectedSource.definition)
+            commit(setSwitchTargets(history.present, selection, e.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))
           }} />{selectionLabel(item, level)}</label>)}
-          {!targets.length && <span>No switched items</span>}
+          {!outgoingTargets.length && <span>No switched items</span>}
         </fieldset>}
-        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? LEVEL_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
+        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? ITEM_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? ITEM_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
         {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}
@@ -904,7 +935,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       <LevelSaveStatus context="builder" kind={local.repository ? local.repositoryKind === 'account' ? 'account' : 'built-in' : 'folder'}
         fileName={fileSource.fileName ?? fileName} text={fileSource.text} dirty={dirty || !fileSource.text} saving={saving} />
       {(lightingGeometry.error || message) && <span className="builder-status-message">{lightingGeometry.error || message}</span>}
-    </span>{builderController.connected && <span className="builder-controller-hint">Y / △: Canvas ↔ controls · A / ×: Select / edit / drag · B / ○: Cancel · Help: Controller</span>}<span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
+    </span>{controllerConnected && <span className="builder-controller-hint">Y / △: Canvas ↔ controls · A / ×: Select / edit / drag · B / ○: Cancel · Help: Controller</span>}<span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
     {active && helpOpen && <BuilderHelp tools={TOOLS} onClose={() => setHelpOpen(false)} />}
     {active && libraryOpen && <BuilderLibrary local={local} collections={collections} templates={templates} level={level} dirty={dirty} saving={saving}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}

@@ -1,5 +1,6 @@
 import type { JumpLevel } from './level.ts'
-import { levelTerrain, levelHeight } from './level.ts'
+import { copyLevel, levelTerrain, levelHeight } from './level.ts'
+import { attachPressurePlateOnSurface } from './pressurePlateMount.ts'
 import { itemBounds, moveItem } from './editor.ts'
 import type { Selection } from './editor.ts'
 import { bodyIntersects, polygonIntersects, polygonPoints } from './geometry.ts'
@@ -75,5 +76,11 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
 
 export function placeOnSurface(level: JumpLevel, selection: Selection, reach = Infinity) {
   const support = surfacePlacement(level, selection, reach)
-  return support && Math.abs(support.delta) > .001 ? moveItem(level, selection, 0, support.delta) : level
+  const next = support && Math.abs(support.delta) > .001 ? moveItem(level, selection, 0, support.delta) : level
+  if (support && selection.kind === 'trigger') {
+    const attached = copyLevel(next)
+    attachPressurePlateOnSurface(attached, attached.triggers![selection.index])
+    return attached
+  }
+  return next
 }

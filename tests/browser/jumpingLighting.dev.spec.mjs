@@ -537,7 +537,7 @@ test('stationary caches invalidate on light edits, camera changes and terrain re
     const h = await lightingHarness(), lights = structuredClone(h.fixture.lighting.lights), differences = []
     const check = () => {
       const frame = h.render(25, lights), fresh = new LightingRenderer()
-      fresh.render(h.canvas.getContext('2d'), h.run, { ambient: 25, lights }, h.view, .2)
+      fresh.render(h.canvas.getContext('2d'), h.run, { ambient: 25, lights }, h.view, .2, undefined, false, 'full')
       differences.push(h.difference(frame, { pixels: h.canvas.getContext('2d').getImageData(0, 0, 1280, 720).data }))
       fresh.dispose()
     }
@@ -550,7 +550,7 @@ test('stationary caches invalidate on light edits, camera changes and terrain re
     h.renderer.prepare(h.run.level, staticCasters(h.run)); check()
     const ratio = lightingPixelRatio(1920, 1080, 2)
     const canvas = document.createElement('canvas'); canvas.width = Math.round(1920 * ratio); canvas.height = Math.round(1080 * ratio)
-    const stats = h.renderer.render(canvas.getContext('2d'), h.run, { ambient: 25, lights }, { ...h.view, width: canvas.width, height: canvas.height, zoom: ratio }, .2)
+    const stats = h.renderer.render(canvas.getContext('2d'), h.run, { ambient: 25, lights }, { ...h.view, width: canvas.width, height: canvas.height, zoom: ratio }, .2, undefined, false, 'full')
     h.renderer.release()
     const restored = h.render(25, lights); check()
     const result = { differences, bytes: stats.bufferBytes, restored: restored.stats.lights, width: canvas.width, height: canvas.height }
@@ -570,7 +570,7 @@ test('empty lighting viewports release buffers and resume with an unchanged imag
     const h = await lightingHarness(), lights = h.fixture.lighting.lights
     const expected = h.render(0, lights), hidden = [], differences = [], restoredBytes = []
     for (const [width, height] of [[0, 720], [1280, 0], [0, 0]]) {
-      const stats = h.renderer.render(h.canvas.getContext('2d'), h.run, { ambient: 0, lights }, { ...h.view, width, height }, .2)
+      const stats = h.renderer.render(h.canvas.getContext('2d'), h.run, { ambient: 0, lights }, { ...h.view, width, height }, .2, undefined, false, 'full')
       hidden.push({ lights: stats.lights, edges: stats.edges, bytes: stats.bufferBytes })
       const restored = h.render(0, lights)
       differences.push(h.difference(expected, restored)); restoredBytes.push(restored.stats.bufferBytes)

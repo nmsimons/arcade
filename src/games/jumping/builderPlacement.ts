@@ -1,6 +1,7 @@
 import { addItem, itemOutline } from './editor.ts'
 import type { Selection, Tool } from './editor.ts'
-import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
+import { levelHeight, levelTerrain } from './level.ts'
+import { toolGridSize } from './builderSnap.ts'
 import type { JumpLevel } from './level.ts'
 import { placeOnSurface } from './editorPlacement.ts'
 import { createPlayer } from './model.ts'
@@ -12,13 +13,15 @@ import { drawPickup } from './pickups.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { drawWallTexts } from './wallText.ts'
 import { drawLightFixtures } from './lightFixture.ts'
+import { drawWallLight } from './wallLight.ts'
 
 export type PlacementPreview = { level: JumpLevel; selection: Selection }
 
 /** A click-sized candidate uses the editor's placement rules without editing its draft. */
 export function placementPreview(level: JumpLevel, tool: Tool, point: { x: number; y: number; free?: boolean }, snap: boolean, zoom: number): PlacementPreview | null {
   if (tool === 'select' || tool === 'node') return null
-  const quantize = (value: number) => snap ? Math.round(value / LEVEL_GRID_SIZE) * LEVEL_GRID_SIZE : Math.round(value)
+  const grid = toolGridSize(tool)
+  const quantize = (value: number) => snap ? Math.round(value / grid) * grid : Math.round(value)
   const bottom = levelHeight(level)
   const position = point.free ? point : { x: quantize(point.x), y: bottom - quantize(bottom - point.y) }
   try {
@@ -52,6 +55,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'rope': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [level.climbables.ropes[i]], ladders: [] }); break
     case 'ladder': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [], ladders: [level.climbables.ladders[i]] }); break
     case 'light': drawLightFixtures(ctx, [{ ...level.lighting!.lights[i], fade: 1 }]); break
+    case 'wall-light': drawWallLight(ctx, level.wallLights![i], false); break
     case 'timer': drawWallTimer(ctx, level.timers![i], 0); break
     case 'text': drawWallTexts(ctx, [level.texts![i]]); break
     case 'pickup': drawPickup(ctx, { definition: level.pickups![i], collectedAge: null }); break

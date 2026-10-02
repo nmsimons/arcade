@@ -95,7 +95,7 @@ for (const mode of ['Snap', 'Snap off', 'Alt']) test(`objects stay at the cursor
     await move(page, x, y); await board(page).focus()
     if (mode === 'Alt') { await page.keyboard.down('Alt'); await page.clock.runFor(64) }
     const preview = await ghost(page)
-    expect(preview.y + preview.h).toBeCloseTo(mode === 'Snap' ? 360 : mode === 'Alt' ? y : 366, 1)
+    expect(preview.y + preview.h).toBeCloseTo(mode === 'Snap' ? 365 : mode === 'Alt' ? y : 366, 1)
     expected.push(preview)
     await page.mouse.down(); await page.mouse.up(); await page.clock.runFor(64)
     if (mode === 'Alt') await page.keyboard.up('Alt')
@@ -151,7 +151,7 @@ test('hover previews match click placement, update snapping and persist for Keep
   await page.getByRole('button', { name: 'Wall text', exact: true }).click()
   await move(page, 333.4, 245.6)
   let preview = await ghost(page)
-  for (const [axis, value] of Object.entries({ x: 340, y: 240, w: 320, h: 100 })) expect(preview[axis]).toBeCloseTo(value)
+  for (const [axis, value] of Object.entries({ x: 335, y: 245, w: 320, h: 100 })) expect(preview[axis]).toBeCloseTo(value)
   await page.getByRole('checkbox', { name: 'Snap', exact: true }).uncheck(); await move(page, 333.4, 245.6)
   preview = await ghost(page)
   for (const [axis, value] of Object.entries({ x: 333, y: 246, w: 320, h: 100 })) expect(preview[axis]).toBeCloseTo(value)

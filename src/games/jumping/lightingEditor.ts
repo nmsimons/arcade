@@ -2,6 +2,7 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { copyLevel } from './level.ts'
 import type { JumpLevel } from './level.ts'
 import type { LevelLight } from './lightingDefinition.ts'
+import { removeSwitchTarget } from './switchPower.ts'
 
 export function setLevelNightMode(level: JumpLevel, enabled: boolean): JumpLevel {
   if (nightModeEnabled(level.lighting) === enabled) return level
@@ -22,9 +23,9 @@ export function editLight(level: JumpLevel, index: number, patch: Partial<Pick<L
   }
   if (patch.power === 'always' || patch.power === 'switched') {
     light.power = patch.power
-    if (light.power === 'always') for (const trigger of next.triggers ?? []) {
-      if (trigger.targets) trigger.targets = trigger.targets.filter(id => id !== light.id)
-      else if (trigger.target === light.id) trigger.target = ''
+    if (light.power === 'always') {
+      removeSwitchTarget(next, light.id)
+      delete light.targets; delete light.relay
     }
   }
   if (patch.flicker === true) light.flicker = true

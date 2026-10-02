@@ -1,6 +1,6 @@
 # Flat lighting for Untitled Jumping Game
 
-**Implementation contract — September 27, 2026.**
+**Implementation contract — October 2, 2026.**
 
 Lighting is integrated into version-2 playable files, the level studio and
 thumbnails on `codex/lighting`. Version-1 files keep their existing appearance.
@@ -25,7 +25,8 @@ The first release includes:
 
 - A shared fixed 35% ambient-light baseline for night levels.
 - Directional spotlights with neutral light; ambient provides general fill.
-- Shadows from terrain and substantial physical objects, including moving ones.
+- Shadows from terrain and mechanisms, including moving platforms and gates.
+- Player, box, ball and robot artwork receives lighting without casting shadows.
 - Lamps powered continuously or by existing pressure plates and coin switches.
 - EMP behavior, switched wall lamps, and a readable green exit indicator.
 - Consistent treatment of clocks, collectibles, characters, and other objects.
@@ -98,10 +99,11 @@ narrow smooth transition and no broad gradient. Authors do not edit softness
 curves. Use one shared result for the game, editor, and thumbnails. Shadows have
 crisp, antialiased boundaries; the first release has no penumbra or blurred shadow
 that leaks through a wall. Every caster retains full shadow contrast at every
-distance, including the player, boxes, balls, and shovebots. There is no radial
+distance. Players, boxes, balls and shovebots do not cast shadows in gameplay,
+studio previews or thumbnails. There is no radial
 shadow fade. Shadows appear in the airborne cone and on spotlight-receiving
 objects; terrain, gates, elevators, and moving platforms remain ambient-only.
-The player's exit opacity still fades its shadow with the figure.
+The player's exit opacity still fades the figure normally.
 
 ### Combining lights
 
@@ -178,8 +180,8 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | --- | --- | --- | --- | --- |
 | Back wall and grid | Ambient surface; grid fades with its wall. A faint airborne beam may be visible in front at low ambient. | No. | No. | Ambient unchanged; beam fades out. |
 | Terrain, pillars, platforms, slopes, enclosing floor/walls/ceiling | Ambient only; retain material colors and texture relationships. | Yes, using actual outlines. | No. | Unchanged. |
-| Box, including its seams | Ordinary; all parts share exposure. | Yes, using its rotated shape. | No. | Keeps its existing loose-body behavior. |
-| Ball and its rolling marker | Ordinary; marker remains part of the same shaded artwork. | Yes, using its round silhouette. | No. | Keeps moving normally. |
+| Box, including its seams | Ordinary; all parts share exposure. | No. | No. | Keeps its existing loose-body behavior. |
+| Ball and its rolling marker | Ordinary; marker remains part of the same shaded artwork. | No. | No. | Keeps moving normally. |
 | Elevator, moving platform, vertical/horizontal gate | Ambient only; markings dim with the structure. No direct light or received shadows. | Yes, at its actual current position. | No. | Stops as currently specified; remains an occluder. |
 | Elevator cable/guide or other thin mechanical decoration | Ordinary. | No. | No. | Follows its mechanism's existing appearance. |
 | Ladder and rope, including anchors | Ordinary; authors must illuminate important exits and catches. | No. | No. | Existing movement remains unchanged. |
@@ -188,8 +190,8 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
 | Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
 | Graffiti | Warm yellow (`#f4d35e`) in night mode, muted red in daytime. Ordinary exposure, including spotlights and shadows; no brightness floor. | No. | No. | Unchanged. |
-| Player | Near-white when lit, matching the ball's dark material under ambient light; see below. | Yes, using the current animated silhouette. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
-| Shovebot chassis, wheels, and antenna | Ordinary. | Yes, using chassis and wheels, not the antenna. | No. | Stops; silhouette remains solid and casts shadows. |
+| Player | Near-white when lit, matching the ball's dark material under ambient light; see below. | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
+| Shovebot chassis, wheels, and antenna | Ordinary. | No. | No. | Stops; artwork still receives room lighting. |
 | Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | No headlight or beam. | Eye goes dark, matching existing behavior. |
 | Coin | Ordinary face and edge colors; retains its spin and thickness. | No. | No. | Remains collectible and animated. |
 | Good stopwatch | Ordinary amber artwork and backwards-moving hand. | No. | No. | Remains collectible and animated. |
@@ -651,10 +653,11 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
 - Flickering stationary lamps cache their full-strength field and modulate its
   output during composition; brief dropouts retain the cache. Flicker must not
   rebuild stationary shadow geometry or add lighting buffers.
-- Reuse resting prop, bot and mechanism shadows in the existing stationary
-  fields. Invalidate on any silhouette or opacity change, including subpixel
-  motion; cache decisions must never delay movement or quantize shadows. Keep
-  the animated player shadow live. Reuse must not increase the buffer budget.
+- Reuse resting mechanism shadows in the existing stationary fields. Invalidate
+  on any silhouette or opacity change, including subpixel motion; cache decisions
+  must never delay movement or quantize shadows. Explicit full-shadow experiments
+  may also cache resting props and bots, while keeping player poses live. Reuse
+  must not increase the buffer budget.
 - Update moving occluders from the same finalized transforms used for drawing.
   A rotating ball does not invalidate its round silhouette, but a translating
   ball does. A rotating box does invalidate its silhouette.
@@ -806,8 +809,8 @@ Create dedicated test fixtures, not new built-in campaign levels by default:
    influencing each playable area, a ladder access route, a jumping
    shortcut, one gate/lamp switch, and an ambient-readable wall hint. Demonstrate
    a fresh completion, an alternate route, and recovery.
-3. **Moving shadows and outage:** fixed wall cone, a moving platform, a crate that casts and
-   receives a shadow, a coin switch, EMP, and the readable green exit indicator.
+3. **Moving shadows and outage:** fixed wall cone, a moving platform that casts a shadow,
+   a crate that receives lighting, a coin switch, EMP, and the readable green exit indicator.
 4. **Tower-scale stress fixture:** dense static terrain, offscreen sources,
    maximum legal lights and moving occluders, and scrolling at multiple zooms.
 

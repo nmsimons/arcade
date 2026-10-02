@@ -180,7 +180,7 @@ for (const kind of ['gate', 'lift']) for (const horizontal of [true, false]) {
         const point = horizontal ? [m.x + 60, m.y + 20] : [m.x + 20, m.y + 60]
         const behind = horizontal ? [780, 320] : [320, 540]
         const fresh = new LightingRenderer()
-        fresh.render(h.canvas.getContext('2d'), h.run, { ambient: 0, lights: [forward] }, h.view, .2)
+        fresh.render(h.canvas.getContext('2d'), h.run, { ambient: 0, lights: [forward] }, h.view, .2, undefined, false, 'full')
         const cacheDifference = h.difference(lit, { pixels: h.canvas.getContext('2d').getImageData(0, 0, 1280, 720).data })
         fresh.dispose()
         const reverseLit = h.render(0, [reverse]), terrainPoint = horizontal ? [400, 320] : [320, 200]

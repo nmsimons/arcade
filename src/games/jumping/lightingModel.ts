@@ -7,7 +7,8 @@ import { lineBlocked, nearestBoundary, pointInside, polygonPoints } from './geom
 import { ballShape, boxShape } from './propGeometry.ts'
 import { robotPlatforms } from './robotPhysics.ts'
 import { robotHeadlightPose, ROBOT_HEADLIGHT_SPREAD } from './robotHeadlight.ts'
-import { levelHeight, triggerTargets } from './level.ts'
+import { levelHeight } from './level.ts'
+import { resolveSwitchStates } from './switchPower.ts'
 import type { JumpLevel } from './level.ts'
 import { athleteCasters } from './athleteShadow.ts'
 import { goalEase } from './goal.ts'
@@ -148,6 +149,7 @@ export class LightingState {
   sources(definition: LightingDefinition, run: LightingWorld, dt: number): LightSource[] {
     this.time += dt
     const sources: LightSource[] = []
+    const states = resolveSwitchStates(run.level, run.triggers)
     const lights: (LevelLight & { robot?: number })[] = [...definition.lights]
     const ids = new Set(definition.lights.map(light => light.id))
     if (nightModeEnabled(definition)) for (const [index, robot] of run.robots.entries()) {
@@ -161,7 +163,7 @@ export class LightingState {
     for (const id of this.fades.keys()) if (!ids.has(id)) this.fades.delete(id)
     for (const light of lights) {
       const target = Number(run.empRemaining <= 0
-        && (light.power === 'always' || run.level.triggers?.some((t, i) => run.triggers[i]?.active && triggerTargets(t).includes(light.id))))
+        && (light.power === 'always' || states.get(light.id)))
       const previous = this.fades.get(light.id) ?? target
       const fade = previous + Math.max(-dt / .2, Math.min(dt / .2, target - previous))
       this.fades.set(light.id, fade)

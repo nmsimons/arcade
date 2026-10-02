@@ -135,7 +135,7 @@ test('GPU resize stays within 64 MiB and a lost context restores Canvas shadows'
     const bytes = [before.stats.bufferBytes]
     h.view.width = 1600; h.view.height = 1250; h.canvas.width = 1600; h.canvas.height = 1250
     const definition = { ...h.fixture.lighting, ambient: 0, nightMode: true }
-    const resized = h.renderer.render(h.canvas.getContext('2d'), h.run, definition, h.view, .2)
+    const resized = h.renderer.render(h.canvas.getContext('2d'), h.run, definition, h.view, .2, undefined, false, 'full')
     bytes.push(resized.bufferBytes)
     await new Promise(resolve => {
       gl.canvas.addEventListener('webglcontextlost', resolve, { once: true })

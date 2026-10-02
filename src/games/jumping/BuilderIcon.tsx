@@ -21,6 +21,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   timer: 'M2 6h20v12H2zM6 10v4M10 10v4M14 10v4M18 10v4',
   text: 'M4 7V4h16v3M12 4v16M8 20h8',
   light: 'M6 4Q12 0 18 4L21 14H3ZM5 17h14M7 21l-1-2M17 21l1-2',
+  'wall-light': 'M21 12a9 9 0 1 1-18 0 9 9 0 1 1 18 0ZM18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0Z',
   coin: 'M17 12a6 9 0 1 1-12 0 6 9 0 1 1 12 0ZM11 3h3a6 9 0 0 1 0 18h-3',
   'coin-switch': 'M2 6h20v12H2zM5 10v4M8 10v4M13 9l-2 6M16 10v4M19 10v4',
 }

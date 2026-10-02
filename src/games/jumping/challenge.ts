@@ -1,7 +1,9 @@
 import { bodyIntersects, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { levelPlayer, levelTerrain, prepareLevelRopes, triggerTargets } from './level.ts'
+import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
+import { resolveSwitchStates } from './switchPower.ts'
+import { pressurePlatePosition } from './pressurePlateMount.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
 import { moveRobot, prepareRobots, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
@@ -27,6 +29,7 @@ export interface RobotState { definition: Pusher; x: number; y: number; vx: numb
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
+  switchStates: Map<string, boolean>
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
   elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
   finished: boolean; medal: Medal | null
@@ -66,7 +69,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && t.behavior === 'toggle' && !!t.startsOn, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
-    elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+    switchStates: new Map(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
   updateSwitchTargets(run)
   if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
   if (!preview) {
@@ -200,8 +203,9 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
       sensor.active ||= powered && run.coinsCollected >= plate.threshold
       return
     }
-    const weighted = run.props.some(b => propLoadsPlate(b, plate.x, plate.y, plate.w))
-    const touched = run.player.grounded && Math.abs(run.player.y - plate.y) < 3 && run.player.x >= plate.x && run.player.x <= plate.x + plate.w
+    const position = pressurePlatePosition(plate, run.mechanisms)
+    const weighted = run.props.some(b => propLoadsPlate(b, position.x, position.y, plate.w))
+    const touched = run.player.grounded && Math.abs(run.player.y - position.y) < 3 && run.player.x >= position.x && run.player.x <= position.x + plate.w
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
     if (behavior === 'pressure') sensor.active = powered && pressed
@@ -214,10 +218,10 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
   updateSwitchTargets(run)
 }
 function updateSwitchTargets(run: Run) {
-  const activeTargets = new Set(run.level.triggers.flatMap((t, i) => run.triggers[i].active ? [...triggerTargets(t)] : []))
-  // Any active switch can power a shared mechanism.
-  for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || activeTargets.has(mechanism.definition.id)
-  run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || activeTargets.has(run.level.goal.id ?? '')
+  const states = resolveSwitchStates(run.level, run.triggers)
+  run.switchStates = states
+  for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
+  run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || !!states.get(run.level.goal.id ?? '')
 }
 function stepRobots(run: Run, dt: number, world: ContactWorld) {
   const p = run.player

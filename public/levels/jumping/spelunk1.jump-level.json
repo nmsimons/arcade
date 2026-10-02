@@ -1,7 +1,7 @@
 {
   "version": 2,
   "id": "13b9b9d7-7937-4989-bc03-21238e7e58f2",
-  "name": "Untitled level",
+  "name": "Spelunk I",
   "width": 3400,
   "height": 2020,
   "platforms": [
@@ -260,7 +260,7 @@
     {
       "x": 0,
       "y": 1540,
-      "w": 680,
+      "w": 400,
       "h": 480,
       "polygon": [
         [
@@ -284,7 +284,7 @@
           460
         ],
         [
-          680,
+          400,
           480
         ],
         [
@@ -482,22 +482,22 @@
       ]
     },
     {
-      "x": 640,
+      "x": 660,
       "y": 2000,
-      "w": 240,
+      "w": 220,
       "h": 20,
       "polygon": [
         [
-          200,
+          180,
           0
         ],
         [
-          240,
+          220,
           20
         ],
         [
           0,
-          17.77777777777783
+          20
         ]
       ]
     },
@@ -858,8 +858,8 @@
     }
   ],
   "spawn": {
-    "x": 200,
-    "y": 708.3333333333334
+    "x": 190,
+    "y": 707.5
   },
   "checkpoints": [],
   "climbables": {
@@ -1352,6 +1352,7 @@
   },
   "floor": 2020,
   "goal": {
+    "switchLogic": "and",
     "x": 1600,
     "y": 2020,
     "flipX": true,
@@ -1366,16 +1367,26 @@
   "props": [
     {
       "kind": "ball",
-      "x": 920,
+      "x": 915,
       "y": 2020,
       "size": 200
     }
   ],
-  "mechanisms": [],
+  "mechanisms": [
+    {
+      "id": "96996be5-c26c-41d2-8fa0-6bed7a757226",
+      "kind": "gate",
+      "x": 1285,
+      "y": 1935,
+      "w": 20,
+      "h": 85,
+      "travel": 85
+    }
+  ],
   "triggers": [
     {
-      "x": 1580,
-      "y": 1820,
+      "x": 1615,
+      "y": 1775,
       "w": 120,
       "targets": [
         "7c314bf7-c34b-4898-8c6a-6b9b02cabecd",
@@ -1384,6 +1395,66 @@
       "mode": "coins",
       "threshold": 3,
       "display": "digital"
+    },
+    {
+      "name": "1",
+      "x": 2720,
+      "y": 960,
+      "w": 40,
+      "targets": [
+        "0775fd0c-c8d8-455b-9212-a9f753cb26cb"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "2",
+      "x": 2780,
+      "y": 960,
+      "w": 40,
+      "targets": [
+        "87c64546-9a2c-434f-8270-aefc301d794a"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "3",
+      "x": 2840,
+      "y": 960,
+      "w": 40,
+      "targets": [
+        "eee995e9-adc6-498d-995f-dfc04451a5c4",
+        "e894bc4c-2e8f-46dc-822d-738e18507b5f"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "4",
+      "x": 2900,
+      "y": 960,
+      "w": 40,
+      "targets": [
+        "5e21151f-ae2b-4217-9163-0a4ca2a9218c",
+        "e894bc4c-2e8f-46dc-822d-738e18507b5f"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "x": 475,
+      "y": 2020,
+      "w": 100,
+      "targets": [
+        "7c314bf7-c34b-4898-8c6a-6b9b02cabecd",
+        "9cab39a3-c5a3-40f7-bff4-dadf23c88080"
+      ],
+      "mode": "touch"
     }
   ],
   "robots": [],
@@ -1406,6 +1477,127 @@
     }
   ],
   "texts": [],
+  "wallLights": [
+    {
+      "name": "1",
+      "relay": true,
+      "targets": [
+        "0180e7fe-c429-424c-9a3c-5c08fad9485e",
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
+      ],
+      "id": "0775fd0c-c8d8-455b-9212-a9f753cb26cb",
+      "x": 2740,
+      "y": 900
+    },
+    {
+      "name": "2",
+      "relay": true,
+      "targets": [
+        "0180e7fe-c429-424c-9a3c-5c08fad9485e",
+        "5a9407d1-9f6b-4263-86ba-39fd68fc8477"
+      ],
+      "id": "87c64546-9a2c-434f-8270-aefc301d794a",
+      "x": 2800,
+      "y": 900
+    },
+    {
+      "name": "3",
+      "relay": true,
+      "targets": [
+        "5a9407d1-9f6b-4263-86ba-39fd68fc8477"
+      ],
+      "id": "eee995e9-adc6-498d-995f-dfc04451a5c4",
+      "x": 2860,
+      "y": 900
+    },
+    {
+      "name": "4",
+      "relay": true,
+      "targets": [
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
+      ],
+      "id": "5e21151f-ae2b-4217-9163-0a4ca2a9218c",
+      "x": 2920,
+      "y": 900
+    },
+    {
+      "name": "5",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "c0f23276-d362-4794-a9cd-ba678040500b",
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
+      ],
+      "id": "0180e7fe-c429-424c-9a3c-5c08fad9485e",
+      "x": 2770,
+      "y": 865
+    },
+    {
+      "name": "6",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "c0f23276-d362-4794-a9cd-ba678040500b",
+        "c10fbf2e-922c-4c05-8078-880bd9e34b8c"
+      ],
+      "id": "5a9407d1-9f6b-4263-86ba-39fd68fc8477",
+      "x": 2830,
+      "y": 865
+    },
+    {
+      "name": "7",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "c10fbf2e-922c-4c05-8078-880bd9e34b8c",
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
+      ],
+      "id": "e894bc4c-2e8f-46dc-822d-738e18507b5f",
+      "x": 2890,
+      "y": 865
+    },
+    {
+      "name": "8",
+      "switchLogic": "xor",
+      "relay": true,
+      "targets": [
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
+      ],
+      "id": "c0f23276-d362-4794-a9cd-ba678040500b",
+      "x": 2800,
+      "y": 830
+    },
+    {
+      "name": "9",
+      "relay": true,
+      "targets": [],
+      "id": "c10fbf2e-922c-4c05-8078-880bd9e34b8c",
+      "x": 2860,
+      "y": 830
+    },
+    {
+      "switchLogic": "and",
+      "relay": true,
+      "targets": [
+        "0e80c53f-ab38-47db-9429-4e58e256a132",
+        "96996be5-c26c-41d2-8fa0-6bed7a757226"
+      ],
+      "id": "ab63bfaa-21bf-4724-82d6-edbad636fc50",
+      "x": 2830,
+      "y": 795
+    },
+    {
+      "switchReversed": true,
+      "id": "0e80c53f-ab38-47db-9429-4e58e256a132",
+      "x": 1265,
+      "y": 1955
+    },
+    {
+      "id": "9cab39a3-c5a3-40f7-bff4-dadf23c88080",
+      "x": 1580,
+      "y": 1795
+    }
+  ],
   "lighting": {
     "nightMode": true,
     "ambient": 0,
@@ -1430,8 +1622,8 @@
       },
       {
         "id": "95fc91ba-6395-4077-91ee-373f519d65cf",
-        "x": 1540,
-        "y": 1820,
+        "x": 1525,
+        "y": 1835,
         "intensity": 100,
         "direction": 90,
         "spread": 70,

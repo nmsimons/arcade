@@ -19,22 +19,24 @@ Adaptive lighting runs in both development and production. The monitor records r
 GPU execution or browser compositing. The rolling history is bounded and the UI
 updates at most twice per second. Paused and hidden time is excluded.
 
-Every run starts at full quality. **Lighting performance mode** is enabled by
+Every run starts at normal resolution. Player, prop and robot shadows are off
+in gameplay and previews; terrain and mechanisms still block light.
+**Lighting performance mode** is enabled by
 default in development and production; an explicitly saved off preference is
 honored in both builds. It observes two consecutive one-second windows below 35 FPS,
-then omits shadows from the player, loose props and robots for that run and caps
+then caps
 rendering at pixel ratio 1 and one million pixels. This trades some sharpness for
 frame time; the HTML interface retains its native resolution. Terrain
 and moving mechanisms still block light; all six authored Tower lights, exposure,
 power/fades, haze and object artwork remain. It does not change level files or
-physics. Disabling the mode, restarting, or entering a new level restores full
-shadows and resolution. The reduction is latched to avoid oscillating between quality levels.
+physics. Disabling the mode, restarting, or entering a new level restores normal
+resolution. The reduction is latched to avoid oscillating between quality levels.
 The 35 FPS trigger leaves some headroom above the minimum while retaining full
 quality at sustained rates in the high 30s and 40s.
 
 Live play now prefers a WebGL2 light field when supported. The monitor identifies
 the active backend as GPU or Canvas. The GPU pass keeps all authored lights and
-full shadow silhouettes at the normal render resolution until performance mode
+structural shadow silhouettes at the normal render resolution until performance mode
 detects sustained low frame rates. Editor/library previews retain Canvas. Unsupported GPU
 capabilities, context loss, unsupported silhouettes or an exceeded buffer budget
 fall back to the complete Canvas renderer.
@@ -99,7 +101,9 @@ point to a same-origin reference renderer module for before/after comparisons.
 The benchmark reports its browser and GPU feature status alongside measurements.
 `LIGHTING_LEVEL` selects another level URL with lighting settings.
 `LIGHTING_BACKEND=canvas` forces the reference path; the default `auto` tries GPU.
-`LIGHTING_SHADOWS=structural` also uses the adaptive resolution cap, matching play.
+`LIGHTING_SHADOWS=structural` also uses the adaptive resolution cap, matching play
+after a performance downgrade. Normal gameplay uses structural shadows at normal
+resolution.
 `LIGHTING_WIDTH`, `LIGHTING_HEIGHT`, `LIGHTING_DPR`, `LIGHTING_FRAMES` and
 `LIGHTING_WARMUP` change the viewport and sample duration. Output includes p99,
 worst frame interval and frames exceeding 33.83 ms (a half-millisecond tolerance

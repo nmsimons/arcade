@@ -12,8 +12,9 @@ import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geo
 import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
 import { goalBounds } from './goal.ts'
-import { switchedItems } from './switchPower.ts'
-import type { PlateBehavior, PowerMode } from './switchPower.ts'
+import { removeSwitchTarget, switchedItems, switchSources } from './switchPower.ts'
+import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
+import { attachPressurePlateOnSurface, syncPressurePlateMounts } from './pressurePlateMount.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import { fitWallText, wallTextBounds, wallTextLocalPoint, wallTextPoint } from './wallText.ts'
 import { pickupBounds, TIME_BONUS_DEFAULT_SECONDS } from './pickups.ts'
@@ -21,12 +22,13 @@ import { DIGITAL_DISPLAY_WIDTH, DIGITAL_DISPLAY_HEIGHT } from './digitalDisplay.
 import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from './coins.ts'
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
+import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light'; index: number }
+export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
 /** Patrol endpoints stay in the room and include the shovebot's starting position. */
@@ -86,7 +88,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   next.height = height
   if (next.floor !== undefined) next.floor = height
   for (const point of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? [])]) point.y += dy
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     rope.y += dy
@@ -99,6 +101,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
 export function itemBounds(level: JumpLevel, selection: Selection) {
   const i = selection.index
   if (selection.kind === 'light') { const l = level.lighting?.lights[i]; return l ? lightBounds(l) : null }
+  if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
   if (selection.kind === 'platform') return level.platforms[i] ?? null
   if (selection.kind === 'rope') { const r = level.climbables.ropes[i]; return r ? { x: r.x, y: r.y, w: 0, h: r.length } : null }
   if (selection.kind === 'ladder') { const l = level.climbables.ladders[i]; return l ? { x: l.x, y: l.top, w: 0, h: l.bottom - l.top } : null }
@@ -138,11 +141,14 @@ export function setElevatorTravel(level: JumpLevel, index: number, travel: numbe
   return next
 }
 export function setTriggerTargets(level: JumpLevel, index: number, targets: readonly string[]): JumpLevel {
-  if (!level.triggers?.[index]) return level
-  const next = copyLevel(level), trigger = next.triggers![index]
-  delete trigger.target
+  return setSwitchTargets(level, { kind: 'trigger', index }, targets)
+}
+export function setSwitchTargets(level: JumpLevel, selection: Selection, targets: readonly string[]): JumpLevel {
+  const next = copyLevel(level), source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index)
+  if (!source) return level
+  if (source.kind === 'trigger') delete source.definition.target
   const available = new Set(switchedItems(next).map(item => item.id))
-  trigger.targets = [...new Set(targets.filter(id => available.has(id)))]
+  source.definition.targets = [...new Set(targets.filter(id => available.has(id)))]
   return next
 }
 export function setPlateBehavior(level: JumpLevel, index: number, behavior: PlateBehavior, startsOn = false): JumpLevel {
@@ -155,6 +161,18 @@ export function setPlateBehavior(level: JumpLevel, index: number, behavior: Plat
   if (behavior === 'toggle') plate.startsOn = startsOn
   return next
 }
+export function setPressurePlateMount(level: JumpLevel, index: number, mechanism: string | null): JumpLevel {
+  const before = level.triggers?.[index]
+  if (!before || before.mode === 'coins') return level
+  const next = copyLevel(level), plate = next.triggers![index]
+  if (plate.mode === 'coins') return level
+  if (mechanism === null) { delete plate.mount; return next }
+  const host = next.mechanisms?.find(m => m.id === mechanism && m.kind === 'lift' && m.w >= plate.w)
+  if (!host) return level
+  plate.mount = { mechanism: host.id, x: clamp(plate.x - host.x, 0, host.w - plate.w) }
+  syncPressurePlateMounts(next)
+  return next
+}
 export function setObjectPower(level: JumpLevel, selection: Selection, power: PowerMode): JumpLevel {
   if (power !== 'always' && power !== 'switched') return level
   const next = copyLevel(level)
@@ -163,10 +181,34 @@ export function setObjectPower(level: JumpLevel, selection: Selection, power: Po
   if (!item || 'kind' in item && item.kind === 'gate') return level
   item.power = power
   if (selection.kind === 'goal' && !item.id) item.id = newLevelId()
-  if (power === 'always') for (const trigger of next.triggers ?? []) {
-    if (trigger.targets) trigger.targets = trigger.targets.filter(id => id !== item.id)
-    else if (trigger.target === item.id) trigger.target = ''
+  if (power === 'always') {
+    removeSwitchTarget(next, item.id!)
+    delete item.targets; delete item.relay
   }
+  return next
+}
+export function setObjectSwitchLogic(level: JumpLevel, selection: Selection, logic: SwitchLogic): JumpLevel {
+  if (!['or', 'and', 'xor'].includes(logic)) return level
+  return editObjectSwitchSettings(level, selection, { switchLogic: logic })
+}
+export function setObjectSwitchReversed(level: JumpLevel, selection: Selection, reversed: boolean): JumpLevel {
+  if (typeof reversed !== 'boolean') return level
+  return editObjectSwitchSettings(level, selection, { switchReversed: reversed })
+}
+export function setObjectRelay(level: JumpLevel, selection: Selection, relay: boolean): JumpLevel {
+  if (typeof relay !== 'boolean') return level
+  const next = editObjectSwitchSettings(level, selection, { relay })
+  if (next !== level && !relay) {
+    const item = switchedItems(next).find(item => item.kind === selection.kind && item.index === selection.index)!
+    delete item.definition.targets
+  }
+  return next
+}
+function editObjectSwitchSettings(level: JumpLevel, selection: Selection, settings: SwitchSettings): JumpLevel {
+  if (!switchedItems(level).some(item => item.kind === selection.kind && item.index === selection.index)) return level
+  const next = copyLevel(level)
+  const item = switchedItems(next).find(item => item.kind === selection.kind && item.index === selection.index)!
+  Object.assign(item.definition, settings)
   return next
 }
 export function setCoinThreshold(level: JumpLevel, index: number, threshold: number): JumpLevel {
@@ -244,6 +286,10 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     if (pointInside(b, x, y)) return { kind: 'platform', index: i }
   }
   // Wall objects sit behind the terrain and other playable objects.
+  for (let i = (level.wallLights?.length ?? 0) - 1; i >= 0; i--) {
+    const b = wallLightBounds(level.wallLights![i])
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'wall-light', index: i }
+  }
   for (let i = (level.lighting?.lights.length ?? 0) - 1; i >= 0; i--) {
     const b = lightBounds(level.lighting!.lights[i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'light', index: i }
@@ -354,7 +400,12 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     Object.assign(mechanism, { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
   }
   if (selection.kind === 'light') Object.assign(next.lighting!.lights[selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
-  if (selection.kind === 'trigger') { const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' ? y : y + 8 }
+  if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
+  if (selection.kind === 'trigger') {
+    const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' ? y : y + 8
+    attachPressurePlateOnSurface(next, t)
+  }
+  if (selection.kind === 'mechanism') syncPressurePlateMounts(next)
   return next
 }
 export function resizeItem(level: JumpLevel, selection: Selection, w: number, h: number, handle?: ResizeHandle): JumpLevel {
@@ -399,7 +450,8 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   if (selection.kind === 'mechanism') {
     const m = next.mechanisms![selection.index], before = { ...m }
     const vertical = m.kind === 'gate' && !isHorizontalGate(m), keepBottom = vertical && (!handle || top)
-    m.w = vertical ? MECHANISM_THICKNESS : clamp(w, 30, Math.min(600, left ? m.x + m.w - 24 : next.width - m.x - 24))
+    const minWidth = Math.max(30, ...(next.triggers ?? []).flatMap(t => t.mode !== 'coins' && t.mount?.mechanism === m.id ? [t.w] : []))
+    m.w = vertical ? MECHANISM_THICKNESS : clamp(w, minWidth, Math.min(600, left ? m.x + m.w - 24 : next.width - m.x - 24))
     m.h = vertical ? clamp(h, 12, Math.min(800, keepBottom ? m.y + m.h : next.floor! - m.y)) : MECHANISM_THICKNESS
     if (left) m.x = before.x + before.w - m.w
     if (keepBottom) m.y = before.y + before.h - m.h
@@ -417,7 +469,13 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
       t.w = clamp(w, t.mode === 'coins' ? COIN_SWITCH_MIN_LENGTH : 40, Math.min(240, left ? right - 24 : next.width - t.x - 24))
       if (left) t.x = right - t.w
     }
+    if (t.mode !== 'coins' && t.mount) {
+      const host = next.mechanisms?.find(m => m.id === t.mount!.mechanism)
+      if (host) { t.w = Math.min(t.w, host.w); t.x = clamp(t.x, host.x, host.x + host.w - t.w) }
+      attachPressurePlateOnSurface(next, t)
+    }
   }
+  if (selection.kind === 'mechanism') syncPressurePlateMounts(next)
   return next
 }
 export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
@@ -438,19 +496,30 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'prop') next.props!.splice(i, 1)
   else if (selection.kind === 'robot') next.robots!.splice(i, 1)
   else if (selection.kind === 'trigger') next.triggers!.splice(i, 1)
+  else if (selection.kind === 'wall-light') {
+    const [light] = next.wallLights!.splice(i, 1)
+    removeSwitchTarget(next, light.id)
+  }
   else if (selection.kind === 'light') {
     const [light] = next.lighting!.lights.splice(i, 1)
-    for (const t of next.triggers ?? []) { if (t.targets) t.targets = t.targets.filter(id => id !== light.id); else if (t.target === light.id) t.target = '' }
+    removeSwitchTarget(next, light.id)
   }
   else if (selection.kind === 'mechanism') {
     const [m] = next.mechanisms!.splice(i, 1)
-    next.triggers!.forEach(t => { if (t.targets) t.targets = t.targets.filter(id => id !== m.id); else if (t.target === m.id) t.target = '' })
+    removeSwitchTarget(next, m.id)
+    syncPressurePlateMounts(next)
   }
   else next.checkpoints.splice(i, 1)
   return next
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'wall-light') {
+    const trial = asTrial(next), lights = trial.wallLights ??= []
+    if (lights.length >= MAX_WALL_LIGHTS) throw new Error('This level already has 40 wall lights.')
+    lights.push({ id: newLevelId(), x: clamp(start.x, WALL_LIGHT_RADIUS, trial.width - WALL_LIGHT_RADIUS), y: clamp(start.y, WALL_LIGHT_RADIUS, levelHeight(trial) - WALL_LIGHT_RADIUS) })
+    return { level: trial, selection: { kind: 'wall-light', index: lights.length - 1 } }
+  }
   if (tool === 'steps-narrow' || tool === 'steps-wide') {
     if (next.platforms.length >= 160) throw new Error('This level already has 160 terrain pieces.')
     const tread = LEVEL_GRID_SIZE * (tool === 'steps-wide' ? 2 : 1), stepWidth = tread + LEVEL_GRID_SIZE
@@ -561,6 +630,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
       const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
       trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: Math.max(8, point.y), w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
+      attachPressurePlateOnSurface(trial, trial.triggers.at(-1)!)
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }
     if (tool === 'lift' || tool === 'moving-platform' || tool === 'gate' || tool === 'horizontal-gate') {
@@ -597,12 +667,14 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'trigger') { if (next.triggers!.length >= 40) return null; index = next.triggers!.push({ ...next.triggers![i] }) - 1 }
   else if (selection.kind === 'mechanism') { if (next.mechanisms!.length >= 40) return null; index = next.mechanisms!.push({ ...next.mechanisms![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'light') { if (next.lighting!.lights.length >= MAX_LIGHTS) return null; index = next.lighting!.lights.push({ ...next.lighting!.lights[i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
   return { level: moveItem(next, result, 40, 0), selection: result }
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'spawn', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.wallLights ?? []).map((_, index) => ({ kind: 'wall-light' as const, index })),
     ...level.platforms.map((_, index) => ({ kind: 'platform' as const, index })),
     ...level.climbables.ropes.map((_, index) => ({ kind: 'rope' as const, index })), ...level.climbables.ladders.map((_, index) => ({ kind: 'ladder' as const, index })),
     ...level.checkpoints.map((_, index) => ({ kind: 'checkpoint' as const, index })),

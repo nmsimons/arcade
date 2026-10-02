@@ -4,9 +4,10 @@ import type { NamedObject } from './objectNames.ts'
 import { parseObjectName } from './objectNames.ts'
 import { objectReference } from './objectLabels.ts'
 import { polygonPoints } from './geometry.ts'
-import { switchedItems } from './switchPower.ts'
+import { parseSwitchSettings, switchWiringProblems } from './switchPower.ts'
+import type { SwitchSettings } from './switchPower.ts'
 
-export interface LevelLight extends NamedObject {
+export interface LevelLight extends NamedObject, SwitchSettings {
   id: string; x: number; y: number; intensity: number
   direction: number; spread: number; power: 'always' | 'switched'
   flicker?: boolean
@@ -16,29 +17,22 @@ export const MAX_LIGHTS = 16, LIGHT_RADIUS = 10
 export const levelLightCount = (level: JumpLevel) => (level.lighting?.lights.length ?? 0) + (level.robots?.filter(robot => robot.headlight).length ?? 0)
 export const lightBounds = (light: Pick<LevelLight, 'x' | 'y'>) => ({ x: light.x - LIGHT_RADIUS, y: light.y - LIGHT_RADIUS, w: LIGHT_RADIUS * 2, h: LIGHT_RADIUS * 2 })
 export function lightingProblems(level: JumpLevel): string[] {
-  const issues: string[] = []
+  const issues: string[] = switchWiringProblems(level)
   if (level.goal?.power === 'switched' && !level.goal.id) issues.push(`Give ${objectReference(level, 'goal')} an ID for its switch connections.`)
-  if (level.goal?.id && [...level.mechanisms ?? [], ...level.lighting?.lights ?? []].some(item => item.id === level.goal!.id)) {
+  if (level.goal?.id && [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? []].some(item => item.id === level.goal!.id)) {
     issues.push(`${objectReference(level, 'goal')} must have a unique ID.`)
   }
-  const targets = new Set(switchedItems(level).map(item => item.id))
-  for (const [i, trigger] of (level.triggers ?? []).entries()) {
-    const connections = trigger.targets ?? (trigger.target ? [trigger.target] : [])
-    if (connections.some(id => !targets.has(id))) {
-      issues.push(`Connect ${objectReference(level, 'trigger', i)} only to existing switched items.`)
-    }
-  }
-  const lighting = level.lighting
-  if (!lighting) return level.version === 2 ? [...issues, 'Version 2 levels need lighting settings.'] : issues
-  const height = level.floor ?? level.height ?? 1020
   const ids = new Map<string, string>()
-  for (const kind of ['mechanism', 'light'] as const) {
-    for (const [i, item] of (kind === 'light' ? lighting.lights : level.mechanisms ?? []).entries()) {
+  for (const kind of ['mechanism', 'light', 'wall-light'] as const) {
+    for (const [i, item] of (kind === 'light' ? level.lighting?.lights ?? [] : kind === 'wall-light' ? level.wallLights ?? [] : level.mechanisms ?? []).entries()) {
       const label = objectReference(level, kind, i), existing = ids.get(item.id)
       if (existing) issues.push(`${existing} and ${label} must have unique IDs.`)
       else ids.set(item.id, label)
     }
   }
+  const lighting = level.lighting
+  if (!lighting) return level.version === 2 ? [...issues, 'Version 2 levels need lighting settings.'] : issues
+  const height = level.floor ?? level.height ?? 1020
   if (lighting.lights.length > MAX_LIGHTS) issues.push('Use at most 16 lights per level.')
   for (const [i, light] of lighting.lights.entries()) {
     const name = objectReference(level, 'light', i), b = lightBounds(light)
@@ -71,7 +65,7 @@ export function parseLighting(value: unknown): LightingDefinition {
     // Retired mechanism mounts are ignored; saved world coordinates remain fixed.
     return { id: id(l.id), x: number(l.x, 0, 20000), y: number(l.y, 0, 6000),
       intensity: 100, direction: number(l.direction, -180, 180), spread: number(l.spread, 20, 160),
-      power: l.power, ...(l.flicker ? { flicker: true } : {}), ...name }
+      power: l.power, ...parseSwitchSettings(l, fail), ...(l.flicker ? { flicker: true } : {}), ...name }
   })
   const ambient = number(v.ambient, 0, 100, true)
   if (v.nightMode !== undefined && typeof v.nightMode !== 'boolean') return fail()

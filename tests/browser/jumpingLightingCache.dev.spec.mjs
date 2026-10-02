@@ -9,7 +9,7 @@ test('resting shadows reuse raster fields without stale pixels when objects move
     const differences = [], edges = []
     const check = () => {
       const frame = h.render(0, lights), fresh = new LightingRenderer()
-      fresh.render(h.canvas.getContext('2d'), h.run, { nightMode: true, ambient: 0, lights }, h.view, .2)
+      fresh.render(h.canvas.getContext('2d'), h.run, { nightMode: true, ambient: 0, lights }, h.view, .2, undefined, false, 'full')
       differences.push(h.difference(frame, { pixels: h.canvas.getContext('2d').getImageData(0, 0, 1280, 720).data }))
       fresh.dispose(); edges.push(frame.stats.edges)
       return frame

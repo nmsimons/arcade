@@ -1,7 +1,7 @@
 import type { NamedObject } from './objectNames.ts'
-import type { PowerMode } from './switchPower.ts'
+import type { PowerMode, SwitchSettings } from './switchPower.ts'
 /** Retain the legacy assembly origin so existing doors and indicators never move. */
-export interface Goal extends NamedObject { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode }
+export interface Goal extends NamedObject, SwitchSettings { x: number; y: number; flipX?: boolean; id?: string; power?: PowerMode }
 export const GOAL_POLE_OFFSET = 44
 export const GOAL_LIGHT_HEIGHT = 96
 export const GOAL_DOOR_WIDTH = 40

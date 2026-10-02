@@ -139,8 +139,10 @@ Click an object to select it, drag it to move it, or drag empty space to pan.
 Selecting a placement tool shows its default-size object under the mouse or
 controller cursor while it hovers over the canvas. Every placement tool follows
 the cursor in both directions; objects never jump to a distant surface below.
-With **Snap** enabled, the preview and placement align to the grid and catch
-nearby surfaces. Hold Alt or disable Snap to bypass this. The preview does not
+With **Snap** enabled, item positions and sizes align in 5-unit steps; terrain
+positions, sizes and nodes use the 20-unit grid. Previews, placement, dragging,
+resize handles, arrow-key nudges and numeric field steps follow this distinction.
+Snap also catches nearby surfaces. Hold Alt or disable Snap to bypass this. The preview does not
 edit the level; click to place it or drag to set its size. **Place on surface**
 (End) moves a selected object to a supporting surface below.
 Space + drag or the middle mouse button pans from anywhere. Placement tools return
@@ -587,8 +589,8 @@ stopping before it would crush a prop beneath it.
 The goal is an exit door with a pole indicator; it has no built-in pressure plate.
 Select it in the builder to choose **Power: Always on** (the default) or **Switched**.
 Always-on exits start fully open. Switched exits use the same **Switched by** and
-**Activates** connections as gates, platforms, and spotlights. Any active input
-opens the exit; when all inputs turn off, it closes. For a permanently unlocked
+**Activates** connections as gates, platforms, and spotlights. Its switch logic
+and Reversed setting open and close the exit (OR by default). For a permanently unlocked
 exit, connect a separate plate in Switch mode or a coin switch.
 
 The saved `goal: { x, y }` point remains the legacy assembly origin, at floor height,
@@ -701,7 +703,8 @@ playtesting, and portable level files.
 Connections are optional. A pressure plate or coin switch may have `targets: []`,
 and any switched item may have no incoming switches. These objects can be saved
 and played as placed. Unconnected switched mechanisms stay at their starting
-positions, switched lights stay off, and switched exits stay closed. Switches
+positions, switched lights stay off, and switched exits stay closed, unless
+Reversed is enabled (which turns an unconnected item on). Switches
 still respond to weight or collected coins. Supplied target IDs must identify
 existing items whose power is Switched (gates always use switches).
 
@@ -710,6 +713,51 @@ Omission preserves existing switched behavior. **Always on** runs their normal
 travel cycle after the first gameplay input, including endpoint pauses and
 obstruction reversal. EMP still pauses them. Gates have no power setting.
 Changing any item's power to Always on removes its incoming connections.
+
+Every switched item has **Logic**, **Reversed**, and **Relay** controls in
+**Switch behavior**, beside **Switched by**. Logic combines only the connected inputs:
+
+- **OR** (default): on when any connected input is active.
+- **AND**: on when every connected input is active.
+- **XOR**: on when exactly one connected input is active. Two or more active
+  inputs turn it off, including three active inputs.
+
+**Reversed** flips the combined result: off when the rule is met, on otherwise.
+Reversed OR is on when none of its connected inputs are active. With no inputs,
+all three rules are off normally and on when reversed. A single input works the
+same in all three modes. Each item chooses its own rule and reversal.
+Pressure, Switch, Toggle and coin switches contribute their current active
+states, including authored Toggle starting states and latched coin switches.
+
+**Relay** is off by default. Enable it on a gate, switched elevator, moving
+platform, exit, wall light or spotlight to expose **Activates** and add the item to other
+items' **Switched by** lists. Relay outputs use the item's resulting on/off state
+after Logic and Reversed. Its ordinary behavior continues: a gate opens, an
+elevator moves, an exit opens, or a spotlight shines. Relay outputs do not wait
+for motion or fades, and do not follow gate obstruction safety or lamp flicker.
+For example, two plates can feed an AND elevator acting as a relay, which then
+switches a gate and a spotlight.
+
+Chains settle in the same simulation step, independently of object order in the
+file, and use the same initial states in studio previews and gameplay. Feedback
+loops, including self-connections, show a wiring error naming the loop; break
+one connection before saving or playing. Turning Relay off clears its outgoing
+connections. Changing Power to Always on disables Relay and removes incoming
+and outgoing wiring. Undo restores these changes. EMP keeps the existing sensor
+latching rules; logical relay outputs follow those inputs while mechanisms
+pause and lights fade off. Relay does not bypass EMP.
+
+Versions 1 and 2 accept optional `switchLogic: "or"`, `"and"`, or `"xor"`, boolean
+`switchReversed`, boolean `relay`, and outgoing `targets: ["item-id", ...]` on
+mechanisms, wall lights and the goal; version-2 spotlights support the same fields. Omission
+means OR, reversal off, and Relay off, preserving existing levels. Nonempty
+outgoing targets require `relay: true` and existing switched destinations.
+For example, `"switchLogic": "and", "switchReversed": true, "relay": true,
+"targets": ["gate", "lamp"]` sends an on output unless every connected input is
+active. Saves, templates and duplication preserve all settings; templates remap
+relay targets along with switch targets. Invalid values and feedback loops are
+rejected. Logic and Reversed remain stored when changing to Always on and apply
+again when returning to Switched.
 
 Vertical gates have a fixed width of 20, with no rope or anchor. Holding a connected
 pressure plate raises the gate exactly its own height; releasing the plate lowers
@@ -748,7 +796,7 @@ Level files use `kind: "lift"`, `orientation: "horizontal"`, and optional
 One plate can power several mechanisms simultaneously. Connections are saved as
 `targets: ["mechanism-id", "another-id"]`; legacy `target: "mechanism-id"`
 connections are still accepted. Deleting a mechanism removes only its connection
-from each plate. If multiple switches connect to one item, any active switch powers it. A closing
+from each plate or relay. Multiple inputs combine using Logic and Reversed. A closing
 gate that meets a player or prop reopens completely. It stays open until the
 closing path has been clear for 0.6 seconds, then closes. This safety override
 also protects riders and carried props from being pinned against terrain.
@@ -774,6 +822,42 @@ readable and preserved, with the same contact rules. Coin switches use
 For example: `{ "mode": "weight", "behavior": "toggle", "startsOn": true,
 "x": 120, "y": 920, "w": 100, "targets": ["exit"] }`.
 
+Pressure plates attach to elevators and moving platforms when placed on their
+top surface. **Mount** also lets you choose an existing platform wide enough
+for the plate, or None to detach it. Mounted plates travel with the platform,
+accepting the grounded player, boxes and balls at their moving position. All
+three plate modes, their debounce and EMP behavior stay the same. Slide a plate
+along the platform to change its offset; moving it off the surface detaches it.
+Host edits carry the plate, keeping it within the platform width. The host
+cannot be narrowed below its mounted plates' widths. Deleting the host detaches
+its plates at their saved positions. Duplicating a plate preserves its mount
+when it still fits; templates remap host IDs. Undo/redo and portable files
+preserve the mount. Gates and coin switches cannot be used as mounts.
+
+The optional plate field `mount: { "mechanism": "elevator-id", "x": 20 }` stores
+a stable host ID and horizontal offset from its left edge. The plate's full
+width must fit on a lift (`kind: "lift"`, vertical or horizontal). The loader
+normalizes its saved `x, y` to the host's starting position plus this offset;
+play uses the host's actual current position. Invalid hosts or offsets fail
+validation. Omission preserves the existing fixed plate position.
+
+**Back wall → Wall light** places the goal's circular indicator face on the
+wall, with a 3-unit circular rim in the goal post's color. The face has the same
+11-unit radius and active/inactive colors as the goal indicator. Wall lights
+stay on the back wall, do not block movement, and do not emit a spotlight.
+Select one to name it, move it, connect its inputs or enable Relay. It is always
+a switched item and supports Logic and Reversed. Its active face remains
+readable in Night mode, like the goal indicator; during EMP it follows its
+logical inputs, including retained latches.
+
+Both file versions accept up to 40 `wallLights`, each with a unique stable `id`,
+center `x, y`, optional `name`, and the shared switch/relay fields. For example:
+`"wallLights": [{ "id": "ready", "x": 500, "y": 300, "switchLogic": "and" }]`.
+The 28×28 footprint must fit inside the level. Switches use the light's ID in
+their existing `targets` array. Duplicates receive new IDs; templates remap all
+connections. Saving, undo/redo, thumbnails and gameplay preserve its appearance
+and settings. Wall lights do not require Night mode or version-2 lighting.
+
 Opening a file preserves the level ID. Structural validation rejects malformed or
 unbounded geometry; editor validation checks clear starts and goals, room bounds,
 and legacy connections. Neither replaces actually playing the route.
@@ -784,9 +868,10 @@ The back wall receives ambient illumination. Wall text and collectibles receive
 spotlights and shadows, without casting shadows. Night rooms use the
 ambient-0 appearance (fixed 35% baseline brightness) and a very faint full spotlight
 beam. Gameplay, studio previews, and thumbnails share this brightness. The
-short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at solid objects and room boundaries.
+short glow at each lamp remains stronger. Both disappear with Night mode off. Beams stop at terrain, mechanisms and room boundaries.
 Spotlights illuminate movable objects. Terrain and mechanisms retain ambient
-colors while casting shadows. Only timer digits/status symbols, numeric coin
+colors while casting shadows. Players, boxes, balls and robots receive lighting
+without casting shadows in gameplay, studio previews and thumbnails. Only timer digits/status symbols, numeric coin
 digits/icons, and filled coin segments keep a 65% brightness floor. Panels,
 frames, and empty tracks follow room lighting. Haze never washes out
 wall text, collectibles, or the player.
@@ -848,10 +933,11 @@ A switched light connects to one or more pressure plates or coin switches by ID
 in the existing `targets` array. Its **Switched by** section lists every pressure
 plate and coin switch, just like the inspector for gates, elevators, and moving
 platforms. Editing either this list or a switch’s **Activates** list updates the
-same connections. Any active connected switch powers it. Changing
+same connections. Logic and Reversed combine the light's connected inputs. Changing
 the light to Always on removes incoming connections. An unconnected switched
-light is valid and stays off during play. Version 2 allows up to
-57 switch targets (40 mechanisms, 16 lights, and one exit); version 1 allows 41.
+light is valid and stays off during play unless Reversed is enabled. Version 2 allows up to
+97 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, and one exit);
+version 1 allows 81 (without spotlights).
 
 Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
 elevators, and moving platforms cannot carry them. An older file's `mount` field
@@ -864,7 +950,7 @@ EMP switches all lamps off with a brief fade; ambient stays unchanged. Coin
 switches keep their existing latching rules. The green exit indicator stays
 visible and never casts light. Pickups dim with their surroundings; clocks and coin
 meters remain readable. The player uses light ink in Night mode and
-dark ink in daytime, and casts a shadow matching its pose.
+dark ink in daytime, and receives the room's lighting without casting a shadow.
 
 The **Lighting** canvas checkbox temporarily shows the scene fully lit. **Hold to
 preview** temporarily powers a selected switched lamp. Neither changes the file,

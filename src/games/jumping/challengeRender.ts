@@ -16,6 +16,8 @@ import { ambientPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
+import { pressurePlatePosition } from './pressurePlateMount.ts'
+import { drawWallLight } from './wallLight.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -114,6 +116,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
     drawLightFixtures(ctx, lights, wallPaint)
+    for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
     wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
     const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
@@ -134,7 +137,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   paint(ctx, 0, () => {
     for (const [i, plate] of level.triggers.entries()) {
       if (plate.mode === 'coins') continue
-      drawPressurePlate(ctx, plate.x, plate.y, plate.w, run.triggers[i].active, run.triggers[i].depression)
+      const position = pressurePlatePosition(plate, run.mechanisms)
+      drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression)
     }
   })
   drawGoal(ctx, level.goal, run.goalLit, paint)

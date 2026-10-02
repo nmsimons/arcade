@@ -179,6 +179,26 @@ test('testing during a controller drag cancels its preview before saving', async
   expect(saved.props[0].x - saved.props[0].size / 2).toBeCloseTo(initial)
 })
 
+test('account dialogs own controller input and editor shortcuts rearm after closing', async ({ page }) => {
+  await open(page)
+  await activate(page, page.getByRole('button', { name: 'Sign in', exact: true }))
+  const account = page.getByRole('dialog', { name: 'Player account', exact: true })
+  await expect(account).toBeVisible()
+  await hold(page, 9, 1); await tap(page, 8); await tap(page, 3)
+  await expect(account).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toHaveCount(0)
+  await tap(page, 1); await page.clock.runFor(200)
+  await expect(account).toHaveCount(0)
+  // Menu was held while the global dialog closed: it must not start testing.
+  await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toHaveCount(0)
+  await hold(page, 9, 0)
+  await tap(page, 8)
+  await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toBeVisible()
+  await tap(page, 1)
+  await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toHaveCount(0)
+})
+
 test('controller text entry applies and cancels names, including at narrow widths', async ({ page }, info) => {
   await open(page)
   const name = page.getByRole('textbox', { name: 'Level name', exact: true }), initial = await name.inputValue()

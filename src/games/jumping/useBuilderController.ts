@@ -1,6 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { RefObject } from 'react'
-import { isVisibleControl } from '../hardVacuum/dialogNavigation'
+import { isVisibleControl, topDialog } from '../hardVacuum/dialogNavigation'
 import type { ControllerNavigation } from '../hardVacuum/controllerInput'
 import { createBuilderControllerReader, moveBuilderCursor } from './builderController'
 
@@ -67,6 +67,10 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
   const frame = useEffectEvent((now: number, dt: number) => {
     const node = root.current, board = canvas.current
     if (!node || !board) return
+    // Account panels are portals with their own app-level controller handler.
+    if (topDialog()?.dataset.globalMenu) {
+      reader.current.reset(); previousSurface.current = null; cancel(); return
+    }
     const modal = [...node.querySelectorAll<HTMLElement>('dialog[open], [role=dialog], [role=alertdialog]')].filter(isVisibleControl).at(-1)
     const scope = modal ?? node, focused = document.hasFocus() && !document.hidden
     const current = document.activeElement instanceof HTMLElement ? document.activeElement : null

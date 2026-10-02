@@ -136,6 +136,10 @@ folder connections.
 ### Using the editor
 
 Click an object to select it, drag it to move it, or drag empty space to pan.
+Selecting a placement tool shows its default-size object under the mouse or
+controller cursor while it hovers over the canvas. The preview follows snapping
+and surface placement, without editing the level; click to place it or drag to
+set its size.
 Space + drag or the middle mouse button pans from anywhere. Placement tools return
 to this default interaction after one use unless **Keep placing** is enabled;
 press Esc or click the active tool again to stop placing. Zoom centers on the
@@ -150,6 +154,9 @@ selection. The tabs stay visible while scrolling. With a tab focused, Left/Right
 arrows switch tabs and Home/End select the first/last tab.
 
 Numeric inspector edits preview on the canvas as you type a complete number.
+Arrow keys move focus in the direction pressed, following the visible layout.
+Press Enter to start editing a focused field, or click it directly with the mouse.
+After applying or cancelling, focus stays on the field and arrows navigate again.
 Press Enter or leave the field to apply the edit as one undo step; Esc restores
 the original value. Fields accept whole numbers, including seconds, and enforce
 their supported bounds. Blank or incomplete entries leave the level unchanged;
@@ -210,9 +217,12 @@ but write permission has expired, levels load automatically and **Enable saving*
 restores direct saves. A missing folder can be replaced with **Change folder**.
 
 Level studio supports standard controllers. **Y / △** switches between editor
-controls and the canvas cursor. Navigate controls with the left stick or D-pad;
-**A / ×** activates buttons, checkboxes, and lists. Left/right steps number fields;
-A opens an on-screen keyboard for names and wall text. **B / ○** cancels or closes
+controls and the canvas cursor. The left stick, D-pad, and keyboard arrows move
+focus according to the controls' positions; edges do not wrap. **A / ×** activates
+buttons, checkboxes, and lists, or starts editing a field. While editing numbers,
+Up/Right increases the value and Down/Left decreases it; A finishes and B cancels
+the current entry, returning to navigation. A opens an on-screen keyboard for
+names and wall text. **B / ○** cancels or closes
 the current dialog. The right stick scrolls the focused panel. Help's
 **Controller** topic lists every binding.
 

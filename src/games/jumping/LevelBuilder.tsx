@@ -41,6 +41,7 @@ import { setObjectPower, setPlateBehavior } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
+import { drawPlacementPreview, placementPreview } from './builderPlacement'
 import './builder.css'
 import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
 import { AccountSurface } from '../../accounts/AccountSurface'
@@ -135,7 +136,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [lightingPreview, setLightingPreview] = useState(true)
   const [previewLight, setPreviewLight] = useState<string | null>(null)
   useEffect(() => {
-    const clear = () => setPreviewLight(null)
+    const clear = () => { setPreviewLight(null); setPointer(null) }
     window.addEventListener('blur', clear)
     return () => window.removeEventListener('blur', clear)
   }, [])
@@ -170,10 +171,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }, [local.lastRemoved])
   const [keepTool, setKeepTool] = useState(false)
   const panHeld = useRef(false)
-  const [pointer, setPointer] = useState<Point | null>(null)
+  const [pointer, setPointer] = useState<(Point & { free?: boolean }) | null>(null)
   const [snap, setSnap] = useState(true), [view, setView] = useState<View>({ x: 0, y: 100, zoom: .8 })
   const [size, setSize] = useState({ width: 800, height: 600 })
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const placementCanvasRef = useRef<HTMLCanvasElement>(null)
   const builderRef = useRef<HTMLElement>(null)
   const [textEntry, setTextEntry] = useState<HTMLInputElement | HTMLTextAreaElement | null>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
@@ -217,6 +219,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     [tool, pointer, level, view.zoom])
   const nodeTarget = useMemo(() => tool === 'node' && pointer && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null,
     [tool, pointer, hoveredNode, level, view.zoom, snap])
+  const placement = useMemo(() => pointer && !drag && !preview && !helpOpen && !libraryOpen && !saveFailure && !textEntry
+    ? placementPreview(level, tool, pointer, snap, view.zoom) : null,
+    [pointer, drag, preview, helpOpen, libraryOpen, saveFailure, textEntry, level, tool, snap, view.zoom])
+  const placementBounds = placement && itemBounds(placement.level, placement.selection)
+  const placementAtCursor = placementBounds && pointer && pointer.x >= placementBounds.x - 12 / view.zoom
+    && pointer.x <= placementBounds.x + placementBounds.w + 12 / view.zoom
+    && pointer.y >= placementBounds.y - 12 / view.zoom && pointer.y <= placementBounds.y + placementBounds.h + 12 / view.zoom
 
   function chooseInspectorTab(tab: 'level' | 'object') {
     setInspectorTab(tab); setPreviewLight(null)
@@ -460,10 +469,26 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
   }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
+  useEffect(() => {
+    if (!active || size.width <= 0 || size.height <= 0) return
+    // Cursor movement must not restart lighting or redraw the authored world.
+    const canvas = placementCanvasRef.current!, ctx = canvas.getContext('2d')!, ratio = Math.min(devicePixelRatio || 1, 2)
+    const width = Math.round(size.width * ratio), height = Math.round(size.height * ratio)
+    if (canvas.width !== width) canvas.width = width
+    if (canvas.height !== height) canvas.height = height
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (!placement) return
+    ctx.scale(ratio * view.zoom, ratio * view.zoom); ctx.translate(-view.x, -view.y)
+    drawPlacementPreview(ctx, placement, view.zoom)
+  }, [active, size, view, placement, wallTextFontReady])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
     return { x: view.x + (event.clientX - rect.left) / view.zoom, y: view.y + (event.clientY - rect.top) / view.zoom }
+  }
+  function hover(point: Point, free: boolean) {
+    setPointer(previous => previous?.x === point.x && previous.y === point.y && !!previous.free === free ? previous : { ...point, free })
   }
   function pointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     if (event.button !== 0 && event.button !== 1) return
@@ -471,7 +496,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     // Controller drags use the same editor events without a physical pointer ID.
     if (event.nativeEvent.isTrusted) event.currentTarget.setPointerCapture(event.pointerId)
     const p = position(event), screen = { x: event.clientX, y: event.clientY }, base = preview ?? history.present
-    setPointer(p)
+    hover(p, event.altKey)
     latestPreview.current = null
     if (panHeld.current || event.button === 1) { setDrag({ mode: 'pan', start: p, screen, base, view, selection: null }); return }
     if (tool === 'node') {
@@ -518,7 +543,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
     const d = drag
-    if (!d) { setPointer(position(event)); return }
+    if (!d) { hover(position(event), event.altKey); return }
     if (d.mode === 'pan') { setView({ ...d.view, x: d.view.x - (event.clientX - d.screen.x) / d.view.zoom, y: d.view.y - (event.clientY - d.screen.y) / d.view.zoom }); return }
     const p = position(event), dx = p.x - d.start.x, dy = p.y - d.start.y
     setPointer(p)
@@ -576,7 +601,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }
   function pointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
     const d = drag; setDrag(null)
-    setPointer(position(event))
+    hover(position(event), event.altKey)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     if (!d) return
     if (d.mode === 'draw') { const p = position(event); add(tool, d.start, event.altKey ? p : { x: quantize(p.x), y: quantizeY(p.y) }, event.altKey) }
@@ -660,6 +685,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   return <section ref={builderRef} className="jumping-builder" hidden={!active} aria-label="Level builder"
     onKeyDownCapture={event => { if (event.nativeEvent.isTrusted) event.currentTarget.dataset.inputMethod = 'keyboard' }} onKeyDown={event => {
     if (libraryOpen || helpOpen || saveFailure) return
+    if (event.key === 'Alt') setPointer(previous => previous && { ...previous, free: true })
     if (event.key === 'F1') { event.preventDefault(); setHelpOpen(true); return }
     if ((event.target as HTMLElement).matches('input, select, textarea')) return
     if (event.code === 'Space' && event.target === canvasRef.current) { event.preventDefault(); panHeld.current = true }
@@ -684,7 +710,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           : moveItem(history.present, selection, shiftX, shiftY))
       }
     }
-  }} onKeyUp={event => { if (event.code === 'Space') panHeld.current = false }} onBlur={() => { panHeld.current = false }}>
+  }} onKeyUp={event => { if (event.code === 'Space') panHeld.current = false; if (event.key === 'Alt') setPointer(previous => previous && { ...previous, free: false }) }} onBlur={() => { panHeld.current = false }}>
     <header className="builder-header">
       <div className="builder-brand"><p className="jumping-eyebrow">Untitled jumping game</p><h1>Level studio.</h1></div>
       <div className="builder-main-actions">
@@ -724,17 +750,18 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           </div> : null
         })}
     </aside>
-    <div className="builder-stage">
+    <div className="builder-stage" data-placement-at-cursor={placementAtCursor || undefined}>
       <div ref={builderController.cursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
-        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setDrag(null); setPreview(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
+      <canvas ref={placementCanvasRef} className="builder-placement-preview" aria-hidden="true" />
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
     </div>
     <aside className="builder-inspector" aria-label="Inspector" ref={inspectorRef}>
       <div className="builder-inspector-tabs" role="tablist" aria-label="Inspector" onKeyDown={event => {
         const next = event.key === 'Home' ? 'level' : event.key === 'End' ? 'object'
-          : event.key === 'ArrowLeft' || event.key === 'ArrowRight' ? inspectorTab === 'level' ? 'object' : 'level' : null
+          : null
         if (!next) return
         event.preventDefault(); event.stopPropagation(); chooseInspectorTab(next)
         event.currentTarget.querySelector<HTMLButtonElement>(`#builder-inspector-tab-${next}`)?.focus()
@@ -877,7 +904,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       <LevelSaveStatus context="builder" kind={local.repository ? local.repositoryKind === 'account' ? 'account' : 'built-in' : 'folder'}
         fileName={fileSource.fileName ?? fileName} text={fileSource.text} dirty={dirty || !fileSource.text} saving={saving} />
       {(lightingGeometry.error || message) && <span className="builder-status-message">{lightingGeometry.error || message}</span>}
-    </span>{builderController.connected && <span className="builder-controller-hint">Y / △: Canvas ↔ controls · A / ×: Select / drag · B / ○: Cancel · Help: Controller</span>}<span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
+    </span>{builderController.connected && <span className="builder-controller-hint">Y / △: Canvas ↔ controls · A / ×: Select / edit / drag · B / ○: Cancel · Help: Controller</span>}<span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
     {active && helpOpen && <BuilderHelp tools={TOOLS} onClose={() => setHelpOpen(false)} />}
     {active && libraryOpen && <BuilderLibrary local={local} collections={collections} templates={templates} level={level} dirty={dirty} saving={saving}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}

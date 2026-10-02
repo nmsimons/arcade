@@ -24,10 +24,11 @@ const OBJECT_NOTES: Partial<Record<Tool, string>> = {
   emp: 'Cuts power for 5 seconds. Gates, elevators, moving platforms, and shovebots stop in place, then resume. Spotlights fade off while ambient light stays unchanged. Always-on exits stay usable; switched exits follow their inputs. Pressure plates turn off. Switch and Toggle retain their state, but new presses wait for power. Coins still fill their switches, but a full switch waits for power before activating. Activated coin switches stay latched. Extra EMPs add 5 seconds; pausing pauses the outage, and restarting clears it.',
 }
 const SHORTCUTS = [
+  { group: 'Controls', items: [['Arrow keys', 'Focus the control in that direction'], ['Enter', 'Activate a control or start editing a field'], ['Tab / Shift + Tab', 'Move through controls, including the canvas']] },
   { group: 'Tools', items: [['V', 'Pointer'], ['N', 'Node'], ['P / R / L', 'Terrain / Rope / Ladder'], ['Esc', 'Clear selection and return to Pointer'], ['F1', 'Open Help']] },
   { group: 'Editing', items: [['Ctrl/⌘ + Z', 'Undo'], ['Ctrl/⌘ + Shift + Z', 'Redo (Ctrl/⌘ + Y also works)'], ['Ctrl/⌘ + D', 'Duplicate'], ['Ctrl/⌘ + S', 'Save'], ['Arrow keys', 'Move the selected object or node on the canvas'], ['Shift + Arrow keys', 'Move in one-unit steps'], ['Delete / Backspace', 'Remove the selected object or node on the canvas'], ['End', 'Place the selected object on the surface below'], ['Alt + drag', 'Bypass snapping']] },
   { group: 'View', items: [['Scroll wheel', 'Zoom in or out'], ['Space + drag', 'Pan'], ['Middle-button drag', 'Pan']] },
-  { group: 'Number fields', items: [['Enter', 'Apply (leaving the field also applies)'], ['Esc', 'Cancel the current entry'], ['↑ / ↓', 'Step the value'], ['Shift + ↑ / ↓', 'Take larger steps'], ['Alt + ↑ / ↓', 'Step one unit']] },
+  { group: 'Number fields', items: [['Enter', 'Start editing / apply (leaving the field also applies)'], ['Esc', 'Cancel the current entry and resume navigation'], ['↑ / ↓ while editing', 'Step the value'], ['Shift + ↑ / ↓', 'Take larger steps'], ['Alt + ↑ / ↓', 'Step one unit']] },
 ]
 
 function CanvasDiagram({ kind }: { kind: 'move' | 'resize' | 'node' }) {
@@ -84,8 +85,7 @@ export function BuilderHelp({ tools, onClose }: {
       <button ref={close} aria-label="Close help" title="Close help" onClick={onClose}>Close</button>
     </header>
     <div className="builder-help-tabs" role="tablist" aria-label="Help topics" onKeyDown={event => {
-      const index = SECTIONS.indexOf(section)
-      const next = event.key === 'ArrowRight' ? (index + 1) % SECTIONS.length : event.key === 'ArrowLeft' ? (index + SECTIONS.length - 1) % SECTIONS.length : event.key === 'Home' ? 0 : event.key === 'End' ? SECTIONS.length - 1 : -1
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? SECTIONS.length - 1 : -1
       if (next < 0) return
       event.preventDefault(); setSection(SECTIONS[next])
       event.currentTarget.querySelectorAll<HTMLButtonElement>('[role=tab]')[next].focus()
@@ -100,7 +100,7 @@ export function BuilderHelp({ tools, onClose }: {
           <figure><CanvasDiagram kind="node" /><figcaption><h3>Reshape</h3><p>Choose Node to drag terrain points. Click an edge to add a point.</p></figcaption></figure>
         </div>
         <dl className="builder-help-copy">
-          <div><dt>Place objects</dt><dd>Choose a tool, then click for its default size or drag to set its size. Keep placing leaves that tool active for the next object. Pointer and Node stay active until you switch tools.</dd></div>
+          <div><dt>Place objects</dt><dd>Choose a tool to preview its default size under the mouse or controller cursor on the canvas. The preview shows the click placement, including snapping. Click to place it or drag to set its size. Keep placing leaves that tool active for the next object. Pointer and Node stay active until you switch tools.</dd></div>
           <div><dt>Terrain templates</dt><dd>Steps narrow and Steps wide in Terrain place five one-square rises, with one-square or two-square treads. Both have a stepped underside with a one-square overlap between steps. The top landing is two squares wide for narrow steps and three for wide steps. Click to place, then resize or reshape like any terrain.</dd></div>
           <div><dt>Rotate &amp; flip terrain</dt><dd>Select terrain to enable Rotate left, Rotate right, Flip horizontal, and Flip vertical in the top toolbar. Rotations turn 90° around the center, shifting inward if needed to fit the level. Rope anchors follow the shape. Other objects stay in place; attached ladders become independent when terrain rotates. Undo reverses each action.</dd></div>
           <div><dt>Snap to fit</dt><dd>Snap aligns objects to the 20-unit grid and nearby surfaces. Turn it off for free placement.</dd></div>
@@ -114,7 +114,7 @@ export function BuilderHelp({ tools, onClose }: {
           <div><dt>Object names</dt><dd>Give any object, including spotlights, a name. Press Enter or leave the field to apply it. Names appear in the inspector, object picker, connections and validation errors, and are saved with the level. Leave the name blank to restore its default label.</dd></div>
           <div><dt>Switch connections</dt><dd>Select a gate or a switched elevator, moving platform, exit, or spotlight and choose its pressure plates or coin switches in Switched by. You can also select a switch and choose its targets in Activates. Both views edit the same connections; any active connected switch activates the object. Elevators, platforms, exits, and spotlights also support Always on.</dd></div>
           <div><dt>Coins and coin switches</dt><dd>Place coins from Collectibles and a coin switch from Mechanisms. Set Coins required and choose its connections. Numeric shows collected / required coins on a six-by-two-square digital face. Progress bar uses glowing LED cells and supports Horizontal or Vertical. Existing bars keep their size and orientation. Every collected coin counts toward every switch; a full switch stays active until restart. Coins and switches never block movement.</dd></div>
-          <div><dt>Position &amp; size</dt><dd>Coordinates start at the bottom left of the map. Top measures the object’s top edge from the floor. Whole-number values preview as you type. Press Enter or leave the field to apply one undoable edit; Esc cancels it. Fixed dimensions, such as a gate’s thickness, cannot be changed.</dd></div>
+          <div><dt>Position &amp; size</dt><dd>Coordinates start at the bottom left of the map. Top measures the object’s top edge from the floor. Arrow keys navigate between fields; press Enter to edit, or click a field directly. Whole-number values preview as you type. Press Enter or leave the field to apply one undoable edit; Esc cancels it and returns to navigation. Fixed dimensions, such as a gate’s thickness, cannot be changed.</dd></div>
           <div><dt>Terrain &amp; materials</dt><dd>Square handles resize the whole shape; round nodes change its outline. A terrain shape must keep at least three nodes. Terrain and floor materials change appearance only.</dd></div>
           <div><dt>Object actions</dt><dd>Duplicate creates another copy. Delete removes the selection. Use Undo to reverse an edit. Start and goal are part of every time trial and cannot be deleted.</dd></div>
         </dl>
@@ -140,10 +140,10 @@ export function BuilderHelp({ tools, onClose }: {
         <p>Use a standard Xbox, PlayStation, or compatible controller. Release held buttons and sticks after changing screens.</p>
         <dl>
           <div><dt>Y / △</dt><dd>Switch between the canvas cursor and the editor controls. Return to the last control you used.</dd></div>
-          <div><dt>Left stick</dt><dd>Move the canvas cursor, or navigate controls, Help, and Library.</dd></div>
-          <div><dt>A / ×</dt><dd>Activate a control. On the canvas, press to select or place; hold while moving to drag, resize, draw terrain, or edit a node. Release to apply one undoable edit.</dd></div>
-          <div><dt>B / ○</dt><dd>Cancel a drag, close a list or dialog, or return from the canvas to the controls.</dd></div>
-          <div><dt>D-pad</dt><dd>Navigate controls. On the canvas, nudge the selected object or node; during a drag, move the cursor precisely.</dd></div>
+          <div><dt>Left stick</dt><dd>Move the canvas cursor, or focus the control in that direction in the editor, Help, and Library. Navigation follows the visible layout and stops at an edge.</dd></div>
+          <div><dt>A / ×</dt><dd>Activate a control or start editing a field. Press again to finish a number field; names and wall text open an on-screen keyboard. On the canvas, press to select or place; hold while moving to drag, resize, draw terrain, or edit a node. Release to apply one undoable edit.</dd></div>
+          <div><dt>B / ○</dt><dd>Cancel a field entry and resume navigation, cancel a drag, close a list or dialog, or return from the canvas to the controls.</dd></div>
+          <div><dt>D-pad</dt><dd>Focus the control in that direction. While editing a number, Up/Right increases it and Down/Left decreases it. On the canvas, nudge the selected object or node; during a drag, move the cursor precisely.</dd></div>
           <div><dt>Right stick</dt><dd>Pan the canvas. In the controls, scroll the focused panel.</dd></div>
           <div><dt>LT / L2 · RT / R2</dt><dd>Zoom out / in on the canvas.</dd></div>
           <div><dt>Left-stick click</dt><dd>Slow the cursor and bypass snapping while dragging. Use one-unit nudges and number-field steps.</dd></div>

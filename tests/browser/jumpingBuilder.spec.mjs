@@ -1729,6 +1729,7 @@ test('numeric inspector edits commit once, accept complete values, cancel cleanl
   }
   await size.fill(''); await size.press('Tab'); await expect(size).toHaveValue('80')
   await size.fill('130'); await size.press('Enter'); await expect(size).toHaveValue('130')
+  await size.press('Enter') // Enter editing again; arrows otherwise navigate.
   await size.press('ArrowUp'); await expect(size).toHaveValue('150')
   await size.press('Alt+ArrowDown'); await expect(size).toHaveValue('149')
   expect((await saveTestLevel(page)).level.props[0]).toEqual({ kind: 'box', x: 500, y: 920, size: 149 })

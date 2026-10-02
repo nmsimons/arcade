@@ -3,6 +3,17 @@ import type { CSSProperties, KeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 
 type Option = { value: string; label: string }
+function popupPosition(rect: DOMRect, count: number): CSSProperties {
+  const gap = 4, margin = 8
+  const below = window.innerHeight - rect.bottom - gap - margin, above = rect.top - gap - margin
+  const downward = below >= Math.min(320, count * 44) || below >= above
+  const width = Math.min(rect.width, window.innerWidth - margin * 2)
+  return {
+    width, left: Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)),
+    maxHeight: Math.min(320, Math.max(0, downward ? below : above)),
+    ...(downward ? { top: rect.bottom + gap } : { bottom: window.innerHeight - rect.top + gap }),
+  }
+}
 
 /** A select-only combobox with an app-styled popup, independent of the OS menu. */
 export function BuilderSelect({ label, accessibleLabel = label, title, value, options, onChange }: {
@@ -15,15 +26,8 @@ export function BuilderSelect({ label, accessibleLabel = label, title, value, op
   const selected = Math.max(0, options.findIndex(option => option.value === value))
 
   function show(active = selected) {
-    const rect = trigger.current!.getBoundingClientRect(), gap = 4, margin = 8
-    const below = window.innerHeight - rect.bottom - gap - margin, above = rect.top - gap - margin
-    const downward = below >= Math.min(320, options.length * 44) || below >= above
-    const width = Math.min(rect.width, window.innerWidth - margin * 2)
-    setPopup({ active, container: trigger.current!.closest('.jumping-builder')!, style: {
-      width, left: Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)),
-      maxHeight: Math.min(320, Math.max(0, downward ? below : above)),
-      ...(downward ? { top: rect.bottom + gap } : { bottom: window.innerHeight - rect.top + gap }),
-    } })
+    setPopup({ active, container: trigger.current!.closest('.jumping-builder')!,
+      style: popupPosition(trigger.current!.getBoundingClientRect(), options.length) })
   }
   function choose(index: number) {
     setPopup(null); search.current = { text: '', time: 0 }
@@ -35,13 +39,18 @@ export function BuilderSelect({ label, accessibleLabel = label, title, value, op
     const outside = (event: PointerEvent) => {
       if (!trigger.current?.contains(event.target as Node) && !list.current?.contains(event.target as Node)) setPopup(null)
     }
-    const anchor = trigger.current!.getBoundingClientRect()
+    let anchor = trigger.current!.getBoundingClientRect()
     const scroll = (event: Event) => {
       if (list.current?.contains(event.target as Node)) return
       const rect = trigger.current?.getBoundingClientRect()
-      // Focus can deliver a queued scroll event after opening; only dismiss if
-      // the control actually moved, not when the inspector has already settled.
-      if (!rect || rect.top !== anchor.top || rect.left !== anchor.left) setPopup(null)
+      if (!rect) { setPopup(null); return }
+      if (rect.top === anchor.top && rect.left === anchor.left) return
+      const panel = trigger.current?.closest('.builder-inspector')?.getBoundingClientRect()
+      if (rect.bottom <= (panel?.top ?? 0) || rect.top >= (panel?.bottom ?? window.innerHeight)) { setPopup(null); return }
+      // Browser focus/scroll anchoring can settle after the menu opens. Follow
+      // a visible trigger instead of losing the option the user is choosing.
+      anchor = rect
+      setPopup(current => current && { ...current, style: popupPosition(rect, options.length) })
     }
     const close = () => setPopup(null)
     document.addEventListener('pointerdown', outside, true)
@@ -52,7 +61,7 @@ export function BuilderSelect({ label, accessibleLabel = label, title, value, op
       document.removeEventListener('scroll', scroll, true)
       window.removeEventListener('resize', close); window.removeEventListener('blur', close)
     }
-  }, [open])
+  }, [open, options.length])
   useEffect(() => {
     if (!popup) return
     const option = list.current?.children[popup.active] as HTMLElement | undefined

@@ -3,27 +3,11 @@ import type { RefObject } from 'react'
 import { isVisibleControl, topDialog } from '../hardVacuum/dialogNavigation'
 import type { ControllerNavigation } from '../hardVacuum/controllerInput'
 import { createBuilderControllerReader, moveBuilderCursor } from './builderController'
+import { builderControls as controls, focusBuilderControl as focus, navigateBuilder as navigate,
+  isBuilderField, editingBuilderField, startBuilderFieldEdit } from './builderNavigation'
 
-const controls = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>('button, input:not([readonly]), textarea:not([readonly]), summary, a[href], canvas[tabindex], [role=tabpanel][tabindex]')]
-  .filter(element => isVisibleControl(element) && !element.matches(':disabled, [aria-disabled=true]'))
-function focus(element: HTMLElement) {
-  element.focus({ preventScroll: true })
-  element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
-}
 const key = (element: HTMLElement, value: string, fine = false) => element.dispatchEvent(new KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true, altKey: fine, shiftKey: fine }))
-
-function navigate(root: HTMLElement, direction: ControllerNavigation) {
-  const items = controls(root), current = document.activeElement
-  if (!(current instanceof HTMLElement) || !items.includes(current)) { if (items[0]) focus(items[0]); return }
-  const from = current.getBoundingClientRect(), vertical = direction === 'up' || direction === 'down'
-  const sign = direction === 'up' || direction === 'left' ? -1 : 1
-  const candidates = items.filter(item => item !== current).map(item => {
-    const to = item.getBoundingClientRect(), dx = to.x + to.width / 2 - from.x - from.width / 2, dy = to.y + to.height / 2 - from.y - from.height / 2
-    return { item, advance: sign * (vertical ? dy : dx), offset: Math.abs(vertical ? dx : dy) }
-  }).filter(candidate => candidate.advance > 2 && candidate.offset < candidate.advance)
-    .sort((a, b) => a.advance + a.offset * 3 - b.advance - b.offset * 3)
-  focus(candidates[0]?.item ?? items[(items.indexOf(current) + sign + items.length) % items.length])
-}
+const directionKey: Record<string, ControllerNavigation> = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }
 function scroll(root: HTMLElement, amount: number) {
   if (!amount) return
   let element = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -62,7 +46,7 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
   }
   const cancel = useEffectEvent(() => {
     if (dragging.current) { dragging.current = false; pointer('pointercancel') }
-    if (cursorElement.current) cursorElement.current.hidden = true
+    if (cursorElement.current && !cursorElement.current.hidden) { pointer('pointerout'); cursorElement.current.hidden = true }
   })
   const frame = useEffectEvent((now: number, dt: number) => {
     const node = root.current, board = canvas.current
@@ -76,7 +60,9 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
     const current = document.activeElement instanceof HTMLElement ? document.activeElement : null
     const onCanvas = !modal && current === board
     const popup = current?.getAttribute('role') === 'combobox' && current.getAttribute('aria-expanded') === 'true'
-    const context = modal ? `dialog:${modal.getAttribute('aria-label')}` : popup ? `popup:${current?.getAttribute('aria-controls')}` : onCanvas ? 'canvas' : 'controls'
+    const editing = editingBuilderField(current)
+    const context = popup ? `popup:${current?.getAttribute('aria-controls')}` : editing ? `edit:${current?.getAttribute('aria-label')}`
+      : modal ? `dialog:${modal.getAttribute('aria-label')}` : onCanvas ? 'canvas' : 'controls'
     let pads: (Gamepad | null)[] = []
     try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Other input methods remain available. */ }
     const input = reader.current.sample(pads, context, now, focused)
@@ -105,24 +91,26 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
       }
     }
     if (!onCanvas) {
-      if (cursorElement.current) cursorElement.current.hidden = true
+      if (cursorElement.current && !cursorElement.current.hidden) { pointer('pointerout'); cursorElement.current.hidden = true }
       if (input.pressed.includes(1)) {
         if (popup) key(current!, 'Escape')
+        else if (editing) key(current!, 'Escape')
         else if (modal) back(modal)
         else { if (current?.matches('input, textarea')) key(current, 'Escape'); board.focus({ preventScroll: true }) }
         return
       }
       if (input.navigation) {
         if (popup) key(current!, input.navigation === 'up' || input.navigation === 'left' ? 'ArrowUp' : 'ArrowDown')
-        else if (current instanceof HTMLInputElement && current.type === 'number' && ['left', 'right'].includes(input.navigation)) key(current, input.navigation === 'left' ? 'ArrowDown' : 'ArrowUp', input.fine)
-        else if (current?.getAttribute('role') === 'tab' && ['left', 'right'].includes(input.navigation)) key(current, input.navigation === 'left' ? 'ArrowLeft' : 'ArrowRight')
+        else if (editing && current instanceof HTMLInputElement && current.type === 'number') key(current, ['left', 'down'].includes(input.navigation) ? 'ArrowDown' : 'ArrowUp', input.fine)
+        else if (editing) key(current!, `Arrow${input.navigation[0].toUpperCase()}${input.navigation.slice(1)}`)
         else navigate(scope, input.navigation)
       }
       if (input.pressed.includes(0)) {
         if (!current || !scope.contains(current)) { if (controls(scope)[0]) focus(controls(scope)[0]); return }
         if (current.getAttribute('role') === 'combobox') key(current, 'Enter')
         else if (current instanceof HTMLTextAreaElement || current instanceof HTMLInputElement && ['text', 'search', 'email', 'url', 'tel'].includes(current.type)) onEditText(current)
-        else if (!current.matches(':disabled, [aria-disabled=true], input[type=number]')) current.click()
+        else if (isBuilderField(current)) key(current, 'Enter')
+        else if (!current.matches(':disabled, [aria-disabled=true]')) current.click()
       }
       if (!popup) scroll(scope, input.right.y * 600 * dt)
       return
@@ -167,23 +155,55 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
     const pointerInput = (event: PointerEvent) => {
       if (!event.isTrusted) return
       cancel(); root.current?.setAttribute('data-input-method', 'pointer')
+      if (event.type === 'pointerdown' && event.target instanceof HTMLElement && isBuilderField(event.target)) startBuilderFieldEdit(event.target, false)
     }
     const blur = () => { reader.current.reset(); previous = 0; cancel() }
     const keyboardInput = (event: KeyboardEvent) => {
-      if (!event.isTrusted) return
-      cancel(); root.current?.setAttribute('data-input-method', 'keyboard')
+      const node = root.current
+      if (!node || topDialog()?.dataset.globalMenu) return
+      if (event.isTrusted) { cancel(); node.setAttribute('data-input-method', 'keyboard') }
+      const current = event.target instanceof HTMLElement ? event.target : null
+      if (!current || current === canvas.current || event.ctrlKey || event.metaKey || event.altKey) return
+      if (isBuilderField(current)) {
+        // Once editing, multiline fields keep Enter for line breaks.
+        if (current.dataset.builderFinishing || current instanceof HTMLTextAreaElement && event.key === 'Enter' && editingBuilderField(current)) return
+        if (event.key === 'Enter' || event.key === 'Escape' && editingBuilderField(current)) {
+          event.preventDefault(); event.stopPropagation()
+          if (!editingBuilderField(current)) {
+            startBuilderFieldEdit(current)
+          } else {
+            // Apply/cancel through the field handler while keeping native focus.
+            // Blurring and refocusing can queue a scroll into the next popup.
+            current.dataset.builderFinishing = 'true'
+            key(current, event.key)
+            delete current.dataset.builderFinishing
+            delete current.dataset.builderEditing
+          }
+          return
+        }
+        if (editingBuilderField(current)) return
+        if (event.key.length === 1 || ['Backspace', 'Delete'].includes(event.key)) startBuilderFieldEdit(current, false)
+      }
+      if (!directionKey[event.key] || current.getAttribute('aria-expanded') === 'true') return
+      event.preventDefault(); event.stopPropagation()
+      const modal = [...node.querySelectorAll<HTMLElement>('dialog[open], [role=dialog], [role=alertdialog]')].filter(isVisibleControl).at(-1)
+      navigate(modal ?? node, directionKey[event.key])
     }
+    const fieldInput = (event: Event) => { if (event.target instanceof HTMLElement && isBuilderField(event.target)) startBuilderFieldEdit(event.target, false) }
+    const fieldBlur = (event: FocusEvent) => { if (event.target instanceof HTMLElement) delete event.target.dataset.builderEditing }
     const element = root.current!
     element.addEventListener('pointerdown', pointerInput, true); element.addEventListener('pointermove', pointerInput, true)
     element.addEventListener('keydown', keyboardInput, true)
+    element.addEventListener('input', fieldInput, true); element.addEventListener('focusout', fieldBlur, true)
     window.addEventListener('blur', blur); document.addEventListener('visibilitychange', blur)
     request = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(request); cancel()
       element.removeEventListener('pointerdown', pointerInput, true); element.removeEventListener('pointermove', pointerInput, true)
       element.removeEventListener('keydown', keyboardInput, true)
+      element.removeEventListener('input', fieldInput, true); element.removeEventListener('focusout', fieldBlur, true)
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', blur)
     }
-  }, [active, root])
+  }, [active, root, canvas])
   return { connected, cursorElement }
 }

@@ -30,6 +30,7 @@
 .jumping-builder input[type=range] { padding: 0; accent-color: var(--jumping-color-ink); cursor: pointer; }
 .jumping-builder input[type=number] { font-variant-numeric: tabular-nums; }
 .jumping-builder input:disabled { opacity: var(--jumping-inactive-opacity); }
+.jumping-builder :is(input:not([type=checkbox]), textarea):focus:not([data-builder-editing=true]) { caret-color: transparent; }
 .builder-number::-webkit-inner-spin-button { opacity: 1; }
 .jumping-builder input[type=checkbox] {
   appearance: none; display: grid; place-content: center; flex: none;
@@ -92,6 +93,8 @@
 .builder-controller-cursor::before { left: 7px; top: -5px; width: 2px; height: 26px; }
 .builder-controller-cursor::after { left: -5px; top: 7px; width: 26px; height: 2px; }
 .builder-controller-cursor[data-dragging=true] { background: var(--jumping-selection); }
+.jumping-game .builder-stage > .builder-placement-preview { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.builder-stage[data-placement-at-cursor=true] .builder-controller-cursor { visibility: hidden; }
 .jumping-game .jumping-builder .builder-minimap { position: absolute; right: 16px; bottom: 16px; width: 148px; padding: 8px; background: var(--jumping-paper); box-shadow: var(--ui-shadow-card); }
 .builder-minimap .level-thumbnail { height: 56px; }
 .builder-minimap > span { display: block; margin-top: 6px; font-size: var(--jumping-type-small); font-weight: 400; }
@@ -144,6 +147,7 @@
 .jumping-game .jumping-builder :is(input:not([type=checkbox]), select, textarea):focus-visible {
   outline: none; box-shadow: none; background: var(--jumping-color-ink); color: var(--jumping-color-paper);
 }
+.jumping-game .jumping-builder :is(input, textarea)[data-builder-editing=true]:focus { box-shadow: inset 0 -3px currentColor; }
 .jumping-game .jumping-builder .builder-inspector button:where(:not([role=tab])):focus-visible:not(:disabled) { background: var(--jumping-color-ink); color: var(--jumping-color-paper); outline: 3px solid var(--jumping-color-paper); outline-offset: -5px; }
 /* Tab selection joins the pane; keyboard focus is a separate inset ring. */
 .jumping-game .jumping-builder .builder-inspector-tabs button:focus-visible:not(:disabled) { outline: 2px solid var(--jumping-ink); outline-offset: -6px; }

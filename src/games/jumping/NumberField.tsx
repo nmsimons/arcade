@@ -15,7 +15,7 @@ export function NumberField({ value, onCommit, onPreview, label, step = 1, min, 
     else onPreview(null)
     cancelled.current = false; setDraft(null)
   }
-  return <input className="builder-number" type="number" aria-label={label} title="Live preview · Enter to apply · Esc to cancel · ↑ ↓ to step · Shift for larger steps"
+  return <input className="builder-number" type="number" aria-label={label} title="Enter to edit / apply · Esc to cancel · ↑ ↓ navigate, or step while editing · Shift for larger steps"
     min={min} max={max} step={step} disabled={disabled} value={draft ?? display(value)}
     onFocus={event => event.currentTarget.select()} onChange={event => {
       const text = event.target.value
@@ -23,8 +23,14 @@ export function NumberField({ value, onCommit, onPreview, label, step = 1, min, 
       setDraft(text); onPreview(complete(text) ? limit(Number(text)) : null)
     }} onBlur={apply}
     onKeyDown={event => {
-      if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); event.currentTarget.blur() }
-      else if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); cancelled.current = true; event.currentTarget.blur() }
+      if (event.key === 'Enter') {
+        event.preventDefault(); event.stopPropagation()
+        if (event.currentTarget.dataset.builderFinishing) apply(); else event.currentTarget.blur()
+      }
+      else if (event.key === 'Escape') {
+        event.preventDefault(); event.stopPropagation(); cancelled.current = true
+        if (event.currentTarget.dataset.builderFinishing) apply(); else event.currentTarget.blur()
+      }
       else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
         event.preventDefault(); event.stopPropagation()
         const from = draft !== null && complete(draft) ? Number(draft) : Math.round(value)

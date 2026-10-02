@@ -1,6 +1,6 @@
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
-import type { Prop, RobotState, Run } from './challenge.ts'
+import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
 import { drawWallTimer } from './wallTimer.ts'
@@ -9,6 +9,7 @@ import { drawCoinSwitch } from './coins.ts'
 import { gameCamera } from './camera.ts'
 import { isHorizontalGate } from './mechanisms.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
+import type { CornerRadii } from './mechanismAppearance.ts'
 import { robotTop } from './robotPhysics.ts'
 import { robotHeadlightY, ROBOT_HEADLIGHT_X } from './robotHeadlight.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
@@ -18,9 +19,24 @@ import type { LightSource } from './lightingModel.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
-function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number) {
+export function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number) {
   ctx.fillStyle = '#738575'; ctx.fillRect(x - 3, y - 3, width + 6, 3)
   ctx.fillStyle = active ? '#9bb878' : '#c4a66b'; ctx.fillRect(x, y - 7 + depression * 4, width, 3)
+}
+export function drawMechanism(ctx: CanvasRenderingContext2D, m: Pick<MechanismState, 'x' | 'y' | 'definition'>, corners: CornerRadii) {
+  const d = m.definition
+  const body = () => { ctx.beginPath(); ctx.roundRect(m.x, m.y, d.w, d.h, corners); ctx.fill() }
+  if (d.kind === 'gate') {
+    ctx.fillStyle = '#8f9e98'; body()
+    ctx.fillStyle = '#667b72'
+    if (isHorizontalGate(d)) {
+      for (let x = m.x + 16; x < m.x + d.w - 8; x += 24) ctx.fillRect(x, m.y + 5, 2, d.h - 10)
+    } else for (let y = m.y + 16; y < m.y + d.h - 8; y += 24) ctx.fillRect(m.x + 5, y, d.w - 10, 2)
+  } else {
+    ctx.fillStyle = '#b3a28d'; body()
+    ctx.fillStyle = '#938777'
+    for (let x = m.x + 12; x < m.x + d.w - 8; x += 16) ctx.fillRect(x, m.y + d.h * .35, 3, d.h * .3)
+  }
 }
 export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
   const r = b.size / 2, x = b.x - r, y = b.y - b.size
@@ -113,21 +129,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   paint(ctx, 0, () => {
     drawTerrain(ctx, run.terrain)
     const corners = mechanismCornerRadii(run)
-    for (const [i, m] of run.mechanisms.entries()) {
-      const d = m.definition
-      const body = () => { ctx.beginPath(); ctx.roundRect(m.x, m.y, d.w, d.h, corners[i]); ctx.fill() }
-      if (d.kind === 'gate') {
-        ctx.fillStyle = '#8f9e98'; body()
-        ctx.fillStyle = '#667b72'
-        if (isHorizontalGate(d)) {
-          for (let x = m.x + 16; x < m.x + d.w - 8; x += 24) ctx.fillRect(x, m.y + 5, 2, d.h - 10)
-        } else for (let y = m.y + 16; y < m.y + d.h - 8; y += 24) ctx.fillRect(m.x + 5, y, d.w - 10, 2)
-      } else {
-        ctx.fillStyle = '#b3a28d'; body()
-        ctx.fillStyle = '#938777'
-        for (let x = m.x + 12; x < m.x + d.w - 8; x += 16) ctx.fillRect(x, m.y + d.h * .35, 3, d.h * .3)
-      }
-    }
+    for (const [i, m] of run.mechanisms.entries()) drawMechanism(ctx, m, corners[i])
   }, false)
   paint(ctx, 0, () => {
     for (const [i, plate] of level.triggers.entries()) {

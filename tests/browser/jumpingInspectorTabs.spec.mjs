@@ -50,8 +50,8 @@ test('inspector tabs preserve edits and selection, support keyboard navigation, 
   await page.keyboard.press('Tab'); await expect(name).toBeFocused()
   await levelTab.focus(); await page.keyboard.press('End')
   await expect(objectTab).toBeFocused()
-  await page.keyboard.press('ArrowRight'); await expect(levelTab).toBeFocused()
-  await page.keyboard.press('ArrowLeft'); await expect(objectTab).toBeFocused()
+  await page.keyboard.press('ArrowRight'); await expect(objectTab).toBeFocused()
+  await page.keyboard.press('ArrowLeft'); await expect(levelTab).toBeFocused()
   const saved = await saveTestLevel(page)
   expect(saved.level.name).toBe('Tab workshop'); expect(saved.level.spawn.name).toBe('Entry')
   expect(saved.level.lighting.nightMode).toBe(true)
@@ -134,6 +134,20 @@ test('styled object picker supports type-ahead, keyboard commit, cancellation an
   await picker.click()
   await page.getByRole('complementary', { name: 'Inspector' }).evaluate(el => { el.scrollTop = el.scrollHeight })
   await expect(menu).toBeHidden()
+})
+
+test('an open picker follows a visible field as the inspector scroll settles', async ({ page }) => {
+  const level = blankTrial()
+  level.texts = [{ x: 320, y: 700, w: 400, h: 120, text: 'Hold to charge.\nRelease to jump.', fontSize: 24, align: 'left' }]
+  await open(page, level); await selectBuilderObject(page, 'text:0')
+  const font = page.getByRole('spinbutton', { name: 'Text font size', exact: true })
+  await font.fill('32'); await font.press('Enter'); await expect(font).toBeFocused()
+  const picker = page.getByRole('combobox', { name: 'Text alignment', exact: true }), menu = page.getByRole('listbox', { name: 'Text alignment', exact: true })
+  await picker.click(); await expect(menu).toBeVisible()
+  await page.getByRole('complementary', { name: 'Inspector' }).evaluate(el => { el.scrollTop -= 12 })
+  await expect(menu).toBeVisible(); await expect(picker).toBeFocused()
+  await menu.getByRole('option', { name: 'Center', exact: true }).click()
+  await expect(picker).toHaveAttribute('data-value', 'center'); await expect(menu).toBeHidden()
 })
 
 test('styled picker opens above a narrow inspector and remains usable with forced colors', async ({ page }, info) => {

@@ -1,0 +1,113 @@
+{
+  "version": 2,
+  "id": "13b9b9d7-7937-4989-bc03-21238e7e58f2",
+  "name": "Untitled level",
+  "width": 1800,
+  "height": 920,
+  "platforms": [
+    {
+      "x": 920,
+      "y": 360,
+      "w": 660,
+      "h": 480,
+      "polygon": [
+        [
+          60,
+          160
+        ],
+        [
+          120,
+          120
+        ],
+        [
+          240,
+          20
+        ],
+        [
+          360,
+          0
+        ],
+        [
+          520,
+          120
+        ],
+        [
+          660,
+          220
+        ],
+        [
+          660,
+          300
+        ],
+        [
+          520,
+          440
+        ],
+        [
+          380,
+          480
+        ],
+        [
+          140,
+          440
+        ],
+        [
+          0,
+          340
+        ],
+        [
+          0,
+          200
+        ]
+      ]
+    }
+  ],
+  "spawn": {
+    "x": 140,
+    "y": 920
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "floor": 920,
+  "goal": {
+    "x": 1620,
+    "y": 920
+  },
+  "times": {
+    "gold": 10,
+    "silver": 20,
+    "bronze": 40
+  },
+  "props": [
+    {
+      "kind": "ball",
+      "x": 620,
+      "y": 920,
+      "size": 200
+    }
+  ],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "d5afcd08-7d6d-42fe-8314-e97ff581759c",
+        "x": 880,
+        "y": 360,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      }
+    ]
+  }
+}

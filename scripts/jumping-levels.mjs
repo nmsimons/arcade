@@ -48,7 +48,7 @@ if (mode === 'index') {
   console.log(`Indexed ${manifest.levels.length} validated built-in levels in ${root}.`)
 } else if (mode === 'sync') {
   const { manifest, contents, text } = await index(source)
-  const target = resolve(process.argv[3] ?? 'dist/levels/jumping')
+  const target = resolve(process.argv[3] ?? 'dist/web/levels/jumping')
   if (target === source) throw new Error('The deployment folder must differ from the source folder.')
   await mkdir(target, { recursive: true })
   const names = await entries(target)

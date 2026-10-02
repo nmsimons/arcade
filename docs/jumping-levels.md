@@ -72,7 +72,7 @@ npm run levels:sync
 npm run levels:sync -- /path/to/site/levels/jumping
 ```
 
-This regenerates the index and copies JSON to `dist/levels/jumping/` by default.
+This regenerates the index and copies JSON to `dist/web/levels/jumping/` by default.
 It removes obsolete JSON files listed by the previous deployment index. Source
 and destination asset folders must contain only level JSON and `index.json`;
 unexpected files, subdirectories, and symlinks stop publishing. Move unrelated
@@ -128,7 +128,7 @@ Unfinished maps remain editable after restarting the dev server. Build and publi
 validation still requires every built-in level to be ready to play.
 
 Use `npm run prod` to build and run the customer experience locally, normally on
-port 4173 alongside development on port 5173. It serves built-in JSON from `dist/`
+port 4173 alongside development on port 5173. It serves built-in JSON from `dist/web/`
 and enables editing only for local folders. Restart this command after changes
 to rebuild the preview. The two ports have separate browser storage and remembered
 folder connections.

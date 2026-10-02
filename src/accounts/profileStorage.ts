@@ -1,10 +1,12 @@
 import { transactLibrary } from './workspaceStorage.ts'
+import { getPlatform } from '../platform/runtime.ts'
+import type { KeyStorage } from '../platform/contracts.ts'
+export type { KeyStorage } from '../platform/contracts.ts'
 
 /** Anonymous keys stay unchanged. Account data never shares the anonymous slot. */
 export const SAVE_SLOTS = ['hard-vacuum-expedition-v1', 'hard-vacuum-expedition-v1-backup', 'hard-vacuum-expedition-v1-unreadable', 'arcade.jumping.times.v1'] as const
 export const LEVELS_SLOT = 'arcade.account.levels.v1'
 export const CLOUD_BASELINE_SLOT = 'arcade.cloud.baseline.v2'
-export type KeyStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> & { readonly workspaceLock?: string }
 const writes = new WeakMap<KeyStorage, Promise<unknown>>()
 /** Short read/modify/write transactions; never hold this lock over cloud I/O. */
 export async function withWorkspaceLock<T>(store: KeyStorage, work: (current: KeyStorage) => T): Promise<T> {
@@ -38,10 +40,12 @@ export function scopedStorage(store: KeyStorage, owner: string): KeyStorage {
 }
 /** Capture an owner once per game session, never redirect a running game's writes. */
 export function gameStorage(owner = profile): KeyStorage {
+  const platform = getPlatform()
+  const store = () => scopedStorage(platform.storage(), owner)
   return {
-    workspaceLock: `arcade-workspace:${owner}`,
-    getItem: key => scopedStorage(window.localStorage, owner).getItem(key),
-    setItem: (key, value) => { scopedStorage(window.localStorage, owner).setItem(key, value); storageListeners.forEach(listener => listener()) },
-    removeItem: key => { scopedStorage(window.localStorage, owner).removeItem(key); storageListeners.forEach(listener => listener()) },
+    ...(platform.kind === 'web' ? { workspaceLock: `arcade-workspace:${owner}` } : {}),
+    getItem: key => store().getItem(key),
+    setItem: (key, value) => { store().setItem(key, value); storageListeners.forEach(listener => listener()) },
+    removeItem: key => { store().removeItem(key); storageListeners.forEach(listener => listener()) },
   }
 }

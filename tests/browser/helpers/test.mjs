@@ -22,6 +22,9 @@ export const test = base.extend({
     }
   },
   context: async ({ context }, use) => {
+    // General browser tests run independently of published releases and the
+    // public API. Download scenarios override this route with their fixtures.
+    await context.route('https://api.github.com/repos/nmsimons/arcade/releases?*', route => route.fulfill({ json: [] }))
     await context.addInitScript(() => {
       Object.defineProperty(Navigator.prototype, 'getGamepads', { configurable:true, writable:true, value:()=>[] })
     })

@@ -10,8 +10,11 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+desktop/renderer/
+desktop/out/
 playwright-report
 test-results
+test-results-desktop
 *.local
 .local/
 

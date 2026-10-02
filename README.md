@@ -725,7 +725,7 @@ To test the customer experience locally, start production mode in another termin
 npm run prod
 ```
 
-This type-checks and builds the app, validates built-in levels, and serves `dist/`
+This type-checks and builds the app, validates built-in levels, and serves `dist/web/`
 (typically http://localhost:4173). Developer tools and built-in level editing are
 disabled; local level folders and the normal level builder remain available.
 Restart `npm run prod` after changing code or built-in levels to rebuild the preview.
@@ -736,11 +736,16 @@ each server if its default port is already occupied.
 
 ## Scripts
 
+Browser and installed desktop editions share the game code. See
+[browser, desktop and Steam builds](docs/platform-builds.md) for Electron setup,
+Windows/Linux/Mac packaging, website downloads, CI releases and the remaining
+Steam Deck work.
+
 ```bash
 npm run dev      # Live development, including developer tools and built-in editing
 npm run prod     # Build fresh, then run the production app locally
-npm run build    # Type-check + production build to dist/
-npm run preview  # Serve the existing dist/ without rebuilding
+npm run build    # Type-check + production build to dist/web/
+npm run preview  # Serve the existing dist/web/ without rebuilding
 npm run lint     # Run ESLint
 npm test         # Mechanics, full sessions, geometry, progression, and save tests
 npm run test:browser # Production routes/recovery/controls + development panel
@@ -813,7 +818,7 @@ public/          # Static assets
 This repo includes a GitHub Actions workflow for Azure Static Web Apps deployment.
 
 - Workflow: [.github/workflows/azure-static-web-apps-agreeable-glacier-048815c10.yml](.github/workflows/azure-static-web-apps-agreeable-glacier-048815c10.yml)
-- Build output: `dist/`
+- Build output: `dist/web/`
 - Required secret: `AZURE_STATIC_WEB_APPS_API_TOKEN_AGREEABLE_GLACIER_048815C10`
 
 Pushes to `main` and pull requests targeting `main` automatically select deployment
@@ -839,7 +844,7 @@ No commit-message or label override bypasses checks.
 
 Every selected check must pass before deployment. The fast browser job has the
 same required dependency on the validated build as the full browser jobs.
-Azure uploads that same `dist/` using
+Azure uploads that same `dist/web/` using
 [`skip_app_build`](https://learn.microsoft.com/en-us/azure/static-web-apps/build-configuration#skip-building-front-end-app)
 instead of rebuilding. Pushes to `main` deploy to production; same-repository
 pull requests deploy previews, which are removed when the PR closes. Fork and

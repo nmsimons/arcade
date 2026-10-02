@@ -1,0 +1,194 @@
+name: Desktop builds
+
+on:
+  push:
+    branches: [main]
+    tags: ['desktop-v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run levels:check
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build:desktop
+      - uses: actions/upload-artifact@v7
+        with:
+          name: desktop-renderer
+          path: desktop/renderer/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  package:
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win32
+            arch: x64
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+          - os: macos-15
+            platform: darwin
+            arch: arm64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    env:
+      ARCADE_DESKTOP_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm ci --prefix desktop
+      - run: npm run security:check --prefix desktop
+      - uses: actions/download-artifact@v7
+        with:
+          name: desktop-renderer
+          path: desktop/renderer/
+      - name: Configure Mac release signing
+        if: runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v')
+        shell: bash
+        env:
+          MAC_CERTIFICATE_BASE64: ${{ secrets.MAC_CERTIFICATE_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          MAC_SIGNING_IDENTITY: ${{ secrets.MAC_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          keys=(MAC_CERTIFICATE_BASE64 MAC_CERTIFICATE_PASSWORD MAC_SIGNING_IDENTITY APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID)
+          configured=0
+          for key in "${keys[@]}"; do
+            if [[ -n "${!key}" ]]; then configured=$((configured + 1)); fi
+          done
+          if [[ "$configured" == 0 ]]; then
+            echo "Mac CI builds remain unsigned; public Mac downloads are omitted until signing is configured."
+            exit 0
+          fi
+          for key in "${keys[@]}"; do
+            if [[ -z "${!key}" ]]; then echo "::error::Missing signing secret: $key"; exit 1; fi
+          done
+          certificate="$RUNNER_TEMP/arcade-signing.p12"
+          keychain="$RUNNER_TEMP/arcade-signing.keychain-db"
+          password="$(uuidgen)"
+          echo "::add-mask::$password"
+          printf '%s' "$MAC_CERTIFICATE_BASE64" | base64 --decode > "$certificate"
+          security create-keychain -p "$password" "$keychain"
+          security set-keychain-settings -lut 21600 "$keychain"
+          security unlock-keychain -p "$password" "$keychain"
+          security import "$certificate" -P "$MAC_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -k "$password" "$keychain"
+          echo "ARCADE_MAC_KEYCHAIN=$keychain" >> "$GITHUB_ENV"
+          echo "ARCADE_MAC_SIGNED=1" >> "$GITHUB_ENV"
+      - name: Package the validated renderer
+        working-directory: desktop
+        run: npm run package
+        env:
+          MAC_SIGNING_IDENTITY: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.MAC_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ runner.os == 'macOS' && startsWith(github.ref, 'refs/tags/desktop-v') && secrets.APPLE_TEAM_ID || '' }}
+      - name: Test packaged app on Windows
+        if: runner.os == 'Windows'
+        run: npm run test:desktop
+        env:
+          ARCADE_TEST_PACKAGED: '1'
+      - name: Verify Windows archive compatibility
+        if: runner.os == 'Windows'
+        run: node --test tests/desktop-windows-archive.test.mjs
+      - name: Install Linux runtime test dependencies
+        if: runner.os == 'Linux'
+        run: npx playwright install-deps chromium
+      - name: Test packaged app on Linux
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum npm run test:desktop
+        env:
+          ARCADE_TEST_PACKAGED: '1'
+      - name: Test packaged app on Mac
+        if: runner.os == 'macOS'
+        run: npm run test:desktop
+        env:
+          ARCADE_TEST_PACKAGED: '1'
+      - name: Archive tested app and prepare website downloads
+        run: node scripts/desktop-archives.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: arcade-${{ matrix.platform }}-${{ matrix.arch }}
+          path: desktop/out/arcade-${{ matrix.platform }}-${{ matrix.arch }}.tar.gz
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v7
+        if: runner.os != 'macOS' || env.ARCADE_MAC_SIGNED == '1'
+        with:
+          name: desktop-downloads-${{ matrix.platform }}-${{ matrix.arch }}
+          path: desktop/out/downloads/
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: desktop-failures-${{ matrix.platform }}-${{ matrix.arch }}
+          path: test-results-desktop/
+          if-no-files-found: ignore
+      - name: Remove temporary Mac signing credentials
+        if: always() && runner.os == 'macOS'
+        shell: bash
+        run: |
+          if [[ -f "$RUNNER_TEMP/arcade-signing.keychain-db" ]]; then security delete-keychain "$RUNNER_TEMP/arcade-signing.keychain-db"; fi
+          rm -f "$RUNNER_TEMP/arcade-signing.p12"
+
+  release:
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/desktop-v') && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: desktop-downloads-*
+          merge-multiple: true
+          path: downloads/
+      - name: Prepare checksums and installation notes
+        run: node scripts/desktop-release.mjs downloads "${GITHUB_REF_NAME#desktop-v}"
+      - name: Create or update a draft desktop release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" --json isDraft > release-status.json; then
+            node --input-type=module -e 'import {readFileSync} from "node:fs"; if (!JSON.parse(readFileSync("release-status.json", "utf8")).isDraft) throw new Error("Published releases cannot be overwritten. Create a new version.")'
+            gh release edit "$RELEASE_TAG" --notes-file downloads/RELEASE-NOTES.md
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --draft --title "Dream Large Arcade ${RELEASE_TAG#desktop-v}" --notes-file downloads/RELEASE-NOTES.md
+          fi
+          gh release upload "$RELEASE_TAG" downloads/*.zip downloads/*.tar.gz downloads/SHA256SUMS.txt --clobber

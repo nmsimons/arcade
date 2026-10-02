@@ -24,7 +24,7 @@ React/router remain shared rather than duplicated. Minor import wrappers add
 overhead to the aggregate size; this optimizes per-visit transfer, not total code.
 
 Reproduce: `npm run build` then `node scripts/report-bundles.mjs`. The build emits
-`dist/.vite/manifest.json`. Production browser tests assert network isolation,
+`dist/web/.vite/manifest.json`. Production browser tests assert network isolation,
 all seven direct URLs and compatibility redirects, exits, Back/Forward and focus,
 announced loading, and recovery after an aborted chunk request. Reload obtains
 the current asset manifest after a deployment invalidates a cached chunk URL.

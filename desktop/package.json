@@ -1,0 +1,19 @@
+{
+  "name": "dream-large-arcade-desktop",
+  "productName": "Dream Large Arcade",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dream Large Arcade desktop edition",
+  "author": "Nick Simons",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "package": "node package.mjs",
+    "security:check": "npm audit --audit-level=moderate"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "41.10.7"
+  }
+}

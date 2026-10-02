@@ -1,0 +1,6 @@
+{
+  "id": "arcade",
+  "name": "Dream Large Arcade",
+  "startPath": "/",
+  "executable": "dream-large-arcade"
+}

@@ -5,7 +5,7 @@ import config from './playwright.config.mjs'
 // These tests are also included in the regular production browser suite.
 export default defineConfig({
   ...config,
-  testMatch: /homepage\.spec\.mjs$/,
+  testMatch: /(?:homepage|desktopDownloads)\.spec\.mjs$/,
   projects: [{ name: 'homepage' }],
   webServer: config.webServer[0],
 })

@@ -1,0 +1,81 @@
+name: Prepare Steam upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: Successful Desktop builds run ID from main or a desktop release tag
+        required: true
+      app_id:
+        description: Steam App ID
+        required: true
+      windows_depot:
+        description: Windows depot ID
+        required: true
+      linux_depot:
+        description: Linux depot ID
+        required: true
+      beta_branch:
+        description: Existing Steam beta branch
+        default: beta
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Verify source build
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: |
+          gh run view "$BUILD_RUN" --json conclusion,workflowName,event,headBranch,headSha > source-build.json
+          node --input-type=module -e '
+            import { readFileSync, appendFileSync } from "node:fs";
+            const run = JSON.parse(readFileSync("source-build.json", "utf8"));
+            if (run.conclusion !== "success" || run.workflowName !== "Desktop builds" || run.event !== "push" || !(run.headBranch === "main" || run.headBranch.startsWith("desktop-v"))) throw new Error("Choose a successful trusted Desktop builds push run.");
+            appendFileSync(process.env.GITHUB_OUTPUT, `sha=${run.headSha}\n`);
+          '
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - uses: actions/download-artifact@v7
+        with:
+          name: arcade-win32-x64
+          path: downloads/windows
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: arcade-linux-x64
+          path: downloads/linux
+          run-id: ${{ inputs.build_run }}
+          github-token: ${{ github.token }}
+      - name: Stage the tested packages and generate SteamPipe configuration
+        env:
+          APP_ID: ${{ inputs.app_id }}
+          WINDOWS_DEPOT: ${{ inputs.windows_depot }}
+          LINUX_DEPOT: ${{ inputs.linux_depot }}
+          BETA_BRANCH: ${{ inputs.beta_branch }}
+        run: |
+          mkdir -p staging/content/win32-x64 staging/content/linux-x64
+          tar -xzf downloads/windows/arcade-win32-x64.tar.gz -C staging/content/win32-x64 --strip-components=1
+          tar -xzf downloads/linux/arcade-linux-x64.tar.gz -C staging/content/linux-x64 --strip-components=1
+          node scripts/steam-config.mjs staging/scripts "$APP_ID" "$WINDOWS_DEPOT" "$LINUX_DEPOT" "$BETA_BRANCH"
+          tar -czf steam-upload.tar.gz -C staging .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: steam-upload
+          path: steam-upload.tar.gz
+          if-no-files-found: error
+          retention-days: 30

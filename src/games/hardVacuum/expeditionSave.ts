@@ -79,7 +79,7 @@ export function createExpeditionSaveSession(storage: StorageProvider = sessionBr
       replace = false
       return { status: 'saved' }
     } catch {
-      return { status: 'storage-unavailable', message: 'Progress could not be saved. Browser storage may be blocked or full. Keep this tab open and try again.' }
+      return { status: 'storage-unavailable', message: 'Progress could not be saved. Local storage may be unavailable or full. Keep the game open and try again.' }
     }
   }
 

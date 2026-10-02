@@ -1,0 +1,14 @@
+.downloads-page { max-width: 1100px; }
+.downloads-page h1 { max-width: 20ch; }
+.arcade-downloads { padding: 28px; border: 1px solid #cad5cc; border-radius: 10px; background: #fcfaf4; }
+.arcade-downloads h2 { margin: 0; color: #293c3d; font-size: 24px; }
+.arcade-downloads > p { margin: 12px 0; font-size: 16px; }
+.arcade-downloads .arcade-download-status { min-height: 1.7em; color: #52625b; font-size: 14px; }
+.arcade-download-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px; margin: 28px 0; }
+.arcade-download-option { min-width: 0; }
+.arcade-download-option h3 { margin: 0; color: #293c3d; font-size: 18px; line-height: 1.4; }
+.arcade-download-option p { margin: 10px 0; font-size: 14px; }
+.arcade-download-option a { display: inline-block; padding: 10px 14px; border: 1px solid #527b65; border-radius: 4px; font-size: 14px; font-weight: 600; }
+.arcade-download-unavailable { color: #69756d; }
+@media (max-width: 760px) { .arcade-download-options { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .arcade-downloads { padding: 20px; } }

@@ -3,11 +3,13 @@ import { useControlHints } from '../games/hardVacuum/controlHints'
 import { ARCADE_GAMES } from './games'
 import { GameArt } from './GameArt'
 import { AccountSurface } from '../accounts/AccountSurface'
+import { getPlatform } from '../platform/runtime'
 
 export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
   selectedIndex: number; onSelection: (index: number) => void; onPlay: (path: string) => void
 }) {
   const { connected, hint } = useControlHints()
+  const platform = getPlatform()
   return <KeyboardDialog label="Arcade" focusKey="arcade" globalMenu onClose={() => {}} className="arcade-overlay">
     <div className="arcade-menu">
       <header className="arcade-heading">
@@ -33,12 +35,17 @@ export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
         ? <p>Stick / D-pad <span>Choose</span> · {hint('confirm', '')} <span>Play</span></p>
         : <p>Arrow keys / Tab <span>Choose</span> · Enter <span>Play</span></p>}</div>
       <footer className="arcade-footer">
-        <p>Free browser games. Play locally, with optional cloud saves.</p>
+        <p>{platform.kind === 'desktop' ? 'Play locally. Your progress is saved on this device.' : 'Free browser games. Play locally, with optional cloud saves.'}</p>
+        {platform.kind === 'desktop' && <div className="account-actions">
+          <button onClick={() => void platform.toggleFullscreen()}>Toggle fullscreen</button>
+          <button onClick={() => void platform.quit?.()}>Quit arcade</button>
+        </div>}
         <div className="arcade-also">
           <img className="arcade-also-logo" src={`${import.meta.env.BASE_URL}piggy-banks-logo.svg`} width="52" height="52" alt="" />
           <p>I also make <a data-menu-link href="https://piggybanksonline.com" target="_blank" rel="noopener noreferrer">Piggy Banks Online</a>, a simple budgeting app built around virtual piggy banks.</p>
         </div>
-        <nav aria-label="Policies">
+        <nav aria-label="Arcade links">
+          {platform.kind === 'web' && <a data-menu-link href={`${import.meta.env.BASE_URL}downloads/`}>Downloads</a>}
           <a data-menu-link href={`${import.meta.env.BASE_URL}privacy.html`}>Privacy policy</a>
           <a data-menu-link href={`${import.meta.env.BASE_URL}terms.html`}>Terms of service</a>
         </nav>

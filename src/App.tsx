@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useEffectEvent, useState, useSyncExternalStore } from 'react'
 import { currentProfile, subscribeProfile } from './accounts/profileStorage'
-import { useCloudDownloads } from './accounts/useCloudDownloads'
+import type { ReactNode } from 'react'
 import { getAccountGameRevision, subscribeAccountRuntime } from './accounts/runtime'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { GameLoadBoundary, GameLoading, GameViewport } from './GameRoute'
@@ -12,7 +12,6 @@ import { ControlHintsContext } from './games/hardVacuum/controlHints'
 import { ArcadeMenu } from './arcade/ArcadeMenu'
 
 const HardVacuumGame = lazy(() => import('./games/HardVacuumGame').then(m => ({ default: m.HardVacuumGame })))
-const AccountControls = lazy(() => import('./accounts/AccountControls'))
 const HelloWorldGame = lazy(() => import('./games/HelloWorldGame').then(m => ({ default: m.HelloWorldGame })))
 const KickballGame = lazy(() => import('./games/KickballGame').then(m => ({ default: m.KickballGame })))
 const FinalApproachGame = lazy(() => import('./games/FinalApproachGame').then(m => ({ default: m.FinalApproachGame })))
@@ -22,12 +21,11 @@ const UrbanFireGame = lazy(() => import('./games/UrbanFireGame').then(m => ({ de
 const UntitledJumpingGame = lazy(() => import('./games/UntitledJumpingGame').then(m => ({ default: m.UntitledJumpingGame })))
 const LightingLab = import.meta.env.DEV ? lazy(() => import('./games/jumping/LightingLab')) : null
 
-export default function App() {
+export default function App({ accountControls }: { accountControls?: ReactNode }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const profile = useSyncExternalStore(subscribeProfile, currentProfile)
   const accountGameRevision = useSyncExternalStore(subscribeAccountRuntime, getAccountGameRevision)
-  useCloudDownloads(pathname === '/')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [controller] = useState(createControllerReader)
   const [keyboard] = useState(createKeyboardGate)
@@ -75,7 +73,7 @@ export default function App() {
 
   return (
     <ControlHintsContext.Provider value={{ connected: controllerConnected, layout: controller.layout }}>
-    <Suspense fallback={null}><AccountControls /></Suspense>
+    {accountControls}
     <GameLoadBoundary key={`${profile}:${accountGameRevision}:${pathname.startsWith('/untitled-jumping-game/') ? '/untitled-jumping-game' : pathname}`} onExit={onExit}>
     <Suspense fallback={<GameLoading onExit={onExit} />}>
     <Routes>

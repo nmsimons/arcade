@@ -81,9 +81,9 @@ test('Final Approach difficulty selection uses focus without accidentally starti
 
 test('Final Approach crash dialog focuses replay and honors Back on a short screen', async ({ page }, info) => {
   await page.setViewportSize({ width: 620, height: 360 })
+  await page.clock.install()
   await page.goto('/final-approach')
   await expect(page.getByRole('button', { name: 'Start', exact: true })).toBeFocused()
-  await page.clock.install()
   await page.keyboard.press('Enter')
   await page.clock.runFor(15000) // Let the unpiloted lander fall and finish exploding.
   await expect(page.getByRole('heading', { name: 'Crashed', exact: true })).toBeVisible()

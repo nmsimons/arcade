@@ -22,7 +22,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend} shovebot headlights mo
     robot.x = 700
     const moved = h.render(0)
     const reference = new LightingRenderer({ backend }), ctx = h.canvas.getContext('2d', { willReadFrequently: true })
-    reference.render(ctx, h.run, { nightMode: true, ambient: 0, lights: [] }, h.view, .2)
+    reference.render(ctx, h.run, { nightMode: true, ambient: 0, lights: [] }, h.view, .2, undefined, false, 'full')
     const fresh = { pixels: ctx.getImageData(0, 0, 1280, 720).data }
     reference.dispose()
     robot.x = 500; robot.facing = -1

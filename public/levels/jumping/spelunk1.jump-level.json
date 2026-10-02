@@ -1389,8 +1389,7 @@
       "y": 1775,
       "w": 120,
       "targets": [
-        "7c314bf7-c34b-4898-8c6a-6b9b02cabecd",
-        "95fc91ba-6395-4077-91ee-373f519d65cf"
+        "7c314bf7-c34b-4898-8c6a-6b9b02cabecd"
       ],
       "mode": "coins",
       "threshold": 3,
@@ -1580,14 +1579,15 @@
       "relay": true,
       "targets": [
         "0e80c53f-ab38-47db-9429-4e58e256a132",
-        "96996be5-c26c-41d2-8fa0-6bed7a757226"
+        "96996be5-c26c-41d2-8fa0-6bed7a757226",
+        "95fc91ba-6395-4077-91ee-373f519d65cf"
       ],
       "id": "ab63bfaa-21bf-4724-82d6-edbad636fc50",
       "x": 2830,
       "y": 795
     },
     {
-      "switchReversed": true,
+      "switchReversed": false,
       "id": "0e80c53f-ab38-47db-9429-4e58e256a132",
       "x": 1265,
       "y": 1955

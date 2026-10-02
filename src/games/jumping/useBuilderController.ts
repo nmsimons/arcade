@@ -37,6 +37,33 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
   const cursorElement = useRef<HTMLDivElement>(null), reader = useRef(createBuilderControllerReader())
   const cursor = useRef<{ x: number; y: number } | null>(null), dragging = useRef(false)
   const previousSurface = useRef<HTMLElement | null>(null), previousControl = useRef<HTMLElement | null>(null)
+  const previousControlPanel = useRef<HTMLElement | null>(null), restoreRequest = useRef(0)
+  const restoreControl = useEffectEvent(() => {
+    const node = root.current, control = previousControl.current, panel = previousControlPanel.current
+    if (!node) return
+    cancelAnimationFrame(restoreRequest.current)
+    const restore = () => {
+      // Object changes can remount a field; restore its equivalent in the same panel.
+      const label = control?.getAttribute('aria-label')
+      const target = control?.isConnected ? control : control && label && panel?.isConnected
+        ? panel.querySelector<HTMLElement>(`${control.localName}[aria-label="${CSS.escape(label)}"]`) : null
+      const items = controls(node)
+      focus(target && items.includes(target) ? target : items.find(item => panel?.contains(item)) ?? items[0])
+    }
+    if (panel?.isConnected && panel.hidden) {
+      const tabId = panel.getAttribute('aria-labelledby')
+      const tab = tabId && node.querySelector<HTMLElement>(`#${CSS.escape(tabId)}`)
+      if (tab) {
+        tab.click()
+        restoreRequest.current = requestAnimationFrame(() => {
+          restoreRequest.current = 0
+          if (document.activeElement === canvas.current && !topDialog()?.dataset.globalMenu) restore()
+        })
+        return
+      }
+    }
+    restore()
+  })
   const pointer = (type: string, fine = false) => {
     const node = canvas.current, point = cursor.current
     if (!node || !point) return
@@ -75,8 +102,8 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
     if (used) { node.setAttribute('data-input-method', 'controller'); scope.setAttribute('data-input-method', 'controller') }
     if (!modal && !popup && input.pressed.includes(3)) {
       cancel()
-      if (onCanvas) focus(previousControl.current?.isConnected && isVisibleControl(previousControl.current) ? previousControl.current : controls(node)[0])
-      else { if (current && node.contains(current)) previousControl.current = current; board.focus({ preventScroll: true }) }
+      if (onCanvas) restoreControl()
+      else board.focus({ preventScroll: true })
       return
     }
     if (!modal && !popup) {
@@ -132,7 +159,7 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
     }
     if (input.pressed.includes(1)) {
       if (dragging.current) cancel()
-      else { key(board, 'Escape'); focus(previousControl.current?.isConnected && isVisibleControl(previousControl.current) ? previousControl.current : controls(node)[0]) }
+      else { cancel(); restoreControl() }
       return
     }
     if (input.pressed.includes(2) && !dragging.current) { onDuplicate(); return }
@@ -191,17 +218,26 @@ export function useBuilderController({ active, root, canvas, onPan, onZoom, onUn
     }
     const fieldInput = (event: Event) => { if (event.target instanceof HTMLElement && isBuilderField(event.target)) startBuilderFieldEdit(event.target, false) }
     const fieldBlur = (event: FocusEvent) => { if (event.target instanceof HTMLElement) delete event.target.dataset.builderEditing }
+    const controlFocus = (event: FocusEvent) => {
+      const node = root.current, target = event.target
+      // Dialogs own their return focus; they must not replace the canvas bookmark.
+      if (!node || !(target instanceof HTMLElement) || target.closest('dialog, [role=dialog], [role=alertdialog]') || !controls(node).includes(target)) return
+      previousControl.current = target
+      previousControlPanel.current = target.closest<HTMLElement>('[role=tabpanel]')
+    }
     const element = root.current!
     element.addEventListener('pointerdown', pointerInput, true); element.addEventListener('pointermove', pointerInput, true)
     element.addEventListener('keydown', keyboardInput, true)
     element.addEventListener('input', fieldInput, true); element.addEventListener('focusout', fieldBlur, true)
+    element.addEventListener('focusin', controlFocus, true)
     window.addEventListener('blur', blur); document.addEventListener('visibilitychange', blur)
     request = requestAnimationFrame(tick)
     return () => {
-      cancelAnimationFrame(request); cancel()
+      cancelAnimationFrame(request); cancelAnimationFrame(restoreRequest.current); cancel()
       element.removeEventListener('pointerdown', pointerInput, true); element.removeEventListener('pointermove', pointerInput, true)
       element.removeEventListener('keydown', keyboardInput, true)
       element.removeEventListener('input', fieldInput, true); element.removeEventListener('focusout', fieldBlur, true)
+      element.removeEventListener('focusin', controlFocus, true)
       window.removeEventListener('blur', blur); document.removeEventListener('visibilitychange', blur)
     }
   }, [active, root, canvas])

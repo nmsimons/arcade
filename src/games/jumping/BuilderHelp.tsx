@@ -142,7 +142,7 @@ export function BuilderHelp({ tools, onClose }: {
           <div><dt>Y / △</dt><dd>Switch between the canvas cursor and the editor controls. Return to the last control you used.</dd></div>
           <div><dt>Left stick</dt><dd>Move the canvas cursor, or focus the control in that direction in the editor, Help, and Library. Navigation follows the visible layout and stops at an edge.</dd></div>
           <div><dt>A / ×</dt><dd>Activate a control or start editing a field. Press again to finish a number field; names and wall text open an on-screen keyboard. On the canvas, press to select or place; hold while moving to drag, resize, draw terrain, or edit a node. Release to apply one undoable edit.</dd></div>
-          <div><dt>B / ○</dt><dd>Cancel a field entry and resume navigation, cancel a drag, close a list or dialog, or return from the canvas to the controls.</dd></div>
+          <div><dt>B / ○</dt><dd>Cancel a field entry and resume navigation, cancel a drag, or close a list or dialog. Otherwise switch between the canvas and the last focused control. Returning restores its inspector tab and keeps the selected object.</dd></div>
           <div><dt>D-pad</dt><dd>Focus the control in that direction. While editing a number, Up/Right increases it and Down/Left decreases it. On the canvas, nudge the selected object or node; during a drag, move the cursor precisely.</dd></div>
           <div><dt>Right stick</dt><dd>Pan the canvas. In the controls, scroll the focused panel.</dd></div>
           <div><dt>LT / L2 · RT / R2</dt><dd>Zoom out / in on the canvas.</dd></div>

@@ -220,13 +220,16 @@ but write permission has expired, levels load automatically and **Enable saving*
 restores direct saves. A missing folder can be replaced with **Change folder**.
 
 Level studio supports standard controllers. **Y / △** switches between editor
-controls and the canvas cursor. The left stick, D-pad, and keyboard arrows move
+controls and the canvas cursor. Returning to the controls restores the last
+focused control and its inspector tab, including after entering with B, Tab, or
+the mouse. The left stick, D-pad, and keyboard arrows move
 focus according to the controls' positions; edges do not wrap. **A / ×** activates
 buttons, checkboxes, and lists, or starts editing a field. While editing numbers,
 Up/Right increases the value and Down/Left decreases it; A finishes and B cancels
 the current entry, returning to navigation. A opens an on-screen keyboard for
-names and wall text. **B / ○** cancels or closes
-the current dialog. The right stick scrolls the focused panel. Help's
+names and wall text. **B / ○** cancels a drag, field entry, list, or dialog;
+otherwise it also switches between the canvas and the last focused control,
+keeping the selected object. The right stick scrolls the focused panel. Help's
 **Controller** topic lists every binding.
 
 On the canvas, the left stick moves the cursor. Hold A while moving to draw,

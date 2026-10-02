@@ -43,6 +43,65 @@ async function placeBox(page) {
   await expect(field(page, 'Object x')).toBeVisible()
 }
 
+test('B and Y return to the last focused control on every canvas round trip', async ({ page }) => {
+  await open(page)
+  for (const target of [page.getByRole('button', { name: 'Box', exact: true }),
+    page.getByRole('checkbox', { name: 'Keep placing', exact: true }), field(page, 'Level width')]) {
+    await focus(page, target)
+    for (const [enter, leave] of [[1, 1], [1, 3], [3, 1], [3, 3]]) {
+      await tap(page, enter); await expect(canvas(page)).toBeFocused()
+      await tap(page, leave); await expect(target).toBeFocused()
+    }
+  }
+})
+
+test('mouse and Tab canvas entry remember the last control and dialogs preserve it', async ({ page }) => {
+  await open(page)
+  const box = page.getByRole('button', { name: 'Box', exact: true })
+  await focus(page, box); await canvas(page).click({ position: { x: 240, y: 160 } }); await page.clock.runFor(64)
+  await expect(canvas(page)).toBeFocused()
+  await tap(page, 1); await expect(box).toBeFocused()
+  const text = page.getByRole('button', { name: 'Wall text', exact: true })
+  await focus(page, text); await page.keyboard.press('Tab'); await page.clock.runFor(64)
+  await expect(canvas(page)).toBeFocused()
+  await tap(page, 8)
+  const library = page.getByRole('dialog', { name: 'Level library', exact: true })
+  await expect(library).toBeVisible()
+  await focus(page, library.getByRole('button', { name: 'Close library', exact: true }))
+  await tap(page, 1); await expect(canvas(page)).toBeFocused()
+  await tap(page, 1); await expect(text).toBeFocused()
+})
+
+test('returning to an inspector field preserves selection and follows a remounted field', async ({ page }) => {
+  await open(page); await placeBox(page)
+  const x = field(page, 'Object x'), selected = page.getByRole('combobox', { name: 'Selected object', exact: true })
+  await focus(page, x); await tap(page, 1); await expect(canvas(page)).toBeFocused()
+  await tap(page, 1); await expect(x).toBeFocused()
+  await expect(selected).toHaveAttribute('data-value', 'prop:0')
+  await tap(page, 3); await tap(page, 2)
+  await expect(selected).toHaveAttribute('data-value', 'prop:1')
+  await tap(page, 1); await expect(x).toBeFocused()
+  await expect(selected).toHaveAttribute('data-value', 'prop:1')
+})
+
+test('returning from canvas selection restores the last control in its hidden inspector tab', async ({ page }) => {
+  await open(page); await placeBox(page)
+  await page.getByRole('tab', { name: 'Level', exact: true }).click()
+  const name = page.getByRole('textbox', { name: 'Level name', exact: true })
+  await focus(page, name); await tap(page, 1); await expect(canvas(page)).toBeFocused()
+  // The controller cursor is at the box corner; move into its body to select it.
+  await hold(page, 10, 1); await axes(page, [-1, -1, 0, 0], 160); await axes(page, [0, 0, 0, 0]); await hold(page, 10, 0)
+  for (const button of [1, 3]) {
+    await tap(page, 0)
+    await expect(page.getByRole('tab', { name: 'Object', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await tap(page, button)
+    await expect(page.getByRole('tab', { name: 'Level', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expect(name).toBeFocused()
+    await expect(page.getByRole('combobox', { name: 'Selected object', exact: true, includeHidden: true })).toHaveAttribute('data-value', 'prop:0')
+    if (button === 1) { await tap(page, 3); await expect(canvas(page)).toBeFocused() }
+  }
+})
+
 test('controller navigates controls, number fields, lists, Help and Library', async ({ page }, info) => {
   await open(page)
   const snap = page.getByRole('checkbox', { name: 'Snap', exact: true })

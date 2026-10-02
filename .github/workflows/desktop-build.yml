@@ -134,6 +134,30 @@ jobs:
           ARCADE_TEST_PACKAGED: '1'
       - name: Archive tested app and prepare website downloads
         run: node scripts/desktop-archives.mjs
+      - name: Test extracted Windows download
+        if: runner.os == 'Windows'
+        run: |
+          Expand-Archive -LiteralPath desktop/out/downloads/dream-large-arcade-windows-x64.zip -DestinationPath .local/download-check
+          $env:ARCADE_TEST_EXECUTABLE = (Resolve-Path .local/download-check/dream-large-arcade-desktop-win32-x64/dream-large-arcade.exe).Path
+          npm run test:desktop
+        env:
+          ARCADE_TEST_PACKAGED: '1'
+      - name: Test extracted Linux download
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p .local/download-check
+          tar -xzf desktop/out/downloads/dream-large-arcade-linux-x64.tar.gz -C .local/download-check
+          ARCADE_TEST_EXECUTABLE="$PWD/.local/download-check/dream-large-arcade-desktop-linux-x64/dream-large-arcade" xvfb-run --auto-servernum npm run test:desktop
+        env:
+          ARCADE_TEST_PACKAGED: '1'
+      - name: Test extracted signed Mac download
+        if: runner.os == 'macOS' && env.ARCADE_MAC_SIGNED == '1'
+        run: |
+          mkdir -p .local/download-check
+          ditto -x -k desktop/out/downloads/dream-large-arcade-macos-arm64.zip .local/download-check
+          ARCADE_TEST_EXECUTABLE="$PWD/.local/download-check/Dream Large Arcade.app/Contents/MacOS/dream-large-arcade" npm run test:desktop
+        env:
+          ARCADE_TEST_PACKAGED: '1'
       - uses: actions/upload-artifact@v7
         with:
           name: arcade-${{ matrix.platform }}-${{ matrix.arch }}

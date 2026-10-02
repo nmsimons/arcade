@@ -92,6 +92,8 @@ artifact, now from `dist/web/`. Desktop builds are independent:
    signing is configured, a notarized Apple silicon Mac ZIP. Mac ZIPs use
    `ditto` to preserve app-bundle metadata. Signature, notarization ticket and
    Gatekeeper checks must pass before a Mac ZIP is produced.
+5. Windows and Linux downloads are extracted and smoke-tested again before
+   upload. Signed Mac downloads get the same check when signing is configured.
 
 Desktop builds run on pull requests, main pushes, manual dispatch and tags named
 `desktop-vVERSION`. A release tag must match `desktop/package.json`. Each renderer

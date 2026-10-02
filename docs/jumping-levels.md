@@ -137,9 +137,12 @@ folder connections.
 
 Click an object to select it, drag it to move it, or drag empty space to pan.
 Selecting a placement tool shows its default-size object under the mouse or
-controller cursor while it hovers over the canvas. The preview follows snapping
-and surface placement, without editing the level; click to place it or drag to
-set its size.
+controller cursor while it hovers over the canvas. Every placement tool follows
+the cursor in both directions; objects never jump to a distant surface below.
+With **Snap** enabled, the preview and placement align to the grid and catch
+nearby surfaces. Hold Alt or disable Snap to bypass this. The preview does not
+edit the level; click to place it or drag to set its size. **Place on surface**
+(End) moves a selected object to a supporting surface below.
 Space + drag or the middle mouse button pans from anywhere. Placement tools return
 to this default interaction after one use unless **Keep placing** is enabled;
 press Esc or click the active tool again to stop placing. Zoom centers on the
@@ -660,7 +663,9 @@ Body collisions constrain the loaded rope section while other sections keep
 moving; a blocked climb retains the grip and allows retreat along the rope.
 
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
-The builder's **Objects** tools place balls, boxes, and shovebots on a surface.
+The builder's **Objects** tools place balls, boxes, and shovebots at the cursor,
+with their feet at its height. Snap catches nearby surfaces; **Place on surface**
+moves an existing object to a surface farther below.
 Select a ball or box to change its size, or a shovebot to set its patrol limits.
 Drag either square handle on the shovebot's patrol line to move that endpoint;
 the inspector follows while dragging. Snap aligns endpoints to the grid, and

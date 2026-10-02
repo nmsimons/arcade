@@ -2,6 +2,7 @@ import { test, expect } from './helpers/folderTest.mjs'
 import { installTestFolder, useLevelFixtures, readTestLevel } from './helpers/jumpingLevels.mjs'
 import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
+import { itemBounds } from '../../src/games/jumping/editor.ts'
 
 const board = page => page.getByRole('application', { name: 'Level canvas' })
 const ghost = page => page.locator('.builder-placement-preview').evaluate(canvas => canvas.placement ?? null)
@@ -59,7 +60,7 @@ async function outside(page) {
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2); await page.clock.runFor(64)
 }
 
-test('every palette item previews on mouse hover without editing or saving it', async ({ page }, info) => {
+test('every palette item follows mouse hover in both directions without editing or saving it', async ({ page }, info) => {
   const initial = await open(page)
   for (const name of ['Terrain', 'Steps narrow', 'Steps wide', 'Rope', 'Ladder', 'Ball', 'Box', 'Shovebot', 'Elevator',
     'Moving platform', 'Gate', 'Horizontal gate', 'Pressure plate', 'Coin switch', 'Wall timer', 'Spotlight', 'Wall text',
@@ -67,6 +68,11 @@ test('every palette item previews on mouse hover without editing or saving it', 
     await page.getByRole('complementary', { name: 'Building tools' }).getByRole('button', { name, exact: true }).click()
     await move(page, 400, 300)
     await expect.poll(() => ghost(page), { message: `${name} should have a canvas placement preview` }).not.toBeNull()
+    const first = await ghost(page)
+    await move(page, 600, 420)
+    const second = await ghost(page)
+    expect(second.x - first.x, `${name} follows horizontal movement`).toBeCloseTo(200)
+    expect(second.y - first.y, `${name} follows vertical movement`).toBeCloseTo(120)
     await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled()
     await expect(page.getByRole('status', { name: 'Builder status' })).not.toContainText('Unsaved changes')
     await outside(page)
@@ -77,6 +83,67 @@ test('every palette item previews on mouse hover without editing or saving it', 
   await page.getByRole('button', { name: 'Save level', exact: true }).click()
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
   expect(await readTestLevel(page, 'preview.json')).toEqual(initial)
+})
+
+for (const mode of ['Snap', 'Snap off', 'Alt']) test(`objects stay at the cursor and clicks match their previews with ${mode}`, async ({ page }) => {
+  await open(page)
+  if (mode === 'Snap off') await page.getByRole('checkbox', { name: 'Snap', exact: true }).uncheck()
+  const expected = []
+  for (const [index, name] of ['Ball', 'Box', 'Shovebot', 'Pressure plate', 'Gate'].entries()) {
+    await page.getByRole('button', { name, exact: true }).click()
+    const x = 333.4 + index * 220, y = 365.6
+    await move(page, x, y); await board(page).focus()
+    if (mode === 'Alt') { await page.keyboard.down('Alt'); await page.clock.runFor(64) }
+    const preview = await ghost(page)
+    expect(preview.y + preview.h).toBeCloseTo(mode === 'Snap' ? 360 : mode === 'Alt' ? y : 366, 1)
+    expected.push(preview)
+    await page.mouse.down(); await page.mouse.up(); await page.clock.runFor(64)
+    if (mode === 'Alt') await page.keyboard.up('Alt')
+  }
+  await page.getByRole('button', { name: 'Save level', exact: true }).click()
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
+  const saved = await readTestLevel(page, 'preview.json')
+  for (const [index, selection] of [{ kind: 'prop', index: 0 }, { kind: 'prop', index: 1 }, { kind: 'robot', index: 0 },
+    { kind: 'trigger', index: 0 }, { kind: 'mechanism', index: 0 }].entries()) {
+    const bounds = itemBounds(saved, selection)
+    for (const axis of ['x', 'y', 'w', 'h']) expect(bounds[axis]).toBeCloseTo(expected[index][axis], 1)
+  }
+})
+
+test('a box follows controller movement in both directions and places at the preview', async ({ page }) => {
+  await open(page)
+  await page.getByRole('button', { name: 'Box', exact: true }).focus(); await page.clock.runFor(64); await tap(page, 0)
+  await tap(page, 3)
+  await expect.poll(() => ghost(page)).not.toBeNull()
+  const first = await ghost(page)
+  await page.evaluate(() => { window.testPad.axes[0] = 1; window.testPad.axes[1] = -1 }); await page.clock.runFor(160)
+  await page.evaluate(() => { window.testPad.axes[0] = 0; window.testPad.axes[1] = 0 }); await page.clock.runFor(64)
+  const preview = await ghost(page)
+  expect(preview.x).toBeGreaterThan(first.x); expect(preview.y).toBeLessThan(first.y)
+  await tap(page, 0)
+  await expect.poll(() => ghost(page)).toBeNull()
+  await page.getByRole('button', { name: 'Save level', exact: true }).click()
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
+  const saved = await readTestLevel(page, 'preview.json'), bounds = itemBounds(saved, { kind: 'prop', index: 0 })
+  for (const axis of ['x', 'y', 'w', 'h']) expect(bounds[axis]).toBeCloseTo(preview[axis], 1)
+})
+
+test('small objects follow the cursor near room edges when their footprints fit', async ({ page }) => {
+  await open(page)
+  await page.getByRole('checkbox', { name: 'Snap', exact: true }).uncheck()
+  for (const [name, x] of [['Box', 1730], ['Ball', 1740], ['Shovebot', 1750]]) {
+    await page.getByRole('button', { name, exact: true }).click(); await move(page, x, 500)
+    const preview = await ghost(page)
+    expect(preview.x + preview.w / 2).toBeCloseTo(x)
+  }
+  await page.getByRole('button', { name: 'Horizontal gate', exact: true }).click(); await move(page, 700, 890)
+  const preview = await ghost(page)
+  expect(preview.y).toBeCloseTo(890)
+  await page.mouse.down(); await page.mouse.up(); await page.clock.runFor(64)
+  await page.getByRole('button', { name: 'Save level', exact: true }).click()
+  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
+  const saved = await readTestLevel(page, 'preview.json')
+  expect(saved.mechanisms[0].y).toBeCloseTo(preview.y)
 })
 
 test('hover previews match click placement, update snapping and persist for Keep placing', async ({ page }) => {

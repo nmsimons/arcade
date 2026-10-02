@@ -7,6 +7,7 @@ import { polygonArea, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createRope, NO_CLIMBABLES, stepRope } from '../src/games/jumping/climbables.ts'
 import { groundAt } from '../src/games/jumping/terrain.ts'
+import { placeOnSurface } from '../src/games/jumping/editorPlacement.ts'
 
 function advance(p, frames, move, platforms, rules) {
   for (let i = 0; i < frames; i++) stepPlayer(p, { ...NEUTRAL_INPUT, move }, STEP, platforms, NO_CLIMBABLES, rules)
@@ -56,7 +57,8 @@ test('builder operations create editable terrain, keep the source unchanged, and
   const result = addItem(level, 'rough', { x: 400, y: 620 }, { x: 900, y: 520 })
   assert.equal(result.level.platforms.length, 1); assert.equal(result.level.platforms[0].profile.length, 11)
   assert.deepEqual(level, original)
-  let edited = addItem(result.level, 'spawn', { x: 500, y: 520 }, { x: 500, y: 520 }).level
+  const start = addItem(result.level, 'spawn', { x: 500, y: 520 }, { x: 500, y: 520 })
+  let edited = placeOnSurface(start.level, start.selection)
   assert.equal(spawnProblem(edited), null)
   const spawn = { ...edited.spawn }
   edited = moveItem(edited, result.selection, 100, -20)

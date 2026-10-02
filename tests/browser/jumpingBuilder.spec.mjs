@@ -346,10 +346,10 @@ test('object tools place editable balls, boxes, elevators, gates and shovebots w
     await page.getByRole('button', { name, exact: true }).click()
     await dragWorld(page, point, end)
   }
-  await place('Ball', { x: 260, y: 880 })
+  await place('Ball', { x: 260, y: 920 })
   await expect(selected).toHaveAttribute('data-value', 'prop:0')
   await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('60'); await page.getByRole('spinbutton', { name: 'Object w', exact: true }).press('Enter')
-  await place('Box', { x: 380, y: 880 })
+  await place('Box', { x: 380, y: 920 })
   await expect(selected).toHaveAttribute('data-value', 'prop:1')
   await page.getByRole('spinbutton', { name: 'Object w', exact: true }).fill('100'); await page.getByRole('spinbutton', { name: 'Object w', exact: true }).press('Enter')
   await place('Elevator', { x: 500, y: 900 }, { x: 500, y: 660 })

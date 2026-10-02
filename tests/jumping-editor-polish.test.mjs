@@ -1,10 +1,55 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
-import { addItem, resizeItem, setShovebotLimit } from '../src/games/jumping/editor.ts'
+import { addItem, itemBounds, resizeItem, setShovebotLimit } from '../src/games/jumping/editor.ts'
 import { placeOnSurface, surfacePlacement } from '../src/games/jumping/editorPlacement.ts'
 import { polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
+
+test('click placement follows the cursor height instead of choosing a distant support', () => {
+  const source = blankTrial()
+  source.platforms = [{ x: 300, y: 700, w: 400, h: 20 }]
+  const original = structuredClone(source)
+  for (const tool of ['box', 'ball', 'pusher', 'plate', 'gate', 'spawn', 'checkpoint', 'goal']) {
+    for (const y of [320, 440, source.floor]) {
+      const added = addItem(source, tool, { x: 500, y }, { x: 500, y })
+      const bounds = itemBounds(added.level, added.selection)
+      assert.equal(bounds.y + bounds.h, y, `${tool} should keep the cursor's height`)
+      if (y !== source.floor) {
+        assert.equal(placeOnSurface(added.level, added.selection, 12), added.level, `${tool} should ignore distant support`)
+        const grounded = placeOnSurface(added.level, added.selection)
+        const placed = itemBounds(grounded, added.selection)
+        assert.equal(placed.y + placed.h, 700, `${tool} can still be explicitly placed on a surface`)
+      }
+    }
+  }
+  assert.deepEqual(source, original)
+})
+
+test('new objects catch only nearby surfaces and stay inside the room near its ceiling', () => {
+  const source = blankTrial()
+  for (const tool of ['box', 'ball', 'pusher', 'plate', 'gate']) {
+    const point = { x: 500, y: source.floor - 10 }, added = addItem(source, tool, point, point)
+    assert.equal(placeOnSurface(added.level, added.selection, 9), added.level)
+    const snapped = placeOnSurface(added.level, added.selection, 12), bounds = itemBounds(snapped, added.selection)
+    assert.equal(bounds.y + bounds.h, source.floor, `${tool} catches a surface within reach`)
+    const ceiling = addItem(source, tool, { x: 500, y: -100 }, { x: 500, y: -100 })
+    assert.equal(itemBounds(ceiling.level, ceiling.selection).y, 0, `${tool} stays inside the ceiling`)
+  }
+})
+
+test('placement limits use each object footprint without pinning small items far from room edges', () => {
+  const source = blankTrial()
+  for (const [tool, x] of [['box', source.width - 70], ['ball', source.width - 60], ['pusher', source.width - 50]]) {
+    const point = { x, y: 400 }, added = addItem(source, tool, point, point)
+    const bounds = itemBounds(added.level, added.selection)
+    assert.equal(bounds.x + bounds.w / 2, x, `${tool} follows a cursor that leaves enough room`)
+  }
+  const point = { x: 500, y: source.floor - 30 }, horizontal = addItem(source, 'horizontal-gate', point, point)
+  assert.equal(horizontal.level.mechanisms[0].y, point.y, 'a thin gate follows the cursor near the floor')
+  const gate = addItem(source, 'gate', point, { ...point, y: point.y - 20 })
+  assert.equal(gate.level.mechanisms[0].y, point.y - 20, 'a short drawn gate uses its actual height')
+})
 
 test('patrol limits preserve the shovebot spawn, room clearance and minimum span', () => {
   const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]

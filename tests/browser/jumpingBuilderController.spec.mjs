@@ -36,7 +36,7 @@ async function placeBox(page) {
   await activate(page, page.getByRole('button', { name: 'Box', exact: true }))
   await tap(page, 3)
   await expect(canvas(page)).toBeFocused()
-  // Draw a free-standing box; a click deliberately places props on the floor.
+  // Draw a free-standing box with a custom size.
   await hold(page, 10, 1); await hold(page, 0, 1)
   await axes(page, [1, 1, 0, 0], 320); await axes(page, [0, 0, 0, 0])
   await hold(page, 0, 0); await hold(page, 10, 0)

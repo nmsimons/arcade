@@ -1,5 +1,5 @@
 import type { JumpLevel } from './level.ts'
-import { copyLevel, snapToGround, newLevelId, levelTerrain, levelHeight, LEVEL_GRID_SIZE } from './level.ts'
+import { copyLevel, newLevelId, levelTerrain, levelHeight, LEVEL_GRID_SIZE } from './level.ts'
 import { TUNING } from './model.ts'
 import type { Platform } from './model.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
@@ -497,7 +497,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     return { level: next, selection: { kind: 'platform', index: next.platforms.length - 1 } }
   }
   if (tool === 'spawn' || tool === 'checkpoint') {
-    const point = snapToGround(next, clamp(end.x, 10, next.width - 10), end.y)
+    const point = { x: clamp(end.x, 10, next.width - 10), y: clamp(end.y, 0, levelHeight(next)) }
     if (tool === 'spawn') next.spawn = point
     else { if (next.checkpoints.length >= 30) throw new Error('This level already has 30 checkpoints.'); next.checkpoints.push(point) }
     return { level: next, selection: { kind: tool, index: tool === 'spawn' ? 0 : next.checkpoints.length - 1 } }
@@ -539,24 +539,28 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
   if (['goal', 'box', 'ball', 'pusher', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
-    const trial = asTrial(level), point = snapToGround(trial, clamp(x, 70, trial.width - 110), y)
-    if (tool === 'goal') { trial.goal = { ...trial.goal, ...point }; return { level: trial, selection: { kind: 'goal', index: 0 } } }
+    // New objects follow the authored point. The canvas applies nearby surface
+    // snapping separately, so Snap off and Alt also preserve the cursor's height.
+    const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
+    if (tool === 'goal') { trial.goal = { ...trial.goal, ...point, x: clamp(point.x, 70, trial.width - 110) }; return { level: trial, selection: { kind: 'goal', index: 0 } } }
     if (tool === 'box' || tool === 'ball') {
       if (trial.props.length >= 80) throw new Error('This level already has 80 props.')
       const drawn = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y))
       const size = drawn > 10 ? clamp(drawn, 30, 200) : tool === 'box' ? 80 : 68
-      trial.props.push({ kind: tool, ...(drawn > 10 ? { x: clamp(Math.min(start.x, end.x) + size / 2, 24 + size / 2, trial.width - 24 - size / 2), y: clamp(Math.max(start.y, end.y), size, levelHeight(trial)) } : point), size })
+      trial.props.push({ kind: tool, x: clamp(point.x + (drawn > 10 ? size / 2 : 0), 24 + size / 2, trial.width - 24 - size / 2),
+        y: clamp(drawn > 10 ? Math.max(start.y, end.y) : point.y, size, levelHeight(trial)), size })
       return { level: trial, selection: { kind: 'prop', index: trial.props.length - 1 } }
     }
     if (tool === 'pusher') {
       if (trial.robots.length >= 30) throw new Error('This level already has 30 shovebots.')
-      trial.robots.push({ ...point, ...pusherRange(trial, point.x, point.y) })
+      const position = { x: clamp(point.x, 50, trial.width - 50), y: Math.max(50, point.y) }
+      trial.robots.push({ ...position, ...pusherRange(trial, position.x, position.y) })
       return { level: trial, selection: { kind: 'robot', index: trial.robots.length - 1 } }
     }
     if (tool === 'plate') {
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
       const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
-      trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: point.y, w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
+      trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: Math.max(8, point.y), w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }
     if (tool === 'lift' || tool === 'moving-platform' || tool === 'gate' || tool === 'horizontal-gate') {
@@ -566,7 +570,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       const horizontal = tool === 'horizontal-gate' || moving, h = tool === 'gate' ? clamp(drawnHeight > 10 ? drawnHeight : 180, 12, 800) : MECHANISM_THICKNESS
       const w = lift ? 140 : horizontal ? clamp(Math.abs(end.x - start.x) || 180, 30, 600) : MECHANISM_THICKNESS
       trial.mechanisms.push({ id: newLevelId(), kind: lift ? 'lift' : 'gate', x: clamp(moving ? start.x : x, 24, trial.width - w - 24),
-        y: Math.max(0, Math.min(trial.floor - h, moving ? start.y : lift ? Math.max(start.y, end.y) : horizontal || drawnHeight > 10 ? y : point.y - h)), w, h,
+        y: Math.max(0, Math.min(trial.floor - h, moving ? start.y : lift ? Math.max(start.y, end.y) : horizontal || drawnHeight > 10 ? point.y : point.y - h)), w, h,
         travel: lift ? clamp((moving ? Math.abs(end.x - start.x) : drawnHeight) || 300, 60, 1200) : horizontal ? w : h,
         ...(horizontal ? { orientation: 'horizontal' as const } : {}),
         ...(moving && end.x > start.x ? { flipX: true } : {}) })

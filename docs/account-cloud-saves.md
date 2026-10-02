@@ -2,7 +2,7 @@
 
 Implemented on `codex/account-cloud-saves`. Real Google/MSA consent and API
 isolation still require testing with registered OAuth clients and test accounts.
-Provider documentation was checked September 29, 2026.
+Provider documentation was checked October 2, 2026.
 
 ## Player behavior
 
@@ -14,14 +14,19 @@ explicit and preserves an account recovery copy first.
 Sign-in and cloud consent are separate. Google accounts connect Google Drive;
 personal Microsoft accounts connect OneDrive. This release does not link a
 Google identity to a Microsoft identity or join accounts by matching email.
-Both sign-ins and the cloud-connection choice survive refreshes in the same
-tab. Startup restores the selected account before mounting a game. Microsoft
-uses MSAL's session cache. Google keeps its verified identity and short-lived
-access token in tab session storage, rechecking the token's account before any
-Drive request after a reload. Closing the tab ends that session.
-Expired Google access offers Reconnect without switching to guest saves or
-opening a popup automatically. Account saves
-remain on the device and are found by the stable provider account ID.
+Both sign-ins and the cloud-connection choice survive tab closure and browser
+restarts until sign-out or clearing site data. The selected identity is remembered
+in localStorage; startup restores its save owner before mounting a game. Existing
+tab-scoped sign-ins upgrade on their next successful restoration. If persistent
+storage is unavailable, sign-in falls back to the current tab.
+Microsoft uses MSAL's localStorage cache to reuse credentials across tabs. MSAL
+may discard those credentials on browser closure unless the player selected
+**Keep me signed in** with Microsoft; the remembered Arcade profile remains
+available either way. Google keeps only its short-lived access token in tab
+session storage, rechecking the token's account before any Drive request after a
+reload. Expired or unavailable cloud access offers Reconnect without switching
+to guest saves or opening a popup automatically. Account saves remain on the
+device and are found by the stable provider account ID.
 
 The account panel guides players through sign-in, **Connect OneDrive / Google
 Drive**, and a synced confirmation. Pending actions identify the popup or sync
@@ -102,14 +107,16 @@ portable JSON backup, including levels, which Import backup can restore.
   ID, account ID and expiry. No refresh token or client secret is stored. Access
   renewal requires a user gesture. Sign-out and Disconnect clear cached access.
 - Microsoft uses MSAL Browser 5 with authorization code + PKCE, a dedicated
-  redirect bridge, the `consumers` authority and a session-storage cache. Login
+  redirect bridge, the `consumers` authority and a localStorage cache. Login
   requests identity scopes, and storage requests delegated
   `Files.ReadWrite.AppFolder`. The app verifies the personal-account tenant and
   account ID. MSAL manages its protocol state, nonce and token renewal; failures
-  requiring interaction lead to Reconnect. Refresh restoration uses the exact
-  remembered personal account, never the first arbitrary cached account.
+  requiring interaction lead to Reconnect. Restoration uses the exact remembered
+  personal account, never the first arbitrary cached account. If credentials are
+  unavailable, only the local profile is restored; a verified same-account
+  reconnection is required before accessing OneDrive.
   Disconnect stops cloud access without clearing sign-in; sign-out clears the
-  selected account's SDK cache and the remembered session. No application permissions are used.
+  selected account's SDK cache and the persistent account selection. No application permissions are used.
 
 OneDrive's `/me/drive/special/approot` creates the provider-enforced app folder,
 `Apps/Dream Large Arcade` for this app registration. Users can add files to that folder,
@@ -315,8 +322,11 @@ personal high scores, not a verified competitive leaderboard.
 ## Security and privacy boundaries
 
 The static site has no account database, token service or save upload endpoint.
-Browser requests go directly to the identity/storage providers. Display names
-are held in tab session storage; account IDs namespace browser caches. Hosting request logs may
+Browser requests go directly to the identity/storage providers. The selected
+provider, account ID, display name and cloud-connection choice are held in
+localStorage until sign-out or clearing site data; account IDs namespace browser
+caches. This record restores local saves and does not grant provider access.
+Hosting request logs may
 still contain IP addresses and requested paths. Review hosting retention before
 making broader privacy promises.
 
@@ -327,8 +337,11 @@ global headers. OAuth tokens are not logged or placed in application URLs.
 Google access tokens use memory and tab session storage until their expiry, sign-out
 or disconnect. The app does not persist them in localStorage or IndexedDB.
 Microsoft's SDK manages authentication artifacts,
-including tokens and account details, in session storage; the app stores only
-the selected Microsoft account ID and cloud-enabled choice alongside it. This
+including tokens and account details, in its localStorage cache. MSAL encrypts
+these artifacts with a key in a session cookie unless the player selects
+**Keep me signed in**; encrypted credentials cannot be reused after that browser
+session ends. The app separately remembers the selected identity and cloud
+choice without copying tokens into its account record. This
 follows the SDK's [cache guidance](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/caching).
 
 Downloaded data passes byte limits before parsing and schema validation before
@@ -387,6 +400,11 @@ more than 2,000 versions, clock skew and interrupted archiving. Real provider be
 provider check; mocked responses do not establish live API guarantees. Google
 browser coverage includes reloads, expiry, wrong cached accounts, disconnect,
 sign-out, visible folder links, upload feedback and in-game cloud Refresh.
+Both providers also exercise fresh tabs or browser sessions with only persistent
+storage retained, profile restoration before gameplay, legacy session upgrades,
+and sign-out surviving a later visit. Google tests cover persistent-storage
+failure; Microsoft tests use the real SDK cache and discard its session-cookie
+encryption key to exercise credential expiry separately from profile persistence.
 
 On the Windows development host, the production build and account-file lint pass.
 The broader unit run encounters two existing symlink tests that require Windows

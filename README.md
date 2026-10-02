@@ -24,9 +24,10 @@ game's `Levels` folder contains ordinary level JSON files and `index.json`, just
 like local and built-in collections. Copy them together to move a collection;
 files added or edited in OneDrive are read on the next sync. Google grants access
 per file: use **Manage saves → Choose from Google Drive** to select levels copied
-into Drive, or **Import level files** for files on your computer. Both accounts survive
-refresh in the same tab; expired Google access offers Reconnect without switching
-away from the player's local saves.
+into Drive, or **Import level files** for files on your computer. Both accounts stay
+selected across tabs and browser sessions until sign-out or clearing site data.
+Expired cloud access offers Reconnect without switching away from the player's
+local saves.
 
 Sign-in buttons remain disabled until public OAuth client IDs are configured.
 See [account and cloud storage setup](docs/account-cloud-saves.md) for provider

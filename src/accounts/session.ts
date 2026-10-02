@@ -4,24 +4,47 @@ export interface AccountSession { login?: Login; cloudEnabled: boolean; revision
 let session: AccountSession = { cloudEnabled: false, revision: 0 }
 const subscribers = new Set<() => void>()
 const aborters = new Set<AbortController>()
+const ACCOUNT_KEY = 'arcade.account.v1'
 const SESSION_KEY = 'arcade.microsoft.session.v1'
 const GOOGLE_SESSION_KEY = 'arcade.google.session.v1'
 interface RememberedSession { id: string; cloudEnabled: boolean; identity?: Identity }
+function validIdentity(value: unknown): value is Identity {
+  if (!value || typeof value !== 'object') return false
+  const identity = value as Partial<Identity>
+  return typeof identity.name === 'string' && identity.name.length <= 160 && typeof identity.id === 'string' &&
+    (identity.provider === 'google' ? /^[a-zA-Z0-9_-]{1,255}$/.test(identity.id) : identity.provider === 'microsoft' && identity.id.length > 0 && identity.id.length <= 1024)
+}
+function storedAccount(storage: 'localStorage' | 'sessionStorage'): RememberedSession | undefined {
+  try {
+    const value = JSON.parse(window[storage].getItem(ACCOUNT_KEY) || 'null')
+    if (validIdentity(value?.identity) && typeof value.cloudEnabled === 'boolean') return { id: value.identity.id, identity: value.identity, cloudEnabled: value.cloudEnabled }
+  } catch { /* Storage may be disabled or contain an invalid record. */ }
+}
 function rememberedSession(): RememberedSession | undefined {
+  const account = storedAccount('localStorage') ?? storedAccount('sessionStorage')
+  if (account) return account
+  // Upgrade existing tab-scoped sign-ins on their next successful restoration.
   try {
     const google = JSON.parse(window.sessionStorage.getItem(GOOGLE_SESSION_KEY) || 'null')
-    if (google?.identity?.provider === 'google' && typeof google.identity.id === 'string' && /^[a-zA-Z0-9_-]{1,255}$/.test(google.identity.id) && typeof google.identity.name === 'string' && google.identity.name.length <= 160 && typeof google.cloudEnabled === 'boolean') return { id: google.identity.id, identity: google.identity, cloudEnabled: google.cloudEnabled }
+    if (validIdentity(google?.identity) && google.identity.provider === 'google' && typeof google.cloudEnabled === 'boolean') return { id: google.identity.id, identity: google.identity, cloudEnabled: google.cloudEnabled }
     const value = JSON.parse(window.sessionStorage.getItem(SESSION_KEY) || 'null')
     if (value && typeof value.id === 'string' && value.id.length > 0 && value.id.length <= 1024 && typeof value.cloudEnabled === 'boolean') return { id: value.id, cloudEnabled: value.cloudEnabled }
   } catch { /* Storage may be disabled; sign-in still works for this page. */ }
 }
 export const hasRememberedAccount = () => !!rememberedSession()
 function rememberSession() {
+  const value = session.login ? JSON.stringify({ identity: session.login.identity, cloudEnabled: session.cloudEnabled }) : undefined
+  let persisted = false
   try {
-    if (session.login?.identity.provider === 'microsoft') window.sessionStorage.setItem(SESSION_KEY, JSON.stringify({ id: session.login.identity.id, cloudEnabled: session.cloudEnabled }))
-    else window.sessionStorage.removeItem(SESSION_KEY)
-    if (session.login?.identity.provider === 'google') window.sessionStorage.setItem(GOOGLE_SESSION_KEY, JSON.stringify({ identity: session.login.identity, cloudEnabled: session.cloudEnabled }))
-    else window.sessionStorage.removeItem(GOOGLE_SESSION_KEY)
+    if (value) window.localStorage.setItem(ACCOUNT_KEY, value)
+    else window.localStorage.removeItem(ACCOUNT_KEY)
+    persisted = true
+  } catch { /* Fall back to this tab when persistent storage is unavailable. */ }
+  try {
+    if (value && !persisted) window.sessionStorage.setItem(ACCOUNT_KEY, value)
+    else window.sessionStorage.removeItem(ACCOUNT_KEY)
+    window.sessionStorage.removeItem(SESSION_KEY)
+    window.sessionStorage.removeItem(GOOGLE_SESSION_KEY)
   } catch { /* Keep the current session usable when browser storage is unavailable. */ }
 }
 export const getSession = () => session
@@ -35,7 +58,7 @@ export function restoreSession(): Promise<void> {
   if (!remembered || session.login) return Promise.resolve()
   restoring = (async () => {
     const { restoreMicrosoftLogin, restoreGoogleLogin } = await import('./auth')
-    const login = remembered.identity ? restoreGoogleLogin(remembered.identity, remembered.cloudEnabled) : await restoreMicrosoftLogin(remembered.id, remembered.cloudEnabled)
+    const login = remembered.identity?.provider === 'google' ? restoreGoogleLogin(remembered.identity, remembered.cloudEnabled) : await restoreMicrosoftLogin(remembered.id, remembered.cloudEnabled, remembered.identity)
     if (session.revision !== revision) return
     if (!login) throw new Error('Your saved Microsoft sign-in is no longer available. Return to the arcade to sign in again.')
     abortOperations(); selectProfile(`${login.identity.provider}:${login.identity.id}`)

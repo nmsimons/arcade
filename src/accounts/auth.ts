@@ -28,16 +28,21 @@ let googleLoad: Promise<GoogleSDK> | undefined
 let microsoftLoad: Promise<IPublicClientApplication> | undefined
 let microsoft: IPublicClientApplication | undefined
 let google: GoogleSDK | undefined
+async function microsoftApp(persistent: boolean) {
+  const { PublicClientApplication, BrowserCacheLocation } = await import('@azure/msal-browser')
+  const app = new PublicClientApplication({
+    auth: { clientId: microsoftId!, authority: 'https://login.microsoftonline.com/consumers', redirectUri: new URL(`${import.meta.env.BASE_URL}auth-redirect.html`, location.origin).href },
+    cache: { cacheLocation: persistent ? BrowserCacheLocation.LocalStorage : BrowserCacheLocation.SessionStorage },
+    system: { loggerOptions: { piiLoggingEnabled: false, loggerCallback: () => {} } },
+  })
+  await app.initialize()
+  return app
+}
 export function prepareAuth(provider: Provider): Promise<unknown> {
   if (!configured[provider]) return Promise.reject(new Error('This sign-in provider has not been configured.'))
   if (provider === 'microsoft') {
-    microsoftLoad ??= import('@azure/msal-browser').then(async ({ PublicClientApplication, BrowserCacheLocation }) => {
-      const app = new PublicClientApplication({
-        auth: { clientId: microsoftId!, authority: 'https://login.microsoftonline.com/consumers', redirectUri: new URL(`${import.meta.env.BASE_URL}auth-redirect.html`, location.origin).href },
-        cache: { cacheLocation: BrowserCacheLocation.SessionStorage },
-        system: { loggerOptions: { piiLoggingEnabled: false, loggerCallback: () => {} } },
-      })
-      await app.initialize(); microsoft = app; return app
+    microsoftLoad ??= microsoftApp(true).then(app => {
+      microsoft = app; return app
     }).catch(error => { microsoftLoad = undefined; throw error })
     return microsoftLoad
   }
@@ -103,7 +108,7 @@ export async function signIn(provider: Provider): Promise<Login> {
 
 const GOOGLE_ACCESS = 'arcade.google.access.v1'
 function clearGoogleAccess() { try { sessionStorage.removeItem(GOOGLE_ACCESS) } catch { /* Session storage can be disabled. */ } }
-/** Keep the selected local profile on refresh, including when access needs renewal. */
+/** Keep the selected local profile across visits, including when access needs renewal. */
 export function restoreGoogleLogin(identity: Identity, cloudEnabled: boolean): Login {
   if (!configured.google || identity.provider !== 'google') throw new Error('Google sign-in has not been configured.')
   return googleLogin(identity, cloudEnabled)
@@ -147,29 +152,38 @@ function googleLogin(identity: Identity, cloud: boolean): Login {
   }
 }
 
-/** Restore only the previously selected account from the SDK's cache, without a popup. */
-export async function restoreMicrosoftLogin(id: string, cloudEnabled: boolean): Promise<Login | undefined> {
+/** Restore the selected profile without a popup, even after SDK credentials expire. */
+export async function restoreMicrosoftLogin(id: string, cloudEnabled: boolean, rememberedIdentity?: Identity): Promise<Login | undefined> {
   await prepareAuth('microsoft')
   const app = microsoft!
   const account = app.getAccount({ homeAccountId: id, tenantId: '9188040d-6c67-4c5b-b112-36a304b66dad' })
-  return account ? microsoftLogin(app, account, cloudEnabled) : undefined
+  if (account) return microsoftLogin(app, account, cloudEnabled)
+  if (rememberedIdentity?.provider === 'microsoft' && rememberedIdentity.id === id) return microsoftLogin(app, undefined, cloudEnabled, rememberedIdentity)
+  // Existing versions used MSAL's session cache. Preserve that selected account
+  // during the upgrade; subsequent visits remember its identity persistently.
+  const legacy = await microsoftApp(false)
+  const legacyAccount = legacy.getAccount({ homeAccountId: id, tenantId: '9188040d-6c67-4c5b-b112-36a304b66dad' })
+  return legacyAccount ? microsoftLogin(legacy, legacyAccount, cloudEnabled) : undefined
 }
 
-function microsoftLogin(app: IPublicClientApplication, account: AccountInfo, cloud: boolean): Login {
+function microsoftLogin(app: IPublicClientApplication, account: AccountInfo | undefined, cloud: boolean, rememberedIdentity?: Identity): Login {
   let live = true
-  const identity = microsoftIdentity(account)
+  const identity = account ? microsoftIdentity(account) : rememberedIdentity!
   const verify = (next: { account: AccountInfo | null; accessToken: string; scopes: string[] }) => {
     if (!live || !next.account || microsoftIdentity(next.account).id !== identity.id || !next.scopes.some(scope => scope.toLowerCase().endsWith('files.readwrite.appfolder'))) throw reconnect()
     return next.accessToken
   }
   return {
     identity,
-    async authorize() { verify(await app.acquireTokenPopup({ scopes: [MICROSOFT_SCOPE], account })); cloud = true },
+    async authorize() {
+      const result = await app.acquireTokenPopup({ scopes: [MICROSOFT_SCOPE], account })
+      verify(result); account = result.account!; cloud = true
+    },
     async token() {
-      if (!live || !cloud) throw reconnect()
+      if (!live || !cloud || !account) throw reconnect()
       try { return verify(await app.acquireTokenSilent({ scopes: [MICROSOFT_SCOPE], account })) } catch { throw reconnect() }
     },
     disconnect() { cloud = false },
-    async signOut() { live = false; cloud = false; await app.clearCache({ account }) },
+    async signOut() { live = false; cloud = false; if (account) await app.clearCache({ account }) },
   }
 }

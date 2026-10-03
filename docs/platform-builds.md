@@ -129,8 +129,10 @@ For a release:
    targets, then creates a **draft** GitHub Release containing download archives,
    `SHA256SUMS.txt` and installation instructions. Re-running a tag can replace
    draft assets, but cannot overwrite an already published release.
-3. Run **Desktop download checks** with the draft release tag. It downloads and
-   tests those exact Windows/Linux archives with Chromium's sandbox enabled.
+3. Run **Desktop download checks** with the draft release tag, its successful
+   Desktop builds run ID, and the two hashes from `SHA256SUMS.txt`. This read-only
+   workflow retrieves the original CI archives, verifies they match the draft
+   downloads byte for byte, and tests with Chromium's sandbox enabled.
 4. Download and review the draft files, including a Steam Deck playtest and Mac
    installation on another machine. Publish the draft when ready. The downloads page
    will pick it up on its next visit.

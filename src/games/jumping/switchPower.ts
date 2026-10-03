@@ -12,7 +12,7 @@ export function parseSwitchSettings(value: { switchLogic?: unknown; switchRevers
   if (switchLogic !== undefined && switchLogic !== 'or' && switchLogic !== 'and' && switchLogic !== 'xor') return fail()
   if (switchReversed !== undefined && typeof switchReversed !== 'boolean') return fail()
   if (relay !== undefined && typeof relay !== 'boolean') return fail()
-  if (targets !== undefined && (!Array.isArray(targets) || targets.length > 97
+  if (targets !== undefined && (!Array.isArray(targets) || targets.length > 113
     || targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(targets).size !== targets.length)) return fail()
   return { ...(switchLogic === undefined ? {} : { switchLogic }), ...(switchReversed === undefined ? {} : { switchReversed }), ...(relay === undefined ? {} : { relay }),
     ...(targets === undefined ? {} : { targets: [...targets as string[]] }) }
@@ -47,6 +47,7 @@ export function switchedItems(level: JumpLevel) {
   return [
     ...(level.mechanisms ?? []).flatMap((m, index) => m.power === 'always' ? [] : [{ id: m.id, kind: 'mechanism' as const, index, definition: m }]),
     ...(level.lighting?.lights ?? []).flatMap((l, index) => l.power === 'switched' ? [{ id: l.id, kind: 'light' as const, index, definition: l }] : []),
+    ...(level.gravityPlates ?? []).flatMap((definition, index) => definition.power === 'always' ? [] : [{ id: definition.id, kind: 'gravity-plate' as const, index, definition }]),
     ...(level.wallLights ?? []).map((definition, index) => ({ id: definition.id, kind: 'wall-light' as const, index, definition })),
     ...(level.goal?.power === 'switched' && level.goal.id ? [{ id: level.goal.id, kind: 'goal' as const, index: 0, definition: level.goal }] : []),
   ]
@@ -91,6 +92,7 @@ export function switchWiringProblems(level: JumpLevel, validateTriggers = true):
   }
   const definitions = [...(level.mechanisms ?? []).map((definition, index) => ({ definition, kind: 'mechanism' as const, index })),
     ...(level.lighting?.lights ?? []).map((definition, index) => ({ definition, kind: 'light' as const, index })),
+    ...(level.gravityPlates ?? []).map((definition, index) => ({ definition, kind: 'gravity-plate' as const, index })),
     ...(level.wallLights ?? []).map((definition, index) => ({ definition, kind: 'wall-light' as const, index })),
     ...(level.goal ? [{ definition: level.goal, kind: 'goal' as const, index: 0 }] : [])]
   for (const item of definitions) {
@@ -121,7 +123,7 @@ export function switchWiringProblems(level: JumpLevel, validateTriggers = true):
 
 /** Called only on an editor copy, after deleting an item or changing its power. */
 export function removeSwitchTarget(level: JumpLevel, id: string) {
-  for (const item of [...level.triggers ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...(level.goal ? [level.goal] : [])]) {
+  for (const item of [...level.triggers ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...(level.goal ? [level.goal] : [])]) {
     if (item.targets) item.targets = item.targets.filter(target => target !== id)
     else if ('target' in item && item.target === id) item.target = ''
   }

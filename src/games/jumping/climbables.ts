@@ -1,3 +1,5 @@
+import { gravityAtPoint } from './gravity.ts'
+import type { GravityField } from './gravity.ts'
 import type { NamedObject } from './objectNames.ts'
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
@@ -301,14 +303,21 @@ function ropeIsClear(rope: RopeState, terrain: readonly Platform[]) {
 }
 
 /** Verlet particles, distance constraints, an anchored top and a heavier loaded grip. */
+const ropeGravityRevisions = new WeakMap<RopeState, number>()
+
 export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
-  body?: { climb: Climbing; from: Point; facing: number } } | null) {
+  body?: { climb: Climbing; from: Point; facing: number } } | null, gravityField?: GravityField) {
   const { nodes, definition } = rope
+  if (gravityField && (gravityField.strips.length || ropeGravityRevisions.has(rope)) && ropeGravityRevisions.get(rope) !== gravityField.revision) {
+    ropeGravityRevisions.set(rope, gravityField.revision)
+    initRopeSleep(rope)
+  }
+  const gravity = (x: number, y: number) => gravityField ? gravityAtPoint(gravityField, x, y, 1400) : 1400
   // Only geometry near the rope's current sweep can touch it this step. The
   // anchor's full reach pulled most of a tall level into every solver pass.
   let left = definition.x, right = definition.x, top = definition.y, bottom = definition.y
   for (const n of nodes) {
-    const x = n.x + (n.x - n.oldX), y = n.y + (n.y - n.oldY) + 1400 * dt * dt
+    const x = n.x + (n.x - n.oldX), y = n.y + (n.y - n.oldY) + gravity(n.x, n.y) * dt * dt
     left = Math.min(left, n.x, x); right = Math.max(right, n.x, x)
     top = Math.min(top, n.y, y); bottom = Math.max(bottom, n.y, y)
   }
@@ -354,7 +363,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     const n = nodes[i], dx = (n.x - n.oldX) * damping, dy = (n.y - n.oldY) * damping
     n.oldX = n.x; n.oldY = n.y
     const pumping = supports[i] * (bodyMass + 1) * weights[i]
-    n.x += dx + pumpX * pumping; n.y += dy + 1400 * dt * dt + pumpY * pumping
+    n.x += dx + pumpX * pumping; n.y += dy + gravity(n.x, n.y) * dt * dt + pumpY * pumping
   }
   // Keep these spans fixed while the hands move; changing a span's endpoint
   // during a regrip would turn accumulated stretch into an artificial impulse.

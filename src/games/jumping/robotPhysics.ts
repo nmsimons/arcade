@@ -20,7 +20,7 @@ export function robotSensesPlayer(r: RobotState, p: Player, obstacles: Iterable<
   const c = Math.cos(r.angle), s = Math.sin(r.angle), eyeX = 13.5 * r.facing, eyeY = robotTop(r) + 21.5
   const eye: Vec = [r.x + eyeX * c - eyeY * s, r.y - 9 + eyeX * s + eyeY * c]
   const body = playerContactBody(p)
-  return !lineBlocked(eye, [body.x, body.y - body.height / 2], obstacles)
+  return !lineBlocked(eye, [body.x, body.y + body.height / 2 * (p.inverted ? 1 : -1)], obstacles)
 }
 
 /** Reuse this step's solid shapes without allocating a filtered list per bot. */
@@ -135,12 +135,12 @@ function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x
     // Only the moving bot can initiate this correction. A distant bot
     // must not resolve a ledge animation against the ordinary upright hull
     // and transport its grip away from the actual corner.
-    if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height))) {
+    if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height, player.inverted ? -1 : 1))) {
       if (player.hang || player.mantle || player.climbing) return false
       const obstacles = [...platforms, ...hulls]
       // A pinned player blocks the bot; neither actor can pass through a wall.
-      const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height)
-      if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height))) return false
+      const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height, player.inverted ? -1 : 1)
+      if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height, player.inverted ? -1 : 1))) return false
       translatePlayer(player, safe.x - player.x, safe.y - player.y)
     }
   }

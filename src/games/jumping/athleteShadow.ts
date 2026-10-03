@@ -12,7 +12,7 @@ export function athleteCasters(player: Player): Platform[] {
   let points: Vec[] = []
   const close = () => {
     if (points.length > 2) {
-      const world = points.map(([x, y]): Vec => [player.x + x * player.facing, player.y + y])
+      const world = points.map(([x, y]): Vec => [player.x + x * player.facing, player.y + y * (player.inverted ? -1 : 1)])
       const x = Math.min(...world.map(p => p[0])), y = Math.min(...world.map(p => p[1]))
       shapes.push({ x, y, w: Math.max(...world.map(p => p[0])) - x, h: Math.max(...world.map(p => p[1])) - y,
         polygon: world.map(p => [p[0] - x, p[1] - y]) })

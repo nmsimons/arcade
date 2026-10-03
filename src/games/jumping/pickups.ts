@@ -44,18 +44,19 @@ export const pickupBounds = (p: Pick<Pickup, 'x' | 'y'> & Partial<Pick<Pickup, '
 
 function touchesPlayer(p: Player, pickup: Pickup) {
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
+  const top = Math.min(p.y, p.y - height * (p.inverted ? -1 : 1)), bottom = top + height
   const nearestX = Math.max(p.x - TUNING.width / 2, Math.min(p.x + TUNING.width / 2, pickup.x))
   const numbered = pickup.kind === 'time-bonus' || pickup.kind === 'time-penalty'
   const centerY = pickup.y - (numbered ? 4 : 0)
-  const nearestY = Math.max(p.y - height, Math.min(p.y, centerY))
+  const nearestY = Math.max(top, Math.min(bottom, centerY))
   if (pickup.kind === 'coin') return Math.hypot(pickup.x - nearestX, pickup.y - nearestY) <= COIN_RADIUS
   if (pickup.kind === 'emp') return Math.hypot(pickup.x - nearestX, pickup.y - nearestY) <= 20
   if (numbered) return Math.hypot(pickup.x - nearestX, centerY - nearestY) <= 22
   const face = Math.hypot(pickup.x - nearestX, pickup.y - nearestY) <= 20
   const crown = p.x + TUNING.width / 2 >= pickup.x - 9 && p.x - TUNING.width / 2 <= pickup.x + 9
-    && p.y >= pickup.y - 31 && p.y - height <= pickup.y - 20
+    && bottom >= pickup.y - 31 && top <= pickup.y - 20
   const button = p.x + TUNING.width / 2 >= pickup.x + 12 && p.x - TUNING.width / 2 <= pickup.x + 24
-    && p.y >= pickup.y - 25 && p.y - height <= pickup.y - 13
+    && bottom >= pickup.y - 25 && top <= pickup.y - 13
   return face || crown || button
 }
 

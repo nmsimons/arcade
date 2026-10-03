@@ -1,3 +1,4 @@
+import { mirrorPlayerState } from './gravityFrame.ts'
 import { gaitPose } from './model.ts'
 import type { Player } from './model.ts'
 import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
@@ -549,6 +550,11 @@ function clearClimbingLeg(p: Player, leg: Leg, spread: number): Leg {
 }
 /** Local-space poses share one rig, from planted contact through flight and landing. */
 export function athletePose(p: Player): AthletePose {
+  if (p.inverted) {
+    mirrorPlayerState(p); p.inverted = false
+    try { return athletePose(p) }
+    finally { mirrorPlayerState(p); p.inverted = true }
+  }
   if (p.mantle?.step) return stepUpPose(p)
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
@@ -859,7 +865,7 @@ export const NIGHT_PLAYER_COLOR = '#e5e7e6'
 /** Original daytime silhouette; night rendering supplies its own lit material. */
 export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e') {
   const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0 } = athletePose(p)
-  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, 1)
+  ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, p.inverted ? -1 : 1)
   const backPose = !!p.climbing || backView > 0
   drawLeg(ctx, backLeg, body)
   drawArm(ctx, backArm, body)

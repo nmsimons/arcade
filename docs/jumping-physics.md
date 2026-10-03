@@ -277,3 +277,62 @@ The observer never changes physics or filters the rendered pose. Use captures to
 find and fix unstable contacts or interrupted blends at their source. Do not
 hold a physical contact alive, delay controls, move the player root, or smooth
 planted feet away from their surface merely to conceal an oscillation.
+
+## Gravity fields
+
+Gravity plates define fixed rectangles and use standard switched or Always on
+power. They obey EMP independently of logical relay outputs. Player and loose
+prop acceleration is the area-weighted mean of the gravity field across the body.
+Each overlapping active device contributes equally at a point; ordinary gravity
+applies outside all fields. This prevents a center-point threshold from abruptly
+reversing a large object. The player uses its tapered collision hull, rotated
+boxes use their square hull, and balls use exact disk/rectangle intersection.
+Rope particles use their local field multiplier with the rope's usual baseline.
+Grips and authored climbing paths retain their constraints; release returns the
+body to free movement. Field forces act through the center of mass.
+
+Gravity that pulls away from the current footing releases ground and slide support
+immediately. On reaching a solid surface in the gravity direction, the player
+turns to plant their feet there, preserving the occupied body space and lateral
+momentum. Under negative gravity, ceilings and the undersides of solid objects
+support walking, running, crouching and downward jumps where grip permits;
+steeper undersides slide under the same friction rules. The movement controller
+uses reflected geometry, retaining ordinary friction, slopes and swept collisions.
+Leaving the field restores ordinary acceleration without resetting velocity;
+the player returns upright on landing on a normal floor. Player vertical
+speed is bounded to ±1100; props use the solver's ±1000 integration bound. There
+are no special field collision exceptions.
+
+The runtime partitions at most 16 active rectangles into nonoverlapping vertical
+strips, merging adjoining equal-gravity spans. This rebuilds only when device
+power changes. Body queries reject distant strips/spans, use a fast full-coverage
+path, and clip only partial coverage. Polygon clipping reuses bounded scratch
+buffers; balls use an analytic area integral rather than particle sampling or
+pixel reads. Rectangle size does not change simulation cost.
+
+Matter keeps its existing sleeping and collision solver. Field changes wake
+sleeping props; a `beforeSolve` hook corrects only gravitational integration after
+Matter's sleep decision and before collision detection. It shifts the integrated
+position and velocity while retaining the pre-step position. Applying a persistent
+external force before Matter's sleeping decision would keep settled objects awake
+indefinitely. Props at a reverse-gravity ceiling can sleep normally and wake on
+power changes or contacts. Field changes also wake resting ropes. Regression
+coverage lives in `tests/jumping-gravity.test.mjs` and
+`tests/browser/jumpingGravity.spec.mjs`. The reproducible CPU benchmark is
+`node scripts/benchmark-jumping-gravity.mjs`; it is not a rendering/FPS guarantee.
+
+Field visuals are separate from physics. Gameplay draws no filled rectangle or
+direction grid. At most 96 tiny dust motes share the visible view, with at most
+64 per plate. Motes keep a 2.5-raster-pixel minimum width when zoomed out and
+use contrasting day/night ink with the existing minimum-exposure pass.
+World-anchored cells are culled before drawing; large fields and
+zoomed-out editor views retain the same limit. Seeded positions are evaluated
+from `activeTime`, without particle integration, collision checks, light sources,
+sprites or image buffers. Their direction follows the compiled local field, so
+overlaps can show floating dust instead of competing arrows. Edge and lifetime
+fades keep the rectangle from acquiring a hard visual boundary. Pausing freezes
+the effect; EMP and power changes suppress it immediately. The studio retains
+an outline for authoring. `node scripts/benchmark-jumping-gravity-render.mjs`
+measures Canvas draw submission against a local Vite server on port 4176;
+`GRAVITY_URL` can select another server. GPU completion and lighting passes are
+excluded from that isolated benchmark.

@@ -31,6 +31,9 @@ import type { PressurePlateMount } from './pressurePlateMount.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 import type { WallLight } from './wallLight.ts'
 
+import { MAX_GRAVITY_PLATES } from './gravity.ts'
+import type { GravityPlate } from './gravity.ts'
+
 export const LEVEL_GRID_SIZE = 20
 
 export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number }
@@ -53,6 +56,7 @@ export interface JumpLevel {
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
   timers?: WallTimer[]
   wallLights?: WallLight[]
+  gravityPlates?: GravityPlate[]
   texts?: WallText[]
   pickups?: Pickup[]
 }
@@ -126,6 +130,9 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, light] of (level.wallLights ?? []).entries()) {
     const b = wallLightBounds(light)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-light', i)} inside the level rectangle.`)
+  }
+  for (const [i, p] of (level.gravityPlates ?? []).entries()) {
+    if (p.x < 0 || p.y < 0 || p.x + p.w > level.width || p.y + p.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'gravity-plate', i)} inside the level rectangle.`)
   }
   if (isPuzzleLevel(level)) {
     const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
@@ -292,7 +299,7 @@ export function parseLevel(value: unknown): JumpLevel {
       if (t.startsOn !== undefined && (t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
-        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 97 : 81)
+        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 113 : 97)
           || t.targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(t.targets).size !== t.targets.length) fail()
         connection = { targets: [...t.targets as string[]] }
       } else {
@@ -356,7 +363,7 @@ export function parseLevel(value: unknown): JumpLevel {
       }
       return { ...position, kind }
     })
-  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights'].some(key => v[key] !== undefined)) fail()
+  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'gravityPlates'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
@@ -369,6 +376,14 @@ export function parseLevel(value: unknown): JumpLevel {
     if (b.x < -.001 || b.y < -.001 || b.x + b.w > width + .001 || b.y + b.h > levelHeight(level) + .001) fail()
     return text
   })
+  if (v.gravityPlates !== undefined) level.gravityPlates = list(v.gravityPlates, MAX_GRAVITY_PLATES).map(item => {
+    const p = object(item)
+    if (typeof p.id !== 'string' || !p.id.trim() || p.id.length > 100) return fail()
+    if (p.power !== undefined && p.power !== 'always' && p.power !== 'switched') return fail()
+    const w = num(p.w, 40, width), h = num(p.h, 40, 6000)
+    return { ...objectName(p), ...parseSwitchSettings(p, fail), id: p.id,
+      x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: num(p.gravity, -3, 3), ...(p.power === undefined ? {} : { power: p.power as PowerMode }) }
+  })
   if (v.wallLights !== undefined) level.wallLights = list(v.wallLights, MAX_WALL_LIGHTS).map(item => {
     const light = object(item)
     if (typeof light.id !== 'string' || !light.id.trim() || light.id.length > 100) return fail()
@@ -380,7 +395,7 @@ export function parseLevel(value: unknown): JumpLevel {
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
-  const ids = [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
+  const ids = [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.
   const wiring = switchWiringProblems(level, level.version === 2)

@@ -24,11 +24,13 @@ import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEn
 import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light'
+import { MAX_GRAVITY_PLATES } from './gravity.ts'
+
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'gravity-plate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light'; index: number }
+export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'gravity-plate'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
 /** Patrol endpoints stay in the room and include the shovebot's starting position. */
@@ -88,7 +90,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   next.height = height
   if (next.floor !== undefined) next.floor = height
   for (const point of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? [])]) point.y += dy
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     rope.y += dy
@@ -102,6 +104,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   const i = selection.index
   if (selection.kind === 'light') { const l = level.lighting?.lights[i]; return l ? lightBounds(l) : null }
   if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
+  if (selection.kind === 'gravity-plate') return level.gravityPlates?.[i] ?? null
   if (selection.kind === 'platform') return level.platforms[i] ?? null
   if (selection.kind === 'rope') { const r = level.climbables.ropes[i]; return r ? { x: r.x, y: r.y, w: 0, h: r.length } : null }
   if (selection.kind === 'ladder') { const l = level.climbables.ladders[i]; return l ? { x: l.x, y: l.top, w: 0, h: l.bottom - l.top } : null }
@@ -177,7 +180,7 @@ export function setObjectPower(level: JumpLevel, selection: Selection, power: Po
   if (power !== 'always' && power !== 'switched') return level
   const next = copyLevel(level)
   const item = selection.kind === 'goal' ? next.goal : selection.kind === 'mechanism' ? next.mechanisms?.[selection.index]
-    : selection.kind === 'light' ? next.lighting?.lights[selection.index] : null
+    : selection.kind === 'light' ? next.lighting?.lights[selection.index] : selection.kind === 'gravity-plate' ? next.gravityPlates?.[selection.index] : null
   if (!item || 'kind' in item && item.kind === 'gate') return level
   item.power = power
   if (selection.kind === 'goal' && !item.id) item.id = newLevelId()
@@ -284,6 +287,14 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
   for (let i = level.platforms.length - 1; i >= 0; i--) {
     const b = level.platforms[i]
     if (pointInside(b, x, y)) return { kind: 'platform', index: i }
+  }
+  for (let i = (level.gravityPlates?.length ?? 0) - 1; i >= 0; i--) {
+    const b = level.gravityPlates![i]
+    // The emitter and rectangle outline select the device; its interior lets
+    // the pointer reach actors and terrain within the field.
+    const inside = x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance
+    if (inside && (Math.abs(x - b.x) <= tolerance || Math.abs(x - b.x - b.w) <= tolerance
+      || Math.abs(y - b.y) <= tolerance || y >= b.y + b.h - 10 - tolerance)) return { kind: 'gravity-plate', index: i }
   }
   // Wall objects sit behind the terrain and other playable objects.
   for (let i = (level.wallLights?.length ?? 0) - 1; i >= 0; i--) {
@@ -399,6 +410,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     const mechanism = next.mechanisms![selection.index]
     Object.assign(mechanism, { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
   }
+  if (selection.kind === 'gravity-plate') Object.assign(next.gravityPlates![selection.index], { x, y })
   if (selection.kind === 'light') Object.assign(next.lighting!.lights[selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
@@ -412,6 +424,13 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   const next = copyLevel(level)
   const corner = handle ?? 'bottom-right'
   const left = corner.endsWith('left'), top = corner.startsWith('top')
+  if (selection.kind === 'gravity-plate') {
+    const p = next.gravityPlates![selection.index], before = { ...p }
+    p.w = clamp(w, 40, left ? before.x + before.w : next.width - before.x)
+    p.h = clamp(h, 40, top ? before.y + before.h : levelHeight(next) - before.y)
+    if (left) p.x = before.x + before.w - p.w
+    if (top) p.y = before.y + before.h - p.h
+  }
   if (selection.kind === 'text') {
     const t = next.texts![selection.index], before = { ...t }
     const fixed = wallTextPoint(before, left ? before.w : 0, top ? before.h : 0)
@@ -496,6 +515,10 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'prop') next.props!.splice(i, 1)
   else if (selection.kind === 'robot') next.robots!.splice(i, 1)
   else if (selection.kind === 'trigger') next.triggers!.splice(i, 1)
+  else if (selection.kind === 'gravity-plate') {
+    const [plate] = next.gravityPlates!.splice(i, 1)
+    removeSwitchTarget(next, plate.id)
+  }
   else if (selection.kind === 'wall-light') {
     const [light] = next.wallLights!.splice(i, 1)
     removeSwitchTarget(next, light.id)
@@ -514,6 +537,17 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'gravity-plate') {
+    const trial = asTrial(next), plates = trial.gravityPlates ??= []
+    if (plates.length >= MAX_GRAVITY_PLATES) throw new Error('This level already has 16 gravity plates.')
+    const dragged = Math.hypot(end.x - start.x, end.y - start.y) >= 20
+    const w = Math.min(trial.width, dragged ? Math.max(40, Math.abs(end.x - start.x)) : 160)
+    const h = Math.min(levelHeight(trial), dragged ? Math.max(40, Math.abs(end.y - start.y)) : Math.max(40, start.y))
+    const left = clamp(dragged ? Math.min(start.x, end.x) : start.x - w / 2, 0, trial.width - w)
+    const top = clamp(dragged ? Math.min(start.y, end.y) : start.y - h, 0, levelHeight(trial) - h)
+    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1 })
+    return { level: trial, selection: { kind: 'gravity-plate', index: plates.length - 1 } }
+  }
   if (tool === 'wall-light') {
     const trial = asTrial(next), lights = trial.wallLights ??= []
     if (lights.length >= MAX_WALL_LIGHTS) throw new Error('This level already has 40 wall lights.')
@@ -667,6 +701,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'trigger') { if (next.triggers!.length >= 40) return null; index = next.triggers!.push({ ...next.triggers![i] }) - 1 }
   else if (selection.kind === 'mechanism') { if (next.mechanisms!.length >= 40) return null; index = next.mechanisms!.push({ ...next.mechanisms![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'light') { if (next.lighting!.lights.length >= MAX_LIGHTS) return null; index = next.lighting!.lights.push({ ...next.lighting!.lights[i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'gravity-plate') { if (next.gravityPlates!.length >= MAX_GRAVITY_PLATES) return null; index = next.gravityPlates!.push({ ...next.gravityPlates![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
@@ -674,6 +709,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'spawn', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.gravityPlates ?? []).map((_, index) => ({ kind: 'gravity-plate' as const, index })),
     ...(level.wallLights ?? []).map((_, index) => ({ kind: 'wall-light' as const, index })),
     ...level.platforms.map((_, index) => ({ kind: 'platform' as const, index })),
     ...level.climbables.ropes.map((_, index) => ({ kind: 'rope' as const, index })), ...level.climbables.ladders.map((_, index) => ({ kind: 'ladder' as const, index })),

@@ -104,7 +104,8 @@ const interval = (points: readonly Vec[], axis: Vec) => {
   return [min, max]
 }
 /** Feet meet slopes at the sole; the broad upper hull protects torso and head. */
-export function bodyPolygon(x: number, y: number, height: number): Vec[] {
+export function bodyPolygon(x: number, y: number, height: number, orientation = 1): Vec[] {
+  if (orientation < 0) return bodyPolygon(x, -y, height).map(([x, y]) => [x, -y] as Vec).reverse()
   return [[x - 12, y - height], [x + 12, y - height], [x + 12, y - 18], [x, y], [x - 12, y - 18]]
 }
 function penetration(a: readonly Vec[], b: readonly Vec[]) {
@@ -117,7 +118,8 @@ function penetration(a: readonly Vec[], b: readonly Vec[]) {
   }
   return { depth, normal }
 }
-export function bodyIntersects(x: number, y: number, b: Platform, height = 62) {
+export function bodyIntersects(x: number, y: number, b: Platform, height = 62, orientation = 1) {
+  if (orientation < 0) return polygonIntersects(bodyPolygon(x, y, height, orientation), b)
   if (x + 12 <= b.x || x - 12 >= b.x + b.w || y <= b.y || y - height >= b.y + b.h) return false
   const hull = bodyPolygon(x, y, height)
   return parts(b).some(piece => penetration(hull, piece) !== null)
@@ -158,13 +160,13 @@ export function movePoint(from: Vec, to: Vec, terrain: readonly Platform[], clea
   return { x, y }
 }
 /** Sweep the complete body before committing a position, including during catches and climbing. */
-export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], height = 62) {
+export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], height = 62, orientation = 1) {
   let x = from[0], y = from[1], dx = to[0] - x, dy = to[1] - y
   const contacts: TerrainContact[] = []
   const nearby = terrain.filter(b => Math.max(x, to[0]) + 13 >= b.x && Math.min(x, to[0]) - 13 <= b.x + b.w
-    && Math.max(y, to[1]) >= b.y && Math.min(y, to[1]) - height <= b.y + b.h)
+    && Math.max(y, to[1]) + (orientation < 0 ? height : 0) >= b.y && Math.min(y, to[1]) - (orientation > 0 ? height : 0) <= b.y + b.h)
   for (let pass = 0; pass < 12; pass++) {
-    const hull = bodyPolygon(x, y, height)
+    const hull = bodyPolygon(x, y, height, orientation)
     let stuck: { depth: number; normal: Vec; platform: Platform } | null = null
     for (const b of nearby) for (const piece of parts(b)) {
       const hit = penetration(hull, piece)
@@ -175,7 +177,7 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
     contacts.push(stuck)
   }
   for (let pass = 0; pass < 8 && Math.hypot(dx, dy) > EPS; pass++) {
-    const hull = bodyPolygon(x, y, height)
+    const hull = bodyPolygon(x, y, height, orientation)
     let first: { time: number; normal: Vec; platform: Platform } | null = null
     for (const b of nearby) for (const piece of parts(b)) {
       const hit = sweep(hull, piece, [dx, dy])

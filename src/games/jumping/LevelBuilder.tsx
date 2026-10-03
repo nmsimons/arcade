@@ -77,6 +77,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     : mechanism ? mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? ['top', 'bottom'] : ['left', 'right']
     : trigger?.mode === 'coins' && trigger.display === 'digital' ? []
     : trigger ? trigger.mode === 'coins' && trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
+    : selection.kind === 'gravity-plate' ? ['top-left', 'top', 'top-right', 'left', 'right', 'bottom-left', 'bottom', 'bottom-right']
     : ['prop', 'text'].includes(selection.kind) ? ['top-left', 'top-right', 'bottom-left', 'bottom-right'] : []
   const handles = corners.map(corner => ({ corner,
     x: bounds.x + (corner.endsWith('left') ? -8 / zoom : corner.endsWith('right') ? bounds.w + 8 / zoom : bounds.w / 2),
@@ -99,6 +100,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
+  { id: 'gravity-plate', group: 'Mechanisms', label: 'Gravity plate', help: 'Click to place an upward field above a plate, or drag its rectangle. Resize the rectangle and set Gravity: −1 reverses gravity, 0 removes it, 1 is normal. Choose Always on or connect switches to power it. Partially covered bodies blend gravity by area; overlapping fields average their settings. EMP disables the field.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click to place a pressure plate at the cursor. Snap catches nearby surfaces. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
@@ -208,13 +210,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const adjustingPatrol = drag?.mode === 'patrol' || pointer && patrolHandleAt(pointer)
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
   const goal = selection?.kind === 'goal' ? level.goal : null
+  const gravityPlate = selection?.kind === 'gravity-plate' ? level.gravityPlates?.[selection.index] : null
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
-  const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light
+  const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? gravityPlate
   const objectPower = switchable ? switchable.power ?? (goal ? 'always' : 'switched') : null
   const targets = switchedItems(level)
   const switchedObject = targets.find(item => item.kind === selection?.kind && item.index === selection.index)
-  const objectSwitchLogic = (goal ?? mechanism ?? light ?? wallLight)?.switchLogic ?? 'or'
-  const objectSwitchReversed = !!(goal ?? mechanism ?? light ?? wallLight)?.switchReversed
+  const objectSwitchLogic = (goal ?? mechanism ?? light ?? wallLight ?? gravityPlate)?.switchLogic ?? 'or'
+  const objectSwitchReversed = !!(goal ?? mechanism ?? light ?? wallLight ?? gravityPlate)?.switchReversed
   const sources = switchSources(level)
   const selectedSource = sources.find(item => item.kind === selection?.kind && item.index === selection.index)
   const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
@@ -799,8 +802,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
         <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
           {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
-            || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger'].includes(selection.kind)
-            || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder'].includes(selection.kind))).map(axis => {
+            || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate'].includes(selection.kind)
+            || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate'].includes(selection.kind))).map(axis => {
             const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h')
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
               : ({ x: light || wallLight ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
@@ -821,6 +824,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           commit(next)
         }}>Flip horizontally</button>}
         {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || polygonPoints(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
+        {gravityPlate && <>
+          <label>Gravity (× normal)<NumberField label="Gravity strength" min={-3} max={3} step={.1} precision={2} value={gravityPlate.gravity}
+            {...numberEdit((base, value) => {
+              if (!Number.isFinite(value)) return base
+              const next = copyLevel(base); next.gravityPlates![selection.index].gravity = clamp(value, -3, 3); return next
+            })} /></label>
+          <p className="builder-hint">Negative lifts; zero removes gravity; positive pulls down. The rectangle above the plate is the field.</p>
+        </>}
         {light && <>
           <div className="builder-dimensions">
             <label>Direction (°)<NumberField label="Light direction" value={light.direction} min={-180} max={180} step={5} {...numberEdit((base, value) => changedObject(base, 'direction', value))} /></label>
@@ -828,7 +839,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           </div>
           <label className="builder-headlight" title="Irregular dimming and brief dropouts, like a malfunctioning lamp"><input type="checkbox" checked={!!light.flicker} onChange={event => commit(editLight(history.present, selection.index, { flicker: event.target.checked }))} />Flicker</label>
         </>}
-        {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : 'Mechanism power'} value={objectPower}
+        {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : gravityPlate ? 'Gravity plate power' : 'Mechanism power'} value={objectPower}
           options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]}
           onChange={value => commit(setObjectPower(history.present, selection, value === 'always' ? 'always' : 'switched'))} />}
         {wallText && <>

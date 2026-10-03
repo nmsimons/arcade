@@ -20,6 +20,10 @@ import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism
 import { canHangFromBox } from './boxSupport.ts'
 import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
 
+import { createGravityField, playerGravity, setPlayerGravity, updateGravityField } from './gravity.ts'
+import type { GravityField } from './gravity.ts'
+import { mirrorPlatform } from './gravityFrame.ts'
+
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop {
   kind: 'box' | 'ball'; x: number; y: number; size: number; vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
@@ -29,7 +33,7 @@ export interface RobotState { definition: Pusher; x: number; y: number; vx: numb
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
-  switchStates: Map<string, boolean>
+  switchStates: Map<string, boolean>; gravityField: GravityField
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
   elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
   finished: boolean; medal: Medal | null
@@ -69,7 +73,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && t.behavior === 'toggle' && !!t.startsOn, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
-    switchStates: new Map(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+    switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
   updateSwitchTargets(run)
   if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
   if (!preview) {
@@ -97,7 +101,7 @@ function syncPlatforms(run: Run): ContactWorld {
   return { platforms: colliders.map(c => c.platform), colliders }
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
-const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b, p.crouching ? TUNING.crouchHeight : TUNING.height)
+const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b, p.crouching ? TUNING.crouchHeight : TUNING.height, p.inverted ? -1 : 1)
 const contactShift = (correction: number, carry: number) => {
   const travel = correction + carry
   return travel - Math.max(Math.min(0, carry), Math.min(Math.max(0, carry), travel))
@@ -145,7 +149,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
       && polygonIntersects(liftHull, s, .01))
     // A rising top can meet airborne feet between player steps. Board it just
     // like a landing; side/underside contact can still obstruct the mechanism.
-    const boarding = def.kind === 'lift' && !rider && dy < 0 && p.y <= m.y + .01 && bodyOverlap(p, nextShape)
+    const boarding = def.kind === 'lift' && !p.inverted && !rider && dy < 0 && p.y <= m.y + .01 && bodyOverlap(p, nextShape)
     const cargoBlocked = passengerBlocked(dx, dy)
     const carryBlocked = (rider || boarding) && obstacles.some(b => bodyOverlap({ ...p, x: p.x + dx }, b, boarding ? y - p.y : dy)) || cargoBlocked
     const playerBlocked = !rider && !boarding && bodyOverlap(p, nextShape)
@@ -190,7 +194,7 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number, powered: bool
   if (!run.props.length) return
   // Fixed small steps stabilize corners; fast linear or angular motion takes
   // additional steps so even a small prop cannot skip a thin wall or another prop.
-  const travel = Math.max(175, ...run.props.map(b => Math.hypot(b.vx, b.vy) + Math.abs(b.angularVelocity) * b.size + TUNING.gravity * dt)) * dt
+  const travel = Math.max(175, ...run.props.map(b => Math.hypot(b.vx, b.vy) + Math.abs(b.angularVelocity) * b.size + TUNING.gravity * run.gravityField.maxMultiplier * dt)) * dt
   const steps = Math.max(1, Math.ceil(dt * 240), Math.ceil(travel / (Math.min(...run.props.map(b => b.size)) * .15))), h = dt / steps
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h, powered)
 }
@@ -205,7 +209,7 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
     }
     const position = pressurePlatePosition(plate, run.mechanisms)
     const weighted = run.props.some(b => propLoadsPlate(b, position.x, position.y, plate.w))
-    const touched = run.player.grounded && Math.abs(run.player.y - position.y) < 3 && run.player.x >= position.x && run.player.x <= position.x + plate.w
+    const touched = !run.player.inverted && run.player.grounded && Math.abs(run.player.y - position.y) < 3 && run.player.x >= position.x && run.player.x <= position.x + plate.w
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
     if (behavior === 'pressure') sensor.active = powered && pressed
@@ -220,6 +224,7 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
 function updateSwitchTargets(run: Run) {
   const states = resolveSwitchStates(run.level, run.triggers)
   run.switchStates = states
+  updateGravityField(run.gravityField, run.level.gravityPlates ?? [], states, run.empRemaining === 0)
   for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
   run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || !!states.get(run.level.goal.id ?? '')
 }
@@ -298,6 +303,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   let world = syncPlatforms(run)
   const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
   stepTriggers(run, poweredDt, powered)
+  setPlayerGravity(run.player, playerGravity(run.gravityField, run.player))
   if (powered) stepMechanisms(run, poweredDt, playerContacts(run.player, input, world))
   world = syncPlatforms(run)
   const rider = playerContacts(run.player, input, world).support
@@ -308,22 +314,22 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   world = syncPlatforms(run)
   if (rider?.collider.robot && run.player.grounded) {
     const next = world.colliders.find(c => c.id === rider.collider.id)!
-    const p = run.player, surface = groundAt([next.platform], p.x, p.y, 20)
+    const p = run.player, surface = groundAt([p.inverted ? mirrorPlatform(next.platform) : next.platform], p.x, p.inverted ? -p.y : p.y, 20)
     if (surface) {
-      // Follow roof height/tilt, but let friction supply horizontal transport.
+      // Follow the contacted surface's height/tilt; friction supplies horizontal transport.
       // A ceiling can stop the carry; it must never push the rider through it.
-      const safe = moveBody([p.x, p.y], [p.x, surface.y], world.colliders.filter(c => c.robot !== rider.collider.robot).map(c => c.platform), p.crouching ? TUNING.crouchHeight : TUNING.height)
+      const safe = moveBody([p.x, p.y], [p.x, p.inverted ? -surface.y : surface.y], world.colliders.filter(c => c.robot !== rider.collider.robot).map(c => c.platform), p.crouching ? TUNING.crouchHeight : TUNING.height, p.inverted ? -1 : 1)
       translatePlayer(p, safe.x - p.x, safe.y - p.y)
     } else p.grounded = false
   }
   const pGrip = run.player.hang ?? (run.player.mantle?.step ? null : run.player.mantle)
   const held = pGrip?.platform === undefined ? undefined : world.colliders[pGrip.platform]
   if (held?.prop && pGrip) {
-    const edge = platformLedges(held.platform).find(e => e.side === pGrip.side)
-    if (edge) translatePlayer(run.player, edge.edgeX - pGrip.edgeX, edge.edgeY - pGrip.edgeY)
+    const edge = platformLedges(run.player.inverted ? mirrorPlatform(held.platform) : held.platform).find(e => e.side === pGrip.side)
+    if (edge) translatePlayer(run.player, edge.edgeX - pGrip.edgeX, (run.player.inverted ? -edge.edgeY : edge.edgeY) - pGrip.edgeY)
     else { run.player.hang = null; run.player.mantle = null; run.player.grounded = false; run.player.grabCooldown = .25; cancelJumpInput(run.player) }
   }
-  stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world)
+  stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world, run.gravityField)
   // EMP time is gameplay time, independent of every clock collectible. Spend
   // the old duration before collection so a fresh pulse gets its full five seconds.
   run.empRemaining = Math.max(0, run.empRemaining - dt)
@@ -332,7 +338,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   collectPickups(run, dt)
   stepTriggers(run, 0)
   const p = run.player, door = goalDoor(run.level.goal)
-  if (run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
+  if (!p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
     && !run.platforms.some(b => bodyOverlap(p, b))) {
     // This is a doorway in the back wall. Reaching it permits entry even when

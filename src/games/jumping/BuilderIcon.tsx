@@ -14,6 +14,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   spawn: 'M8 21V4l11 4-11 4M4 21h8', goal: 'M13 21V5h8v16M4 21V10M4 3a3.5 3.5 0 1 0 0 7 3.5 3.5 0 1 0 0-7Z', checkpoint: 'm12 3 8 9-8 9-8-9Z',
   box: 'M4 4h16v16H4zM7 9h10M7 15h10', ball: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM18 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z',
   pusher: 'M4 5h16v13H4zM7 10h3M14 9h3v3h-3zM7 18v3M17 18v3',
+  'gravity-plate': 'M2 19h20M4 14h16v2H4zM12 10V3M9 6l3-3 3 3',
   plate: 'M2 19h20M4 14h16v2H4zM12 3v7M9 7l3 3 3-3', lift: 'M8 13V3M5 6l3-3 3 3M16 3v10M13 10l3 3 3-3M3 17h18v4H3z',
   'moving-platform': 'M3 8h18M7 4 3 8l4 4M17 4l4 4-4 4M3 17h18v4H3z',
   gate: 'M9 3h6v18H9zM11 7h2M11 12h2M11 17h2',

@@ -1,3 +1,4 @@
+import { mirrorPlayerState, mirrorContactWorld, mirrorContacts } from './gravityFrame.ts'
 import type { Prop, RobotState } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { STEP, TUNING } from './model.ts'
@@ -44,7 +45,13 @@ export function staticContactWorld(platforms: readonly Platform[]): ContactWorld
 
 /** Use the existing climb envelope for every solid contact, including props
  * and bots. The locomotion root lies below the feet during a folded hang. */
-export function playerContactBody(p: Player) {
+export function playerContactBody(p: Player): { x: number; y: number; height: number } {
+  if (!p.hang && (!p.mantle || p.mantle.step)) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
+  if (p.inverted) {
+    mirrorPlayerState(p); p.inverted = false
+    try { const body = playerContactBody(p); return { ...body, y: -body.y } }
+    finally { mirrorPlayerState(p); p.inverted = true }
+  }
   const m = p.mantle?.step ? null : p.mantle, h = p.hang, grip = m ?? h
   if (!grip) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
   const progress = m ? Math.max(0, Math.min(1, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME)) : 0
@@ -100,6 +107,12 @@ export function narrowMantle(m: NonNullable<Player['mantle']>, world: ContactWor
  * Query before solving, then publish the final contacts after the body sweep.
  * Consumers never independently decide which object the player is pushing. */
 export function playerContacts(p: Player, input: JumpInput, world: ContactWorld): PlayerContacts {
+  if (p.inverted) {
+    const reflected = mirrorContactWorld(world)
+    mirrorPlayerState(p); p.inverted = false
+    try { return mirrorContacts(playerContacts(p, input, reflected), world) }
+    finally { mirrorPlayerState(p); p.inverted = true }
+  }
   const free = !p.hang && !p.mantle && !p.climbing
   const ground = p.grounded && free ? groundAt(world.platforms, p.x, p.y, .2, s => canGrip(s.angle)) : null
   const collider = ground && world.colliders.find(c => c.platform === ground.platform)
@@ -151,14 +164,14 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
     // and sloping foot contacts while airborne, where no standing support exists.
     const move = Math.max(-1, Math.min(1, input.move))
     const height = p.crouching ? TUNING.crouchHeight : TUNING.height
-    const probe = moveBody([p.x, p.y], [p.x + move * .2, p.y + .2], world.platforms, height)
+    const probe = moveBody([p.x, p.y], [p.x + move * .2, p.y + ((p.gravity ?? TUNING.gravity) < 0 ? -.2 : .2)], world.platforms, height)
     for (const hit of probe.contacts) {
       const collider = world.colliders.find(c => c.platform === hit.platform && c.prop)
       if (!collider || collider === support?.collider || body.some(c => c.collider === collider)) continue
       // A gripped foothold balances weight through normal force and traction.
       // Sending only its normal component into a curved support would create
       // a sideways shove every frame, even when the player stands still.
-      const gravity = support ? 0 : TUNING.gravity
+      const gravity = support ? 0 : p.gravity ?? TUNING.gravity
       // Input away from this contact cannot cancel gravity's load: a wall on
       // the other side may prevent that requested separation altogether.
       const load = Math.max(0, -hit.normal[0] * move * (p.grounded ? TUNING.acceleration : TUNING.airAcceleration))

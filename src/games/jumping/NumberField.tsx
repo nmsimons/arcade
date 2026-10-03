@@ -1,26 +1,26 @@
 import { useRef, useState } from 'react'
 
-const display = (value: number) => String(Math.round(value))
-const complete = (text: string) => /^-?\d+$/.test(text) && Number.isSafeInteger(Number(text))
+const display = (value: number, precision: number) => String(Number(value.toFixed(precision)))
+const complete = (text: string, precision: number) => (precision ? /^-?\d+(?:\.\d+)?$/ : /^-?\d+$/).test(text) && Number.isFinite(Number(text)) && Math.abs(Number(text)) <= Number.MAX_SAFE_INTEGER
 
 /** Preview complete numbers while typing; Enter or blur commits one undoable edit. */
-export function NumberField({ value, onCommit, onPreview, label, step = 1, min, max, disabled = false }: {
+export function NumberField({ value, onCommit, onPreview, label, step = 1, min, max, disabled = false, precision = 0 }: {
   value: number; onCommit: (value: number) => void; onPreview: (value: number | null) => void; label: string
-  step?: number; min?: number; max?: number; disabled?: boolean
+  step?: number; min?: number; max?: number; disabled?: boolean; precision?: number
 }) {
   const [draft, setDraft] = useState<string | null>(null), cancelled = useRef(false)
-  const limit = (n: number) => Math.max(min ?? -Infinity, Math.min(max ?? Infinity, Math.round(n)))
+  const limit = (n: number) => Math.max(min ?? -Infinity, Math.min(max ?? Infinity, Number(n.toFixed(precision))))
   function apply() {
-    if (!cancelled.current && draft !== null && complete(draft)) onCommit(limit(Number(draft)))
+    if (!cancelled.current && draft !== null && complete(draft, precision)) onCommit(limit(Number(draft)))
     else onPreview(null)
     cancelled.current = false; setDraft(null)
   }
   return <input className="builder-number" type="number" aria-label={label} title="Enter to edit / apply · Esc to cancel · ↑ ↓ navigate, or step while editing · Shift for larger steps"
-    min={min} max={max} step={step} disabled={disabled} value={draft ?? display(value)}
+    min={min} max={max} step={step} disabled={disabled} value={draft ?? display(value, precision)}
     onFocus={event => event.currentTarget.select()} onChange={event => {
       const text = event.target.value
-      if (text !== '' && !complete(text)) return
-      setDraft(text); onPreview(complete(text) ? limit(Number(text)) : null)
+      if (text !== '' && !complete(text, precision)) return
+      setDraft(text); onPreview(complete(text, precision) ? limit(Number(text)) : null)
     }} onBlur={apply}
     onKeyDown={event => {
       if (event.key === 'Enter') {
@@ -33,10 +33,10 @@ export function NumberField({ value, onCommit, onPreview, label, step = 1, min, 
       }
       else if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
         event.preventDefault(); event.stopPropagation()
-        const from = draft !== null && complete(draft) ? Number(draft) : Math.round(value)
+        const from = draft !== null && complete(draft, precision) ? Number(draft) : Number(value.toFixed(precision))
         const next = limit(from + (event.key === 'ArrowUp' ? 1 : -1) * (event.altKey ? 1 : step * (event.shiftKey ? 10 : 1)))
-        setDraft(null); onCommit(Number(display(next)))
+        setDraft(null); onCommit(Number(display(next, precision)))
       }
-      else if (!event.ctrlKey && !event.metaKey && ['.', ',', 'e', 'E', '+'].includes(event.key)) event.preventDefault()
+      else if (!event.ctrlKey && !event.metaKey && [...(precision ? [] : ['.']), ',', 'e', 'E', '+'].includes(event.key)) event.preventDefault()
     }} />
 }

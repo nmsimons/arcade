@@ -5,9 +5,11 @@ import { canGrip } from './friction.ts'
 /** Slope is the top's rise per unit inward from the corner. */
 export interface TerrainLedge { edgeX: number; edgeY: number; side: number; slope?: number }
 const ledges = new WeakMap<Platform, readonly TerrainLedge[]>()
+const disabled = new WeakSet<Platform>()
 
 /** Moving bodies can explicitly opt out of grips while unsupported or unstable. */
-export function disablePlatformLedges(platform: Platform) { ledges.set(platform, []) }
+export function disablePlatformLedges(platform: Platform) { disabled.add(platform); ledges.set(platform, []) }
+export const platformLedgesDisabled = (platform: Platform) => disabled.has(platform)
 
 /** Find exposed top corners throughout an outline, including inset towers and shelves. */
 export function platformLedges(platform: Platform): readonly TerrainLedge[] {

@@ -1,3 +1,5 @@
+import { gravityPlateActive } from './gravity.ts'
+import { drawGravityDust, drawGravityPlate, drawGravityRegion } from './gravityRender.ts'
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
@@ -18,6 +20,7 @@ import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { drawWallLight } from './wallLight.ts'
+import { nightModeEnabled } from './ambientLight.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -115,6 +118,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
+    for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), editor, wallPaint)
+    drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
     wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
@@ -141,6 +146,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
       drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression)
     }
   })
+  for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), paint)
   drawGoal(ctx, level.goal, run.goalLit, paint)
   paint(ctx, 0, () => {
     for (const b of run.props) drawProp(ctx, b)

@@ -730,7 +730,7 @@ Pressure, Switch, Toggle and coin switches contribute their current active
 states, including authored Toggle starting states and latched coin switches.
 
 **Relay** is off by default. Enable it on a gate, switched elevator, moving
-platform, exit, wall light or spotlight to expose **Activates** and add the item to other
+platform, exit, wall light, switched gravity plate or spotlight to expose **Activates** and add the item to other
 items' **Switched by** lists. Relay outputs use the item's resulting on/off state
 after Logic and Reversed. Its ordinary behavior continues: a gate opens, an
 elevator moves, an exit opens, or a spotlight shines. Relay outputs do not wait
@@ -749,7 +749,7 @@ pause and lights fade off. Relay does not bypass EMP.
 
 Versions 1 and 2 accept optional `switchLogic: "or"`, `"and"`, or `"xor"`, boolean
 `switchReversed`, boolean `relay`, and outgoing `targets: ["item-id", ...]` on
-mechanisms, wall lights and the goal; version-2 spotlights support the same fields. Omission
+mechanisms, wall lights, gravity plates and the goal; version-2 spotlights support the same fields. Omission
 means OR, reversal off, and Relay off, preserving existing levels. Nonempty
 outgoing targets require `relay: true` and existing switched destinations.
 For example, `"switchLogic": "and", "switchReversed": true, "relay": true,
@@ -862,6 +862,58 @@ Opening a file preserves the level ID. Structural validation rejects malformed o
 unbounded geometry; editor validation checks clear starts and goals, room bounds,
 and legacy connections. Neither replaces actually playing the route.
 
+### Gravity plates
+
+Both file versions support up to 16 `gravityPlates`. Each device defines a
+rectangular field by `x`, `y`, `w`, and `h`; its emitter is drawn along the bottom
+edge, with the field above it. Coordinates use the usual JSON top-left origin.
+The rectangle stays inside the room, has a minimum width and height of 40 units,
+and can extend through the full room height. There is no smaller device-specific
+height or width limit. The plate and field add no solid collision geometry.
+
+```json
+"gravityPlates": [
+  { "id": "freight-field", "x": 400, "y": 0, "w": 240, "h": 920,
+    "gravity": -1, "power": "switched" }
+]
+```
+
+`gravity` is a finite multiplier from −3 to 3: −1 reverses ordinary gravity,
+0 removes gravity, 1 is ordinary gravity, and fractional values change its
+strength. Omitted `power` means Switched. Always on needs no inputs; Switched
+uses the standard Logic, Reversed, Relay, Switched by and Activates controls.
+IDs are unique across every switchable device. Changing to Always on cleans
+incoming and outgoing wiring. EMP suppresses both power modes, restoring
+ordinary gravity until power returns while preserving latched switch states.
+
+Gravity blends by the fraction of each body's area inside the rectangle. A
+half-covered body between ordinary and equally reversed gravity has zero net
+acceleration. Boxes use their rotated shape, balls their actual circular area,
+and the player their current collision hull, including crouching. Overlapping
+active rectangles average their gravity settings at each point, then the body
+averages that field over its area. Entering or leaving changes acceleration,
+retaining momentum. The force acts at the center of mass; partial coverage does
+not invent an angular impulse. Free rope particles use the same local field.
+On reaching a grippable ceiling under negative gravity, the player turns upside
+down to walk, run, crouch and jump away from that surface. Leaving the field
+restores ordinary gravity; landing on a floor returns normal footing.
+Terrain, gates, lifts and the supported shovebot controller retain their existing
+movement rules. See [the physics contract](jumping-physics.md#gravity-fields).
+
+In the studio, **Gravity plate** clicks place a 160-unit-wide field from the plate
+to the ceiling, or drag to define its rectangle. The inspector edits field
+position, width, height, gravity strength and power. Eight edge and corner
+handles resize the rectangle; the top handle keeps the emitter fixed. The
+emitter and rectangle edges select the device; the field interior allows selection
+of objects within it. Rectangles remain outlined in the studio. During play,
+gravity has no tint, border or arrow grid: small dust streaks drift in the local
+gravity direction, floating gently at zero gravity. Contrasting day/night ink
+and a minimum visible size keep the motes readable when zoomed out.
+Dust fades at field edges, stops on
+pause and disappears when switched off or suppressed by EMP. The plate's light
+strip indicates power. Undo, duplicate, templates, thumbnails,
+save and reopen preserve geometry, power and wiring.
+
 ## Lighting (version 2)
 
 The back wall receives ambient illumination. Wall text and collectibles receive
@@ -936,8 +988,8 @@ platforms. Editing either this list or a switch’s **Activates** list updates t
 same connections. Logic and Reversed combine the light's connected inputs. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light is valid and stays off during play unless Reversed is enabled. Version 2 allows up to
-97 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, and one exit);
-version 1 allows 81 (without spotlights).
+113 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 16 gravity plates, and one exit);
+version 1 allows 97 (without spotlights).
 
 Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
 elevators, and moving platforms cannot carry them. An older file's `mount` field

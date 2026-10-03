@@ -17,6 +17,9 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING, jumpSpeed } from './movementTuning.ts'
+import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform, mirrorLadder } from './gravityFrame.ts'
+import { playerGravity, setPlayerGravity } from './gravity.ts'
+import type { GravityField } from './gravity.ts'
 export { TUNING } from './movementTuning.ts'
 
 export interface Platform extends NamedObject { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; material?: TerrainMaterial }
@@ -56,13 +59,15 @@ export interface Player {
   footwork: Footwork | null
   contacts: PlayerContacts | null
   terrain?: readonly Platform[]
+  gravity?: number
+  inverted?: boolean
 }
 export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: 0, jumpHeld: false,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
-    crouching: false, crouch: 0, reach: 0, look: 0, gait: null, footwork: null, contacts: null }
+    crouching: false, crouch: 0, reach: 0, look: 0, gait: null, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false }
 }
 function settleGait(p: Player, dt: number) {
   const speed = p.climbing ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
@@ -248,13 +253,32 @@ export function playerState(p: Player) {
 /** Fixed-step, world-space movement. Rendering and input devices never change physics. */
 export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: readonly Platform[] = [],
   climbables: ClimbableWorld = NO_CLIMBABLES,
-  rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms)) {
+  rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms), gravityField?: GravityField, gravityOverride?: number) {
+  const gravity = gravityOverride ?? (gravityField ? playerGravity(gravityField, p) : TUNING.gravity)
+  setPlayerGravity(p, gravity)
+  if (p.inverted) {
+    // Rope simulation remains in world space. The same player controller then
+    // sees reflected terrain and gravity-relative footing, steps and jumps.
+    if (climbables.ropes.length) {
+      p.ropes ??= climbables.ropes.map(createRope)
+      for (const rope of p.ropes) stepRope(rope, dt, platforms, null, gravityField)
+    }
+    const reflected = mirrorContactWorld(world), ropes = p.ropes
+    mirrorPlayerState(p); p.inverted = false; p.ropes = null
+    try {
+      stepPlayer(p, input, dt, reflected.platforms, { ladders: climbables.ladders.map(mirrorLadder), ropes: [] },
+        { checkpoints: [], fallY: Infinity }, reflected, undefined, -gravity)
+    } finally { mirrorPlayerState(p); p.inverted = true; p.ropes = ropes }
+    if (p.contacts) p.contacts = mirrorContacts(p.contacts, world)
+    turnToGravity(p, gravity, world)
+    return
+  }
   p.terrain = platforms
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle
   const beforeBody = playerContactBody(p)
   const verticalUsed = !!(p.climbing || p.hang || p.mantle)
   const initialContacts = playerContacts(p, input, world), previousGround = initialContacts.support
-  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts)) return
+  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField)) return
   const leavingGround = previousGround && !p.grounded
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
   // The hanging climb clears its own ledge; low steps use the full solid hull.
@@ -283,7 +307,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     }
   }
   if (!p.climbing && !p.hang && !p.mantle) {
-    let ground = groundAt(platforms, p.x, p.y, .2)
+    let ground = (p.gravity ?? TUNING.gravity) >= 0 ? groundAt(platforms, p.x, p.y, .2) : null
     let slope = result.contacts.map(c => ({ ...c, face: bodyContact(c.platform, p.x, p.y, c.normal,
       p.crouching ? TUNING.crouchHeight : TUNING.height) })).find(c => {
       // A nearly vertical face is a wall contact. Solver-sized box tilts can
@@ -294,16 +318,16 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     })
     const base = slope && !canGrip(Math.atan2(slope.face.nx, -slope.face.ny))
       ? groundAt(platforms, p.x, p.y, .3, s => canGrip(s.angle)) ?? (!leavingGround ? previousGround : null) : null
-    if (slope && base && !leavingGround && (p.vx * slope.face.nx <= 0 || input.move * slope.face.nx < 0)
+    if ((p.gravity ?? TUNING.gravity) >= 0 && slope && base && !leavingGround && (p.vx * slope.face.nx <= 0 || input.move * slope.face.nx < 0)
       && (p.grounded || previousGround || p.vx * Math.sin(base.angle) - p.vy * Math.cos(base.angle) <= .1)
     ) {
       const support = settleSlopeBase(p, base, Math.sign(slope.face.nx), platforms)
       if (support) { slope = undefined; ground = support }
     }
-    if (slope) {
+    if (slope && (p.gravity ?? TUNING.gravity) >= 0) {
       const angle = Math.atan2(slope.face.nx, -slope.face.ny), tangent = [Math.cos(angle), Math.sin(angle)]
       let speed = p.vx * tangent[0] + p.vy * tangent[1]
-      if (!p.sliding?.active) speed = slidingVelocity(speed - TUNING.gravity * tangent[1] * dt, angle, TUNING.gravity, dt)
+      if (!p.sliding?.active) speed = slidingVelocity(speed - (p.gravity ?? TUNING.gravity) * tangent[1] * dt, angle, p.gravity ?? TUNING.gravity, dt)
       const contact = nearestBoundary(slope.platform, p.x, p.y)
       p.vx = tangent[0] * speed; p.vy = tangent[1] * speed
       p.sliding = { angle, amount: approach(p.sliding?.amount ?? 0, 1, dt / .12), time: (p.sliding?.time ?? 0) + dt, active: true, x: contact.x, y: contact.y }
@@ -322,6 +346,35 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     }
   }
   finishPlayerStep(p, input, dt, world, from, verticalUsed)
+  if (gravityOverride === undefined) turnToGravity(p, gravity, world)
+}
+
+/** Turn on actual gravity-facing contact. On slopes, the head's wide edge
+ * touches before its center; the new foot root meets the same exposed face. */
+function turnToGravity(p: Player, gravity: number, world: ContactWorld) {
+  if (!gravity || p.hang || p.mantle || p.climbing || (gravity < 0) === !!p.inverted) return
+  const height = p.crouching ? TUNING.crouchHeight : TUNING.height
+  const inverted = gravity < 0, direction = inverted ? -1 : 1, head = p.y + direction * height
+  const probe = moveBody([p.x, p.y], [p.x, p.y + direction * .2], world.platforms, height, p.inverted ? -1 : 1)
+  const surfaces = probe.contacts.flatMap(c => {
+    if (c.normal[1] * direction >= -.01) return []
+    const angle = Math.atan2(c.normal[0], -c.normal[1] * direction)
+    const reach = TUNING.width / 2 * Math.abs(Math.tan(angle)) + .2
+    const surface = groundAt([inverted ? mirrorPlatform(c.platform) : c.platform], p.x, inverted ? -head : head,
+      reach, s => Math.abs(s.angle - angle) < 1e-4)
+    return surface ? [surface] : []
+  })
+  const support = surfaces.sort((a, b) => Math.abs(a.y - head * direction) - Math.abs(b.y - head * direction))[0]
+  if (!support) return
+  const y = inverted ? -support.y : support.y
+  const safe = moveBody([p.x, y], [p.x, y], world.platforms, height, direction)
+  if (Math.hypot(safe.x - p.x, safe.y - y) > TUNING.width || world.platforms.some(b => bodyIntersects(safe.x, safe.y, b, height, direction))) return
+  p.x = safe.x; p.y = safe.y; p.inverted = inverted; p.grounded = canGrip(support.angle)
+  if (p.grounded) p.vy = 0
+  p.coyote = p.grounded ? TUNING.coyoteTime : 0
+  p.groundAngle = inverted ? -support.angle : support.angle
+  p.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.ledgeReach = null
+  p.contacts = playerContacts(p, NEUTRAL_INPUT, world)
 }
 
 /** All movement modes publish contacts and advance presentation once, after
@@ -345,7 +398,8 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   advanceFootwork(p, dt, from[0], world.platforms)
 }
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
-  world: ContactWorld, contacts: PlayerContacts) {
+  world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField) {
+  const gravity = p.gravity ?? TUNING.gravity
   const stepIntent = p.stepIntent; p.stepIntent = null
   const pressed = input.jump && !p.jumpHeld
   if (pressed) p.jumpStrength = Math.max(0, Math.min(1, input.jumpStrength ?? Math.hypot(input.move, Number(input.climb))))
@@ -366,7 +420,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     for (const [i, rope] of p.ropes.entries()) stepRope(rope, dt, platforms,
       p.climbing?.kind === 'rope' && p.climbing.index === i ? { distance: p.climbing.distance, move: p.climbing.wall ? 0 : p.climbing.swing,
         wall: p.climbing.wall, bracing: ease(p.climbing.time / .25),
-        body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing } } : null)
+        body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing } } : null, gravityField)
   }
   if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.crouching = !!p.mantle?.crouched; p.crouch = Number(p.crouching); p.reach = 0; p.footwork = null; p.ledgeReach = null; p.landing = 0 }
   if (p.mantle) {
@@ -656,10 +710,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     p.vx = p.wallJump.direction * TUNING.wallJumpPush; p.facing = p.wallJump.direction
   } else if (p.sliding?.active && !p.grounded) {
     const angle = p.sliding.angle, tangent = [Math.cos(angle), Math.sin(angle)]
-    const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, TUNING.gravity, dt)
+    const speed = slidingVelocity(p.vx * tangent[0] + p.vy * tangent[1], angle, gravity, dt)
     // The ordinary gravity step below supplies the normal load for the sweep.
     // Subtract its tangent contribution here so gravity is integrated only once.
-    const beforeGravity = speed - TUNING.gravity * tangent[1] * dt
+    const beforeGravity = speed - gravity * tangent[1] * dt
     p.vx = tangent[0] * beforeGravity; p.vy = tangent[1] * beforeGravity
     if (p.buffer > 0) { p.vx = tangent[0] * speed; launch(p) }
   } else {
@@ -670,7 +724,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     // Velocity stays in world space. Limited shoe traction can follow a slow
     // bot, but cannot instantly match a charge or erase momentum on departure.
     p.vx = constrained ?? (ground && canGrip(ground.angle)
-      ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? TUNING.gravity * .8 : move ? TUNING.acceleration : TUNING.braking, dt) + (carrier?.vx ?? 0)
+      ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? Math.max(0, gravity) * .8 : move ? TUNING.acceleration : TUNING.braking, dt) + (carrier?.vx ?? 0)
       : approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt))
   }
   if (p.grounded && contacts.support && !p.crouching && !input.jump && !input.drop && !input.descend
@@ -718,7 +772,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const before = groundAt(platforms, oldX, oldY, .2)
     if (before) p.vy = p.vx * Math.tan(before.angle)
   }
-  p.vy = Math.min(1100, p.vy + TUNING.gravity * dt)
+  p.vy = Math.max(-1100, Math.min(1100, p.vy + gravity * dt))
   p.y += p.vy * dt; p.grounded = false
   if (support) { p.y = support.y; p.vy = 0; p.grounded = true }
   for (const b of platforms) {

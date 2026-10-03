@@ -11,8 +11,10 @@ import { flatBoxSupport } from './boxSupport.ts'
 import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysics.ts'
 import type { Vec } from './geometry.ts'
 
-const { Bodies, Body, Bounds, Collision, Composite, Engine, Query, Sleeping, Vertices } = Matter
-interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[] }
+import { propGravity } from './gravity.ts'
+
+const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
+interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; gravity: Map<Matter.Body, number> }
 const worlds = new WeakMap<Run, PropWorld>()
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const material = { friction: .55, frictionStatic: 1.4, frictionAir: 0, restitution: 0, slop: .0001 }
@@ -58,7 +60,23 @@ function worldFor(run: Run) {
   const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
   const bodies = new Map(run.props.map(b => [b, makeProp(b)]))
   Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values()])
-  const world = { engine, terrain, mechanisms, bodies }; worlds.set(run, world)
+  const world = { engine, terrain, mechanisms, bodies, gravity: new Map<Matter.Body, number>() }; worlds.set(run, world)
+  // Correct only gravitational integration after Matter's sleeping decision,
+  // before collision detection/solving. A persistent applied force would wake
+  // every resting field prop forever, even when pinned against a ceiling.
+  Events.on(engine, 'beforeSolve', () => {
+    if (!run.gravityField.strips.length) return
+    for (const body of bodies.values()) {
+      if (body.isSleeping) continue
+      const dy = ((world.gravity.get(body) ?? TUNING.gravity) - TUNING.gravity) * (engine.timing.lastDelta * body.timeScale / 1000) ** 2
+      if (!dy) continue
+      Body.translate(body, { x: 0, y: dy })
+      // Translate the integrated position, preserving its pre-step position.
+      const previous = (body as Matter.Body & { positionPrev: Matter.Vector }).positionPrev
+      previous.y -= dy; body.velocity.y += dy
+      Bounds.update(body.bounds, body.vertices, body.velocity)
+    }
+  })
   return world
 }
 
@@ -104,6 +122,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const accelerated = Math.abs(velocity.x * 60 - b.vx) + Math.abs(velocity.y * 60 - b.vy) > 1e-5
     if (moved) { Body.setPosition(body, { x: b.x, y: b.y - b.size / 2 }); Body.setAngle(body, angle) }
     if (moved || accelerated) Sleeping.set(body, false)
+    const gravity = propGravity(run.gravityField, b)
+    if (Math.abs(gravity - (world.gravity.get(body) ?? TUNING.gravity)) > 1e-7) Sleeping.set(body, false)
+    world.gravity.set(body, gravity)
     // Motors push only at an actual forward contact, using the same bounded
     // forces as the player. A charge has a faster target, never a velocity reset.
     for (const { robot, hulls } of robotProbes) {
@@ -135,7 +156,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const response = b.kind === 'ball' ? 70 : 35
       const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
       Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
-    } else if (b.kind === 'ball' && b.grounded && !driven.has(body)) {
+    } else if (b.kind === 'ball' && gravity > 0 && b.grounded && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load
       // or braced shove cancels the player's force on large balls every step,
       // pinning the player beside walls (especially over a pressure plate).
@@ -156,7 +177,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const force = PLAYER_MASS * contact.load / 1e6
       Body.applyForce(body, { x: contact.point[0], y: contact.point[1] }, { x: -contact.normal[0] * force, y: -contact.normal[1] * force })
     }
-    Body.setVelocity(body, { x: b.vx / 60, y: Math.min(1000, b.vy) / 60 })
+    Body.setVelocity(body, { x: b.vx / 60, y: Math.max(-1000, Math.min(1000, b.vy)) / 60 })
     if (b.kind === 'box' && Math.abs(Body.getAngularVelocity(body) * 60 - b.angularVelocity) > 1e-5) Body.setAngularVelocity(body, b.angularVelocity / 60)
   }
   Engine.update(world.engine, dt * 1000)
@@ -171,7 +192,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     // Contact corrections change props during this solve. Sweep against their
     // current hulls, so separating one contact cannot bury the player in the
     // next prop or bot. The source receives any blocked travel below.
-    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height)
+    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height, p.inverted ? -1 : 1)
     translatePlayer(p, safe.x - p.x, safe.y - p.y)
   }
   for (const [b, body] of world.bodies) {
@@ -182,7 +203,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle), body)
   }
   const contactBody = playerContactBody(p)
-  const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height))
+  const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height, p.inverted ? -1 : 1))
   // Props may displace the controlled player only along a clear sweep. Any
   // blocked part of that displacement is resolved back into the prop, in the
   // same iterations as prop/terrain and prop/prop contacts.
@@ -392,9 +413,9 @@ export function planMechanismMotion(run: Run, index: number, next: Platform, pas
     // obstacles, then check the actual mechanism contact below. A wall can
     // leave the rider behind; a ceiling/platform squeeze must still reject.
     return moveBody([p.x, p.y], [position.x, position.y],
-      [...run.terrain, ...shapes.filter((_, i) => i !== index), ...propShapes()], height)
+      [...run.terrain, ...shapes.filter((_, i) => i !== index), ...propShapes()], height, p.inverted ? -1 : 1)
   }
-  const vertices = bodyPolygon(p.x, p.y, height).map(([x, y]) => ({ x, y }))
+  const vertices = bodyPolygon(p.x, p.y, height, p.inverted ? -1 : 1).map(([x, y]) => ({ x, y }))
   const playerHull = Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
   const playerCenter = { ...playerHull.position }
   const updatePlayer = () => {
@@ -438,7 +459,7 @@ export function planMechanismMotion(run: Run, index: number, next: Platform, pas
   }
   if (Query.collides(playerHull, [...fixed, ...bodies.values()]).some(hit => hit.depth > .002)) return null
   const position = playerPosition(), barriers = [...run.terrain, ...shapes, ...propShapes()]
-  const safe = moveBody([p.x, p.y], [position.x, position.y], barriers, height)
+  const safe = moveBody([p.x, p.y], [position.x, position.y], barriers, height, p.inverted ? -1 : 1)
   if (Math.hypot(safe.x - position.x, safe.y - position.y) > .01) return null
   return { player: position, props: movable.map(([prop, body]) => ({ prop, x: body.position.x, y: body.position.y + prop.size / 2 })) }
 }

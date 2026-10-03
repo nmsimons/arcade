@@ -19,12 +19,12 @@ export const lightBounds = (light: Pick<LevelLight, 'x' | 'y'>) => ({ x: light.x
 export function lightingProblems(level: JumpLevel): string[] {
   const issues: string[] = switchWiringProblems(level)
   if (level.goal?.power === 'switched' && !level.goal.id) issues.push(`Give ${objectReference(level, 'goal')} an ID for its switch connections.`)
-  if (level.goal?.id && [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? []].some(item => item.id === level.goal!.id)) {
+  if (level.goal?.id && [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? []].some(item => item.id === level.goal!.id)) {
     issues.push(`${objectReference(level, 'goal')} must have a unique ID.`)
   }
   const ids = new Map<string, string>()
-  for (const kind of ['mechanism', 'light', 'wall-light'] as const) {
-    for (const [i, item] of (kind === 'light' ? level.lighting?.lights ?? [] : kind === 'wall-light' ? level.wallLights ?? [] : level.mechanisms ?? []).entries()) {
+  for (const kind of ['mechanism', 'light', 'wall-light', 'gravity-plate'] as const) {
+    for (const [i, item] of (kind === 'light' ? level.lighting?.lights ?? [] : kind === 'wall-light' ? level.wallLights ?? [] : kind === 'gravity-plate' ? level.gravityPlates ?? [] : level.mechanisms ?? []).entries()) {
       const label = objectReference(level, kind, i), existing = ids.get(item.id)
       if (existing) issues.push(`${existing} and ${label} must have unique IDs.`)
       else ids.set(item.id, label)

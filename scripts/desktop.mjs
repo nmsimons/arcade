@@ -20,7 +20,9 @@ if (action !== 'test') {
   const commit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' })
   writeFileSync(resolve(root, 'desktop/renderer/release.json'), JSON.stringify({ product: product.id, name: product.name, startPath: product.startPath, executable: product.executable, version, commit: commit.status === 0 ? commit.stdout.trim() : null }, null, 2) + '\n')
 }
-if (action !== 'build' && !existsSync(resolve(root, 'desktop/node_modules/electron'))) throw new Error('Install desktop dependencies first: npm ci --prefix desktop')
+const needsDevelopmentElectron = action === 'dev' || action === 'package'
+  || action === 'test' && process.env.ARCADE_TEST_PACKAGED !== '1' && !process.env.ARCADE_TEST_EXECUTABLE
+if (needsDevelopmentElectron && !existsSync(resolve(root, 'desktop/node_modules/electron'))) throw new Error('Install desktop dependencies first: npm ci --prefix desktop')
 if (action === 'dev') run(resolve(root, 'desktop/node_modules/electron/cli.js'), ['.'], resolve(root, 'desktop'))
 if (action === 'package') {
   run(resolve(root, 'desktop/package.mjs'), [], resolve(root, 'desktop'))

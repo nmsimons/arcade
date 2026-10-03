@@ -11,6 +11,7 @@ const target = desktopTarget(product)
 const executablePath = process.env.ARCADE_TEST_EXECUTABLE || (packaged ? join(root, 'desktop/out', target.directory, target.executable) : join(root, 'desktop/node_modules/electron/dist', process.platform === 'darwin' ? 'Electron.app/Contents/MacOS/Electron' : process.platform === 'win32' ? 'electron.exe' : 'electron'))
 const launch = directory => electron.launch({
   executablePath,
+  chromiumSandbox: true,
   args: packaged ? [] : [join(root, 'desktop')],
   env: { ...process.env, ARCADE_USER_DATA: directory, ELECTRON_RUN_AS_NODE: undefined },
 })
@@ -24,6 +25,7 @@ test('installed assets, deep routes, file saves, and fullscreen work without a s
     const errors = []
     page.on('pageerror', error => errors.push(error.message))
     await expect(page.getByRole('heading', { level: 1, name: 'Dream Large Arcade' })).toBeVisible()
+    expect(await app.evaluate(({ app }) => app.commandLine.hasSwitch('no-sandbox'))).toBe(false)
     expect(await app.evaluate(({ Menu }) => Menu.getApplicationMenu() !== null)).toBe(process.platform === 'darwin')
     await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCount(0)
     await expect(page.getByRole('heading', { name: 'Play offline on your computer', exact: true })).toHaveCount(0)

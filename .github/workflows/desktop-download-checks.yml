@@ -1,0 +1,58 @@
+name: Desktop download checks
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing desktop release tag to download and test
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  download:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Download Windows release
+        if: runner.os == 'Windows'
+        run: |
+          gh release download "$env:RELEASE_TAG" --pattern dream-large-arcade-windows-x64.zip --dir .local/release-check
+          Expand-Archive -LiteralPath .local/release-check/dream-large-arcade-windows-x64.zip -DestinationPath .local/release-check/extracted
+          $env:ARCADE_TEST_EXECUTABLE = (Resolve-Path .local/release-check/extracted/dream-large-arcade-desktop-win32-x64/dream-large-arcade.exe).Path
+          npm run test:desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ARCADE_TEST_PACKAGED: '1'
+      - name: Install Linux runtime test dependencies
+        if: runner.os == 'Linux'
+        run: npx playwright install-deps chromium
+      - name: Download Linux release
+        if: runner.os == 'Linux'
+        run: |
+          gh release download "$RELEASE_TAG" --pattern dream-large-arcade-linux-x64.tar.gz --dir .local/release-check
+          mkdir -p .local/release-check/extracted
+          tar -xzf .local/release-check/dream-large-arcade-linux-x64.tar.gz -C .local/release-check/extracted
+          ARCADE_TEST_EXECUTABLE="$PWD/.local/release-check/extracted/dream-large-arcade-desktop-linux-x64/dream-large-arcade" xvfb-run --auto-servernum npm run test:desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          ARCADE_TEST_PACKAGED: '1'
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: download-failures-${{ runner.os }}
+          path: test-results-desktop/
+          if-no-files-found: ignore

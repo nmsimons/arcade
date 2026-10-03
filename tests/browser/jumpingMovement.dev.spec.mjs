@@ -6,8 +6,10 @@ const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at
 async function start(page) {
   const level = { ...blankTrial(), name: 'Jump experiment', width: 3000, height: 1200, floor: 1000, spawn: { x: 200, y: 1000 }, goal: { x: 2800, y: 1000 } }
   await useLevelFixtures(page, [level])
-  await page.clock.install()
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game')
+  await page.getByRole('button', { name: 'Play Jump experiment', exact: true }).waitFor()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Jump experiment', exact: true }).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.clock.runFor(64)
@@ -29,7 +31,6 @@ test('jump fires while Space is still held, Up increases height and a held butto
 
 test('a quick Up and Jump tap retains its strength when both keys release before the next frame', async ({ page }) => {
   await start(page)
-  await page.clock.pauseAt(new Date(Date.now() + 1000))
   await page.keyboard.down('ArrowUp'); await page.keyboard.press('Space'); await page.keyboard.up('ArrowUp')
   await page.clock.runFor(64)
   const high = await sample(page)
@@ -38,7 +39,6 @@ test('a quick Up and Jump tap retains its strength when both keys release before
 
 test('direction pressed after Jump cannot strengthen an already queued standing jump', async ({ page }) => {
   await start(page)
-  await page.clock.pauseAt(new Date(Date.now() + 1000))
   await page.keyboard.press('Space'); await page.keyboard.down('ArrowUp')
   await page.clock.runFor(64)
   const base = await sample(page)

@@ -45,9 +45,12 @@ for (const horizontal of [false, true]) test(`normal controls load a mounted pla
   expect(initial).toEqual({ plate: { x: 280, y: 900 }, active: false, face: '#9aa38e', rim: '#738575', gate: 740 })
   await page.keyboard.down('d')
   await page.clock.runFor(200)
+  // Walk during takeoff so the immediate jump lands on the mounted plate.
+  await page.keyboard.down('Shift')
   await page.keyboard.down('Space'); await page.clock.runFor(100); await page.keyboard.up('Space')
   for (let i = 0; i < 120 && !(await state()).active; i++) await page.clock.runFor(16)
   await page.keyboard.up('d')
+  await page.keyboard.up('Shift')
   await page.clock.runFor(400)
   const loaded = await state()
   expect(loaded.active).toBe(true); expect(loaded.face).toBe('#a9d56b'); expect(loaded.rim).toBe('#738575')

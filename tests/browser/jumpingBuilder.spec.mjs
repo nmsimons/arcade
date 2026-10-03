@@ -1299,14 +1299,14 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   await expect(page.locator('.jumping-state')).toHaveText('Ready')
   await lower()
   const hanging = await page.evaluate(() => window.jumpPlayer)
-  await hold('Space', true); await page.clock.runFor(600)
-  await expect(page.locator('.jumping-state')).toHaveText('Hanging')
-  expect(await page.evaluate(() => window.jumpPlayer)).toEqual(hanging)
-  await hold('Space', false); await page.clock.runFor(150)
+  await hold('Space', true); await page.clock.runFor(150)
   await expect(page.locator('.jumping-state')).toHaveText('Rising')
   const airborne = await page.evaluate(() => window.jumpPlayer)
   expect(airborne.x).toBeLessThan(hanging.x - 20)
   expect(airborne.y).toBeLessThan(hanging.y - 20)
+  await hold('Space', false); await page.clock.runFor(64)
+  await expect(page.locator('.jumping-state')).toHaveText('Rising')
+  expect((await page.evaluate(() => window.jumpPlayer)).y).toBeLessThan(airborne.y)
 })
 
 for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyboard'} Down transfers onto its rope, descends, swings away and drops`, async ({page},info) => {

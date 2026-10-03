@@ -86,8 +86,7 @@ for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 60]) {
 test('jumping off a moving bot retains earned horizontal momentum', () => {
   const run = fixture()
   for (let i = 0; i < 120; i++) drive(run, 92, STEP)
-  for (let i = 0; i < 12; i++) drive(run, 92, STEP, { ...NEUTRAL_INPUT, jump: true })
-  drive(run, 92, STEP)
+  drive(run, 92, STEP, { ...NEUTRAL_INPUT, jump: true })
   assert.equal(run.player.grounded, false)
   assert.ok(run.player.vx > 85 && run.player.vx <= 92)
   assert.ok(run.player.vy < -300)

@@ -16,19 +16,14 @@ import { findRopeStepUp, findStepUp, finishStepFeet, stepUpRoot } from './stepUp
 import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
+import { TUNING, jumpSpeed } from './movementTuning.ts'
+export { TUNING } from './movementTuning.ts'
 
 export interface Platform extends NamedObject { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; material?: TerrainMaterial }
-export const TUNING = {
-  runSpeed: 350, walkSpeed: 125, acceleration: 2200, airAcceleration: 300,
-  braking: 2800, gravity: 1550, jumpSpeed: 303, chargedJumpSpeed: 800,
-  wallJumpSpeed: 560, wallJumpPush: 300, wallJumpControlTime: .12,
-  chargeTime: .35, coyoteTime: .1, jumpBuffer: .13, width: 24, height: 62, crouchHeight: 40, hangReach: 74,
-  climbTime: LEDGE_CLIMB_TIME,
-} as const
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-export interface JumpInput { move: number; jump: boolean; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean }
+export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export interface GaitPose { speed: number; moving: number; run: number; air: number }
 export function gaitPose(vx: number, airborne = false): GaitPose {
@@ -39,8 +34,7 @@ export function gaitPose(vx: number, airborne = false): GaitPose {
 export interface Player {
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
   sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number } | null
-  charge: number; charging: boolean; coyote: number; buffer: number; jumpHeld: boolean
-  chargeSource: 'ground' | 'grip' | 'wall' | 'slide' | null
+  coyote: number; buffer: number; jumpStrength: number; jumpHeld: boolean
   grabCooldown: number
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; direction: number; active: boolean; hands: [number, number]; feet: [number, number] } | null
@@ -65,7 +59,7 @@ export interface Player {
 }
 export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
-    charge: 0, charging: false, chargeSource: null, coyote: TUNING.coyoteTime, buffer: 0, jumpHeld: false,
+    coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: 0, jumpHeld: false,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, footwork: null, contacts: null }
@@ -83,7 +77,7 @@ function settleGait(p: Player, dt: number) {
     air: blend(previous.air, target.air, target.air ? .035 : .065) }
 }
 export function cancelJumpInput(p: Player) {
-  clearJumpCharge(p); p.jumpHeld = false; p.buffer = 0; p.wallJumpBuffer = 0
+  p.jumpStrength = 0; p.jumpHeld = false; p.buffer = 0; p.wallJumpBuffer = 0
   if (p.mantle?.step) p.mantle.step.jumpQueued = false
   p.stepIntent = null
 }
@@ -94,20 +88,9 @@ export function respawn(p: Player) {
 }
 const approach = (value: number, target: number, delta: number) => value + Math.max(-delta, Math.min(delta, target - value))
 const overlaps = (x: number, y: number, b: Platform, height: number = TUNING.height) => bodyIntersects(x, y, b, height)
-function clearJumpCharge(p: Player) {
-  p.charge = 0; p.charging = false; p.chargeSource = null
-}
-/** Each support uses the same hold/release contract. A charge cannot migrate
- * from a lost foothold into an unrelated wall or grip. */
-function chargeJump(p: Player, source: NonNullable<Player['chargeSource']>, held: boolean, start: boolean, dt: number) {
-  if (start) { p.charge = 0; p.charging = true; p.chargeSource = source }
-  if (!p.charging || p.chargeSource !== source) return false
-  if (held) p.charge = Math.min(1, p.charge + dt / TUNING.chargeTime)
-  return !held
-}
-function launch(p: Player, charge: number, minimum: number = TUNING.jumpSpeed) {
-  p.vy = -(minimum + (TUNING.chargedJumpSpeed - minimum) * charge)
-  p.grounded = false; p.coyote = 0; clearJumpCharge(p); p.buffer = 0; p.wallJumpBuffer = 0
+function launch(p: Player, speed = jumpSpeed(p.jumpStrength)) {
+  p.vy = -speed
+  p.grounded = false; p.coyote = 0; p.buffer = 0; p.jumpStrength = 0; p.wallJumpBuffer = 0
   p.jumpStart = p.y; p.jumpHeight = 0
   if (p.sliding) p.sliding.active = false
 }
@@ -143,14 +126,14 @@ function updateWallBrace(p: Player, move: number, dt: number, platforms: readonl
     if (p.facing !== brace.direction || p.hang || p.mantle || p.climbing || ![...brace.hands, ...brace.feet].some(Boolean)) p.wallBrace = null
   }
 }
-function tryWallJump(p: Player, platforms: readonly Platform[], held: boolean) {
+function tryWallJump(p: Player, platforms: readonly Platform[]) {
   const brace = p.wallBrace
-  if (held || !brace?.active || p.grounded || p.wallJumpBuffer === 0) return
+  if (!brace?.active || p.grounded || p.wallJumpBuffer === 0) return
   // Recheck the actual face in case a moving object or the player's movement
   // has removed the contact since the last frame.
   if (Math.abs((brace.wallX - p.x) * brace.direction - TUNING.width / 2) > .15
     || !touchesWallFace(platforms, brace.wallX, brace.direction, p.y - TUNING.height + 8, p.y - 8)) return
-  launch(p, p.chargeSource === 'wall' ? p.charge : 0, TUNING.wallJumpSpeed)
+  launch(p, TUNING.wallJumpSpeed)
   p.vx = -brace.direction * TUNING.wallJumpPush; p.facing = -brace.direction
   p.wallJump = { direction: -brace.direction, time: 0 }; p.wallJumpBuffer = 0
   p.grabCooldown = .22; p.wallBrace = null; p.pushing = null; p.ledgeReach = null; p.footwork = null
@@ -258,7 +241,7 @@ function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[], w
 export function playerState(p: Player) {
   if (p.mantle?.returning) return 'Lowering'
   return p.climbing ? `${p.climbing.kind === 'rope' ? 'Rope' : 'Ladder'} · ${p.climbing.direction > 0 ? 'ascending' : p.climbing.direction < 0 ? 'descending' : 'holding'}`
-    : p.mantle ? p.mantle.descending ? 'Lowering' : 'Climbing' : p.hang ? 'Hanging' : p.sliding?.active ? 'Sliding' : p.wallBrace?.active ? 'Bracing' : p.wallJump ? 'Wall jump' : p.pushing && p.pushing.effort > 0 ? 'Pushing' : p.crouching ? 'Crouching' : p.reach > .5 ? 'Reaching' : p.charging ? 'Charging' : !p.grounded ? p.vy < 0 ? 'Rising' : 'Falling'
+    : p.mantle ? p.mantle.descending ? 'Lowering' : 'Climbing' : p.hang ? 'Hanging' : p.sliding?.active ? 'Sliding' : p.wallBrace?.active ? 'Bracing' : p.wallJump ? 'Wall jump' : p.pushing && p.pushing.effort > 0 ? 'Pushing' : p.crouching ? 'Crouching' : p.reach > .5 ? 'Reaching' : !p.grounded ? p.vy < 0 ? 'Rising' : 'Falling'
     : Math.abs(p.vx) > 180 ? 'Running' : Math.abs(p.vx) > 10 ? 'Walking' : 'Ready'
 }
 
@@ -327,7 +310,6 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // A separate wall contact still owns its brace and release blend when a
       // moving slope briefly catches the feet in a narrow gap.
       p.grounded = false; p.coyote = 0; p.footwork = null
-      if (p.chargeSource !== 'slide') clearJumpCharge(p)
     } else {
       if (p.sliding) { p.sliding.active = false; p.sliding.amount = Math.max(0, p.sliding.amount - dt / .12); if (!p.sliding.amount) p.sliding = null }
       // An uphill landing can have upward world velocity after the collision.
@@ -365,19 +347,20 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
   world: ContactWorld, contacts: PlayerContacts) {
   const stepIntent = p.stepIntent; p.stepIntent = null
-  const pressed = input.jump && !p.jumpHeld, released = !input.jump && p.jumpHeld
+  const pressed = input.jump && !p.jumpHeld
+  if (pressed) p.jumpStrength = Math.max(0, Math.min(1, input.jumpStrength ?? Math.hypot(input.move, Number(input.climb))))
   p.jumpHeld = input.jump
   p.grabCooldown = Math.max(0, p.grabCooldown - dt)
   p.landing = Math.max(0, p.landing - dt / (p.grounded ? .2 + p.landingImpact * .22 : .12))
   p.buffer = pressed ? TUNING.jumpBuffer : Math.max(0, p.buffer - dt)
-  p.wallJumpBuffer = (pressed && !p.grounded && !p.hang && !p.mantle && !p.climbing && !p.charging) || (released && p.chargeSource === 'wall')
+  p.wallJumpBuffer = pressed && !p.grounded && p.coyote === 0 && !p.hang && !p.mantle && !p.climbing
     ? TUNING.jumpBuffer : Math.max(0, p.wallJumpBuffer - dt)
   if (p.wallJump) {
     p.wallJump.time += dt
     if (p.wallJump.time >= .24 || p.grounded || p.hang || p.mantle || p.climbing) p.wallJump = null
   }
   // Freeze the supported entry pose before this frame moves the rope.
-  const surfaceExit = input.climb && !input.descend && !input.jump && !released && !input.detach ? findRopeStepUp(p, world) : null
+  const surfaceExit = input.climb && !input.descend && !input.jump && !input.detach ? findRopeStepUp(p, world) : null
   if (climbables.ropes.length) {
     p.ropes ??= climbables.ropes.map(createRope)
     for (const [i, rope] of p.ropes.entries()) stepRope(rope, dt, platforms,
@@ -420,7 +403,6 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (m.step) {
       if (m.step.climbing && input.detach) { p.mantle = null; p.grabCooldown = .35; p.vy = 40; cancelJumpInput(p); return }
       m.step.jumpQueued ||= pressed
-      if (m.step.jumpQueued) chargeJump(p, 'ground', input.jump, pressed, dt)
       const progress = Math.min(1, m.time / m.step.duration), root = stepUpRoot(m, progress)
       p.x = root[0]; p.y = root[1]
       p.vx = 0; p.vy = 0; p.facing = m.side
@@ -429,10 +411,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         if (m.step.climbing) p.grabCooldown = .35
         p.vx = input.move * m.side > .1 ? m.step.caught.vx : 0
         finishStepFeet(p, m.step)
-        if (m.step.jumpQueued) {
-          if (input.jump) p.buffer = TUNING.jumpBuffer
-          else launch(p, p.charge)
-        }
+        if (m.step.jumpQueued) launch(p)
       }
       return
     }
@@ -465,7 +444,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     }
     return
   }
-  const vertical = input.jump || (released && p.chargeSource === 'grip') ? 0 : Number(input.climb) - Number(input.descend ?? (input.drop && !input.detach))
+  const vertical = input.jump ? 0 : Number(input.climb) - Number(input.descend ?? (input.drop && !input.detach))
   const requestedClimb = vertical !== 0 && !input.jump
   if (p.grounded && !p.hang && !p.climbing && vertical < 0 && !input.jump && !input.detach && p.grabCooldown === 0) {
     // Lower over the edge first, then transfer to a nearby ladder or rope.
@@ -512,7 +491,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   }
   if (p.climbing) {
     const c = p.climbing, oldX = p.x, oldY = p.y
-    const jumping = chargeJump(p, 'grip', input.jump, pressed, dt)
+    const jumping = pressed
     const previousClimb = { ...c }
     c.time += dt
     c.direction = vertical
@@ -556,7 +535,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const launchMove = c.rope && wall ? -wall.side : input.move
       if (jumping && !input.detach) {
         const upward = Math.min(p.vy, 0)
-        launch(p, p.charge, 360); p.vy += upward
+        launch(p); p.vy += upward
         p.vx = Math.max(-600, Math.min(600, p.vx + launchMove * 180))
       } else { p.vy = Math.max(0, p.vy) + 40; cancelJumpInput(p) }
       p.jumpStart = p.y; p.jumpHeight = 0; return
@@ -628,7 +607,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   }
   if (p.hang) {
     const h = p.hang; h.time += dt
-    const jumping = chargeJump(p, 'grip', input.jump, pressed, dt)
+    const jumping = pressed
     if (pressed) h.queued = false
     const catchTime = h.caught.climbing?.rope ? ROPE_LEDGE_CATCH_TIME : LEDGE_CATCH_TIME
     const { side } = h, caught = ledgeEase(h.time / catchTime)
@@ -644,8 +623,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (input.detach || (dropping && !h.dropLocked)) {
       p.hang = null; p.grabCooldown = .35; p.vy = 80; p.vx = -side * 60; cancelJumpInput(p)
     } else if (jumping) {
-      p.hang = null; p.grabCooldown = .25; launch(p, p.charge); p.vx = -side * 260
-    } else if (!input.jump && !p.charging) {
+      p.hang = null; p.grabCooldown = .25; launch(p); p.vx = -side * 260
+    } else if (!input.jump) {
       h.queued ||= input.climb
       if (h.queued && h.time >= catchTime) {
         // Use the space that is already available before shoving a loose prop.
@@ -667,24 +646,12 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   p.reach = approach(p.reach, Number(input.reach && !p.crouching), dt * 10)
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const wasGrounded = p.grounded
-  if (p.wallBrace?.active && !p.grounded) chargeJump(p, 'wall', input.jump,
-    pressed || input.jump && p.wallJumpBuffer > 0 && !p.charging, dt)
-  tryWallJump(p, platforms, input.jump)
+  tryWallJump(p, platforms)
   p.coyote = wasGrounded ? TUNING.coyoteTime : Math.max(0, p.coyote - dt)
-  if (p.coyote > 0) {
-    const jumping = chargeJump(p, 'ground', input.jump, input.jump && (pressed || p.buffer > 0 && !p.charging), dt)
-    if (jumping) launch(p, p.charge)
-    else if (p.buffer > 0 && !input.jump) launch(p, 0)
-  }
-  if (p.chargeSource === 'ground' && p.coyote === 0 || p.chargeSource === 'wall' && !p.wallBrace?.active
-    || p.chargeSource === 'slide' && !p.sliding?.active || p.chargeSource === 'grip') clearJumpCharge(p)
+  if (p.coyote > 0 && p.buffer > 0) launch(p)
 
   const move = Math.max(-1, Math.min(1, input.move)), target = move * (p.crouching ? TUNING.walkSpeed : TUNING.runSpeed)
-  if (p.chargeSource === 'wall' && p.wallBrace?.active) {
-    // Keep the bracing contact while winding up, even when aiming away.
-    // Gravity still slides the body down; releasing supplies the outward kick.
-    p.vx = 0
-  } else if (p.wallJump && p.wallJump.time < TUNING.wallJumpControlTime) {
+  if (p.wallJump && p.wallJump.time < TUNING.wallJumpControlTime) {
     // A short outward push survives holding toward the wall; ordinary steering follows.
     p.vx = p.wallJump.direction * TUNING.wallJumpPush; p.facing = p.wallJump.direction
   } else if (p.sliding?.active && !p.grounded) {
@@ -694,7 +661,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     // Subtract its tangent contribution here so gravity is integrated only once.
     const beforeGravity = speed - TUNING.gravity * tangent[1] * dt
     p.vx = tangent[0] * beforeGravity; p.vy = tangent[1] * beforeGravity
-    if (chargeJump(p, 'slide', input.jump, pressed, dt)) { p.vx = tangent[0] * speed; launch(p, p.charge) }
+    if (p.buffer > 0) { p.vx = tangent[0] * speed; launch(p) }
   } else {
     if (Math.abs(move) > .01) p.facing = Math.sign(move)
     const ground = p.grounded ? contacts.support : null
@@ -706,7 +673,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? TUNING.gravity * .8 : move ? TUNING.acceleration : TUNING.braking, dt) + (carrier?.vx ?? 0)
       : approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt))
   }
-  if (p.grounded && contacts.support && !p.crouching && !p.charging && !input.jump && !input.drop && !input.descend
+  if (p.grounded && contacts.support && !p.crouching && !input.jump && !input.drop && !input.descend
     && !p.sliding?.active && p.grabCooldown === 0) {
     const step = findStepUp(p, move, dt, world, stepIntent)
     if (step) {
@@ -807,8 +774,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     }
   }
   p.ledgeReach = p.hang ? null : reach
-  updateWallBrace(p, p.chargeSource === 'wall' ? 0 : move, dt, platforms)
-  if (!p.hang) tryWallJump(p, platforms, input.jump)
+  updateWallBrace(p, move, dt, platforms)
+  if (!p.hang) tryWallJump(p, platforms)
   if (p.grounded) p.wallJump = null
   if (p.grounded) {
     rules.checkpoints.forEach((point, index) => {

@@ -18,43 +18,27 @@ test('a fresh jump from either braced wall launches upward and away', () => {
     advance(p, .1, { move: side })
     assert.equal(playerState(p), 'Bracing')
     advance(p, STEP, { jump: true, move: side })
-    assert.equal(p.wallJump, null)
-    advance(p, STEP, { move: side })
     assert.equal(playerState(p), 'Wall jump')
     assert.equal(p.vx, -side * TUNING.wallJumpPush)
-    assert.ok(p.vy < -530)
+    assert.equal(p.vy, -TUNING.wallJumpSpeed + TUNING.gravity * STEP)
     assert.equal(p.wallBrace, null)
-    assert.equal(p.charging, false)
     assert.equal(p.hang, null)
     assert.equal(p.buffer, 0)
   }
 })
 
-test('the inside face of an L supports bracing and charged wall jumps in either orientation', () => {
-  for (const side of [-1, 1]) for (const heldFrames of [1, 21, 42]) {
+test('inset wall faces launch immediately in either orientation without penetration', () => {
+  for (const side of [-1, 1]) {
     const points = [[0,0],[80,0],[80,520],[360,520],[360,600],[0,600]]
-    const shape = { x: 100, y: 100, w: 360, h: 600,
-      polygon: side === -1 ? points : points.map(([x,y]) => [360-x,y]) }
+    const shape = { x: 100, y: 100, w: 360, h: 600, polygon: side === -1 ? points : points.map(([x,y]) => [360-x,y]) }
     const wallX = side === -1 ? 180 : 380
     const p = airborne({ x: wallX - side * TUNING.width / 2, y: 350, facing: side })
-    advance(p, .08, { move: side }, [shape])
-    assert.ok(p.wallBrace?.active, 'the inset vertical face must brace like a separate wall')
-    assert.ok(Math.abs(p.wallBrace.wallX - wallX) < .15)
-    assert.deepEqual(p.wallBrace.hands, [1, 1])
-    assert.deepEqual(p.wallBrace.feet, [1, 1])
+    advance(p, .08, { move: side }, [shape]); assert.ok(p.wallBrace?.active)
     const startX = p.x
-    for (let i = 0; i < heldFrames; i++) {
-      advance(p, STEP, { jump: true, move: side }, [shape])
-      assert.equal(p.wallJump, null, 'a wall jump still waits for release')
-      assert.equal(p.x, startX)
-      assert.equal(bodyIntersects(p.x, p.y, shape), false)
-    }
-    advance(p, STEP, { move: side }, [shape])
-    assert.equal(p.wallJump?.direction, -side)
-    assert.equal(p.vx, -side * TUNING.wallJumpPush)
-    assert.ok(p.vy < -530)
-    assert.equal(p.wallBrace, null)
-    assert.equal(bodyIntersects(p.x, p.y, shape), false)
+    advance(p, STEP, { jump: true, move: side }, [shape])
+    assert.equal(p.wallJump?.direction, -side); assert.equal(p.vx, -side * TUNING.wallJumpPush)
+    assert.equal(p.vy, -TUNING.wallJumpSpeed + TUNING.gravity * STEP); assert.ok((p.x - startX) * side < 0)
+    assert.equal(p.wallBrace, null); assert.equal(bodyIntersects(p.x, p.y, shape), false)
   }
 })
 
@@ -112,7 +96,6 @@ test('holding jump cannot chain bounces; a new press can jump from the opposite 
   const p = airborne({ x: 288, y: 500 })
   advance(p, STEP, {}, corridor)
   advance(p, STEP, { jump: true, move: -1 }, corridor)
-  advance(p, STEP, { move: -1 }, corridor)
   advance(p, .64, { jump: true, move: -1 }, corridor)
   assert.equal(p.x, 112)
   assert.equal(p.wallJump, null)
@@ -120,18 +103,16 @@ test('holding jump cannot chain bounces; a new press can jump from the opposite 
   advance(p, STEP, { move: -1 }, corridor)
   const height = p.y
   advance(p, STEP, { jump: true, move: -1 }, corridor)
-  assert.equal(p.wallJump, null)
-  advance(p, STEP, { move: -1 }, corridor)
   assert.equal(p.wallJump?.direction, 1)
-  assert.ok(p.vx > 0 && p.vy < -530)
+  assert.ok(p.vx > 0); assert.equal(p.vy, -TUNING.wallJumpSpeed + TUNING.gravity * STEP)
   advance(p, .2, { move: 1 }, corridor)
   assert.ok(p.y < height - 65)
 })
 
-test('ground charges carried off a ledge never become wall jumps', () => {
+test('a held ground jump never becomes a wall jump', () => {
   const p = Object.assign(createPlayer(), { x: 280, y: 400, vx: 350 })
   const edge = [{ x: 0, y: 400, w: 300, h: 300 }, { x: 340, y: 0, w: 100, h: 1000 }]
-  advance(p, .5, { jump: true, move: 1 }, edge)
+  advance(p, .7, { jump: true, move: 1 }, edge)
   assert.equal(p.wallJump, null)
   assert.equal(p.wallJumpBuffer, 0)
   assert.ok(p.vy > 0)
@@ -141,7 +122,6 @@ test('a kick respects ceilings, and landing and respawn clear its impulse', () =
   const p = airborne({ y: 500 })
   advance(p, STEP)
   advance(p, STEP, { jump: true }, [...world, { x: 250, y: 420, w: 100, h: 18 }])
-  advance(p, STEP, {}, [...world, { x: 250, y: 420, w: 100, h: 18 }])
   assert.equal(p.vy, 0)
   assert.equal(p.y, 500)
   advance(p, 1)
@@ -155,21 +135,14 @@ test('a kick respects ceilings, and landing and respawn clear its impulse', () =
   assert.equal(p.vx, 0)
 })
 
-test('wall jumps charge against either wall while sliding, and only kick on release', () => {
-  for (const side of [-1, 1]) for (const move of [-1, 0, 1]) for (const frames of [1, 21, 60]) {
-    const p = airborne({ x: side === 1 ? 338 : 462, y: 100, facing: side, vy: 0 })
+test('wall jumps use fixed strength on press regardless of steering', () => {
+  for (const side of [-1, 1]) for (const move of [-1, 0, 1]) {
+    const p = airborne({ x: side === 1 ? 338 : 462, y: 200, facing: side, vy: 0 })
     advance(p, STEP)
-    const x = p.x
-    for (let i = 0; i < frames; i++) {
-      advance(p, STEP, { jump: true, move })
-      assert.equal(p.wallJump, null); assert.equal(p.x, x)
-      assert.ok(p.wallBrace?.active && !p.grounded)
-    }
-    const charge = Math.min(1, frames * STEP / TUNING.chargeTime)
-    assert.ok(Math.abs(p.charge - charge) < 1e-6)
-    advance(p, STEP, { move })
-    assert.ok(p.wallJump)
-    assert.equal(p.vx, -side * TUNING.wallJumpPush)
-    assert.ok(Math.abs(p.vy + TUNING.wallJumpSpeed + (TUNING.chargedJumpSpeed - TUNING.wallJumpSpeed) * charge - TUNING.gravity * STEP) < 1e-6)
+    advance(p, STEP, { jump: true, move })
+    assert.ok(p.wallJump); assert.equal(p.vx, -side * TUNING.wallJumpPush)
+    assert.ok(Math.abs(p.vy + TUNING.wallJumpSpeed - TUNING.gravity * STEP) < 1e-6)
+    const vy = p.vy
+    advance(p, STEP, { jump: true, move }); assert.ok(p.vy > vy, 'holding cannot add another impulse')
   }
 })

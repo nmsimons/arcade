@@ -14,14 +14,14 @@ function setup(change = () => {}) {
   return { run, audio, step }
 }
 
-test('footsteps follow planted feet: walking makes steps, standing, charging and airborne travel do not', () => {
+test('footsteps follow planted feet: walking makes steps, standing and airborne travel do not', () => {
   const { run, step } = setup(), cues = []
   for (let i = 0; i < 120; i++) assert.equal(step().cues.length, 0)
   for (let i = 0; i < 150; i++) cues.push(...step({ ...NEUTRAL_INPUT, move: 1 }).cues)
   assert.ok(cues.filter(c => c.kind === 'footstep').length >= 4, JSON.stringify(cues))
   for (let i = 0; i < 80; i++) step()
   for (let i = 0; i < 120; i++) assert.equal(step().cues.length, 0)
-  for (let i = 0; i < 50; i++) assert.equal(step({ ...NEUTRAL_INPUT, jump: true }).cues.length, 0)
+  assert.equal(step({ ...NEUTRAL_INPUT, jump: true }).cues.length, 0)
   step()
   assert.equal(run.player.grounded, false)
   for (let i = 0; i < 30; i++) assert.equal(step({ ...NEUTRAL_INPUT, move: 1 }).cues.length, 0)

@@ -174,8 +174,8 @@ test('nearest contact wins in either direction, independent of collider order, a
       const contacts = playerContacts(p, { ...NEUTRAL_INPUT, move: direction }, world)
       assert.equal(contacts.support.collider.id, 'floor')
       assert.equal(contacts.push.collider.prop, near)
-      assert.equal(playerContacts({ ...p, charging: true, jumpHeld: true }, { ...NEUTRAL_INPUT, move: direction }, world).push, null,
-        'a released jump must not apply a final shove before takeoff')
+      assert.equal(playerContacts(p, { ...NEUTRAL_INPUT, move: direction, jump: true }, world).push, null,
+        'a pressed jump must not apply a final shove before takeoff')
     }
     const wall = { id: 'wall', platform: { x: p.x + direction * 30 - (direction < 0 ? 2 : 0), y: 700, w: 2, h: 220 } }
     const colliders = [b, ground, wall]
@@ -218,7 +218,7 @@ test('a blocked box keeps the solved body and animation still and releases for a
     assert.ok(Math.hypot(p.x - start.x, p.y - start.y) < .01)
     assert.ok(Math.hypot(...athletePose(p).head.map((v, j) => v - start.head[j])) < .01)
   }
-  advance(run, 30, { move: 1, jump: true }); advance(run, 1, { move: 1 })
+  advance(run, 1, { move: 1, jump: true })
   assert.equal(p.contacts.support, null); assert.equal(p.contacts.push, null); assert.equal(p.pushing, null)
   assert.ok(p.vy < -600)
 })

@@ -144,7 +144,7 @@ export default function LightingLab() {
     <canvas ref={canvas} tabIndex={0} aria-label="Lighting prototype room" data-ready={ready}
       onKeyDown={e => { if (playing && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space'].includes(e.code)) { e.preventDefault(); keys.current.add(e.code) } }}
       onKeyUp={e => { keys.current.delete(e.code) }} onBlur={() => keys.current.clear()} />
-    <footer><span>{playing ? 'Arrows / WASD to move · hold and release Space to jump.' : 'Lighting study · ambient, occlusion, overlap, and readable objects.'}</span><output>{stats}</output></footer>
+    <footer><span>{playing ? 'Arrows / WASD to move · press Space to jump · run up to jump farther.' : 'Lighting study · ambient, occlusion, overlap, and readable objects.'}</span><output>{stats}</output></footer>
     {error && <p role="alert">{error}</p>}
   </main>
 }

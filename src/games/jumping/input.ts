@@ -13,7 +13,9 @@ export function createJumpController() {
     sample(pads: readonly (ControllerPad | null)[], screen: string, now: number, focused = true) {
       const sample = reader.sample(pads, screen === 'playing' ? 'jumping' : `menu:jumping-${screen}`, now, focused)
       const held = (button: number) => sample.held.includes(button)
-      return { ...sample, move: Number(held(15)) - Number(held(14)) || sample.direction.x,
+      const move = Number(held(15)) - Number(held(14)) || sample.direction.x
+      const up = held(12) ? 1 : Math.max(0, -sample.direction.y)
+      return { ...sample, move, jumpStrength: Math.min(1, Math.hypot(move, up)),
         jump: held(0), climb: held(12) || sample.direction.y < -.5, drop: held(1) || held(13) || sample.direction.y > .65,
         descend: held(13) || sample.direction.y > .65, detach: held(1),
         crouch: held(13) || sample.direction.y > .65, reach: false,

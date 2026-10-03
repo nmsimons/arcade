@@ -52,8 +52,7 @@ test('ledges above three tiles retain deliberate jumping', () => {
   const { p, terrain } = setup(61)
   assert.equal(approach(p, terrain), false)
   assert.equal(p.y, 0)
-  for (let i = 0; i < 42; i++) tick(p, terrain, { move: 1, jump: true })
-  tick(p, terrain, { move: 1 })
+  tick(p, terrain, { move: 1, jump: true })
   assert.ok(p.vy < -500 && !p.grounded)
 })
 
@@ -90,7 +89,7 @@ test('releasing, reversing, jumping, or a light stick input cannot accumulate ma
   assert.equal(p.mantle, null)
 })
 
-test('stepping requires grounded directional intent and does not take over crouching or jump charging', () => {
+test('stepping requires grounded directional intent and does not take over crouching or jumping', () => {
   for (const height of [40, 60]) for (const input of [{}, { move: -1 }, { move: 1, crouch: true }, { move: 1, jump: true }, { move: 1, descend: true }]) {
     const { p, terrain } = setup(height, 1, 80)
     for (let i = 0; i < 25; i++) { tick(p, terrain, input); assert.equal(p.mantle?.step, undefined) }
@@ -263,11 +262,6 @@ test('a tap or held jump during a short mantle is preserved', () => {
     assert.ok(approach(p, terrain))
     tick(p, terrain, { move: 1, jump: true })
     for (let i = 0; i < 100 && p.mantle; i++) tick(p, terrain, { move: 1, jump: held })
-    if (held) {
-      assert.ok(p.charging)
-      for (let i = 0; i < 15; i++) tick(p, terrain, { move: 1, jump: true })
-      tick(p, terrain, { move: 1 })
-    }
     assert.ok(p.vy < -250 && !p.grounded)
   }
 })
@@ -278,7 +272,7 @@ test('pausing clears a jump queued during a step', () => {
   tick(p, terrain, { move: 1, jump: true })
   cancelJumpInput(p)
   for (let i = 0; i < 100 && p.mantle; i++) tick(p, terrain)
-  assert.ok(p.grounded && !p.charging)
+  assert.ok(p.grounded && p.buffer === 0)
   assert.equal(p.vy, 0)
 })
 

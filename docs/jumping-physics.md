@@ -1,7 +1,7 @@
 # Jumping game contacts
 
 The player uses the custom movement controller for its existing acceleration,
-charged jumps, slope traction and climbing. Matter simulates loose props. Their
+jumps on press, slope traction and climbing. Matter simulates loose props. Their
 boundary is the contact model in `src/games/jumping/playerContacts.ts`.
 
 Each collider has a stable identity and a current geometry snapshot. Terrain,
@@ -19,7 +19,7 @@ a sideways force to that support. This keeps an idle player from propelling a
 ball simply by standing off its center. The foot reaction requires an active shove.
 Grounded bracing uses the actual exposed vertical face at hand height, including
 faces inset within a single terrain polygon, rather than its bounding edge.
-Airborne bracing and wall-jump release use those same exposed faces. The inside
+Airborne bracing and wall jumps use those same exposed faces. The inside
 of an L-shaped polygon supports wall jumps like separate pieces of terrain;
 covered seams, sloped faces, and gaps cannot supply a wall contact.
 Body contacts also transfer normal load while airborne. A player wedged between
@@ -79,6 +79,35 @@ Shovebot sight uses its current left/right facing before checking range and cove
 A player behind it cannot trigger a chase, windup, or charge or turn the bot around.
 Moving behind an aggressive bot loses sight and restores patrol; an ordinary
 patrol turn can reveal the player again. The eye color follows this same detection.
+
+## Jump-on-press experiment
+
+Every supported jump starts on a fresh press, including ground/coyote-time,
+wall, slope, ledge, ladder and rope jumps. Ground and wall presses retain the
+0.13-second buffer; holding never repeats a jump or adds charge. Catching a rope
+or ledge consumes the held press, so release and press again to jump away.
+A press during an automatic short step launches when that step finishes;
+pausing clears pending presses.
+
+Centered jumps start at 500 units/second upward. Directional input increases that
+strength linearly to 800 at full stick deflection, using the length of the
+horizontal/upward input vector (capped at one). Up can therefore make a strong
+vertical jump without lateral motion. Partial upward input works below the
+climbing threshold; Down alone does not add lift. Keyboard Up or lateral movement
+supplies full input, while Shift reduces lateral input to walking strength.
+Strength is sampled on the press and retained through buffering/short steps.
+
+Horizontal momentum carries through takeoff, with gradual air steering, so
+running still covers more distance than starting from rest. Wall jumps retain
+their separate 500-unit/second upward impulse and 300-unit/second outward kick.
+Grips and slopes use the same input-strength rule; rope releases also keep real
+rope momentum. Holding cannot turn a ground jump into a later wall jump.
+
+The selected defaults in `movementTuning.ts` are 500 base jump, 800 full-input
+jump, 410 running speed, 1550 gravity, 300 air acceleration, 2000 ground
+acceleration and 500 wall jump. The temporary in-game tuning sliders have been
+removed; saved experimental browser settings no longer override these values.
+Existing level routes and medal times have not been retuned for this experiment.
 
 ## Step order
 

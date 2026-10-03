@@ -59,11 +59,12 @@ for (const side of [-1, 1]) test(`a small box, ball and shovebot below a low led
 
 for (const side of [-1, 1]) test(`jumping past a small box can catch and climb the ledge: ${side}`, () => {
   const level = fixture(side).level
-  level.spawn = { x: 700 - side * 60, y: 620 }
+  level.spawn = { x: 700 - side * 160, y: 620 }
   level.props = level.props.slice(0, 1); level.robots = []
   assert.deepEqual(levelProblems(level), [])
   const run = createRun(level)
-  advance(run, .1, { jump: true })
+  advance(run, .3, { move: side })
+  advance(run, STEP, { jump: true, move: side })
   advance(run, 2, { move: side })
   assert.ok(run.player.hang, 'the standing hull must not reject a clear folded hang above the box')
   advance(run, 1.5, { climb: true })

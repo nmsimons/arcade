@@ -27,13 +27,13 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
           <section className="jumping-dialog-controls" aria-label="How to play">
             <dl>
               <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
-              <div><dt>Hold, release to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
+              <div><dt>Press to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
               <div><dt>Climb / descend</dt><dd><kbd>{connected ? '↑ ↓' : 'W S / ↑ ↓'}</kbd></dd></div>
               <div><dt>Crouch / crouch walk</dt><dd><kbd>{connected ? '↓ + move' : 'S / ↓ + move'}</kbd></dd></div>
               <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
               {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
             </dl>
-            <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Hold Jump to charge; release to jump, including from ledges, ropes, ladders, walls, and slopes.</p>
+            <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Press Jump to jump, including from ledges, ropes, ladders, walls, and slopes. Push the stick farther for a stronger jump; Up jumps higher. Running carries you farther.</p>
           </section>
           <nav className="jumping-dialog-actions jumping-controls-actions" aria-label="Controls actions">
             <button data-initial-focus onClick={() => setControls(false)}>Back</button>

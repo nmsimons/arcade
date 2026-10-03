@@ -1328,7 +1328,7 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
   await page.clock.runFor(350)
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Hold Jump to charge; release to jump')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Press Jump to jump')
   await expect(page.getByRole('region', { name: 'How to play' })).toContainText(controller ? 'B / ○' : 'X')
   await page.getByRole('button', { name: 'Back', exact: true }).click()
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)

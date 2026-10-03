@@ -59,15 +59,12 @@ test('steering away releases the brace, and landing or respawn clears it', () =>
   assert.equal(q.wallBrace, null)
 })
 
-test('grounded pushing and charged jumping keep their existing behavior', () => {
+test('a jump press immediately releases grounded pushing', () => {
   const p = createPlayer(); p.x = 324.5
-  advance(p, .4, { jump: true, move: 1 })
-  assert.equal(p.grounded, true)
-  assert.equal(p.charge, 1)
-  assert.equal(p.wallBrace, null)
-  assert.ok(p.pushing)
-  advance(p, STEP, { move: 1 })
-  assert.ok(p.vy < -TUNING.chargedJumpSpeed + 20)
+  advance(p, .1, { move: 1 }); assert.ok(p.pushing)
+  advance(p, STEP, { jump: true, move: 1 })
+  assert.equal(p.grounded, false); assert.equal(p.pushing, null)
+  assert.ok(p.vy < -TUNING.jumpSpeed + 20)
 })
 
 test('bracing requires contact with an exposed wall, never a slope, ceiling, or internal seam', () => {

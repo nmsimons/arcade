@@ -94,10 +94,6 @@ test('drop releases either rappel wall without a push; jump alone still leaps ou
     // Drop takes precedence if both face buttons are held together.
     const input = { ...NEUTRAL_INPUT, jump: true, detach: dropping, drop: dropping }
     stepPlayer(p, input, STEP, terrain, world, rules)
-    if (!dropping) {
-      assert.ok(p.climbing)
-      stepPlayer(p, NEUTRAL_INPUT, STEP, terrain, world, rules)
-    }
     assert.equal(p.climbing, null)
     if (dropping) {
       assert.equal(p.vx, vx); assert.ok(p.vy > 0)

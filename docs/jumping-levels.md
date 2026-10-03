@@ -534,7 +534,7 @@ playgrounds. Each entry has `x`, `y` (top-left in JSON coordinates), `w`, `h`,
 
 ```json
 "texts": [{ "x": 80, "y": 1100, "w": 320, "h": 100,
-  "text": "Hold to charge.\nRelease to jump.", "fontSize": 24, "align": "left" }]
+  "text": "Run up.\nPress to jump.", "fontSize": 24, "align": "left" }]
 ```
 
 Text uses flat, muted lettering with no panel or outline. Explicit newlines are

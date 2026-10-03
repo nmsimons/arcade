@@ -44,9 +44,9 @@ async function enter(page) {
   await page.clock.runFor(64)
 }
 async function launch(page) {
-  await page.keyboard.down('d'); await page.keyboard.down('Space')
+  await page.keyboard.down('d')
   for (let i = 0; i < 150 && (await position(page)).x < 533; i++) await page.clock.runFor(16)
-  await page.keyboard.up('Space'); await page.keyboard.down('w')
+  await page.keyboard.press('Space'); await page.keyboard.down('w')
 }
 async function finishFirst(page) {
   await launch(page); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
@@ -114,17 +114,20 @@ for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${
   for (let rope = 0; rope < lesson; rope++) {
     for (let i = 0; i < 120 && !(await page.locator('.jumping-state').innerText()).startsWith('Rope'); i++) await page.clock.runFor(32)
     await expect(page.locator('.jumping-state')).toContainText('Rope')
-    await page.keyboard.up('d')
-    const climbY = lesson === 1 ? 380 : 330
-    for (let i = 0; i < 200 && (await position(page)).y > climbY; i++) await page.clock.runFor(16)
-    await page.keyboard.up('w'); await page.keyboard.down('d')
+    await page.keyboard.up('d'); await page.keyboard.up('w')
+    // Leave enough rope below the anchor to earn useful swing momentum.
+    const swingY = lesson === 1 ? 400 : 350, descending = (await position(page)).y < swingY
+    const vertical = descending ? 's' : 'w'
+    await page.keyboard.down(vertical)
+    for (let i = 0; i < 200 && (descending ? (await position(page)).y < swingY : (await position(page)).y > swingY); i++) await page.clock.runFor(16)
+    await page.keyboard.up(vertical); await page.keyboard.down('d')
     const anchor = lesson === 1 ? 850 : rope === 0 ? 810 : 1140
     let previous = await position(page), forward = false, direction = 1
     for (let i = 0; i < 240; i++) {
       await page.clock.runFor(32)
       const current = await position(page)
       const velocity = (current.x - previous.x) / .032
-      forward = i >= 7 && current.x > anchor + 55 && velocity > 120
+      forward = i >= 7 && current.x > anchor + 30 && velocity > 180
       previous = current
       if (forward) break
       // Pump with the swing, as in the gameplay route test. Holding one direction
@@ -135,9 +138,10 @@ for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${
       }
     }
     expect(forward).toBe(true)
-    await page.keyboard.up('a'); await page.keyboard.down('d')
+    await page.keyboard.up('a'); await page.keyboard.up('d')
     await page.screenshot({ path: info.outputPath(`lesson-${lesson + 1}-rope-${rope + 1}.png`) })
-    await page.keyboard.down('Space'); await page.clock.runFor(32); await page.keyboard.up('Space'); await page.keyboard.down('w'); await page.clock.runFor(160)
+    await page.keyboard.press('Space'); await page.clock.runFor(32)
+    await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(160)
   }
   await page.clock.runFor(5000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
@@ -148,14 +152,13 @@ test('jumping again during a rope catch does not launch at catch-animation speed
   for (let i = 0; i < 120 && !(await page.locator('.jumping-state').innerText()).startsWith('Rope'); i++) await page.clock.runFor(32)
   await expect(page.locator('.jumping-state')).toContainText('Rope')
   await page.keyboard.up('w'); await page.clock.runFor(80)
-  await page.keyboard.down('Space'); await page.clock.runFor(64)
-  await expect(page.locator('.jumping-state')).toContainText('Rope')
   const before = await position(page)
-  await page.keyboard.up('Space'); await page.clock.runFor(64)
+  await page.keyboard.down('Space'); await page.clock.runFor(64)
   const after = await position(page)
   await expect(page.locator('.jumping-state')).not.toContainText('Rope')
   expect(after.x - before.x).toBeGreaterThan(10)
-  expect(after.x - before.x).toBeLessThan(31)
+  expect(after.x - before.x).toBeLessThan(40)
+  await page.keyboard.up('Space'); await page.clock.runFor(64)
 })
 test('a fall is recoverable by the ladder and does not restart the clock', async ({ page }) => {
   await setup(page); await enter(page)
@@ -167,7 +170,7 @@ test('a fall is recoverable by the ladder and does not restart the clock', async
   expect((await position(page)).y).toBeCloseTo(520); expect((await position(page)).x).toBeLessThan(560)
   await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
 })
-for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} braces, falls, and jumps away on release`, async ({ page }, info) => {
+for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} braces, falls, and jumps away on press`, async ({ page }, info) => {
   if (controller) await page.addInitScript(() => {
     window.testPad = { index: 0, id: 'Wall brace controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
     Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] })
@@ -185,7 +188,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   await page.clock.runFor(2400)
   expect((await position(page)).y).toBeCloseTo(920)
   expect((await position(page)).x).toBeGreaterThan(850)
-  await jump(true, 400); await jump(false, 440)
+  await jump(true, 32); await jump(false, 408)
   const before = await position(page)
   expect(before.y).toBeLessThan(815)
   expect(before.x).toBeCloseTo(868)
@@ -198,12 +201,11 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   await page.clock.runFor(120)
   expect((await position(page)).y).toBeGreaterThan(falling.y + 15)
   expect((await position(page)).x).toBeCloseTo(868)
-  const charging = await position(page)
-  await jump(true, 32)
-  expect((await position(page)).x).toBeCloseTo(charging.x)
-  await expect(page.locator('.jumping-state')).toHaveText('Bracing')
   const beforeKick = await position(page)
-  await jump(false, 100) // Holding toward the wall must not cancel the released kick.
+  await jump(true, 32)
+  expect((await position(page)).x).toBeLessThan(beforeKick.x)
+  await expect(page.locator('.jumping-state')).toHaveText('Wall jump')
+  await jump(false, 100) // Holding toward the wall cannot cancel the outward kick.
   expect((await position(page)).x).toBeLessThan(beforeKick.x - 25)
   expect((await position(page)).y).toBeLessThan(beforeKick.y - 40)
   await expect(page.locator('.jumping-state')).toHaveText('Wall jump')
@@ -234,7 +236,7 @@ test('the simple level view remains usable on a narrow screen', async ({ page },
   await expect(page.getByRole('region', { name: 'How to play' })).toHaveCount(0)
   const pauseBounds = await page.locator('.jumping-dialog-panel').boundingBox()
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Hold, release to jump')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Press to jump')
   expect(await page.locator('.jumping-dialog-panel').boundingBox()).toEqual(pauseBounds)
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeFocused()
   await page.screenshot({ path: info.outputPath('pause-controls-mobile.png') })
@@ -392,8 +394,7 @@ for (const anchor of ['summit', 'shoulder']) test(`Up climbs a rope draped over 
   // The full rope simulation can render slower than real time on shared runners.
   test.setTimeout(60000)
   await setup(page, 0, [ropeSlope(false, { anchor, length: anchor === 'shoulder' ? 180 : 380 })]); await enter(page)
-  await page.keyboard.down('Space'); await page.clock.runFor(370); await page.keyboard.up('Space')
-  await page.keyboard.down('d'); await page.keyboard.down('w')
+  await page.keyboard.down('d'); await page.keyboard.press('Space'); await page.keyboard.down('w')
   for (let i = 0; i < 70 && !(await page.locator('.jumping-state').innerText()).startsWith('Rope'); i++) await page.clock.runFor(16)
   await page.keyboard.up('d')
   await expect(page.locator('.jumping-state')).toContainText('Rope')
@@ -435,7 +436,7 @@ test('a pointed ramp with an inward-slanting face supports a jump, hang, and pul
   level.platforms = [{ x: 0, y: 300, w: 1200, h: 300,
     polygon: [[0,280],[320,280],[500,180],[480,280],[1200,280],[1200,300],[0,300]] }]
   await setup(page, 0, [level]); await enter(page)
-  await page.keyboard.down('a'); await page.keyboard.down('Space'); await page.clock.runFor(32)
+  await page.keyboard.down('Space'); await page.keyboard.down('a'); await page.clock.runFor(32)
   await page.keyboard.up('Space'); await page.clock.runFor(550); await page.keyboard.up('a'); await page.clock.runFor(150)
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   expect((await position(page)).x).toBeCloseTo(514); expect((await position(page)).y).toBeCloseTo(554)
@@ -634,8 +635,8 @@ test('Up climbs a narrow post joined to a platform above a closed gate', async (
   level.platforms = [{ x: 600, y: 500, w: 20, h: 80 }, { x: 620, y: 500, w: 280, h: 20 }]
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: 600, y: 580, w: 20, h: 80, travel: 80 }]
   await setup(page, 0, [level]); await enter(page)
-  await page.keyboard.down('Space'); await page.clock.runFor(170); await page.keyboard.up('Space')
-  await page.keyboard.down('d'); await page.clock.runFor(900); await page.keyboard.up('d')
+  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.press('Space')
+  await page.clock.runFor(900); await page.keyboard.up('d'); await page.keyboard.up('Shift')
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   const hanging = await position(page)
   expect(hanging.x).toBeCloseTo(586); expect(hanging.y).toBeCloseTo(574)
@@ -650,8 +651,8 @@ test('a player can jump to a large box, hang, and climb onto its flat top', asyn
   const level = blankTrial(); level.name = 'Box ledge'; level.spawn = { x: 370, y: 920 }
   level.props = [{ kind: 'box', x: 500, y: 920, size: 160 }]
   await setup(page, 0, [level]); await enter(page)
-  await page.keyboard.down('Space'); await page.clock.runFor(170); await page.keyboard.up('Space')
-  await page.keyboard.down('d'); await page.clock.runFor(900); await page.keyboard.up('d')
+  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.press('Space')
+  await page.clock.runFor(900); await page.keyboard.up('d'); await page.keyboard.up('Shift')
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   await page.clock.runFor(1000)
   const hanging = await position(page)

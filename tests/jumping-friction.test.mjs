@@ -65,9 +65,10 @@ test('crossing 45 degrees has no special effect on footing, braking, or jumping'
       speeds.push(Math.abs(p.vx))
       for (let i = 0; i < 120; i++) tick(p, shape)
       assert.ok(p.grounded && p.vx === 0 && !p.sliding?.active)
-      for (let i = 0; i < 45; i++) tick(p, shape, { jump: true })
+      tick(p, shape, { jump: true })
       tick(p, shape)
-      assert.ok(!p.grounded && !p.sliding?.active && p.vy < -700)
+      assert.ok(!p.grounded && !p.sliding?.active)
+      assert.ok(Math.abs(p.vy + TUNING.jumpSpeed - 2 * TUNING.gravity * STEP) < 1e-6)
     }
     assert.ok(Math.abs(speeds[0] - speeds[2]) < 2, 'climbing speed must be continuous across 45 degrees')
   }
@@ -193,7 +194,7 @@ test('steep slopes allow a brief uphill coast, then friction and gravity overcom
   }
 })
 
-test('sliding friction persists while charging and jump release leaves the slope', () => {
+test('sliding friction resists gravity and a jump press leaves the slope', () => {
   for (const direction of [-1, 1]) {
     const shape = ramp(direction * 55), p = on(shape)
     p.grounded = false
@@ -204,8 +205,6 @@ test('sliding friction persists while charging and jump release leaves the slope
     const gain = Math.hypot(p.vx, p.vy) - startSpeed
     assert.ok(gain > 100 && gain < freeSlide * .7, 'surface friction must resist gravity-driven sliding')
     tick(p, shape, { jump: true })
-    assert.ok(p.sliding?.active && p.charging)
-    tick(p, shape)
     assert.ok(!p.sliding?.active && !p.grounded && p.vy < 0)
     const vy = p.vy
     tick(p, shape)
@@ -214,19 +213,16 @@ test('sliding friction persists while charging and jump release leaves the slope
   }
 })
 
-test('a sliding jump keeps its charge until release, including a fully held jump', () => {
-  for (const direction of [-1, 1]) for (const frames of [1, 21, 60, 120]) {
+test('a sliding jump launches on press and holding cannot add lift', () => {
+  for (const direction of [-1, 1]) {
     const shape = ramp(direction * 55), p = on(shape)
     p.grounded = false; tick(p, shape)
-    for (let i = 0; i < frames; i++) {
-      tick(p, shape, { jump: true })
-      assert.ok(p.sliding?.active && !p.grounded)
-    }
-    const charge = Math.min(1, frames * STEP / TUNING.chargeTime)
-    assert.ok(Math.abs(p.charge - charge) < 1e-6)
-    tick(p, shape)
-    assert.ok(!p.sliding?.active)
-    assert.ok(Math.abs(p.vy + TUNING.jumpSpeed + (TUNING.chargedJumpSpeed - TUNING.jumpSpeed) * charge - TUNING.gravity * STEP) < 1e-6)
+    tick(p, shape, { jump: true })
+    assert.ok(!p.sliding?.active && !p.grounded)
+    assert.ok(Math.abs(p.vy + TUNING.jumpSpeed - TUNING.gravity * STEP) < 1e-6)
+    const vy = p.vy
+    tick(p, shape, { jump: true })
+    assert.ok(Math.abs(p.vy - vy - TUNING.gravity * STEP) < 1e-6)
   }
 })
 
@@ -248,9 +244,9 @@ test('holding uphill at the base of a steep slope stays supported without vibrat
       }
       previous = { x: p.x, y: p.y, head }
     }
-    for (let i = 0; i < 45; i++) stepPlayer(p, { ...NEUTRAL_INPUT, move: direction, jump: true }, STEP, terrain)
+    stepPlayer(p, { ...NEUTRAL_INPUT, move: direction, jump: true }, STEP, terrain)
     stepPlayer(p, { ...NEUTRAL_INPUT, move: direction }, STEP, terrain)
-    assert.ok(!p.grounded && p.vy < -700, 'floor support must release immediately on jumping')
+    assert.ok(!p.grounded && p.vy < -500, 'floor support must release immediately on jumping')
     assert.ok(!terrain.some(b => bodyIntersects(p.x, p.y, b)))
   }
 })
@@ -285,8 +281,8 @@ test('a gentle slope joined to a steep face keeps a stable stance in either dire
       for (let i = 0; i < 60; i++) tick(p, shape, { move: -direction })
       assert.ok((p.x - stopped.x) * direction < -30 && p.grounded, 'walking away must release the corner')
       for (let i = 0; i < 240; i++) tick(p, shape, { move: direction })
-      for (let i = 0; i < 45; i++) tick(p, shape, { move: direction, jump: true })
+      tick(p, shape, { move: direction, jump: true })
       tick(p, shape, { move: direction })
-      assert.ok(!p.grounded && !p.sliding?.active && p.vy < -700, `jump must release the corner: ${context}`)
+      assert.ok(!p.grounded && !p.sliding?.active && p.vy < -500, `jump must release the corner: ${context}`)
     }
 })

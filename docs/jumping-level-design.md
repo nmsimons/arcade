@@ -63,7 +63,7 @@ An elevated destination will often benefit from three related routes:
 | Route | What it contributes |
 | --- | --- |
 | Ordinary access | A ladder, lift, rope, stairs, or walkway makes the place understandable and offers a dependable approach. |
-| Skilled shortcut | A charged jump, wall jump, rope transfer, or sequence of ledges trades execution risk for time. |
+| Skilled shortcut | A running jump, wall jump, rope transfer, or sequence of ledges trades execution risk for time. |
 | Recovery | A missed move returns the player to somewhere useful, with a way to try again. |
 
 These can share geometry. Every platform does not need its own ladder, and every

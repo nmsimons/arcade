@@ -190,7 +190,7 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   return { feet, moving: false, facing: p.facing, terrain: platforms }
 }
 
-/** Persistent world-space contacts survive changes in speed, charge and body pose. */
+/** Persistent world-space contacts survive changes in speed and body pose. */
 export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: readonly Platform[]) {
   if (!p.grounded || p.hang || p.mantle) { p.footwork = null; return }
   const run = p.gait?.run ?? 0, moving = p.gait?.moving ?? 0

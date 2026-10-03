@@ -105,9 +105,9 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
   const collider = ground && world.colliders.find(c => c.platform === ground.platform)
   const support = ground && collider ? { ...ground, collider } : null
   const direction = Math.sign(input.move), candidates: PushContact[] = []
-  // Prop forces run before the player sweep. A released/buffered jump is
+  // Prop forces run before the player sweep. A pressed/buffered jump is
   // already a departure intent and must not receive one last grounded shove.
-  const departing = !input.jump && (p.charging || p.buffer > 0)
+  const departing = input.jump && !p.jumpHeld || p.buffer > 0
   if (support && direction && !departing) for (const c of world.colliders) {
     if (c.prop && c === collider) continue
     // Standing hand reach must not turn a ceiling above the crouched body into a wall.

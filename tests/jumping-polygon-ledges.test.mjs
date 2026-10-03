@@ -47,13 +47,13 @@ test('one-piece T-shaped terrain catches and climbs on both cap edges, with eith
   }
 })
 
-test('a charged jump can catch an inset cap in ordinary play', () => {
+test('an upward jump can catch an inset cap in ordinary play', () => {
   for (const side of [1, -1]) {
     const edgeX = side === 1 ? 220 : 300, p = createPlayer({ x: edgeX - side * 80, y: 320 })
     const terrain = [tower, { x: 0, y: 320, w: 800, h: 100 }]
     let caught = false
     for (let i = 0; i < 400 && !caught; i++) {
-      tick(p, terrain, { jump: i < 42, move: i >= 42 ? side : 0 })
+      tick(p, terrain, { jump: i === 0, jumpStrength: .7, move: side })
       caught = !!p.hang
     }
     assert.ok(caught, `jump reaches the cap from side ${side}`)

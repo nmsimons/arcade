@@ -103,7 +103,9 @@ test('headlights leave player and shovebot physics identical through patrol, pur
     if (frame === 120) { unlit.empRemaining = 1; lit.empRemaining = 1 }
     const input = { ...NEUTRAL_INPUT, move: frame < 120 ? 1 : -1, jump: frame === 50 }
     stepRun(unlit, input, STEP); stepRun(lit, input, STEP); lighting.sources(lit.level.lighting, lit, STEP)
-    assert.deepEqual(lit.player, unlit.player)
+    // Contacts can now include a ridden bot; ignore its presentation-only option.
+    const physics = p => JSON.parse(JSON.stringify(p, (key, value) => key === 'headlight' ? undefined : value))
+    assert.deepEqual(physics(lit.player), physics(unlit.player))
     const { definition: _a, ...a } = lit.robots[0], { definition: _b, ...b } = unlit.robots[0]
     assert.deepEqual(a, b); assert.equal(lit.elapsed, unlit.elapsed)
   }

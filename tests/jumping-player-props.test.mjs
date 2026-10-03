@@ -133,11 +133,11 @@ for (const pinned of [false, true]) test(`a bot pushing a box cannot squeeze the
     assert.ok((run.player.x - x(650)) * direction > 10, 'the incoming ball actually displaces the player before the gap fills')
     assert.ok(lateTravel < .01, `sustained pressure holds a stable position: ${lateTravel}`)
     assert.equal(run.player.grounded, true)
-    // Collision resistance does not trap the controls. A normal charged jump
+    // Collision resistance does not trap the controls. A normal jump press
     // can rise out of the gap while the bot is still pressing from behind.
     for (let i = 0; i < 24; i++) { stepRun(run, { ...NEUTRAL_INPUT, jump: true }); check() }
     let highest = run.player.y
     for (let i = 0; i < 72; i++) { stepRun(run, NEUTRAL_INPUT); check(); highest = Math.min(highest, run.player.y) }
-    assert.ok(highest < 840, 'the player can jump clear of the balls')
+    assert.ok(highest < level.floor - 68, 'the player can jump clear of the balls')
   }
 })

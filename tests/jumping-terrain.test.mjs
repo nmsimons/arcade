@@ -1,7 +1,8 @@
 import { createPlayer, stepPlayer, PLATFORMS } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
+import { jumpSpeed } from '../src/games/jumping/movementTuning.ts'
 import { groundAt, platformSurface } from '../src/games/jumping/terrain.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
@@ -69,23 +70,23 @@ test('slope feet maintain planted anchors and reach the ground without changing 
   }
 })
 
-test('stopping, turning, crouching and charging on either incline keep the body supported', () => {
+test('stopping, turning, crouching on either incline keep the body supported', () => {
   for (const x of [430, 800]) for (const direction of [-1, 1]) {
     const p = at(x)
     advance(p, .12, { move: direction * .35 }); advance(p, .8)
     const stopped = { x: p.x, y: p.y }
-    advance(p, .5, { jump: true, crouch: true })
-    assert.equal(p.x, stopped.x); assert.equal(p.y, stopped.y); assert.equal(p.charge, 1)
+    advance(p, .5, { crouch: true })
+    assert.equal(p.x, stopped.x); assert.equal(p.y, stopped.y)
     assert.ok(p.footwork.feet.every(foot => foot.planted))
     for (const foot of p.footwork.feet) assert.ok(Math.abs(foot.angle - foot.groundAngle * foot.facing) < .001)
-    advance(p, .12, { move: -direction * .35, jump: true })
+    advance(p, .12, { move: -direction * .35 })
     assert.ok(p.grounded); assert.equal(p.facing, -direction)
   }
 })
 
 test('jumps release slope support immediately and land on the surface from either direction', () => {
   for (const x of [420, 820]) for (const direction of [-1, 1]) {
-    const p = at(x); advance(p, .15, { jump: true, move: direction * .35 })
+    const p = at(x); advance(p, STEP, { jump: true, move: direction * .35 })
     const launchY = p.y
     advance(p, STEP, { move: direction * .35 })
     assert.ok(!p.grounded && p.vy < 0); assert.equal(p.footwork, null)
@@ -93,7 +94,8 @@ test('jumps release slope support immediately and land on the surface from eithe
     for (let i = 0; i < 200 && !p.grounded; i++) {
       advance(p, STEP, { move: direction * .35 }); rise = Math.max(rise, launchY - p.y)
     }
-    assert.ok(rise > 80 && rise < 90); assert.ok(p.grounded)
+    const speed = jumpSpeed(.35), ballisticHeight = speed ** 2 / (2 * TUNING.gravity)
+    assert.ok(rise > ballisticHeight - 2 * speed * STEP && rise < ballisticHeight); assert.ok(p.grounded)
     assert.ok(Math.abs(p.y - groundAt(world, p.x, p.y).y) < 1e-6)
   }
 })
@@ -102,7 +104,7 @@ test('slope support does not bridge gaps or pull the player down a real drop', (
   const ramp = { x: 100, y: 500, w: 300, h: 200, profile: [[0, 100], [300, 0]] }
   for (const gap of [1, 40]) {
     const terrain = [ramp, { x: 400 + gap, y: 560, w: 200, h: 300 }], p = at(397, terrain)
-    advance(p, .06, { move: 1 }, terrain)
+    for (let frame = 0; frame < 30 && p.x <= 400; frame++) advance(p, STEP, { move: 1 }, terrain)
     assert.ok(p.x > 400); assert.ok(!p.grounded); assert.equal(p.footwork, null)
     assert.ok(p.y < 510, 'the player must fall naturally toward the lower surface')
   }

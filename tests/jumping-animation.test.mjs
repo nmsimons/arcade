@@ -72,10 +72,10 @@ test('crouch walking uses a full pushing stride with low feet and grounded knees
 })
 
 test('expressive strides keep limb lengths, safe knee bends, and continuous poses', () => {
-  for (const vx of [0, 70, 125, 240, 350]) for (const charging of [false, true]) {
+  for (const vx of [0, 70, 125, 240, 350]) {
     let previous
     for (let frame = 0; frame <= 1000; frame++) {
-      const p = { ...createPlayer(), vx, charging, charge: 1, stride: frame / 1000 * Math.PI * 2 }
+      const p = { ...createPlayer(), vx, stride: frame / 1000 * Math.PI * 2 }
       const pose = athletePose(p)
       for (const limb of [pose.frontLeg, pose.backLeg, pose.frontArm, pose.backArm]) {
         const leg = 'footAngle' in limb
@@ -133,14 +133,14 @@ test('the same local animation plays in either direction', () => {
   }
 })
 
-test('rendered feet roll around a fixed footprint through speed changes, braking, turns and charge', () => {
+test('rendered feet roll around a fixed footprint through speed changes, braking, turns', () => {
   const floor = [{ x: 0, y: 620, w: 2600, h: 400 }]
   for (const direction of [1, -1]) {
     const p = createPlayer(); p.x = 1300
     let previous, comparisons = 0, contacts = 0
-    const sequence = [[.6, .35, false], [.8, 1, false], [.4, 1, true], [.8, 0, true], [.5, .5, true], [.6, -1, true], [.8, 0, true]]
-    for (const [duration, move, jump] of sequence) for (let t = 0; t < duration - STEP / 2; t += STEP) {
-      stepPlayer(p, { ...NEUTRAL_INPUT, move: move * direction, jump }, STEP, floor)
+    const sequence = [[.6, .35], [.8, 1], [.4, 1], [.8, 0], [.5, .5], [.6, -1], [.8, 0]]
+    for (const [duration, move] of sequence) for (let t = 0; t < duration - STEP / 2; t += STEP) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, move: move * direction }, STEP, floor)
       const pose = athletePose(p)
       const feet = [pose.frontLeg, pose.backLeg].map(leg => worldFoot(p, leg))
       for (let i = 0; i < 2; i++) if (feet[i].planted) {

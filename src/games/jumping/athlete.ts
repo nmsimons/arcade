@@ -558,7 +558,7 @@ export function athletePose(p: Player): AthletePose {
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
   const cycle = p.stride * p.facing
   const gait = moving * (1 - p.crouch) * (1 - air)
-  const squat = p.crouch, charge = p.charging ? p.charge * (2 - speed) * (1 - squat) : 0
+  const squat = p.crouch
   // Contact compresses the hips first, followed by the chest and then the head.
   // The upper body unfolds on push-off; it curls forward into the next contact.
   const bodyWave = (lag: number) => lerp(Math.cos(cycle * 2 - lag) * 1.7, Math.cos(cycle * 2 - .9 - lag) * 3.4, run) * gait
@@ -569,7 +569,7 @@ export function athletePose(p: Player): AthletePose {
   const landing = (landingTime < .28 ? smooth(landingTime / .28) : 1 - smooth((landingTime - .28) / .72)) * (1 - air * .7)
   const landingDepth = landing * lerp(2.5, 16, p.landingImpact) * (1 - squat)
   // The idle crouch must fit the same 40-unit opening as its walking pose.
-  const dip = squat * (13.4 + 1.8 * (1 - moving)) + landingDepth + charge
+  const dip = squat * (13.4 + 1.8 * (1 - moving)) + landingDepth
   const slopeLean = -p.groundAngle * p.facing * (1 - air) * .3
   const hipHeight = lerp(lerp(-33.2, lerp(-31.4, -28.3, run), moving), -31.5 + tuck * 2.5, air)
   const pelvicPitch = (.025 + run * .2 + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014
@@ -819,7 +819,7 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
   const pushDistance = 25.5
   const pushing = athletePose({ ...p, x: brace.wallX - p.facing * pushDistance,
     grounded: true, vx: 0, vy: 0, wallBrace: null, sliding: null, footwork: null, gait: gaitPose(0),
-    crouch: 0, crouching: false, charging: false, reach: 0, landing: 0, groundAngle: 0,
+    crouch: 0, crouching: false, reach: 0, landing: 0, groundAngle: 0,
     pushing: { wallX: brace.wallX, direction: p.facing, amount: 1, effort: 1 } })
   const offset: Point = [wall - pushDistance, 0]
   const lean = .2

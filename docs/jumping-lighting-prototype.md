@@ -9,7 +9,7 @@ Run `npm run dev`, then open `/untitled-jumping-game/lighting-lab` on the URL Vi
 prints. The initial preview for this branch uses port 5175. The controls provide
 Night mode with fixed 35% ambient brightness, a sustained EMP blackout, a completed exit, identical overlapping
 lamps, and a moving/rotating crate. Play room switches to the normal movement and
-simulation; arrows/WASD move and Space charges/releases a jump. Inspect room
+simulation; arrows/WASD move and Space jumps on press. Inspect room
 returns to the controlled scene. Nothing saves level files, scores or settings.
 
 Source markers are visible by default. They number each spotlight and show its

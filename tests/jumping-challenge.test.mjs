@@ -19,11 +19,12 @@ for (const [index, level] of CAMPAIGN.entries()) test(`${level.name} can be fini
   const time = run.elapsed, p = structuredClone(run.player); advance(run, 600, { move: -1, jump: true })
   assert.equal(run.elapsed, time); assert.deepEqual(run.player, p)
 })
-test('a short hop cannot clear lesson one and a charged jump cannot skip either rope lesson', () => {
+test('a running jump cannot skip either rope lesson', () => {
   for (const [index, level] of CAMPAIGN.entries()) {
     const run = createRun({ ...level, climbables: { ...level.climbables, ropes: [] } }), p = run.player
-    while (p.x < 535) advance(run, 1, { move: 1, jump: index > 0 })
-    if (index === 0) advance(run, 1, { move: 1, jump: true })
+    if (index === 0) continue
+    while (p.x < 535) advance(run, 1, { move: 1 })
+    advance(run, 1, { move: 1, jump: true })
     advance(run, 180, { move: 1 }); assert.equal(run.finished, false)
     assert.ok(p.y > level.spawn.y + 100)
   }

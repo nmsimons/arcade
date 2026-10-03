@@ -90,7 +90,7 @@ test('a real catch settles into wall bracing or a straight hang, then stands wit
     for (let time = 0; time < 3.5; time += STEP) {
       if (p.hang) hangTime += STEP
       const wasClimbing = !!p.mantle
-      stepPlayer(p, { ...NEUTRAL_INPUT, jump: time < .35, move: time >= .35 && hangTime === 0 ? side : 0, climb: hangTime > .65 }, STEP, world)
+      stepPlayer(p, { ...NEUTRAL_INPUT, jump: time === 0, jumpStrength: .7, move: hangTime === 0 ? side : 0, climb: time === 0 || hangTime > .65 }, STEP, world)
       const pose = athletePose(p), worldPoint = a => [p.x + a[0] * side, p.y + a[1]]
       if (p.hang?.time > .2) {
         didCatch = true; assert.equal(p.hang.braced, braced)
@@ -177,25 +177,18 @@ function hangingPlayer(side, braced) {
   return { p, world }
 }
 
-test('hanging jumps charge in place and only launch on release, regardless of direction or Up input', () => {
-  for (const braced of [false, true]) for (const side of [-1, 1]) for (const move of [-1, 0, 1]) for (const climb of [false, true]) for (const duration of [STEP, .175, .5, 1.2]) {
+test('hanging jumps launch on press regardless of direction or Up input', () => {
+  for (const braced of [false, true]) for (const side of [-1, 1]) for (const move of [-1, 0, 1]) for (const climb of [false, true]) {
     const { p, world } = hangingPlayer(side, braced), startX = p.x, startY = p.y
     const input = { ...NEUTRAL_INPUT, jump: true, move, climb }
-    for (let t = 0; t < duration - STEP / 2; t += STEP) {
-      stepPlayer(p, input, STEP, world)
-      assert.ok(p.hang); assert.equal(p.mantle, null)
-      assert.equal(p.x, startX); assert.equal(p.y, startY)
-    }
-    assert.ok(Math.abs(p.charge - Math.min(1, duration / TUNING.chargeTime)) < 1e-6)
-    stepPlayer(p, { ...input, jump: false }, STEP, world)
+    stepPlayer(p, input, STEP, world)
     assert.equal(p.hang, null); assert.equal(p.mantle, null)
-    assert.ok(Math.abs(p.vy + TUNING.jumpSpeed + (TUNING.chargedJumpSpeed - TUNING.jumpSpeed) * Math.min(1, duration / TUNING.chargeTime)) < 1e-6)
-    assert.ok(p.vy < -300 && p.vx * side < 0, 'Jump launches upward and away without requiring directional input')
+    assert.equal(p.vy, -(move || climb ? TUNING.directedJumpSpeed : TUNING.jumpSpeed)); assert.ok(p.vx * side < 0)
     for (let i = 0; i < 12; i++) {
-      stepPlayer(p, { ...input, jump: false }, STEP, world)
+      stepPlayer(p, input, STEP, world)
       assert.equal(p.hang, null); assert.equal(p.mantle, null)
     }
-    assert.ok(p.y < startY && (p.x - startX) * side < 0, 'the launch continues into free movement')
+    assert.ok(p.y < startY && (p.x - startX) * side < 0)
   }
 })
 
@@ -211,8 +204,6 @@ test('Up alone starts the pull-up and Jump cancels a queued pull-up', () => {
     stepPlayer(p, { ...NEUTRAL_INPUT, climb: true }, STEP, world)
     assert.ok(p.hang.queued)
     stepPlayer(p, { ...NEUTRAL_INPUT, jump: true }, STEP, world)
-    assert.ok(p.hang); assert.equal(p.hang.queued, false)
-    stepPlayer(p, NEUTRAL_INPUT, STEP, world)
     assert.equal(p.hang, null); assert.equal(p.mantle, null); assert.ok(p.vy < 0)
 
     const next = hangingPlayer(side, braced)
@@ -223,10 +214,9 @@ test('Up alone starts the pull-up and Jump cancels a queued pull-up', () => {
   }
 })
 
-test('canceling a hanging charge keeps the grip and does not jump on release', () => {
+test('canceling input while hanging does not jump on release', () => {
   const { p, world } = hangingPlayer(1, true)
-  for (let i = 0; i < 60; i++) stepPlayer(p, { ...NEUTRAL_INPUT, jump: true }, STEP, world)
-  assert.equal(p.charge, 1)
+  p.jumpHeld = true
   cancelJumpInput(p)
   for (let i = 0; i < 60; i++) stepPlayer(p, NEUTRAL_INPUT, STEP, world)
   assert.ok(p.hang); assert.equal(p.mantle, null); assert.equal(p.vy, 0)

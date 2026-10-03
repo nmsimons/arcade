@@ -159,8 +159,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const activeLevel = useRef<JumpLevel>(initialRun.level), rules = useRef(levelRules(initialRun.level))
   const [activeLevelName, setActiveLevelName] = useState(initialRun.level.name)
   const [builderStarted, setBuilderStarted] = useState(false), [testing, setTesting] = useState(false)
-  const jumpQueue = useRef<boolean[]>([]), keyboardJump = useRef(false)
+  const jumpQueue = useRef<{ held: boolean; strength: number }[]>([]), keyboardJump = useRef(false), keyboardJumpStrength = useRef(0)
   const [controller] = useState(createJumpController)
+  const controllerJumpStrength = useRef(0)
   const [screen, setScreen] = useState<Screen>('menu')
   useCloudDownloads(screen === 'menu')
   const [preparing, setPreparing] = useState<string | null>(null)
@@ -180,7 +181,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
     audioState.reset(player.current, run.current)
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
-    jumpQueue.current = []; keyboardJump.current = false
+    jumpQueue.current = []; keyboardJump.current = false; keyboardJumpStrength.current = 0; controllerJumpStrength.current = 0
     screenRef.current = next; setScreen(next)
     if (next === 'building' || next === 'menu') lightingRenderer.release()
     if (next === 'paused') setPauseReason(reason ?? '')
@@ -212,7 +213,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     }
     else respawn(player.current)
     keys.current.clear(); controller.reset()
-    jumpQueue.current = []; keyboardJump.current = false
+    jumpQueue.current = []; keyboardJump.current = false; keyboardJumpStrength.current = 0; controllerJumpStrength.current = 0
     canvasRef.current?.focus({ preventScroll: true })
   }
   async function beginPlay(level: JumpLevel, fromBuilder: boolean, key: string) {
@@ -383,19 +384,21 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     if (event.repeat) return
     if (event.code === 'Escape') changeScreen('paused')
     else {
-      if (event.code === 'Space' && !keys.current.has(event.code)) jumpQueue.current.push(true)
+      if (event.code === 'Space' && !keys.current.has(event.code)) jumpQueue.current.push({ held: true,
+        strength: Math.max(controllerJumpStrength.current, Math.min(1, Math.hypot(keyboardMovement(keys.current), Number(keys.current.has('KeyW') || keys.current.has('ArrowUp'))))) })
       keys.current.add(event.code)
     }
   })
   const suspend = useEffectEvent(() => {
     keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
-    jumpQueue.current = []; keyboardJump.current = false
+    jumpQueue.current = []; keyboardJump.current = false; keyboardJumpStrength.current = 0; controllerJumpStrength.current = 0
     if (screenRef.current === 'playing') changeScreen('paused', 'Paused while the game was out of focus.')
   })
   const frameInput = useEffectEvent((now: number) => {
     let pads: (Gamepad | null)[] = []
     try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Keyboard stays available. */ }
     const pad = controller.sample(pads, screenRef.current, now, document.hasFocus() && !document.hidden)
+    controllerJumpStrength.current = pad.jumpStrength
     if (pad.pressed.length || Math.abs(pad.move) > .1) audio.current?.unlock()
     if (pad.connected !== connected) setConnected(pad.connected)
     if (devOpenRef.current) {
@@ -426,7 +429,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     }
     if (pad.pause) { changeScreen('paused'); return null }
     const k = keys.current, keyboard = keyboardMovement(k)
+    const keyboardUp = k.has('KeyW') || k.has('ArrowUp')
     return { move: keyboard || pad.move, jump: pad.jump,
+      jumpStrength: Math.max(Math.min(1, Math.hypot(keyboard, Number(keyboardUp))), pad.jumpStrength),
       climb: k.has('KeyW') || k.has('ArrowUp') || pad.climb,
       drop: k.has('KeyS') || k.has('ArrowDown') || k.has('KeyX') || pad.drop,
       descend: k.has('KeyS') || k.has('ArrowDown') || pad.descend, detach: k.has('KeyX') || pad.detach,
@@ -473,7 +478,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     }
     const observer = new ResizeObserver(resize); observer.observe(canvas); resize()
     const keyup = (event: KeyboardEvent) => {
-      if (event.code === 'Space' && keys.current.has('Space')) jumpQueue.current.push(false)
+      if (event.code === 'Space' && keys.current.has('Space')) jumpQueue.current.push({ held: false, strength: 0 })
       keys.current.delete(event.code)
     }
     const visibility = () => { if (document.hidden) suspend() }
@@ -490,8 +495,12 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
         while (accumulator >= STEP) {
           steps++
           // Preserve even a complete keyboard tap between two rendered frames.
-          if (jumpQueue.current.length) keyboardJump.current = jumpQueue.current.shift()!
-          const controls = { ...input, jump: input.jump || keyboardJump.current }
+          if (jumpQueue.current.length) {
+            const press = jumpQueue.current.shift()!
+            keyboardJump.current = press.held; keyboardJumpStrength.current = press.strength
+          }
+          const controls = { ...input, jump: input.jump || keyboardJump.current,
+            jumpStrength: Math.max(input.jump ? input.jumpStrength : 0, keyboardJump.current ? keyboardJumpStrength.current : 0) }
           if (run.current) stepRun(run.current, controls)
           else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
           const report = motion?.step(player.current, controls, STEP, (run.current?.level ?? activeLevel.current).id)

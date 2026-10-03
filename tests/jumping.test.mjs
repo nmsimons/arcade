@@ -8,38 +8,71 @@ const floor = [{ x: 0, y: 620, w: 2600, h: 400 }]
 function advance(p, seconds, input = {}, world = floor) {
   for (let t = 0; t < seconds - STEP / 2; t += STEP) stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, STEP, world)
 }
-function jumpHeight(charge) {
-  const p = createPlayer(); advance(p, charge, { jump: true }); advance(p, 1.5)
-  return p.bestHeight
-}
-test('tap, partial and fully charged jumps produce graduated heights without auto-jumping', () => {
-  const short = jumpHeight(STEP), medium = jumpHeight(TUNING.chargeTime / 2), full = jumpHeight(TUNING.chargeTime + STEP)
-  assert.ok(short > 28 && short < 36); assert.ok(medium > short + 45); assert.ok(full > 200 && full < 210)
+test('jump launches on press with one fixed height, independent of hold duration', () => {
+  const heights = [STEP, .2, 1.5].map(hold => {
+    const p = createPlayer()
+    advance(p, STEP, { jump: true })
+    assert.equal(p.grounded, false); assert.equal(p.vy, -TUNING.jumpSpeed + TUNING.gravity * STEP)
+    advance(p, hold, { jump: true }); advance(p, 1.5)
+    return p.bestHeight
+  })
+  const ballisticHeight = TUNING.jumpSpeed ** 2 / (2 * TUNING.gravity)
+  assert.ok(heights[0] > ballisticHeight - TUNING.jumpSpeed * STEP && heights[0] < ballisticHeight)
+  assert.deepEqual(heights, heights.map(() => heights[0]))
   const p = createPlayer(); advance(p, 2, { jump: true })
-  assert.equal(p.y, 620); assert.equal(p.charge, 1); assert.equal(p.grounded, true)
-  advance(p, 2); assert.equal(p.y, 620); assert.equal(p.grounded, true)
+  assert.equal(p.y, 620); assert.equal(p.grounded, true)
+  advance(p, STEP, { jump: true }); assert.equal(p.grounded, true)
+  advance(p, STEP); advance(p, STEP, { jump: true }); assert.ok(p.vy < 0)
 })
-test('analog speed and stride are preserved while charging, and braking still stops the player', () => {
-  for (const move of [.25, .5, 1]) {
+test('directional input earns a stronger jump while takeoff momentum still sets range', () => {
+  let previous = 0
+  for (const move of [0, .25, .5, 1]) {
     const p = createPlayer(); advance(p, .3, { move })
     assert.equal(p.vx, move * TUNING.runSpeed)
-    const uncharged = { ...p }
-    advance(p, .4, { move, jump: true }); advance(uncharged, .4, { move })
-    assert.equal(p.x, uncharged.x); assert.equal(p.vx, uncharged.vx); assert.equal(p.stride, uncharged.stride)
-    advance(p, .2, { jump: true }); assert.equal(p.vx, 0)
+    advance(p, STEP, { move, jump: true })
+    assert.equal(p.vx, move * TUNING.runSpeed)
+    assert.ok(-p.vy >= previous); previous = -p.vy
   }
+  const p = createPlayer(); advance(p, STEP, { move: 1, jump: true })
+  assert.equal(p.vy, -TUNING.directedJumpSpeed + TUNING.gravity * STEP)
+  assert.ok(p.vx < 20)
   assert.equal(keyboardMovement(new Set(['KeyD', 'ShiftLeft'])) * TUNING.runSpeed, TUNING.walkSpeed)
   assert.equal(keyboardMovement(new Set(['KeyA', 'KeyD'])), 0)
 })
-test('charging on the run carries full speed into a jump across the playground gap', () => {
-  // Isolate the jump trajectory from the ropes that now catch airborne players over this gap.
-  const terrain = [...PLATFORMS]
-  const p = createPlayer(); p.x = 1500
-  advance(p, .2, { move: 1 }, terrain)
-  advance(p, TUNING.chargeTime + STEP, { move: 1, jump: true }, terrain)
-  assert.equal(p.charge, 1); assert.equal(p.vx, TUNING.runSpeed); assert.equal(p.grounded, true)
-  advance(p, 1.1, { move: 1 }, terrain)
-  assert.ok(p.x > 1920); assert.equal(p.y, 620); assert.equal(p.grounded, true)
+test('Up produces a high vertical jump and partial directional input gives intermediate strength', () => {
+  for (const strength of [0, .25, .5, 1]) {
+    const p = createPlayer()
+    advance(p, STEP, { jump: true, jumpStrength: strength })
+    assert.equal(p.vx, 0)
+    assert.equal(p.vy, -(TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * strength) + TUNING.gravity * STEP)
+  }
+  const p = createPlayer(); advance(p, STEP, { jump: true, climb: true })
+  assert.equal(p.vx, 0); assert.equal(p.vy, -TUNING.directedJumpSpeed + TUNING.gravity * STEP)
+})
+test('a buffered jump remembers the directional strength at the press after the stick is released', () => {
+  for (const strength of [0, .5, 1]) {
+    const p = createPlayer(); Object.assign(p, { y: 619, vy: 200, grounded: false, coyote: 0 })
+    advance(p, STEP, { jump: true, jumpStrength: strength })
+    assert.equal(p.grounded, true)
+    advance(p, STEP)
+    assert.equal(p.vy, -(TUNING.jumpSpeed + (TUNING.directedJumpSpeed - TUNING.jumpSpeed) * strength) + TUNING.gravity * STEP)
+    assert.equal(p.buffer, 0)
+  }
+})
+test('running jumps bridge a 380-unit gap in either direction while a standing takeoff falls short', () => {
+  for (const direction of [-1, 1]) for (const running of [false, true]) {
+    const terrain = [{ x: 0, y: 620, w: 540, h: 400 }, { x: 920, y: 620, w: 540, h: 400 }]
+    const p = createPlayer(); Object.assign(p, { x: direction > 0 ? 430 : 1030, spawnX: direction > 0 ? 430 : 1030, facing: direction })
+    if (running) {
+      for (let frame = 0; frame < 120 && (direction > 0 ? p.x < 535 : p.x > 925); frame++) advance(p, STEP, { move: direction }, terrain)
+    } else p.x = direction > 0 ? 535 : 925
+    advance(p, STEP, { move: direction, jump: true }, terrain)
+    const speed = p.vx
+    assert.ok(running ? Math.abs(speed) === TUNING.runSpeed : Math.abs(speed) < 20)
+    advance(p, 1.2, { move: direction }, terrain)
+    if (running) { assert.equal(p.grounded, true); assert.equal(p.y, 620); assert.ok(direction > 0 ? p.x > 920 : p.x < 540) }
+    else assert.ok(direction > 0 ? p.x < 920 : p.x > 540)
+  }
 })
 
 test('releasing movement stops travel promptly while the pose settles smoothly to idle', () => {
@@ -64,7 +97,7 @@ test('releasing movement stops travel promptly while the pose settles smoothly t
 })
 
 test('landing keeps the falling pose briefly and blends it out after ground contact', () => {
-  const p = createPlayer(); advance(p, .4, { jump: true }); advance(p, .5)
+  const p = createPlayer(); advance(p, STEP, { jump: true }); advance(p, .5)
   assert.equal(p.grounded, false); assert.ok(p.gait.air > .95)
   for (let i = 0; i < 160 && !p.grounded; i++) advance(p, STEP)
   assert.equal(p.grounded, true); assert.equal(p.y, 620)
@@ -110,12 +143,12 @@ test('Down replaces looking down with a slow grounded crouch; Up still looks up'
   advance(p, .8, { climb: true }); assert.equal(p.look, 1)
   advance(p, .8, { descend: true }); assert.equal(p.look, 0)
 })
-test('held reach raises and lowers the arms without changing running or charging', () => {
+test('held reach raises and lowers the arms without changing running or takeoff', () => {
   const p = createPlayer(); advance(p, .3, { move: 1 })
   advance(p, .4, { move: 1, reach: true, jump: true })
-  assert.equal(p.reach, 1); assert.equal(p.vx, TUNING.runSpeed); assert.equal(p.charge, 1)
+  assert.equal(p.reach, 1); assert.equal(p.vx, TUNING.runSpeed); assert.equal(p.grounded, false)
   advance(p, .2, { move: 1, climb: true, jump: true })
-  assert.equal(p.reach, 0); assert.equal(p.vx, TUNING.runSpeed); assert.equal(p.charge, 1)
+  assert.equal(p.reach, 0); assert.equal(p.vx, TUNING.runSpeed); assert.equal(p.grounded, false)
 })
 test('solid sides and ceilings block the player without penetration', () => {
   const p = createPlayer(), world = [...floor, { x: 350, y: 400, w: 100, h: 220 }]
@@ -153,8 +186,8 @@ test('a tap just before landing is buffered; canceling held input cannot launch 
   const p = createPlayer(); Object.assign(p, { y: 616, vy: 200, grounded: false, coyote: 0 })
   advance(p, STEP, { jump: true }); advance(p, .04)
   assert.ok(p.vy < 0)
-  const q = createPlayer(); advance(q, .7, { jump: true }); cancelJumpInput(q); advance(q, .1)
-  assert.equal(q.y, 620); assert.equal(q.charge, 0)
+  const q = createPlayer(); Object.assign(q, { y: 610, vy: 200, grounded: false, coyote: 0 }); advance(q, STEP, { jump: true }); cancelJumpInput(q); advance(q, .2)
+  assert.equal(q.y, 620); assert.equal(q.buffer, 0)
 })
 function hanging(side = 1, extras = []) {
   const p = createPlayer(), world = [...floor, { x: 500, y: 400, w: 160, h: 220 }, ...extras]
@@ -174,8 +207,6 @@ test('drop releases the grip without instant regrab; away + jump pushes off', ()
   const { p, world } = hanging(); advance(p, STEP, { drop: true }, world); advance(p, .1, {}, world)
   assert.equal(p.hang, null); assert.ok(p.y > 400 + TUNING.hangReach)
   const { p: q, world: w } = hanging(); advance(q, STEP, { jump: true, move: -1 }, w)
-  assert.ok(q.hang)
-  advance(q, STEP, { move: -1 }, w)
   assert.equal(q.hang, null); assert.ok(q.vx < 0); assert.ok(q.vy < 0)
 })
 test('pull-ups use crouch clearance and still refuse openings below crouch height', () => {

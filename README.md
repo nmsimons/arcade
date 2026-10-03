@@ -528,14 +528,15 @@ R or Y/Triangle restarts the current trial and its ropes and clock, including a
 custom level during a builder playtest.
 
 During play, only compact restart and pause controls overlay the map (plus a
-return button during builder playtests). The player's pose provides jump-charge
+return button during builder playtests). The player's pose provides jump
 feedback. The pause menu contains the keyboard or controller reference; the play
 area has no title, movement readout, charge meter, or instruction strip.
 
 - Left stick: proportional walk/run speed; D-pad also moves. Keyboard: A/D or
   Left/Right, with Shift to walk.
-- Hold A/Cross or Space to charge; release to jump. Tap for a short hop.
-  Charging preserves your movement speed and running stride for running jumps.
+- Press A/Cross or Space to jump immediately. Push the stick farther
+  for a stronger jump; Up gives extra height. Running carries you across longer
+  gaps. Holding does not charge or repeat a jump.
 - Jumping into a wall braces the hands and feet against its surface while gravity
   carries the player down. Press Space or A/Cross again to jump up and away from
   the wall. The initial push briefly carries you outward, then air steering resumes.

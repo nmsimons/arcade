@@ -50,7 +50,7 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = fa
       ctx.setTransform(ratio * zoom, 0, 0, ratio * zoom, -x * zoom * ratio, -y * zoom * ratio)
       drawLevelBackdrop(ctx, prepared, { x, y, w: width / zoom, h: height / zoom }, zoom)
       if (run) drawPuzzleWorld(ctx, run, true)
-      else { drawTerrain(ctx, levelTerrain(prepared)); drawClimbables(ctx, player, prepared.climbables); drawAthlete(ctx, player) }
+      else { drawTerrain(ctx, levelTerrain(prepared), prepared.platforms); drawClimbables(ctx, player, prepared.climbables); drawAthlete(ctx, player) }
       for (const [index, point] of [prepared.spawn, ...prepared.checkpoints].entries()) {
         ctx.fillStyle = index ? '#a0a3a4' : '#df633f'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
       }

@@ -112,7 +112,7 @@
 .builder-dimensions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
 .builder-surface-placement, .builder-anchor { display: grid; gap: 8px; }
 .builder-surface-placement > span, .builder-anchor > span { font-size: inherit; overflow-wrap: anywhere; }
-.builder-materials, .builder-connections, .builder-medals { min-width: 0; margin: 0; padding: 0; border: 0; }
+.builder-materials, .builder-connections, .builder-medals, .builder-terrain-order { min-width: 0; margin: 0; padding: 0; border: 0; }
 .builder-inspector legend { margin-bottom: 8px; padding: 0; font: inherit; }
 .builder-materials > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .jumping-game .jumping-builder .builder-inspector button { background: var(--builder-field); }
@@ -122,6 +122,7 @@
 .builder-materials svg { width: 100%; height: 32px; border-radius: 0; }
 .jumping-builder .builder-connections label { flex-direction: row; align-items: center; gap: 8px; min-height: 44px; padding: 8px 0; overflow-wrap: anywhere; }
 .builder-action-row, .builder-object-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.builder-selection-list { margin: 0; padding-left: 20px; overflow-wrap: anywhere; }
 .jumping-game .builder-surface-placement button { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .jumping-game .builder-property-action { width: 100%; }
 .jumping-game .jumping-builder .builder-delete { color: var(--jumping-danger); }

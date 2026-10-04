@@ -24,12 +24,6 @@
       "h": 20
     },
     {
-      "x": 520,
-      "y": 0,
-      "w": 20,
-      "h": 220
-    },
-    {
       "x": 740,
       "y": 220,
       "w": 340,
@@ -58,7 +52,7 @@
         "length": 620,
         "segments": 78,
         "rest": {
-          "key": "7:1dc7a3bfa11db425",
+          "key": "7:a641591aa03b3ae8",
           "points": [
             [
               740,
@@ -549,7 +543,7 @@
         "length": 620,
         "segments": 78,
         "rest": {
-          "key": "7:4d6fb0d413bb84f0",
+          "key": "7:65f709e32578529d",
           "points": [
             [
               1080,
@@ -1039,7 +1033,9 @@
   "floor": 1400,
   "goal": {
     "x": 40,
-    "y": 420
+    "y": 420,
+    "id": "da58951c-9af2-468d-b7a1-d0cea341d1ff",
+    "power": "switched"
   },
   "times": {
     "gold": 25,
@@ -1055,15 +1051,6 @@
     }
   ],
   "mechanisms": [
-    {
-      "id": "return",
-      "kind": "gate",
-      "x": 520,
-      "y": 220,
-      "w": 20,
-      "h": 200,
-      "travel": 200
-    },
     {
       "id": "a7f28131-7d5a-4c13-b5bd-d317f173a446",
       "kind": "lift",
@@ -1082,8 +1069,8 @@
       "y": 800,
       "w": 80,
       "targets": [
-        "return",
-        "a7f28131-7d5a-4c13-b5bd-d317f173a446"
+        "a7f28131-7d5a-4c13-b5bd-d317f173a446",
+        "da58951c-9af2-468d-b7a1-d0cea341d1ff"
       ],
       "mode": "weight"
     }

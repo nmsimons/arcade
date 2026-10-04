@@ -1,4 +1,5 @@
 import { gravityPlateActive } from './gravity.ts'
+import { drawForceField } from './forceFieldRender.ts'
 import { drawGravityDust, drawGravityPlate, drawGravityRegion } from './gravityRender.ts'
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
@@ -135,7 +136,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   if (layer === 'wall') return
   paint(ctx, 0, () => {
-    drawTerrain(ctx, run.terrain)
+    drawTerrain(ctx, run.terrain, level.platforms)
     const corners = mechanismCornerRadii(run)
     for (const [i, m] of run.mechanisms.entries()) drawMechanism(ctx, m, corners[i])
   }, false)
@@ -147,6 +148,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     }
   })
   for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), paint)
+  for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
   drawGoal(ctx, level.goal, run.goalLit, paint)
   paint(ctx, 0, () => {
     for (const b of run.props) drawProp(ctx, b)

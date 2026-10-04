@@ -23,16 +23,37 @@ import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from 
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
+import { editorRobotPose } from './editorGeometry.ts'
+import { robotHulls } from './robotPhysics.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
+import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
 import { plateSolids, plateSurface } from './plateSurface.ts'
+import { terrainDrawOrder } from './terrainOrder.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'gravity-plate'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'gravity-plate' | 'force-field' | 'horizontal-force-field'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
+export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'gravity-plate'; index: number }
+export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+
+/** Change only visual depth; terrain indices and all attachments stay stable. */
+export function reorderTerrain(level: JumpLevel, index: number, action: TerrainOrderAction): JumpLevel {
+  const order = [...terrainDrawOrder(level.platforms)], from = order.indexOf(index)
+  if (from < 0) return level
+  const to = action === 'back' ? 0 : action === 'front' ? order.length - 1
+    : clamp(from + (action === 'forward' ? 1 : -1), 0, order.length - 1)
+  if (from === to) return level
+  order.splice(from, 1); order.splice(to, 0, index)
+  const next = copyLevel(level)
+  for (const [depth, i] of order.entries()) {
+    if (depth === 0) delete next.platforms[i].zIndex
+    else next.platforms[i].zIndex = depth
+  }
+  return next
+}
 
 /** Patrol endpoints stay in the room and include the shovebot's starting position. */
 export function setShovebotLimit(level: JumpLevel, index: number, side: 'left' | 'right', value: number): JumpLevel {
@@ -91,7 +112,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   next.height = height
   if (next.floor !== undefined) next.floor = height
   for (const point of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? [])]) point.y += dy
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     rope.y += dy
@@ -105,6 +126,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   const i = selection.index
   if (selection.kind === 'light') { const l = level.lighting?.lights[i]; return l ? lightBounds(l) : null }
   if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
+  if (selection.kind === 'force-field') return level.forceFields?.[i] ?? null
   if (selection.kind === 'gravity-plate') return level.gravityPlates?.[i] ?? null
   if (selection.kind === 'platform') return level.platforms[i] ?? null
   if (selection.kind === 'rope') { const r = level.climbables.ropes[i]; return r ? { x: r.x, y: r.y, w: 0, h: r.length } : null }
@@ -123,6 +145,15 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
 export function itemOutline(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
+  const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
+  if (robot) {
+    const pose = editorRobotPose(level, robot)
+    if (Math.abs(pose.angle) > .001) {
+      const points = robotHulls({ ...pose, facing: -1, phase: 'patrol' }).flat()
+      const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
+      return { x, y, w: Math.max(...points.map(p => p[0])) - x, h: Math.max(...points.map(p => p[1])) - y }
+    }
+  }
   const mechanism = selection.kind === 'mechanism' ? level.mechanisms?.[selection.index] : undefined
   if (mechanism) return mechanism.kind === 'lift' ? mechanismSweep(mechanism)
     : { x: mechanism.x, y: mechanism.y, w: mechanism.w, h: mechanism.h }
@@ -193,7 +224,7 @@ export function setObjectPower(level: JumpLevel, selection: Selection, power: Po
   if (power !== 'always' && power !== 'switched') return level
   const next = copyLevel(level)
   const item = selection.kind === 'goal' ? next.goal : selection.kind === 'mechanism' ? next.mechanisms?.[selection.index]
-    : selection.kind === 'light' ? next.lighting?.lights[selection.index] : selection.kind === 'gravity-plate' ? next.gravityPlates?.[selection.index] : null
+    : selection.kind === 'force-field' ? next.forceFields?.[selection.index] : selection.kind === 'light' ? next.lighting?.lights[selection.index] : selection.kind === 'gravity-plate' ? next.gravityPlates?.[selection.index] : null
   if (!item || 'kind' in item && item.kind === 'gate') return level
   item.power = power
   if (selection.kind === 'goal' && !item.id) item.id = newLevelId()
@@ -271,10 +302,10 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     const b = pickupBounds(level.pickups![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'pickup', index: i }
   }
-  for (const kind of ['prop', 'robot', 'trigger', 'mechanism'] as const) {
-    const length = (kind === 'prop' ? level.props : kind === 'robot' ? level.robots : kind === 'trigger' ? level.triggers : level.mechanisms)?.length ?? 0
+  for (const kind of ['prop', 'robot', 'trigger', 'mechanism', 'force-field'] as const) {
+    const length = (kind === 'prop' ? level.props : kind === 'robot' ? level.robots : kind === 'trigger' ? level.triggers : kind === 'force-field' ? level.forceFields : level.mechanisms)?.length ?? 0
     for (let i = length - 1; i >= 0; i--) {
-      const b = itemBounds(level, { kind, index: i })!
+      const b = kind === 'robot' ? itemOutline(level, { kind, index: i })! : itemBounds(level, { kind, index: i })!
       if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind, index: i }
       if (kind === 'mechanism' && level.mechanisms![i].kind === 'lift') {
         const m = level.mechanisms![i], anchor = mechanismAnchor(m), end = mechanismRopeEnd(m)
@@ -297,7 +328,9 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     const l = level.climbables.ladders[i]
     if (Math.abs(x - l.x) <= tolerance + 8 && y >= l.top - tolerance && y <= l.bottom + tolerance) return { kind: 'ladder', index: i }
   }
-  for (let i = level.platforms.length - 1; i >= 0; i--) {
+  const terrainOrder = terrainDrawOrder(level.platforms)
+  for (let position = terrainOrder.length - 1; position >= 0; position--) {
+    const i = terrainOrder[position]
     const b = level.platforms[i]
     if (pointInside(b, x, y)) return { kind: 'platform', index: i }
   }
@@ -332,7 +365,7 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
 }
 export function replacePlatform(level: JumpLevel, index: number, platform: Platform): JumpLevel {
   const next = copyLevel(level), before = level.platforms[index]
-  next.platforms[index] = { ...(before.name ? { name: before.name } : {}), ...platform }
+  next.platforms[index] = { ...(before.name ? { name: before.name } : {}), ...(before.zIndex === undefined ? {} : { zIndex: before.zIndex }), ...platform }
   for (const ladder of next.climbables.ladders) if (ladder.platform === index) {
     ladder.x = ladder.side === 1 ? platform.x - 16 : platform.x + platform.w + 16
     ladder.bottom += platform.y - before.y; ladder.top = platform.y
@@ -424,6 +457,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     const mechanism = next.mechanisms![selection.index]
     Object.assign(mechanism, { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
   }
+  if (selection.kind === 'force-field') Object.assign(next.forceFields![selection.index], { x, y })
   if (selection.kind === 'gravity-plate') Object.assign(next.gravityPlates![selection.index], { x, y })
   if (selection.kind === 'light') Object.assign(next.lighting!.lights[selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
@@ -438,6 +472,16 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   const next = copyLevel(level)
   const corner = handle ?? 'bottom-right'
   const left = corner.endsWith('left'), top = corner.startsWith('top')
+  if (selection.kind === 'force-field') {
+    const field = next.forceFields![selection.index], before = { ...field }
+    if (field.orientation === 'horizontal') {
+      field.w = clamp(w, FORCE_FIELD_MIN_LENGTH, left ? before.x + before.w : next.width - before.x)
+      if (left) field.x = before.x + before.w - field.w
+    } else {
+      field.h = clamp(h, FORCE_FIELD_MIN_LENGTH, top ? before.y + before.h : levelHeight(next) - before.y)
+      if (top) field.y = before.y + before.h - field.h
+    }
+  }
   if (selection.kind === 'gravity-plate') {
     const p = next.gravityPlates![selection.index], before = { ...p }
     p.w = clamp(w, 40, left ? before.x + before.w : next.width - before.x)
@@ -529,6 +573,10 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'prop') next.props!.splice(i, 1)
   else if (selection.kind === 'robot') next.robots!.splice(i, 1)
   else if (selection.kind === 'trigger') next.triggers!.splice(i, 1)
+  else if (selection.kind === 'force-field') {
+    const [field] = next.forceFields!.splice(i, 1)
+    removeSwitchTarget(next, field.id)
+  }
   else if (selection.kind === 'gravity-plate') {
     const [plate] = next.gravityPlates!.splice(i, 1)
     removeSwitchTarget(next, plate.id)
@@ -551,6 +599,16 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'force-field' || tool === 'horizontal-force-field') {
+    const trial = asTrial(next), fields = trial.forceFields ??= []
+    if (fields.length >= MAX_FORCE_FIELDS) throw new Error('This level already has 40 force fields.')
+    const horizontal = tool === 'horizontal-force-field'
+    const length = clamp(Math.abs(horizontal ? end.x - start.x : end.y - start.y) || 180, FORCE_FIELD_MIN_LENGTH, horizontal ? trial.width : trial.floor)
+    const w = horizontal ? length : FORCE_FIELD_THICKNESS, h = horizontal ? FORCE_FIELD_THICKNESS : length
+    fields.push({ id: newLevelId(), x: clamp(Math.min(start.x, end.x), 0, trial.width - w), y: clamp(Math.min(start.y, end.y), 0, trial.floor - h),
+      w, h, orientation: horizontal ? 'horizontal' : 'vertical', power: 'always' })
+    return { level: trial, selection: { kind: 'force-field', index: fields.length - 1 } }
+  }
   if (tool === 'gravity-plate') {
     const trial = asTrial(next), plates = trial.gravityPlates ??= []
     if (plates.length >= MAX_GRAVITY_PLATES) throw new Error('This level already has 16 gravity plates.')
@@ -579,7 +637,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     for (let step = 4; step >= 1; step--) polygon.push([step * tread + stepWidth, (5 - step) * LEVEL_GRID_SIZE], [(step - 1) * tread + stepWidth, (5 - step) * LEVEL_GRID_SIZE])
     polygon.push([stepWidth, h])
     next.platforms.push({ x: clamp(end.x, 0, next.width - w), y: clamp(end.y, 0, levelHeight(next) - h), w, h, polygon })
-    return { level: next, selection: { kind: 'platform', index: next.platforms.length - 1 } }
+    return { level: reorderTerrain(next, next.platforms.length - 1, 'front'), selection: { kind: 'platform', index: next.platforms.length - 1 } }
   }
   if (tool === 'light') {
     next.version = 2; next.lighting ??= { nightMode: false, ambient: 0, lights: [] }
@@ -612,7 +670,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     if (tool === 'ramp') b.profile = start.y < end.y ? [[0, 0], [w, b.h]] : [[0, b.h], [w, 0]]
     if (tool === 'rough') b.profile = [1, .65, .8, .35, .5, 0, .25, .15, .65, .5, 1].map((height, i) => [w * i / 10, b.h * height])
     next.platforms.push(b)
-    return { level: next, selection: { kind: 'platform', index: next.platforms.length - 1 } }
+    return { level: reorderTerrain(next, next.platforms.length - 1, 'front'), selection: { kind: 'platform', index: next.platforms.length - 1 } }
   }
   if (tool === 'spawn' || tool === 'checkpoint') {
     const point = { x: clamp(end.x, 10, next.width - 10), y: clamp(end.y, 0, levelHeight(next)) }
@@ -719,14 +777,17 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'trigger') { if (next.triggers!.length >= 40) return null; index = next.triggers!.push({ ...next.triggers![i] }) - 1 }
   else if (selection.kind === 'mechanism') { if (next.mechanisms!.length >= 40) return null; index = next.mechanisms!.push({ ...next.mechanisms![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'light') { if (next.lighting!.lights.length >= MAX_LIGHTS) return null; index = next.lighting!.lights.push({ ...next.lighting!.lights[i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'force-field') { if (next.forceFields!.length >= MAX_FORCE_FIELDS) return null; index = next.forceFields!.push({ ...next.forceFields![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'gravity-plate') { if (next.gravityPlates!.length >= MAX_GRAVITY_PLATES) return null; index = next.gravityPlates!.push({ ...next.gravityPlates![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
-  return { level: moveItem(next, result, 40, 0), selection: result }
+  const moved = moveItem(next, result, 40, 0)
+  return { level: selection.kind === 'platform' ? reorderTerrain(moved, index, 'front') : moved, selection: result }
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'spawn', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),
     ...(level.gravityPlates ?? []).map((_, index) => ({ kind: 'gravity-plate' as const, index })),
     ...(level.wallLights ?? []).map((_, index) => ({ kind: 'wall-light' as const, index })),
     ...level.platforms.map((_, index) => ({ kind: 'platform' as const, index })),
@@ -761,7 +822,7 @@ export function addPolygon(level: JumpLevel, points: readonly Vec[]) {
   if (level.platforms.length >= 160) throw new Error('This level already has 160 terrain pieces.')
   const b = polygonPlatform(points.map(([x, y]) => [clamp(x, 0, level.width), clamp(y, 0, levelHeight(level))]))
   const next = copyLevel(level); next.platforms.push(b)
-  return { level: next, selection: { kind: 'platform' as const, index: next.platforms.length - 1 } }
+  return { level: reorderTerrain(next, next.platforms.length - 1, 'front'), selection: { kind: 'platform' as const, index: next.platforms.length - 1 } }
 }
 export type TerrainNodeTarget = { index: number; edge: number; x: number; y: number }
 export type TerrainVertexTarget = { index: number; vertex: number; x: number; y: number }
@@ -769,7 +830,9 @@ export type TerrainVertexTarget = { index: number; vertex: number; x: number; y:
 /** Pick the nearest existing node, preferring the topmost terrain on ties. */
 export function terrainVertexTarget(level: JumpLevel, x: number, y: number, tolerance: number): TerrainVertexTarget | null {
   let best: TerrainVertexTarget | null = null, distance = tolerance
-  for (let index = level.platforms.length - 1; index >= 0; index--) {
+  const order = terrainDrawOrder(level.platforms)
+  for (let position = order.length - 1; position >= 0; position--) {
+    const index = order[position]
     for (const [vertex, [vx, vy]] of polygonPoints(level.platforms[index]).entries()) {
       const d = Math.hypot(x - vx, y - vy)
       if (d <= tolerance && (!best || d < distance)) { best = { index, vertex, x: vx, y: vy }; distance = d }
@@ -781,7 +844,9 @@ export function terrainVertexTarget(level: JumpLevel, x: number, y: number, tole
 /** Project onto the nearest edge; snap along its dominant axis to preserve slopes. */
 export function terrainNodeTarget(level: JumpLevel, x: number, y: number, tolerance: number, grid = 0): TerrainNodeTarget | null {
   let best: (TerrainNodeTarget & { distance: number }) | null = null
-  for (let index = level.platforms.length - 1; index >= 0; index--) {
+  const order = terrainDrawOrder(level.platforms)
+  for (let position = order.length - 1; position >= 0; position--) {
+    const index = order[position]
     const points = polygonPoints(level.platforms[index])
     for (let edge = 0; edge < points.length; edge++) {
       const a = points[edge], b = points[(edge + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1]

@@ -67,6 +67,13 @@ space. Each trip retries the full configured travel, so removing an obstruction
 automatically restores the original range. Releasing its pressure plate still
 pauses both travel and endpoint waiting.
 
+Shovebots start aligned with their supporting slope and use each surface's
+normal to account for a round wheel's clearance. This lets valid steep slopes
+support both uphill and downhill driving without treating downhill travel as
+a cliff. Each wheel still needs terrain directly beneath its center, and the
+full chassis must clear the terrain. Regression coverage lives in
+`tests/jumping-robot-slopes.test.mjs` and `tests/jumping-object-slopes.test.mjs`.
+
 Shovebots recheck their current wheel support independently of driving. When a
 prop moves out from under a wheel, the chassis settles toward the available
 support with bounded tilt and downward motion, including during idle recovery.
@@ -367,3 +374,24 @@ an outline for authoring. `node scripts/benchmark-jumping-gravity-render.mjs`
 measures Canvas draw submission against a local Vite server on port 4176;
 `GRAVITY_URL` can select another server. GPU completion and lighting passes are
 excluded from that isolated benchmark.
+
+## Player-only force fields
+
+Active force-field rectangles are appended only to the player's contact world.
+They use the existing swept hull, support, wall, crouch and reflected gravity
+controller. Their ledges are disabled because a beam has no physical lip.
+Physical rope obstacles are kept separately from player obstacles, including in
+reverse gravity. Field geometry never enters Matter, prop preparation, robot
+navigation or sight, mechanism obstruction geometry, or lighting casters.
+Player transport from lifts, props and bots still sweeps against active fields;
+the transporting object itself can pass through when it has room to separate.
+
+Always on and standard switched fields obey EMP. Enabling a field while the
+player's current body (including a climb or gravity-turn pose) overlaps it waits
+for clearance, rather than resolving a new solid through their body. Removing
+power removes collision immediately and releases unsupported footing normally.
+At most 40 fixed rectangles add collision work. Artwork uses simple Canvas fills
+with two ripples of at most 24 segments and eight time-evaluated sparks per beam;
+no particle simulation, blur or
+extra light source is involved. Coverage lives in
+`tests/jumping-force-field.test.mjs` and `tests/browser/jumpingForceField.spec.mjs`.

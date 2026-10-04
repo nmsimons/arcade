@@ -33,6 +33,8 @@ import type { WallLight } from './wallLight.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import type { GravityPlate } from './gravity.ts'
+import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
+import type { ForceField } from './forceField.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
@@ -57,6 +59,7 @@ export interface JumpLevel {
   timers?: WallTimer[]
   wallLights?: WallLight[]
   gravityPlates?: GravityPlate[]
+  forceFields?: ForceField[]
   texts?: WallText[]
   pickups?: Pickup[]
 }
@@ -134,6 +137,9 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, p] of (level.gravityPlates ?? []).entries()) {
     if (p.x < 0 || p.y < 0 || p.x + p.w > level.width || p.y + p.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'gravity-plate', i)} inside the level rectangle.`)
   }
+  for (const [i, field] of (level.forceFields ?? []).entries()) {
+    if (field.x < 0 || field.y < 0 || field.x + field.w > level.width || field.y + field.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'force-field', i)} inside the level rectangle.`)
+  }
   if (isPuzzleLevel(level)) {
     const terrain = levelTerrain(level), bounds = goalBounds(level.goal), door = goalDoor(level.goal)
     const left = Math.min(goalPoleX(level.goal) - 2, door.x), right = Math.max(goalPoleX(level.goal) + 2, door.x + door.w)
@@ -182,6 +188,10 @@ export function parseLevel(value: unknown): JumpLevel {
   const platforms = list(v.platforms, 160).map(item => {
     const b = object(item), platform: Platform = { ...objectName(b), x: num(b.x, 0, width), y: num(b.y, -2000, 6000), w: num(b.w, 10, width), h: num(b.h, 8, 6000) }
     if (platform.x + platform.w > width) fail()
+    if (b.zIndex !== undefined) {
+      platform.zIndex = num(b.zIndex, -10000, 10000)
+      if (!Number.isInteger(platform.zIndex)) fail()
+    }
     if (b.material !== undefined) {
       if (!isTerrainMaterial(b.material)) return fail()
       platform.material = b.material
@@ -300,7 +310,7 @@ export function parseLevel(value: unknown): JumpLevel {
       if (t.startsOn !== undefined && (t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
-        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 113 : 97)
+        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 153 : 137)
           || t.targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(t.targets).size !== t.targets.length) fail()
         connection = { targets: [...t.targets as string[]] }
       } else {
@@ -365,7 +375,7 @@ export function parseLevel(value: unknown): JumpLevel {
       }
       return { ...position, kind }
     })
-  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'gravityPlates'].some(key => v[key] !== undefined)) fail()
+  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
@@ -388,6 +398,18 @@ export function parseLevel(value: unknown): JumpLevel {
       x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: num(p.gravity, -3, 3),
       ...(p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(p.power === undefined ? {} : { power: p.power as PowerMode }) }
   })
+  if (v.forceFields !== undefined) level.forceFields = list(v.forceFields, MAX_FORCE_FIELDS).map(item => {
+    const field = object(item)
+    if (typeof field.id !== 'string' || !field.id.trim() || field.id.length > 100) return fail()
+    if (field.orientation !== 'horizontal' && field.orientation !== 'vertical') return fail()
+    if (field.power !== undefined && field.power !== 'always' && field.power !== 'switched') return fail()
+    const horizontal = field.orientation === 'horizontal'
+    const w = num(field.w, horizontal ? FORCE_FIELD_MIN_LENGTH : FORCE_FIELD_THICKNESS, horizontal ? width : FORCE_FIELD_THICKNESS)
+    const h = num(field.h, horizontal ? FORCE_FIELD_THICKNESS : FORCE_FIELD_MIN_LENGTH, horizontal ? FORCE_FIELD_THICKNESS : levelHeight(level))
+    return { ...objectName(field), ...parseSwitchSettings(field, fail), id: field.id,
+      x: num(field.x, 0, width - w), y: num(field.y, 0, levelHeight(level) - h), w, h, orientation: field.orientation,
+      ...(field.power === undefined ? {} : { power: field.power as PowerMode }) }
+  })
   if (v.wallLights !== undefined) level.wallLights = list(v.wallLights, MAX_WALL_LIGHTS).map(item => {
     const light = object(item)
     if (typeof light.id !== 'string' || !light.id.trim() || light.id.length > 100) return fail()
@@ -399,7 +421,7 @@ export function parseLevel(value: unknown): JumpLevel {
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
-  const ids = [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
+  const ids = [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.
   const wiring = switchWiringProblems(level, level.version === 2)

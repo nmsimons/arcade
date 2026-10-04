@@ -10,7 +10,7 @@ import type { CasterGroup } from './lightingModel'
 export function useLightingGeometry(level: JumpLevel, active: boolean) {
   const complexityError = useMemo(() => active ? lightingProblems(level).find(issue => issue.includes('too complex')) : undefined, [level, active])
   const needed = !complexityError && active && !!levelLightCount(level) && nightModeEnabled(level.lighting)
-  const key = useMemo(() => JSON.stringify([level.width, levelHeight(level), level.platforms]), [level])
+  const key = useMemo(() => JSON.stringify([level.width, levelHeight(level), level.platforms], (key, value) => key === 'zIndex' ? undefined : value), [level])
   const [state, setState] = useState<{ key: string; groups?: CasterGroup[]; error?: string } | null>(null)
   useEffect(() => {
     if (!needed) return

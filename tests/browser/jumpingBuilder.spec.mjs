@@ -970,7 +970,7 @@ test('zoom buttons and wheel zoom center the selected object including an elevat
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click(); await centered(590, 710)
 })
 
-test('dragging empty space pans by default without moving or creating objects', async ({ page }) => {
+test('Space-drag pans without changing the selection or moving or creating objects', async ({ page }) => {
   const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 },
     platforms: [{ x: 300, y: 300, w: 200, h: 120 }] }
   await open(page, level)
@@ -979,12 +979,14 @@ test('dragging empty space pans by default without moving or creating objects', 
   const beforeLevel = (await saveTestLevel(page)).level
   const camera = () => canvas.evaluate(c => ({ a: c.jumpCamera.a, e: c.jumpCamera.e, f: c.jumpCamera.f }))
   const before = await camera()
+  await canvas.focus(); await page.keyboard.down('Space')
   await dragWorld(page, { x: 120, y: 140 }, { x: 200, y: 200 })
+  await page.keyboard.up('Space')
   const after = await camera()
   expect(after.a).toBe(before.a)
   expect(after.e - before.e).toBeCloseTo(80 * before.a, 1)
   expect(after.f - before.f).toBeCloseTo(60 * before.a, 1)
-  await expect(selected).toHaveAttribute('data-value', '')
+  await expect(selected).toHaveAttribute('data-value', 'platform:0')
   await expect(page.getByRole('button', { name: 'Select', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Pan', exact: true })).toHaveCount(0)
   const terrainTool = page.getByRole('button', { name: 'Terrain', exact: true })

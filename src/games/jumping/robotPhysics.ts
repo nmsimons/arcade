@@ -26,7 +26,7 @@ export function robotSensesPlayer(r: RobotState, p: Player, obstacles: Iterable<
 
 /** Reuse this step's solid shapes without allocating a filtered list per bot. */
 export function* robotSightObstacles(world: ContactWorld, observer: RobotState) {
-  for (const collider of world.colliders) if (collider.robot !== observer) yield collider.platform
+  for (const collider of world.colliders) if (collider.robot !== observer && !collider.playerOnly) yield collider.platform
 }
 
 /** Just the chassis and wheels: no projecting mechanism to trap a foot. */
@@ -66,7 +66,11 @@ export function robotTouchesProps(robot: RobotState, props: readonly Platform[],
 function wheelHeight(platforms: readonly Platform[], x: number, nearY: number, reach: number) {
   // Do not drive a wheel past a cliff just because its rim can still touch
   // the last corner. Connected ramp surfaces remain traversable.
-  if (!groundAt(platforms, x, nearY + RADIUS, reach + RADIUS * 2)) return null
+  // A wheel's vertical clearance is radius / cos(slope), not one radius.
+  // Keep the cliff check directly below its center without imposing a flat-
+  // ground height allowance that rejects a valid steep downhill contact.
+  if (!groundAt(platforms, x, nearY + RADIUS, Infinity,
+    surface => Math.abs(surface.y - RADIUS / Math.cos(surface.angle) - nearY) <= reach + RADIUS * 2)) return null
   let height = Infinity
   const accept = (y: number) => { if (Math.abs(y - nearY) <= reach) height = Math.min(height, y) }
   for (const platform of platforms) {
@@ -101,14 +105,22 @@ export function robotSupport(platforms: readonly Platform[], x: number, y: numbe
 
 export function prepareRobots(platforms: readonly Platform[], robots: RobotState[]) {
   for (const robot of robots) {
-    const support = robotSupport(platforms, robot.x, robot.y, 0, 55)
+    const surface = groundAt(platforms, robot.x, robot.y, 55)
+    const support = robotSupport(platforms, robot.x, robot.y, surface?.angle ?? 0, 55)
     if (support) Object.assign(robot, support)
   }
 }
 
+/** Tilt an authored bot on its surface without snapping floating editor items. */
+export function robotPreviewPose(platforms: readonly Platform[], robot: Pick<RobotState, 'x' | 'y'>) {
+  const surface = groundAt(platforms, robot.x, robot.y, .1)
+  return surface && robotSupport(platforms, robot.x, robot.y, surface.angle, 55)
+    || { x: robot.x, y: robot.y, angle: 0 }
+}
+
 /** A moving support can leave a wheel in the air even when the motor is idle.
  * Re-seat locally at the current x; the drive query still refuses cliff edges. */
-export function settleRobot(platforms: readonly Platform[], robot: RobotState, dt: number, player?: Player) {
+export function settleRobot(platforms: readonly Platform[], robot: RobotState, dt: number, player?: Player, playerBarriers: readonly Platform[] = []) {
   const centerY = robot.y - RADIUS, dx = HALF_AXLE * Math.cos(robot.angle), dy = HALF_AXLE * Math.sin(robot.angle)
   if (wheelHeight(platforms, robot.x - dx, centerY - dy, .1) !== null
     && wheelHeight(platforms, robot.x + dx, centerY + dy, .1) !== null) return
@@ -126,10 +138,10 @@ export function settleRobot(platforms: readonly Platform[], robot: RobotState, d
   if (y < robot.y - .01) return
   const next = { ...robot, y: Math.min(y, robot.y + 130 * dt), angle }
   if (robotTouchesProps(next, platforms)) return
-  placeRobot(platforms, robot, next, player)
+  placeRobot(platforms, robot, next, player, playerBarriers)
 }
 
-function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x: number; y: number; angle: number }, player?: Player) {
+function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x: number; y: number; angle: number }, player?: Player, playerBarriers: readonly Platform[] = []) {
   if (player) {
     const contactBody = playerContactBody(player), { height } = contactBody
     const hulls = robotPlatforms({ ...robot, ...next })
@@ -139,7 +151,7 @@ function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x
     const angle = playerTurnAngle(player)
     if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height, player.inverted ? -1 : 1, angle))) {
       if (player.hang || player.mantle || player.climbing) return false
-      const obstacles = [...platforms, ...hulls]
+      const obstacles = [...platforms, ...playerBarriers, ...hulls]
       // A pinned player blocks the bot; neither actor can pass through a wall.
       const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height, player.inverted ? -1 : 1, angle)
       if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height, player.inverted ? -1 : 1, angle))) return false
@@ -150,7 +162,7 @@ function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x
   return true
 }
 
-export function moveRobot(platforms: readonly Platform[], robot: RobotState, destination: number, props: readonly Platform[] = [], player?: Player, footing?: Platform) {
+export function moveRobot(platforms: readonly Platform[], robot: RobotState, destination: number, props: readonly Platform[] = [], player?: Player, footing?: Platform, playerBarriers: readonly Platform[] = []) {
   const distance = destination - robot.x, steps = Math.max(1, Math.ceil(Math.abs(distance) / 2)), dx = distance / steps
   for (let i = 0; i < steps; i++) {
     // A prop being separated by the contact solver may already support a
@@ -159,7 +171,7 @@ export function moveRobot(platforms: readonly Platform[], robot: RobotState, des
     if (!next) return false
     const pose = { ...robot, ...next }
     if (robotTouchesProps(pose, props)) return false
-    if (!placeRobot(platforms, robot, next, player)) return false
+    if (!placeRobot(platforms, robot, next, player, playerBarriers)) return false
   }
   return true
 }

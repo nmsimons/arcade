@@ -129,7 +129,7 @@ export class LightingRenderer {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
       if (layer !== 'wall') {
         paint(ctx, 0, () => {
-          drawTerrain(ctx, levelTerrain(run.level))
+          drawTerrain(ctx, levelTerrain(run.level), run.level.platforms)
         }, false)
         paint(ctx, 0, () => {
           drawClimbables(ctx, run.player, run.level.climbables)

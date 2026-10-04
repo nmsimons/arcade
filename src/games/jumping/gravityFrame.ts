@@ -54,7 +54,7 @@ export function mirrorContactWorld(world: ContactWorld): ContactWorld {
   const colliders = world.colliders.map(c => ({ ...c, platform: mirrorPlatform(c.platform),
     ...(c.prop ? { prop: { ...c.prop, y: c.prop.size - c.prop.y, vy: -c.prop.vy, angle: -c.prop.angle, angularVelocity: -c.prop.angularVelocity } } : {}),
     ...(c.robot ? { robot: { ...c.robot, y: -c.robot.y, angle: -c.robot.angle } } : {}) }))
-  return { platforms: colliders.map(c => c.platform), colliders }
+  return { platforms: colliders.map(c => c.platform), colliders, ...(world.ropePlatforms ? { ropePlatforms: mirrorPlatforms(world.ropePlatforms) } : {}) }
 }
 export function mirrorContacts(contacts: PlayerContacts, world: ContactWorld): PlayerContacts {
   const collider = (id: string) => world.colliders.find(c => c.id === id)!

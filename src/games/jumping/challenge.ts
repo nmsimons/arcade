@@ -6,7 +6,7 @@ import { resolveSwitchStates } from './switchPower.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
-import { moveRobot, prepareRobots, robotPlatforms, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
+import { moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { GoalExit } from './goal.ts'
@@ -22,6 +22,8 @@ import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
 
 import { createGravityField, playerGravity, propGravity, setPlayerGravity, updateGravityField } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
+import { createForceField, forceFieldPlatforms, updateForceFields } from './forceField.ts'
+import type { ForceFieldState } from './forceField.ts'
 import { mirrorPlatform } from './gravityFrame.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
@@ -33,6 +35,7 @@ export interface RobotState { definition: Pusher; x: number; y: number; vx: numb
 export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
+  forceFields: ForceFieldState[]
   switchStates: Map<string, boolean>; gravityField: GravityField
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
   elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
@@ -73,12 +76,15 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && t.behavior === 'toggle' && !!t.startsOn, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
-    switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+    forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
   updateSwitchTargets(run)
   if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
   if (!preview) {
     prepareProps(run); syncPlatforms(run)
     prepareRobots(run.platforms, run.robots)
+  } else if (run.robots.length) {
+    syncPlatforms(run)
+    for (const robot of run.robots) Object.assign(robot, robotPreviewPose(run.platforms, robot))
   }
   if (run.robots.length) {
     const world = syncPlatforms(run)
@@ -98,7 +104,10 @@ function syncPlatforms(run: Run): ContactWorld {
   for (const [i, robot] of run.robots.entries()) for (const [piece, platform] of robotPlatforms(robot).entries()) {
     colliders.push({ id: `robot:${i}:${piece}`, platform, robot })
   }
-  return { platforms: colliders.map(c => c.platform), colliders }
+  const ropePlatforms = colliders.map(c => c.platform)
+  if (!run.forceFields.length) return { platforms: ropePlatforms, colliders }
+  for (const [i, field] of run.forceFields.entries()) if (field.active) colliders.push({ id: `force-field:${i}`, platform: field.platform, playerOnly: true })
+  return { platforms: colliders.map(c => c.platform), colliders, ropePlatforms }
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const bodyOverlap = (p: Player, b: Platform, dy = 0) => bodyIntersects(p.x, p.y + dy, b, p.crouching ? TUNING.crouchHeight : TUNING.height, p.inverted ? -1 : 1)
@@ -123,7 +132,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const onProp = support?.prop && passengers.includes(support.prop)
     const rider = onProp || support?.id === `mechanism:${index}`
       || p.hang?.platform === platformIndex || !!p.mantle && !p.mantle.step && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
-    const obstacles = run.platforms.filter((b, i) => i !== platformIndex && b !== support?.platform)
+    const obstacles = [...run.platforms.filter((b, i) => i !== platformIndex && b !== support?.platform), ...forceFieldPlatforms(run.forceFields)]
     const solids = [...run.terrain, ...run.mechanisms.filter(other => other !== m).map(mechanismShape)]
     const passengerBlocked = (dx: number, dy: number) => passengers.some(b => solids.some(s => propBlocksMechanism(b, s, { ...s, x: s.x - dx, y: s.y - dy })))
     if (m.safetyHold != null && m.x === open.x && m.y === open.y) {
@@ -225,6 +234,7 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
 function updateSwitchTargets(run: Run) {
   const states = resolveSwitchStates(run.level, run.triggers)
   run.switchStates = states
+  updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0)
   updateGravityField(run.gravityField, run.level.gravityPlates ?? [], states, run.empRemaining === 0)
   for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
   run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || !!states.get(run.level.goal.id ?? '')
@@ -233,7 +243,7 @@ function stepRobots(run: Run, dt: number, world: ContactWorld) {
   const p = run.player
   const oldX = p.x
   for (const r of run.robots) {
-    settleRobot(run.platforms, r, dt, p)
+    settleRobot(run.platforms, r, dt, p, forceFieldPlatforms(run.forceFields))
     const bounds = r.definition, gap = p.x - r.x
     // Reuse the current collision shapes and publish this result for rendering.
     const seesPlayer = r.seesPlayer = robotSensesPlayer(r, p, robotSightObstacles(world, r))
@@ -255,7 +265,7 @@ function stepRobots(run: Run, dt: number, world: ContactWorld) {
     if (speed) {
       const x = approach(r.x, Math.max(bounds.left, Math.min(bounds.right, r.x + r.facing * speed * dt)), speed * dt)
       const props = run.props.map(b => b.kind === 'box' ? boxShape(b) : ballShape(b))
-      const blocked = !moveRobot(run.platforms, r, x, props, p)
+      const blocked = !moveRobot(run.platforms, r, x, props, p, undefined, forceFieldPlatforms(run.forceFields))
       if ((blocked && !robotTouchesProps(r, props, 3) || x === bounds.left || x === bounds.right) && r.phase === 'patrol') r.facing *= -1
     }
   }
@@ -304,6 +314,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   let world = syncPlatforms(run)
   const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
   stepTriggers(run, poweredDt, powered)
+  if (run.forceFields.length) world = syncPlatforms(run)
   setPlayerGravity(run.player, playerGravity(run.gravityField, run.player))
   if (powered) stepMechanisms(run, poweredDt, playerContacts(run.player, input, world))
   world = syncPlatforms(run)
@@ -339,12 +350,13 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   collectPickups(run, dt)
   stepTriggers(run, 0)
   const p = run.player, door = goalDoor(run.level.goal)
+  const exitObstacles = run.forceFields.length ? [...run.platforms, ...forceFieldPlatforms(run.forceFields)] : run.platforms
   if (!p.inverted && run.goalLit && run.goalElapsed >= GOAL_OPEN_SECONDS && p.grounded && !p.hang && !p.mantle && !p.climbing
     && Math.abs(p.y - run.level.goal.y) < 2 && p.x + TUNING.width / 2 > door.x + 4 && p.x - TUNING.width / 2 < door.x + door.w - 4
-    && !run.platforms.some(b => bodyOverlap(p, b))) {
+    && !exitObstacles.some(b => bodyOverlap(p, b))) {
     // This is a doorway in the back wall. Reaching it permits entry even when
     // a loose prop blocks a sideways step toward its center.
-    const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], run.platforms)
+    const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
     run.medal = medalFor(run.elapsed, run.level)
     p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null

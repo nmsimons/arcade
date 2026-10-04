@@ -1,3 +1,4 @@
+import { drawForceField } from './forceFieldRender.ts'
 import { drawGravityPlate, drawGravityRegion } from './gravityRender.ts'
 import { addItem, itemOutline } from './editor.ts'
 import type { Selection, Tool } from './editor.ts'
@@ -15,6 +16,7 @@ import { drawWallTimer } from './wallTimer.ts'
 import { drawWallTexts } from './wallText.ts'
 import { drawLightFixtures } from './lightFixture.ts'
 import { drawWallLight } from './wallLight.ts'
+import { editorRobotPose } from './editorGeometry.ts'
 
 export type PlacementPreview = { level: JumpLevel; selection: Selection }
 
@@ -40,7 +42,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'prop': drawProp(ctx, { ...level.props![i], vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true }); break
     case 'robot': {
       const definition = level.robots![i]
-      drawRobot(ctx, { definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false }, 0)
+      drawRobot(ctx, { definition, ...editorRobotPose(level, definition), vx: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false }, 0)
       break
     }
     case 'mechanism': {
@@ -56,6 +58,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'rope': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [level.climbables.ropes[i]], ladders: [] }); break
     case 'ladder': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [], ladders: [level.climbables.ladders[i]] }); break
     case 'light': drawLightFixtures(ctx, [{ ...level.lighting!.lights[i], fade: 1 }]); break
+    case 'force-field': drawForceField(ctx, level.forceFields![i], true); break
     case 'gravity-plate': drawGravityRegion(ctx, level.gravityPlates![i], false, true); drawGravityPlate(ctx, level.gravityPlates![i], false); break
     case 'wall-light': drawWallLight(ctx, level.wallLights![i], false); break
     case 'timer': drawWallTimer(ctx, level.timers![i], 0); break

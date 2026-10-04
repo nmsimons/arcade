@@ -8,6 +8,7 @@ import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { playerContactBody, translatePlayer } from './playerContacts.ts'
+import { forceFieldPlatforms } from './forceField.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { flatBoxSupport } from './boxSupport.ts'
 import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysics.ts'
@@ -198,7 +199,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     // Contact corrections change props during this solve. Sweep against their
     // current hulls, so separating one contact cannot bury the player in the
     // next prop or bot. The source receives any blocked travel below.
-    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height, p.inverted ? -1 : 1, playerTurnAngle(p))
+    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...forceFieldPlatforms(run.forceFields), ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height, p.inverted ? -1 : 1, playerTurnAngle(p))
     translatePlayer(p, safe.x - p.x, safe.y - p.y)
   }
   for (const [b, body] of world.bodies) {
@@ -284,7 +285,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
           const prop = [...world.bodies].find(([, candidate]) => candidate === body)![0]
           const movedProp = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2, angle: body.angle }
           const footing = prop.kind === 'box' ? boxShape(movedProp) : ballShape(movedProp)
-          moveRobot([...barriers, ...props], robot, x, props, p, footing)
+          moveRobot([...barriers, ...props], robot, x, props, p, footing, forceFieldPlatforms(run.forceFields))
           Body.translate(playerHull, { x: p.x - oldX, y: p.y - oldY })
         })
         if (moved) {
@@ -421,7 +422,7 @@ export function planMechanismMotion(run: Run, index: number, next: Platform, pas
     // obstacles, then check the actual mechanism contact below. A wall can
     // leave the rider behind; a ceiling/platform squeeze must still reject.
     return moveBody([p.x, p.y], [position.x, position.y],
-      [...run.terrain, ...shapes.filter((_, i) => i !== index), ...propShapes()], height, p.inverted ? -1 : 1, playerTurnAngle(p))
+      [...run.terrain, ...shapes.filter((_, i) => i !== index), ...forceFieldPlatforms(run.forceFields), ...propShapes()], height, p.inverted ? -1 : 1, playerTurnAngle(p))
   }
   const vertices = bodyPolygon(p.x, p.y, height, p.inverted ? -1 : 1, playerTurnAngle(p)).map(([x, y]) => ({ x, y }))
   const playerHull = Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
@@ -466,7 +467,7 @@ export function planMechanismMotion(run: Run, index: number, next: Platform, pas
     if (Query.collides(body, obstacles).some(hit => hit.depth > .002)) return null
   }
   if (Query.collides(playerHull, [...fixed, ...bodies.values()]).some(hit => hit.depth > .002)) return null
-  const position = playerPosition(), barriers = [...run.terrain, ...shapes, ...propShapes()]
+  const position = playerPosition(), barriers = [...run.terrain, ...shapes, ...forceFieldPlatforms(run.forceFields), ...propShapes()]
   const safe = moveBody([p.x, p.y], [position.x, position.y], barriers, height, p.inverted ? -1 : 1)
   if (Math.hypot(safe.x - position.x, safe.y - position.y) > .01) return null
   return { player: position, props: movable.map(([prop, body]) => ({ prop, x: body.position.x, y: body.position.y + prop.size / 2 })) }

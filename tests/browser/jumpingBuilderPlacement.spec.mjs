@@ -3,18 +3,21 @@ import { installTestFolder, useLevelFixtures, readTestLevel } from './helpers/ju
 import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { itemBounds } from '../../src/games/jumping/editor.ts'
+import { nearestBoundary } from '../../src/games/jumping/geometry.ts'
 
 const board = page => page.getByRole('application', { name: 'Level canvas' })
 const ghost = page => page.locator('.builder-placement-preview').evaluate(canvas => canvas.placement ?? null)
-async function open(page) {
-  const level = blankTrial()
+async function open(page, level = blankTrial()) {
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'preview.json': level })
   await page.addInitScript(() => {
     window.testPad = { index: 0, id: 'Placement controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0],
       buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
     Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.testPad] })
-    const proto = CanvasRenderingContext2D.prototype, fill = proto.fillRect, stroke = proto.strokeRect, clear = proto.clearRect
+    const proto = CanvasRenderingContext2D.prototype, fill = proto.fillRect, stroke = proto.strokeRect, clear = proto.clearRect, arc = proto.arc
     proto.fillRect = function (...args) {
+      if (this.fillStyle === '#f1f1ed' && args[0] === 0 && args[1] === 0) {
+        this.canvas.camera = this.getTransform(); this.canvas.robotPose = null
+      }
       if (this.canvas.getAttribute('aria-label') === 'Level canvas') {
         if (this.fillStyle === '#eeeee6' && args[0] === 0 && args[1] === 0) this.canvas.placement = null
         if (this.fillStyle === '#f1f1ed' && args[0] === 0 && args[1] === 0) this.canvas.camera = this.getTransform()
@@ -22,8 +25,23 @@ async function open(page) {
       return fill.apply(this, args)
     }
     proto.clearRect = function (...args) {
-      if (this.canvas.classList.contains('builder-placement-preview')) this.canvas.placement = null
+      if (this.canvas.classList.contains('builder-placement-preview')) { this.canvas.placement = null; this.canvas.robotPose = null }
       return clear.apply(this, args)
+    }
+    proto.arc = function (...args) {
+      const camera = this.canvas.camera ?? document.querySelector('canvas[aria-label="Level canvas"]')?.camera
+      if (args[2] === 9 && this.fillStyle === '#68736e' && camera) {
+        const transform = camera.inverse().multiply(this.getTransform())
+        const point = transform.transformPoint(new DOMPoint(args[0], args[1]))
+        if (args[0] === -17) this.canvas.robotWheels = []
+        this.canvas.robotWheels.push({ x: point.x, y: point.y })
+        if (args[0] === 17) {
+          const [a, b] = this.canvas.robotWheels, facing = Math.sign(transform.a * transform.d - transform.b * transform.c)
+          this.canvas.robotPose = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 + 9,
+            angle: Math.atan2(transform.b * facing, transform.a * facing), wheels: this.canvas.robotWheels }
+        }
+      }
+      return arc.apply(this, args)
     }
     proto.strokeRect = function (x, y, w, h) {
       const transform = this.getTransform()
@@ -59,6 +77,70 @@ async function outside(page) {
   const rect = await page.getByRole('button', { name: 'Help', exact: true }).boundingBox()
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2); await page.clock.runFor(64)
 }
+
+function slopeLevel(slope) {
+  const rise = Math.abs(slope) * 200
+  return { ...blankTrial(), name: 'Bot placement', width: 1200, height: 1200, floor: 1200,
+    spawn: { x: 1100, y: 1200 }, goal: { x: 1040, y: 1200 },
+    platforms: [{ x: 300, y: 700 - rise / 2, w: 200, h: rise + 20,
+      polygon: slope > 0 ? [[0, 0], [200, rise], [200, rise + 20], [0, 20]]
+        : [[0, rise], [200, 0], [200, 20], [0, rise + 20]] }] }
+}
+
+test('Place on surface seats a freely placed shovebot on a steep ramp', async ({ page }) => {
+  await open(page, slopeLevel(3))
+  await page.getByRole('checkbox', { name: 'Snap', exact: true }).uncheck()
+  await page.getByRole('button', { name: 'Shovebot', exact: true }).click(); await move(page, 400, 690)
+  const floating = await page.locator('.builder-placement-preview').evaluate(c => c.robotPose)
+  expect(floating.y).toBeCloseTo(690); expect(floating.angle).toBeCloseTo(0)
+  await page.mouse.down(); await page.mouse.up(); await page.clock.runFor(64)
+  const button = page.getByRole('button', { name: 'Place on surface', exact: true })
+  await expect(button).toBeEnabled(); await button.click(); await page.clock.runFor(64)
+  const placed = await board(page).evaluate(c => c.robotPose)
+  expect(placed.angle).toBeCloseTo(Math.atan(3), 3)
+  for (const wheel of placed.wheels) expect(nearestBoundary(slopeLevel(3).platforms[0], wheel.x, wheel.y).distance).toBeCloseTo(9, 2)
+  await expect(button).toBeDisabled()
+})
+
+for (const slope of [-3, -.5, .5, 3]) test(`shovebot slope placement previews, drags, saves and plays consistently (${slope})`, async ({ page }, info) => {
+  const level = slopeLevel(slope)
+  await open(page, level)
+  const pose = canvas => canvas.evaluate(c => c.robotPose)
+  const supported = state => {
+    expect(state.angle).toBeCloseTo(Math.atan(slope), 3)
+    for (const wheel of state.wheels) expect(nearestBoundary(level.platforms[0], wheel.x, wheel.y).distance).toBeCloseTo(9, 2)
+  }
+  await page.getByRole('button', { name: 'Shovebot', exact: true }).click()
+  await move(page, 400, 690)
+  const preview = await pose(page.locator('.builder-placement-preview'))
+  supported(preview)
+  await page.mouse.down(); await page.mouse.up(); await page.clock.runFor(64)
+  const placed = await pose(board(page)); supported(placed)
+  for (const key of ['x', 'y', 'angle']) expect(placed[key]).toBeCloseTo(preview[key], 5)
+  await page.screenshot({ path: info.outputPath('placed-shovebot-on-slope.png') })
+  // Grab the actual tilted chassis, including the part outside its old upright bounds.
+  const centerX = placed.x + 22 * Math.sin(placed.angle), centerY = placed.y - 9 - 22 * Math.cos(placed.angle)
+  const from = await worldPoint(page, centerX, centerY), to = await worldPoint(page, centerX + 20, centerY + slope * 20 - 5)
+  await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(to.x, to.y, { steps: 8 }); await page.mouse.up()
+  await page.clock.runFor(64)
+  const dragged = await pose(board(page)); supported(dragged)
+  expect(dragged.x).toBeGreaterThan(placed.x + 15)
+  await page.getByRole('button', { name: 'Save and Test', exact: true }).click(); await page.clock.runFor(64)
+  const playing = page.getByRole('img', { name: 'Bot placement: reach the exit' })
+  await expect(playing).toBeVisible()
+  const initial = await pose(playing); supported(initial)
+  for (const key of ['x', 'y', 'angle']) expect(initial[key]).toBeCloseTo(dragged[key], 5)
+  const saved = await readTestLevel(page, 'preview.json')
+  expect(saved.robots[0].y).toBeCloseTo(700 + slope * (saved.robots[0].x - 400), 5)
+  await page.keyboard.down('w'); await page.clock.runFor(64); await page.keyboard.up('w'); await page.clock.runFor(436)
+  const moving = await pose(playing); supported(moving)
+  expect(moving.x).toBeLessThan(initial.x - 40)
+  await page.getByRole('button', { name: 'Return to builder' }).click(); await page.clock.runFor(64)
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  await page.getByRole('button', { name: 'Open preview.json', exact: true }).click(); await page.clock.runFor(64)
+  const reloaded = await pose(board(page)); supported(reloaded)
+  for (const key of ['x', 'y', 'angle']) expect(reloaded[key]).toBeCloseTo(dragged[key], 5)
+})
 
 test('every palette item follows mouse hover in both directions without editing or saving it', async ({ page }, info) => {
   const initial = await open(page)

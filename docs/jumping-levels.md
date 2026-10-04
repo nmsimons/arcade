@@ -135,7 +135,7 @@ folder connections.
 
 ### Using the editor
 
-Click an object to select it, drag it to move it, or drag empty space to pan.
+Click an object to select it, drag it to move it, or drag empty space to select a group.
 Selecting a placement tool shows its default-size object under the mouse or
 controller cursor while it hovers over the canvas. Every placement tool follows
 the cursor in both directions; objects never jump to a distant surface below.
@@ -188,6 +188,30 @@ are preserved. Attached rope anchors follow the same transform. Other objects st
 in place; legacy attached ladders become independent when their terrain rotates.
 Each action can be undone or redone. Slopes become ordinary editable polygons when
 transformed; no new level-file fields or gameplay rules are involved.
+
+The Object inspector's **Draw order** controls overlapping terrain. **Backward**
+and **Forward** move one layer; **Send to back** and **Bring to front** move to
+either end. The position counts from back to front. Pointer selection and tied
+node/edge picks follow the visible order. Changes support Undo and Redo and are
+saved with the level. New and duplicated terrain starts at the front. Collision,
+terrain indices, and attached ropes and ladders remain unchanged.
+
+**Shift-click** adds or removes objects from the selection. Dragging from empty
+canvas selects objects intersecting a rectangle; **Shift-drag** adds to the
+existing selection. Space-drag and middle-button drag pan. Drag any selected
+object or use arrow keys to move the group by one shared offset. Its spacing is
+preserved when a room edge stops movement. Selected children of terrain or
+mounted plates move once with their selected hosts.
+
+**Copy / Paste** (Ctrl/⌘ + C / V) keeps a snapshot within Level studio, available
+when opening another level. **Duplicate** (Ctrl/⌘ + D) also accepts groups. Pasted
+groups preserve their layout and terrain order, remap copied rope/ladder anchors
+and plate mounts, and receive independent device IDs with their internal wiring
+intact. Children copied without their hosts become independent. External switch
+connections are retained only within the source level. Start and goal remain
+unique and are excluded from copies and deletion. Rotate and flip are enabled
+when all selected objects are terrain, acting around the entire group's center.
+Every group move, paste, deletion, or transform is one undoable edit.
 
 **Terrain → Steps narrow / Steps wide** stamps five one-grid-square
 rises with treads one or two squares wide. Both have a stepped underside formed
@@ -636,6 +660,13 @@ visual choices only: collision, friction and climbing are identical. Choose a
 terrain piece's material in the inspector, or the floor material in the Inspector’s **Level** tab.
 Materials are saved in the JSON and appear in the game, editor and thumbnails.
 
+Optional integer `zIndex` (−10000 to 10000, default 0) controls terrain's draw
+order. Higher values draw in front; equal values retain their order in
+`platforms`. This affects terrain artwork only in play, the editor, and thumbnails.
+Enclosing floor and walls keep their existing position above authored terrain.
+The editor assigns compact depths when reordering, without rearranging the
+`platforms` array or changing physics or attachment indices.
+
 Ladders contain `x`, `top`, `bottom`, `platform: -1`, and `side: 1` for independent
 placement. Legacy attached ladders retain a supporting terrain index and side.
 Ropes contain anchor `x, y`, `length`, and `segments`. Optional
@@ -678,6 +709,12 @@ Medal `times` are increasing positive seconds: `gold < silver < bronze`.
 The builder's **Objects** tools place balls, boxes, and shovebots at the cursor,
 with their feet at its height. Snap catches nearby surfaces; **Place on surface**
 moves an existing object to a surface farther below.
+Shovebots snap with both round wheels on the slope, rather than resting an
+upright rectangle on its highest point. Their placement preview, selection
+outline, and static editor drawing follow the same tilted pose as gameplay.
+The saved `y` remains the surface height at the bot's center; wheel clearance
+and tilt are calculated from the terrain. Snap off and Alt retain floating
+placement at the cursor. Cliff edges and obstructed chassis still reject a snap.
 Select a ball or box to change its size, or a shovebot to set its patrol limits.
 Drag either square handle on the shovebot's patrol line to move that endpoint;
 the inspector follows while dragging. Snap aligns endpoints to the grid, and
@@ -938,6 +975,40 @@ pause and disappears when switched off or suppressed by EMP. The plate's light
 strip indicates power. Undo, duplicate, templates, thumbnails,
 save and reopen preserve geometry, power and wiring.
 
+### Force fields
+
+Both file versions support up to 40 `forceFields`. A field is a thin rectangle
+that stops the player from either side. Boxes, balls, shovebots, ropes, and light
+pass through, including its emitters. Horizontal fields support walking and
+jumping; their underside supports the player under reverse gravity. Beams have
+no ledge to grab.
+
+```json
+"forceFields": [
+  { "id": "player-barrier", "x": 500, "y": 100, "w": 12, "h": 500,
+    "orientation": "vertical", "power": "always" },
+  { "id": "player-bridge", "x": 700, "y": 400, "w": 300, "h": 12,
+    "orientation": "horizontal", "power": "switched" }
+]
+```
+
+`orientation` is required. Thickness is exactly 12 units (`w` for vertical,
+`h` for horizontal); length is at least 40 units and can span the room. The
+rectangle must fit inside the level. `power` defaults to Always on; Switched
+uses the standard Logic, Reversed, Relay, Switched by and Activates controls.
+IDs must be unique across all devices. Optional `name` follows the normal rules.
+EMP disables either power mode. If the player overlaps an enabled beam, it waits
+until their current collision body clears the rectangle before becoming solid.
+
+Choose **Vertical force field** or **Horizontal force field** in Level studio.
+Click for a 180-unit beam, or drag along its axis to set its length. The two end
+handles resize it; the inspector edits position, length and power. Fields support
+multi-select, copy/paste, duplicate, undo, templates, save/reopen and thumbnails.
+A bright blue beam with a soft glow, slow ripples and sparse fading sparks shows
+an active field. Disabled beams
+retain their end emitters; the studio also shows a dashed guide. The effect pauses
+with the game and remains readable at night without casting light or shadows.
+
 ## Lighting (version 2)
 
 The back wall receives ambient illumination. Wall text and collectibles receive
@@ -1012,8 +1083,8 @@ platforms. Editing either this list or a switch’s **Activates** list updates t
 same connections. Logic and Reversed combine the light's connected inputs. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light is valid and stays off during play unless Reversed is enabled. Version 2 allows up to
-113 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 16 gravity plates, and one exit);
-version 1 allows 97 (without spotlights).
+153 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 16 gravity plates,
+40 force fields, and one exit); version 1 allows 137 (without spotlights).
 
 Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
 elevators, and moving platforms cannot carry them. An older file's `mount` field

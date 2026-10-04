@@ -23,7 +23,7 @@ import type { GravityField } from './gravity.ts'
 import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn } from './ropeGravity.ts'
 export { TUNING } from './movementTuning.ts'
 
-export interface Platform extends NamedObject { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; material?: TerrainMaterial }
+export interface Platform extends NamedObject { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; material?: TerrainMaterial; zIndex?: number }
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
@@ -421,7 +421,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const surfaceExit = towardLedge && !input.jump && !input.detach ? findRopeStepUp(p, world) : null
   if (climbables.ropes.length) {
     p.ropes ??= climbables.ropes.map(createRope)
-    for (const [i, rope] of p.ropes.entries()) stepRope(rope, dt, platforms,
+    for (const [i, rope] of p.ropes.entries()) stepRope(rope, dt, world.ropePlatforms ?? platforms,
       p.climbing?.kind === 'rope' && p.climbing.index === i ? { distance: p.climbing.distance, move: p.climbing.wall ? 0 : p.climbing.swing,
         wall: p.climbing.wall, bracing: ease(p.climbing.time / .25),
         body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing },

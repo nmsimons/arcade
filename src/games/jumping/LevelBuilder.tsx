@@ -1,8 +1,11 @@
 import { nightModeEnabled } from './ambientLight'
 import { polygonPoints } from './geometry'
+import { terrainDrawOrder } from './terrainOrder'
+import { copyableSelection, copySelections, deleteSelections, moveSelections, pasteSelections, sameSelection, selectionBounds, selectionsInRect, transformSelections, validSelections } from './editorSelection'
+import type { EditorClipboard } from './editorSelection'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, deleteItem, duplicateItem, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay } from './editor'
+import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, parseLevel, prepareLevelRopes } from './level'
 import type { JumpLevel } from './level'
@@ -19,7 +22,7 @@ import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
 import { BuilderSelect } from './BuilderSelect'
-import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight, transformTerrain } from './editor'
+import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight } from './editor'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
 import { ObjectNameField } from './ObjectNameField'
@@ -68,12 +71,14 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
   const bounds = itemBounds(level, selection)
   if (!bounds) return []
   const mechanism = selection.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
+  const field = selection.kind === 'force-field' ? level.forceFields?.[selection.index] : null
   const trigger = selection.kind === 'trigger' ? level.triggers?.[selection.index] : null
   if (selection.kind === 'rope') {
     const point = itemHandle(level, selection)
     return point ? [{ ...point, y: point.y + 8 / zoom, corner: 'bottom' }] : []
   }
   const corners: ResizeHandle[] = selection.kind === 'ladder' ? ['top', 'bottom']
+    : field ? field.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
     : mechanism ? mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? ['top', 'bottom'] : ['left', 'right']
     : trigger?.mode === 'coins' && trigger.display === 'digital' ? []
     : trigger ? trigger.mode === 'coins' && trigger.orientation === 'vertical' ? ['top', 'bottom'] : ['left', 'right']
@@ -84,7 +89,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
   return selection.kind === 'text' ? handles.map(p => ({ ...p, ...wallTextPoint(level.texts![selection.index], p.x - bounds.x, p.y - bounds.y) })) : handles
 }
-type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'draw' | 'pan' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean }
+type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
   { id: 'node', group: 'Editing', label: 'Node', help: 'Drag an existing node to reshape terrain, or click an edge to add one. N activates this tool.' },
@@ -100,6 +105,8 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
+  { id: 'force-field', group: 'Mechanisms', label: 'Vertical force field', help: 'Click or drag vertically to place a blue barrier that stops only the player. Objects, shovebots and ropes pass through. End handles change its length. Choose Always on or Switched; EMP disables it.' },
+  { id: 'horizontal-force-field', group: 'Mechanisms', label: 'Horizontal force field', help: 'Click or drag horizontally to place a blue barrier that stops only the player. The player can stand on it; objects, shovebots and ropes pass through. End handles change its length. Choose Always on or Switched; EMP disables it.' },
   { id: 'gravity-plate', group: 'Mechanisms', label: 'Gravity plate', help: 'Click to place a field above a floor plate or below a ceiling plate, or drag its rectangle. Flip vertically changes the emitter edge without changing Gravity: −1 reverses gravity, 0 removes it, 1 is normal. Choose Always on or connect switches to power it. Partially covered bodies blend gravity by area; overlapping fields average their settings. EMP disables the field.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click to place a pressure plate at the cursor. Snap catches nearby surfaces. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
@@ -146,7 +153,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [saveFailure, setSaveFailure] = useState<{ fileName: string; reason: string; returnFocus: HTMLElement | null } | null>(null)
   const savePreparation = useRef<AbortController | null>(null)
   useEffect(() => () => savePreparation.current?.abort(), [])
-  const [tool, setTool] = useState<Tool>('select'), [selection, setSelection] = useState<Selection | null>(null)
+  const [tool, setTool] = useState<Tool>('select'), [selectedItems, setSelectedItems] = useState<Selection[]>([])
+  const selection = selectedItems.length === 1 ? selectedItems[0] : null
+  const allTerrain = selectedItems.length > 0 && selectedItems.every(s => s.kind === 'platform')
+  const [clipboard, setClipboard] = useState<EditorClipboard | null>(null), pasteCount = useRef(0)
+  const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
   const [selectedNode, setSelectedNode] = useState<number | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -188,9 +199,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const latestPreview = useRef<JumpLevel | null>(null)
   const framed = useRef(false)
   const bounds = useMemo(() => selection ? itemBounds(level, selection) : null, [level, selection])
-  const outline = useMemo(() => selection ? itemOutline(level, selection) : null, [level, selection])
+  const outline = useMemo(() => selectedItems.length > 1 ? selectionBounds(level, selectedItems) : selection ? itemOutline(level, selection) : null, [level, selection, selectedItems])
   const support = useMemo(() => selection ? surfacePlacement(level, selection) : null, [level, selection])
   const chosen = selection?.kind === 'platform' ? level.platforms[selection.index] : null
+  const terrainPosition = chosen && selection ? terrainDrawOrder(level.platforms).indexOf(selection.index) : -1
   const resizeHandles = useMemo(() => selectionHandles(level, selection, view.zoom), [level, selection, view.zoom])
   const resizeHandleAt = (p: Point) => resizeHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
   const hoverHandle = pointer && resizeHandleAt(pointer)
@@ -211,14 +223,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
   const goal = selection?.kind === 'goal' ? level.goal : null
   const gravityPlate = selection?.kind === 'gravity-plate' ? level.gravityPlates?.[selection.index] : null
+  const forceField = selection?.kind === 'force-field' ? level.forceFields?.[selection.index] : null
   const facingPlate = gravityPlate ?? (trigger?.mode !== 'coins' ? trigger : null)
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
-  const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? gravityPlate
-  const objectPower = switchable ? switchable.power ?? (goal ? 'always' : 'switched') : null
+  const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? gravityPlate ?? forceField
+  const objectPower = switchable ? switchable.power ?? (goal || forceField ? 'always' : 'switched') : null
   const targets = switchedItems(level)
   const switchedObject = targets.find(item => item.kind === selection?.kind && item.index === selection.index)
-  const objectSwitchLogic = (goal ?? mechanism ?? light ?? wallLight ?? gravityPlate)?.switchLogic ?? 'or'
-  const objectSwitchReversed = !!(goal ?? mechanism ?? light ?? wallLight ?? gravityPlate)?.switchReversed
+  const objectSwitchLogic = (goal ?? mechanism ?? light ?? wallLight ?? gravityPlate ?? forceField)?.switchLogic ?? 'or'
+  const objectSwitchReversed = !!(goal ?? mechanism ?? light ?? wallLight ?? gravityPlate ?? forceField)?.switchReversed
   const sources = switchSources(level)
   const selectedSource = sources.find(item => item.kind === selection?.kind && item.index === selection.index)
   const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
@@ -247,7 +260,28 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function chooseSelection(next: Selection | null) {
     if (next && inspectorTab !== 'object') chooseInspectorTab('object')
     if (next?.kind !== selection?.kind || next?.index !== selection?.index) inspectorRef.current?.scrollTo({ top: 0 })
-    setSelection(next); setSelectedNode(null); setPreviewLight(null)
+    setSelectedItems(next ? [next] : []); setSelectedNode(null); setPreviewLight(null)
+  }
+  function chooseSelections(items: Selection[]) {
+    const next = validSelections(level, items)
+    if (next.length) chooseInspectorTab('object')
+    setSelectedItems(next); setSelectedNode(null); setPreviewLight(null)
+  }
+  function copy() {
+    const next = copySelections(history.present, selectedItems)
+    if (!next.selections.length) return
+    setClipboard(next); pasteCount.current = 0
+    setMessage(`Copied ${next.selections.length} ${next.selections.length === 1 ? 'object' : 'objects'}.`)
+  }
+  function paste() {
+    if (!clipboard) return
+    try {
+      const offset = (pasteCount.current + 1) * 40
+      const result = pasteSelections(history.present, clipboard, offset, offset)
+      if (!result.selections.length) return
+      commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); chooseInspectorTab('object'); setTool('select')
+      pasteCount.current++; canvasRef.current?.focus()
+    } catch (error) { setMessage((error as Error).message) }
   }
   function commit(next: JumpLevel) {
     next = prepareLevelRopes(next, true)
@@ -257,12 +291,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function undo() {
     if (history.past.length) keepFloorInView(history.past.at(-1)!)
     setHistory(h => h.past.length ? { past: h.past.slice(0, -1), present: h.past.at(-1)!, future: [h.present, ...h.future] } : h)
-    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null)
+    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
   }
   function redo() {
     if (history.future.length) keepFloorInView(history.future[0])
     setHistory(h => h.future.length ? { past: [...h.past, h.present], present: h.future[0], future: h.future.slice(1) } : h)
-    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null)
+    chooseSelection(null); setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
   }
   function keepFloorInView(next: JumpLevel, previous = history.present) {
     const dy = levelHeight(next) - levelHeight(previous)
@@ -297,7 +331,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName, folderId: target.folderId })
     setHistory({ past: [], present: next, future: [] })
     setSaved({ level: editSignature(next), fileName: name })
-    setPreview(null); latestPreview.current = null; setDrag(null)
+    setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
     chooseSelection(null); chooseInspectorTab('level'); setTool('select'); setView(homeView(next, size.height)); setMessage('')
     onFileChange(file?.fileName, source)
   }
@@ -312,7 +346,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     requestAnimationFrame(() => canvasRef.current?.focus())
   }
   function remove() {
-    if (selection) { commit(deleteItem(history.present, selection)); chooseSelection(null) }
+    if (selectedItems.length) { commit(deleteSelections(history.present, selectedItems)); chooseSelection(null) }
   }
   function removeNode() {
     if (selection?.kind !== 'platform' || selectedNode === null) return
@@ -322,9 +356,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     } catch (error) { setMessage((error as Error).message) }
   }
   function transformSelectedTerrain(transform: TerrainTransform) {
-    if (selection?.kind !== 'platform') return
+    if (!allTerrain) return
     try {
-      commit(transformTerrain(history.present, selection.index, transform)); setSelectedNode(null)
+      commit(transformSelections(history.present, selectedItems, transform)); setSelectedNode(null)
     } catch (error) { setMessage((error as Error).message) }
   }
   function add(tool: Tool, start: Point, end: Point, free = false) {
@@ -390,6 +424,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     canvas.width = Math.round(size.width * ratio); canvas.height = Math.round(size.height * ratio)
     lightingRenderer.state.reset()
     const draw = (dt: number) => {
+      if (previewRun) previewRun.activeTime += dt
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.fillStyle = '#eeeee6'; ctx.fillRect(0, 0, size.width, size.height)
       if (level.lighting) {
         if (lightingGeometry.groups) lightingRenderer.prepare(level, lightingGeometry.groups)
@@ -403,7 +438,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (!level.lighting) {
         drawLevelBackdrop(ctx, level, { x: view.x, y: view.y, w: size.width / view.zoom, h: size.height / view.zoom }, view.zoom)
         if (previewRun) drawPuzzleWorld(ctx, previewRun, true)
-        else { drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, previewPlayer, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, previewPlayer); ctx.globalAlpha = 1 }
+        else { drawTerrain(ctx, levelTerrain(level), level.platforms); drawClimbables(ctx, previewPlayer, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, previewPlayer); ctx.globalAlpha = 1 }
       }
       ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
       if (mechanism) {
@@ -434,6 +469,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (support && Math.abs(support.delta) < .1) {
         ctx.strokeStyle = '#60826a'; ctx.lineWidth = 3 / view.zoom
         ctx.beginPath(); ctx.moveTo(support.left, support.y); ctx.lineTo(support.right, support.y); ctx.stroke()
+      }
+      if (selectedItems.length > 1) {
+        ctx.strokeStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
+        for (const selected of selectedItems) {
+          const b = selectionBounds(level, [selected])
+          if (b) ctx.strokeRect(b.x - 4 / view.zoom, b.y - 4 / view.zoom, b.w + 8 / view.zoom, b.h + 8 / view.zoom)
+        }
+        ctx.setLineDash([])
       }
       if (outline) {
         ctx.strokeStyle = '#c65231'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 4 / view.zoom])
@@ -469,11 +512,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       ctx.restore()
     }
     draw(0)
-    if (!lightingPreview || helpOpen || libraryOpen || !level.lighting?.lights.some(l => l.flicker && (l.power === 'always' || l.id === previewLight))) return
+    const flickering = lightingPreview && level.lighting?.lights.some(l => l.flicker && (l.power === 'always' || l.id === previewLight))
+    const animatingFields = previewRun?.forceFields.some(f => f.active && f.definition.x < view.x + size.width / view.zoom
+      && f.definition.x + f.definition.w > view.x && f.definition.y < view.y + size.height / view.zoom && f.definition.y + f.definition.h > view.y)
+    if (helpOpen || libraryOpen || !flickering && !animatingFields) return
     let frame = 0, previous = 0
     const tick = (now: number) => {
       if (document.hidden) previous = 0
-      else {
+      else if (!previous || flickering || now - previous >= 1000 / 30) {
         draw(previous ? Math.min(.05, (now - previous) / 1000) : 0)
         previous = now
       }
@@ -481,7 +527,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [active, level, previewRun, previewPlayer, view, size, outline, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
   useEffect(() => {
     if (!active || size.width <= 0 || size.height <= 0) return
     // Cursor movement must not restart lighting or redraw the authored world.
@@ -491,10 +537,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (canvas.height !== height) canvas.height = height
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, canvas.width, canvas.height)
-    if (!placement) return
     ctx.scale(ratio * view.zoom, ratio * view.zoom); ctx.translate(-view.x, -view.y)
-    drawPlacementPreview(ctx, placement, view.zoom)
-  }, [active, size, view, placement, wallTextFontReady])
+    if (marquee) {
+      ctx.fillStyle = '#c6523120'; ctx.fillRect(marquee.x, marquee.y, marquee.w, marquee.h)
+      ctx.strokeStyle = '#c65231'; ctx.lineWidth = 1.5 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom])
+      ctx.strokeRect(marquee.x, marquee.y, marquee.w, marquee.h)
+    }
+    if (placement) drawPlacementPreview(ctx, placement, view.zoom)
+  }, [active, size, view, placement, marquee, wallTextFontReady])
 
   function position(event: { clientX: number; clientY: number }) {
     const rect = canvasRef.current!.getBoundingClientRect()
@@ -533,6 +583,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       const grid = toolGridSize(tool)
       setDrag({ mode: 'draw', start: event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, screen, base, view, selection: null }); return
     }
+    if (event.shiftKey) {
+      const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
+      if (hit) {
+        chooseSelections(selectedItems.some(s => sameSelection(s, hit)) ? selectedItems.filter(s => !sameSelection(s, hit)) : [...selectedItems, hit])
+        return
+      }
+      setMarquee({ ...p, w: 0, h: 0 })
+      setDrag({ mode: 'marquee', start: p, screen, base, view, selection: null, selections: selectedItems, additive: true }); return
+    }
     const aimHandle = aimHandles.find(h => Math.hypot(p.x - h.x, p.y - h.y) < 10 / view.zoom)
     if (selection?.kind === 'light' && aimHandle) { chooseInspectorTab('object'); setDrag({ mode: aimHandle.kind, start: p, screen, base, view, selection }); return }
     if (selection && travelHandleAt(p)) {
@@ -555,7 +614,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (point >= 0) { chooseInspectorTab('object'); setSelectedNode(point); setDrag({ mode: 'point', start: p, screen, base, view, selection, point }); return }
     }
     const hit = hitItem(level, p.x, p.y, 9 / view.zoom)
-    chooseSelection(hit); setDrag({ mode: hit ? 'move' : 'pan', start: p, screen, base, view, selection: hit })
+    if (!hit) {
+      chooseSelection(null); setMarquee({ ...p, w: 0, h: 0 })
+      setDrag({ mode: 'marquee', start: p, screen, base, view, selection: null }); return
+    }
+    const items = selectedItems.length > 1 && selectedItems.some(s => sameSelection(s, hit)) ? selectedItems : [hit]
+    chooseSelections(items); setDrag({ mode: 'move', start: p, screen, base, view, selection: hit, selections: items })
   }
   function pointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
     const d = drag
@@ -563,6 +627,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (d.mode === 'pan') { setView({ ...d.view, x: d.view.x - (event.clientX - d.screen.x) / d.view.zoom, y: d.view.y - (event.clientY - d.screen.y) / d.view.zoom }); return }
     const p = position(event), dx = p.x - d.start.x, dy = p.y - d.start.y
     setPointer(p)
+    if (d.mode === 'marquee') { setMarquee({ x: Math.min(d.start.x, p.x), y: Math.min(d.start.y, p.y), w: Math.abs(p.x - d.start.x), h: Math.abs(p.y - d.start.y) }); return }
     const grid = d.mode === 'draw' ? toolGridSize(tool) : d.selection ? selectionGridSize(d.selection) : LEVEL_GRID_SIZE
     const qx = (v: number) => event.altKey ? v : quantize(v, grid), qy = (v: number) => event.altKey ? v : quantizeY(v, grid)
     let next: JumpLevel | null = null
@@ -576,8 +641,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] }
         : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] } : rawBounds
       if (d.mode === 'move') {
-        next = moveItem(d.base, d.selection, qx(b.x + dx) - b.x, qy(b.y + dy) - b.y)
-        if (snap && !event.altKey) next = placeOnSurface(next, d.selection, 12 / view.zoom)
+        next = moveSelections(d.base, d.selections ?? [d.selection], qx(b.x + dx) - b.x, qy(b.y + dy) - b.y)
+        if (snap && !event.altKey && (d.selections?.length ?? 1) === 1) next = placeOnSurface(next, d.selection, 12 / view.zoom)
       }
       if (d.mode === 'aim' || d.mode === 'spread') {
         const source = d.base.lighting!.lights[d.selection.index]
@@ -618,10 +683,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     if (next) { latestPreview.current = next; setPreview(next) }
   }
   function pointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
-    const d = drag; setDrag(null)
+    const d = drag; setDrag(null); setMarquee(null)
     hover(position(event), event.altKey)
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     if (!d) return
+    if (d.mode === 'marquee') {
+      const p = position(event), rect = { x: Math.min(d.start.x, p.x), y: Math.min(d.start.y, p.y), w: Math.abs(p.x - d.start.x), h: Math.abs(p.y - d.start.y) }
+      if (Math.hypot(rect.w, rect.h) * view.zoom >= 3) chooseSelections([...(d.additive ? d.selections ?? [] : []), ...selectionsInRect(d.base, rect)])
+      return
+    }
     if (d.mode === 'draw') {
       const p = position(event), grid = toolGridSize(tool)
       add(tool, d.start, event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, event.altKey)
@@ -659,9 +729,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }
 
   function duplicate() {
-    if (!selection) return
-    const result = duplicateItem(history.present, selection)
-    if (result) { commit(result.level); chooseSelection(result.selection) }
+    try {
+      const result = pasteSelections(history.present, copySelections(history.present, selectedItems), 40, 0)
+      if (result.selections.length) { commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); chooseInspectorTab('object') }
+    } catch (error) { setMessage((error as Error).message) }
   }
   function fitLevel(next = level) {
     const z = Math.min(size.width / (next.width + 120), size.height / (levelHeight(next) + 120))
@@ -713,9 +784,20 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') { event.preventDefault(); duplicate() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); if (event.shiftKey) redo(); else undo() }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'y') { event.preventDefault(); redo() }
+    else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'c') { event.preventDefault(); copy() }
+    else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'v') { event.preventDefault(); paste() }
+    else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a' && event.target === canvasRef.current) { event.preventDefault(); chooseSelections(allSelections(level)) }
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save() }
-    else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); setDrag(null); setPreview(null); latestPreview.current = null }
+    else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); setDrag(null); setMarquee(null); setPreview(null); latestPreview.current = null }
     else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) }
+    else if (event.target === canvasRef.current && selectedItems.length > 1) {
+      if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove() }
+      else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        event.preventDefault(); const step = event.shiftKey ? 1 : snap ? allTerrain ? LEVEL_GRID_SIZE : ITEM_GRID_SIZE : 5
+        commit(moveSelections(history.present, selectedItems, event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0,
+          event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0))
+      }
+    }
     else if (event.target === canvasRef.current && selection) {
       if (event.key === 'End') { event.preventDefault(); commit(placeOnSurface(history.present, selection)) }
       else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && chosen) removeNode(); else remove() }
@@ -753,13 +835,17 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           ['rotate-right', 'Rotate right', 'Rotate selected terrain 90° clockwise'],
           ['flip-horizontal', 'Flip horizontal', 'Mirror selected terrain left to right'],
           ['flip-vertical', 'Flip vertical', 'Mirror selected terrain top to bottom'],
-        ] as const).map(([kind, label, title]) => <button key={kind} aria-label={label} title={title} disabled={!chosen} onClick={() => transformSelectedTerrain(kind)}><BuilderIcon kind={kind} /></button>)}
+        ] as const).map(([kind, label, title]) => <button key={kind} aria-label={label} title={title} disabled={!allTerrain} onClick={() => transformSelectedTerrain(kind)}><BuilderIcon kind={kind} /></button>)}
       </div>
       <div className="builder-control-group builder-placement-options" role="group" aria-label="Placement options">
         <label className="builder-inline-check" title={`Snap item positions and sizes to ${ITEM_GRID_SIZE} units, terrain geometry to ${LEVEL_GRID_SIZE} units, and catch nearby surfaces. Hold Alt to bypass.`}><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap</label>
         <label className="builder-inline-check" title="Keep the object tool active after placing an object. Pointer and Node stay active until you switch tools."><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} />Keep placing</label>
       </div>
       <div className="builder-control-group" role="group" aria-label="Edit history"><button title="Undo the last edit (Ctrl/⌘ + Z)" disabled={!history.past.length} onClick={undo}>Undo</button><button title="Redo the last undone edit (Ctrl/⌘ + Shift + Z)" disabled={!history.future.length} onClick={redo}>Redo</button></div>
+      <div className="builder-control-group" role="group" aria-label="Clipboard">
+        <button title="Copy selected objects (Ctrl/⌘ + C)" disabled={!selectedItems.some(copyableSelection)} onClick={copy}>Copy</button>
+        <button title="Paste copied objects (Ctrl/⌘ + V)" disabled={!clipboard?.selections.length} onClick={paste}>Paste</button>
+      </div>
       <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" title="Zoom out to see more of the level" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom" title="Current canvas zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" title="Zoom in for more precise editing" onClick={() => zoom(1.25)}>+</button></div>
       <div className="builder-control-group" role="group" aria-label="Canvas view"><label className="builder-inline-check" title="Show authored lighting in this view. This does not change the saved level."><input type="checkbox" checked={lightingPreview} onChange={e => setLightingPreview(e.target.checked)} />Lighting</label><button title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</button><button title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
     </div>
@@ -775,7 +861,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       <div ref={controllerCursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
       <canvas ref={placementCanvasRef} className="builder-placement-preview" aria-hidden="true" />
       <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
-        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
+        onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setMarquee(null); setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
     </div>
@@ -793,19 +879,27 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       </div>
       <div id="builder-inspector-panel-object" role="tabpanel" aria-labelledby="builder-inspector-tab-object" hidden={inspectorTab !== 'object'}>
       <div className="builder-inspector-heading">
-      <BuilderSelect label="Selected object" value={selection ? `${selection.kind}:${selection.index}` : ''}
-        options={[{ value: '', label: 'Nothing selected' }, ...allSelections(level).map(s => ({ value: `${s.kind}:${s.index}`, label: selectionLabel(s, level) }))]}
-        onChange={value => { const [kind, index] = value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform') setTool('select') }} />
+      <BuilderSelect label="Selected object" value={selectedItems.length > 1 ? 'group' : selection ? `${selection.kind}:${selection.index}` : ''}
+        options={[{ value: '', label: 'Nothing selected' }, ...(selectedItems.length > 1 ? [{ value: 'group', label: `${selectedItems.length} objects selected` }] : []), ...allSelections(level).map(s => ({ value: `${s.kind}:${s.index}`, label: selectionLabel(s, level) }))]}
+        onChange={value => { if (value === 'group') return; const [kind, index] = value.split(':'); chooseSelection(kind ? { kind: kind as Selection['kind'], index: Number(index) } : null); if (tool !== 'node' || kind && kind !== 'platform') setTool('select') }} />
       </div>
-      {selection && bounds ? <div className="builder-property-card">
+      {selectedItems.length > 1 ? <div className="builder-property-card">
+        <h3 className="builder-object-heading">{selectedItems.length} objects selected</h3>
+        <p className="builder-hint">Drag any selected object to move the group. Shift-click adds or removes objects. {allTerrain ? 'Rotate and flip transform the terrain group around its center.' : 'Rotate and flip are available when every selected object is terrain.'}</p>
+        <div className="builder-object-actions">
+          <button title="Duplicate selected objects (Ctrl/⌘ + D)" disabled={!selectedItems.some(copyableSelection)} onClick={duplicate}>Duplicate</button>
+          <button className="builder-delete" aria-label="Delete selected objects" disabled={!selectedItems.some(copyableSelection)} onClick={remove}>Delete</button>
+        </div>
+        <ul className="builder-selection-list">{selectedItems.map(s => <li key={`${s.kind}:${s.index}`}>{selectionLabel(s, level)}</li>)}</ul>
+      </div> : selection && bounds ? <div className="builder-property-card">
         <h3 className="builder-object-heading">{selectionLabel(selection, level)}</h3>
         <label>Name<ObjectNameField key={`${selection.kind}:${selection.index}`} value={itemDefinition(level, selection)?.name ?? ''}
           placeholder={defaultObjectLabel(level, selection)} onCommit={value => commit(renameItem(history.present, selection, value))} /></label>
         <div className="builder-dimensions" key={`${selection.kind}:${selection.index}`}>
           {(['x', 'y', 'w', 'h'] as const).filter(axis => axis === 'x' || axis === 'y'
-            || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate'].includes(selection.kind)
-            || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate'].includes(selection.kind))).map(axis => {
-            const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h')
+            || axis === 'w' && !digitalCoinSwitch && !verticalCoinSwitch && ['platform', 'prop', 'mechanism', 'text', 'trigger', 'gravity-plate', 'force-field'].includes(selection.kind)
+            || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field'].includes(selection.kind))).map(axis => {
+            const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
               : ({ x: light || wallLight ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
             return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? selectionGridSize(selection) : 1}
@@ -815,6 +909,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
           const next = copyLevel(history.present); next.platforms[selection.index].material = material; commit(next)
         }} />}
+        {chosen && <fieldset className="builder-terrain-order">
+          <legend>Draw order ({terrainPosition + 1} of {level.platforms.length})</legend>
+          <div className="builder-action-row">
+            <button disabled={terrainPosition === 0} title="Draw behind all other terrain" onClick={() => commit(reorderTerrain(history.present, selection.index, 'back'))}>Send to back</button>
+            <button disabled={terrainPosition === 0} title="Move back one terrain layer" onClick={() => commit(reorderTerrain(history.present, selection.index, 'backward'))}>Backward</button>
+            <button disabled={terrainPosition === level.platforms.length - 1} title="Move forward one terrain layer" onClick={() => commit(reorderTerrain(history.present, selection.index, 'forward'))}>Forward</button>
+            <button disabled={terrainPosition === level.platforms.length - 1} title="Draw above all other terrain" onClick={() => commit(reorderTerrain(history.present, selection.index, 'front'))}>Bring to front</button>
+          </div>
+        </fieldset>}
         {facingPlate && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
           onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</button>}
         {canPlaceOnSurface(selection, level) && <div className="builder-surface-placement">
@@ -830,6 +933,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           commit(next)
         }}>Flip horizontally</button>}
         {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || polygonPoints(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
+        {forceField && <p className="builder-hint">Blocks the player from either side. Objects and ropes pass through. When switched on around the player, the beam waits for them to clear it.</p>}
         {gravityPlate && <>
           <label>Gravity (× normal)<NumberField label="Gravity strength" min={-3} max={3} step={.1} precision={2} value={gravityPlate.gravity}
             {...numberEdit((base, value) => {
@@ -845,7 +949,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           </div>
           <label className="builder-headlight" title="Irregular dimming and brief dropouts, like a malfunctioning lamp"><input type="checkbox" checked={!!light.flicker} onChange={event => commit(editLight(history.present, selection.index, { flicker: event.target.checked }))} />Flicker</label>
         </>}
-        {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : gravityPlate ? 'Gravity plate power' : 'Mechanism power'} value={objectPower}
+        {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : gravityPlate ? 'Gravity plate power' : forceField ? 'Force field power' : 'Mechanism power'} value={objectPower}
           options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]}
           onChange={value => commit(setObjectPower(history.present, selection, value === 'always' ? 'always' : 'switched'))} />}
         {wallText && <>

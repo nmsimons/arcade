@@ -19,10 +19,13 @@ export interface PlayerCollider {
   platform: Platform
   prop?: Prop
   robot?: RobotState
+  playerOnly?: boolean
 }
 export interface ContactWorld {
   platforms: readonly Platform[]
   colliders: readonly PlayerCollider[]
+  /** Physical rope obstacles exclude player-only barriers. */
+  ropePlatforms?: readonly Platform[]
 }
 export interface SupportContact extends GroundSurface { collider: PlayerCollider }
 export interface PushContact {

@@ -8,15 +8,9 @@ import { ballShape } from './propGeometry.ts'
 import { TUNING } from './model.ts'
 import { goalBounds } from './goal.ts'
 import { groundAt } from './terrain.ts'
+import { editorSolids } from './editorGeometry.ts'
+import { robotHulls, robotSupport } from './robotPhysics.ts'
 import { plateSolids, plateSurface } from './plateSurface.ts'
-
-function placementSolids(level: JumpLevel, selection: Selection) {
-  const props = (level.props ?? []).flatMap((p, i) => selection?.kind === 'prop' && i === selection.index ? []
-    : [p.kind === 'ball' ? ballShape(p) : { x: p.x - p.size / 2, y: p.y - p.size, w: p.size, h: p.size }])
-  return [...levelTerrain(level).filter(b => selection?.kind !== 'platform' || b !== level.platforms[selection.index]),
-    ...(level.mechanisms ?? []).filter((_, i) => selection?.kind !== 'mechanism' || i !== selection.index),
-    ...props]
-}
 
 export function canPlaceOnSurface(selection: Selection, level?: JumpLevel) {
   if (selection.kind === 'trigger' && level?.triggers?.[selection.index]?.mode === 'coins') return false
@@ -40,19 +34,26 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
   const marker = ['spawn', 'checkpoint', 'goal'].includes(selection.kind)
   const footprint = selection.kind === 'goal' && level.goal ? goalBounds(level.goal) : { ...bounds, x: bounds.w ? bounds.x : bounds.x - TUNING.width / 2,
     w: bounds.w || TUNING.width, y: marker ? bounds.y - TUNING.height : bounds.y, h: marker ? TUNING.height : bounds.h }
-  const bottom = footprint.y + footprint.h, solids = placementSolids(level, selection)
+  const bottom = footprint.y + footprint.h, solids = editorSolids(level, selection)
   const supports = marker ? levelTerrain(level) : solids
   const prop = selection.kind === 'prop' ? level.props?.[selection.index] : undefined
+  const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
   const candidates: { y: number; left: number; right: number; delta: number }[] = []
   for (const solid of supports) {
     const points = polygonPoints(solid)
     for (const [i, a] of points.entries()) {
       const b = points[(i + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1]
-      if (dx <= .01 || Math.abs(dy / dx) > .8) continue
+      if (dx <= .01 || !robot && Math.abs(dy / dx) > .8) continue
       const left = Math.max(footprint.x, a[0]), right = Math.min(footprint.x + footprint.w, b[0])
       if (right - left < .5) continue
       const slope = dy / dx, surface = (x: number) => a[1] + (x - a[0]) * slope
       let y = Math.min(surface(left), surface(right))
+      if (robot) {
+        if (robot.x < a[0] || robot.x > b[0]) continue
+        // Files retain the surface height at the bot's center. Rendering and
+        // gameplay solve the round wheels from that same authored anchor.
+        y = surface(robot.x)
+      }
       if (marker) {
         const supportX = selection.kind === 'goal' ? footprint.x + footprint.w / 2 : bounds.x
         if (supportX < a[0] || supportX > b[0]) continue
@@ -73,9 +74,17 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
       }
       const delta = y - bottom
       if (y < footprint.h || y > levelHeight(level) || Math.abs(delta) > reach || reach === Infinity && delta < -20) continue
+      let robotShapes: ReturnType<typeof robotHulls> | undefined
+      if (robot) {
+        const pose = robotSupport(solids, robot.x, y, Math.atan(slope), 55)
+        if (!pose) continue
+        robotShapes = robotHulls({ ...pose, facing: -1, phase: 'patrol' })
+        if (robotShapes.some(hull => hull.some(([x, y]) => x < 0 || x > level.width || y < 0 || y > levelHeight(level)))) continue
+      }
       const shape = selection.kind === 'platform' ? { ...level.platforms[selection.index], y: bounds.y + delta }
         : prop?.kind === 'ball' ? ballShape({ ...prop, y: prop.y + delta }) : { ...footprint, y: footprint.y + delta }
-      if (solids.some(other => marker && selection.kind !== 'goal' ? bodyIntersects(bounds.x, y, other)
+      if (solids.some(other => robotShapes ? robotShapes.some(hull => polygonIntersects(hull, other, .02))
+        : marker && selection.kind !== 'goal' ? bodyIntersects(bounds.x, y, other)
         : polygonIntersects(polygonPoints(shape), other, .02))) continue
       candidates.push({ y, left, right, delta })
     }

@@ -8,6 +8,7 @@ import type { ClimbableWorld } from './climbables.ts'
 import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
 import { terrainFill, terrainMaterial } from './terrainMaterials.ts'
+import { terrainDrawOrder } from './terrainOrder.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -44,11 +45,14 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   ctx.stroke(); ctx.restore()
   if (includeText) drawWallTexts(ctx, level.texts ?? [])
 }
-export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[]) {
+export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms) {
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
-  for (const b of platforms) {
+  const order = terrainDrawOrder(authored)
+  for (let i = 0; i < platforms.length; i++) {
+    // Enclosing floor and walls stay above authored terrain, as before.
+    const b = platforms[i < order.length ? order[i] : i]
     const next = b.material ?? 'stone'
     if (!started || next !== material) {
       if (started) ctx.fill()
@@ -76,7 +80,7 @@ export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, hei
   const { zoom, x, y } = gameCamera(width, height, p, level, false)
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
-  drawTerrain(ctx, levelTerrain(level)); drawClimbables(ctx, p, level.climbables)
+  drawTerrain(ctx, levelTerrain(level), level.platforms); drawClimbables(ctx, p, level.climbables)
   for (const [index, point] of [level.spawn, ...level.checkpoints].entries()) {
     ctx.fillStyle = p.checkpoint >= index ? ACCENT : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
   }

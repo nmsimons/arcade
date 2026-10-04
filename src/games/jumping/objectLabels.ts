@@ -11,14 +11,14 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
   const collections = {
     platform: level.platforms, rope: level.climbables.ropes, ladder: level.climbables.ladders,
     checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
-    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'gravity-plate': level.gravityPlates,
+    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
   }
   return collections[selection.kind]?.[selection.index]
 }
 
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
-    : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'light' ? 'Spotlight' : s.kind === 'gravity-plate' ? 'Gravity plate' : s.kind === 'wall-light' ? 'Wall light' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
+    : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'light' ? 'Spotlight' : s.kind === 'force-field' ? level.forceFields![s.index].orientation === 'horizontal' ? 'Horizontal force field' : 'Vertical force field' : s.kind === 'gravity-plate' ? 'Gravity plate' : s.kind === 'wall-light' ? 'Wall light' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
   return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 

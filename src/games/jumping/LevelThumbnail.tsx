@@ -47,5 +47,5 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = fa
     const observer = new ResizeObserver(paint); observer.observe(canvas); paint()
     return () => observer.disconnect()
   }, [scene, visible, geometry.ready, geometry.groups, wallTextFontReady])
-  return <canvas ref={ref} className="level-thumbnail" aria-hidden="true" />
+  return <canvas ref={ref} width={1} height={1} className="level-thumbnail" aria-hidden="true" />
 })

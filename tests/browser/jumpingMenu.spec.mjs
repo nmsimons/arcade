@@ -27,6 +27,8 @@ async function open(page, local = false, maps = levels()) {
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game')
   await expect(page.getByRole('button', { name: `Level 1: ${maps[0].name}`, exact: true })).toBeVisible()
+  // Finish thumbnail worker preparation before jumping past its deadline.
+  await expect.poll(() => page.locator('.jumping-level-card .level-thumbnail').first().evaluate(c => c.width)).toBeGreaterThan(1)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z')); await page.clock.runFor(64)
   if (local) {
     await page.getByRole('button', { name: 'Local folder', exact: true }).click()
@@ -274,6 +276,11 @@ test('local tiles edit independently by button and Y while arrows browse tiles a
 })
 
 test('all object types appear in menu, library and overview previews through the game renderer', async ({ page }, info) => {
+  // Reproduce slow worker loading instead of relying on the CI machine's speed.
+  await page.route('**/assets/lightingGeometry.worker-*.js', async route => {
+    await new Promise(resolve => setTimeout(resolve, 250))
+    await route.continue()
+  })
   const level = { ...blankTrial(), id: 'preview-all', name: 'All objects', width: 800, height: 600, floor: 600,
     spawn: { x: 60, y: 600 }, goal: { x: 650, y: 600 }, checkpoints: [{ x: 90, y: 600 }],
     platforms: [{ x: 50, y: 420, w: 100, h: 20 }],
@@ -298,6 +305,8 @@ test('all object types appear in menu, library and overview previews through the
   })
   await open(page, false, [level])
   const check = async canvas => {
+    // A reused overview canvas can still contain the previous document's art.
+    await expect.poll(() => canvas.evaluate(c => c.previewDraws?.some(call => call.method === 'fillText' && call.args[0] === 'Preview') ?? false)).toBe(true)
     const calls = await canvas.evaluate(c => c.previewDraws ?? [])
     const has = (method, match) => calls.some(call => call.method === method && match(call.args, call.color))
     for (const [w, h, color] of [[60, 60, '#b3a28d'], [20, 120, '#8f9e98'], [140, 20, '#8f9e98'], [120, 20, '#8f9e98'], [80, 20, '#b3a28d'], [51, 34, '#b3a28d']])

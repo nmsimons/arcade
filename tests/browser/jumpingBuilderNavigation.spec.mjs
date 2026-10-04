@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/folderTest.mjs'
-import { installTestFolder, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { installTestFolder, useLevelFixtures, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 import { tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
@@ -15,6 +15,7 @@ async function open(page) {
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game'); await button(page, 'Level studio').click()
+  await waitForBuilderPreview(page)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z')); await page.clock.runFor(64)
   await button(page, 'Library').click(); await button(page, 'Choose folder').click()
   await button(page, 'Open navigation.json').click(); await page.clock.runFor(200)

@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/folderTest.mjs'
-import { selectBuilderOption, selectBuilderObject, restartFromPause, useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { selectBuilderOption, selectBuilderObject, restartFromPause, useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { ropeTower } from '../helpers/rope-tower.mjs'
 import { JSON_LAB } from '../helpers/jumping-fixtures.mjs'
@@ -52,6 +52,7 @@ async function open(page, level) {
   await page.goto('/untitled-jumping-game')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
+  await waitForBuilderPreview(page)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.clock.runFor(64)
   await page.getByRole('button', { name: 'Library', exact: true }).click()

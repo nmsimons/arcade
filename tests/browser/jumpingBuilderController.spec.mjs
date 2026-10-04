@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/folderTest.mjs'
-import { installTestFolder, useLevelFixtures, readTestLevel } from './helpers/jumpingLevels.mjs'
+import { installTestFolder, useLevelFixtures, readTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
@@ -17,6 +17,7 @@ async function open(page) {
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
+  await waitForBuilderPreview(page)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.clock.runFor(64)
   await page.getByRole('button', { name: 'Library', exact: true }).click()
@@ -73,7 +74,16 @@ test('mouse and Tab canvas entry remember the last control and dialogs preserve 
 })
 
 test('returning to an inspector field preserves selection and follows a remounted field', async ({ page }) => {
+  // Reproduce worker startup lag: pausing the clock must not fire its timeout
+  // before the initial lighting response arrives.
+  let delayedLighting = false
+  await page.route('**/*lightingGeometry.worker*', async route => {
+    delayedLighting = true
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await route.continue()
+  })
   await open(page); await placeBox(page)
+  expect(delayedLighting).toBe(true)
   const x = field(page, 'Object x'), selected = page.getByRole('combobox', { name: 'Selected object', exact: true })
   await focus(page, x); await tap(page, 1); await expect(canvas(page)).toBeFocused()
   await tap(page, 1); await expect(x).toBeFocused()

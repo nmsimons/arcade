@@ -15,6 +15,12 @@ export async function useLevelFixtures(page, levels) {
   })
 }
 
+/** Finish worker preparation before pauseAt jumps through its timeout timers. */
+export async function waitForBuilderPreview(page) {
+  const { expect } = await import('@playwright/test')
+  await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
+}
+
 export async function restartFromPause(page) {
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: /^(Restart level|Reset position)$/ }).click()

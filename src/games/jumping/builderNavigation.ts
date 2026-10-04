@@ -49,6 +49,17 @@ function reachable(element: HTMLElement, current: HTMLElement) {
 export function navigateBuilder(root: HTMLElement, direction: ControllerNavigation) {
   const items = builderControls(root), current = document.activeElement
   if (!(current instanceof HTMLElement) || !items.includes(current)) { focusBuilderControl(items[0]); return }
+  // Horizontal tabs follow their own order and stop at either end, regardless
+  // of toolbar controls beside or above them. Up/down still navigate spatially.
+  const tablist = current.getAttribute('role') === 'tab' ? current.closest('[role=tablist]') : null
+  if (tablist && tablist.getAttribute('aria-orientation') !== 'vertical' && (direction === 'left' || direction === 'right')) {
+    const tabs = items.filter(item => item.getAttribute('role') === 'tab' && item.closest('[role=tablist]') === tablist)
+    const index = Math.max(0, Math.min(tabs.length - 1, tabs.indexOf(current) + (direction === 'left' ? -1 : 1)))
+    const next = tabs[index]
+    focusBuilderControl(next)
+    if (next !== current) next.click()
+    return
+  }
   const next = directionalNeighbor(current.getBoundingClientRect(), items.filter(item => item !== current && reachable(item, current))
     .map(item => ({ item, rect: item.getBoundingClientRect(), preferred: item.getAttribute('aria-selected') === 'true' })), direction)
   if (!next) return

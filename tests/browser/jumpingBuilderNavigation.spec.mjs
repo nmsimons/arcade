@@ -46,6 +46,23 @@ test('keyboard, D-pad and left stick follow palette rows and columns without edg
   await expect(button(page, 'Undo')).toBeDisabled()
 })
 
+for (const width of [1280, 390]) test(`inspector tab edges retain focus with keyboard, D-pad and left stick at width ${width}`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 844 }); await open(page)
+  const level = page.getByRole('tab', { name: 'Level', exact: true })
+  const object = page.getByRole('tab', { name: 'Object', exact: true })
+  for (const move of [key => page.keyboard.press(key), key => tap(page, { ArrowDown: 13, ArrowLeft: 14, ArrowRight: 15 }[key]),
+    key => stick(page, key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : 0, key === 'ArrowDown' ? 1 : 0)]) {
+    await level.click(); await page.clock.runFor(64)
+    await move('ArrowLeft'); await expect(level).toBeFocused()
+    await move('ArrowRight'); await expect(object).toBeFocused(); await expect(object).toHaveAttribute('aria-selected', 'true')
+    await move('ArrowRight'); await expect(object).toBeFocused()
+    await move('ArrowLeft'); await expect(level).toBeFocused(); await expect(level).toHaveAttribute('aria-selected', 'true')
+    await move('ArrowLeft'); await expect(level).toBeFocused()
+    await move('ArrowDown'); await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toBeFocused()
+  }
+  await expect(button(page, 'Undo')).toBeDisabled()
+})
+
 test('arrows navigate fields until Enter starts editing, then apply or cancel returns to navigation', async ({ page }, info) => {
   await open(page)
   const width = field(page, 'Level width'), height = field(page, 'Level height'), initial = Number(await width.inputValue())

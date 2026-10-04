@@ -171,11 +171,11 @@ test('dropping from a swinging rope preserves horizontal momentum without a jump
     const p = createPlayer(); p.x = 1535
     advance(p, .8, { climb: true }); advance(p, .6, { move: 1 })
     assert.equal(p.climbing?.kind, 'rope'); assert.ok(Math.abs(p.vx) > 10)
-    const { vx, y } = p
+    const { vx, vy, y } = p
     advance(p, STEP, { detach: true, drop: true, move })
-    assert.equal(p.climbing, null); assert.equal(p.vx, vx); assert.ok(p.vy > 0)
-    advance(p, .1)
-    assert.equal(p.climbing, null); assert.ok(p.y > y, 'a quick tap also gives enough time to fall clear')
+    assert.equal(p.climbing, null); assert.equal(p.vx, vx); assert.equal(p.vy, vy)
+    advance(p, .3)
+    assert.equal(p.climbing, null); assert.ok(p.y > y, 'ordinary gravity carries a released swing downward')
   }
 })
 

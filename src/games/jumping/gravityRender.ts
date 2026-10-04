@@ -85,13 +85,13 @@ export function drawGravityDust(ctx: CanvasRenderingContext2D, plates: readonly 
   }
 }
 export function drawGravityPlate(ctx: CanvasRenderingContext2D, plate: GravityPlate, active: boolean, paint: WorldPaint = paintNormally) {
-  const { x, w } = plate, y = plate.y + plate.h
+  const { x, w } = plate, y = plate.ceiling ? plate.y : plate.y + plate.h
   // The pressure plate's shallow metal foot and raised insert, kept inside
   // the field footprint. Only the violet emitter receives power exposure.
   paint(ctx, 0, () => {
-    ctx.fillStyle = '#738575'; ctx.fillRect(x, y - 3, w, 3)
+    ctx.fillStyle = '#738575'; ctx.fillRect(x, plate.ceiling ? y : y - 3, w, 3)
   })
   paint(ctx, active ? .65 : 0, () => {
-    ctx.fillStyle = active ? '#bda0e5' : '#958b9f'; ctx.fillRect(x + 3, y - 7, w - 6, 3)
+    ctx.fillStyle = active ? '#bda0e5' : '#958b9f'; ctx.fillRect(x + 3, plate.ceiling ? y + 4 : y - 7, w - 6, 3)
   })
 }

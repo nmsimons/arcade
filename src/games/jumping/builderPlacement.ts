@@ -50,7 +50,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'trigger': {
       const trigger = level.triggers![i]
       if (trigger.mode === 'coins') drawCoinSwitch(ctx, trigger, 0, false)
-      else drawPressurePlate(ctx, trigger.x, trigger.y, trigger.w, false, 0)
+      else drawPressurePlate(ctx, trigger.x, trigger.y, trigger.w, false, 0, trigger.ceiling)
       break
     }
     case 'rope': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [level.climbables.ropes[i]], ladders: [] }); break

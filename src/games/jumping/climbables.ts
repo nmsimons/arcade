@@ -31,6 +31,9 @@ export interface Climbing {
   rappelPull?: number
   rappelMotion?: number
   surfaceSupport?: number
+  screenAxis?: number
+  screenDirection?: number
+  turn?: { angle: number; target: number; grip: number }
   caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number }
 }
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v))
@@ -103,6 +106,11 @@ export function climbGait(distance: number, handLimit = Infinity, footLimit = In
 
 /** Keep the player/camera under the loaded grip, rather than following the rope's loose tail. */
 export function climbRoot(climb: Climbing, facing: number): Point {
+  if (climb.turn) {
+    // The neutral hanging rig: arm reach, torso, then the free legs/root.
+    const grip = ropePoint(climb.rope!, climb.turn.grip), radius = Math.sqrt(18.8 ** 2 - 3.9 ** 2) - .7 + 16.6 + 32
+    return [grip[0] - Math.sin(climb.turn.angle) * radius, grip[1] + Math.cos(climb.turn.angle) * radius]
+  }
   const root = freeClimbRoot(climb, facing), weight = rappelWeight(climb)
   if (!weight) return root
   const pose = rappelFrame(climb)
@@ -256,6 +264,7 @@ export function ropePump(climb: Climbing) {
 
 /** The material point carrying the body, independent of the animated body root. */
 export function ropeGripDistance(climb: Climbing) {
+  if (climb.turn) return climb.turn.grip
   if (climb.wall) return climb.distance
   const gait = climbGait(climb.distance, climb.rope!.definition.length), hanging = ease(climb.hangBlend)
   return gait.hands.reduce((sum, hand) => sum + hand.distance + (gait.grip - hand.distance) * hanging, 0) / 2
@@ -306,13 +315,13 @@ function ropeIsClear(rope: RopeState, terrain: readonly Platform[]) {
 const ropeGravityRevisions = new WeakMap<RopeState, number>()
 
 export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
-  body?: { climb: Climbing; from: Point; facing: number } } | null, gravityField?: GravityField) {
+  body?: { climb: Climbing; from: Point; facing: number }; gravity?: number } | null, gravityField?: GravityField, frameDirection = 1) {
   const { nodes, definition } = rope
   if (gravityField && (gravityField.strips.length || ropeGravityRevisions.has(rope)) && ropeGravityRevisions.get(rope) !== gravityField.revision) {
     ropeGravityRevisions.set(rope, gravityField.revision)
     initRopeSleep(rope)
   }
-  const gravity = (x: number, y: number) => gravityField ? gravityAtPoint(gravityField, x, y, 1400) : 1400
+  const gravity = (x: number, y: number) => frameDirection * (gravityField ? gravityAtPoint(gravityField, x, y * frameDirection, 1400) : 1400)
   // Only geometry near the rope's current sweep can touch it this step. The
   // anchor's full reach pulled most of a tall level into every solver pass.
   let left = definition.x, right = definition.x, top = definition.y, bottom = definition.y
@@ -351,7 +360,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   let pumpX = 0, pumpY = 0
   if (loaded > 0) {
     const grip = nodes[loaded], rx = grip.x - definition.x, ry = grip.y - definition.y
-    const radius = Math.hypot(rx, ry) || lengths[0], tx = ry / radius, ty = -rx / radius
+    const radius = Math.hypot(rx, ry) || lengths[0], side = Math.sign(ry) || 1, tx = Math.abs(ry) / radius, ty = -rx * side / radius
     // A weight shift supplies a small, finite impulse. Holding the stick does not
     // act like a motor; building a swing requires another well-timed shift.
     const shift = Math.sign(move - rope.pumpInput) === Math.sign(move) ? move - rope.pumpInput : 0
@@ -363,7 +372,9 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     const n = nodes[i], dx = (n.x - n.oldX) * damping, dy = (n.y - n.oldY) * damping
     n.oldX = n.x; n.oldY = n.y
     const pumping = supports[i] * (bodyMass + 1) * weights[i]
-    n.x += dx + pumpX * pumping; n.y += dy + gravity(n.x, n.y) * dt * dt + pumpY * pumping
+    const mass = bodyMass * supports[i], acceleration = load?.gravity === undefined ? gravity(n.x, n.y)
+      : (gravity(n.x, n.y) + mass * load.gravity) * weights[i]
+    n.x += dx + pumpX * pumping; n.y += dy + acceleration * dt * dt + pumpY * pumping
   }
   // Keep these spans fixed while the hands move; changing a span's endpoint
   // during a regrip would turn accumulated stretch into an artificial impulse.
@@ -456,7 +467,7 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
   const rope = climb.rope!
   const root = climbRoot(climb, facing), blend = ease(climb.time / .16)
   const target: Point = [climb.caught.x + (root[0] - climb.caught.x) * blend, climb.caught.y + (root[1] - climb.caught.y) * blend]
-  const safe = moveBody(from, target, terrain), dx = safe.x - target[0], dy = safe.y - target[1]
+  const safe = moveBody(from, target, terrain, 62, 1, climb.turn?.angle), dx = safe.x - target[0], dy = safe.y - target[1]
   if (Math.hypot(dx, dy) < 1e-6 || blend < .01) return safe
   for (const { normal, platform } of safe.contacts) if (Math.abs(normal[0]) > .9) {
     const side = -Math.sign(normal[0]), face = nearestBoundary(platform, safe.x + side * 12, safe.y - 35)
@@ -474,10 +485,13 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
   }
   // Match climbRoot's interpolation: climbing follows the lower grip, hanging
   // follows the hands, and a wall brace fixes the hips horizontally.
-  support(gait.root, (1 - bracing) * (1 - hanging))
-  for (const hand of gait.hands) support(hand.distance + (gait.grip - hand.distance) * hanging, (1 - bracing) * hanging / 2)
-  support(climb.distance, 0, bracing * (1 - pull))
-  for (const offset of [8, 18]) support(clamp(climbContact(climb.distance, offset, 20).distance, 0, rope.definition.length), 0, bracing * pull / 2)
+  if (climb.turn) support(climb.turn.grip, 1)
+  else {
+    support(gait.root, (1 - bracing) * (1 - hanging))
+    for (const hand of gait.hands) support(hand.distance + (gait.grip - hand.distance) * hanging, (1 - bracing) * hanging / 2)
+    support(climb.distance, 0, bracing * (1 - pull))
+    for (const offset of [8, 18]) support(clamp(climbContact(climb.distance, offset, 20).distance, 0, rope.definition.length), 0, bracing * pull / 2)
+  }
   const norm = [0, 1].map(axis => weights.reduce((sum, weight) => sum + weight[axis] ** 2, 0))
   const before = rope.nodes.map(node => ({ ...node }))
   const bends = rope.bends.slice()

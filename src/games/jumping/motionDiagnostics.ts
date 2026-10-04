@@ -1,5 +1,6 @@
 import { athletePose } from './athlete.ts'
 import type { JumpInput, Player } from './model.ts'
+import { playerTurnAngle } from './ropeGravity.ts'
 
 const HISTORY_SECONDS = 2, WINDOW_SECONDS = .25, MAX_SAMPLES = 240, MAX_REPORTS = 8
 const pointNames = ['hip', 'shoulder', 'head', 'frontElbow', 'frontHand', 'backElbow', 'backHand',
@@ -11,10 +12,10 @@ function snapshot(p: Player, input: JumpInput, time: number) {
     time, x: p.x, y: p.y, vx: p.vx, vy: p.vy, input: { ...input },
     signals: {
       mode: p.mantle?.step ? 'step' : p.mantle ? 'mantle' : p.hang ? 'hang' : p.climbing?.kind ?? 'free',
-      grounded: p.grounded, sliding: !!p.sliding?.active, bracing: !!p.wallBrace?.active, facing: p.facing,
+      grounded: p.grounded, inverted: !!p.inverted, sliding: !!p.sliding?.active, bracing: !!p.wallBrace?.active, facing: p.facing,
       support: p.contacts?.support?.collider.id ?? null, push: p.contacts?.push?.collider.id ?? null,
     },
-    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0 },
+    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0, gravityTurn: playerTurnAngle(p) },
     // Local-space joints separate pose changes from physical root and camera travel.
     points: [pose.hip, pose.shoulder, pose.head, pose.frontArm.joint, pose.frontArm.end,
       pose.backArm.joint, pose.backArm.end, pose.frontLeg.joint, pose.frontLeg.end,

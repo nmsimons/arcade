@@ -20,6 +20,7 @@ import { TUNING, jumpSpeed } from './movementTuning.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform, mirrorLadder } from './gravityFrame.ts'
 import { playerGravity, setPlayerGravity } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
+import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn } from './ropeGravity.ts'
 export { TUNING } from './movementTuning.ts'
 
 export interface Platform extends NamedObject { x: number; y: number; w: number; h: number; profile?: readonly (readonly [number, number])[]; polygon?: readonly (readonly [number, number])[]; material?: TerrainMaterial }
@@ -61,6 +62,7 @@ export interface Player {
   terrain?: readonly Platform[]
   gravity?: number
   inverted?: boolean
+  releaseTurn?: { angle: number; target: number }
 }
 export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
@@ -90,6 +92,7 @@ export function respawn(p: Player) {
   const { spawnX, spawnY, checkpoint, bestHeight } = p
   const ropes = p.ropes?.map(r => createRope(r.definition)) ?? null
   Object.assign(p, createPlayer(), { x: spawnX, y: spawnY, spawnX, spawnY, checkpoint, bestHeight, ropes })
+  delete p.releaseTurn
 }
 const approach = (value: number, target: number, delta: number) => value + Math.max(-delta, Math.min(delta, target - value))
 const overlaps = (x: number, y: number, b: Platform, height: number = TUNING.height) => bodyIntersects(x, y, b, height)
@@ -245,7 +248,8 @@ function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[], w
 }
 export function playerState(p: Player) {
   if (p.mantle?.returning) return 'Lowering'
-  return p.climbing ? `${p.climbing.kind === 'rope' ? 'Rope' : 'Ladder'} · ${p.climbing.direction > 0 ? 'ascending' : p.climbing.direction < 0 ? 'descending' : 'holding'}`
+  const climbDirection = p.climbing?.screenDirection ?? p.climbing?.direction ?? 0
+  return p.climbing ? `${p.climbing.kind === 'rope' ? 'Rope' : 'Ladder'} · ${climbDirection > 0 ? 'ascending' : climbDirection < 0 ? 'descending' : 'holding'}`
     : p.mantle ? p.mantle.descending ? 'Lowering' : 'Climbing' : p.hang ? 'Hanging' : p.sliding?.active ? 'Sliding' : p.wallBrace?.active ? 'Bracing' : p.wallJump ? 'Wall jump' : p.pushing && p.pushing.effort > 0 ? 'Pushing' : p.crouching ? 'Crouching' : p.reach > .5 ? 'Reaching' : !p.grounded ? p.vy < 0 ? 'Rising' : 'Falling'
     : Math.abs(p.vx) > 180 ? 'Running' : Math.abs(p.vx) > 10 ? 'Walking' : 'Ready'
 }
@@ -253,23 +257,21 @@ export function playerState(p: Player) {
 /** Fixed-step, world-space movement. Rendering and input devices never change physics. */
 export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: readonly Platform[] = [],
   climbables: ClimbableWorld = NO_CLIMBABLES,
-  rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms), gravityField?: GravityField, gravityOverride?: number) {
+  rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms), gravityField?: GravityField, gravityOverride?: number, frameDirection = 1) {
   const gravity = gravityOverride ?? (gravityField ? playerGravity(gravityField, p) : TUNING.gravity)
   setPlayerGravity(p, gravity)
   if (p.inverted) {
-    // Rope simulation remains in world space. The same player controller then
-    // sees reflected terrain and gravity-relative footing, steps and jumps.
-    if (climbables.ropes.length) {
-      p.ropes ??= climbables.ropes.map(createRope)
-      for (const rope of p.ropes) stepRope(rope, dt, platforms, null, gravityField)
-    }
-    const reflected = mirrorContactWorld(world), ropes = p.ropes
-    mirrorPlayerState(p); p.inverted = false; p.ropes = null
+    // Reflect live rope state with the controller, solve once, then restore it.
+    // Field samples remain in world space and the authored anchor is untouched.
+    if (climbables.ropes.length) p.ropes ??= climbables.ropes.map(createRope)
+    const reflected = mirrorContactWorld(world)
+    mirrorPlayerState(p, true); p.inverted = false
     try {
-      stepPlayer(p, input, dt, reflected.platforms, { ladders: climbables.ladders.map(mirrorLadder), ropes: [] },
-        { checkpoints: [], fallY: Infinity }, reflected, undefined, -gravity)
-    } finally { mirrorPlayerState(p); p.inverted = true; p.ropes = ropes }
+      stepPlayer(p, input, dt, reflected.platforms, { ladders: climbables.ladders.map(mirrorLadder), ropes: p.ropes?.map(r => r.definition) ?? [] },
+        { checkpoints: [], fallY: Infinity }, reflected, gravityField, -gravity, -1)
+    } finally { mirrorPlayerState(p, true); p.inverted = true }
     if (p.contacts) p.contacts = mirrorContacts(p.contacts, world)
+    finishGravityTurn(p)
     turnToGravity(p, gravity, world)
     return
   }
@@ -278,14 +280,14 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const beforeBody = playerContactBody(p)
   const verticalUsed = !!(p.climbing || p.hang || p.mantle)
   const initialContacts = playerContacts(p, input, world), previousGround = initialContacts.support
-  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField)) return
+  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField, frameDirection)) return
   const leavingGround = previousGround && !p.grounded
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
   // The hanging climb clears its own ledge; low steps use the full solid hull.
   const mantle = p.mantle ?? oldMantle
   const obstacles = mantle && !mantle.step ? ledgeObstacles(platforms, mantle) : platforms
   const afterBody = playerContactBody(p), offsetX = afterBody.x - p.x, offsetY = afterBody.y - p.y
-  const result = moveBody([beforeBody.x, beforeBody.y], [afterBody.x, afterBody.y], obstacles, afterBody.height)
+  const result = moveBody([beforeBody.x, beforeBody.y], [afterBody.x, afterBody.y], obstacles, afterBody.height, 1, playerTurnAngle(p))
   result.x -= offsetX; result.y -= offsetY
   // Following a curved ground profile may cross a crest between two samples.
   // Keep the supported endpoint only for tiny corrections with a clear body.
@@ -306,7 +308,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       if (into < 0) { p.vx -= into * n[0]; p.vy -= into * n[1] }
     }
   }
-  if (!p.climbing && !p.hang && !p.mantle) {
+  if (!p.climbing && !p.hang && !p.mantle && !p.releaseTurn) {
     let ground = (p.gravity ?? TUNING.gravity) >= 0 ? groundAt(platforms, p.x, p.y, .2) : null
     let slope = result.contacts.map(c => ({ ...c, face: bodyContact(c.platform, p.x, p.y, c.normal,
       p.crouching ? TUNING.crouchHeight : TUNING.height) })).find(c => {
@@ -345,14 +347,15 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       }
     }
   }
+  stepReleasedTurn(p, platforms, dt)
   finishPlayerStep(p, input, dt, world, from, verticalUsed)
-  if (gravityOverride === undefined) turnToGravity(p, gravity, world)
+  if (gravityOverride === undefined) { finishGravityTurn(p); turnToGravity(p, gravity, world) }
 }
 
 /** Turn on actual gravity-facing contact. On slopes, the head's wide edge
  * touches before its center; the new foot root meets the same exposed face. */
 function turnToGravity(p: Player, gravity: number, world: ContactWorld) {
-  if (!gravity || p.hang || p.mantle || p.climbing || (gravity < 0) === !!p.inverted) return
+  if (!gravity || p.hang || p.mantle || p.climbing || p.releaseTurn || (gravity < 0) === !!p.inverted) return
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const inverted = gravity < 0, direction = inverted ? -1 : 1, head = p.y + direction * height
   const probe = moveBody([p.x, p.y], [p.x, p.y + direction * .2], world.platforms, height, p.inverted ? -1 : 1)
@@ -398,7 +401,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   advanceFootwork(p, dt, from[0], world.platforms)
 }
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
-  world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField) {
+  world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1) {
   const gravity = p.gravity ?? TUNING.gravity
   const stepIntent = p.stepIntent; p.stepIntent = null
   const pressed = input.jump && !p.jumpHeld
@@ -414,13 +417,15 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (p.wallJump.time >= .24 || p.grounded || p.hang || p.mantle || p.climbing) p.wallJump = null
   }
   // Freeze the supported entry pose before this frame moves the rope.
-  const surfaceExit = input.climb && !input.descend && !input.jump && !input.detach ? findRopeStepUp(p, world) : null
+  const towardLedge = frameDirection === 1 ? input.climb && !input.descend : input.descend && !input.climb
+  const surfaceExit = towardLedge && !input.jump && !input.detach ? findRopeStepUp(p, world) : null
   if (climbables.ropes.length) {
     p.ropes ??= climbables.ropes.map(createRope)
     for (const [i, rope] of p.ropes.entries()) stepRope(rope, dt, platforms,
       p.climbing?.kind === 'rope' && p.climbing.index === i ? { distance: p.climbing.distance, move: p.climbing.wall ? 0 : p.climbing.swing,
         wall: p.climbing.wall, bracing: ease(p.climbing.time / .25),
-        body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing } } : null, gravityField)
+        body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing },
+        gravity: gravity * 1400 / TUNING.gravity } : null, gravityField, frameDirection)
   }
   if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.crouching = !!p.mantle?.crouched; p.crouch = Number(p.crouching); p.reach = 0; p.footwork = null; p.ledgeReach = null; p.landing = 0 }
   if (p.mantle) {
@@ -499,8 +504,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     return
   }
   const vertical = input.jump ? 0 : Number(input.climb) - Number(input.descend ?? (input.drop && !input.detach))
+  const bodyVertical = vertical * frameDirection
   const requestedClimb = vertical !== 0 && !input.jump
-  if (p.grounded && !p.hang && !p.climbing && vertical < 0 && !input.jump && !input.detach && p.grabCooldown === 0) {
+  if (p.grounded && !p.hang && !p.climbing && bodyVertical < 0 && !input.jump && !input.detach && p.grabCooldown === 0) {
     // Lower over the edge first, then transfer to a nearby ladder or rope.
     const edges = platforms.flatMap((b, platform) => platformLedges(b).flatMap(edge => {
       return Math.abs(p.y - edge.edgeY - (p.x - edge.edgeX) * edge.side * (edge.slope ?? 0)) < .1 && (p.x - edge.edgeX) * edge.side >= 0
@@ -528,9 +534,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       cancelJumpInput(p); return
     }
   }
-  if (!p.hang && !p.climbing && p.grabCooldown === 0 && !input.detach && (requestedClimb || !p.grounded)) {
+  if (!p.hang && !p.climbing && !p.releaseTurn && p.grabCooldown === 0 && !input.detach && (requestedClimb || !p.grounded)) {
     const found = requestedClimb ? findClimbable(p, climbables, platforms) : findRope(p, platforms)
-    if (found && !(found.rope && p.grounded && vertical < 0) && !(found.ladder && p.grounded && (Math.abs(p.y - found.ladder.top) < 1
+    if (found && !(found.rope && p.grounded && bodyVertical < 0) && !(found.ladder && p.grounded && (Math.abs(p.y - found.ladder.top) < 1
       || (Math.abs(p.y - found.ladder.bottom) < 1 && vertical < 0)))) {
       p.climbing = found
       updateRopeWall(found, platforms)
@@ -546,9 +552,13 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (p.climbing) {
     const c = p.climbing, oldX = p.x, oldY = p.y
     const jumping = pressed
-    const previousClimb = { ...c }
+    const previousClimb = { ...c, ...(c.turn ? { turn: { ...c.turn } } : {}) }
     c.time += dt
-    c.direction = vertical
+    const screenVertical = c.rope ? vertical * frameDirection : vertical
+    const materialVertical = c.rope ? ropeScreenDirection(c, vertical, frameDirection) : vertical
+    const turning = !!c.rope && ropeWantsTurn(c, gravity)
+    if (c.rope) c.screenDirection = vertical
+    c.direction = turning ? 0 : materialVertical
     c.wallCooldown = Math.max(0, (c.wallCooldown ?? 0) - dt)
     const wall = c.wall
     if (wall && c.rope && !input.jump && !jumping && !input.detach && input.move * wall.side < -.1) {
@@ -557,12 +567,13 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       ropeImpulse(c.rope, c.distance, (grip[0] - previous[0]) / dt - wall.side * 180 * Math.abs(input.move), (grip[1] - previous[1]) / dt, dt)
       c.wallCooldown = .35
     }
-    updateRopeWall(c, platforms, input.move, [p.x, p.y])
+    if (turning) c.wall = undefined
+    else updateRopeWall(c, platforms, input.move, [p.x, p.y])
     c.wallPose = c.wall ?? wall ?? c.wallPose
     // Unbrace gradually where a wall becomes a slope, without jerking the grip upward.
     c.wallBlend = approach(c.wallBlend ?? Number(!!wall), Number(!!c.wall), dt / (c.surfaceSupport ? .4 : .22))
     if (!c.wallBlend) c.wallPose = undefined
-    c.rappelPull = approach(c.rappelPull ?? 0, Number(!!c.wall && vertical > 0), dt / .18)
+    c.rappelPull = approach(c.rappelPull ?? 0, Number(!!c.wall && c.direction > 0), dt / .18)
     c.rappelMotion = approach(c.rappelMotion ?? 0, Number(!!c.wall && vertical !== 0), dt / .16)
     if (c.wall) { p.facing = c.wall.side; c.swing = 0 }
     c.swing += ((c.rope && !c.wall ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
@@ -571,7 +582,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     // of extrapolating the last tiny segment into a long, whipping body support.
     const endHang = c.rope ? ease((c.distance - c.rope.definition.length + 80) / 48) : 0
     c.surfaceSupport = ropeSlopeSupport(c, platforms)
-    c.hangBlend = approach(c.hangBlend, Math.max(Number(!!c.rope && !c.direction), endHang, c.surfaceSupport), dt / .22)
+    const heldGrip = c.rope && turning ? ropeGripDistance(c) : 0
+    c.hangBlend = approach(c.hangBlend, Math.max(Number(!!c.rope && (!c.direction || (c.screenAxis ?? 1) < 0)), endHang, c.surfaceSupport), dt / .22)
+    if (c.rope && turning && !c.turn) keepRopeGrip(c, heldGrip)
     let ropeVelocity: [number, number] | null = null
     if (c.rope) {
       const grip = ropeGripDistance(previousClimb)
@@ -584,27 +597,36 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     }
     p.crouch = 0; p.crouching = false; p.reach = 0; p.landing = 0; p.buffer = 0
     if (jumping || input.detach) {
-      if (ropeVelocity && previousClimb.time < .16) [p.vx, p.vy] = ropeVelocity
+      if (ropeVelocity && (previousClimb.time < .16 || turning)) [p.vx, p.vy] = ropeVelocity
+      if (c.turn) p.releaseTurn = { angle: c.turn.angle, target: c.turn.target }
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
       const launchMove = c.rope && wall ? -wall.side : input.move
       if (jumping && !input.detach) {
-        const upward = Math.min(p.vy, 0)
-        launch(p); p.vy += upward
+        const direction = gravity < -TUNING.gravity * .05 ? -1 : 1
+        const momentum = Math.min(p.vy * direction, 0)
+        launch(p); p.vy = (p.vy + momentum) * direction
         p.vx = Math.max(-600, Math.min(600, p.vx + launchMove * 180))
-      } else { p.vy = Math.max(0, p.vy) + 40; cancelJumpInput(p) }
+      } else { if (!c.rope) p.vy = Math.max(0, p.vy) + 40; cancelJumpInput(p) }
       p.jumpStart = p.y; p.jumpHeight = 0; return
     }
-    if (surfaceExit) {
+    if (surfaceExit && !turning) {
       p.mantle = surfaceExit; p.climbing = null; p.vx = 0; p.vy = 0; p.grabCooldown = .35; cancelJumpInput(p)
       return
     }
     const bottom = c.ladder ? c.ladder.bottom - c.ladder.top - 56 : c.rope!.definition.length - 8
-    c.distance = Math.max(c.ladder ? 18 : 12, Math.min(bottom, c.distance - vertical * (vertical > 0 ? 85 : 105) * dt))
+    const oldDistance = c.distance
+    const climbSpeed = (c.rope ? vertical : materialVertical) > 0 ? 85 : 105
+    c.distance = Math.max(c.ladder ? 18 : 12, Math.min(bottom, c.distance - materialVertical * climbSpeed * dt))
+    if (c.turn) c.turn.grip = Math.max(18, Math.min(c.rope!.definition.length, c.turn.grip + c.distance - oldDistance))
+    if (c.rope && turning && c.hangBlend === 1 && !(c.wallBlend ?? 0) && c.time >= .16) {
+      c.swing = 0; c.lean = 0
+      stepRopeTurn(c, gravity, p.facing, platforms, dt)
+    }
     if (c.rope && c.time >= .16 && Math.abs(input.move) < .1) settleRopeGrip(c, p.facing, platforms, dt)
     const target = climbRoot(c, p.facing), blend = ease(c.time / .16)
     p.x = c.caught.x + (target[0] - c.caught.x) * blend; p.y = c.caught.y + (target[1] - c.caught.y) * blend
     p.vx = (p.x - oldX) / dt; p.vy = (p.y - oldY) / dt; p.grounded = false
-    if (c.rope && vertical > 0 && c.time >= .16) {
+    if (c.rope && screenVertical > 0 && !turning && c.time >= .16) {
       const edge = ropeLedge({ ...p, x: oldX, y: oldY }, c, platforms, world)
       if (edge) {
         // The unloaded rope keeps moving; the pose we are leaving must stay fixed.
@@ -628,11 +650,11 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.gait = gaitPose(0)
     }
     // Sweep even the first catch frame. Blocked grips cannot pull the player through terrain.
-    let safe = moveBody([oldX, oldY], [p.x, p.y], platforms)
+    let safe = moveBody([oldX, oldY], [p.x, p.y], platforms, TUNING.height, 1, c.turn?.angle)
     const blocked = Math.hypot(safe.x - p.x, safe.y - p.y)
     p.x = safe.x; p.y = safe.y
     // Up can finish a scramble on a walkable slope, just as Down steps off onto a floor.
-    const footing = c.rope && (vertical < 0 || vertical > 0 && c.surfaceSupport) ? groundAt(platforms, p.x, p.y, .2) : null
+    const footing = c.rope && !turning && gravity >= 0 && (screenVertical < 0 || screenVertical > 0 && c.surfaceSupport) ? groundAt(platforms, p.x, p.y, .2) : null
     if (footing && canGrip(footing.angle)) {
       p.climbing = null; p.grabCooldown = .35; p.grounded = true
       p.y = footing.y; p.vx = 0; p.vy = 0; p.groundAngle = footing.angle
@@ -640,8 +662,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     } else if (blocked > .1) {
       if (c.rope) {
         // Stop only a climbing step into an obstruction, never the rope simulation.
-        if (vertical && safe.contacts.some(({ normal }) => normal[1] * vertical > .5)) {
+        if (screenVertical && safe.contacts.some(({ normal }) => normal[1] * screenVertical > .5)) {
           c.distance = previousClimb.distance; c.direction = 0
+          if (c.rope) c.screenDirection = 0
+          if (c.turn && previousClimb.turn) c.turn.grip = previousClimb.turn.grip
         }
         for (let i = 0; i < 4; i++) safe = constrainRopeBody(c, [oldX, oldY], p.facing, platforms)
         p.x = safe.x; p.y = safe.y
@@ -653,9 +677,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.vx = ropeVelocity[0] + (after[0] - before[0]) / dt
       p.vy = ropeVelocity[1] + (after[1] - before[1]) / dt
     }
-    if (c.rope && p.climbing && c.distance === bottom && vertical < 0 && c.time >= .16) {
+    if (c.rope && p.climbing && c.distance === bottom && materialVertical < 0 && c.time >= .16) {
       // Descending off the last handhold is a natural exit, not a jump.
-      p.climbing = null; p.grabCooldown = .35; p.vy = Math.max(80, p.vy)
+      if (c.turn) p.releaseTurn = { angle: c.turn.angle, target: c.turn.target }
+      p.climbing = null; p.grabCooldown = .35
     }
     return
   }

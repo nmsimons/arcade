@@ -77,7 +77,7 @@ test('descending off a long swinging rope inherits rope motion without an end-of
       released = true
       assert.ok(Math.abs(p.vx - incomingVx) < 15, 'leaving the last grip must not inject a sideways impulse')
       assert.ok(Math.abs(p.vx) < 180, `descending generated a sideways launch: ${p.vx}`)
-      assert.ok(p.vy >= 80 && p.vy < 240, `descending generated a vertical launch: ${p.vy}`)
+      assert.ok(Math.abs(p.vy) < 240, `descending generated a vertical launch: ${p.vy}`)
       assert.equal(c.hangBlend, 1, 'the feet must hang freely before the last grip is released')
     }
     assert.ok(released, 'continued descent must let go of the final handhold')

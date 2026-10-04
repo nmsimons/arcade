@@ -6,6 +6,7 @@ import { groundAt } from './terrain.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
 import { playerContactBody, translatePlayer } from './playerContacts.ts'
 import type { ContactWorld } from './playerContacts.ts'
+import { playerTurnAngle } from './ropeGravity.ts'
 
 const RADIUS = 9, HALF_AXLE = 17
 
@@ -135,12 +136,13 @@ function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x
     // Only the moving bot can initiate this correction. A distant bot
     // must not resolve a ledge animation against the ordinary upright hull
     // and transport its grip away from the actual corner.
-    if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height, player.inverted ? -1 : 1))) {
+    const angle = playerTurnAngle(player)
+    if (hulls.some(b => bodyIntersects(contactBody.x, contactBody.y, b, height, player.inverted ? -1 : 1, angle))) {
       if (player.hang || player.mantle || player.climbing) return false
       const obstacles = [...platforms, ...hulls]
       // A pinned player blocks the bot; neither actor can pass through a wall.
-      const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height, player.inverted ? -1 : 1)
-      if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height, player.inverted ? -1 : 1))) return false
+      const safe = moveBody([player.x, player.y], [player.x, player.y], obstacles, height, player.inverted ? -1 : 1, angle)
+      if (obstacles.some(b => bodyIntersects(safe.x, safe.y, b, height, player.inverted ? -1 : 1, angle))) return false
       translatePlayer(player, safe.x - player.x, safe.y - player.y)
     }
   }

@@ -5,7 +5,8 @@ import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './f
 import { groundAt } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
-import { climbBody, climbGait, climbNormal, climbPoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
+import { climbBody, climbGait, climbNormal, climbPoint, climbRoot, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
+import { keepRopeGrip } from './ropeGravity.ts'
 import { stepFootOffsets } from './stepUp.ts'
 
 type Point = [number, number]
@@ -421,6 +422,14 @@ function ledgePose(p: Player): AthletePose {
 }
 function climbingPose(p: Player): AthletePose {
   const c = p.climbing!, d = c.distance, blend = smooth(c.time / .16)
+  if (c.turn) {
+    const base = { ...c, turn: undefined, time: .16, hangBlend: 1, wall: undefined, wallBlend: 0, lean: 0, swing: 0 }
+    keepRopeGrip(base, c.turn.grip)
+    const root = climbRoot(base, p.facing), pivot = ropePoint(c.rope!, c.turn.grip)
+    const pose = climbingPose({ ...p, x: root[0], y: root[1], climbing: base })
+    return rotatePose(pose, c.turn.angle, p.facing, [(pivot[0] - root[0]) * p.facing, pivot[1] - root[1]],
+      [(root[0] - p.x) * p.facing, root[1] - p.y])
+  }
   if (c.caught.hang && blend < 1) {
     const source = athletePose({ ...p, ...c.caught, climbing: null, hang: c.caught.hang, mantle: null, ledgeReach: null })
     const target = climbingPose({ ...p, climbing: { ...c, time: .16 } })
@@ -513,6 +522,17 @@ function climbingPose(p: Player): AthletePose {
   return { hip, waist, shoulder, head, frontArm: arms[0], backArm: arms[1], frontLeg: legs[0], backLeg: legs[1], sideView, backView: blend * (1 - sideView) }
 }
 
+function rotatePose(pose: AthletePose, angle: number, facing: number, pivot: Point = [0, 0], shift: Point = [0, 0]): AthletePose {
+  const cos = Math.cos(angle), sin = Math.sin(angle) * facing
+  const point = ([x, y]: Point): Point => [pivot[0] + (x - pivot[0]) * cos - (y - pivot[1]) * sin + shift[0],
+    pivot[1] + (x - pivot[0]) * sin + (y - pivot[1]) * cos + shift[1]]
+  const limb = <T extends Limb>(value: T): T => ({ ...value, root: point(value.root), joint: point(value.joint), end: point(value.end),
+    ...(value.hand ? { hand: point(value.hand) } : {}) })
+  const leg = (value: Leg): Leg => ({ ...limb(value), footAngle: value.footAngle + angle * facing / value.footFacing })
+  return { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head),
+    frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
+}
+
 /** A reaching foot meets the wall immediately while the torso eases into its brace. */
 function clearClimbingLeg(p: Player, leg: Leg, spread: number): Leg {
   let current = leg
@@ -555,6 +575,7 @@ export function athletePose(p: Player): AthletePose {
     try { return athletePose(p) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
+  if (p.releaseTurn) return rotatePose(athletePose({ ...p, releaseTurn: undefined }), p.releaseTurn.angle, p.facing)
   if (p.mantle?.step) return stepUpPose(p)
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)

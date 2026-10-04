@@ -39,6 +39,7 @@ async function open(page, power = 'always', level = fixture(power)) {
     }
     proto.arc = function (...args) {
       if (this.canvas.gravityFrame && this.fillStyle === '#8f9e98' && args[2] === 30) this.canvas.gravityFrame.ballBottom = args[1] + 30
+      if (this.canvas.gravityFrame && args[0] === 800 && args[1] === 200 && args[2] === 11) this.canvas.gravityFrame.ceilingLamp = this.fillStyle
       return arc.apply(this, args)
     }
   })
@@ -52,6 +53,23 @@ async function open(page, power = 'always', level = fixture(power)) {
 }
 const player = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 const frame = page => page.locator('canvas').evaluate(canvas => canvas.gravityFrame)
+
+test('normal controls reach and release a flipped ceiling pressure plate in a ceiling gravity field', async ({ page }, info) => {
+  const level = fixture(); level.props = []; level.gravityPlates[0].ceiling = true
+  level.triggers = [{ x: 240, y: 0, w: 180, ceiling: true, mode: 'touch', targets: ['ceiling-lamp'] }]
+  level.wallLights = [{ id: 'ceiling-lamp', x: 800, y: 200 }]
+  await open(page, 'always', level)
+  expect((await frame(page)).ceilingLamp).toBe('#9aa38e')
+  await page.keyboard.down('d'); await page.clock.runFor(32); await page.keyboard.up('d')
+  await page.clock.runFor(2700)
+  expect((await player(page)).y).toBeCloseTo(0, 1); expect((await player(page)).signals.grounded).toBe(true)
+  expect((await frame(page)).ceilingLamp).toBe('#a9d56b')
+  await page.screenshot({ path: info.outputPath('ceiling-plates-loaded.png') })
+  await page.keyboard.down('d'); await page.clock.runFor(700); await page.keyboard.up('d')
+  await page.clock.runFor(200)
+  expect((await player(page)).x).toBeGreaterThan(420)
+  expect((await frame(page)).ceilingLamp).toBe('#9aa38e')
+})
 
 for (const night of [false, true]) test(`small weak-gravity fields have visible moving dust in ${night ? 'night' : 'day'} rooms`, async ({ page }, info) => {
   const level = fixture(); level.props = []; level.spawn.x = 200
@@ -159,6 +177,51 @@ for (const slope of [-1, 1]) test(`the player walks and jumps on a ceiling slopi
   expect(settled.y).toBeCloseTo(surfaceY(settled.x), 1)
 })
 
+test('both plate tools snap onto ceilings and preserve their vertical flip on save and reopen', async ({ page }, info) => {
+  const level = fixture(); level.gravityPlates = []; level.triggers = []
+  level.platforms = [{ x: 120, y: 80, w: 600, h: 40 }]
+  await useLevelFixtures(page, [level]); await installTestFolder(page, { 'ceiling.json': level })
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype, fill = proto.fillRect
+    proto.fillRect = function (...args) {
+      if (this.canvas.getAttribute('aria-label') === 'Level canvas' && this.fillStyle === '#f1f1ed' && args[0] === 0 && args[1] === 0) {
+        const t = this.getTransform(); this.canvas.plateView = { a: t.a, d: t.d, e: t.e, f: t.f }
+      }
+      return fill.apply(this, args)
+    }
+  })
+  await page.goto('/untitled-jumping-game')
+  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
+  await page.getByRole('button', { name: 'Library', exact: true }).click()
+  const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })
+  if (await local.count()) await local.click()
+  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
+  await page.getByRole('button', { name: 'Open ceiling.json', exact: true }).click()
+  await page.getByRole('button', { name: 'Fit level', exact: true }).click()
+  const canvas = page.getByRole('application', { name: 'Level canvas' })
+  for (const [tool, kind, x] of [['Pressure plate', 'trigger:0', 280], ['Gravity plate', 'gravity-plate:0', 520]]) {
+    await page.getByRole('button', { name: tool, exact: true }).click()
+    await expect.poll(() => canvas.evaluate(c => !!c.plateView)).toBe(true)
+    const point = await canvas.evaluate((c, x) => { const t = c.plateView; return { x: x * t.a + t.e, y: 120 * t.d + t.f } }, x)
+    await canvas.click({ position: point })
+    await selectBuilderObject(page, kind)
+    const flip = page.getByRole('button', { name: 'Flip vertically', exact: true })
+    await expect(flip).toHaveAttribute('aria-pressed', 'true')
+    await flip.click(); await expect(flip).toHaveAttribute('aria-pressed', 'false')
+    await flip.click(); await expect(flip).toHaveAttribute('aria-pressed', 'true')
+  }
+  await expect(page.getByRole('spinbutton', { name: 'Gravity strength', exact: true })).toHaveValue('-1')
+  const saved = await saveTestLevel(page)
+  expect(saved.level.triggers[0]).toMatchObject({ ceiling: true, y: 120 })
+  expect(saved.level.gravityPlates[0]).toMatchObject({ ceiling: true, y: 120, h: 480, gravity: -1 })
+  await reopenTestLevel(page, saved)
+  for (const kind of ['trigger:0', 'gravity-plate:0']) {
+    await selectBuilderObject(page, kind)
+    await expect(page.getByRole('button', { name: 'Flip vertically', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  }
+  await page.screenshot({ path: info.outputPath('ceiling-plate-editor.png') })
+})
+
 test('gravity authoring exposes power, fractional strength, eight resize handles, wiring, undo and save/reopen', async ({ page }, info) => {
   const level = fixture('switched'); level.gravityPlates = []; level.triggers[0].targets = []
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'gravity.json': level })
@@ -210,13 +273,17 @@ test('gravity authoring exposes power, fractional strength, eight resize handles
   await expect(incoming).toHaveCount(0)
   await selectBuilderOption(page, 'Gravity plate power', 'switched')
   await incoming.getByRole('checkbox', { name: 'Pressure plate 1', exact: true }).check()
+  const flip = page.getByRole('button', { name: 'Flip vertically', exact: true })
+  await flip.click(); await expect(flip).toHaveAttribute('aria-pressed', 'true')
+  await expect(strength).toHaveValue('-0.5')
   await page.getByRole('button', { name: 'Duplicate', exact: true }).click()
   const saved = await saveTestLevel(page)
   expect(saved.level.gravityPlates).toHaveLength(2)
-  expect(saved.level.gravityPlates[0]).toMatchObject({ gravity: -.5, power: 'switched', h: resized })
+  expect(saved.level.gravityPlates[0]).toMatchObject({ gravity: -.5, power: 'switched', h: resized, ceiling: true })
   expect(saved.level.triggers[0].targets).toContain(saved.level.gravityPlates[0].id)
   await reopenTestLevel(page, saved); await selectBuilderObject(page, 'gravity-plate:0')
   await expect(strength).toHaveValue('-0.5')
+  await expect(flip).toHaveAttribute('aria-pressed', 'true')
   await expect(incoming.getByRole('checkbox', { name: 'Pressure plate 1', exact: true })).toBeChecked()
   await expect.poll(() => canvas.evaluate(c => c.gravityHandles?.length)).toBe(8)
   await page.screenshot({ path: info.outputPath('gravity-editor-handles.png') })

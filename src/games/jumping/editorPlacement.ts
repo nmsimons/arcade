@@ -8,6 +8,7 @@ import { ballShape } from './propGeometry.ts'
 import { TUNING } from './model.ts'
 import { goalBounds } from './goal.ts'
 import { groundAt } from './terrain.ts'
+import { plateSolids, plateSurface } from './plateSurface.ts'
 
 function placementSolids(level: JumpLevel, selection: Selection) {
   const props = (level.props ?? []).flatMap((p, i) => selection?.kind === 'prop' && i === selection.index ? []
@@ -19,12 +20,21 @@ function placementSolids(level: JumpLevel, selection: Selection) {
 
 export function canPlaceOnSurface(selection: Selection, level?: JumpLevel) {
   if (selection.kind === 'trigger' && level?.triggers?.[selection.index]?.mode === 'coins') return false
-  return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'spawn', 'checkpoint', 'goal', 'ladder'].includes(selection.kind)
+  return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'spawn', 'checkpoint', 'goal', 'ladder', 'gravity-plate'].includes(selection.kind)
 }
 
+type SurfacePlacement = { y: number; left: number; right: number; delta: number; ceiling?: boolean }
 /** Find an exposed support under the actual footprint, not a distant nearest center point. */
-export function surfacePlacement(level: JumpLevel, selection: Selection, reach = Infinity) {
+export function surfacePlacement(level: JumpLevel, selection: Selection, reach = Infinity): SurfacePlacement | null {
   if (!canPlaceOnSurface(selection, level)) return null
+  const plate = selection.kind === 'gravity-plate' ? level.gravityPlates?.[selection.index]
+    : selection.kind === 'trigger' ? level.triggers?.[selection.index] : undefined
+  if (plate && (!('mode' in plate) || plate.mode !== 'coins')) {
+    const gravity = 'gravity' in plate, anchor = gravity && !plate.ceiling ? plate.y + plate.h : plate.y
+    const support = plateSurface(plateSolids(level), plate.x, plate.w, anchor, reach, !!plate.ceiling,
+      (y, ceiling) => !gravity || (ceiling ? y >= 0 && y + plate.h <= levelHeight(level) : y - plate.h >= 0 && y <= levelHeight(level)))
+    return support && { ...support, delta: gravity ? support.y - (support.ceiling ? 0 : plate.h) - plate.y : support.delta }
+  }
   const bounds = itemBounds(level, selection)
   if (!bounds) return null
   const marker = ['spawn', 'checkpoint', 'goal'].includes(selection.kind)
@@ -76,6 +86,15 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
 
 export function placeOnSurface(level: JumpLevel, selection: Selection, reach = Infinity) {
   const support = surfacePlacement(level, selection, reach)
+  if (support?.ceiling !== undefined) {
+    const next = copyLevel(level)
+    const plate = selection.kind === 'gravity-plate' ? next.gravityPlates![selection.index] : next.triggers![selection.index]
+    if ('mode' in plate && plate.mode === 'coins') return level
+    if (support.ceiling) plate.ceiling = true; else delete plate.ceiling
+    plate.y = support.y - ('gravity' in plate && !support.ceiling ? plate.h : 0)
+    if ('mode' in plate) attachPressurePlateOnSurface(next, plate)
+    return next
+  }
   const next = support && Math.abs(support.delta) > .001 ? moveItem(level, selection, 0, support.delta) : level
   if (support && selection.kind === 'trigger') {
     const attached = copyLevel(next)

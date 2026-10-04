@@ -25,6 +25,7 @@ import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
+import { plateSolids, plateSurface } from './plateSurface.ts'
 
 export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'gravity-plate'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
@@ -111,7 +112,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'prop') { const b = level.props?.[i]; return b ? { x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size } : null }
   if (selection.kind === 'robot') { const r = level.robots?.[i]; return r ? { x: r.x - 26, y: r.y - 50, w: 52, h: 50 } : null }
   if (selection.kind === 'mechanism') return level.mechanisms?.[i] ?? null
-  if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? t.mode === 'coins' ? coinSwitchBounds(t) : { x: t.x, y: t.y - 8, w: t.w, h: 8 } : null }
+  if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? t.mode === 'coins' ? coinSwitchBounds(t) : { x: t.x, y: t.y - (t.ceiling ? 0 : 8), w: t.w, h: 8 } : null }
   if (selection.kind === 'goal') return level.goal ? { ...level.goal, w: 0, h: 0 } : null
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
@@ -162,6 +163,18 @@ export function setPlateBehavior(level: JumpLevel, index: number, behavior: Plat
   plate.behavior = behavior
   delete plate.startsOn
   if (behavior === 'toggle') plate.startsOn = startsOn
+  return next
+}
+/** Flip the artwork and exposed face. Gravity strength and wiring stay authored. */
+export function setPlateCeiling(level: JumpLevel, selection: Selection, ceiling: boolean): JumpLevel {
+  const item = selection.kind === 'gravity-plate' ? level.gravityPlates?.[selection.index]
+    : selection.kind === 'trigger' ? level.triggers?.[selection.index] : null
+  if (!item || 'mode' in item && item.mode === 'coins' || !!item.ceiling === ceiling) return level
+  const next = copyLevel(level)
+  const plate = selection.kind === 'gravity-plate' ? next.gravityPlates![selection.index] : next.triggers![selection.index]
+  if ('mode' in plate && plate.mode === 'coins') return level
+  if (ceiling) plate.ceiling = true; else delete plate.ceiling
+  if ('mode' in plate) { plate.y = clamp(plate.y, ceiling ? 0 : 8, levelHeight(next) - (ceiling ? 8 : 0)); syncPressurePlateMounts(next) }
   return next
 }
 export function setPressurePlateMount(level: JumpLevel, index: number, mechanism: string | null): JumpLevel {
@@ -294,7 +307,8 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     // the pointer reach actors and terrain within the field.
     const inside = x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance
     if (inside && (Math.abs(x - b.x) <= tolerance || Math.abs(x - b.x - b.w) <= tolerance
-      || Math.abs(y - b.y) <= tolerance || y >= b.y + b.h - 10 - tolerance)) return { kind: 'gravity-plate', index: i }
+      || Math.abs(y - b.y) <= tolerance || Math.abs(y - b.y - b.h) <= tolerance
+      || (b.ceiling ? y <= b.y + 10 + tolerance : y >= b.y + b.h - 10 - tolerance))) return { kind: 'gravity-plate', index: i }
   }
   // Wall objects sit behind the terrain and other playable objects.
   for (let i = (level.wallLights?.length ?? 0) - 1; i >= 0; i--) {
@@ -414,7 +428,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'light') Object.assign(next.lighting!.lights[selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
-    const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' ? y : y + 8
+    const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
     attachPressurePlateOnSurface(next, t)
   }
   if (selection.kind === 'mechanism') syncPressurePlateMounts(next)
@@ -542,10 +556,11 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     if (plates.length >= MAX_GRAVITY_PLATES) throw new Error('This level already has 16 gravity plates.')
     const dragged = Math.hypot(end.x - start.x, end.y - start.y) >= 20
     const w = Math.min(trial.width, dragged ? Math.max(40, Math.abs(end.x - start.x)) : 160)
-    const h = Math.min(levelHeight(trial), dragged ? Math.max(40, Math.abs(end.y - start.y)) : Math.max(40, start.y))
     const left = clamp(dragged ? Math.min(start.x, end.x) : start.x - w / 2, 0, trial.width - w)
-    const top = clamp(dragged ? Math.min(start.y, end.y) : start.y - h, 0, levelHeight(trial) - h)
-    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1 })
+    const ceiling = !!plateSurface(plateSolids(trial), left, w, start.y, 12)?.ceiling
+    const h = Math.min(levelHeight(trial), dragged ? Math.max(40, Math.abs(end.y - start.y)) : Math.max(40, ceiling ? levelHeight(trial) - start.y : start.y))
+    const top = clamp(dragged ? Math.min(start.y, end.y) : ceiling ? start.y : start.y - h, 0, levelHeight(trial) - h)
+    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1, ...(ceiling ? { ceiling: true } : {}) })
     return { level: trial, selection: { kind: 'gravity-plate', index: plates.length - 1 } }
   }
   if (tool === 'wall-light') {
@@ -663,7 +678,10 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     if (tool === 'plate') {
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
       const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
-      trial.triggers.push({ x: clamp(point.x - 50, 24, trial.width - 124), y: Math.max(8, point.y), w: 100, targets: nearest ? [nearest.id] : [], mode: 'touch' })
+      const left = clamp(point.x - 50, 24, trial.width - 124)
+      const ceiling = !!plateSurface(plateSolids(trial), left, 100, point.y, 12)?.ceiling
+      trial.triggers.push({ x: left, y: clamp(point.y, ceiling ? 0 : 8, levelHeight(trial) - (ceiling ? 8 : 0)), w: 100,
+        targets: nearest ? [nearest.id] : [], mode: 'touch', ...(ceiling ? { ceiling: true } : {}) })
       attachPressurePlateOnSurface(trial, trial.triggers.at(-1)!)
       return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
     }

@@ -11,6 +11,7 @@ import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles } from './terrainLedges.ts'
+import { playerTurnAngle } from './ropeGravity.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -113,7 +114,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
     try { return mirrorContacts(playerContacts(p, input, reflected), world) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
-  const free = !p.hang && !p.mantle && !p.climbing
+  const free = !p.hang && !p.mantle && !p.climbing && !p.releaseTurn
   const ground = p.grounded && free ? groundAt(world.platforms, p.x, p.y, .2, s => canGrip(s.angle)) : null
   const collider = ground && world.colliders.find(c => c.platform === ground.platform)
   const support = ground && collider ? { ...ground, collider } : null
@@ -164,7 +165,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
     // and sloping foot contacts while airborne, where no standing support exists.
     const move = Math.max(-1, Math.min(1, input.move))
     const height = p.crouching ? TUNING.crouchHeight : TUNING.height
-    const probe = moveBody([p.x, p.y], [p.x + move * .2, p.y + ((p.gravity ?? TUNING.gravity) < 0 ? -.2 : .2)], world.platforms, height)
+    const probe = moveBody([p.x, p.y], [p.x + move * .2, p.y + ((p.gravity ?? TUNING.gravity) < 0 ? -.2 : .2)], world.platforms, height, 1, playerTurnAngle(p))
     for (const hit of probe.contacts) {
       const collider = world.colliders.find(c => c.platform === hit.platform && c.prop)
       if (!collider || collider === support?.collider || body.some(c => c.collider === collider)) continue

@@ -291,6 +291,27 @@ Rope particles use their local field multiplier with the rope's usual baseline.
 Grips and authored climbing paths retain their constraints; release returns the
 body to free movement. Field forces act through the center of mass.
 
+Ropes can be caught from either player orientation. Up and Down follow the
+visible rope's vertical direction, including a rope floating upward from a floor
+anchor. Nearly horizontal spans retain their last material direction. A player's
+load uses the gravity averaged across their body, scaled to the rope's existing
+baseline, independently of the field at their hands. The anchor stays fixed.
+
+When gravity reverses during a rope hold, the body hangs from the retained hand
+grip and turns over 0.45 seconds. The actual rotated hull is checked along the
+arc; a blocked turn waits for clearance while climbing or release remains
+available. A five-percent gravity deadband retains the current orientation near
+zero. Releasing during a turn continues around the body center in free flight.
+Turning motion and changes in the catch pose never add release momentum.
+Jump pushes against current gravity, carrying real rope motion; letting go or
+climbing off the free end preserves momentum without a forced downward kick.
+Ceiling and ceiling-slope transfers use the existing reflected contact, support
+and clear-path checks. Regression coverage lives in
+`tests/jumping-rope-gravity.test.mjs` and
+`tests/browser/jumpingRopeGravity.spec.mjs`. The rope CPU benchmark includes
+matched upright and reverse-gravity player loads:
+`node scripts/benchmark-jumping-ropes.mjs`.
+
 Gravity that pulls away from the current footing releases ground and slide support
 immediately. On reaching a solid surface in the gravity direction, the player
 turns to plant their feet there, preserving the occupied body space and lateral
@@ -302,6 +323,16 @@ Leaving the field restores ordinary acceleration without resetting velocity;
 the player returns upright on landing on a normal floor. Player vertical
 speed is bounded to ±1100; props use the solver's ±1000 integration bound. There
 are no special field collision exceptions.
+
+Pressure and gravity plates support ceiling-facing artwork via optional
+`ceiling: true`. Gravity flipping selects the rectangle's emitter edge without
+changing the field or its multiplier. Ceiling pressure plates use the same press
+debounce, modes and EMP behavior, reading inverted feet and a prop's supported
+top edge. Prop support follows the contact normal in its gravity direction;
+it is not inferred from merely overlapping a switch. Mounted pressure plates
+follow a platform's top or underside, carrying supported passengers with the
+existing swept motion and obstruction rules. Regression coverage lives in
+`tests/jumping-ceiling-plates.test.mjs`.
 
 The runtime partitions at most 16 active rectangles into nonoverlapping vertical
 strips, merging adjoining equal-gravity spans. This rebuilds only when device

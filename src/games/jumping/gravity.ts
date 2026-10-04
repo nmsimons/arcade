@@ -6,12 +6,14 @@ import { TUNING } from './movementTuning.ts'
 import { bodyPolygon } from './geometry.ts'
 import { playerContactBody } from './playerContacts.ts'
 import type { Vec } from './geometry.ts'
+import { playerTurnAngle } from './ropeGravity.ts'
 
 export const MAX_GRAVITY_PLATES = 16
-/** The rectangle is the field; its bottom edge is the emitter plate. */
+/** The rectangle is the field; the emitter sits on the floor or ceiling edge. */
 export interface GravityPlate extends NamedObject, SwitchSettings {
   id: string; x: number; y: number; w: number; h: number
   power?: PowerMode
+  ceiling?: boolean
   gravity: number // Multiplier of ordinary gravity; negative values accelerate up.
 }
 export const gravityPlateActive = (plate: GravityPlate, states: ReadonlyMap<string, boolean>) => plate.power === 'always' || !!states.get(plate.id)
@@ -126,8 +128,12 @@ function integrate(field: GravityField, left: number, top: number, right: number
 
 export function playerGravity(field: GravityField, player: Player) {
   if (!field.strips.length) return TUNING.gravity
-  const body = playerContactBody(player), left = body.x - 12, right = body.x + 12, top = Math.min(body.y, body.y - body.height * (player.inverted ? -1 : 1)), bottom = Math.max(body.y, body.y - body.height * (player.inverted ? -1 : 1))
+  const body = playerContactBody(player), angle = playerTurnAngle(player)
   let points: Vec[] | undefined
+  if (angle) points = bodyPolygon(body.x, body.y, body.height, player.inverted ? -1 : 1, angle)
+  const left = points ? Math.min(...points.map(p => p[0])) : body.x - 12, right = points ? Math.max(...points.map(p => p[0])) : body.x + 12
+  const top = points ? Math.min(...points.map(p => p[1])) : Math.min(body.y, body.y - body.height * (player.inverted ? -1 : 1))
+  const bottom = points ? Math.max(...points.map(p => p[1])) : Math.max(body.y, body.y - body.height * (player.inverted ? -1 : 1))
   return integrate(field, left, top, right, bottom, 24 * (body.height - 9), (l, t, r, b) => {
     points ??= bodyPolygon(body.x, body.y, body.height, player.inverted ? -1 : 1)
     return clippedPolygonArea(points, l, t, r, b)

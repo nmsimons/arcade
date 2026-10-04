@@ -667,6 +667,13 @@ stopping smoothly returns both soles to the wall.
 Body collisions constrain the loaded rope section while other sections keep
 moving; a blocked climb retains the grip and allows retreat along the rope.
 
+Gravity fields affect each rope segment while its anchor stays fixed. Players
+can grab ropes upside down; Up and Down follow the rope's visible vertical
+direction under either gravity. A gravity reversal during a hold turns the body
+around its hands if terrain permits. Jump pushes against gravity; letting go
+retains momentum without a downward kick. Ropes can transfer onto ceilings and
+ceiling slopes using the same support and clearance rules as ordinary exits.
+
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
 The builder's **Objects** tools place balls, boxes, and shovebots at the cursor,
 with their feet at its height. Snap catches nearby surfaces; **Place on surface**
@@ -814,6 +821,13 @@ its load independently of its green active indicator. Restart resets Switch to
 off and Toggle to its chosen starting state. An initially on Toggle powers its
 targets in the first playable frame and in editor previews.
 
+**Flip vertically** mirrors a pressure plate for ceiling placement. Snap catches
+both floors and exposed undersides, choosing the facing automatically. A ceiling
+plate responds to inverted feet or the supported top edge of a prop pressed
+against it from below; its depression moves into the ceiling. The file uses
+optional `ceiling: true`, with `y` still the mounting surface. Omission keeps
+floor-facing artwork and contacts. Coin switches do not use this setting.
+
 Files use optional `behavior: "pressure"`, `"switch"`, or `"toggle"` on the plate,
 and optional boolean `startsOn` only for Toggle. Omitted `behavior` means Pressure;
 omitted `startsOn` means off. The legacy `mode` values `weight` and `touch` remain
@@ -823,7 +837,7 @@ For example: `{ "mode": "weight", "behavior": "toggle", "startsOn": true,
 "x": 120, "y": 920, "w": 100, "targets": ["exit"] }`.
 
 Pressure plates attach to elevators and moving platforms when placed on their
-top surface. **Mount** also lets you choose an existing platform wide enough
+top surface or underside, according to their facing. **Mount** also lets you choose an existing platform wide enough
 for the plate, or None to detach it. Mounted plates travel with the platform,
 accepting the grounded player, boxes and balls at their moving position. All
 three plate modes, their debounce and EMP behavior stay the same. Slide a plate
@@ -866,10 +880,16 @@ and legacy connections. Neither replaces actually playing the route.
 
 Both file versions support up to 16 `gravityPlates`. Each device defines a
 rectangular field by `x`, `y`, `w`, and `h`; its emitter is drawn along the bottom
-edge, with the field above it. Coordinates use the usual JSON top-left origin.
+edge, with the field above it, or along the top edge for a ceiling plate.
+Coordinates use the usual JSON top-left origin.
 The rectangle stays inside the room, has a minimum width and height of 40 units,
 and can extend through the full room height. There is no smaller device-specific
 height or width limit. The plate and field add no solid collision geometry.
+
+**Flip vertically** sets optional `ceiling: true`, reflecting only the emitter
+to the rectangle's top edge. The rectangle, gravity multiplier and switching
+behavior remain unchanged. Negative gravity always pulls up, including on a
+ceiling device. Omitted `ceiling` keeps the emitter at the bottom edge.
 
 ```json
 "gravityPlates": [
@@ -900,10 +920,14 @@ restores ordinary gravity; landing on a floor returns normal footing.
 Terrain, gates, lifts and the supported shovebot controller retain their existing
 movement rules. See [the physics contract](jumping-physics.md#gravity-fields).
 
-In the studio, **Gravity plate** clicks place a 160-unit-wide field from the plate
-to the ceiling, or drag to define its rectangle. The inspector edits field
+In the studio, **Gravity plate** clicks place a 160-unit-wide field from a floor
+plate to the ceiling or from a ceiling plate to the floor; drag to define its
+rectangle. Nearby snapping selects the correct facing on terrain or object
+undersides. **Place on surface** follows the chosen floor or ceiling facing.
+The inspector edits field
 position, width, height, gravity strength and power. Eight edge and corner
-handles resize the rectangle; the top handle keeps the emitter fixed. The
+handles resize the rectangle; the top handle keeps a floor emitter fixed, and
+the bottom handle keeps a ceiling emitter fixed. The
 emitter and rectangle edges select the device; the field interior allows selection
 of objects within it. Rectangles remain outlined in the studio. During play,
 gravity has no tint, border or arrow grid: small dust streaks drift in the local

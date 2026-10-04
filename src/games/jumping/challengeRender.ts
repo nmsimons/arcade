@@ -24,9 +24,9 @@ import { nightModeEnabled } from './ambientLight.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
-export function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number) {
-  ctx.fillStyle = '#738575'; ctx.fillRect(x - 3, y - 3, width + 6, 3)
-  ctx.fillStyle = active ? '#9bb878' : '#c4a66b'; ctx.fillRect(x, y - 7 + depression * 4, width, 3)
+export function drawPressurePlate(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, active: boolean, depression: number, ceiling = false) {
+  ctx.fillStyle = '#738575'; ctx.fillRect(x - 3, ceiling ? y : y - 3, width + 6, 3)
+  ctx.fillStyle = active ? '#9bb878' : '#c4a66b'; ctx.fillRect(x, ceiling ? y + 4 - depression * 4 : y - 7 + depression * 4, width, 3)
 }
 export function drawMechanism(ctx: CanvasRenderingContext2D, m: Pick<MechanismState, 'x' | 'y' | 'definition'>, corners: CornerRadii) {
   const d = m.definition
@@ -143,7 +143,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     for (const [i, plate] of level.triggers.entries()) {
       if (plate.mode === 'coins') continue
       const position = pressurePlatePosition(plate, run.mechanisms)
-      drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression)
+      drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression, plate.ceiling)
     }
   })
   for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), paint)

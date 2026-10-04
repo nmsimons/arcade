@@ -5,6 +5,8 @@ import type { PlayerContacts } from './playerContacts.ts'
 import { TUNING } from './model.ts'
 import { bodyPolygon, convexParts, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
+import { pressurePlatePosition } from './pressurePlateMount.ts'
+import { playerTurnAngle } from './ropeGravity.ts'
 import { playerContactBody, translatePlayer } from './playerContacts.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { flatBoxSupport } from './boxSupport.ts'
@@ -156,11 +158,15 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const response = b.kind === 'ball' ? 70 : 35
       const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
       Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
-    } else if (b.kind === 'ball' && gravity > 0 && b.grounded && !driven.has(body)) {
+    } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load
       // or braced shove cancels the player's force on large balls every step,
       // pinning the player beside walls (especially over a pressure plate).
-      const onPlate = run.level.triggers.some(t => propLoadsPlate(b, t.x, t.y, t.w))
+      const onPlate = run.level.triggers.some(t => {
+        if (t.mode === 'coins') return false
+        const position = pressurePlatePosition(t, run.mechanisms)
+        return propLoadsPlate(b, position.x, position.y, t.w, t.ceiling)
+      })
       b.vx = approach(b.vx, 0, (onPlate ? 350 : 65) * dt)
     }
     if (braced) {
@@ -192,7 +198,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     // Contact corrections change props during this solve. Sweep against their
     // current hulls, so separating one contact cannot bury the player in the
     // next prop or bot. The source receives any blocked travel below.
-    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height, p.inverted ? -1 : 1)
+    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height, p.inverted ? -1 : 1, playerTurnAngle(p))
     translatePlayer(p, safe.x - p.x, safe.y - p.y)
   }
   for (const [b, body] of world.bodies) {
@@ -203,7 +209,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle), body)
   }
   const contactBody = playerContactBody(p)
-  const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height, p.inverted ? -1 : 1))
+  const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height, p.inverted ? -1 : 1, playerTurnAngle(p)))
   // Props may displace the controlled player only along a clear sweep. Any
   // blocked part of that displacement is resolved back into the prop, in the
   // same iterations as prop/terrain and prop/prop contacts.
@@ -302,10 +308,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     let changed = false
     for (const contact of contacts) {
       const a = byBody.get(contact.bodyA), b = byBody.get(contact.bodyB), ny = contact.normal.y
-      if (a && ny < -.3 && (contact.bodyB.isStatic || b?.grounded) && !a.grounded) {
+      const directionA = (world.gravity.get(contact.bodyA) ?? TUNING.gravity) < 0 ? -1 : 1
+      const directionB = (world.gravity.get(contact.bodyB) ?? TUNING.gravity) < 0 ? -1 : 1
+      if (a && ny * directionA < -.3 && (contact.bodyB.isStatic || b?.grounded) && !a.grounded) {
         a.grounded = true; changed = true; supports.set(contact.bodyA, contact.normal)
       }
-      if (b && ny > .3 && (contact.bodyA.isStatic || a?.grounded) && !b.grounded) {
+      if (b && ny * directionB > .3 && (contact.bodyA.isStatic || a?.grounded) && !b.grounded) {
         b.grounded = true; changed = true; supports.set(contact.bodyB, { x: -contact.normal.x, y: -ny })
       }
     }
@@ -315,7 +323,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const normal = supports.get(body)
     // Static friction holds a settled face on a moderate slope. Checking face
     // alignment keeps corners free to tip; steep slopes keep their momentum.
-    if (b.kind === 'box' && normal && !driven.has(body) && Math.abs(normal.x) > .02 && Math.abs(normal.x) < -.65 * normal.y
+    if (b.kind === 'box' && normal && !driven.has(body) && Math.abs(normal.x) > .02 && Math.abs(normal.x) < .65 * Math.abs(normal.y)
       && Math.abs(Math.sin(2 * (body.angle - Math.atan2(normal.x, -normal.y)))) < .02
       && Body.getSpeed(body) * 60 < 25 && Math.abs(Body.getAngularVelocity(body)) * 60 < .08) Sleeping.set(body, true)
     const oldX = b.x, velocity = Body.getVelocity(body)
@@ -413,9 +421,9 @@ export function planMechanismMotion(run: Run, index: number, next: Platform, pas
     // obstacles, then check the actual mechanism contact below. A wall can
     // leave the rider behind; a ceiling/platform squeeze must still reject.
     return moveBody([p.x, p.y], [position.x, position.y],
-      [...run.terrain, ...shapes.filter((_, i) => i !== index), ...propShapes()], height, p.inverted ? -1 : 1)
+      [...run.terrain, ...shapes.filter((_, i) => i !== index), ...propShapes()], height, p.inverted ? -1 : 1, playerTurnAngle(p))
   }
-  const vertices = bodyPolygon(p.x, p.y, height, p.inverted ? -1 : 1).map(([x, y]) => ({ x, y }))
+  const vertices = bodyPolygon(p.x, p.y, height, p.inverted ? -1 : 1, playerTurnAngle(p)).map(([x, y]) => ({ x, y }))
   const playerHull = Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
   const playerCenter = { ...playerHull.position }
   const updatePlayer = () => {

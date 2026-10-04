@@ -20,7 +20,7 @@ import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism
 import { canHangFromBox } from './boxSupport.ts'
 import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
 
-import { createGravityField, playerGravity, setPlayerGravity, updateGravityField } from './gravity.ts'
+import { createGravityField, playerGravity, propGravity, setPlayerGravity, updateGravityField } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
 import { mirrorPlatform } from './gravityFrame.ts'
 
@@ -118,7 +118,8 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const p = run.player, open = mechanismOpenPosition(def)
     const platformIndex = run.terrain.length + index
     const support = contacts.support?.collider
-    const passengers = run.props.filter(b => propLoadsPlate(b, m.x, m.y, def.w))
+    const passengers = run.props.filter(b => propLoadsPlate(b, m.x, m.y, def.w)
+      || propLoadsPlate(b, m.x, m.y + def.h, def.w, true) && propGravity(run.gravityField, b) < 0)
     const onProp = support?.prop && passengers.includes(support.prop)
     const rider = onProp || support?.id === `mechanism:${index}`
       || p.hang?.platform === platformIndex || !!p.mantle && !p.mantle.step && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
@@ -208,8 +209,8 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
       return
     }
     const position = pressurePlatePosition(plate, run.mechanisms)
-    const weighted = run.props.some(b => propLoadsPlate(b, position.x, position.y, plate.w))
-    const touched = !run.player.inverted && run.player.grounded && Math.abs(run.player.y - position.y) < 3 && run.player.x >= position.x && run.player.x <= position.x + plate.w
+    const weighted = run.props.some(b => propLoadsPlate(b, position.x, position.y, plate.w, plate.ceiling))
+    const touched = !!run.player.inverted === !!plate.ceiling && run.player.grounded && Math.abs(run.player.y - position.y) < 3 && run.player.x >= position.x && run.player.x <= position.x + plate.w
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
     if (behavior === 'pressure') sensor.active = powered && pressed

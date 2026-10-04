@@ -41,7 +41,7 @@ export interface Mechanism extends NamedObject, SwitchSettings { id: string; kin
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
 export type Trigger = NamedObject & { x: number; y: number; w: number } & TriggerConnection
-  & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; mount?: PressurePlateMount } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
+  & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; mount?: PressurePlateMount; ceiling?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
 export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean }
@@ -295,6 +295,7 @@ export function parseLevel(value: unknown): JumpLevel {
     level.triggers = list(v.triggers, 40).map(item => {
       const t = object(item); if (t.mode !== 'touch' && t.mode !== 'weight' && t.mode !== 'coins') fail()
       if (t.mode === 'coins' && t.mount !== undefined) fail()
+      if (t.ceiling !== undefined && (t.mode === 'coins' || typeof t.ceiling !== 'boolean')) fail()
       if (t.behavior !== undefined && (t.mode === 'coins' || !['pressure', 'switch', 'toggle'].includes(t.behavior as string))) fail()
       if (t.startsOn !== undefined && (t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       let connection: TriggerConnection
@@ -335,8 +336,9 @@ export function parseLevel(value: unknown): JumpLevel {
         mount = { mechanism: host.id, x: num(m.x, 0, host.w - w) }
       }
       const position = { x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!) }
-      if (mount) { const host = level.mechanisms!.find(m => m.id === mount.mechanism)!; position.x = host.x + mount.x; position.y = host.y }
+      if (mount) { const host = level.mechanisms!.find(m => m.id === mount.mechanism)!; position.x = host.x + mount.x; position.y = host.y + (t.ceiling ? host.h : 0) }
       return { ...objectName(t), ...position, w, ...connection, mode: t.mode as 'touch' | 'weight', ...(mount ? { mount } : {}),
+        ...(t.ceiling === undefined ? {} : { ceiling: t.ceiling as boolean }),
         ...(t.behavior === undefined ? {} : { behavior: t.behavior as PlateBehavior }), ...(t.startsOn === undefined ? {} : { startsOn: t.startsOn as boolean }) }
     })
     level.robots = list(v.robots, 30).map(item => {
@@ -380,9 +382,11 @@ export function parseLevel(value: unknown): JumpLevel {
     const p = object(item)
     if (typeof p.id !== 'string' || !p.id.trim() || p.id.length > 100) return fail()
     if (p.power !== undefined && p.power !== 'always' && p.power !== 'switched') return fail()
+    if (p.ceiling !== undefined && typeof p.ceiling !== 'boolean') return fail()
     const w = num(p.w, 40, width), h = num(p.h, 40, 6000)
     return { ...objectName(p), ...parseSwitchSettings(p, fail), id: p.id,
-      x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: num(p.gravity, -3, 3), ...(p.power === undefined ? {} : { power: p.power as PowerMode }) }
+      x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: num(p.gravity, -3, 3),
+      ...(p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(p.power === undefined ? {} : { power: p.power as PowerMode }) }
   })
   if (v.wallLights !== undefined) level.wallLights = list(v.wallLights, MAX_WALL_LIGHTS).map(item => {
     const light = object(item)

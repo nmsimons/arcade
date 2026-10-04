@@ -68,7 +68,7 @@ test('an immediate rope jump uses the caught rope motion instead of the incoming
   }
 })
 
-test('settled rope jumps and drops retain their existing momentum and push-off', () => {
+test('settled rope jumps add push-off while letting go retains momentum without a downward kick', () => {
   const p = createPlayer({ x: 480, y: 420 })
   Object.assign(p, { grounded: false, vx: 350 })
   tick(p)
@@ -80,7 +80,7 @@ test('settled rope jumps and drops retain their existing momentum and push-off',
     const { vx, vy } = released
     tick(released, { move, detach: drop, jump: !drop })
     assert.equal(released.vx, drop ? vx : Math.max(-600, Math.min(600, vx + move * 180)))
-    assert.equal(released.vy, drop ? Math.max(0, vy) + 40 : Math.min(0, vy) - (move ? TUNING.directedJumpSpeed : TUNING.jumpSpeed))
+    assert.equal(released.vy, drop ? vy : Math.min(0, vy) - (move ? TUNING.directedJumpSpeed : TUNING.jumpSpeed))
   }
 })
 

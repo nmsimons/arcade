@@ -1,7 +1,7 @@
 import type { Player, Platform } from './model.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import type { Footwork } from './footwork.ts'
-import type { Climbing, Ladder } from './climbables.ts'
+import type { Climbing, Ladder, Rope, RopeState } from './climbables.ts'
 import type { PushHands } from './propGeometry.ts'
 import { polygonPoints } from './geometry.ts'
 import { disablePlatformLedges, platformLedgesDisabled } from './terrainLedges.ts'
@@ -37,6 +37,19 @@ export function mirrorLadder(ladder: Ladder): Ladder {
   ladders.set(ladder, reflected); ladders.set(reflected, ladder)
   return reflected
 }
+const ropeDefinitions = new WeakMap<Rope, Rope>()
+function mirrorRope(rope: RopeState) {
+  let definition = ropeDefinitions.get(rope.definition)
+  if (!definition) {
+    definition = { ...rope.definition, y: -rope.definition.y }
+    // Live nodes carry the path; the authored rest layout is never mutated.
+    delete definition.rest
+    ropeDefinitions.set(rope.definition, definition); ropeDefinitions.set(definition, rope.definition)
+  }
+  rope.definition = definition
+  for (const n of rope.nodes) { n.y = -n.y; n.oldY = -n.oldY }
+  for (const bend of rope.bends) if (bend) bend[1] = -bend[1]
+}
 export function mirrorContactWorld(world: ContactWorld): ContactWorld {
   const colliders = world.colliders.map(c => ({ ...c, platform: mirrorPlatform(c.platform),
     ...(c.prop ? { prop: { ...c.prop, y: c.prop.size - c.prop.y, vy: -c.prop.vy, angle: -c.prop.angle, angularVelocity: -c.prop.angularVelocity } } : {}),
@@ -58,8 +71,9 @@ export function mirrorContacts(contacts: PlayerContacts, world: ContactWorld): P
 
 /** Involution: reflect before a controller/pose query and restore in finally.
  * World positions remain world positions for props, mechanisms and rendering. */
-export function mirrorPlayerState(p: Player) {
+export function mirrorPlayerState(p: Player, allRopes = false) {
   const seen = new Set<object>()
+  const rope = (value: RopeState) => { if (!seen.has(value)) { seen.add(value); mirrorRope(value) } }
   const hands = (value: PushHands | Player['pushing']) => {
     if (!value || seen.has(value)) return
     seen.add(value)
@@ -93,12 +107,17 @@ export function mirrorPlayerState(p: Player) {
     if (seen.has(value)) return
     seen.add(value); caught(value.caught); hang(value.caught.hang ?? null)
     if (value.ladder) value.ladder = mirrorLadder(value.ladder)
+    if (value.rope) rope(value.rope)
+    if (value.screenAxis) value.screenAxis = -value.screenAxis
+    if (value.turn) { value.turn.angle = -value.turn.angle; value.turn.target = -value.turn.target }
   }
   p.y = -p.y; p.vy = -p.vy; p.spawnY = -p.spawnY; p.jumpStart = -p.jumpStart; p.groundAngle = -p.groundAngle
   if (p.gravity !== undefined) p.gravity = -p.gravity
   if (p.terrain) p.terrain = mirrorPlatforms(p.terrain)
   footwork(p.footwork); hands(p.pushing); hang(p.hang)
   if (p.climbing) climb(p.climbing)
+  if (allRopes) for (const value of p.ropes ?? []) rope(value)
+  if (p.releaseTurn) { p.releaseTurn.angle = -p.releaseTurn.angle; p.releaseTurn.target = -p.releaseTurn.target }
   if (p.mantle) {
     const m = p.mantle
     m.edgeY = -m.edgeY; m.toY = -m.toY

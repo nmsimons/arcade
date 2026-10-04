@@ -37,7 +37,7 @@ import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
 import { switchedItems, switchSources, switchTargets } from './switchPower'
-import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount } from './editor'
+import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPlateCeiling } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
@@ -100,7 +100,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
   { id: 'horizontal-gate', group: 'Mechanisms', label: 'Horizontal gate', help: 'Click or drag horizontally to place a gate. It retracts by its own width. Flip it in the inspector to reverse its direction.' },
-  { id: 'gravity-plate', group: 'Mechanisms', label: 'Gravity plate', help: 'Click to place an upward field above a plate, or drag its rectangle. Resize the rectangle and set Gravity: −1 reverses gravity, 0 removes it, 1 is normal. Choose Always on or connect switches to power it. Partially covered bodies blend gravity by area; overlapping fields average their settings. EMP disables the field.' },
+  { id: 'gravity-plate', group: 'Mechanisms', label: 'Gravity plate', help: 'Click to place a field above a floor plate or below a ceiling plate, or drag its rectangle. Flip vertically changes the emitter edge without changing Gravity: −1 reverses gravity, 0 removes it, 1 is normal. Choose Always on or connect switches to power it. Partially covered bodies blend gravity by area; overlapping fields average their settings. EMP disables the field.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click to place a pressure plate at the cursor. Snap catches nearby surfaces. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
@@ -211,6 +211,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
   const goal = selection?.kind === 'goal' ? level.goal : null
   const gravityPlate = selection?.kind === 'gravity-plate' ? level.gravityPlates?.[selection.index] : null
+  const facingPlate = gravityPlate ?? (trigger?.mode !== 'coins' ? trigger : null)
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
   const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? gravityPlate
   const objectPower = switchable ? switchable.power ?? (goal ? 'always' : 'switched') : null
@@ -814,9 +815,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
           const next = copyLevel(history.present); next.platforms[selection.index].material = material; commit(next)
         }} />}
+        {facingPlate && <button className="builder-property-action" title={gravityPlate ? 'Mirror the plate for a ceiling; gravity strength stays unchanged' : 'Mirror the pressure plate for a ceiling'} aria-pressed={!!facingPlate.ceiling}
+          onClick={() => commit(setPlateCeiling(history.present, selection, !facingPlate.ceiling))}>Flip vertically</button>}
         {canPlaceOnSurface(selection, level) && <div className="builder-surface-placement">
-          <button disabled={!support || Math.abs(support.delta) < .1} title="Place on the next surface below · End" onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">↓</span></button>
-          <span className={support && Math.abs(support.delta) < .1 ? 'is-supported' : ''}>{support ? Math.abs(support.delta) < .1 ? 'On surface' : support.delta > 0 ? `${Math.round(support.delta)} above surface` : 'Overlaps surface' : 'No clear surface below'}</span>
+          <button disabled={!support || Math.abs(support.delta) < .1} title={facingPlate?.ceiling ? 'Place on the next ceiling surface · End' : 'Place on the next surface below · End'} onClick={() => commit(placeOnSurface(history.present, selection))}>Place on surface <span aria-hidden="true">{facingPlate?.ceiling ? '↑' : '↓'}</span></button>
+          <span className={support && Math.abs(support.delta) < .1 ? 'is-supported' : ''}>{support ? Math.abs(support.delta) < .1 ? 'On surface'
+            : facingPlate?.ceiling ? support.delta < 0 ? `${Math.round(-support.delta)} below ceiling` : 'Overlaps ceiling'
+              : support.delta > 0 ? `${Math.round(support.delta)} above surface` : 'Overlaps surface'
+            : facingPlate?.ceiling ? 'No clear ceiling above' : 'No clear surface below'}</span>
         </div>}
         {selection.kind === 'goal' && level.goal && <button className="builder-property-action" title="Mirror the exit and indicator around its saved origin" aria-pressed={!!level.goal.flipX} onClick={() => {
           const next = copyLevel(history.present)
@@ -830,7 +836,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
               if (!Number.isFinite(value)) return base
               const next = copyLevel(base); next.gravityPlates![selection.index].gravity = clamp(value, -3, 3); return next
             })} /></label>
-          <p className="builder-hint">Negative lifts; zero removes gravity; positive pulls down. The rectangle above the plate is the field.</p>
+          <p className="builder-hint">Negative lifts; zero removes gravity; positive pulls down. The rectangle {gravityPlate.ceiling ? 'below' : 'above'} the plate is the field. Flipping leaves gravity strength unchanged.</p>
         </>}
         {light && <>
           <div className="builder-dimensions">
@@ -896,7 +902,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             options={[{ value: 'none', label: 'None' }, ...(level.mechanisms ?? []).flatMap((m, index) => m.kind === 'lift' && m.w >= trigger.w
               ? [{ value: m.id, label: selectionLabel({ kind: 'mechanism', index }, level) }] : [])]}
             onChange={value => commit(setPressurePlateMount(history.present, selection.index, value === 'none' ? null : value))} />
-          {trigger.mount && <p className="builder-hint">Travels with its platform. Slide it along the top to reposition, or move it away to detach.</p>}
+          {trigger.mount && <p className="builder-hint">Travels with its platform. Slide it along the {trigger.ceiling ? 'underside' : 'top'} to reposition, or move it away to detach.</p>}
           <BuilderSelect label="Mode" accessibleLabel="Pressure plate mode" value={trigger.behavior ?? 'pressure'}
             options={[{ value: 'pressure', label: 'Pressure' }, { value: 'switch', label: 'Switch' }, { value: 'toggle', label: 'Toggle' }]}
             onChange={value => commit(setPlateBehavior(history.present, selection.index, value === 'switch' ? 'switch' : value === 'toggle' ? 'toggle' : 'pressure'))} />

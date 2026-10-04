@@ -96,12 +96,12 @@ export function propPushHands(b: Prop, x: number, y: number, direction: number):
     height: y - handY, palms: [front, back] } : null
 }
 
-/** Only the actual bottom edge/corner loads a plate, including a tilted box. */
-export function propLoadsPlate(b: Prop, left: number, y: number, width: number) {
+/** Only the contacting edge/corner loads a plate, including a tilted box. */
+export function propLoadsPlate(b: Prop, left: number, y: number, width: number, ceiling = false) {
   if (!b.grounded) return false
-  if (b.kind === 'ball') return Math.abs(b.y - y) < 2 && b.x > left + 2 && b.x < left + width - 2
+  if (b.kind === 'ball') return Math.abs(b.y - (ceiling ? b.size : 0) - y) < 2 && b.x > left + 2 && b.x < left + width - 2
   const shape = boxShape(b), points = shape.polygon?.map(([x, y]) => [shape.x + x, shape.y + y])
-    ?? [[shape.x, shape.y + shape.h], [shape.x + shape.w, shape.y + shape.h]]
+    ?? [[shape.x, shape.y + (ceiling ? 0 : shape.h)], [shape.x + shape.w, shape.y + (ceiling ? 0 : shape.h)]]
   const feet = points.filter(p => Math.abs(p[1] - y) < 2)
   return !!feet.length && Math.max(...feet.map(p => p[0])) > left + 2 && Math.min(...feet.map(p => p[0])) < left + width - 2
 }

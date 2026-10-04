@@ -64,6 +64,8 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
 })
 
 for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pulling up and lowering from ${start}`, async ({ page }, info) => {
+  // Repeated full climb/lower cycles render every daylight frame on CI.
+  test.setTimeout(60_000)
   const level = { ...blankTrial(), name: 'Narrow ledge', width: 1000, height: 420, floor: 420,
     spawn: start === 'below' ? { x: 586, y: 420 } : { x: 608, y: 300 }, goal: { x: 150, y: 420 },
     platforms: [{ x: 600, y: 300, w: 160, h: 40 }, { x: 720, y: 220, w: 40, h: 80 }],

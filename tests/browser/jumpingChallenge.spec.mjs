@@ -603,6 +603,8 @@ for (const pointed of [false, true]) test(`crouch-walking lowers from a ${pointe
 })
 
 test('clutter below a low ledge keeps a stable grip and allows a crouched pull-up after restart', async ({ page }, info) => {
+  // Two complete attempts still render every daylight frame on the CI runner.
+  test.setTimeout(60_000)
   const level = { ...blankTrial(), name: 'Cluttered ledge', width: 1400, height: 700, floor: 620,
     spawn: { x: 460, y: 560 }, goal: { x: 1240, y: 620 },
     platforms: [

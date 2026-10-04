@@ -74,6 +74,8 @@ async function open(page, editor = false) {
 const state = page => page.getByRole('img', { name: 'Power cut: reach the exit' }).evaluate(c => c.empFrame)
 
 test('EMP cuts power, defers a full coin switch, pauses, restores power and restarts in production', async ({ page }, info) => {
+  // The outage and pause advance many fully rendered daylight frames in CI.
+  test.setTimeout(60_000)
   await open(page)
   const zeroClock = (await state(page)).clock; expect(zeroClock).toBeTruthy()
   expect(await state(page)).toMatchObject({ bolts: 1, edges: 1, discs: 0, eyes: 1, meter: null, clock: zeroClock, gateY: 420, liftY: 560 })

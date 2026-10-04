@@ -54,6 +54,8 @@ const state = page => page.getByRole('img', { name: 'Bad timing: reach the exit'
 const seconds = frame => { const [m, s] = frame.times[0].split(':').map(Number); return m * 60 + s }
 
 test('red pickups penalize the clock, animate, pause, expire and reset in production gameplay', async ({ page }, info) => {
+  // Pause and effect expiry still render every daylight frame on CI.
+  test.setTimeout(60_000)
   await open(page)
   const before = await state(page)
   expect(before.numbers.map(n => n.value)).toEqual(['5'])

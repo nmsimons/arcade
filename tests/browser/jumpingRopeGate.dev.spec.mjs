@@ -4,6 +4,8 @@ import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 import { lineBlocked } from '../../src/games/jumping/geometry.ts'
 
 for (const transfer of [false, true]) test(`${transfer ? 'rope to window transfer' : 'climbing beside an open gate'} keeps the rendered rope clear`, async ({ page }, info) => {
+  // Advancing the virtual clock renders every daylight frame on the CI runner.
+  test.setTimeout(60_000)
   const level = readLevelAsset(transfer ? 'rope-window-transfer.json' : 'rope-window-gate.json')
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', e => errors.push(e.message))
@@ -55,11 +57,16 @@ for (const transfer of [false, true]) test(`${transfer ? 'rope to window transfe
   } else expect(samples.at(-1).y).toBeLessThan(level.spawn.y - 100)
   const frames = await canvas.evaluate(c => c.ropeTestFrames)
   expect(frames.length).toBeGreaterThan(50)
+  const invalidGates = [], blockedSpans = []
   for (const [i, { path, gates }] of frames.entries()) {
-    expect(gates.length).toBe(2)
-    expect(gates[1].y).toBe(level.mechanisms[1].y - 100)
-    for (let j = 2; j < path.length; j++) expect(lineBlocked(path[j - 1], path[j], [...level.platforms, ...gates]), `frame ${i}, span ${j}`).toBe(false)
+    if (gates.length !== 2 || gates[1].y !== level.mechanisms[1].y - 100) invalidGates.push({ frame: i, gates })
+    for (let j = 2; j < path.length; j++) {
+      if (lineBlocked(path[j - 1], path[j], [...level.platforms, ...gates])) blockedSpans.push({ frame: i, span: j, from: path[j - 1], to: path[j] })
+    }
   }
+  // Keep every frame/span check, but trace assertions only once per result.
+  expect(invalidGates, 'both gates retain their expected rendered positions').toEqual([])
+  expect(blockedSpans, 'rope spans never cross terrain or gates').toEqual([])
   await page.screenshot({ path: info.outputPath(transfer ? 'window-transfer.png' : 'loaded-rope-gate.png') })
   await page.keyboard.up('ArrowUp'); if (transfer) await page.keyboard.up('d')
   expect(errors).toEqual([])

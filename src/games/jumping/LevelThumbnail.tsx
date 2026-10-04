@@ -1,9 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import type { JumpLevel } from './level'
-import { isPuzzleLevel, levelHeight, levelPlayer, levelTerrain, prepareLevelRopes } from './level'
+import { isPuzzleLevel, levelHeight, levelPlayer, prepareLevelRopes } from './level'
 import { createPreviewRun } from './challenge'
-import { drawPuzzleWorld } from './challengeRender'
-import { drawAthlete, drawClimbables, drawLevelBackdrop, drawTerrain } from './render'
+import { lightingForLevel } from './lightingDefinition'
 import { useWallTextFont } from './useWallTextFont'
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
@@ -38,22 +37,12 @@ export const LevelThumbnail = memo(function LevelThumbnail({ level, preview = fa
       canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio)
       const zoom = Math.min(width / (prepared.width + 60), height / (roomHeight + 60))
       const x = (prepared.width - width / zoom) / 2, y = (roomHeight - height / zoom) / 2
-      if (prepared.lighting) {
-        const renderer = new LightingRenderer()
-        try {
-          if (geometry.groups) renderer.prepare(prepared, geometry.groups)
-          renderer.render(ctx, run ?? playgroundLightingWorld(prepared, player), prepared.lighting,
-            { x, y, width: canvas.width, height: canvas.height, zoom: zoom * ratio }, 0, undefined, true)
-        } finally { renderer.dispose() }
-        return
-      }
-      ctx.setTransform(ratio * zoom, 0, 0, ratio * zoom, -x * zoom * ratio, -y * zoom * ratio)
-      drawLevelBackdrop(ctx, prepared, { x, y, w: width / zoom, h: height / zoom }, zoom)
-      if (run) drawPuzzleWorld(ctx, run, true)
-      else { drawTerrain(ctx, levelTerrain(prepared), prepared.platforms); drawClimbables(ctx, player, prepared.climbables); drawAthlete(ctx, player) }
-      for (const [index, point] of [prepared.spawn, ...prepared.checkpoints].entries()) {
-        ctx.fillStyle = index ? '#a0a3a4' : '#df633f'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
-      }
+      const renderer = new LightingRenderer()
+      try {
+        if (geometry.groups) renderer.prepare(prepared, geometry.groups)
+        renderer.render(ctx, run ?? playgroundLightingWorld(prepared, player), lightingForLevel(prepared),
+          { x, y, width: canvas.width, height: canvas.height, zoom: zoom * ratio }, 0, undefined, true)
+      } finally { renderer.dispose() }
     }
     const observer = new ResizeObserver(paint); observer.observe(canvas); paint()
     return () => observer.disconnect()

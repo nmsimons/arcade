@@ -773,10 +773,7 @@
       "x": 24,
       "y": 1200,
       "w": 100,
-      "targets": [
-        "741eb0b8-553c-4883-98a6-af0a849e6351",
-        "9238ee52-d5a0-43e7-b377-8d9b24772d2e"
-      ],
+      "targets": [],
       "mode": "touch"
     }
   ],
@@ -831,36 +828,8 @@
     }
   ],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
-    "lights": [
-      {
-        "id": "741eb0b8-553c-4883-98a6-af0a849e6351",
-        "x": 1800,
-        "y": 900,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "switched"
-      },
-      {
-        "id": "65ef7150-54bd-4782-b4a2-6e9b21d82cf0",
-        "x": 160,
-        "y": 880,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 20,
-        "power": "always"
-      },
-      {
-        "id": "9238ee52-d5a0-43e7-b377-8d9b24772d2e",
-        "x": 1000,
-        "y": 600,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 55,
-        "power": "switched"
-      }
-    ]
+    "lights": []
   }
 }

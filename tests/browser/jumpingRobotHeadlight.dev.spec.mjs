@@ -54,7 +54,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend} shovebot headlights mo
   expect(result.cacheDifference).toBeLessThanOrEqual(1)
   expect(result.fades).toEqual([.5, 0, 1])
   expect(result.outage).toBe(result.off[0]); expect(result.restored).toBe(result.left[0])
-  expect(result.blocked).toBe(result.off[0]); expect(result.daySources).toBe(0)
+  expect(result.blocked).toBe(result.off[0]); expect(result.daySources).toBe(1)
   expect(result.bytes).toBeLessThanOrEqual(64 * 1024 * 1024)
   await page.screenshot({ path: info.outputPath(`shovebot-headlight-${backend}.png`) })
 })

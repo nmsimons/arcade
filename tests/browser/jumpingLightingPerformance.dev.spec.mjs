@@ -30,22 +30,23 @@ test('default structural shadows preserve gates and full shadow experiments rema
   expect(result.box[1][0]).toBeGreaterThan(result.box[0][0])
 })
 
-test('six stationary lights reuse shadows within the memory budget, including after resize', async ({ page }) => {
+for (const nightMode of [false, true]) test(`${nightMode ? 'night' : 'day'}: six stationary lights reuse shadows within the memory budget, including after resize`, async ({ page }) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async nightMode => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
     const lights = Array.from({ length: 6 }, (_, i) => ({ ...h.fixture.lighting.lights[0], id: `light-${i}`, x: 100 + i * 170, y: 50 }))
-    const cold = h.render(0, lights)
-    const initial = h.render(0, lights)
+    const draw = () => h.render(0, lights, .2, undefined, nightMode)
+    const cold = draw()
+    const initial = draw()
     let settled
-    for (let i = 0; i < 4; i++) settled = h.render(0, lights)
+    for (let i = 0; i < 4; i++) settled = draw()
     const difference = h.difference(initial, settled)
     h.view.width = 1600; h.view.height = 1250; h.canvas.width = 1600; h.canvas.height = 1250
-    const resized = h.renderer.render(h.canvas.getContext('2d'), h.run, { ambient: 0, nightMode: true, lights }, h.view, .2)
+    const resized = h.renderer.render(h.canvas.getContext('2d'), h.run, { ambient: 0, nightMode, lights }, h.view, .2)
     h.renderer.dispose()
     return { first: cold.stats.edges, settled: settled.stats.edges, difference, bytes: [initial.stats.bufferBytes, resized.bufferBytes] }
-  })
+  }, nightMode)
   expect(result.settled).toBeLessThan(result.first)
   expect(result.difference).toBeLessThanOrEqual(1)
   for (const bytes of result.bytes) expect(bytes).toBeLessThanOrEqual(64 * 1024 * 1024)

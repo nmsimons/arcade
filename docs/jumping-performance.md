@@ -19,6 +19,11 @@ Adaptive lighting runs in both development and production. The monitor records r
 GPU execution or browser compositing. The rolling history is bounded and the UI
 updates at most twice per second. Paused and hidden time is excluded.
 
+Day and Night share the lighting performance settings, viewport/pixel-ratio
+caps, off-thread structural preparation and bounded buffers. Daylight also
+applies to legacy levels without lighting settings; the performance mode must
+not require a saved Night mode flag to observe or reduce render resolution.
+
 Every run starts at normal resolution. Player, prop and robot shadows are off
 in gameplay and previews; terrain and mechanisms still block light.
 **Lighting performance mode** is enabled by

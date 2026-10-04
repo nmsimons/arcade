@@ -1,4 +1,4 @@
-import { ambientExposure, nightModeEnabled } from './ambientLight.ts'
+import { ambientExposure } from './ambientLight.ts'
 export { ambientExposure } from './ambientLight.ts'
 import type { Run } from './challenge.ts'
 import type { Platform, Player } from './model.ts'
@@ -152,7 +152,7 @@ export class LightingState {
     const states = resolveSwitchStates(run.level, run.triggers)
     const lights: (LevelLight & { robot?: number })[] = [...definition.lights]
     const ids = new Set(definition.lights.map(light => light.id))
-    if (nightModeEnabled(definition)) for (const [index, robot] of run.robots.entries()) {
+    for (const [index, robot] of run.robots.entries()) {
       if (!robot.definition.headlight) continue
       let id = `shovebot-headlight:${index}`
       // Authored lamp IDs are unrestricted; keep generated source IDs distinct.

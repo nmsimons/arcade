@@ -720,11 +720,11 @@ Drag either square handle on the shovebot's patrol line to move that endpoint;
 the inspector follows while dragging. Snap aligns endpoints to the grid, and
 Alt bypasses snapping. Limits include the bot's starting position, stay inside
 the level, and keep at least 50 units between endpoints.
-The shovebot's **Headlight** checkbox is off by default. In night mode it adds
+The shovebot's **Headlight** checkbox is off by default. In Day and Night it adds
 a 40° beam aimed 15° downward from the chassis, following its facing, slope tilt,
 and windup pose. It uses the same shadows as spotlights and fades out during EMP.
 The optional boolean `headlight` field is stored on the robot; omission means off.
-Daytime preserves the setting but emits no beam. Headlights do not change the
+Daytime beams fill sunlight shadows toward full brightness. Headlights do not change the
 bot's vision, movement, or collision hull.
 Shovebots are solid bodies on wheels, with no projecting arm or bumper. The
 player can stand, crouch, walk, and jump on their roof. Limited shoe traction
@@ -1011,7 +1011,19 @@ with the game and remains readable at night without casting light or shadows.
 
 ## Lighting (version 2)
 
-The back wall receives ambient illumination. Wall text and collectibles receive
+Daytime levels use a distant sun above and to the left, with parallel rays
+25 degrees from vertical and a 95% ambient fill. Terrain and mechanisms cast
+subtle shadows down and right onto the wall and objects below them. Terrain,
+mechanisms, enclosing ground and borders receive ambient only: uniform 95%
+brightness, without direct sunlight or received shadows. The enclosing frame admits daylight; authored
+roofs and walls block it. Daylight is shared by play, the studio and thumbnails, including
+version-1 levels, without changing saved files. Spotlights and shovebot headlights
+fill sunlight shadows toward full exposure; overlapping lights do not increase
+brightness beyond full exposure. Terrain and mechanisms remain ambient-only.
+EMP affects lamps, but not sunlight.
+Disable the studio's **Lighting** preview for an unshaded editing view.
+
+At night, the back wall receives ambient illumination. Wall text and collectibles receive
 spotlights and shadows, without casting shadows. Night rooms use the
 ambient-0 appearance (fixed 35% baseline brightness) and a very faint full spotlight
 beam. Gameplay, studio previews, and thumbnails share this brightness. The
@@ -1050,11 +1062,11 @@ Alt bypasses it. Position fields refer to the light's center.
 ```
 
 This is a fragment of the existing level object; retain its other fields.
-Night mode is off by default: the level is fully lit. With Night mode on, every level uses
+Night mode is off by default: the level uses overhead daylight. With Night mode on, every level uses
 35% ambient brightness. Turning Night mode off preserves the lights. New saves include boolean `nightMode`. Experimental
 version-2 files without the flag infer it from `ambient < 100` before normalizing
 ambient to 0. Valid older ambient values are accepted but no longer affect
-brightness. Version-1 levels stay fully lit.
+brightness. Version-1 levels use daylight without adding lighting settings.
 Lamps extend indefinitely within their cone,
 stop at the level boundary, cast sharp shadows with narrow antialiased edges,
 and never add their intensities together. Existing levels are not darkened.
@@ -1105,8 +1117,8 @@ undo history, thumbnails or playtest. Thumbnails show the authored initial state
 Night brightness is fixed for gameplay, previews, and thumbnails. Former saved player brightness preferences are ignored.
 
 Files allow at most 16 wall lights. Shovebot headlights also count toward the
-lighting complexity budget. Rooms with Night mode
-on are limited to 4,096 static contour edges per light and 32,768 summed across
+lighting complexity budget. Day and Night rooms with local lights
+are limited to 4,096 static contour edges per light and 32,768 summed across
 lights (counting the whole room conservatively). Excess complexity or malformed
 fields produce a validation error before play. Geometry preparation runs in a
 cancellable worker. Prefer one or two architecturally positioned beams per area;

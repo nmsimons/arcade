@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "id": "be6bf80d-c9fe-42a7-9eeb-fb304e1b1878",
   "name": "Balls",
   "width": 1800,
@@ -69,6 +69,7 @@
   },
   "floor": 920,
   "goal": {
+    "switchLogic": "and",
     "x": 1800,
     "y": 440,
     "flipX": true,
@@ -107,7 +108,8 @@
       "y": 920,
       "w": 100,
       "targets": [
-        "dc82252b-2082-4bab-8ee8-d127134e6bc4"
+        "dc82252b-2082-4bab-8ee8-d127134e6bc4",
+        "13a5bc1e-3406-44f6-9aaa-f1abcaee9799"
       ],
       "mode": "touch"
     },
@@ -116,7 +118,8 @@
       "y": 880,
       "w": 40,
       "targets": [
-        "dc82252b-2082-4bab-8ee8-d127134e6bc4"
+        "dc82252b-2082-4bab-8ee8-d127134e6bc4",
+        "13a5bc1e-3406-44f6-9aaa-f1abcaee9799"
       ],
       "mode": "touch"
     }
@@ -129,5 +132,39 @@
     }
   ],
   "pickups": [],
-  "texts": []
+  "texts": [],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "c577e3fa-fc10-45f8-bbf9-a4bf8d2af203",
+        "x": 75,
+        "y": 490,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 25,
+        "power": "always"
+      },
+      {
+        "id": "e311bc82-1282-46d6-96a5-066b8f26eaa7",
+        "x": 915,
+        "y": 325,
+        "intensity": 100,
+        "direction": 90,
+        "spread": 70,
+        "power": "always"
+      },
+      {
+        "id": "13a5bc1e-3406-44f6-9aaa-f1abcaee9799",
+        "x": 1510,
+        "y": 205,
+        "intensity": 100,
+        "direction": 40,
+        "spread": 55,
+        "power": "switched",
+        "switchLogic": "and"
+      }
+    ]
+  }
 }

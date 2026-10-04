@@ -12,15 +12,16 @@ async function requireGpu(page) {
   test.skip(!available, 'This browser lacks the GPU lighting capabilities; the Canvas fallback test still runs.')
 }
 
-test('GPU lighting retains Tower artwork through movement, rotation, camera changes and EMP', async ({ page }) => {
+for (const nightMode of [false, true]) test(`GPU ${nightMode ? 'night' : 'day'} lighting retains Tower artwork through movement, rotation, camera changes and EMP`, async ({ page }) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   await requireGpu(page)
-  const result = await page.evaluate(async () => {
+  const result = await page.evaluate(async nightMode => {
     const [{ LightingRenderer }, { parseLevel }, { createPreviewRun }, { gameCamera }, { drawAthlete }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/level.ts'),
       import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/camera.ts'), import('/src/games/jumping/athlete.ts'),
     ])
     const level = parseLevel(await (await fetch('/levels/jumping/Tower.jump-level.json')).json()), run = createPreviewRun(level)
+    const definition = { ...level.lighting, nightMode }
     const canvases = [document.createElement('canvas'), document.createElement('canvas')]
     for (const canvas of canvases) { canvas.width = 800; canvas.height = 500 }
     const contexts = canvases.map(canvas => canvas.getContext('2d', { willReadFrequently: true }))
@@ -38,7 +39,7 @@ test('GPU lighting retains Tower artwork through movement, rotation, camera chan
       if (i === 10) view.zoom *= 1.3
       if (i === 11) { run.player.facing = -1; run.player.crouch = .8 }
       if (i === 12) run.exit = { elapsed: .5 }
-      const stats = renderers.map((renderer, j) => renderer.render(contexts[j], run, level.lighting, view, .05))
+      const stats = renderers.map((renderer, j) => renderer.render(contexts[j], run, definition, view, .05))
       const pixels = contexts.map(ctx => ctx.getImageData(0, 0, 800, 500).data)
       mask.resetTransform(); mask.clearRect(0, 0, 800, 500)
       mask.setTransform(view.zoom, 0, 0, view.zoom, -view.x * view.zoom, -view.y * view.zoom); drawAthlete(mask, run.player, '#fff')
@@ -60,7 +61,7 @@ test('GPU lighting retains Tower artwork through movement, rotation, camera chan
     }
     renderers.forEach(renderer => renderer.dispose())
     return results
-  })
+  }, nightMode)
   for (const frame of result) {
     expect(frame.backend).toBe('gpu')
     // Different antialiasing coverage is confined to a small set of edge pixels.

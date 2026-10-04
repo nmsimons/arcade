@@ -6,7 +6,7 @@ async function play(page, lighting = false) {
   const level = structuredClone(FIRST_LEVEL)
   if (lighting) {
     level.version = 2
-    level.lighting = { nightMode: true, ambient: 25, lights: [] }
+    level.lighting = { nightMode: lighting !== 'day', ambient: 25, lights: [] }
   }
   await useLevelFixtures(page, [level])
   await page.goto('/untitled-jumping-game')
@@ -29,7 +29,7 @@ test('performance monitor is opt-in, keeps gameplay focus, freezes on pause and 
   await expect(developer).toHaveCount(0)
   await expect(panel).toContainText('FPS')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
-  await expect(panel).toContainText('Off')
+  await expect(panel).toContainText('Canvas')
   await page.keyboard.press('Escape')
   await expect(toggle).toHaveCount(0)
   await page.keyboard.press('Backquote')
@@ -89,7 +89,7 @@ test('shows actual lighting resolution and fits a narrow viewport', async ({ pag
   await expect(panel).toHaveCount(0)
 })
 
-for (const savedPreference of [null, 'false', 'true']) test(`lighting performance preference ${savedPreference ?? 'default'} controls low-FPS reduction and switching off restores quality`, async ({ page }) => {
+for (const lighting of [true, 'day', false]) for (const savedPreference of [null, 'false', 'true']) test(`${lighting === true ? 'night' : lighting === 'day' ? 'day' : 'legacy day'} lighting performance preference ${savedPreference ?? 'default'} controls low-FPS reduction and switching off restores quality`, async ({ page }) => {
   // Exercise real resizing without rendering hundreds of 2 MP software frames.
   await page.setViewportSize({ width: 640, height: 360 })
   await page.addInitScript(value => {
@@ -98,7 +98,7 @@ for (const savedPreference of [null, 'false', 'true']) test(`lighting performanc
     Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
   }, savedPreference)
   await page.clock.install()
-  await play(page, true)
+  await play(page, lighting)
   const fullPixels = await page.locator('.jumping-game > canvas').evaluate(canvas => canvas.width * canvas.height)
   await page.evaluate(() => {
     // Install after Playwright's clock, which also wraps animation callbacks.

@@ -1,4 +1,5 @@
 import { nightModeEnabled } from './ambientLight'
+import { lightingForLevel } from './lightingDefinition'
 import { polygonPoints } from './geometry'
 import { terrainDrawOrder } from './terrainOrder'
 import { copyableSelection, copySelections, deleteSelections, moveSelections, pasteSelections, sameSelection, selectionBounds, selectionsInRect, transformSelections, validSelections } from './editorSelection'
@@ -7,9 +8,8 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelTerrain, levelHeight, parseLevel, prepareLevelRopes } from './level'
+import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes } from './level'
 import type { JumpLevel } from './level'
-import { drawAthlete, drawClimbables, drawTerrain, drawLevelBackdrop } from './render'
 import { blankTrial } from './level'
 import type { LevelFile } from './levelAssets'
 import { levelFileName } from './localLevels'
@@ -18,7 +18,6 @@ import { copyForEditing } from './puzzleEditor'
 import { createPreviewRun } from './challenge'
 import { useRopePreview } from './useRopePreview'
 import { prepareLevelInWorker } from './levelPreparation'
-import { drawPuzzleWorld } from './challengeRender'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
 import { BuilderSelect } from './BuilderSelect'
@@ -420,26 +419,22 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   }, [active, initial.level])
   useEffect(() => {
     if (!active || !lightingGeometry.ready || size.width <= 0 || size.height <= 0) return
-    const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!, ratio = level.lighting ? lightingPixelRatio(size.width, size.height, devicePixelRatio || 1) : Math.min(devicePixelRatio || 1, 2)
+    const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!, ratio = lightingPixelRatio(size.width, size.height, devicePixelRatio || 1)
     canvas.width = Math.round(size.width * ratio); canvas.height = Math.round(size.height * ratio)
     lightingRenderer.state.reset()
     const draw = (dt: number) => {
       if (previewRun) previewRun.activeTime += dt
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.fillStyle = '#eeeee6'; ctx.fillRect(0, 0, size.width, size.height)
-      if (level.lighting) {
+      {
         if (lightingGeometry.groups) lightingRenderer.prepare(level, lightingGeometry.groups)
-        const definition = { ...level.lighting, nightMode: lightingPreview && nightModeEnabled(level.lighting),
-          lights: level.lighting.lights.map(l => l.id === previewLight && !helpOpen && !libraryOpen ? { ...l, power: 'always' as const } : l) }
+        const lighting = lightingForLevel(level)
+        const definition = { ...lighting, nightMode: lightingPreview && nightModeEnabled(lighting),
+          lights: lighting.lights.map(l => l.id === previewLight && !helpOpen && !libraryOpen ? { ...l, power: 'always' as const } : l) }
         lightingRenderer.render(ctx, previewRun ?? playgroundLightingWorld(level, previewPlayer), definition,
-          { ...view, width: canvas.width, height: canvas.height, zoom: view.zoom * ratio }, dt, undefined, true)
+          { ...view, width: canvas.width, height: canvas.height, zoom: view.zoom * ratio }, dt, undefined, true, 'structural', !lightingPreview)
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
-      if (!level.lighting) {
-        drawLevelBackdrop(ctx, level, { x: view.x, y: view.y, w: size.width / view.zoom, h: size.height / view.zoom }, view.zoom)
-        if (previewRun) drawPuzzleWorld(ctx, previewRun, true)
-        else { drawTerrain(ctx, levelTerrain(level), level.platforms); drawClimbables(ctx, previewPlayer, level.climbables); ctx.globalAlpha = .55; drawAthlete(ctx, previewPlayer); ctx.globalAlpha = 1 }
-      }
       ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
       if (mechanism) {
         const open = mechanismOpenPosition(mechanism)
@@ -847,7 +842,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         <button title="Paste copied objects (Ctrl/⌘ + V)" disabled={!clipboard?.selections.length} onClick={paste}>Paste</button>
       </div>
       <div className="builder-control-group builder-zoom-controls" role="group" aria-label="Canvas zoom"><button aria-label="Zoom out" title="Zoom out to see more of the level" onClick={() => zoom(.8)}>−</button><output aria-label="Zoom" title="Current canvas zoom">{Math.round(view.zoom * 100)}%</output><button aria-label="Zoom in" title="Zoom in for more precise editing" onClick={() => zoom(1.25)}>+</button></div>
-      <div className="builder-control-group" role="group" aria-label="Canvas view"><label className="builder-inline-check" title="Show authored lighting in this view. This does not change the saved level."><input type="checkbox" checked={lightingPreview} onChange={e => setLightingPreview(e.target.checked)} />Lighting</label><button title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</button><button title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
+      <div className="builder-control-group" role="group" aria-label="Canvas view"><label className="builder-inline-check" title="Show daylight or night lighting in this view. This does not change the saved level."><input type="checkbox" checked={lightingPreview} onChange={e => setLightingPreview(e.target.checked)} />Lighting</label><button title="Fit the entire level in the canvas" onClick={() => fitLevel()}>Fit level</button><button title="Center the view near the player's starting position" onClick={() => setView(homeView(level, size.height))}>Find start</button></div>
     </div>
     <aside className="builder-tools" aria-label="Building tools">
         {['Terrain', 'Movement', 'Objects', 'Mechanisms', 'Markers', 'Collectibles', 'Back wall'].map(group => {

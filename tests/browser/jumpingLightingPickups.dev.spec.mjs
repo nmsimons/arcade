@@ -27,8 +27,8 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: collectibles and wall
     h.run.pickups = pickups
     h.run.level.texts = texts
     // Settle the browser's first-readback raster path before pixel comparisons.
-    h.render(100)
-    const full = h.render(100), dark = h.render(0), lit = h.render(0, [lamp])
+    h.fullBright()
+    const full = h.fullBright(), dark = h.render(0), lit = h.render(0, [lamp])
     h.run.pickups = []
     h.run.level.texts = []
     const without = h.render(0, [lamp])

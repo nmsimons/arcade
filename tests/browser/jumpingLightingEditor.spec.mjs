@@ -100,7 +100,7 @@ test('saved spotlight flicker runs during play and returns to the builder', asyn
   expect(errors).toEqual([])
 })
 
-test('optional shovebot headlights undo, preview at night, duplicate and round-trip through save and play', async ({ page }, info) => {
+test('optional shovebot headlights undo, preview in day and night, duplicate and round-trip through save and play', async ({ page }, info) => {
   const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.addInitScript(() => {
@@ -114,7 +114,7 @@ test('optional shovebot headlights undo, preview at night, duplicate and round-t
   await open(page, level); await select(page, 'robot:0')
   const headlight = page.getByRole('checkbox', { name: 'Headlight', exact: true }), canvas = page.getByRole('application', { name: 'Level canvas' })
   await expect(headlight).not.toBeChecked(); await headlight.check()
-  expect(await page.evaluate(() => window.headlightDraws)).toBe(0)
+  await expect.poll(() => page.evaluate(() => window.headlightDraws)).toBeGreaterThan(0)
   await page.getByRole('button', { name: 'Undo', exact: true }).click(); await select(page, 'robot:0')
   await expect(headlight).not.toBeChecked()
   await page.getByRole('button', { name: 'Redo', exact: true }).click(); await select(page, 'robot:0')
@@ -138,7 +138,7 @@ test('optional shovebot headlights undo, preview at night, duplicate and round-t
   await expect(canvas).toHaveAttribute('aria-busy', 'false')
   await page.evaluate(() => { window.headlightDraws = 0 })
   await page.getByRole('button', { name: 'Fit level', exact: true }).click()
-  expect(await page.evaluate(() => window.headlightDraws)).toBe(0)
+  await expect.poll(() => page.evaluate(() => window.headlightDraws)).toBeGreaterThan(0)
   expect((await saveTestLevel(page)).level.robots[1].headlight).toBe(true)
   expect(errors).toEqual([])
 })

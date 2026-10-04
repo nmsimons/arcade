@@ -68,6 +68,7 @@ test('geometry complexity limits reject expensive shared files', () => {
     polygon: Array.from({ length: 24 }, (_, i) => [50 + 49 * Math.cos(i * Math.PI / 12), 50 + 49 * Math.sin(i * Math.PI / 12)]) }))
   heavy.climbables = { ropes: [], ladders: [] }
   assert.throws(() => parseLevel(heavy), /too complex/)
+  assert.throws(() => parseLevel({ ...heavy, lighting: { ...heavy.lighting, nightMode: false } }), /too complex/)
 })
 test('adding, aiming, naming, moving and duplicating lights preserve the input and use independent IDs', () => {
   const source = blankTrial(), before = JSON.stringify(source)

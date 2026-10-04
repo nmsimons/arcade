@@ -15,7 +15,7 @@ self.onmessage = (event: MessageEvent<{ level: JumpLevel; play: boolean }>) => {
     const level = prepareLevelRopes(parseLevel(input))
     const run = event.data.play && isPuzzleLevel(level) ? createRun(level) : null
     reply = { result: { level, run, player: event.data.play ? run?.player ?? levelPlayer(level, true) : null,
-      ...(levelLightCount(level) && nightModeEnabled(level.lighting) ? { lighting: staticCasters({ level }) } : {}) } }
+      ...(!nightModeEnabled(level.lighting) || levelLightCount(level) ? { lighting: staticCasters({ level }) } : {}) } }
   } catch (error) { reply = { error: error instanceof Error ? error.message : 'This level could not be prepared.' } }
   self.postMessage(reply)
 }

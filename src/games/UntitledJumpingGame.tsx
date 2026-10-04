@@ -1,5 +1,5 @@
 import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
-import { nightModeEnabled } from './jumping/ambientLight'
+import { lightingForLevel } from './jumping/lightingDefinition'
 import { LevelSaveStatus } from '../accounts/LevelSaveStatus'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
@@ -12,7 +12,6 @@ import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
-import { drawPlayground } from './jumping/render'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
@@ -25,7 +24,6 @@ import { LocalFolderActions } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
 import { JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
-import { drawChallenge } from './jumping/challengeRender'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
 import { JumpingAudioState } from './jumping/audioState'
 import { JumpingMotionDiagnostics } from './jumping/motionDiagnostics'
@@ -454,18 +452,14 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     const paint = (dt = 0) => {
       if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
       const level = run.current?.level ?? activeLevel.current
-      const nextRatio = level.lighting ? lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.reduced) : Math.min(window.devicePixelRatio || 1, 2)
+      const nextRatio = lightingPixelRatio(width, height, window.devicePixelRatio || 1, adaptiveLighting.reduced)
       if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-      if (level.lighting) {
-        const camera = gameCamera(width, height, player.current, level, !!run.current)
-        lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), level.lighting,
-          { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
-        return
-      }
-      lightingStats = null
-      if (run.current) drawChallenge(ctx, width, height, run.current)
-      else drawPlayground(ctx, width, height, player.current, activeLevel.current)
+      // Fractional render scales round the backing dimensions to whole pixels.
+      // Frame against that drawable area so the player remains exactly centered.
+      const camera = gameCamera(canvas.width / ratio, canvas.height / ratio, player.current, level, !!run.current)
+      lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), lightingForLevel(level),
+        { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
     }
     paintFrame.current = paint
     const resize = () => {
@@ -511,8 +505,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
         }
         sound.update(audioState.drain())
       } else { accumulator = 0; motion?.reset() }
-      const lighting = (run.current?.level ?? activeLevel.current).lighting
-      if (adaptiveLighting && adaptiveEnabled.current && input && lighting && nightModeEnabled(lighting) && !document.hidden) {
+      if (adaptiveLighting && adaptiveEnabled.current && input && !document.hidden) {
         const before = adaptiveLighting.reduced, after = adaptiveLighting.observe(now)
         if (after !== before) { setLightingReduced(after); performanceMonitor?.reset() }
       } else adaptiveLighting?.suspend()

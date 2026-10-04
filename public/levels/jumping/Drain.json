@@ -11,7 +11,7 @@
       "w": 1280,
       "h": 540,
       "zIndex": 60,
-      "material": "steel",
+      "material": "stone",
       "polygon": [
         [
           1280,
@@ -37,7 +37,7 @@
       "w": 1280,
       "h": 540,
       "zIndex": 90,
-      "material": "steel",
+      "material": "stone",
       "polygon": [
         [
           0,
@@ -62,7 +62,7 @@
       "y": 2100,
       "w": 60,
       "h": 380,
-      "material": "steel"
+      "material": "stone"
     },
     {
       "x": 1740,
@@ -70,7 +70,7 @@
       "w": 60,
       "h": 380,
       "zIndex": 1,
-      "material": "steel"
+      "material": "stone"
     },
     {
       "x": 1740,
@@ -78,7 +78,7 @@
       "w": 60,
       "h": 420,
       "zIndex": 2,
-      "material": "steel"
+      "material": "stone"
     },
     {
       "x": 220,
@@ -86,7 +86,7 @@
       "w": 1580,
       "h": 300,
       "zIndex": 3,
-      "material": "steel",
+      "material": "stone",
       "polygon": [
         [
           1580,
@@ -108,7 +108,7 @@
       "w": 1280,
       "h": 540,
       "zIndex": 61,
-      "material": "steel",
+      "material": "stone",
       "polygon": [
         [
           1280,
@@ -138,7 +138,7 @@
       "w": 1280,
       "h": 540,
       "zIndex": 119,
-      "material": "steel",
+      "material": "stone",
       "polygon": [
         [
           0,
@@ -162,13 +162,13 @@
       "x": 0,
       "y": 980,
       "w": 1280,
-      "h": 300,
+      "h": 2220,
       "zIndex": 147,
-      "material": "steel",
+      "material": "stone",
       "polygon": [
         [
           0,
-          300
+          2220
         ],
         [
           0,
@@ -181,6 +181,14 @@
         [
           1280,
           56.962025316455765
+        ],
+        [
+          20,
+          300
+        ],
+        [
+          20,
+          2220
         ]
       ]
     }
@@ -194,6 +202,7 @@
     "ladders": [],
     "ropes": []
   },
+  "floorMaterial": "earth",
   "floor": 3200,
   "goal": {
     "x": 0,
@@ -543,9 +552,9 @@
   "gravityPlates": [
     {
       "id": "da04495a-965f-446b-b9a5-15931607b535",
-      "x": 5,
+      "x": 25,
       "y": 1175,
-      "w": 190,
+      "w": 170,
       "h": 2025,
       "gravity": -1,
       "power": "always"
@@ -564,34 +573,16 @@
     }
   ],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
     "lights": [
-      {
-        "id": "75fdc33f-4c08-4b3a-8d3c-23460d95620d",
-        "x": 1745,
-        "y": 845,
-        "intensity": 100,
-        "direction": 125,
-        "spread": 120,
-        "power": "always"
-      },
-      {
-        "id": "7eff2119-1b1a-488a-8fe5-a1e9d352140a",
-        "x": 100,
-        "y": 1280,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 160,
-        "power": "always"
-      },
       {
         "id": "dd348c31-58b3-46e7-803c-0cd45d8aa700",
         "x": 380,
         "y": 2110,
         "intensity": 100,
         "direction": 75,
-        "spread": 160,
+        "spread": 70,
         "power": "always"
       },
       {
@@ -600,7 +591,7 @@
         "y": 2555,
         "intensity": 100,
         "direction": 110,
-        "spread": 160,
+        "spread": 60,
         "power": "always"
       },
       {
@@ -609,7 +600,7 @@
         "y": 1685,
         "intensity": 100,
         "direction": 110,
-        "spread": 155,
+        "spread": 50,
         "power": "always"
       }
     ]

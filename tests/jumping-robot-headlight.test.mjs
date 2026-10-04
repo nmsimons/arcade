@@ -43,7 +43,7 @@ test('headlight edits are immutable and survive duplication, moving, templates a
   assert.equal(setShovebotHeadlight(night, 1, true), night)
 })
 
-test('only enabled night headlights add sources, with IDs distinct from authored lamps', () => {
+test('enabled headlights add sources in day and night, with IDs distinct from authored lamps', () => {
   const file = setShovebotHeadlight(setLevelNightMode(level(), true), 0, true)
   file.lighting.lights = [{ id: 'shovebot-headlight:0', x: 100, y: 100, direction: 90, spread: 60, intensity: 100, power: 'always' }]
   const run = createPreviewRun(file), state = new LightingState()
@@ -52,7 +52,7 @@ test('only enabled night headlights add sources, with IDs distinct from authored
   assert.equal(sources[1].robot, 0); assert.equal(sources[1].spread, 40)
   assert.equal(levelLightCount(file), 2)
   const before = JSON.stringify(file)
-  assert.equal(state.sources({ ...file.lighting, nightMode: false }, run, .2).length, 1)
+  assert.equal(state.sources({ ...file.lighting, nightMode: false }, run, .2).length, 2)
   assert.equal(JSON.stringify(file), before)
   delete run.robots[0].definition.headlight
   sources = state.sources(file.lighting, run, .2)
@@ -117,5 +117,5 @@ test('headlight-only rooms share the lighting complexity budget', () => {
   heavy.platforms = Array.from({ length: 120 }, () => ({ x: 200, y: 300, w: 100, h: 100,
     polygon: Array.from({ length: 24 }, (_, i) => [50 + 49 * Math.cos(i * Math.PI / 12), 50 + 49 * Math.sin(i * Math.PI / 12)]) }))
   assert.throws(() => parseLevel(heavy), /too complex/)
-  assert.equal(parseLevel(setLevelNightMode(heavy, false)).robots.length, 12)
+  assert.throws(() => parseLevel(setLevelNightMode(heavy, false)), /too complex/)
 })

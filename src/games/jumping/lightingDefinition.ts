@@ -1,4 +1,3 @@
-import { nightModeEnabled } from './ambientLight.ts'
 import type { JumpLevel } from './level.ts'
 import type { NamedObject } from './objectNames.ts'
 import { parseObjectName } from './objectNames.ts'
@@ -13,6 +12,9 @@ export interface LevelLight extends NamedObject, SwitchSettings {
   flicker?: boolean
 }
 export interface LightingDefinition { nightMode?: boolean; ambient: number; lights: LevelLight[] }
+const DEFAULT_DAYLIGHT: LightingDefinition = { nightMode: false, ambient: 0, lights: [] }
+/** Existing files receive daylight without adding lighting settings to their saves. */
+export const lightingForLevel = (level: Pick<JumpLevel, 'lighting'>) => level.lighting ?? DEFAULT_DAYLIGHT
 export const MAX_LIGHTS = 16, LIGHT_RADIUS = 10
 export const levelLightCount = (level: JumpLevel) => (level.lighting?.lights.length ?? 0) + (level.robots?.filter(robot => robot.headlight).length ?? 0)
 export const lightBounds = (light: Pick<LevelLight, 'x' | 'y'>) => ({ x: light.x - LIGHT_RADIUS, y: light.y - LIGHT_RADIUS, w: LIGHT_RADIUS * 2, h: LIGHT_RADIUS * 2 })
@@ -30,6 +32,12 @@ export function lightingProblems(level: JumpLevel): string[] {
       else ids.set(item.id, label)
     }
   }
+  const lightCount = levelLightCount(level)
+  if (lightCount) {
+    // Conservative whole-room bounds apply to local lights in Day and Night.
+    const edges = level.platforms.reduce((sum, p) => sum + polygonPoints(p).length, 16)
+    if (edges > 4096 || edges * lightCount > 32768) issues.push('This lighting setup is too complex. Simplify terrain or use fewer lights (4,096 edges per light; 32,768 total).')
+  }
   const lighting = level.lighting
   if (!lighting) return level.version === 2 ? [...issues, 'Version 2 levels need lighting settings.'] : issues
   const height = level.floor ?? level.height ?? 1020
@@ -37,12 +45,6 @@ export function lightingProblems(level: JumpLevel): string[] {
   for (const [i, light] of lighting.lights.entries()) {
     const name = objectReference(level, 'light', i), b = lightBounds(light)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > height) issues.push(`Keep ${name} inside the level.`)
-  }
-  const lightCount = levelLightCount(level)
-  if (nightModeEnabled(lighting) && lightCount) {
-    // Conservative whole-room bounds: unlimited lights can reach distant geometry.
-    const edges = level.platforms.reduce((sum, p) => sum + polygonPoints(p).length, 16)
-    if (edges > 4096 || edges * lightCount > 32768) issues.push('This lighting setup is too complex. Simplify terrain or use fewer lights (4,096 edges per light; 32,768 total).')
   }
   return issues
 }

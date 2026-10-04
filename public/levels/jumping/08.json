@@ -1172,8 +1172,7 @@
       "x": 966,
       "y": 860,
       "left": 640,
-      "right": 1080,
-      "headlight": true
+      "right": 1080
     }
   ],
   "timers": [
@@ -1202,27 +1201,8 @@
   ],
   "texts": [],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
-    "lights": [
-      {
-        "id": "4ba3d722-f17d-477d-ab28-8f530cc55dca",
-        "x": 1480,
-        "y": 20,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      },
-      {
-        "id": "67d90248-d731-4d70-9444-452422db1eb8",
-        "x": 480,
-        "y": 20,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always"
-      }
-    ]
+    "lights": []
   }
 }

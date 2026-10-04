@@ -2,6 +2,7 @@ import { GpuShadowMask } from './lightingGpuShadows.ts'
 import type { CasterGroup, LightSource } from './lightingModel.ts'
 import { ambientExposure, sourceCovered } from './lightingModel.ts'
 import type { LightingView } from './lightingRender.ts'
+import { DAY_AMBIENT_EXPOSURE } from './daylight.ts'
 
 /** Resolve every lamp on one GPU context. The output atlas contains the opaque
  * max-exposure field on the left and premultiplied source haze on the right.
@@ -54,6 +55,12 @@ export class GpuLightingField {
         return mix(exposure(smoothCurve(floor(s)/16.)),exposure(smoothCurve(min(16.,floor(s)+1.)/16.)),fract(s));
       }
       void main() {
+        if (mode > 1.5) {
+          float a = floor(ambient*255.+.5)/255.;
+          float shadow = texture(mask,vec2(pixel.x/viewport.x,1.-pixel.y/viewport.y)).r;
+          color = vec4(vec3(1.-(1.-a)*shadow),1.);
+          return;
+        }
         vec2 offset = (pixel-source)/zoom;
         vec2 local = vec2(dot(offset,aim),dot(offset,vec2(-aim.y,aim.x)));
         float interior = local.x*sin(halfAngle)-abs(local.y)*cos(halfAngle);
@@ -106,14 +113,17 @@ export class GpuLightingField {
     if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('Resolve framebuffer incomplete')
     this.width = width; this.height = height
   }
-  render(groups: readonly CasterGroup[], sources: readonly LightSource[], view: LightingView, ambient: number, roomWidth: number, roomHeight: number) {
+  render(groups: readonly CasterGroup[], sources: readonly LightSource[], view: LightingView, ambient: number, roomWidth: number, roomHeight: number, daylight = false) {
     if (this.gl.isContextLost()) throw new Error('Lighting graphics context lost.')
     this.resize(view.width, view.height)
     const gl = this.gl, u = this.uniforms, { width, height } = view
-    const exposure = ambientExposure(ambient), a = Math.round(exposure*255)/255
-    gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.colorMask(true,true,true,true); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT)
-    gl.enable(gl.SCISSOR_TEST); gl.scissor(0,0,width,height); gl.clearColor(a,a,a,1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST)
-    let lights=0, edges=0, vertexBytes=this.shadows.vertexBytes
+    const exposure = daylight ? DAY_AMBIENT_EXPOSURE : ambientExposure(ambient), a = Math.round(exposure*255)/255
+    const sun = daylight ? this.renderDaylight(groups, view, roomWidth, roomHeight) : undefined
+    if (!sun) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.colorMask(true,true,true,true); gl.clearColor(0,0,0,0); gl.clear(gl.COLOR_BUFFER_BIT)
+      gl.enable(gl.SCISSOR_TEST); gl.scissor(0,0,width,height); gl.clearColor(a,a,a,1); gl.clear(gl.COLOR_BUFFER_BIT); gl.disable(gl.SCISSOR_TEST)
+    }
+    let lights=sun?.lights ?? 0, edges=sun?.edges ?? 0, vertexBytes=this.shadows.vertexBytes
     for (const light of sources) {
       if (sourceCovered(light, groups)) continue
       lights++
@@ -130,12 +140,29 @@ export class GpuLightingField {
       gl.uniform1f(u.fade,light.fade); gl.uniform1f(u.zoom,view.zoom); gl.uniform1f(u.ambient,exposure)
       gl.uniform4f(u.room,-view.x*view.zoom,-view.y*view.zoom,(roomWidth-view.x)*view.zoom,(roomHeight-view.y)*view.zoom)
       gl.viewport(0,0,width,height); gl.uniform1f(u.mode,0); gl.blendEquation(gl.MAX); gl.drawArrays(gl.TRIANGLES,0,6)
-      gl.viewport(width,0,width,height); gl.uniform1f(u.mode,1); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLES,0,6)
+      if (!daylight) {
+        gl.viewport(width,0,width,height); gl.uniform1f(u.mode,1); gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE,gl.ONE_MINUS_SRC_ALPHA); gl.drawArrays(gl.TRIANGLES,0,6)
+      }
     }
     // RGBA output atlas (two panels), resolved R8 mask, and multisampled R8 +
     // stencil8 attachments. Driver/browser copies are outside this estimate.
     if (gl.isContextLost()) throw new Error('Lighting graphics context lost.')
     return { lights, edges, bufferBytes: width*height*(8+1+this.samples*2) + vertexBytes }
+  }
+  renderDaylight(groups: readonly CasterGroup[], view: LightingView, roomWidth: number, roomHeight: number) {
+    if (this.gl.isContextLost()) throw new Error('Lighting graphics context lost.')
+    this.resize(view.width, view.height)
+    const gl = this.gl, u = this.uniforms, { width, height } = view
+    const edges = this.shadows.renderDaylight(groups, view, roomWidth, roomHeight, this.target)
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.target); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, this.resolved)
+    gl.blitFramebuffer(0, 0, width, height, 0, 0, width, height, gl.COLOR_BUFFER_BIT, gl.NEAREST)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.colorMask(true, true, true, true)
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(this.program); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, this.mask)
+    gl.uniform1i(u.mask, 0); gl.uniform2f(u.viewport, width, height); gl.uniform1f(u.ambient, DAY_AMBIENT_EXPOSURE)
+    gl.uniform1f(u.mode, 2); gl.viewport(0, 0, width, height); gl.drawArrays(gl.TRIANGLES, 0, 6)
+    if (gl.isContextLost()) throw new Error('Lighting graphics context lost.')
+    return { lights: 1, edges, bufferBytes: width * height * (8 + 1 + this.samples * 2) + this.shadows.vertexBytes }
   }
   dispose() {
     const gl=this.gl

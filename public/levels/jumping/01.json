@@ -60,9 +60,7 @@
       "x": 200,
       "y": 1200,
       "w": 40,
-      "targets": [
-        "7d131188-8f9e-4b1e-a594-dd763a16b0a7"
-      ],
+      "targets": [],
       "mode": "touch"
     }
   ],
@@ -82,18 +80,8 @@
     }
   ],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
-    "lights": [
-      {
-        "id": "7d131188-8f9e-4b1e-a594-dd763a16b0a7",
-        "x": 740,
-        "y": 720,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 160,
-        "power": "switched"
-      }
-    ]
+    "lights": []
   }
 }

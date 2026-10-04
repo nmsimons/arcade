@@ -19,10 +19,10 @@ export const ambientPaint = (paint: WorldPaint): WorldPaint =>
   (ctx, exposure, draw) => paint(ctx, exposure, draw, false)
 
 /** Replay in draw order so only visible ambient-only artwork receives correction. */
-export function ambientSurfacePaint(floor: Exposure): WorldPaint {
+export function ambientSurfacePaint(floor: Exposure, ceiling: Exposure = floor): WorldPaint {
   return (ctx, exposure, draw, receivesLight = true) => {
     ctx.save()
-    ctx.globalCompositeOperation = !receivesLight && exposure === floor ? 'source-over' : 'destination-out'
+    ctx.globalCompositeOperation = !receivesLight && exposure >= floor && exposure <= ceiling ? 'source-over' : 'destination-out'
     draw()
     ctx.restore()
   }

@@ -832,47 +832,6 @@
       ]
     },
     {
-      "x": 0,
-      "y": 1620,
-      "w": 180,
-      "h": 120,
-      "material": "steel",
-      "polygon": [
-        [
-          0,
-          60
-        ],
-        [
-          140,
-          0
-        ],
-        [
-          180,
-          0
-        ],
-        [
-          180,
-          20
-        ],
-        [
-          140,
-          20
-        ],
-        [
-          40,
-          60
-        ],
-        [
-          20,
-          80
-        ],
-        [
-          0,
-          120
-        ]
-      ]
-    },
-    {
       "x": 1180,
       "y": 1300,
       "w": 120,
@@ -1375,7 +1334,7 @@
         "length": 140,
         "segments": 18,
         "rest": {
-          "key": "7:2f49c50c0101e816",
+          "key": "7:b24f5ed03a6cacfc",
           "points": [
             [
               340,
@@ -1923,7 +1882,7 @@
     }
   ],
   "lighting": {
-    "nightMode": true,
+    "nightMode": false,
     "ambient": 0,
     "lights": [
       {
@@ -1965,16 +1924,6 @@
         "spread": 160,
         "power": "switched",
         "name": "3R"
-      },
-      {
-        "id": "70f208a5-1900-4b9b-803e-e0632c03f380",
-        "x": 160,
-        "y": 1660,
-        "intensity": 100,
-        "direction": 90,
-        "spread": 70,
-        "power": "always",
-        "name": "Outside"
       },
       {
         "id": "330f94e8-ccc5-4fc3-98ca-94297cfd2257",

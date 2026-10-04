@@ -18,7 +18,7 @@ for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'ver
     h.run.level.platforms = [receiver]; h.run.terrain = [receiver]
     const wallPoint = horizontal ? [500, 410] : [500, 200]
     const terrainPoint = horizontal ? [500, 520] : [640, 200]
-    const bright = h.render(100), ambient = h.render(0), closed = h.render(0, [light])
+    const bright = h.fullBright(), ambient = h.render(0), closed = h.render(0, [light])
     const m = h.run.mechanisms[0]
     if (horizontal) m.x -= gate.travel; else m.y -= gate.travel
     const open = h.render(0, [light])
@@ -30,7 +30,7 @@ for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'ver
     // Replace the terrain receiver with a loose box at the same spot.
     h.run.level = { ...h.run.level, platforms: [] }; h.run.terrain = []
     h.run.props = [{ kind: 'box', x: terrainPoint[0], y: terrainPoint[1] + 25, size: 50, angle: 0 }]
-    const boxBright = h.render(100), boxClosed = h.render(0, [light])
+    const boxBright = h.fullBright(), boxClosed = h.render(0, [light])
     if (horizontal) m.x -= gate.travel; else m.y -= gate.travel
     const boxOpen = h.render(0, [light])
     const box = { bright: h.pixel(boxBright, ...terrainPoint), closed: h.pixel(boxClosed, ...terrainPoint), open: h.pixel(boxOpen, ...terrainPoint) }
@@ -90,7 +90,7 @@ test('gates seal the photographed stepped-floor layout with two spotlights', asy
     h.view.zoom = .65
     const points = [[340, 880], [1420, 900]]
     h.run.props = points.map(([x, y]) => ({ kind: 'box', x, y: y + 10, size: 20, angle: 0 }))
-    const ambient = h.render(0), bright = h.render(100), closed = h.render(0, level.lighting.lights)
+    const ambient = h.render(0), bright = h.fullBright(), closed = h.render(0, level.lighting.lights)
     h.run.mechanisms = []
     const open = h.render(0, level.lighting.lights)
     const samples = points.map(point => ({ point, ambient: h.pixel(ambient, ...point), bright: h.pixel(bright, ...point), closed: h.pixel(closed, ...point), open: h.pixel(open, ...point) }))

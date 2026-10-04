@@ -1,9 +1,10 @@
 # Flat lighting for Untitled Jumping Game
 
-**Implementation contract — October 2, 2026.**
+**Implementation contract — October 4, 2026.**
 
 Lighting is integrated into version-2 playable files, the level studio and
-thumbnails on `codex/lighting`. Version-1 files keep their existing appearance.
+thumbnails. Daytime levels, including version-1 files, now receive overhead
+sunlight and a high ambient fill without changing their saved format.
 The [lighting lab and measurements](jumping-lighting-prototype.md) document the
 visual study and measured performance; the budgets below remain evaluation
 targets, not a universal frame-rate guarantee. See [level files](jumping-levels.md#lighting-version-2)
@@ -24,6 +25,7 @@ It should still look like this game's flat, muted world.
 The first release includes:
 
 - A shared fixed 35% ambient-light baseline for night levels.
+- Daylight from a distant sun above and to the left: parallel rays and 95% ambient fill.
 - Directional spotlights with neutral light; ambient provides general fill.
 - Shadows from terrain and mechanisms, including moving platforms and gates.
 - Player, box, ball and robot artwork receives lighting without casting shadows.
@@ -65,8 +67,8 @@ These distinctions are fixed by object type, not dozens of per-object toggles.
 
 ### Ambient
 
-**Night mode** is a saved level toggle, off by default. Off means full original
-brightness and bypasses environmental lighting. On enables spotlights with
+**Night mode** is a saved level toggle, off by default. Off uses directional
+daylight and local spotlights with **95% ambient brightness**. On uses spotlights with
 **35% ambient brightness**, matching the original ambient-0 setting.
 Gameplay, playtests, studio previews, and thumbnails use the same fixed brightness.
 Older files' retired ambient values and saved player brightness preferences are ignored.
@@ -75,6 +77,35 @@ Ambient is not blocked by geometry, consumed, switched, or affected by EMP.
 Disabling Night mode preserves lamps. Toggling is undoable and saved with the
 level. Daytime retains its existing dark player ink. Displays retain their
 separate minimum exposures.
+
+### Daylight
+
+The sun is a directional source above and to the left of the level: its rays
+travel down and right, 25 degrees from vertical, without divergence or distance
+attenuation. Unobstructed receivers
+retain the original material colors; sheltered receivers retain 95% exposure to
+suggest reflected light. Shadows are crisp and do not grow darker when they
+overlap. They begin at exposed exit edges and extend down and right through the
+visible scene, without fading with distance. Local spotlights still
+stop at the playable rectangle.
+
+Terrain and mechanisms cast daylight shadows onto the back wall, wall artwork,
+and loose objects. Structural fronts receive ambient only, just as they do at
+night: terrain, mechanisms, enclosing ground and borders retain uniform 95%
+exposure, with no direct sunlight or received shadow stripes. The back wall
+receives the daylight field so the structure's shadows remain visible there.
+Use the same exposed outlines and actual mechanism
+positions as night lighting, including blockers above the visible viewport.
+The enclosing frame represents the daylight entry boundary and does not
+shadow the whole map; authored roofs and walls inside it still block sun.
+Players, boxes, balls and robots receive sunlight without casting shadows.
+Sunlight and the ambient fill do not respond to EMP or switches. Authored lamps
+and shovebot headlights work in daytime: an unobstructed beam fills a sunlight
+shadow from 95% toward full exposure. Sunlight and lamps combine by maximum
+brightness, so overlapping beams cannot overexpose a sunlit receiver. Terrain
+and mechanisms still receive ambient only. Lamp power, flicker and EMP behave
+as at night; airborne beam haze remains night-only. This supplies mixed daylight
+and local lighting through the existing Day mode.
 
 ### Light shape and boundaries
 
@@ -111,7 +142,7 @@ For a receiver point, use `A` from the shared ambient mapping above.
 Each unobstructed lamp
 contributes `angularFalloff × powerFade × flicker`, each in 0–1. Steady lamps use
 flicker 1. Authored lamps always
-use full intensity (100) against the shared night baseline.
+use full intensity (100) against the current Day or Night ambient baseline.
 A blocked lamp contributes zero.
 At the emission center itself, angular falloff is 1; there is no undefined
 direction or division by zero. Use this smoothstep curve for the cone edge:
@@ -124,9 +155,12 @@ away. Apply the same rule in rendering and exposure sampling.
 The environmental brightness is:
 
 ```text
-strongest = maximum contribution from any lamp, or 0
+strongest = maximum contribution from any lamp or sunlight, or 0
 brightness = A + (1 - A) × strongest
 ```
+
+Sunlight contributes 1 to an unobstructed daytime receiver and 0 in its shadow;
+it contributes 0 at night. Structural surfaces use `A` directly in both modes.
 
 Use the **strongest** contribution, not addition or repeated transparent erasure.
 Two identical lamps in the same position must look exactly like one. Overlapping
@@ -139,14 +173,14 @@ the readable-element exceptions below. This is an artistic exposure control, not
 a physical lighting measurement. Do not mix competing gamma/falloff conventions
 between render paths. Pixels at brightness 1 are unchanged.
 
-Night mode off bypasses the environmental-lighting work. Existing version-1 levels
-without lighting continue to use their original renderer and grey player material
-`#686b6e`. Version-2 daytime keeps dark player ink `#303c36`.
-Authored lamp fixtures remain visible in daytime, but their pools add no brightness.
+All daytime levels use the shared daylight renderer. Existing version-1 files
+keep their saved format and grey player material `#686b6e`. Version-2 daytime
+keeps dark player ink `#303c36`.
+Authored lamp fixtures remain visible in daytime and their beams fill sunlight shadows.
 
 ## 4. Object-by-object contract
 
-The back wall is a separate depth layer and its surface receives **ambient
+At night, the back wall is a separate depth layer and its surface receives **ambient
 only**. Terrain, gates, elevators, and moving platforms also receive **ambient
 only**: their flat material colors never acquire bright patches or cast-shadow
 stripes. They still block spotlights at their actual silhouettes. Loose objects
@@ -178,7 +212,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 
 | Object or part | Response to ambient and lamps | Casts shadows? | Emits into the world? | EMP response |
 | --- | --- | --- | --- | --- |
-| Back wall and grid | Ambient surface; grid fades with its wall. A faint airborne beam may be visible in front at low ambient. | No. | No. | Ambient unchanged; beam fades out. |
+| Back wall and grid | Ambient only at night; sunlight and local lamps in Day. A faint airborne beam may be visible in front at night. | No. | No. | Ambient and sunlight unchanged; local lamps fade out. |
 | Terrain, pillars, platforms, slopes, enclosing floor/walls/ceiling | Ambient only; retain material colors and texture relationships. | Yes, using actual outlines. | No. | Unchanged. |
 | Box, including its seams | Ordinary; all parts share exposure. | No. | No. | Keeps its existing loose-body behavior. |
 | Ball and its rolling marker | Ordinary; marker remains part of the same shaded artwork. | No. | No. | Keeps moving normally. |
@@ -190,9 +224,9 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
 | Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
 | Graffiti | Warm yellow (`#f4d35e`) in night mode, muted red in daytime. Ordinary exposure, including spotlights and shadows; no brightness floor. | No. | No. | Unchanged. |
-| Player | Near-white when lit, matching the ball's dark material under ambient light; see below. | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
+| Player | Near-white when lit at night, matching the ball's dark material under ambient light; existing dark ink in Day. | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
 | Shovebot chassis, wheels, and antenna | Ordinary. | No. | No. | Stops; artwork still receives room lighting. |
-| Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | No headlight or beam. | Eye goes dark, matching existing behavior. |
+| Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | Optional authored headlight in Day and Night. | Eye and headlight go dark. |
 | Coin | Ordinary face and edge colors; retains its spin and thickness. | No. | No. | Remains collectible and animated. |
 | Good stopwatch | Ordinary amber artwork and backwards-moving hand. | No. | No. | Remains collectible and animated. |
 | Time bonus | Ordinary amber arrow and number; retains counterclockwise rotation. | No. | No. | Remains collectible and animated. |
@@ -224,7 +258,7 @@ small LED bay on the left. Numeric coin counters share the housing and use gold
 digits until activated, then green. Progress meters share the same dark housing, recessed face, dim inactive LED
 cells, and soft glow. Filled cells use the numeric counter's gold and active
 green, including gold when full but waiting for power.
-Daytime shows full material colors; night mode applies the light field with a
+Daytime applies the sunlight field with its high ambient fill; night mode applies the light field with a
 floor only for digits, icons, and filled legacy segments. Existing foreground
 objects still cover all display parts. The implementation uses the existing
 light field and emission passes, with no extra light calculation or framebuffer.
@@ -365,8 +399,8 @@ There is no author-selectable emergency exemption in this release.
 **EMP switches off authored lights; it does not lower ambient light.** It must
 not apply an extra full-screen darkness overlay. Once the switch-off fade ends,
 an outage at night ambient 0 leaves ordinary surfaces at 35% brightness. With
-Night mode off, an outage changes lamp lenses and mechanism state but cannot darken
-the environment. Readable artwork and the activated green exit indicator retain
+Night mode off, an outage removes local lamps' shadow fill while sunlight and
+95% ambient remain. Readable artwork and the activated green exit indicator retain
 their specified appearance; none casts light into the environment.
 
 Switched lights are off until at least one active existing switch targets them.
@@ -639,7 +673,12 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
 
 ### Bounded work
 
-- With Night mode off, skip visibility/shadow computation and lighting buffers.
+- Day and Night use the same GPU/Canvas illumination path and bounded caches.
+  Canvas reserves six viewport-sized RGBA surfaces plus a cached static sunlight
+  field in Day, then budgets stationary lamp fields from the remaining memory.
+  Day skips airborne haze and the 65% display-floor pass, whose floor is below
+  its ambient brightness; ambient-only surface masks share one correction.
+  Full-bright studio preview bypasses lighting and releases its buffers.
 - Bound buffers by the visible viewport and a capped resolution, never by a
   20,000-by-6,000-unit level or the enclosing half-spaces.
 - Spatially query cone/viewport bounds and caster bounds before exact work.
@@ -677,8 +716,8 @@ The safety limit is 16 authored wall lights. Also limit static candidate contour
 edges to 4096 per light and 32768 summed across the authored lights. With unlimited reach, count the whole room's static contours unless they
 can be conservatively excluded by direction. Diagnose excess complexity before
 starting play; do not silently remove
-lamps or shadows. This additional budget applies only to lighting-enabled levels
-with Night mode on, not to existing fully lit levels. Include maximum legal props,
+lamps or shadows. This additional budget applies to local lights in both Day and
+Night. Include maximum legal props,
 bots, and mechanism counts in runtime stress testing, since they can move into
 a light's influence after loading.
 
@@ -762,11 +801,15 @@ screenshots support, but do not replace, human review in motion.
 
 ### Automated behavior and geometry
 
-- Legacy version-1 round trips and full-bright visual parity, including all
-  existing materials, collectible animations, and goal states.
-- All legacy night ambient values map to brightness 0.35; daytime is 1; constant intensity at near
+- Legacy version-1 round trips without injecting lighting settings; daylight
+  appears in play, the studio, and thumbnails. Full-bright preview preserves art.
+- All legacy night ambient values map to brightness 0.35; daytime has 0.95 ambient
+  and 1 in direct sunlight; constant intensity at near
   and far distances; cone limits; all four level boundaries; exact beam 0/1 endpoints; identical
   overlapping lamps; order independence; a second source illuminating a shadow.
+- Daylight rays remain parallel; offscreen roofs block sunlight; the enclosing
+  ceiling admits it. Moving mechanisms, slopes, overlaps, camera changes,
+  mode changes, and resize do not leave stale daylight shadows.
 - Concave terrain, a canted beam, thin walls, adjacent rectangles, overlapping
   terrain, real openings, boundary-mounted sources, and a lamp covered by a prop.
 - Correctly lit caster faces; a box shadow on a ball; no bounding-box ball shadow;

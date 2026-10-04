@@ -6,6 +6,7 @@ import type { CasterGroup, LightSource } from './lightingModel.ts'
 import { isExitEdge } from './lightingBoundary.ts'
 import type { LightingView } from './lightingRender.ts'
 import { clipShadowPolygon, triangulateCaster } from './lightingGpuGeometry.ts'
+import { daylightShadowPolygons } from './daylight.ts'
 
 export class GpuShadowMask {
   canvas = document.createElement('canvas')
@@ -122,6 +123,26 @@ export class GpuShadowMask {
     }
     gl.disable(gl.STENCIL_TEST)
     return edges
+  }
+  renderDaylight(groups: readonly CasterGroup[], view: LightingView, roomWidth: number, roomHeight: number, target: WebGLFramebuffer) {
+    const gl = this.gl, { width, height } = view
+    const polygons = daylightShadowPolygons(groups.flatMap(group => group.boundary ?? []),
+      { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }, roomWidth, roomHeight)
+    // Keep the shared fullscreen quad first for the exposure pass. Structural
+    // daylight casters are opaque; their projected triangles form one union.
+    const vertices = [0, 0, width, 0, width, height, 0, 0, width, height, 0, height]
+    const append = ([x, y]: Vec) => vertices.push((x - view.x) * view.zoom, (y - view.y) * view.zoom)
+    for (const polygon of polygons) for (let i = 1; i < polygon.length - 1; i++) {
+      append(polygon[0]); append(polygon[i]); append(polygon[i + 1])
+    }
+    this.vertexBytes = vertices.length * 4
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target); gl.viewport(0, 0, width, height)
+    gl.disable(gl.STENCIL_TEST); gl.disable(gl.BLEND); gl.colorMask(true, true, true, true)
+    gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
+    gl.useProgram(this.program); gl.uniform2f(this.viewport, width, height); gl.uniform1f(this.opacity, 1)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STREAM_DRAW)
+    gl.drawArrays(gl.TRIANGLES, 6, vertices.length / 2 - 6)
+    return polygons.length
   }
   dispose() {
     this.gl.deleteBuffer(this.buffer); this.gl.deleteProgram(this.program)

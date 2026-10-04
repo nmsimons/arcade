@@ -7,6 +7,8 @@ for (const { savedPreference, nightMode } of [
   { savedPreference: 'false', nightMode: true },
   { savedPreference: 'true', nightMode: true },
   { savedPreference: null, nightMode: false },
+  { savedPreference: 'false', nightMode: false },
+  { savedPreference: 'true', nightMode: false },
 ]) {
   test(`production adapts lighting with preference ${savedPreference ?? 'default'} at ${nightMode ? 'night' : 'day'} and hides developer tools`, async ({ page }) => {
     await page.setViewportSize({ width: 640, height: 360 })
@@ -35,7 +37,7 @@ for (const { savedPreference, nightMode } of [
     await expect(page.getByRole('dialog', { name: 'Developer panel' })).toHaveCount(0)
     await page.clock.runFor(600)
     await expect(page.getByRole('complementary', { name: 'Performance monitor' })).toHaveCount(0)
-    const adaptive = nightMode && savedPreference !== 'false'
+    const adaptive = savedPreference !== 'false'
     const pixels = await canvas.evaluate(c => c.width * c.height)
     if (adaptive) expect(pixels).toBeLessThan(fullPixels)
     else expect(pixels).toBe(fullPixels)

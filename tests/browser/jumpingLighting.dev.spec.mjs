@@ -59,7 +59,7 @@ test('the player receives light, casts a moving shadow, and releases light while
     const light = { id: 'side', x: x - 100, y, intensity: 100, power: 'always', direction: 0, spread: 120 }
     h.run.props = [{ kind: 'box', x: x + 55, y: y + 30, size: 60, angle: 0 }]
     const pixel = frame => h.pixel(frame, x + 30, y)
-    const full = h.render(100), ambient = h.render(0), standing = h.render(0, [light])
+    const full = h.fullBright(), ambient = h.render(0), standing = h.render(0, [light])
     h.run.player.crouch = 1
     const crouched = h.render(0, [light])
     h.run.player.crouch = 0
@@ -122,11 +122,11 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player receives a
     const expected = !result.nightMode ? [48, 60, 54] : lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(result.ambient)))
     for (const part of ['head', 'torso']) result[part].forEach((channel, i) =>
       expect(Math.abs(channel - expected[i]), JSON.stringify(result)).toBeLessThanOrEqual(1))
-    expect(result.backend).toBe(result.nightMode ? backend : 'canvas')
+    expect(result.backend).toBe(backend)
   }
 })
 
-test('daytime preserves the original dark player ink with no lighting surfaces', async ({ page }) => {
+test('full-bright editing preserves the original dark player ink with no lighting surfaces', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -136,7 +136,7 @@ test('daytime preserves the original dark player ink with no lighting surfaces',
     for (const time of [0, .17, .3]) {
       h.run.pickupTime = time; h.run.goalLit = time > 0
       h.run.goalElapsed = time; h.run.pickups[2].collectedAge = time || null
-      const normal = h.normal('#303c36', h.fixture.lighting.lights), lit = h.render(100, h.fixture.lighting.lights)
+      const normal = h.normal('#303c36', h.fixture.lighting.lights), lit = h.fullBright(h.fixture.lighting.lights)
       comparisons.push({ difference: h.difference(normal, lit), bytes: lit.stats.bufferBytes })
     }
     const legacy = h.normal(), { head } = athletePose(h.run.player)
@@ -215,7 +215,7 @@ test('darkness shades pickups and preserves display exposure without painting th
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
-    const h = await lightingHarness(), bright = h.render(100), dark = h.render(0)
+    const h = await lightingHarness(), bright = h.fullBright(), dark = h.render(0)
     const results = {
       coin: h.pixel(dark, 100, 240), originalCoin: h.pixel(bright, 100, 240),
       wall: h.pixel(dark, 400, 100), originalWall: h.pixel(bright, 400, 100),
@@ -254,7 +254,7 @@ test('lamp overlap, order, ambient-only terrain and source occlusion agree at th
       const offset = ((y - h.view.y) * h.canvas.width + x) * 4
       duplicate.pixels.set(single.pixels.slice(offset, offset + 4), offset)
     }
-    const bright = h.render(100)
+    const bright = h.fullBright()
     const result = { duplicate: h.difference(single, duplicate), order: h.difference(forward, reverse),
       covered: h.difference(inside, ambient), front: h.pixel(single, 430, 330), wall: h.pixel(single, 490, 330),
       brightFront: h.pixel(bright, 430, 330), brightWall: h.pixel(bright, 490, 330) }
@@ -318,7 +318,7 @@ test('spotlights reach distant viewports; offscreen objects and structures block
       h.run.props = receivers
       h.run.level = { ...h.run.level, platforms: [] }; h.run.terrain = []
       const source = { id: 'distant', x: 300, y: 100, intensity: 100, power: 'always', direction: 0, spread }
-      const bright = h.render(100), lit = h.render(20, [source])
+      const bright = h.fullBright(), lit = h.render(20, [source])
       h.run.props = [...receivers, box]
       const objectShadow = h.render(20, [source])
       h.run.props = receivers; h.run.level = { ...h.run.level, platforms: [...h.run.level.platforms, { x: 5960, y: 60, w: 80, h: 80 }] }; h.run.terrain = h.run.level.platforms
@@ -344,7 +344,7 @@ test('spotlights stop at all four room edges', async ({ page }) => {
     h.run.level.platforms = []; h.run.terrain = []; h.run.props = []; h.run.mechanisms = []; h.run.robots = []
     h.run.props = [{ kind: 'box', x: 1200, y: 560, size: 100, angle: 0 }]
     Object.assign(h.view, { x: -160, y: -130, zoom: .8 })
-    const bright = h.render(100)
+    const bright = h.fullBright()
     const ambient = h.render(20), source = { id: 'lamp', x: 600, y: 300, intensity: 100, power: 'always' }
     const frames = [0, 90, 180, -90].map(direction => h.render(20, [{ ...source, spread: 160, direction }]))
     const results = frames.map(frame => ({
@@ -396,11 +396,11 @@ test('bot body and wheels share lighting while its eye stays readable until EMP,
       const at = ([x, y]) => [robot.x + x * facing * c - (y + 9) * s, robot.y - 9 + x * facing * s + (y + 9) * c]
       const ordinary = [[0, top + 25], [-17, -5], [17, -5]].map(at), eye = at([13.5, top + 12.5])
       h.run.empRemaining = 0; h.run.props = []
-      const bright = h.render(100), dark = h.render(0)
+      const bright = h.fullBright(), dark = h.render(0)
       const lit = lamps.map(lamp => h.render(20, [lamp]))
       h.run.props = [box]; const shadow = h.render(20, [lamps[0]]), shadowGroups = dynamicCasters(h.run)
       h.run.props = []; h.run.empRemaining = 5
-      const outage = h.render(20, [lamps[0]]), unpoweredBright = h.render(100)
+      const outage = h.render(20, [lamps[0]]), unpoweredBright = h.fullBright()
       results.push({
         body: ordinary.map(point => ({ bright: h.pixel(bright, ...point), dark: h.pixel(dark, ...point),
           lit: lit.map(image => h.pixel(image, ...point)), shadow: h.pixel(shadow, ...point), outage: h.pixel(outage, ...point),
@@ -438,7 +438,7 @@ test('spotlight edges remain narrow at long distances and agree with exposure sa
       // The lower edge is y=x; move the viewport along it without changing the light.
       h.view.x = distance - 200; h.view.y = distance - 200
       h.run.props = [{ kind: 'box', x: distance + 20, y: distance + 30, size: 60, angle: 0 }]
-      const bright = h.render(100), lit = h.render(20, [lamp])
+      const bright = h.fullBright(), lit = h.render(20, [lamp])
       for (const inward of [-3, 1, 6, 20]) {
         const x = distance + 3, y = distance + 3 - inward
         const expected = combineExposure(20, [lightContribution({ ...lamp, fade: 1 }, x + .5, y + .5)])
@@ -505,7 +505,7 @@ test('elevator shadows match visibility rays throughout travel, including crossi
     let checked = 0
     for (const y of [620, 580, 540, 500, 490, 480, 470, 460, 440, 490, 620]) {
       h.run.mechanisms[0].y = y
-      const bright = h.render(100), frame = h.render(20, [source])
+      const bright = h.fullBright(), frame = h.render(20, [source])
       const groups = [...staticCasters(h.run), ...dynamicCasters(h.run)]
       let shadowed = 0
       for (let py = 45; py < 640; py += 40) for (let px = 45; px < 300; px += 20) {
@@ -583,7 +583,7 @@ test('empty lighting viewports release buffers and resume with an unchanged imag
 })
 
 
-test('night mode ignores legacy ambient values and daytime bypasses lighting', async ({ page }) => {
+test('night and day modes ignore legacy ambient values', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -592,7 +592,7 @@ test('night mode ignores legacy ambient values and daytime bypasses lighting', a
     h.run.terrain = h.run.level.platforms; h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []; h.run.pickups = []
     h.run.props = [{ kind: 'box', x: 670, y: 390, size: 150, angle: 0 }]
     const source = { id: 'lamp', x: 180, y: 160, direction: 0, spread: 120, intensity: 100, power: 'always' }
-    const bright = h.render(100), original = h.pixel(bright, 650, 300), samples = []
+    const bright = h.fullBright(), original = h.pixel(bright, 650, 300), samples = []
     for (const [ambient, nightMode] of [[0, true], [50, true], [99, true], [100, true], [100, false], [0, false], [100, true]]) {
       const base = h.render(ambient, [], .2, undefined, nightMode), lit = h.render(ambient, [source], .2, undefined, nightMode)
       samples.push({ ambient, nightMode, original, base: h.pixel(base, 650, 300), lit: h.pixel(lit, 650, 300), buffers: lit.stats.bufferBytes })
@@ -603,8 +603,7 @@ test('night mode ignores legacy ambient values and daytime bypasses lighting', a
     const exposure = sample.nightMode ? .35 : 1
     sample.base.forEach((value, i) => expect(Math.abs(value - sample.original[i] * exposure)).toBeLessThanOrEqual(2))
     sample.lit.forEach((value, i) => expect(Math.abs(value - sample.original[i])).toBeLessThanOrEqual(1))
-    if (!sample.nightMode) expect(sample.buffers).toBe(0)
-    else expect(sample.buffers).toBeGreaterThan(0)
+    expect(sample.buffers).toBeGreaterThan(0)
   }
 })
 

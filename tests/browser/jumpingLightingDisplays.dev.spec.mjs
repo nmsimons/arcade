@@ -21,8 +21,8 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: timer and numeric coi
       h.run.coinsCollected = [0, 2, 4, 4][index]
       h.run.triggers.forEach(t => { t.active = state === 'finished' })
       h.run.empRemaining = 0; h.run.props = []
-      h.render(100)
-      const day = h.render(100), original = h.normal('#303c36'), full = h.normal('#e5e7e6')
+      h.fullBright()
+      const day = h.fullBright(), original = h.normal('#303c36'), full = h.normal('#e5e7e6')
       const dark = h.render(0), lit = h.render(0, [lamp])
       h.run.props = [{ kind: 'box', x: 280, y: 330, size: 180, angle: 0 }]
       const blocked = h.render(0, [lamp])

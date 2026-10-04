@@ -15,7 +15,7 @@ for (const caster of ['box', 'ball', 'player']) test(`${caster} casts unfaded sh
       Object.assign(h.view, { x: x - 500, zoom })
       const receiver = { kind: 'box', x, y: y + 30, size: 60, angle: 0 }
       h.run.player.x = 20; h.run.props = [receiver]
-      const dark = h.render(0), bright = h.render(100), lit = h.render(0, [light])
+      const dark = h.render(0), bright = h.fullBright(), lit = h.render(0, [light])
       if (caster === 'player') h.run.player.x = 350
       else h.run.props.push({ kind: caster, x: 350, y: y + 22, size: 44, angle: 0 })
       const blocked = h.render(0, [light])

@@ -5,7 +5,7 @@ import { BALL_COLOR, drawPuzzleWorld } from './challengeRender.ts'
 import { NIGHT_PLAYER_COLOR } from './athlete.ts'
 import { athleteCasters } from './athleteShadow.ts'
 import { goalEase } from './goal.ts'
-import { drawAthlete, drawClimbables, drawLevelBackdrop, drawMovementEffects, drawTerrain } from './render.ts'
+import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawLevelBackdrop, drawMovementEffects, drawTerrain } from './render.ts'
 import { levelHeight, levelTerrain } from './level.ts'
 import { beamHazeStrength, drawLightFixtures, drawLightHaze } from './lightFixture.ts'
 import { polygonPoints } from './geometry.ts'
@@ -135,9 +135,7 @@ export class LightingRenderer {
         }, false)
         paint(ctx, 0, () => {
           drawClimbables(ctx, run.player, run.level.climbables)
-          for (const [i, point] of [run.level.spawn, ...run.level.checkpoints].entries()) {
-            ctx.fillStyle = run.player.checkpoint >= i ? '#df633f' : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
-          }
+          drawCheckpointMarkers(ctx, run.player, run.level)
           drawMovementEffects(ctx, run.player)
         })
         paint(ctx, 0, () => drawAthlete(ctx, run.player, ink))

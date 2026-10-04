@@ -16,6 +16,8 @@ async function trackWorkers(page) {
     window.Worker = class extends NativeWorker {
       constructor(...args) {
         super(...args)
+        // Thumbnails now prepare lighting too; track only playable-level work.
+        if (!String(args[0]).includes('ropeLayout.worker')) return
         const entry = { terminated: false }; window.levelWorkers.push(entry)
         const terminate = this.terminate.bind(this)
         this.terminate = () => { entry.terminated = true; terminate() }

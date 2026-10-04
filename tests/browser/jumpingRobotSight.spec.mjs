@@ -9,6 +9,8 @@ async function openSightLevel(page, level) {
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
+      // Lighting masks also draw eyes but have no gameplay camera backdrop.
+      if (this.canvas.getAttribute('role') !== 'img') return rect.apply(this, args)
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.sightCamera = this.getTransform()
       if (args[2] === 5 && args[3] === 5 && ['#94433f', '#a5b3a7'].includes(this.fillStyle)) {
         this.canvas.botEye = this.fillStyle

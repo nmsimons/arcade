@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { installTestFolder, useLevelFixtures, selectBuilderObject, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { dayAmbientChannel, expectDayAmbientPixel } from './helpers/jumpingLighting.mjs'
 const board = page => page.getByRole('application', { name: 'Level canvas' })
 function fixture() {
   return { ...blankTrial(), id: 'editor-groups', name: 'Editor groups', width: 1200, height: 800, floor: 800,
@@ -57,15 +58,15 @@ const group = (page,n) => page.getByRole('heading', { name: `${n} objects select
 
 test('terrain draw order changes visible overlap and pointer picking, with undo and saved persistence', async ({ page }) => {
   await open(page)
-  expect(await pixel(page,445,395)).toEqual([189,196,181])
+  expectDayAmbientPixel(await pixel(page,445,395), [189,196,181])
   await selectBuilderObject(page,'platform:0')
   await page.getByRole('button',{name:'Bring to front',exact:true}).click()
   const color = await pixel(page,445,395)
-  expect(color[0]).toBeGreaterThan(170); expect(color[0]).toBeLessThan(181)
+  expect(color[0]).toBeGreaterThan(dayAmbientChannel(170)); expect(color[0]).toBeLessThan(dayAmbientChannel(181))
   await click(page,445,395)
   await expect(page.getByRole('heading',{name:'A · Terrain 1',exact:true})).toBeVisible()
   await page.getByRole('button',{name:'Undo',exact:true}).click()
-  expect(await pixel(page,445,395)).toEqual([189,196,181])
+  expectDayAmbientPixel(await pixel(page,445,395), [189,196,181])
   await page.getByRole('button',{name:'Redo',exact:true}).click()
   const saved = await saveTestLevel(page)
   expect(saved.level.platforms[0].zIndex).toBeGreaterThan(saved.level.platforms[1].zIndex ?? 0)

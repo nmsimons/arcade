@@ -76,13 +76,16 @@ export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player) {
   }
   ctx.restore()
 }
+export function drawCheckpointMarkers(ctx: CanvasRenderingContext2D, p: Player, level: JumpLevel) {
+  for (const [index, point] of [level.spawn, ...level.checkpoints].entries()) {
+    ctx.fillStyle = p.checkpoint >= index ? ACCENT : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
+  }
+}
 export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel) {
   const { zoom, x, y } = gameCamera(width, height, p, level, false)
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
   drawTerrain(ctx, levelTerrain(level), level.platforms); drawClimbables(ctx, p, level.climbables)
-  for (const [index, point] of [level.spawn, ...level.checkpoints].entries()) {
-    ctx.fillStyle = p.checkpoint >= index ? ACCENT : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
-  }
+  drawCheckpointMarkers(ctx, p, level)
   drawMovementEffects(ctx, p); drawAthlete(ctx, p); ctx.restore()
 }

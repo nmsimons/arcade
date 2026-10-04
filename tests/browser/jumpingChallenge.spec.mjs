@@ -5,6 +5,7 @@ import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { installDigitalClockSpy, wallTimeFromHud } from './helpers/digitalClock.mjs'
 import { ropeSlope, slopedLip } from '../helpers/rope-slope.mjs'
+import { daylightInkPalette } from './helpers/jumpingLighting.mjs'
 
 async function setup(page, lesson = 0, levels = CAMPAIGN) {
   await useLevelFixtures(page, levels)
@@ -34,6 +35,9 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
   })
   await page.goto('/untitled-jumping-game')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  // Let real worker preparation finish before jumping the virtual clock past
+  // its deadline. A visible card can still have an unprepared thumbnail.
+  await expect.poll(() => page.locator('.jumping-level-card[aria-pressed=true] canvas').evaluate(c => c.width)).toBeGreaterThan(1)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   if (lesson) await page.getByRole('button', { name: `Level ${lesson + 1}:`, exact: false }).focus()
 }
@@ -464,10 +468,11 @@ test('objects occlude collectibles, wall timers and text in thumbnails and gamep
   const exposed = level.pickups.map(p => ({ ...p, y: 430 }))
   level.pickups.push(...exposed)
   const exposedRegions = exposed.map(p => ({ x: p.x - 24, y: p.y - 32, w: 48, h: 60 }))
-  const visibleInk = (canvas, areas = regions) => canvas.evaluate((c, regions) => {
+  const wallInk = daylightInkPalette(['ba8542', 'dfb44f', 'ac7b35', '94433f', '718074', 'e2e7da', '40574a'])
+  const objectInk = daylightInkPalette(['8f9e98', '667b72', 'b3a28d', '938777'])
+  const visibleInk = (canvas, areas = regions) => canvas.evaluate((c, { regions, wallInk, objectInk }) => {
     const ctx = c.getContext('2d'), m = c.levelCamera
-    const wall = new Set(['ba8542', 'dfb44f', 'ac7b35', '94433f', '718074', 'e2e7da', '40574a'])
-    const objects = new Set(['8f9e98', '667b72', 'b3a28d', '938777'])
+    const wall = new Set(wallInk), objects = new Set(objectInk)
     return regions.map(r => {
       const x = Math.ceil(r.x * m.a + m.e), y = Math.ceil(r.y * m.d + m.f)
       const data = ctx.getImageData(x, y, Math.floor(r.w * m.a), Math.floor(r.h * m.d)).data
@@ -479,14 +484,13 @@ test('objects occlude collectibles, wall timers and text in thumbnails and gamep
       }
       return { leaked, object }
     })
-  }, areas)
+  }, { regions: areas, wallInk, objectInk })
   const check = async canvas => {
     const samples = await visibleInk(canvas)
     for (const sample of samples) { expect(sample.leaked).toBe(0); expect(sample.object).toBeGreaterThan(0) }
   }
   await setup(page, 0, [level])
   const thumbnail = page.locator('.jumping-level-card[aria-pressed=true] canvas')
-  await expect.poll(() => thumbnail.evaluate(c => c.width)).toBeGreaterThan(1)
   await check(thumbnail)
   await enter(page)
   await check(page.locator('canvas[role="img"]'))

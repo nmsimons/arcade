@@ -2,7 +2,7 @@ import { gravityPlateActive } from './gravity.ts'
 import { drawForceField } from './forceFieldRender.ts'
 import { drawGravityDust, drawGravityPlate, drawGravityRegion } from './gravityRender.ts'
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
-import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
+import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
 import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
@@ -151,6 +151,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
   drawGoal(ctx, level.goal, run.goalLit, paint)
   paint(ctx, 0, () => {
+    if (editor) drawCheckpointMarkers(ctx, p, level)
     for (const b of run.props) drawProp(ctx, b)
     drawClimbables(ctx, p, level.climbables)
   })

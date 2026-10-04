@@ -5,6 +5,7 @@ import { ropeTower } from '../helpers/rope-tower.mjs'
 import { JSON_LAB } from '../helpers/jumping-fixtures.mjs'
 import { allSelections, itemDefinition } from '../../src/games/jumping/editor.ts'
 import { defaultObjectLabel } from '../../src/games/jumping/objectLabels.ts'
+import { expectDayAmbientPixel } from './helpers/jumpingLighting.mjs'
 
 async function open(page, level) {
   if (level) await useLevelFixtures(page, [level])
@@ -289,13 +290,13 @@ test('terrain and floor materials undo, save and render consistently in the edit
     return [...canvas.getContext('2d').getImageData(Math.round(x * t.a + t.e), Math.round(y * t.d + t.f), 1, 1).data]
   }, { x, y })
   const editor = page.getByRole('application', { name: 'Level canvas' })
-  expect(await pixel(editor, 500, 740)).toEqual([154, 168, 177, 255])
-  expect(await pixel(editor, 500, 810)).toEqual([178, 161, 140, 255])
+  expectDayAmbientPixel(await pixel(editor, 500, 740), [154, 168, 177, 255])
+  expectDayAmbientPixel(await pixel(editor, 500, 810), [178, 161, 140, 255])
   await page.screenshot({ path: info.outputPath('terrain-materials-editor.png') })
   await saveTestLevel(page, 'Save and Test'); await page.clock.runFor(100)
   const game = page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })
-  expect(await pixel(game, 500, 740)).toEqual([154, 168, 177, 255])
-  expect(await pixel(game, 500, 810)).toEqual([178, 161, 140, 255])
+  expectDayAmbientPixel(await pixel(game, 500, 740), [154, 168, 177, 255])
+  expectDayAmbientPixel(await pixel(game, 500, 810), [178, 161, 140, 255])
   await page.screenshot({ path: info.outputPath('terrain-materials-game.png') })
 })
 
@@ -1531,21 +1532,23 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   const originalView = await camera()
   const levelHeight = page.getByRole('spinbutton', { name: 'Level height', exact: true })
   await levelHeight.fill('900'); await expect(levelHeight).toBeFocused()
-  const previewView = await camera()
-  expect(900 * previewView.a + previewView.f).toBeCloseTo(600 * originalView.a + originalView.f, 5)
-  await levelHeight.press('Escape'); expect(await camera()).toEqual(originalView)
+  // Wait for the new geometry to paint. Rope sketches remain busy while an
+  // inspector edit is previewing; the drawn camera is the relevant signal.
+  // Canvas transforms use float32 precision; keep the floor within .001 pixel.
+  await expect.poll(async () => { const view = await camera(); return 900 * view.a + view.f }).toBeCloseTo(600 * originalView.a + originalView.f, 3)
+  await levelHeight.press('Escape'); await expect.poll(camera).toEqual(originalView)
   await levelHeight.fill(''); await levelHeight.pressSequentially('1037'); await levelHeight.press('Enter')
+  await expect.poll(async () => { const view = await camera(); return 1037 * view.a + view.f }).toBeCloseTo(600 * originalView.a + originalView.f, 3)
   const tallerView = await camera()
   expect(tallerView.a).toBe(originalView.a)
-  expect(1037 * tallerView.a + tallerView.f).toBeCloseTo(600 * originalView.a + originalView.f, 5)
   await selectBuilderObject(page, 'platform:0')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('400')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
   await expect(page.getByRole('spinbutton', { name: 'Level height', exact: true })).toHaveValue('600')
-  expect(await camera()).toEqual(originalView)
+  await expect.poll(camera).toEqual(originalView)
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
-  expect(await camera()).toEqual(tallerView)
+  await expect.poll(camera).toEqual(tallerView)
   await selectBuilderObject(page, 'spawn:0')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('0')
   await selectBuilderObject(page, 'rope:0')

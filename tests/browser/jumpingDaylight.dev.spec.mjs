@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { readFileSync } from 'node:fs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { expectDayAmbientPixel } from './helpers/jumpingLighting.mjs'
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: day lamps fill sunlight shadows, obey blockers and EMP, and leave terrain ambient-only`, async ({ page }, info) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
@@ -71,8 +72,8 @@ test('daylight shades walls and receivers while terrain, mechanisms and borders 
   // Unobstructed wall pixels retain the artwork. Every structural front and
   // enclosing border receives the same ambient exposure, regardless of sunlight.
   for (const i of [0, 2, 4]) expect(result.samples[i].day).toEqual(result.samples[i].original)
-  for (const i of [1, 3, 5, 6, 7, 8, 9, 10, 11, 12]) result.samples[i].day.forEach((value, channel) =>
-    expect(Math.abs(value - result.samples[i].original[channel] * result.ambient), JSON.stringify(result.samples[i])).toBeLessThanOrEqual(1))
+  expect(result.ambient).toBe(.95)
+  for (const i of [1, 3, 5, 6, 7, 8, 9, 10, 11, 12]) expectDayAmbientPixel(result.samples[i].day, result.samples[i].original)
   expect(result.empSamples).toEqual(result.samples.map(sample => sample.day))
   expect(result.noLampSamples).toEqual(result.samples.map(sample => sample.day))
   expect(result.bytes).toBeLessThan(64 * 1024 * 1024)

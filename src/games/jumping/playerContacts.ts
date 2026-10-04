@@ -12,6 +12,7 @@ import type { Vec } from './geometry.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
+import { isWeightless } from './gravity.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -38,7 +39,7 @@ export interface PushContact {
 export interface PlayerContacts {
   support: SupportContact | null
   push: PushContact | null
-  body: { collider: PlayerCollider; normal: Vec; point: Vec; load: number }[]
+  body: { collider: PlayerCollider; normal: Vec; point: Vec; load: number; impactSpeed?: number }[]
   /** Travel after collision resolution, excluding transport by a moving support. */
   motion: { x: number; y: number; speed: number }
 }
@@ -110,11 +111,11 @@ export function narrowMantle(m: NonNullable<Player['mantle']>, world: ContactWor
 /** One policy for the motor, prop forces, support transport and animation.
  * Query before solving, then publish the final contacts after the body sweep.
  * Consumers never independently decide which object the player is pushing. */
-export function playerContacts(p: Player, input: JumpInput, world: ContactWorld): PlayerContacts {
+export function playerContacts(p: Player, input: JumpInput, world: ContactWorld, dt = STEP): PlayerContacts {
   if (p.inverted) {
     const reflected = mirrorContactWorld(world)
     mirrorPlayerState(p); p.inverted = false
-    try { return mirrorContacts(playerContacts(p, input, reflected), world) }
+    try { return mirrorContacts(playerContacts(p, input, reflected, dt), world) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
   const free = !p.hang && !p.mantle && !p.climbing && !p.releaseTurn
@@ -182,6 +183,30 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld)
         + Math.max(0, -hit.normal[1] * gravity)
       const point = bodyContact(hit.platform, p.x, p.y, hit.normal, height)
       if (load) body.push({ collider, normal: hit.normal, point: [point.x, point.y], load })
+    }
+  }
+  if (free && !support && Math.abs(p.gravity ?? TUNING.gravity) < TUNING.gravity - 1e-7) {
+    // Drift is a physical collision even without steering or gravitational load.
+    // Sweep relative to each nearby prop; include the other solids so a wall
+    // cannot transmit an impact into an object hidden behind it.
+    const hull = playerContactBody(p)
+    for (const collider of world.colliders) {
+      const prop = collider.prop
+      if (!prop || prop.grounded && !isWeightless(p.gravity ?? TUNING.gravity)) continue
+      const vx = p.vx - prop.vx, vy = p.vy - prop.vy, b = collider.platform
+      if (Math.hypot(vx, vy) < .01 || hull.x + TUNING.width / 2 + Math.abs(vx * dt) < b.x
+        || hull.x - TUNING.width / 2 - Math.abs(vx * dt) > b.x + b.w
+        || hull.y + Math.abs(vy * dt) < b.y || hull.y - hull.height - Math.abs(vy * dt) > b.y + b.h) continue
+      const probe = moveBody([hull.x, hull.y], [hull.x + vx * dt, hull.y + vy * dt], world.platforms, hull.height, 1, playerTurnAngle(p))
+      const hit = probe.contacts.find(hit => hit.platform === b)
+      if (!hit) continue
+      const point = bodyContact(b, probe.x, probe.y, hit.normal, hull.height)
+      const rx = point.x - prop.x, ry = point.y - prop.y + prop.size / 2
+      const closing = -(hit.normal[0] * (vx + prop.angularVelocity * ry) + hit.normal[1] * (vy - prop.angularVelocity * rx))
+      if (closing <= .01) continue
+      const existing = body.find(contact => contact.collider === collider)
+      if (existing) { existing.impactSpeed = closing; existing.normal = hit.normal; existing.point = [point.x, point.y] }
+      else body.push({ collider, normal: hit.normal, point: [point.x, point.y], load: 0, impactSpeed: closing })
     }
   }
   return { support, push, body, motion: { x: 0, y: 0, speed: 0 } }

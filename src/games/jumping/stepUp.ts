@@ -111,7 +111,7 @@ export function findStepUp(p: Player, move: number, dt: number, world: ContactWo
       if (p.stepIntent.time < .2) return null
     }
     const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork,
-      pushing: tall ? p.pushing : undefined }
+      pushing: tall ? p.pushing : undefined, freeFall: p.freeFall }
     const lead = p.footwork?.feet[0].planted && !p.footwork.feet[1].planted ? 1 : 0
     // Keep the usual stride when it fits. Short steps can plant nearer the lip
     // on a narrow tread, leaving room for the body before the next riser.

@@ -8,11 +8,12 @@ import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH
 import { climbBody, climbGait, climbNormal, climbPoint, climbRoot, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { keepRopeGrip } from './ropeGravity.ts'
 import { stepFootOffsets } from './stepUp.ts'
+import { TUNING } from './movementTuning.ts'
 
 type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
-type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number }
+type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number }
 const TAU = Math.PI * 2
 const HEAD_RADIUS = 6.2
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
@@ -100,7 +101,7 @@ function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: numbe
   return { hip: point(from.hip, to.hip), waist: point(from.waist, to.waist), shoulder: point(from.shoulder, to.shoulder), head: point(from.head, to.head),
     frontArm: limb(from.frontArm, to.frontArm, UPPER_ARM, FOREARM, reachClearance), backArm: limb(from.backArm, to.backArm, UPPER_ARM, FOREARM, reachClearance),
     frontLeg: leg(from.frontLeg, to.frontLeg), backLeg: leg(from.backLeg, to.backLeg),
-    backView: lerp(from.backView ?? 0, to.backView ?? 0, t) }
+    backView: lerp(from.backView ?? 0, to.backView ?? 0, t), headTilt: lerp(from.headTilt ?? 0, to.headTilt ?? 0, t) }
 }
 function fillShape(ctx: CanvasRenderingContext2D, path: Path2D, color: string) {
   ctx.fillStyle = color; ctx.fill(path)
@@ -229,6 +230,10 @@ function drawHead(ctx: CanvasRenderingContext2D, head: Point, color: string) {
   ctx.beginPath(); ctx.ellipse(head[0], head[1], HEAD_RADIUS, HEAD_RADIUS, 0, 0, TAU)
   ctx.fillStyle = color; ctx.fill()
 }
+function neckPoints(shoulder: Point, head: Point, tilt = 0): [Point, Point] {
+  const sin = Math.sin(tilt), cos = Math.cos(tilt)
+  return [[shoulder[0] + sin, shoulder[1] - cos], [head[0] - sin * 4, head[1] + cos * 4]]
+}
 function drawBack(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string, turn: number, facing = 1) {
   ctx.beginPath(); traceBack(ctx, hip, waist, shoulder, turn, facing); ctx.fillStyle = color; ctx.fill()
 }
@@ -272,7 +277,8 @@ export function traceAthlete(path: AthleteOutline, p: Player) {
   }
   if (p.climbing || backView > 0) traceBack(path, hip, waist, shoulder, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else traceTorso(path, hip, waist, shoulder)
-  traceSegment(path, [shoulder[0], shoulder[1] - 1], [head[0], head[1] + 4], 1.15, 1.15, 1.15)
+  const [neck, nape] = neckPoints(shoulder, head, pose.headTilt)
+  traceSegment(path, neck, nape, 1.15, 1.15, 1.15)
   round(head, HEAD_RADIUS)
 }
 
@@ -530,7 +536,8 @@ function rotatePose(pose: AthletePose, angle: number, facing: number, pivot: Poi
     ...(value.hand ? { hand: point(value.hand) } : {}) })
   const leg = (value: Leg): Leg => ({ ...limb(value), footAngle: value.footAngle + angle * facing / value.footFacing })
   return { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head),
-    frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
+    frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg),
+    ...(pose.headTilt !== undefined ? { headTilt: pose.headTilt + angle * facing } : {}) }
 }
 
 /** A reaching foot meets the wall immediately while the torso eases into its brace. */
@@ -568,6 +575,43 @@ function clearClimbingLeg(p: Player, leg: Leg, spread: number): Leg {
   }
   return current
 }
+/** A belly-first fall opens the legs behind the torso. Recovery plants the hands,
+ * gathers the knees, then brings the feet underneath before standing. */
+function fallFrame(p: Player, stage = 0): AthletePose {
+  const hip: Point = stage === 0 ? [-7, -9] : stage === 1 ? [-5, -16] : [-4, -20]
+  const pitch = stage === 0 ? Math.PI / 2 + .06 : stage === 1 ? 1.18 : .8
+  const waist = add(hip, [Math.sin(pitch) * 6.5, -Math.cos(pitch) * 6.5])
+  const shoulder = add(waist, [Math.sin(pitch) * 10.1, -Math.cos(pitch) * 10.1])
+  const head = add(shoulder, stage === 0 ? [8, .2] : [4, -6.8])
+  const armRoot = add(shoulder, [0, stage === 0 ? -.8 : .7]), legRoot = add(hip, [0, 1])
+  const arm = (back: boolean) => solve(armRoot, stage === 0 ? [back ? 27 : 28, back ? -4.5 : -2.8]
+    : stage === 1 ? [back ? 10 : 14, -2.8] : [back ? 7 : 11, -15], 10, 9, stage === 0 ? 1 : -1)
+  const leg = (back: boolean): Leg => ({ ...solve(legRoot,
+    stage === 0 ? [back ? -34 : -35, back ? -10 : -8.5] : stage === 1 ? [back ? -20 : -23, -2.8] : [back ? -5 : 3, -2.8],
+    15, 14.5, -1, MIN_KNEE_OPENING),
+    footAngle: stage === 0 ? Math.PI / 2 : 0, toeAngle: 0, footFacing: 1, planted: false })
+  // Knees and elbows face the ground; pointed trailing feet and a turned neck
+  // distinguish belly-down flight from a figure lying on its back.
+  const frame = { hip, waist, shoulder, head, frontArm: arm(false), backArm: arm(true), frontLeg: leg(false), backLeg: leg(true), headTilt: stage === 0 ? pitch : 0 }
+  return rotatePose(frame, p.groundAngle, p.facing)
+}
+function fallPose(p: Player): AthletePose {
+  const fall = p.freeFall!, recovery = fall.recovery
+  const source = athletePose({ ...p, ...fall.impact, freeFall: null, grounded: false,
+    groundAngle: 0, footwork: null, landing: 0, pushing: null, ledgeReach: null, wallBrace: null, sliding: null })
+  const prone = fallFrame(p)
+  // Bend through depth as the limbs fold across the torso; interpolating only
+  // their projected joints would flip an elbow or knee through a straight limb.
+  const blend = (from: AthletePose, to: AthletePose, t: number) => transferPose(from, to, [0, 0], t, [0, 0], 0, true)
+  if (recovery === null) return blend(source, prone, fall.amount)
+  if (recovery < .18) return blend(source, prone, lerp(fall.amount, 1, smooth(recovery / .16)))
+  const kneeling = fallFrame(p, 1), crouched = fallFrame(p, 2)
+  if (recovery < .48) return blend(prone, kneeling, smooth((recovery - .18) / .3))
+  if (recovery < .7) return blend(kneeling, crouched, smooth((recovery - .48) / .22))
+  const standing = athletePose({ ...p, freeFall: null, landing: 0 })
+  return blend(crouched, standing, smooth((recovery - .7) / (TUNING.fallRecoveryTime - .7)))
+}
+
 /** Local-space poses share one rig, from planted contact through flight and landing. */
 export function athletePose(p: Player): AthletePose {
   if (p.inverted) {
@@ -579,6 +623,7 @@ export function athletePose(p: Player): AthletePose {
   if (p.mantle?.step) return stepUpPose(p)
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
+  if ((p.freeFall?.amount ?? 0) > 0) return fallPose(p)
   // Sliding blends from the same locomotion pose on contact and release. A
   // momentary slip must not replace the airborne gait before its blend begins.
   const pose = p.gait ?? gaitPose(p.vx, !p.grounded)
@@ -885,7 +930,7 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
 export const NIGHT_PLAYER_COLOR = '#e5e7e6'
 /** Original daytime silhouette; night rendering supplies its own lit material. */
 export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e') {
-  const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0 } = athletePose(p)
+  const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = athletePose(p)
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, p.inverted ? -1 : 1)
   const backPose = !!p.climbing || backView > 0
   drawLeg(ctx, backLeg, body)
@@ -895,7 +940,8 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#6
   if (backPose) drawBack(ctx, hip, waist, shoulder, body, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else drawTorso(ctx, hip, waist, shoulder, body)
   drawLeg(ctx, frontLeg, body)
-  fillShape(ctx, segmentPath([shoulder[0], shoulder[1] - 1], [head[0], head[1] + 4], 1.15, 1.15, 1.15), body)
+  const [neck, nape] = neckPoints(shoulder, head, headTilt)
+  fillShape(ctx, segmentPath(neck, nape, 1.15, 1.15, 1.15), body)
   drawHead(ctx, head, body)
   if (!backPose) drawArm(ctx, frontArm, body)
   ctx.restore()

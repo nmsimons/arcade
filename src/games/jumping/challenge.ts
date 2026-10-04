@@ -316,12 +316,12 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   stepTriggers(run, poweredDt, powered)
   if (run.forceFields.length) world = syncPlatforms(run)
   setPlayerGravity(run.player, playerGravity(run.gravityField, run.player))
-  if (powered) stepMechanisms(run, poweredDt, playerContacts(run.player, input, world))
+  if (powered) stepMechanisms(run, poweredDt, playerContacts(run.player, input, world, dt))
   world = syncPlatforms(run)
-  const rider = playerContacts(run.player, input, world).support
+  const rider = playerContacts(run.player, input, world, dt).support
   const robotStarts = run.robots.map(r => r.x)
   if (powered) stepRobots(run, poweredDt, world)
-  stepProps(run, playerContacts(run.player, input, world), dt, powered)
+  stepProps(run, playerContacts(run.player, input, world, dt), dt, powered)
   run.robots.forEach((r, i) => { r.vx = (r.x - robotStarts[i]) / dt })
   world = syncPlatforms(run)
   if (rider?.collider.robot && run.player.grounded) {
@@ -359,7 +359,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
     run.medal = medalFor(run.elapsed, run.level)
-    p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null
+    p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null; p.freeFall = null
     cancelJumpInput(p)
   }
 }

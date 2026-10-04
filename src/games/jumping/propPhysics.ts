@@ -17,7 +17,7 @@ import type { Vec } from './geometry.ts'
 import { propGravity } from './gravity.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
-interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; gravity: Map<Matter.Body, number> }
+interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; gravity: Map<Matter.Body, number>; driven: Set<Matter.Body> }
 const worlds = new WeakMap<Run, PropWorld>()
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const material = { friction: .55, frictionStatic: 1.4, frictionAir: 0, restitution: 0, slop: .0001 }
@@ -26,6 +26,15 @@ const PLAYER_MASS = 2.5
 function controlledHull(points: readonly Vec[]) {
   const vertices = points.map(([x, y]) => ({ x, y }))
   return Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
+}
+
+/** Query near-touching faces without moving a body. */
+function contactProbe(body: Matter.Body, padding = .001): Matter.Body {
+  const center = body.position
+  const scale = 1 + padding / Math.max(1, Math.min(body.bounds.max.x - body.bounds.min.x, body.bounds.max.y - body.bounds.min.y) / 2)
+  return { ...body,
+    bounds: { min: { x: body.bounds.min.x - padding, y: body.bounds.min.y - padding }, max: { x: body.bounds.max.x + padding, y: body.bounds.max.y + padding } },
+    vertices: body.vertices.map(v => ({ ...v, x: center.x + (v.x - center.x) * scale, y: center.y + (v.y - center.y) * scale })) }
 }
 
 function terrainBodies(s: Platform, run: Run) {
@@ -63,13 +72,12 @@ function worldFor(run: Run) {
   const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
   const bodies = new Map(run.props.map(b => [b, makeProp(b)]))
   Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values()])
-  const world = { engine, terrain, mechanisms, bodies, gravity: new Map<Matter.Body, number>() }; worlds.set(run, world)
+  const world: PropWorld = { engine, terrain, mechanisms, bodies, gravity: new Map<Matter.Body, number>(), driven: new Set() }; worlds.set(run, world)
   // Correct only gravitational integration after Matter's sleeping decision,
   // before collision detection/solving. A persistent applied force would wake
   // every resting field prop forever, even when pinned against a ceiling.
   Events.on(engine, 'beforeSolve', () => {
-    if (!run.gravityField.strips.length) return
-    for (const body of bodies.values()) {
+    if (run.gravityField.strips.length) for (const body of bodies.values()) {
       if (body.isSleeping) continue
       const dy = ((world.gravity.get(body) ?? TUNING.gravity) - TUNING.gravity) * (engine.timing.lastDelta * body.timeScale / 1000) ** 2
       if (!dy) continue
@@ -79,6 +87,23 @@ function worldFor(run: Run) {
       previous.y -= dy; body.velocity.y += dy
       Bounds.update(body.bounds, body.vertices, body.velocity)
     }
+    // Speed-based waking cannot propagate a gentle shove into a sleeping chain:
+    // the first body is stopped by its sleeping neighbor before gaining speed.
+    // Wake the connected prop contacts after integration and before solving.
+    engine.velocityIterations = 16
+    if (!world.driven.size) return
+    const queue = [...world.driven], reached = new Set(world.driven), props = [...bodies.values()]
+    for (let i = 0; i < queue.length; i++) {
+      const body = queue[i], probe = contactProbe(body)
+      for (const hit of Query.collides(probe, props.filter(b => !reached.has(b)))) {
+        const other = hit.parentA === body ? hit.parentB : hit.parentA
+        reached.add(other); queue.push(other)
+        if (other.isSleeping) Sleeping.set(other, false)
+      }
+    }
+    // Woken chains have coupled constraints. Resolve their transmitted load
+    // tightly enough that a blocked chain does not retain velocity into a wall.
+    if (queue.length > 1) engine.velocityIterations = 32
   })
   return world
 }
@@ -108,7 +133,8 @@ export function prepareProps(run: Run) {
 export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = run.empRemaining === 0) {
   const world = worldFor(run), push = playerContact.push
   const barriers = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
-  const driven = new Set<Matter.Body>()
+  const driven = world.driven
+  driven.clear()
   const robots = run.robots.map(robot => ({ robot, hulls: robotHulls(robot).map(controlledHull) }))
   const robotProbes = run.robots.filter(robot => powered && robotDrive(robot)).map(robot => ({ robot,
     hulls: robotHulls({ ...robot, x: robot.x + robot.facing * 3 }).map(controlledHull) }))
@@ -150,6 +176,21 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (push?.collider.prop === b || braced || contact) {
       driven.add(body)
       Sleeping.set(body, false)
+    }
+    if (contact?.impactSpeed) {
+      // A free-flight bump exchanges normal momentum; an off-center box hit
+      // also receives angular momentum. The controlled player supplies recoil.
+      const [nx, ny] = contact.normal, [x, y] = contact.point
+      const rx = x - body.position.x, ry = y - body.position.y
+      const lever = rx * ny - ry * nx
+      // Contacts are shared by solver substeps. Recompute the remaining closing
+      // speed so a resolved impact cannot add the original impulse again.
+      const closing = Math.max(0, -(nx * (run.player.vx - b.vx + b.angularVelocity * ry)
+        + ny * (run.player.vy - b.vy - b.angularVelocity * rx)))
+      const impulse = closing / (1 / PLAYER_MASS + body.inverseMass + lever * lever * body.inverseInertia)
+      b.vx -= nx * impulse * body.inverseMass; b.vy -= ny * impulse * body.inverseMass
+      b.angularVelocity -= lever * impulse * body.inverseInertia
+      run.player.vx += nx * impulse / PLAYER_MASS; run.player.vy += ny * impulse / PLAYER_MASS
     }
     if (push?.collider.prop === b) {
       const target = push.direction * push.effort * 90
@@ -304,7 +345,26 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const supports = new Map<Matter.Body, Matter.Vector>()
   const contacts: Matter.Collision[] = world.engine.pairs.list.filter((pair: Matter.Pair) => pair.isActive).map((pair: Matter.Pair) => pair.collision)
   for (const body of world.bodies.values()) contacts.push(...Query.collides(body, candidates.get(body)!))
-  for (const [b, body] of world.bodies) if (!body.isSleeping) b.grounded = false
+  // Validate sleeping support separately, keeping the solver's original
+  // contact ordering and friction normals for awake objects. Sleep can leave
+  // inactive cached pairs, so check the current hulls with a small tolerance.
+  const liveContacts = contacts.filter(c => !c.bodyA.isSleeping && !c.bodyB.isSleeping)
+  for (const body of world.bodies.values()) if (body.isSleeping) {
+    liveContacts.push(...Query.collides(contactProbe(body, .01), candidates.get(body)!).map(hit => ({ ...hit, bodyA: hit.parentA, bodyB: hit.parentB })))
+  }
+  const supported = new Set<Matter.Body>()
+  for (let pass = 0; pass <= run.props.length; pass++) {
+    const count = supported.size
+    for (const c of liveContacts) {
+      const a = c.bodyA, b = c.bodyB
+      const directionA = (world.gravity.get(a) ?? TUNING.gravity) < 0 ? -1 : 1
+      const directionB = (world.gravity.get(b) ?? TUNING.gravity) < 0 ? -1 : 1
+      if (byBody.has(a) && c.normal.y * directionA < -.3 && (b.isStatic || supported.has(b))) supported.add(a)
+      if (byBody.has(b) && c.normal.y * directionB > .3 && (a.isStatic || supported.has(a))) supported.add(b)
+    }
+    if (supported.size === count) break
+  }
+  for (const [b, body] of world.bodies) if (!body.isSleeping || !supported.has(body)) b.grounded = false
   for (let pass = 0; pass <= run.props.length; pass++) {
     let changed = false
     for (const contact of contacts) {
@@ -321,6 +381,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (!changed) break
   }
   for (const [b, body] of world.bodies) {
+    // Low acceleration can look stationary to Matter's speed-only sleep test.
+    // A body under gravity may sleep only while a real support carries it.
+    const gravity = Math.abs(world.gravity.get(body) ?? TUNING.gravity)
+    const falling = !b.grounded && gravity > 1e-7
+    body.sleepThreshold = falling && gravity < TUNING.gravity * .05 ? 0 : 45
+    if (falling && body.isSleeping) Sleeping.set(body, false)
     const normal = supports.get(body)
     // Static friction holds a settled face on a moderate slope. Checking face
     // alignment keeps corners free to tip; steep slopes keep their momentum.

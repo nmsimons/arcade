@@ -11,11 +11,12 @@ function snapshot(p: Player, input: JumpInput, time: number) {
   return {
     time, x: p.x, y: p.y, vx: p.vx, vy: p.vy, input: { ...input },
     signals: {
-      mode: p.mantle?.step ? 'step' : p.mantle ? 'mantle' : p.hang ? 'hang' : p.climbing?.kind ?? 'free',
+      mode: p.mantle?.step ? 'step' : p.mantle ? 'mantle' : p.hang ? 'hang' : p.climbing?.kind
+        ?? ((p.freeFall?.amount ?? 0) > 0 ? p.freeFall?.recovery === null ? 'fall' : 'get-up' : 'free'),
       grounded: p.grounded, inverted: !!p.inverted, sliding: !!p.sliding?.active, bracing: !!p.wallBrace?.active, facing: p.facing,
       support: p.contacts?.support?.collider.id ?? null, push: p.contacts?.push?.collider.id ?? null,
     },
-    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0, gravityTurn: playerTurnAngle(p) },
+    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0, gravityTurn: playerTurnAngle(p) },
     // Local-space joints separate pose changes from physical root and camera travel.
     points: [pose.hip, pose.shoulder, pose.head, pose.frontArm.joint, pose.frontArm.end,
       pose.backArm.joint, pose.backArm.end, pose.frontLeg.joint, pose.frontLeg.end,

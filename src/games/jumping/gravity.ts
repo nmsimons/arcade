@@ -9,6 +9,7 @@ import type { Vec } from './geometry.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 
 export const MAX_GRAVITY_PLATES = 16
+export const isWeightless = (gravity: number) => Math.abs(gravity) < TUNING.gravity * .05
 /** The rectangle is the field; the emitter sits on the floor or ceiling edge. */
 export interface GravityPlate extends NamedObject, SwitchSettings {
   id: string; x: number; y: number; w: number; h: number

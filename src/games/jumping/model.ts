@@ -18,7 +18,7 @@ import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING, jumpSpeed } from './movementTuning.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform, mirrorLadder } from './gravityFrame.ts'
-import { playerGravity, setPlayerGravity } from './gravity.ts'
+import { isWeightless, playerGravity, setPlayerGravity } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
 import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn } from './ropeGravity.ts'
 export { TUNING } from './movementTuning.ts'
@@ -47,12 +47,13 @@ export interface Player {
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean;
-    caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null } } | null
+    caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall'] } } | null
   mantle: { edgeX: number; edgeY: number; side: number; slope?: number; toX: number; toY: number; time: number; braced: boolean;
     platform?: number; returning?: boolean; crouched?: boolean; inset?: number; blockedTime?: number;
     step?: StepUp;
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
+  freeFall: { time: number; amount: number; recovery: number | null; impact?: { vx: number; vy: number; gait: GaitPose | null } } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
   look: number // Presentation only: positive looks up, negative looks down.
@@ -68,7 +69,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: 0, jumpHeld: false,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
-    stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
+    freeFall: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false }
 }
 function settleGait(p: Player, dt: number) {
@@ -97,6 +98,7 @@ export function respawn(p: Player) {
 const approach = (value: number, target: number, delta: number) => value + Math.max(-delta, Math.min(delta, target - value))
 const overlaps = (x: number, y: number, b: Platform, height: number = TUNING.height) => bodyIntersects(x, y, b, height)
 function launch(p: Player, speed = jumpSpeed(p.jumpStrength)) {
+  p.freeFall = null
   p.vy = -speed
   p.grounded = false; p.coyote = 0; p.buffer = 0; p.jumpStrength = 0; p.wallJumpBuffer = 0
   p.jumpStart = p.y; p.jumpHeight = 0
@@ -150,6 +152,31 @@ function absorbLanding(p: Player, downwardSpeed: number) {
   // Capture the impact before the collision removes vertical velocity.
   p.landingImpact = ease((downwardSpeed - 150) / 850)
   p.landing = 1
+  if (p.freeFall && p.freeFall.amount > 0 && p.freeFall.recovery === null) {
+    p.freeFall.recovery = 0
+    p.freeFall.impact = { vx: p.vx, vy: downwardSpeed, gait: p.gait }
+  }
+}
+/** Count sustained unsupported travel with gravity or weightless floating.
+ * An ordinary jump rises against gravity and keeps its existing pose. */
+function advanceFreeFall(p: Player, dt: number) {
+  const gravity = p.gravity ?? TUNING.gravity
+  if (p.hang || p.mantle || p.climbing || p.wallBrace?.active || p.sliding?.active || p.releaseTurn) {
+    p.freeFall = null
+  } else if (p.freeFall && p.freeFall.recovery !== null && p.grounded) {
+    p.freeFall.recovery += dt
+    if (p.freeFall.recovery >= TUNING.fallRecoveryTime) { p.freeFall = null; p.landing = 0 }
+  } else if (!p.grounded && (isWeightless(gravity) || p.vy * Math.sign(gravity) > 80)) {
+    // A support disappearing during recovery starts a fresh fall.
+    if (p.freeFall && p.freeFall.recovery !== null) p.freeFall = null
+    p.freeFall ??= { time: 0, amount: 0, recovery: null }
+    p.freeFall.time += dt
+    p.freeFall.amount = Math.max(p.freeFall.amount, ease((p.freeFall.time - TUNING.freeFallTime) / TUNING.freeFallBlendTime))
+  } else if (!p.grounded && p.freeFall && p.freeFall.recovery === null && p.freeFall.amount > 0) {
+    p.freeFall.time = 0
+    p.freeFall.amount = Math.max(0, p.freeFall.amount - dt / TUNING.freeFallBlendTime)
+    if (!p.freeFall.amount) p.freeFall = null
+  } else p.freeFall = null
 }
 /** The floor carries the weight where it meets an incline without enough grip.
  * Resolve both contacts together; projecting onto the incline alone lifts the
@@ -276,10 +303,11 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     return
   }
   p.terrain = platforms
+  advanceFreeFall(p, dt)
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle
   const beforeBody = playerContactBody(p)
   const verticalUsed = !!(p.climbing || p.hang || p.mantle)
-  const initialContacts = playerContacts(p, input, world), previousGround = initialContacts.support
+  const initialContacts = playerContacts(p, input, world, dt), previousGround = initialContacts.support
   if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField, frameDirection)) return
   const leavingGround = previousGround && !p.grounded
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
@@ -377,13 +405,14 @@ function turnToGravity(p: Player, gravity: number, world: ContactWorld) {
   p.coyote = p.grounded ? TUNING.coyoteTime : 0
   p.groundAngle = inverted ? -support.angle : support.angle
   p.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.ledgeReach = null
+  p.freeFall = null
   p.contacts = playerContacts(p, NEUTRAL_INPUT, world)
 }
 
 /** All movement modes publish contacts and advance presentation once, after
  * their final world position is known, including an authored level exit. */
 export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number], verticalUsed = false) {
-  const contacts = playerContacts(p, input, world)
+  const contacts = playerContacts(p, input, world, dt)
   const carrier = contacts.support?.collider.robot
   if (carrier) {
     const dx = carrier.vx * dt, dy = dx * Math.tan(contacts.support!.angle)
@@ -395,7 +424,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   p.contacts = contacts
   settleGait(p, dt)
   // Climbing and crouching own the pose; unused Up still gets a quiet glance.
-  const look = verticalUsed || p.climbing || p.hang || p.mantle || p.crouching ? 0 : Number(input.climb)
+  const look = verticalUsed || p.climbing || p.hang || p.mantle || p.crouching || p.freeFall?.amount ? 0 : Number(input.climb)
   p.look += (look - p.look) * (1 - Math.exp(-dt / .1))
   if (Math.abs(p.look - look) < .001) p.look = look
   advanceFootwork(p, dt, from[0], world.platforms)
@@ -519,7 +548,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const landing = ledgeLanding(platforms, edge, braced, platforms, p.crouching)
       if (!landing) continue
       const { crouched, inset } = landing
-      const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, crouching: p.crouching, crouch: p.crouch, facing: p.facing }
+      const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, crouching: p.crouching, crouch: p.crouch, facing: p.facing, freeFall: p.freeFall }
       const ladderIndex = climbables.ladders.findIndex(ladder => {
         const exit = ladderLedge(ladder, platforms)
         return exit?.platform === edge.platform && sameLedge(exit, edge)
@@ -750,6 +779,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     // bot, but cannot instantly match a charge or erase momentum on departure.
     p.vx = constrained ?? (ground && canGrip(ground.angle)
       ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? Math.max(0, gravity) * .8 : move ? TUNING.acceleration : TUNING.braking, dt) + (carrier?.vx ?? 0)
+      : !p.grounded && isWeightless(gravity) && !move ? p.vx
       : approach(p.vx, target, (p.grounded ? move ? TUNING.acceleration : TUNING.braking : TUNING.airAcceleration) * dt))
   }
   if (p.grounded && contacts.support && !p.crouching && !input.jump && !input.drop && !input.descend
@@ -763,6 +793,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   }
   const oldX = p.x, oldY = p.y
   const following = p.grounded
+  const drag = !following && isWeightless(gravity) ? Math.exp(-TUNING.zeroGravityDrag * dt) : 1
+  p.vx *= drag
   // Internal terrain ends are ledges; structural outer terrain encloses the room.
   p.x += p.vx * dt
   for (const b of platforms) if (overlaps(p.x, p.y, b, height)) {
@@ -798,6 +830,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (before) p.vy = p.vx * Math.tan(before.angle)
   }
   p.vy = Math.max(-1100, Math.min(1100, p.vy + gravity * dt))
+  p.vy *= drag
   p.y += p.vy * dt; p.grounded = false
   if (support) { p.y = support.y; p.vy = 0; p.grounded = true }
   for (const b of platforms) {
@@ -846,7 +879,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         if ((edge - catchPosition.x) * side < 10 || Math.abs(catchPosition.x + side * 14 - edge) >= 13
           || Math.abs(catchPosition.y - TUNING.hangReach - edgeY) >= 16) continue
         p.x = catchPosition.x; p.y = catchPosition.y
-        const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, gait: p.gait, ledgeReach: reach }
+        const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, gait: p.gait, ledgeReach: reach, freeFall: p.freeFall }
         p.vx = 0; p.vy = 0; p.hang = { platform: index, side, edgeX: edge, edgeY, slope: ledge.slope, time: 0, queued: false, braced, caught }
         cancelJumpInput(p); p.jumpHeld = input.jump; break ledges
       }
@@ -855,6 +888,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   p.ledgeReach = p.hang ? null : reach
   updateWallBrace(p, move, dt, platforms)
   if (!p.hang) tryWallJump(p, platforms)
+  if (p.hang || p.climbing || p.wallBrace?.active || p.sliding?.active) p.freeFall = null
   if (p.grounded) p.wallJump = null
   if (p.grounded) {
     rules.checkpoints.forEach((point, index) => {

@@ -31,6 +31,13 @@ without an active player load or shove. Otherwise it can cancel the force on a
 large ball every physics step and leave the player suspended beside a wall.
 The normal settling behavior resumes when the player releases contact.
 
+A shove, body load or impact wakes the touching prop chain before the contact
+solve. A sleeping neighbor must receive the transmitted force, rather than
+acting as a fixed obstacle until the first prop gains speed. Connected driven
+chains use extra velocity iterations to settle their coupled constraints when
+blocked; isolated props retain the usual solver budget. Resting objects still
+sleep normally. Regression coverage lives in `tests/jumping-prop-sleep.test.mjs`.
+
 Prop-driven player displacement and carrying sweep against terrain, mechanisms,
 other props and shovebots. During the shared contact solve, these sweeps use
 the latest corrected prop positions, excluding only the object supplying the
@@ -256,6 +263,26 @@ and climbing suites cover the movement behavior around that boundary.
 
 ## Motion continuity and diagnostics
 
+Uninterrupted unsupported travel with gravity beyond 0.9 seconds eases into a
+horizontal prone pose over 0.28 seconds. Upward grav lifts and unsupported
+zero-g floating use the same timing; a weightless player retains the pose even
+after drifting to rest. Entering zero g preserves an existing prone blend.
+Ordinary jump ascent travels against gravity. The descent of an ordinary jump
+does not reach that threshold. Climbing, wall bracing and slope sliding interrupt the fall
+timer. The fall state changes presentation only: steering, grabbing, pushing,
+jump buffering and jumping retain their ordinary rules. Ground contact starts a
+0.95-second automatic recovery: finish flattening, pause briefly, push onto hands
+and knees, bring the feet under the body, then stand. Prone knees and elbows
+face the contact plane, trailing toes point down, and the neck follows the
+horizontal torso so the silhouette reads as belly-down. Jumping or catching a
+grip interrupts the pose.
+Support transport and ordinary collision sweeps still apply; the animation does
+not change the player hull. Gravity-facing ceiling contact returns to the normal
+supported pose. Leaving weightlessness while traveling against gravity blends
+back to the ordinary airborne pose over 0.28 seconds.
+The same state runs in the reflected gravity frame. Respawn clears it.
+Regression coverage lives in `tests/jumping-free-fall.test.mjs`.
+
 A fading pushing pose remembers its collider identity until the blend reaches
 zero. Reacquiring that same surface resumes the existing blend, including after
 a brief gap in a moving box, ball or bot contact. A new surface starts its own
@@ -305,6 +332,24 @@ boxes use their square hull, and balls use exact disk/rectangle intersection.
 Rope particles use their local field multiplier with the rope's usual baseline.
 Grips and authored climbing paths retain their constraints; release returns the
 body to free movement. Field forces act through the center of mass.
+
+Unsupported players in the five-percent gravity deadband experience air
+resistance on both velocity axes: exponential drag at 0.6 per second halves
+drift in about 1.16 seconds. Releasing horizontal input retains momentum for
+this gradual slowdown; steering still uses the ordinary air acceleration.
+Grounded and climbing controls retain their existing contact rules. Loose props
+retain their existing free-drift behavior.
+
+A free-flight collision in reduced gravity with an unsupported prop, or a
+weightless collision, exchanges normal momentum using the player's mass and
+the prop's mass and rotational inertia. The player slows or recoils,
+and off-center box impacts also impart spin. Relative swept contacts work even
+with neutral input or when the prop is approaching the player; solid barriers
+occlude them. Solver substeps recompute remaining closing speed so an impact
+cannot apply its initial momentum repeatedly. Ordinary grounded shoves, bracing
+and gravitational loads continue through the existing contact-force policy.
+This applies to floating props in weak gravity as well as zero gravity.
+Regression coverage lives in `tests/jumping-zero-gravity.test.mjs`.
 
 Ropes can be caught from either player orientation. Up and Down follow the
 visible rope's vertical direction, including a rope floating upward from a floor
@@ -362,8 +407,13 @@ Matter's sleep decision and before collision detection. It shifts the integrated
 position and velocity while retaining the pre-step position. Applying a persistent
 external force before Matter's sleeping decision would keep settled objects awake
 indefinitely. Props at a reverse-gravity ceiling can sleep normally and wake on
-power changes or contacts. Field changes also wake resting ropes. Regression
-coverage lives in `tests/jumping-gravity.test.mjs` and
+power changes or contacts. Sleeping support is verified against current hulls
+with a sub-pixel contact tolerance. A prop that loses support wakes. Unsupported
+props under very weak nonzero acceleration cannot enter speed-based sleep;
+ordinary-gravity props wake if that sleep test fires while unsupported. Standing
+on a falling prop does not anchor it.
+Field changes also wake resting ropes. Regression coverage lives in
+`tests/jumping-prop-sleep.test.mjs`, `tests/jumping-gravity.test.mjs` and
 `tests/browser/jumpingGravity.spec.mjs`. The reproducible CPU benchmark is
 `node scripts/benchmark-jumping-gravity.mjs`; it is not a rendering/FPS guarantee.
 

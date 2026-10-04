@@ -79,7 +79,7 @@ test('rotated polygon clipping conserves area and stays accurate far from the or
   }
 })
 
-test('crossing a field edge changes acceleration continuously without changing velocity', () => {
+test('crossing a field edge changes acceleration continuously without resetting momentum', () => {
   const field = fieldFor([plate({ x: 300 })])
   for (const kind of ['box', 'ball']) {
     let previous = Infinity
@@ -93,7 +93,7 @@ test('crossing a field edge changes acceleration continuously without changing v
   }
   const p = createPlayer({ x: 300, y: 500 }); p.grounded = false; p.vy = -200
   stepPlayer(p, NEUTRAL_INPUT, STEP, [], undefined, undefined, undefined, field)
-  close(p.vy, -200)
+  close(p.vy, -200 * Math.exp(-TUNING.zeroGravityDrag * STEP))
 })
 
 test('overlap averages local gravity, counts covered mass once and is independent of plate order', () => {

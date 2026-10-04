@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "id": "9369b0ce-0963-4681-bbcd-50dc5059d9df",
+  "name": "Nine",
+  "width": 800,
+  "height": 400,
+  "platforms": [
+    {
+      "x": 200,
+      "y": 320,
+      "w": 300,
+      "h": 20,
+      "polygon": [
+        [
+          0,
+          0
+        ],
+        [
+          300,
+          0
+        ],
+        [
+          300,
+          20
+        ],
+        [
+          0,
+          20
+        ]
+      ]
+    }
+  ],
+  "spawn": {
+    "x": 55,
+    "y": 400
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "floor": 400,
+  "goal": {
+    "x": 755,
+    "y": 400,
+    "flipX": true,
+    "id": "50d6e26f-b4a4-4b77-b2de-85534f20e2f6",
+    "power": "switched"
+  },
+  "times": {
+    "gold": 10,
+    "silver": 20,
+    "bronze": 40
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "name": "5",
+      "x": 210,
+      "y": 320,
+      "w": 40,
+      "targets": [
+        "a6ed5b0f-69da-456a-b8d1-0a601a23eb5d",
+        "e03acaa3-8b2b-4aec-8dc3-966fcdc87af8",
+        "6be3ba69-9b91-4227-bc38-bf1784b3262f",
+        "d3b616b9-03fa-4229-8b2a-7811030b31c7"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "4",
+      "x": 270,
+      "y": 320,
+      "w": 40,
+      "targets": [
+        "1131915f-884f-4f42-8dbd-d0492dd36ef8",
+        "e82dd66a-4e1a-40f4-a1df-b4c365688516",
+        "6be3ba69-9b91-4227-bc38-bf1784b3262f",
+        "6e4ed5aa-08c6-46a6-8e32-a3d957de7f95"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "3",
+      "x": 330,
+      "y": 320,
+      "w": 40,
+      "targets": [
+        "a6ed5b0f-69da-456a-b8d1-0a601a23eb5d",
+        "675387dd-351e-4d4a-87c9-65c9e81ab8be",
+        "6be3ba69-9b91-4227-bc38-bf1784b3262f",
+        "55235216-b333-43b2-9521-f73888b4861a"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "2",
+      "x": 390,
+      "y": 320,
+      "w": 40,
+      "targets": [
+        "a6ed5b0f-69da-456a-b8d1-0a601a23eb5d",
+        "b0423f90-1f0c-4f2e-8899-2f0b5ddbe9fe",
+        "6be3ba69-9b91-4227-bc38-bf1784b3262f",
+        "864c6650-598d-44cf-bbb6-bc418ddd857a"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    },
+    {
+      "name": "1",
+      "x": 450,
+      "y": 320,
+      "w": 40,
+      "targets": [
+        "da8dcd68-86c8-4857-b5a0-2e6ad584ad36",
+        "e82dd66a-4e1a-40f4-a1df-b4c365688516",
+        "6be3ba69-9b91-4227-bc38-bf1784b3262f",
+        "4f5a0a94-4083-4783-8446-cb84d10d11c5"
+      ],
+      "mode": "touch",
+      "behavior": "toggle",
+      "startsOn": false
+    }
+  ],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [
+    {
+      "x": 650,
+      "y": 260,
+      "w": 60,
+      "h": 35,
+      "text": "Nine",
+      "fontSize": 28,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": -15
+    },
+    {
+      "x": 645,
+      "y": 60,
+      "w": 40,
+      "h": 24,
+      "text": "16",
+      "fontSize": 20,
+      "align": "right"
+    },
+    {
+      "x": 645,
+      "y": 100,
+      "w": 40,
+      "h": 24,
+      "text": "8",
+      "fontSize": 20,
+      "align": "right"
+    },
+    {
+      "x": 645,
+      "y": 140,
+      "w": 40,
+      "h": 24,
+      "text": "4",
+      "fontSize": 20,
+      "align": "right"
+    },
+    {
+      "x": 635,
+      "y": 180,
+      "w": 50,
+      "h": 24,
+      "text": "2",
+      "fontSize": 20,
+      "align": "right"
+    },
+    {
+      "x": 645,
+      "y": 220,
+      "w": 40,
+      "h": 24,
+      "text": "1",
+      "fontSize": 20,
+      "align": "right"
+    }
+  ],
+  "wallLights": [
+    {
+      "id": "e03acaa3-8b2b-4aec-8dc3-966fcdc87af8",
+      "x": 230,
+      "y": 370
+    },
+    {
+      "id": "1131915f-884f-4f42-8dbd-d0492dd36ef8",
+      "x": 290,
+      "y": 370
+    },
+    {
+      "id": "675387dd-351e-4d4a-87c9-65c9e81ab8be",
+      "x": 350,
+      "y": 370
+    },
+    {
+      "id": "b0423f90-1f0c-4f2e-8899-2f0b5ddbe9fe",
+      "x": 410,
+      "y": 370
+    },
+    {
+      "id": "da8dcd68-86c8-4857-b5a0-2e6ad584ad36",
+      "x": 470,
+      "y": 370
+    },
+    {
+      "switchLogic": "and",
+      "id": "d3b616b9-03fa-4229-8b2a-7811030b31c7",
+      "x": 710,
+      "y": 70
+    },
+    {
+      "switchLogic": "and",
+      "id": "6e4ed5aa-08c6-46a6-8e32-a3d957de7f95",
+      "x": 710,
+      "y": 110
+    },
+    {
+      "switchLogic": "and",
+      "id": "55235216-b333-43b2-9521-f73888b4861a",
+      "x": 710,
+      "y": 150
+    },
+    {
+      "switchLogic": "and",
+      "id": "864c6650-598d-44cf-bbb6-bc418ddd857a",
+      "x": 710,
+      "y": 190
+    },
+    {
+      "switchLogic": "and",
+      "id": "4f5a0a94-4083-4783-8446-cb84d10d11c5",
+      "x": 710,
+      "y": 230
+    }
+  ],
+  "logicRelays": [
+    {
+      "name": "Mask",
+      "switchLogic": "or",
+      "switchReversed": true,
+      "targets": [
+        "e82dd66a-4e1a-40f4-a1df-b4c365688516"
+      ],
+      "id": "a6ed5b0f-69da-456a-b8d1-0a601a23eb5d",
+      "x": 235,
+      "y": 125
+    },
+    {
+      "switchLogic": "and",
+      "targets": [
+        "50d6e26f-b4a4-4b77-b2de-85534f20e2f6"
+      ],
+      "id": "e82dd66a-4e1a-40f4-a1df-b4c365688516",
+      "x": 265,
+      "y": 185
+    },
+    {
+      "name": "Only One Mask",
+      "switchLogic": "xor",
+      "switchReversed": false,
+      "targets": [
+        "d3b616b9-03fa-4229-8b2a-7811030b31c7",
+        "6e4ed5aa-08c6-46a6-8e32-a3d957de7f95",
+        "55235216-b333-43b2-9521-f73888b4861a",
+        "864c6650-598d-44cf-bbb6-bc418ddd857a",
+        "4f5a0a94-4083-4783-8446-cb84d10d11c5"
+      ],
+      "id": "6be3ba69-9b91-4227-bc38-bf1784b3262f",
+      "x": 320,
+      "y": 115
+    }
+  ]
+}

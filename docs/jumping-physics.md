@@ -114,7 +114,9 @@ The selected defaults in `movementTuning.ts` are 500 base jump, 800 full-input
 jump, 410 running speed, 1550 gravity, 300 air acceleration, 2000 ground
 acceleration and 500 wall jump. The temporary in-game tuning sliders have been
 removed; saved experimental browser settings no longer override these values.
-Existing level routes and medal times have not been retuned for this experiment.
+Built-in routes and medal times have been checked against these defaults; see
+[the medal audit](jumping-medal-audit.md) for completed control recordings and
+the limits of the graphical playtesting.
 
 ## Step order
 
@@ -141,6 +143,12 @@ invalid. Previews and gameplay use the same initial inputs and rules. Relay
 outputs describe logical activation rather than physical gate position, safety
 holds, movement, light fading or flicker. They follow inputs during EMP while
 mechanisms pause and spotlights fade off normally.
+
+Dedicated logic relays use that same evaluator and always expose their combined
+result as an output. They have no physical geometry, lighting, sound or contact
+behavior. Their position and rule artwork exist only in the studio; gameplay
+and thumbnails never draw them. EMP affects their sensor inputs under the normal
+pressure/latching rules, without adding a separate relay power state.
 
 Pressure plates can mount on lifts: both contact samples, rendering and sound
 use the host's current position plus the plate's saved horizontal offset.

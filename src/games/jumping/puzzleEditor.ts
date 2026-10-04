@@ -13,7 +13,7 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
 }
 export function copyForEditing(level: JumpLevel): JumpLevel {
   const next = { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` }
-  const items = [...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []), ...(next.goal?.id ? [next.goal] : [])]
+  const items = [...(next.logicRelays ?? []), ...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []), ...(next.goal?.id ? [next.goal] : [])]
   const ids = new Map(items.map(item => [item.id!, newLevelId()]))
   for (const item of items) item.id = ids.get(item.id!)!
   for (const source of switchSources(next)) {

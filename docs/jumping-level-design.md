@@ -262,11 +262,15 @@ a newly opened route. Watching a satisfying short reaction is a reward. Waiting
 through a long automatic sequence on every gold attempt is a tax.
 
 Use the logic the game actually has. Coin thresholds share the level's collected
-count, do not spend coins, and latch once powered and reached. Multiple active
-switches targeting a mechanism provide alternative activation, not an AND
-requirement. One switch can control several mechanisms. More elaborate sequencing
-can come from geometry and motion; do not assume programmable delays or logic
-gates exist.
+count, do not spend coins, and latch once powered and reached. Switched items
+default to OR; choose AND for all connected inputs or XOR for exactly one,
+optionally reversing the result. One switch can control several mechanisms.
+Use a dedicated logic relay for intermediate combinations that need no visible
+world object. Physical items can also relay their result when their ordinary
+behavior earns a place in the puzzle. Logic nodes are invisible during play,
+so make their causes and consequences readable through the actual buttons,
+lights and mechanisms. More elaborate sequencing can come from geometry and
+motion; programmable delays are not supported.
 
 Connections are optional. A switch may serve as a coin meter without activating
 anything, and a gate, platform, or switched lamp may remain unconnected. Give
@@ -327,6 +331,13 @@ cycles, refunds, or alternate routes. Clever solutions within the game's rules
 are welcome; they are a reason to evaluate the level, not automatically patch
 the shortcut away.
 
+Keep normal-control recordings of measured routes against the current level
+files, and replay them from a fresh start after movement or puzzle changes.
+Include required cargo deliveries and continuing plate loads in the evidence.
+Give gold some execution margin beyond a reproducible input recording; it is
+a demonstration of attainability, not a substitute for playing at normal speed
+or reviewing readability and enjoyment.
+
 ## 8. Reuse good patterns, not entire answers
 
 | Reference | Pattern worth carrying forward |
@@ -334,14 +345,14 @@ the shortcut away.
 | [First Leap](../public/levels/jumping/00.json) | A direct challenge and a recovery ladder that preserves the original problem. |
 | [Cross Purposes](../public/levels/jumping/06.json) | One action helps access and complicates the crossing. |
 | [Turnaround](../public/levels/jumping/07.json) | Travel outward to change the route back toward the goal. |
-| [Tower I](../public/levels/jumping/Tower.jump-level.json), and the local Tower II | Repeated architecture with different local connections, props, and access problems. |
+| [Tower I](../public/levels/jumping/Tower.jump-level.json), [Tower II](../public/levels/jumping/Tower%20II.jump-level.json) | Repeated architecture with different local connections, props, and access problems. |
 | [Coins](../public/levels/jumping/Coins.jump-level.json) | Shared coin progress unlocks different stages of the same place. |
 | Night Shift: Valve One | A moving-platform crossing with a useful recovery path and a timing decision at departure. |
 | Night Shift: Nothing to Declare | Coins and a weighted plate offer materially different solutions. |
 | Night Shift: Tower of Receipts | A large vertical journey with a return route and late refunds that give descent a purpose. |
 
-Night Shift and Tower II are local authoring references, not required repository
-assets. The lesson is their structure. Display placement, difficulty, and timing
+Night Shift is a local authoring reference, not a required repository
+asset. The lesson is its structure. Display placement, difficulty, and timing
 still deserve review when reusing a pattern.
 
 ## 9. Author, play, simplify

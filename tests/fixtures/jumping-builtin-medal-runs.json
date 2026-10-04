@@ -1,0 +1,4400 @@
+{
+  "version": 1,
+  "runs": [
+    {
+      "file": "Untitled.jump-level.json",
+      "elapsed": 3.791666666666656,
+      "activeTime": 4.650000000000021,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 126,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 431,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "00.json",
+      "elapsed": 2.6083333333333267,
+      "activeTime": 3.466666666666657,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 117,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 298,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "file": "01.json",
+      "elapsed": 5.950000000000085,
+      "activeTime": 6.8083333333334615,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 145,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 101,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 21,
+          "input": {}
+        },
+        {
+          "frames": 47,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 431,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "02.json",
+      "elapsed": 6.350000000000105,
+      "activeTime": 7.208333333333481,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 123,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 119,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 238,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 300,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "03.json",
+      "elapsed": 0.7083333333333333,
+      "activeTime": 9.950000000000076,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 115,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 613,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 94,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 290,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "Boxes.jump-level.json",
+      "elapsed": 26.708333333332458,
+      "activeTime": 27.566666666665743,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 278,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 40,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 47,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "detach": true,
+            "drop": true,
+            "descend": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 1075,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 201,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 100,
+          "input": {}
+        },
+        {
+          "frames": 190,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 387,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 34,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 16,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 398,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "Balls.jump-level.json",
+      "elapsed": 24.55833333333258,
+      "activeTime": 25.416666666665865,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 77,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 114,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 110,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 130,
+          "input": {}
+        },
+        {
+          "frames": 36,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 100,
+          "input": {}
+        },
+        {
+          "frames": 902,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 198,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 100,
+          "input": {}
+        },
+        {
+          "frames": 101,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 241,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 50,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 398,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "Coins.jump-level.json",
+      "elapsed": 10.766666666666696,
+      "activeTime": 11.62499999999998,
+      "coins": 10,
+      "trace": [
+        {
+          "frames": 103,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 352,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 102,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 81,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 521,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 233,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "spire1.jump-level.json",
+      "elapsed": 35.42499999999863,
+      "activeTime": 36.28333333333192,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 45,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true,
+            "jump": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 55,
+          "input": {
+            "detach": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 615,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 452,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 320,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 122,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 285,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 116,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1535,
+          "input": {
+            "move": -1,
+            "crouch": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 307,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 326,
+          "input": {
+            "move": 1,
+            "climb": true,
+            "detach": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "07.json",
+      "elapsed": 25.04999999999922,
+      "activeTime": 25.908333333332504,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 90,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 85,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 524,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 61,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 71,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 91,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 46,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 52,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 322,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "jump": true
+          }
+        },
+        {
+          "frames": 72,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 573,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 97,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 278,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "jk.jump-level.json",
+      "elapsed": 53.291666666664284,
+      "activeTime": 54.14999999999757,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 180,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 116,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 131,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 88,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 41,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 607,
+          "input": {
+            "move": 1,
+            "crouch": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 480,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 133,
+          "input": {
+            "move": -1,
+            "detach": true
+          }
+        },
+        {
+          "frames": 91,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 214,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 65,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 989,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 81,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 40,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 123,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 550,
+          "input": {
+            "move": -1,
+            "crouch": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 93,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 250,
+          "input": {
+            "move": 1,
+            "climb": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 240,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 650,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 600,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 105,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 88,
+          "input": {}
+        }
+      ]
+    },
+    {
+      "file": "06.json",
+      "elapsed": 25.499999999999194,
+      "activeTime": 26.358333333332478,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 689,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 55,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 130,
+          "input": {}
+        },
+        {
+          "frames": 126,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 61,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 562,
+          "input": {}
+        },
+        {
+          "frames": 306,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 90,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 576,
+          "input": {}
+        },
+        {
+          "frames": 100,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 59,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 31,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 256,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "spire2.jump-level.json",
+      "elapsed": 42.774999999998215,
+      "activeTime": 43.6333333333315,
+      "coins": 12,
+      "trace": [
+        {
+          "frames": 120,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 449,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 81,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 94,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 280,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 79,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 93,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 249,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 79,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 93,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 218,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 59,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 53,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 122,
+          "input": {}
+        },
+        {
+          "frames": 21,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 76,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 31,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 164,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 75,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 90,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 67,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 122,
+          "input": {}
+        },
+        {
+          "frames": 168,
+          "input": {
+            "move": -1,
+            "descend": true
+          }
+        },
+        {
+          "frames": 44,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 79,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 291,
+          "input": {
+            "move": -1,
+            "descend": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 28,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 193,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 291,
+          "input": {
+            "move": -1,
+            "descend": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 43,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 88,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 310,
+          "input": {
+            "move": -1,
+            "descend": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "detach": true,
+            "descend": true
+          }
+        },
+        {
+          "frames": 160,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "file": "08.json",
+      "elapsed": 2.216666666666766,
+      "activeTime": 12.074999999999955,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 185,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 81,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 170,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 193,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 21,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 27,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 427,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 40,
+          "input": {}
+        },
+        {
+          "frames": 44,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 222,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "04.json",
+      "elapsed": 10.258333333333391,
+      "activeTime": 11.116666666666676,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 129,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 279,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 172,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 27,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 86,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 152,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 212,
+          "input": {
+            "move": -1
+          }
+        }
+      ]
+    },
+    {
+      "file": "Tower.jump-level.json",
+      "elapsed": 87.48333333334902,
+      "activeTime": 88.34166666668304,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 59,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 230,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 46,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 207,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 69,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 387,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 57,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 113,
+          "input": {}
+        },
+        {
+          "frames": 70,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 198,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 33,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 61,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 125,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 195,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 55,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 160,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 219,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 103,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 207,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 48,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 426,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 128,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 67,
+          "input": {
+            "move": -0.3048780487804878,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 102,
+          "input": {
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 176,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 386,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 41,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 128,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 230,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 46,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 272,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 88,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 361,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 13,
+          "input": {
+            "move": -0.3048780487804878,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 93,
+          "input": {
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 258,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 41,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 34,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 141,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 133,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 13,
+          "input": {
+            "move": 0.05,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 10,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.25,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 125,
+          "input": {
+            "move": 0.25,
+            "drop": true
+          }
+        },
+        {
+          "frames": 653,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 69,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 230,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 277,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "05.json",
+      "elapsed": 21.2666666666661,
+      "activeTime": 22.124999999999385,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 245,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 179,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1554,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 100,
+          "input": {}
+        },
+        {
+          "frames": 576,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "Tower II.jump-level.json",
+      "elapsed": 98.95000000002481,
+      "activeTime": 99.80833333335883,
+      "coins": 8,
+      "trace": [
+        {
+          "frames": 59,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 230,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 41,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 19,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 189,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 95,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 38,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": -0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 48,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 233,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 74,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 117,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 206,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 117,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 143,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 63,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 100,
+          "input": {}
+        },
+        {
+          "frames": 47,
+          "input": {
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 50,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 31,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 110,
+          "input": {}
+        },
+        {
+          "frames": 38,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 207,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 88,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 61,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 16,
+          "input": {}
+        },
+        {
+          "frames": 287,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 75,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 3,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 117,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 326,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 58,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 3,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 117,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 299,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 50,
+          "input": {
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 13,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 50,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 3,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 117,
+          "input": {
+            "descend": true
+          }
+        },
+        {
+          "frames": 32,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 26,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 69,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 110,
+          "input": {}
+        },
+        {
+          "frames": 41,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 228,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 367,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 150,
+          "input": {}
+        },
+        {
+          "frames": 500,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 102,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 246,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 66,
+          "input": {
+            "move": -0.3048780487804878,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 66,
+          "input": {
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 516,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 409,
+          "input": {
+            "move": -0.1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 32,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 110,
+          "input": {}
+        },
+        {
+          "frames": 237,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 332,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 55,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 191,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 278,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "nine.jump-level.json",
+      "elapsed": 4.15833333333333,
+      "activeTime": 5.016666666666706,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 37,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 42,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 20,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 76,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 30,
+          "input": {}
+        },
+        {
+          "frames": 14,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 133,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 162,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "spelunk1.jump-level.json",
+      "elapsed": 50.641666666664435,
+      "activeTime": 51.49999999999772,
+      "coins": 3,
+      "trace": [
+        {
+          "frames": 103,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 388,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 45,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 150,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 260,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 140,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 122,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 9,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 0.3048780487804878,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 122,
+          "input": {
+            "move": 0.3048780487804878,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 23,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 122,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 65,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 405,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 52,
+          "input": {
+            "move": -0.3048780487804878,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 436,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 535,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 28,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 404,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 61,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 42,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 27,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 320,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 48,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 91,
+          "input": {
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 265,
+          "input": {
+            "move": -1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 39,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 169,
+          "input": {
+            "move": 1,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 203,
+          "input": {
+            "move": 1,
+            "crouch": true,
+            "drop": true,
+            "detach": true
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": -1,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 120,
+          "input": {}
+        },
+        {
+          "frames": 592,
+          "input": {
+            "move": 1,
+            "crouch": true
+          }
+        }
+      ]
+    },
+    {
+      "file": "Drain.json",
+      "elapsed": 30.424999999998988,
+      "activeTime": 41.28333333333163,
+      "coins": 45,
+      "trace": [
+        {
+          "frames": 204,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 448,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 419,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 419,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 423,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 80,
+          "input": {}
+        },
+        {
+          "frames": 487,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 123,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 104,
+          "input": {}
+        },
+        {
+          "frames": 150,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 99,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 4,
+          "input": {}
+        },
+        {
+          "frames": 91,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 43,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {}
+        },
+        {
+          "frames": 34,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 116,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 410,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 84,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 116,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 447,
+          "input": {
+            "move": -1
+          }
+        }
+      ]
+    },
+    {
+      "file": "rampingup.jump-level.json",
+      "elapsed": 44.758333333331436,
+      "activeTime": 45.61666666666472,
+      "coins": 10,
+      "trace": [
+        {
+          "frames": 126,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 180,
+          "input": {}
+        },
+        {
+          "frames": 118,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 67,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 355,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {}
+        },
+        {
+          "frames": 51,
+          "input": {
+            "move": -0.3048780487804878
+          }
+        },
+        {
+          "frames": 65,
+          "input": {}
+        },
+        {
+          "frames": 54,
+          "input": {
+            "move": 0.3048780487804878
+          }
+        },
+        {
+          "frames": 280,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 102,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 30,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 292,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 90,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 116,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 87,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 160,
+          "input": {}
+        },
+        {
+          "frames": 168,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 321,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 242,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 313,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 70,
+          "input": {}
+        },
+        {
+          "frames": 1,
+          "input": {
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {}
+        },
+        {
+          "frames": 339,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 124,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -0.3048780487804878,
+            "jump": true
+          }
+        },
+        {
+          "frames": 233,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 40,
+          "input": {}
+        },
+        {
+          "frames": 294,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 120,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "jump": true,
+            "climb": true
+          }
+        },
+        {
+          "frames": 127,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": -1,
+            "climb": true,
+            "jump": true
+          }
+        },
+        {
+          "frames": 302,
+          "input": {
+            "move": -1,
+            "climb": true
+          }
+        }
+      ]
+    }
+  ]
+}

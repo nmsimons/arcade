@@ -16,6 +16,7 @@ import { drawWallTimer } from './wallTimer.ts'
 import { drawWallTexts } from './wallText.ts'
 import { drawLightFixtures } from './lightFixture.ts'
 import { drawWallLight } from './wallLight.ts'
+import { drawLogicRelay } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 
 export type PlacementPreview = { level: JumpLevel; selection: Selection }
@@ -61,6 +62,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'force-field': drawForceField(ctx, level.forceFields![i], true); break
     case 'gravity-plate': drawGravityRegion(ctx, level.gravityPlates![i], false, true); drawGravityPlate(ctx, level.gravityPlates![i], false); break
     case 'wall-light': drawWallLight(ctx, level.wallLights![i], false); break
+    case 'logic-relay': drawLogicRelay(ctx, level.logicRelays![i], false); break
     case 'timer': drawWallTimer(ctx, level.timers![i], 0); break
     case 'text': drawWallTexts(ctx, [level.texts![i]]); break
     case 'pickup': drawPickup(ctx, { definition: level.pickups![i], collectedAge: null }); break

@@ -70,7 +70,7 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'light') return level.lighting!.lights as unknown as Item[]
   if (kind === 'spawn' || kind === 'goal') throw new Error('Start and goal are unique markers.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
-    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields' } as const
+    timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields' } as const
   const record = level as unknown as Record<string, unknown>
   return (record[fields[kind]] ??= []) as Item[]
 }
@@ -186,13 +186,13 @@ export function copySelections(level: JumpLevel, selections: readonly Selection[
   return { level: copyLevel(level), selections: validSelections(level, selections).filter(copyableSelection) }
 }
 const limits: Partial<Record<Selection['kind'], number>> = { platform: 160, rope: 40, ladder: 40, checkpoint: 30, prop: 80,
-  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'wall-light': 40, 'gravity-plate': 16, 'force-field': 40 }
+  robot: 30, mechanism: 40, trigger: 40, timer: 40, text: 80, pickup: 80, light: 16, 'wall-light': 40, 'logic-relay': 40, 'gravity-plate': 16, 'force-field': 40 }
 
 export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx = 40, dy = 40): { level: JumpLevel; selections: Selection[] } {
   const source = clipboard.level, originals = validSelections(source, clipboard.selections).filter(copyableSelection)
   if (!originals.length) return { level, selections: [] }
   let next = copyLevel(level)
-  if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)
+  if (originals.some(s => ['prop', 'robot', 'mechanism', 'trigger', 'timer', 'pickup', 'wall-light', 'logic-relay', 'gravity-plate', 'force-field'].includes(s.kind))) next = asTrial(next)
   if (originals.some(s => s.kind === 'light')) { next.version = 2; next.lighting ??= { nightMode: false, ambient: 0, lights: [] } }
   const indices = new Map<string, number>(), ids = new Map<string, string>(), pasted: Selection[] = []
   for (const s of originals) {

@@ -635,9 +635,9 @@
     "flipX": true
   },
   "times": {
-    "gold": 30,
-    "silver": 45,
-    "bronze": 60
+    "gold": 40,
+    "silver": 60,
+    "bronze": 90
   },
   "props": [
     {

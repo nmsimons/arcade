@@ -10,7 +10,7 @@ import { groundAt, platformSurfaces } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { bodyIntersects, nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { goalBounds, goalDoor, goalPoleX } from './goal.ts'
-import { parseSwitchSettings, switchWiringProblems } from './switchPower.ts'
+import { MAX_SWITCH_TARGETS, parseSwitchSettings, switchWiringProblems } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings } from './switchPower.ts'
 import type { Goal } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
@@ -30,6 +30,8 @@ import type { LightingDefinition } from './lightingDefinition.ts'
 import type { PressurePlateMount } from './pressurePlateMount.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 import type { WallLight } from './wallLight.ts'
+import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBounds } from './logicRelay.ts'
+import type { LogicRelay } from './logicRelay.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import type { GravityPlate } from './gravity.ts'
@@ -58,6 +60,7 @@ export interface JumpLevel {
   props?: PropDefinition[]; mechanisms?: Mechanism[]; triggers?: Trigger[]; robots?: Pusher[]
   timers?: WallTimer[]
   wallLights?: WallLight[]
+  logicRelays?: LogicRelay[]
   gravityPlates?: GravityPlate[]
   forceFields?: ForceField[]
   texts?: WallText[]
@@ -133,6 +136,10 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, light] of (level.wallLights ?? []).entries()) {
     const b = wallLightBounds(light)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'wall-light', i)} inside the level rectangle.`)
+  }
+  for (const [i, relay] of (level.logicRelays ?? []).entries()) {
+    const b = logicRelayBounds(relay)
+    if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'logic-relay', i)} inside the level rectangle.`)
   }
   for (const [i, p] of (level.gravityPlates ?? []).entries()) {
     if (p.x < 0 || p.y < 0 || p.x + p.w > level.width || p.y + p.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'gravity-plate', i)} inside the level rectangle.`)
@@ -310,7 +317,7 @@ export function parseLevel(value: unknown): JumpLevel {
       if (t.startsOn !== undefined && (t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
-        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > (v.version === 2 ? 153 : 137)
+        if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > MAX_SWITCH_TARGETS - (v.version === 1 ? 16 : 0)
           || t.targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(t.targets).size !== t.targets.length) fail()
         connection = { targets: [...t.targets as string[]] }
       } else {
@@ -375,7 +382,7 @@ export function parseLevel(value: unknown): JumpLevel {
       }
       return { ...position, kind }
     })
-  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
+  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
@@ -416,12 +423,19 @@ export function parseLevel(value: unknown): JumpLevel {
     return { ...objectName(light), ...parseSwitchSettings(light, fail), id: light.id,
       x: num(light.x, WALL_LIGHT_RADIUS, width - WALL_LIGHT_RADIUS), y: num(light.y, WALL_LIGHT_RADIUS, levelHeight(level) - WALL_LIGHT_RADIUS) }
   })
+  if (v.logicRelays !== undefined) level.logicRelays = list(v.logicRelays, MAX_LOGIC_RELAYS).map(item => {
+    const relay = object(item)
+    if (typeof relay.id !== 'string' || !relay.id.trim() || relay.id.length > 100 || relay.relay !== undefined || relay.power !== undefined) return fail()
+    return { ...objectName(relay), ...parseSwitchSettings(relay, fail), id: relay.id,
+      x: num(relay.x, LOGIC_RELAY_WIDTH / 2, width - LOGIC_RELAY_WIDTH / 2),
+      y: num(relay.y, LOGIC_RELAY_HEIGHT / 2, levelHeight(level) - LOGIC_RELAY_HEIGHT / 2) }
+  })
   if (level.version === 2) {
     level.lighting = parseLighting(v.lighting)
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
-  const ids = [...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
+  const ids = [...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.
   const wiring = switchWiringProblems(level, level.version === 2)

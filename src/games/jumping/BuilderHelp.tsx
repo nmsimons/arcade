@@ -5,6 +5,7 @@ import { BuilderIcon } from './BuilderIcon'
 const SECTIONS = ['Canvas', 'Inspector', 'Objects', 'Levels', 'Shortcuts', 'Controller'] as const
 type Section = typeof SECTIONS[number]
 const OBJECT_NOTES: Partial<Record<Tool, string>> = {
+  'logic-relay': 'Combines connected switches with OR, AND or XOR and optional Reversed, then sends its result to the items in Activates. The node appears only in the studio; it has no physical shape, light or sound during play. Relay output is always enabled.',
   platform: 'Square handles resize the whole shape. A terrain shape must keep at least three nodes.',
   rope: 'An attached anchor moves with its terrain. Use the inspector to attach or detach it.',
   ladder: 'During play, Up and Down climb; jump leaves the ladder.',

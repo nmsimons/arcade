@@ -39,6 +39,48 @@ async function walkTo(page, target) {
   await page.keyboard.up(key); await page.clock.runFor(350)
 }
 
+test('a logic-only XOR relay powers only the corresponding light, with release, competing load and restart', async ({ page }, info) => {
+  const level = readLevelAsset('logic-relay-exclusive.json')
+  // A held Switch plate lets the normal player controls exercise multiple inputs.
+  level.triggers[1].behavior = 'switch'
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype, arc = proto.arc, text = proto.fillText
+    proto.arc = function (x, y, radius, ...rest) {
+      if (y === 680 && radius === 11 && ['#a9d56b', '#9aa38e'].includes(this.fillStyle)) {
+        this.canvas.exclusiveLights ??= {}
+        this.canvas.exclusiveLights[x] = this.fillStyle === '#a9d56b'
+      }
+      return arc.call(this, x, y, radius, ...rest)
+    }
+    proto.fillText = function (value, ...args) {
+      if (['XOR', '¬XOR'].includes(value)) this.canvas.logicNodeDrawn = true
+      return text.call(this, value, ...args)
+    }
+  })
+  const canvas = await open(page, level)
+  // Stop before the plate center to allow for the player's ordinary braking.
+  const stopAt = async target => {
+    const direction = target > await x(page) ? 1 : -1, key = direction === 1 ? 'd' : 'a'
+    await page.keyboard.down(key)
+    for (let i = 0; i < 300 && (await x(page) - (target - direction * 50)) * direction < 0; i++) await page.clock.runFor(16)
+    await page.keyboard.up(key); await page.clock.runFor(350)
+  }
+  const lights = () => canvas.evaluate(c => Object.entries(c.exclusiveLights ?? {}).filter(([, on]) => on).map(([x]) => Number(x)))
+  expect(await lights()).toEqual([])
+  await stopAt(370); expect(await lights()).toEqual([370])
+  await page.screenshot({ path: info.outputPath('exclusive-light-1.png') })
+  await stopAt(480); expect(await lights()).toEqual([])
+  await stopAt(610); expect(await lights()).toEqual([610])
+  await stopAt(480); expect(await lights()).toEqual([610])
+  await stopAt(370); expect(await lights()).toEqual([])
+  await page.screenshot({ path: info.outputPath('exclusive-two-buttons.png') })
+  await stopAt(480); expect(await lights()).toEqual([610])
+  expect(await canvas.evaluate(c => !!c.logicNodeDrawn)).toBe(false)
+  await restartFromPause(page); await page.clock.runFor(64)
+  expect(await lights()).toEqual([])
+  await stopAt(370); expect(await lights()).toEqual([370])
+})
+
 for (const [behavior, startsOn] of [['pressure', false], ['switch', false], ['toggle', false], ['toggle', true]]) {
   test(`${behavior}${startsOn ? ' starts on' : ''} works through normal controls and fresh restarts`, async ({ page }, info) => {
     const level = readLevelAsset('switch-modes.json')

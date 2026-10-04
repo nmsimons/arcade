@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "id": "logic-relay-exclusive-regression",
+  "name": "Exclusive buttons",
+  "width": 1800,
+  "height": 920,
+  "floor": 920,
+  "spawn": { "x": 160, "y": 920 },
+  "goal": { "x": 1620, "y": 920 },
+  "times": { "gold": 10, "silver": 20, "bronze": 40 },
+  "platforms": [],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "robots": [],
+  "mechanisms": [],
+  "triggers": [
+    { "mode": "weight", "x": 320, "y": 920, "w": 100, "targets": ["one-button", "light-1"] },
+    { "mode": "weight", "x": 560, "y": 920, "w": 100, "targets": ["one-button", "light-2"] },
+    { "mode": "weight", "x": 800, "y": 920, "w": 100, "targets": ["one-button", "light-3"] },
+    { "mode": "weight", "x": 1040, "y": 920, "w": 100, "targets": ["one-button", "light-4"] },
+    { "mode": "weight", "x": 1280, "y": 920, "w": 100, "targets": ["one-button", "light-5"] }
+  ],
+  "logicRelays": [
+    { "id": "one-button", "name": "Exactly one", "x": 960, "y": 500, "switchLogic": "xor", "targets": ["light-1", "light-2", "light-3", "light-4", "light-5"] }
+  ],
+  "wallLights": [
+    { "id": "light-1", "x": 370, "y": 680, "switchLogic": "and" },
+    { "id": "light-2", "x": 610, "y": 680, "switchLogic": "and" },
+    { "id": "light-3", "x": 850, "y": 680, "switchLogic": "and" },
+    { "id": "light-4", "x": 1090, "y": 680, "switchLogic": "and" },
+    { "id": "light-5", "x": 1330, "y": 680, "switchLogic": "and" }
+  ]
+}

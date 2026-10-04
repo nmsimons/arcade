@@ -39,11 +39,13 @@
   "goal": {
     "x": 1304,
     "y": 1200,
-    "flipX": true
+    "flipX": true,
+    "id": "b7bb98a0-4ba2-431e-b30b-9dbf3cb4e788",
+    "power": "switched"
   },
   "times": {
-    "gold": 4.5,
-    "silver": 6,
+    "gold": 7,
+    "silver": 10,
     "bronze": 15
   },
   "props": [
@@ -60,7 +62,9 @@
       "x": 200,
       "y": 1200,
       "w": 40,
-      "targets": [],
+      "targets": [
+        "b7bb98a0-4ba2-431e-b30b-9dbf3cb4e788"
+      ],
       "mode": "touch"
     }
   ],

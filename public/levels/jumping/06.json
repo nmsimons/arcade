@@ -383,9 +383,9 @@
     "power": "switched"
   },
   "times": {
-    "gold": 5,
-    "silver": 10,
-    "bronze": 15
+    "gold": 28,
+    "silver": 40,
+    "bronze": 60
   },
   "props": [
     {

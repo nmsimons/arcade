@@ -39,6 +39,7 @@ import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
 import { switchedItems, switchSources, switchTargets } from './switchPower'
+import { drawLogicRelay } from './logicRelay'
 import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPlateCeiling } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
@@ -109,6 +110,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'gravity-plate', group: 'Mechanisms', label: 'Gravity plate', help: 'Click to place a field above a floor plate or below a ceiling plate, or drag its rectangle. Flip vertically changes the emitter edge without changing Gravity: −1 reverses gravity, 0 removes it, 1 is normal. Choose Always on or connect switches to power it. Partially covered bodies blend gravity by area; overlapping fields average their settings. EMP disables the field.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click to place a pressure plate at the cursor. Snap catches nearby surfaces. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
+  { id: 'logic-relay', group: 'Mechanisms', label: 'Logic relay', help: 'Place a studio-only logic node. Combine switches with OR, AND or XOR, optionally reverse the result, then connect its Activates outputs. Invisible during play, with no physical behavior.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
   { id: 'light', group: 'Back wall', label: 'Spotlight', help: 'Click to place a spotlight on the back wall, or drag to aim it. Drag its center handle to aim and its outer handles to widen the beam. Lights have no range limit. EMP cuts their power.' },
@@ -225,12 +227,13 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const forceField = selection?.kind === 'force-field' ? level.forceFields?.[selection.index] : null
   const facingPlate = gravityPlate ?? (trigger?.mode !== 'coins' ? trigger : null)
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
+  const logicRelay = selection?.kind === 'logic-relay' ? level.logicRelays?.[selection.index] : null
   const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? gravityPlate ?? forceField
   const objectPower = switchable ? switchable.power ?? (goal || forceField ? 'always' : 'switched') : null
   const targets = switchedItems(level)
   const switchedObject = targets.find(item => item.kind === selection?.kind && item.index === selection.index)
-  const objectSwitchLogic = (goal ?? mechanism ?? light ?? wallLight ?? gravityPlate ?? forceField)?.switchLogic ?? 'or'
-  const objectSwitchReversed = !!(goal ?? mechanism ?? light ?? wallLight ?? gravityPlate ?? forceField)?.switchReversed
+  const objectSwitchLogic = switchedObject?.definition.switchLogic ?? 'or'
+  const objectSwitchReversed = !!switchedObject?.definition.switchReversed
   const sources = switchSources(level)
   const selectedSource = sources.find(item => item.kind === selection?.kind && item.index === selection.index)
   const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
@@ -435,6 +438,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       ctx.save(); ctx.scale(view.zoom, view.zoom); ctx.translate(-view.x, -view.y)
+      for (const relay of level.logicRelays ?? []) drawLogicRelay(ctx, relay, !!previewRun?.switchStates.get(relay.id))
       ctx.fillStyle = '#ce6548'; ctx.beginPath(); ctx.arc(level.spawn.x, level.spawn.y + 12, 4 / view.zoom, 0, Math.PI * 2); ctx.fill()
       if (mechanism) {
         const open = mechanismOpenPosition(mechanism)
@@ -634,7 +638,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     } else if (d.selection) {
       const rawBounds = itemBounds(d.base, d.selection)!
       const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] }
-        : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] } : rawBounds
+        : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] }
+        : d.selection.kind === 'logic-relay' ? { ...rawBounds, ...d.base.logicRelays![d.selection.index] } : rawBounds
       if (d.mode === 'move') {
         next = moveSelections(d.base, d.selections ?? [d.selection], qx(b.x + dx) - b.x, qy(b.y + dy) - b.y)
         if (snap && !event.altKey && (d.selections?.length ?? 1) === 1) next = placeOnSurface(next, d.selection, 12 / view.zoom)
@@ -718,7 +723,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function setDimension(base: JumpLevel, axis: 'x' | 'y' | 'w' | 'h', value: number) {
     const bounds = selection && itemBounds(base, selection)
     if (!selection || !bounds || !Number.isFinite(value)) return base
-    const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : selection.kind === 'wall-light' ? base.wallLights?.[selection.index] : null
+    const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : selection.kind === 'wall-light' ? base.wallLights?.[selection.index]
+      : selection.kind === 'logic-relay' ? base.logicRelays?.[selection.index] : null
     return axis === 'x' || axis === 'y' ? moveItem(base, selection, axis === 'x' ? value - (light?.x ?? bounds.x) : 0, axis === 'y' ? levelHeight(base) - value - (light?.y ?? bounds.y) : 0)
       : resizeItem(base, selection, axis === 'w' ? value : bounds.w, axis === 'h' ? value : bounds.h)
   }
@@ -801,7 +807,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
         const node = chosen && selectedNode !== null ? polygonPoints(chosen)[selectedNode] : null
-        const origin = node ? { x: node[0], y: node[1] } : light ?? wallLight ?? bounds
+        const origin = node ? { x: node[0], y: node[1] } : light ?? wallLight ?? logicRelay ?? bounds
         const shiftX = snap && !event.shiftKey && origin && dx ? quantize(origin.x + dx, grid) - origin.x : dx
         const shiftY = snap && !event.shiftKey && origin && dy ? quantizeY(origin.y + dy, grid) - origin.y : dy
         commit(node ? moveVertex(history.present, selection.index, selectedNode!, shiftX, shiftY)
@@ -896,9 +902,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field'].includes(selection.kind))).map(axis => {
             const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
-              : ({ x: light || wallLight ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
+              : ({ x: light || wallLight || logicRelay ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
             return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? selectionGridSize(selection) : 1}
-              value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
+              value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
           })}
         </div>
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
@@ -972,14 +978,15 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
             onChange={value => commit(setObjectSwitchLogic(history.present, selection, value === 'and' ? 'and' : value === 'xor' ? 'xor' : 'or'))} />
           <label><input type="checkbox" checked={objectSwitchReversed} onChange={e => commit(setObjectSwitchReversed(history.present, selection, e.target.checked))} />Reversed</label>
-          <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>
+          {!logicRelay && <label title="Use this item's resulting on/off state to switch other items"><input type="checkbox" checked={!!switchedObject.definition.relay} onChange={e => commit(setObjectRelay(history.present, selection, e.target.checked))} />Relay</label>}
+          {logicRelay && <p className="builder-hint">Visible only in the studio. Sends its result to connected items, with no physical behavior during play.</p>}
           <p className="builder-hint">{objectSwitchReversed ? 'Off' : 'On'} when {objectSwitchLogic === 'and' ? 'every connected switch is active'
             : objectSwitchLogic === 'xor' ? 'exactly one connected switch is active' : 'any connected switch is active'}. {objectSwitchReversed ? 'On' : 'Off'} otherwise.</p>
         </fieldset><fieldset className="builder-connections"><legend>Switched by</legend>
           {incomingSources.map(source => <label key={`${source.kind}:${source.index}`}><input type="checkbox" checked={switchTargets(source.definition).includes(switchedObject.id)} onChange={e => {
             const ids = switchTargets(source.definition)
             commit(setSwitchTargets(history.present, source, e.target.checked ? [...ids, switchedObject.id] : ids.filter(id => id !== switchedObject.id)))
-          }} />{selectionLabel(source, level)}{source.kind !== 'trigger' ? ' · Relay' : ''}</label>)}
+          }} />{selectionLabel(source, level)}{source.kind !== 'trigger' && source.kind !== 'logic-relay' ? ' · Relay' : ''}</label>)}
           {!incomingSources.length && <span>No switches</span>}
         </fieldset></>}
         {light?.power === 'switched' &&
@@ -1012,7 +1019,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             : trigger.behavior === 'toggle' ? 'Each press reverses the state. Release before pressing again.' : 'On while held down; off when released.'}</p>
         </>}
         {selectedSource && <fieldset className="builder-connections"><legend>Activates</legend>
-          {selectedSource.kind !== 'trigger' && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed. Turning Relay off clears these outputs.</p>}
+          {selectedSource.kind !== 'trigger' && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed.{selectedSource.kind !== 'logic-relay' && ' Turning Relay off clears these outputs.'}</p>}
           {outgoingTargets.map(item => <label key={item.id}><input type="checkbox" checked={switchTargets(selectedSource.definition).includes(item.id)} onChange={e => {
             const ids = switchTargets(selectedSource.definition)
             commit(setSwitchTargets(history.present, selection, e.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))

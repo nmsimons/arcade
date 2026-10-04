@@ -758,7 +758,7 @@ travel cycle after the first gameplay input, including endpoint pauses and
 obstruction reversal. EMP still pauses them. Gates have no power setting.
 Changing any item's power to Always on removes its incoming connections.
 
-Every switched item has **Logic**, **Reversed**, and **Relay** controls in
+Physical switched items have **Logic**, **Reversed**, and **Relay** controls in
 **Switch behavior**, beside **Switched by**. Logic combines only the connected inputs:
 
 - **OR** (default): on when any connected input is active.
@@ -781,6 +781,39 @@ elevator moves, an exit opens, or a spotlight shines. Relay outputs do not wait
 for motion or fades, and do not follow gate obstruction safety or lamp flicker.
 For example, two plates can feed an AND elevator acting as a relay, which then
 switches a gate and a spotlight.
+
+**Mechanisms → Logic relay** adds a dedicated logic node without a physical
+mechanism or indicator. It has the same **Logic**, **Reversed**, **Switched by**
+and **Activates** controls. Its output is always available, so it has no Power
+setting or Relay checkbox. The small node shows its rule and current logical
+state in the studio, including a `¬` prefix when reversed. It is invisible during
+play and in level thumbnails, with no collider, emitted light or sound. Its
+position only arranges the studio diagram; moving it does not change the logic.
+Name, move, duplicate, copy/paste, undo and template operations work as for other
+devices. Deleting a node clears connections to it.
+
+For a row of lights where each lights only while its own button alone is held:
+connect all buttons to one **XOR** logic relay, then connect that relay to all
+lights. Set each light to **AND**, with exactly two inputs: its own button and
+the relay. Use Pressure mode on the buttons and leave Reversed off. Zero or
+multiple pressed buttons leave every light off; one pressed button lights only
+its corresponding light.
+
+Both file versions accept up to 40 optional `logicRelays`, with unique IDs shared
+with other devices. Each node stores its studio center `x`, `y`, optional `name`,
+`switchLogic`, `switchReversed` and `targets`; omit `power` and `relay`.
+For example:
+
+```json
+"logicRelays": [
+  { "id": "one-button", "name": "Exactly one", "x": 600, "y": 300,
+    "switchLogic": "xor", "targets": ["light-a", "light-b"] }
+]
+```
+
+Unconnected nodes are valid and follow the same off-before-reversal rule. Logic
+relays share the existing immediate chain evaluation, EMP input rules and
+feedback-loop validation with physical relays.
 
 Chains settle in the same simulation step, independently of object order in the
 file, and use the same initial states in studio previews and gameplay. Feedback
@@ -1095,8 +1128,9 @@ platforms. Editing either this list or a switch’s **Activates** list updates t
 same connections. Logic and Reversed combine the light's connected inputs. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light is valid and stays off during play unless Reversed is enabled. Version 2 allows up to
-153 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 16 gravity plates,
-40 force fields, and one exit); version 1 allows 137 (without spotlights).
+193 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 40 logic relays,
+16 gravity plates, 40 force fields, and one exit); version 1 allows 177
+(without spotlights).
 
 Spotlights stay fixed on the back wall at their saved world coordinates. Gates,
 elevators, and moving platforms cannot carry them. An older file's `mount` field

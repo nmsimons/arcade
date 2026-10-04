@@ -157,7 +157,7 @@
       "x": 1620,
       "y": 440,
       "w": 780,
-      "h": 1020,
+      "h": 980,
       "polygon": [
         [
           0,
@@ -204,16 +204,12 @@
           860
         ],
         [
-          620,
-          1020
+          640,
+          940
         ],
         [
           600,
-          1020
-        ],
-        [
-          600,
-          980
+          940
         ],
         [
           580,
@@ -224,12 +220,12 @@
           920
         ],
         [
-          540,
-          960
+          520,
+          940
         ],
         [
-          540,
-          1020
+          480,
+          960
         ],
         [
           340,
@@ -886,7 +882,7 @@
         "length": 200,
         "segments": 25,
         "rest": {
-          "key": "7:ca6d40b5380a90f3",
+          "key": "7:b004ae7f15c9abd3",
           "points": [
             [
               1620,
@@ -1360,9 +1356,9 @@
     "power": "switched"
   },
   "times": {
-    "gold": 10,
-    "silver": 20,
-    "bronze": 40
+    "gold": 60,
+    "silver": 90,
+    "bronze": 140
   },
   "props": [
     {
@@ -1401,7 +1397,7 @@
       "y": 960,
       "w": 40,
       "targets": [
-        "0775fd0c-c8d8-455b-9212-a9f753cb26cb"
+        "cd93d6f3-7cc1-42a9-be9e-33119544dbe0"
       ],
       "mode": "touch",
       "behavior": "toggle",
@@ -1413,7 +1409,7 @@
       "y": 960,
       "w": 40,
       "targets": [
-        "87c64546-9a2c-434f-8270-aefc301d794a"
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
       ],
       "mode": "touch",
       "behavior": "toggle",
@@ -1425,8 +1421,7 @@
       "y": 960,
       "w": 40,
       "targets": [
-        "eee995e9-adc6-498d-995f-dfc04451a5c4",
-        "e894bc4c-2e8f-46dc-822d-738e18507b5f"
+        "cd93d6f3-7cc1-42a9-be9e-33119544dbe0"
       ],
       "mode": "touch",
       "behavior": "toggle",
@@ -1438,8 +1433,7 @@
       "y": 960,
       "w": 40,
       "targets": [
-        "5e21151f-ae2b-4217-9163-0a4ca2a9218c",
-        "e894bc4c-2e8f-46dc-822d-738e18507b5f"
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
       ],
       "mode": "touch",
       "behavior": "toggle",
@@ -1475,105 +1469,20 @@
       "kind": "coin"
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 2785,
+      "y": 825,
+      "w": 55,
+      "h": 24,
+      "text": "Five?",
+      "fontSize": 20,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": -15
+    }
+  ],
   "wallLights": [
-    {
-      "name": "1",
-      "relay": true,
-      "targets": [
-        "0180e7fe-c429-424c-9a3c-5c08fad9485e",
-        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
-      ],
-      "id": "0775fd0c-c8d8-455b-9212-a9f753cb26cb",
-      "x": 2740,
-      "y": 900
-    },
-    {
-      "name": "2",
-      "relay": true,
-      "targets": [
-        "0180e7fe-c429-424c-9a3c-5c08fad9485e",
-        "5a9407d1-9f6b-4263-86ba-39fd68fc8477"
-      ],
-      "id": "87c64546-9a2c-434f-8270-aefc301d794a",
-      "x": 2800,
-      "y": 900
-    },
-    {
-      "name": "3",
-      "relay": true,
-      "targets": [
-        "5a9407d1-9f6b-4263-86ba-39fd68fc8477"
-      ],
-      "id": "eee995e9-adc6-498d-995f-dfc04451a5c4",
-      "x": 2860,
-      "y": 900
-    },
-    {
-      "name": "4",
-      "relay": true,
-      "targets": [
-        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
-      ],
-      "id": "5e21151f-ae2b-4217-9163-0a4ca2a9218c",
-      "x": 2920,
-      "y": 900
-    },
-    {
-      "name": "5",
-      "switchLogic": "xor",
-      "relay": true,
-      "targets": [
-        "c0f23276-d362-4794-a9cd-ba678040500b",
-        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
-      ],
-      "id": "0180e7fe-c429-424c-9a3c-5c08fad9485e",
-      "x": 2770,
-      "y": 865
-    },
-    {
-      "name": "6",
-      "switchLogic": "xor",
-      "relay": true,
-      "targets": [
-        "c0f23276-d362-4794-a9cd-ba678040500b",
-        "c10fbf2e-922c-4c05-8078-880bd9e34b8c"
-      ],
-      "id": "5a9407d1-9f6b-4263-86ba-39fd68fc8477",
-      "x": 2830,
-      "y": 865
-    },
-    {
-      "name": "7",
-      "switchLogic": "xor",
-      "relay": true,
-      "targets": [
-        "c10fbf2e-922c-4c05-8078-880bd9e34b8c",
-        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
-      ],
-      "id": "e894bc4c-2e8f-46dc-822d-738e18507b5f",
-      "x": 2890,
-      "y": 865
-    },
-    {
-      "name": "8",
-      "switchLogic": "xor",
-      "relay": true,
-      "targets": [
-        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
-      ],
-      "id": "c0f23276-d362-4794-a9cd-ba678040500b",
-      "x": 2800,
-      "y": 830
-    },
-    {
-      "name": "9",
-      "relay": true,
-      "targets": [],
-      "id": "c10fbf2e-922c-4c05-8078-880bd9e34b8c",
-      "x": 2860,
-      "y": 830
-    },
     {
       "switchLogic": "and",
       "relay": true,
@@ -1583,8 +1492,8 @@
         "95fc91ba-6395-4077-91ee-373f519d65cf"
       ],
       "id": "ab63bfaa-21bf-4724-82d6-edbad636fc50",
-      "x": 2830,
-      "y": 795
+      "x": 2835,
+      "y": 865
     },
     {
       "switchReversed": false,
@@ -1596,6 +1505,17 @@
       "id": "9cab39a3-c5a3-40f7-bff4-dadf23c88080",
       "x": 1580,
       "y": 1795
+    }
+  ],
+  "logicRelays": [
+    {
+      "switchReversed": true,
+      "targets": [
+        "ab63bfaa-21bf-4724-82d6-edbad636fc50"
+      ],
+      "id": "cd93d6f3-7cc1-42a9-be9e-33119544dbe0",
+      "x": 2985,
+      "y": 870
     }
   ],
   "lighting": {
@@ -1680,7 +1600,7 @@
         "y": 1380,
         "intensity": 100,
         "direction": 90,
-        "spread": 160,
+        "spread": 75,
         "power": "always"
       }
     ]

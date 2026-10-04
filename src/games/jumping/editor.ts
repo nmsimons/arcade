@@ -23,6 +23,7 @@ import { COIN_SWITCH_THICKNESS, COIN_SWITCH_MIN_LENGTH, coinSwitchBounds } from 
 import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEnd, mechanismSweep, mechanismTravel } from './mechanisms.ts'
 import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
+import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBounds } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { robotHulls } from './robotPhysics.ts'
 
@@ -31,12 +32,12 @@ import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from 
 import { plateSolids, plateSurface } from './plateSurface.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'gravity-plate' | 'force-field' | 'horizontal-force-field'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'gravity-plate' | 'force-field' | 'horizontal-force-field'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'gravity-plate' | 'force-field'; index: number }
+export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
 /** Change only visual depth; terrain indices and all attachments stay stable. */
@@ -112,7 +113,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   next.height = height
   if (next.floor !== undefined) next.floor = height
   for (const point of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     rope.y += dy
@@ -126,6 +127,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   const i = selection.index
   if (selection.kind === 'light') { const l = level.lighting?.lights[i]; return l ? lightBounds(l) : null }
   if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
+  if (selection.kind === 'logic-relay') { const relay = level.logicRelays?.[i]; return relay ? logicRelayBounds(relay) : null }
   if (selection.kind === 'force-field') return level.forceFields?.[i] ?? null
   if (selection.kind === 'gravity-plate') return level.gravityPlates?.[i] ?? null
   if (selection.kind === 'platform') return level.platforms[i] ?? null
@@ -243,7 +245,7 @@ export function setObjectSwitchReversed(level: JumpLevel, selection: Selection, 
   return editObjectSwitchSettings(level, selection, { switchReversed: reversed })
 }
 export function setObjectRelay(level: JumpLevel, selection: Selection, relay: boolean): JumpLevel {
-  if (typeof relay !== 'boolean') return level
+  if (selection.kind === 'logic-relay' || typeof relay !== 'boolean') return level
   const next = editObjectSwitchSettings(level, selection, { relay })
   if (next !== level && !relay) {
     const item = switchedItems(next).find(item => item.kind === selection.kind && item.index === selection.index)!
@@ -292,6 +294,11 @@ export function setCoinSwitchOrientation(level: JumpLevel, index: number, orient
   return next
 }
 export function hitItem(level: JumpLevel, x: number, y: number, tolerance: number): Selection | null {
+  // Logic nodes are studio overlays, so remain selectable even over terrain.
+  for (let i = (level.logicRelays?.length ?? 0) - 1; i >= 0; i--) {
+    const b = logicRelayBounds(level.logicRelays![i])
+    if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'logic-relay', index: i }
+  }
   if (Math.abs(x - level.spawn.x) < tolerance * 1.5 && y <= level.spawn.y + tolerance && y >= level.spawn.y - 62 - tolerance) return { kind: 'spawn', index: 0 }
   for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) return { kind: 'checkpoint', index: i }
   if (level.goal) {
@@ -461,6 +468,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'gravity-plate') Object.assign(next.gravityPlates![selection.index], { x, y })
   if (selection.kind === 'light') Object.assign(next.lighting!.lights[selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
+  if (selection.kind === 'logic-relay') Object.assign(next.logicRelays![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
     const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
     attachPressurePlateOnSurface(next, t)
@@ -585,6 +593,10 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     const [light] = next.wallLights!.splice(i, 1)
     removeSwitchTarget(next, light.id)
   }
+  else if (selection.kind === 'logic-relay') {
+    const [relay] = next.logicRelays!.splice(i, 1)
+    removeSwitchTarget(next, relay.id)
+  }
   else if (selection.kind === 'light') {
     const [light] = next.lighting!.lights.splice(i, 1)
     removeSwitchTarget(next, light.id)
@@ -599,6 +611,13 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'logic-relay') {
+    const trial = asTrial(next), relays = trial.logicRelays ??= []
+    if (relays.length >= MAX_LOGIC_RELAYS) throw new Error('This level already has 40 logic relays.')
+    relays.push({ id: newLevelId(), x: clamp(start.x, LOGIC_RELAY_WIDTH / 2, trial.width - LOGIC_RELAY_WIDTH / 2),
+      y: clamp(start.y, LOGIC_RELAY_HEIGHT / 2, levelHeight(trial) - LOGIC_RELAY_HEIGHT / 2), targets: [] })
+    return { level: trial, selection: { kind: 'logic-relay', index: relays.length - 1 } }
+  }
   if (tool === 'force-field' || tool === 'horizontal-force-field') {
     const trial = asTrial(next), fields = trial.forceFields ??= []
     if (fields.length >= MAX_FORCE_FIELDS) throw new Error('This level already has 40 force fields.')
@@ -780,6 +799,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'force-field') { if (next.forceFields!.length >= MAX_FORCE_FIELDS) return null; index = next.forceFields!.push({ ...next.forceFields![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'gravity-plate') { if (next.gravityPlates!.length >= MAX_GRAVITY_PLATES) return null; index = next.gravityPlates!.push({ ...next.gravityPlates![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'logic-relay') { if (next.logicRelays!.length >= MAX_LOGIC_RELAYS) return null; index = next.logicRelays!.push({ ...next.logicRelays![i], id: newLevelId() }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
   const moved = moveItem(next, result, 40, 0)
@@ -787,6 +807,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'spawn', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
     ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),
     ...(level.gravityPlates ?? []).map((_, index) => ({ kind: 'gravity-plate' as const, index })),
     ...(level.wallLights ?? []).map((_, index) => ({ kind: 'wall-light' as const, index })),

@@ -21,9 +21,9 @@
     "flipX": true
   },
   "times": {
-    "gold": 10,
-    "silver": 20,
-    "bronze": 40
+    "gold": 5,
+    "silver": 8,
+    "bronze": 15
   },
   "props": [
     {

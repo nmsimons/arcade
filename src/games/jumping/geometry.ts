@@ -12,6 +12,32 @@ export function polygonPoints(b: Platform): Vec[] {
     .filter((p, i, all) => Math.hypot(p[0] - all[(i + 1) % all.length][0], p[1] - all[(i + 1) % all.length][1]) > EPS)
   return polygonArea(points) < 0 ? points.reverse() : points
 }
+interface BoundaryEdge { a: Vec; dx: number; dy: number; squared: number; nx: number; ny: number }
+interface BoundaryGeometry {
+  x: number; y: number; w: number; h: number
+  polygon: number[]; profile: number[]; points: Vec[]; edges?: BoundaryEdge[]
+}
+const boundaries = new WeakMap<Platform, BoundaryGeometry>()
+const sameOutline = (outline: Platform['polygon'], saved: number[]) => (outline?.length ?? 0) * 2 === saved.length
+  && (!outline || outline.every((p, i) => p[0] === saved[i * 2] && p[1] === saved[i * 2 + 1]))
+/** Rope contacts revisit the same cave outline thousands of times per tick.
+ * Retain world geometry, including edits made in place, without exposing the
+ * cached arrays through the public polygonPoints authoring helper. */
+function boundaryGeometry(b: Platform): BoundaryGeometry {
+  const saved = boundaries.get(b)
+  if (saved && b.x === saved.x && b.y === saved.y && b.w === saved.w && b.h === saved.h
+    && sameOutline(b.polygon, saved.polygon) && sameOutline(b.profile, saved.profile)) return saved
+  const geometry = { x: b.x, y: b.y, w: b.w, h: b.h, polygon: b.polygon?.flatMap(p => [...p]) ?? [],
+    profile: b.profile?.flatMap(p => [...p]) ?? [], points: polygonPoints(b) }
+  boundaries.set(b, geometry)
+  return geometry
+}
+function boundaryEdges(geometry: BoundaryGeometry) {
+  return geometry.edges ??= geometry.points.map((a, i) => {
+    const c = geometry.points[(i + 1) % geometry.points.length], dx = c[0] - a[0], dy = c[1] - a[1], length = Math.hypot(dx, dy)
+    return { a, dx, dy, squared: length * length, nx: dy / length, ny: -dx / length }
+  })
+}
 function onSegment(p: Vec, a: Vec, b: Vec) {
   return Math.abs(cross(a, b, p)) < EPS && p[0] >= Math.min(a[0], b[0]) - EPS && p[0] <= Math.max(a[0], b[0]) + EPS
     && p[1] >= Math.min(a[1], b[1]) - EPS && p[1] <= Math.max(a[1], b[1]) + EPS
@@ -32,7 +58,7 @@ export function validPolygon(points: readonly Vec[]) {
 }
 export function pointInside(b: Platform, x: number, y: number) {
   if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) return false
-  const points = polygonPoints(b); let inside = false
+  const points = boundaryGeometry(b).points; let inside = false
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
     const a = points[i], c = points[j]
     if (onSegment([x, y], a, c)) return true
@@ -201,16 +227,17 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
 }
 export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec) {
   let best = { x, y, distance: Infinity, nx: 0, ny: -1 }
-  const points = polygonPoints(b)
-  for (let i = 0; i < points.length; i++) {
-    const a = points[i], c = points[(i + 1) % points.length], dx = c[0] - a[0], dy = c[1] - a[1], length = Math.hypot(dx, dy)
-    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (length * length)))
-    const px = a[0] + dx * t, py = a[1] + dy * t, distance = Math.hypot(px - x, py - y)
-    const nx = dy / length, ny = -dx / length
+  for (const { a, dx, dy, squared, nx, ny } of boundaryEdges(boundaryGeometry(b))) {
     // A collision query must keep a face that can supply its separating normal.
     // The midpoint of a tall body's side can lie above a short box: a tiny
     // overlap must not relabel that side contact as the box's walkable top.
     if (normal && nx * normal[0] + ny * normal[1] <= EPS) continue
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / squared))
+    const px = a[0] + dx * t, py = a[1] + dy * t, gapX = px - x, gapY = py - y
+    // Reject clearly farther edges before a square root. Keep the original
+    // hypot comparison for close candidates and the normal tie-break policy.
+    if (!normal && gapX * gapX + gapY * gapY > (best.distance + EPS) * (best.distance + EPS)) continue
+    const distance = Math.hypot(gapX, gapY)
     // Adjacent faces can share the contact point. Prefer the face that supplied
     // the collision normal instead of depending on vertex order or roundoff.
     const tied = normal && Math.abs(distance - best.distance) < 1e-5
@@ -242,7 +269,7 @@ export function lineBlocked(a: Vec, b: Vec, terrain: Iterable<Platform>) {
   for (const shape of terrain) {
     if (Math.max(a[0], b[0]) < shape.x || Math.min(a[0], b[0]) > shape.x + shape.w
       || Math.max(a[1], b[1]) < shape.y || Math.min(a[1], b[1]) > shape.y + shape.h) continue
-    const points = polygonPoints(shape)
+    const points = boundaryGeometry(shape).points
     for (let i = 0; i < points.length; i++) {
       const c = points[i], d = points[(i + 1) % points.length], sx = d[0] - c[0], sy = d[1] - c[1], denominator = rx * sy - ry * sx
       if (Math.abs(denominator) < EPS) continue
@@ -259,7 +286,7 @@ export function lineBlocked(a: Vec, b: Vec, terrain: Iterable<Platform>) {
 export function segmentPenetration(a: Vec, b: Vec, shape: Platform, clearance: number) {
   if (Math.max(a[0], b[0]) <= shape.x - clearance || Math.min(a[0], b[0]) >= shape.x + shape.w + clearance
     || Math.max(a[1], b[1]) <= shape.y - clearance || Math.min(a[1], b[1]) >= shape.y + shape.h + clearance) return null
-  const dx = b[0] - a[0], dy = b[1] - a[1], cuts = [0, 1], points = polygonPoints(shape)
+  const dx = b[0] - a[0], dy = b[1] - a[1], cuts = [0, 1], points = boundaryGeometry(shape).points
   // Maintain clearance at convex corners, rather than repeatedly penetrating and
   // popping out by the rope radius. That also lets an unloaded rope settle quietly.
   for (let i = 0; i < points.length; i++) {
@@ -301,7 +328,7 @@ export function ropeBend(a: Vec, b: Vec, terrain: readonly Platform[], clearance
   for (const shape of terrain) {
     if (Math.max(a[0], b[0]) < shape.x - clearance || Math.min(a[0], b[0]) > shape.x + shape.w + clearance
       || Math.max(a[1], b[1]) < shape.y - clearance || Math.min(a[1], b[1]) > shape.y + shape.h + clearance) continue
-    const points = polygonPoints(shape), blocked = lineBlocked(a, b, [shape])
+    const points = boundaryGeometry(shape).points, blocked = lineBlocked(a, b, [shape])
     for (let i = 0; i < points.length; i++) {
       const before = points[(i + points.length - 1) % points.length], p = points[i], after = points[(i + 1) % points.length]
       if (cross(before, p, after) <= EPS) continue

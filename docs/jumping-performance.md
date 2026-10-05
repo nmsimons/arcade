@@ -1,5 +1,49 @@
 # Lighting performance notes
 
+## October 5, 2026: Spelunk cave movement on Windows ARM
+
+Spelunk's moving-game slowdown included substantial simulation work. A CPU
+profile of its built-in completion recording found repeated cave-outline
+construction and nearest-edge queries in rope contacts dominating the run.
+Ropes continue simulating after release and while the player moves elsewhere.
+
+Boundary queries now retain outline coordinates and edge lengths/normals in a
+weak cache. Translation, resizing, replacement outlines and in-place vertex
+edits invalidate the cached geometry. Clearly farther edges skip a distance
+square root; close candidates retain the original comparison and normal tie
+policy. Rope iterations, contacts, sleeping rules, lighting and level assets
+are unchanged. The public authoring helper still returns independent arrays.
+
+Matched sequential measurements on Snapdragon X Elite X1E80100, Windows ARM64,
+Node 24.14.1, with one full warmup and one measured fresh-start completion:
+
+| Simulation CPU for two 120 Hz ticks | Before | After |
+| --- | ---: | ---: |
+| Average | 21.1 ms | 5.9 ms |
+| p95 | 42.2 ms | 11.2 ms |
+| p99 | 51.4 ms | 14.4 ms |
+
+This reduces p95 simulation work by about 74%; it is not a measured 74% FPS
+increase. Rendering and browser scheduling are excluded. The historical input
+recording keeps its explicit jump impulses to visit the same contacts before
+and after. Player, prop, rope-node, mechanism and clock trajectories produced
+the same SHA-256 checksum across all 6,180 ticks. This verifies simulation
+equivalence rather than re-auditing the route with today's tap/hold controls.
+
+Reproduce the CPU comparison with `node scripts/benchmark-jumping-spelunk.mjs`
+(optional JSON output path as the first argument). Run timing comparisons
+sequentially without concurrent builds or tests. Regression checks exercise
+repeated contacts, cache invalidation, edited polygons/profiles, normal ties,
+rope contacts and existing built-in completion recordings.
+
+A separate installed Edge 154.0.4258.53 / Adreno X1-85 renderer-only control
+at 1280×800, DPR 1, with 12 warmup and 180 measured frames already held 60 FPS
+while scrolling through the opening view: draw CPU p95 5.2 ms, frame p95
+16.8 ms, no frames above 33.83 ms. That control excludes live physics and does
+not cover every part of the cave. Full-play frame pacing still depends on
+viewport, GPU/browser and other work on the machine; sustained 60 FPS everywhere
+is not established by these measurements.
+
 ## September 28, 2026: Tower on Windows ARM
 
 The accepted performance target is a steady rate above 30 FPS, with 60 FPS a

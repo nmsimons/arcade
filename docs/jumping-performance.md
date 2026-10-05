@@ -1,5 +1,45 @@
 # Lighting performance notes
 
+## October 5, 2026: Final rope with earlier ropes still swinging
+
+The first-rope improvement did not cover the worst case near the end of the wide
+level. Previously released ropes still moved, and the terrain's overall bounds
+retained its distant solid for all three ropes' repeated contact passes, despite
+the ropes swinging inside empty pits.
+
+Each rope now checks the actual terrain outline against its existing padded
+current/predicted movement bounds before retaining the solid for contact solving.
+An empty contact set skips particle/body terrain queries and clears old corner
+bends on the original release pass. All ropes still simulate, including after
+release and offscreen; resolution, iterations, forces and sleeping thresholds
+are unchanged. In-place outline changes still wake a resting rope when terrain
+enters its region.
+
+A matched installed Edge 154 / Adreno X1-85 comparison replayed normal tap/hold
+and climb inputs from spawn through all three ropes, then pumped the final rope
+while the first two kept moving. At 704×892 CSS, DPR 1.5, using the GPU renderer,
+300 measured frames after warmup produced:
+
+| Final-rope measurement | Before | After |
+| --- | ---: | ---: |
+| Simulation CPU average, two 120 Hz ticks | 22.5 ms | 6.4 ms |
+| Simulation CPU p95 | 27.6 ms | 9.2 ms |
+| Average frame rate | 40.3 FPS | 60.4 FPS |
+| Frame interval p95 | 34.0 ms | 17.4 ms |
+| Frames exceeding 33.83 ms | 18 / 300 | 0 / 300 |
+
+Player positions/velocities and every rope node's current/previous positions
+produced identical checksums. A separate Node probe with all three ropes active
+reduced average simulation CPU from 21.2 to 4.5 ms, also with identical trajectories.
+The browser comparison includes rendering but isolates this input route and
+viewport; it does not establish sustained 60 FPS on every machine or complete
+the unfinished level's route/medal review. Run timings sequentially without
+concurrent builds or tests.
+
+Regressions in `tests/jumping-rope-region-performance.test.mjs` cover three
+moving ropes in empty concave regions, a real adjacent wall contact, in-place
+terrain edits waking a resting rope, and release of obsolete corner bends.
+
 ## October 5, 2026: Loaded ropes over wide concave terrain
 
 A new 8,000-unit-wide level exposed another simulation cost: the single terrain

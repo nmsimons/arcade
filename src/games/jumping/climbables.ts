@@ -3,7 +3,7 @@ import type { GravityField } from './gravity.ts'
 import type { NamedObject } from './objectNames.ts'
 import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
-import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend } from './geometry.ts'
+import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend, polygonIntersects } from './geometry.ts'
 import { initRopeSleep, ropeCanSleep, settleRopeSleep } from './ropeSleep.ts'
 
 export type Point = [number, number]
@@ -305,6 +305,7 @@ function solveRopeTension(rope: RopeState, count: number, weights: number[], str
 }
 
 function ropeIsClear(rope: RopeState, terrain: readonly Platform[]) {
+  if (!terrain.length) return true
   return rope.nodes.slice(1).every((b, i) => {
     const a: Point = [rope.nodes[i].x, rope.nodes[i].y], end: Point = [b.x, b.y], bend = rope.bends[i]
     return bend ? !lineBlocked(a, bend, terrain) && !lineBlocked(bend, end, terrain) : !lineBlocked(a, end, terrain)
@@ -334,7 +335,12 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
     const [x, y] = load.body.from
     left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y - 62); bottom = Math.max(bottom, y)
   }
-  const nearby = platforms.filter(b => b.x < right + 96 && b.x + b.w > left - 96 && b.y < bottom + 96 && b.y + b.h > top - 96)
+  // A wide concave outline can enclose several empty pits in its bounds. Test
+  // the actual solid against the same padded sweep before retaining it for
+  // every particle/contact pass. Free swings still simulate, even offscreen.
+  const sweepBounds: Point[] = [[left - 96, top - 96], [right + 96, top - 96], [right + 96, bottom + 96], [left - 96, bottom + 96]]
+  const nearby = platforms.filter(b => b.x < right + 96 && b.x + b.w > left - 96 && b.y < bottom + 96 && b.y + b.h > top - 96
+    && (!(b.polygon || b.profile) || polygonIntersects(sweepBounds, b)))
   if (ropeCanSleep(rope, nearby, !!load)) return
   const before = nodes.map(node => [node.x, node.y] as Point), previousBends = rope.bends.slice()
   const wasClear = ropeIsClear(rope, nearby)
@@ -404,7 +410,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
       a.x += dx * correction * wa; a.y += dy * correction * wa
       b.x -= dx * correction * wb; b.y -= dy * correction * wb
     }
-    for (let i = 1; i < nodes.length; i++) for (const b of nearby) {
+    if (nearby.length) for (let i = 1; i < nodes.length; i++) for (const b of nearby) {
       const n = nodes[i]
       if (n.x <= b.x - ROPE_CLEARANCE || n.x >= b.x + b.w + ROPE_CLEARANCE || n.y <= b.y - ROPE_CLEARANCE || n.y >= b.y + b.h + ROPE_CLEARANCE) continue
       const edge = nearestBoundary(b, n.x, n.y)
@@ -415,7 +421,9 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
         n.x = edge.x + (n.x - edge.x) * scale; n.y = edge.y + (n.y - edge.y) * scale
       }
     }
-    if (pass % 8 === 7) for (let i = 1; i < nodes.length; i++) {
+    // Preserve the same bend-release pass when a swing has left all terrain.
+    if (pass % 8 === 7 && !nearby.length) rope.bends.fill(null)
+    if (pass % 8 === 7 && nearby.length) for (let i = 1; i < nodes.length; i++) {
       const a = nodes[i - 1], b = nodes[i]
       rope.bends[i - 1] = ropeBend([a.x, a.y], [b.x, b.y], nearby, ROPE_CLEARANCE)
       if (rope.bends[i - 1]) continue
@@ -442,7 +450,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
       const target = wall.x - wall.side * wallGap
       if ((target - n.x) * wall.side < 0) n.x += (target - n.x) * .45
     }
-    if (load?.body) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, nearby)
+    if (load?.body && nearby.length) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, nearby)
   }
   // Length and body constraints can reintroduce a crossing after contacts.
   // Keep the final movement within the last clear rope configuration.

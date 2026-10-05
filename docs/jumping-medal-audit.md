@@ -3,10 +3,13 @@
 October 5 update: jumping now uses a short tap and a brief post-takeoff hold to
 control height. The maximum height is preserved, but the timings below were
 recorded with the earlier directional-jump controls. A new full medal-time audit
-with variable-height jumping remains unverified; level thresholds are unchanged.
+with variable-height jumping remains unverified. Level Five alone has been
+re-audited with the current held-jump controls and tightened to 10 / 15 / 30.
 The historical recordings now store their original jump impulses explicitly for
 mechanism and contact regressions. Those preset replays do not establish times
-for the new tap/hold controls.
+for the new tap/hold controls. The fixture's top-level jump model is the historical
+default; Level Five explicitly overrides it with `tap-hold` and has no preset
+impulses.
 
 October 4, 2026. All 22 levels in the current built-in catalog have a completed
 fresh-start control recording. Seventeen medal sets were revised. The five
@@ -33,6 +36,14 @@ review of the remaining levels, their camera framing, and all advertised
 alternatives remains unverified. In particular, Tower I's fastest route through
 the third-floor window was supplied by the author; the recorded completion uses
 the sixth-floor box alternative and the two-ball lobby setup.
+
+Level Five's October 5 shortcut recording braces on the ball against the exit
+gate, nudges it past the hilltop, then waits at the gate while it rolls onto the
+lower-left plate. The fresh-start simulation scores 9.00 seconds; the browser
+keyboard playtest scores 8.98. Its upper box and bridge are unused. The author
+reports an approximately five-second version; that faster time has not been
+independently reproduced. The chosen 10 / 15 / 30 targets leave a small margin
+for the verified shortcut and allow the former 21.27-second route to earn bronze.
 
 Clock is the scored game time at doorway entry. Active is simulated active
 play through completion, including the approximately 0.86-second exit animation.
@@ -68,7 +79,7 @@ initial 10 / 20 / 40 targets were retained.
 | [Uninvited Company](../public/levels/jumping/08.json) | 2.22 | 12.07 | 12 / 23 / 40 | 4 / 12 / 25 |
 | [Slow is Smooth](../public/levels/jumping/04.json) | 10.26 | 11.12 | 10 / 20 / 40 | 12 / 20 / 40 |
 | [Tower I](../public/levels/jumping/Tower.jump-level.json) | 87.48 | 88.34 | 90 / 120 / 210 | 100 / 140 / 210 |
-| [Level Five](../public/levels/jumping/05.json) | 21.27 | 22.12 | 15 / 25 / 60 | 25 / 40 / 60 |
+| [Level Five](../public/levels/jumping/05.json) | 9.00 | 9.86 | 25 / 40 / 60 | 10 / 15 / 30 |
 | [Tower II](../public/levels/jumping/Tower%20II.jump-level.json) | 98.95 | 99.81 | 90 / 120 / 210 | 110 / 150 / 210 |
 | [Nine](../public/levels/jumping/nine.jump-level.json) | 4.16 | 5.02 | 10 / 20 / 40 | 10 / 20 / 40 |
 | [Spelunk I](../public/levels/jumping/spelunk1.jump-level.json) | 50.64 | 51.50 | 10 / 20 / 40 | 60 / 90 / 140 |
@@ -77,6 +88,10 @@ initial 10 / 20 / 40 targets were retained.
 
 ## Required interactions checked
 
+- **Level Five:** brace against the exit gate while standing on the ball, send
+  it down the left hill, and return to the gate. The ball reaches the lower-left
+  plate and opens the gate; the box remains on its upper shelf and the upper
+  bridge plate stays off. This replaces the former 21.27-second detour recording.
 - **JK:** cross to the elevator plate without disturbing the large ball on its
   ledge. Raise the crate partway, then step off the plate to stop it beside the
   chute. The released small ball hits the crate, drops onto the lower ramp, and
@@ -128,6 +143,7 @@ relaxed where their previous targets were below demonstrated completion times.
 
 - [Control recordings](../tests/fixtures/jumping-builtin-medal-runs.json)
 - [Route, cargo, catalog coverage and truth-table tests](../tests/jumping-builtin-medals.test.mjs)
+- [Level Five keyboard shortcut](../tests/browser/jumpingMedals.spec.mjs)
 - Run `npm run levels:check`: 22 assets validated.
 - Run `node --test tests/jumping-builtin-medals.test.mjs`: 25 tests passed,
   including a gold completion for every current built-in level.

@@ -2509,46 +2509,40 @@
     },
     {
       "file": "05.json",
-      "elapsed": 21.2666666666661,
-      "activeTime": 22.124999999999385,
+      "jumpModel": "tap-hold",
+      "elapsed": 9.00000000000013,
+      "activeTime": 9.858333333333414,
       "coins": 0,
       "trace": [
         {
-          "frames": 245,
+          "frames": 275,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 1,
+          "frames": 12,
           "input": {
             "move": 1,
-            "jump": true,
-            "jumpStrength": 1
+            "jump": true
           }
         },
         {
-          "frames": 179,
+          "frames": 103,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 1554,
+          "frames": 90,
           "input": {
-            "move": -1,
-            "crouch": true
+            "move": -1
           }
         },
         {
-          "frames": 100,
-          "input": {}
-        },
-        {
-          "frames": 576,
+          "frames": 703,
           "input": {
-            "move": 1,
-            "climb": true
+            "move": 1
           }
         }
       ]

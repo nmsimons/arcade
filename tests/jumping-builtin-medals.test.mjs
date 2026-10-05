@@ -17,11 +17,10 @@ test('every built-in level has one fresh-start medal recording', () => {
   assert.deepEqual(recordings.runs.map(run => run.file).sort(), [...catalog.levels].sort())
 })
 
-// Preserve the historical audit's jump impulses explicitly so mechanism and
-// contact coverage survives changes to button interpretation. This is not a
-// new audit of variable-height controls; normal holds are covered separately.
-// They do not teleport actors, bypass switches, or substitute legacy fixture maps.
-for (const recording of recordings.runs) test(`built-in recorded-impulse route: ${recording.file}`, async () => {
+// Historical routes preserve their jump impulses for contact/mechanism coverage.
+// Re-audited routes explicitly opt into current tap/hold controls. Neither moves
+// actors directly, bypasses switches, or substitutes legacy fixture maps.
+for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ?? recordings.jumpModel} route: ${recording.file}`, async () => {
   assert.ok(catalog.levels.includes(recording.file))
   const level = parseLevel(JSON.parse(await readFile(new URL(recording.file, root), 'utf8')))
   const run = createRun(level)
@@ -30,11 +29,15 @@ for (const recording of recordings.runs) test(`built-in recorded-impulse route: 
   let jammedFrontGate = false
   let gravityStarted = false
   let gravityReleased = false
+  let bracedOnBall = false
+  const jumpModel = recording.jumpModel ?? recordings.jumpModel
+  assert.ok(['recorded-impulses', 'tap-hold'].includes(jumpModel))
   const weighted = plate => run.props.filter(prop => propLoadsPlate(prop, plate.x, plate.y, plate.w, plate.ceiling))
   for (const { frames, input } of recording.trace) {
     assert.ok(Number.isInteger(frames) && frames > 0)
     assert.ok(Object.keys(input).every(key => key in NEUTRAL_INPUT || key === 'jumpStrength'))
-    if (input.jump) assert.ok(input.jumpStrength >= 0 && input.jumpStrength <= 1)
+    if (input.jump && jumpModel === 'recorded-impulses') assert.ok(input.jumpStrength >= 0 && input.jumpStrength <= 1)
+    if (jumpModel === 'tap-hold') assert.equal('jumpStrength' in input, false)
     const controls = { ...NEUTRAL_INPUT, ...input }
     for (let frame = 0; frame < frames; frame++) {
       assert.equal(run.finished, false, 'recording must end at completion')
@@ -48,6 +51,8 @@ for (const recording of recordings.runs) test(`built-in recorded-impulse route: 
         if (run.gravityField.mask) gravityStarted = true
         else if (gravityStarted) gravityReleased = true
       }
+      if (recording.file === '05.json' && run.player.contacts.support?.collider.prop === run.props[0]
+        && run.player.contacts.push?.collider.id === 'mechanism:0') bracedOnBall = true
     }
   }
   assert.ok(entryTime !== undefined, 'the player must enter the powered doorway')
@@ -65,6 +70,12 @@ for (const recording of recordings.runs) test(`built-in recorded-impulse route: 
   }
   if (recording.file === '01.json') {
     assert.equal(weighted(level.triggers[0]).length, 1, 'the ball must keep the remote exit powered')
+  }
+  if (recording.file === '05.json') {
+    assert.ok(bracedOnBall, 'brace on the ball against the exit gate before sending it downhill')
+    assert.deepEqual(weighted(level.triggers[0]), [run.props[0]], 'the ball must reach the lower-left gate plate')
+    assert.equal(run.triggers[1].active, false, 'the upper box-and-bridge route is unnecessary')
+    assert.ok(Math.abs(run.props[1].x - level.props[1].x) < 1, 'leave the box on its upper shelf')
   }
   if (recording.file === 'jk.jump-level.json') {
     assert.deepEqual(weighted(level.triggers[1]), [run.props[2]], 'the small ball must hold the exit plate')

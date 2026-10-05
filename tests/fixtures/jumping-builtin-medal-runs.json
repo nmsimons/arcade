@@ -1019,7 +1019,7 @@
           "input": {
             "move": -1,
             "jump": true,
-            "jumpStrength": 1
+            "jumpStrength": 0
           }
         },
         {

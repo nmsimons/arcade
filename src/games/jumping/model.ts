@@ -120,7 +120,7 @@ function sustainJump(p: Player, dt: number) {
   lift.strength = lift.elapsed / TUNING.jumpHoldTime
   const after = lift.entrySpeed + extraSpeed * lift.strength
   // Spend only the energy difference between the base and full jump. Adding
-  // lift later cannot exceed the old full jump, or discard inherited momentum.
+  // lift later cannot exceed the selected full jump, or discard inherited momentum.
   p.vy = -Math.sqrt(p.vy * p.vy + after * after - before * before)
   if (lift.elapsed >= TUNING.jumpHoldTime) p.jumpLift = null
 }

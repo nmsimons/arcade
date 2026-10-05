@@ -119,3 +119,8 @@
   .jumping-dialog-panel .jumping-dialog-heading { padding-block: 20px; }
   .jumping-dialog-body { flex: none; overflow: visible; }
 }
+/* Touch instructions start at the first gesture even when Back receives focus.
+   Keep heading and action visible; swipe the instruction area to read further. */
+.jumping-touch-controls .jumping-dialog-body { flex: 1; min-height: 0; overflow: hidden; scrollbar-gutter: auto; }
+.jumping-touch-controls .jumping-dialog-controls { flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.jumping-touch-controls .jumping-controls-actions { flex: none; margin-top: 12px; }

@@ -1,8 +1,8 @@
 # Reproducible acceptance checks
 
 Use Node from `.nvmrc`: `npm ci`, `npm test`, `npm run lint`, `npm run build`,
-`npx playwright install chromium`, `npm run test:browser`. CI installs Chromium
-with OS dependencies and runs the same commands before deployment.
+`npx playwright install chromium webkit`, `npm run test:browser`. CI installs
+Chromium and WebKit with OS dependencies and runs the same commands before deployment.
 
 ## Regressions for reported bugs
 
@@ -56,6 +56,13 @@ developer shortcut is unavailable. Tests use public UI and browser storage,
 never React internals or dependencies from another checkout. Failures retain
 screenshots and traces under the ignored `test-results` directory.
 CI uploads those diagnostics, including save/visibility state, for seven days.
+
+The `iphone-webkit` project checks UJG at an iPhone landscape viewport and pixel
+density. It measures wall-text ink placement, multiline spacing and clipping;
+touch checks exercise tap and flick jumps, movement, simultaneous fingers,
+climbing, cancellation, pause and browser-default suppression. The same checks
+also run in Chromium. Automated pointer sequences establish input behavior;
+actual iPhone playtesting establishes gesture feel and system interruptions.
 
 Long recovery and departure checks pause the browser clock between actions and
 advance it in 100 ms batches. This draws at 10 Hz while retaining all 60 Hz

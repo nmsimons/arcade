@@ -142,6 +142,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const { level, busy: preparingRopes } = useRopePreview(preview ?? history.present, preview !== null)
   const previewRun = useMemo(() => isPuzzleLevel(level) ? createPreviewRun(level) : null, [level])
   const previewPlayer = useMemo(() => previewRun?.player ?? levelPlayer(level, true), [level, previewRun])
+  const previewTime = useRef(0)
+  useEffect(() => { previewTime.current = 0 }, [previewRun])
   const [lightingRenderer] = useState(() => new LightingRenderer())
   useEffect(() => () => lightingRenderer.dispose(), [lightingRenderer])
   useEffect(() => { if (!active) lightingRenderer.release() }, [active, lightingRenderer])
@@ -426,14 +428,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     canvas.width = Math.round(size.width * ratio); canvas.height = Math.round(size.height * ratio)
     lightingRenderer.state.reset()
     const draw = (dt: number) => {
-      if (previewRun) previewRun.activeTime += dt
+      previewTime.current += dt
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.fillStyle = '#eeeee6'; ctx.fillRect(0, 0, size.width, size.height)
       {
         if (lightingGeometry.groups) lightingRenderer.prepare(level, lightingGeometry.groups)
         const lighting = lightingForLevel(level)
         const definition = { ...lighting, nightMode: lightingPreview && nightModeEnabled(lighting),
           lights: lighting.lights.map(l => l.id === previewLight && !helpOpen && !libraryOpen ? { ...l, power: 'always' as const } : l) }
-        lightingRenderer.render(ctx, previewRun ?? playgroundLightingWorld(level, previewPlayer), definition,
+        lightingRenderer.render(ctx, previewRun ? { ...previewRun, activeTime: previewTime.current } : playgroundLightingWorld(level, previewPlayer), definition,
           { ...view, width: canvas.width, height: canvas.height, zoom: view.zoom * ratio }, dt, undefined, true, 'structural', !lightingPreview)
       }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)

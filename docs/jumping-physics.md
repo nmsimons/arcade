@@ -125,6 +125,33 @@ Built-in routes and medal times have been checked against these defaults; see
 [the medal audit](jumping-medal-audit.md) for completed control recordings and
 the limits of the graphical playtesting.
 
+## Touch input
+
+`touchInput.ts` translates screen-space gestures into the existing `JumpInput`.
+A tap completes on release within 150 ms and 10 CSS pixels of travel. A still
+hold starts walking after 150 ms on either side of the screen; the middle 16%
+is neutral. A predominantly horizontal swipe of 24 CSS pixels starts running
+immediately. Subsequent opposite swipes turn without lifting.
+
+An upward flick requests full jump strength; a tap requests base strength even
+while running. Both are fresh jump pulses, separated by a released simulation
+step so quick gestures survive low frame rates. Horizontal momentum, buffers,
+wall-jump impulses and gravity use the usual movement rules.
+
+A vertical stroke becomes continuous Up or Down after holding its endpoint for
+120 ms. Up climbs or pulls up. Down crouches, lowers over an edge or descends;
+horizontal touch input uses full deflection during crouching to retain the usual
+crouch-walk speed. Lifting before that threshold completes an upward jump flick
+or a downward detach flick. Release after continuous movement never also jumps.
+
+The first contact owns movement; a second can supply jump and vertical actions.
+Contact roles persist until lift, and remaining action fingers never acquire
+movement automatically. The adapter captures each pointer and scopes scrolling,
+zooming, selection, callout and context-menu suppression to the playing canvas.
+Cancellation, lost capture, pause, restart, visibility loss and orientation
+changes clear touch input. Browser regressions exercise these gestures through
+the real game adapter; an actual iPhone playtest is still needed to tune feel.
+
 ## Step order
 
 1. Read pressure plates and move mechanisms, carrying supported riders.

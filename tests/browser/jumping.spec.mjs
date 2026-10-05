@@ -2,6 +2,7 @@ import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold, tap } from './helpers/controller.mjs'
+import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 
 async function setup(page, controller = false, level = DEFAULT_LEVEL) {
   await useLevelFixtures(page, [level])
@@ -358,7 +359,8 @@ test('controller pause clears held jump input and reset is available only throug
   expect(moved.x).toBeLessThan(initial.x - 20)
   await tap(page, 3)
   expect(await position(page)).toEqual(moved)
-  await expect(page.getByRole('button')).toHaveCount(0)
+  await expect(page.getByRole('button')).toHaveCount(1)
+  await expect(page.getByRole('button')).toHaveAccessibleName('Pause game')
   await tap(page, 9)
   await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
   await tap(page, 3)
@@ -440,30 +442,30 @@ test('the authored course supports jumping the steps, catching and climbing the 
 
 test('keyboard ladders descend from the platform, and controller ropes climb, swing and release', async ({ page }, info) => {
   await setup(page, true); await enter(page); await reachOverhang(page)
-  await page.keyboard.down('ArrowUp'); await page.clock.runFor(1100); await page.keyboard.up('ArrowUp')
+  await page.keyboard.down('ArrowUp'); await advanceJumpingSimulation(page, 1100); await page.keyboard.up('ArrowUp')
   expect((await position(page)).y).toBeCloseTo(400)
-  await page.keyboard.down('ArrowDown'); await page.clock.runFor(3600); await page.keyboard.up('ArrowDown')
+  await page.keyboard.down('ArrowDown'); await advanceJumpingSimulation(page, 3600); await page.keyboard.up('ArrowDown')
   expect((await position(page)).y).toBeCloseTo(620)
-  await page.keyboard.down('ArrowUp'); await page.clock.runFor(700); await page.keyboard.up('ArrowUp'); await page.clock.runFor(100)
+  await page.keyboard.down('ArrowUp'); await advanceJumpingSimulation(page, 700); await page.keyboard.up('ArrowUp'); await advanceJumpingSimulation(page, 100)
   await expect(page.locator('.jumping-state')).toHaveText('Ladder · holding')
-  const held = await position(page); await page.clock.runFor(300); expect(await position(page)).toEqual(held)
+  const held = await position(page); await advanceJumpingSimulation(page, 300); expect(await position(page)).toEqual(held)
   await page.screenshot({ path: info.outputPath('ladder-back-view.png') })
-  await page.keyboard.down('ArrowDown'); await page.clock.runFor(800); await page.keyboard.up('ArrowDown')
+  await page.keyboard.down('ArrowDown'); await advanceJumpingSimulation(page, 800); await page.keyboard.up('ArrowDown')
   expect((await position(page)).y).toBeCloseTo(620)
   await page.keyboard.down('d')
   for (let i = 0; i < 40 && (await position(page)).x < 1518; i++) await page.clock.runFor(50)
-  await page.keyboard.up('d'); await page.clock.runFor(200)
-  await tap(page, 0); await page.clock.runFor(200)
+  await page.keyboard.up('d'); await advanceJumpingSimulation(page, 200)
+  await tap(page, 0); await advanceJumpingSimulation(page, 200)
   await expect(page.locator('.jumping-state')).toHaveText('Rope · holding')
-  await page.evaluate(() => { window.testPad.axes[1] = -1 }); await page.clock.runFor(700)
+  await page.evaluate(() => { window.testPad.axes[1] = -1 }); await advanceJumpingSimulation(page, 700)
   await expect(page.locator('.jumping-state')).toHaveText('Rope · ascending')
   const ropeStart = await position(page)
-  await page.evaluate(() => { window.testPad.axes[0] = .8; window.testPad.axes[1] = 0 }); await page.clock.runFor(600)
+  await page.evaluate(() => { window.testPad.axes[0] = .8; window.testPad.axes[1] = 0 }); await advanceJumpingSimulation(page, 600)
   expect((await position(page)).x).toBeGreaterThan(ropeStart.x + 20)
   await expect(page.locator('.jumping-state')).toHaveText('Rope · holding')
   await expectCentered(page)
   await page.screenshot({ path: info.outputPath('rope-back-view-swing.png') })
-  await page.evaluate(() => { window.testPad.axes[0] = 0; window.testPad.axes[1] = 1 }); await page.clock.runFor(200)
+  await page.evaluate(() => { window.testPad.axes[0] = 0; window.testPad.axes[1] = 1 }); await advanceJumpingSimulation(page, 200)
   await expect(page.locator('.jumping-state')).toHaveText('Rope · descending')
   await page.evaluate(() => { window.testPad.axes[1] = 0 }); await hold(page, 0, 1, 120)
   await expect(page.locator('.jumping-state')).toHaveText('Rising')

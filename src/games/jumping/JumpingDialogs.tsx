@@ -9,14 +9,15 @@ function RestartIcon() {
   </svg>
 }
 
-export function JumpingPauseDialog({ name, reason, connected, testing, challenge, onResume, onRestart, onBuilder, onLevels, onExit }: {
-  name: string; reason: string; connected: boolean; testing: boolean; challenge: boolean
+export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, onResume, onRestart, onBuilder, onLevels, onExit }: {
+  name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean
   onResume: () => void; onRestart: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
   const [controls, setControls] = useState(false)
+  const touchReference = touchControls && !connected
   return <KeyboardDialog label="Game paused" focusKey={controls ? 'jumping-controls' : 'jumping-paused'}
     onClose={() => controls ? setControls(false) : onResume()} className="jumping-overlay jumping-dialog-overlay">
-    <div className="jumping-dialog-panel jumping-pause" data-controller-scroll>
+    <div className={`jumping-dialog-panel jumping-pause${controls && touchReference ? ' jumping-touch-controls' : ''}`} data-controller-scroll>
       <header className="jumping-dialog-heading">
         <div className="jumping-dialog-kicker"><p title={name}>{name}</p><span className="jumping-dialog-light" aria-hidden="true" /></div>
         <h2>{controls ? 'Controls.' : 'Paused.'}</h2>
@@ -25,7 +26,17 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
       <div className={`jumping-dialog-body${controls ? '' : ' jumping-pause-menu'}`} data-controller-scroll>
         {controls ? <>
           <section className="jumping-dialog-controls" aria-label="How to play">
-            <dl>
+            {touchReference ? <>
+              <dl>
+                <div><dt>Jump / higher jump</dt><dd>Tap / flick up and lift</dd></div>
+                <div><dt>Walk left / right</dt><dd>Hold on that side of the screen</dd></div>
+                <div><dt>Run / turn / swing</dt><dd>Swipe left or right and keep holding</dd></div>
+                <div><dt>Climb / pull up</dt><dd>Drag up and hold</dd></div>
+                <div><dt>Crouch / descend</dt><dd>Drag down and hold</dd></div>
+                <div><dt>Let go</dt><dd>Flick down and lift</dd></div>
+              </dl>
+              <p>Keep one finger down to move; use another to jump, crouch or climb. Lift a movement finger to stop directing the player. A flick is a short swipe followed by lifting; a drag and hold continues the action. Ledges and ropes catch automatically.</p>
+            </> : <><dl>
               <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
               <div><dt>Press to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
               <div><dt>Climb / descend</dt><dd><kbd>{connected ? '↑ ↓' : 'W S / ↑ ↓'}</kbd></dd></div>
@@ -34,6 +45,7 @@ export function JumpingPauseDialog({ name, reason, connected, testing, challenge
               {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
             </dl>
             <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Press Jump to jump, including from ledges, ropes, ladders, walls, and slopes. Push the stick farther for a stronger jump; Up jumps higher. Running carries you farther.</p>
+            </>}
           </section>
           <nav className="jumping-dialog-actions jumping-controls-actions" aria-label="Controls actions">
             <button data-initial-focus onClick={() => setControls(false)}>Back</button>

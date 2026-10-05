@@ -16,6 +16,10 @@ export default defineConfig({
   projects: [
     { name: 'production', testIgnore: /\.dev\.spec\.mjs$/ },
     { name: 'development', testMatch: /\.dev\.spec\.mjs$/, use: { baseURL: 'http://127.0.0.1:4176' } },
+    { name: 'iphone-webkit', testMatch: /jumping(?:WallText\.dev|Touch)\.spec\.mjs$/, use: {
+      baseURL: 'http://127.0.0.1:4176', browserName: 'webkit',
+      viewport: { width: 852, height: 393 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true,
+    } },
   ],
   webServer: [{
     command: 'npm run preview -- --host 127.0.0.1 --port 4175 --strictPort',

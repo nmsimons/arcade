@@ -534,6 +534,13 @@ area has no title, movement readout, charge meter, or instruction strip.
 
 - Left stick: proportional walk/run speed; D-pad also moves. Keyboard: A/D or
   Left/Right, with Shift to walk.
+- Touch: tap to jump, or flick up and lift for a higher jump. Hold on the left or
+  right to walk; swipe horizontally and keep holding to run, turn or swing.
+  Drag up and hold to climb or pull up; drag down and hold to crouch, lower over
+  an edge or descend. Flick down and lift to let go. Keep one finger down for
+  movement and use another for actions. The center is neutral for stationary
+  holds. Pause opens the gesture reference. Gameplay suppresses browser scrolling,
+  zooming, selection and long-press callouts on its canvas.
 - Press A/Cross or Space to jump immediately. Push the stick farther
   for a stronger jump; Up gives extra height. Running carries you across longer
   gaps. Holding does not charge or repeat a jump.
@@ -754,11 +761,11 @@ npm run generate:power # Regenerate fixed cable paths after changing station geo
 npm run benchmark # Isolated browser performance fixtures; JSON report in /tmp
 ```
 
-For browser tests, run `npx playwright install chromium` once, then
+For browser tests, run `npx playwright install chromium webkit` once, then
 `npm run build && npm run test:browser`. Playwright starts its own production
 preview on port 4175 and a development server on 4176, with isolated storage; it never touches your
-normal browser's expedition. On Linux CI, install Chromium with
-`npx playwright install --with-deps chromium`.
+normal browser's expedition. On Linux CI, install Chromium and WebKit with
+`npx playwright install --with-deps chromium webkit`.
 
 ### Save recovery
 

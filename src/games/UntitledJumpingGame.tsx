@@ -11,6 +11,8 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
+import { createJumpTouch } from './jumping/touchInput'
+import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
@@ -159,6 +161,8 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const [builderStarted, setBuilderStarted] = useState(false), [testing, setTesting] = useState(false)
   const jumpQueue = useRef<{ held: boolean; strength: number }[]>([]), keyboardJump = useRef(false), keyboardJumpStrength = useRef(0)
   const [controller] = useState(createJumpController)
+  const [touch] = useState(createJumpTouch)
+  const [touchAvailable, setTouchAvailable] = useState(() => navigator.maxTouchPoints > 0 || matchMedia('(any-pointer: coarse)').matches)
   const controllerJumpStrength = useRef(0)
   const [screen, setScreen] = useState<Screen>('menu')
   useCloudDownloads(screen === 'menu')
@@ -178,7 +182,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     audio.current?.silence()
     if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
     audioState.reset(player.current, run.current)
-    keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
+    keys.current.clear(); controller.reset(); touch.reset(); cancelJumpInput(player.current)
     jumpQueue.current = []; keyboardJump.current = false; keyboardJumpStrength.current = 0; controllerJumpStrength.current = 0
     screenRef.current = next; setScreen(next)
     if (next === 'building' || next === 'menu') lightingRenderer.release()
@@ -210,7 +214,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
     }
     else respawn(player.current)
-    keys.current.clear(); controller.reset()
+    keys.current.clear(); controller.reset(); touch.reset()
     jumpQueue.current = []; keyboardJump.current = false; keyboardJumpStrength.current = 0; controllerJumpStrength.current = 0
     canvasRef.current?.focus({ preventScroll: true })
   }
@@ -388,9 +392,13 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     }
   })
   const suspend = useEffectEvent(() => {
-    keys.current.clear(); controller.reset(); cancelJumpInput(player.current)
+    keys.current.clear(); controller.reset(); touch.reset(); cancelJumpInput(player.current)
     jumpQueue.current = []; keyboardJump.current = false; keyboardJumpStrength.current = 0; controllerJumpStrength.current = 0
     if (screenRef.current === 'playing') changeScreen('paused', 'Paused while the game was out of focus.')
+  })
+  const reorient = useEffectEvent(() => {
+    touch.reset()
+    if (screenRef.current === 'playing') changeScreen('paused', 'Paused after the screen orientation changed.')
   })
   const frameInput = useEffectEvent((now: number) => {
     let pads: (Gamepad | null)[] = []
@@ -407,7 +415,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       return null
     }
     if (pad.disconnected && screenRef.current === 'playing') {
-      changeScreen('paused', 'Controller disconnected. Reconnect, or continue with the keyboard.')
+      changeScreen('paused', `Controller disconnected. Reconnect, or continue with ${touchAvailable ? 'touch controls' : 'the keyboard'}.`)
       return null
     }
     if (screenRef.current !== 'playing') {
@@ -478,6 +486,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     const visibility = () => { if (document.hidden) suspend() }
     window.addEventListener('keydown', handleKey); window.addEventListener('keyup', keyup)
     window.addEventListener('blur', suspend); document.addEventListener('visibilitychange', visibility)
+    window.addEventListener('orientationchange', reorient)
     const tick = (now: number) => {
       const measuring = import.meta.env.DEV && performanceEnabled.current && !devOpenRef.current && screenRef.current === 'playing' && !document.hidden
       const started = measuring ? performance.now() : 0
@@ -493,8 +502,13 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
             const press = jumpQueue.current.shift()!
             keyboardJump.current = press.held; keyboardJumpStrength.current = press.strength
           }
-          const controls = { ...input, jump: input.jump || keyboardJump.current,
-            jumpStrength: Math.max(input.jump ? input.jumpStrength : 0, keyboardJump.current ? keyboardJumpStrength.current : 0) }
+          const gesture = touch.sample(now)
+          const controls = { ...input, move: input.move || gesture.move,
+            climb: input.climb || gesture.climb, descend: input.descend || gesture.descend,
+            drop: input.drop || gesture.drop, detach: input.detach || gesture.detach, crouch: input.crouch || gesture.crouch,
+            jump: input.jump || keyboardJump.current || gesture.jump,
+            jumpStrength: Math.max(input.jump ? input.jumpStrength : 0, keyboardJump.current ? keyboardJumpStrength.current : 0,
+              gesture.jump ? gesture.jumpStrength ?? 0 : 0) }
           if (run.current) stepRun(run.current, controls)
           else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
           const report = motion?.step(player.current, controls, STEP, (run.current?.level ?? activeLevel.current).id)
@@ -532,13 +546,16 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       cancelAnimationFrame(frame); observer.disconnect()
       window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', keyup)
       window.removeEventListener('blur', suspend); document.removeEventListener('visibilitychange', visibility)
+      window.removeEventListener('orientationchange', reorient)
     }
-  }, [audioState, lightingRenderer, performanceMonitor, adaptiveLighting])
+  }, [audioState, lightingRenderer, performanceMonitor, adaptiveLighting, touch])
 
   const manifestPrompt = missingManifestPrompt(local)
-  return <div className="jumping-game" ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
+  return <div className={`jumping-game${screen === 'playing' && !devOpen ? ' jumping-playing' : ''}`} ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
     <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the exit` : 'Untitled Jumping Game movement playground'} />
     {screen === 'playing' && <>
+      {!devOpen && <JumpingTouchControls canvasRef={canvasRef} reader={touch} active
+        onTouch={() => setTouchAvailable(true)} onPause={() => changeScreen('paused')} />}
       {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
@@ -557,7 +574,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       testing={testing} saveError={saveError} onNext={!testing && campaignIndex >= 0 && nextFile ? () => playFile(nextFile, playingFile.collection as 'built-in' | 'local') : undefined}
       onRetry={startChallenge} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
-      connected={connected} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
+      connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
     {!preparing && screen === 'menu' && <KeyboardDialog label="Untitled Jumping Game" focusKey="jumping-menu"
       onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">

@@ -86,8 +86,8 @@ jobs:
         with:
           name: validated-site
           path: dist/web/
-      - name: Install browser
-        run: npx playwright install --with-deps chromium
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium webkit
       - name: Test homepage layout, navigation and sign-in controls
         if: needs.validate.outputs.fast == 'true'
         run: npm run test:homepage -- --reporter=line

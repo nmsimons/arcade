@@ -13,3 +13,11 @@ export async function advanceSimulation(page,milliseconds) {
     await page.clock.fastForward(Math.min(100,remaining))
   }
 }
+
+/** UJG runs physics at 120 Hz and caps frame catch-up at 50 ms. Keep every
+ * step while reducing expensive software-rendered frames in WebKit. */
+export async function advanceJumpingSimulation(page,milliseconds) {
+  for(let remaining=milliseconds;remaining>0;remaining-=48) {
+    await page.clock.fastForward(Math.min(48,remaining))
+  }
+}

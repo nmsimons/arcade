@@ -40,7 +40,8 @@ the sixth-floor box alternative and the two-ball lobby setup.
 Level Five's October 5 shortcut recording braces on the ball against the exit
 gate, nudges it past the hilltop, then waits at the gate while it rolls onto the
 lower-left plate. The fresh-start simulation scores 9.00 seconds; the browser
-keyboard playtest scores 8.98. Its upper box and bridge are unused. The author
+keyboard playtests score 8.98 on Windows and 9.00 on Linux CI. Its upper box and
+bridge are unused. The author
 reports an approximately five-second version; that faster time has not been
 independently reproduced. The chosen 10 / 15 / 30 targets leave a small margin
 for the verified shortcut and allow the former 21.27-second route to earn bronze.

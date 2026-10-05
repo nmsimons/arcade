@@ -1,5 +1,44 @@
 # Lighting performance notes
 
+## October 5, 2026: Loaded ropes over wide concave terrain
+
+A new 8,000-unit-wide level exposed another simulation cost: the single terrain
+polygon's bounds covered its empty pits, so a loaded 115-segment rope repeatedly
+searched distant edges and tested the body against every convex terrain piece.
+The profile included nearest-boundary searches, body sweeps, penetration tests
+and point-in-polygon work. Level width alone is not a sufficient cost estimate;
+the outline, rope length, body location and repeated contact passes matter.
+
+Collision queries now cache each convex piece's bounds, separating axes and
+projections. Body/particle queries first reject pieces outside the complete
+swept bounds, retaining rotated and reverse-gravity body extents. These caches
+share the boundary geometry's coordinate/outline invalidation. An exact distance
+to the previously selected edge seeds ordinary nearest-boundary queries, while
+all competing edges still receive the usual comparison and first-edge ties.
+Normal-directed face queries retain their existing traversal/tie policy.
+Point-on-edge queries reject out-of-bounds edges before computing their cross
+product. Rope resolution, solver passes, contacts and level layout are unchanged.
+
+An isolated installed Edge 154 / Adreno X1-85 comparison used the same normal
+tap/hold input recording from spawn, jumping the first gaps and climbing the
+second gap's ledge, then catching and pumping the first rope. At 704×892 CSS,
+DPR 1.5, with the GPU renderer, 300 measured loaded-rope frames after warmup:
+
+| Simulation CPU for two 120 Hz ticks | Before | After |
+| --- | ---: | ---: |
+| Average | 14.4 ms | 8.2 ms |
+| p95 | 17.0 ms | 10.6 ms |
+
+The player and all rope-node trajectories had identical checksums. Both isolated
+frame runs stayed near 60 FPS at this viewport, so the 43% average CPU reduction
+demonstrates headroom, not a 43% FPS increase or a sustained live-play guarantee.
+Node probes at different first-rope grip heights also retained exact trajectories.
+A further comparison matched 32,000 geometry queries over 160 terrain objects,
+including rotated/inverted bodies, particle sweeps and directed face selection.
+Permanent regressions cover remote-piece rejection, full-path collision, cache
+invalidation and nearest-face ties in
+`tests/jumping-wide-terrain-performance.test.mjs`.
+
 ## October 5, 2026: Spelunk cave movement on Windows ARM
 
 Spelunk's moving-game slowdown included substantial simulation work. A CPU

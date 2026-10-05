@@ -13,9 +13,13 @@ export function polygonPoints(b: Platform): Vec[] {
   return polygonArea(points) < 0 ? points.reverse() : points
 }
 interface BoundaryEdge { a: Vec; dx: number; dy: number; squared: number; nx: number; ny: number }
+interface Bounds { left: number; right: number; top: number; bottom: number }
+interface CollisionHull { points: readonly Vec[]; bounds: Bounds; axes?: Vec[] }
+interface CollisionPiece extends CollisionHull { axes: Vec[]; projections: number[][] }
 interface BoundaryGeometry {
   x: number; y: number; w: number; h: number
-  polygon: number[]; profile: number[]; points: Vec[]; edges?: BoundaryEdge[]
+  polygon: number[]; profile: number[]; points: Vec[]; edges?: BoundaryEdge[]; nearest?: number
+  parts?: Vec[][]; collision?: CollisionPiece[]
 }
 const boundaries = new WeakMap<Platform, BoundaryGeometry>()
 const sameOutline = (outline: Platform['polygon'], saved: number[]) => (outline?.length ?? 0) * 2 === saved.length
@@ -39,8 +43,8 @@ function boundaryEdges(geometry: BoundaryGeometry) {
   })
 }
 function onSegment(p: Vec, a: Vec, b: Vec) {
-  return Math.abs(cross(a, b, p)) < EPS && p[0] >= Math.min(a[0], b[0]) - EPS && p[0] <= Math.max(a[0], b[0]) + EPS
-    && p[1] >= Math.min(a[1], b[1]) - EPS && p[1] <= Math.max(a[1], b[1]) + EPS
+  return p[0] >= Math.min(a[0], b[0]) - EPS && p[0] <= Math.max(a[0], b[0]) + EPS
+    && p[1] >= Math.min(a[1], b[1]) - EPS && p[1] <= Math.max(a[1], b[1]) + EPS && Math.abs(cross(a, b, p)) < EPS
 }
 export function validPolygon(points: readonly Vec[]) {
   if (points.length < 3 || points.length > 64 || Math.abs(polygonArea(points)) < 1) return false
@@ -58,18 +62,18 @@ export function validPolygon(points: readonly Vec[]) {
 }
 export function pointInside(b: Platform, x: number, y: number) {
   if (x < b.x || x > b.x + b.w || y < b.y || y > b.y + b.h) return false
-  const points = boundaryGeometry(b).points; let inside = false
+  const points = boundaryGeometry(b).points, point: Vec = [x, y]; let inside = false
   for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
     const a = points[i], c = points[j]
-    if (onSegment([x, y], a, c)) return true
+    if (onSegment(point, a, c)) return true
     if ((a[1] > y) !== (c[1] > y) && x < (c[0] - a[0]) * (y - a[1]) / (c[1] - a[1]) + a[0]) inside = !inside
   }
   return inside
 }
-const cache = new WeakMap<Platform, Vec[][]>()
 /** Convex pieces keep collision faithful to concave outlines and undercuts. */
 function parts(b: Platform): Vec[][] {
-  const saved = cache.get(b); if (saved) return saved
+  const geometry = boundaryGeometry(b)
+  if (geometry.parts) return geometry.parts
   const points = polygonPoints(b), result: Vec[][] = []
   if (points.every((p, i) => cross(points[(i + points.length - 1) % points.length], p, points[(i + 1) % points.length]) >= -EPS)) result.push(points)
   else {
@@ -86,7 +90,7 @@ function parts(b: Platform): Vec[][] {
     }
     if (remaining.length === 3) result.push(remaining)
   }
-  cache.set(b, result); return result
+  geometry.parts = result; return result
 }
 const cornerCache = new WeakMap<Platform, Map<string, Platform[]>>()
 /** Keep solids above or outside a ledge while its authored climb clears the supporting corner. */
@@ -120,6 +124,27 @@ function axes(points: readonly Vec[]) {
     return [(b[1] - a[1]) / length, (a[0] - b[0]) / length]
   })
 }
+function bounds(points: readonly Vec[]): Bounds {
+  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
+  for (const [x, y] of points) {
+    left = Math.min(left, x); right = Math.max(right, x)
+    top = Math.min(top, y); bottom = Math.max(bottom, y)
+  }
+  return { left, right, top, bottom }
+}
+/** A concave platform's overall bounds can cover large empty pits. Retain each
+ * convex piece's bounds and separating axes, and test only reachable pieces. */
+function collisionParts(b: Platform) {
+  const geometry = boundaryGeometry(b)
+  return geometry.collision ??= parts(b).map(points => {
+    const normals = axes(points)
+    return { points, bounds: bounds(points), axes: normals, projections: normals.map(axis => interval(points, axis)) }
+  })
+}
+function separated(a: Bounds, b: Bounds, dx = 0, dy = 0) {
+  return a.right + Math.max(0, dx) < b.left - EPS || a.left + Math.min(0, dx) > b.right + EPS
+    || a.bottom + Math.max(0, dy) < b.top - EPS || a.top + Math.min(0, dy) > b.bottom + EPS
+}
 const dot = (a: Vec, b: Vec) => a[0] * b[0] + a[1] * b[1]
 const interval = (points: readonly Vec[], axis: Vec) => {
   let min = Infinity, max = -Infinity
@@ -140,10 +165,13 @@ export function bodyPolygon(x: number, y: number, height: number, orientation = 
   const hull = points.map(([px, py]) => [x + px * cos - py * orientation * sin, y + px * sin + py * orientation * cos] as Vec)
   return orientation < 0 ? hull.reverse() : hull
 }
-function penetration(a: readonly Vec[], b: readonly Vec[]) {
+function penetration(a: CollisionHull, b: CollisionPiece) {
+  if (separated(a.bounds, b.bounds)) return null
+  const normals = a.axes ??= axes(a.points)
   let depth = Infinity, normal: Vec = [0, -1]
-  for (const axis of [...axes(a), ...axes(b)]) {
-    const [amin, amax] = interval(a, axis), [bmin, bmax] = interval(b, axis)
+  for (let i = 0; i < normals.length + b.axes.length; i++) {
+    const axis = i < normals.length ? normals[i] : b.axes[i - normals.length]
+    const [amin, amax] = interval(a.points, axis), [bmin, bmax] = i < normals.length ? interval(b.points, axis) : b.projections[i - normals.length]
     if (amax <= bmin + EPS || amin >= bmax - EPS) return null
     const low = amax - bmin, high = bmax - amin
     if (Math.min(low, high) < depth) { depth = Math.min(low, high); normal = low < high ? [-axis[0], -axis[1]] : axis }
@@ -153,13 +181,16 @@ function penetration(a: readonly Vec[], b: readonly Vec[]) {
 export function bodyIntersects(x: number, y: number, b: Platform, height = 62, orientation = 1, angle = 0) {
   if (orientation < 0 || angle) return polygonIntersects(bodyPolygon(x, y, height, orientation, angle), b)
   if (x + 12 <= b.x || x - 12 >= b.x + b.w || y <= b.y || y - height >= b.y + b.h) return false
-  const hull = bodyPolygon(x, y, height)
-  return parts(b).some(piece => penetration(hull, piece) !== null)
+  const points = bodyPolygon(x, y, height), hull = { points, bounds: bounds(points) }
+  return collisionParts(b).some(piece => penetration(hull, piece) !== null)
 }
-function sweep(a: readonly Vec[], b: readonly Vec[], delta: Vec) {
+function sweep(a: CollisionHull, b: CollisionPiece, delta: Vec) {
+  if (separated(a.bounds, b.bounds, delta[0], delta[1])) return null
+  const normals = a.axes ??= a.points.length > 1 ? axes(a.points) : []
   let enter = -Infinity, exit = Infinity, normal: Vec = [0, -1]
-  for (const axis of [...(a.length > 1 ? axes(a) : []), ...axes(b)]) {
-    const [amin, amax] = interval(a, axis), [bmin, bmax] = interval(b, axis), speed = dot(delta, axis)
+  for (let i = 0; i < normals.length + b.axes.length; i++) {
+    const axis = i < normals.length ? normals[i] : b.axes[i - normals.length]
+    const [amin, amax] = interval(a.points, axis), [bmin, bmax] = i < normals.length ? interval(b.points, axis) : b.projections[i - normals.length], speed = dot(delta, axis)
     if (Math.abs(speed) < EPS) { if (amax <= bmin + EPS || amin >= bmax - EPS) return null; continue }
     const t0 = (bmin - amax) / speed, t1 = (bmax - amin) / speed, first = Math.min(t0, t1)
     if (first > enter) { enter = first; normal = speed > 0 ? [-axis[0], -axis[1]] : axis }
@@ -178,8 +209,9 @@ export function movePoint(from: Vec, to: Vec, terrain: readonly Platform[], clea
     && Math.max(y, to[1]) + clearance >= b.y && Math.min(y, to[1]) - clearance <= b.y + b.h)
   for (let pass = 0; pass < 4 && Math.hypot(dx, dy) > EPS; pass++) {
     let first: { time: number; normal: Vec } | null = null
-    for (const b of nearby) for (const piece of parts(b)) {
-      const hit = sweep([[x, y]], piece, [dx, dy])
+    const hull = { points: [[x, y]] as Vec[], bounds: { left: x, right: x, top: y, bottom: y } }
+    for (const b of nearby) for (const piece of collisionParts(b)) {
+      const hit = sweep(hull, piece, [dx, dy])
       if (hit && (!first || hit.time < first.time)) first = hit
     }
     if (!first) { x += dx; y += dy; break }
@@ -199,9 +231,9 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
   const nearby = terrain.filter(b => Math.max(x, to[0]) + extent >= b.x && Math.min(x, to[0]) - extent <= b.x + b.w
     && Math.max(y, to[1]) + (angle || orientation < 0 ? height : 0) >= b.y && Math.min(y, to[1]) - (angle || orientation > 0 ? height : 0) <= b.y + b.h)
   for (let pass = 0; pass < 12; pass++) {
-    const hull = bodyPolygon(x, y, height, orientation, angle)
+    const points = bodyPolygon(x, y, height, orientation, angle), hull = { points, bounds: bounds(points) }
     let stuck: { depth: number; normal: Vec; platform: Platform } | null = null
-    for (const b of nearby) for (const piece of parts(b)) {
+    for (const b of nearby) for (const piece of collisionParts(b)) {
       const hit = penetration(hull, piece)
       if (hit && (!stuck || hit.depth < stuck.depth)) stuck = { ...hit, platform: b }
     }
@@ -210,9 +242,9 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
     contacts.push(stuck)
   }
   for (let pass = 0; pass < 8 && Math.hypot(dx, dy) > EPS; pass++) {
-    const hull = bodyPolygon(x, y, height, orientation, angle)
+    const points = bodyPolygon(x, y, height, orientation, angle), hull = { points, bounds: bounds(points) }
     let first: { time: number; normal: Vec; platform: Platform } | null = null
-    for (const b of nearby) for (const piece of parts(b)) {
+    for (const b of nearby) for (const piece of collisionParts(b)) {
       const hit = sweep(hull, piece, [dx, dy])
       if (hit && (!first || hit.time < first.time)) first = { ...hit, platform: b }
     }
@@ -226,8 +258,23 @@ export function moveBody(from: Vec, to: Vec, terrain: readonly Platform[], heigh
   return { x, y, contacts }
 }
 export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec) {
+  const geometry = boundaryGeometry(b), edges = boundaryEdges(geometry)
+  const hint = !normal && edges.length ? geometry.nearest ?? 0 : -1
   let best = { x, y, distance: Infinity, nx: 0, ny: -1 }
-  for (const { a, dx, dy, squared, nx, ny } of boundaryEdges(boundaryGeometry(b))) {
+  let bestIndex = Infinity
+  // Adjacent rope particles usually meet the same face. Its exact distance is
+  // an upper bound, so distant faces can be rejected before a square root.
+  // Still visit every edge and preserve the original first-edge tie policy.
+  if (hint >= 0) {
+    bestIndex = hint
+    const { a, dx, dy, squared, nx, ny } = edges[bestIndex]
+    const t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / squared))
+    const px = a[0] + dx * t, py = a[1] + dy * t
+    best = { x: px, y: py, distance: Math.hypot(px - x, py - y), nx, ny }
+  }
+  for (let i = 0; i < edges.length; i++) {
+    if (i === hint) continue // Its exact distance was already tested above.
+    const { a, dx, dy, squared, nx, ny } = edges[i]
     // A collision query must keep a face that can supply its separating normal.
     // The midpoint of a tall body's side can lie above a short box: a tiny
     // overlap must not relabel that side contact as the box's walkable top.
@@ -241,20 +288,20 @@ export function nearestBoundary(b: Platform, x: number, y: number, normal?: Vec)
     // Adjacent faces can share the contact point. Prefer the face that supplied
     // the collision normal instead of depending on vertex order or roundoff.
     const tied = normal && Math.abs(distance - best.distance) < 1e-5
-    if (tied ? nx * normal[0] + ny * normal[1] > best.nx * normal[0] + best.ny * normal[1] : distance < best.distance)
-      best = { x: px, y: py, distance, nx, ny }
+    if (tied ? nx * normal[0] + ny * normal[1] > best.nx * normal[0] + best.ny * normal[1]
+      : distance < best.distance || !normal && distance === best.distance && i < bestIndex) {
+      best = { x: px, y: py, distance, nx, ny }; bestIndex = i
+    }
   }
+  if (!normal && bestIndex !== Infinity) geometry.nearest = bestIndex
   return best
 }
 export { parts as convexParts }
 export function polygonIntersects(hull: readonly Vec[], terrain: Platform, tolerance = 0) {
-  let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
-  for (const [x, y] of hull) {
-    left = Math.min(left, x); right = Math.max(right, x)
-    top = Math.min(top, y); bottom = Math.max(bottom, y)
-  }
+  const hullBounds = bounds(hull), { left, right, top, bottom } = hullBounds
   if (right <= terrain.x || left >= terrain.x + terrain.w || bottom <= terrain.y || top >= terrain.y + terrain.h) return false
-  return parts(terrain).some(piece => (penetration(hull, piece)?.depth ?? 0) > tolerance)
+  const prepared = { points: hull, bounds: hullBounds }
+  return collisionParts(terrain).some(piece => (penetration(prepared, piece)?.depth ?? 0) > tolerance)
 }
 /** Locate the face at the part of the hull that actually made contact. At a
  * concave corner, the face nearest the feet can differ from the blocking face. */

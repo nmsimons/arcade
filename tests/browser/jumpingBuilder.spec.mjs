@@ -43,8 +43,12 @@ async function open(page, level) {
       this.canvas.builderLabels?.push(String(value))
       if (['#718074', '#94433f'].includes(this.fillStyle)) {
         const t = this.getTransform()
-        this.canvas.wallTexts?.push({ text: value, x, y, color: this.fillStyle, font: this.font, rotation: Math.atan2(t.b, t.a) * 180 / Math.PI,
-          screenX: x * t.a + y * t.c + t.e, screenY: x * t.b + y * t.d + t.f })
+        const local = this.canvas.jumpCamera?.inverse().multiply(t) ?? t
+        const fontSize = Number(this.font.match(/([\d.]+)px/)?.[1]) * Math.hypot(local.c, local.d)
+        // Compare authored font sizes across the editor and gameplay zooms.
+        const font = this.font.replace(/[\d.]+px/, `${Math.round(fontSize * 1000) / 1000}px`)
+        this.canvas.wallTexts?.push({ text: value, x, y, color: this.fillStyle, font, rotation: Math.atan2(t.b, t.a) * 180 / Math.PI,
+          fontSize, screenX: x * t.a + y * t.c + t.e, screenY: x * t.b + y * t.d + t.f })
       }
       return text.call(this, value, x, y, ...rest)
     }
@@ -1332,7 +1336,7 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
   await page.clock.runFor(350)
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Press Jump to jump')
+  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('Tap Jump for a short jump; hold it briefly after takeoff to jump higher.')
   await expect(page.getByRole('region', { name: 'How to play' })).toContainText(controller ? 'B / ○' : 'X')
   await page.getByRole('button', { name: 'Back', exact: true }).click()
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(64)
@@ -1668,7 +1672,7 @@ test('mechanism travel, climbable dimensions, spotlight angles and text settings
   await spread.fill('120'); await expectHandle(page, { x: 700 + radius * Math.cos(Math.PI / 6), y: 300 + radius / 2 }); await spread.press('Enter')
   await selectBuilderObject(page, 'text:0')
   const font = page.getByRole('spinbutton', { name: 'Text font size', exact: true }), rotation = page.getByRole('spinbutton', { name: 'Text rotation', exact: true })
-  await font.fill('48'); await expect.poll(() => canvas.evaluate(c => c.wallTexts[0]?.font)).toContain('48px')
+  await font.fill('48'); await expect.poll(() => canvas.evaluate(c => c.wallTexts[0]?.fontSize)).toBeCloseTo(48, 3)
   await font.press('Tab')
   await rotation.fill('45'); await expect.poll(() => canvas.evaluate(c => Math.round(c.wallTexts[0]?.rotation))).toBe(45)
   await rotation.press('Escape'); await expect.poll(() => canvas.evaluate(c => Math.round(c.wallTexts[0]?.rotation))).toBe(0)

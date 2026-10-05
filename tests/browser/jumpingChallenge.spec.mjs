@@ -6,6 +6,7 @@ import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { installDigitalClockSpy, wallTimeFromHud } from './helpers/digitalClock.mjs'
 import { ropeSlope, slopedLip } from '../helpers/rope-slope.mjs'
 import { daylightInkPalette } from './helpers/jumpingLighting.mjs'
+import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 
 async function setup(page, lesson = 0, levels = CAMPAIGN) {
   await useLevelFixtures(page, levels)
@@ -50,10 +51,11 @@ async function enter(page) {
 async function launch(page) {
   await page.keyboard.down('d')
   for (let i = 0; i < 150 && (await position(page)).x < 533; i++) await page.clock.runFor(16)
-  await page.keyboard.press('Space'); await page.keyboard.down('w')
+  await page.keyboard.down('Space'); await page.keyboard.down('w')
+  await page.clock.runFor(200); await page.keyboard.up('Space')
 }
 async function finishFirst(page) {
-  await launch(page); await page.clock.runFor(4000); await page.keyboard.up('d'); await page.keyboard.up('w')
+  await launch(page); await advanceJumpingSimulation(page, 4000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
 }
 
@@ -68,9 +70,9 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   // Advancing the virtual clock still renders every frame on the CI runner.
   test.setTimeout(60000)
   await setup(page); await enter(page)
-  await page.clock.runFor(1500); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  await advanceJumpingSimulation(page, 1500); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')
-  await page.keyboard.press('Escape'); await page.clock.runFor(5000)
+  await page.keyboard.press('Escape'); await page.clock.fastForward(5000)
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(100)
   expect(await page.getByTestId('level-time').innerText()).toMatch(/^0:00\./)
   await page.clock.runFor(300)
@@ -144,10 +146,11 @@ for (const lesson of [1, 2]) test(`lesson ${lesson + 1} can be completed with ${
     expect(forward).toBe(true)
     await page.keyboard.up('a'); await page.keyboard.up('d')
     await page.screenshot({ path: info.outputPath(`lesson-${lesson + 1}-rope-${rope + 1}.png`) })
-    await page.keyboard.press('Space'); await page.clock.runFor(32)
-    await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(160)
+    await page.keyboard.down('Space'); await page.clock.runFor(32)
+    await page.keyboard.down('d'); await page.keyboard.down('w'); await page.clock.runFor(68)
+    await page.keyboard.up('Space'); await page.clock.runFor(92)
   }
-  await page.clock.runFor(5000); await page.keyboard.up('d'); await page.keyboard.up('w')
+  await advanceJumpingSimulation(page, 5000); await page.keyboard.up('d'); await page.keyboard.up('w')
   await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
   expect(await page.getByText(/^(Gold|Silver|Bronze) medal$/).count()).toBe(1)
 })
@@ -192,7 +195,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   await page.clock.runFor(2400)
   expect((await position(page)).y).toBeCloseTo(920)
   expect((await position(page)).x).toBeGreaterThan(850)
-  await jump(true, 32); await jump(false, 408)
+  await jump(true, 200); await jump(false, 240)
   const before = await position(page)
   expect(before.y).toBeLessThan(815)
   expect(before.x).toBeCloseTo(868)
@@ -398,7 +401,8 @@ for (const anchor of ['summit', 'shoulder']) test(`Up climbs a rope draped over 
   // The full rope simulation can render slower than real time on shared runners.
   test.setTimeout(60000)
   await setup(page, 0, [ropeSlope(false, { anchor, length: anchor === 'shoulder' ? 180 : 380 })]); await enter(page)
-  await page.keyboard.down('d'); await page.keyboard.press('Space'); await page.keyboard.down('w')
+  await page.keyboard.down('d'); await page.keyboard.down('Space'); await page.keyboard.down('w')
+  await page.clock.runFor(200); await page.keyboard.up('Space')
   for (let i = 0; i < 70 && !(await page.locator('.jumping-state').innerText()).startsWith('Rope'); i++) await page.clock.runFor(16)
   await page.keyboard.up('d')
   await expect(page.locator('.jumping-state')).toContainText('Rope')
@@ -641,8 +645,9 @@ test('Up climbs a narrow post joined to a platform above a closed gate', async (
   level.platforms = [{ x: 600, y: 500, w: 20, h: 80 }, { x: 620, y: 500, w: 280, h: 20 }]
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: 600, y: 580, w: 20, h: 80, travel: 80 }]
   await setup(page, 0, [level]); await enter(page)
-  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.press('Space')
-  await page.clock.runFor(900); await page.keyboard.up('d'); await page.keyboard.up('Shift')
+  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.down('Space')
+  await page.clock.runFor(100); await page.keyboard.up('Space')
+  await page.clock.runFor(800); await page.keyboard.up('d'); await page.keyboard.up('Shift')
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   const hanging = await position(page)
   expect(hanging.x).toBeCloseTo(586); expect(hanging.y).toBeCloseTo(574)
@@ -657,8 +662,9 @@ test('a player can jump to a large box, hang, and climb onto its flat top', asyn
   const level = blankTrial(); level.name = 'Box ledge'; level.spawn = { x: 370, y: 920 }
   level.props = [{ kind: 'box', x: 500, y: 920, size: 160 }]
   await setup(page, 0, [level]); await enter(page)
-  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.press('Space')
-  await page.clock.runFor(900); await page.keyboard.up('d'); await page.keyboard.up('Shift')
+  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.down('Space')
+  await page.clock.runFor(100); await page.keyboard.up('Space')
+  await page.clock.runFor(800); await page.keyboard.up('d'); await page.keyboard.up('Shift')
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   await page.clock.runFor(1000)
   const hanging = await position(page)

@@ -33,7 +33,7 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   const canvas = page.getByRole('img', { name: 'Resisted pull-up: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
-  await page.keyboard.down('Space'); await page.clock.runFor(100); await page.keyboard.up('Space')
+  await page.keyboard.down('Space'); await page.clock.runFor(64); await page.keyboard.up('Space')
   await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d')
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   await canvas.evaluate(c => { c.climbFrames = [] })

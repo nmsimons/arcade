@@ -69,27 +69,28 @@ export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
     ctx.translate(-text.w / 2, -text.h / 2)
     ctx.beginPath(); ctx.rect(0, 0, text.w, text.h); ctx.clip()
     const graffiti = text.style === 'graffiti'
-    const font = graffiti ? `400 ${text.fontSize}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize}px ${WALL_TEXT_FONT}`
     const transform = ctx.getTransform(), scale = Math.hypot(transform.c, transform.d) || 1
+    const font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize * scale}px ${WALL_TEXT_FONT}`
     ctx.font = font
     ctx.fillStyle = graffiti ? nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR : WALL_TEXT_COLOR; ctx.textAlign = text.align; ctx.textBaseline = 'alphabetic'
     let layout = layouts.get(text)
     if (!layout || layout.text !== text.text || layout.width !== text.w || layout.font !== font || layout.scale !== scale) {
       // Safari's top baseline includes extra font ascent. Anchor to measured ink
       // instead, retaining the established capital-letter inset for each style.
-      // Font hinting rounds differently at the actual raster size. Measure that
-      // size and convert back to world units, including canvas pixel density.
-      ctx.font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize * scale}px ${WALL_TEXT_FONT}`
+      // Font hinting changes with size. Measure and draw the same pixel-sized
+      // font, converting its layout back to world units for wrapping and zoom.
       const ascent = ctx.measureText('M').actualBoundingBoxAscent / scale
-      ctx.font = font
       const baseline = ascent + text.fontSize * (graffiti ? 1 / 3 : .25)
-      layout = { text: text.text, width: text.w, font, scale, lines: wallTextLines(text.text, text.w, value => ctx.measureText(value).width), baseline }
+      layout = { text: text.text, width: text.w, font, scale, lines: wallTextLines(text.text, text.w, value => ctx.measureText(value).width / scale), baseline }
       layouts.set(text, layout)
     }
     const x = text.align === 'center' ? text.w / 2 : text.align === 'right' ? text.w : 0
     const lineHeight = text.fontSize * WALL_TEXT_LINE_HEIGHT
+    // Avoid measuring a large hinted font then stretching a differently hinted
+    // small font. Keep rotation and the existing world-space clip intact.
+    ctx.scale(1 / scale, 1 / scale)
     for (let i = 0; i < layout.lines.length && i * lineHeight < text.h; i++) {
-      ctx.fillText(layout.lines[i], x, i * lineHeight + layout.baseline)
+      ctx.fillText(layout.lines[i], x * scale, (i * lineHeight + layout.baseline) * scale)
     }
     ctx.restore()
   }

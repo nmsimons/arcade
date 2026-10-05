@@ -62,7 +62,32 @@ export function wallTextLines(text: string, width: number, measure: (text: strin
 }
 
 let layouts = new WeakMap<WallText, { text: string; width: number; font: string; scale: number; lines: string[]; baseline: number }>()
-export function clearWallTextLayouts() { layouts = new WeakMap() }
+const capitalAscents = new Map<string, number>()
+export function clearWallTextLayouts() { layouts = new WeakMap(); capitalAscents.clear() }
+function capitalAscent(ctx: CanvasRenderingContext2D, font: string, size: number) {
+  const saved = capitalAscents.get(font)
+  if (saved !== undefined) return saved
+  const metrics = ctx.measureText('M')
+  let ascent = metrics.actualBoundingBoxAscent
+  // Some font rasterizers report an outline ascent several pixels above the
+  // visible capital. Calibrate once on a small scratch canvas, never by reading
+  // the game canvas or scanning text on every frame. Bound both memory and cache.
+  const width = Math.ceil(metrics.width + 8), height = Math.ceil(size * 2 + 8)
+  if (typeof document !== 'undefined' && width * height <= 1_000_000) {
+    const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height
+    const sample = canvas.getContext('2d', { willReadFrequently: true })!
+    const baseline = Math.ceil(size * 1.5) + 4
+    sample.font = font; sample.textBaseline = 'alphabetic'; sample.fillText('M', 4, baseline)
+    const pixels = sample.getImageData(0, 0, width, height).data
+    ink: for (let y = 0; y < height; y++) for (let x = 0; x < width; x++) if (pixels[(y * width + x) * 4 + 3] > 100) {
+      ascent = baseline - y; break ink
+    }
+    canvas.width = canvas.height = 0
+  }
+  if (capitalAscents.size >= 64) capitalAscents.delete(capitalAscents.keys().next().value!)
+  capitalAscents.set(font, ascent)
+  return ascent
+}
 export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false) {
   for (const text of texts) {
     ctx.save(); ctx.translate(text.x + text.w / 2, text.y + text.h / 2); ctx.rotate((text.rotation ?? 0) * Math.PI / 180)
@@ -79,7 +104,7 @@ export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
       // instead, retaining the established capital-letter inset for each style.
       // Font hinting changes with size. Measure and draw the same pixel-sized
       // font, converting its layout back to world units for wrapping and zoom.
-      const ascent = ctx.measureText('M').actualBoundingBoxAscent / scale
+      const ascent = capitalAscent(ctx, font, text.fontSize * scale) / scale
       const baseline = ascent + text.fontSize * (graffiti ? 1 / 3 : .25)
       layout = { text: text.text, width: text.w, font, scale, lines: wallTextLines(text.text, text.w, value => ctx.measureText(value).width / scale), baseline }
       layouts.set(text, layout)

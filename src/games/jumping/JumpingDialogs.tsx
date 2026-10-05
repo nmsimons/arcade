@@ -44,7 +44,7 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
               <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
               {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
             </dl>
-            <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Press Jump to jump, including from ledges, ropes, ladders, walls, and slopes. Push the stick farther for a stronger jump; Up jumps higher. Running carries you farther.</p>
+            <p>Ledges and ropes catch automatically. Press Up to pull up from a ledge. Tap Jump for a short jump; hold it briefly after takeoff to jump higher. Release to stop adding lift. This also works from ledges, ropes, ladders, walls, and slopes. Running carries you farther.</p>
             </>}
           </section>
           <nav className="jumping-dialog-actions jumping-controls-actions" aria-label="Controls actions">

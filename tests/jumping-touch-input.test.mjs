@@ -17,7 +17,7 @@ test('a tap waits for release, survives between frames and launches once at base
   touch.up(1, 500, 240, 60)
   advance(run, touch, 80, 1400)
   assert.equal(run.player.grounded, true)
-  assert.ok(run.player.bestHeight > 70 && run.player.bestHeight < 90, run.player.bestHeight)
+  assert.ok(run.player.bestHeight > 45 && run.player.bestHeight < 55, run.player.bestHeight)
   assert.equal(touch.sample(1500).jump, false)
 })
 
@@ -61,7 +61,7 @@ test('running tap and running upward flick have distinct heights without losing 
     assert.equal(touch.has(1), true)
     heights.push(run.player.bestHeight)
   }
-  assert.ok(heights[0] > 70 && heights[0] < 90, heights)
+  assert.ok(heights[0] > 45 && heights[0] < 55, heights)
   assert.ok(heights[1] > 190 && heights[1] < 220, heights)
 })
 

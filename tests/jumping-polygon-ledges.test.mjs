@@ -53,7 +53,7 @@ test('an upward jump can catch an inset cap in ordinary play', () => {
     const terrain = [tower, { x: 0, y: 320, w: 800, h: 100 }]
     let caught = false
     for (let i = 0; i < 400 && !caught; i++) {
-      tick(p, terrain, { jump: i === 0, jumpStrength: .7, move: side })
+      tick(p, terrain, { jump: i < 18, move: side })
       caught = !!p.hang
     }
     assert.ok(caught, `jump reaches the cap from side ${side}`)
@@ -101,16 +101,16 @@ test('a pointed ramp with an inward-slanting face offers an exposed grip on eith
 
 test('tap and partial jumps catch an inward-slanting face during ordinary movement', () => {
   const outline = [[0,200],[40,200],[220,100],[200,200],[420,200],[420,240],[0,240]]
-  for (const side of [-1, 1]) for (const chargeFrames of [1, 6, 12]) {
+  for (const side of [-1, 1]) for (const holdFrames of [1, 4, 8]) {
     const terrain = [{ x: 100, y: 100, w: 420, h: 240,
       polygon: outline.map(([x, y]) => [side === -1 ? x : 420 - x, y]) }]
     const edgeX = side === -1 ? 320 : 300, p = createPlayer({ x: edgeX - side * 14, y: 300 })
     p.facing = side
     for (let i = 0; i < 180 && !p.hang; i++) {
-      tick(p, terrain, { jump: i < chargeFrames, move: i >= chargeFrames ? side : 0 })
+      tick(p, terrain, { jump: i < holdFrames, move: i >= holdFrames ? side : 0 })
       assert.ok(!bodyIntersects(p.x, p.y, terrain[0]), 'the catch never pulls the body through the slanted face')
     }
-    assert.ok(p.hang, `catch from a ${chargeFrames}-frame jump on side ${side}`)
+    assert.ok(p.hang, `catch from a ${holdFrames}-frame jump on side ${side}`)
     for (let i = 0; i < 90; i++) tick(p, terrain)
     assert.ok(p.hang && !bodyIntersects(p.x, p.y, terrain[0]), 'the hanging pose stays clear')
     climbOnto(p, terrain, edgeX + side * 20, 200 + 20 * 100 / 180)

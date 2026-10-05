@@ -759,24 +759,9 @@
     "silver": 5,
     "bronze": 15
   },
-  "props": [
-    {
-      "kind": "ball",
-      "x": 58,
-      "y": 88,
-      "size": 68
-    }
-  ],
+  "props": [],
   "mechanisms": [],
-  "triggers": [
-    {
-      "x": 24,
-      "y": 1200,
-      "w": 100,
-      "targets": [],
-      "mode": "touch"
-    }
-  ],
+  "triggers": [],
   "robots": [],
   "timers": [
     {

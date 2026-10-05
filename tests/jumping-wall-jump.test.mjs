@@ -135,7 +135,7 @@ test('a kick respects ceilings, and landing and respawn clear its impulse', () =
   assert.equal(p.vx, 0)
 })
 
-test('wall jumps use fixed strength on press regardless of steering', () => {
+test('wall jumps start at the same strength regardless of steering, then a hold adds lift', () => {
   for (const side of [-1, 1]) for (const move of [-1, 0, 1]) {
     const p = airborne({ x: side === 1 ? 338 : 462, y: 200, facing: side, vy: 0 })
     advance(p, STEP)
@@ -143,6 +143,31 @@ test('wall jumps use fixed strength on press regardless of steering', () => {
     assert.ok(p.wallJump); assert.equal(p.vx, -side * TUNING.wallJumpPush)
     assert.ok(Math.abs(p.vy + TUNING.wallJumpSpeed - TUNING.gravity * STEP) < 1e-6)
     const vy = p.vy
-    advance(p, STEP, { jump: true, move }); assert.ok(p.vy > vy, 'holding cannot add another impulse')
+    advance(p, STEP, { jump: true, move })
+    assert.ok(p.vy < vy + TUNING.gravity * STEP, 'holding adds bounded lift after takeoff')
+  }
+})
+
+test('wall holds build modest extra height, cap at full strength, and end permanently on release', () => {
+  for (const side of [-1, 1]) {
+    const jump = (hold, repress = false, strength) => {
+      const p = airborne({ x: side === 1 ? 338 : 462, y: 200, facing: side, vy: 0 })
+      advance(p, STEP)
+      p.bestHeight = 0
+      advance(p, STEP, { jump: true, jumpStrength: strength })
+      assert.equal(p.vx, -side * TUNING.wallJumpPush)
+      advance(p, hold, { jump: true, jumpStrength: strength })
+      advance(p, STEP)
+      assert.equal(p.jumpLift, null)
+      advance(p, 1.5, { jump: repress })
+      return p.bestHeight
+    }
+    const tap = jump(0), partial = jump(.08), full = jump(.2), preset = jump(0, false, 1)
+    assert.ok(tap > 75 && tap < 85, tap)
+    assert.ok(tap < partial && partial < full)
+    assert.ok(full > 108 && full < 118, full)
+    assert.equal(full, jump(.8))
+    assert.ok(full <= preset && preset - full < 1)
+    assert.equal(partial, jump(.08, true), 'a later airborne press cannot restart lift')
   }
 })

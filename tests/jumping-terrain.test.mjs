@@ -94,7 +94,7 @@ test('jumps release slope support immediately and land on the surface from eithe
     for (let i = 0; i < 200 && !p.grounded; i++) {
       advance(p, STEP, { move: direction * .35 }); rise = Math.max(rise, launchY - p.y)
     }
-    const speed = jumpSpeed(.35), ballisticHeight = speed ** 2 / (2 * TUNING.gravity)
+    const speed = jumpSpeed(0), ballisticHeight = speed ** 2 / (2 * TUNING.gravity)
     assert.ok(rise > ballisticHeight - 2 * speed * STEP && rise < ballisticHeight); assert.ok(p.grounded)
     assert.ok(Math.abs(p.y - groundAt(world, p.x, p.y).y) < 1e-6)
   }

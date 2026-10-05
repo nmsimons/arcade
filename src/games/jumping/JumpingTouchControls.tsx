@@ -2,8 +2,8 @@ import { useEffect, useEffectEvent, useState } from 'react'
 import type { RefObject } from 'react'
 import type { JumpTouch, TouchFeedback } from './touchInput'
 
-export function JumpingTouchControls({ canvasRef, reader, active, onTouch, onPause }: {
-  canvasRef: RefObject<HTMLCanvasElement | null>; reader: JumpTouch; active: boolean
+export function JumpingTouchControls({ canvasRef, reader, active, available, onTouch, onPause }: {
+  canvasRef: RefObject<HTMLCanvasElement | null>; reader: JumpTouch; active: boolean; available: boolean
   onTouch: () => void; onPause: () => void
 }) {
   const [feedback, setFeedback] = useState<TouchFeedback[]>([])
@@ -61,7 +61,7 @@ export function JumpingTouchControls({ canvasRef, reader, active, onTouch, onPau
     }
   }, [active, canvasRef, reader])
   return active && <>
-    <button className="jumping-touch-pause" aria-label="Pause game" onClick={onPause}>Pause</button>
+    {available && <button className="jumping-touch-pause" aria-label="Pause game" onClick={onPause}>Pause</button>}
     <div className="jumping-touch-feedback" aria-hidden="true">
       {feedback.map(p => <div className="jumping-touch-contact" key={p.id} style={{ left: p.x, top: p.y }}><span>{p.label}</span></div>)}
     </div>

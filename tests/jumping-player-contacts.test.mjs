@@ -220,7 +220,7 @@ test('a blocked box keeps the solved body and animation still and releases for a
   }
   advance(run, 1, { move: 1, jump: true })
   assert.equal(p.contacts.support, null); assert.equal(p.contacts.push, null); assert.equal(p.pushing, null)
-  assert.ok(p.vy < -600)
+  assert.equal(p.vy, -TUNING.jumpSpeed + TUNING.gravity * STEP)
 })
 
 test('moving support carries planted feet without creating a walking gait', () => {

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createPlayer, stepPlayer, cancelJumpInput, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
+import { createPlayer, stepPlayer, cancelJumpInput, NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { bodyIntersects, pointInside, nearestBoundary } from '../src/games/jumping/geometry.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { staticContactWorld, translatePlayer } from '../src/games/jumping/playerContacts.ts'
@@ -53,7 +53,7 @@ test('ledges above three tiles retain deliberate jumping', () => {
   assert.equal(approach(p, terrain), false)
   assert.equal(p.y, 0)
   tick(p, terrain, { move: 1, jump: true })
-  assert.ok(p.vy < -500 && !p.grounded)
+  assert.ok(p.vy < -TUNING.jumpSpeed * .9 && !p.grounded)
 })
 
 test('two and three tile mantles need the same sustained push and climb time, while one tile steps remain immediate', () => {

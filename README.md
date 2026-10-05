@@ -541,12 +541,13 @@ area has no title, movement readout, charge meter, or instruction strip.
   movement and use another for actions. The center is neutral for stationary
   holds. Pause opens the gesture reference. Gameplay suppresses browser scrolling,
   zooming, selection and long-press callouts on its canvas.
-- Press A/Cross or Space to jump immediately. Push the stick farther
-  for a stronger jump; Up gives extra height. Running carries you across longer
+- Press A/Cross or Space to jump immediately. Tap for a short jump or hold briefly
+  after takeoff for more height; release to stop adding lift. Running carries you across longer
   gaps. Holding does not charge or repeat a jump.
 - Jumping into a wall braces the hands and feet against its surface while gravity
   carries the player down. Press Space or A/Cross again to jump up and away from
   the wall. The initial push briefly carries you outward, then air steering resumes.
+  Tap for the usual wall jump or hold briefly for a modest height boost.
   Each wall jump needs a fresh press; holding jump does not automatically bounce.
   Air steering makes gradual adjustments to the trajectory while preserving takeoff momentum.
 - Face a nearby ledge in the air to grab automatically. Up/W climbs;

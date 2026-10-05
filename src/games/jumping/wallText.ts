@@ -61,7 +61,7 @@ export function wallTextLines(text: string, width: number, measure: (text: strin
   return lines
 }
 
-let layouts = new WeakMap<WallText, { text: string; width: number; font: string; lines: string[]; baseline: number }>()
+let layouts = new WeakMap<WallText, { text: string; width: number; font: string; scale: number; lines: string[]; baseline: number }>()
 export function clearWallTextLayouts() { layouts = new WeakMap() }
 export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false) {
   for (const text of texts) {
@@ -70,14 +70,20 @@ export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
     ctx.beginPath(); ctx.rect(0, 0, text.w, text.h); ctx.clip()
     const graffiti = text.style === 'graffiti'
     const font = graffiti ? `400 ${text.fontSize}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize}px ${WALL_TEXT_FONT}`
+    const transform = ctx.getTransform(), scale = Math.hypot(transform.c, transform.d) || 1
     ctx.font = font
     ctx.fillStyle = graffiti ? nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR : WALL_TEXT_COLOR; ctx.textAlign = text.align; ctx.textBaseline = 'alphabetic'
     let layout = layouts.get(text)
-    if (!layout || layout.text !== text.text || layout.width !== text.w || layout.font !== font) {
+    if (!layout || layout.text !== text.text || layout.width !== text.w || layout.font !== font || layout.scale !== scale) {
       // Safari's top baseline includes extra font ascent. Anchor to measured ink
       // instead, retaining the established capital-letter inset for each style.
-      const baseline = ctx.measureText('M').actualBoundingBoxAscent + text.fontSize * (graffiti ? 1 / 3 : .25)
-      layout = { text: text.text, width: text.w, font, lines: wallTextLines(text.text, text.w, value => ctx.measureText(value).width), baseline }
+      // Font hinting rounds differently at the actual raster size. Measure that
+      // size and convert back to world units, including canvas pixel density.
+      ctx.font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize * scale}px ${WALL_TEXT_FONT}`
+      const ascent = ctx.measureText('M').actualBoundingBoxAscent / scale
+      ctx.font = font
+      const baseline = ascent + text.fontSize * (graffiti ? 1 / 3 : .25)
+      layout = { text: text.text, width: text.w, font, scale, lines: wallTextLines(text.text, text.w, value => ctx.measureText(value).width), baseline }
       layouts.set(text, layout)
     }
     const x = text.align === 'center' ? text.w / 2 : text.align === 'right' ? text.w : 0

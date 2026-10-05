@@ -37,7 +37,7 @@ test('settling onto a stationary rope cannot supply jump or drop momentum', () =
 test('a running catch keeps real forward momentum without the early-release speed spike', () => {
   const caught = createRun(CAMPAIGN[1])
   for (let i = 0; i < 400 && caught.player.x < 535; i++) stepRun(caught, input({ move: 1 }))
-  stepRun(caught, input({ move: 1, jump: true }))
+  for (let i = 0; i < 24; i++) stepRun(caught, input({ move: 1, jump: true }))
   for (let i = 0; i < 450 && !caught.player.climbing; i++) stepRun(caught, input({ move: 1 }))
   assert.equal(caught.player.climbing?.kind, 'rope')
   for (const frames of [0, 1, 3, 6, 9, 12, 15, 19, 20, 21, 24]) {
@@ -80,7 +80,7 @@ test('settled rope jumps add push-off while letting go retains momentum without 
     const { vx, vy } = released
     tick(released, { move, detach: drop, jump: !drop })
     assert.equal(released.vx, drop ? vx : Math.max(-600, Math.min(600, vx + move * 180)))
-    assert.equal(released.vy, drop ? vy : Math.min(0, vy) - (move ? TUNING.directedJumpSpeed : TUNING.jumpSpeed))
+    assert.equal(released.vy, drop ? vy : Math.min(0, vy) - TUNING.jumpSpeed)
   }
 })
 
@@ -96,7 +96,7 @@ test('rope and ladder jumps launch on press before Up can climb or pull up', () 
     step({ jump: true, climb: true })
     assert.equal(p.climbing, null); assert.equal(p.mantle, null); assert.equal(p.hang, null)
     assert.equal(p.x, x); assert.equal(p.y, y)
-    assert.ok(Math.abs(p.vy - Math.min(0, vy) + TUNING.directedJumpSpeed) < 1e-6)
+    assert.ok(Math.abs(p.vy - Math.min(0, vy) + TUNING.jumpSpeed) < 1e-6)
   }
 })
 

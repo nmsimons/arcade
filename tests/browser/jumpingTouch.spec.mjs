@@ -65,7 +65,7 @@ test('native tap jumps once; an upward flick gives greater height and gameplay s
   await page.touchscreen.tap(426, 240)
   await advance(page, 1300)
   const low = level.spawn.y - await page.evaluate(() => window.touchMinY)
-  expect(low).toBeGreaterThan(70); expect(low).toBeLessThan(95)
+  expect(low).toBeGreaterThan(45); expect(low).toBeLessThan(55)
   expect((await position(page)).y).toBeCloseTo(level.spawn.y, 1)
   await page.evaluate(() => { window.touchMinY = Infinity })
   await flick(page, 1, 1); await advance(page, 1400)

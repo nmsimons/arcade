@@ -16,7 +16,7 @@ import { findRopeStepUp, findStepUp, finishStepFeet, stepUpRoot } from './stepUp
 import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
-import { TUNING, jumpSpeed } from './movementTuning.ts'
+import { TUNING } from './movementTuning.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform, mirrorLadder } from './gravityFrame.ts'
 import { isWeightless, playerGravity, setPlayerGravity } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
@@ -38,7 +38,8 @@ export function gaitPose(vx: number, airborne = false): GaitPose {
 export interface Player {
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
   sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number } | null
-  coyote: number; buffer: number; jumpStrength: number; jumpHeld: boolean
+  coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
+  jumpLift: { elapsed: number; strength: number; entrySpeed: number; extraSpeed: number; fresh: boolean } | null
   grabCooldown: number
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; direction: number; active: boolean; hands: [number, number]; feet: [number, number] } | null
@@ -67,7 +68,7 @@ export interface Player {
 }
 export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
-    coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: 0, jumpHeld: false,
+    coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: undefined, jumpHeld: false, jumpLift: null,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
     freeFall: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false }
@@ -85,7 +86,7 @@ function settleGait(p: Player, dt: number) {
     air: blend(previous.air, target.air, target.air ? .035 : .065) }
 }
 export function cancelJumpInput(p: Player) {
-  p.jumpStrength = 0; p.jumpHeld = false; p.buffer = 0; p.wallJumpBuffer = 0
+  p.jumpStrength = undefined; p.jumpHeld = false; p.jumpLift = null; p.buffer = 0; p.wallJumpBuffer = 0
   if (p.mantle?.step) p.mantle.step.jumpQueued = false
   p.stepIntent = null
 }
@@ -97,12 +98,31 @@ export function respawn(p: Player) {
 }
 const approach = (value: number, target: number, delta: number) => value + Math.max(-delta, Math.min(delta, target - value))
 const overlaps = (x: number, y: number, b: Platform, height: number = TUNING.height) => bodyIntersects(x, y, b, height)
-function launch(p: Player, speed = jumpSpeed(p.jumpStrength)) {
+function launch(p: Player, baseSpeed: number = TUNING.jumpSpeed, maxSpeed: number = TUNING.directedJumpSpeed) {
   p.freeFall = null
-  p.vy = -speed
-  p.grounded = false; p.coyote = 0; p.buffer = 0; p.jumpStrength = 0; p.wallJumpBuffer = 0
+  const extraSpeed = maxSpeed - baseSpeed
+  p.jumpLift = p.jumpStrength === undefined
+    ? { elapsed: 0, strength: 0, entrySpeed: 0, extraSpeed, fresh: true } : null
+  p.vy = -(baseSpeed + extraSpeed * (p.jumpStrength ?? 0))
+  p.grounded = false; p.coyote = 0; p.buffer = 0; p.jumpStrength = undefined; p.wallJumpBuffer = 0
   p.jumpStart = p.y; p.jumpHeight = 0
   if (p.sliding) p.sliding.active = false
+}
+function sustainJump(p: Player, dt: number) {
+  const lift = p.jumpLift
+  if (!lift) return
+  // Capture actual release momentum, including ropes, before the first gravity
+  // step. Takeoff itself always gets the immediate base impulse.
+  if (lift.fresh) { lift.entrySpeed = -p.vy; lift.fresh = false; return }
+  const extraSpeed = lift.extraSpeed
+  const before = lift.entrySpeed + extraSpeed * lift.strength
+  lift.elapsed = Math.min(TUNING.jumpHoldTime, lift.elapsed + dt)
+  lift.strength = lift.elapsed / TUNING.jumpHoldTime
+  const after = lift.entrySpeed + extraSpeed * lift.strength
+  // Spend only the energy difference between the base and full jump. Adding
+  // lift later cannot exceed the old full jump, or discard inherited momentum.
+  p.vy = -Math.sqrt(p.vy * p.vy + after * after - before * before)
+  if (lift.elapsed >= TUNING.jumpHoldTime) p.jumpLift = null
 }
 /** Wall contact follows the exposed outline, including faces inset in a polygon. */
 function touchesWallFace(platforms: readonly Platform[], wallX: number, direction: number, top: number, bottom: number) {
@@ -143,7 +163,7 @@ function tryWallJump(p: Player, platforms: readonly Platform[]) {
   // has removed the contact since the last frame.
   if (Math.abs((brace.wallX - p.x) * brace.direction - TUNING.width / 2) > .15
     || !touchesWallFace(platforms, brace.wallX, brace.direction, p.y - TUNING.height + 8, p.y - 8)) return
-  launch(p, TUNING.wallJumpSpeed)
+  launch(p, TUNING.wallJumpSpeed, TUNING.wallJumpHeldSpeed)
   p.vx = -brace.direction * TUNING.wallJumpPush; p.facing = -brace.direction
   p.wallJump = { direction: -brace.direction, time: 0 }; p.wallJumpBuffer = 0
   p.grabCooldown = .22; p.wallBrace = null; p.pushing = null; p.ledgeReach = null; p.footwork = null
@@ -434,8 +454,11 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const gravity = p.gravity ?? TUNING.gravity
   const stepIntent = p.stepIntent; p.stepIntent = null
   const pressed = input.jump && !p.jumpHeld
-  if (pressed) p.jumpStrength = Math.max(0, Math.min(1, input.jumpStrength ?? Math.hypot(input.move, Number(input.climb))))
+  if (pressed) p.jumpStrength = input.jumpStrength === undefined ? undefined : Math.max(0, Math.min(1, input.jumpStrength))
   p.jumpHeld = input.jump
+  // A release, catch, landing or interrupted ascent permanently ends this
+  // jump's lift. A later airborne press cannot restart it.
+  if (!input.jump || p.grounded || p.hang || p.mantle || p.climbing || p.vy >= 0) p.jumpLift = null
   p.grabCooldown = Math.max(0, p.grabCooldown - dt)
   p.landing = Math.max(0, p.landing - dt / (p.grounded ? .2 + p.landingImpact * .22 : .12))
   p.buffer = pressed ? TUNING.jumpBuffer : Math.max(0, p.buffer - dt)
@@ -829,6 +852,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const before = groundAt(platforms, oldX, oldY, .2)
     if (before) p.vy = p.vx * Math.tan(before.angle)
   }
+  sustainJump(p, dt)
   p.vy = Math.max(-1100, Math.min(1100, p.vy + gravity * dt))
   p.vy *= drag
   p.y += p.vy * dt; p.grounded = false

@@ -90,7 +90,8 @@ test('a real catch settles into wall bracing or a straight hang, then stands wit
     for (let time = 0; time < 3.5; time += STEP) {
       if (p.hang) hangTime += STEP
       const wasClimbing = !!p.mantle
-      stepPlayer(p, { ...NEUTRAL_INPUT, jump: time === 0, jumpStrength: .7, move: hangTime === 0 ? side : 0, climb: time === 0 || hangTime > .65 }, STEP, world)
+      // Keep this pose regression's 710-unit entry impulse independent of control tuning.
+      stepPlayer(p, { ...NEUTRAL_INPUT, jump: time === 0, jumpStrength: .775, move: hangTime === 0 ? side : 0, climb: time === 0 || hangTime > .65 }, STEP, world)
       const pose = athletePose(p), worldPoint = a => [p.x + a[0] * side, p.y + a[1]]
       if (p.hang?.time > .2) {
         didCatch = true; assert.equal(p.hang.braced, braced)
@@ -183,7 +184,7 @@ test('hanging jumps launch on press regardless of direction or Up input', () => 
     const input = { ...NEUTRAL_INPUT, jump: true, move, climb }
     stepPlayer(p, input, STEP, world)
     assert.equal(p.hang, null); assert.equal(p.mantle, null)
-    assert.equal(p.vy, -(move || climb ? TUNING.directedJumpSpeed : TUNING.jumpSpeed)); assert.ok(p.vx * side < 0)
+    assert.equal(p.vy, -TUNING.jumpSpeed); assert.ok(p.vx * side < 0)
     for (let i = 0; i < 12; i++) {
       stepPlayer(p, input, STEP, world)
       assert.equal(p.hang, null); assert.equal(p.mantle, null)

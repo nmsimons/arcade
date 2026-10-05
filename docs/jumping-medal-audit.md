@@ -1,5 +1,13 @@
 # Built-in jumping medal audit
 
+October 5 update: jumping now uses a short tap and a brief post-takeoff hold to
+control height. The maximum height is preserved, but the timings below were
+recorded with the earlier directional-jump controls. A new full medal-time audit
+with variable-height jumping remains unverified; level thresholds are unchanged.
+The historical recordings now store their original jump impulses explicitly for
+mechanism and contact regressions. Those preset replays do not establish times
+for the new tap/hold controls.
+
 October 4, 2026. All 22 levels in the current built-in catalog have a completed
 fresh-start control recording. Seventeen medal sets were revised. The five
 unchanged sets are First Leap, A Little Swing, A Bigger Swing, Boxes, and Nine.

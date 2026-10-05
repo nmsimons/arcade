@@ -213,7 +213,7 @@ test('sliding friction resists gravity and a jump press leaves the slope', () =>
   }
 })
 
-test('a sliding jump launches on press and holding cannot add lift', () => {
+test('a sliding jump launches on press and holding adds lift until release', () => {
   for (const direction of [-1, 1]) {
     const shape = ramp(direction * 55), p = on(shape)
     p.grounded = false; tick(p, shape)
@@ -222,7 +222,10 @@ test('a sliding jump launches on press and holding cannot add lift', () => {
     assert.ok(Math.abs(p.vy + TUNING.jumpSpeed - TUNING.gravity * STEP) < 1e-6)
     const vy = p.vy
     tick(p, shape, { jump: true })
-    assert.ok(Math.abs(p.vy - vy - TUNING.gravity * STEP) < 1e-6)
+    assert.ok(p.vy < vy + TUNING.gravity * STEP)
+    const lifted = p.vy
+    tick(p, shape)
+    assert.ok(Math.abs(p.vy - lifted - TUNING.gravity * STEP) < 1e-6)
   }
 })
 
@@ -246,7 +249,8 @@ test('holding uphill at the base of a steep slope stays supported without vibrat
     }
     stepPlayer(p, { ...NEUTRAL_INPUT, move: direction, jump: true }, STEP, terrain)
     stepPlayer(p, { ...NEUTRAL_INPUT, move: direction }, STEP, terrain)
-    assert.ok(!p.grounded && p.vy < -500, 'floor support must release immediately on jumping')
+    assert.ok(!p.grounded && Math.abs(p.vy + TUNING.jumpSpeed - 2 * TUNING.gravity * STEP) < 1e-6,
+      'floor support must release immediately on jumping')
     assert.ok(!terrain.some(b => bodyIntersects(p.x, p.y, b)))
   }
 })
@@ -283,6 +287,7 @@ test('a gentle slope joined to a steep face keeps a stable stance in either dire
       for (let i = 0; i < 240; i++) tick(p, shape, { move: direction })
       tick(p, shape, { move: direction, jump: true })
       tick(p, shape, { move: direction })
-      assert.ok(!p.grounded && !p.sliding?.active && p.vy < -500, `jump must release the corner: ${context}`)
+      assert.ok(!p.grounded && !p.sliding?.active && Math.abs(p.vy + TUNING.jumpSpeed - 2 * TUNING.gravity * STEP) < 1e-6,
+        `jump must release the corner: ${context}`)
     }
 })

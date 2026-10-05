@@ -94,36 +94,44 @@ A player behind it cannot trigger a chase, windup, or charge or turn the bot aro
 Moving behind an aggressive bot loses sight and restores patrol; an ordinary
 patrol turn can reveal the player again. The eye color follows this same detection.
 
-## Jump-on-press experiment
+## Variable-height jumps
 
 Every supported jump starts on a fresh press, including ground/coyote-time,
 wall, slope, ledge, ladder and rope jumps. Ground and wall presses retain the
-0.13-second buffer; holding never repeats a jump or adds charge. Catching a rope
+0.13-second buffer; holding never repeats a jump. Catching a rope
 or ledge consumes the held press, so release and press again to jump away.
 A press during an automatic short step launches when that step finishes;
 pausing clears pending presses.
 
-Centered jumps start at 500 units/second upward. Directional input increases that
-strength linearly to 800 at full stick deflection, using the length of the
-horizontal/upward input vector (capped at one). Up can therefore make a strong
-vertical jump without lateral motion. Partial upward input works below the
-climbing threshold; Down alone does not add lift. Keyboard Up or lateral movement
-supplies full input, while Shift reduces lateral input to walking strength.
-Strength is sampled on the press and retained through buffering/short steps.
+Keyboard and controller jumps start immediately at 400 units/second upward.
+Holding Space or A/Cross adds lift over the next 0.18 seconds of ascent. A quick
+tap rises about 50 units; a full hold reaches about 203, preserving the previous
+800-unit/second jump ceiling. Intermediate holds give intermediate heights.
+There is no wait or charge before takeoff. Direction controls movement and
+climbing independently of jump height.
+
+Lift spends the energy difference between the base and full jump, rather than
+adding an unrestricted acceleration. Release, landing, a catch, a ceiling hit,
+or pause ends the lift permanently. A later airborne press cannot restart it.
+Buffered taps launch at base strength; buffered holds start building lift only
+after takeoff. Touch taps and upward flicks request explicit base/full impulses,
+which remain fixed through buffering and automatic steps.
 
 Horizontal momentum carries through takeoff, with gradual air steering, so
-running still covers more distance than starting from rest. Wall jumps retain
-their separate 500-unit/second upward impulse and 300-unit/second outward kick.
-Grips and slopes use the same input-strength rule; rope releases also keep real
+running still covers more distance than starting from rest. Wall jumps use the
+same tap/hold rule, starting at 500 and building to a 600-unit/second jump budget.
+That gives about 79 units of height from a tap and 113 from a full hold. Their
+300-unit/second outward kick is unchanged. Touch taps/flicks select the base/full
+wall impulse, respectively. Every bounce still requires a fresh press.
+Grips and slopes use the same hold rule; rope releases also keep real
 rope momentum. Holding cannot turn a ground jump into a later wall jump.
 
-The selected defaults in `movementTuning.ts` are 500 base jump, 800 full-input
+The selected defaults in `movementTuning.ts` are 400 base jump, 800 full held
 jump, 410 running speed, 1550 gravity, 300 air acceleration, 2000 ground
 acceleration and 500 wall jump. The temporary in-game tuning sliders have been
 removed; saved experimental browser settings no longer override these values.
-Built-in routes and medal times have been checked against these defaults; see
-[the medal audit](jumping-medal-audit.md) for completed control recordings and
-the limits of the graphical playtesting.
+The [medal audit](jumping-medal-audit.md) records the earlier directional-jump
+controls. A full medal-time audit with variable-height jumping remains unverified.
 
 ## Touch input
 

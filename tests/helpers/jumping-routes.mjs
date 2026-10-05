@@ -9,7 +9,7 @@ export function playLesson(index) {
   const run = createRun(CAMPAIGN[index]), p = run.player, caught = new Set()
   const tick = (frames, input = {}) => { for (let i = 0; i < frames; i++) { stepRun(run, { ...NEUTRAL_INPUT, ...input }); if (p.climbing?.kind === 'rope') caught.add(p.climbing.index) } }
   while (p.x < 535) tick(1, { move: 1 })
-  tick(1, { move: 1, jump: true })
+  tick(24, { move: 1, jump: true })
   for (let i = 0; i < 450 && !run.finished && !p.climbing; i++) tick(1, { move: 1, climb: true })
   for (let rope = 0; rope < index; rope++) {
     assert.equal(p.climbing?.kind, 'rope'); assert.equal(p.climbing?.index, rope)
@@ -26,7 +26,7 @@ export function playLesson(index) {
     }
     assert.ok(p.vx > 120, 'release while the rope is carrying the player toward the next bank')
     // Center the stick at release to avoid catching the next rope too near its anchor.
-    tick(1, { jump: true })
+    tick(10, { jump: true })
     tick(1, { move: 1 })
     for (let i = 0; i < 650 && !run.finished && !p.climbing; i++) tick(1, { move: 1, climb: true })
   }

@@ -91,6 +91,26 @@ async function enter(page) {
   await page.clock.runFor(64)
 }
 
+test('desktop hides touch Pause even with touchscreen hardware, until a touch gesture is used', async ({ page }) => {
+  await page.addInitScript(() => Object.defineProperty(navigator, 'maxTouchPoints', { get: () => 2 }))
+  await setup(page); await enter(page)
+  const pause = page.getByRole('button', { name: 'Pause game', exact: true })
+  await expect(pause).toHaveCount(0)
+  await page.locator('canvas').click({ position: { x: 640, y: 300 } })
+  await expect(pause).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
+  await page.getByRole('button', { name: 'Resume', exact: true }).click()
+  await expect(pause).toHaveCount(0)
+  // Touch remains usable when hardware detection misses it; only a touch
+  // contact enables the fallback button, never a mouse click.
+  await page.locator('canvas').dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 17, clientX: 640, clientY: 300 })
+  await page.locator('canvas').dispatchEvent('pointercancel', { pointerType: 'touch', pointerId: 17 })
+  await expect(pause).toBeVisible()
+  await pause.click()
+  await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
+})
+
 for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} keeps grip above 45 degrees and releases it for a jump`, async ({ page }, info) => {
   const level = {
     version: 1, id: 'grip-balance', name: 'Grip balance', width: 1600, height: 2200,
@@ -205,15 +225,15 @@ for (const trial of [false, true]) test(`${trial ? 'trial' : 'playground'} camer
     expect((await position(page)).y).toBeCloseTo(bottom, 3)
   }
   await page.screenshot({ path: info.outputPath('camera-at-floor.png') })
-  await page.keyboard.down('w'); await page.clock.runFor(1000)
+  await page.keyboard.down('w'); await advanceJumpingSimulation(page, 1000)
   expect(await floorPadding()).toBeCloseTo(32, 3)
   expect((await page.evaluate(() => window.jumpScreen)).y).toBeGreaterThan(.5)
-  await page.clock.runFor(9000); await page.keyboard.up('w')
+  await advanceJumpingSimulation(page, 9000); await page.keyboard.up('w')
   await expect(page.locator('.jumping-state')).toContainText('Ladder')
   await expectCentered(page)
   expect(await visibleBottom()).toBeLessThan(bottom)
   await page.screenshot({ path: info.outputPath('camera-following-climb.png') })
-  await page.keyboard.down('ArrowDown'); await page.clock.runFor(10000); await page.keyboard.up('ArrowDown')
+  await page.keyboard.down('ArrowDown'); await advanceJumpingSimulation(page, 10000); await page.keyboard.up('ArrowDown')
   expect((await position(page)).y).toBeCloseTo(bottom, 3)
   expect(await floorPadding()).toBeCloseTo(32, 3)
 })
@@ -258,7 +278,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   expect(errors).toEqual([])
 })
 
-test('keyboard walks and runs, jumps on press, and Up adds height', async ({ page }, info) => {
+test('keyboard walks and runs, taps low and holds higher without repeating on landing', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await setup(page); await enter(page)
   await expectCentered(page)
@@ -275,17 +295,17 @@ test('keyboard walks and runs, jumps on press, and Up adds height', async ({ pag
   await page.keyboard.up('Space')
   await page.keyboard.up('d'); await restartFromPause(page); await page.clock.runFor(64)
   await page.keyboard.press('Space'); await page.clock.runFor(200)
-  const short = await position(page); expect(short.y).toBeLessThan(560); expect(short.y).toBeGreaterThan(545)
+  const short = await position(page); expect(short.y).toBeLessThan(585); expect(short.y).toBeGreaterThan(565)
   await page.clock.runFor(700)
-  await page.keyboard.down('Space'); await page.clock.runFor(800)
+  await page.keyboard.down('Space'); await page.clock.runFor(1400)
   expect((await position(page)).y).toBeCloseTo(620)
   await page.keyboard.up('Space'); await page.clock.runFor(64)
   expect((await position(page)).y).toBeCloseTo(620)
-  await page.keyboard.down('ArrowUp'); await page.keyboard.down('Space'); await page.clock.runFor(480)
-  await page.keyboard.up('Space'); await page.keyboard.up('ArrowUp')
+  await page.keyboard.down('Space'); await page.clock.runFor(480)
+  await page.keyboard.up('Space')
   expect((await position(page)).y).toBeLessThan(short.y - 100)
   await expectCentered(page)
-  await page.screenshot({ path: info.outputPath('upward-jump.png') })
+  await page.screenshot({ path: info.outputPath('held-jump.png') })
   await page.clock.runFor(700); await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await page.getByRole('button', { name: 'Back to arcade' }).click()
@@ -293,7 +313,7 @@ test('keyboard walks and runs, jumps on press, and Up adds height', async ({ pag
   expect(errors).toEqual([])
 })
 
-test('controller-only play gates launch, supports analog speed and directional jumps, and pauses on disconnect', async ({ page }) => {
+test('controller-only play gates launch, supports analog speed and held jumps, and pauses on disconnect', async ({ page }) => {
   await setup(page, true)
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)
@@ -302,7 +322,6 @@ test('controller-only play gates launch, supports analog speed and directional j
   await page.evaluate(() => { window.testPad.axes[0] = .59 }); await page.clock.runFor(400)
   expect(Math.abs(await speed(page) - 3.4)).toBeLessThan(.2)
   await page.evaluate(() => { window.testPad.axes[0] = 0 }); await page.clock.runFor(200)
-  await page.evaluate(() => { window.testPad.axes[1] = -1 })
   await hold(page, 0, 1, 480)
   expect((await position(page)).y).toBeLessThan(440)
   await hold(page, 0, 0); await page.evaluate(() => { window.testPad.axes[1] = 0 })
@@ -347,7 +366,7 @@ test('controller pause clears held jump input and reset is available only throug
   const initial = await position(page)
   await hold(page, 0, 1, 500); await tap(page, 9)
   await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
-  await tap(page, 9); await page.clock.runFor(300); await hold(page, 0, 0)
+  await tap(page, 9); await page.clock.runFor(800); await hold(page, 0, 0)
   expect((await position(page)).y).toBeCloseTo(620)
   await expect(page.getByRole('meter')).toHaveCount(0)
   await hold(page, 0, 1, 100); await hold(page, 0, 0, 200)
@@ -359,8 +378,7 @@ test('controller pause clears held jump input and reset is available only throug
   expect(moved.x).toBeLessThan(initial.x - 20)
   await tap(page, 3)
   expect(await position(page)).toEqual(moved)
-  await expect(page.getByRole('button')).toHaveCount(1)
-  await expect(page.getByRole('button')).toHaveAccessibleName('Pause game')
+  await expect(page.getByRole('button')).toHaveCount(0)
   await tap(page, 9)
   await expect(page.getByRole('button', { name: 'Resume', exact: true })).toBeFocused()
   await tap(page, 3)
@@ -390,21 +408,22 @@ test('focus loss pauses and resizing preserves the world position', async ({ pag
 
 async function reachOverhang(page) {
   await page.keyboard.down('d'); await page.clock.runFor(1500); await page.keyboard.up('d')
-  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.press('Space')
-  await page.clock.runFor(700); await page.keyboard.up('d'); await page.clock.runFor(250)
+  await page.keyboard.down('Shift'); await page.keyboard.down('d')
+  await page.keyboard.down('Space'); await page.clock.runFor(90); await page.keyboard.up('Space')
+  await page.clock.runFor(610); await page.keyboard.up('d'); await page.clock.runFor(250)
   expect((await position(page)).y).toBeCloseTo(566)
-  // Walking input supplies enough lift for these short jumps without overshooting.
+  // Brief holds supply enough lift for these short jumps without overshooting.
   await page.keyboard.down('d')
   for (let i = 0; i < 80 && (await position(page)).x < 744; i++) await page.clock.runFor(16)
-  await page.keyboard.press('Space'); await page.clock.runFor(700)
+  await page.keyboard.down('Space'); await page.clock.runFor(90); await page.keyboard.up('Space'); await page.clock.runFor(610)
   await page.keyboard.up('d'); await page.keyboard.up('Shift'); await page.clock.runFor(250)
   expect((await position(page)).y).toBeCloseTo(502)
-  // Keep the run-up momentum, then use walking input at the press to catch
+  // Keep the run-up momentum, then use a brief hold to catch
   // this lip 102 units higher and across a 170-unit gap.
   await page.keyboard.down('d')
   for (let i = 0; i < 80 && (await position(page)).x < 928; i++) await page.clock.runFor(16)
-  await page.keyboard.down('Shift'); await page.keyboard.press('Space')
-  await page.clock.runFor(700); await page.keyboard.up('d')
+  await page.keyboard.down('Shift'); await page.keyboard.down('Space'); await page.clock.runFor(90); await page.keyboard.up('Space')
+  await page.clock.runFor(610); await page.keyboard.up('d')
   await page.keyboard.up('Shift')
   await page.clock.runFor(100) // Let the throttled movement readout publish the caught ledge.
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
@@ -453,9 +472,13 @@ test('keyboard ladders descend from the platform, and controller ropes climb, sw
   await page.keyboard.down('ArrowDown'); await advanceJumpingSimulation(page, 800); await page.keyboard.up('ArrowDown')
   expect((await position(page)).y).toBeCloseTo(620)
   await page.keyboard.down('d')
-  for (let i = 0; i < 40 && (await position(page)).x < 1518; i++) await page.clock.runFor(50)
+  for (let i = 0; i < 40 && (await position(page)).x < 1470; i++) await page.clock.runFor(50)
   await page.keyboard.up('d'); await advanceJumpingSimulation(page, 200)
-  await tap(page, 0); await advanceJumpingSimulation(page, 200)
+  // Walk the last few units so braking cannot carry us past the rope.
+  await page.keyboard.down('Shift'); await page.keyboard.down('d')
+  for (let i = 0; i < 40 && (await position(page)).x < 1528; i++) await page.clock.runFor(16)
+  await page.keyboard.up('d'); await page.keyboard.up('Shift'); await advanceJumpingSimulation(page, 100)
+  await hold(page, 0, 1, 180); await hold(page, 0, 0); await advanceJumpingSimulation(page, 400)
   await expect(page.locator('.jumping-state')).toHaveText('Rope · holding')
   await page.evaluate(() => { window.testPad.axes[1] = -1 }); await advanceJumpingSimulation(page, 700)
   await expect(page.locator('.jumping-state')).toHaveText('Rope · ascending')

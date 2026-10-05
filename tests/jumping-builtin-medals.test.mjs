@@ -12,13 +12,16 @@ const catalog = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
 const recordings = JSON.parse(await readFile(new URL('fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
 
 test('every built-in level has one fresh-start medal recording', () => {
-  assert.equal(recordings.version, 1)
+  assert.equal(recordings.version, 2)
+  assert.equal(recordings.jumpModel, 'recorded-impulses')
   assert.deepEqual(recordings.runs.map(run => run.file).sort(), [...catalog.levels].sort())
 })
 
-// These are fresh-start control recordings against the deployed JSON assets.
+// Preserve the historical audit's jump impulses explicitly so mechanism and
+// contact coverage survives changes to button interpretation. This is not a
+// new audit of variable-height controls; normal holds are covered separately.
 // They do not teleport actors, bypass switches, or substitute legacy fixture maps.
-for (const recording of recordings.runs) test(`built-in gold route: ${recording.file}`, async () => {
+for (const recording of recordings.runs) test(`built-in recorded-impulse route: ${recording.file}`, async () => {
   assert.ok(catalog.levels.includes(recording.file))
   const level = parseLevel(JSON.parse(await readFile(new URL(recording.file, root), 'utf8')))
   const run = createRun(level)
@@ -30,7 +33,8 @@ for (const recording of recordings.runs) test(`built-in gold route: ${recording.
   const weighted = plate => run.props.filter(prop => propLoadsPlate(prop, plate.x, plate.y, plate.w, plate.ceiling))
   for (const { frames, input } of recording.trace) {
     assert.ok(Number.isInteger(frames) && frames > 0)
-    assert.ok(Object.keys(input).every(key => key in NEUTRAL_INPUT))
+    assert.ok(Object.keys(input).every(key => key in NEUTRAL_INPUT || key === 'jumpStrength'))
+    if (input.jump) assert.ok(input.jumpStrength >= 0 && input.jumpStrength <= 1)
     const controls = { ...NEUTRAL_INPUT, ...input }
     for (let frame = 0; frame < frames; frame++) {
       assert.equal(run.finished, false, 'recording must end at completion')

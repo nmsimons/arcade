@@ -24,7 +24,7 @@ test('a running jump cannot skip either rope lesson', () => {
     const run = createRun({ ...level, climbables: { ...level.climbables, ropes: [] } }), p = run.player
     if (index === 0) continue
     while (p.x < 535) advance(run, 1, { move: 1 })
-    advance(run, 1, { move: 1, jump: true })
+    advance(run, 24, { move: 1, jump: true })
     advance(run, 180, { move: 1 }); assert.equal(run.finished, false)
     assert.ok(p.y > level.spawn.y + 100)
   }

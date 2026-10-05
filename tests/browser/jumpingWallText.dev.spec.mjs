@@ -6,11 +6,14 @@ test('both wall-text styles keep their ink position, blank lines and clipping ac
     const { drawWallTexts, GRAFFITI_FONT, clearWallTextLayouts } = await import('/src/games/jumping/wallText.ts')
     const face = new FontFace(GRAFFITI_FONT, 'url(/src/games/jumping/fonts/PermanentMarker-Regular.ttf)')
     document.fonts.add(face); await face.load(); clearWallTextLayouts()
-    const samples = [], preview = document.createElement('canvas')
+    const samples = [], texts = new Map(), preview = document.createElement('canvas')
     preview.width = 800; preview.height = 280
     const previewCtx = preview.getContext('2d')
     for (const style of ['official', 'graffiti']) for (const fontSize of [24, 48, 96]) for (const scale of [.75, 1, 3]) for (const align of ['left', 'center', 'right']) {
-      const text = { x: 20, y: 20, w: 480, h: fontSize * 4, fontSize, align, style, text: 'MMM\n\nMMM' }
+      // Reuse the same authored text as zoom changes to exercise layout caching.
+      const key = `${style}:${fontSize}:${align}`
+      if (!texts.has(key)) texts.set(key, { x: 20, y: 20, w: 480, h: fontSize * 4, fontSize, align, style, text: 'MMM\n\nMMM' })
+      const text = texts.get(key)
       const canvas = document.createElement('canvas')
       canvas.width = Math.ceil(520 * scale); canvas.height = Math.ceil((text.h + 40) * scale)
       const ctx = canvas.getContext('2d', { willReadFrequently: true }); ctx.scale(scale, scale)

@@ -45,8 +45,9 @@ for (const facing of [-1, 1]) test(`an upside-down player catches, holds, climbs
   const y = s.p.y; s.tick({ climb: true }, 50); assert.ok(s.p.y < y - 20, 'Up moves upward on a floating rope')
   assert.equal(playerState(s.p), 'Rope · ascending')
   s.tick({}, 40); const upper = s.p.y; s.tick({ descend: true }, 40); assert.ok(s.p.y > upper + 20, 'Down moves downward')
-  s.tick({}, 40); s.tick({ jump: true, move: facing })
-  assert.equal(s.p.climbing, null); assert.ok(s.p.vy > 700, 'jump opposes reversed gravity')
+  s.tick({}, 40); const releaseVy = s.p.vy; s.tick({ jump: true, move: facing })
+  assert.equal(s.p.climbing, null)
+  close(s.p.vy, Math.max(0, releaseVy) + TUNING.jumpSpeed)
   assert.ok(s.p.vx * facing >= 180); s.tick({ jump: true }); assert.equal(s.p.climbing, null, 'held jump cannot catch again')
   assert.equal(s.rope.definition, s.definition, 'the world-space definition is restored')
   close(s.rope.nodes[0].y, 800)
@@ -167,7 +168,7 @@ test('a gravity turn blocked by a narrow passage keeps the grip and never rotate
   for (let i = 0; i < 180; i++) { s.tick(); clearBody(s); assert.equal(s.p.climbing?.kind, 'rope'); blocked ||= !!s.p.climbing.turn }
   assert.ok(blocked); assert.ok(s.p.climbing.turn, 'insufficient clearance keeps the turn pending')
   handsOnRope(s.p)
-  s.tick({ jump: true, move: 1 }); assert.equal(s.p.climbing, null); assert.ok(s.p.vy > 400)
+  s.tick({ jump: true, move: 1 }); assert.equal(s.p.climbing, null); assert.ok(s.p.vy >= TUNING.jumpSpeed)
 })
 
 test('zero gravity pauses a partially completed turn without losing the material grip', () => {

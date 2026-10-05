@@ -15,26 +15,26 @@ async function start(page) {
   await page.clock.runFor(64)
 }
 
-test('jump fires while Space is still held, Up increases height and a held button does not repeat', async ({ page }) => {
+test('jump fires immediately, a hold adds height and a held button does not repeat', async ({ page }) => {
   await start(page)
   await page.keyboard.down('Space'); await page.clock.runFor(64)
-  const base = await sample(page)
-  expect(base.y).toBeLessThan(1000); expect(base.vy).toBeLessThan(-350)
+  const held = await sample(page)
+  expect(held.y).toBeLessThan(1000); expect(held.vy).toBeLessThan(-350)
   await page.clock.runFor(2000)
   expect((await sample(page)).signals.grounded).toBe(true)
   await page.keyboard.up('Space')
-  await page.keyboard.down('ArrowUp'); await page.keyboard.down('Space'); await page.clock.runFor(64)
-  const high = await sample(page)
-  expect(high.vy).toBeLessThan(base.vy - 200); expect(high.x).toBeCloseTo(base.x)
+  await page.keyboard.down('ArrowUp'); await page.keyboard.press('Space'); await page.clock.runFor(64)
+  const tap = await sample(page)
+  expect(tap.vy).toBeGreaterThan(held.vy + 100); expect(tap.x).toBeCloseTo(held.x)
   await page.keyboard.up('Space'); await page.keyboard.up('ArrowUp')
 })
 
-test('a quick Up and Jump tap retains its strength when both keys release before the next frame', async ({ page }) => {
+test('a quick Jump tap survives release before the next frame and Up adds no lift', async ({ page }) => {
   await start(page)
   await page.keyboard.down('ArrowUp'); await page.keyboard.press('Space'); await page.keyboard.up('ArrowUp')
   await page.clock.runFor(64)
-  const high = await sample(page)
-  expect(high.vy).toBeLessThan(-650); expect(high.x).toBeCloseTo(200)
+  const tap = await sample(page)
+  expect(tap.vy).toBeLessThan(-250); expect(tap.vy).toBeGreaterThan(-400); expect(tap.x).toBeCloseTo(200)
 })
 
 test('direction pressed after Jump cannot strengthen an already queued standing jump', async ({ page }) => {
@@ -42,7 +42,7 @@ test('direction pressed after Jump cannot strengthen an already queued standing 
   await page.keyboard.press('Space'); await page.keyboard.down('ArrowUp')
   await page.clock.runFor(64)
   const base = await sample(page)
-  expect(base.vy).toBeLessThan(-350); expect(base.vy).toBeGreaterThan(-500)
+  expect(base.vy).toBeLessThan(-250); expect(base.vy).toBeGreaterThan(-400)
   await page.keyboard.up('ArrowUp')
 })
 
@@ -55,7 +55,7 @@ test('the movement experiment panel and saved overrides are removed', async ({ p
   await page.keyboard.press('Escape')
   await page.keyboard.down('Space'); await page.clock.runFor(64)
   const base = await sample(page)
-  expect(base.vy).toBeLessThan(-350); expect(base.vy).toBeGreaterThan(-500)
+  expect(base.vy).toBeLessThan(-350); expect(base.vy).toBeGreaterThan(-650)
   await page.keyboard.up('Space'); await restartFromPause(page); await page.clock.runFor(64)
   await page.keyboard.press('Escape')
   await expect(page.getByRole('button', { name: /^Movement settings/ })).toHaveCount(0)

@@ -3,6 +3,8 @@
 October 4, 2026. All 22 levels in the current built-in catalog have a completed
 fresh-start control recording. Seventeen medal sets were revised. The five
 unchanged sets are First Leap, A Little Swing, A Bigger Swing, Boxes, and Nine.
+JK was retuned after the author supplied the crate-and-small-ball route below;
+its first recording had taken an unnecessary large-ball detour.
 
 ## Evidence and limits
 
@@ -15,8 +17,10 @@ recordings are verified by replaying their entire input sequence from a fresh
 load. This is automated route verification, not a claim of a complete graphical
 playthrough or an enjoyment review.
 
-First Leap and Untitled also had graphical gameplay checks. Spelunk I's current
-layout was inspected in the graphical builder. A full normal-speed graphical
+First Leap, Untitled, and JK also had graphical gameplay checks. JK's fresh-start
+browser keyboard replay scored 14.10 seconds with the crate stopped on the
+elevator and the large ball left on its ledge. Spelunk I's current layout was
+inspected in the graphical builder. A full normal-speed graphical
 review of the remaining levels, their camera framing, and all advertised
 alternatives remains unverified. In particular, Tower I's fastest route through
 the third-floor window was supplied by the author; the recorded completion uses
@@ -50,7 +54,7 @@ initial 10 / 20 / 40 targets were retained.
 | [Coins](../public/levels/jumping/Coins.jump-level.json) | 10.77 | 11.62 | 10 / 20 / 40 | 12 / 20 / 40 |
 | [Spire I](../public/levels/jumping/spire1.jump-level.json) | 35.42 | 36.28 | 30 / 45 / 60 | 40 / 60 / 90 |
 | [Turnaround](../public/levels/jumping/07.json) | 25.05 | 25.91 | 25 / 35 / 45 | 28 / 40 / 60 |
-| [jk](../public/levels/jumping/jk.jump-level.json) | 53.29 | 54.15 | 14 / 30 / 60 | 60 / 90 / 120 |
+| [jk](../public/levels/jumping/jk.jump-level.json) | 14.10 | 14.96 | 14 / 30 / 60 | 25 / 40 / 60 |
 | [Cross Purposes](../public/levels/jumping/06.json) | 25.50 | 26.36 | 5 / 10 / 15 | 28 / 40 / 60 |
 | [Spire II](../public/levels/jumping/spire2.jump-level.json) | 42.77 | 43.63 | 10 / 20 / 40 | 50 / 70 / 100 |
 | [Uninvited Company](../public/levels/jumping/08.json) | 2.22 | 12.07 | 12 / 23 / 40 | 4 / 12 / 25 |
@@ -65,6 +69,14 @@ initial 10 / 20 / 40 targets were retained.
 
 ## Required interactions checked
 
+- **JK:** cross to the elevator plate without disturbing the large ball on its
+  ledge. Raise the crate partway, then step off the plate to stop it beside the
+  chute. The released small ball hits the crate, drops onto the lower ramp, and
+  rolls onto the left exit plate. Leave the crate on the elevator and enter the
+  powered doorway. The fresh-start recording scores 14.10 seconds; the author's
+  20-second playthrough supports 25 / 40 / 60. The former 53.29-second recording
+  proved completion, but missed this faster plan and did not justify 60-second
+  gold.
 - **Second Leap:** leave the ball on the starting pressure plate, jump past it,
   then cross the gap and enter the powered doorway. The revised puzzle takes
   5.95 seconds; its former 4.5-second gold no longer fits this route.

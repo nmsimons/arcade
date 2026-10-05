@@ -62,6 +62,15 @@ for (const recording of recordings.runs) test(`built-in gold route: ${recording.
   if (recording.file === '01.json') {
     assert.equal(weighted(level.triggers[0]).length, 1, 'the ball must keep the remote exit powered')
   }
+  if (recording.file === 'jk.jump-level.json') {
+    assert.deepEqual(weighted(level.triggers[1]), [run.props[2]], 'the small ball must hold the exit plate')
+    const lift = run.mechanisms[0]
+    assert.equal(lift.active, false, 'release the elevator plate after raising the crate')
+    assert.ok(propLoadsPlate(run.props[0], lift.x, lift.y, lift.definition.w), 'leave the crate on the elevator')
+    assert.ok(lift.y < lift.definition.y - 200 && lift.y > lift.definition.y - 400, 'stop the crate beside the chute')
+    assert.ok(Math.abs(run.props[1].x - level.props[1].x) < 10 && run.props[1].y < level.floor - 350,
+      'leave the large ball on its upper ledge')
+  }
   if (recording.file === 'rampingup.jump-level.json') {
     assert.ok(gravityStarted && gravityReleased, 'activate and release gravity before landing cargo')
     assert.equal(run.coinsCollected, 10)

@@ -338,6 +338,10 @@ Give gold some execution margin beyond a reproducible input recording; it is
 a demonstration of attainability, not a substitute for playing at normal speed
 or reviewing readability and enjoyment.
 
+If a recording is much slower than an author's or player's completed run,
+investigate their route before relaxing medals. A successful recording alone
+does not establish a fluent gold route.
+
 ## 8. Reuse good patterns, not entire answers
 
 | Reference | Pattern worth carrying forward |

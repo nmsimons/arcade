@@ -929,12 +929,12 @@
     },
     {
       "file": "jk.jump-level.json",
-      "elapsed": 53.291666666664284,
-      "activeTime": 54.14999999999757,
+      "elapsed": 14.09999999999984,
+      "activeTime": 14.958333333333124,
       "coins": 0,
       "trace": [
         {
-          "frames": 180,
+          "frames": 60,
           "input": {
             "climb": true
           }
@@ -1017,181 +1017,50 @@
           }
         },
         {
-          "frames": 607,
+          "frames": 28,
           "input": {
-            "move": 1,
-            "crouch": true,
-            "detach": true
+            "move": 1
           }
-        },
-        {
-          "frames": 480,
-          "input": {}
         },
         {
           "frames": 1,
           "input": {
-            "move": -1,
+            "move": 1,
             "jump": true
           }
         },
         {
-          "frames": 133,
+          "frames": 130,
+          "input": {
+            "move": 1,
+            "detach": true
+          }
+        },
+        {
+          "frames": 75,
           "input": {
             "move": -1,
             "detach": true
           }
         },
         {
-          "frames": 91,
-          "input": {
-            "move": 1,
-            "crouch": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 214,
+          "frames": 29,
           "input": {
             "move": -1
           }
         },
         {
-          "frames": 70,
+          "frames": 251,
           "input": {}
         },
         {
-          "frames": 1,
-          "input": {
-            "jump": true
-          }
-        },
-        {
-          "frames": 65,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 989,
-          "input": {}
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 81,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 40,
+          "frames": 95,
           "input": {
             "move": 1
           }
         },
         {
-          "frames": 1,
-          "input": {
-            "jump": true
-          }
-        },
-        {
-          "frames": 123,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 550,
-          "input": {
-            "move": -1,
-            "crouch": true,
-            "detach": true
-          }
-        },
-        {
-          "frames": 80,
-          "input": {}
-        },
-        {
-          "frames": 93,
-          "input": {
-            "move": 1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "jump": true
-          }
-        },
-        {
-          "frames": 250,
-          "input": {
-            "move": 1,
-            "climb": true,
-            "detach": true
-          }
-        },
-        {
-          "frames": 240,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {}
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 650,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {}
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 600,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 105,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 88,
+          "frames": 446,
           "input": {}
         }
       ]

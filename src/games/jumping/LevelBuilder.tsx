@@ -8,7 +8,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
-import { copyLevel, LEVEL_GRID_SIZE, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes } from './level'
+import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes } from './level'
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
 import type { LevelFile } from './levelAssets'
@@ -45,7 +45,7 @@ import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
 import { drawPlacementPreview, placementPreview } from './builderPlacement'
-import { ITEM_GRID_SIZE, selectionGridSize, toolGridSize } from './builderSnap'
+import { BUILDER_GRID_SIZE } from './builderSnap'
 import './builder.css'
 import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
 import { AccountSurface } from '../../accounts/AccountSurface'
@@ -247,7 +247,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const quantizeY = useCallback((y: number, grid: number) => roomHeight - quantize(roomHeight - y, grid), [roomHeight, quantize])
   const hoveredNode = useMemo(() => tool === 'node' && pointer ? terrainVertexTarget(level, pointer.x, pointer.y, 10 / view.zoom) : null,
     [tool, pointer, level, view.zoom])
-  const nodeTarget = useMemo(() => tool === 'node' && pointer && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0) : null,
+  const nodeTarget = useMemo(() => tool === 'node' && pointer && !hoveredNode ? terrainNodeTarget(level, pointer.x, pointer.y, 12 / view.zoom, snap ? BUILDER_GRID_SIZE : 0) : null,
     [tool, pointer, hoveredNode, level, view.zoom, snap])
   const placement = useMemo(() => pointer && !drag && !preview && !helpOpen && !libraryOpen && !saveFailure && !textEntry
     ? placementPreview(level, tool, pointer, snap, view.zoom) : null,
@@ -571,7 +571,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         setDrag({ mode: 'point', start: p, screen, base, view, selection: selected, point: node.vertex })
         return
       }
-      const target = terrainNodeTarget(base, p.x, p.y, 12 / view.zoom, snap ? LEVEL_GRID_SIZE : 0)
+      const target = terrainNodeTarget(base, p.x, p.y, 12 / view.zoom, snap ? BUILDER_GRID_SIZE : 0)
       if (!target) { setMessage('Click a terrain edge to add a node, or drag an existing node.'); return }
       try {
         const next = insertTerrainNode(base, target), selected = { kind: 'platform' as const, index: target.index }
@@ -581,7 +581,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       return
     }
     if (tool !== 'select') {
-      const grid = toolGridSize(tool)
+      const grid = BUILDER_GRID_SIZE
       setDrag({ mode: 'draw', start: event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, screen, base, view, selection: null }); return
     }
     if (event.shiftKey) {
@@ -629,7 +629,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     const p = position(event), dx = p.x - d.start.x, dy = p.y - d.start.y
     setPointer(p)
     if (d.mode === 'marquee') { setMarquee({ x: Math.min(d.start.x, p.x), y: Math.min(d.start.y, p.y), w: Math.abs(p.x - d.start.x), h: Math.abs(p.y - d.start.y) }); return }
-    const grid = d.mode === 'draw' ? toolGridSize(tool) : d.selection ? selectionGridSize(d.selection) : LEVEL_GRID_SIZE
+    const grid = BUILDER_GRID_SIZE
     const qx = (v: number) => event.altKey ? v : quantize(v, grid), qy = (v: number) => event.altKey ? v : quantizeY(v, grid)
     let next: JumpLevel | null = null
     if (d.mode === 'draw') {
@@ -695,7 +695,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       return
     }
     if (d.mode === 'draw') {
-      const p = position(event), grid = toolGridSize(tool)
+      const p = position(event), grid = BUILDER_GRID_SIZE
       add(tool, d.start, event.altKey ? p : { x: quantize(p.x, grid), y: quantizeY(p.y, grid) }, event.altKey)
     }
     else if (latestPreview.current) commit(latestPreview.current)
@@ -796,7 +796,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     else if (event.target === canvasRef.current && selectedItems.length > 1) {
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
-        event.preventDefault(); const step = event.shiftKey ? 1 : snap ? allTerrain ? LEVEL_GRID_SIZE : ITEM_GRID_SIZE : 5
+        event.preventDefault(); const step = event.shiftKey ? 1 : BUILDER_GRID_SIZE
         commit(moveSelections(history.present, selectedItems, event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0,
           event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0))
       }
@@ -805,7 +805,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (event.key === 'End') { event.preventDefault(); commit(placeOnSurface(history.present, selection)) }
       else if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); if (selectedNode !== null && chosen) removeNode(); else remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
-        event.preventDefault(); const grid = selectionGridSize(selection), step = event.shiftKey ? 1 : snap ? grid : 5
+        event.preventDefault(); const grid = BUILDER_GRID_SIZE, step = event.shiftKey ? 1 : grid
         const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
         const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
         const node = chosen && selectedNode !== null ? polygonPoints(chosen)[selectedNode] : null
@@ -841,7 +841,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         ] as const).map(([kind, label, title]) => <button key={kind} aria-label={label} title={title} disabled={!allTerrain} onClick={() => transformSelectedTerrain(kind)}><BuilderIcon kind={kind} /></button>)}
       </div>
       <div className="builder-control-group builder-placement-options" role="group" aria-label="Placement options">
-        <label className="builder-inline-check" title={`Snap item positions and sizes to ${ITEM_GRID_SIZE} units, terrain geometry to ${LEVEL_GRID_SIZE} units, and catch nearby surfaces. Hold Alt to bypass.`}><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap</label>
+        <label className="builder-inline-check" title={`Snap all positions, sizes and terrain nodes to ${BUILDER_GRID_SIZE} units, and catch nearby surfaces. Hold Alt to bypass.`}><input type="checkbox" checked={snap} onChange={e => setSnap(e.target.checked)} />Snap</label>
         <label className="builder-inline-check" title="Keep the object tool active after placing an object. Pointer and Node stay active until you switch tools."><input type="checkbox" checked={keepTool} onChange={e => setKeepTool(e.target.checked)} />Keep placing</label>
       </div>
       <div className="builder-control-group" role="group" aria-label="Edit history"><button title="Undo the last edit (Ctrl/⌘ + Z)" disabled={!history.past.length} onClick={undo}>Undo</button><button title="Redo the last undone edit (Ctrl/⌘ + Shift + Z)" disabled={!history.future.length} onClick={redo}>Redo</button></div>
@@ -905,7 +905,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
               : ({ x: light || wallLight || logicRelay ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
-            return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? selectionGridSize(selection) : 1}
+            return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? BUILDER_GRID_SIZE : 1}
               value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
           })}
         </div>
@@ -969,7 +969,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           if (r.anchor) { delete r.anchor; commit(next) } else commit(anchorRope(next, selection.index))
         }}>{level.climbables.ropes[selection.index].anchor ? 'Detach anchor' : 'Anchor to nearby terrain'}</button></div>}
         {(pickup?.kind === 'time-bonus' || pickup?.kind === 'time-penalty') && <label>{pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'}<NumberField label={pickup.kind === 'time-bonus' ? 'Seconds off' : 'Seconds added'} min={1} max={9} step={1} value={pickup.seconds} {...numberEdit((base, value) => setPickupSeconds(base, selection.index, value))} /></label>}
-        {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? ITEM_GRID_SIZE : 1} value={mechanism.travel} {...numberEdit((base, value) => changedObject(base, 'travel', value))} /></label>}
+        {mechanism?.kind === 'lift' && <label>{mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'}<NumberField label={mechanism.orientation === 'horizontal' ? 'Travel distance' : 'Travel height'} min={60} max={1200} step={snap ? BUILDER_GRID_SIZE : 1} value={mechanism.travel} {...numberEdit((base, value) => changedObject(base, 'travel', value))} /></label>}
         {mechanism?.orientation === 'horizontal' && <button className="builder-property-action" title={mechanism.kind === 'lift' ? 'Reverse the platform’s travel direction' : 'Reverse the gate’s opening direction'} aria-pressed={!!mechanism.flipX} onClick={() => {
           const next = copyLevel(level), m = next.mechanisms![selection.index]
           if (m.flipX) delete m.flipX; else m.flipX = true
@@ -1028,7 +1028,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           }} />{selectionLabel(item, level)}</label>)}
           {!outgoingTargets.length && <span>No switched items</span>}
         </fieldset>}
-        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? ITEM_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? ITEM_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
+        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
         {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}

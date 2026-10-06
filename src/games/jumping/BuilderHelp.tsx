@@ -111,7 +111,7 @@ export function BuilderHelp({ tools, onClose }: {
           <div><dt>Terrain draw order</dt><dd>Select a terrain block and use Draw order in the Object inspector. Backward and Forward move one layer; Send to back and Bring to front move to either end. Overlapping blocks are selected from front to back. Drawing order is saved, supports Undo and Redo, and keeps collision and attachments unchanged.</dd></div>
           <div><dt>Select a group</dt><dd>Shift-click to add or remove objects. Drag from empty canvas to select objects inside a rectangle; Shift-drag adds to the selection. Drag any selected object or use arrow keys to move the group. Space-drag or the middle mouse button pans.</dd></div>
           <div><dt>Copy &amp; transform groups</dt><dd>Copy and Paste work within Level studio, including between levels. Pasted groups keep their layout, copied attachments and internal switch connections. Start and goal remain unique and are excluded from copies. Rotate and flip are enabled when every selected object is terrain and transform the whole layout around its center. Each group edit uses one Undo step.</dd></div>
-          <div><dt>Snap to fit</dt><dd>Item positions and sizes snap in 5-unit steps; terrain positions, sizes and nodes use the 20-unit grid. Snap also catches nearby surfaces. Turn it off or hold Alt for free placement.</dd></div>
+          <div><dt>Snap to fit</dt><dd>All positions, sizes and terrain nodes snap in 5-unit steps. Snap also catches nearby surfaces. Turn it off or hold Alt for free placement.</dd></div>
           <div><dt>Find your way</dt><dd>Fit level shows the whole map. Find start returns to the player. The overview in the corner also fits the level.</dd></div>
         </dl>
       </>}

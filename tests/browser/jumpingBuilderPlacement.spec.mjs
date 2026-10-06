@@ -149,13 +149,13 @@ test('every palette item follows mouse hover in both directions without editing 
     'Moving platform', 'Gate', 'Horizontal gate', 'Pressure plate', 'Coin switch', 'Wall timer', 'Spotlight', 'Wall text',
     'Coin', 'Stopwatch', 'Time bonus', 'Time penalty', 'Fast stopwatch', 'EMP']) {
     await page.getByRole('complementary', { name: 'Building tools' }).getByRole('button', { name, exact: true }).click()
-    await move(page, 400, 300)
+    await move(page, 405, 305)
     await expect.poll(() => ghost(page), { message: `${name} should have a canvas placement preview` }).not.toBeNull()
     const first = await ghost(page)
-    await move(page, 600, 420)
+    await move(page, 610, 430)
     const second = await ghost(page)
-    expect(second.x - first.x, `${name} follows horizontal movement`).toBeCloseTo(200)
-    expect(second.y - first.y, `${name} follows vertical movement`).toBeCloseTo(120)
+    expect(second.x - first.x, `${name} follows horizontal movement`).toBeCloseTo(205)
+    expect(second.y - first.y, `${name} follows vertical movement`).toBeCloseTo(125)
     await expect(page.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled()
     await expect(page.getByRole('status', { name: 'Builder status' })).not.toContainText('Unsaved changes')
     await outside(page)

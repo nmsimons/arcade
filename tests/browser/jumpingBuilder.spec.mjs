@@ -1084,9 +1084,9 @@ test('the Node tool stays active for insertion and shaping with Keep placing off
   await dragWorld(page, { x: 100, y: 200 }, { x: 100, y: 200 })
   await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Click a terrain edge')
   await expect(nodeTool).toHaveAttribute('aria-pressed', 'true')
-  await dragWorld(page, { x: 421, y: 403 }, { x: 421, y: 403 })
+  await dragWorld(page, { x: 431, y: 403 }, { x: 431, y: 403 })
   const inserted = (await saveTestLevel(page)).level
-  expect(inserted.platforms[0].polygon).toEqual([[0, 0], [300, 0], [300, 200], [120, 200], [0, 200]])
+  expect(inserted.platforms[0].polygon).toEqual([[0, 0], [300, 0], [300, 200], [130, 200], [0, 200]])
   await expect(nodeTool).toHaveAttribute('aria-pressed', 'true')
   await nodeTool.click()
   await expect(nodeTool).toHaveAttribute('aria-pressed', 'true')
@@ -1106,7 +1106,7 @@ test('the Node tool stays active for insertion and shaping with Keep placing off
   await page.mouse.move(box.x + (733 * camera.a + camera.e) / camera.ratio, box.y + (186.8 * camera.a + camera.f) / camera.ratio)
   await page.screenshot({ path: info.outputPath('node-edge-preview.png') })
   await dragWorld(page, { x: 733, y: 186.8 }, { x: 733, y: 186.8 })
-  expect((await saveTestLevel(page)).level.platforms[1].polygon).toEqual([[0, 80], [90, 44], [200, 0], [200, 180], [0, 180]])
+  expect((await saveTestLevel(page)).level.platforms[1].polygon).toEqual([[0, 80], [85, 46], [200, 0], [200, 180], [0, 180]])
   await expect(nodeTool).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('checkbox', { name: 'Snap' }).uncheck()
   await selectBuilderObject(page, 'platform:0')
@@ -1448,22 +1448,23 @@ for (const pinned of [false, true]) test(`a ${pinned ? 'pinned' : 'loose'} ball 
   }
 })
 
-test('snap aligns final terrain positions and resize edges, including previously offset terrain', async ({ page }, info) => {
+test('five-unit snap aligns final terrain positions and resize edges, including previously offset terrain', async ({ page }, info) => {
   const level = { version: 1, id: 'grid-test', name: 'Grid test', width: 1000, height: 600, floor: 600,
     spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 403, y: 203, w: 203, h: 117 }],
     climbables: { ladders: [], ropes: [] }, props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
   await open(page, level)
   await dragWorld(page, { x: 500, y: 250 }, { x: 523, y: 271 })
-  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('420')
-  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('380')
+  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('425')
+  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('375')
+  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveAttribute('step', '5')
   const zoom = await page.getByRole('application', { name: 'Level canvas' }).evaluate(canvas => canvas.jumpCamera.a / devicePixelRatio)
-  await dragWorld(page, { x: 623 + 16 / zoom, y: 337 + 16 / zoom }, { x: 660 + 16 / zoom, y: 360 + 16 / zoom })
+  await dragWorld(page, { x: 628 + 16 / zoom, y: 342 + 16 / zoom }, { x: 665 + 16 / zoom, y: 365 + 16 / zoom })
   await expect(page.getByRole('spinbutton', { name: 'Object w', exact: true })).toHaveValue('240')
   await expect(page.getByRole('spinbutton', { name: 'Object h', exact: true })).toHaveValue('140')
   await page.keyboard.press('Shift+ArrowRight')
-  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('421')
+  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('426')
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('440')
+  await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('430')
   await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('447'); await page.getByRole('spinbutton', { name: 'Object x', exact: true }).press('Enter')
   await page.getByRole('spinbutton', { name: 'Object x', exact: true }).blur()
   await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('447')
@@ -1472,10 +1473,10 @@ test('snap aligns final terrain positions and resize edges, including previously
   await page.getByRole('spinbutton', { name: 'Object x', exact: true }).blur()
   await expect(page.getByRole('spinbutton', { name: 'Object x', exact: true })).toHaveValue('447')
   await page.getByRole('checkbox', { name: 'Snap' }).check()
-  await dragWorld(page, { x: 447, y: 220 }, { x: 466, y: 239 })
+  await dragWorld(page, { x: 447, y: 225 }, { x: 466, y: 244 })
   await page.clock.runFor(600)
   const draft = (await saveTestLevel(page)).level
-  expect(draft.platforms[0].polygon[0].map((v, i) => v + (i ? draft.platforms[0].y : draft.platforms[0].x))).toEqual([460, 240])
+  expect(draft.platforms[0].polygon[0].map((v, i) => v + (i ? draft.platforms[0].y : draft.platforms[0].x))).toEqual([465, 245])
   await page.screenshot({ path: info.outputPath('aligned-grid.png') })
 })
 

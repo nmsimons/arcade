@@ -3,7 +3,7 @@ import { drawGravityPlate, drawGravityRegion } from './gravityRender.ts'
 import { addItem, itemOutline } from './editor.ts'
 import type { Selection, Tool } from './editor.ts'
 import { levelHeight, levelTerrain } from './level.ts'
-import { toolGridSize } from './builderSnap.ts'
+import { BUILDER_GRID_SIZE } from './builderSnap.ts'
 import type { JumpLevel } from './level.ts'
 import { placeOnSurface } from './editorPlacement.ts'
 import { createPlayer } from './model.ts'
@@ -24,7 +24,7 @@ export type PlacementPreview = { level: JumpLevel; selection: Selection }
 /** A click-sized candidate uses the editor's placement rules without editing its draft. */
 export function placementPreview(level: JumpLevel, tool: Tool, point: { x: number; y: number; free?: boolean }, snap: boolean, zoom: number): PlacementPreview | null {
   if (tool === 'select' || tool === 'node') return null
-  const grid = toolGridSize(tool)
+  const grid = BUILDER_GRID_SIZE
   const quantize = (value: number) => snap ? Math.round(value / grid) * grid : Math.round(value)
   const bottom = levelHeight(level)
   const position = point.free ? point : { x: quantize(point.x), y: bottom - quantize(bottom - point.y) }

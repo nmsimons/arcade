@@ -151,11 +151,12 @@ surfaces. Preserve flat areas where a crate must rest, a plate must be loaded, o
 the exit needs support. A slightly tilted platform can introduce a useful choice;
 a field of arbitrary angles makes movement harder to read.
 
-Build around the actual movement envelope. The editor grid uses 20-unit tiles;
+Build around the actual movement envelope. The wall grid uses 20-unit tiles;
 crouching fits a two-tile opening, and automatic step climbing reaches three
 tiles under suitable conditions. These are useful starting dimensions, not proof
 that any corner or ceiling arrangement will work. Test approaches, transitions,
-and exits using normal movement.
+and exits using normal movement. Editor snapping uses 5-unit steps independently
+of these wall tiles; use that precision when the route needs finer placement.
 
 Give ledge hangs and pull-ups room. Test rope exits where the rope meets a slope.
 Leave enough space to approach a box and push it from the useful side. Avoid

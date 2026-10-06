@@ -161,12 +161,12 @@ test('node insertion targets every edge and preserves the surface, markers and a
 test('node placement keeps sloping and concave edges intact with snapping on or off', () => {
   const level = newLevel(); level.height = 1037
   level.platforms = [{ x: 200, y: 200, w: 300, h: 240, polygon: [[0, 0], [300, 120], [180, 240], [180, 160], [0, 240]] }]
-  const target = terrainNodeTarget(level, 271, 228.4, 12, 20)
-  assert.deepEqual(target, { index: 0, edge: 0, x: 280, y: 232 })
+  const target = terrainNodeTarget(level, 271, 228.4, 12, 5)
+  assert.deepEqual(target, { index: 0, edge: 0, x: 270, y: 228 })
   const free = terrainNodeTarget(level, 271, 228.4, 12)
   assert.ok(Math.abs(free.x - 271) < .001); assert.ok(Math.abs(free.y - 228.4) < .001)
-  const vertical = terrainNodeTarget(level, 380, 393, 12, 20)
-  assert.deepEqual(vertical, { index: 0, edge: 2, x: 380, y: 397 })
+  const vertical = terrainNodeTarget(level, 380, 393, 12, 5)
+  assert.deepEqual(vertical, { index: 0, edge: 2, x: 380, y: 392 })
   for (const point of [target, free, vertical]) {
     const next = insertTerrainNode(level, point)
     assert.equal(polygonArea(polygonPoints(next.platforms[0])), polygonArea(polygonPoints(level.platforms[0])))

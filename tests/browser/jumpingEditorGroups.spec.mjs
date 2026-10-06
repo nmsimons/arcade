@@ -85,7 +85,7 @@ test('marquee selection moves a group, copies a frozen snapshot and pastes with 
   await expect(group(page,2)).toBeVisible()
   await page.screenshot({path:info.outputPath('terrain-group-paste.png')})
   let saved = await saveTestLevel(page)
-  expect(saved.level.platforms.map(b => [b.x,b.y])).toEqual([[320,300],[420,360],[700,400],[340,340],[440,400]])
+  expect(saved.level.platforms.map(b => [b.x,b.y])).toEqual([[305,300],[405,360],[700,400],[340,340],[440,400]])
   await page.getByRole('button',{name:'Undo',exact:true}).click()
   saved = await saveTestLevel(page); expect(saved.level.platforms).toHaveLength(3)
   await page.getByRole('button',{name:'Redo',exact:true}).click()

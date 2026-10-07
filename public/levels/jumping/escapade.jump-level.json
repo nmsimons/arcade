@@ -1,7 +1,7 @@
 {
   "version": 2,
   "id": "ab914f1b-985f-4992-9e03-44506d00cb33",
-  "name": "Untitled level",
+  "name": "Escapade",
   "width": 4700,
   "height": 2840,
   "platforms": [
@@ -2787,7 +2787,6 @@
       "y": 2820,
       "w": 40,
       "targets": [
-        "0ab2b9f3-fe86-4839-9533-a572621f473a",
         "6564a70f-d41f-444e-86dc-2482f47bdd36",
         "b0af3bed-d7b3-46a8-9a2e-7de9a44d4bc1"
       ],

@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks'
 import { cpus } from 'node:os'
-import { createGravityField, updateGravityField, playerGravity, propGravity } from '../src/games/jumping/gravity.ts'
+import { createGravityField, updateGravityField, playerGravity, propGravity, playerFloatDrag, propFloatDrag, playerSwimStrength, playerFieldCoverage, playerOrientationGravity } from '../src/games/jumping/gravity.ts'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { boxShape } from '../src/games/jumping/propGeometry.ts'
 
@@ -10,6 +10,7 @@ const percentile = (values, fraction) => [...values].sort((a, b) => a - b)[Math.
 const cases = [
   { name: 'inactive', plates: [] },
   { name: 'one full-room field', plates: [{ id: 'g', x: 0, y: 0, w: 1800, h: 6000, gravity: -1 }] },
+  { name: 'one pool, bodies crossing the surface', plates: [{ id: 'w', x: 0, y: 400, w: 1800, h: 5600, gravity: -1, effect: 'water' }] },
   { name: '16 overlapping fields, bodies crossing edges', plates: Array.from({ length: 16 }, (_, i) => ({
     id: `g${i}`, x: 200 + i * 19, y: 300 + i * 23, w: 440 + i * 7, h: 500 + i * 11, gravity: [-3, -.5, 0, 2][i % 4],
   })) },
@@ -20,6 +21,7 @@ for (const { name, plates } of cases) {
   const states = new Map(plates.map(p => [p.id, true])), field = createGravityField()
   updateGravityField(field, plates, states, true)
   const player = createPlayer({ x: 500, y: 700 }); player.inverted = true
+  if (field.hasWater) { player.freeFall = { time: 1, amount: 1, recovery: null }; player.waterMotion = { amount: 1, dive: 0, phase: 0 }; player.y = 395 }
   const props = Array.from({ length: 80 }, (_, i) => ({ kind: i % 2 ? 'ball' : 'box',
     x: 180 + i % 10 * 62, y: 330 + Math.floor(i / 10) * 74, size: 80, angle: i * .17,
     vx: 0, vy: 0, angularVelocity: 0, grounded: false }))
@@ -28,7 +30,9 @@ for (const { name, plates } of cases) {
     for (let tick = 0; tick < 2; tick++) {
       updateGravityField(field, plates, states, true)
       checksum += playerGravity(field, player)
-      for (let substep = 0; substep < 2; substep++) for (const prop of props) checksum += propGravity(field, prop)
+      checksum += playerFloatDrag(field, player) + playerSwimStrength(field, player) + playerFieldCoverage(field, player)
+      if (field.hasWater) checksum += playerOrientationGravity(field, player)
+      for (let substep = 0; substep < 2; substep++) for (const prop of props) checksum += propGravity(field, prop) + propFloatDrag(field, prop)
     }
   }
   for (let i = 0; i < 300; i++) frame(i)

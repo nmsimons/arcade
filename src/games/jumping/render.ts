@@ -9,6 +9,9 @@ import { polygonPoints } from './geometry.ts'
 import { drawWallTexts } from './wallText.ts'
 import { terrainFill, terrainMaterial } from './terrainMaterials.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
+import { drawFootBoosters } from './airBoosters.ts'
+import { paintNormally } from './worldPaint.ts'
+import type { WorldPaint } from './worldPaint.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -63,18 +66,21 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
   }
   if (started) ctx.fill()
 }
-export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player) {
+export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {
+  paint(ctx, 1, () => drawFootBoosters(ctx, p))
   if (!p.sliding) return
   const { angle, amount, time, x, y } = p.sliding
   const speed = p.vx * Math.cos(angle) + p.vy * Math.sin(angle), direction = Math.sign(speed) || p.facing
   const intensity = amount * Math.min(1, Math.abs(speed) / 180)
-  ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.fillStyle = '#777b7e'
-  for (let i = 0; i < 7; i++) {
-    const age = (time * 3 + i / 7) % 1
-    ctx.globalAlpha = intensity * (1 - age) * .5
-    ctx.fillRect(-direction * (3 + age * 24), -2 - Math.sin(age * Math.PI) * (3 + i % 3), 1.5 + i % 2, 1.5)
-  }
-  ctx.restore()
+  paint(ctx, 0, () => {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(angle); ctx.fillStyle = '#777b7e'
+    for (let i = 0; i < 7; i++) {
+      const age = (time * 3 + i / 7) % 1
+      ctx.globalAlpha = intensity * (1 - age) * .5
+      ctx.fillRect(-direction * (3 + age * 24), -2 - Math.sin(age * Math.PI) * (3 + i % 3), 1.5 + i % 2, 1.5)
+    }
+    ctx.restore()
+  })
 }
 export function drawCheckpointMarkers(ctx: CanvasRenderingContext2D, p: Player, level: JumpLevel) {
   for (const [index, point] of [level.spawn, ...level.checkpoints].entries()) {

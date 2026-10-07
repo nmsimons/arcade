@@ -1,8 +1,9 @@
 import type { Run } from './challenge.ts'
 import type { Player } from './model.ts'
+import { airBoostStrength } from './model.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 
-export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator'
+export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster'
 export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
@@ -64,6 +65,10 @@ export class JumpingAudioState {
       this.stepCooldown = .09
     }
     this.loops = []
+    const boost = airBoostStrength(p)
+    if (continuous && !run?.exit && boost >= .01) {
+      this.loops.push({ id: 'player:booster', kind: 'booster', volume: boost, pan: 0, pace: boost, size: 0 })
+    }
     if (run) {
       for (let i = 0; i < run.props.length; i++) {
         const b = run.props[i], old = before.props[i]

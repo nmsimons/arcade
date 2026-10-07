@@ -159,6 +159,11 @@ and exits using normal movement. Editor snapping uses 5-unit steps independently
 of these wall tiles; use that precision when the route needs finer placement.
 
 Give ledge hangs and pull-ups room. Test rope exits where the rope meets a slope.
+Treat a pool as a space with a visible, usable exit. Give its rim an exposed
+grippable edge and room for the player's body and landing, or provide a lower
+bank or ladder. Test reaching and pulling out from the water with normal controls;
+a nearby top surface alone does not establish an exit. Consider floating props,
+a blocked pull-up, and losing water power when reviewing recovery.
 Leave enough space to approach a box and push it from the useful side. Avoid
 packing a box, ball, and shovebot into the only place the player can hang or
 land. The challenge should survive small differences in movement and prop

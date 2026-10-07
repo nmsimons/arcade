@@ -5,6 +5,7 @@ import type { WorldPaint } from './worldPaint.ts'
 import { paintNormally } from './worldPaint.ts'
 
 export const MAX_GRAVITY_DUST = 96
+export const WATER_COLOR = '#58a9df'
 const MAX_DUST_PER_PLATE = 64, CELL_W = 80, CELL_H = 120
 const seeds = new WeakMap<GravityPlate, number>()
 function plateSeed(plate: GravityPlate) {
@@ -25,9 +26,18 @@ const random = (seed: number) => {
 export function drawGravityRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, active: boolean, editor = false, paint: WorldPaint = paintNormally) {
   if (!editor) return
   paint(ctx, 0, () => {
-    ctx.save(); ctx.strokeStyle = active ? '#9b7ac6' : '#948a9e'
+    ctx.save(); ctx.strokeStyle = plate.effect === 'water' ? WATER_COLOR : active ? '#9b7ac6' : '#948a9e'
     ctx.globalAlpha *= .4; ctx.lineWidth = 1; ctx.setLineDash([3, 8])
     ctx.strokeRect(plate.x, plate.y, plate.w, plate.h); ctx.restore()
+  })
+}
+
+/** Water overlays actors and props; it adds no collider, particles or lights. */
+export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, active: boolean, editor = false, paint: WorldPaint = paintNormally) {
+  if (plate.effect !== 'water' || !active && !editor) return
+  paint(ctx, 0, () => {
+    ctx.save(); ctx.fillStyle = WATER_COLOR; ctx.globalAlpha *= active ? .35 : .12
+    ctx.fillRect(plate.x, plate.y, plate.w, plate.h); ctx.restore()
   })
 }
 
@@ -38,7 +48,7 @@ export function drawGravityDust(ctx: CanvasRenderingContext2D, plates: readonly 
   const transform = ctx.getTransform()
   const left = -transform.e / transform.a, right = (ctx.canvas.width - transform.e) / transform.a
   const top = -transform.f / transform.d, bottom = (ctx.canvas.height - transform.f) / transform.d
-  const visible = (p: GravityPlate, i: number) => !!(field.mask & (1 << i)) && p.x < right && p.x + p.w > left && p.y < bottom && p.y + p.h > top
+  const visible = (p: GravityPlate, i: number) => p.effect !== 'water' && !!(field.mask & (1 << i)) && p.x < right && p.x + p.w > left && p.y < bottom && p.y + p.h > top
   let count = 0
   for (let i = 0; i < plates.length; i++) if (visible(plates[i], i)) count++
   if (!count) return
@@ -85,6 +95,7 @@ export function drawGravityDust(ctx: CanvasRenderingContext2D, plates: readonly 
   }
 }
 export function drawGravityPlate(ctx: CanvasRenderingContext2D, plate: GravityPlate, active: boolean, paint: WorldPaint = paintNormally) {
+  if (plate.effect === 'water') return
   const { x, w } = plate, y = plate.ceiling ? plate.y : plate.y + plate.h
   // The pressure plate's shallow metal foot and raised insert, kept inside
   // the field footprint. Only the violet emitter receives power exposure.

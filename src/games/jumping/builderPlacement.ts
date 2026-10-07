@@ -1,5 +1,5 @@
 import { drawForceField } from './forceFieldRender.ts'
-import { drawGravityPlate, drawGravityRegion } from './gravityRender.ts'
+import { drawGravityPlate, drawGravityRegion, drawWaterRegion } from './gravityRender.ts'
 import { addItem, itemOutline } from './editor.ts'
 import type { Selection, Tool } from './editor.ts'
 import { levelHeight, levelTerrain } from './level.ts'
@@ -60,7 +60,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'ladder': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [], ladders: [level.climbables.ladders[i]] }); break
     case 'light': drawLightFixtures(ctx, [{ ...level.lighting!.lights[i], fade: 1 }]); break
     case 'force-field': drawForceField(ctx, level.forceFields![i], true); break
-    case 'gravity-plate': drawGravityRegion(ctx, level.gravityPlates![i], false, true); drawGravityPlate(ctx, level.gravityPlates![i], false); break
+    case 'gravity-plate': drawGravityRegion(ctx, level.gravityPlates![i], false, true); drawGravityPlate(ctx, level.gravityPlates![i], false); drawWaterRegion(ctx, level.gravityPlates![i], true, true); break
     case 'wall-light': drawWallLight(ctx, level.wallLights![i], false); break
     case 'logic-relay': drawLogicRelay(ctx, level.logicRelays![i], false); break
     case 'timer': drawWallTimer(ctx, level.timers![i], 0); break

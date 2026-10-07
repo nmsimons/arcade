@@ -1010,6 +1010,36 @@ pause and disappears when switched off or suppressed by EMP. The plate's light
 strip indicates power. Undo, duplicate, templates, thumbnails,
 save and reopen preserve geometry, power and wiring.
 
+### Water
+
+Both file versions support water in `gravityPlates` with optional
+`effect: "water"`. Water and gravity plates share the limit of 16 rectangles and
+the same geometry, power, Logic, Reversed, Relay and connection controls.
+Water uses fixed buoyancy: `gravity` may be omitted, and an older saved value is
+normalized to −1. The studio shows no gravity-strength or emitter-facing control
+for water. Default placement uses Always on.
+
+```json
+"gravityPlates": [
+  { "id": "pool", "effect": "water", "x": 400, "y": 500,
+    "w": 600, "h": 420, "power": "always" }
+]
+```
+
+Choose **Water** and drag its rectangle, or click at the surface to extend a
+160-unit-wide pool down to the room floor. Resize and select it like a field;
+its interior is selectable after contained physical objects. **Appearance** can
+convert a selected rectangle between water and a gravity plate. Duplicate,
+copy/paste, undo, save and reopen preserve the effect and wiring.
+
+During play, water is a translucent blue rectangle in front of objects and the
+player. Idle players float upright at neck depth; horizontal swimming floats at
+the surface. Up rises, Down dives, and Up toward a reachable pool rim catches
+the ledge and pulls out. A surface jump or an open side also permits leaving.
+Boxes and balls float and react to landings and riders. Gravity plates retain
+their surface floating behavior but have no Up/Down swimming control. See
+[the water physics contract](jumping-physics.md#water).
+
 ### Force fields
 
 Both file versions support up to 40 `forceFields`. A field is a thin rectangle

@@ -1,6 +1,6 @@
 import { gravityPlateActive } from './gravity.ts'
 import { drawForceField } from './forceFieldRender.ts'
-import { drawGravityDust, drawGravityPlate, drawGravityRegion } from './gravityRender.ts'
+import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion } from './gravityRender.ts'
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
@@ -161,9 +161,10 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     paint(ctx, 0, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
   }
   else {
-    paint(ctx, 0, () => drawMovementEffects(ctx, p))
+    drawMovementEffects(ctx, p, paint)
     paint(ctx, 0, () => drawAthlete(ctx, p, playerInk))
   }
+  for (const plate of level.gravityPlates ?? []) drawWaterRegion(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), editor, paint)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {
   const { level, player: p } = run

@@ -662,6 +662,10 @@ validates them without a build. See [jumping level files](docs/jumping-levels.md
 for the full workflow and [Making a fun jumping level](docs/jumping-level-design.md)
 for the level-design brief.
 
+The [carried-gadget proposal](docs/jumping-carried-gadgets.md) records the one-item
+carry system, deliberate EMP activation, boost jump, grappling hook, remote
+control car, and optional gadgets for later review. These are proposed features.
+
 The [flat-lighting specification](docs/jumping-lighting.md) covers the
 ambient/spotlight system, object visibility, shadows, editor workflow, and
 performance requirements. A [development-only lighting lab](docs/jumping-lighting-prototype.md)

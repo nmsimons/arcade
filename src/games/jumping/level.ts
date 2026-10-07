@@ -400,9 +400,11 @@ export function parseLevel(value: unknown): JumpLevel {
     if (typeof p.id !== 'string' || !p.id.trim() || p.id.length > 100) return fail()
     if (p.power !== undefined && p.power !== 'always' && p.power !== 'switched') return fail()
     if (p.ceiling !== undefined && typeof p.ceiling !== 'boolean') return fail()
+    if (p.effect !== undefined && p.effect !== 'water') return fail()
     const w = num(p.w, 40, width), h = num(p.h, 40, 6000)
     return { ...objectName(p), ...parseSwitchSettings(p, fail), id: p.id,
-      x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: num(p.gravity, -3, 3),
+      x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: p.effect === 'water' ? -1 : num(p.gravity, -3, 3),
+      ...(p.effect === undefined ? {} : { effect: p.effect as 'water' }),
       ...(p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(p.power === undefined ? {} : { power: p.power as PowerMode }) }
   })
   if (v.forceFields !== undefined) level.forceFields = list(v.forceFields, MAX_FORCE_FIELDS).map(item => {

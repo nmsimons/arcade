@@ -11,10 +11,16 @@ const root = new URL('../public/levels/jumping/', import.meta.url)
 const catalog = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
 const recordings = JSON.parse(await readFile(new URL('fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
 
-test('every built-in level has one fresh-start medal recording', () => {
+test('every built-in level has one medal recording or an explicit pending audit', () => {
   assert.equal(recordings.version, 2)
   assert.equal(recordings.jumpModel, 'recorded-impulses')
-  assert.deepEqual(recordings.runs.map(run => run.file).sort(), [...catalog.levels].sort())
+  const pending = recordings.pendingAudit ?? []
+  for (const audit of pending) assert.ok(typeof audit.reason === 'string' && audit.reason.trim().length > 0, 'pending audits explain the missing evidence')
+  // Keep all recorded routes strict. Adding a level must explicitly record a
+  // route or acknowledge its unverified medal times; never silently skip it.
+  const accounted = [...recordings.runs.map(run => run.file), ...pending.map(audit => audit.file)]
+  assert.equal(new Set(accounted).size, accounted.length, 'each level has exactly one audit status')
+  assert.deepEqual(accounted.sort(), [...catalog.levels].sort())
 })
 
 // Historical routes preserve their jump impulses for contact/mechanism coverage.

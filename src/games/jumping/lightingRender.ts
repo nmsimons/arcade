@@ -136,8 +136,8 @@ export class LightingRenderer {
         paint(ctx, 0, () => {
           drawClimbables(ctx, run.player, run.level.climbables)
           drawCheckpointMarkers(ctx, run.player, run.level)
-          drawMovementEffects(ctx, run.player)
         })
+        drawMovementEffects(ctx, run.player, paint)
         paint(ctx, 0, () => drawAthlete(ctx, run.player, ink))
       }
     }

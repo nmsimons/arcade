@@ -102,8 +102,8 @@ export function climbFrame(progress: number, braced = false, slope = 0, crouched
 /** The torso leans ahead of the movement root while climbing. Loose objects
  * must meet that reach, rather than pass through the head before hitting the
  * upright locomotion hull. Terrain keeps its existing corner clearance. */
-export function climbContactRoot(progress: number, braced = false, slope = 0, crouched = false, inset = 20): Point {
-  const pose = climbFrame(progress, braced, slope, crouched, inset)
+export function climbContactRoot(progress: number, braced = false, slope = 0, crouched = false, inset = 20,
+  pose = climbFrame(progress, braced, slope, crouched, inset)): Point {
   return [Math.max(pose.root[0], pose.head[0] + 6.2 - 12, pose.shoulder[0] + 4 - 12),
     Math.min(pose.root[1], pose.head[1] - 6.2 + climbBodyHeight(progress, crouched))]
 }

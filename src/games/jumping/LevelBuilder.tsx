@@ -108,6 +108,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'force-field', group: 'Mechanisms', label: 'Vertical force field', help: 'Click or drag vertically to place a blue barrier that stops only the player. Objects, shovebots and ropes pass through. End handles change its length. Choose Always on or Switched; EMP disables it.' },
   { id: 'horizontal-force-field', group: 'Mechanisms', label: 'Horizontal force field', help: 'Click or drag horizontally to place a blue barrier that stops only the player. The player can stand on it; objects, shovebots and ropes pass through. End handles change its length. Choose Always on or Switched; EMP disables it.' },
   { id: 'gravity-plate', group: 'Mechanisms', label: 'Gravity plate', help: 'Click to place a field above a floor plate or below a ceiling plate, or drag its rectangle. Flip vertically changes the emitter edge without changing Gravity: −1 reverses gravity, 0 removes it, 1 is normal. Choose Always on or connect switches to power it. Partially covered bodies blend gravity by area; overlapping fields average their settings. EMP disables the field.' },
+  { id: 'water', group: 'Mechanisms', label: 'Water', help: 'Drag a semi-transparent blue rectangle, or click to fill down to the floor. Fixed buoyancy lets bodies settle partly submerged. Up and Down swim; Jump at the surface helps you get out. Supports switching and EMP.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click to place a pressure plate at the cursor. Snap catches nearby surfaces. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
   { id: 'logic-relay', group: 'Mechanisms', label: 'Logic relay', help: 'Place a studio-only logic node. Combine switches with OR, AND or XOR, optionally reverse the result, then connect its Activates outputs. Invisible during play, with no physical behavior.' },
@@ -227,7 +228,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const goal = selection?.kind === 'goal' ? level.goal : null
   const gravityPlate = selection?.kind === 'gravity-plate' ? level.gravityPlates?.[selection.index] : null
   const forceField = selection?.kind === 'force-field' ? level.forceFields?.[selection.index] : null
-  const facingPlate = gravityPlate ?? (trigger?.mode !== 'coins' ? trigger : null)
+  const facingPlate = (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? (trigger?.mode !== 'coins' ? trigger : null)
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
   const logicRelay = selection?.kind === 'logic-relay' ? level.logicRelays?.[selection.index] : null
   const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? gravityPlate ?? forceField
@@ -941,12 +942,21 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {chosen && <div className="builder-action-row"><button title="Activate Node to add or move terrain points (N)" aria-pressed={tool === 'node'} onClick={() => { setTool('node'); setMessage('') }}>Add node</button><button title="Remove the selected terrain node; at least three must remain" disabled={selectedNode === null || polygonPoints(chosen).length <= 3} onClick={removeNode}>Delete node</button></div>}
         {forceField && <p className="builder-hint">Blocks the player from either side. Objects and ropes pass through. When switched on around the player, the beam waits for them to clear it.</p>}
         {gravityPlate && <>
-          <label>Gravity (× normal)<NumberField label="Gravity strength" min={-3} max={3} step={.1} precision={2} value={gravityPlate.gravity}
+          <BuilderSelect label="Appearance" accessibleLabel="Field appearance" value={gravityPlate.effect ?? 'gravity'}
+            options={[{ value: 'gravity', label: 'Gravity plate' }, { value: 'water', label: 'Water' }]}
+            onChange={value => {
+              const next = copyLevel(level), plate = next.gravityPlates![selection.index]
+              if (value === 'water') { plate.effect = 'water'; plate.gravity = -1 } else delete plate.effect
+              commit(next)
+            }} />
+          {gravityPlate.effect !== 'water' && <label>Gravity (× normal)<NumberField label="Gravity strength" min={-3} max={3} step={.1} precision={2} value={gravityPlate.gravity}
             {...numberEdit((base, value) => {
               if (!Number.isFinite(value)) return base
               const next = copyLevel(base); next.gravityPlates![selection.index].gravity = clamp(value, -3, 3); return next
-            })} /></label>
-          <p className="builder-hint">Negative lifts; zero removes gravity; positive pulls down. The rectangle {gravityPlate.ceiling ? 'below' : 'above'} the plate is the field. Flipping leaves gravity strength unchanged.</p>
+            })} /></label>}
+          <p className="builder-hint">{gravityPlate.effect === 'water'
+            ? 'Fixed buoyancy lets bodies settle partly submerged. Up and Down swim; Jump at the surface helps you get out.'
+            : `Negative lifts; zero removes gravity; positive pulls down. The rectangle ${gravityPlate.ceiling ? 'below' : 'above'} the plate is the field. Flipping leaves gravity strength unchanged.`}</p>
         </>}
         {light && <>
           <div className="builder-dimensions">
@@ -955,7 +965,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           </div>
           <label className="builder-headlight" title="Irregular dimming and brief dropouts, like a malfunctioning lamp"><input type="checkbox" checked={!!light.flicker} onChange={event => commit(editLight(history.present, selection.index, { flicker: event.target.checked }))} />Flicker</label>
         </>}
-        {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : gravityPlate ? 'Gravity plate power' : forceField ? 'Force field power' : 'Mechanism power'} value={objectPower}
+        {switchable && objectPower && <BuilderSelect label="Power" accessibleLabel={goal ? 'Exit power' : light ? 'Light power' : gravityPlate ? gravityPlate.effect === 'water' ? 'Water power' : 'Gravity plate power' : forceField ? 'Force field power' : 'Mechanism power'} value={objectPower}
           options={[{ value: 'always', label: 'Always on' }, { value: 'switched', label: 'Switched' }]}
           onChange={value => commit(setObjectPower(history.present, selection, value === 'always' ? 'always' : 'switched'))} />}
         {wallText && <>

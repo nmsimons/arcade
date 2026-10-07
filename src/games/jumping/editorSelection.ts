@@ -48,6 +48,7 @@ export function selectionsInRect(level: JumpLevel, rect: Rect): Selection[] {
     if (s.kind === 'platform') return polygonIntersects(polygonPoints(level.platforms[s.index]), rect)
     if (s.kind === 'gravity-plate') {
       const p = level.gravityPlates![s.index]
+      if (p.effect === 'water') return overlaps(p)
       return overlaps({ x: p.x, y: p.ceiling ? p.y : p.y + p.h - 10, w: p.w, h: 10 })
         || overlaps({ x: p.x, y: p.y, w: 2, h: p.h }) || overlaps({ x: p.x + p.w - 2, y: p.y, w: 2, h: p.h })
         || overlaps({ x: p.x, y: p.y, w: p.w, h: 2 }) || overlaps({ x: p.x, y: p.y + p.h - 2, w: p.w, h: 2 })

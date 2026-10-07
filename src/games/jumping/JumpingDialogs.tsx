@@ -31,15 +31,15 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
                 <div><dt>Jump / higher jump</dt><dd>Tap / flick up and lift</dd></div>
                 <div><dt>Walk left / right</dt><dd>Hold on that side of the screen</dd></div>
                 <div><dt>Run / turn / swing</dt><dd>Swipe left or right and keep holding</dd></div>
-                <div><dt>Climb / pull up</dt><dd>Drag up and hold</dd></div>
-                <div><dt>Crouch / descend</dt><dd>Drag down and hold</dd></div>
+                <div><dt>Climb / swim up</dt><dd>Drag up and hold</dd></div>
+                <div><dt>Crouch / swim down</dt><dd>Drag down and hold</dd></div>
                 <div><dt>Let go</dt><dd>Flick down and lift</dd></div>
               </dl>
               <p>Keep one finger down to move; use another to jump, crouch or climb. Lift a movement finger to stop directing the player. A flick is a short swipe followed by lifting; a drag and hold continues the action. Ledges and ropes catch automatically.</p>
             </> : <><dl>
               <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
               <div><dt>Press to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
-              <div><dt>Climb / descend</dt><dd><kbd>{connected ? '↑ ↓' : 'W S / ↑ ↓'}</kbd></dd></div>
+              <div><dt>Climb / swim up or down</dt><dd><kbd>{connected ? '↑ ↓' : 'W S / ↑ ↓'}</kbd></dd></div>
               <div><dt>Crouch / crouch walk</dt><dd><kbd>{connected ? '↓ + move' : 'S / ↓ + move'}</kbd></dd></div>
               <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
               {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}

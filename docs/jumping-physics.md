@@ -389,6 +389,133 @@ and gravitational loads continue through the existing contact-force policy.
 This applies to floating props in weak gravity as well as zero gravity.
 Regression coverage lives in `tests/jumping-zero-gravity.test.mjs`.
 
+At the top boundary of an upward field, partial coverage supplies a restoring
+force. Critical vertical damping uses the local force gradient to settle bobbing
+without snapping positions or removing horizontal momentum. Uniform fields,
+side edges and unstable lower boundaries receive no extra damping. Floating
+props can sleep after settling; impacts, loading, power changes and EMP wake them.
+Landing on a floating prop exchanges momentum and applies the rider's ongoing
+weight. Off-center impacts can rotate a box; unloading lets it rise again.
+Rider loads follow the live carried position during every prop solver substep,
+so a centered rider does not add a false torque as the box drifts. Planted foot
+anchors and foot angles rotate with a tilting support; carrying does not advance
+the walking gait.
+
+### Water
+
+Water uses the same switched rectangles with `effect: "water"`. Its buoyancy is
+fixed; there is no editable gravity strength. Props use submerged area and float
+half-submerged without a rider. Players use a fixed density of 0.78 and a
+posture-dependent displacement profile: idle floating is upright with the
+waterline at the neck, while horizontal swimming lies at the surface. Stopping
+returns upright. Posture changes preserve the displaced center while the foot
+root changes its offset, and buoyant force settles the new immersion depth.
+The collision hull retains the existing shared sweep rules.
+Water's lifting force does not turn a swimmer upside down on a ceiling or rope.
+
+Resting water floats receive a tiny periodic buoyancy force: a moving equilibrium
+of at most 2.25 units with a 3.8-second period. Local restoring stiffness scales
+the force, with a cap for very small bodies. Phase varies by initial position.
+It eases in over 0.9 seconds and fades under movement, diving, jumping, pushing
+or impacts over 0.22 seconds. The normal solver retains position and momentum
+through both transitions; drawing has no separate bob offset. A resting rider
+is carried by the actual bobbing support with planted feet. Active bobbing floats
+remain awake, while settled gravity-plate floats can still sleep. Deep water,
+solid footing, inactive water, EMP and leaving the water receive no bob force.
+While the swimmer or their floating support rests, the camera gradually holds
+its vertical framing so following does not hide the real bob. Movement resumes
+ordinary following over 0.25 seconds; changing support also releases the anchor
+before adopting the new one.
+Regression coverage lives in `tests/jumping-water-bob.test.mjs`.
+
+Ledge clearance samples stop at the first obstruction and reuse each sampled
+pose across blockers. All landing insets share an initial hang; a blocked hang
+rejects them together. Terrain and moving floats are still checked each tick,
+so held Down can lower over the bank as soon as an obstacle moves away without
+repeating the entire blocked animation search. The bank/float responsiveness
+regression lives in `tests/jumping-ledge-performance.test.mjs`.
+
+Left/Right use ordinary horizontal steering. Up rises in the upright floating
+pose; Down dives head-first. Horizontal swimming and diving use a coordinated
+breaststroke arm pull, frog kick and glide, blended into and out of the floating
+pose. Stroke phase follows actual traveled distance, including dives; a swimmer
+blocked by terrain does not cycle on a timer. Dive pitch follows resolved vertical and
+horizontal velocity, including diagonals and wall-blocked sideways motion.
+Floating uses only gentle hand sculling and
+keeps the usual side profile and facing. Horizontal swimming targets 110 units
+per second and diving 100, with bounded acceleration. Passive vertical water
+resistance keeps deep buoyant ascent below 85 units per second and damps arrival
+at the surface. Up returns upright and releases the dive motor; it adds no lift
+and settles at the same neck depth as idle floating, even while held.
+Released, reversed and excess horizontal player momentum also meets water
+resistance. Prop translation and box spin damp according to submerged area,
+including at the surface. Switched-off water, EMP and leaving the rectangle
+remove that resistance; gravity plates retain ordinary horizontal momentum.
+Down supplies a bounded vertical motor only in water, never in gravity plates.
+Partial coverage fades its force. A fresh jump can launch from a settled surface;
+the water remains nonsolid. Both buoyancy and the dive motor apply load through
+shared prop contacts. Rims beyond the swimmer's upright arm reach require that
+surface jump before catching and pulling up.
+
+Swimming toward a loose prop keeps the body mostly prone, lifts the face clear
+and presses both palms against its visible surface. The frog kick continues
+under pushing effort even when a prop is blocked; the arms hold contact instead
+of replaying the breaststroke pull. Approaching hands do not supply a grounded
+shove from a distance: shared body contacts supply the physical force and torque.
+Sideways swimming does not automatically catch a loose prop's ledge; Up requests
+that grip. Terrain keeps the ordinary automatic pool-bank catch.
+
+Starting a swim gathers the arms and knees, then extends into the stroke.
+Reversal brakes the current travel while gathering, changes facing near zero
+horizontal speed, and extends into the new heading. The torso rotates without
+collapsing its spine; all tucked limbs retain their segment lengths. Extension
+does not add a velocity impulse or teleport the displaced body.
+Gathering, facing changes, crouch release and bank/floor posture limits blend
+continuously. The visible head and spine clear solid boundaries, while arms,
+knees and soles fold around corners without changing bone lengths. A retained
+clearance offset relaxes gradually so adjacent corner faces cannot snap the
+torso back and forth during a slow start or stop.
+Arm clearance includes the full drawn palm, not just the wrist or arm bones.
+When a blocked wrist retracts, its contact palm follows it; resting sculls and
+pushing hands remain outside nearby floats through contact and release.
+
+Approaching a grippable floor while holding Down gathers the feet underneath
+the body. Support uses buoyancy plus the swimming motor, so upward buoyancy
+cannot repeatedly clear a contact that the motor is holding down. On the
+bottom, standing/crouching and steps use the ordinary planted-foot rig and
+resolved travel. Only the arms sweep upward against buoyancy while Down is
+held; the traveling breaststroke stops. Releasing Down or pressing Up releases
+that load and blends back into upright floating.
+
+When a swimmer rises into the underside of a ball, buoyant load and impact
+use the ball's actual curved contact face. The broad player hull still protects
+the body, but its flat upper cap cannot turn a small off-center ball into a
+balancing shelf. The ordinary contact force lets it roll away from a bank and
+leave the ledge usable, without a lifting motor or a proximity shove. Centered
+contacts remain symmetric and can be escaped with normal sideways swimming.
+Small and large balls, both banks, head clearance and contact release are covered
+in `tests/jumping-water-ball-contacts.test.mjs`.
+
+Approaching a solid side in water gathers and raises the torso before impact,
+with the hands reaching ahead of the head. A reachable exposed pool lip uses
+the ordinary catch; holding Up queues the pull-up. A taller wall gets a palm
+brace instead. Body sweeps and
+landing clearance still apply; an obstructed pull-up retains a recoverable grip,
+and Down releases it. Lower rims can be swum over directly.
+
+Active water draws a blue rectangle at 35% opacity over the player and props.
+It adds no emitter, gravity dust, solid boundary, lighting or fluid particles.
+Switched-off or EMP-suppressed water has no effect or gameplay fill; the studio
+retains its outline and a faint fill. Water shares the 16-device field limit and
+the existing overlap averaging, power logic and field compiler. Regression
+coverage lives in `tests/jumping-floating.test.mjs`,
+`tests/jumping-water-transitions.test.mjs` and `tests/browser/jumpingWater.spec.mjs`.
+The transition matrix covers boxes, balls, floating-box departures, pool banks,
+floor standing/crouching, close floats and low ceilings, with both directions,
+several input strengths and update rates. It checks the visible rig's clearance,
+continuity and bone lengths and held-Up surface settling. Browser capture sheets
+in `tests/browser/jumpingWater.dev.spec.mjs` support visual review.
+
 Ropes can be caught from either player orientation. Up and Down follow the
 visible rope's vertical direction, including a rope floating upward from a floor
 anchor. Nearly horizontal spans retain their last material direction. A player's
@@ -455,7 +582,7 @@ Field changes also wake resting ropes. Regression coverage lives in
 `tests/browser/jumpingGravity.spec.mjs`. The reproducible CPU benchmark is
 `node scripts/benchmark-jumping-gravity.mjs`; it is not a rendering/FPS guarantee.
 
-Field visuals are separate from physics. Gameplay draws no filled rectangle or
+Gravity-plate visuals are separate from physics. Gameplay draws no filled rectangle or
 direction grid. At most 96 tiny dust motes share the visible view, with at most
 64 per plate. Motes keep a 2.5-raster-pixel minimum width when zoomed out and
 use contrasting day/night ink with the existing minimum-exposure pass.

@@ -35,6 +35,8 @@ export interface PushContact {
   effort: number
   wallX: number
   hands: PushHands | null
+  /** A swimmer supplies the existing body load rather than a grounded shove. */
+  swimming?: boolean
 }
 export interface PlayerContacts {
   support: SupportContact | null
@@ -46,6 +48,13 @@ export interface PlayerContacts {
 
 export function staticContactWorld(platforms: readonly Platform[]): ContactWorld {
   return { platforms, colliders: platforms.map((platform, i) => ({ id: `terrain:${i}`, platform })) }
+}
+
+/** An overhead ball meets the swimmer on its curved underside. The broad
+ * protective hull's flat cap must not turn that into a head-balancing shelf. */
+function propContactNormal(p: Player, collider: PlayerCollider, normal: Vec, point: { nx: number; ny: number }): Vec {
+  return p.waterMotion && collider.prop?.kind === 'ball' && normal[1] > .5 && point.ny > .5
+    ? [point.nx, point.ny] : normal
 }
 
 /** Use the existing climb envelope for every solid contact, including props
@@ -150,8 +159,13 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
   // The nearest reachable face wins, regardless of object creation order.
   candidates.sort((a, b) => (a.wallX - b.wallX) * direction || a.collider.id.localeCompare(b.collider.id))
   const nearest = candidates[0]
-  const push = nearest && (nearest.collider.prop || (nearest.wallX - p.x) * direction <= 26.5) ? nearest : null
+  let push = nearest && (nearest.collider.prop || (nearest.wallX - p.x) * direction <= 26.5) ? nearest : null
   const body: PlayerContacts['body'] = []
+  // A floating foothold must carry the rider's weight through the prop solver.
+  // Keep the reaction vertical so curved supports do not invent a sideways shove.
+  if (support?.collider.prop && !support.collider.prop.grounded && free && !departing && (p.gravity ?? TUNING.gravity) > 0) {
+    body.push({ collider: support.collider, normal: [0, -1], point: [p.x, p.y], load: p.gravity ?? TUNING.gravity })
+  }
   if (p.mantle && !p.mantle.step && !p.mantle.descending && !p.mantle.returning && !input.drop && !input.descend && !input.detach) {
     const { from, target, sweep: probe } = mantleContact(p.mantle, world)
     const dx = target[0] - from[0], dy = target[1] - from[1], distance = Math.hypot(dx, dy)
@@ -169,23 +183,25 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     // and sloping foot contacts while airborne, where no standing support exists.
     const move = Math.max(-1, Math.min(1, input.move))
     const height = p.crouching ? TUNING.crouchHeight : TUNING.height
-    const probe = moveBody([p.x, p.y], [p.x + move * .2, p.y + ((p.gravity ?? TUNING.gravity) < 0 ? -.2 : .2)], world.platforms, height, 1, playerTurnAngle(p))
+    const accelerationY = (p.gravity ?? TUNING.gravity) + (p.swimAcceleration ?? 0)
+    const probe = moveBody([p.x, p.y], [p.x + move * .2, p.y + (accelerationY < 0 ? -.2 : .2)], world.platforms, height, 1, playerTurnAngle(p))
     for (const hit of probe.contacts) {
       const collider = world.colliders.find(c => c.platform === hit.platform && c.prop)
       if (!collider || collider === support?.collider || body.some(c => c.collider === collider)) continue
       // A gripped foothold balances weight through normal force and traction.
       // Sending only its normal component into a curved support would create
       // a sideways shove every frame, even when the player stands still.
-      const gravity = support ? 0 : p.gravity ?? TUNING.gravity
+      const gravity = support ? 0 : accelerationY
       // Input away from this contact cannot cancel gravity's load: a wall on
       // the other side may prevent that requested separation altogether.
-      const load = Math.max(0, -hit.normal[0] * move * (p.grounded ? TUNING.acceleration : TUNING.airAcceleration))
-        + Math.max(0, -hit.normal[1] * gravity)
       const point = bodyContact(hit.platform, p.x, p.y, hit.normal, height)
-      if (load) body.push({ collider, normal: hit.normal, point: [point.x, point.y], load })
+      const normal = propContactNormal(p, collider, hit.normal, point)
+      const load = Math.max(0, -normal[0] * move * (p.grounded ? TUNING.acceleration : TUNING.airAcceleration))
+        + Math.max(0, -normal[1] * gravity)
+      if (load) body.push({ collider, normal, point: [point.x, point.y], load })
     }
   }
-  if (free && !support && Math.abs(p.gravity ?? TUNING.gravity) < TUNING.gravity - 1e-7) {
+  if (free && !support) {
     // Drift is a physical collision even without steering or gravitational load.
     // Sweep relative to each nearby prop; include the other solids so a wall
     // cannot transmit an impact into an object hidden behind it.
@@ -193,6 +209,8 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     for (const collider of world.colliders) {
       const prop = collider.prop
       if (!prop || prop.grounded && !isWeightless(p.gravity ?? TUNING.gravity)) continue
+      if (Math.abs(p.gravity ?? TUNING.gravity) >= TUNING.gravity - 1e-7
+        && (prop.gravity ?? TUNING.gravity) >= TUNING.gravity - 1e-7 && !p.swimAcceleration) continue
       const vx = p.vx - prop.vx, vy = p.vy - prop.vy, b = collider.platform
       if (Math.hypot(vx, vy) < .01 || hull.x + TUNING.width / 2 + Math.abs(vx * dt) < b.x
         || hull.x - TUNING.width / 2 - Math.abs(vx * dt) > b.x + b.w
@@ -201,12 +219,26 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       const hit = probe.contacts.find(hit => hit.platform === b)
       if (!hit) continue
       const point = bodyContact(b, probe.x, probe.y, hit.normal, hull.height)
+      const normal = propContactNormal(p, collider, hit.normal, point)
       const rx = point.x - prop.x, ry = point.y - prop.y + prop.size / 2
-      const closing = -(hit.normal[0] * (vx + prop.angularVelocity * ry) + hit.normal[1] * (vy - prop.angularVelocity * rx))
+      const closing = -(normal[0] * (vx + prop.angularVelocity * ry) + normal[1] * (vy - prop.angularVelocity * rx))
       if (closing <= .01) continue
       const existing = body.find(contact => contact.collider === collider)
-      if (existing) { existing.impactSpeed = closing; existing.normal = hit.normal; existing.point = [point.x, point.y] }
-      else body.push({ collider, normal: hit.normal, point: [point.x, point.y], load: 0, impactSpeed: closing })
+      if (existing) { existing.impactSpeed = closing; existing.normal = normal; existing.point = [point.x, point.y] }
+      else body.push({ collider, normal, point: [point.x, point.y], load: 0, impactSpeed: closing })
+    }
+  }
+  if (!support && p.waterMotion && free && direction && !departing) {
+    // Reach toward the first side face in the same solid sweep, so palms lead
+    // the head and remain on a slowly moving float between body contacts.
+    // Only the actual body load above drives the prop and supplies torque.
+    const hull = playerContactBody(p)
+    const reach = moveBody([hull.x, hull.y], [hull.x + direction * 38, hull.y], world.platforms, hull.height)
+    const hit = reach.contacts.find(c => c.normal[0] * direction < -.55)
+    const collider = hit && world.colliders.find(c => c.platform === hit.platform && c.prop)
+    if (collider?.prop) {
+      const hands = propPushHands(collider.prop, p.x, p.y, direction, 12 + 31 * (1 - p.waterMotion.amount))
+      if (hands) push = { collider, direction, effort: Math.min(1, Math.abs(input.move)), wallX: hands.wallX, hands, swimming: true }
     }
   }
   return { support, push, body, motion: { x: 0, y: 0, speed: 0 } }
@@ -232,14 +264,14 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
 
 /** Presentation consumes the solved contact; it never moves the player. */
 export function updatePushingPose(p: Player, contact: PushContact | null, dt: number) {
-  if (contact?.hands && p.grounded && !p.hang && !p.mantle && !p.climbing) {
+  if (contact?.hands && (p.grounded || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
     const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing.amount : 0
     p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction, amount: Math.min(1, previous + dt / .14), effort: contact.effort }
   } else if (p.pushing) {
     const amount = Math.max(0, p.pushing.amount - dt / .16)
-    p.pushing = amount && p.grounded && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
+    p.pushing = amount && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
       ? { ...p.pushing, amount, effort: 0 } : null
   }
 }
@@ -261,4 +293,25 @@ export function translateFeet(p: Player, dx: number, dy: number) {
     foot.x += dx; foot.y += dy; foot.anchorX += dx; foot.anchorY += dy; foot.groundY += dy
     if (foot.settle) foot.settle = { ...foot.settle, x: foot.settle.x + dx, y: foot.settle.y + dy }
   }
+}
+
+/** Carried feet and their planted anchors turn with a rotating support. The
+ * body stays upright; its normal foot rig can balance on the new slope. */
+export function rotateFeet(p: Player, angle: number) {
+  const cos = Math.cos(angle), sin = Math.sin(angle)
+  const point = (x: number, y: number) => {
+    const dx = x - p.x, dy = y - p.y
+    return { x: p.x + dx * cos - dy * sin, y: p.y + dx * sin + dy * cos }
+  }
+  if (p.footwork) for (const foot of p.footwork.feet) {
+    const ankle = point(foot.x, foot.y), anchor = point(foot.anchorX, foot.anchorY), ground = point(foot.x, foot.groundY)
+    Object.assign(foot, ankle, { anchorX: anchor.x, anchorY: anchor.y, groundY: ground.y,
+      angle: foot.angle + angle * foot.facing, groundAngle: foot.groundAngle + angle })
+    if (foot.release) {
+      const { x, y } = foot.release
+      foot.release.x = x * cos - y * sin; foot.release.y = x * sin + y * cos
+    }
+    if (foot.settle) Object.assign(foot.settle, point(foot.settle.x, foot.settle.y), { angle: foot.settle.angle + angle * foot.settle.facing })
+  }
+  p.groundAngle += angle
 }

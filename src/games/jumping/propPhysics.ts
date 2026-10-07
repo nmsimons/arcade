@@ -7,17 +7,18 @@ import { bodyPolygon, convexParts, lineBlocked, moveBody, polygonIntersects, pol
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
-import { playerContactBody, translatePlayer } from './playerContacts.ts'
+import { playerContactBody, rotateFeet, translatePlayer } from './playerContacts.ts'
+import { advanceWaterBob, waterBobAcceleration } from './waterBob.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { mechanismShape } from './mechanisms.ts'
 import { flatBoxSupport } from './boxSupport.ts'
 import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysics.ts'
 import type { Vec } from './geometry.ts'
 
-import { propGravity } from './gravity.ts'
+import { propFloatDrag, propGravity, propWaterStrength } from './gravity.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
-interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; gravity: Map<Matter.Body, number>; driven: Set<Matter.Body> }
+interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
 const worlds = new WeakMap<Run, PropWorld>()
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
 const material = { friction: .55, frictionStatic: 1.4, frictionAir: 0, restitution: 0, slop: .0001 }
@@ -72,19 +73,24 @@ function worldFor(run: Run) {
   const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
   const bodies = new Map(run.props.map(b => [b, makeProp(b)]))
   Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values()])
-  const world: PropWorld = { engine, terrain, mechanisms, bodies, gravity: new Map<Matter.Body, number>(), driven: new Set() }; worlds.set(run, world)
-  // Correct only gravitational integration after Matter's sleeping decision,
+  const world: PropWorld = { engine, terrain, mechanisms, bodies, gravity: new Map(), floatDrag: new Map(), waterStrength: new Map(), floatQuiet: new Map(), driven: new Set() }; worlds.set(run, world)
+  // Adjust field gravity and water resistance after Matter's sleeping decision,
   // before collision detection/solving. A persistent applied force would wake
   // every resting field prop forever, even when pinned against a ceiling.
   Events.on(engine, 'beforeSolve', () => {
     if (run.gravityField.strips.length) for (const body of bodies.values()) {
       if (body.isSleeping) continue
-      const dy = ((world.gravity.get(body) ?? TUNING.gravity) - TUNING.gravity) * (engine.timing.lastDelta * body.timeScale / 1000) ** 2
-      if (!dy) continue
-      Body.translate(body, { x: 0, y: dy })
-      // Translate the integrated position, preserving its pre-step position.
+      const seconds = engine.timing.lastDelta * body.timeScale / 1000
       const previous = (body as Matter.Body & { positionPrev: Matter.Vector }).positionPrev
-      previous.y -= dy; body.velocity.y += dy
+      const water = world.waterStrength.get(body) ?? 0
+      const dx = (body.position.x - previous.x) * (Math.exp(-TUNING.waterPropDrag * water * seconds) - 1)
+      let dy = ((world.gravity.get(body) ?? TUNING.gravity) - TUNING.gravity) * seconds ** 2
+      dy += (body.position.y + dy - previous.y) * (Math.exp(-Math.max(world.floatDrag.get(body) ?? 0, TUNING.waterPropDrag * water) * seconds) - 1)
+      if (water) Body.setAngularVelocity(body, Body.getAngularVelocity(body) * Math.exp(-TUNING.waterSpinDrag * water * seconds))
+      if (!dx && !dy) continue
+      Body.translate(body, { x: dx, y: dy })
+      // Translate the integrated position, preserving its pre-step position.
+      previous.x -= dx; previous.y -= dy; body.velocity.x += dx; body.velocity.y += dy
       Bounds.update(body.bounds, body.vertices, body.velocity)
     }
     // Speed-based waking cannot propagate a gentle shove into a sleeping chain:
@@ -154,6 +160,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const gravity = propGravity(run.gravityField, b)
     if (Math.abs(gravity - (world.gravity.get(body) ?? TUNING.gravity)) > 1e-7) Sleeping.set(body, false)
     world.gravity.set(body, gravity)
+    b.gravity = gravity
+    world.floatDrag.set(body, propFloatDrag(run.gravityField, b))
+    world.waterStrength.set(body, propWaterStrength(run.gravityField, b))
     // Motors push only at an actual forward contact, using the same bounded
     // forces as the player. A charge has a faster target, never a velocity reset.
     for (const { robot, hulls } of robotProbes) {
@@ -192,7 +201,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       b.angularVelocity -= lever * impulse * body.inverseInertia
       run.player.vx += nx * impulse / PLAYER_MASS; run.player.vy += ny * impulse / PLAYER_MASS
     }
-    if (push?.collider.prop === b) {
+    if (push?.collider.prop === b && !push.swimming) {
       const target = push.direction * push.effort * 90
       const maximum = b.kind === 'ball' ? 3800 : 1900
       // Keep a ball's push force when a load resists it, despite its lower
@@ -218,12 +227,31 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const acceleration = Math.max(-900, Math.min(900, (target - b.vx) * 20))
       Body.applyForce(body, { x: run.player.x, y: run.player.y }, { x: body.mass * acceleration / 1e6, y: 0 })
     }
-    if (contact && push?.collider.prop !== b) {
+    if (contact && (push?.collider.prop !== b || push.swimming)) {
       // The player is a controlled body, but its normal load still belongs in
       // the prop solver. Otherwise an airborne body wedged beside a ball can
       // never separate it from a wall and keeps falling against a fixed sphere.
       const force = PLAYER_MASS * contact.load / 1e6
-      Body.applyForce(body, { x: contact.point[0], y: contact.point[1] }, { x: -contact.normal[0] * force, y: -contact.normal[1] * force })
+      // A support carries the rider during every solver substep. Its load must
+      // follow that live position; reusing the frame-start point invents torque
+      // as a centered rider drifts with a floating box.
+      const point = playerContact.support?.collider.prop === b ? run.player : { x: contact.point[0], y: contact.point[1] }
+      Body.applyForce(body, point, { x: -contact.normal[0] * force, y: -contact.normal[1] * force })
+    }
+    const water = world.waterStrength.get(body) ?? 0, floatDrag = world.floatDrag.get(body) ?? 0
+    const rider = playerContact.support?.collider.prop === b
+    const interacting = !!push && (push.collider.prop === b || braced)
+      || !!contact && (!rider || (contact.impactSpeed ?? 0) > 2)
+      || driven.has(body) && !rider && !contact
+    const resting = !b.grounded && water > .1 && water < .9 && floatDrag > 0
+      && Math.hypot(b.vx, b.vy) < 12 && Math.abs(b.angularVelocity) < .03 && !interacting
+    b.waterBob = advanceWaterBob(b.waterBob, dt, resting, b.x)
+    const bob = water ? waterBobAcceleration(b.waterBob, floatDrag) : 0
+    if (bob) {
+      // Use real integration and contact transport, including a planted rider.
+      // The blend changes force only; incoming impacts and motion remain intact.
+      world.gravity.set(body, gravity + bob); b.gravity = gravity + bob
+      Sleeping.set(body, false)
     }
     Body.setVelocity(body, { x: b.vx / 60, y: Math.max(-1000, Math.min(1000, b.vy)) / 60 })
     if (b.kind === 'box' && Math.abs(Body.getAngularVelocity(body) * 60 - b.angularVelocity) > 1e-5) Body.setAngularVelocity(body, b.angularVelocity / 60)
@@ -249,6 +277,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (!riding && !holding) continue
     const angle = b.kind === 'box' ? body.angle - b.angle : 0, x = p.x - b.x, y = p.y - b.y + b.size / 2
     transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle), body)
+    if (riding && angle) rotateFeet(p, angle)
   }
   const contactBody = playerContactBody(p)
   const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height, p.inverted ? -1 : 1, playerTurnAngle(p)))
@@ -384,9 +413,16 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     // Low acceleration can look stationary to Matter's speed-only sleep test.
     // A body under gravity may sleep only while a real support carries it.
     const gravity = Math.abs(world.gravity.get(body) ?? TUNING.gravity)
-    const falling = !b.grounded && gravity > 1e-7
-    body.sleepThreshold = falling && gravity < TUNING.gravity * .05 ? 0 : 45
+    const floating = !b.grounded && (world.floatDrag.get(body) ?? 0) > 0 && gravity < .5 && !driven.has(body)
+    const falling = !b.grounded && gravity > 1e-7 && !floating
+    body.sleepThreshold = b.waterBob ? 0 : falling && gravity < TUNING.gravity * .05 ? 0 : 45
     if (falling && body.isSleeping) Sleeping.set(body, false)
+    // A force-balanced float is support without a solid contact. Require quiet
+    // motion before sleeping; field changes, impacts and player loads still wake it.
+    const quiet = floating && Body.getSpeed(body) * 60 < .05 && Math.abs(Body.getAngularVelocity(body)) * 60 < .001
+      ? (world.floatQuiet.get(body) ?? 0) + dt : 0
+    world.floatQuiet.set(body, quiet)
+    if (quiet >= .5 && !b.waterBob) Sleeping.set(body, true)
     const normal = supports.get(body)
     // Static friction holds a settled face on a moderate slope. Checking face
     // alignment keeps corners free to tip; steep slopes keep their momentum.

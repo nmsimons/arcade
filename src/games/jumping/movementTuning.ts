@@ -9,6 +9,9 @@ export const TUNING = {
   climbTime: LEDGE_CLIMB_TIME,
   freeFallTime: .9, freeFallBlendTime: .28, fallRecoveryTime: .95,
   zeroGravityDrag: .6,
+  swimSpeed: 85, diveSpeed: 100, swimHorizontalSpeed: 110, swimHorizontalAcceleration: 160, swimBlendTime: .65, swimStrokeDistance: 130, swimAcceleration: 4000, waterRiseDrag: 5.2,
+  waterMomentumDrag: 4, waterPropDrag: 5, waterSpinDrag: 6,
+  waterBobHeight: 2.25, waterBobPeriod: 3.8,
 } as const
 
 /** Preset gesture strength; held buttons build the same bounded lift after takeoff. */

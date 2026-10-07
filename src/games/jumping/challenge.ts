@@ -20,7 +20,9 @@ import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism
 import { canHangFromBox } from './boxSupport.ts'
 import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
 
-import { createGravityField, playerGravity, propGravity, setPlayerGravity, updateGravityField } from './gravity.ts'
+import { createGravityField, playerFieldCoverage, playerFloatDrag, playerGravity, playerSwimStrength, propGravity, setPlayerGravity, swimmingAcceleration, updateGravityField } from './gravity.ts'
+import { waterBobAcceleration } from './waterBob.ts'
+import type { WaterBob } from './waterBob.ts'
 import type { GravityField } from './gravity.ts'
 import { createForceField, forceFieldPlatforms, updateForceFields } from './forceField.ts'
 import type { ForceFieldState } from './forceField.ts'
@@ -28,6 +30,8 @@ import { mirrorPlatform } from './gravityFrame.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop {
+  gravity?: number
+  waterBob?: WaterBob
   kind: 'box' | 'ball'; x: number; y: number; size: number; vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
 }
 export interface MechanismState { definition: Mechanism; x: number; y: number; direction: number; wait: number; active: boolean; safetyHold: number | null }
@@ -315,7 +319,10 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
   stepTriggers(run, poweredDt, powered)
   if (run.forceFields.length) world = syncPlatforms(run)
-  setPlayerGravity(run.player, playerGravity(run.gravityField, run.player))
+  const swimStrength = playerSwimStrength(run.gravityField, run.player)
+  run.player.gravity = playerGravity(run.gravityField, run.player) + (run.player.waterBob && swimStrength ? waterBobAcceleration(run.player.waterBob, playerFloatDrag(run.gravityField, run.player)) : 0)
+  run.player.swimAcceleration = swimmingAcceleration(run.player, input, swimStrength, playerFieldCoverage(run.gravityField, run.player))
+  setPlayerGravity(run.player, run.player.gravity, run.player.gravity + run.player.swimAcceleration)
   if (powered) stepMechanisms(run, poweredDt, playerContacts(run.player, input, world, dt))
   world = syncPlatforms(run)
   const rider = playerContacts(run.player, input, world, dt).support

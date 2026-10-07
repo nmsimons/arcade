@@ -17,6 +17,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'force-field': 'M9 2h6v4H9zM9 18h6v4H9zM12 7v2M12 11v2M12 15v2M9 7v10M15 7v10',
   'horizontal-force-field': 'M2 9h4v6H2zM18 9h4v6h-4zM7 12h2M11 12h2M15 12h2M7 9h10M7 15h10',
   'gravity-plate': 'M2 19h20M4 14h16v2H4zM12 10V3M9 6l3-3 3 3',
+  water: 'M3 7h18v14H3zM4 12h16M4 16h16',
   plate: 'M2 19h20M4 14h16v2H4zM12 3v7M9 7l3 3 3-3', lift: 'M8 13V3M5 6l3-3 3 3M16 3v10M13 10l3 3 3-3M3 17h18v4H3z',
   'moving-platform': 'M3 8h18M7 4 3 8l4 4M17 4l4 4-4 4M3 17h18v4H3z',
   gate: 'M9 3h6v18H9zM11 7h2M11 12h2M11 17h2',

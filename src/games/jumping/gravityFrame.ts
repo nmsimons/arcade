@@ -89,9 +89,10 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
       for (const state of [foot.release, foot.settle]) if (state) { state.y = -state.y; state.angle = -state.angle }
     }
   }
-  const caught = (value: { y: number; vy: number; footwork?: Footwork | null; pushing?: Player['pushing']; ledgeReach?: Player['ledgeReach']; climbing?: Climbing | null }) => {
+  const caught = (value: { y: number; vy: number; footwork?: Footwork | null; pushing?: Player['pushing']; ledgeReach?: Player['ledgeReach']; climbing?: Climbing | null; waterMotion?: Player['waterMotion'] }) => {
     if (seen.has(value)) return
     seen.add(value); value.y = -value.y; value.vy = -value.vy
+    if (value.waterMotion && !seen.has(value.waterMotion)) { seen.add(value.waterMotion); value.waterMotion.dive = -value.waterMotion.dive }
     if (value.footwork) footwork(value.footwork)
     if (value.pushing) hands(value.pushing)
     if (value.ledgeReach && !seen.has(value.ledgeReach)) { seen.add(value.ledgeReach); value.ledgeReach.y = -value.ledgeReach.y }
@@ -113,6 +114,9 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
   }
   p.y = -p.y; p.vy = -p.vy; p.spawnY = -p.spawnY; p.jumpStart = -p.jumpStart; p.groundAngle = -p.groundAngle
   if (p.gravity !== undefined) p.gravity = -p.gravity
+  if (p.waterMotion) p.waterMotion.dive = -p.waterMotion.dive
+  if (p.waterCamera) p.waterCamera.y = -p.waterCamera.y
+  if (p.swimAcceleration !== undefined) p.swimAcceleration = -p.swimAcceleration
   if (p.terrain) p.terrain = mirrorPlatforms(p.terrain)
   if (p.wallBrace?.normal) {
     p.wallBrace.normal[1] = -p.wallBrace.normal[1]

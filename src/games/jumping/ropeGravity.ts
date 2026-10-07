@@ -56,10 +56,9 @@ export function stepRopeTurn(c: Climbing, gravity: number, facing: number, terra
 
 /** A release during a turn continues around the body center in free flight,
  * so letting go neither teleports the root nor locks the controls. */
-export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: number) {
+export function stepReleasedTurn(p: Player, terrain: readonly Platform[], dt: number, gravity = p.gravity ?? TUNING.gravity) {
   const turn = p.releaseTurn
   if (!turn) return
-  const gravity = p.gravity ?? TUNING.gravity
   if (Math.abs(gravity) <= GRAVITY_DEADBAND) return
   if (gravity > GRAVITY_DEADBAND) turn.target = 0
   else if (gravity < -GRAVITY_DEADBAND) turn.target = Math.sign(turn.target || turn.angle || p.facing) * Math.PI

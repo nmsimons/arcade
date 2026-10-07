@@ -30,6 +30,7 @@ export function loopTone(loop: SoundLoop) {
         playbackRate: playbackRate * scale, body: .12 * resonance, texture: 1, volume: .12 }
     }
     case 'box': return { frequency: 60, cutoff: 700 + pace * 900, playbackRate, body: 0, texture: 1, volume: .075 }
+    case 'booster': return { frequency: 60, cutoff: 1400 + pace * 400, playbackRate: .9, body: 0, texture: 1, volume: .018 }
     case 'elevator': return { frequency: 68 + pace * 25, cutoff: 380, playbackRate, body: .65, texture: .28, volume: .045 }
     case 'gate-open': return { frequency: 110 + pace * 35, cutoff: 950, playbackRate, body: .16, texture: .85, volume: .075 }
     case 'gate-close': return { frequency: 76 + pace * 28, cutoff: 650, playbackRate, body: .2, texture: .85, volume: .075 }

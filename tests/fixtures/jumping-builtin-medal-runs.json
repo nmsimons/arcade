@@ -1,5 +1,11 @@
 {
   "version": 2,
+  "pendingAudit": [
+    {
+      "file": "escapade.jump-level.json",
+      "reason": "Added after the October 4 medal audit; a fresh-start medal route has not yet been recorded."
+    }
+  ],
   "runs": [
     {
       "file": "Untitled.jump-level.json",

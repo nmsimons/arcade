@@ -1,5 +1,10 @@
 # Built-in jumping medal audit
 
+October 7 update: Escapade was added after the recorded audit. Its current
+10 / 20 / 40 medal times remain unverified; the fixture lists it explicitly as
+pending rather than claiming a completed route. All earlier route recordings
+continue to replay and check completion, timing, medals and puzzle state.
+
 October 5 update: jumping now uses a short tap and a brief post-takeoff hold to
 control height. The maximum height is preserved, but the timings below were
 recorded with the earlier directional-jump controls. A new full medal-time audit

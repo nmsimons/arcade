@@ -32,7 +32,7 @@ import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from 
 import { plateSolids, plateSurface } from './plateSurface.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'gravity-plate' | 'force-field' | 'horizontal-force-field'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -346,7 +346,7 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     // The emitter and rectangle outline select the device; its interior lets
     // the pointer reach actors and terrain within the field.
     const inside = x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance
-    if (inside && (Math.abs(x - b.x) <= tolerance || Math.abs(x - b.x - b.w) <= tolerance
+    if (inside && (b.effect === 'water' || Math.abs(x - b.x) <= tolerance || Math.abs(x - b.x - b.w) <= tolerance
       || Math.abs(y - b.y) <= tolerance || Math.abs(y - b.y - b.h) <= tolerance
       || (b.ceiling ? y <= b.y + 10 + tolerance : y >= b.y + b.h - 10 - tolerance))) return { kind: 'gravity-plate', index: i }
   }
@@ -628,16 +628,17 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       w, h, orientation: horizontal ? 'horizontal' : 'vertical', power: 'always' })
     return { level: trial, selection: { kind: 'force-field', index: fields.length - 1 } }
   }
-  if (tool === 'gravity-plate') {
+  if (tool === 'gravity-plate' || tool === 'water') {
     const trial = asTrial(next), plates = trial.gravityPlates ??= []
-    if (plates.length >= MAX_GRAVITY_PLATES) throw new Error('This level already has 16 gravity plates.')
+    if (plates.length >= MAX_GRAVITY_PLATES) throw new Error('This level already has 16 gravity or water fields.')
+    const water = tool === 'water'
     const dragged = Math.hypot(end.x - start.x, end.y - start.y) >= 20
     const w = Math.min(trial.width, dragged ? Math.max(40, Math.abs(end.x - start.x)) : 160)
     const left = clamp(dragged ? Math.min(start.x, end.x) : start.x - w / 2, 0, trial.width - w)
-    const ceiling = !!plateSurface(plateSolids(trial), left, w, start.y, 12)?.ceiling
-    const h = Math.min(levelHeight(trial), dragged ? Math.max(40, Math.abs(end.y - start.y)) : Math.max(40, ceiling ? levelHeight(trial) - start.y : start.y))
-    const top = clamp(dragged ? Math.min(start.y, end.y) : ceiling ? start.y : start.y - h, 0, levelHeight(trial) - h)
-    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1, ...(ceiling ? { ceiling: true } : {}) })
+    const ceiling = !water && !!plateSurface(plateSolids(trial), left, w, start.y, 12)?.ceiling
+    const h = Math.min(levelHeight(trial), dragged ? Math.max(40, Math.abs(end.y - start.y)) : Math.max(40, water || ceiling ? levelHeight(trial) - start.y : start.y))
+    const top = clamp(dragged ? Math.min(start.y, end.y) : water || ceiling ? start.y : start.y - h, 0, levelHeight(trial) - h)
+    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1, ...(water ? { effect: 'water', power: 'always' } as const : {}), ...(ceiling ? { ceiling: true } : {}) })
     return { level: trial, selection: { kind: 'gravity-plate', index: plates.length - 1 } }
   }
   if (tool === 'wall-light') {

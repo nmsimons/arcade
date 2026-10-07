@@ -1564,6 +1564,9 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   await page.getByRole('spinbutton', { name: 'Object y', exact: true }).fill('440'); await page.getByRole('spinbutton', { name: 'Object y', exact: true }).press('Enter')
   await page.getByRole('spinbutton', { name: 'Object y', exact: true }).blur()
   await canvas.focus(); await page.keyboard.press('ArrowUp')
+  await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('445')
+  // Canvas nudges use the five-unit authoring grid; four presses move 20 units.
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowUp')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('460')
   await dragWorld(page, { x: 400, y: 637 }, { x: 400, y: 637 })
   await expect(page.getByRole('status', { name: 'Cursor coordinates' })).toHaveText('400, 400')

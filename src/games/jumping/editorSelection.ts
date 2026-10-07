@@ -230,6 +230,9 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
     if (index !== undefined) next = reorderTerrain(next, index, 'front')
   }
   next = moveSelections(next, pasted, dx, dy, false)
+  // Terrain edits leave temporary rope sketches in the live draft. They are
+  // rebuilt by the editor; saved-file validation must not reject an unrelated paste.
+  for (const rope of next.climbables.ropes) if (rope.rest?.key.startsWith('preview:')) delete rope.rest
   parseLevel(next)
   return { level: next, selections: pasted }
 }

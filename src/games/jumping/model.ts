@@ -9,6 +9,7 @@ import type { GroundSurface } from './terrain.ts'
 import { ledgeExposed, ledgeObstacles, platformLedges, sameLedge } from './terrainLedges.ts'
 import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
+import type { TerrainContact } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
 import { mantleAdvance, narrowMantle, playerContactBody, playerContacts, pushingVelocity, staticContactWorld, translateFeet, updatePushingPose } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
@@ -42,7 +43,7 @@ export interface Player {
   jumpLift: { elapsed: number; strength: number; entrySpeed: number; extraSpeed: number; fresh: boolean } | null
   grabCooldown: number
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
-  wallBrace: { wallX: number; direction: number; active: boolean; hands: [number, number]; feet: [number, number] } | null
+  wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
   pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; effort: number; slope?: number; colliderId?: string }) | null
   ledgeReach: { x: number; y: number; amount: number } | null
@@ -129,8 +130,25 @@ function touchesWallFace(platforms: readonly Platform[], wallX: number, directio
   return platforms.some(wall => wallX >= wall.x - .15 && wallX <= wall.x + wall.w + .15
     && exposedWallFaces(platforms, wall, direction, top, bottom).some(x => Math.abs(x - wallX) < .15))
 }
+type WallBraceContact = Omit<NonNullable<Player['wallBrace']>, 'active'>
+function settleWallBrace(p: Player, contact: WallBraceContact | null, dt: number) {
+  if (contact) {
+    p.freeFall = null
+    const previous = p.wallBrace?.direction === contact.direction ? p.wallBrace : null
+    p.wallBrace = { ...contact, active: true,
+      hands: contact.hands.map((value, i) => approach(previous?.hands[i] ?? 0, value, dt / .08)) as [number, number],
+      feet: contact.feet.map((value, i) => approach(previous?.feet[i] ?? 0, value, dt / .08)) as [number, number] }
+    p.facing = contact.direction
+  } else if (p.wallBrace) {
+    const brace = p.wallBrace
+    brace.active = false
+    brace.hands = brace.hands.map(value => approach(value, 0, dt / .12)) as [number, number]
+    brace.feet = brace.feet.map(value => approach(value, 0, dt / .12)) as [number, number]
+    if (p.facing !== brace.direction || p.hang || p.mantle || p.climbing || ![...brace.hands, ...brace.feet].some(Boolean)) p.wallBrace = null
+  }
+}
 function updateWallBrace(p: Player, move: number, dt: number, platforms: readonly Platform[]) {
-  let contact: Player['wallBrace'] = null
+  let contact: WallBraceContact | null = null
   if (!p.grounded && !p.hang && !p.mantle && !p.climbing) {
     for (const direction of [p.facing, -p.facing]) {
       if (move * direction < -.01) continue
@@ -139,30 +157,65 @@ function updateWallBrace(p: Player, move: number, dt: number, platforms: readonl
       const hands: [number, number] = [Number(touches(-43)), Number(touches(-46))]
       const feet: [number, number] = [Number(touches(-16)), Number(touches(-20))]
       if (![...hands, ...feet].some(Boolean)) continue
-      const previous = p.wallBrace?.direction === direction ? p.wallBrace : null
-      contact = { wallX, direction, active: true,
-        hands: hands.map((value, i) => approach(previous?.hands[i] ?? 0, value, dt / .08)) as [number, number],
-        feet: feet.map((value, i) => approach(previous?.feet[i] ?? 0, value, dt / .08)) as [number, number] }
-      p.facing = direction
+      contact = { wallX, direction, hands, feet }
       break
     }
   }
-  if (contact) p.wallBrace = contact
-  else if (p.wallBrace) {
-    const brace = p.wallBrace
-    brace.active = false
-    brace.hands = brace.hands.map(value => approach(value, 0, dt / .12)) as [number, number]
-    brace.feet = brace.feet.map(value => approach(value, 0, dt / .12)) as [number, number]
-    if (p.facing !== brace.direction || p.hang || p.mantle || p.climbing || ![...brace.hands, ...brace.feet].some(Boolean)) p.wallBrace = null
+  // Canted faces are checked after the full body sweep has resolved them.
+  if (!contact && p.wallBrace?.normal) return
+  settleWallBrace(p, contact, dt)
+}
+function cantedWallFace(p: Player, platforms: readonly Platform[], wall: Platform, normal?: readonly [number, number]) {
+  const height = p.crouching ? TUNING.crouchHeight : TUNING.height
+  if (!wall.polygon && !wall.profile || p.x + TUNING.width / 2 + .15 < wall.x || p.x - TUNING.width / 2 - .15 > wall.x + wall.w
+    || p.y < wall.y || p.y - height > wall.y + wall.h) return null
+  if (!normal) {
+    const hint = nearestBoundary(wall, p.x, p.y - height / 2)
+    normal = [hint.nx, hint.ny]
   }
+  const face = bodyContact(wall, p.x, p.y, normal, height)
+  if (face.distance > .15 || Math.abs(face.ny) < 1e-7 || Math.abs(face.ny) > Math.sin(TUNING.wallJumpMaxCant) + 1e-7
+    || platforms.some(other => other !== wall && pointInside(other, face.x + face.nx * .01, face.y + face.ny * .01))) return null
+  return face
+}
+function updateCantedWallBrace(p: Player, move: number, dt: number, platforms: readonly Platform[], contacts: readonly TerrainContact[]) {
+  let contact: WallBraceContact | null = null
+  if (!p.grounded && !p.hang && !p.mantle && !p.climbing && !p.releaseTurn && !(p.wallBrace?.active && !p.wallBrace.normal)) {
+    for (const wall of platforms) {
+      const hit = contacts.find(c => c.platform === wall)
+      // A tangent or slightly separating step can have no new sweep hit. Keep
+      // the same tiny contact tolerance as a vertical wall, using its real face.
+      const face = cantedWallFace(p, platforms, wall, hit?.normal)
+      if (!face) continue
+      const direction = -Math.sign(face.nx)
+      if (move * direction < -.01) continue
+      const slope = -face.ny / face.nx
+      const touches = (offset: number) => {
+        const y = p.y + offset, x = face.x + (y - face.y) * slope, gap = (x - p.x) * direction
+        const limbFace = nearestBoundary(wall, x, y, [face.nx, face.ny])
+        return Number(gap >= 0 && gap <= 26 && limbFace.distance < .15
+          && limbFace.nx * face.nx + limbFace.ny * face.ny > .999)
+      }
+      const hands: [number, number] = [touches(-43), touches(-46)], feet: [number, number] = [touches(-16), touches(-20)]
+      if (![...hands, ...feet].some(Boolean)) continue
+      contact = { wallX: face.x, wallY: face.y, normal: [face.nx, face.ny], direction, hands, feet }
+      break
+    }
+  }
+  if (contact || p.wallBrace?.normal) settleWallBrace(p, contact, dt)
 }
 function tryWallJump(p: Player, platforms: readonly Platform[]) {
   const brace = p.wallBrace
   if (!brace?.active || p.grounded || p.wallJumpBuffer === 0) return
   // Recheck the actual face in case a moving object or the player's movement
   // has removed the contact since the last frame.
-  if (Math.abs((brace.wallX - p.x) * brace.direction - TUNING.width / 2) > .15
-    || !touchesWallFace(platforms, brace.wallX, brace.direction, p.y - TUNING.height + 8, p.y - 8)) return
+  const touching = brace.normal ? platforms.some(wall => {
+    const face = cantedWallFace(p, platforms, wall, brace.normal)
+    return face && face.nx * brace.direction < 0
+  }) || touchesWallFace(platforms, p.x + brace.direction * TUNING.width / 2, brace.direction, p.y - TUNING.height + 8, p.y - 8)
+    : Math.abs((brace.wallX - p.x) * brace.direction - TUNING.width / 2) <= .15
+    && touchesWallFace(platforms, brace.wallX, brace.direction, p.y - TUNING.height + 8, p.y - 8)
+  if (!touching) return
   launch(p, TUNING.wallJumpSpeed, TUNING.wallJumpHeldSpeed)
   p.vx = -brace.direction * TUNING.wallJumpPush; p.facing = -brace.direction
   p.wallJump = { direction: -brace.direction, time: 0 }; p.wallJumpBuffer = 0
@@ -395,6 +448,8 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       }
     }
   }
+  updateCantedWallBrace(p, input.move, dt, platforms, result.contacts)
+  if (p.wallBrace?.normal) tryWallJump(p, platforms)
   stepReleasedTurn(p, platforms, dt)
   finishPlayerStep(p, input, dt, world, from, verticalUsed)
   if (gravityOverride === undefined) { finishGravityTurn(p); turnToGravity(p, gravity, world) }

@@ -1,12 +1,11 @@
 import { test, expect } from './helpers/folderTest.mjs'
-import { installTestFolder, useLevelFixtures, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
+import { installTestFolder, useLevelFixtures, waitForBuilderPreview, selectBuilderObject, saveTestLevel } from './helpers/jumpingLevels.mjs'
 import { tap } from './helpers/controller.mjs'
-import { blankTrial } from '../../src/games/jumping/level.ts'
+import { blankTrial, prepareLevelRopes } from '../../src/games/jumping/level.ts'
 
 const button = (page, name) => page.getByRole('button', { name, exact: true })
 const field = (page, name) => page.getByRole('spinbutton', { name, exact: true })
-async function open(page) {
-  const level = blankTrial()
+async function open(page, level = blankTrial()) {
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'navigation.json': level })
   await page.addInitScript(() => {
     window.testPad = { index: 0, id: 'Navigation controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0],
@@ -21,6 +20,58 @@ async function open(page) {
   await button(page, 'Open navigation.json').click(); await page.clock.runFor(200)
   await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
 }
+
+for (const action of ['button', 'Control+d', 'Meta+d']) test(`Duplicate via ${action} creates terrain while the object selector has focus`, async ({ page }) => {
+  const level = { ...blankTrial(), platforms: [{ x: 220, y: 500, w: 700, h: 85, material: 'steel' }] }
+  await open(page, level)
+  await selectBuilderObject(page, 'platform:0')
+  const selected = page.getByRole('combobox', { name: 'Selected object', exact: true })
+  await selected.focus()
+  if (action === 'button') await button(page, 'Duplicate').click()
+  else await selected.press(action)
+  await expect(selected).toHaveAttribute('data-value', 'platform:1')
+  await expect(page.getByRole('status', { name: 'Builder status', exact: true })).toContainText('Created Terrain 2.')
+  await expect(page.getByRole('application', { name: 'Level canvas', exact: true })).toBeFocused()
+  const saved = await saveTestLevel(page)
+  expect(saved.level.platforms).toHaveLength(2)
+  expect(saved.level.platforms[0]).toMatchObject(level.platforms[0])
+  expect(saved.level.platforms[1]).toMatchObject({ ...level.platforms[0], x: 260 })
+  await button(page, 'Undo').click()
+  expect((await saveTestLevel(page)).level.platforms).toHaveLength(1)
+})
+
+test('Duplicate keeps working after terrain edits near a rope, preview preparation and saving', async ({ page }, info) => {
+  const level = prepareLevelRopes({ ...blankTrial(),
+    platforms: [{ x: 300, y: 300, w: 200, h: 40 }],
+    climbables: { ladders: [], ropes: [{ x: 400, y: 100, length: 180, segments: 23 }] },
+  })
+  await open(page, level)
+  const canvas = page.getByRole('application', { name: 'Level canvas', exact: true })
+  const selected = page.getByRole('combobox', { name: 'Selected object', exact: true })
+  await selectBuilderObject(page, 'platform:0')
+  await canvas.press('ArrowRight')
+  await button(page, 'Duplicate').click()
+  await expect(selected).toHaveAttribute('data-value', 'platform:1')
+  await page.clock.runFor(200); await waitForBuilderPreview(page)
+  let saved = (await saveTestLevel(page)).level
+  expect(saved.platforms.map(({ x, y }) => [x, y])).toEqual([[305, 300], [345, 300]])
+  expect(saved.climbables.ropes[0].rest.key).toMatch(/^[1-7]:[0-9a-f]{16}$/)
+
+  await selectBuilderObject(page, 'platform:0')
+  await canvas.press('ArrowDown')
+  await page.clock.runFor(200); await waitForBuilderPreview(page)
+  await saveTestLevel(page)
+  await canvas.press('Control+d')
+  await expect(selected).toHaveAttribute('data-value', 'platform:2')
+  await expect(page.getByRole('status', { name: 'Builder status', exact: true })).toContainText('Created Terrain 3.')
+  await page.screenshot({ path: info.outputPath('duplicated-after-rope-edit.png') })
+  await page.clock.runFor(200); await waitForBuilderPreview(page)
+  saved = (await saveTestLevel(page)).level
+  expect(saved.platforms.map(({ x, y }) => [x, y])).toEqual([[305, 305], [345, 300], [345, 305]])
+  await button(page, 'Undo').click()
+  expect((await saveTestLevel(page)).level.platforms).toHaveLength(2)
+})
+
 async function stick(page, x, y) {
   await page.evaluate(({ x, y }) => { window.testPad.axes = [x, y, 0, 0] }, { x, y }); await page.clock.runFor(64)
   await page.evaluate(() => { window.testPad.axes = [0, 0, 0, 0] }); await page.clock.runFor(64)

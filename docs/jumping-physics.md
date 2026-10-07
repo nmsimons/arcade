@@ -19,9 +19,12 @@ a sideways force to that support. This keeps an idle player from propelling a
 ball simply by standing off its center. The foot reaction requires an active shove.
 Grounded bracing uses the actual exposed vertical face at hand height, including
 faces inset within a single terrain polygon, rather than its bounding edge.
-Airborne bracing and wall jumps use those same exposed faces. The inside
-of an L-shaped polygon supports wall jumps like separate pieces of terrain;
-covered seams, sloped faces, and gaps cannot supply a wall contact.
+Airborne bracing and wall jumps also accept exposed faces canted up to 30 degrees
+from vertical, in either lean direction. The full player hull must actually touch
+the face, and the bracing pose follows its angle. The inside of an L-shaped
+polygon supports wall jumps like separate pieces of terrain; covered seams,
+ordinary ramps, ceilings, and gaps cannot supply a wall jump. Canted contacts
+use the same press buffer, tap/hold lift and outward kick as vertical walls.
 Body contacts also transfer normal load while airborne. A player wedged between
 a ball and a wall can therefore displace the ball and regain footing. Requested
 motion away from a contact does not cancel the weight on it when another wall

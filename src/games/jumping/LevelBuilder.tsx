@@ -734,7 +734,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function duplicate() {
     try {
       const result = pasteSelections(history.present, copySelections(history.present, selectedItems), 40, 0)
-      if (result.selections.length) { commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); chooseInspectorTab('object') }
+      if (!result.selections.length) { setMessage('Select an object to duplicate. Start and goal cannot be duplicated.'); return }
+      commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); chooseInspectorTab('object')
+      setMessage(result.selections.length === 1 ? `Created ${selectionLabel(result.selections[0], result.level)}.` : `Duplicated ${result.selections.length} objects.`)
+      canvasRef.current?.focus()
     } catch (error) { setMessage((error as Error).message) }
   }
   function fitLevel(next = level) {

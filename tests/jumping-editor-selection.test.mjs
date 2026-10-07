@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { copySelections, deleteSelections, moveSelections, pasteSelections, selectionsInRect, transformSelections } from '../src/games/jumping/editorSelection.ts'
-import { blankTrial, copyLevel, parseLevel } from '../src/games/jumping/level.ts'
+import { blankTrial, copyLevel, parseLevel, prepareLevelRopes } from '../src/games/jumping/level.ts'
 import { polygonPoints } from '../src/games/jumping/geometry.ts'
 import { terrainDrawOrder } from '../src/games/jumping/terrainOrder.ts'
 const pick = (kind, index = 0) => ({ kind, index })
@@ -76,6 +76,27 @@ test('paste limits fail atomically and unique markers cannot be duplicated', () 
   const before = copyLevel(level)
   assert.throws(() => pasteSelections(level, copy), /no room/)
   assert.deepEqual(level, before)
+})
+test('editing terrain near a rope does not prevent duplication or pasting other objects', () => {
+  const saved = prepareLevelRopes(scene())
+  const clipboard = copySelections(saved, [pick('platform')])
+  const draft = prepareLevelRopes(moveSelections(saved, [pick('platform', 1)], 5, 0), true)
+  assert.ok(draft.climbables.ropes[0].rest.key.startsWith('preview:'))
+  const original = copyLevel(draft)
+  assert.throws(() => parseLevel(draft), /not a valid jumping level/, 'temporary previews are still not valid saved data')
+  for (const selection of [pick('platform'), pick('rope'), pick('ladder'), pick('mechanism'), pick('trigger'), pick('gravity-plate')]) {
+    const result = pasteSelections(draft, copySelections(draft, [selection]), 40, 0)
+    assert.equal(result.selections.length, 1, `duplicates ${selection.kind} without reloading the draft`)
+    assert.doesNotThrow(() => parseLevel(result.level))
+    assert.deepEqual(result.level.platforms.slice(0, 2).map(({ zIndex, ...b }) => b), draft.platforms.map(({ zIndex, ...b }) => b))
+    assert.deepEqual(draft, original, 'validation and duplication do not mutate the source draft')
+  }
+  const pasted = pasteSelections(draft, clipboard, 40, 0).level
+  assert.equal(pasted.platforms.length, 3, 'a clipboard captured before editing also pastes into the live draft')
+  assert.doesNotThrow(() => parseLevel(pasted))
+  const malformed = copyLevel(draft)
+  malformed.climbables.ropes[0].rest.key = 'invalid-cache-key'
+  assert.throws(() => pasteSelections(malformed, clipboard), /not a valid jumping level/, 'invalid saved caches still fail validation')
 })
 test('terrain group transforms preserve the layout through inverses and carry rope anchors', () => {
   const level = scene(), group = [pick('platform'), pick('platform', 1)]

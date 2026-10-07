@@ -884,15 +884,17 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
 /** Keep the ordinary pushing silhouette, with the legs reaching diagonally to the wall. */
 function wallBracePose(p: Player, free: AthletePose): AthletePose {
   if (p.grounded) return free
-  const brace = p.wallBrace!, wall = (brace.wallX - p.x) * p.facing
+  const brace = p.wallBrace!, slope = brace.normal ? -brace.normal[1] / brace.normal[0] * p.facing : 0
+  const wallAt = (y: number) => (brace.wallX - p.x) * p.facing + slope * (p.y + y - (brace.wallY ?? p.y))
+  const wall = Math.min(wallAt(-43), wallAt(-TUNING.height)), wallAngle = -Math.PI / 2 - Math.atan(slope)
   const amount = smooth(Math.max(...brace.hands, ...brace.feet))
   // Use the same body and arm rig as a settled ground push, including its distance
   // from the wall. The physical capsule stays at the collision boundary.
   const pushDistance = 25.5
-  const pushing = athletePose({ ...p, x: brace.wallX - p.facing * pushDistance,
+  const pushing = athletePose({ ...p, x: p.x + p.facing * (wall - pushDistance),
     grounded: true, vx: 0, vy: 0, wallBrace: null, sliding: null, footwork: null, gait: gaitPose(0),
     crouch: 0, crouching: false, reach: 0, landing: 0, groundAngle: 0,
-    pushing: { wallX: brace.wallX, direction: p.facing, amount: 1, effort: 1 } })
+    pushing: { wallX: p.x + p.facing * wall, direction: p.facing, amount: 1, effort: 1 } })
   const offset: Point = [wall - pushDistance, 0]
   const lean = .2
   const towardWall = (point: Point): Point => {
@@ -903,21 +905,24 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
   const shoulder = mix(free.shoulder, towardWall(pushing.shoulder), amount), head = mix(free.head, towardWall(pushing.head), amount)
   const arm = (limb: Limb, weight: number, y: number) => {
     const contact = smooth(weight)
-    const braced = grippingArm(add(shoulder, [0, .7]), [wall - 2.8, y], [wall - 1.6, y], limb, contact)
-    braced.handAngle = lerp(braced.handAngle ?? 0, Math.PI / 2, contact)
+    const braced = grippingArm(add(shoulder, [0, .7]), [wallAt(y) - 2.8, y], [wallAt(y) - 1.6, y], limb, contact)
+    braced.handAngle = lerp(braced.handAngle ?? 0, -wallAngle, contact)
     return braced
   }
   const leg = (limb: Leg, weight: number, y: number): Leg => {
     const contact = smooth(weight)
-    const target = mix(limb.end, [wall - 2.8, y], contact)
+    const target = mix(limb.end, [wallAt(y) - 2.8, y], contact)
     const root = add(hip, [0, 1])
-    const desired = lerp(limb.footAngle, -Math.PI / 2, contact)
+    const desired = lerp(limb.footAngle, wallAngle, contact)
     let result = solveLeg(root, target, desired, false)
     // Use the normal forward knee bend throughout the reach. Let the ankle flex
     // within its usual limits, then place the contacting part of the foot at the wall.
     for (let i = 0; i < 12; i++) {
-      const reach = Math.max(...FOOT_CONTACT.map(point => footPoint(point, result.footAngle, result.toeAngle)[0]))
-      target[0] = Math.min(wall - reach, lerp(limb.end[0], wall - reach, contact))
+      const reach = Math.max(...FOOT_CONTACT.map(point => {
+        const [x, y] = footPoint(point, result.footAngle, result.toeAngle); return x - slope * y
+      }))
+      const limit = wallAt(result.end[1]) - reach
+      target[0] = Math.min(limit, lerp(limb.end[0], limit, contact))
       result = solveLeg(root, target, desired, false)
     }
     return result

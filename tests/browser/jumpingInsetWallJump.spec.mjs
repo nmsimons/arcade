@@ -3,8 +3,14 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 import { levelProblems } from '../../src/games/jumping/level.ts'
 
-for (const side of [-1, 1]) test(`normal keyboard controls wall-jump from the inside of an L (${side})`, async ({ page }, info) => {
+for (const cant of [-15, 0, 15]) for (const side of [-1, 1]) test(`normal keyboard controls wall-jump from the inside of an L (${side}, cant ${cant}°)`, async ({ page }, info) => {
   const level = structuredClone(readLevelAsset('inset-wall-jump.json'))
+  if (cant) {
+    const lean = Math.tan(Math.abs(cant) * Math.PI / 180) * 680
+    const top = 80 + (cant < 0 ? lean : 0), bottom = 80 + (cant > 0 ? lean : 0)
+    level.platforms[0].polygon = [[0,0],[top,0],[bottom,680],[400,680],[400,800],[0,800]]
+    level.spawn.x = 300 + bottom + 30
+  }
   if (side === 1) {
     level.spawn.x = level.width - level.spawn.x
     level.goal = { ...level.goal, x: level.width - level.goal.x, flipX: true }
@@ -23,9 +29,11 @@ for (const side of [-1, 1]) test(`normal keyboard controls wall-jump from the in
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   const toward = side === -1 ? 'a' : 'd'
   await page.keyboard.down(toward); await page.clock.runFor(100)
-  await page.keyboard.down('Space'); await page.clock.runFor(400)
-  await page.keyboard.up('Space'); await page.clock.runFor(450)
-  await expect(page.locator('.jumping-state')).toHaveText('Bracing')
+  // Meet the overhanging lean during ascent; the opposite lean remains in
+  // contact while falling. Release before the fresh wall-jump press in both.
+  await page.keyboard.down('Space'); await page.clock.runFor(cant < 0 ? 64 : 400)
+  await page.keyboard.up('Space'); await page.clock.runFor(cant < 0 ? 32 : 450)
+  if (!cant) await expect(page.locator('.jumping-state')).toHaveText('Bracing')
   const before = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   expect(before.signals.bracing).toBe(true)
   expect(before.signals.grounded).toBe(false)

@@ -74,10 +74,11 @@ export function BuilderSelect({ label, accessibleLabel = label, title, value, op
 
   function keyDown(event: KeyboardEvent<HTMLButtonElement>) {
     if (event.key === 'F1') { setPopup(null); return }
+    // Editor shortcuts belong to the surrounding studio, even while this list has focus.
+    if (event.ctrlKey || event.metaKey || event.altKey) return
     event.stopPropagation()
     if (event.key === 'Tab') { if (popup) choose(popup.active); return }
     if (event.key === 'Escape') { event.preventDefault(); setPopup(null); search.current.text = ''; return }
-    if (event.ctrlKey || event.metaKey || event.altKey) return
     const active = popup?.active ?? selected
     if (['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', ' '].includes(event.key)) {
       event.preventDefault(); search.current.text = ''

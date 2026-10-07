@@ -114,6 +114,10 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
   p.y = -p.y; p.vy = -p.vy; p.spawnY = -p.spawnY; p.jumpStart = -p.jumpStart; p.groundAngle = -p.groundAngle
   if (p.gravity !== undefined) p.gravity = -p.gravity
   if (p.terrain) p.terrain = mirrorPlatforms(p.terrain)
+  if (p.wallBrace?.normal) {
+    p.wallBrace.normal[1] = -p.wallBrace.normal[1]
+    p.wallBrace.wallY = -p.wallBrace.wallY!
+  }
   footwork(p.footwork); hands(p.pushing); hang(p.hang)
   if (p.climbing) climb(p.climbing)
   if (allRopes) for (const value of p.ropes ?? []) rope(value)

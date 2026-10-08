@@ -1110,5 +1110,52 @@ Evidence: `.tmp/ujg-traversal-fixes/passive-clock-final.json`,
 `passive-clock-permanent-results/`, `passive-lint.log`,
 `passive-browser-gaps-slow.log`, `passive-gap-traces-slow.jsonl`,
 `passive-browser-gaps-project.log`, `passive-gap-traces-project.jsonl` and
-`passive-repeat-slow.log`. The repeat run is retained as diagnostics; it is not
-a completed passing slow-machine result.
+`passive-repeat-slow.log`. The completed repeat run passes 15 of 18 cases in
+7.9 minutes. Its failures are the first normal squeeze and both reversed
+squeezes; the second normal squeeze completes at approximately its 30-second
+limit. All four water checks complete, including cleanup, in this serial slow
+run. These are retained diagnostics, not a passing repeatability result.
+
+## Eighteenth implementation pass: solve the athlete once per drawing
+
+October 8, 2026. A synchronous render now shares one lazily solved athlete rig
+between skin, shadows and emissions. The scope ends after that drawing, including
+exceptions, so physics, diagnostic samples and the following frame still obtain
+fresh poses. Nested drawing retains the outer snapshot. Inverted drawing shares
+the normalized rig and restores the original player state. The comparison option
+disables only this reuse; no physical or artistic pose is changed.
+
+All 59 affected Node checks, types, changed-file lint and the isolated build pass.
+All thirteen development rendering checks pass. The new Canvas and GPU comparisons
+each compare eighty complete images across pressured gaps, blocked low/tall pushes
+in both directions, crouching, inverted rope motion, water, flight and landing.
+Daylight, night, lamps and full brightness retain zero differing RGBA channels,
+with the player unchanged by drawing. The existing pixel checks now wait for the
+actual game/lab UI before evaluating imported modules. Earlier preparation errors
+destroyed their execution contexts during navigation; they were not image failures.
+The successful run used a separately cached development server without a concurrent
+production build.
+
+A paired 145-frame native Canvas measurement takes 1533.8 ms (10.8 ms median)
+without rig reuse and 1141.3 ms (8.1 ms median) with it, approximately 25.6% less
+time. Both sides use settled daylight retention and resolve deferred work equally.
+Frequent pixel reads can change Canvas backing, so this is a local drawing-cost
+comparison. The production two-second squeeze sample at 2× CPU throttling retains
+all 125 drawn frames and all three background/correction cache witnesses in
+6.482 wall seconds, compared with the preceding 8.609 seconds.
+
+The first full two-worker production run passes sixteen of seventeen checks.
+All nine original traversal cases pass, including the squeeze cases at 26.5/26.0
+seconds within their unchanged 30-second deadlines. The additional long water
+test reaches its original 90-second deadline during its final state read, after
+its intermediate movement/artwork assertions and screenshots. This run alone
+does not establish repeatability or complete #60. Water gameplay is being checked
+with the same Chromium launch variant as its original persistent fixture; only
+authoring/save/reopen requires filesystem-handle profile restoration.
+
+Evidence: `.tmp/ujg-traversal-fixes/render-pose-unit.log`,
+`render-pose-ready-pixels.log`, `render-pose-ready-pixel-results/`,
+`render-pose-final-lint.log`, `render-pose-build.log`,
+`renderer-pose-paired.json`, `render-pose-live-slow.log`,
+`render-pose-browser-full.log` and `render-pose-browser-full-channel.log`.
+**#60 remains open** pending the normal and slower repeated browser runs.

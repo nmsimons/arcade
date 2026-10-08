@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises'
 
 test('lit and original renderers use identical supplied framing across running lead, water anchoring, gravity and resizing', async ({ page }, info) => {
   await page.goto('/untitled-jumping-game')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   const results = await page.evaluate(async () => {
     const [{ GameCamera }, { blankTrial }, { createRun, stepRun }, { NEUTRAL_INPUT, STEP }, { drawChallenge }, { LightingRenderer, lightingPixelRatio }] = await Promise.all([
       import('/src/games/jumping/camera.ts'), import('/src/games/jumping/level.ts'), import('/src/games/jumping/challenge.ts'),

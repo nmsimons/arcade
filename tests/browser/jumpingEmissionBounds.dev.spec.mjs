@@ -2,6 +2,7 @@ import { test, expect } from './helpers/test.mjs'
 
 test('cropping daylight emissions preserves every pixel across views, occlusion, power and fallback artwork', async ({ page }) => {
   await page.goto('/untitled-jumping-game/lighting-lab')
+  await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async () => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),

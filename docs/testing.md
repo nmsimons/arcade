@@ -110,6 +110,13 @@ alone cannot establish cache correctness. A retained complete background also
 needs wall-art, exit-fade and buffer-release/rebuild comparisons, and must stop
 being reused when view, geometry or font readiness changes. Keep material-tile
 allocation on the cold frame so warm frames still satisfy the resize checks.
+Athlete-pose reuse must expire at the end of one synchronous, read-only render.
+Skin, shadows and emissions may share that solve, but the next physics state
+must solve again. Compare complete pixels with only `reuseAthletePose` disabled
+on the reference, including both gravity frames, airborne and water poses,
+low/crouched working contacts, powered night scenes and full-bright fallback.
+Check ordinary queries, nested draws and exception cleanup separately. A
+passing image comparison must also leave the player state unchanged.
 Resolve both images equally for paired
 performance measurements and retain the same memory budget. A passing normal
 CPU run does not complete slow-machine acceptance; the existing

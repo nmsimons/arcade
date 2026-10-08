@@ -17,6 +17,16 @@ type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; pla
 export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
 export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; slide?: boolean }
 export interface SlideEntryFrame { player: Player; facing: number; sliding: boolean }
+const renderPoses = new WeakMap<Player, { pose?: AthletePose }>()
+
+/** A synchronous, read-only render may query the same rig for skin, shadow and
+ * emissions. Reuse that solve only within this call; the next frame is fresh. */
+export function withAthletePose<T>(p: Player, render: () => T): T {
+  if (renderPoses.has(p)) return render()
+  renderPoses.set(p, {})
+  try { return render() }
+  finally { renderPoses.delete(p) }
+}
 const TAU = Math.PI * 2
 const HEAD_RADIUS = 6.2
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
@@ -1238,6 +1248,14 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
 
 /** Local-space poses share one rig, from planted contact through flight and landing. */
 export function athletePose(p: Player): AthletePose {
+  const frame = renderPoses.get(p)
+  if (frame?.pose) return frame.pose
+  const pose = resolveAthletePose(p)
+  if (frame) frame.pose = pose
+  return pose
+}
+
+function resolveAthletePose(p: Player): AthletePose {
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
     try { return athletePose(p) }

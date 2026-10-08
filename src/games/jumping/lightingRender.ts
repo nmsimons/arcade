@@ -2,7 +2,7 @@ import { GpuLightingField } from './lightingGpuField.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { DAY_AMBIENT_EXPOSURE, daylightShadowPolygons } from './daylight.ts'
 import { BALL_COLOR, drawPuzzleWorld } from './challengeRender.ts'
-import { NIGHT_PLAYER_COLOR } from './athlete.ts'
+import { NIGHT_PLAYER_COLOR, withAthletePose } from './athlete.ts'
 import { athleteCasters } from './athleteShadow.ts'
 import { goalBounds, goalEase } from './goal.ts'
 import { airBoostStrength } from './model.ts'
@@ -90,9 +90,10 @@ export class LightingRenderer {
   private reuseExposureCorrection: boolean
   private cacheDayAmbient: boolean
   private cacheDayBackground: boolean
+  private reuseAthletePose: boolean
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean; reuseAthletePose?: boolean } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
     // The full composition remains available as a pixel/performance reference.
@@ -102,6 +103,7 @@ export class LightingRenderer {
     this.reuseExposureCorrection = options.reuseExposureCorrection !== false
     this.cacheDayAmbient = options.cacheDayAmbient !== false
     this.cacheDayBackground = options.cacheDayBackground !== false
+    this.reuseAthletePose = options.reuseAthletePose !== false
   }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
@@ -197,6 +199,10 @@ export class LightingRenderer {
     ctx.restore()
   }
   render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
+    const render = () => this.renderFrame(ctx, run, definition, view, dt, onlyLight, editor, shadows, fullBright)
+    return this.reuseAthletePose ? withAthletePose(run.player, render) : render()
+  }
+  private renderFrame(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
     const sources = this.state.sources(definition, run, dt)
     // Hidden/resizing canvases have no drawable area; drawImage rejects empty buffers.
     if (view.width < 1 || view.height < 1) {

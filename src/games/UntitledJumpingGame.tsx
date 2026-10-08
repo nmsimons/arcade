@@ -442,7 +442,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   })
 
   useEffect(() => {
-    const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!
+    const canvas = canvasRef.current!, ctx = lightingRenderer.drawingContext(canvas)
     // The context itself is deferred until a pointer, keyboard or controller action.
     const sound = new JumpingSoundSession()
     const motion = import.meta.env.DEV || new URLSearchParams(window.location.search).get('motionDebug') === '1'

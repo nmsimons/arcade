@@ -59,6 +59,7 @@ export class LightingRenderer {
   private canvasFields?: { field: Surface; lamp: Surface }
   private gpu?: GpuLightingField
   private gpuUnavailable = false
+  private softwareCanvas = false
   private preferGpu: boolean
   private allowSoftware: boolean
   private boundedEmissions: boolean
@@ -82,8 +83,21 @@ export class LightingRenderer {
   private gradients = new Map<string, CanvasGradient>()
   private daylight?: { key: string; groups: readonly CasterGroup[]; edges: number; buffer: Surface }
   private dayAmbient?: { key: string; groups: readonly CasterGroup[]; buffer: Surface; regions: { x: number; y: number; w: number; h: number }[] }
+  private dayCorrections?: { key: string; groups: readonly CasterGroup[]; readable: Surface; ambient: Surface }
   private terrain?: { level: LightingWorld['level']; groups: CasterGroup[] }
   prepare(level: LightingWorld['level'], groups: CasterGroup[]) { this.terrain = { level, groups } }
+  private initializeGpu() {
+    if (!this.preferGpu || this.gpuUnavailable || this.gpu) return
+    this.gpu = GpuLightingField.create(this.allowSoftware, () => { this.softwareCanvas = true }) ?? undefined
+    if (!this.gpu) this.gpuUnavailable = true
+  }
+  drawingContext(canvas: HTMLCanvasElement) {
+    this.initializeGpu()
+    // On a known CPU graphics driver, accelerated Canvas composites still
+    // incur expensive texture transfers. Request its software drawing path.
+    // Hardware graphics and explicit GPU experiments retain the normal path.
+    return canvas.getContext('2d', { willReadFrequently: this.softwareCanvas })!
+  }
   private gradient(key: string, create: () => CanvasGradient) {
     const cached = this.gradients.get(key)
     if (cached) return cached
@@ -190,16 +204,16 @@ export class LightingRenderer {
     const moving = [...structures.moving, ...dynamic.filter(group => !group.mechanism)]
     const groups = [...structures.fixed, ...moving]
     const ambient = nightMode ? ambientExposure(definition.ambient) : DAY_AMBIENT_EXPOSURE, ambientColor = gray(ambient)
-    const cacheAmbientWorld = this.cacheDayAmbient && this.reuseAmbientBuffer && !nightMode && !sources.length && !editor
-      && width * height <= 2_000_000 && 'elapsed' in run && !run.mechanisms.length && !run.pickups.length && !run.triggers.length
+    const cacheDayField = this.cacheDayAmbient && this.reuseAmbientBuffer && !nightMode && !sources.length && !editor
+      && width * height <= 2_000_000 && 'elapsed' in run && !run.mechanisms.length
+    const cacheAmbientWorld = cacheDayField && 'elapsed' in run && !run.pickups.length && !run.triggers.length
       && !run.level.timers?.length && !run.level.wallLights?.length && !run.level.gravityPlates?.length && !run.forceFields.length
       && !run.level.climbables?.ladders?.length && !run.level.climbables?.ropes?.length
       && airBoostStrength(run.player) < .01
     let lighting: { lights: number; edges: number; bufferBytes: number; backend: 'gpu' | 'canvas'; drawField: (target: CanvasRenderingContext2D) => void } | undefined
-    if (this.preferGpu && !this.gpuUnavailable) {
-      this.gpu ??= GpuLightingField.create(this.allowSoftware) ?? undefined
-      if (!this.gpu) this.gpuUnavailable = true
-      else try {
+    this.initializeGpu()
+    if (this.gpu) {
+      try {
         const gpu = this.gpu
         const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level), !nightMode)
         const bufferBytes = stats.bufferBytes + width * height * 16
@@ -228,7 +242,7 @@ export class LightingRenderer {
         }
       }
       if (!cacheAmbientWorld || !this.dayAmbient) clear(haze, width, height)
-      clear(field, width, height); field.ctx.fillStyle = ambientColor; field.ctx.fillRect(0, 0, width, height)
+      if (!cacheDayField) { clear(field, width, height); field.ctx.fillStyle = ambientColor; field.ctx.fillRect(0, 0, width, height) }
       let edges = 0, lights = 0
       if (!nightMode) {
         const castSun = (target: CanvasRenderingContext2D, groups: readonly CasterGroup[]) => {
@@ -244,8 +258,23 @@ export class LightingRenderer {
           clear(buffer, width, height); buffer.ctx.fillStyle = '#fff'; buffer.ctx.fillRect(0, 0, width, height)
           this.daylight = { key, groups: structures.fixed, edges: castSun(buffer.ctx, structures.fixed), buffer }
         }
-        field.ctx.drawImage(this.daylight.buffer.canvas, 0, 0)
-        edges = this.daylight.edges + castSun(field.ctx, structures.moving); lights = 1
+        if (cacheDayField) {
+          // With no lamps or moving structures, the daylight field and both
+          // exposure corrections are immutable. Retain them in the existing
+          // unused lamp/field surfaces instead of rebuilding full-size pixels.
+          if (this.dayCorrections?.key !== key || this.dayCorrections.groups !== structures.fixed) {
+            clear(lamp, width, height); lamp.ctx.fillStyle = '#fff'; lamp.ctx.fillRect(0, 0, width, height)
+            lamp.ctx.globalCompositeOperation = 'difference'; lamp.ctx.drawImage(this.daylight.buffer.canvas, 0, 0)
+            clear(field, width, height); field.ctx.drawImage(this.daylight.buffer.canvas, 0, 0)
+            field.ctx.globalCompositeOperation = 'difference'; field.ctx.fillStyle = ambientColor; field.ctx.fillRect(0, 0, width, height)
+            this.dayCorrections = { key, groups: structures.fixed, readable: lamp, ambient: field }
+          }
+          edges = this.daylight.edges
+        } else {
+          field.ctx.drawImage(this.daylight.buffer.canvas, 0, 0)
+          edges = this.daylight.edges + castSun(field.ctx, structures.moving)
+        }
+        lights = 1
       }
       for (const light of activeSources) {
         if (light.fade <= 0 || sourceCovered(light, groups)) continue
@@ -337,13 +366,15 @@ export class LightingRenderer {
       }
 
       lighting = { lights, edges, bufferBytes: width * height * 4 * (6 + Number(!nightMode) + this.staticFields.size), backend: 'canvas',
-        drawField: target => target.drawImage(field.canvas, 0, 0) }
+        drawField: target => target.drawImage(cacheDayField ? this.daylight!.buffer.canvas : field.canvas, 0, 0) }
     }
     const { lights, edges, bufferBytes, backend, drawField } = lighting
     // Cache only a static daylight terrain mask. Worlds with other ambient
     // artwork or changing light retain the complete composition below.
     const cacheAmbient = cacheAmbientWorld && backend === 'canvas'
+    const cacheCorrections = cacheDayField && backend === 'canvas'
     if (!cacheAmbient) this.dayAmbient = undefined
+    if (!cacheCorrections) this.dayCorrections = undefined
     // A night field without an active light is constant ambient. Both ambient
     // correction masks are exactly black; no beam or source haze is present.
     const emptyNight = this.skipEmptyNightPasses && nightMode && activeSources.length === 0
@@ -380,12 +411,15 @@ export class LightingRenderer {
         left = Math.min(left, l); top = Math.min(top, t)
         right = Math.max(right, r); bottom = Math.max(bottom, b)
       }
-      clear(correction, width, height)
-      // At full exposure the max(field, 1) is white everywhere. Painting the
-      // field first cannot change the correction and needlessly copies it.
-      if (!this.reuseExposureCorrection || floor !== 1) drawField(correction.ctx)
-      correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height)
-      correction.ctx.globalCompositeOperation = 'difference'; drawField(correction.ctx)
+      const readableCorrection = cacheCorrections ? this.dayCorrections!.readable : correction
+      if (!cacheCorrections) {
+        clear(correction, width, height)
+        // At full exposure the max(field, 1) is white everywhere. Painting the
+        // field first cannot change the correction and needlessly copies it.
+        if (!this.reuseExposureCorrection || floor !== 1) drawField(correction.ctx)
+        correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height)
+        correction.ctx.globalCompositeOperation = 'difference'; drawField(correction.ctx)
+      }
       if (nightMode || !this.boundedEmissions) { left = 0; top = 0; right = width; bottom = height }
       else {
         // Find conservative coverage without painting. A small source rectangle
@@ -411,7 +445,7 @@ export class LightingRenderer {
       this.world(emission.ctx, run, { ...view, x: view.x + x / view.zoom, y: view.y + y / view.zoom, width: w, height: h },
         nightMode, emissionPaint(floor), sources, editor)
       emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, w, h)
-      emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, x, y, w, h, 0, 0, w, h)
+      emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(readableCorrection.canvas, x, y, w, h, 0, 0, w, h)
       ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, 0, 0, w, h, x, y, w, h)
       if (nightMode && floor === 1 && playerWidth > 0 && playerHeight > 0) {
         // Match the ball's ambient color while retaining near-white in direct
@@ -440,13 +474,14 @@ export class LightingRenderer {
     // preserving objects, emissions and translucent silhouettes in front.
     const ambientFloors: readonly (0 | .65)[] = emptyNight ? [] : nightMode ? [0, .65] : [0]
     for (const floor of ambientFloors) {
-      if (this.reuseExposureCorrection && !nightMode && readableFloors.includes(1)) {
+      const ambientCorrection = cacheCorrections ? this.dayCorrections!.ambient : correction
+      if (!cacheCorrections && this.reuseExposureCorrection && !nightMode && readableFloors.includes(1)) {
         // Day's field is never below ambient. Reuse the preceding (1-field):
         // (1-ambient)-(1-field) = field-ambient, in the same 8-bit arithmetic.
         correction.ctx.globalCompositeOperation = 'difference'
         correction.ctx.fillStyle = gray((255 - Math.round(ambient * 255)) / 255)
         correction.ctx.fillRect(0, 0, width, height)
-      } else {
+      } else if (!cacheCorrections) {
         clear(correction, width, height); drawField(correction.ctx)
         if (floor) { correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height) }
         correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambient))
@@ -462,7 +497,7 @@ export class LightingRenderer {
           }
           this.world(buffer.ctx, run, view, false, structural, sources, false)
           buffer.ctx.globalCompositeOperation = 'destination-over'; buffer.ctx.fillStyle = '#000'; buffer.ctx.fillRect(0, 0, width, height)
-          buffer.ctx.globalCompositeOperation = 'multiply'; buffer.ctx.drawImage(correction.canvas, 0, 0)
+          buffer.ctx.globalCompositeOperation = 'multiply'; buffer.ctx.drawImage(ambientCorrection.canvas, 0, 0)
           // Disjoint pixel tiles conservatively cover the solid art. Cropping
           // each composite avoids blending black air pixels on a CPU renderer.
           const tile = 128, rows = Math.ceil(height / tile), columns = Math.ceil(width / tile)
@@ -519,7 +554,7 @@ export class LightingRenderer {
           this.world(shadow.ctx, run, { ...view, x: view.x + x / view.zoom, y: view.y + y / view.zoom, width: w, height: h },
             false, ambientSurfacePaint(0, .65), sources, false)
           shadow.ctx.globalCompositeOperation = 'destination-over'; shadow.ctx.fillStyle = '#000'; shadow.ctx.fillRect(0, 0, w, h)
-          shadow.ctx.globalCompositeOperation = 'multiply'; shadow.ctx.drawImage(correction.canvas, x, y, w, h, 0, 0, w, h)
+          shadow.ctx.globalCompositeOperation = 'multiply'; shadow.ctx.drawImage(ambientCorrection.canvas, x, y, w, h, 0, 0, w, h)
           ctx.globalCompositeOperation = 'difference'; ctx.drawImage(shadow.canvas, 0, 0, w, h, x, y, w, h)
         }
         continue
@@ -531,7 +566,7 @@ export class LightingRenderer {
       clear(mask, width, height)
       this.world(mask.ctx, run, view, nightMode, ambientSurfacePaint(floor, nightMode ? floor : .65), sources, editor, 'all', nightMode && floor === 0)
       mask.ctx.globalCompositeOperation = 'destination-over'; mask.ctx.fillStyle = '#000'; mask.ctx.fillRect(0, 0, width, height)
-      mask.ctx.globalCompositeOperation = 'multiply'; mask.ctx.drawImage(correction.canvas, 0, 0)
+      mask.ctx.globalCompositeOperation = 'multiply'; mask.ctx.drawImage(ambientCorrection.canvas, 0, 0)
       ctx.globalCompositeOperation = 'difference'; ctx.drawImage(mask.canvas, 0, 0)
     }
     const erase: WorldPaint = (target, _exposure, draw) => { target.save(); target.globalCompositeOperation = 'destination-out'; draw(); target.restore() }
@@ -560,7 +595,7 @@ export class LightingRenderer {
       ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(haze.canvas, 0, 0)
     }
     ctx.restore()
-    return { lights, edges, bufferBytes, backend, sources, dayAmbientCached: cacheAmbient }
+    return { lights, edges, bufferBytes, backend, sources, dayAmbientCached: cacheAmbient, dayCorrectionsCached: cacheCorrections }
   }
   release() {
     this.gpu?.dispose(); this.gpu = undefined
@@ -570,7 +605,7 @@ export class LightingRenderer {
     for (const { buffer } of this.staticFields.values()) buffer.canvas.width = buffer.canvas.height = 0
     this.staticFields.clear(); this.resting.reset()
     this.buffers = undefined; this.gradients.clear()
-    this.dayAmbient = undefined
+    this.dayAmbient = undefined; this.dayCorrections = undefined
     if (this.daylight) this.daylight.buffer.canvas.width = this.daylight.buffer.canvas.height = 0
     this.daylight = undefined
   }

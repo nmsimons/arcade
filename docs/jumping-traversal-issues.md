@@ -873,3 +873,64 @@ Evidence is retained under `.tmp/ujg-traversal-fixes/`:
 `renderer-final-uncontended-paired.log`, `correction-browser-gaps.log`,
 `correction-gap-traces.jsonl`, and `correction-browser-gaps-slow`.
 
+## Fourteenth pass: retain immutable fields and select the software-driver path
+
+October 8, 2026. All nine original cases pass again under the repository's
+`production` project settings, including its two workers and parallel execution,
+in 1.5 minutes. The squeeze cases finish in 21.0 and 21.7 seconds. The fresh
+isolated build is `UntitledJumpingGame-CB6pxeFU.js`. No case, control trace,
+gameplay duration, frame cadence,
+assertion or deadline has changed.
+
+Daytime scenes with no lamps or moving structures now retain the fixed light
+field and both exposure corrections in their existing field/lamp surfaces.
+Other changing artwork still receives the complete composition. A permanent
+warm comparison exercises moving rope nodes, pickups, a wall clock, rotated
+props and the opening exit. All 12 frames witness correction reuse, retain
+read-only player state and match every RGBA channel of the uncached renderer.
+This does not simulate or certify a physical rope route.
+
+The next paired native Canvas comparison measures 145 steady frames at
+6735.9 ms (48.6 ms median) for the uncached composition and 3722.1 ms
+(25.7 ms median) for the revised composition, about 45% less time. Frequent
+pixel reads in such a comparison can influence the browser's Canvas backing;
+it is a local renderer measurement, not proof of live or hardware performance.
+
+An observational probe of the live production bundle confirms that all 125
+frames of the held-gap sample use both caches, with a 1280×800 Canvas backend.
+The browser reports SwiftShader, a CPU graphics driver. At 2× CPU throttling,
+the unchanged two-second sequence takes 12.629 wall seconds. Requesting a
+software main Canvas in the same diagnostic reduces this to 8.673 seconds,
+with the same 125 frames. Requesting software for every scratch canvas gives
+8.657 seconds and was not adopted; its additional scope provides little benefit.
+
+The automatic renderer now distinguishes a known software-driver rejection
+from other WebGL limitations, and selects a software main drawing context for
+that driver. Hardware graphics and explicit GPU experiments retain their
+normal drawing path. The existing driver probe is reused. Unsupported features
+alone do not force this policy. All ten development rendering checks pass,
+including the automatic context's day/night/power transitions with exact
+complete-frame comparison. All 35 affected lighting checks, types, changed-file
+lint and the isolated build pass. Buffer allocations stay within the existing
+budget; no physics or input behavior changes.
+
+The complete original nine-case run at 2× CPU throttling improves from three
+to five passes. Both pinned-ball approaches now finish within their existing
+60-second limits (53.9 and 55.3 seconds). Both rope departures and both squeeze
+cases still exceed 30 seconds. The rope jump trace completes its recorded calls
+before the final deadline; let-go stops during the 250 ms climb advance. The
+normal squeeze stops during a 500 ms settle advance, and the reversed squeeze
+during its next two-second hold. These remain performance/scheduling gaps;
+page-closed errors after cancellation are consequences of the deadline.
+**#60 remains open.** The successful two-worker production run does not replace
+the incomplete slower-CPU result.
+
+Logs and traces: `.tmp/ujg-traversal-fixes/immutable-complete-browser.log`,
+`renderer-immutable-paired.log`, `live-cache-slow.log`,
+`live-cache-software-slow.log`, `live-cache-software-all-slow.log`,
+`software-context-browser.log`, `software-context-unit.log`,
+`software-context-types.log`, `software-context-lint.log`,
+`software-context-build.log`, `software-context-browser-gaps-project.log`,
+`software-context-browser-gaps-slow.log` and
+`software-context-gap-traces-slow.jsonl`.
+

@@ -87,3 +87,83 @@ test('a reused daylight terrain mask restores moving artwork, recovery indicator
   expect(result.cachedFrames).toBe(15)
   expect(result.bytes).toBeLessThanOrEqual(64 * 1024 * 1024)
 })
+
+test('immutable daylight corrections preserve the complete changing artwork in a rope and pickup scene', async ({ page }, info) => {
+  await page.goto('/untitled-jumping-game/lighting-lab')
+  const result = await page.evaluate(async () => {
+    const [{ LightingRenderer }, { createPreviewRun }, fixture] = await Promise.all([
+      import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'),
+      fetch('/tests/fixtures/jumping/lighting-prototype.json').then(response => response.json()),
+    ])
+    const level = { ...fixture.level, mechanisms: [], triggers: [] }, run = createPreviewRun(level)
+    const renderers = [new LightingRenderer(), new LightingRenderer({ reuseExposureCorrection: false, cacheDayAmbient: false })]
+    const canvas = document.createElement('canvas'); canvas.width = 640; canvas.height = 400
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    const view = { x: -30.125, y: 100.25, zoom: .6, width: 640, height: 400 }
+    let worst = 0, cachedCorrections = 0, cachedTerrain = 0
+    for (let frame = 0; frame < 12; frame++) {
+      run.elapsed = frame / 30; run.pickupTime = frame / 30
+      run.goalElapsed = frame / 30; run.goalLit = frame > 5
+      for (const [i, node] of run.player.ropes[0].nodes.entries()) node.x += Math.sin(frame + i) * .2
+      run.props[0].angle = frame * .05; run.player.x += 3
+      const before = JSON.stringify(run.player)
+      const pixels = renderers.map((renderer, index) => {
+        const stats = renderer.render(ctx, run, { nightMode: false, ambient: 0, lights: [] }, view, 1 / 30)
+        if (index === 0) {
+          cachedCorrections += Number(stats.dayCorrectionsCached)
+          cachedTerrain += Number(stats.dayAmbientCached)
+        }
+        if (stats.bufferBytes > 64 * 1024 * 1024) throw new Error('The existing buffer budget must remain unchanged')
+        return ctx.getImageData(0, 0, 640, 400).data
+      })
+      if (JSON.stringify(run.player) !== before) throw new Error('Rendering must remain read-only')
+      for (let i = 0; i < pixels[0].length; i++) worst = Math.max(worst, Math.abs(pixels[0][i] - pixels[1][i]))
+    }
+    renderers.forEach(renderer => renderer.dispose())
+    return { worst, cachedCorrections, cachedTerrain }
+  })
+  await info.attach('immutable-field-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
+  expect(result.worst).toBe(0)
+  expect(result.cachedCorrections).toBe(12)
+  expect(result.cachedTerrain).toBe(0)
+})
+
+test('automatic lighting chooses a software drawing context for a CPU driver and preserves complete frames', async ({ page }, info) => {
+  await page.goto('/untitled-jumping-game/lighting-lab')
+  const result = await page.evaluate(async () => {
+    const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
+      import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
+    ])
+    const probe = document.createElement('canvas').getContext('webgl2', { alpha: true, antialias: false,
+      depth: false, stencil: false, premultipliedAlpha: true, failIfMajorPerformanceCaveat: true })
+    const extension = probe?.getExtension('WEBGL_debug_renderer_info')
+    const driver = extension ? probe.getParameter(extension.UNMASKED_RENDERER_WEBGL) : ''
+    probe?.getExtension('WEBGL_lose_context')?.loseContext()
+    const softwareDriver = /SwiftShader|llvmpipe|softpipe|Software Rasterizer|Microsoft Basic Render Driver/i.test(driver)
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, spawn: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
+      platforms: [{ x: 400, y: 200, w: 200, h: 300 }], props: [{ kind: 'box', x: 615, y: 500, size: 30 }] }
+    const run = createPreviewRun(level)
+    const renderers = [new LightingRenderer({ backend: 'auto' }), new LightingRenderer({ backend: 'auto', reuseExposureCorrection: false, cacheDayAmbient: false })]
+    const canvases = renderers.map(() => { const c = document.createElement('canvas'); c.width = 512; c.height = 384; return c })
+    const contexts = renderers.map((renderer, i) => renderer.drawingContext(canvases[i]))
+    const softwareContexts = contexts.map(ctx => ctx.getContextAttributes().willReadFrequently)
+    let worst = 0, frames = 0
+    for (const nightMode of [false, true, false]) for (const powered of [false, true]) {
+      const definition = { nightMode, ambient: 0, lights: powered ? [
+        { id: 'lamp', x: 700, y: 360, direction: 110, spread: 100, intensity: 100, power: 'always' },
+      ] : [] }
+      const pixels = renderers.map((renderer, i) => {
+        renderer.render(contexts[i], run, definition, { x: 380.125, y: 100.25, zoom: .8, width: 512, height: 384 }, .2)
+        return contexts[i].getImageData(0, 0, 512, 384).data
+      })
+      for (let i = 0; i < pixels[0].length; i++) worst = Math.max(worst, Math.abs(pixels[0][i] - pixels[1][i]))
+      frames++
+    }
+    renderers.forEach(renderer => renderer.dispose())
+    return { worst, frames, softwareContexts, softwareDriver, driver }
+  })
+  await info.attach('automatic-context-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
+  expect(result.softwareContexts).toEqual([result.softwareDriver, result.softwareDriver])
+  expect(result.frames).toBe(6)
+  expect(result.worst).toBe(0)
+})

@@ -8,6 +8,9 @@ import type { LightingView } from './lightingRender.ts'
 import { clipShadowPolygon, triangulateCaster } from './lightingGpuGeometry.ts'
 import { daylightShadowPolygons } from './daylight.ts'
 
+/** Distinguish a known CPU graphics driver from unsupported WebGL features. */
+export class SoftwareLightingError extends Error {}
+
 export class GpuShadowMask {
   canvas = document.createElement('canvas')
   gl: WebGL2RenderingContext
@@ -35,7 +38,7 @@ export class GpuShadowMask {
     // Some browsers accept the caveat flag even when ANGLE uses a CPU driver.
     // Explicit GPU experiments may opt in; live play keeps full-quality Canvas.
     if (!allowSoftware && info && /SwiftShader|llvmpipe|softpipe|Software Rasterizer|Microsoft Basic Render Driver/i.test(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)))
-      throw new Error('Software WebGL is unsuitable for live lighting')
+      throw new SoftwareLightingError('Software WebGL is unsuitable for live lighting')
     const shader = (type: number, source: string) => {
       const s = gl.createShader(type)!; gl.shaderSource(s, source); gl.compileShader(s)
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s)!)

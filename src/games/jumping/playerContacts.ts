@@ -143,7 +143,11 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     if (b) {
       const bounds = propBounds(b)
       if (p.y <= bounds.y + 12 || p.y - 42 >= bounds.y + bounds.h || p.y > bounds.y + bounds.h + b.size * .6) continue
-      const hands = propPushHands(b, p.x, p.y, direction)
+      const motorHands = propPushHands(b, p.x, p.y, direction)
+      const lowerHands = p.crouch ? propPushHands(b, p.x, p.y, direction, 43 - p.crouch * 15) : motorHands
+      // Working height changes the visible palms, while the existing motor
+      // spacing continues to follow its established face on tilted objects.
+      const hands = lowerHands && motorHands ? { ...lowerHands, wallX: motorHands.wallX, slope: motorHands.slope } : motorHands
       const face = b.kind === 'box' ? boxPushFace(b, p.x, p.y, direction, Math.min(43, b.size * .6)) : null
       const wallX = face?.wallX ?? hands?.wallX
       if (wallX === undefined || (b.kind === 'box' && !face)) continue
@@ -263,16 +267,21 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
 }
 
 /** Presentation consumes the solved contact; it never moves the player. */
-export function updatePushingPose(p: Player, contact: PushContact | null, dt: number) {
+export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0) {
   if (contact?.hands && (p.grounded || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
-    const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing.amount : 0
-    p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction, amount: Math.min(1, previous + dt / .14), effort: contact.effort }
+    const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing : null
+    // Opposition is the requested motion that the contact solver could not
+    // deliver. Ease its presentation independently of the hand-contact blend.
+    const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
+    const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
+    p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction,
+      amount: Math.min(1, (previous?.amount ?? 0) + dt / .14), effort: contact.effort, load }
   } else if (p.pushing) {
     const amount = Math.max(0, p.pushing.amount - dt / .16)
     p.pushing = amount && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
-      ? { ...p.pushing, amount, effort: 0 } : null
+      ? { ...p.pushing, amount, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
   }
 }
 

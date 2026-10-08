@@ -48,7 +48,7 @@ export interface Player {
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
-  pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; effort: number; slope?: number; colliderId?: string }) | null
+  pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean;
@@ -613,7 +613,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
     from = [from[0] + dx, from[1] + dy]
   }
   contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
-  updatePushingPose(p, contacts.push, dt)
+  updatePushingPose(p, contacts.push, dt, contacts.motion.speed)
   p.contacts = contacts
   advanceWaterCamera(p, input, dt)
   settleGait(p, dt)

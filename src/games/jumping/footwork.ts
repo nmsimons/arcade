@@ -9,7 +9,7 @@ export interface FootContact {
   release: { x: number; y: number; angle: number; time: number } | null
   settle: { x: number; y: number; angle: number; facing: number; time: number; duration: number } | null
 }
-export interface Footwork { feet: [FootContact, FootContact]; moving: boolean; facing: number; terrain: readonly Platform[] }
+export interface Footwork { feet: [FootContact, FootContact]; moving: boolean; facing: number; terrain: readonly Platform[]; pushBalance?: [Point, Point, Point] }
 const TAU = Math.PI * 2
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
@@ -132,11 +132,28 @@ function plantFoot(foot: FootContact, platforms: readonly Platform[], y: number,
   clearTerrain(foot, platforms, y, bodyX)
 }
 
+/** Let the pelvis load the planted leg, followed by the chest and head. Resolved
+ * short steps drive this balance; a blocked stance relaxes without a free clock. */
+function pushBalance(p: Player, previous: Footwork, feet: Footwork['feet'], dt: number): [Point, Point, Point] {
+  const swing = feet.find(foot => foot.settle), support = feet.find(foot => foot.planted)
+  const phase = p.pushing?.effort && swing?.settle && support ? swing.settle.time / swing.settle.duration : 0
+  const wave = (lag: number) => Math.sin(Math.PI * clamp((phase - lag) / (1 - lag))) ** 2
+  const transfer = wave(0), chest = wave(.08), head = wave(.14), height = 1.6 * (1 - p.crouch * .5)
+  const shift = transfer * Math.max(-1.3, Math.min(1.3, ((support?.x ?? p.x) - p.x) * p.facing * .08))
+  const targets: [Point, Point, Point] = [[shift, -transfer * height], [chest * .8, -chest * height], [head * .8, -head * height]]
+  return targets.map((target, i): Point => {
+    const before = previous.facing === p.facing ? previous.pushBalance?.[i] ?? [0, 0] : [0, 0]
+    const delta = target.map((v, j) => (v - before[j]) * (1 - Math.exp(-dt / .05)))
+    const rate = Math.min(1, 8 * dt / (Math.hypot(...delta) || 1))
+    return delta.map((v, j) => Math.abs(target[j] - before[j]) < .001 ? target[j] : before[j] + v * rate) as Point
+  }) as [Point, Point, Point]
+}
+
 function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[], advancing = false): Footwork {
   // Bring the stance under the body, keeping both targets on the current platform.
   const surface = p.contacts?.support?.platform ?? groundAt(platforms, p.x, p.y, .15)?.platform
   const center = surface ? Math.max(surface.x + 3, Math.min(surface.x + surface.w - 3, p.x)) : p.x
-  const brace = p.pushing?.amount ?? 0
+  const brace = p.pushing?.effort ? 1 : p.pushing?.amount ?? 0
   const shortSteps = p.crouch > 0 || !!p.pushing?.effort
   const stepDistance = 14
   const steppingForward = shortSteps && advancing
@@ -150,7 +167,8 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   // A braced foot stays planted until the body has actually moved far enough
   // to need another step. Retargeting every fraction of a pixel caused a fast
   // shuffle even when a heavy box was barely moving.
-  const threshold = steppingForward ? stepDistance : p.pushing?.effort ? 12 : .15
+  const needsBrace = !!p.pushing?.effort && Math.abs(previous.feet[0].anchorX - previous.feet[1].anchorX) < 8
+  const threshold = steppingForward ? stepDistance : p.pushing?.effort && !needsBrace ? 12 : .15
   // Finish airborne feet first, then reposition the remaining support foot with a small step.
   const adjusting = previous.feet.some(foot => !foot.planted) ? -1
     : corrections[0] >= corrections[1] && corrections[0] > threshold ? 0 : corrections[1] > threshold ? 1 : -1
@@ -187,7 +205,7 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
     }
     return foot
   }) as [FootContact, FootContact]
-  return { feet, moving: false, facing: p.facing, terrain: platforms }
+  return { feet, moving: false, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt) }
 }
 
 /** Persistent world-space contacts survive changes in speed and body pose. */
@@ -248,5 +266,5 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     else clearTerrain(foot, platforms, p.y, p.x)
     return foot
   }) as [FootContact, FootContact]
-  p.footwork = { feet, moving: traveling, facing: p.facing, terrain: platforms }
+  p.footwork = { feet, moving: traveling, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt) }
 }

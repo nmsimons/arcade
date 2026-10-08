@@ -613,7 +613,17 @@ function fallPose(p: Player): AthletePose {
   // Bend through depth as the limbs fold across the torso; interpolating only
   // their projected joints would flip an elbow or knee through a straight limb.
   const blend = (from: AthletePose, to: AthletePose, t: number) => transferPose(from, to, [0, 0], t, [0, 0], 0, true)
-  if (recovery === null) return blend(source, prone, fall.amount)
+  if (recovery === null) {
+    // The prone rig extends beyond the standing hull. Fold and balance the
+    // visible body against real terrain without changing the physical root.
+    const pose = clearBody(p, blend(source, prone, fall.amount)).pose
+    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
+    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+    for (const name of ['frontLeg', 'backLeg'] as const) {
+      pose[name] = clearAirborneFoot(p, { ...pose[name], ...clearLimb(p, pose[name], 15, 14.5, -1) })
+    }
+    return pose
+  }
   if (recovery < .18) return blend(source, prone, lerp(fall.amount, 1, smooth(recovery / .16)))
   const kneeling = fallFrame(p, 1), crouched = fallFrame(p, 2)
   if (recovery < .48) return blend(prone, kneeling, smooth((recovery - .18) / .3))
@@ -726,7 +736,10 @@ function waterPose(p: Player): AthletePose {
     pose = { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head),
       frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
   }
-  if (p.terrain && !p.grounded) pose = clearWaterBody(p, pose)
+  if (p.terrain && !p.grounded) {
+    const cleared = clearBody(p, pose, motion.bodyOffset)
+    pose = { ...cleared.pose, waterOffset: cleared.offset }
+  }
   if (pushing && p.pushing?.palms) {
     const press = (arm: Limb, index: number) => {
       const palm = p.pushing!.palms![index]
@@ -755,24 +768,24 @@ function waterPose(p: Player): AthletePose {
       let current = source
       for (let i = 0; i < 4; i++) {
         const foot = clearAirborneFoot(p, current, 16)
-        const limb = clearWaterLimb(p, foot, 15, 14.5, -1)
+        const limb = clearLimb(p, foot, 15, 14.5, -1)
         if (foot === current && limb === foot) break
         current = { ...current, ...limb }
       }
       return current
     }
     pose.frontLeg = leg(pose.frontLeg); pose.backLeg = leg(pose.backLeg)
-    pose.frontArm = clearWaterLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
-    pose.backArm = clearWaterLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
+    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
   }
   return pose
 }
 
-/** The swimming silhouette reaches beyond the standing controller hull. Keep
+/** Extended silhouettes reach beyond the standing controller hull. Keep
  * the head and spine outside nearby solids before solving the reaching limbs. */
-function waterIntrusion(p: Player, point: Point, radius: number) {
+function bodyIntrusion(p: Player, point: Point, radius: number) {
   const x = p.x + point[0] * p.facing, y = p.y + point[1]
-  for (const b of p.terrain!) {
+  for (const b of p.terrain ?? []) {
     if (x < b.x - radius || x > b.x + b.w + radius || y < b.y - radius || y > b.y + b.h + radius) continue
     const edge = nearestBoundary(b, x, y), inside = pointInside(b, x, y)
     const depth = radius + (inside ? edge.distance : -edge.distance)
@@ -786,17 +799,17 @@ function waterIntrusion(p: Player, point: Point, radius: number) {
   }
   return null
 }
-function clearWaterBody(p: Player, source: AthletePose) {
-  const offset: Point = [...(p.waterMotion?.bodyOffset ?? [0, 0])]
+function clearBody(p: Player, source: AthletePose, initial: Point = [0, 0]) {
+  const offset: Point = [...initial]
   let pose = rotatePose(source, 0, 1, [0, 0], offset)
   for (let pass = 0; pass < 8; pass++) {
-    let shift = waterIntrusion(p, pose.head, HEAD_RADIUS)
-    for (const [a, b] of [[pose.hip, pose.waist], [pose.waist, pose.shoulder]]) for (let i = 0; !shift && i <= 4; i++) shift = waterIntrusion(p, mix(a, b, i / 4), 2.8)
+    let shift = bodyIntrusion(p, pose.head, HEAD_RADIUS)
+    for (const [a, b] of [[pose.hip, pose.waist], [pose.waist, pose.shoulder]]) for (let i = 0; !shift && i <= 4; i++) shift = bodyIntrusion(p, mix(a, b, i / 4), 2.8)
     if (!shift) break
     offset[0] += shift.x; offset[1] += shift.y
     pose = rotatePose(pose, 0, 1, [0, 0], [shift.x, shift.y])
   }
-  return { ...pose, waterOffset: offset }
+  return { pose, offset }
 }
 /** Retain the side of a corner that already cleared the body, then relax that
  * balance adjustment gradually. Drawing the pose itself remains read-only. */
@@ -810,11 +823,11 @@ export function settleWaterClearance(p: Player, dt: number) {
 }
 /** Fold through depth around a blocked corner. The projected bend can change
  * without stretching bones or sending a shin/elbow through the solid. */
-function clearWaterLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false): Limb {
+function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false): Limb {
   const handIntrusion = (limb: Limb) => {
-    let deepest: ReturnType<typeof waterIntrusion> = null
+    let deepest: ReturnType<typeof bodyIntrusion> = null
     for (const point of handOutline(limb)) {
-      const hit = waterIntrusion(p, point, .03)
+      const hit = bodyIntrusion(p, point, .03)
       if (hit && (!deepest || Math.hypot(hit.x, hit.y) > Math.hypot(deepest.x, deepest.y))) deepest = hit
     }
     return deepest
@@ -825,13 +838,13 @@ function clearWaterLimb(p: Player, source: Limb, upper: number, lower: number, b
     hand: add(source.hand, [limb.end[0] - source.end[0], limb.end[1] - source.end[1]]) } : limb
   const clear = (limb: Limb) => {
     const samples = hands ? 10 : 4
-    for (const [a, b] of [[limb.root, limb.joint], [limb.joint, limb.end]]) for (let i = 0; i <= samples; i++) if (waterIntrusion(p, mix(a, b, i / samples), hands ? 1.65 : 1.6)) return false
+    for (const [a, b] of [[limb.root, limb.joint], [limb.joint, limb.end]]) for (let i = 0; i <= samples; i++) if (bodyIntrusion(p, mix(a, b, i / samples), hands ? 1.65 : 1.6)) return false
     return !hands || !handIntrusion(limb)
   }
   if (clear(source)) return source
   let current = source, target: Point = [...source.end]
   for (let pass = 0; pass < 12; pass++) {
-    const intrusion = waterIntrusion(p, target, 1.8) ?? (hands ? handIntrusion(retarget({ ...current, end: target })) : null)
+    const intrusion = bodyIntrusion(p, target, 1.8) ?? (hands ? handIntrusion(retarget({ ...current, end: target })) : null)
     if (intrusion) target = add(target, [intrusion.x, intrusion.y])
     const solved = solveRear(source.root, target, upper, lower, bend, .6)
     const dx = solved.end[0] - source.root[0], dy = solved.end[1] - source.root[1], length = Math.hypot(dx, dy)
@@ -847,9 +860,9 @@ function clearWaterLimb(p: Player, source: Limb, upper: number, lower: number, b
     }
     // If the straight chord crosses a corner, recover the hand/foot toward the
     // body until there is room, then extend again as normal travel clears it.
-    const blocked = waterIntrusion(p, solved.joint, 1.8)
-      ?? waterIntrusion(p, mix(solved.root, solved.joint, .5), 1.8)
-      ?? waterIntrusion(p, mix(solved.joint, solved.end, .5), 1.8)
+    const blocked = bodyIntrusion(p, solved.joint, 1.8)
+      ?? bodyIntrusion(p, mix(solved.root, solved.joint, .5), 1.8)
+      ?? bodyIntrusion(p, mix(solved.joint, solved.end, .5), 1.8)
     target = blocked ? add(target, [blocked.x, blocked.y]) : mix(target, source.root, .12)
     current = retarget({ ...source, ...solved })
   }
@@ -874,7 +887,8 @@ export function athletePose(p: Player): AthletePose {
   const pose = p.gait ?? gaitPose(p.vx, !p.grounded)
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
   const cycle = p.stride * p.facing
-  const gait = moving * (1 - p.crouch) * (1 - air)
+  const pushing = smooth(p.pushing?.amount ?? 0)
+  const gait = moving * (1 - p.crouch) * (1 - air) * (1 - pushing)
   const squat = p.crouch
   // Contact compresses the hips first, followed by the chest and then the head.
   // The upper body unfolds on push-off; it curls forward into the next contact.
@@ -901,14 +915,28 @@ export function athletePose(p: Player): AthletePose {
   head[0] -= p.look * 2
   head[1] -= p.look * (p.look > 0 ? .45 : .8)
   const frontStep = sampleStride(cycle, run, moving), backStep = sampleStride(cycle + Math.PI, run, moving)
-  const pushing = smooth(p.pushing?.amount ?? 0)
   if (pushing) {
     // Crouching already lowers the body; do not add a second squat when pushing.
     const pushDip = pushing * (1 - squat)
+    const load = p.pushing!.palms ? p.pushing!.load ?? p.pushing!.effort : .5
     hip[0] -= pushing * 3; hip[1] += pushDip * 4
     waist[0] += pushing; waist[1] += pushDip * 3
     shoulder[0] += pushing * 4; shoulder[1] += pushDip * 3
     head[0] += pushing * 5; head[1] += pushDip * 3
+    const compression = pushDip * (load - .5) * 4
+    hip[1] += compression; waist[1] += compression; shoulder[1] += compression; head[1] += compression
+    const lean = pushing * (load - .5) * 2.8
+    waist[0] += lean * .35; shoulder[0] += lean; head[0] += lean
+    // Weight rises over the planted leg while the other foot clears the floor.
+    // This follows the actual short step; blocked feet produce no body cycle.
+    const balance = p.footwork?.pushBalance
+    if (balance) {
+      for (let axis = 0; axis < 2; axis++) {
+        hip[axis] += balance[0][axis] * pushing
+        waist[axis] += lerp(balance[0][axis], balance[1][axis], .4) * pushing
+        shoulder[axis] += balance[1][axis] * pushing; head[axis] += balance[2][axis] * pushing
+      }
+    }
     // Lower the hips and hinge at the waist to reach short objects. Keep the
     // planted feet and limb lengths, and retain the tall-box stance at height 43.
     const low = smooth((43 - (p.pushing!.height ?? 43)) / 28)
@@ -923,7 +951,6 @@ export function athletePose(p: Player): AthletePose {
         point[0] = lerp(point[0], target[0], blend); point[1] = lerp(point[1], target[1], blend)
       }
     }
-    head[0] = Math.min(head[0], (p.pushing!.wallX - p.x) * p.facing - 6.3)
   }
   let frontAnkle = moving ? frontStep.ankle : [0, -2.8] as Point
   let backAnkle = moving ? backStep.ankle : [0, -2.8] as Point
@@ -976,6 +1003,16 @@ export function athletePose(p: Player): AthletePose {
     }
     const lean = Math.min(5, reach) * pushing
     waist[0] += lean * .35; shoulder[0] += lean; head[0] += lean
+  }
+  if (pushing) {
+    // Clear the final pose after reach and balance adjustments. An earlier
+    // head clamp was undone by the subsequent lean toward the palms.
+    head[0] = Math.min(head[0], (p.pushing!.wallX - p.x) * p.facing - HEAD_RADIUS - .1)
+    for (let pass = 0; pass < 8; pass++) {
+      const intrusion = bodyIntrusion(p, head, HEAD_RADIUS)
+      if (!intrusion) break
+      head[0] += intrusion.x; head[1] += intrusion.y
+    }
   }
   // Near and far joints coincide in profile; depth comes only from overlap.
   const frontRoot = () => add(shoulder, [0, .7]), backRoot = frontRoot

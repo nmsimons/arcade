@@ -123,6 +123,15 @@ and profile edits must invalidate the shared outline, including mirrored,
 rotated and rounded shapes. Preserve exact winding and redundant-edge filtering.
 Compare full fixed-step contacts, footwork and rigs when changing these hot
 queries; successful final positions alone can hide a one-frame support change.
+
+For a lower-floor retarget beneath a moving curved support, verify the complete
+later landing as well as the first contact. The descending shoe must remain
+unloaded until its actual sole reaches current geometry. Compare physical root,
+velocity, input state and moving-object traces exactly; also retain fixed bones,
+real planted ankles and immediate fresh jump response. Inspect native animation
+at ordinary and enlarged scale. A short transition that passes can still hide a
+later torso drop. Run the steep-slide entry and release cases too: a slipping
+face owns a different presentation handoff and must not inherit this landing.
 Resolve both images equally for paired
 performance measurements and retain the same memory budget. A passing normal
 CPU run does not complete slow-machine acceptance; the existing

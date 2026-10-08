@@ -329,6 +329,16 @@ actual bindings. Regression coverage includes the action-feedback suite and
 release and support transport. The slope, friction, prop-collision, animation
 and climbing suites cover the movement behavior around that boundary.
 
+When a moving curved support exposes a lower walkable floor, an airborne stride
+continues from its actual ankle position through the existing 80 ms swing
+release. That shoe remains unloaded until its sole reaches the current surface;
+declaring it planted above the floor would pull the pelvis down immediately.
+This changes foot presentation only, including the visible leg's support state.
+The player's collision root and the moving object's forces retain their normal
+simulation. Slipping faces use the slide-entry handoff instead of this walking
+landing. Coverage includes the actual moving-ball transfer in
+`tests/jumping-foot-landings.test.mjs` and the complete steep-slide entry suite.
+
 ## Motion continuity and diagnostics
 
 Uninterrupted unsupported travel with gravity beyond 0.9 seconds eases into a

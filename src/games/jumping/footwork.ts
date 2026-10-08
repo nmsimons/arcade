@@ -1,12 +1,13 @@
 import type { Platform, Player } from './model.ts'
 import { groundAt } from './terrain.ts'
 import { platformOutline } from './geometry.ts'
+import { canGrip } from './friction.ts'
 
 type Point = [number, number]
 export interface FootContact {
   x: number; y: number; anchorX: number; anchorY: number; groundAngle: number; groundY: number
   angle: number; facing: number; planted: boolean; blockedCycle: number
-  release: { x: number; y: number; angle: number; time: number } | null
+  release: { x: number; y: number; angle: number; time: number; landing?: boolean } | null
   settle: { x: number; y: number; angle: number; facing: number; time: number; duration: number } | null
 }
 export interface Footwork { feet: [FootContact, FootContact]; moving: boolean; facing: number; terrain: readonly Platform[]; pushBalance?: [Point, Point, Point] }
@@ -267,6 +268,13 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     if (foot.settle || rephased) {
       foot.release = { x: foot.x - targetX, y: foot.y - targetY, angle: foot.angle - targetAngle, time: 0 }
     }
+    // A changing curved support can expose a much lower walkable floor under
+    // the next stride. Carry the actual swing into that landing instead of
+    // loading the pelvis in a single tick. A slipping face uses slide entry's
+    // own contact handoff, rather than a walking foot trying to land on it.
+    if (targetGround && canGrip(targetGround.angle) && targetGround.y - foot.groundY > 6) {
+      foot.release = { x: foot.x - targetX, y: foot.y - targetY, angle: foot.angle - targetAngle, time: 0, landing: true }
+    }
     foot.settle = null
     const release = foot.release, time = (release?.time ?? 0) + dt, weight = 1 - smooth(time / .08)
     foot.x = targetX + (release?.x ?? 0) * weight; foot.y = targetY + (release?.y ?? 0) * weight
@@ -274,7 +282,13 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     foot.groundAngle = targetGround?.angle ?? 0
     foot.release = release && weight > 0 ? { ...release, time } : null
     const surface = groundAt(platforms, foot.x, p.y)
-    if (step.planted && lap > foot.blockedCycle && surface) {
+    let landingReached = true
+    if (release?.landing && surface) {
+      const toe = toeBend(foot.angle - foot.groundAngle * foot.facing)
+      const bottom = Math.max(...FOOT_CONTACT.map(point => footPoint(point, foot.angle, toe)[1]))
+      landingReached = foot.y + bottom >= surface.y - .15
+    }
+    if (step.planted && lap > foot.blockedCycle && surface && landingReached) {
       foot.planted = true; foot.groundAngle = surface.angle; foot.angle = step.angle + surface.angle * p.facing; foot.release = null
       const roll = footRoll(step.angle), c = Math.cos(surface.angle), s = Math.sin(surface.angle)
       foot.anchorX = foot.x - roll[0] * foot.facing * c + roll[1] * s

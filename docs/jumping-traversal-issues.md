@@ -1252,3 +1252,69 @@ Evidence under `.tmp/ujg-traversal-fixes/`: `outline-all-node.log`,
 `outline-final-normal.log`, `outline-final-normal-results/`,
 `outline-repeat-slow.log`, `outline-repeat-slow-results/` and
 `outline-build-witnesses.jsonl`.
+
+## Twentieth implementation pass: lower-floor shoe contact
+
+October 8, 2026. Reviewing the complete moving-prop interruption for #49
+exposed a second, later defect: after stepping onto a rolling 30-unit ball,
+the next swing could immediately plant on the floor below it. The new ankle
+position then pulled the entire torso down in one tick. An airborne walking
+shoe now carries its actual position through the existing 80 ms swing release
+and stays unloaded until its sole reaches the current walkable surface.
+Slipping faces retain their separate slide-entry handoff. The first prototype
+incorrectly treated a 70° face as a walking landing and failed an existing
+entry-continuity check; restricting walking landings to grippable surfaces
+restores that complete suite.
+
+The real moving-ball comparison lowers the largest later head step from
+25.295 to 4.478 world units per 1/120-second tick, in both directions. All
+1,440 physical frames across 30/80-unit crates and balls in both directions
+retain exactly the same root, velocity, facing, gravity, input/jump state and
+moving props. Two new permanent checks cover actual moving-object interruption,
+collision-safe recovery, the later descending-shoe contact, fixed leg lengths,
+real planted ankles, current geometry and immediate fresh jump response.
+The landing check fails on the preceding footwork with the original body drop.
+
+These native clips retain the same four encounters, input, framing and real-time
+playback at 1× and 2.6×. The loop boundary restarts each encounter. At roughly
+0.55 seconds in the small-ball encounter, the revised shoe remains in flight;
+the body loads the floor only as the descending sole reaches it. This is a
+more credible step down than the preceding immediate squat.
+
+![Preceding moving-prop transitions](images/jumping-moving-prop-landings-before.gif)
+
+![Revised moving-prop transitions](images/jumping-moving-prop-landings-current.gif)
+
+The earlier step-interruption head jumps still range from 9.565 to 14.901
+units, and the short-crate incoming push still produces a later 12.480-unit
+head change. **#49 remains open.** A separate step-exit prototype improved the
+initial interruption but increased the subsequent short-crate contact to
+19.880 units; it was removed despite passing its targeted assertions.
+Further work must coordinate the outgoing step with reachable incoming
+palms and the low working posture (#43/#48), preserving fixed bones, real
+shoes and unchanged forces throughout the whole transition. This pass improves
+lower-floor support transfer for #40/#56 without accepting their broader
+animation matrices or the crowded stationary reversals described above.
+
+The 71 affected Node checks pass. The full UJG selection passes 1,434 of
+1,436 checks in 214.6 seconds, including all movement and recorded routes.
+The two failures are Windows symlink-creation `EPERM` in the development-file
+and publishing security fixtures. Types, changed-file lint and the isolated
+production build pass. Authored levels and medal times remain unchanged.
+
+All 43 affected production-browser checks pass in 3.4 minutes with ordinary
+two-worker settings, including cleanup. They cover keyboard pushing/recontact,
+turning, both tall-step cancellation inputs, moving recovery, narrow footing,
+20/40-unit stairs, walking/fast/inverted steep slides, connected landings,
+brief ball contacts and all nine original #60 cases. Normal/reversed squeeze
+times are 19.1/19.8 seconds within unchanged 30-second limits. Every retained
+trace confirms the new `UntitledJumpingGame-VgryFnw1.js` bundle.
+
+Evidence under `.tmp/ujg-traversal-fixes/`: `lower-floor-grip-unit.log`,
+`lower-floor-grip-all-node.log`, `lower-floor-baseline-unit.log`,
+`lower-floor-grip-types.log`, `lower-floor-grip-lint.log`,
+`lower-floor-grip-build.log`, `lower-floor-grip-pose.log`,
+`lower-floor-physical-comparison.json`, `lower-floor-grip-capture.log`,
+`lower-floor-grip-evidence.log`, `moving-ball-floor-contact-sheet.png` and
+the rejected `step-exit-first.patch`, plus `lower-floor-browser.log`,
+`lower-floor-browser-results/` and `lower-floor-build-witnesses.json`.

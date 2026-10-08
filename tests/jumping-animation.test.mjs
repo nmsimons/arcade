@@ -113,14 +113,29 @@ test('jump legs gather by the apex and remain gathered throughout descent', () =
   }
 })
 
-test('both jump arms reach forward through takeoff, the apex, and descent in either direction', () => {
-  for (const facing of [-1, 1]) for (const vx of [0, 125, 350]) for (const vy of [-800, -560, -455, -180, 0, 400, 1000]) {
-    const pose = athletePose({ ...createPlayer(), grounded: false, facing, vx: vx * facing, vy })
-    for (const arm of [pose.frontArm, pose.backArm]) {
-      assert.ok(arm.joint[0] > pose.shoulder[0] + 3, 'both elbows stay in front of the torso')
-      assert.ok(arm.end[0] > pose.shoulder[0] + 10, 'both hands reach ahead of the figure')
+test('takeoff, gathered apex and open descent have distinct arm balance in either direction', () => {
+  for (const facing of [-1, 1]) for (const vx of [0, 125, 350]) {
+    const player = vy => ({ ...createPlayer(), y: -50, grounded: false, facing, vx: vx * facing, vy })
+    const takeoff = athletePose(player(-800)), apex = athletePose(player(0)), descent = athletePose(player(400))
+    assert.ok(takeoff.frontArm.joint[0] > takeoff.shoulder[0] + 8, 'takeoff opens the leading elbow ahead')
+    assert.ok(takeoff.frontArm.end[1] < takeoff.shoulder[1], 'the leading hand rises during extension')
+    assert.ok(apex.backArm.end[0] < apex.shoulder[0] - 4, 'one arm counterbalances behind the torso at the apex')
+    assert.ok(apex.frontLeg.end[1] < descent.frontLeg.end[1] - 3, 'the gathered apex releases toward descent')
+    assert.ok(descent.frontArm.joint[0] - descent.shoulder[0] > apex.frontArm.joint[0] - apex.shoulder[0] + 3, 'descent opens the leading elbow for balance')
+    for (const vy of [-800, -560, -455, -180, 0, 400, 1000]) {
+      const pose = athletePose(player(vy))
+      assert.ok(distance(pose.frontArm.end, pose.backArm.end) > 3, 'the hands remain visibly separate')
     }
-    assert.ok(distance(pose.frontArm.end, pose.backArm.end) > 3, 'the arms remain visibly separate')
+    let previous
+    for (let vy = -800; vy <= 1000; vy += 5) {
+      const pose = athletePose(player(vy)), current = points(pose)
+      for (const limb of [pose.frontArm, pose.backArm]) {
+        assert.ok(Math.abs(distance(limb.root, limb.joint) - 10) < 1e-6)
+        assert.ok(Math.abs(distance(limb.joint, limb.end) - 9) < 1e-6)
+      }
+      if (previous) for (let i = 0; i < current.length; i++) assert.ok(distance(current[i], previous[i]) < 1.5, `airborne joint ${i} snapped at vy ${vy}`)
+      previous = current
+    }
   }
 })
 

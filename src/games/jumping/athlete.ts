@@ -3,7 +3,7 @@ import { gaitPose } from './model.ts'
 import type { JumpInput, Player } from './model.ts'
 import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
-import { nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
+import { moveBody, nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, climbRoot, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { keepRopeGrip } from './ropeGravity.ts'
@@ -596,7 +596,11 @@ function fallFrame(p: Player, stage = 0): AthletePose {
   const shoulder = add(waist, [Math.sin(pitch) * 10.1, -Math.cos(pitch) * 10.1])
   const head = add(shoulder, stage === 0 ? [8, .2] : [4, -6.8])
   const armRoot = add(shoulder, [0, stage === 0 ? -.8 : .7]), legRoot = add(hip, [0, 1])
-  const arm = (back: boolean) => solve(armRoot, stage === 0 ? [back ? 27 : 28, back ? -4.5 : -2.8]
+  // In sustained flight one arm opens for balance and the other folds toward
+  // the chest. This is a braced fall, rather than a symmetrical diving pose.
+  // On impact they settle into the existing hands-first recovery.
+  const flight = stage === 0 ? (1 - smooth((p.freeFall?.recovery ?? 0) / .16)) * (1 - landingPreparation(p)) : 0
+  const arm = (back: boolean) => solve(armRoot, stage === 0 ? mix([back ? 27 : 28, back ? -4.5 : -2.8], [back ? 13 : 25, back ? 3 : -4], flight)
     : stage === 1 ? [back ? 10 : 14, -2.8] : [back ? 7 : 11, -15], 10, 9, stage === 0 ? 1 : -1)
   const leg = (back: boolean): Leg => ({ ...solve(legRoot,
     stage === 0 ? [back ? -34 : -35, back ? -10 : -8.5] : stage === 1 ? [back ? -20 : -23, -2.8] : [back ? -5 : 3, -2.8],
@@ -606,6 +610,26 @@ function fallFrame(p: Player, stage = 0): AthletePose {
   // distinguish belly-down flight from a figure lying on its back.
   const frame = { hip, waist, shoulder, head, frontArm: arm(false), backArm: arm(true), frontLeg: leg(false), backLeg: leg(true), headTilt: stage === 0 ? pitch : 0 }
   return rotatePose(frame, p.groundAngle, p.facing)
+}
+
+/** The current collision world, rather than a flight timer, supplies the next
+ * reachable landing. The swept standing/crouched hull also excludes ceilings
+ * and respects intervening walls. This only anticipates support; it never
+ * changes the motor or acquires a grip. Called in the player's gravity frame. */
+function landingPreparation(p: Player): number {
+  if (p.grounded) return p.landing > 0 ? 1 : 0
+  if (p.vy <= 0 || !p.terrain?.length) return 0
+  const horizon = .16, dy = p.vy * horizon + (p.gravity ?? TUNING.gravity) * horizon ** 2 / 2
+  if (dy <= 0) return 0
+  const x = p.x + p.vx * horizon, y = p.y + dy
+  // Most airborne frames have no nearby floor. Avoid a full hull query then.
+  if (![x - 12, x, x + 12].some(at => groundAt(p.terrain!, at, p.y + dy / 2, dy / 2 + .01))) return 0
+  const sweep = moveBody([p.x, p.y], [x, y], p.terrain, p.crouching ? TUNING.crouchHeight : TUNING.height)
+  const support = sweep.contacts.find(contact => contact.normal[1] < 0 && 'time' in contact)
+  // Round objects gradually change from a landing face into a sliding side.
+  // Their contact normal must fade preparation rather than toggle the rig.
+  return support && 'time' in support && typeof support.time === 'number'
+    ? smooth(1 - support.time) * smooth((-support.normal[1] - .5) / .35) : 0
 }
 function fallRecoveryPose(p: Player): AthletePose {
   const fall = p.freeFall!, recovery = fall.recovery
@@ -840,7 +864,10 @@ function waterPose(p: Player): AthletePose {
   if (motion.bottom) {
     // The floor owns the legs and crouch. Upward palm sweeps oppose buoyancy;
     // the recovery folds through depth rather than flapping in a frontal view.
-    const planted = athletePose({ ...p, waterMotion: undefined, freeFall: null, landing: 0 })
+    const planted = athletePose({ ...p, waterMotion: undefined, freeFall: null, landing: 0,
+      // This is the water floor-contact endpoint, including its release blend.
+      // A buoyant lift must not make that endpoint adopt dry apex balance.
+      gait: { ...(p.gait ?? gaitPose(p.vx)), air: 0 } })
     const cycle = ((motion.hold ?? 0) / TAU) % 1
     const pull = smooth(cycle / .55), recover = smooth((cycle - .55) / .45)
     const lift = pull * (1 - recover), reach = 12 + Math.sin(cycle * TAU) * 2
@@ -1032,7 +1059,16 @@ export function athletePose(p: Player): AthletePose {
   // The upper body unfolds on push-off; it curls forward into the next contact.
   const bodyWave = (lag: number) => lerp(Math.cos(cycle * 2 - lag) * 1.7, Math.cos(cycle * 2 - .9 - lag) * 3.4, run) * gait
   const hipBob = bodyWave(0), chestBob = bodyWave(.32) * .92, headBob = bodyWave(.55) * .72
-  const rising = smooth(-p.vy / 180), extension = smooth((-p.vy - 260) / 400), tuck = rising * (1 - extension)
+  // Contact sets motor vy to zero. Keep the descending balance while its air
+  // amount fades; interpreting that zero as a new apex would curl on impact.
+  const flightVy = p.grounded && p.landing > 0 ? Math.max(250, 150 + p.landingImpact * 850) : p.vy
+  const rising = smooth(-flightVy / 180), extension = smooth((-flightVy - 260) / 400)
+  // A contact can remove falling speed without creating a jump apex. Curl
+  // near zero vy only above the actual takeoff height, then relax in descent.
+  const apex = (1 - smooth(Math.abs(flightVy) / 220)) * smooth((p.jumpStart - p.y) / 12)
+  const tuck = Math.max(rising * (1 - extension), apex)
+  const descent = smooth(flightVy / 250), preparation = air > 0 ? landingPreparation(p) : 0
+  const lift = clamp(p.airBoost.lift), steering = p.airBoost.x * p.facing
   const landingTime = 1 - p.landing
   // A quick, eased compression absorbs the impact, followed by a longer recovery.
   const landing = (landingTime < .28 ? smooth(landingTime / .28) : 1 - smooth((landingTime - .28) / .72)) * (1 - air * .7)
@@ -1043,7 +1079,7 @@ export function athletePose(p: Player): AthletePose {
   const hipHeight = lerp(lerp(-33.2, lerp(-31.4, -28.3, run), moving), -31.5 + tuck * 2.5, air)
   const pelvicPitch = (.025 + run * .2 + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014
   const chestPitch = (.035 + run * .4 + Math.sin(cycle * 2 - .55) * lerp(.035, .1, run)
-    + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + air * (.12 + speed * .18 + tuck * .18) + landingDepth * .035 + slopeLean
+    + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + air * (.12 + speed * .18 + tuck * .18 - descent * .06 + preparation * .12 + steering * .025) + landingDepth * .035 + slopeLean
   const hip: Point = [-squat * 3 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4), hipHeight + dip + hipBob]
   const waist: Point = [hip[0] + Math.sin(pelvicPitch) * 6.5, hip[1] - Math.cos(pelvicPitch) * 6.5]
   const shoulder: Point = [waist[0] + Math.sin(chestPitch) * 10.1, waist[1] - Math.cos(chestPitch) * 10.1 + chestBob - hipBob]
@@ -1102,15 +1138,22 @@ export function athletePose(p: Player): AthletePose {
   let frontFlex = lerp(.1 + moving * lerp(.12, 1.2 - Math.cos(cycle - .12) * .5, run), 2.1, squat)
   let backFlex = lerp(.1 + moving * lerp(.12, 1.2 + Math.cos(cycle - .12) * .5, run), 2.2, squat)
   if (air > 0) {
-    // Stretch off the ground, tuck during ascent, then gather before descending.
-    const airborneFront = mix([2, -3], mix([9, -15], [11, -8], extension), rising)
-    const airborneBack = mix([-2, -3.5], mix([-6, -12], [-10, -1], extension), rising)
+    // Stretch off the ground, gather through the apex, then open the arms for
+    // balance. A real approaching support sweeps them back for the contact.
+    const airborneFront = mix(mix([2, -7], [2, -3], descent), mix([9, -15], [11, -8], extension), rising)
+    const airborneBack = mix(mix([-2, -7.5], [-2, -3.5], descent), mix([-6, -12], [-10, -1], extension), rising)
     frontAnkle = mix(frontAnkle, airborneFront, air)
     backAnkle = mix(backAnkle, airborneBack, air)
-    frontAngle = lerp(frontAngle, .5 + rising * (.2 + extension * .4), air)
-    backAngle = lerp(backAngle, .38 + rising * (.2 + extension * .3), air)
-    frontFlex = lerp(frontFlex, 1.2 + rising * .5, air)
-    backFlex = lerp(backFlex, .9 + rising * (.5 - extension * .2), air)
+    const armRise = smooth(-flightVy / 260)
+    const frontFlight = lerp(lerp(.18, .7, descent), 1.1 + extension * .35, armRise)
+    const backFlight = lerp(lerp(-.75, -.6, descent), .65 + extension * .35, armRise)
+    // Arms follow the hips slightly later during push-off. On contact retain
+    // the descending pose while the motor's eased air amount settles.
+    const armAir = p.grounded ? air : 1 - (1 - air) ** .55
+    frontAngle = lerp(frontAngle, lerp(frontFlight + lift * .06, -.6, preparation), armAir)
+    backAngle = lerp(backAngle, lerp(backFlight + lift * .04, -.85, preparation), armAir)
+    frontFlex = lerp(frontFlex, lerp(lerp(lerp(1.4, .55, descent), 1, armRise), .65, preparation), armAir)
+    backFlex = lerp(backFlex, lerp(lerp(lerp(.85, .7, descent), .8, armRise), .25, preparation), armAir)
   }
   frontAngle = lerp(frontAngle, Math.PI - .08, p.reach)
   backAngle = lerp(backAngle, Math.PI + .06, p.reach)
@@ -1157,6 +1200,10 @@ export function athletePose(p: Player): AthletePose {
   // Near and far joints coincide in profile; depth comes only from overlap.
   const frontRoot = () => add(shoulder, [0, .7]), backRoot = frontRoot
   let frontArm = armPose(frontRoot(), frontAngle, frontFlex), backArm = armPose(backRoot(), backAngle, backFlex)
+  if (!p.grounded && p.terrain) {
+    frontArm = clearLimb(p, frontArm, UPPER_ARM, FOREARM, 1, true)
+    backArm = clearLimb(p, backArm, UPPER_ARM, FOREARM, 1, true)
+  }
   if (pushing) {
     const wall = (p.pushing!.wallX - p.x) * p.facing
     const press = (arm: Limb, y: number, index: number) => {
@@ -1203,6 +1250,7 @@ export function athletePose(p: Player): AthletePose {
 
 /** Toes can meet a slope just before the body hull. Keep them on the air side. */
 function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
+  if (!p.terrain?.length) return leg
   let current = leg
   const target: Point = [...leg.end]
   for (let pass = 0; pass < passes; pass++) {

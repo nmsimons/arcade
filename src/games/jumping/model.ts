@@ -435,6 +435,9 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     return
   }
   p.terrain = platforms
+  // The ready unsupported pose already uses an airborne gait. Preserve that
+  // starting frame instead of first easing back from an imaginary ground gait.
+  p.gait ??= gaitPose(p.vx, !p.grounded && !p.hang && !p.mantle && !p.climbing)
   const inWater = swimStrength > 0 && !p.jumpLift && !p.waterJump
   const from: [number, number] = [p.x, p.y], oldVy = p.vy, oldMantle = p.mantle
   const beforeBody = playerContactBody(p)

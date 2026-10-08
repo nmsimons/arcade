@@ -1,13 +1,8 @@
 import { test, expect } from './helpers/test.mjs'
-import { blankTrial } from '../../src/games/jumping/level.ts'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { reverseRopeWorkshop as fixture } from './helpers/jumpingRopeGravity.mjs'
+import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
-function fixture(anchor = 'floor') {
-  return { ...blankTrial(), id: 'reverse-rope-browser', name: 'Reverse rope workshop', width: 1200, height: 600, floor: 600,
-    spawn: { x: 380, y: 600 }, goal: { x: 1040, y: 600 },
-    climbables: { ladders: [], ropes: [{ x: 400, y: anchor === 'floor' ? 600 : 100, length: anchor === 'floor' ? 600 : 500, segments: anchor === 'floor' ? 75 : 63 }] },
-    gravityPlates: [{ id: 'g', x: 0, y: 0, w: 1200, h: 600, gravity: -1, power: 'always' }] }
-}
 async function open(page, level) {
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -24,7 +19,7 @@ for (const release of ['jump', 'let go']) test(`normal controls catch a floating
   const errors = []; page.on('pageerror', e => errors.push(e.message))
   await open(page, fixture())
   await page.keyboard.down('d'); await page.clock.runFor(20); await page.keyboard.up('d')
-  await page.clock.runFor(3500)
+  await advanceJumpingPassiveWait(page, 3500)
   expect((await sample(page)).signals.inverted).toBe(true); expect((await sample(page)).signals.grounded).toBe(true)
   await page.keyboard.down('ArrowDown'); await page.clock.runFor(900); await page.keyboard.up('ArrowDown')
   const lower = await sample(page)

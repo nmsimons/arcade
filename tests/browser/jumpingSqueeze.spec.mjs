@@ -2,35 +2,17 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { bodyPolygon, polygonIntersects } from '../../src/games/jumping/geometry.ts'
+import { smallPropGap, observeGapHead } from './helpers/jumpingSqueeze.mjs'
+import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 import { ballShape } from '../../src/games/jumping/propGeometry.ts'
 
 for (const reverse of [false, true]) test(`holding left between a small box and a bot-driven ball keeps the drawn body stable (${reverse ? 'reversed' : 'normal'} prop order)`, async ({ page }, info) => {
-  const level = { ...blankTrial(), name: 'Small prop gap', width: 1200, height: 600, floor: 500,
-    spawn: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
-    platforms: [{ x: 400, y: 200, w: 200, h: 300 }],
-    props: [{ kind: 'box', x: 615, y: 500, size: 30 }, { kind: 'ball', x: 668, y: 500, size: 30 }],
-    robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }
-  if (reverse) level.props.reverse()
+  const level = smallPropGap(reverse)
   expect(levelProblems(level)).toEqual([])
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
-    proto.fillRect = function (...args) {
-      if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.gapCamera = this.getTransform().inverse()
-      return rect.apply(this, args)
-    }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.gapCamera) {
-        const transform = this.canvas.gapCamera.multiply(this.getTransform())
-        const head = transform.transformPoint(new DOMPoint(args[0], args[1]))
-        this.canvas.gapFrames ??= []
-        this.canvas.gapFrames.push({ time: performance.now(), headX: head.x, headY: head.y, x: transform.e, y: transform.f })
-      }
-      return ellipse.apply(this, args)
-    }
-  })
+  await observeGapHead(page)
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
@@ -38,7 +20,7 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
   const canvas = page.getByRole('img', { name: 'Small prop gap: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await page.keyboard.down('w'); await page.clock.runFor(16); await page.keyboard.up('w')
-  await page.clock.runFor(2000)
+  await advanceJumpingPassiveWait(page, 2000)
   await page.screenshot({ path: info.outputPath('idle-in-gap.png') })
   for (let cycle = 0; cycle < 2; cycle++) {
     await page.keyboard.down('a'); await page.clock.runFor(150)
@@ -58,7 +40,7 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
       for (const joint of [0, 1, 2]) expect(Math.hypot(...after.points[joint].map((v, axis) => v - before.points[joint][axis]))).toBeLessThan(3)
     }
     await page.screenshot({ path: info.outputPath(`holding-left-${cycle}.png`) })
-    await page.keyboard.up('a'); await page.clock.runFor(500)
+    await page.keyboard.up('a'); await advanceJumpingPassiveWait(page, 500)
   }
   expect(errors).toEqual([])
 })

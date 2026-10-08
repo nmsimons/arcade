@@ -26,7 +26,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
-| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | All nine original production checks pass; slower-CPU and project repeatability acceptance remains incomplete |
+| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Nine movement cases have completed their assertions; slower-CPU and context-cleanup repeatability remains incomplete |
 
 ## Implementation order and evaluation
 
@@ -51,6 +51,34 @@ Confirmed defects and outstanding evaluations are identified separately in the i
 | Browser gaps #60 | Investigate independently now; rerun affected cases after relevant movement/animation fixes. |
 
 All child issues are standalone enough for implementation from their body. This table prevents conflicting animation state ownership and identifies where combined before/after evaluation is needed.
+
+## Additional crowded-push finding
+
+October 8, 2026, at `afb30b7`. #48 remains open for reversals between two
+blocked nearby props. A stationary brace has no locomotion speed, so it does
+not capture the existing dry-turn snapshot. Incoming force then owns an
+immediately mirrored rig. An upright 80-unit crate produces a 13.158-unit
+first-tick head jump. With 30-unit crates it is 30.321 units; crouched examples
+produce 20.754/23.585 units for sizes 30/80. The corresponding ball cases are
+13.325, 29.864, 21.947 and 23.802 units. These include actual root movement:
+less than 0.0002 units for crates and 0.225/0.792 for the balls.
+
+The exact sixteen-case fixture, measurements, constraints, implementation
+direction and required evaluation are recorded in
+[the updated #48 issue](https://github.com/nmsimons/arcade/issues/48).
+Simply retaining the head would stretch its neck or lose incoming palms in
+the short/crouched cases. The preceding short-crate pose requires at least
+14.460 units of head relocation to meet the new wrists with fixed arms and
+its existing neck length. This is a constraint to repair through working
+posture/contact geometry, not a naturalness acceptance threshold. A prototype
+helped the tall upright example but failed the full matrix and was retained
+only as a diagnostic patch. No part of that prototype is in the live code.
+
+Evidence: `.tmp/ujg-traversal-fixes/opposed-baseline-measure.jsonl`,
+`opposed-baseline-measure.mjs`, `opposed-draft.patch`, `opposed-unit.log` and
+`opposed-prototype.log`. The implementation still needs a complete supported
+transfer, repeated-reversal/release/jump regressions, unchanged physical traces
+and matched real-time footage before this acceptance can be completed.
 
 ## First implementation pass
 
@@ -1039,3 +1067,48 @@ Logs: `.tmp/ujg-traversal-fixes/background-all-browser.log`,
 `background-live-slow.log`, `background-browser-gaps-project.log`,
 `background-browser-gaps-slow.log` and `background-gap-traces-slow.jsonl`.
 
+
+## Seventeenth implementation pass: prove passive wait scheduling
+
+October 8, 2026. Passive settling now uses an aligned 48 ms helper where no
+rendered transition is asserted. It first reaches the next native 16 ms RAF
+boundary and uses native pacing for a partial remainder. Blind off-frame
+batching can exceed UJG's 50 ms cap, and batching a partial tail can add a
+physics step. Held inputs, short entry/exit checks, both squeeze two-second
+holds, screenshots, assertions and original deadlines retain their cadence.
+The shared fixtures preserve the original geometry and prop-order reversal.
+
+All three permanent production scheduling comparisons pass in 115.4 seconds.
+For each squeeze order, all five 240-sample diagnostic windows match exactly,
+including times, input, root motion, contact state and local joints. Both held
+animations retain all 125 drawn frames with identical timestamps and root/head
+positions within 0.000001 units. The rope comparison collects every completed
+fixed step, including samples outside the two-second diagnostic ring: all 606
+samples match for each of jump and let-go through settling, climbing and
+native-cadence departure. The longer deadlines belong only to these new paired
+comparisons; the original cases' limits remain unchanged. Changed-file lint
+passes. No production movement, artwork, authored level or medal is changed.
+
+The first slower-CPU run with only squeeze passive waits passes eight of nine;
+the normal/reversed squeeze cases take 29.7/29.5 seconds within 30. The rope
+jump still reaches its limit; its trace attributes 18.469 seconds to the neutral
+3.5-second wait and stops during a final diagnostic read. Applying the separately
+proved rope wait reduces its following slower-CPU jump/let-go checks to
+22.1/21.3 seconds. However, the first full repetition again times out both
+squeeze cases at 30.8/31.0 seconds. Pacing equivalence is established; slower
+performance still needs work. **#60 remains open.**
+
+The two-worker production run completes the movement assertions in all nine
+cases, but the right-bank water test then spends 90 seconds closing its custom
+persistent Chromium context. Its last screenshot and every game assertion had
+completed. The trace points to `helpers/folderTest.mjs:12`, rather than a failed
+water movement outcome. This fixture creates a filesystem-handle profile for
+all tests in the water file although only its authoring/save/reopen test needs
+one. Preparation, active runtime and cleanup remain separate acceptance gaps.
+
+Evidence: `.tmp/ujg-traversal-fixes/passive-clock-final.json`,
+`passive-clock-permanent-results/`, `passive-lint.log`,
+`passive-browser-gaps-slow.log`, `passive-gap-traces-slow.jsonl`,
+`passive-browser-gaps-project.log`, `passive-gap-traces-project.jsonl` and
+`passive-repeat-slow.log`. The repeat run is retained as diagnostics; it is not
+a completed passing slow-machine result.

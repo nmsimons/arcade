@@ -21,3 +21,16 @@ export async function advanceJumpingSimulation(page,milliseconds) {
     await page.clock.fastForward(Math.min(48,remaining))
   }
 }
+
+/** Only for passive waits without rendered-transition assertions. Preserve
+ * Playwright's 16 ms RAF lattice: an off-lattice 48 ms jump can exceed UJG's
+ * 50 ms catch-up cap, and a batched partial tail can add a simulation step.
+ * Held animation checks must continue using normal clock.runFor pacing. */
+export async function advanceJumpingPassiveWait(page, milliseconds) {
+  if (milliseconds <= 48) { await page.clock.runFor(milliseconds); return }
+  const now = await page.evaluate(() => performance.now())
+  const leading = Math.min(milliseconds, (16 - now % 16) % 16)
+  if (leading) { await page.clock.runFor(leading); milliseconds -= leading }
+  while (milliseconds >= 48) { await page.clock.fastForward(48); milliseconds -= 48 }
+  if (milliseconds) await page.clock.runFor(milliseconds)
+}

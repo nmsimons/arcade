@@ -90,6 +90,18 @@ controls with injected state. Rendering optimizations must compare the complete
 image against the original composition, including occlusion, camera/size changes,
 power loss, and artwork that needs a full-viewport fallback.
 
+For passive settling without rendered-transition assertions, use
+`advanceJumpingPassiveWait` only with an ordinary-versus-batched trace comparison.
+Its initial native advance aligns with Playwright's 16 ms RAF schedule, full
+48 ms batches stay within UJG's frame cap, and the native remainder preserves
+the final RAF boundary. Blind 48 ms batching from an off-frame time can exceed
+the cap; batching a partial tail can also add a simulation step. The permanent
+clock comparisons cover both squeeze prop orders, their complete diagnostic
+windows and both 125-frame held animations, plus every rope fixed step through
+gravity settling, climbing and both departures. Keep held input, short entries,
+departure checks, screenshots, assertions and their deadlines unchanged. These
+comparisons establish pacing equivalence; they do not evaluate naturalness.
+
 Daylight cache comparisons must witness the optimized path, compare every RGBA
 channel to an explicitly uncached renderer, and include a warm fixed-view
 sequence with moving foreground art. Check recovery indicators, rotated props,

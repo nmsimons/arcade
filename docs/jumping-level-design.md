@@ -129,6 +129,24 @@ detour, unlock a new part of a room, or bring the player back through a changed
 space. Avoid making the player sweep every corner after the interesting part is
 over. Use thresholds to create choices when collecting every coin is unnecessary.
 
+### Teach different contact rules where they first matter
+
+Visually related objects can need different actions. An airborne rope catches
+automatically; a ladder needs vertical input. A swimming player can catch a
+terrain bank automatically, while a loose float needs Up to request a grip.
+Force fields support and block the player without offering a lip grab, and loose
+props pass through them. EMP activates on collection and can remove a field or
+stop a moving support. Introduce these differences in a recoverable encounter
+before combining them with a timing challenge. Let the player see a useful
+escape and the consequence of a missed grip or power change.
+
+Prefer action names such as “hold jump” or “hold up” in authored graffiti;
+the live controls and action cue supply the current device binding. Review
+the text from the approach and recovery positions at narrow gameplay scale.
+A hint on the wall behind solid terrain, or a sentence clipped halfway through
+its action, does not teach the rule. Keep each hint local and brief rather than
+listing every movement rule in the room.
+
 Large levels need distinct sections and a visible sense of progress. Tower's
 repeated building bays make its structure readable while doors, props, and lift
 connections change the local problem. A return journey can be especially strong

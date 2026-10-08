@@ -20,13 +20,13 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#51 UJG: make Down action priority and lower-then-drop behavior predictable](https://github.com/nmsimons/arcade/issues/51) | Medium (P2) | Confirmed control contract with a discoverability problem |
 | [#52 UJG: explain and animate ledge jump-away and fresh-press departures](https://github.com/nmsimons/arcade/issues/52) | Medium (P2) | Reproduced launch orientation and confirmed input semantics |
 | [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Confirmed mismatch between labels and motor/bindings |
-| [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | Confirmed rule differences; teaching audit required |
+| [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Rendered visual quality issue; artistic tuning required |
 | [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Visual evaluation task, not an established physics defect |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
-| [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Outstanding route enjoyment/recovery review and current-control timing audit |
-| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Observed browser timeouts/loading failure; movement defects not established |
+| [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
+| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Daylight allocation churn reduced; original-deadline and slower-machine acceptance remains incomplete |
 
 ## Implementation order and evaluation
 
@@ -240,4 +240,123 @@ The new desktop night case exposed a repeatable performance margin problem: all 
 The full UJG regression run after the camera change reports **1,391 tests: 1,386 pass and the same five known failures** (the user's indexed Untitled level still needs a medal audit; sandbox restrictions prevent a temporary Git setup and Windows symlink creation). The subsequent 49 affected camera/water/lighting checks pass after the empty-night-pass optimization. Type checks, changed-file lint and the isolated production build pass. The known full-suite failures are retained explicitly.
 
 This establishes the narrow-screen scale/short-room fix and this running-jump preview, not the whole #58 acceptance matrix. First approaches in tall authored routes, both-direction commitment examples, rope/ladder catches, cargo/gate encounters, water exits and active night lighting still need their combined route review. The original two daylight squeeze performance gaps in #60, physical-device feel in #57, teaching in #54 and current route/medal acceptance in #59 remain open. User-authored levels and medal times are preserved.
+
+## Seventh implementation pass: stable daylight scratch storage
+
+October 8, 2026. The daylight emission canvas was resized from its small
+emission rectangle to the whole viewport for ambient correction, then back
+again on the next frame. The measured two-second crowded-object sequence
+therefore assigned canvas dimensions 500 times across 125 rendered frames.
+Daylight now uses the already allocated haze surface for ambient correction;
+night keeps its source haze intact. Emission storage rounds up to 32-pixel
+buckets within the existing viewport budget. Its view and copied source
+rectangle retain the exact original dimensions, so padding never becomes
+visible artwork. Daylight also omits the athlete shadow outline calculation
+that only the night contrast correction uses.
+
+The same native keyboard sequence records zero dimension assignments after
+warming the final storage scheme. Absolute timings varied substantially across
+separate runs, so they are not evidence of a large speedup. An alternating
+comparison in one browser, with identical motor/art state and equal forced
+completion of deferred drawing, measures 145 settled Canvas frame pairs:
+4,795.8 ms for the original storage versus 4,508.9 ms for reused storage,
+approximately six percent less time. This is a local render benchmark, not an
+accepted game frame rate or a slower-machine pass.
+
+Permanent browser comparisons cover 14 frames per Canvas/GPU request, including
+fractional view changes and repeated lit day/night transitions. Every RGBA
+channel matches the reference; optimized storage performs zero steady-frame
+resizes against 40 reference assignments, with the same reported buffer budget.
+The existing 48-frame emission and 48-frame unlit-night comparisons also pass
+with zero differences. All 57 affected lighting/booster regressions, type
+checking, changed-file lint and the isolated production build pass.
+
+**#60 remains open.** The nine-case diagnostic run using the bucketed storage
+reports six passes and three failures, without changing deadlines, controls,
+render cadence or assertions. Retained traces classify the remaining failures:
+
+- The normal squeeze case times out during the final 500 ms release/settle
+  advance. Its two-second advances take roughly 7.7–8.2 wall seconds. The
+  sampled body-continuity assertions complete; the final case still does not.
+- The reversed squeeze case reaches its screenshot after the held-contact
+  assertions and exceeds the 30-second whole-test limit. Two-second advances
+  take roughly 7.8–8.5 wall seconds. This remains a performance failure rather
+  than proof of an animation discontinuity.
+- The right-bank water case completes its movement checks and bank-cleared
+  screenshot, then exceeds its existing 90-second context-teardown limit.
+  Its trace shows the long teardown fixture; classify that separately from
+  bank traversal and from the original loading failure.
+
+The 18-unit pull-up, both pinned-ball approaches, both inverted-rope departures
+and left-bank water case complete their original checks. Trace summaries are
+retained in `.tmp/ujg-traversal-fixes/gap-trace-classification.jsonl`; the native
+paired timings are in `renderer-paired.json`. Further work must profile the live
+game loop and diagnostic overhead as well as full-frame composition, investigate
+context cleanup, and demonstrate the complete original matrix under the
+repository browser projects and a slower machine. The modest allocation fix
+does not satisfy that acceptance by itself.
+
+## Eighth implementation pass: first ladder and rope encounters
+
+The current 23-file ordered collection has these first relevant encounters:
+
+| Rule | First built-in encounter | Teaching and recovery | Remaining acceptance |
+| --- | --- | --- | --- |
+| Ladder needs vertical input | First Leap, `00.json`; ladder x560, y1200–1600 | A compact “Hold up / to climb” hint sits in the clear gap. A missed approach lands on the continuous floor; Up acquires the ladder and returns to the starting bank. | Broader bindings and fresh-player review remain part of #57. |
+| Airborne rope catches automatically | A Little Swing, `02.json`; anchor (840,700), length 390 | “Jump into the rope. / It catches you.” is readable on the approach. The live cue explains release/new press after the catch. A miss reaches the floor and the same recovery ladder. | Other rope, wall-rappel and transfer contexts retain their separate acceptance. |
+| Terrain bank versus loose float grip | None in the current built-in collection | Existing water/action fixtures demonstrate terrain catches and conditional Up grip on props; no authored first encounter is claimed. | Audit the first authored water encounter when present, including a missed prop grip and a usable exit. |
+| Field blocks/supports the player but has no grip lip; props pass through | Drain, `Drain.json`; vertical field x200, y3000–3200 | The reversed coin switch at (230,3015) removes the field at 45 coins. The field is introduced beside a crowded ball/gravity shaft without local explanatory text. | Playtest the approach, visible prop passage, unsuccessful grip, valid departure and recovery with current controls before choosing local guidance or layout changes. |
+| EMP activates on collection and changes supports/power | None in the current built-in collection | No current authored first encounter or recovery is claimed. | Review an actual EMP encounter, its five-second consequences and recovery before accepting this teaching requirement. |
+
+First Leap's previous “Press A” graffiti is replaced by “Run up. / Hold jump.”
+so the instruction describes the action across devices. The existing controller
+joke is retained. The recovery hint initially extended behind the opposite bank;
+the reviewed portrait screenshot exposed the clipping. Its final two-line,
+180-unit area fits inside the clear gap. A Little Swing gains the automatic-catch
+hint and the same compact recovery cue. Geometry, mechanisms and medal times
+are unchanged. The design brief now records this contact-contrast teaching
+principle and the need to review guidance from real approach/recovery positions.
+
+The matched 390×844 ready views use the same current motor/camera and normal
+rendering; only the authored guidance changes:
+
+[First Leap before](images/jumping-introduction-first-before.png) and
+[after](images/jumping-introduction-first-after.png);
+[A Little Swing before](images/jumping-introduction-rope-before.png) and
+[after](images/jumping-introduction-rope-after.png).
+
+![Recovery hint visible after a missed First Leap approach](images/jumping-introduction-recovery.png)
+
+![Automatic rope catch and its held-press departure cue](images/jumping-introduction-rope-catch.png)
+
+Four permanent fixed-step recordings use only current move, climb and press/hold
+inputs against the runtime JSON. First Leap's direct route scores 2.608 seconds
+against Gold 3.5; A Little Swing scores 6.267 against Gold 7. Their complete
+fall/ladder/return routes score 9.025 and 12.508 seconds respectively, earning
+Bronze. These are demonstrated routes, not a collection-wide medal audit.
+Historical recordings are retained unchanged. All four new regressions pass.
+
+Four production keyboard checks pass at ordinary render cadence in portrait:
+the held running jump, both missed-approach ladder recoveries, and automatic
+rope catch/climb/swing/fresh-press departure through the doorway. Both direct
+routes receive Gold in the live app; the rope witness shown below scores 6.23
+seconds. The tests advance through the existing 80 ms HUD publication boundary
+before checking a changed action cue; waiting on a frozen clock alone cannot
+publish that cue. Screenshots were reviewed for readability, occlusion, camera
+framing and contact explanation rather than treating completion as visual proof.
+
+![Current keyboard rope-route Gold witness](images/jumping-introduction-rope-gold.png)
+
+The full current UJG suite reports **1,395 checks: 1,393 pass and two fail**.
+Both failures occur when the security fixtures request Windows file symlinks
+and receive EPERM, including in the unrestricted test run. Temporary Git and
+the current catalog audit pass. The complete log is
+`.tmp/ujg-traversal-fixes/introduction-full-ujg.log`. Level validation checks all
+23 current assets; type checking, affected lint and the isolated build pass.
+
+This pass establishes the two introductory teaching/recovery routes and their
+portrait readability. It does not settle the force-field/EMP/water teaching,
+physical-device feel, fast steep sliding, the broader camera/interaction
+matrix, collection-wide enjoyment/medals, or original browser performance
+acceptance. No issue is closed on the strength of this batch.
 

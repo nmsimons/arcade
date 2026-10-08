@@ -22,7 +22,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Confirmed mismatch between labels and motor/bindings |
 | [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Rendered visual quality issue; artistic tuning required |
-| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance, entry/turn/landing continuity and steep-face clearance addressed; supported landing still briefly leaves both soles above the floor in 29 of 72 encounters |
+| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance, entry/turn/landing continuity, shoe load and steep-face clearance addressed; dynamic and brief-contact acceptance remains incomplete |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
@@ -751,4 +751,68 @@ Reproducers, matrix records and validation logs are under
 `slide-landing-full-ujg-final.log`, and `slide-landing-browser-final.log`.
 Dynamic/brief-contact interactions, the original browser performance gaps,
 physical-device feel and the broader route/camera review remain separate gates.
+
+## Twelfth pass: preserve real shoe load through the landing transfer
+
+October 8, 2026. The support-gap audit above counted every grounded motor tick,
+including the running stride's brief flight phase. The more precise audit checks
+the real footwork's force-bearing shoes. In the previous `ca2bbc6` rig, **22 of
+72 approaches** exceed 0.06 units of visible sole separation while a foot is
+loaded; the worst is **1.258 units**, in a normal 46.5° running approach with
+downhill intent at tick 224. The earlier 3.95-unit maximum occurs with both
+stride feet in flight, so it does not establish missing visible load by itself.
+
+Each loaded landing shoe now reaches the actual terrain under its drawn heel
+and toe. The pelvis lowers only enough to preserve fixed reachable leg lengths.
+That solved load participates in the existing five-unit 3D joint/material-point
+continuity check before a pose advances. The swing shoe keeps gathering; the
+ordinary run retains its flight phase. Support flags, collision motor, friction,
+velocity and fresh-jump timing are unchanged.
+
+All **31 slide regressions pass** with added independent geometry assertions for
+the actual loaded shoes throughout all 72 landings. The six landing groups
+fail on the preceding rig specifically on visible sole separation (25 pass,
+six fail). Some individual stride phases finish the presentation handoff while
+both feet remain in flight; each approach group must still witness real loaded
+samples, and every such sample must pass. Native silhouette clearance, fixed
+bones, safe knees, continuity, handoff completion and the 144 fresh-jump cases
+retain their existing assertions. All 72 complete physical traces still agree
+exactly with the preceding motor. Types, affected lint and isolated build pass.
+An independent complete audit measures **1,019 loaded-shoe samples** with a
+maximum gap of **0.02 units** and no separation above the 0.06-unit limit.
+
+Matched 30 Hz native gameplay and three-times detail compare against `ca2bbc6`,
+using identical geometry, controls, camera, timing and an additional half second
+after slide release. Adjacent-frame sheets were inspected through contact,
+loaded steps, braking and rest. The repair keeps the loaded shoe on its floor
+without removing the free foot's lift or inserting a second landing squat.
+
+46.5° running approach with downhill intent:
+[before](images/jumping-slide-support-46.5-run-right-normal-downhill-before.gif) /
+[after](images/jumping-slide-support-46.5-run-right-normal-downhill-after.gif).
+
+55° mirrored walking approach with uphill intent:
+[before](images/jumping-slide-support-55-walk-left-normal-uphill-before.gif) /
+[after](images/jumping-slide-support-55-walk-left-normal-uphill-after.gif).
+
+70° walking approach and braking:
+[before](images/jumping-slide-support-70-walk-right-normal-uphill-before.gif) /
+[after](images/jumping-slide-support-70-walk-right-normal-uphill-after.gif).
+
+55° inverted walking approach and braking:
+[before](images/jumping-slide-support-55-walk-right-inverted-uphill-before.gif) /
+[after](images/jumping-slide-support-55-walk-right-inverted-uphill-after.gif).
+
+The complete UJG suite passes **1425 of 1427** checks in 185.7 seconds; the two
+failures remain the Windows security tests requiring unavailable symlink
+privileges (`EPERM`). All **14 production-browser checks pass** in 2.2 minutes
+with their original controls, deadlines and render cadence.
+
+Logs and independent reproducers are under `.tmp/ujg-traversal-fixes/`:
+`slide-landing-loaded-support.log`, `slide-support-loaded-matrix.log`,
+`slide-support-before-tests-final.log`, `slide-loaded-support-final.log`,
+`slide-support-motor.json`, `slide-support-full-ujg.log` and
+`slide-support-browser.log`. Dynamic-object and brief-contact interactions still
+need their own native review; #56 remains open for that acceptance. No issue is
+closed by this pass.
 

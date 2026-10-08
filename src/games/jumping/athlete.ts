@@ -904,6 +904,32 @@ function anticipateSlideLanding(p: Player) {
   return null
 }
 
+/** A loaded landing shoe meets the real face after the rig transfer. Swing
+ * feet retain the running stride's brief flight phase. */
+function loadSlideLanding(p: Player, pose: AthletePose): AthletePose {
+  if (!p.grounded || !p.terrain || !p.footwork) return pose
+  const names = ['frontLeg', 'backLeg'] as const
+  const contacts = names.flatMap((name, index) => {
+    if (!p.footwork!.feet[index].planted) return []
+    const leg = pose[name], profile = 1 - (leg.rear ?? 0)
+    let gap = Infinity
+    for (const point of FOOT_CONTACT) {
+      const sole = footPoint(point, leg.footAngle * leg.footFacing, leg.toeAngle * leg.footFacing, point[0] > 2.2)
+      const surface = groundAt(p.terrain!, p.x + (leg.end[0] + sole[0] * leg.footFacing * profile) * p.facing, p.y)
+      if (surface) gap = Math.min(gap, surface.y - p.y - leg.end[1] - sole[1])
+    }
+    return Number.isFinite(gap) ? [{ name, end: add(leg.end, [0, gap - .02]) }] : []
+  })
+  let dip = 0
+  for (const { name, end } of contacts) {
+    const leg = pose[name], dx = end[0] - leg.root[0], depth = leg.endDepth ?? 0
+    dip = Math.max(dip, end[1] - Math.sqrt(Math.max(0, 29 ** 2 - dx ** 2 - depth ** 2)) - leg.root[1])
+  }
+  if (dip) pose = rotatePose(pose, 0, 1, [0, 0], [0, dip])
+  for (const { name, end } of contacts) pose[name] = { ...pose[name], ...solveNear(pose[name], end, 15, 14.5, Math.PI / 12), planted: true }
+  return pose
+}
+
 /** Preserve the rig through entry and landing, including a one-tick slip. */
 export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFrame | null, input?: JumpInput) {
   const landing = !!p.sliding && !!anticipateSlideLanding(p)
@@ -930,6 +956,7 @@ export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFram
       { depth: motion.landing ? Math.sin(Math.PI * t) * 6 : Math.sin(Math.PI * smooth(motion.time / .12)) * 2,
         kneeOpening: motion.landing && p.grounded ? Math.PI / 12 : MIN_KNEE_OPENING, footTurn: motion.landing })
     pose = clearBody(p, pose).pose
+    if (motion.landing) pose = loadSlideLanding(p, pose)
     for (const name of ['frontLeg', 'backLeg'] as const) {
       pose[name] = clearSlidingJoint(p, clearAirborneFoot(p, pose[name], motion.landing ? 32 : 16), 15, 14.5, 2.2)
     }

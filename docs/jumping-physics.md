@@ -378,7 +378,10 @@ direction of the outgoing coast and hands the completed landing rig to the dry
 turn when needed. These presentation states never supply physical support or
 change the exact collision/friction contact. Actual support, gripping, water,
 gravity reorientation and cancellation keep their existing control ownership.
-The remaining visible sole-load timing at corner landings is tracked in #56;
+Loaded landing shoes reach the actual drawn floor after the pose transfer;
+the pelvis lowers only enough to retain reachable fixed leg lengths. That
+solved support obeys the same continuity limit. Swing feet retain the running
+stride's brief flight phase. Broader dynamic/brief-contact review is tracked in #56;
 continuity and clearance alone do not prove a convincing support transfer.
 
 Development builds observe the final player state after each physics step with

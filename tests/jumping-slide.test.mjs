@@ -124,9 +124,10 @@ for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
 
 for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
   test(`${entry} ${degrees}° slide gathers for connected flat support without a landing or release snap`, () => {
+    let groupLoadedSamples = 0
     for (const direction of [-1, 1]) for (const inverted of [false, true]) for (const steer of ['neutral', 'uphill', 'downhill']) {
       const level = slideLevel(degrees, direction, inverted)
-      let previous, samples = 0, transfer = false, completed = false
+      let previous, samples = 0, loadedSamples = 0, transfer = false, completed = false
       trace(level, entry, steer, (p, i) => {
         const pose = athletePose(p), points = rigPoints(p, pose, true)
         const x = direction > 0 ? p.x : level.width - p.x
@@ -139,6 +140,18 @@ for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
             assert.equal(dryTurnDirection(p, { ...NEUTRAL_INPUT, move: -direction }), Math.sign(p.vx),
               'braking retains the outgoing visible facing until the actual coast slows')
             if (p.grounded) assert.equal(p.footwork.facing, Math.sign(p.vx), 'new supported steps follow the same braking direction')
+          }
+          if (p.grounded && p.slideEntry?.landing) for (const [index, leg] of [pose.frontLeg, pose.backLeg].entries()) {
+            if (!p.footwork.feet[index].planted) continue
+            const gap = Math.min(...FOOT_CONTACT.map(point => {
+              const sole = footPoint(point, leg.footAngle * leg.footFacing, leg.toeAngle * leg.footFacing, point[0] > 2.2)
+              const x = p.x + (leg.end[0] + sole[0] * leg.footFacing * (1 - (leg.rear ?? 0))) * p.facing
+              const y = p.y + (leg.end[1] + sole[1]) * (inverted ? -1 : 1)
+              return nearestBoundary(level.platforms[0], x, y).distance
+            }))
+            assert.ok(gap <= .06,
+              `${degrees}° ${entry} ${direction} ${inverted} ${steer}: loaded shoe ${index} floats ${gap} units at ${i}`)
+            loadedSamples++
           }
           for (const shape of athleteCasters(p)) for (const [x, y] of polygonPoints(shape)) {
             if (pointInside(level.platforms[0], x, y)) assert.ok(nearestBoundary(level.platforms[0], x, y).distance <= .2,
@@ -159,9 +172,11 @@ for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
         }
         previous = points
       })
+      groupLoadedSamples += loadedSamples
       assert.ok(transfer && completed && samples > 15,
         `${degrees}° ${entry} ${direction} ${inverted} ${steer}: must witness anticipation (${transfer}), completed landing (${completed}) and samples (${samples})`)
     }
+    assert.ok(groupLoadedSamples > 0, 'each approach group witnesses actual loaded shoes; some individual stride phases are still in flight when the handoff completes')
   })
 }
 

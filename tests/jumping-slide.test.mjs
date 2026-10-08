@@ -8,7 +8,7 @@ import { nearestBoundary, pointInside, polygonPoints } from '../src/games/jumpin
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
 import { slideLevel } from './helpers/jumping-slide.mjs'
 
-function trace(level, entry, steer, observe) {
+function trace(level, entry, steer, observe, jumpAt) {
   const run = createRun(level)
   let started = false, contact = -1, seen = 0, fast = 0
   for (let i = 0; i < 550; i++) {
@@ -17,16 +17,79 @@ function trace(level, entry, steer, observe) {
     const direction = level.spawn.x < level.width / 2 ? 1 : -1
     const move = !started ? 0 : contact < 0 ? direction * (entry === 'walk' ? 125 / 350 : 1)
       : steer === 'uphill' ? -direction : steer === 'downhill' ? direction : 0
-    stepRun(run, { ...NEUTRAL_INPUT, move, climb: !started || i === 0 })
+    const jump = jumpAt !== undefined && contact >= 0 && i >= contact + jumpAt && i < contact + jumpAt + 3
+    stepRun(run, { ...NEUTRAL_INPUT, move, climb: !started || i === 0, jump })
     if (p.sliding?.active && contact < 0) contact = i
     if (p.sliding?.active) {
       seen++
       if (Math.hypot(p.vx, p.vy) > 900) fast++
     }
-    observe?.(p, i, run)
+    if (observe?.(p, i, run) === false) break
     if (contact >= 0 && !p.sliding && p.grounded) break
   }
   return { seen, fast }
+}
+
+test('a fresh jump responds during slide entry and automatic turning in both gravity frames', () => {
+  for (const entry of ['walk', 'run']) for (const direction of [-1, 1]) for (const inverted of [false, true]) for (const jumpAt of [1, 20]) {
+    let contact = -1, jumped = false
+    trace(slideLevel(70, direction, inverted), entry, 'neutral', (p, i) => {
+      if (p.sliding?.active && contact < 0) contact = i
+      if (contact < 0 || i < contact + jumpAt) return
+      if (i === contact + jumpAt) {
+        assert.equal(p.grounded, false)
+        assert.ok(p.vy * (inverted ? -1 : 1) < -200, 'fresh press launches on this physical tick')
+        assert.equal(p.sliding?.active ?? false, false)
+        jumped = true
+      }
+      if (i >= contact + jumpAt + 24) return false
+    }, jumpAt)
+    assert.ok(jumped, 'the normal entry actually receives a fresh jump during its presentation handoff')
+  }
+})
+
+function rigPoints(p, pose) {
+  return [...['hip', 'waist', 'shoulder', 'head'].map(name => [...pose[name], 0]),
+    ...['frontArm', 'backArm', 'frontLeg', 'backLeg'].flatMap(name => [
+      [...pose[name].joint, pose[name].jointDepth ?? 0], [...pose[name].end, pose[name].endDepth ?? 0],
+    ])].map(([x, y, z]) => [x * p.facing, y * (p.inverted ? -1 : 1), z])
+}
+
+for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
+  test(`${entry} entry and automatic ${degrees}° brace turn transfer the actual outgoing rig smoothly`, () => {
+    for (const direction of [-1, 1]) for (const inverted of [false, true]) for (const steer of ['neutral', 'uphill', 'downhill']) {
+      const level = slideLevel(degrees, direction, inverted)
+      let previous, contact = -1, samples = 0, handoff = false
+      trace(level, entry, steer, (p, i) => {
+        const pose = athletePose(p), points = rigPoints(p, pose)
+        if (p.sliding?.active && contact < 0) contact = i
+        if (contact >= 0) {
+          if (i > contact + 50) return false
+          const max = Math.max(...points.map((point, k) => Math.hypot(...point.map((v, axis) => v - previous[k][axis]))))
+          assert.ok(max <= 5, `${degrees}° ${entry} ${direction} ${inverted} ${steer}: rig changed ${max} units at ${i}`)
+          handoff ||= !!p.slideEntry
+          if (i % 2 === 0) for (const shape of athleteCasters(p)) for (const [x, y] of polygonPoints(shape)) {
+            if (pointInside(level.platforms[0], x, y)) assert.ok(nearestBoundary(level.platforms[0], x, y).distance <= .2,
+              `outgoing native skin must remain clear at ${i}, (${x},${y})`)
+          }
+          for (const name of ['frontArm', 'backArm', 'frontLeg', 'backLeg']) {
+            const limb = pose[name], leg = name.endsWith('Leg'), jointZ = limb.jointDepth ?? 0, endZ = limb.endDepth ?? 0
+            assert.ok(Math.abs(Math.hypot(limb.joint[0] - limb.root[0], limb.joint[1] - limb.root[1], jointZ) - (leg ? 15 : 10)) < 1e-6)
+            assert.ok(Math.abs(Math.hypot(limb.end[0] - limb.joint[0], limb.end[1] - limb.joint[1], endZ - jointZ) - (leg ? 14.5 : 9)) < 1e-6)
+            if (leg) {
+              const dot = (limb.root[0] - limb.joint[0]) * (limb.end[0] - limb.joint[0])
+                + (limb.root[1] - limb.joint[1]) * (limb.end[1] - limb.joint[1]) - jointZ * (endZ - jointZ)
+              assert.ok(Math.acos(Math.max(-1, Math.min(1, dot / (15 * 14.5)))) >= Math.PI / 4 - 1e-6,
+                'unloading and turning retain safe knee opening')
+            }
+          }
+          samples++
+        }
+        previous = points
+      })
+      assert.ok(handoff && samples > 40, 'normal controls must witness both entry and the complete turn window')
+    }
+  })
 }
 
 for (const degrees of [46.5, 55, 70]) for (const direction of [-1, 1]) for (const inverted of [false, true]) {

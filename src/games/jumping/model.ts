@@ -18,8 +18,8 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { advanceDryTurn, advanceMovingRecovery, captureDryTurn, dryTurnDirection, settleWaterClearance } from './athlete.ts'
-import type { DryTurnFrame } from './athlete.ts'
+import { advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, captureDryTurn, captureSlideEntry, dryTurnDirection, settleWaterClearance } from './athlete.ts'
+import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
 import type { WaterBob, WaterCamera } from './waterBob.ts'
@@ -61,7 +61,8 @@ export interface Player {
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
   freeFall: { time: number; amount: number; recovery: number | null; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
-  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean } | null
+  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean } | null
+  slideEntry: { pose: AthletePose; facing: number; time: number } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
   look: number // Presentation only: positive looks up, negative looks down.
@@ -83,7 +84,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: undefined, jumpHeld: false, jumpLift: null,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
-    freeFall: null, dryTurn: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
+    freeFall: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, airBoost: { x: 0, lift: 0, time: 0 }, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false, waterJump: false, swimAcceleration: 0 }
 }
 export function airBoostStrength(p: Player) {
@@ -103,6 +104,7 @@ function settleGait(p: Player, dt: number) {
     air: blend(previous.air, target.air, target.air ? .035 : .065) }
 }
 export function cancelJumpInput(p: Player) {
+  p.slideEntry = null
   p.waterJump = false
   delete p.waterMotion
   p.jumpStrength = undefined; p.jumpHeld = false; p.jumpLift = null; p.buffer = 0; p.wallJumpBuffer = 0
@@ -443,6 +445,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const beforeBody = playerContactBody(p)
   const previousFacing = p.facing
   const turnFrame = captureDryTurn(p, input)
+  const slideEntryFrame = captureSlideEntry(p)
   const previousWaterCenter = inWater ? playerWaterCenterOffset(p) : 0
   const diving = !input.climb && !!(input.descend || input.drop && !input.detach)
   const bottomSurface = inWater && diving && gravity + (p.swimAcceleration ?? 0) >= 0
@@ -560,7 +563,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   else updateCantedWallBrace(p, input.move, dt, platforms, result.contacts)
   if (p.wallBrace?.normal) tryWallJump(p, platforms)
   stepReleasedTurn(p, platforms, dt, orientationGravity)
-  finishPlayerStep(p, input, dt, world, from, verticalUsed, turnFrame)
+  finishPlayerStep(p, input, dt, world, from, verticalUsed, turnFrame, slideEntryFrame)
   if (p.waterMotion) {
     if (p.facing !== previousFacing && p.waterMotion.bodyOffset) p.waterMotion.bodyOffset[0] *= -1
     p.waterMotion.heading = approach(p.waterMotion.heading ?? p.facing, p.facing, dt * 2 / .18)
@@ -610,13 +613,13 @@ function turnToGravity(p: Player, gravity: number, world: ContactWorld) {
   p.coyote = p.grounded ? TUNING.coyoteTime : 0
   p.groundAngle = inverted ? -support.angle : support.angle
   p.footwork = null; p.wallBrace = null; p.sliding = null; p.pushing = null; p.ledgeReach = null
-  p.freeFall = null; p.dryTurn = null
+  p.freeFall = null; p.dryTurn = null; p.slideEntry = null
   p.contacts = playerContacts(p, NEUTRAL_INPUT, world)
 }
 
 /** All movement modes publish contacts and advance presentation once, after
  * their final world position is known, including an authored level exit. */
-export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number], verticalUsed = false, turnFrame?: DryTurnFrame | null) {
+export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world: ContactWorld, from: readonly [number, number], verticalUsed = false, turnFrame?: DryTurnFrame | null, slideEntryFrame?: SlideEntryFrame | null) {
   const contacts = playerContacts(p, input, world, dt)
   const carrier = contacts.support?.collider.robot
   if (carrier) {
@@ -644,6 +647,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   }
   advanceMovingRecovery(p, dt, Math.abs(contacts.motion.x) > .05)
   advanceDryTurn(p, input, dt, turnFrame)
+  advanceSlideEntry(p, dt, slideEntryFrame)
 }
 
 /** Read-only lowering availability in the motor's gravity-normalized frame.

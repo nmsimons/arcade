@@ -76,3 +76,37 @@ for (const direction of [-1, 1]) test(`normal walking near the traction limit ke
   for (const p of onSlope) { expect(p.signals.grounded).toBe(true); expect(p.signals.sliding).toBe(false) }
   await page.screenshot({ path: info.outputPath('near-limit-gripped-walk.png') })
 })
+
+for (const direction of [-1, 1]) for (const inverted of [false, true]) test(`slow 70° entry turns toward its real brace smoothly and accepts a fresh jump (${direction}, ${inverted})`, async ({ page }, info) => {
+  const level = slideLevel(70, direction, inverted), key = direction > 0 ? 'd' : 'a'
+  await open(page, level)
+  await page.keyboard.down('Shift'); await page.keyboard.down(key)
+  let entry
+  for (let i = 0; i < 40; i++) {
+    await page.clock.runFor(16); entry = (await history(page)).at(-1)
+    if (entry.signals.sliding) break
+  }
+  expect(entry.signals.sliding).toBe(true)
+  await page.keyboard.up(key); await page.keyboard.up('Shift')
+  let brace
+  for (let i = 0; i < 40; i++) {
+    await page.clock.runFor(16); brace = (await history(page)).at(-1)
+    if (brace.signals.bracing && brace.signals.facing === -direction) break
+  }
+  expect(brace.signals.bracing).toBe(true); expect(brace.signals.facing).toBe(-direction)
+  const samples = await history(page), first = samples.findIndex(p => p.signals.sliding)
+  expect(first).toBeGreaterThan(0)
+  for (let i = first; i < samples.length; i++) for (let k = 0; k < samples[i].points.length; k++) {
+    const a = samples[i - 1], b = samples[i]
+    const delta = Math.hypot(b.points[k][0] * b.signals.facing - a.points[k][0] * a.signals.facing,
+      b.points[k][1] - a.points[k][1])
+    expect(delta, `joint ${k} through entry/brace at ${b.time}`).toBeLessThanOrEqual(5)
+  }
+  await page.screenshot({ path: info.outputPath('slow-entry-brace-transfer.png') })
+  await page.keyboard.down('Space'); await page.clock.runFor(16); await page.keyboard.up('Space')
+  const launched = (await history(page)).at(-1)
+  expect(launched.vy * (inverted ? -1 : 1)).toBeLessThan(-200)
+  expect(launched.signals.sliding).toBe(false); expect(launched.signals.grounded).toBe(false)
+  await page.clock.runFor(128)
+  await page.screenshot({ path: info.outputPath('fresh-press-during-brace-turn.png') })
+})

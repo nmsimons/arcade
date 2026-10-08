@@ -516,3 +516,121 @@ The unchanged-case log and trace classification are
 `browser-gaps-slide.log` and `gap-trace-slide.jsonl`. #60 remains open for the
 two deadlines, repeatability and slower-machine evidence.
 
+## Tenth pass: retain outgoing slide support and contact-selected turns
+
+October 8, 2026. This pass addresses the entry and automatic-facing defects in
+#56, while preserving the ninth pass's fast counterbalance. The landing-corner
+handoff remains open.
+
+**Entry fix.** The last supported rig now transfers into the actual current rig
+over 120 ms. A detached snapshot preserves its shoes, gait and body before the
+motor discards footwork. The outgoing pose is solved only when a slip starts;
+ordinary supported movement does not perform an extra pose query. The handoff
+survives a one-tick slip followed by temporarily lost contact. The first
+prototype kept the source only inside `p.sliding`, which merely moved the
+11.92-unit snap from the first contact to the following tick. The retained
+`slideEntry` state fixes that boundary, then expires. A zero-weight fall timer
+does not discard it; an actual prone pose, grip, water state, real loaded palms,
+cancellation, gravity reorientation or respawn owns its appropriate transition.
+
+**Facing fix.** An airborne sweep can acquire a canted brace after a frame with
+neither sliding nor bracing. A lazy pre-step snapshot now supplies the outgoing
+rig when that contact chooses a new facing. Capturing only already-active
+slides missed the slow 70° walking case, which still mirrored a hand by 19.08
+units at step 72. Mechanical facing and fresh jump response remain immediate.
+The visible slide turn takes 160 ms; ordinary dry turns retain 140 ms. Bend depth
+follows elapsed handoff time and settles before completion. Using the changing
+per-tick interpolation fraction as the depth phase loaded a knee late and then
+dropped that depth on the last tick.
+
+**Clearance fix.** Moving a shoe out of terrain retains its nearest existing
+3D knee bend instead of rebuilding a planar knee on the opposite side. Sliding
+turns retain this approach even if the actual contact briefly disappears. Knee
+clearance uses the real solid geometry and fixed endpoints. Ankle and hand
+angles use the shorter rotation across the wrap boundary. During these
+transfers, clearance also samples the drawn heel and forefoot curves, including
+the upper contour and the independently flexed toe hinge. Sole-only probes
+missed a rotated toe entering the plateau crease. Rendering and those probes
+share the same curve definitions; the existing steady-slide sole contact
+requirements remain in force.
+
+The transfer also gathers the feet through depth early enough to retain a 45°
+knee opening without moving their visible targets into terrain. When a shoe
+needs depth to remain reachable, knee clearance rotates its bend around the
+actual 3D endpoint axis, preserving both bone lengths. The full suite caught
+the intermediate overfold; its strict knee assertion remains in the regressions.
+
+Six new permanent regressions exercise **72 normal-control entry/turn
+encounters**: walking/running, 46.5°/55°/70°, both directions, both gravity frames,
+and released/uphill/downhill intent. Every 1/120-second step through the first
+50 steps after slip checks the 3D joints relative to the physical root, including
+mechanical-facing reflection and bend depth. The five-unit continuity limit,
+fixed 15/14.5 leg and 10/9 arm lengths, safe knee opening, and native silhouette
+clearance are retained. All six fail against the previous `ea19328` rig and pass
+with this handoff. A seventh regression checks immediate fresh jumps one and
+20 steps after first slip across walking/running, direction and gravity frames.
+
+All **151 affected checks pass**. A separate comparison of all 72 complete
+movement traces against `ea19328` agrees exactly in X/Y, velocity, grounded
+state, mechanical facing and slide state at every step. Additional render and
+debug queries remain read-only. Types, affected lint and the isolated build
+pass; the build validates 23 built-in assets.
+
+The complete UJG suite reports **1,416 passes out of 1,418 checks**, with no
+movement or animation failures. The other two checks fail when Windows denies
+creation of their security-test symlinks (`EPERM`); they remain unverified.
+The final complete log is `slide-transfer-full-ujg-final.log`.
+
+The production keyboard matrix runs at normal render cadence in a 390×844
+viewport. The earlier ten-case run passed; the final build's run reports
+**nine passes and one loading timeout**. That case remains in the Loading game
+dialog past its unchanged five-second chooser deadline, before receiving any
+movement input. This is a repeatability concern for #60, not a passed movement
+case. The matrix includes the original six slide checks and four slow 70°
+approaches that release movement, wait for the real contact-selected brace,
+check projected joint continuity, and press Space during that turn. Every
+press in the completed cases launches immediately. Their screenshots and motion witnesses are in
+`.tmp/ujg-traversal-fixes/slide-browser/`; the complete log is
+`slide-transfer-browser-safe.log`.
+The unchanged loading-timeout case passes on an isolated repeat in 4.6 seconds,
+including the entire brace transfer, continuity checks and fresh Space launch.
+That separate log is `slide-transfer-browser-loading-repeat.log`; the failed
+full-run trace is preserved. This does not establish loading repeatability.
+
+Matched native playback retains the same controls, physical traces, camera and
+30 Hz timing. Each loop starts a fresh replay. The gameplay camera appears on
+the left and the three-times detail on the right. Adjacent-frame sheets were
+also inspected across the whole entry and turning window: the running leg
+continues its outgoing step before gathering, and the steep-face turn no
+longer replaces the limb orientation in one frame.
+
+Mirrored 55° running approach with uphill intent:
+[before](images/jumping-slide-transfer-55-run-left-normal-uphill-before.gif) /
+[after](images/jumping-slide-transfer-55-run-left-normal-uphill-after.gif).
+
+Slow 70° walking approach and automatic brace turn:
+
+![Previous slow slide entry and turn](images/jumping-slide-transfer-70-walk-right-normal-neutral-before.gif)
+
+![Retained outgoing support and turn](images/jumping-slide-transfer-70-walk-right-normal-neutral-after.gif)
+
+The matched
+[inverted before](images/jumping-slide-transfer-70-walk-right-inverted-neutral-before.gif) /
+[inverted after](images/jumping-slide-transfer-70-walk-right-inverted-neutral-after.gif),
+and
+[jump-during-turn before](images/jumping-slide-transfer-70-run-right-normal-jump-before.gif) /
+[jump-during-turn after](images/jumping-slide-transfer-70-run-right-normal-jump-after.gif)
+retain the same scene and physical motion as well.
+
+**Remaining #56 acceptance:** the steep-to-flat landing still changes its
+contact point, slope and reachable shoes on successive ticks. The ninth pass's
+8–13-unit knee/foot discontinuities are not repaired by this entry/turn batch.
+Preserve the outgoing solved rig through that corner, anticipate reachable
+flat support early enough to keep the drawn skin clear, and apply the same
+five-unit relative-joint target without clamping the physical root. Verify
+both walking/running approaches, both directions/gravity frames, neutral and
+held intent, a fresh jump at the corner, actual soles and complete native
+playback. Broader dynamic-object/brief-contact interaction and the existing
+original-browser performance gaps also remain separate acceptance gates.
+No GitHub issue is closed by this pass.
+

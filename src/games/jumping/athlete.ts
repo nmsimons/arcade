@@ -14,7 +14,8 @@ type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
 export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
-export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean }
+export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; slide?: boolean }
+export interface SlideEntryFrame { player: Player; facing: number; sliding: boolean }
 const TAU = Math.PI * 2
 const HEAD_RADIUS = 6.2
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
@@ -23,8 +24,24 @@ const MIN_KNEE_OPENING = Math.PI / 4
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
+const mixAngle = (a: number, b: number, t: number) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * t
 const mix = (a: Point, b: Point, t: number): Point => [lerp(a[0], b[0], t), lerp(a[1], b[1], t)]
 const add = (a: Point, b: Point): Point => [a[0] + b[0], a[1] + b[1]]
+const footContours: [boolean, Point[][]][] = [
+  [false, [[[-1.6, -1.6], [-2.4, .4]], [[-2.4, .4], [-3, 2.5], [-1.8, 2.8]],
+    [[-1.8, 2.8], [2.2, 2.8]], [[2.2, 2.8], [2.2, -.6]], [[2.2, -.6], [1.3, -2], [-1.6, -1.6]]]],
+  [true, [[[2.2, 2.8], [4.5, 2.8]], [[4.5, 2.8], [6.2, 2.6], [6, 1.5]],
+    [[6, 1.5], [5.6, .2], [3.1, .2], [2.2, -.6]], [[2.2, -.6], [2.2, 2.8]]]],
+]
+// Rotating shoes can meet a crease with their upper contour, too. Share the
+// drawn heel/forefoot curves instead of testing only the loaded sole samples.
+const footSkin: { point: Point; toe: boolean }[] = []
+const soleSkin = FOOT_CONTACT.map(point => ({ point, toe: point[0] > 2.2 }))
+for (const [toe, contours] of footContours) for (const contour of contours) for (let i = 0; i <= 8; i++) {
+  let points = contour
+  while (points.length > 1) points = points.slice(1).map((b, k) => mix(points[k], b, i / 8))
+  footSkin.push({ point: points[0], toe })
+}
 
 /** Reach targets stay within the limb's length; elbows never flip sides mid-pose. */
 function solve(root: Point, target: Point, upper: number, lower: number, bend: number, minOpening = 0): Limb {
@@ -40,6 +57,25 @@ function solve(root: Point, target: Point, upper: number, lower: number, bend: n
 function armPose(root: Point, angle: number, bend: number): Limb {
   const elbow: Point = [root[0] + Math.sin(angle) * UPPER_ARM, root[1] + Math.cos(angle) * UPPER_ARM]
   return { root, joint: elbow, end: [elbow[0] + Math.sin(angle + bend) * FOREARM, elbow[1] + Math.cos(angle + bend) * FOREARM] }
+}
+/** Retarget a foot without discarding the knee's current bend plane. */
+function solveNear(source: Limb, target: Point, upper: number, lower: number, minOpening = 0): Limb {
+  const vector = [target[0] - source.root[0], target[1] - source.root[1], source.endDepth ?? 0]
+  const minReach = Math.sqrt(upper ** 2 + lower ** 2 - 2 * upper * lower * Math.cos(minOpening)) + .02
+  if (Math.hypot(...vector) < minReach) vector[2] = Math.sqrt(Math.max(0, minReach ** 2 - vector[0] ** 2 - vector[1] ** 2))
+  const actual = Math.hypot(...vector)
+  const length = Math.max(minReach, Math.min(upper + lower - .02, actual))
+  const axis = actual > .001 ? vector.map(v => v / actual) : [0, 1, 0]
+  const along = (upper ** 2 - lower ** 2 + length ** 2) / (2 * length)
+  const center = axis.map(v => v * along)
+  const preferred = [source.joint[0] - source.root[0] - center[0], source.joint[1] - source.root[1] - center[1], (source.jointDepth ?? 0) - center[2]]
+  const parallel = preferred.reduce((sum, v, i) => sum + v * axis[i], 0)
+  let perpendicular = preferred.map((v, i) => v - axis[i] * parallel)
+  if (Math.hypot(...perpendicular) < .001) perpendicular = [axis[1], -axis[0], 0]
+  const scale = Math.sqrt(Math.max(0, upper ** 2 - along ** 2)) / (Math.hypot(...perpendicular) || 1)
+  const joint = center.map((v, i) => v + perpendicular[i] * scale)
+  return { ...source, joint: add(source.root, [joint[0], joint[1]]),
+    end: add(source.root, [axis[0] * length, axis[1] * length]), jointDepth: joint[2], endDepth: axis[2] * length }
 }
 /** Back-view knees bend into the ladder; only a small part of that bend projects sideways. */
 function solveRear(root: Point, target: Point, upper: number, lower: number, side: number, spread: number, reachDepth = 0, sideBend = 0): Limb {
@@ -75,17 +111,21 @@ function solveRear(root: Point, target: Point, upper: number, lower: number, sid
   return { ...solved, joint: mix(center, solved.joint, spread), jointDepth: depth }
 }
 /** Turn between the ladder and ledge rigs without snapping elbows/knees into a different bend plane. */
-function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: number, offset: Point = [0, 0], reachClearance = 0, turning = false, legClearance = 0): AthletePose {
+function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: number, offset: Point = [0, 0], reachClearance = 0, turning = false, legClearance = 0,
+  transition?: { depth: number; kneeOpening: number; legDepth?: number }): AthletePose {
   const point = (a: Point, b: Point) => add(mix(add(a, shift), b, t), offset)
-  const limb = (a: Limb, b: Limb, upper: number, lower: number, clearance = 0): Limb => {
+  const limb = (a: Limb, b: Limb, upper: number, lower: number, clearance = 0, minOpening = 0, reachDepth?: number): Limb => {
     const root = point(a.root, b.root), target = point(a.end, b.end)
     // A regripping hand passes in front of the shoulder instead of through it.
     const vector = [target[0] - root[0], target[1] - root[1], lerp(a.endDepth ?? 0, b.endDepth ?? 0, t) + Math.sin(Math.PI * t) * clearance]
-    const actual = Math.hypot(...vector), length = Math.max(Math.abs(upper - lower) + .02, Math.min(upper + lower - .02, actual))
+    if (reachDepth !== undefined) vector[2] = Math.max(vector[2], reachDepth)
+    const minimum = Math.sqrt(upper ** 2 + lower ** 2 - 2 * upper * lower * Math.cos(minOpening)) + .02
+    if (Math.hypot(...vector) < minimum) vector[2] = Math.sqrt(Math.max(0, minimum ** 2 - vector[0] ** 2 - vector[1] ** 2))
+    const actual = Math.hypot(...vector), length = Math.max(minimum, Math.min(upper + lower - .02, actual))
     const axis = actual > .001 ? vector.map(v => v / actual) : [0, 1, 0]
     const along = (upper * upper - lower * lower + length * length) / (2 * length)
     const center = axis.map(v => v * along), preferred = point(a.joint, b.joint)
-    const bend = [preferred[0] - root[0] - center[0], preferred[1] - root[1] - center[1], lerp(a.jointDepth ?? 0, b.jointDepth ?? 0, t) - center[2] + (turning ? Math.sin(Math.PI * t) * 8 : 0)]
+    const bend = [preferred[0] - root[0] - center[0], preferred[1] - root[1] - center[1], lerp(a.jointDepth ?? 0, b.jointDepth ?? 0, t) - center[2] + (transition?.depth ?? (turning ? Math.sin(Math.PI * t) * 8 : 0))]
     const parallel = bend.reduce((sum, v, i) => sum + v * axis[i], 0)
     let perpendicular = bend.map((v, i) => v - axis[i] * parallel)
     if (Math.hypot(...perpendicular) < .001) perpendicular = [-axis[1], axis[0], 0]
@@ -94,9 +134,9 @@ function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: numbe
     const end: Point = [root[0] + axis[0] * length, root[1] + axis[1] * length]
     const hand = a.hand && b.hand ? add(end, mix([a.hand[0] - a.end[0], a.hand[1] - a.end[1]], [b.hand[0] - b.end[0], b.hand[1] - b.end[1]], t)) : undefined
     return { root, joint: [root[0] + joint[0], root[1] + joint[1]], end, jointDepth: joint[2], endDepth: axis[2] * length,
-      hand, handAngle: lerp(a.handAngle ?? 0, b.handAngle ?? 0, t) }
+      hand, handAngle: mixAngle(a.handAngle ?? 0, b.handAngle ?? 0, t) }
   }
-  const leg = (a: Leg, b: Leg): Leg => ({ ...limb(a, b, 15, 14.5, legClearance), footAngle: lerp(a.footAngle, b.footAngle, t),
+  const leg = (a: Leg, b: Leg): Leg => ({ ...limb(a, b, 15, 14.5, legClearance, transition?.kneeOpening, transition?.legDepth), footAngle: mixAngle(a.footAngle, b.footAngle, t),
     toeAngle: lerp(a.toeAngle, b.toeAngle, t), footFacing: b.footFacing, planted: a.planted && b.planted,
     rear: lerp(a.rear ?? 0, b.rear ?? 0, t) })
   return { hip: point(from.hip, to.hip), waist: point(from.waist, to.waist), shoulder: point(from.shoulder, to.shoulder), head: point(from.head, to.head),
@@ -183,16 +223,19 @@ function footPath(ankle: Point, angle: number, facing = 1, toeAngle = 0, profile
   const path = new Path2D(); traceFoot(path, ankle, angle, facing, toeAngle, profile); return path
 }
 function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1) {
-  const at = (x: number, y: number, toe = false): Point => {
-    const point = footPoint([x, y], angle * facing, toeAngle * facing, toe)
+  const at = (p: Point, toe: boolean): Point => {
+    const point = footPoint(p, angle * facing, toeAngle * facing, toe)
     return [ankle[0] + point[0] * facing * profile, ankle[1] + point[1]]
   }
-  path.moveTo(...at(-1.6, -1.6)); path.lineTo(...at(-2.4, .4))
-  path.quadraticCurveTo(...at(-3, 2.5), ...at(-1.8, 2.8)); path.lineTo(...at(2.2, 2.8)); path.lineTo(...at(2.2, -.6))
-  path.quadraticCurveTo(...at(1.3, -2), ...at(-1.6, -1.6)); path.closePath()
-  path.moveTo(...at(2.2, 2.8, true)); path.lineTo(...at(4.5, 2.8, true))
-  path.quadraticCurveTo(...at(6.2, 2.6, true), ...at(6, 1.5, true))
-  path.bezierCurveTo(...at(5.6, .2, true), ...at(3.1, .2, true), ...at(2.2, -.6, true)); path.closePath()
+  for (const [toe, contours] of footContours) {
+    path.moveTo(...at(contours[0][0], toe))
+    for (const contour of contours) {
+      if (contour.length === 2) path.lineTo(...at(contour[1], toe))
+      else if (contour.length === 3) path.quadraticCurveTo(...at(contour[1], toe), ...at(contour[2], toe))
+      else path.bezierCurveTo(...at(contour[1], toe), ...at(contour[2], toe), ...at(contour[3], toe))
+    }
+    path.closePath()
+  }
 }
 function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string) {
   const path = joined([segmentPath(limb.root, limb.joint, 2.2, 1.65, 2.2), roundPath(limb.joint, 1.7),
@@ -718,8 +761,8 @@ export function reflectAthletePose(pose: AthletePose): AthletePose {
     frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
 }
 
-/** Capture only a requested change or an active handoff. Steering still uses
- * mechanical facing immediately; this snapshot belongs solely to the rig. */
+/** Capture requested turns and slides whose real wall brace can select facing.
+ * Steering changes immediately; this snapshot belongs solely to the rig. */
 export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null {
   if (p.waterMotion || p.releaseTurn) return null
   const grip = !!(p.hang || p.climbing)
@@ -727,8 +770,13 @@ export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null
   if (p.mantle || grip && !departing) return null
   const reversing = Math.abs(input.move) > .01 && Math.sign(input.move) !== p.facing
     && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2)
-  if (!p.dryTurn && !departing && !reversing) return null
-  return { pose: athletePose(p), facing: p.facing, grip }
+  const slide = !!(p.sliding || p.slideEntry)
+  if (p.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, slide }
+  if (p.grounded) return null
+  // A new canted contact can choose direction after a tick with no slide or
+  // brace. Capture cheaply now, and only solve if that direction changes.
+  const source = snapshotDryPlayer(p)
+  return { get pose() { return athletePose(source) }, facing: p.facing, grip, slide }
 }
 
 export function dryTurnDirection(p: Player, input: JumpInput, before?: DryTurnFrame | null) {
@@ -754,13 +802,14 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   const previousFacing = before?.facing ?? p.dryTurn!.facing
   let from = before?.pose ?? p.dryTurn!.pose
   if (previousFacing !== p.facing) from = reflectAthletePose(from)
-  const motion = p.dryTurn ??= { pose: from, facing: p.facing, target: previousFacing, time: 0, departure }
+  const motion = p.dryTurn ??= { pose: from, facing: p.facing, target: previousFacing, time: 0, departure,
+    slide: !!(before?.slide || p.sliding || p.slideEntry) }
   const braking = input.move * p.vx < -1
   const direction = dryTurnDirection(p, input, before)
   if (motion.target !== direction) { motion.target = direction; motion.time = 0 }
   motion.time += dt
   const gait = p.gait && { ...p.gait, run: braking ? 0 : p.gait.run }
-  let target = athletePose({ ...p, dryTurn: null, facing: direction, gait })
+  let target = athletePose({ ...p, dryTurn: null, slideEntry: null, facing: direction, gait })
   if (direction !== p.facing) target = reflectAthletePose(target)
   // A planted shoe uses the current motor contact, including heel/toe roll.
   // Blending its angle independently of its ankle would drag material points.
@@ -779,18 +828,65 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
     from = rotatePose(from, 0, 1, [0,0], [0,dip])
     for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) from[name].end = target[name].end
   }
-  const fraction = Math.min(1, dt / Math.max(dt, .14 - motion.time + dt))
-  motion.pose = fraction === 1 ? target : transferPose(from, target, [0,0], fraction, [0,0], 0, true)
+  const duration = motion.slide ? .16 : .14
+  const fraction = Math.min(1, dt / Math.max(dt, duration - motion.time + dt))
+  const depth = Math.sin(Math.PI * smooth(motion.time / duration))
+  motion.pose = fraction === 1 ? target : transferPose(from, target, [0,0], fraction, [0,0], 0, true, 0,
+    { depth: depth * (motion.slide ? 6 : 8), kneeOpening: motion.slide ? MIN_KNEE_OPENING : 0,
+      legDepth: motion.slide ? depth * 6 : undefined })
   if (!p.grounded) {
     motion.pose = clearBody(p, motion.pose).pose
     for (const name of ['frontLeg','backLeg'] as const) {
-      motion.pose[name] = clearAirborneFoot(p, { ...motion.pose[name], ...clearLimb(p, motion.pose[name], 15, 14.5, -1) })
+      motion.pose[name] = motion.slide
+        ? clearSlidingJoint(p, clearAirborneFoot(p, motion.pose[name], 16), 15, 14.5, 2.2)
+        : clearAirborneFoot(p, { ...motion.pose[name], ...clearLimb(p, motion.pose[name], 15, 14.5, -1) })
     }
   }
   motion.pose.frontArm = clearLimb(p, motion.pose.frontArm, UPPER_ARM, FOREARM, 1, true)
   motion.pose.backArm = clearLimb(p, motion.pose.backArm, UPPER_ARM, FOREARM, 1, true)
   motion.facing = p.facing
   if (fraction === 1 && direction === p.facing && !braking) p.dryTurn = null
+}
+
+/** Delay solving the outgoing grounded rig until the motor actually slips. */
+export function captureSlideEntry(p: Player): SlideEntryFrame | null {
+  if (!p.slideEntry && (!p.grounded || p.sliding || p.hang || p.mantle || p.climbing || p.waterMotion || (p.freeFall?.amount ?? 0) > 0)) return null
+  if (p.slideEntry) return { player: { ...p }, facing: p.facing, sliding: !!p.sliding }
+  return { player: snapshotDryPlayer(p), facing: p.facing, sliding: !!p.sliding }
+}
+
+function snapshotDryPlayer(p: Player): Player {
+  const feet = p.footwork
+  const footwork = feet && { ...feet, feet: feet.feet.map(foot => ({ ...foot,
+    release: foot.release && { ...foot.release }, settle: foot.settle && { ...foot.settle } })) as typeof feet.feet }
+  return { ...p, footwork, sliding: p.sliding && { ...p.sliding }, freeFall: p.freeFall && { ...p.freeFall },
+    wallBrace: p.wallBrace && { ...p.wallBrace, hands: [...p.wallBrace.hands], feet: [...p.wallBrace.feet],
+      ...(p.wallBrace.normal ? { normal: [...p.wallBrace.normal] } : {}) } }
+}
+
+/** Unload the last supported rig even when first slip lasts only one tick. */
+export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFrame | null) {
+  if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || (p.freeFall?.amount ?? 0) > 0 || p.freeFall?.recovery != null || p.dryTurn || p.contacts?.push?.hands) {
+    p.slideEntry = null; return
+  }
+  if (!p.slideEntry && !(before && !before.sliding && p.sliding)) return
+  const source = p.slideEntry?.pose ?? athletePose(before!.player)
+  const facing = p.slideEntry?.facing ?? before!.facing
+  const from = facing === p.facing ? source : reflectAthletePose(source)
+  const motion = p.slideEntry ??= { pose: from, facing: p.facing, time: 0 }
+  motion.time += dt
+  const target = athletePose({ ...p, slideEntry: null })
+  const fraction = Math.min(1, dt / Math.max(dt, .12 - motion.time + dt))
+  let pose = fraction === 1 ? target : transferPose(from, target, [0, 0], fraction, [0, 0], 0, true, 0,
+    { depth: Math.sin(Math.PI * smooth(motion.time / .12)) * 2, kneeOpening: MIN_KNEE_OPENING })
+  pose = clearBody(p, pose).pose
+  for (const name of ['frontLeg', 'backLeg'] as const) {
+    pose[name] = clearSlidingJoint(p, clearAirborneFoot(p, pose[name], 16), 15, 14.5, 2.2)
+  }
+  pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
+  pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+  motion.pose = pose; motion.facing = p.facing
+  if (fraction === 1) p.slideEntry = null
 }
 
 /** Breaststroke coordinates the outsweep, insweep, forward recovery, frog kick
@@ -1046,6 +1142,7 @@ export function athletePose(p: Player): AthletePose {
   if (p.climbing) return climbingPose(p)
   if (p.waterMotion && !p.jumpLift && !p.waterJump) return waterPose(p)
   if (p.dryTurn) return p.dryTurn.facing === p.facing ? p.dryTurn.pose : reflectAthletePose(p.dryTurn.pose)
+  if (p.slideEntry) return p.slideEntry.facing === p.facing ? p.slideEntry.pose : reflectAthletePose(p.slideEntry.pose)
   if ((p.freeFall?.amount ?? 0) > 0) return fallPose(p)
   // Sliding blends from the same locomotion pose on contact and release. A
   // momentary slip must not replace the airborne gait before its blend begins.
@@ -1262,10 +1359,11 @@ function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
   if (!p.terrain?.length) return leg
   let current = leg
   const target: Point = [...leg.end]
+  const boundary = p.slideEntry || p.dryTurn ? footSkin : soleSkin
   for (let pass = 0; pass < passes; pass++) {
     let moved = false
-    for (const point of FOOT_CONTACT) {
-      const sole = footPoint(point, current.footAngle * current.footFacing, current.toeAngle * current.footFacing)
+    for (const { point, toe } of boundary) {
+      const sole = footPoint(point, current.footAngle * current.footFacing, current.toeAngle * current.footFacing, toe)
       const x = p.x + (current.end[0] + sole[0] * current.footFacing) * p.facing, y = p.y + current.end[1] + sole[1]
       for (const b of p.terrain!) if (pointInside(b, x, y)) {
         const edge = nearestBoundary(b, x, y)
@@ -1276,7 +1374,7 @@ function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
       if (moved) break
     }
     if (!moved) break
-    current = { ...current, ...solve(current.root, target, 15, 14.5, -1, MIN_KNEE_OPENING), jointDepth: 0, endDepth: 0 }
+    current = { ...current, ...solveNear(current, target, 15, 14.5, MIN_KNEE_OPENING) }
   }
   return current
 }
@@ -1345,6 +1443,28 @@ function clearSlidingJoint<T extends Limb>(p: Player, limb: T, upper: number, lo
   // landing corner; extending that tangent would over-fold a clear knee.
   const intrusion = bodyIntrusion(p, limb.joint, radius)
   if (!intrusion) return limb
+  if (limb.endDepth) {
+    // A gathered foot can reach through depth to retain safe knee opening.
+    // Rotate its bend on the full 3D reach circle; a planar fold would change
+    // the lower bone's length when that endpoint has depth.
+    const vector = [limb.end[0] - limb.root[0], limb.end[1] - limb.root[1], limb.endDepth]
+    const length = Math.hypot(...vector), axis = vector.map(v => v / length)
+    const along = (upper ** 2 - lower ** 2 + length ** 2) / (2 * length)
+    const center = axis.map(v => v * along)
+    const bend = [limb.joint[0] - limb.root[0] - center[0], limb.joint[1] - limb.root[1] - center[1], (limb.jointDepth ?? 0) - center[2]]
+    const depth = Math.hypot(intrusion.x, intrusion.y), normal = [intrusion.x / depth, intrusion.y / depth, 0]
+    const parallel = normal.reduce((sum, v, i) => sum + v * axis[i], 0)
+    const projected = normal.map((v, i) => v - axis[i] * parallel), span = Math.hypot(...projected)
+    if (span < 1e-6) return limb
+    const across = projected.map(v => v / span)
+    const sideways = [axis[1] * across[2] - axis[2] * across[1], axis[2] * across[0] - axis[0] * across[2], axis[0] * across[1] - axis[1] * across[0]]
+    const reach = Math.sqrt(Math.max(0, upper ** 2 - along ** 2))
+    const amount = Math.max(-reach, Math.min(reach, bend.reduce((sum, v, i) => sum + v * across[i], 0) + depth / span))
+    const side = Math.sign(bend.reduce((sum, v, i) => sum + v * sideways[i], 0)) || Math.sign(sideways[2]) || 1
+    const offset = Math.sqrt(Math.max(0, reach ** 2 - amount ** 2)) * side
+    const joint = center.map((v, i) => v + across[i] * amount + sideways[i] * offset)
+    return { ...limb, joint: add(limb.root, [joint[0], joint[1]]), jointDepth: joint[2] }
+  }
   const dx = limb.end[0] - limb.root[0], dy = limb.end[1] - limb.root[1], squared = dx * dx + dy * dy
   if (squared < .001) return limb
   const along = (upper ** 2 - lower ** 2 + squared) / (2 * squared)

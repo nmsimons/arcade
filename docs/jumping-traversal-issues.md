@@ -1159,3 +1159,41 @@ Evidence: `.tmp/ujg-traversal-fixes/render-pose-unit.log`,
 `renderer-pose-paired.json`, `render-pose-live-slow.log`,
 `render-pose-browser-full.log` and `render-pose-browser-full-channel.log`.
 **#60 remains open** pending the normal and slower repeated browser runs.
+
+### Follow-up: preparation and water fixture boundaries
+
+The fresh normal run completes fifteen of seventeen cases. All nine water
+gameplay checks pass with ordinary isolated contexts and the same `chromium`
+launch variant as before. Its normal squeeze case spends 10.425 seconds in
+fixture setup and 14.306 seconds waiting for the selected level card; the
+deadline then interrupts a held-animation read. The reversed squeeze's two
+native held advances take 5.214/4.462 seconds. These observations distinguish
+preparation delay from an established movement failure.
+
+The water authoring check retains the persistent filesystem-handle profile.
+Its first save attempt fails the existing write-count poll while the editor
+displays a lighting-preparation timeout. The fixture now waits for the actual
+preview readiness after opening the file and before saving, as the other editor
+checks do. Both fresh authoring repeats pass in 22.7/22.6 seconds, including
+cleanup, without changing the save assertions or deadlines. The preceding
+seventeen-case run required ending its verified stalled worker after every
+case had finished and its browser had exited; it is retained as a failed run,
+not a passing repeatability result.
+
+Only authoring now uses the custom persistent context. Gameplay retains the
+original Chromium variant, controls, simulation cadence, measurements and
+limits. Evidence: `render-pose-browser-full-channel.log`,
+`render-pose-browser-full-channel-traces.jsonl`,
+`water-authoring-readiness.log`, `water-authoring-readiness-results/` and
+`water-rest-lint.log` under `.tmp/ujg-traversal-fixes/`.
+
+### Follow-up: first-frame rest across prepared supports
+
+Two new permanent checks cover fresh and restarted ready frames on a 16-unit
+ledge, both slope directions, a prepared crate, a ball and a carrier. Each
+queries the final support geometry, verifies real planted ankles and distinct
+relaxed arms, then waits ten simulated seconds without starting clocks or
+changing the serialized world. Unsupported starts above each fixture remain
+airborne without borrowed standing contacts. Both checks and changed-file lint
+pass. This closes additional first-frame coverage gaps for #50; broader rest
+contexts and ordinary-scale visual acceptance remain explicit.

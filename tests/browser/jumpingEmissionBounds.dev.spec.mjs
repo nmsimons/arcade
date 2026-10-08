@@ -10,7 +10,7 @@ test('cropping daylight emissions preserves every pixel across views, occlusion,
     Object.assign(level, { width: 1200, height: 600, floor: 500, spawn: { x: 720, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 742, y: 450, w: 24, h: 50 }], robots: [{ x: 710, y: 500, left: 300, right: 1000 }] })
     const run = createPreviewRun(level), robot = run.robots[0]
-    const renderers = [new LightingRenderer(), new LightingRenderer({ boundedEmissions: false, skipEmptyNightPasses: false })]
+    const renderers = [new LightingRenderer(), new LightingRenderer({ boundedEmissions: false, skipEmptyNightPasses: false, reuseAmbientBuffer: false })]
     const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true })
     let worst = 0, frames = 0
     for (const nightMode of [false,true]) for (const facing of [-1,1]) for (const emp of [0,1]) {

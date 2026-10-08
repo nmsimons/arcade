@@ -62,14 +62,16 @@ export class LightingRenderer {
   private allowSoftware: boolean
   private boundedEmissions: boolean
   private skipEmptyNightPasses: boolean
+  private reuseAmbientBuffer: boolean
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
     // The full composition remains available as a pixel/performance reference.
     this.boundedEmissions = options.boundedEmissions !== false
     this.skipEmptyNightPasses = options.skipEmptyNightPasses !== false
+    this.reuseAmbientBuffer = options.reuseAmbientBuffer !== false
   }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
@@ -331,7 +333,9 @@ export class LightingRenderer {
     // correction masks are exactly black; no beam or source haze is present.
     const emptyNight = this.skipEmptyNightPasses && nightMode && activeSources.length === 0
     const playerOpacity = run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
-    const playerShapes = playerOpacity ? dynamic.find(group => group.player) ?? athleteCasters(run.player) : []
+    // Posed bounds serve only the night contrast correction below. Daylight
+    // never uses them, so do not rebuild the full athlete silhouette there.
+    const playerShapes = nightMode && playerOpacity ? dynamic.find(group => group.player) ?? athleteCasters(run.player) : []
     const playerX = Math.max(0, Math.floor((Math.min(...playerShapes.map(shape => shape.x)) - view.x - 1) * view.zoom) - 1)
     const playerY = Math.max(0, Math.floor((Math.min(...playerShapes.map(shape => shape.y)) - view.y - 1) * view.zoom) - 1)
     const playerRight = Math.min(width, Math.ceil((Math.max(...playerShapes.map(shape => shape.x + shape.w)) - view.x + 1) * view.zoom) + 1)
@@ -381,12 +385,17 @@ export class LightingRenderer {
       const x = Math.max(0, Math.floor(left) - 2), y = Math.max(0, Math.floor(top) - 2)
       const w = Math.min(width, Math.ceil(right) + 2) - x, h = Math.min(height, Math.ceil(bottom) + 2) - y
       if (w <= 0 || h <= 0) continue
-      clear(emission, w, h)
+      // Tiny changes to a contact or its raster edge should not reallocate the
+      // texture. Round only its storage, never its view or composite rectangle,
+      // and keep that storage inside the existing full-viewport budget.
+      const bufferWidth = this.reuseAmbientBuffer && !nightMode ? Math.min(width, Math.ceil(w / 32) * 32) : w
+      const bufferHeight = this.reuseAmbientBuffer && !nightMode ? Math.min(height, Math.ceil(h / 32) * 32) : h
+      clear(emission, bufferWidth, bufferHeight)
       this.world(emission.ctx, run, { ...view, x: view.x + x / view.zoom, y: view.y + y / view.zoom, width: w, height: h },
         nightMode, emissionPaint(floor), sources, editor)
       emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, w, h)
       emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, x, y, w, h, 0, 0, w, h)
-      ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, x, y)
+      ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, 0, 0, w, h, x, y, w, h)
       if (nightMode && floor === 1 && playerWidth > 0 && playerHeight > 0) {
         // Match the ball's ambient color while retaining near-white in direct
         // light. The existing (1 - light) field also preserves partial shadows
@@ -418,11 +427,15 @@ export class LightingRenderer {
       if (floor) { correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height) }
       correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.fillStyle = gray(Math.max(floor, ambient))
       correction.ctx.fillRect(0, 0, width, height)
-      clear(emission, width, height)
-      this.world(emission.ctx, run, view, nightMode, ambientSurfacePaint(floor, nightMode ? floor : .65), sources, editor, 'all', nightMode && floor === 0)
-      emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, width, height)
-      emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
-      ctx.globalCompositeOperation = 'difference'; ctx.drawImage(emission.canvas, 0, 0)
+      // Daylight has no source haze. Reuse its full-size scratch surface here
+      // so the small emission canvas is not resized to the viewport and back
+      // every frame. Night keeps its haze intact; no extra buffer is allocated.
+      const mask = this.reuseAmbientBuffer && !nightMode ? haze : emission
+      clear(mask, width, height)
+      this.world(mask.ctx, run, view, nightMode, ambientSurfacePaint(floor, nightMode ? floor : .65), sources, editor, 'all', nightMode && floor === 0)
+      mask.ctx.globalCompositeOperation = 'destination-over'; mask.ctx.fillStyle = '#000'; mask.ctx.fillRect(0, 0, width, height)
+      mask.ctx.globalCompositeOperation = 'multiply'; mask.ctx.drawImage(correction.canvas, 0, 0)
+      ctx.globalCompositeOperation = 'difference'; ctx.drawImage(mask.canvas, 0, 0)
     }
     const erase: WorldPaint = (target, _exposure, draw) => { target.save(); target.globalCompositeOperation = 'destination-out'; draw(); target.restore() }
     const beamStrength = nightMode ? beamHazeStrength(definition.ambient) : 0

@@ -6,7 +6,7 @@ import { bodyIntersects, moveBody, nearestBoundary } from './geometry.ts'
 import { canGrip } from './friction.ts'
 import { groundAt, followGround } from './terrain.ts'
 import { ledgeExposed, platformLedges, sameLedge } from './terrainLedges.ts'
-import { ledgeEase } from './ledge.ts'
+import { climbFrame, ledgeEase } from './ledge.ts'
 import { FOOT_CONTACT } from './footwork.ts'
 
 export interface StepUp {
@@ -53,6 +53,19 @@ export function stepUpRoot(m: Mantle, progress: number): [number, number] {
   if (remaining > 1e-7) x = Math.min(x, -Math.min(12, remaining) - .001)
   // At the exact start, preserve the incoming root without even a tiny nudge.
   return t === 0 ? [s.caught.x, s.caught.y] : [m.edgeX + x * m.side, m.edgeY + remaining]
+}
+
+/** Commitment belongs to the top contacts, not an arbitrary elapsed frame.
+ * The hand-assisted rig must have both soles on actual grippable terrain. */
+export function stepUpCommitted(m: Mantle, world: ContactWorld): boolean {
+  const step = m.step!, progress = Math.min(1, m.time / step.duration)
+  if (progress === 1) return true
+  if (step.climbing || step.rise <= 40.01) return false
+  const start = (74 - step.rise) / 100
+  const frame = climbFrame(start + (1 - start) * progress, m.braced, m.slope)
+  if (!frame.frontPlanted || !frame.backPlanted) return false
+  return [frame.frontFoot, frame.backFoot].every(foot => FOOT_CONTACT.filter(([, y]) => y === 2.8).every(([x,y]) =>
+    !!groundAt(world.platforms, m.edgeX + (foot[0] + x) * m.side, m.edgeY + foot[1] + y, .1, surface => canGrip(surface.angle))))
 }
 
 /** A rope anchored on a slope ends in a pull-up, not an impossible grip above its anchor. */

@@ -2,6 +2,27 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
+for (const key of ['a','s']) test(`keyboard ${key === 'a' ? 'opposite movement' : 'Down'} backs out of a tall step before top support`, async ({page},info) => {
+  const level = blankTrial(); level.height = 600; level.floor = 500
+  level.spawn = {x:474.5,y:500}; level.goal = {x:900,y:500}
+  level.platforms = [{x:500,y:440,w:200,h:60}]
+  await useLevelFixtures(page,[level])
+  await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.down('d'); await page.clock.runFor(300)
+  const entered = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  expect(entered.signals.mode).toBe('step')
+  await page.keyboard.up('d'); await page.keyboard.down(key); await page.clock.runFor(800)
+  const returned = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  expect(returned.signals.mode).toBe('free'); expect(returned.signals.grounded).toBe(true)
+  expect(returned.y).toBe(500); expect(returned.x).toBeLessThan(500)
+  await page.screenshot({path:info.outputPath('returned-from-tall-step.png')})
+})
+
 test('motion diagnostics observe real controls and pushing resumes smoothly after a brief release', async ({ page }, info) => {
   const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]

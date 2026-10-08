@@ -13,7 +13,7 @@ import type { TerrainContact } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
 import { anticipatePush, mantleAdvance, narrowMantle, playerContactBody, playerContacts, pushingVelocity, staticContactWorld, translateFeet, updatePushingPose } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
-import { findRopeStepUp, findStepUp, finishStepFeet, stepUpRoot } from './stepUp.ts'
+import { findRopeStepUp, findStepUp, finishStepFeet, stepUpCommitted, stepUpRoot } from './stepUp.ts'
 import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
@@ -661,6 +661,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   if (p.mantle) {
     const m = p.mantle
     if (!m.step && !m.descending && (input.drop || input.descend || input.detach)) m.returning = true
+    if (m.step && !m.step.climbing && m.step.rise > 20.01 && !stepUpCommitted(m, world)
+      && (input.move * m.side < -.1 || input.drop || input.descend || input.detach)) m.returning = true
     let advance = dt
     if (!m.step && !m.descending && !m.returning) {
       const targetInset = (m.toX - m.edgeX) * m.side
@@ -695,6 +697,15 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       const progress = Math.min(1, m.time / m.step.duration), root = stepUpRoot(m, progress)
       p.x = root[0]; p.y = root[1]
       p.vx = 0; p.vy = 0; p.facing = m.side
+      if (m.returning && progress === 0) {
+        const source = m.step.caught, ground = groundAt(platforms, p.x, p.y, .2, surface => canGrip(surface.angle))
+        p.mantle = null; p.grounded = !!ground; p.coyote = ground ? TUNING.coyoteTime : 0
+        p.groundAngle = ground?.angle ?? 0; p.stride = source.stride; p.gait = source.gait; p.footwork = source.footwork ?? null
+        p.pushing = source.pushing ?? null
+        p.grabCooldown = .25; p.stepIntent = null
+        if (m.step.jumpQueued && ground) launch(p)
+        return
+      }
       if (progress === 1) {
         p.mantle = null; p.grounded = true; p.coyote = TUNING.coyoteTime; p.groundAngle = m.step.landingAngle ?? 0; p.stride = 0; p.gait = gaitPose(0)
         if (m.step.climbing) p.grabCooldown = .35

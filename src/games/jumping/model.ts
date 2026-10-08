@@ -11,14 +11,15 @@ import type { TerrainLedge } from './terrainLedges.ts'
 import { bodyContact, bodyIntersects, moveBody, nearestBoundary, pointInside } from './geometry.ts'
 import type { TerrainContact } from './geometry.ts'
 import { canGrip, groundVelocity, slidingVelocity } from './friction.ts'
-import { mantleAdvance, narrowMantle, playerContactBody, playerContacts, pushingVelocity, staticContactWorld, translateFeet, updatePushingPose } from './playerContacts.ts'
+import { anticipatePush, mantleAdvance, narrowMantle, playerContactBody, playerContacts, pushingVelocity, staticContactWorld, translateFeet, updatePushingPose } from './playerContacts.ts'
 import type { ContactWorld, PlayerContacts } from './playerContacts.ts'
 import { findRopeStepUp, findStepUp, finishStepFeet, stepUpRoot } from './stepUp.ts'
 import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { settleWaterClearance } from './athlete.ts'
+import { advanceMovingRecovery, settleWaterClearance } from './athlete.ts'
+import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
 import type { WaterBob, WaterCamera } from './waterBob.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform, mirrorLadder } from './gravityFrame.ts'
@@ -48,7 +49,7 @@ export interface Player {
   wallJumpBuffer: number; wallJump: { direction: number; time: number } | null
   wallBrace: { wallX: number; wallY?: number; normal?: [number, number]; direction: number; active: boolean; amount?: number; hands: [number, number]; feet: [number, number] } | null
   climbing: Climbing | null; ropes: RopeState[] | null
-  pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
+  pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean;
@@ -58,7 +59,7 @@ export interface Player {
     step?: StepUp;
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
-  freeFall: { time: number; amount: number; recovery: number | null; impact?: { vx: number; vy: number; gait: GaitPose | null } } | null
+  freeFall: { time: number; amount: number; recovery: number | null; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
   look: number // Presentation only: positive looks up, negative looks down.
@@ -262,7 +263,7 @@ function advanceFreeFall(p: Player, dt: number, floating = false, swimming = fal
     p.freeFall = null
   } else if (p.freeFall && p.freeFall.recovery !== null && p.grounded) {
     p.freeFall.recovery += dt
-    if (p.freeFall.recovery >= TUNING.fallRecoveryTime) { p.freeFall = null; p.landing = 0 }
+    if (p.freeFall.recovery >= TUNING.fallRecoveryTime && !p.freeFall.moving) { p.freeFall = null; p.landing = 0 }
   } else if (!p.grounded && floating) {
     // Resting swimmers float upright. Horizontal travel and diving use strokes;
     // rising keeps the head and hands ready to reach out.
@@ -389,6 +390,7 @@ function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[], w
 }
 export function playerState(p: Player) {
   if (p.mantle?.returning) return 'Lowering'
+  if (p.grounded && p.freeFall?.recovery !== null && p.freeFall?.amount) return 'Recovering'
   const climbDirection = p.climbing?.screenDirection ?? p.climbing?.direction ?? 0
   return p.climbing ? `${p.climbing.kind === 'rope' ? 'Rope' : 'Ladder'} · ${climbDirection > 0 ? 'ascending' : climbDirection < 0 ? 'descending' : 'holding'}`
     : p.mantle ? p.mantle.descending ? 'Lowering' : 'Climbing' : p.hang ? 'Hanging' : p.sliding?.active ? 'Sliding' : p.wallBrace?.active ? 'Bracing' : p.wallJump ? 'Wall jump' : p.pushing && p.pushing.effort > 0 ? 'Pushing' : p.crouching ? 'Crouching' : p.reach > .5 ? 'Reaching' : !p.grounded ? p.vy < 0 ? 'Rising' : 'Falling'
@@ -613,7 +615,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
     from = [from[0] + dx, from[1] + dy]
   }
   contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
-  updatePushingPose(p, contacts.push, dt, contacts.motion.speed)
+  updatePushingPose(p, contacts.push ?? anticipatePush(p, input, world), dt, contacts.motion.speed)
   p.contacts = contacts
   advanceWaterCamera(p, input, dt)
   settleGait(p, dt)
@@ -622,6 +624,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   p.look += (look - p.look) * (1 - Math.exp(-dt / .1))
   if (Math.abs(p.look - look) < .001) p.look = look
   advanceFootwork(p, dt, from[0], world.platforms)
+  advanceMovingRecovery(p, dt, Math.abs(contacts.motion.x) > .05)
 }
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
   world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1, floatDrag = 0, swimStrength = 0, orientationGravity = p.gravity ?? TUNING.gravity) {

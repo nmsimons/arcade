@@ -44,6 +44,51 @@ test('production play does not enable diagnostics without the flag', async ({ pa
   expect(await page.evaluate(() => window.jumpingMotion)).toBeUndefined()
 })
 
+test('a keyboard shove begins with palms on the surface', async ({ page }, info) => {
+  const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
+  level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
+  await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.down('d'); await page.clock.runFor(200)
+  const frames = await page.evaluate(() => window.jumpingMotion.read().recent)
+  expect(frames.length).toBeGreaterThan(5)
+  for (const frame of frames.filter(frame => frame.contacts.palms.length)) {
+    frame.contacts.hands.forEach((hand, i) => {
+      const palm = frame.contacts.palms[i]
+      expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
+    })
+  }
+  await page.screenshot({ path: info.outputPath('first-palm-contact.png') })
+})
+
+test('held keyboard movement springs a long-fall landing into supported running', async ({ page }, info) => {
+  const level = blankTrial(); level.height = 1480; level.floor = 1400; level.width = 4000
+  level.spawn = { x: 540, y: 100 }; level.goal.y = 1400
+  level.platforms = [{ x: 500, y: 100, w: 120, h: 20 }]
+  await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.down('d'); await page.clock.runFor(2500)
+  const frames = await page.evaluate(() => window.jumpingMotion.read().recent)
+  const impact = frames.find(frame => frame.signals.grounded && frame.signals.mode === 'get-up')
+  expect(impact).toBeTruthy()
+  const settled = frames.filter(frame => frame.time >= impact.time + .2)
+  expect(settled.length).toBeGreaterThan(10)
+  expect(settled.every(frame => frame.signals.mode === 'free' && frame.points[2][1] < -35)).toBe(true)
+  expect(settled.some(frame => frame.contacts.feet.some(foot => foot.planted))).toBe(true)
+  expect(settled.every(frame => Math.abs(frame.vx - 410) < .01)).toBe(true)
+  await page.screenshot({ path: info.outputPath('supported-moving-recovery.png') })
+})
+
 for (const direction of [-1, 1]) test(`crouched pushing keeps the final head clear and establishes a brace: direction=${direction}`, async ({ page }, info) => {
   const level = blankTrial(); level.spawn = { x: 540 - direction * 65.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]

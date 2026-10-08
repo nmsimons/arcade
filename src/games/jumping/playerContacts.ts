@@ -37,6 +37,8 @@ export interface PushContact {
   hands: PushHands | null
   /** A swimmer supplies the existing body load rather than a grounded shove. */
   swimming?: boolean
+  /** A visible approach reach; never consumed by the motor or prop solver. */
+  anticipation?: number
 }
 export interface PlayerContacts {
   support: SupportContact | null
@@ -266,6 +268,37 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
   return (x - p.x) / dt
 }
 
+/** Lead a shove with a reach toward the first exposed prop. This deliberately
+ * lives outside the force-contact query: preparation cannot move an object. */
+export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld): PushContact | null {
+  if (p.inverted) {
+    mirrorPlayerState(p); p.inverted = false
+    try {
+      const contact = anticipatePush(p, input, mirrorContactWorld(world))
+      return contact && mirrorContacts({ support: null, push: contact, body: [], motion: { x: 0, y: 0, speed: 0 } }, world).push
+    } finally { mirrorPlayerState(p); p.inverted = true }
+  }
+  const direction = Math.sign(input.move)
+  if (!direction || !p.grounded || p.hang || p.mantle || p.climbing || p.freeFall?.amount
+    || input.jump && !p.jumpHeld || p.buffer > 0) return null
+  const candidates = world.colliders.flatMap(collider => {
+    if (!collider.prop || collider.id === p.contacts?.support?.collider.id) return []
+    const hands = propPushHands(collider.prop, p.x, p.y, direction, 43 - p.crouch * 15, 72)
+    if (!hands) return []
+    const gap = (hands.wallX - p.x) * direction
+    if (gap <= 38 || gap >= 72) return []
+    const sweep = moveBody([p.x, p.y], [p.x + direction * gap, p.y], world.platforms,
+      p.crouching ? TUNING.crouchHeight : TUNING.height)
+    const first = sweep.contacts.find(contact => contact.normal[0] * direction < -.4)
+    if (first?.platform !== collider.platform) return []
+    const proximity = Math.max(0, Math.min(1, (72 - gap) / 34))
+    return [{ collider, direction, effort: 0, wallX: hands.wallX, hands,
+      anticipation: proximity * proximity * (3 - 2 * proximity) }]
+  })
+  candidates.sort((a, b) => (a.wallX - b.wallX) * direction)
+  return candidates[0] ?? null
+}
+
 /** Presentation consumes the solved contact; it never moves the player. */
 export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0) {
   if (contact?.hands && (p.grounded || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
@@ -277,11 +310,15 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
     const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
     const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
     p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction,
-      amount: Math.min(1, (previous?.amount ?? 0) + dt / .14), effort: contact.effort, load }
+      // A prop has already received this tick's force. Its working palms must
+      // be established now; resistance still loads the body gradually above.
+      amount: contact.anticipation === undefined ? Math.min(1, (previous?.amount ?? 0) + dt / .14) : previous?.amount ?? 0,
+      ready: contact.anticipation ?? (contact.collider.prop && !contact.swimming ? 1 : 0), effort: contact.effort, load }
   } else if (p.pushing) {
     const amount = Math.max(0, p.pushing.amount - dt / .16)
-    p.pushing = amount && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
-      ? { ...p.pushing, amount, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
+    const ready = Math.max(0, (p.pushing.ready ?? 0) - dt / .16)
+    p.pushing = (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
+      ? { ...p.pushing, amount, ready, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
   }
 }
 

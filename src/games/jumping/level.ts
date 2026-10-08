@@ -7,6 +7,7 @@ import { createRope, ropeSegmentCount } from './climbables.ts'
 import { prepareRope } from './ropeLayout.ts'
 import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
+import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { bodyIntersects, nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { goalBounds, goalDoor, goalPoleX } from './goal.ts'
@@ -95,6 +96,8 @@ export function levelPlayer(level: JumpLevel, preview = false) {
   p.ropes = level.climbables.ropes.map(r => createRope(preview ? r : prepareRope(r, terrain)))
   Object.assign(p, { x: level.spawn.x, y: level.spawn.y, spawnX: level.spawn.x, spawnY: level.spawn.y,
     grounded: !!ground, groundAngle: ground?.angle ?? 0, jumpStart: level.spawn.y })
+  p.terrain = terrain
+  advanceFootwork(p, 0, p.x, terrain)
   return p
 }
 /** Saved geometry is also the editor preview and the first playable frame. */

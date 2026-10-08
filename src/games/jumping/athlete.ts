@@ -13,7 +13,7 @@ import { TUNING } from './movementTuning.ts'
 type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
-type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
+export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
 const TAU = Math.PI * 2
 const HEAD_RADIUS = 6.2
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
@@ -74,7 +74,7 @@ function solveRear(root: Point, target: Point, upper: number, lower: number, sid
   return { ...solved, joint: mix(center, solved.joint, spread), jointDepth: depth }
 }
 /** Turn between the ladder and ledge rigs without snapping elbows/knees into a different bend plane. */
-function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: number, offset: Point = [0, 0], reachClearance = 0, turning = false): AthletePose {
+function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: number, offset: Point = [0, 0], reachClearance = 0, turning = false, legClearance = 0): AthletePose {
   const point = (a: Point, b: Point) => add(mix(add(a, shift), b, t), offset)
   const limb = (a: Limb, b: Limb, upper: number, lower: number, clearance = 0): Limb => {
     const root = point(a.root, b.root), target = point(a.end, b.end)
@@ -95,7 +95,7 @@ function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: numbe
     return { root, joint: [root[0] + joint[0], root[1] + joint[1]], end, jointDepth: joint[2], endDepth: axis[2] * length,
       hand, handAngle: lerp(a.handAngle ?? 0, b.handAngle ?? 0, t) }
   }
-  const leg = (a: Leg, b: Leg): Leg => ({ ...limb(a, b, 15, 14.5), footAngle: lerp(a.footAngle, b.footAngle, t),
+  const leg = (a: Leg, b: Leg): Leg => ({ ...limb(a, b, 15, 14.5, legClearance), footAngle: lerp(a.footAngle, b.footAngle, t),
     toeAngle: lerp(a.toeAngle, b.toeAngle, t), footFacing: b.footFacing, planted: a.planted && b.planted,
     rear: lerp(a.rear ?? 0, b.rear ?? 0, t) })
   return { hip: point(from.hip, to.hip), waist: point(from.waist, to.waist), shoulder: point(from.shoulder, to.shoulder), head: point(from.head, to.head),
@@ -394,8 +394,9 @@ function ledgePose(p: Player): AthletePose {
   let hip = at(frame.hip), waist = at(frame.waist), shoulder = at(frame.shoulder), head = at(frame.head)
   let frontFoot = at(frame.frontFoot), backFoot = at(frame.backFoot)
   const balance = smooth((t - .48) / .09) * (1 - smooth((t - .8) / .2))
-  let frontFree = armPose(add(shoulder, [0, .7]), -.03 + balance * 1.1, .1 + balance * 1.1)
-  let backFree = armPose(add(shoulder, [0, .7]), -.03 - balance * .8, .1 + balance * 1.7)
+  const relaxed = smooth((t - .8) / .2) * (crouched ? 0 : .24)
+  let frontFree = armPose(add(shoulder, [0, .7]), -.03 + balance * 1.1 + relaxed, .1 + balance * 1.1)
+  let backFree = armPose(add(shoulder, [0, .7]), -.03 - balance * .8 - relaxed, .1 + balance * 1.7)
   if (crouched) {
     const fold = smooth((t - .73) / .23)
     frontFree = armPose(add(shoulder, [0, .7]), lerp(-.03 + balance * 1.1, -.65, fold), lerp(.1 + balance * 1.1, 2.1, fold))
@@ -605,8 +606,9 @@ function fallFrame(p: Player, stage = 0): AthletePose {
   const frame = { hip, waist, shoulder, head, frontArm: arm(false), backArm: arm(true), frontLeg: leg(false), backLeg: leg(true), headTilt: stage === 0 ? pitch : 0 }
   return rotatePose(frame, p.groundAngle, p.facing)
 }
-function fallPose(p: Player): AthletePose {
+function fallRecoveryPose(p: Player): AthletePose {
   const fall = p.freeFall!, recovery = fall.recovery
+  if (fall.moving) return fall.moving.pose
   const source = athletePose({ ...p, ...fall.impact, freeFall: null, grounded: false,
     groundAngle: 0, footwork: null, landing: 0, pushing: null, ledgeReach: null, wallBrace: null, sliding: null })
   const prone = fallFrame(p)
@@ -616,13 +618,7 @@ function fallPose(p: Player): AthletePose {
   if (recovery === null) {
     // The prone rig extends beyond the standing hull. Fold and balance the
     // visible body against real terrain without changing the physical root.
-    const pose = clearBody(p, blend(source, prone, fall.amount)).pose
-    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
-    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
-    for (const name of ['frontLeg', 'backLeg'] as const) {
-      pose[name] = clearAirborneFoot(p, { ...pose[name], ...clearLimb(p, pose[name], 15, 14.5, -1) })
-    }
-    return pose
+    return blend(source, prone, fall.amount)
   }
   if (recovery < .18) return blend(source, prone, lerp(fall.amount, 1, smooth(recovery / .16)))
   const kneeling = fallFrame(p, 1), crouched = fallFrame(p, 2)
@@ -630,6 +626,70 @@ function fallPose(p: Player): AthletePose {
   if (recovery < .7) return blend(kneeling, crouched, smooth((recovery - .48) / .22))
   const standing = athletePose({ ...p, freeFall: null, landing: 0 })
   return blend(crouched, standing, smooth((recovery - .7) / (TUNING.fallRecoveryTime - .7)))
+}
+
+function fallPose(p: Player): AthletePose {
+  const pose = clearBody(p, fallRecoveryPose(p)).pose
+  pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
+  pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+  for (const name of ['frontLeg', 'backLeg'] as const) {
+    let leg = pose[name]
+    for (let i = 0; i < 4; i++) {
+      leg = { ...leg, ...clearLimb(p, leg, 15, 14.5, -1) }
+      leg = clearAirborneFoot(p, leg)
+    }
+    pose[name] = leg
+  }
+  return pose
+}
+
+/** Advance a spring to the feet from the actual preceding rig. Limit joint
+ * travel in three dimensions so gathering cannot flip a knee across its IK
+ * axis. The gait retains all real anchors; they become visible support only
+ * when this handoff is complete. */
+export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean) {
+  const fall = p.freeFall
+  if (!fall || fall.recovery === null || !p.grounded) return
+  if (!fall.moving && !traveling) return
+  fall.moving ??= { pose: fallPose(p), time: 0, facing: p.facing }
+  const motion = fall.moving
+  if (motion.facing !== p.facing) {
+    motion.pose = reflectAthletePose(motion.pose)
+    motion.facing = p.facing
+  }
+  motion.time += dt
+  const target = athletePose({ ...p, freeFall: null, landing: 0 })
+  const fraction = Math.min(1, dt / Math.max(dt, .1 - motion.time + dt))
+  const from = motion.pose
+  const points = (pose: AthletePose) => [pose.hip, pose.waist, pose.shoulder, pose.head,
+    ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb =>
+      [[...limb.joint, limb.jointDepth ?? 0], [...limb.end, limb.endDepth ?? 0]])]
+  const before = points(from), limit = 600 * dt
+  const gathering = Math.max(0, 1 - motion.time / .1)
+  const sample = (t: number) => t === 1 ? target : transferPose(from, target, [0, 0], t, [0, 0], 0, gathering > .5, gathering * 4)
+  const safe = (pose: AthletePose) => points(pose).every((point, i) =>
+    Math.hypot(...point.map((v, j) => v - before[i][j])) <= limit)
+  let t = fraction, next = sample(t)
+  if (!safe(next)) {
+    let low = 0, high = t
+    for (let i = 0; i < 14; i++) {
+      const mid = (low + high) / 2
+      if (safe(sample(mid))) low = mid; else high = mid
+    }
+    t = low; next = sample(t)
+  }
+  motion.pose = next
+  if (t === 1) { p.freeFall = null; p.landing = 0 }
+}
+
+/** Preserve world orientation when mechanical facing changes. */
+export function reflectAthletePose(pose: AthletePose): AthletePose {
+  const point = (p: Point): Point => [-p[0], p[1]]
+  const limb = <T extends Limb>(part: T): T => ({ ...part, root: point(part.root), joint: point(part.joint), end: point(part.end), hand: part.hand && point(part.hand),
+    handAngle: part.handAngle === undefined ? undefined : Math.PI - part.handAngle })
+  const leg = (part: Leg): Leg => ({ ...limb(part), footFacing: -part.footFacing })
+  return { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head), headTilt: -(pose.headTilt ?? 0),
+    frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
 }
 
 /** Breaststroke coordinates the outsweep, insweep, forward recovery, frog kick
@@ -887,7 +947,7 @@ export function athletePose(p: Player): AthletePose {
   const pose = p.gait ?? gaitPose(p.vx, !p.grounded)
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
   const cycle = p.stride * p.facing
-  const pushing = smooth(p.pushing?.amount ?? 0)
+  const pushing = smooth(Math.max(p.pushing?.amount ?? 0, p.pushing?.ready ?? 0))
   const gait = moving * (1 - p.crouch) * (1 - air) * (1 - pushing)
   const squat = p.crouch
   // Contact compresses the hips first, followed by the chest and then the head.
@@ -941,8 +1001,8 @@ export function athletePose(p: Player): AthletePose {
     // planted feet and limb lengths, and retain the tall-box stance at height 43.
     const low = smooth((43 - (p.pushing!.height ?? 43)) / 28)
     if (low) {
-      hip[1] += pushDip * low * 15
-      const pelvis = .25 + low * .2, chest = .35 + low * .65
+      hip[1] += pushDip * low * 3
+      const pelvis = .25 + low * .4, chest = .35 + low * .9
       const lowWaist = add(hip, [Math.sin(pelvis) * 6.5, -Math.cos(pelvis) * 6.5])
       const lowShoulder = add(lowWaist, [Math.sin(chest) * 10.1, -Math.cos(chest) * 10.1])
       const lowHead = add(lowShoulder, [.45 + Math.sin(chest) * 2.2, -7.3])
@@ -952,13 +1012,14 @@ export function athletePose(p: Player): AthletePose {
       }
     }
   }
-  let frontAnkle = moving ? frontStep.ankle : [0, -2.8] as Point
-  let backAnkle = moving ? backStep.ankle : [0, -2.8] as Point
+  let frontAnkle = moving ? frontStep.ankle : [2, -2.8] as Point
+  let backAnkle = moving ? backStep.ankle : [-2, -2.8] as Point
   frontAnkle = mix(frontAnkle, [4 + Math.sin(cycle) * speed * 3, -2.8], squat)
   backAnkle = mix(backAnkle, [-5 - Math.sin(cycle) * speed * 3, -2.8], squat)
 
   const swing = Math.cos(cycle - run * .12) * moving * lerp(.38, 1.05, run)
-  let frontAngle = lerp(-swing - .03 - run * .13, -.65, squat), backAngle = lerp(swing - .03 - run * .13, -.75, squat)
+  const relaxed = (1 - moving) * (1 - air) * (1 - squat)
+  let frontAngle = lerp(-swing - .03 - run * .13 + relaxed * .24, -.65, squat), backAngle = lerp(swing - .03 - run * .13 - relaxed * .24, -.75, squat)
   // The backward arm opens; the forward arm folds up toward the chest.
   let frontFlex = lerp(.1 + moving * lerp(.12, 1.2 - Math.cos(cycle - .12) * .5, run), 2.1, squat)
   let backFlex = lerp(.1 + moving * lerp(.12, 1.2 + Math.cos(cycle - .12) * .5, run), 2.2, squat)
@@ -983,6 +1044,19 @@ export function athletePose(p: Player): AthletePose {
     frontAnkle = [(contacts[0].x - p.x) * p.facing, contacts[0].y - p.y]
     backAnkle = [(contacts[1].x - p.x) * p.facing, contacts[1].y - p.y]
   }
+  if (pushing && p.pushing!.palms) {
+    // Meet the farther palm before applying a load. A long approach reach
+    // advances the pelvis with the chest, rather than stretching the spine.
+    let reach = 0
+    for (const palm of p.pushing!.palms) {
+      const x = (palm.x + palm.nx * 2.8 - p.x) * p.facing, y = palm.y + palm.ny * 2.8 - p.y
+      const dy = y - shoulder[1] - .7
+      reach = Math.max(reach, x - shoulder[0] - Math.sqrt(Math.max(0, 18.7 ** 2 - dy * dy)))
+    }
+    const lean = reach * pushing, shift = Math.max(0, lean - 5)
+    hip[0] += shift; waist[0] += shift + Math.min(5, lean) * .35
+    shoulder[0] += lean; head[0] += lean
+  }
   // Lower the pelvis when necessary; a planted foot must never be pulled off its anchor by IK.
   let supportDip = 0
   for (const [index, [ankle, planted]] of ([[frontAnkle, frontPlanted], [backAnkle, backPlanted]] as const).entries()) if (p.grounded && !p.mantle) {
@@ -992,18 +1066,6 @@ export function athletePose(p: Player): AthletePose {
     supportDip = Math.max(supportDip, (ankle[1] - rise - (hip[1] + 1)) * weight)
   }
   if (supportDip) { hip[1] += supportDip; waist[1] += supportDip; shoulder[1] += supportDip; head[1] += supportDip }
-  if (pushing && p.pushing!.palms) {
-    // The upper hand on a round surface can be farther away than the lower
-    // one. Lean into both reachable grips instead of stretching or hovering.
-    let reach = 0
-    for (const palm of p.pushing!.palms) {
-      const x = (palm.x + palm.nx * 2.8 - p.x) * p.facing, y = palm.y + palm.ny * 2.8 - p.y
-      const dy = y - shoulder[1] - .7
-      reach = Math.max(reach, x - shoulder[0] - Math.sqrt(Math.max(0, 18.7 ** 2 - dy * dy)))
-    }
-    const lean = Math.min(5, reach) * pushing
-    waist[0] += lean * .35; shoulder[0] += lean; head[0] += lean
-  }
   if (pushing) {
     // Clear the final pose after reach and balance adjustments. An earlier
     // head clamp was undone by the subsequent lean toward the palms.

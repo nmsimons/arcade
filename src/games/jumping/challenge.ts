@@ -8,6 +8,7 @@ import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
 import { moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
+import { canGrip } from './friction.ts'
 import { GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
@@ -15,6 +16,7 @@ import type { PickupState } from './pickups.ts'
 import { planMechanismMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { playerContacts, translatePlayer } from './playerContacts.ts'
+import { advanceFootwork } from './footwork.ts'
 import type { ContactWorld, PlayerCollider, PlayerContacts } from './playerContacts.ts'
 import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism } from './mechanisms.ts'
 import { canHangFromBox } from './boxSupport.ts'
@@ -94,6 +96,15 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     const world = syncPlatforms(run)
     for (const robot of run.robots) robot.seesPlayer = robotSensesPlayer(robot, run.player, robotSightObstacles(world, robot))
   }
+  // Publish the ready frame from the final prepared geometry. This is a
+  // contact query, not a simulation tick: clocks, props and ropes stay still.
+  const world = syncPlatforms(run), p = run.player
+  const ground = groundAt(world.platforms, p.x, p.y, .2, surface => canGrip(surface.angle))
+  p.grounded = !!ground
+  p.groundAngle = ground?.angle ?? 0
+  p.contacts = playerContacts(p, NEUTRAL_INPUT, world)
+  p.terrain = world.platforms
+  advanceFootwork(p, 0, p.x, world.platforms)
   return run
 }
 function syncPlatforms(run: Run): ContactWorld {

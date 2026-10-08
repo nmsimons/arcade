@@ -34,7 +34,7 @@ export interface Climbing {
   screenAxis?: number
   screenDirection?: number
   turn?: { angle: number; target: number; grip: number }
-  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number; freeFall?: Player['freeFall'] }
+  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number; freeFall?: Player['freeFall']; dryTurn?: Player['dryTurn'] }
 }
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v))
 export const ease = (v: number) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t) }
@@ -544,7 +544,7 @@ export function ropeImpulse(rope: RopeState, distance: number, vx: number, vy: n
 }
 
 function caughtPose(p: Player): Climbing['caught'] {
-  return { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, freeFall: p.freeFall }
+  return { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, freeFall: p.freeFall, dryTurn: p.dryTurn }
 }
 
 export function findClimbable(p: Player, world: ClimbableWorld, terrain: readonly Platform[] = []): Climbing | null {

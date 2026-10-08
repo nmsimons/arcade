@@ -1,6 +1,6 @@
 import { mirrorPlayerState } from './gravityFrame.ts'
 import { gaitPose } from './model.ts'
-import type { Player } from './model.ts'
+import type { JumpInput, Player } from './model.ts'
 import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
@@ -14,6 +14,7 @@ type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
 export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
+export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean }
 const TAU = Math.PI * 2
 const HEAD_RADIUS = 6.2
 export type AthleteOutline = Pick<CanvasPath, 'moveTo' | 'lineTo' | 'quadraticCurveTo' | 'bezierCurveTo' | 'ellipse' | 'closePath'>
@@ -658,7 +659,7 @@ export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean)
     motion.facing = p.facing
   }
   motion.time += dt
-  const target = athletePose({ ...p, freeFall: null, landing: 0 })
+  const target = athletePose({ ...p, freeFall: null, dryTurn: null, landing: 0 })
   const fraction = Math.min(1, dt / Math.max(dt, .1 - motion.time + dt))
   const from = motion.pose
   const points = (pose: AthletePose) => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -687,9 +688,84 @@ export function reflectAthletePose(pose: AthletePose): AthletePose {
   const point = (p: Point): Point => [-p[0], p[1]]
   const limb = <T extends Limb>(part: T): T => ({ ...part, root: point(part.root), joint: point(part.joint), end: point(part.end), hand: part.hand && point(part.hand),
     handAngle: part.handAngle === undefined ? undefined : Math.PI - part.handAngle })
-  const leg = (part: Leg): Leg => ({ ...limb(part), footFacing: -part.footFacing })
+  const leg = (part: Leg): Leg => ({ ...limb(part), footFacing: -part.footFacing,
+    footAngle: -part.footAngle, toeAngle: -part.toeAngle })
   return { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head), headTilt: -(pose.headTilt ?? 0),
     frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
+}
+
+/** Capture only a requested change or an active handoff. Steering still uses
+ * mechanical facing immediately; this snapshot belongs solely to the rig. */
+export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null {
+  if (p.waterMotion || p.releaseTurn) return null
+  const grip = !!(p.hang || p.climbing)
+  const departing = grip && ((input.jump && !p.jumpHeld) || input.detach || input.drop || input.descend)
+  const reversing = Math.abs(input.move) > .01 && Math.sign(input.move) !== p.facing
+    && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2)
+  if (!p.dryTurn && !departing && !reversing) return null
+  return { pose: athletePose(p), facing: p.facing, grip }
+}
+
+export function dryTurnDirection(p: Player, input: JumpInput, before?: DryTurnFrame | null) {
+  if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || p.freeFall?.recovery != null) return p.facing
+  const changing = before && (before.grip || before.facing !== p.facing)
+  if (!p.dryTurn && !changing) return p.facing
+  if ((before?.grip || input.move * p.vx < -1) && Math.abs(p.vx) > 20) return Math.sign(p.vx)
+  if (p.dryTurn?.departure && Math.abs(input.move) <= .01) return p.dryTurn.target
+  return p.facing
+}
+
+/** Transfer weight before changing the visible direction. Fixed shoes keep
+ * their actual rolling contact while elbows/knees turn through depth. */
+export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?: DryTurnFrame | null) {
+  // A real shove owns its reachable, load-bearing rig immediately. Retaining
+  // a free turn here would delay palms or make a short object's reach force
+  // the old upright pelvis beyond its planted shoes.
+  if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || p.freeFall?.recovery != null || p.contacts?.push?.hands) {
+    p.dryTurn = null; return
+  }
+  const departure = !!before?.grip, changed = before && (before.facing !== p.facing || departure)
+  if (!p.dryTurn && !changed) return
+  const previousFacing = before?.facing ?? p.dryTurn!.facing
+  let from = before?.pose ?? p.dryTurn!.pose
+  if (previousFacing !== p.facing) from = reflectAthletePose(from)
+  const motion = p.dryTurn ??= { pose: from, facing: p.facing, target: previousFacing, time: 0, departure }
+  const braking = input.move * p.vx < -1
+  const direction = dryTurnDirection(p, input, before)
+  if (motion.target !== direction) { motion.target = direction; motion.time = 0 }
+  motion.time += dt
+  const gait = p.gait && { ...p.gait, run: braking ? 0 : p.gait.run }
+  let target = athletePose({ ...p, dryTurn: null, facing: direction, gait })
+  if (direction !== p.facing) target = reflectAthletePose(target)
+  // A planted shoe uses the current motor contact, including heel/toe roll.
+  // Blending its angle independently of its ankle would drag material points.
+  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) {
+    from = { ...from, [name]: { ...from[name], end: target[name].end, footAngle: target[name].footAngle,
+      toeAngle: target[name].toeAngle, footFacing: target[name].footFacing, planted: true } }
+  }
+  // The old pelvis follows the motor root immediately. Bend the loaded leg
+  // enough for its unchanged contact before interpolating the two valid rigs.
+  let dip = 0
+  for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) {
+    const end = target[name].end, dx = end[0] - from.hip[0]
+    dip = Math.max(dip, end[1] - Math.sqrt(Math.max(0, 29 ** 2 - dx ** 2)) - from.hip[1] - 1)
+  }
+  if (dip) {
+    from = rotatePose(from, 0, 1, [0,0], [0,dip])
+    for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) from[name].end = target[name].end
+  }
+  const fraction = Math.min(1, dt / Math.max(dt, .14 - motion.time + dt))
+  motion.pose = fraction === 1 ? target : transferPose(from, target, [0,0], fraction, [0,0], 0, true)
+  if (!p.grounded) {
+    motion.pose = clearBody(p, motion.pose).pose
+    for (const name of ['frontLeg','backLeg'] as const) {
+      motion.pose[name] = clearAirborneFoot(p, { ...motion.pose[name], ...clearLimb(p, motion.pose[name], 15, 14.5, -1) })
+    }
+  }
+  motion.pose.frontArm = clearLimb(p, motion.pose.frontArm, UPPER_ARM, FOREARM, 1, true)
+  motion.pose.backArm = clearLimb(p, motion.pose.backArm, UPPER_ARM, FOREARM, 1, true)
+  motion.facing = p.facing
+  if (fraction === 1 && direction === p.facing && !braking) p.dryTurn = null
 }
 
 /** Breaststroke coordinates the outsweep, insweep, forward recovery, frog kick
@@ -941,6 +1017,7 @@ export function athletePose(p: Player): AthletePose {
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
   if (p.waterMotion && !p.jumpLift && !p.waterJump) return waterPose(p)
+  if (p.dryTurn) return p.dryTurn.facing === p.facing ? p.dryTurn.pose : reflectAthletePose(p.dryTurn.pose)
   if ((p.freeFall?.amount ?? 0) > 0) return fallPose(p)
   // Sliding blends from the same locomotion pose on contact and release. A
   // momentary slip must not replace the airborne gait before its blend begins.

@@ -2,6 +2,61 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
+test('keyboard reversal brakes continuously while steering responds on the first tick', async ({page},info) => {
+  const level = blankTrial(); level.width=4000; level.spawn={x:1500,y:920};level.goal={x:3800,y:920}
+  await useLevelFixtures(page,[level])
+  await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.down('d'); await page.clock.runFor(750)
+  const before=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1))
+  expect(before.vx).toBe(410)
+  await page.keyboard.up('d'); await page.keyboard.down('a'); await page.clock.runFor(600)
+  const frames=await page.evaluate(()=>window.jumpingMotion.read().recent)
+  const turn=frames.filter(frame=>frame.time>before.time)
+  expect(turn.length).toBeGreaterThan(50)
+  expect(turn[0].signals.facing).toBe(-1)
+  expect(turn[0].vx).toBeCloseTo(410-2000/120,6)
+  const head=frame=>[frame.x+frame.points[2][0]*frame.signals.facing,frame.y+frame.points[2][1]]
+  let previous=head(before)
+  for(const frame of turn) {
+    const next=head(frame)
+    expect(Math.hypot(next[0]-previous[0],next[1]-previous[1])).toBeLessThan(8)
+    previous=next
+  }
+  expect(turn.at(-1).vx).toBe(-410)
+  await page.screenshot({path:info.outputPath('supported-keyboard-turn.png')})
+})
+
+test('keyboard lowering then Jump away retains the ledge impulse while holding toward it', async ({page},info) => {
+  const level=blankTrial();level.height=600;level.floor=500
+  level.spawn={x:530,y:300};level.goal={x:900,y:500}
+  level.platforms=[{x:500,y:300,w:200,h:200}]
+  await useLevelFixtures(page,[level])
+  await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.down('s');await page.clock.runFor(1000)
+  const hanging=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1))
+  expect(hanging.signals.mode).toBe('hang')
+  await page.keyboard.up('s');await page.keyboard.down('d');await page.keyboard.down('Space');await page.clock.runFor(250)
+  const frames=await page.evaluate(()=>window.jumpingMotion.read().recent)
+  const departure=frames.find(frame=>frame.time>hanging.time&&frame.input.jump)
+  expect(departure.signals.mode).toBe('free')
+  expect(departure.vx).toBe(-260)
+  expect(departure.input.move).toBe(1)
+  const head=frame=>[frame.x+frame.points[2][0]*frame.signals.facing,frame.y+frame.points[2][1]]
+  const a=head(hanging),b=head(departure)
+  expect(Math.hypot(b[0]-a[0],b[1]-a[1])).toBeLessThan(8)
+  await page.screenshot({path:info.outputPath('ledge-keyboard-jump-away.png')})
+})
+
 for (const key of ['a','s']) test(`keyboard ${key === 'a' ? 'opposite movement' : 'Down'} backs out of a tall step before top support`, async ({page},info) => {
   const level = blankTrial(); level.height = 600; level.floor = 500
   level.spawn = {x:474.5,y:500}; level.goal = {x:900,y:500}

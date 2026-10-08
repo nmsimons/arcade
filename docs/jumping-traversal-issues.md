@@ -934,3 +934,53 @@ Logs and traces: `.tmp/ujg-traversal-fixes/immutable-complete-browser.log`,
 `software-context-browser-gaps-slow.log` and
 `software-context-gap-traces-slow.jsonl`.
 
+## Fifteenth implementation pass: brace footing and brief recontact
+
+October 8, 2026. The remaining #41 matrix found two concrete defects. On a
+16-unit ledge, the rear target was outside the tread and the foot kept trying
+to plant in empty space. On wider footing, even a one-tick pressure release
+shrunk the target enough to start a needless lifting step; resuming pressure
+then sent the same foot back to its original anchor.
+
+Unsupported targets now adapt to the actual support. Ordinary valid targets
+and adjacent real footings retain their existing policy. The support bounds
+provide an initial inset; a concave outline also checks the actual exposed
+tread toward the physical root. No bounding rectangle manufactures support.
+The established brace remains while the hand-contact blend fades. A complete
+release returns through the ordinary resting steps, while a fresh jump still
+releases the feet immediately. Body loading retains its separate easing.
+
+A permanent ten-encounter check covers 16/24/40/80-unit treads and a 16-unit
+tread inside an 80-unit concave outline, in both directions. It checks real
+anchors, at least one supporting foot during establishment, both feet planted
+afterward, fixed three-dimensional bones and actual drawn sole samples within
+0.02 units of support. The narrow base retains approximately seven units of
+separation; wider footing retains at least eight. Ten more seconds of blocked
+effort preserve the exact anchors. Three brief release/recontacts keep both
+feet planted throughout. Complete release and a fresh jump are also checked.
+
+All 43 combined animation, traversal-presentation and player/prop checks pass.
+All six affected production browser checks pass, including four new normal
+keyboard tests on 16/24-unit treads in both directions and the existing palm
+onset/recontact cases. Types, changed-file lint and isolated build pass. The
+2,160-frame physical trace from the matched six encounters is identical to
+the preceding commit: root position, velocity, grounded state and prop
+position/velocity/angle remain unchanged.
+
+The clips compare the preceding implementation with this repair at 0.72×
+gameplay scale and 2.6× detail, using the same geometry, controls, framing and
+three-second playback. They include establishment, three brief releases and
+full release. On the narrow and concave treads, the rear shoe now settles on
+the ledge rather than reaching beyond it. The wider braces stay still during
+pressure interruptions instead of lifting a foot. The loop boundary restarts
+the encounter.
+
+![Brace footing before this repair](images/jumping-brace-footing-baseline.gif)
+
+![Brace footing after this repair](images/jumping-brace-footing-current.gif)
+
+Logs: `.tmp/ujg-traversal-fixes/narrow-brace-unit.log`, `brace-capture.log`,
+`brace-browser.log`, `brace-types.log`, `brace-lint.log` and `brace-build.log`.
+Broader moving-push, slope/carrier and input-device acceptance remains open.
+Authored levels and medal times are unchanged.
+

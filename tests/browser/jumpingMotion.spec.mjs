@@ -120,6 +120,45 @@ test('production play does not enable diagnostics without the flag', async ({ pa
   expect(await page.evaluate(() => window.jumpingMotion)).toBeUndefined()
 })
 
+for (const direction of [-1, 1]) for (const width of [16, 24]) test(`a keyboard brace keeps both soles on ${width}-unit footing through recontact (${direction})`, async ({ page }, info) => {
+  const rect = (x, y, w, h) => ({ x: direction === 1 ? x : 900 - x - w, y, w, h })
+  const level = { ...blankTrial(), width: 900, height: 700, floor: 650,
+    spawn: { x: direction === 1 ? 414.5 : 485.5, y: 500 },
+    goal: { x: direction === 1 ? 100 : 800, y: 650, flipX: direction === -1 },
+    platforms: [rect(414.5 - width / 2, 500, width, 20), rect(440, 500, 80, 20), rect(520, 350, 100, 300)],
+    props: [{ kind: 'box', x: direction === 1 ? 480 : 420, y: 500, size: 80 }] }
+  await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  const key = direction === 1 ? 'd' : 'a'
+  await page.keyboard.down(key); await page.clock.runFor(1000)
+  const before = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  expect(before.contacts.feet.every(foot => foot.planted)).toBe(true)
+  for (let cycle = 0; cycle < 3; cycle++) {
+    await page.keyboard.up(key); await page.clock.runFor(16)
+    await page.keyboard.down(key); await page.clock.runFor(64)
+  }
+  const frames = await page.evaluate(() => window.jumpingMotion.read().recent)
+  const recontact = frames.filter(frame => frame.time > before.time)
+  expect(recontact.length).toBeGreaterThan(20)
+  for (const frame of recontact) {
+    expect(frame.signals.grounded).toBe(true)
+    frame.contacts.feet.forEach((foot, index) => {
+      expect(foot.planted).toBe(true)
+      expect(Math.hypot(foot.x - before.contacts.feet[index].x, foot.y - before.contacts.feet[index].y)).toBeLessThan(.02)
+    })
+  }
+  await page.screenshot({ path: info.outputPath('narrow-supported-brace.png') })
+  await page.keyboard.down('Space'); await page.clock.runFor(100)
+  const departure = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  expect(departure.signals.grounded).toBe(false)
+  expect(departure.vy).toBeLessThan(0)
+})
+
 test('a keyboard shove begins with palms on the surface', async ({ page }, info) => {
   const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]

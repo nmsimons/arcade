@@ -152,8 +152,12 @@ function pushBalance(p: Player, previous: Footwork, feet: Footwork['feet'], dt: 
 function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[], advancing = false): Footwork {
   // Bring the stance under the body, keeping both targets on the current platform.
   const surface = p.contacts?.support?.platform ?? groundAt(platforms, p.x, p.y, .15)?.platform
-  const center = surface ? Math.max(surface.x + 3, Math.min(surface.x + surface.w - 3, p.x)) : p.x
-  const brace = p.pushing?.effort ? 1 : p.pushing?.amount ?? 0
+  const margin = Math.min(3, (surface?.w ?? 6) / 2)
+  const withinSupport = (x: number) => surface ? Math.max(surface.x + margin, Math.min(surface.x + surface.w - margin, x)) : x
+  const center = withinSupport(p.x)
+  // Keep the established base while hand contact fades. Retargeting the rear
+  // foot with every fraction of that fade lifted it on each brief release.
+  const brace = p.pushing?.effort || (p.pushing?.amount ?? 0) > 0 ? 1 : 0
   const shortSteps = p.crouch > 0 || !!p.pushing?.effort
   const stepDistance = 14
   const steppingForward = shortSteps && advancing
@@ -161,8 +165,22 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   // foot permanently behind them stretched that leg on an uphill slope and
   // forced the whole torso to drop abruptly as the other foot took a step.
   const lead = lerp(8, 4, p.crouch)
-  const targets = steppingForward ? [center + lead * p.facing, center + lead * p.facing]
-    : [center + 2 * p.facing, center - (2 + brace * 8) * p.facing]
+  const targets = (steppingForward ? [center + lead * p.facing, center + lead * p.facing]
+    : [center + 2 * p.facing, center - (2 + brace * 8) * p.facing]).map(target => {
+    if (groundAt(platforms, target, p.y)) return target
+    const inset = withinSupport(target)
+    if (groundAt(platforms, inset, p.y)) return inset
+    // A concave support's bounding edge can lie beyond its actual tread. Find
+    // the nearby exposed tread toward the supported root, then inset the sole.
+    let outside = inset, inside = p.x
+    for (let i = 0; i < 12; i++) {
+      const middle = (outside + inside) / 2
+      if (groundAt(platforms, middle, p.y)) inside = middle
+      else outside = middle
+    }
+    const safe = inside + Math.sign(p.x - inside) * Math.min(3, Math.abs(p.x - inside))
+    return groundAt(platforms, safe, p.y) ? safe : inside
+  })
   const corrections = previous.feet.map((foot, i) => Math.abs(foot.anchorX - targets[i]) + (foot.facing !== p.facing ? 4 : 0))
   // A braced foot stays planted until the body has actually moved far enough
   // to need another step. Retargeting every fraction of a pixel caused a fast

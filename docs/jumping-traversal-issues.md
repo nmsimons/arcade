@@ -26,7 +26,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
-| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Daylight allocation churn reduced; original-deadline and slower-machine acceptance remains incomplete |
+| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | All nine original production checks pass; slower-CPU and project repeatability acceptance remains incomplete |
 
 ## Implementation order and evaluation
 
@@ -815,4 +815,61 @@ Logs and independent reproducers are under `.tmp/ujg-traversal-fixes/`:
 `slide-support-browser.log`. Dynamic-object and brief-contact interactions still
 need their own native review; #56 remains open for that acceptance. No issue is
 closed by this pass.
+
+## Thirteenth pass: reduce daylight composition work
+
+October 8, 2026. All nine original #60 production cases now pass on the fresh
+isolated build, in 3.2 minutes. The two pressured small-box/ball cases complete
+in 20.8 and 20.9 seconds within their unchanged 30-second deadlines. Both input
+cycles, screenshots, more than 100 rendered frames per hold, motion diagnostics,
+head/root stability and joint continuity assertions remain intact. The other
+seven cases retain their original routes, controls and deadlines too.
+
+The renderer reuses the exact 8-bit exposure correction instead of rebuilding
+it from the same daylight field. In bounded, unlit daytime scenes without
+changing structural mechanisms or additional ambient artwork, it also retains
+the immutable terrain mask in its existing haze surface. Disjoint pixel regions
+cover terrain; the complete artwork order is replayed around actual foreground
+actors, the exit, slide dust and the robot's elevated recovery indicator. This
+restores terrain behind moving actors without copying black air pixels or
+allocating another full-size buffer. Camera, viewport, terrain, lighting and
+scene changes invalidate the cache or retain the full composition.
+
+All eight development rendering checks pass, including exact RGBA comparisons
+on Canvas and GPU through day/night, power/EMP, fractional camera/zoom, resize,
+moving/rotated props, steel material edges and recovery-indicator overlap.
+The warm moving-scene comparison witnesses 15 cached frames, checks read-only
+player state and preserves the 64 MiB limit. Its first fixture used an invalid
+`metal` material; it was corrected to the supported `steel` before evaluating
+pixels. Existing assertions were not relaxed. Types, affected lint and the
+isolated build pass.
+
+In an uncontended alternating-order comparison of the same 145 steady native
+Canvas frames, the preceding composition takes 4931.4 ms (33.1 ms median) and
+the revised composition 4032.8 ms (27.2 ms median), about 18% less render time.
+Both resolve a pixel after each render. These local paired measurements do not
+establish a whole-game frame rate. An opaque-context experiment gave little
+benefit and a pattern-based composite was slower; both were removed.
+
+The successful production traces contain no pending calls or runtime errors.
+The two-second squeeze advances take about 4.8–5.2 wall seconds, compared with
+7.7–8.7 in the preceding run. Screenshots were inspected at gameplay scale:
+the quiet narrow-gap body stays upright, feet gather on its actual footing,
+and the tall-crate landing remains outside the crate. Still images supplement
+the unchanged sampled motion assertions; they do not complete #56's separate
+dynamic-contact visual review.
+
+A fresh run with the existing browser helper's 2× CPU throttling still times
+out in a pinned-ball clock advance. The trace shows completed earlier route
+segments and a pending `runFor(1500)` at the unchanged whole-test deadline,
+without a movement assertion or runtime exception. #60 remains open pending
+this slower-CPU result and repeatability under the repository project settings.
+The earlier one-off loading failure remains distinct from active-render cost;
+tests still wait for the selected card and focused playable canvas.
+
+Evidence is retained under `.tmp/ujg-traversal-fixes/`:
+`correction-complete-browser.log`, `correction-types-current.log`,
+`correction-lint-current.log`, `correction-build.log`,
+`renderer-final-uncontended-paired.log`, `correction-browser-gaps.log`,
+`correction-gap-traces.jsonl`, and `correction-browser-gaps-slow`.
 

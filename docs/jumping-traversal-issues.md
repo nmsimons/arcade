@@ -26,7 +26,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
-| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Nine movement cases have completed their assertions; slower-CPU and context-cleanup repeatability remains incomplete |
+| [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Resolved: all nine cases pass twice under both normal production-project settings and 2× CPU throttling, including cleanup and confirmed fresh bundles |
 
 ## Implementation order and evaluation
 
@@ -1197,3 +1197,58 @@ changing the serialized world. Unsupported starts above each fixture remain
 airborne without borrowed standing contacts. Both checks and changed-file lint
 pass. This closes additional first-frame coverage gaps for #50; broader rest
 contexts and ordinary-scale visual acceptance remain explicit.
+
+## Nineteenth implementation pass: reuse validated contact outlines
+
+October 8, 2026. Read-only terrain, foot, ledge and athlete queries now share
+the existing validated world outline. In-place position, dimensions, polygon
+and profile edits still invalidate that outline. The public authoring helper
+continues to return independent editable arrays; collision decomposition no
+longer reconstructs the same outline immediately after validating it.
+
+Two permanent checks cover six shape classes in both mirror directions,
+in-place edits, outline replacement and independence of authoring arrays.
+Sixteen simulation scenarios retain all 9,600 complete fixed-step states
+exactly, including contacts, footwork, joints, moving props and clocks. The
+baseline and current capture files have identical SHA256 hashes. A native
+paired comparison retains zero differing channels in six complete images.
+Its 145 measured simulation/drawing frames take 2653.7 ms before and 2532.4 ms
+after, approximately 4.6% less time; medians are 15.9/15.6 ms. This is modest
+local timing evidence, with equal pixel reads on both sides, not an FPS claim.
+
+The full UJG Node run passes 1,410 of 1,412 checks in 199.7 seconds. Both
+failures occur while creating file symlinks in Windows security-test fixtures
+(`EPERM`), before their symlink assertions. All movement and recorded route
+checks pass. Types, changed-file lint and the isolated production build pass.
+All thirteen development rendering comparisons pass in 1.4 minutes. The final
+two-worker production repetition completes all eighteen original cases in
+2.0 minutes. Normal/reversed squeeze times are 10.9/11.1 and 11.2/11.3 seconds
+within the unchanged 30-second limits. The separate serial 2× CPU repetition
+passes all eighteen in 6.4 minutes, with squeeze times of 23.1/27.4 and 25.5/23.0
+seconds. Every trace in both final repetitions confirms the newly built
+`UntitledJumpingGame-2mU9ehsq.js` bundle. The preceding normal run also passed
+eighteen checks, but its first three loaded the preceding bundle because it
+started before the build finished. It is retained as mixed-build diagnostics
+and is not used for final fresh-build acceptance.
+
+This completes #60's nine-case acceptance. The three mantle cases' main runtime
+cost was full viewport composition and repeated contact/rig work. Rope failures
+also included the proved passive-wait scheduling cost. The two squeeze cases
+retain both native two-second holds, all 125 drawn frames per hold, every
+joint/root assertion and their original deadlines. Water's loading/preparation
+and persistent-context teardown failures were separate from its successful
+movement assertions; gameplay now uses ordinary contexts while authoring alone
+retains the filesystem-handle profile. The full water authoring readiness
+repetition is recorded in the preceding pass. No deadline, active input trace,
+short-transition cadence or movement assertion was relaxed. These checks
+establish repeatable execution, not artistic acceptance for the other issues.
+
+Evidence under `.tmp/ujg-traversal-fixes/`: `outline-all-node.log`,
+`outline-baseline.json`, `outline-current.json`, `outline-baseline.log`,
+`outline-current.log`, `renderer-outline-paired.json`, `outline-paired.log`,
+`outline-types.log`, `outline-final-lint.log`, `outline-build.log`,
+`outline-repeat-normal.log`, `outline-repeat-normal-results/`,
+`outline-final-pixels.log`, `outline-final-pixel-results/`,
+`outline-final-normal.log`, `outline-final-normal-results/`,
+`outline-repeat-slow.log`, `outline-repeat-slow-results/` and
+`outline-build-witnesses.jsonl`.

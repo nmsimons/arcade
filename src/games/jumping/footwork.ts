@@ -1,6 +1,6 @@
 import type { Platform, Player } from './model.ts'
 import { groundAt } from './terrain.ts'
-import { polygonPoints } from './geometry.ts'
+import { platformOutline } from './geometry.ts'
 
 type Point = [number, number]
 export interface FootContact {
@@ -98,7 +98,7 @@ function clearTerrain(foot: FootContact, platforms: readonly Platform[], y: numb
   const sole = FOOT_CONTACT.map(point => footPoint(point, foot.angle, toe)[0] * foot.facing)
   for (const b of platforms) {
     if (Math.max(bodyX, foot.x) + 8 < b.x || Math.min(bodyX, foot.x) - 8 > b.x + b.w) continue
-    const points = polygonPoints(b), probeY = Math.min(foot.y, y - 2.8)
+    const points = platformOutline(b), probeY = Math.min(foot.y, y - 2.8)
     for (let i = 0; i < points.length; i++) {
       const a = points[i], end = points[(i + 1) % points.length]
       if (Math.abs(a[0] - end[0]) > 1e-7 || probeY <= Math.min(a[1], end[1]) || probeY >= Math.max(a[1], end[1])) continue

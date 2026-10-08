@@ -3,7 +3,7 @@ import { gaitPose } from './model.ts'
 import type { JumpInput, Player } from './model.ts'
 import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
-import { moveBody, nearestBoundary, pointInside, polygonPoints } from './geometry.ts'
+import { moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, climbRoot, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { keepRopeGrip } from './ropeGravity.ts'
@@ -896,7 +896,7 @@ function anticipateSlideLanding(p: Player) {
   if (velocity * Math.sin(s.angle) <= 0 || canGrip(s.angle) || !p.terrain) return null
   const direction = Math.sign(s.angle)
   for (const platform of p.terrain) {
-    const points = polygonPoints(platform)
+    const points = platformOutline(platform)
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1]
       if (dx <= 0 || Math.abs(Math.atan2(dy, dx) - s.angle) > .01) continue
@@ -1515,7 +1515,7 @@ function clearRiserLeg(p: Player, leg: Leg): Leg {
   const rootX = p.x + leg.root[0] * p.facing
   for (const b of p.terrain!) {
     if (rootX + 36 < b.x || rootX - 36 > b.x + b.w || p.y < b.y || p.y - 62 > b.y + b.h) continue
-    const points = polygonPoints(b)
+    const points = platformOutline(b)
     for (let i = 0; i < points.length; i++) {
       const a = points[i], end = points[(i + 1) % points.length]
       if (Math.abs(a[0] - end[0]) > 1e-7) continue

@@ -117,6 +117,12 @@ on the reference, including both gravity frames, airborne and water poses,
 low/crouched working contacts, powered night scenes and full-bright fallback.
 Check ordinary queries, nested draws and exception cleanup separately. A
 passing image comparison must also leave the player state unchanged.
+Read-only contact queries may share `platformOutline` geometry, but authoring
+must use independent `polygonPoints` arrays. In-place position, size, polygon
+and profile edits must invalidate the shared outline, including mirrored,
+rotated and rounded shapes. Preserve exact winding and redundant-edge filtering.
+Compare full fixed-step contacts, footwork and rigs when changing these hot
+queries; successful final positions alone can hide a one-frame support change.
 Resolve both images equally for paired
 performance measurements and retain the same memory budget. A passing normal
 CPU run does not complete slow-machine acceptance; the existing

@@ -1,5 +1,5 @@
 import type { Platform } from './model.ts'
-import { polygonPoints } from './geometry.ts'
+import { platformOutline } from './geometry.ts'
 import { canGrip } from './friction.ts'
 
 export interface GroundSurface { platform: Platform; y: number; angle: number }
@@ -7,7 +7,7 @@ export interface GroundSurface { platform: Platform; y: number; angle: number }
 /** Profile points are local x/y offsets from the platform's upper-left corner. */
 export function platformSurfaces(platform: Platform, x: number): GroundSurface[] {
   if (!platform.polygon) return [platformSurface(platform, x)]
-  const points = polygonPoints(platform), found: GroundSurface[] = []
+  const points = platformOutline(platform), found: GroundSurface[] = []
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = points[(i + 1) % points.length], dx = b[0] - a[0]
     if (dx <= 1e-7 || x < a[0] - 1e-7 || x > b[0] + 1e-7) continue
@@ -49,7 +49,7 @@ export function groundAt(platforms: readonly Platform[], x: number, y: number, r
 function solidSpans(platform: Platform, x: number): number[][] {
   if (x < platform.x || x > platform.x + platform.w) return []
   if (!platform.polygon) return [[platformSurface(platform, x).y, platform.y + platform.h]]
-  const points = polygonPoints(platform), crossings: number[] = []
+  const points = platformOutline(platform), crossings: number[] = []
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = points[(i + 1) % points.length]
     if ((a[0] > x) !== (b[0] > x)) crossings.push(a[1] + (x - a[0]) * (b[1] - a[1]) / (b[0] - a[0]))
@@ -67,7 +67,7 @@ export function exposedSide(platforms: readonly Platform[], platform: Platform, 
 /** Reachable walls can be inset within a concave outline's bounding rectangle. */
 export function exposedWallFaces(platforms: readonly Platform[], platform: Platform, side: number, top: number, bottom: number): number[] {
   if (platform.y >= bottom || platform.y + platform.h <= top) return []
-  const points = polygonPoints(platform)
+  const points = platformOutline(platform)
   const faces = points.flatMap((a, i) => {
     const b = points[(i + 1) % points.length]
     return Math.abs(a[0] - b[0]) < .01 && (b[1] - a[1]) * side < 0
@@ -79,7 +79,7 @@ export function exposedWallFaces(platforms: readonly Platform[], platform: Platf
 function exposedFace(platforms: readonly Platform[], platform: Platform, side: number, top: number, bottom: number, x: number): boolean {
   let spans: number[][]
   if (platform.polygon) {
-    const points = polygonPoints(platform)
+    const points = platformOutline(platform)
     spans = points.flatMap((a, i) => {
       const b = points[(i + 1) % points.length]
       return Math.abs(a[0] - x) < .01 && Math.abs(b[0] - x) < .01 && (b[1] - a[1]) * side < 0

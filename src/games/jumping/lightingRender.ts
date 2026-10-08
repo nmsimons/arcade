@@ -60,11 +60,14 @@ export class LightingRenderer {
   private gpuUnavailable = false
   private preferGpu: boolean
   private allowSoftware: boolean
+  private boundedEmissions: boolean
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu' } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
+    // The full composition remains available as a pixel/performance reference.
+    this.boundedEmissions = options.boundedEmissions !== false
   }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
@@ -335,15 +338,50 @@ export class LightingRenderer {
     // playground has no full-exposure artwork to restore, either.
     const readableFloors: readonly (1 | .65)[] = nightMode ? [1, .65] : 'elapsed' in run || sources.some(source => source.fade > 0) ? [1] : []
     for (const floor of readableFloors) {
+      let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity
+      const include: Parameters<typeof emissionPaint>[1] = (target, bounds) => {
+        // Unknown artwork is never clipped. Night's player contrast correction
+        // also uses this field outside the emissive artwork, so retain it whole.
+        if (!bounds || !this.boundedEmissions || nightMode) {
+          left = 0; top = 0; right = width; bottom = height; return
+        }
+        const transform = target.getTransform()
+        let l = Infinity, t = Infinity, r = -Infinity, b = -Infinity
+        for (const x of [bounds.x, bounds.x + bounds.w]) for (const y of [bounds.y, bounds.y + bounds.h]) {
+          const point = transform.transformPoint({ x, y })
+          l = Math.min(l, point.x); t = Math.min(t, point.y)
+          r = Math.max(r, point.x); b = Math.max(b, point.y)
+        }
+        if (r < -2 || b < -2 || l > width + 2 || t > height + 2) return
+        left = Math.min(left, l); top = Math.min(top, t)
+        right = Math.max(right, r); bottom = Math.max(bottom, b)
+      }
       clear(correction, width, height)
       drawField(correction.ctx)
       correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height)
       correction.ctx.globalCompositeOperation = 'difference'; drawField(correction.ctx)
-      clear(emission, width, height)
-      this.world(emission.ctx, run, view, nightMode, emissionPaint(floor), sources, editor)
-      emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, width, height)
-      emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, 0, 0)
-      ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, 0, 0)
+      if (nightMode || !this.boundedEmissions) { left = 0; top = 0; right = width; bottom = height }
+      else {
+        // Find conservative coverage without painting. A small source rectangle
+        // on a full-sized GPU canvas can still force a whole-canvas readback.
+        // Keep the actual emission buffer small as well as its final composite.
+        const coverage: WorldPaint = (target, exposure, _draw, _receivesLight, bounds) => {
+          if (exposure === floor) include(target, bounds)
+        }
+        this.world(emission.ctx, run, view, nightMode, coverage, sources, editor)
+      }
+      // Outside the emission mask this layer is black and adds nothing. Replay
+      // the same artwork into the cropped buffer; unknown artwork retains the
+      // whole viewport. Two pixels cover raster edge filtering.
+      const x = Math.max(0, Math.floor(left) - 2), y = Math.max(0, Math.floor(top) - 2)
+      const w = Math.min(width, Math.ceil(right) + 2) - x, h = Math.min(height, Math.ceil(bottom) + 2) - y
+      if (w <= 0 || h <= 0) continue
+      clear(emission, w, h)
+      this.world(emission.ctx, run, { ...view, x: view.x + x / view.zoom, y: view.y + y / view.zoom, width: w, height: h },
+        nightMode, emissionPaint(floor), sources, editor)
+      emission.ctx.globalCompositeOperation = 'destination-over'; emission.ctx.fillStyle = '#000'; emission.ctx.fillRect(0, 0, w, h)
+      emission.ctx.globalCompositeOperation = 'multiply'; emission.ctx.drawImage(correction.canvas, x, y, w, h, 0, 0, w, h)
+      ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(emission.canvas, x, y)
       if (nightMode && floor === 1 && playerWidth > 0 && playerHeight > 0) {
         // Match the ball's ambient color while retaining near-white in direct
         // light. The existing (1 - light) field also preserves partial shadows

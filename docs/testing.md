@@ -64,7 +64,7 @@ climbing, cancellation, pause and browser-default suppression. The same checks
 also run in Chromium. Automated pointer sequences establish input behavior;
 actual iPhone playtesting establishes gesture feel and system interruptions.
 
-Long recovery and departure checks pause the browser clock between actions and
+Hard Vacuum's long recovery and departure checks pause the browser clock between actions and
 advance it in 100 ms batches. This draws at 10 Hz while retaining all 60 Hz
 physics steps within the six-step catch-up limit, instead of spending the test
 timeout drawing thousands of intermediate frames. Short input/animation checks
@@ -72,6 +72,23 @@ still use normal frame pacing. A browser check verifies elapsed gameplay, and
 unit replays compare 10 Hz with the existing 30/60/120/144 Hz schedules. No test
 timeouts, assertions, or gameplay durations are relaxed. To reproduce slow-machine
 conditions locally, prefix the browser command with `HV_TEST_CPU_RATE=6`.
+
+UJG traversal checks wait for the selected level card to become visible before
+pausing the installed clock, then wait for the playable canvas to receive focus.
+Keep these readiness observations ahead of clock-controlled input; a loading
+failure and a slow gameplay frame are different failures. Retain traces while
+diagnosing either, and run a costly failing case alone before attributing its
+timeout to movement.
+
+UJG caps each rendered frame's elapsed time at 50 ms and advances physics at
+120 Hz. Hard Vacuum's 100 ms batching helper therefore drops half the requested
+UJG simulation time. Keep traversal and sampled animation at the existing normal
+frame cadence unless a separate schedule equivalence check proves every elapsed
+step and input transition is retained. Improve runtime/rendering cost instead of
+lengthening deadlines, shortening traces, omitting frames, or replacing normal
+controls with injected state. Rendering optimizations must compare the complete
+image against the original composition, including occlusion, camera/size changes,
+power loss, and artwork that needs a full-viewport fallback.
 
 Bot-model checks validate mesh winding, mirrored grabber poses, garage clearance,
 powered/damaged states, and presentation-only rendering without physics writes.

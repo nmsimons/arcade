@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { athletePose } from '../src/games/jumping/athlete.ts'
+import { athletePose, dryTurnDirection } from '../src/games/jumping/athlete.ts'
 import { athleteCasters } from '../src/games/jumping/athleteShadow.ts'
 import { nearestBoundary, pointInside, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
@@ -17,7 +17,7 @@ function trace(level, entry, steer, observe, jumpAt) {
     const direction = level.spawn.x < level.width / 2 ? 1 : -1
     const move = !started ? 0 : contact < 0 ? direction * (entry === 'walk' ? 125 / 350 : 1)
       : steer === 'uphill' ? -direction : steer === 'downhill' ? direction : 0
-    const jump = jumpAt !== undefined && contact >= 0 && i >= contact + jumpAt && i < contact + jumpAt + 3
+    const jump = typeof jumpAt === 'function' ? jumpAt(p, i) : jumpAt !== undefined && contact >= 0 && i >= contact + jumpAt && i < contact + jumpAt + 3
     stepRun(run, { ...NEUTRAL_INPUT, move, climb: !started || i === 0, jump })
     if (p.sliding?.active && contact < 0) contact = i
     if (p.sliding?.active) {
@@ -25,7 +25,7 @@ function trace(level, entry, steer, observe, jumpAt) {
       if (Math.hypot(p.vx, p.vy) > 900) fast++
     }
     if (observe?.(p, i, run) === false) break
-    if (contact >= 0 && !p.sliding && p.grounded) break
+    if (typeof jumpAt !== 'function' && contact >= 0 && !p.sliding && !p.slideEntry && p.grounded) break
   }
   return { seen, fast }
 }
@@ -48,11 +48,41 @@ test('a fresh jump responds during slide entry and automatic turning in both gra
   }
 })
 
-function rigPoints(p, pose) {
-  return [...['hip', 'waist', 'shoulder', 'head'].map(name => [...pose[name], 0]),
+for (const degrees of [46.5, 55, 70]) {
+  test(`fresh jump interrupts the ${degrees}° corner gather and its actual supported landing immediately`, () => {
+    for (const entry of ['walk', 'run']) for (const direction of [-1, 1]) for (const inverted of [false, true])
+      for (const steer of ['neutral', 'uphill', 'downhill']) for (const phase of ['gather', 'supported']) {
+        let press = -1, launched = false
+        trace(slideLevel(degrees, direction, inverted), entry, steer, (p, i) => {
+          if (i === press) {
+            assert.equal(p.grounded, false)
+            assert.ok(p.vy * (inverted ? -1 : 1) < -200, `${entry} ${direction} ${inverted} ${steer} ${phase}: fresh press launches on this tick`)
+            assert.equal(p.sliding?.active ?? false, false)
+            launched = true
+          }
+          if (press >= 0 && i >= press + 24) return false
+        }, (p, i) => {
+          const x = direction > 0 ? p.x : 1800 - p.x
+          if (press < 0 && x > 990 && (phase === 'gather' ? p.slideEntry?.landing && p.sliding?.active : p.grounded)) press = i
+          return press >= 0 && i < press + 3
+        })
+        assert.ok(launched, `${degrees}° ${entry} ${direction} ${inverted} ${steer} ${phase}: actual controls must reach the requested corner state`)
+      }
+  })
+}
+
+function rigPoints(p, pose, shoes = false) {
+  const points = [...['hip', 'waist', 'shoulder', 'head'].map(name => [...pose[name], 0]),
     ...['frontArm', 'backArm', 'frontLeg', 'backLeg'].flatMap(name => [
       [...pose[name].joint, pose[name].jointDepth ?? 0], [...pose[name].end, pose[name].endDepth ?? 0],
-    ])].map(([x, y, z]) => [x * p.facing, y * (p.inverted ? -1 : 1), z])
+    ])]
+  if (shoes) for (const leg of [pose.frontLeg, pose.backLeg]) for (const point of FOOT_CONTACT) {
+    const sole = footPoint(point, leg.footAngle * leg.footFacing, leg.toeAngle * leg.footFacing, point[0] > 2.2)
+    const profile = 1 - (leg.rear ?? 0)
+    points.push([leg.end[0] + sole[0] * leg.footFacing * profile, leg.end[1] + sole[1],
+      (leg.endDepth ?? 0) + sole[0] * Math.sqrt(Math.max(0, 1 - profile ** 2))])
+  }
+  return points.map(([x, y, z]) => [x * p.facing, y * (p.inverted ? -1 : 1), z])
 }
 
 for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
@@ -88,6 +118,49 @@ for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
         previous = points
       })
       assert.ok(handoff && samples > 40, 'normal controls must witness both entry and the complete turn window')
+    }
+  })
+}
+
+for (const degrees of [46.5, 55, 70]) for (const entry of ['walk', 'run']) {
+  test(`${entry} ${degrees}° slide gathers for connected flat support without a landing or release snap`, () => {
+    for (const direction of [-1, 1]) for (const inverted of [false, true]) for (const steer of ['neutral', 'uphill', 'downhill']) {
+      const level = slideLevel(degrees, direction, inverted)
+      let previous, samples = 0, transfer = false, completed = false
+      trace(level, entry, steer, (p, i) => {
+        const pose = athletePose(p), points = rigPoints(p, pose, true)
+        const x = direction > 0 ? p.x : level.width - p.x
+        if (x > 940) {
+          const max = Math.max(...points.map((point, k) => Math.hypot(...point.map((v, axis) => v - previous[k][axis]))))
+          assert.ok(max <= 5, `${degrees}° ${entry} ${direction} ${inverted} ${steer}: landing rig changed ${max} units at ${i}`)
+          transfer ||= !!p.slideEntry?.landing
+          completed ||= !p.sliding && !p.slideEntry && p.grounded
+          if (steer === 'uphill' && p.slideEntry?.landing && p.vx * p.facing < 0 && Math.abs(p.vx) > 20) {
+            assert.equal(dryTurnDirection(p, { ...NEUTRAL_INPUT, move: -direction }), Math.sign(p.vx),
+              'braking retains the outgoing visible facing until the actual coast slows')
+            if (p.grounded) assert.equal(p.footwork.facing, Math.sign(p.vx), 'new supported steps follow the same braking direction')
+          }
+          for (const shape of athleteCasters(p)) for (const [x, y] of polygonPoints(shape)) {
+            if (pointInside(level.platforms[0], x, y)) assert.ok(nearestBoundary(level.platforms[0], x, y).distance <= .2,
+              `landing native skin must remain clear at ${i}, (${x},${y})`)
+          }
+          for (const name of ['frontArm', 'backArm', 'frontLeg', 'backLeg']) {
+            const limb = pose[name], leg = name.endsWith('Leg'), jointZ = limb.jointDepth ?? 0, endZ = limb.endDepth ?? 0
+            assert.ok(Math.abs(Math.hypot(limb.joint[0] - limb.root[0], limb.joint[1] - limb.root[1], jointZ) - (leg ? 15 : 10)) < 1e-6)
+            assert.ok(Math.abs(Math.hypot(limb.end[0] - limb.joint[0], limb.end[1] - limb.joint[1], endZ - jointZ) - (leg ? 14.5 : 9)) < 1e-6)
+            if (leg) {
+              const dot = (limb.root[0] - limb.joint[0]) * (limb.end[0] - limb.joint[0])
+                + (limb.root[1] - limb.joint[1]) * (limb.end[1] - limb.joint[1]) - jointZ * (endZ - jointZ)
+              assert.ok(Math.acos(Math.max(-1, Math.min(1, dot / (15 * 14.5)))) >= (p.grounded ? Math.PI / 12 : Math.PI / 4) - 1e-6,
+                'landing retains safe knees throughout gathering and actual supported release')
+            }
+          }
+          samples++
+        }
+        previous = points
+      })
+      assert.ok(transfer && completed && samples > 15,
+        `${degrees}° ${entry} ${direction} ${inverted} ${steer}: must witness anticipation (${transfer}), completed landing (${completed}) and samples (${samples})`)
     }
   })
 }

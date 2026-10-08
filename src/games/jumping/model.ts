@@ -62,7 +62,7 @@ export interface Player {
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
   freeFall: { time: number; amount: number; recovery: number | null; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
   dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean } | null
-  slideEntry: { pose: AthletePose; facing: number; time: number } | null
+  slideEntry: { pose: AthletePose; facing: number; time: number; landing?: boolean } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
   look: number // Presentation only: positive looks up, negative looks down.
@@ -647,7 +647,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   }
   advanceMovingRecovery(p, dt, Math.abs(contacts.motion.x) > .05)
   advanceDryTurn(p, input, dt, turnFrame)
-  advanceSlideEntry(p, dt, slideEntryFrame)
+  advanceSlideEntry(p, dt, slideEntryFrame, input)
 }
 
 /** Read-only lowering availability in the motor's gravity-normalized frame.

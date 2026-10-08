@@ -22,7 +22,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Confirmed mismatch between labels and motor/bindings |
 | [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Rendered visual quality issue; artistic tuning required |
-| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance and steep-face limb clearance addressed; complete entry, facing-change and landing continuity remains incomplete |
+| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance, entry/turn/landing continuity and steep-face clearance addressed; supported landing still briefly leaves both soles above the floor in 29 of 72 encounters |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
@@ -633,4 +633,122 @@ held intent, a fresh jump at the corner, actual soles and complete native
 playback. Broader dynamic-object/brief-contact interaction and the existing
 original-browser performance gaps also remain separate acceptance gates.
 No GitHub issue is closed by this pass.
+
+## Eleventh pass: gather for connected landing and retain braking orientation
+
+October 8, 2026. The steep-to-flat corner in #56 now has a retained handoff;
+its remaining visible support problem is quantified below. No issue is closed.
+
+The wider normal-control audit reproduces a greater-than-five-unit relative
+joint change in **69 of 72** approaches in the previous `b4d16b5` rig. It covers
+46.5°/55°/70°, walking/running, both directions and gravity frames, and neutral,
+uphill and downhill intent. The worst knee change is 12.73 units. Success is
+measured relative to the unchanged physical root, including 3D bend depth.
+
+**Connected landing.** A real adjacent grippable face now supplies up to 100 ms
+of advance notice. Only an edge matching the current slip face and lying near
+its actual contact can advertise that support; an unrelated parallel slope
+cannot supply a landing cue. The visual rig gathers toward the incoming face
+while the collision motor keeps its exact slope, contact, velocity and friction.
+Resolved slip momentum carries that preparation through abrupt physical
+braking. Once supported, the fading slide follows the new support rather than
+retaining an increasingly distant old foot target.
+
+The cached outgoing rig advances only after body, shoe and limb clearance.
+Every joint and sampled heel/toe material point is limited to five units per
+1/120-second tick in three dimensions. The interpolation continues beyond its
+nominal 120 ms when necessary, until the actual target is reached. The shoe
+also passes through its end view before changing facing; an ankle-only check
+missed visible toe flips of roughly 15 units. Pitch and toe bend remain
+continuous across that change, and clearance uses the projected drawn shape.
+
+**Braking and rest.** Gameplay-scale playback caught a prototype that began
+running toward uphill input while momentum still carried it downhill. The
+landing now retains the outgoing visible direction and suppresses the run
+amount during braking. Motor steering remains immediate. Real footwork follows
+the same visible direction. If braking continues after the slide fades, the
+already-solved rig transfers directly to the ordinary dry-turn owner.
+
+A further prototype stalled at rest when its outgoing knee and the standing
+knee lay on opposite sides of the reach axis. The solved bend now crosses
+through depth while the continuity limit remains active; a supported knee may
+use the normal 15° opening, while an unsupported knee retains the 45° minimum.
+The permanent checks require the handoff to complete, so a frozen but
+coordinate-stable rig cannot pass.
+
+All **31 slide regressions pass**. Six new groups cover the entire landing and
+release in the 72 encounters, with strict 3D joint/shoe continuity, fixed
+15/14.5 leg and 10/9 arm lengths, safe knee opening, native silhouette clearance,
+braking direction, and actual completion. Those six expose the old rig's corner
+defects. Three further groups exercise **144 fresh jumps** during the corner
+gather or on first real supported contact. Every press launches on its input
+tick. The first supported-contact fixture incorrectly required the visual
+handoff still to be active in every case; that overlap does not exist in one
+55° walking encounter. It now waits for actual support, without changing the
+jump response assertion.
+
+A separate complete comparison of all 72 physical movement traces against the
+previous motor agrees exactly at every step. Render/debug queries remain
+read-only. Types, affected lint and the isolated production build pass.
+The complete UJG suite passes **1425 of 1427** checks; the two failures are
+the existing Windows security tests that require unavailable symlink privileges
+(`EPERM`). No gameplay regression fails.
+The production observer includes `signals.slideLanding` so the keyboard checks
+can witness both acquisition and release of the presentation owner.
+
+Both 14-case production keyboard runs pass at normal render cadence, including
+four complete landings in a 390×844 viewport and a fresh Space press after
+support. The final run covers the subsequent braking and shoe-turn repairs and
+completes in 2.2 minutes. Inputs, deadlines and cadence remain unchanged.
+
+Matched native gameplay and three-times detail use the same controls, geometry,
+camera and 30 Hz timing, including another half second after the original slide
+ends. Each loop is a fresh replay. The enlarged adjacent-frame sheets were
+reviewed across approach, contact, braking, gait release and rest. They show the
+gather beginning before the crease and preserve the outgoing braking direction.
+
+Mirrored 55° running approach with uphill intent:
+[before](images/jumping-slide-landing-55-run-left-normal-uphill-before.gif) /
+[after](images/jumping-slide-landing-55-run-left-normal-uphill-after.gif).
+
+Slow 70° walking approach and landing:
+
+![Previous corner landing](images/jumping-slide-landing-70-walk-right-normal-neutral-before.gif)
+
+![Retained corner landing](images/jumping-slide-landing-70-walk-right-normal-neutral-after.gif)
+
+Matched
+[inverted before](images/jumping-slide-landing-70-walk-right-inverted-neutral-before.gif) /
+[inverted after](images/jumping-slide-landing-70-walk-right-inverted-neutral-after.gif),
+and
+[downhill-intent before](images/jumping-slide-landing-70-run-right-normal-downhill-before.gif) /
+[downhill-intent after](images/jumping-slide-landing-70-run-right-normal-downhill-after.gif)
+also retain the full landing and return to the current supported gait.
+
+**Remaining #56 support defect.** In **29 of 72** approaches, the nearest visible
+sole sample is more than 0.5 units from the actual terrain during a grounded
+landing-handoff tick; the worst gap is **3.95 units**. This is a visible load
+timing problem even though the rig now passes the continuity and clearance
+checks. Reproduce with 46.5° running, rightward movement, inverted gravity and
+uphill intent: the gap reaches 3.86 at tick 281. Ordinary 55° running in either
+direction and downhill intent provides further cases. The control trace remains
+physically supported; both visible shoes temporarily lag above its support.
+
+The next repair must establish a reachable, load-bearing visible sole on the
+actual floor during the support transfer. Anticipate the selected shoe and
+pelvis before contact if a post-contact correction would exceed the five-unit
+joint/material-point limit. Preserve motor support, actual friction/jumps,
+fixed bone lengths, terrain clearance and continuous shoe facing. Keep the
+other foot free to finish gathering. Verify at least one real shoe-material
+contact within 0.06 units on force-bearing support frames, and inspect native
+gameplay through contact, braking, the first supported step and rest. A root
+clamp, hidden foot, fake contact flag or raised tolerance is not a repair.
+
+Reproducers, matrix records and validation logs are under
+`.tmp/ujg-traversal-fixes/`: `slide-landing-support.mjs`,
+`slide-landing-support.log`, `slide-landing-stall.mjs`,
+`slide-landing-before-regressions.log`, `slide-landing-shoes-final.log`,
+`slide-landing-full-ujg-final.log`, and `slide-landing-browser-final.log`.
+Dynamic/brief-contact interactions, the original browser performance gaps,
+physical-device feel and the broader route/camera review remain separate gates.
 

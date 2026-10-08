@@ -366,6 +366,21 @@ the limbs snapping back and forth. A separate wall brace keeps its own contact
 and release blend when a slope contact starts, and both poses compose through
 their existing weights.
 
+The last supported rig transfers into a new slide over 120 ms, including a
+one-tick slip that temporarily loses contact. A contact-selected facing change
+retains the outgoing rig while mechanical steering and fresh jumps remain
+immediate. Sliding turns use a 160 ms visible handoff. A connected grippable
+face can prepare the next landing up to 100 ms ahead. Its outgoing rig remains
+owned until the cleared target is reachable within five units of 3D joint and
+shoe-material travel per 1/120-second step. Shoe facing passes through the end
+view, and a knee crosses its reach axis through depth. Braking keeps the visible
+direction of the outgoing coast and hands the completed landing rig to the dry
+turn when needed. These presentation states never supply physical support or
+change the exact collision/friction contact. Actual support, gripping, water,
+gravity reorientation and cancellation keep their existing control ownership.
+The remaining visible sole-load timing at corner landings is tracked in #56;
+continuity and clearance alone do not prove a convincing support transfer.
+
 Development builds observe the final player state after each physics step with
 `JumpingMotionDiagnostics`. For a production build, open the game with
 `?motionDebug=1` to enable the same observer. It reports repeated contact/state

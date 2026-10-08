@@ -110,3 +110,50 @@ for (const direction of [-1, 1]) for (const inverted of [false, true]) test(`slo
   await page.clock.runFor(128)
   await page.screenshot({ path: info.outputPath('fresh-press-during-brace-turn.png') })
 })
+
+for (const options of [
+  { degrees: 70, entry: 'walk', direction: 1, inverted: false, steer: 'neutral' },
+  { degrees: 55, entry: 'run', direction: -1, inverted: false, steer: 'uphill' },
+  { degrees: 70, entry: 'walk', direction: 1, inverted: true, steer: 'neutral' },
+  { degrees: 55, entry: 'run', direction: -1, inverted: true, steer: 'downhill' },
+]) test(`connected landing retains the actual outgoing rig (${JSON.stringify(options)})`, async ({ page }, info) => {
+  const { degrees, entry, direction, inverted, steer } = options
+  const level = slideLevel(degrees, direction, inverted), key = direction > 0 ? 'd' : 'a'
+  await open(page, level)
+  if (entry === 'walk') await page.keyboard.down('Shift')
+  await page.keyboard.down(key)
+  let slipped
+  for (let i = 0; i < 40; i++) {
+    await page.clock.runFor(16); slipped = (await history(page)).at(-1)
+    if (slipped.signals.sliding) break
+  }
+  expect(slipped.signals.sliding).toBe(true)
+  await page.keyboard.up(key)
+  if (entry === 'walk') await page.keyboard.up('Shift')
+  const held = steer === 'uphill' ? direction > 0 ? 'a' : 'd' : steer === 'downhill' ? key : null
+  if (held) await page.keyboard.down(held)
+  let complete = false, witnessed = false
+  const samples = []
+  for (let i = 0; i < 24; i++) {
+    await page.clock.runFor(128)
+    const recent = await history(page)
+    for (const sample of recent) if (!samples.length || sample.time > samples.at(-1).time) samples.push(sample)
+    const last = samples.at(-1)
+    witnessed ||= recent.some(sample => sample.signals.slideLanding)
+    if (witnessed && last.signals.grounded && !last.signals.slideLanding && last.blends.slide === 0) { complete = true; break }
+  }
+  expect(witnessed).toBe(true); expect(complete).toBe(true)
+  for (let i = 1; i < samples.length; i++) {
+    const a = samples[i - 1], b = samples[i], x = direction > 0 ? b.x : level.width - b.x
+    if (x <= 940 || !a.signals.slideLanding && !b.signals.slideLanding && a.blends.slide === 0 && b.blends.slide === 0) continue
+    for (let k = 0; k < b.points.length; k++) expect(Math.hypot(
+      b.points[k][0] * b.signals.facing - a.points[k][0] * a.signals.facing, b.points[k][1] - a.points[k][1]),
+    `joint ${k} at ${b.time}`).toBeLessThanOrEqual(5)
+  }
+  await page.screenshot({ path: info.outputPath('complete-connected-landing.png') })
+  if (held) await page.keyboard.up(held)
+  await page.keyboard.down('Space'); await page.clock.runFor(16); await page.keyboard.up('Space')
+  const launched = (await history(page)).at(-1)
+  expect(launched.signals.grounded).toBe(false); expect(launched.vy * (inverted ? -1 : 1)).toBeLessThan(-200)
+  await page.screenshot({ path: info.outputPath('fresh-press-after-landing.png') })
+})

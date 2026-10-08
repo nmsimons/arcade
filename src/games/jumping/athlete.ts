@@ -1245,6 +1245,15 @@ export function athletePose(p: Player): AthletePose {
   } else if (p.terrain) {
     resolved.frontLeg = clearRiserLeg(p, resolved.frontLeg); resolved.backLeg = clearRiserLeg(p, resolved.backLeg)
   }
+  if (p.sliding) {
+    // The slide owns the final arms, so the free-flight clearance above cannot
+    // protect a palm after its balance target changes. Soles retain their real
+    // contacts while an uphill knee bends through depth around a steep face.
+    resolved.frontArm = clearLimb(p, clearSlidingArm(p, resolved.frontArm), UPPER_ARM, FOREARM, 1, true)
+    resolved.backArm = clearLimb(p, clearSlidingArm(p, resolved.backArm), UPPER_ARM, FOREARM, 1, true)
+    resolved.frontLeg = clearSlidingJoint(p, resolved.frontLeg, 15, 14.5, 2.2)
+    resolved.backLeg = clearSlidingJoint(p, resolved.backLeg, 15, 14.5, 2.2)
+  }
   return resolved
 }
 
@@ -1320,12 +1329,40 @@ function clearRiserLeg(p: Player, leg: Leg): Leg {
   return current
 }
 
-/** Keep weight over staggered feet, with soft knees and small balance corrections. */
+/** Clear the uphill palm continuously before selecting an elbow bend plane. */
+function clearSlidingArm(p: Player, arm: Limb): Limb {
+  if (!p.terrain?.length) return arm
+  const intrusion = bodyIntrusion(p, arm.end, 3.5)
+  const target = intrusion ? solve(arm.root, add(arm.end, [intrusion.x, intrusion.y]), UPPER_ARM, FOREARM, 1) : arm
+  return clearSlidingJoint(p, target, UPPER_ARM, FOREARM, 1.65)
+}
+
+/** Keep sliding endpoints fixed while a knee/elbow folds away from actual terrain. */
+function clearSlidingJoint<T extends Limb>(p: Player, limb: T, upper: number, lower: number, radius: number): T {
+  if (!p.terrain?.length) return limb
+  // Use the knee/elbow's actual nearest face. The motor's slip angle and
+  // nearest root contact can temporarily belong to different faces at a
+  // landing corner; extending that tangent would over-fold a clear knee.
+  const intrusion = bodyIntrusion(p, limb.joint, radius)
+  if (!intrusion) return limb
+  const dx = limb.end[0] - limb.root[0], dy = limb.end[1] - limb.root[1], squared = dx * dx + dy * dy
+  if (squared < .001) return limb
+  const along = (upper ** 2 - lower ** 2 + squared) / (2 * squared)
+  const center: Point = [limb.root[0] + dx * along, limb.root[1] + dy * along]
+  const depth = Math.hypot(intrusion.x, intrusion.y)
+  const out = ((center[0] - limb.joint[0]) * intrusion.x + (center[1] - limb.joint[1]) * intrusion.y) / depth
+  if (out < depth) return limb
+  const amount = clamp(1 - depth / out), offset = Math.hypot(limb.joint[0] - center[0], limb.joint[1] - center[1])
+  return { ...limb, joint: mix(center, limb.joint, amount),
+    jointDepth: Math.sqrt((limb.jointDepth ?? 0) ** 2 + offset ** 2 * (1 - amount ** 2)) }
+}
+
+/** Keep weight over staggered feet, with restrained slow slips and fast counterbalance. */
 function slidingPose(p: Player, free: AthletePose): AthletePose {
   const s = p.sliding!, weight = smooth(s.amount)
   if (!weight) return free
   const tx = Math.cos(s.angle), ty = Math.sin(s.angle), nx = ty, ny = -tx
-  const velocity = p.vx * tx + p.vy * ty, speed = smooth(Math.abs(velocity) / 450)
+  const velocity = s.balanceSpeed ?? p.vx * tx + p.vy * ty, speed = smooth(Math.abs(velocity) / 450)
   const balance = Math.tanh(velocity / 150) * p.facing, correction = Math.sin(s.time * 5.5) * speed
   const at = (along: number, above: number): Point => [(s.x + tx * along + nx * above - p.x) * p.facing, s.y + ty * along + ny * above - p.y]
   const spread = 2.5 + speed * 4, center = at(0, 2.8)
@@ -1337,10 +1374,11 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
     const reach = 28.5 - speed, rise = Math.sqrt(Math.max(0, reach ** 2 - (foot[0] - hipTarget[0]) ** 2))
     hipTarget[1] = Math.max(hipTarget[1], foot[1] - rise - 1)
   }
-  const lean = -balance * (1.5 + speed) + correction * .4
+  const effort = smooth((Math.abs(velocity) - 130) / 420)
+  const lean = -balance * (1.5 + speed + effort * 3) + correction * .4
   const hip = mix(free.hip, hipTarget, weight), waist = mix(free.waist, add(hipTarget, [lean * .3, -6.5]), weight)
   const shoulder = mix(free.shoulder, add(hipTarget, [lean, -16.4]), weight)
-  const head = mix(free.head, add(hipTarget, [lean + .45, -23.7]), weight)
+  const head = mix(free.head, add(hipTarget, [lean + .45 - balance * effort * .8, -23.7]), weight)
   const leg = (original: Leg, foot: Point): Leg => {
     const target = mix(original.end, foot, weight), origin = at(0, 0)
     const above = (target[0] - origin[0]) * nx * p.facing + (target[1] - origin[1]) * ny
@@ -1352,8 +1390,8 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
     return { ...limb, footAngle: lerp(original.footAngle, s.angle * p.facing, weight), toeAngle: original.toeAngle * (1 - weight), footFacing: 1, planted: false }
   }
   const armRoot = add(shoulder, [0, .7])
-  const frontArm = armPose(armRoot, .08 + speed * .16 + correction * .015, .2 + speed * .55)
-  const backArm = armPose(armRoot, -.12 - speed * .18 + correction * .02, .14 + speed * .1)
+  const frontArm = armPose(armRoot, .08 + speed * .16 + effort * .32 + correction * .015, .2 + speed * .55 + effort * .9)
+  const backArm = armPose(armRoot, -.12 - speed * .18 - effort * .18 + correction * .02, .14 + speed * .1 + effort * .72)
   const arm = (original: Limb, relaxed: Limb) => solve(armRoot, mix(original.end, relaxed.end, weight), UPPER_ARM, FOREARM, 1)
   return { hip, waist, shoulder, head, frontLeg: leg(free.frontLeg, front), backLeg: leg(free.backLeg, back),
     frontArm: arm(free.frontArm, frontArm), backArm: arm(free.backArm, backArm) }

@@ -22,7 +22,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Confirmed mismatch between labels and motor/bindings |
 | [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Rendered visual quality issue; artistic tuning required |
-| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Visual evaluation task, not an established physics defect |
+| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance and steep-face limb clearance addressed; complete entry, facing-change and landing continuity remains incomplete |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
@@ -359,4 +359,160 @@ portrait readability. It does not settle the force-field/EMP/water teaching,
 physical-device feel, fast steep sliding, the broader camera/interaction
 matrix, collection-wide enjoyment/medals, or original browser performance
 acceptance. No issue is closed on the strength of this batch.
+
+## Ninth pass: fast slide balance and actual limb clearance
+
+October 8, 2026. Normal movement into the shared regression terrain in
+`tests/helpers/jumping-slide.mjs` establishes walking and running entries on
+46.3°, 46.5°, 55° and 70° faces. The whole encounter is mirrored for the other
+direction. Inverted runs start on the floor and acquire the ceiling through an
+always-on upward gravity field; they do not inject an inverted player state.
+Uphill, downhill and released input are evaluated after first contact. The
+sliding motor continues to integrate gravity and friction; held direction alone
+does not manufacture a force or animation load.
+
+At ordinary gameplay scale the previous 55° fast slide still read as a relaxed
+upright person with low arms. The existing speed term changed the hands, but
+not enough to explain balancing at 600–1,300 units/second. Three native versions
+were compared with identical geometry, inputs, framing and 30 Hz playback:
+the previous rig, a modest counterbalance, and a stronger chest/arm version.
+The modest version was selected. The stronger version's raised hand and chest
+lean read as a gesture rather than restrained balance.
+
+The [previous pose sheet](images/jumping-slide-baseline.png),
+[selected pose sheet](images/jumping-slide-current.png), and
+[stronger variant](images/jumping-slide-v2.png) retain the same samples.
+The native gameplay camera appears on the left of each loop, with a three-times
+detail view on the right. The loop boundary is a fresh replay reset.
+
+Previous 55° walking entry through landing:
+
+![Previous native 55-degree slide](images/jumping-slide-55-walk-normal-settle-baseline.gif)
+
+Selected 55° walking entry through landing:
+
+![Selected native 55-degree slide](images/jumping-slide-55-walk-normal-settle-current.gif)
+
+Previous 70° running entry through landing:
+
+![Previous native 70-degree slide](images/jumping-slide-70-run-normal-settle-baseline.gif)
+
+Selected 70° running entry through landing:
+
+![Selected native 70-degree slide](images/jumping-slide-70-run-normal-settle-current.gif)
+
+Matched [inverted before](images/jumping-slide-55-run-inverted-settle-baseline.gif)
+and [inverted after](images/jumping-slide-55-run-inverted-settle-current.gif),
+plus [jump departure before](images/jumping-slide-55-run-normal-jump-baseline.gif)
+and [jump departure after](images/jumping-slide-55-run-normal-jump-current.gif),
+retain the original root and control traces as well.
+
+The selected rig retains the existing calm pose below 130 units/second. As
+resolved slip gathers, the chest and head counterbalance the feet, one forearm
+lifts toward waist/chest height, and the other stays lower. The pelvis does not
+introduce a new deep crouch. An 80 ms presentation response to resolved tangent
+speed prevents a collision from instantly converting the raised arm into a
+hanging arm. This value never feeds the friction, traction, collision or jump
+motor and is discarded with the slide state. Direct zero-slip and slow-reversal
+checks still retain their strict rest/continuity requirements.
+
+The review also reproduced actual silhouette penetration on a 70° face:
+the front knee entered terrain by as much as 8.35 world units and a palm by
+6.57. Clearing the free-flight arms before the slide was insufficient because
+the slide subsequently replaced their targets. The final slide now clears its
+own arms and folds obstructed knees/elbows through depth while retaining both
+bone lengths and the sliding soles. Corrections use each joint's actual nearest
+solid face. The root's contact point can already be on the landing plateau while
+its retained slip angle still belongs to the steep face; extending that tangent
+over the plateau over-folded a clear knee in the first prototype. That prototype
+was replaced with the actual-geometry correction.
+
+The native outline regressions allow the outline flattener's 0.2-unit tolerance;
+the remaining sampled heel contour overlap is below 0.13 units. Deep leg and
+hand penetration is absent in the checked runs. The body query, fixed 3D bone
+lengths and actual sole contacts are verified during the whole slide and its
+release, in both directions and gravity frames. The new 70° clearance cases
+fail in all four direction/gravity combinations against the previous rig.
+
+Walking and running 55° traces contain 359 and 229 fixed steps respectively.
+Their physical X/Y, velocity, grounded state and facing agree exactly with the
+previous version at every step. Repeated render/debug queries also leave the
+normal uphill/downhill input traces unchanged. All **143 affected regression
+checks pass**, covering slide/friction, animation, prone and pushing presentation,
+dry turns, airborne balance, wall braces/jumps, gravity rendering, water/ball
+contacts, terrain ordering and rope/object slopes. Types, affected lint and the
+isolated production build pass; the build validates 23 built-in levels.
+
+All **six production keyboard checks pass** at ordinary render cadence and
+390×844 framing: walking entries followed by fast neutral slides and a fresh
+jump in both directions; both inverted 70° slides; and both grippable 46.3°
+walking approaches. The walking-entry test observes the actual first slip before
+releasing movement. Its initial fixed-duration attempt released just before
+contact and correctly remained standing on the plateau; that was an incorrect
+test input trace, not evidence of a traversal failure.
+
+### Remaining #56 transition defects and exact next steps
+
+**#56 remains open.** The whole-clip review and per-step 3D rig audit expose
+three boundaries that steady-state balance/clearance tests cannot establish:
+
+- **Walking/running departure from the plateau:** using the shared fixture,
+  start normally with move=1, then release movement on the first active slide.
+  On the 55° face, at fixed-step index 26 (0.2167 seconds), the front knee changes
+  by 11.92 world units relative to the root in one tick; the 46.5° version changes
+  by 9.37. These magnitudes are also present in the previous rig. Contact clears
+  `p.footwork` and the free airborne leg construction loses the last supported
+  rig before the slide's 0.12-second blend has acquired weight. Preserve the
+  actual outgoing foot/leg pose through this support handoff, with fixed bones
+  and real clearance. Increasing the blend duration alone cannot restore an
+  already-discarded source pose. Prove smooth entry with both Shift-walk and run,
+  both directions, and gravity reflection; keep fresh-press jump response.
+- **Automatic canted-wall facing change:** in the 70° version of the same
+  neutral trace, `settleWallBrace` changes facing from +1 to -1 at index 41
+  (0.3417 seconds), while slide weight is about 0.625 and input is zero. A hand
+  changes by about 20 units relative to the root in a single tick (the previous
+  rig changes by 19.4). `captureDryTurn` currently captures requested reversals
+  and grip departures, so this contact-selected facing change has no outgoing
+  rig. Capture and transfer that visual orientation without delaying mechanical
+  facing or moving a loaded grip. Check the mirrored and inverted encounter,
+  held uphill/downhill intent and a jump during the handoff.
+- **Steep face into the flat landing:** the retained slope normal, nearest
+  contact point and eventual flat support change on successive ticks. The
+  fast body then changes to slow balance while each foot clears the corner.
+  The new speed response addresses instant arm unloading, but local knee/foot
+  changes can still exceed eight units, and held-input variants exceed ten.
+  Use the actual outgoing solved rig and the new reachable landing contacts
+  for a bounded support transfer. Maintain 15/14.5-unit leg bones, 10/9-unit arm
+  bones, safe knee opening, real soles and the current root/velocity trace.
+  Do not rotate the whole athlete to the new ground angle or relax clearance
+  assertions to hide the corner.
+
+For those fixes, preserve a per-tick record in the player's gravity frame and
+compare 3D joint positions relative to the physical root, including bend depth
+and mechanical-facing reflection. A proposed visible continuity target is no
+more than five world units per 1/120-second tick through these handoffs. Physical
+root travel at high slip speed is evaluated separately; it must not be clamped
+to achieve a presentation limit. Inspect native gameplay and enlarged playback
+of the complete approach, contact, reversal/jump and landing, and retain the
+existing brief-contact, ball-side and narrow-gap regressions.
+
+Evidence and diagnostics are saved under `.tmp/ujg-traversal-fixes/`:
+`slide-regressions-baseline.log`, `slide-affected-final.log`,
+`slide-browser-final.log`, and the paired
+`slide-motion-{baseline,current}.jsonl` records. These remaining transition
+defects are part of the existing #56 acceptance, rather than additional claims
+that the passing steady-state tests have resolved it.
+
+The original nine browser cases were rerun with their original inputs, deadlines,
+normal render cadence and frame/continuity assertions. **Seven pass and two exceed
+their 30-second deadlines** in 4.2 minutes: both squeeze cases remain incomplete.
+The normal-order case reports its timeout during a held-body screenshot; the
+reversed-order trace is still retrieving motion history when the deadline ends.
+Two simulated seconds of normal rendering cost roughly 7.7–8.7 wall-clock
+seconds. There is no recorded failed movement assertion, and this is not an
+acceptance pass. Both pool banks complete in this run, including right-bank
+teardown; the previous teardown timeout still requires repeatability review.
+The unchanged-case log and trace classification are
+`browser-gaps-slide.log` and `gap-trace-slide.jsonl`. #60 remains open for the
+two deadlines, repeatability and slower-machine evidence.
 

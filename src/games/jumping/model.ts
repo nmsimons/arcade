@@ -43,7 +43,7 @@ export function gaitPose(vx: number, airborne = false): GaitPose {
 }
 export interface Player {
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
-  sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number } | null
+  sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number } | null
   coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
   jumpLift: { elapsed: number; strength: number; entrySpeed: number; extraSpeed: number; fresh: boolean } | null
   grabCooldown: number
@@ -537,7 +537,11 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       if (!p.sliding?.active) speed = slidingVelocity(speed - supportAcceleration * tangent[1] * dt, angle, supportAcceleration, dt)
       const contact = nearestBoundary(slope.platform, p.x, p.y)
       p.vx = tangent[0] * speed; p.vy = tangent[1] * speed
-      p.sliding = { angle, amount: approach(p.sliding?.amount ?? 0, 1, dt / .12), time: (p.sliding?.time ?? 0) + dt, active: true, x: contact.x, y: contact.y }
+      // Presentation follows resolved slip, including abrupt braking at a
+      // landing corner. It never feeds the friction or jump motor.
+      const previousSpeed = p.sliding?.balanceSpeed ?? speed
+      const balanceSpeed = previousSpeed + (speed - previousSpeed) * (1 - Math.exp(-dt / .08))
+      p.sliding = { angle, amount: approach(p.sliding?.amount ?? 0, 1, dt / .12), time: (p.sliding?.time ?? 0) + dt, active: true, x: contact.x, y: contact.y, balanceSpeed }
       // A separate wall contact still owns its brace and release blend when a
       // moving slope briefly catches the feet in a narrow gap.
       p.grounded = false; p.coyote = 0; p.footwork = null

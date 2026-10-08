@@ -312,21 +312,21 @@ test('resting near a platform edge keeps both recovery steps on the platform', (
   }
 })
 
-test('sliding keeps an upright torso, relaxed asymmetric arms, and both soles on the slope', () => {
+test('sliding keeps an upright counterbalanced torso, calm slow arms, and both soles on the slope', () => {
   for (const facing of [-1, 1]) for (const degrees of [-70, -55, -25, 0, 25, 55, 70]) for (const speed of [-400, -15, 0, 15, 120, 400]) {
     const angle = degrees * Math.PI / 180, tx = Math.cos(angle), ty = Math.sin(angle)
     const p = { ...createPlayer(), x: 0, y: 0, vx: speed * tx, vy: speed * ty, facing, grounded: false,
       sliding: { angle, amount: 1, time: 1, active: true, x: 0, y: 0 } }
     const pose = athletePose(p)
-    assert.ok(Math.abs(pose.shoulder[0] - pose.hip[0]) < 4 && pose.hip[1] - pose.shoulder[1] > 16)
+    assert.ok(Math.abs(pose.shoulder[0] - pose.hip[0]) < (Math.abs(speed) <= 120 ? 4 : 7) && pose.hip[1] - pose.shoulder[1] > 16)
     for (const limb of [pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg]) {
       const leg = 'footAngle' in limb
       assert.ok(Math.abs(distance(limb.root, limb.joint) - (leg ? 15 : 10)) < 1e-6)
       assert.ok(Math.abs(distance(limb.joint, limb.end) - (leg ? 14.5 : 9)) < 1e-6)
-      if (!leg) {
+      if (!leg && Math.abs(speed) <= 120) {
         assert.ok(limb.joint[1] > pose.shoulder[1] + 9, 'elbows stay down beside the torso')
         assert.ok(limb.end[1] > pose.hip[1] - 3, 'hands stay low instead of spreading at chest height')
-      } else {
+      } else if (leg) {
         const clearance = Math.min(...FOOT_CONTACT.map(point => {
           const sole = footPoint(point, limb.footAngle, limb.toeAngle)
           return (limb.end[0] + sole[0]) * facing * ty - (limb.end[1] + sole[1]) * tx
@@ -335,6 +335,26 @@ test('sliding keeps an upright torso, relaxed asymmetric arms, and both soles on
       }
     }
     assert.ok(distance(pose.frontArm.end, pose.backArm.end) > 2)
+  }
+})
+
+test('fast slide counterbalance raises one forearm while slow slips retain the calm rig', () => {
+  for (const facing of [-1, 1]) for (const direction of [-1, 1]) {
+    const angle = .96, p = { ...createPlayer(), x: 0, y: 0, facing, grounded: false,
+      sliding: { angle, amount: 1, time: 1, active: true, x: 0, y: 0 } }
+    const at = speed => athletePose({ ...p, vx: direction * speed * Math.cos(angle), vy: direction * speed * Math.sin(angle) })
+    const slow = at(120), fast = at(900)
+    assert.ok(slow.frontArm.end[1] > slow.hip[1] - 3 && slow.backArm.end[1] > slow.hip[1] - 3)
+    assert.ok(fast.frontArm.end[1] < fast.hip[1] - 10, 'the fast forearm reads at waist/chest height')
+    assert.ok(fast.backArm.end[1] > fast.hip[1] - 3, 'the other arm remains lower instead of flailing symmetrically')
+    assert.ok((fast.shoulder[0] - fast.hip[0]) * direction * facing < -4, 'the chest counters real slip momentum')
+    assert.ok(Math.abs(fast.hip[1] - slow.hip[1]) < 5, 'balance does not introduce a deep crouch')
+    let previous
+    for (let speed = -1400; speed <= 1400; speed += 5) {
+      const pose = athletePose({ ...p, vx: speed * Math.cos(angle), vy: speed * Math.sin(angle) }), current = points(pose)
+      if (previous) for (let i = 0; i < current.length; i++) assert.ok(distance(current[i], previous[i]) < .5, 'effort, including its onset, changes continuously with slip')
+      previous = current
+    }
   }
 })
 

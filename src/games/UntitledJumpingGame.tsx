@@ -14,6 +14,8 @@ import { createJumpController, keyboardMovement } from './jumping/input'
 import { createJumpTouch } from './jumping/touchInput'
 import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
+import { actionFeedbackText, playerActionFeedback } from './jumping/actionFeedback'
+import type { ActionFeedback } from './jumping/actionFeedback'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
@@ -171,7 +173,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
-  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
+  const [metrics, setMetrics] = useState<{state:string;elapsed:number;actions:ActionFeedback|null}>({ state: 'Ready', elapsed: 0, actions:null })
 
   function changeScreen(next: Screen, reason?: string) {
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
@@ -527,7 +529,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (now - published > 80) {
         const p = player.current
         setMetrics({ state: run.current?.exit ? 'Entering the exit' : playerState(p),
-          elapsed: run.current?.elapsed ?? 0 })
+          elapsed: run.current?.elapsed ?? 0, actions:run.current?.exit ? null : playerActionFeedback(p,activeLevel.current.climbables) })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -551,6 +553,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
         onTouch={() => setTouchAvailable(true)} onPause={() => changeScreen('paused')} />}
       {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
+      {!devOpen && metrics.actions && <p className="jumping-action-hint" aria-label="Available actions">
+        {actionFeedbackText(metrics.actions,connected?'controller':touchAvailable?'touch':'keyboard')}
+      </p>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
         {challenge && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}

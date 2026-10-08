@@ -700,6 +700,7 @@ export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null
   if (p.waterMotion || p.releaseTurn) return null
   const grip = !!(p.hang || p.climbing)
   const departing = grip && ((input.jump && !p.jumpHeld) || input.detach || input.drop || input.descend)
+  if (p.mantle || grip && !departing) return null
   const reversing = Math.abs(input.move) > .01 && Math.sign(input.move) !== p.facing
     && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2)
   if (!p.dryTurn && !departing && !reversing) return null

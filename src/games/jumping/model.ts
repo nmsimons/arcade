@@ -53,7 +53,7 @@ export interface Player {
   pushing: (Omit<PushHands, 'slope'> & { direction: number; amount: number; ready?: number; effort: number; load?: number; slope?: number; colliderId?: string }) | null
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
-  hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean;
+  hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
     caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; waterMotion?: Player['waterMotion']; dryTurn?: Player['dryTurn'] } } | null
   mantle: { edgeX: number; edgeY: number; side: number; slope?: number; toX: number; toY: number; time: number; braced: boolean;
     platform?: number; returning?: boolean; crouched?: boolean; inset?: number; blockedTime?: number;
@@ -340,7 +340,7 @@ function ledgePathClear(platforms: readonly Platform[], edge: TerrainLedge, brac
   return true
 }
 /** Keep the usual landing when it fits, then try a supported stance nearer the lip. */
-function ledgeLanding(platforms: readonly Platform[], edge: TerrainLedge, braced: boolean, obstacles = platforms, crouchedOnly = false) {
+export function ledgeLanding(platforms: readonly Platform[], edge: TerrainLedge, braced: boolean, obstacles = platforms, crouchedOnly = false) {
   const blockers = ledgeObstacles(obstacles, edge), root = climbContactRoot(0, braced, edge.slope)
   // Every landing shares the same initial hang. A blocked hang cannot be
   // rescued by thirteen different landing insets or by ending in a crouch.
@@ -638,6 +638,29 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   advanceMovingRecovery(p, dt, Math.abs(contacts.motion.x) > .05)
   advanceDryTurn(p, input, dt, turnFrame)
 }
+
+/** Read-only lowering availability in the motor's gravity-normalized frame.
+ * Feedback uses this same exposed-edge and full-path clearance predicate. */
+export function loweringOption(p: Player, platforms: readonly Platform[] = p.terrain ?? []) {
+  if (!p.grounded || p.hang || p.mantle || p.climbing || p.grabCooldown !== 0) return null
+  const edges = platforms.flatMap((b, platform) => platformLedges(b).flatMap(edge => {
+    return Math.abs(p.y - edge.edgeY - (p.x - edge.edgeX) * edge.side * (edge.slope ?? 0)) < .1 && (p.x - edge.edgeX) * edge.side >= 0
+      ? [{ platform, ...edge }] : []
+  })).filter(edge => Math.abs(edge.edgeX - p.x) <= 32 && ledgeExposed(platforms, edge))
+    .sort((a, b) => Math.abs(a.edgeX - p.x) - Math.abs(b.edgeX - p.x))
+  for (const edge of edges) {
+    const braced = ledgeBraced(platforms, edge.edgeX, edge.edgeY, edge.side)
+    const landing = ledgeLanding(platforms, edge, braced, platforms, p.crouching)
+    if (landing) return { ...edge, braced, ...landing }
+  }
+  return null
+}
+export function verticalClimbOption(p: Player, climbables: ClimbableWorld, platforms: readonly Platform[], vertical: number, frameDirection = 1) {
+  if (p.hang || p.climbing || p.mantle || p.releaseTurn || p.grabCooldown !== 0 || !vertical) return null
+  const found = findClimbable(p, climbables, platforms)
+  return found && !(found.rope && p.grounded && vertical * frameDirection < 0)
+    && !(found.ladder && p.grounded && (Math.abs(p.y - found.ladder.top) < 1 || (Math.abs(p.y - found.ladder.bottom) < 1 && vertical < 0))) ? found : null
+}
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
   world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1, floatDrag = 0, swimStrength = 0, orientationGravity = p.gravity ?? TUNING.gravity) {
   const gravity = p.gravity ?? TUNING.gravity
@@ -743,7 +766,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     if (progress === 1 && m.descending) {
       const c = m.descending.climbable
       const hang: NonNullable<Player['hang']> = { platform: m.descending.platform, side: m.side, edgeX: m.edgeX, edgeY: m.edgeY, slope: m.slope, time: 1, queued: false, braced: m.braced, dropLocked: true,
-        caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: p.gait, ledgeReach: null } }
+        upLocked:frameDirection<0, caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: p.gait, ledgeReach: null } }
       if (c) {
         c.caught = { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, grounded: false, gait: p.gait, footwork: null, hang }
         c.time = 0; if (c.ladder) c.distance = 18; updateRopeWall(c, platforms); p.climbing = c
@@ -761,17 +784,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const requestedClimb = vertical !== 0 && !input.jump
   if (p.grounded && !p.hang && !p.climbing && bodyVertical < 0 && !input.jump && !input.detach && p.grabCooldown === 0) {
     // Lower over the edge first, then transfer to a nearby ladder or rope.
-    const edges = platforms.flatMap((b, platform) => platformLedges(b).flatMap(edge => {
-      return Math.abs(p.y - edge.edgeY - (p.x - edge.edgeX) * edge.side * (edge.slope ?? 0)) < .1 && (p.x - edge.edgeX) * edge.side >= 0
-        ? [{ platform, ...edge }] : []
-    }))
-      .filter(edge => Math.abs(edge.edgeX - p.x) <= 32 && ledgeExposed(platforms, edge))
-      .sort((a, b) => Math.abs(a.edgeX - p.x) - Math.abs(b.edgeX - p.x))
-    for (const edge of edges) {
-      const braced = ledgeBraced(platforms, edge.edgeX, edge.edgeY, edge.side)
-      const landing = ledgeLanding(platforms, edge, braced, platforms, p.crouching)
-      if (!landing) continue
-      const { crouched, inset } = landing
+    const edge = loweringOption(p,platforms)
+    if (edge) {
+      const { crouched, inset, braced } = edge
       const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, crouching: p.crouching, crouch: p.crouch, facing: p.facing, freeFall: p.freeFall, dryTurn: p.dryTurn }
       const ladderIndex = climbables.ladders.findIndex(ladder => {
         const exit = ladderLedge(ladder, platforms)
@@ -788,9 +803,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     }
   }
   if (!p.hang && !p.climbing && !p.releaseTurn && p.grabCooldown === 0 && !input.detach && (requestedClimb || !p.grounded)) {
-    const found = requestedClimb ? findClimbable(p, climbables, platforms) : findRope(p, platforms)
-    if (found && !(found.rope && p.grounded && bodyVertical < 0) && !(found.ladder && p.grounded && (Math.abs(p.y - found.ladder.top) < 1
-      || (Math.abs(p.y - found.ladder.bottom) < 1 && vertical < 0)))) {
+    const found = requestedClimb ? verticalClimbOption(p,climbables,platforms,vertical,frameDirection) : findRope(p, platforms)
+    if (found) {
       p.climbing = found
       updateRopeWall(found, platforms)
       if (found.wall) p.facing = found.wall.side
@@ -952,12 +966,15 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     p.vx = 0; p.vy = 0; p.facing = side
     const dropping = input.drop || input.descend
     if (!dropping) h.dropLocked = false
+    // Under reverse gravity Up performed the deliberate lowering. Consume
+    // that held intent until release, just as Down holds the ordinary hang.
+    if (!input.climb) h.upLocked = false
     if (input.detach || (dropping && !h.dropLocked)) {
       p.hang = null; p.grabCooldown = .35; p.vy = 80; p.vx = -side * 60; cancelJumpInput(p)
     } else if (jumping) {
       p.hang = null; p.grabCooldown = .25; launch(p); p.vx = -side * 260
     } else if (!input.jump) {
-      h.queued ||= input.climb
+      h.queued ||= input.climb && !h.upLocked
       if (h.queued && h.time >= catchTime) {
         // Use the space that is already available before shoving a loose prop.
         // A compact pull can finish at its normal pace, then the grounded push

@@ -279,6 +279,36 @@ a hang. Moving props continue to receive the normal shove; an obstruction with
 no clear alternative still stops the climb. These are shared movement rules,
 not exceptions for particular objects or levels.
 
+## Vertical actions and departures
+
+Keyboard S/Down and controller Down set descend, crouch and drop together;
+the touch down-drag produces the same combination. They are contextual actions,
+not independently selectable dive and upright-floor-hold commands. W/Up requests
+climbing. X, controller B/○ and the released downward touch flick explicitly
+detach. A held Jump suppresses vertical acquisition; in a hang, explicit detach
+or an unlocked Down drop takes precedence over Jump.
+
+| Current situation | Action and priority |
+| --- | --- |
+| Supported, near an exposed eligible lip | Down first lowers along a clear pull-up path, before a nearby ladder/rope acquisition or crouch. The motor and contextual cue share `loweringOption`. |
+| Supported, lip path blocked or outside its 32-unit reach | Try eligible vertical climbable acquisition, then crouch. A low ceiling never authorizes standing through a solid. |
+| Supported at the middle of a ladder | Vertical input acquires it before ordinary crouch. At its bottom, Down does not acquire it; at its top, use the eligible lowering path. |
+| Supported beside a rope | Gravity-facing downward input does not directly acquire the rope. Up can acquire it; airborne acquisition remains automatic. A deliberate lowering can transfer onto a rope or ladder at its lip. |
+| Free in water | Down powers the dive. Release or Up restores upright presentation; buoyancy supplies the ascent. Up adds no powered upward acceleration. Normal Down crouches on the submerged floor. Loose props are pushed by swimming; Up requests a reachable grip, while terrain banks can catch automatically. |
+| Hanging after deliberate lowering | Held Down stops in a safe hang. Release and a separate Down press drops once; explicit detach is immediate. A fresh Jump leaps outward at 260 units/second; Up requests a clear pull-up. |
+| Catching while Jump is held | The catch consumes that press. Release, then press again to depart; continued hold cannot launch or renew lift. |
+| Inverted support | Up is the gravity-facing lowering request. Holding that original Up stops in a safe hang rather than immediately starting a pull-up. Release and another Up press can pull up; Down or explicit detach can drop. |
+
+`verticalClimbOption` shares the motor's acquisition exclusions with feedback.
+`actionFeedback.ts` describes the solved state without advancing physics or input;
+its lowering cue uses the full exposed-edge/path check. Pull-up feedback only
+advertises a currently clear landing. The motor can additionally start a safe
+shove through a yielding loose prop, so a conservative cue may omit that option
+while still offering Jump away and explicit detach. No cue promises a grip through
+a force field or an obstructed lip. Keyboard/controller/touch labels describe their
+actual bindings. Regression coverage includes the action-feedback suite and
+`tests/browser/jumpingActions.spec.mjs`.
+
 ## Boundaries to preserve
 
 - Animation may reposition limbs, but never the player's physical root.

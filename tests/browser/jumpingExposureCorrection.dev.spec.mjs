@@ -60,7 +60,7 @@ test('a reused daylight terrain mask restores moving artwork, recovery indicator
     const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 384
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     const view = { x: 350.125, y: 120.25, zoom: .8, width: 512, height: 384 }
-    let worst = 0, cachedFrames = 0, bytes = 0
+    let worst = 0, cachedFrames = 0, cachedBackgrounds = 0, bytes = 0
     for (let frame = 0; frame < 15; frame++) {
       // Render-only coverage moves artwork through a fixed view and probes
       // low-ceiling indicator overlap; this does not certify a physical route.
@@ -73,6 +73,7 @@ test('a reused daylight terrain mask restores moving artwork, recovery indicator
       const pixels = renderers.map((renderer, index) => {
         const stats = renderer.render(ctx, run, { nightMode: false, ambient: 0, lights: [] }, view, 1 / 30)
         if (index === 0 && stats.dayAmbientCached) cachedFrames++
+        if (index === 0 && stats.dayBackgroundCached) cachedBackgrounds++
         bytes = Math.max(bytes, stats.bufferBytes)
         return ctx.getImageData(0, 0, 512, 384).data
       })
@@ -80,11 +81,12 @@ test('a reused daylight terrain mask restores moving artwork, recovery indicator
       for (let i = 0; i < pixels[0].length; i++) worst = Math.max(worst, Math.abs(pixels[0][i] - pixels[1][i]))
     }
     renderers.forEach(renderer => renderer.dispose())
-    return { worst, cachedFrames, bytes }
+    return { worst, cachedFrames, cachedBackgrounds, bytes }
   })
   await info.attach('moving-mask-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
   expect(result.worst).toBe(0)
   expect(result.cachedFrames).toBe(15)
+  expect(result.cachedBackgrounds).toBe(13)
   expect(result.bytes).toBeLessThanOrEqual(64 * 1024 * 1024)
 })
 
@@ -165,5 +167,67 @@ test('automatic lighting chooses a software drawing context for a CPU driver and
   await info.attach('automatic-context-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
   expect(result.softwareContexts).toEqual([result.softwareDriver, result.softwareDriver])
   expect(result.frames).toBe(6)
+  expect(result.worst).toBe(0)
+})
+
+test('a settled daylight background preserves wall art, changing actors and cache invalidation', async ({ page }, info) => {
+  await page.goto('/untitled-jumping-game/lighting-lab')
+  const result = await page.evaluate(async () => {
+    const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
+      import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
+    ])
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, spawn: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
+      platforms: [{ x: 400, y: 200, w: 200, h: 300 }],
+      texts: [{ x: 320, y: 160, w: 400, h: 50, text: 'Push, release, then jump.', fontSize: 24, align: 'left', rotation: -4 }],
+      props: [{ kind: 'box', x: 615, y: 500, size: 30 }], robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }
+    const run = createPreviewRun(level)
+    const renderers = [new LightingRenderer(), new LightingRenderer({ reuseExposureCorrection: false, cacheDayAmbient: false })]
+    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true })
+    const first = { x: 300.125, y: 100.25, zoom: .8, width: 512, height: 384 }
+    const second = { x: 610.25, y: 200.125, zoom: 1.1, width: 384, height: 300 }
+    let worst = 0, cached = 0, frames = 0
+    for (const [phase, view] of [first, second, second, second, second, first, first].entries()) {
+      if (phase === 6) renderers.forEach(renderer => renderer.release())
+      canvas.width = view.width; canvas.height = view.height
+      const definition = { nightMode: phase === 2, ambient: 0, lights: phase === 3 ? [
+        { id: 'lamp', x: 700, y: 360, direction: 110, spread: 100, intensity: 100, power: 'always' },
+      ] : [] }
+      for (let tick = 0; tick < 4; tick++) {
+        run.player.x = 650 + tick * 8; run.props[0].angle = tick * .13
+        run.robots[0].phase = 'recover'; run.robots[0].angle = tick * .1
+        run.goalElapsed = tick / 10; run.goalLit = tick > 1; run.activeTime = frames / 30
+        run.exit = tick ? { elapsed: tick / 4, fromX: run.player.x, toX: run.player.x + 40 } : null
+        const before = JSON.stringify(run.player)
+        const pixels = renderers.map((renderer, index) => {
+          const stats = renderer.render(ctx, run, definition, view, 1 / 30)
+          if (!index) cached += Number(stats.dayBackgroundCached)
+          if (stats.bufferBytes > 64 * 1024 * 1024) throw new Error('No additional surface budget is allowed')
+          return ctx.getImageData(0, 0, view.width, view.height).data
+        })
+        if (JSON.stringify(run.player) !== before) throw new Error('Background reuse cannot change simulation')
+        for (let i = 0; i < pixels[0].length; i++) worst = Math.max(worst, Math.abs(pixels[0][i] - pixels[1][i]))
+        frames++
+      }
+    }
+    const inheritedAlphaCache = []
+    for (const alpha of [.55, 1]) {
+      const pixels = renderers.map((renderer, index) => {
+        ctx.resetTransform(); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'
+        ctx.fillStyle = '#b4c5d6'; ctx.fillRect(0, 0, first.width, first.height)
+        ctx.globalAlpha = alpha
+        const stats = renderer.render(ctx, run, { nightMode: false, ambient: 0, lights: [] }, first, 1 / 30)
+        if (!index) inheritedAlphaCache.push(stats.dayBackgroundCached)
+        return ctx.getImageData(0, 0, first.width, first.height).data
+      })
+      for (let i = 0; i < pixels[0].length; i++) worst = Math.max(worst, Math.abs(pixels[0][i] - pixels[1][i]))
+      frames++
+    }
+    renderers.forEach(renderer => renderer.dispose())
+    return { worst, cached, frames, inheritedAlphaCache }
+  })
+  await info.attach('settled-background-comparison', { body: JSON.stringify(result), contentType: 'application/json' })
+  expect(result.frames).toBe(30)
+  expect(result.cached).toBeGreaterThanOrEqual(8)
+  expect(result.inheritedAlphaCache).toEqual([false, true])
   expect(result.worst).toBe(0)
 })

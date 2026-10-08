@@ -10,6 +10,7 @@ import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawLevelBackdrop, 
 import { levelHeight, levelTerrain } from './level.ts'
 import { beamHazeStrength, drawLightFixtures, drawLightHaze } from './lightFixture.ts'
 import { polygonPoints } from './geometry.ts'
+import { terrainFill } from './terrainMaterials.ts'
 import type { Vec } from './geometry.ts'
 import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
@@ -47,6 +48,27 @@ function polygonPath(ctx: CanvasRenderingContext2D, points: readonly Vec[]) {
   for (let i = 1; i < path.length; i++) ctx.lineTo(path[i][0], path[i][1])
   ctx.closePath()
 }
+function dayActorPatch(run: LightingWorld, view: LightingView) {
+  const { width, height } = view
+  const bounds = [...dynamicCasters(run, true).flat(), goalBounds(run.level.goal!)]
+  if (run.empRemaining === 0) for (const robot of run.robots) if (robot.phase === 'recover') {
+    bounds.push({ x: robot.x + 46 * Math.sin(robot.angle) - 11,
+      y: robot.y - 9 - 46 * Math.cos(robot.angle) - 11, w: 22, h: 22 })
+  }
+  if (run.player.sliding) {
+    const s = run.player.sliding
+    bounds.push({ x: s.x - 35, y: s.y - 35, w: 70, h: 70 })
+  }
+  let left = width, top = height, right = 0, bottom = 0
+  for (const shape of bounds) {
+    const l = (shape.x - view.x) * view.zoom - 4, t = (shape.y - view.y) * view.zoom - 4
+    const r = (shape.x + shape.w - view.x) * view.zoom + 4, b = (shape.y + shape.h - view.y) * view.zoom + 4
+    if (r <= 0 || b <= 0 || l >= width || t >= height) continue
+    left = Math.min(left, l); top = Math.min(top, t); right = Math.max(right, r); bottom = Math.max(bottom, b)
+  }
+  const x = Math.max(0, Math.floor(left)), y = Math.max(0, Math.floor(top))
+  return { x, y, w: Math.max(0, Math.min(width, Math.ceil(right)) - x), h: Math.max(0, Math.min(height, Math.ceil(bottom)) - y) }
+}
 
 /** Shared lighting/composition entry point. GPU light fields are opt-in for the
  * live game; Canvas remains available for previews and compatibility fallback.
@@ -67,9 +89,10 @@ export class LightingRenderer {
   private reuseAmbientBuffer: boolean
   private reuseExposureCorrection: boolean
   private cacheDayAmbient: boolean
+  private cacheDayBackground: boolean
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
     // The full composition remains available as a pixel/performance reference.
@@ -78,12 +101,15 @@ export class LightingRenderer {
     this.reuseAmbientBuffer = options.reuseAmbientBuffer !== false
     this.reuseExposureCorrection = options.reuseExposureCorrection !== false
     this.cacheDayAmbient = options.cacheDayAmbient !== false
+    this.cacheDayBackground = options.cacheDayBackground !== false
   }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
   private daylight?: { key: string; groups: readonly CasterGroup[]; edges: number; buffer: Surface }
   private dayAmbient?: { key: string; groups: readonly CasterGroup[]; buffer: Surface; regions: { x: number; y: number; w: number; h: number }[] }
   private dayCorrections?: { key: string; groups: readonly CasterGroup[]; readable: Surface; ambient: Surface }
+  private dayBackground?: { key: string; groups: readonly CasterGroup[]; buffer: Surface }
+  private dayBackgroundCandidate?: string
   private terrain?: { level: LightingWorld['level']; groups: CasterGroup[] }
   prepare(level: LightingWorld['level'], groups: CasterGroup[]) { this.terrain = { level, groups } }
   private initializeGpu() {
@@ -375,6 +401,23 @@ export class LightingRenderer {
     const cacheCorrections = cacheDayField && backend === 'canvas'
     if (!cacheAmbient) this.dayAmbient = undefined
     if (!cacheCorrections) this.dayCorrections = undefined
+    // Allocate the already-budgeted scratch storage during the cold frame,
+    // rather than resizing it when the settled background first becomes useful.
+    if (cacheAmbient && this.cacheDayBackground && 'elapsed' in run) {
+      if (correction.canvas.width !== width || correction.canvas.height !== height) clear(correction, width, height)
+      if (this.dayAmbient?.groups !== structures.fixed) {
+        for (const material of new Set(run.terrain.map(shape => shape.material ?? 'stone'))) terrainFill(correction.ctx, material)
+      }
+    }
+    const dayKey = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}`
+    const backgroundKey = `${dayKey}:${document.fonts.status}`
+    const stableDayView = cacheAmbient && this.dayBackgroundCandidate === backgroundKey
+    this.dayBackgroundCandidate = cacheAmbient ? backgroundKey : undefined
+    if (!cacheAmbient) this.dayBackground = undefined
+    const background = cacheAmbient && ctx.globalAlpha === 1 && ctx.globalCompositeOperation === 'source-over'
+      && this.dayBackground?.key === backgroundKey && this.dayBackground.groups === structures.fixed
+      ? this.dayBackground.buffer : undefined
+    const dayPatch = cacheAmbient ? dayActorPatch(run, view) : undefined
     // A night field without an active light is constant ambient. Both ambient
     // correction masks are exactly black; no beam or source haze is present.
     const emptyNight = this.skipEmptyNightPasses && nightMode && activeSources.length === 0
@@ -387,6 +430,13 @@ export class LightingRenderer {
     const playerRight = Math.min(width, Math.ceil((Math.max(...playerShapes.map(shape => shape.x + shape.w)) - view.x + 1) * view.zoom) + 1)
     const playerBottom = Math.min(height, Math.ceil((Math.max(...playerShapes.map(shape => shape.y + shape.h)) - view.y + 1) * view.zoom) + 1)
     const playerWidth = playerRight - playerX, playerHeight = playerBottom - playerY
+    if (background && dayPatch) {
+      ctx.save(); ctx.resetTransform(); ctx.globalCompositeOperation = 'source-over'
+      ctx.drawImage(background.canvas, 0, 0)
+      // The immutable terrain/backdrop already has its final exposure. Replay
+      // the complete ordinary composition only around foreground artwork.
+      ctx.beginPath(); ctx.rect(dayPatch.x, dayPatch.y, dayPatch.w, dayPatch.h); ctx.clip()
+    }
     this.world(ctx, run, view, nightMode, paintNormally, sources, editor)
     ctx.save(); ctx.resetTransform(); ctx.globalCompositeOperation = 'multiply'; drawField(ctx)
     // Day's ambient exceeds the 65% readability floor. An unlit movement
@@ -488,7 +538,7 @@ export class LightingRenderer {
         correction.ctx.fillRect(0, 0, width, height)
       }
       if (cacheAmbient) {
-        const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${ambient}`
+        const key = dayKey
         if (this.dayAmbient?.key !== key || this.dayAmbient.groups !== structures.fixed) {
           const buffer = haze
           clear(buffer, width, height)
@@ -523,32 +573,14 @@ export class LightingRenderer {
         }
         // Rebuild the complete mask only around actual foreground artwork.
         // The immutable full-size cache needs no per-frame texture upload.
-        const shapes = dynamicCasters(run, true).flat(), goal = goalBounds(run.level.goal!)
-        const bounds = [...shapes, goal]
-        // The recovering bot's indicator projects above its collision chassis.
-        // Include the actual rotated artwork, even beside a low ceiling.
-        if (run.empRemaining === 0) for (const robot of run.robots) if (robot.phase === 'recover') {
-          bounds.push({ x: robot.x + 46 * Math.sin(robot.angle) - 11,
-            y: robot.y - 9 - 46 * Math.cos(robot.angle) - 11, w: 22, h: 22 })
+        const { x, y, w, h } = dayPatch!
+        if (!background) {
+          ctx.save(); ctx.globalCompositeOperation = 'difference'; ctx.beginPath(); ctx.rect(0, 0, width, height)
+          if (w > 0 && h > 0) ctx.rect(x, y, w, h)
+          ctx.clip('evenodd')
+          for (const r of this.dayAmbient.regions) ctx.drawImage(this.dayAmbient.buffer.canvas, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h)
+          ctx.restore()
         }
-        if (run.player.sliding) {
-          const s = run.player.sliding
-          bounds.push({ x: s.x - 35, y: s.y - 35, w: 70, h: 70 })
-        }
-        let left = width, top = height, right = 0, bottom = 0
-        for (const shape of bounds) {
-          const l = (shape.x - view.x) * view.zoom - 4, t = (shape.y - view.y) * view.zoom - 4
-          const r = (shape.x + shape.w - view.x) * view.zoom + 4, b = (shape.y + shape.h - view.y) * view.zoom + 4
-          if (r <= 0 || b <= 0 || l >= width || t >= height) continue
-          left = Math.min(left, l); top = Math.min(top, t); right = Math.max(right, r); bottom = Math.max(bottom, b)
-        }
-        const x = Math.max(0, Math.floor(left)), y = Math.max(0, Math.floor(top))
-        const w = Math.min(width, Math.ceil(right)) - x, h = Math.min(height, Math.ceil(bottom)) - y
-        ctx.save(); ctx.globalCompositeOperation = 'difference'; ctx.beginPath(); ctx.rect(0, 0, width, height)
-        if (w > 0 && h > 0) ctx.rect(x, y, w, h)
-        ctx.clip('evenodd')
-        for (const r of this.dayAmbient.regions) ctx.drawImage(this.dayAmbient.buffer.canvas, r.x, r.y, r.w, r.h, r.x, r.y, r.w, r.h)
-        ctx.restore()
         if (w > 0 && h > 0) {
           clear(shadow, Math.min(width, Math.ceil(w / 32) * 32), Math.min(height, Math.ceil(h / 32) * 32))
           this.world(shadow.ctx, run, { ...view, x: view.x + x / view.zoom, y: view.y + y / view.zoom, width: w, height: h },
@@ -556,6 +588,19 @@ export class LightingRenderer {
           shadow.ctx.globalCompositeOperation = 'destination-over'; shadow.ctx.fillStyle = '#000'; shadow.ctx.fillRect(0, 0, w, h)
           shadow.ctx.globalCompositeOperation = 'multiply'; shadow.ctx.drawImage(ambientCorrection.canvas, x, y, w, h, 0, 0, w, h)
           ctx.globalCompositeOperation = 'difference'; ctx.drawImage(shadow.canvas, 0, 0, w, h, x, y, w, h)
+        }
+        if (!background && this.cacheDayBackground && stableDayView && cacheCorrections && 'elapsed' in run) {
+          // Correction is unused while the two immutable correction fields
+          // live in lamp/field. Store the final static background there, adding
+          // no surface. A moving view uses the ordinary path until it settles.
+          clear(correction, width, height); transform(correction.ctx, view)
+          drawLevelBackdrop(correction.ctx, run.level,
+            { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }, view.zoom, false)
+          drawWallTexts(correction.ctx, run.level.texts ?? [], false)
+          drawTerrain(correction.ctx, run.terrain, run.level.platforms)
+          correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'multiply'; drawField(correction.ctx)
+          correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.drawImage(this.dayAmbient.buffer.canvas, 0, 0)
+          this.dayBackground = { key: backgroundKey, groups: structures.fixed, buffer: correction }
         }
         continue
       }
@@ -595,7 +640,9 @@ export class LightingRenderer {
       ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(haze.canvas, 0, 0)
     }
     ctx.restore()
-    return { lights, edges, bufferBytes, backend, sources, dayAmbientCached: cacheAmbient, dayCorrectionsCached: cacheCorrections }
+    if (background) ctx.restore()
+    return { lights, edges, bufferBytes, backend, sources, dayAmbientCached: cacheAmbient, dayCorrectionsCached: cacheCorrections,
+      dayBackgroundCached: !!background }
   }
   release() {
     this.gpu?.dispose(); this.gpu = undefined
@@ -605,7 +652,7 @@ export class LightingRenderer {
     for (const { buffer } of this.staticFields.values()) buffer.canvas.width = buffer.canvas.height = 0
     this.staticFields.clear(); this.resting.reset()
     this.buffers = undefined; this.gradients.clear()
-    this.dayAmbient = undefined; this.dayCorrections = undefined
+    this.dayAmbient = undefined; this.dayCorrections = undefined; this.dayBackground = undefined; this.dayBackgroundCandidate = undefined
     if (this.daylight) this.daylight.buffer.canvas.width = this.daylight.buffer.canvas.height = 0
     this.daylight = undefined
   }

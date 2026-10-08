@@ -94,7 +94,11 @@ Daylight cache comparisons must witness the optimized path, compare every RGBA
 channel to an explicitly uncached renderer, and include a warm fixed-view
 sequence with moving foreground art. Check recovery indicators, rotated props,
 material edges and terrain restored after an actor leaves; camera/mode changes
-alone cannot establish cache correctness. Resolve both images equally for paired
+alone cannot establish cache correctness. A retained complete background also
+needs wall-art, exit-fade and buffer-release/rebuild comparisons, and must stop
+being reused when view, geometry or font readiness changes. Keep material-tile
+allocation on the cold frame so warm frames still satisfy the resize checks.
+Resolve both images equally for paired
 performance measurements and retain the same memory budget. A passing normal
 CPU run does not complete slow-machine acceptance; the existing
 `HV_TEST_CPU_RATE=2` helper also applies to Chromium UJG tests without changing

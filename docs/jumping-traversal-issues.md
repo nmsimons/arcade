@@ -984,3 +984,58 @@ Logs: `.tmp/ujg-traversal-fixes/narrow-brace-unit.log`, `brace-capture.log`,
 Broader moving-push, slope/carrier and input-device acceptance remains open.
 Authored levels and medal times are unchanged.
 
+## Sixteenth implementation pass: retain the settled daylight background
+
+October 8, 2026. The #60 investigation now retains the final terrain/backdrop
+composition once a simple unlit daylight view has settled. The renderer copies
+that immutable image, then replays its complete existing artwork and exposure
+composition around the current foreground bounds. This preserves foreground
+occlusion, material edges, exit opening/fading, and recovery/sliding artwork.
+Worlds with lamps, changing mechanisms, other ambient artwork, climbables or
+active foot thrust retain the complete original composition. Moving views use
+the ordinary path until they settle.
+
+The image occupies the existing unused correction surface while the immutable
+readable/ambient corrections live in lamp/field storage. No additional surface
+is allocated. Keys include view, size, structural identity and font readiness;
+release clears the retained image. Inherited translucent drawing keeps the
+ordinary path. Scratch sizing and its material tiles are prepared on the cold
+frame, preserving the existing zero warm-resize assertion. A comparison flag
+disables only background retention to measure it against the preceding cache.
+
+All eleven affected development rendering checks pass. Warm moving-artwork
+frames witness thirteen retained backgrounds with zero differing RGBA channels.
+A new thirty-frame comparison covers wall text, rotated props and recovery
+indicators, exit fading, camera/size changes, day/night, powered lamps and
+release/rebuild. It also verifies inherited-alpha fallback and subsequent
+opaque reuse. Every comparison preserves the full image and read-only player;
+the existing surface budget remains unchanged. All 39 affected lighting tests,
+types, changed-file lint and isolated build pass.
+
+A paired native Canvas comparison of 145 steady frames measures 3335.7 ms
+(24.7 ms median) with the preceding cache and 1586.2 ms (11.1 ms median) with
+background retention, approximately 52% less time. Both sides resolve deferred
+work equally; frequent pixel reads can affect Canvas backing, so this is a
+local renderer measurement rather than gameplay FPS. The live production probe,
+including the original head-drawing observer, retains all 125 frames at 2× CPU
+throttling and witnesses all three caches. That two-second input sample takes
+8.609 wall seconds, versus 12.875 with the preceding implementation.
+
+All nine original production cases pass with the repository's two-worker
+settings in 1.1 minutes. The two squeeze cases take 13.5 and 15.3 seconds.
+At 2× CPU throttling, seven of nine pass: both pinned-ball approaches take
+31.6/31.0 seconds within their original 60-second limits, and rope departures
+take 29.4/28.6 seconds within 30 seconds. Both squeeze cases still exceed their
+30-second limits. The normal trace stops during its diagnostic read; the
+reversed trace stops during the second two-second held advance. No movement
+assertion establishes a failure there;
+the deadline cancels the remaining observation. **#60 remains open.** The
+unchanged original controls, durations, frame cadence, assertions and deadlines
+are retained throughout these runs.
+
+Logs: `.tmp/ujg-traversal-fixes/background-all-browser.log`,
+`background-alpha-browser.log`, `background-unit.log`, `background-types.log`,
+`background-lint.log`, `background-build.log`, `background-paired.log`,
+`background-live-slow.log`, `background-browser-gaps-project.log`,
+`background-browser-gaps-slow.log` and `background-gap-traces-slow.jsonl`.
+

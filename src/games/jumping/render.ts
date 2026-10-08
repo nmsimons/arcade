@@ -88,8 +88,8 @@ export function drawCheckpointMarkers(ctx: CanvasRenderingContext2D, p: Player, 
     ctx.fillStyle = p.checkpoint >= index ? ACCENT : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
   }
 }
-export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel) {
-  const { zoom, x, y } = gameCamera(width, height, p, level, false)
+export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel, view = gameCamera(width, height, p, level, false)) {
+  const { zoom, x, y } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
   drawTerrain(ctx, levelTerrain(level), level.platforms); drawClimbables(ctx, p, level.climbables)

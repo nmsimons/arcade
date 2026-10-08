@@ -4,7 +4,7 @@ import { LevelSaveStatus } from '../accounts/LevelSaveStatus'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
 import { playgroundLightingWorld } from './jumping/lightingModel'
-import { gameCamera } from './jumping/camera'
+import { GameCamera } from './jumping/camera'
 import { levelTerrain } from './jumping/level'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -454,6 +454,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     audioState.reset(player.current, run.current)
     let width = 0, height = 0, ratio = 1, frame = 0, previous = 0, accumulator = 0, published = 0
     let lightingStats: PerformanceSnapshot['lighting'] = null
+    const gameCamera = new GameCamera()
     const paint = (dt = 0) => {
       if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
       const level = run.current?.level ?? activeLevel.current
@@ -461,8 +462,8 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       // Fractional render scales round the backing dimensions to whole pixels.
-      // Frame against that drawable area so the player remains exactly centered.
-      const camera = gameCamera(canvas.width / ratio, canvas.height / ratio, player.current, level, !!run.current)
+      // Frame against the drawable area so rounding cannot shift the view.
+      const camera = gameCamera.view(canvas.width / ratio, canvas.height / ratio, player.current, level, !!run.current, dt)
       lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), lightingForLevel(level),
         { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
     }

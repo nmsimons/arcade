@@ -168,10 +168,10 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   for (const plate of level.gravityPlates ?? []) drawWaterRegion(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), editor, paint)
 }
-export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {
-  const { level, player: p } = run
+export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run, view = gameCamera(width, height, run.player, run.level, true)) {
+  const { level } = run
   ctx.fillStyle = '#f0efe8'; ctx.fillRect(0, 0, width, height)
-  const { zoom, x: left, y: top } = gameCamera(width, height, p, level, true)
+  const { zoom, x: left, y: top } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-left, -top)
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom)
   drawPuzzleWorld(ctx, run)

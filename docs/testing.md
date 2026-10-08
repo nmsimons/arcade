@@ -90,6 +90,21 @@ controls with injected state. Rendering optimizations must compare the complete
 image against the original composition, including occlusion, camera/size changes,
 power loss, and artwork that needs a full-viewport fallback.
 
+UJG camera regressions cover a readable phone-scale figure, balanced framing of
+short rooms, both enclosing contacts in taller rooms, resize continuity, room-end
+clamping, water anchoring, and a running held jump whose destination is visible
+before takeoff. The live view blends a bounded lead from actual velocity only
+when the viewport needs more forward room; precision walking remains centered.
+Camera sampling leaves the player untouched and freezes its presentation blend
+while paused. `jumpingCamera.spec.mjs` uses real keyboard input and records the
+native canvas transform, approach distance and complete camera trajectory across
+phone/desktop and day/night sizes. `jumpingCameraRender.dev.spec.mjs` compares the
+original/lit transforms across 48 viewport, pixel-density, water and gravity
+combinations; it bounds Canvas transform rounding to less than .001 backing pixel.
+Unlit-night rendering can omit black correction masks and empty haze passes;
+`jumpingUnlitNight.dev.spec.mjs` compares every RGBA channel with the full original
+composition, including power transitions, exit fading and the GPU/Canvas paths.
+
 Bot-model checks validate mesh winding, mirrored grabber poses, garage clearance,
 powered/damaged states, and presentation-only rendering without physics writes.
 Healthy models are limited to four functional parts and 52 vertices; damage and

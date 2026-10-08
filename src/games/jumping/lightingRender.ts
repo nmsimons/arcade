@@ -61,13 +61,15 @@ export class LightingRenderer {
   private preferGpu: boolean
   private allowSoftware: boolean
   private boundedEmissions: boolean
+  private skipEmptyNightPasses: boolean
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
     // The full composition remains available as a pixel/performance reference.
     this.boundedEmissions = options.boundedEmissions !== false
+    this.skipEmptyNightPasses = options.skipEmptyNightPasses !== false
   }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
@@ -325,6 +327,9 @@ export class LightingRenderer {
         drawField: target => target.drawImage(field.canvas, 0, 0) }
     }
     const { lights, edges, bufferBytes, backend, drawField } = lighting
+    // A night field without an active light is constant ambient. Both ambient
+    // correction masks are exactly black; no beam or source haze is present.
+    const emptyNight = this.skipEmptyNightPasses && nightMode && activeSources.length === 0
     const playerOpacity = run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
     const playerShapes = playerOpacity ? dynamic.find(group => group.player) ?? athleteCasters(run.player) : []
     const playerX = Math.max(0, Math.floor((Math.min(...playerShapes.map(shape => shape.x)) - view.x - 1) * view.zoom) - 1)
@@ -400,14 +405,14 @@ export class LightingRenderer {
     }
     // Foreground coverage keeps both airborne light effects behind solid art.
     // Draw it once per frame; only alpha is used, including the player's fade.
-    if (nightMode) {
+    if (nightMode && !emptyNight) {
       clear(shadow, width, height)
       this.world(shadow.ctx, run, view, nightMode, paintNormally, sources, editor, 'objects')
     }
     // Structural solids (and the back wall at night) receive ambient only. Replay the
     // full artwork order to remove direct light from their visible pixels,
     // preserving objects, emissions and translucent silhouettes in front.
-    const ambientFloors: readonly (0 | .65)[] = nightMode ? [0, .65] : [0]
+    const ambientFloors: readonly (0 | .65)[] = emptyNight ? [] : nightMode ? [0, .65] : [0]
     for (const floor of ambientFloors) {
       clear(correction, width, height); drawField(correction.ctx)
       if (floor) { correction.ctx.globalCompositeOperation = 'lighten'; correction.ctx.fillStyle = gray(floor); correction.ctx.fillRect(0, 0, width, height) }
@@ -438,7 +443,7 @@ export class LightingRenderer {
       ctx.drawImage(correction.canvas, 0, 0); ctx.restore()
     }
     // Keep the stronger short source glow behind physical objects and fixtures.
-    if (nightMode) {
+    if (nightMode && !emptyNight) {
       haze.ctx.globalCompositeOperation = 'destination-out'; haze.ctx.drawImage(shadow.canvas, 0, 0)
       haze.ctx.globalCompositeOperation = 'source-over'
       haze.ctx.save(); transform(haze.ctx, view); drawLightFixtures(haze.ctx, sources, erase); haze.ctx.restore()

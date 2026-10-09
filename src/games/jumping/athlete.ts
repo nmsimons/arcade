@@ -1611,7 +1611,10 @@ function resolveAthletePose(p: Player): AthletePose {
   let frontAngle = lerp(-swing - .03 - run * .13 + relaxed * .24, -.65, squat), backAngle = lerp(swing - .03 - run * .13 - relaxed * .24, -.75, squat)
   // The backward arm opens; the forward arm folds up toward the chest.
   let frontFlex = lerp(.1 + moving * lerp(.12, 1.2 - Math.cos(cycle - .12) * .5, run), 2.1, squat)
-  let backFlex = lerp(.1 + moving * lerp(.12, 1.2 + Math.cos(cycle - .12) * .5, run), 2.2, squat)
+  // At quiet crouched rest, let the rear forearm fall beside the knee instead
+  // of merging both hands into one. Travel and loaded palms keep their fold.
+  const crouchRest = (1 - moving) * (1 - air) * (1 - pushing)
+  let backFlex = lerp(.1 + moving * lerp(.12, 1.2 + Math.cos(cycle - .12) * .5, run), 2.2 - 1.55 * crouchRest, squat)
   if (air > 0) {
     // Stretch off the ground, gather through the apex, then open the arms for
     // balance. A real approaching support sweeps them back for the contact.

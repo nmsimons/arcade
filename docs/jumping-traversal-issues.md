@@ -2190,7 +2190,7 @@ On the preceding `f23a7e5` source, the ordinary downhill ball retains up to
 crate also loses visible contact on some force-bearing frames. Crouching reduces
 the error after settling but does not fix the first force-bearing frames.
 
-The low posture now continues hinging the chest toward the lowest actual wrist
+The grounded low posture now continues hinging the chest toward the lowest actual wrist
 target. The pelvis retains its supported working height, the chest retains its
 10.1-unit segment, and the ordinary reach correction solves both fixed-length
 arms against the established palms. This changes presentation only: contact
@@ -2241,3 +2241,25 @@ and prop state, proving that this final reach correction preserves the actual
 trajectories. Authored maps, local collections and medal times are preserved.
 #45/#46 retain their wider transition/inverted/body-clearance acceptance;
 actual iPhone/controller, camera and route review remain separately open.
+
+The first full hosted run caught an airborne returning-step regression from
+applying the extra hinge to unloaded air preparation. The correction is limited
+to grounded working posture. The original reversed-gravity returning-rig
+regression passes with its unchanged proportion, contact and continuity limits;
+the nineteen related push/presentation/return checks and separate returning-pose
+suite pass. The grounded native evidence above remains identical.
+The final full local run passes 2,040 of 2,042 checks. Its only failures are the
+two known Windows symlink-permission fixtures; the returning-gravity regression
+and all gameplay checks pass. Final types and changed-file lint pass.
+
+### Push acceptance follow-up deployed
+
+[PR #64](https://github.com/nmsimons/arcade/pull/64) is merged and deployed for
+`4ffbfdbdd20ebbdba7886e1f2a1255f2b47c8bb3` in
+[release run 37907363935](https://github.com/nmsimons/arcade/actions/runs/37907363935).
+All validation/build, browser groups, deployment and desktop checks pass.
+The production entry JavaScript, CSS and `UntitledJumpingGame-CrHsS8Sp.js` match
+the validated artifact by SHA-256; keyboard movement/jumping, native touch and
+Controls navigation pass without exceptions. This release contains the #40–#43
+acceptance tests and evidence. The later low-downhill reach adjustment above
+awaits its own release in PR #65.

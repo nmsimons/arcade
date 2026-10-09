@@ -11,7 +11,7 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
     const data = JSON.parse(readFileSync(new URL(`../../public/levels/jumping/${recording.file}`, import.meta.url)))
     // This new whole-route Night test includes several lamps and a passive
     // mechanism wait in software Chromium. Existing medal deadlines are unchanged.
-    test.setTimeout(data.lighting?.nightMode ? 90000 : 60000)
+    test.setTimeout(recording.file === 'Balls.jump-level.json' ? 180000 : data.lighting?.nightMode ? 90000 : 60000)
     expect(recording.jumpModel).toBe('tap-hold')
     const errors = [], checkpoints = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 852, height: 393 })

@@ -78,6 +78,56 @@ for (const key of ['a','s']) test(`keyboard ${key === 'a' ? 'opposite movement' 
   await page.screenshot({path:info.outputPath('returned-from-tall-step.png')})
 })
 
+for (const operation of ['resume','restart']) test(`keyboard ${operation} clears a queued jump during an actual returning tall step`, async ({page},info) => {
+  const level=blankTrial();level.height=600;level.floor=500
+  level.spawn={x:474.5,y:500};level.goal={x:900,y:500}
+  level.platforms=[{x:500,y:440,w:200,h:60}]
+  await useLevelFixtures(page,[level])
+  await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.clock.runFor(32)
+  const read=()=>page.evaluate(()=>window.jumpingMotion.read().recent)
+  const initial=(await read()).at(-1)
+  await page.keyboard.down('d');await page.clock.runFor(300)
+  const entered=(await read()).at(-1)
+  expect(entered.signals.mode).toBe('step')
+  await page.keyboard.up('d');await page.keyboard.down('a');await page.keyboard.down('Space')
+  await page.clock.runFor(16)
+  const returning=(await read()).at(-1)
+  expect(returning.signals.mode).toBe('step')
+  expect(returning.y).toBeGreaterThan(entered.y)
+  expect(returning.input.jump).toBe(true)
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog',{name:'Game paused'})).toBeVisible()
+  await page.clock.runFor(600)
+  expect(await read()).toEqual([])
+  await page.keyboard.up('a');await page.keyboard.up('Space')
+  const action=operation==='resume'?/^Resume$/:/^(Restart level|Reset position)$/
+  await page.getByRole('button',{name:action}).click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.clock.runFor(800)
+  const settled=(await read()).at(-1)
+  expect(settled.signals.mode).toBe('free')
+  expect(settled.signals.grounded).toBe(true)
+  expect(settled.y).toBe(500);expect(settled.vy).toBe(0)
+  expect(settled.x).toBeLessThan(500)
+  expect((await read()).every(frame=>!frame.input.jump&&frame.vy>=0)).toBe(true)
+  if(operation==='restart'){
+    expect(settled.x).toBe(initial.x)
+    expect(settled.points).toEqual(initial.points)
+  }
+  await page.keyboard.down('Space');await page.clock.runFor(32)
+  const fresh=(await read()).at(-1)
+  expect(fresh.signals.grounded).toBe(false);expect(fresh.vy).toBeLessThan(-250)
+  await page.keyboard.up('Space')
+  await info.attach('return-pause-handoff',{body:JSON.stringify({initial,entered,returning,settled,fresh},null,2),contentType:'application/json'})
+  await page.screenshot({path:info.outputPath(`return-${operation}-fresh-jump.png`)})
+})
+
 test('motion diagnostics observe real controls and pushing resumes smoothly after a brief release', async ({ page }, info) => {
   const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]

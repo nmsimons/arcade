@@ -273,7 +273,7 @@ function handGeometry(limb: Limb) {
   const palm: Point = limb.hand ?? [limb.end[0] + Math.cos(angle) * 1.4, limb.end[1] + Math.sin(angle) * 1.4]
   return { palm, angle }
 }
-const handBoundary: Point[] = Array.from({ length: 32 }, (_, i) => [Math.cos(i * TAU / 32) * 2.1, Math.sin(i * TAU / 32) * 1.6])
+const handBoundary: Point[] = Array.from({ length: 64 }, (_, i) => [Math.cos(i * TAU / 64) * 2.1, Math.sin(i * TAU / 64) * 1.6])
 /** Share the drawn palm's full silhouette with water clearance and checks. */
 export function handOutline(limb: Limb): Point[] {
   const { palm, angle } = handGeometry(limb), cos = Math.cos(angle), sin = Math.sin(angle)
@@ -408,8 +408,8 @@ function prepareReturningStepPose(p: Player): AthletePose {
   // the lift retain their exact contact; clearing those would detach them.
   const reaching = p.mantle!.time / p.mantle!.step!.duration < .18
   const source = reaching ? { ...raw,
-    frontArm: clearLimb(p, raw.frontArm, UPPER_ARM, FOREARM, 1, true, true),
-    backArm: clearLimb(p, raw.backArm, UPPER_ARM, FOREARM, 1, true, true) } : raw
+    frontArm: clearLimb(p, raw.frontArm, UPPER_ARM, FOREARM, 1, true),
+    backArm: clearLimb(p, raw.backArm, UPPER_ARM, FOREARM, 1, true) } : raw
   if (!preparation?.amount) return source
   const direction = preparation.direction, t = preparation.amount
   let target = athletePose({ ...p, mantle: null, hang: null, climbing: null, dryTurn: null, slideEntry: null,
@@ -554,7 +554,14 @@ function ledgePose(p: Player): AthletePose {
   }
   const root = add(shoulder, [0, .7])
   const grip = (point: Point) => at([point[0], point[1] + Math.max(0, point[0]) * (edge.slope ?? 0)])
-  const frontArm = grippingArm(root, grip(FRONT_WRIST), grip(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
+  // Keep the rounded forearm above the lip while its palm stays on top.
+  // A distant first catch has no spare reach: raise only within the arm's
+  // reachable sphere, then tuck the wrist as the shoulder approaches it.
+  const wrist = grip(FRONT_WRIST), reach = UPPER_ARM + FOREARM - .02
+  const available = wrist[1] - root[1] + Math.sqrt(Math.max(0, reach ** 2 - (wrist[0] - root[0]) ** 2))
+  // The tip's 1.05-unit radius plus the usual .05-unit skin separation.
+  const frontWrist = add(wrist, [0, -Math.max(0, Math.min(1.1, available - .001))])
+  const frontArm = grippingArm(root, frontWrist, grip(FRONT_GRIP), frontFree, catchWeight * (1 - frame.frontRelease), .9)
   const backArm = grippingArm(root, grip(BACK_WRIST), grip(BACK_GRIP), backFree, catchWeight * (1 - frame.backRelease), .9)
   const legRoot = add(hip, [0, 1])
   const folded = crouched && t > .73 || (p.mantle?.inset ?? 20) < 20 && t > .54
@@ -942,32 +949,59 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   const duration = motion.step ? .1 : motion.slide ? .16 : .14
   const fraction = Math.min(1, dt / Math.max(dt, duration - motion.time + dt))
   const depth = Math.sin(Math.PI * smooth(motion.time / duration))
-  motion.pose = fraction === 1 ? target : transferPose(from, target, [0,0], fraction, [0,0], 0, true, 0,
-    { depth: depth * (motion.slide ? 6 : 8), kneeOpening: motion.slide ? MIN_KNEE_OPENING : 0,
-      legDepth: motion.slide ? depth * 6 : undefined })
-  if (contactTurn && fraction < 1) motion.pose = transferPushTurn(p, motion.pose, from, target, fraction)
-  if (!p.grounded) {
-    motion.pose = clearBody(p, motion.pose).pose
-    for (const name of ['frontLeg','backLeg'] as const) {
-      motion.pose[name] = motion.slide
-        ? clearSlidingJoint(p, clearAirborneFoot(p, motion.pose[name], 16), 15, 14.5, 2.2)
-        : clearAirborneFoot(p, { ...motion.pose[name], ...clearLimb(p, motion.pose[name], 15, 14.5, -1) })
+  const sample = (t: number) => {
+    // A slowed slide turn also slows its added bend through depth. At zero
+    // progress the outgoing bend is retained, rather than adding a full fold.
+    const bend = motion.slide ? depth * t / fraction : depth
+    let pose = t === 1 ? target : transferPose(from, target, [0,0], t, [0,0], 0, true, 0,
+      { depth: bend * (motion.slide ? 6 : 8), kneeOpening: motion.slide ? MIN_KNEE_OPENING : 0,
+        legDepth: motion.slide ? bend * 6 : undefined })
+    if (contactTurn && t < 1) pose = transferPushTurn(p, pose, from, target, t)
+    if (!p.grounded) {
+      pose = clearBody(p, pose).pose
+      for (const name of ['frontLeg','backLeg'] as const) {
+        pose[name] = motion.slide
+          ? clearSlidingJoint(p, clearAirborneFoot(p, pose[name], 16), 15, 14.5, 2.2)
+          : clearAirborneFoot(p, { ...pose[name], ...clearLimb(p, pose[name], 15, 14.5, -1) })
+      }
+    } else if (contactTurn) {
+      // A swinging shoe can retain its outgoing pitch at the first grounded
+      // shove. Clear its skin without moving either real planted ankle.
+      for (const name of ['frontLeg','backLeg'] as const) if (!pose[name].planted) {
+        pose[name] = clearAirborneFoot(p,pose[name],16)
+      }
     }
-  } else if (contactTurn) {
-    // A swinging shoe can retain its outgoing pitch at the first grounded
-    // shove. Clear its skin without moving either real planted ankle.
-    for (const name of ['frontLeg','backLeg'] as const) if (!motion.pose[name].planted) {
-      motion.pose[name] = clearAirborneFoot(p,motion.pose[name],16)
+    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
+    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
+    return pose
+  }
+  let t = fraction, pose = sample(t)
+  if (motion.slide) {
+    // A briefly reacquired slope can require more shoe clearance than the
+    // raw transfer predicts. Budget the final cleared joints, preserving
+    // fixed bones and safe skin instead of blending corrected coordinates.
+    const points = (rig: AthletePose) => [rig.hip, rig.waist, rig.shoulder, rig.head,
+      ...[rig.frontArm, rig.backArm, rig.frontLeg, rig.backLeg].flatMap(limb =>
+        [[...limb.joint, limb.jointDepth ?? 0], [...limb.end, limb.endDepth ?? 0]])]
+    const previous = points(from), limit = 600 * dt
+    const safe = (rig: AthletePose) => points(rig).every((point, i) =>
+      Math.hypot(...point.map((value, axis) => value - (previous[i][axis] ?? 0))) <= limit)
+    if (!safe(pose)) {
+      let low = 0, high = t
+      for (let i = 0; i < 14; i++) {
+        const mid = (low + high) / 2
+        if (safe(sample(mid))) low = mid; else high = mid
+      }
+      t = low; pose = sample(t)
     }
   }
-  motion.pose.frontArm = clearLimb(p, motion.pose.frontArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
-  motion.pose.backArm = clearLimb(p, motion.pose.backArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
+  motion.pose = pose
   motion.facing = p.facing
   // The turn can finish before a returning step reaches the floor. Keep its
   // incoming reach owner through the intervening one-tick slips; dropping it
   // here lowers the arms, only to reacquire the same palms on the next shove.
   const preparingStep = motion.step && !p.grounded && (p.pushing?.ready ?? 0) > 0
-  if (fraction === 1 && direction === p.facing && !braking && !preparingStep) p.dryTurn = null
+  if (t === 1 && direction === p.facing && !braking && !preparingStep) p.dryTurn = null
 }
 
 /** Incoming force keeps its palms immediately. Fit the shoulder to that reach,
@@ -1131,7 +1165,7 @@ export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFram
   const fraction = Math.min(1, dt / Math.max(dt, .12 - motion.time + dt))
   const sample = (t: number) => {
     let pose = t === 1 ? target : transferPose(from, target, [0, 0], t, [0, 0], 0, true, 0,
-      { depth: motion.landing ? Math.sin(Math.PI * t) * 6 : Math.sin(Math.PI * smooth(motion.time / .12)) * 2,
+      { depth: motion.landing ? Math.sin(Math.PI * t) * 6 : Math.sin(Math.PI * smooth(motion.time / .12)) * 2 * t / fraction,
         kneeOpening: motion.landing && p.grounded ? Math.PI / 12 : MIN_KNEE_OPENING, footTurn: motion.landing })
     pose = clearBody(p, pose).pose
     if (motion.landing) pose = loadSlideLanding(p, pose)
@@ -1155,7 +1189,7 @@ export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFram
   const safe = (pose: AthletePose) => points(pose).every((point, i) =>
     Math.hypot(...point.map((value, axis) => value - (previous[i][axis] ?? 0))) <= limit)
   let t = fraction, pose = sample(t)
-  if (motion.landing && !safe(pose)) {
+  if (!safe(pose)) {
     let low = 0, high = t
     for (let i = 0; i < 14; i++) {
       const mid = (low + high) / 2
@@ -1375,11 +1409,12 @@ export function settleWaterClearance(p: Player, dt: number) {
 }
 /** Fold through depth around a blocked corner. The projected bend can change
  * without stretching bones or sending a shin/elbow through the solid. */
-function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false, handContact = false): Limb {
+function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false, handContact = false, holdContact = false): Limb {
+  const visibleBall = handContact && p.contacts?.push?.collider.prop?.kind === 'ball' ? p.contacts.push.collider.platform : undefined
   const handIntrusion = (limb: Limb) => {
     let deepest: ReturnType<typeof bodyIntrusion> = null
     for (const point of handOutline(limb)) {
-      const hit = bodyIntrusion(p, point, handContact ? 0 : .03, handContact && p.contacts?.push?.collider.prop?.kind === 'ball' ? p.contacts.push.collider.platform : undefined)
+      const hit = bodyIntrusion(p, point, handContact ? 0 : .03, visibleBall)
       if (hit && (!deepest || Math.hypot(hit.x, hit.y) > Math.hypot(deepest.x, deepest.y))) deepest = hit
     }
     return deepest
@@ -1390,26 +1425,35 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
     hand: add(source.hand, [limb.end[0] - source.end[0], limb.end[1] - source.end[1]]) } : limb
   const clear = (limb: Limb) => {
     const samples = hands ? 10 : 4
-    for (const [a, b] of [[limb.root, limb.joint], [limb.joint, limb.end]]) for (let i = 0; i <= samples; i++) if (bodyIntrusion(p, mix(a, b, i / samples), hands ? 1.65 : 1.6)) return false
+    for (const [a, b] of [[limb.root, limb.joint], [limb.joint, limb.end]]) for (let i = 0; i <= samples; i++) if (bodyIntrusion(p, mix(a, b, i / samples), hands ? 1.65 : 1.6, holdContact ? visibleBall : undefined)) return false
     return !hands || !handIntrusion(limb)
   }
   if (clear(source)) return source
+  const fold = (end: Point, previous: Limb) => {
+    const dx = end[0] - source.root[0], dy = end[1] - source.root[1], length = Math.hypot(dx, dy)
+    if (length < Math.abs(upper - lower) || length > upper + lower) return undefined
+    const along = (upper ** 2 - lower ** 2 + length ** 2) / (2 * length)
+    const center: Point = [source.root[0] + dx / length * along, source.root[1] + dy / length * along]
+    const radius = Math.sqrt(Math.max(0, upper ** 2 - along ** 2)), normal: Point = [-dy / length, dx / length]
+    const before = Math.max(-1, Math.min(1, ((previous.joint[0] - center[0]) * normal[0] + (previous.joint[1] - center[1]) * normal[1]) / Math.max(radius, .001)))
+    const candidates = Array.from({ length: 33 }, (_, i) => i / 16 - 1).sort((a, b) => Math.abs(a - before) - Math.abs(b - before))
+    for (const amount of candidates) {
+      const candidate = retarget({ ...source, root: source.root, end,
+        joint: add(center, [normal[0] * radius * amount, normal[1] * radius * amount]), jointDepth: radius * Math.sqrt(1 - amount ** 2), endDepth: 0 })
+      if (clear(candidate)) return candidate
+    }
+    return undefined
+  }
+  // A force-bearing wrist/palm is an anchor. Only its bend plane may change;
+  // a free-arm fallback must never retract or shift that physical contact.
+  if (holdContact) return fold(source.end, source) ?? source
   let current = source, target: Point = [...source.end]
   for (let pass = 0; pass < 12; pass++) {
     const intrusion = bodyIntrusion(p, target, 1.8) ?? (hands ? handIntrusion(retarget({ ...current, end: target })) : null)
     if (intrusion) target = add(target, [intrusion.x, intrusion.y])
     const solved = solveRear(source.root, target, upper, lower, bend, .6)
-    const dx = solved.end[0] - source.root[0], dy = solved.end[1] - source.root[1], length = Math.hypot(dx, dy)
-    const along = (upper ** 2 - lower ** 2 + length ** 2) / (2 * length)
-    const center: Point = [source.root[0] + dx / length * along, source.root[1] + dy / length * along]
-    const radius = Math.sqrt(Math.max(0, upper ** 2 - along ** 2)), normal: Point = [-dy / length, dx / length]
-    const before = Math.max(-1, Math.min(1, ((current.joint[0] - center[0]) * normal[0] + (current.joint[1] - center[1]) * normal[1]) / Math.max(radius, .001)))
-    const candidates = Array.from({ length: 33 }, (_, i) => i / 16 - 1).sort((a, b) => Math.abs(a - before) - Math.abs(b - before))
-    for (const amount of candidates) {
-      const candidate = retarget({ ...source, root: source.root, end: solved.end,
-        joint: add(center, [normal[0] * radius * amount, normal[1] * radius * amount]), jointDepth: radius * Math.sqrt(1 - amount ** 2), endDepth: 0 })
-      if (clear(candidate)) return candidate
-    }
+    const folded = fold(solved.end, current)
+    if (folded) return folded
     // If the straight chord crosses a corner, recover the hand/foot toward the
     // body until there is room, then extend again as normal travel clears it.
     const blocked = bodyIntrusion(p, solved.joint, 1.8)
@@ -1617,14 +1661,11 @@ function resolveAthletePose(p: Player): AthletePose {
       return result
     }
     frontArm = press(frontArm, -43, 0); backArm = press(backArm, -46, 1)
-    // An unloaded prop reach and a blending wall palm need final skin clearance.
-    // Real prop palms retain their exact force contact; a loaded wall's flush
-    // skin needs no additional padding during the reach.
-    if (!p.pushing!.palms || !p.contacts?.push?.hands) {
-      const wallContact = !!p.contacts?.push?.hands
-      frontArm = clearLimb(p,frontArm,UPPER_ARM,FOREARM,1,true,wallContact)
-      backArm = clearLimb(p,backArm,UPPER_ARM,FOREARM,1,true,wallContact)
-    }
+    // Loaded prop elbows clear a rotating face without moving either palm.
+    // Unloaded reaches and blending wall palms retain their free clearance.
+    const contact = !!p.contacts?.push?.hands, anchored = contact && !!p.pushing!.palms
+    frontArm = clearLimb(p,frontArm,UPPER_ARM,FOREARM,1,true,contact,anchored)
+    backArm = clearLimb(p,backArm,UPPER_ARM,FOREARM,1,true,contact,anchored)
   }
   if (p.ledgeReach && !p.grounded) {
     const origin: Point = [(p.ledgeReach.x - p.x) * p.facing, p.ledgeReach.y - p.y]
@@ -1680,10 +1721,8 @@ function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
         const edge = nearestBoundary(b, x, y)
         if (edge.distance >= .01 && (!deepest || edge.distance > deepest.distance)) {
           deepest = { ...edge, x: edge.x - x, y: edge.y - y }
-          if (!landing) break
         }
       }
-      if (deepest && !landing) break
     }
     if (!deepest) break
     target[0] += (deepest.x + deepest.nx * .05) * p.facing; target[1] += deepest.y + deepest.ny * .05

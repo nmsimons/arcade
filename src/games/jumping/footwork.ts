@@ -16,10 +16,14 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
 
-// The curved heel and sole are shared with the renderer's ground-clearance check.
+// Sample the straight sole too: its endpoints can both clear a convex crown
+// while the material between them crosses it. Keep the interval below .5.
 export const FOOT_BALL: Point = [2.2, 2.8]
-export const FOOT_CONTACT: readonly Point[] = [[-1.8, 2.8], FOOT_BALL, [4.5, 2.8], [5.23125, 2.69375], [5.725, 2.375],
-  [5.98125, 1.99375], [6, 1.5], [-2.55, 2.05], [-2.5875, 1.3375], [-2.4, .4], [-1.6, -1.6]]
+export const FOOT_CONTACT: readonly Point[] = [
+  ...Array.from({ length: 8 }, (_, i): Point => [-1.8 + i * .5, 2.8]), FOOT_BALL,
+  ...Array.from({ length: 5 }, (_, i): Point => [2.2 + (i + 1) * 2.3 / 5, 2.8]),
+  [5.23125, 2.69375], [5.725, 2.375],
+  [5.98125, 1.99375], [6, 1.5], [-2.2875, 2.5375], [-2.55, 2.05], [-2.5875, 1.3375], [-2.4, .4], [-1.6, -1.6]]
 export function toeBend(angle: number, load = 1) {
   const pitch = Math.atan2(Math.sin(angle), Math.cos(angle))
   return -Math.max(0, Math.min(1.05, pitch)) * lerp(.15, 1, clamp(load))

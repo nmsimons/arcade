@@ -15,7 +15,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Reproduced visible penetration |
 | [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Reproduced support and animation mismatch |
 | [#48 UJG: show braking and turning before mirroring a moving run](https://github.com/nmsimons/arcade/issues/48) | Medium (P2) | Reproduced abrupt visual reversal |
-| [#49 UJG: allow reconsidering tall automatic steps before commitment](https://github.com/nmsimons/arcade/issues/49) | Medium (P2) | Reproduced loss of player agency |
+| [#49 UJG: allow reconsidering tall automatic steps before commitment](https://github.com/nmsimons/arcade/issues/49) | Medium (P2) | Acceptance complete: geometric cancellation, full returning skin, moving props, reversed gravity, and pause/restart |
 | [#50 UJG: initialize and settle into a readable relaxed idle stance](https://github.com/nmsimons/arcade/issues/50) | Medium (P2) | Reproduced overlapping idle silhouette |
 | [#51 UJG: make Down action priority and lower-then-drop behavior predictable](https://github.com/nmsimons/arcade/issues/51) | Medium (P2) | Confirmed control contract with a discoverability problem |
 | [#52 UJG: explain and animate ledge jump-away and fresh-press departures](https://github.com/nmsimons/arcade/issues/52) | Medium (P2) | Reproduced launch orientation and confirmed input semantics |
@@ -1658,10 +1658,11 @@ identify no torso or head overlap in this fixture.
 3. **Planted heel on the small ball.** Normal side ±1 has a 0.056858-unit rear
    heel intersection at tick 59; reversed side ±1 has a 0.105808-unit front
    heel intersection at tick 61. These are actual planted feet. The current
-   `FOOT_CONTACT` samples miss part of the heel curve between the midpoint and
-   sole endpoint. The drawn quadratic from `(-2.4,0.4)` through `(-3,2.5)` to
+   `FOOT_CONTACT` samples miss material between the straight sole's endpoints
+   over the convex crown. The drawn quadratic from `(-2.4,0.4)` through `(-3,2.5)` to
    `(-1.8,2.8)` includes `(-2.2875,2.5375)` at t=0.75, which is absent from
-   those samples. Fit support to the complete heel/sole geometry in footwork;
+   those samples too, but adding that point alone does not fix the measured
+   intersection. Fit support to the complete heel/sole geometry in footwork;
    the renderer must continue to use the resulting real ankle. Do not clear
    the artwork by lifting a planted ankle away from its contact owner.
 
@@ -1692,3 +1693,73 @@ Local evidence: `.tmp/ujg-traversal-fixes/audit-return-outlines.mjs`,
 4–16 intersecting frames per encounter. The larger crate case is a visible
 elbow/forearm defect; the sub-unit heel and ledge cases need precise contact
 repair without compromising the supported motion already established.
+
+## Returning-step acceptance complete
+
+October 8, 2026. The remaining returning-step contact fixes are implemented on
+`codex/ujg-traversal-fixes`. This completes #49's original acceptance; #43 retains
+its wider pushing-contact review, and #48 retains the separate crowded reversal.
+The user's direction is to prioritise visible, consequential defects and finish
+verified items instead of pursuing unlimited polish.
+
+Loaded prop arms now search an elbow bend with the wrist and palm held fixed.
+The candidate uses the real crate polygon or visible ball circle. An unavailable
+bend retains the loaded contact instead of retracting the palm. The ledge wrist
+tucks above the corner only within its available reach; the palm stays on the
+lip. Free initial reaches retain their own clearance before that grip is loaded.
+
+The earlier heel diagnosis was incomplete: a straight sole can cross a convex
+ball crown while both endpoints remain clear. Footwork now samples that material
+at intervals no greater than half a unit, along with the missing curved-heel
+sample. The renderer retains the resulting real ankle. Foot clearance resolves
+the deepest overlap rather than spending its pass budget on successive shallow
+samples. A coupled 55-degree slope regression required budgeting the final
+cleared slide-entry/turn rig; slowed turns also slow their added depth bend.
+The original five-unit joint limit, fixed bones, skin and control assertions
+remain unchanged.
+
+The new permanent `tests/jumping-return-skin.test.mjs` checks the complete drawn
+arm, shoe, torso, neck and head contours through all 2,880 real moving-prop frames:
+both directions, 30/80-unit boxes/balls, normal and reversed gravity. Its adaptive
+curve tolerance is 0.0025 units; every contour clears the unchanged 0.02-unit
+penetration limit. The preceding source fails this test at the initial rear-palm
+acquisition. Existing tests retain exact force palms, actual planted ankles,
+fixed three-dimensional bones, torso proportions and whole-sequence head/wrist
+continuity. All 2,880 matched native-browser frames preserve the complete
+physical player and prop traces exactly. The reversed large-crate rear-elbow
+maximum improves from 10.105 to 7.292 units on side -1; no joint's whole-sequence
+maximum worsens by more than 0.308 units.
+
+The matched [before](images/jumping-return-skin-before.gif) and
+[current](images/jumping-return-skin-current.gif) clips use identical inputs,
+framing and real-time playback at 1x and 2.6x. Review of acquisition, return,
+incoming crate contact, ball support/departure and grounded recovery shows the
+established motion intact. The crate elbow now stays outside its corner and
+the lip forearm remains above the edge. The sole adjustment is subtle at normal
+scale and removes the enlarged-view intersection without introducing a new gait.
+The small-ball character eventually walks out of this fixed framing; subsequent
+simulation continuity/support is checked by the complete traces and regressions.
+
+The full UJG selection passes 1,440/1,442 tests; the two failures are existing
+Windows symlink-creation EPERM fixtures, before their security assertions. All
+movement and recorded routes pass. Types, changed-file lint, diff checks and the
+isolated production build pass. All 45 affected browser cases complete with
+original controls, assertions and deadlines: the first two-worker run passes 44
+and stops one water case in **Loading game**, before any traversal. Rerunning
+only the two original water-bank cases with ordinary two-worker settings passes
+both in 18.4 seconds. The loading failure and its trace are retained. Successful
+traces load `UntitledJumpingGame-8AG2_cCJ.js`.
+
+New ordinary-keyboard tests pause an actual returning 60-unit step with a queued
+jump, then resume or restart. Both clear held/queued input, reach ordinary support,
+and accept one fresh jump; restart restores the initial rig. Existing step tests
+cover individual opposite/detach/drop/descend and combined cancellation at
+0/0.1/0.45/0.8/0.97 progress, geometry-based commitment, blocked return,
+20/40/60/61-unit distinctions, narrow treads and buffered jumps. Together with
+the moving/inverted skin, support and visual evidence, these satisfy #49.
+
+Local evidence is under `.tmp/ujg-traversal-fixes/`: `return-skin-accepted-all-node.log`,
+`return-skin-slide-turn-tests.log`, `return-skin-native-comparison.json`, native
+frames/contact sheets/filmstrips, `return-skin-browser.log`,
+`return-skin-water-browser.log`, and their retained traces. Authored levels,
+local collections and medal thresholds are unchanged.

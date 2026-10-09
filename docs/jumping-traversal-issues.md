@@ -11,7 +11,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#42 UJG: show pushing effort and resistance in the upper body](https://github.com/nmsimons/arcade/issues/42) | High (P1) | Acceptance complete: distinct partial/moving/blocked load, eased effort and release, maintained palms/clearance and no voluntary load from passive displacement |
 | [#43 UJG: establish visible palm contact before the object starts moving](https://github.com/nmsimons/arcade/issues/43) | High (P1) | Acceptance complete: exposed approach reach, palms by first force-bearing movement, changing faces, release/recontact/turn/jump and first keyboard press after restart |
 | [#44 UJG: replace low-object squat shuffling with a supported working gait](https://github.com/nmsimons/arcade/issues/44) | Medium (P2) | Acceptance complete: working hinge, alternating drive, low downhill reach, explicit crouch, blocked effort and native/browser review |
-| [#45 UJG: keep crouched pushing head and torso outside the object](https://github.com/nmsimons/arcade/issues/45) | High (P1) | Reproduced visible penetration |
+| [#45 UJG: keep crouched pushing head and torso outside the object](https://github.com/nmsimons/arcade/issues/45) | High (P1) | Acceptance complete: final drawn skin, anchored palms, tilted-face reach, continuous crouch/release and both gravity frames |
 | [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Reproduced visible penetration |
 | [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Acceptance complete: prompt supported recovery, retained stationary sequence, continuous first opposite press and repeated turns, unchanged motor and jump availability |
 | [#48 UJG: show braking and turning before mirroring a moving run](https://github.com/nmsimons/arcade/issues/48) | Medium (P2) | Acceptance complete: immediate steering, supported braking, crowded release/reach, repeated turns, and full-body contact continuity |
@@ -2263,3 +2263,76 @@ the validated artifact by SHA-256; keyboard movement/jumping, native touch and
 Controls navigation pass without exceptions. This release contains the #40–#43
 acceptance tests and evidence. The later low-downhill reach adjustment above
 awaits its own release in PR #65.
+
+## Crouched pushing clearance acceptance complete
+
+October 9, 2026. This completes #45's original five criteria. The exact reported
+blocked 80-unit crate fails the final head-radius regression on `4a66908` and
+passes with the earlier lowered working contacts and final head clearance.
+The broader audit found two remaining defects on the preceding `597ecab`:
+the rendered forearm enters a moving tilted crate by 2.58 world units, and
+the outline enters the drawn ball under reversed gravity by 0.85 units in a
+40-unit opening. Checking bone centers alone misses the former.
+
+The supported trunk now fits genuinely unreachable working wrists together
+with the fixed-length arms. Elbows fold around the exposed face, and the chest
+retreats where the forearm chord would cut a corner. The actual pelvis/ankle
+constraints remain part of that fit. Clearance uses the loaded ball in the
+pose's reflected frame, including its actual drawn circle; contact snapshots
+otherwise remain in world coordinates. The head stays its original size.
+
+A tipping face can move a low crouched grip outside the established reach.
+The presentation contact now follows the nearest available height instead of
+switching straight to the standing-height grip. When real force contact ends,
+the unloaded reach eases its height on the current surface. The original motor
+face, force selection, obstruction tests and force-bearing palm offsets remain
+unchanged. This removes the visible contact-height/body snap without delaying
+controls or using interpolated palms inside the object.
+
+The permanent coverage in `tests/jumping-crouched-push-acceptance.test.mjs`
+includes the exact reported crate, the newly reproduced tilted forearm, and
+72 actual five-second encounters. The latter cover both directions, 30/80-unit
+boxes, 30/100-unit balls, moving/blocked objects, both initial box tilts,
+normal uphill/downhill travel, 40-unit openings, and actual gravity-plate
+reversal. Reversed props settle onto the ceiling through the ordinary motor;
+the fixture does not set an inverted flag. Passive reverse slope props roll
+away during that setup, so existing mirrored slope/rig checks cover that axis.
+
+The test samples the final exported skin paths, including rounded belly,
+elbows, palms and soles, against visible polygons and ball circles. Its .02-unit
+geometry tolerance accommodates sub-.005 sole sampling at slope creases.
+All crouch/stand/release transition frames are checked, alongside the whole
+working/resting cycle. Fixed 3D limb lengths, exact planted motor ankles,
+force-bearing palms, supported trunk continuity, read-only rendering and fresh
+jump escape outside the ceiling remain covered. The tilted-outline regression
+fails on `597ecab`. Initial force fixes wrists to their real contact; the native
+and browser review below covers that arm handoff in addition to the numerical
+continuity checks during sustained loaded/unloaded phases.
+
+The paired native recordings compare `597ecab` and the fix with identical
+geometry, inputs, framing, 0.72×/2.6× scales and five-second real-time playback.
+Rows show blocked crouch entry/exit, a full tipping-crate encounter and a ball
+passage, followed by the same gravity-reversed contexts. Both directions include
+approach, crouch entry, changing faces, departure and settled rest. The head and
+arms remain outside the crate while the legs keep driving; the chest and hands
+follow its tipping face instead of switching to an overhead clamp. Confined
+ball work retains its lower supported posture. All 900 paired samples have
+identical physical player state, props, mechanisms and terrain. The loop boundary
+restarts the encounter.
+
+![Crouched pushing before the final clearance fix](images/jumping-crouched-push-acceptance-before.gif)
+
+![Crouched pushing with reachable, clear working contacts](images/jumping-crouched-push-acceptance-current.gif)
+
+Four additional normal-keyboard production-browser cases cover both directions
+on naturally tilted 80-unit crates and actual reversed-gravity ball passages,
+including crouch entry/exit. These and the two reported blocked-crate cases pass.
+The reversed browser fixture explicitly retains its starting floor within the
+authored room bounds; it loads through the ordinary level parser and gravity
+plate, with no injected pose. The 62 focused animation/prop/ceiling checks and
+eight push/anticipation/return checks pass. The full repository run passes
+2,043/2,045; only the two existing Windows symlink-permission fixtures fail.
+Types, changed-file lint and the isolated production build pass on
+`UntitledJumpingGame-DbmkKKVL.js`. Built-in/local maps and medal times are
+preserved. Production deployment and the user's actual iPhone/controller feel
+remain separate records.

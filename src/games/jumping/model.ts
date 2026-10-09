@@ -18,7 +18,7 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, captureDryTurn, captureSlideEntry, dryTurnDirection, settleWaterClearance } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, captureDryTurn, captureSlideEntry, dryTurnDirection, settleFallClearance, settleWaterClearance } from './athlete.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
@@ -60,7 +60,7 @@ export interface Player {
     step?: StepUp;
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
-  freeFall: { time: number; amount: number; recovery: number | null; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
+  freeFall: { time: number; amount: number; recovery: number | null; bodyOffset?: [number, number]; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
   dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; reaching?: boolean; step?: boolean } | null
   slideEntry: { pose: AthletePose; facing: number; time: number; landing?: boolean } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
@@ -564,6 +564,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   if (p.wallBrace?.normal) tryWallJump(p, platforms)
   stepReleasedTurn(p, platforms, dt, orientationGravity)
   finishPlayerStep(p, input, dt, world, from, verticalUsed, turnFrame, slideEntryFrame)
+  settleFallClearance(p, dt, previousFacing)
   if (p.waterMotion) {
     if (p.facing !== previousFacing && p.waterMotion.bodyOffset) p.waterMotion.bodyOffset[0] *= -1
     p.waterMotion.heading = approach(p.waterMotion.heading ?? p.facing, p.facing, dt * 2 / .18)

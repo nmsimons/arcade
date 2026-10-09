@@ -1,6 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
+import { crouchedPushLevel } from '../helpers/jumpingCrouchedPushScenarios.mjs'
 
 test('keyboard turns between blocked props retain the whole body and establish the incoming brace', async ({page},info) => {
   const root=474.5,size=80,offset=size/2+25.5
@@ -347,6 +348,53 @@ for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low d
   await restartFromPause(page); await page.clock.runFor(120)
   await page.keyboard.down(key); await page.clock.runFor(300); await checkContact()
   await page.screenshot({ path: info.outputPath('low-downhill-restart.png') })
+  await page.keyboard.up(key)
+})
+
+for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`crouch working contact follows tilted crates and inverted ball passages: direction=${direction}, reversed=${reversed}`, async ({ page }, info) => {
+  const level = crouchedPushLevel(reversed
+    ? { name: 'ball passage', kind: 'ball', size: 100, blocked: true, ceiling: true }
+    : { name: 'tilted crate', kind: 'box', size: 80, slope: .3 }, direction, reversed)
+  if (reversed) {
+    // Version-1 files use floor as room height. Retain the initialized
+    // encounter's 1300-unit starting support explicitly within that room.
+    level.floor = level.height
+    level.platforms.push({ x: 0, y: 1300, w: level.width, h: 100 })
+  }
+  await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  if (reversed) {
+    await page.keyboard.down('ArrowUp'); await page.clock.runFor(16); await page.keyboard.up('ArrowUp')
+    await page.clock.runFor(6000)
+    expect(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1).signals.inverted)).toBe(true)
+  }
+  const key = direction === 1 ? 'd' : 'a'
+  if (reversed) await page.keyboard.down('ArrowDown')
+  await page.keyboard.down(key); await page.clock.runFor(reversed ? 2600 : 800)
+  const check = async () => {
+    const samples = await page.evaluate(() => window.jumpingMotion.read().recent)
+    const loaded = samples.filter(frame => frame.signals.push && !frame.signals.reachingPush && frame.contacts.palms.length)
+    expect(loaded.length).toBeGreaterThan(10)
+    for (const frame of loaded) {
+      expect(frame.signals.grounded).toBe(true)
+      expect(frame.signals.inverted).toBe(reversed)
+      expect(frame.contacts.feet.some(foot => foot.planted)).toBe(true)
+      frame.contacts.hands.forEach((hand, i) => {
+        const palm = frame.contacts.palms[i]
+        expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
+      })
+    }
+  }
+  await check()
+  if (!reversed) await page.keyboard.down('ArrowDown')
+  await page.clock.runFor(1200); await check()
+  await page.screenshot({ path: info.outputPath('crouch-working-contact.png') })
+  await page.keyboard.up('ArrowDown'); await page.clock.runFor(600); await check()
   await page.keyboard.up(key)
 })
 

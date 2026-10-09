@@ -1,4 +1,4 @@
-import { mirrorPlayerState } from './gravityFrame.ts'
+import { mirrorPlatform, mirrorPlayerState } from './gravityFrame.ts'
 import { gaitPose } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
@@ -1040,14 +1040,14 @@ function transferReachingPushTurn(p: Player, pose: AthletePose, from: AthletePos
 
 /** Incoming force keeps its palms immediately. Fit the shoulder to that reach,
  * then let the head turn at the neck instead of mirroring the outgoing brace. */
-function transferPushTurn(p: Player, pose: AthletePose, from: AthletePose, target: AthletePose, fraction: number) {
+function transferPushTurn(p: Player, pose: AthletePose, from: AthletePose, target: AthletePose, fraction: number, armReach = 18.7) {
   const shoulder: Point = [...pose.shoulder]
   for (let pass = 0; pass < 8; pass++) for (const arm of [target.frontArm, target.backArm]) {
     const vector: Point = [shoulder[0] - arm.end[0], shoulder[1] + .7 - arm.end[1]]
     const reach = Math.hypot(...vector)
-    if (reach > 18.7) {
-      shoulder[0] = arm.end[0] + vector[0] * 18.7 / reach
-      shoulder[1] = arm.end[1] + vector[1] * 18.7 / reach - .7
+    if (reach > armReach) {
+      shoulder[0] = arm.end[0] + vector[0] * armReach / reach
+      shoulder[1] = arm.end[1] + vector[1] * armReach / reach - .7
     }
   }
   // Alternate reachable palms with an unfolded torso before reconstructing
@@ -1057,7 +1057,7 @@ function transferPushTurn(p: Player, pose: AthletePose, from: AthletePose, targe
     if (length < 12) shoulder[1] = pose.hip[1] - Math.sqrt(Math.max(0, 12 ** 2 - dx ** 2))
     for (const arm of [target.frontArm,target.backArm]) {
       const dx = shoulder[0] - arm.end[0], dy = shoulder[1] + .7 - arm.end[1], reach = Math.hypot(dx,dy)
-      if (reach > 18.7) { shoulder[0] = arm.end[0] + dx * 18.7 / reach; shoulder[1] = arm.end[1] + dy * 18.7 / reach - .7 }
+      if (reach > armReach) { shoulder[0] = arm.end[0] + dx * armReach / reach; shoulder[1] = arm.end[1] + dy * armReach / reach - .7 }
     }
   }
   const dx = shoulder[0] - pose.hip[0], dy = shoulder[1] - pose.hip[1], span = Math.hypot(dx,dy)
@@ -1075,7 +1075,7 @@ function transferPushTurn(p: Player, pose: AthletePose, from: AthletePose, targe
     if (span > 16.58) { shoulder[0] = pose.hip[0] + dx * 16.58 / span; shoulder[1] = pose.hip[1] + dy * 16.58 / span }
     for (const arm of [target.frontArm,target.backArm]) {
       const dx = shoulder[0] - arm.end[0], dy = shoulder[1] + .7 - arm.end[1], reach = Math.hypot(dx,dy)
-      if (reach > 18.7) { shoulder[0] = arm.end[0] + dx * 18.7 / reach; shoulder[1] = arm.end[1] + dy * 18.7 / reach - .7 }
+      if (reach > armReach) { shoulder[0] = arm.end[0] + dx * armReach / reach; shoulder[1] = arm.end[1] + dy * armReach / reach - .7 }
     }
   }
   const trunk = solve(pose.hip,shoulder,6.5,10.1,1), alternative = solve(pose.hip,shoulder,6.5,10.1,-1)
@@ -1441,10 +1441,21 @@ export function settleWaterClearance(p: Player, dt: number) {
   motion.bodyOffset = (motion.bodyOffset ?? [0, 0]).map(relax) as Point
   motion.bodyOffset = waterPose(p).waterOffset ?? [0, 0]
 }
+/** Find the loaded ball in the current, possibly reflected, pose frame. */
+function pushBallSurface(p: Player) {
+  const collider = p.contacts?.push?.collider
+  if (collider?.prop?.kind !== 'ball') return undefined
+  const surface = collider.platform
+  // Pose reflection normalizes terrain and palms while contacts retain their
+  // world frame. Use the circle in the current pose's collision frame.
+  if (p.terrain?.includes(surface)) return surface
+  const reflected = mirrorPlatform(surface)
+  return p.terrain?.includes(reflected) ? reflected : surface
+}
 /** Fold through depth around a blocked corner. The projected bend can change
  * without stretching bones or sending a shin/elbow through the solid. */
 function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false, handContact = false, holdContact = false): Limb {
-  const visibleBall = handContact && p.contacts?.push?.collider.prop?.kind === 'ball' ? p.contacts.push.collider.platform : undefined
+  const visibleBall = handContact ? pushBallSurface(p) : undefined
   const handIntrusion = (limb: Limb) => {
     let deepest: ReturnType<typeof bodyIntrusion> = null
     for (const point of handOutline(limb)) {
@@ -1725,7 +1736,39 @@ function resolveAthletePose(p: Player): AthletePose {
     contacts ? contacts[0].groundY - p.y : 0, (contacts?.[0].groundAngle ?? 0) * p.facing, terrainHeight, squat)
   const backLeg = solveLeg(add(hip, [0, 1]), backAnkle, contacts ? contacts[1].angle * backFacing : lerp(backStep.angle * (1 - squat) * moving, .12, air), p.grounded, backPlanted, backFacing, 1 - air, -1,
     contacts ? contacts[1].groundY - p.y : 0, (contacts?.[1].groundAngle ?? 0) * p.facing, terrainHeight, squat)
-  const result = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
+  let result: AthletePose = { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
+  if (p.grounded && p.contacts?.push?.hands && p.pushing?.palms) {
+    const arms = [frontArm, backArm].map((arm, index) => {
+      const palm = p.pushing!.palms![index]
+      const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y]
+      const normal: Point = [palm.nx * p.facing, palm.ny]
+      return { ...arm, end: add(point, [normal[0] * 2.8, normal[1] * 2.8]),
+        hand: add(point, [normal[0] * 1.6, normal[1] * 1.6]) }
+    })
+    if (arms.some(arm => Math.hypot(arm.end[0] - arm.root[0], arm.end[1] - arm.root[1]) > 18.98 + .001)) {
+      // A canted face can expose only a high grip to a crouching body. Fit
+      // the supported trunk to those wrists before folding the arms around
+      // the face; a clamped wrist cannot represent a force-bearing palm.
+      result = transferPushTurn(p, result, result, { ...result, frontArm: arms[0], backArm: arms[1] }, 1, 17.5)
+      for (let pass = 0; pass < 8; pass++) {
+        result.frontArm = clearLimb(p, result.frontArm, UPPER_ARM, FOREARM, 1, true, true, true)
+        result.backArm = clearLimb(p, result.backArm, UPPER_ARM, FOREARM, 1, true, true, true)
+        const visibleBall = pushBallSurface(p)
+        let intrusion = bodyIntrusion(p, result.shoulder, 2.8, visibleBall)
+        for (const arm of [result.frontArm, result.backArm]) {
+          for (const [a, b] of [[arm.root, arm.joint], [arm.joint, arm.end]]) {
+            for (let i = 0; !intrusion && i <= 10; i++) intrusion = bodyIntrusion(p, mix(a, b, i / 10), 1.65, visibleBall)
+          }
+        }
+        if (!intrusion) break
+        const shift: Point = [-Math.max(.2, Math.abs(intrusion.x)), 0]
+        result.shoulder = add(result.shoulder, shift); result.head = add(result.head, shift)
+        result = transferPushTurn(p, result, result, { ...result, frontArm: arms[0], backArm: arms[1] }, 1, 17.5)
+      }
+      result.frontArm = clearLimb(p, result.frontArm, UPPER_ARM, FOREARM, 1, true, true, true)
+      result.backArm = clearLimb(p, result.backArm, UPPER_ARM, FOREARM, 1, true, true, true)
+    }
+  }
   // Wall and slope contacts can coexist in a narrow gap. Blend each contact
   // instead of switching the entire rig when a brief slide starts or ends.
   const braced = p.wallBrace ? wallBracePose(p, result) : result

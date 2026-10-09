@@ -147,7 +147,18 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       const bounds = propBounds(b)
       if (p.y <= bounds.y + 12 || p.y - 42 >= bounds.y + bounds.h || p.y > bounds.y + bounds.h + b.size * .6) continue
       const motorHands = propPushHands(b, p.x, p.y, direction)
-      const lowerHands = p.crouch ? propPushHands(b, p.x, p.y, direction, 43 - p.crouch * 15) : motorHands
+      let lowerHands = p.crouch ? propPushHands(b, p.x, p.y, direction, 43 - p.crouch * 15) : motorHands
+      if (!lowerHands && motorHands && p.crouch) {
+        // A rotating face can move the low grip just outside the existing
+        // reach. Follow its nearest reachable height instead of jumping all
+        // the way back to standing hands when that boundary is crossed.
+        let low = 43 - p.crouch * 15, high = 43
+        for (let pass = 0; pass < 12; pass++) {
+          const height = (low + high) / 2, candidate = propPushHands(b, p.x, p.y, direction, height)
+          if (candidate) { high = height; lowerHands = candidate }
+          else low = height
+        }
+      }
       // Working height changes the visible palms, while the existing motor
       // spacing continues to follow its established face on tilted objects.
       const hands = lowerHands && motorHands ? { ...lowerHands, wallX: motorHands.wallX, slope: motorHands.slope } : motorHands
@@ -311,11 +322,19 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
     const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing : null
+    let hands = contact.hands
+    if (contact.anticipation !== undefined && contact.collider.prop && previous?.height !== undefined && hands.height !== undefined) {
+      // Losing force contact must not teleport a crouched palm to a lower
+      // approach grip. Ease the unloaded height, querying the actual surface
+      // each step; force-bearing palms still use their exact current contact.
+      const height = previous.height + (hands.height - previous.height) * (1 - Math.exp(-dt / .08))
+      hands = propPushHands(contact.collider.prop, p.x, p.y, contact.direction, height, 72) ?? hands
+    }
     // Opposition is the requested motion that the contact solver could not
     // deliver. Ease its presentation independently of the hand-contact blend.
     const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
     const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
-    p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction,
+    p.pushing = { ...hands, colliderId: contact.collider.id, direction: contact.direction,
       // A prop has already received this tick's force. Its working palms must
       // be established now; resistance still loads the body gradually above.
       amount: contact.anticipation === undefined ? Math.min(1, (previous?.amount ?? 0) + dt / .14) : previous?.amount ?? 0,

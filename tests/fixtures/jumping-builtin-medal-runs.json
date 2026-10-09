@@ -9,6 +9,7 @@
   "runs": [
     {
       "file": "Untitled.jump-level.json",
+      "jumpModel": "tap-hold",
       "elapsed": 3.791666666666656,
       "activeTime": 4.650000000000021,
       "coins": 0,
@@ -16,7 +17,14 @@
         {
           "frames": 126,
           "input": {
-            "move": 1
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
@@ -24,14 +32,38 @@
           "input": {
             "move": 1,
             "jump": true,
-            "jumpStrength": 1
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 431,
+          "frames": 22,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 409,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         }
       ]
@@ -66,45 +98,87 @@
     },
     {
       "file": "01.json",
-      "elapsed": 5.950000000000085,
-      "activeTime": 6.8083333333334615,
+      "jumpModel": "tap-hold",
+      "elapsed": 6.008333333333422,
+      "activeTime": 6.866666666666798,
       "coins": 0,
       "trace": [
         {
           "frames": 145,
           "input": {
             "move": 1,
-            "crouch": true
+            "jump": false,
+            "climb": false,
+            "drop": true,
+            "crouch": true,
+            "reach": false,
+            "descend": true,
+            "detach": false
           }
         },
         {
           "frames": 70,
-          "input": {}
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
         },
         {
-          "frames": 1,
+          "frames": 23,
           "input": {
             "move": 1,
             "jump": true,
             "climb": true,
-            "jumpStrength": 1
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 101,
+          "frames": 79,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
           "frames": 21,
-          "input": {}
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
         },
         {
           "frames": 47,
           "input": {
-            "move": 1
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
@@ -112,14 +186,38 @@
           "input": {
             "move": 1,
             "jump": true,
-            "jumpStrength": 1
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 431,
+          "frames": 22,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 416,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         }
       ]
@@ -187,14 +285,22 @@
     },
     {
       "file": "03.json",
-      "elapsed": 0.7083333333333333,
+      "jumpModel": "tap-hold",
+      "elapsed": 0.6833333333333333,
       "activeTime": 9.950000000000076,
       "coins": 0,
       "trace": [
         {
           "frames": 115,
           "input": {
-            "move": 1
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
@@ -202,40 +308,103 @@
           "input": {
             "move": 1,
             "jump": true,
-            "jumpStrength": 1
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 80,
+          "frames": 22,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 58,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
           "frames": 613,
           "input": {
-            "climb": true
+            "move": 0,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
           "frames": 94,
           "input": {
-            "move": 1
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
           "frames": 1,
           "input": {
+            "move": 0,
             "jump": true,
-            "jumpStrength": 0.25
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 290,
+          "frames": 6,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 284,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         }
       ]
@@ -551,14 +720,22 @@
     },
     {
       "file": "Coins.jump-level.json",
-      "elapsed": 10.766666666666696,
-      "activeTime": 11.62499999999998,
+      "jumpModel": "tap-hold",
+      "elapsed": 10.791666666666694,
+      "activeTime": 11.649999999999979,
       "coins": 10,
       "trace": [
         {
           "frames": 103,
           "input": {
-            "move": 1
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
@@ -566,52 +743,142 @@
           "input": {
             "move": 1,
             "jump": true,
-            "jumpStrength": 1
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 352,
+          "frames": 22,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 330,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
           "frames": 102,
           "input": {
-            "move": 1
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
           "frames": 1,
           "input": {
+            "move": 0,
             "jump": true,
-            "jumpStrength": 0.25
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 81,
+          "frames": 6,
           "input": {
-            "move": 1
+            "move": 1,
+            "jump": true,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 75,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
           "frames": 521,
-          "input": {}
+          "input": {
+            "move": 0,
+            "jump": false,
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
         },
         {
           "frames": 1,
           "input": {
             "move": 1,
             "jump": true,
-            "jumpStrength": 1
+            "climb": false,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         },
         {
-          "frames": 233,
+          "frames": 22,
           "input": {
             "move": 1,
-            "climb": true
+            "jump": true,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
+          }
+        },
+        {
+          "frames": 214,
+          "input": {
+            "move": 1,
+            "jump": false,
+            "climb": true,
+            "drop": false,
+            "crouch": false,
+            "reach": false,
+            "descend": false,
+            "detach": false
           }
         }
       ]

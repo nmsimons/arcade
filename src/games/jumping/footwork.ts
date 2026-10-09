@@ -276,7 +276,9 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     // the next stride. Carry the actual swing into that landing instead of
     // loading the pelvis in a single tick. A slipping face uses slide entry's
     // own contact handoff, rather than a walking foot trying to land on it.
-    if (targetGround && canGrip(targetGround.angle) && targetGround.y - foot.groundY > 6) {
+    // Start this transfer once. On a downhill stride the target keeps getting
+    // lower; restarting every tick leaves the shoe behind the moving hips.
+    if (!foot.release?.landing && targetGround && canGrip(targetGround.angle) && targetGround.y - foot.groundY > 6) {
       foot.release = { x: foot.x - targetX, y: foot.y - targetY, angle: foot.angle - targetAngle, time: 0, landing: true }
     }
     foot.settle = null

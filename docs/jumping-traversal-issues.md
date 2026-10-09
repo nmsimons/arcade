@@ -25,7 +25,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Acceptance complete: slip-driven fast balance, quiet rest, continuous entry/turn/landing, real shoe load and final moving-prop/brief-contact native review |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Verified production release available for the user's iPhone and controller; actual device feel record remains pending |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Scale, short-room placement and running-jump preview addressed; phone-scale shadow visibility corrected with matched footage; broad response/route acceptance remains incomplete |
-| [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
+| [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Seven distinct built-ins have current-control browser Gold witnesses; collection-wide route, alternatives, recovery and enjoyment acceptance remains incomplete |
 | [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Resolved: all nine cases pass twice under both normal production-project settings and 2× CPU throttling, including cleanup and confirmed fresh bundles |
 
 ## Implementation order and evaluation
@@ -2712,3 +2712,89 @@ cases use 90 seconds for software rendering, not an FPS acceptance threshold.
 All 65 focused light-field, camera, read-only rig and deployment-scope checks,
 types, changed-file lint and the isolated build pass. Evidence:
 `camera-night-contrast.log` and `night-camera-focused-approved.log`.
+
+## Four further current-control Gold witnesses
+
+October 9, 2026. Fresh normal-keyboard routes now complete Untitled, Second
+Leap, A Bigger Swing and Coins with the current tap/hold jump. Their historical
+test recordings are replaced with the measured current inputs and clock times;
+authored geometry, switches, pickups and medal targets are unchanged. These
+routes use real key presses, holds and releases, without actor/world mutation,
+legacy jump-strength injection or a substituted map.
+
+| Built-in file | Fixed-step clock / active duration | Browser result clock | Authored Gold |
+| --- | --- | --- | --- |
+| `Untitled.jump-level.json` | 3.792 / 4.650 s | 3.79 s | 5 s |
+| `01.json` | 6.008 / 6.867 s | 4.90 s | 7 s |
+| `03.json` | 0.683 / 9.950 s | 0.70 s | 1 s |
+| `Coins.jump-level.json` | 10.792 / 11.650 s | 10.79 s | 12 s |
+
+Browser input phases can produce a different route time, especially around
+moving props; these are independent doorway completions, not claimed identical
+physical traces. The strict simulation checks retain the required continuing
+ball load on Second Leap's remote exit and all ten Coins pickups. All 25
+built-in recording/mechanism checks pass. The four new permanent browser cases
+assert current inputs, real doorway completion, Gold within the authored time
+and no runtime errors, retaining native start, phase and result images and
+read-only motion checkpoints.
+
+Native phase review includes Second Leap's low-ball push and receiving jump,
+A Bigger Swing's upper rope rest and second departure, and Coins' pickup
+contact, supported platform rest and exit approach. The figure and next
+landing remain distinct in the reviewed views; no additional animation tuning
+is justified by them. Whole-route enjoyment, alternate solutions and recovery
+are still separate acceptance work. Together with First Leap, A Little Swing
+and Level Five, seven distinct built-ins now have current-control browser Gold
+evidence. The other sixteen still need their complete current-route audit.
+
+Initial tests froze before the completed doorway fade on Untitled/A Bigger
+Swing, and the new whole-night Coins case exceeded its initial 60-second
+software-rendering budget. Ordinary rendered fade frames and a 90-second
+budget for the new Coins case resolve those harness limits; original medal
+test deadlines and route input timings are unchanged. Only neutral mechanism
+waits use the physics-preserving passive-wait helper. These are not device FPS
+or first-player acceptance. Evidence: `current-medal-traces.log`,
+`current-medals-final.log` and `current-medals-final-results` under the task
+evidence folder. #59 remains open.
+
+## Reported Spelunk downhill foot lag
+
+October 9, 2026. [Follow-up #70](https://github.com/nmsimons/arcade/issues/70)
+records the user's report above Spelunk I's exit, descending toward the large
+ball. An isolated encounter retains the actual polygon, ball and lighting,
+starting on the ridge at x1280/y1460. In the old running sequence a shoe trails
+the root by 46.117 units and its lower-surface landing blend restarts 53 times.
+The bones retain their fixed lengths, but that stale target makes the leg read
+as an extended backward kick.
+
+The descending landing now initializes once and lets its existing transition
+finish. Its duration, stride/contact rules, supporting anchors, terrain
+clearance and physical movement remain unchanged. Running lag falls to
+20.509 units with zero restarts; walking and crouching retain their respective
+17.615/13.861-unit maxima. The exact-encounter regression fails on old code at
+running tick 48 and passes with the fix, checking advancing landing time,
+bounded trailing shoes and both fixed 3D leg segments. All 20 focused landing
+and animation checks and 92 adjacent slide/turn/clearance/gravity/presentation
+checks pass; types, changed-file lint and an isolated build pass.
+
+Matched four-second normal-input footage reviews the complete running descent,
+release, lower-floor landing and calm rest at native 852×393 and 2.6× contact
+detail. The earlier extended kick at 0.67–0.93 seconds is replaced by a bent,
+recovering swing that stays with the hips. Walking and crouching phase sheets
+retain their prior motion; crouching ends in the same lip hang, rather than
+claiming a standing endpoint. All 360 paired root, prop and camera samples
+across the three sequences are identical. These are isolated encounter
+witnesses, not a completed authored Spelunk route or actual iPhone comfort.
+
+![Spelunk downhill running before and after completing the foot landing](images/jumping-downhill-foot-comparison.gif)
+
+Evidence: `descending-foot-baseline/current.json`, `downhill-focused.log`,
+`downhill-adjacent.log`, `downhill-native.log`,
+`downhill-physical-comparison.json` and native phase sheets under the task
+evidence folder. All five production-browser cases pass across the initial
+run and isolated rerun: the reported descent with running/walking/crouching,
+and both existing ball-descent encounters. The two new slow-descent cases
+initially reached their 60-second software-rendering limit; their final
+120-second budgets retain the same inputs, screenshots and gait assertions.
+They finish in 49.0/49.6 seconds. Existing published traversal deadlines are
+unchanged. Hosted and live release verification remain separate.

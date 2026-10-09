@@ -77,6 +77,10 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
   if (recording.file === '01.json') {
     assert.equal(weighted(level.triggers[0]).length, 1, 'the ball must keep the remote exit powered')
   }
+  if (recording.file === 'Balls.jump-level.json') {
+    assert.deepEqual(weighted(level.triggers[0]), [run.props[2]], 'the freely delivered small ball remains in its bounded receiver')
+    assert.deepEqual(weighted(level.triggers[1]), [run.props[1]], 'the separate middle ball keeps the second plate loaded')
+  }
   if (recording.file === '05.json') {
     assert.ok(bracedOnBall, 'brace on the ball against the exit gate before sending it downhill')
     assert.deepEqual(weighted(level.triggers[0]), [run.props[0]], 'the ball must reach the lower-left gate plate')

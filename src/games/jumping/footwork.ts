@@ -10,11 +10,13 @@ export interface FootContact {
   release: { x: number; y: number; angle: number; time: number; landing?: boolean } | null
   settle: { x: number; y: number; angle: number; facing: number; time: number; duration: number } | null
 }
-export interface Footwork { feet: [FootContact, FootContact]; moving: boolean; facing: number; terrain: readonly Platform[]; pushBalance?: [Point, Point, Point] }
+export interface Footwork { feet: [FootContact, FootContact]; moving: boolean; facing: number; terrain: readonly Platform[]; pushBalance?: [Point, Point, Point]; armOffset?: { angle: number; time: number }; heldArmPhase?: boolean }
 const TAU = Math.PI * 2
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp(n); return t * t * (3 - 2 * t) }
+const advanceArmOffset = (previous: Footwork, dt: number) => previous.armOffset && previous.armOffset.time + dt < .2
+  ? { ...previous.armOffset, time: previous.armOffset.time + dt } : undefined
 
 // Sample the straight sole too: its endpoints can both clear a convex crown
 // while the material between them crosses it. Keep the interval below .5.
@@ -54,7 +56,11 @@ export function footRoll(angle: number): Point {
   return [x * h / 3, -soleContact(angle)[1]]
 }
 function stanceAngle(phase: number, run: number) {
-  return -lerp(.12, .1, run) * (1 - smooth(phase / .18)) + lerp(.48, .65, run) * smooth((phase - .58) / .42)
+  // Roll through the ball of the foot after the walking pelvis passes it.
+  // A late, short toe-off looked flat at gameplay scale; running retains its
+  // existing shorter support phase and heel lift.
+  const toeOff = lerp(.46, .58, run)
+  return -lerp(.12, .1, run) * (1 - smooth(phase / .18)) + lerp(.6, .65, run) * smooth((phase - toeOff) / (1 - toeOff))
 }
 
 export function strideProfile(run: number, moving = 1) {
@@ -206,7 +212,7 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
       return foot
     }
     const start = foot.settle ?? { x: foot.x, y: foot.y, angle: foot.angle, facing: foot.facing, time: 0,
-      duration: shortSteps ? .24 : .12 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
+      duration: shortSteps ? .24 : .14 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
     // A rolling ball can travel much faster than a heavy box. Complete each
     // step within fourteen units of travel so the planted leg does not drag
     // behind the hips. Crouch walking shares the same cadence as pushing.
@@ -228,7 +234,8 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
     }
     return foot
   }) as [FootContact, FootContact]
-  return { feet, moving: false, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt) }
+  return { feet, moving: false, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt), armOffset: advanceArmOffset(previous, dt),
+    heldArmPhase: shortSteps || !!p.pushing?.amount && !!previous.heldArmPhase }
 }
 
 /** Persistent world-space contacts survive changes in speed and body pose. */
@@ -246,12 +253,23 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
   const previous: Footwork = p.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
   if (!traveling || p.crouch > 0 || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing > .0001); return }
   const rephased = traveling && (!previous.moving || previous.facing !== p.facing)
+  const beforeCycle = p.stride * p.facing
+  let armOffset = advanceArmOffset(previous, dt)
   if (rephased) {
     const support = previous.feet[0].planted !== previous.feet[1].planted ? (previous.feet[0].planted ? 0 : 1)
       : (previous.feet[0].x - previous.feet[1].x) * p.facing >= 0 ? 0 : 1
     const relativeX = (previous.feet[support].x - p.x) * p.facing
     const phase = Math.max(.02, Math.min(profile.duty - .02, (profile.lead - relativeX) / profile.length))
     p.stride = (phase + (support ? .5 : 0)) * TAU * p.facing
+    const resuming = !p.pushing && !p.sliding && !p.slideEntry && previous.feet.some(foot => foot.settle)
+    if (previous.facing === p.facing && (previous.heldArmPhase || resuming)) {
+      // Rephase the shoes to their actual support immediately, while the free
+      // arms keep their outgoing swing. A recovery step or crouch/shove release
+      // must not throw both elbows across the body as the stride changes phase.
+      const oldOffset = previous.armOffset ? previous.armOffset.angle * (1 - smooth(previous.armOffset.time / .2)) : 0
+      const change = beforeCycle + oldOffset - p.stride * p.facing
+      armOffset = { angle: Math.atan2(Math.sin(change), Math.cos(change)), time: 0 }
+    }
   } else if (traveling) p.stride += Math.abs(p.x - oldX) / profile.length * TAU * p.facing
   const feet = previous.feet.map((before, index): FootContact => {
     const foot = { ...before }, cycle = p.stride * p.facing + index * Math.PI
@@ -270,7 +288,8 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
       return foot
     }
     if (foot.settle || rephased) {
-      foot.release = { x: foot.x - targetX, y: foot.y - targetY, angle: foot.angle - targetAngle, time: 0 }
+      foot.release = { x: foot.x - targetX, y: foot.y - targetY, angle: foot.angle - targetAngle, time: 0,
+        landing: !!foot.settle && !p.pushing && !p.sliding && !p.slideEntry || undefined }
     }
     // A changing curved support can expose a much lower walkable floor under
     // the next stride. Carry the actual swing into that landing instead of
@@ -289,6 +308,9 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     foot.release = release && weight > 0 ? { ...release, time } : null
     const surface = groundAt(platforms, foot.x, p.y)
     let landingReached = true
+    // Rephasing a resumed jog can put a still-raised recovery shoe into the
+    // stance part of the cycle. Wait for its real sole to meet the floor rather
+    // than snapping it down simply because the sampled phase says "planted".
     if (release?.landing && surface) {
       const toe = toeBend(foot.angle - foot.groundAngle * foot.facing)
       const bottom = Math.max(...FOOT_CONTACT.map(point => footPoint(point, foot.angle, toe)[1]))
@@ -304,5 +326,5 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     else clearTerrain(foot, platforms, p.y, p.x)
     return foot
   }) as [FootContact, FootContact]
-  p.footwork = { feet, moving: traveling, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt) }
+  p.footwork = { feet, moving: traveling, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt), armOffset }
 }

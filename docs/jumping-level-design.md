@@ -276,6 +276,11 @@ route reveal each connection. Provide a safe place to observe a first activation
 Avoid requiring a camera-wide search for an unseen consequence.
 
 Give moving props generous ramps, bounded receivers, and stable resting places.
+Size a plate receiver around the object's actual resting contact: a ball loads
+the floor beneath its center. Put a physical stop where a freely rolling ball
+will remain on the plate; do not depend on the player's hands braking a downhill
+delivery or on the ball's silhouette merely overlapping the plate. Check the
+receiver after the player releases and walks away.
 A chain should tolerate ordinary variations in contact and arrival time. Exact
 corner impacts, lucky bounces, and dependence on a bot's initial patrol phase
 make poor mandatory links. Test from a fresh load and repeated restarts, with

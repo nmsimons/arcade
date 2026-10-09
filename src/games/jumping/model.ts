@@ -39,7 +39,10 @@ export interface GaitPose { speed: number; moving: number; run: number; air: num
 export function gaitPose(vx: number, airborne = false): GaitPose {
   const smooth = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
   const speed = Math.min(1, Math.abs(vx) / TUNING.runSpeed)
-  return { speed, moving: smooth(speed * 6), run: smooth((speed - .38) / .48), air: Number(airborne) }
+  // Keep precision walking below the selected walk speed, then introduce a
+  // jog promptly instead of retaining a walking stride through most of the
+  // analog range. The motor speed itself is unchanged.
+  return { speed, moving: smooth(speed * 6), run: smooth((speed - TUNING.walkSpeed / TUNING.runSpeed) / .4), air: Number(airborne) }
 }
 export interface Player {
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
@@ -94,7 +97,7 @@ export function airBoostStrength(p: Player) {
 function settleGait(p: Player, dt: number) {
   const speed = p.climbing ? 0 : p.grounded ? p.contacts?.motion.speed ?? 0 : p.vx
   const target = gaitPose(speed, !p.grounded && !p.hang && !p.mantle && !p.climbing), previous = p.gait ?? gaitPose(0)
-  if (p.contacts?.push) target.run = 0
+  if (p.contacts?.push && !p.contacts.push.passive || p.grounded && p.vx * p.facing < -1) target.run = 0
   const blend = (from: number, to: number, response = to > from ? .045 : .08) => {
     const value = from + (to - from) * (1 - Math.exp(-dt / response))
     return Math.abs(value - to) < .001 ? to : value
@@ -629,8 +632,10 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
     from = [from[0] + dx, from[1] + dy]
   }
   contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
-  updatePushingPose(p, contacts.push ?? anticipatePush(p, input, world), dt, contacts.motion.speed)
-  p.contacts = contacts
+  updatePushingPose(p, contacts.push ?? anticipatePush(p, input, world), dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
+  // A rolling ball remains an obstruction for the motor, but the published
+  // working contacts and rig must release once the shove supplies no force.
+  p.contacts = contacts.push?.passive ? { ...contacts, push: null } : contacts
   advanceReturningStepPreparation(p, input, dt, world)
   advanceWaterCamera(p, input, dt)
   settleGait(p, dt)
@@ -1038,15 +1043,16 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       if (!waterControl || p.grounded || move * p.facing < 0 && p.vx * p.facing <= 5) p.facing = Math.sign(move)
     }
     const ground = p.grounded ? contacts.support : null
-    const constrained = pushingVelocity(p, contacts.push, world, dt)
     const carrier = ground?.collider.robot
     const beforeSteering = p.vx
     // Velocity stays in world space. Limited shoe traction can follow a slow
     // bot, but cannot instantly match a charge or erase momentum on departure.
-    p.vx = constrained ?? (ground && canGrip(ground.angle)
+    const steered = ground && canGrip(ground.angle)
       ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? Math.max(0, gravity + (p.swimAcceleration ?? 0)) * .8 : groundSteering, dt) + (carrier?.vx ?? 0)
       : !p.grounded && isWeightless(gravity) && !move ? p.vx
-      : approach(p.vx, target, (p.grounded ? groundSteering : TUNING.airAcceleration + (TUNING.swimHorizontalAcceleration - TUNING.airAcceleration) * waterControl) * dt))
+      : approach(p.vx, target, (p.grounded ? groundSteering : TUNING.airAcceleration + (TUNING.swimHorizontalAcceleration - TUNING.airAcceleration) * waterControl) * dt)
+    const constrained = pushingVelocity(p, contacts.push, world, dt, steered)
+    p.vx = constrained ?? steered
     if (!p.grounded && constrained === null) p.airBoost.x = (p.vx - beforeSteering) / (TUNING.airAcceleration * dt)
   }
   if (p.grounded && contacts.support && !p.crouching && !input.jump && !input.drop && !input.descend
@@ -1149,7 +1155,10 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         const previous = p.ledgeReach?.x === edge && p.ledgeReach.y === edgeY ? p.ledgeReach.amount : 0
         if (!reach || target > reach.amount) reach = { x: edge, y: edgeY, amount: previous + (target - previous) * (1 - Math.exp(-dt / .045)) }
       }
-      const catchGap = waterReach ? 7 : 13
+      // Leave room for the last few units of an approaching hand reach. A
+      // falling wall-jump can leave the vertical window before a body-near
+      // catch opens; the existing catch blend settles that small separation.
+      const catchGap = waterReach ? 7 : 19
       if (p.vy > (waterReach ? -TUNING.swimSpeed - 1 : -180) && outside && Math.abs(p.x + side * 14 - edge) < catchGap && reachable(p.y)) {
         const braced = ledgeBraced(platforms, edge, edgeY, side)
         const gripRoot = climbContactRoot(0, braced, ledge.slope)

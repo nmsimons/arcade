@@ -40,6 +40,8 @@ export interface PushContact {
   swimming?: boolean
   /** A visible approach reach; never consumed by the motor or prop solver. */
   anticipation?: number
+  /** A self-moving ball still blocks travel, but supplies no voluntary shove. */
+  passive?: boolean
 }
 export interface PlayerContacts {
   support: SupportContact | null
@@ -165,7 +167,10 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       const face = b.kind === 'box' ? boxPushFace(b, p.x, p.y, direction, Math.min(43, b.size * .6)) : null
       const wallX = face?.wallX ?? hands?.wallX
       if (wallX === undefined || (b.kind === 'box' && !face)) continue
-      candidates.push({ collider: c, direction, effort: Math.min(1, Math.abs(input.move)), wallX, hands })
+      // Keep the unilateral travel obstruction while the ball rolls itself.
+      // It cannot supply either a pulling motor or a zero-force working pose.
+      const passive = b.kind === 'ball' && b.vx * direction > Math.abs(input.move) * 90 + .1
+      candidates.push({ collider: c, direction, effort: passive ? 0 : Math.min(1, Math.abs(input.move)), wallX, hands, ...(passive ? { passive: true } : {}) })
     } else {
       for (const wallX of exposedWallFaces(world.platforms, c.platform, direction, p.y - 44.1, p.y - 43.9)) {
         const gap = (wallX - p.x) * direction
@@ -264,7 +269,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
 
 /** Constrain the walking motor before integration instead of undoing its work
  * afterward. Solve the hand face and footing together on a tilted box. */
-export function pushingVelocity(p: Player, contact: PushContact | null, world: ContactWorld, dt: number): number | null {
+export function pushingVelocity(p: Player, contact: PushContact | null, world: ContactWorld, dt: number, requestedVelocity = p.vx): number | null {
   if (!contact?.hands || !p.grounded) return null
   const { hands, direction } = contact
   let target = hands.wallX - direction * 25.5
@@ -277,7 +282,15 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
   const x = p.x + Math.max(-limit, Math.min(limit, target - p.x))
   const ground = groundAt(world.platforms, x, p.y, Math.abs(x - p.x) * 2 + 1, s => canGrip(s.angle))
   if (!ground || world.platforms.some(b => bodyIntersects(x, ground.y, b, p.crouching ? TUNING.crouchHeight : TUNING.height))) return 0
-  return (x - p.x) / dt
+  const constrained = (x - p.x) / dt
+  const workingApproach = !contact.passive
+    && (requestedVelocity * direction < 0 || (p.contacts?.support?.angle ?? 0) * direction <= 0)
+  if (contact.collider.prop?.kind !== 'ball' || workingApproach) return constrained
+  // Working hands keep the voluntary shove pace while a faster prop escapes.
+  // The face can constrain travel or displace an incoming body, but it cannot
+  // make the pusher sprint after an outgoing prop. Free steering resumes once
+  // that surface leaves hand reach; the prop itself is never speed-clamped.
+  return direction * Math.min(requestedVelocity * direction, constrained * direction)
 }
 
 /** Lead a shove with a reach toward the first exposed prop. This deliberately
@@ -300,6 +313,10 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
     || input.jump && !p.jumpHeld || p.buffer > 0) return null
   const candidates = world.colliders.flatMap(collider => {
     if (!collider.prop || collider.id === p.contacts?.support?.collider.id) return []
+    if (collider.prop.kind === 'ball' && collider.prop.vx * direction > Math.abs(input.move) * 90 + .1) return []
+    // Reach ahead only while closing on the surface. Chasing an escaping prop
+    // keeps the unloaded palms stretched forward and delays the gait release.
+    if ((collider.prop.vx - p.vx) * direction > 0) return []
     const hands = propPushHands(collider.prop, p.x, p.y, direction, 43 - p.crouch * 15, 72)
     if (!hands) return []
     const gap = (hands.wallX - p.x) * direction
@@ -317,7 +334,8 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
 }
 
 /** Presentation consumes the solved contact; it never moves the player. */
-export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0) {
+export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0, motion: readonly [number, number] = [0, 0]) {
+  if (contact?.passive) contact = null
   if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
@@ -343,7 +361,12 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
     const amount = Math.max(0, p.pushing.amount - dt / .16)
     const ready = Math.max(0, (p.pushing.ready ?? 0) - dt / .16)
     p.pushing = (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
-      ? { ...p.pushing, amount, ready, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
+      // Released palms relax with the outgoing body. Keeping their old world
+      // coordinates pins the arms behind a running player and can fold the
+      // trunk or flip an elbow as the shoulders pass the abandoned contact.
+      ? { ...p.pushing, wallX: p.pushing.wallX + motion[0],
+        palms: p.pushing.palms?.map(palm => ({ ...palm, x: palm.x + motion[0], y: palm.y + motion[1] })) as PushHands['palms'],
+        amount, ready, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
   }
 }
 

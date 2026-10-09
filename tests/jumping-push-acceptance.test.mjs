@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { LOW_PUSH_SCENARIOS, PUSH_SCENARIOS, pushScenario } from './helpers/jumpingPushScenarios.mjs'
+import { LOW_PUSH_SCENARIOS, PUSH_SCENARIOS, pushScenario, escapingDownhillBall } from './helpers/jumpingPushScenarios.mjs'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
@@ -41,7 +41,7 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
   const results = []
   for (const facing of [-1, 1]) for (const config of PUSH_SCENARIOS) {
     const run = pushScenario(config, facing), p = run.player
-    let previous = [true, true], steps = 0, peakSpeed = 0
+    let previous = [true, true], steps = 0, establishedSpeed = 0
     const movers = new Set(), start = [p.x, p.y], carrier = run.mechanisms[0]
     const carrierStart = carrier && [carrier.x, carrier.y]
     for (let tick = 0; tick < 480; tick++) {
@@ -67,11 +67,11 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
         assert.ok(Math.hypot(p.x + arm.hand[0] * p.facing - palm.x - palm.nx * 1.6,
           p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .5, config.name + ': visible contact supplies the shove')
       }
-      peakSpeed = Math.max(peakSpeed, p.contacts.motion.speed)
+      if (tick > 120) establishedSpeed = Math.max(establishedSpeed, p.contacts.motion.speed)
     }
     if (!config.blocked && config.effort !== .02) assert.equal(movers.size, 2, config.name + ': both legs advance')
     if (config.effort === .02) assert.ok(steps < 4, 'creep does not churn after the initial stance')
-    if (config.name === '90-speed ball') assert.ok(Math.abs(peakSpeed - 90) < .001, 'the sample really includes the established ball motor speed')
+    if (config.name === '90-speed ball') assert.ok(Math.abs(establishedSpeed - 90) < .001, 'the established flat shove retains its 90-unit motor target after closing the initial hand gap')
     if (carrier) assert.ok(Math.hypot(carrier.x - carrierStart[0], carrier.y - carrierStart[1]) > 100,
       'a moving support really moves; its motion is not erased to manufacture a stationary case')
     if (config.blocked) {
@@ -130,7 +130,8 @@ test('passive incoming balls, robots and carrier travel cannot load a voluntary 
 test('low working pushes retain drive, alternating support and clearance across crouch, blockage and slopes', () => {
   for (const facing of [-1, 1]) for (const config of LOW_PUSH_SCENARIOS) {
     const run = pushScenario(config, facing), p = run.player, start = p.x
-    let loaded = 0, previous = [true, true], lastHip, settledX, passedBehind = false, passedAhead = false
+    let loaded = 0, previous = [true, true], previousLoaded = false, lastHip, settledX, passedBehind = false, passedAhead = false
+    const escaping = escapingDownhillBall(config)
     const steps = [0, 0]
     for (let tick = 0; tick < 480; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: facing, crouch: config.crouch })
@@ -138,7 +139,7 @@ test('low working pushes retain drive, alternating support and clearance across 
       const pose = athletePose(p)
       fixedLimbs(pose)
       assert.ok(p.grounded, config.name + ': the real support is retained')
-      assert.ok(p.footwork.feet.some(foot => foot.planted), config.name + ': a real leg supports the working body')
+      if (!escaping || p.pushing?.effort) assert.ok(p.footwork.feet.some(foot => foot.planted), config.name + ': a real leg supports the working body')
       if (tick % 4 === 0) clearUpperBody(run, pose)
       for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
         const foot = p.footwork.feet[i]
@@ -150,9 +151,13 @@ test('low working pushes retain drive, alternating support and clearance across 
         assert.ok(!ground || kneeY <= ground.y - 1.49, config.name + ': knee outline clears the support')
       }
       previous = p.footwork.feet.map(foot => foot.planted)
-      if (lastHip !== undefined) assert.ok(Math.abs(pose.hip[1] - lastHip) < 2,
+      // After this ball escapes, ordinary running has its normal flight phase.
+      // Keep the strict pelvis/support contract throughout loaded work and the
+      // first release; the separate release checks cover the ensuing free gait.
+      if (lastHip !== undefined && (!escaping || p.pushing?.effort || previousLoaded)) assert.ok(Math.abs(pose.hip[1] - lastHip) < 2,
         config.name + ': changing low contact cannot abruptly collapse the pelvis')
       lastHip = pose.hip[1]
+      previousLoaded = !!p.pushing?.effort
       const gap = pose.frontLeg.end[0] - pose.backLeg.end[0]
       passedBehind ||= gap < -3; passedAhead ||= gap > 3
       if (!p.pushing?.effort) continue // A tipping crate can physically leave and reacquire the palms.
@@ -163,11 +168,14 @@ test('low working pushes retain drive, alternating support and clearance across 
           p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .5, config.name + ': force keeps visible hand contact')
       }
       if (config.size === 30 && !config.crouch && !config.slope) {
-        assert.ok(pose.hip[1] < -23, 'upright intent retains room to drive from the legs')
+        assert.ok(pose.hip[1] < -23, `${config.name}; facing=${facing}; tick=${tick}; hip=${pose.hip[1]}: upright intent retains room to drive from the legs`)
         assert.ok(pose.shoulder[0] - pose.hip[0] > 9, 'the torso hinges to the low grips')
       }
     }
-    assert.ok(loaded > 350, config.name + ': the encounter includes sustained real pushing')
+    if (escaping) {
+      assert.ok(loaded > 0 && loaded < 350, config.name + ': real contact releases as the unblocked ball rolls ahead')
+      assert.equal(p.pushing, null, config.name + ': escaped ball leaves no lingering reach or load')
+    } else assert.ok(loaded > 350, config.name + ': the encounter includes sustained real pushing')
     if (!config.blocked) {
       assert.ok(steps.every(count => count >= 2) && passedBehind && passedAhead,
         config.name + ': both advancing feet pass their planted partner through full cycles')

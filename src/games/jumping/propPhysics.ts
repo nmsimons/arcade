@@ -182,7 +182,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     }
     const contact = playerContact.body.find(c => c.collider.prop === b)
     const braced = push && playerContact.support?.collider.prop === b && push.collider.prop !== b
-    if (push?.collider.prop === b || braced || contact) {
+    if (push?.collider.prop === b && !push.passive || braced || contact) {
       driven.add(body)
       Sleeping.set(body, false)
     }
@@ -201,13 +201,17 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       b.angularVelocity -= lever * impulse * body.inverseInertia
       run.player.vx += nx * impulse / PLAYER_MASS; run.player.vy += ny * impulse / PLAYER_MASS
     }
-    if (push?.collider.prop === b && !push.swimming) {
+    if (push?.collider.prop === b && !push.swimming && !push.passive) {
       const target = push.direction * push.effort * 90
       const maximum = b.kind === 'ball' ? 3800 : 1900
       // Keep a ball's push force when a load resists it, despite its lower
       // walking-speed target. A loaded chain must not stall below that target.
       const response = b.kind === 'ball' ? 70 : 35
-      const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
+      // Palms can shove but cannot pull a faster prop back. In particular,
+      // gravity must be free to roll a ball ahead of its downhill pusher.
+      const acceleration = b.kind === 'ball'
+        ? push.direction * Math.max(0, Math.min(maximum, (target - b.vx) * push.direction * response))
+        : Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
       Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
     } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load

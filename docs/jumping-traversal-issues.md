@@ -2336,3 +2336,17 @@ Types, changed-file lint and the isolated production build pass on
 `UntitledJumpingGame-DbmkKKVL.js`. Built-in/local maps and medal times are
 preserved. Production deployment and the user's actual iPhone/controller feel
 remain separate records.
+
+### Low working reach deployed
+
+[PR #65](https://github.com/nmsimons/arcade/pull/65), merge
+`e2709c5639f5408957908b9c5eb6ac661ec22635`, is deployed in
+[release run 37912963345](https://github.com/nmsimons/arcade/actions/runs/37912963345).
+All validation/build, browser groups, deployment and desktop checks pass.
+Fresh live keyboard movement/jumping, native touch and Controls navigation pass
+without exceptions. The live entry JavaScript, CSS and
+`UntitledJumpingGame-BS0Y6Q-W.js` match the validated artifact by SHA-256.
+This releases the grounded downhill reach fix and completes #44's production
+record. The crouched clearance follow-up is pushed in
+[PR #66](https://github.com/nmsimons/arcade/pull/66), with its hosted checks
+running separately. The user's iPhone/controller feel record remains open in #57.

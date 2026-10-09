@@ -311,13 +311,17 @@ test('held keyboard movement springs a long-fall landing into supported running'
   await page.screenshot({ path: info.outputPath('supported-moving-recovery.png') })
 })
 
-for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low downhill ${kind} keeps working palms through crouch and restart: direction=${direction}`, async ({ page }, info) => {
+for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low downhill ${kind} retains loaded palms through crouch and restart: direction=${direction}`, async ({ page }, info) => {
   const x = 800, slope = .3 * direction, surface = at => 650 + slope * (at - x)
   const spawnX = x - direction * 40.5
   const level = { ...blankTrial(), width: 3000, height: 1200, floor: 1100,
     spawn: { x: spawnX, y: surface(spawnX) }, goal: { x: 2500, y: 1100 },
     props: [{ kind, x, y: 650, size: 30 }],
     platforms: [{ x: 200, y: 0, w: 2000, h: 1100, profile: [[0, surface(200)], [2000, surface(2200)]] }] }
+  // Working palms require a real resisting load. A free downhill ball now
+  // escapes after a short shove, covered by jumpingDownhillBallPush instead.
+  // Keep the original sustained palm/foot assertions against a physical stop.
+  if (kind === 'ball') level.platforms.push({ x: direction > 0 ? x + 15 : x - 115, y: 450, w: 100, h: 200 })
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game?motionDebug=1')

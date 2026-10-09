@@ -2862,9 +2862,9 @@ Seven permanent isolated encounters retain authored geometry and use normal
 inputs. Matched native before/after footage covers Spire II wall-jump/fall and
 both towers, including approach, grip and rest. These are isolated encounters,
 with only the spawn changed; they do not claim completed tower routes. The
-browser Tower I spawn is four units farther toward the edge to cover adjacent
-animation-frame input schedules, and explicitly requires an airborne sample.
-Its exact original spawn and physics-tick timing remain strict in the unit test.
+browser approaches retain their original isolated spawns, count actual physics
+steps before turning, and explicitly require an airborne sample. The exact
+reported spawn and physics-tick timings remain strict in the unit tests.
 
 ### Softer walking and idle, with an earlier jog (#74)
 
@@ -2910,13 +2910,14 @@ baseline/native encounters, `final-return-walk-check-2.log`,
 `walk-jog-run-native-final.log`, and the final traversal types/lint/build logs.
 Browser and deployed-build results are added after their release gates finish.
 
-The final isolated production-browser run passes all 14 cases: eight downhill
+The pre-hosted isolated production-browser run passed all 14 cases: eight downhill
 ball releases, four real airborne ledge approaches with quiet grips and normal
 pull-ups, and both existing keyboard rest/crouch/restart cases. The initial
 parallel run encountered two ball software-rendering/teardown timeouts and a
 Tower I fixture that never became airborne. The final serial run retains the
-ball deadlines and all assertions; the Tower I spawn adjustment above makes
-both adjacent input schedules actually fall before catching. No movement or
+ball deadlines and all assertions; a temporary four-unit Tower I spawn adjustment
+made its adjacent input schedules fall before catching. It is superseded by
+the measured-input timing below, which retains the original spawn. No movement or
 continuity assertion was relaxed. Evidence: `final-traversal-browser.log` and
 `final-traversal-browser-results`.
 
@@ -2932,3 +2933,22 @@ water/ledge checks and the four exact Canvas/GPU ladder/water visibility cases
 pass, retaining the water-mode and contrast assertions. Evidence:
 `neutral-bank-regression-before/after.log` and `neutral-bank-browser-exact.log`.
 The corrected commit still requires fresh hosted release gates.
+
+Browser group 2 identified two fall fixtures that never left their upper
+platform on Linux: the same 100 ms key hold delivered eleven physics steps
+there and thirteen locally. The browser now reads the existing motion observer
+to hold the actual key for twelve or thirteen completed steps, restoring the
+original isolated spawns. All four airborne approach/grip/rest/pull-up cases
+pass across the corrected run and isolated Spire II rerun. The stricter exact
+unit failure witnesses remain unchanged. An initial measured Spire turn one
+step later was a genuine miss and remains outside the final browser route.
+
+The older low-downhill-ball browser cases also required a sustained working
+contact after the ball had freely escaped. Their ball now bears against a real
+physical stop, preserving the original more-than-ten loaded samples and all
+grounded-foot/palm-distance assertions through crouch and restart. All four
+loaded box/ball cases in both directions pass. The separate free-ball cases
+continue to require separation, bounded player speed and no renewed push pose;
+the accepted ball solver is unchanged. No browser deadlines were increased.
+Evidence: `hosted-fixture-correction.log`, `fall-physics-timing-final.log` and
+the retained original hosted browser failure artifacts.

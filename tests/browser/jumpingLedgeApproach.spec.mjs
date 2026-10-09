@@ -9,9 +9,6 @@ for(const [file,kind,turn] of [['spire2.jump-level.json','wall jump',80],['spire
     test.setTimeout(60000)
     const authored=JSON.parse(await readFile(new URL('../../public/levels/jumping/'+file,import.meta.url),'utf8'))
     const level=ledgeApproachLevel(authored,kind)
-    // Stay inside the reachable timing window at both adjacent RAF schedules.
-    // The exact 720-root/13-tick tower encounter remains strict in the unit test.
-    if(file==='Tower.jump-level.json')level.spawn.x+=4
     await useLevelFixtures(page,[level])
     const errors=[];page.on('pageerror',error=>errors.push(error.message))
     await page.setViewportSize({width:852,height:393})
@@ -20,11 +17,24 @@ for(const [file,kind,turn] of [['spire2.jump-level.json','wall jump',80],['spire
     const canvas=page.getByRole('img',{name:`${level.name}: reach the exit`,exact:true})
     await expect(canvas).toBeFocused()
     await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'));await page.clock.runFor(64)
+    const started=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1).time)
     await page.keyboard.down('d')
     if(kind==='wall jump') {
       await page.keyboard.down('Space');await page.clock.runFor(150);await page.keyboard.up('Space')
       await page.clock.runFor(turn/120*1000-150)
-    }else await page.clock.runFor(turn/120*1000)
+    }else {
+      // Hold the real key for measured physics steps. A fixed 100 ms timer
+      // delivered 11 steps on Linux and 13 on Windows, sometimes turning back
+      // before leaving the lip. Adjacent 12/13 steps remain reachable; exact
+      // reported failures retain their original timing in the unit encounters.
+      let elapsed=0
+      for(let frame=0;frame<50&&elapsed<turn/120-1e-5;frame++) {
+        await page.clock.runFor(8)
+        elapsed=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1).time)-started
+      }
+      expect(elapsed).toBeGreaterThanOrEqual(turn/120-1e-5)
+      expect(elapsed).toBeLessThanOrEqual((turn+1)/120+1e-5)
+    }
     await page.keyboard.up('d');await page.keyboard.down('a')
     if(kind==='wall jump'){await page.keyboard.down('Space');await page.clock.runFor(150);await page.keyboard.up('Space')}
     const samples=new Map()

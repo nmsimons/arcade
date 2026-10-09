@@ -1611,3 +1611,84 @@ whole-body skin, support and full normal-speed transitions against the original
 issue checklist before closing, and retain the recorded failure/prototype
 evidence. Hardware feel, camera adequacy and collection-wide current-control
 enjoyment remain separate outstanding work.
+
+## Whole-outline acceptance audit: remaining arm and heel intersections
+
+October 8, 2026, against `31bb697`. The previous hand-outline and sole-sample
+checks pass, but inspecting the shared drawn contours exposes three remaining
+clearance cases in the sixteen normal/reversed moving-step encounters. These
+findings keep #43 and #49 open. They are separate from #48's much larger crowded
+reversal discontinuity.
+
+Reproduce with `movingStepPropFixture(side,kind,size)` from
+`tests/helpers/jumpingStepProps.mjs`, for both sides, boxes/balls of size 30/80,
+and both gravity frames. Set the prop's initial VX to `side * 480`, then advance
+180 ordinary `stepRun` ticks with movement `side` for ticks 0–37, `-side` for
+38–149, and neutral thereafter. For the reversed matrix, use the same ceiling
+fixture as `tests/jumping-step-return-gravity.test.mjs`: spawn Y 100, ceiling
+height 100, prop Y `100 + size`, and the always-on reverse field. Record the
+actual `traceAthlete` contours against each solved terrain/prop shape; loaded
+ball artwork uses its visible circle. Separate heel and toe contours when
+identifying parts: treating them as one contour mislabels later arms as torso.
+The initial diagnostic made that labeling mistake; the corrected findings below
+identify no torso or head overlap in this fixture.
+
+1. **Foreground forearm at the tall-step corner.** All sixteen encounters
+   show up to 0.280153 units of forearm intersection with the step. The normal
+   witness is tick 33, with step time 0.066667 / duration 0.34 (progress 0.196).
+   At side +1, the root is `(579.061971,643.145134)`, the step begins at
+   `(600,590)`, and the offending contour point is `(600.280153,590.306736)`.
+   This is the established ledge arm just after the `< 0.18` free-reach
+   clearance branch in `prepareReturningStepPose`, before the cancellation
+   input. The mirrored witness is tick 34. Correct the ledge wrist/forearm
+   geometry or use a constrained final solve that retains its lip palm; do not
+   extend a free-arm retraction over a loaded grip or shift the physical root.
+   Review acquisition and release at the branch boundary to avoid substituting
+   another discontinuity.
+2. **Loaded rear forearm against the rotating large crate.** In reversed
+   gravity, tick 59 intersects the 80-unit crate by 1.295444 units on side -1
+   and 0.759580 on side +1. The side -1 witness also has 0.041220 upper-arm and
+   0.045309 elbow overlap. It is grounded, with a real planted front foot and
+   force-bearing palms, and has no mantle, slide or dry-turn owner. The
+   rear wrist and palm are already correctly fitted to the crate's current
+   face; the elbow bend projects through its moving corner. Search feasible
+   three-dimensional elbow bends while holding both wrist and loaded palm
+   fixed. Use the actual polygon and visible ball circle consistently, and
+   retain bone lengths, torso proportions and real planted ankles.
+3. **Planted heel on the small ball.** Normal side ±1 has a 0.056858-unit rear
+   heel intersection at tick 59; reversed side ±1 has a 0.105808-unit front
+   heel intersection at tick 61. These are actual planted feet. The current
+   `FOOT_CONTACT` samples miss part of the heel curve between the midpoint and
+   sole endpoint. The drawn quadratic from `(-2.4,0.4)` through `(-3,2.5)` to
+   `(-1.8,2.8)` includes `(-2.2875,2.5375)` at t=0.75, which is absent from
+   those samples. Fit support to the complete heel/sole geometry in footwork;
+   the renderer must continue to use the resulting real ankle. Do not clear
+   the artwork by lifting a planted ankle away from its contact owner.
+
+An experimental unconditional `clearLimb` call removed the rotating-crate
+overlap by folding the elbow through depth, but retracted a loaded palm in the
+reversed side -1 80-unit ball at tick 56. Using the visible ball circle for
+the arm capsule checks as well did not resolve that contact regression.
+Both variants were rejected; neither is in the retained implementation.
+The original exact force-palm assertion remains unchanged. After restoring
+`31bb697` source, all 33 focused return, contact and presentation tests pass.
+
+Acceptance must check the full shared arm and shoe curves throughout all
+2,880 ticks, including the loaded frames and the 0.18 acquisition boundary,
+with no visible penetration above 0.02 units. The exploratory shadow outlines
+are flattened at 0.2 units, so use a more accurate curve sampler for permanent
+clearance coverage. Retain whole-transition wrist/head continuity, exact
+force-bearing palms, fixed three-dimensional bones, real planted ankles,
+read-only rendering and identical physical root/prop traces. Review matched
+real-time footage at gameplay scale and enlarged scale. Pause/resume and
+restart during an actual returning step also remain part of #49 acceptance.
+
+Local evidence: `.tmp/ujg-traversal-fixes/audit-return-outlines.mjs`,
+`return-outline-restored-audit.log`, `return-outline-audit.json`,
+`return-outline-frame33.json`, `return-outline-frame59.json`,
+`return-outline-arm-tests.log`, `return-outline-circle-tests.log`,
+`return-outline-restored-tests.log` and
+`return-outline-rejected-arm-clearance.patch`. The corrected baseline has
+4–16 intersecting frames per encounter. The larger crate case is a visible
+elbow/forearm defect; the sub-unit heel and ledge cases need precise contact
+repair without compromising the supported motion already established.

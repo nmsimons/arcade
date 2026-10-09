@@ -8,6 +8,7 @@ import { groundAt, followGround } from './terrain.ts'
 import { ledgeExposed, platformLedges, sameLedge } from './terrainLedges.ts'
 import { climbFrame, ledgeEase } from './ledge.ts'
 import { FOOT_CONTACT } from './footwork.ts'
+import type { PushHands } from './propGeometry.ts'
 
 export interface StepUp {
   caught: Climbing['caught'] & { pushing?: Player['pushing'] }
@@ -17,6 +18,7 @@ export interface StepUp {
   jumpQueued?: boolean
   climbing?: Climbing
   landingAngle?: number
+  returnPreparation?: { amount: number; direction: number; hands: PushHands; colliderId: string }
 }
 type Mantle = NonNullable<Player['mantle']>
 

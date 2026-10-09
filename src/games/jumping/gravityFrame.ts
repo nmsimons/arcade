@@ -130,7 +130,11 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     const m = p.mantle
     m.edgeY = -m.edgeY; m.toY = -m.toY
     if (m.slope !== undefined) m.slope = -m.slope
-    if (m.step) { caught(m.step.caught); if (m.step.landingAngle !== undefined) m.step.landingAngle = -m.step.landingAngle }
+    if (m.step) {
+      if (m.step.returnPreparation) hands(m.step.returnPreparation.hands)
+      caught(m.step.caught)
+      if (m.step.landingAngle !== undefined) m.step.landingAngle = -m.step.landingAngle
+    }
     if (m.descending) { caught(m.descending.caught); if (m.descending.climbable) climb(m.descending.climbable) }
   }
   if (p.ledgeReach && !seen.has(p.ledgeReach)) { seen.add(p.ledgeReach); p.ledgeReach.y = -p.ledgeReach.y }

@@ -142,6 +142,12 @@ proportions, fixed limb lengths, real walking anchors and first-force palms.
 Walking-anchor comparisons exclude climbing's separate contact owner. Keep the
 moving-prop interruption and later low-object contact in the same review: a
 better first head sample can hide a collapsed torso or a worse subsequent shove.
+`tests/jumping-step-return-pose.test.mjs` covers the complete normal moving-prop
+return, loaded-contact handoff, free-hand skin and rejected wall-obstructed
+preparation. `tests/jumping-step-return-gravity.test.mjs` adds real reverse-field
+encounters, read-only pose queries and preparation-palm reflection. Keep both
+files with the original step, ledge, foot-landing and slide suites; passing one
+handoff must not excuse detached lip grips or later abrupt arm acquisition.
 For ball palm clearance, distinguish the drawn circle from its circumscribed
 collision polygon. A loaded tangent palm can clear the visible ball while lying
 inside that polygon's narrow outer rim; never ignore true skin penetration or

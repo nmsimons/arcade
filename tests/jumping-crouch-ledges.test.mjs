@@ -118,7 +118,7 @@ for (const pointed of [false, true]) for (const dt of [STEP, 1 / 60]) test(`a di
     assert.ok(run.player.hang)
     const p = run.player, pose = athletePose(p)
     near(p.x + pose.frontArm.hand[0] * p.facing, 658)
-    near(p.y + pose.frontArm.hand[1], 378.7 + (pointed ? 1.2 : 0))
+    near(p.y + pose.frontArm.hand[1], 380 - 1.6 + (pointed ? 1.2 : 0))
     advance(1.5, { climb: true })
     assert.ok(p.grounded && p.crouching)
   }

@@ -7,6 +7,7 @@ import { staticContactWorld, translatePlayer } from '../src/games/jumping/player
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
 import { stepUpCommitted } from '../src/games/jumping/stepUp.ts'
 import { mirrorPlatform } from '../src/games/jumping/gravityFrame.ts'
+import { FRONT_GRIP } from '../src/games/jumping/ledge.ts'
 
 const floor = { x: -400, y: 0, w: 800, h: 80 }
 const setup = (height, side = 1, x = 0) => ({
@@ -247,7 +248,7 @@ test('three-tile pull-ups keep both hands on the lip during the lift', () => {
         const pose = athletePose(p)
         for (const [arm, inset] of [[pose.frontArm, 2], [pose.backArm, -.5]]) {
           assert.ok(Math.abs(p.x + arm.hand[0] * side - (100 + inset) * side) < .01)
-          assert.ok(Math.abs(p.y + arm.hand[1] - (-60 - 1.3)) < .01)
+          assert.ok(Math.abs(p.y + arm.hand[1] - (-60 + FRONT_GRIP[1])) < .01)
         }
         samples++
       }

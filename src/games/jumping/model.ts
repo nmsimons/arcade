@@ -18,7 +18,7 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, captureDryTurn, captureSlideEntry, dryTurnDirection, settleWaterClearance } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, captureDryTurn, captureSlideEntry, dryTurnDirection, settleWaterClearance } from './athlete.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
@@ -61,7 +61,7 @@ export interface Player {
     descending?: { platform: number; caught: Climbing['caught']; climbable: Climbing | null } } | null
   stride: number; landing: number; landingImpact: number; spawnX: number; spawnY: number; checkpoint: number
   freeFall: { time: number; amount: number; recovery: number | null; impact?: { vx: number; vy: number; gait: GaitPose | null }; moving?: { pose: AthletePose; time: number; facing: number } } | null
-  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean } | null
+  dryTurn: { pose: AthletePose; facing: number; target: number; time: number; departure: boolean; slide?: boolean; pushing?: boolean; step?: boolean } | null
   slideEntry: { pose: AthletePose; facing: number; time: number; landing?: boolean } | null
   jumpStart: number; jumpHeight: number; bestHeight: number
   crouching: boolean; crouch: number; reach: number
@@ -630,6 +630,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
   contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
   updatePushingPose(p, contacts.push ?? anticipatePush(p, input, world), dt, contacts.motion.speed)
   p.contacts = contacts
+  advanceReturningStepPreparation(p, input, dt, world)
   advanceWaterCamera(p, input, dt)
   settleGait(p, dt)
   // Climbing and crouching own the pose; unused Up still gets a quiet glance.

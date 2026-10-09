@@ -13,6 +13,7 @@ import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_T
 import { ledgeObstacles } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless } from './gravity.ts'
+import { retainInterruptedStepPose } from './athlete.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -324,10 +325,12 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
 
 /** Transport the body and its planted anchors before measuring locomotion. */
 export function translatePlayer(p: Player, dx: number, dy: number) {
+  const interruptedStep = !!p.mantle?.step && Math.hypot(dx,dy) > .001
+  if (interruptedStep) retainInterruptedStepPose(p)
   p.x += dx; p.y += dy
   // An automatic step targets static terrain. A prop pushing the player away
   // interrupts it rather than moving the destination off the real ledge.
-  if (p.mantle?.step && Math.hypot(dx, dy) > .001) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
+  if (interruptedStep) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
   translateFeet(p, dx, dy)
   if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
   if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }

@@ -1398,3 +1398,93 @@ Local evidence under `.tmp/ujg-traversal-fixes/`: `posture-contact-trace.log`,
 `posture-fixed-spine-step-v2-moving.log`, `posture-physical-comparison.json`,
 `contact-diagnostic-live.json` and `contact-diagnostic-lint.log`. Diagnostic
 bundles apply their candidate transforms without editing the game source.
+
+## Twenty-second implementation pass: prepare the returning step
+
+October 8, 2026. A returning tall step now anticipates an exposed approaching
+prop while its physical root retraces the existing collision-safe path. The
+query uses the prop's actual palms and the first opposing body-sweep contact.
+An intervening solid rejects it. This preparation supplies neither force nor
+foot support. The body lowers and turns through an unloaded reach before the
+incoming low shove needs its palms, instead of waiting until force onset.
+
+Both interruption owners retain the actual outgoing step rig: prop transport
+captures it before clearing the step, and the final player sweep uses a lazy
+snapshot from the preceding tick. A loaded incoming push fits the torso to
+reachable wrists, reconstructs the pelvis/chest at their 6.5/10.1 lengths, and
+keeps the mechanical incoming direction, actual palms and walking ankles.
+Returning torso pitches interpolate as angles so opposing chest positions
+cannot collapse the body. Preparation palms reflect with gravity and are
+copied independently in the outgoing snapshot; pose queries remain read-only.
+
+The complete eight-case moving-prop matrix now has maximum head steps of
+5.451–7.494 world units per 1/120-second tick, versus 12.480–14.901 before this
+pass. Maximum shoulder steps are 5.659–7.023, versus 11.887–14.229. The normal
+30-unit crate sequence improves from 12.480 to 6.904; its reflected sequence
+improves from 12.485 to 6.825. No tracked joint's complete-sequence maximum
+increases by more than one unit. The pelvis/chest remain proportionate, maximum
+neck length is 8.340, bone error is below `9e-15`, walking-ankle error is zero
+and force-palm error is below `2e-13`. These are regression measurements, not
+standalone proof of natural animation.
+
+Reviewing skin exposed two additional defects. A fading contact rotated an
+unloaded palm into a tumbling crate; free hands now clear their actual outline
+after that blend. An established flat ledge grip placed the 1.6-unit palm
+half-height only 1.3 units above the top. Its center now sits 1.6 units above
+the surface. Loaded grips retain their exact positions; only initial unloaded
+step reaches use free-limb clearance. The first general-clearance prototype
+detached loaded lip grips and was rejected. A prototype that also raised the
+wrist broke initial ledge reach and was likewise removed.
+
+These current-source native clips retain all four encounters, input, framing,
+1×/2.6× scale and real-time playback. The loop boundary resets each encounter.
+The short-crate return now lowers into its working brace before the incoming
+contact. The small-ball case retains the preceding pass's unloaded step down
+to the lower floor. The later large-crate arm acquisition is still abrupt.
+
+![Preceding returning-step transitions](images/jumping-returning-step-before.gif)
+
+![Revised returning-step transitions](images/jumping-returning-step-current.gif)
+
+**#49 remains open with #43/#48.** In the rightward 80-unit crate sequence,
+ticks 65–69 remain airborne with no pushing preparation. At tick 70, ground
+contact and the first loaded palms appear together; the back wrist changes
+about 22.167 units. The reflected case reaches 21.674 at tick 72. These later
+arm maxima already existed and are not worsened by this pass, but they still
+read as abrupt contact acquisition. `anticipatePush` currently rejects an
+airborne player and gaps at or below 38, so the free rig has no preceding reach
+at this close falling contact. Investigate that presentation/contact handoff
+using the same complete trace, preserving first-force palms, genuine support,
+skin clearance, fixed bones and unchanged forces. Do not accept an improved
+head trace as completion of the whole silhouette. The crowded stationary
+reversals in #48 retain their separate live defect.
+
+Three new permanent regressions cover the eight normal moving encounters with
+full head/proportion/bone/palm/hand-skin checks, actual walking ankle ownership,
+real interruption and fresh jumps. Eight additional reversed encounters check
+head continuity, actual preparation/interruption, gravity reflection/read-only
+queries and fresh jumps. The wall test rejects preparation through an
+intervening solid without changing player or prop physics. The 187 affected
+candidate checks pass. The full current UJG selection passes 1,437 of 1,439
+checks across the main suite and `jumping-*.test.mjs`; the two failures are the
+previously recorded Windows symlink-creation `EPERM` security fixtures. All
+movement and recorded-route checks pass. Types, changed-file lint, diff checks
+and the isolated production build pass. Authored levels and medals are unchanged.
+
+All 43 affected production-browser checks pass in 2.7 minutes with ordinary
+two-worker settings and their original inputs, assertions and deadlines,
+including all nine original #60 cases and cleanup. The two squeeze checks take
+14.0/14.1 seconds within their unchanged 30-second limits. Every retained trace
+confirms `UntitledJumpingGame-DZgncrZq.js`. All 1,440 current-source moving-prop
+physical frames and 720 native-capture frames match their respective baselines
+exactly, including root, velocity, facing, gravity, crouch, jump/input state and
+complete props. Recorded routes and simulated reversed encounters do not
+complete collection-wide enjoyment or physical-device acceptance.
+
+Evidence under `.tmp/ujg-traversal-fixes/`: `return-live-all-node.log`,
+`return-live-main-node.log`, `return-live-new-tests.log`, `return-live-types.log`,
+`return-live-lint.log`, `return-live-build.log`, `return-live-browser.log`,
+`return-live-browser-results/`, `return-live-build-witnesses.json`,
+`return-live-contact-diagnostic.json`, `return-live-physical-comparison.json`,
+`return-live-native-physical-comparison.json`, `return-live-native.json`,
+`return-live-frames/` and `return-preparation-joint-comparison.json`.

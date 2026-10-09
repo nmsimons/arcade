@@ -2,9 +2,10 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { proneDropLevel } from '../helpers/jumpingProneScenarios.mjs'
 
-for (const direction of [-1, 1]) for (const kind of ['wall', 'undercut']) {
+for (const direction of [-1, 1]) for (const kind of ['wall', 'undercut', 'moving gate']) {
   test(`normal long fall clears ${kind}, catches or recovers and departs: direction=${direction}`, async ({ page }, info) => {
     const level = { ...proneDropLevel(kind, direction), name: `Prone ${kind}` }
+    if (kind === 'moving gate') Object.assign(level.mechanisms[0], { y: 950, h: 800, travel: 800 })
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -20,16 +21,19 @@ for (const direction of [-1, 1]) for (const kind of ['wall', 'undercut']) {
     await page.clock.runFor(1400)
     await page.keyboard.up(key); await page.keyboard.up('Shift')
     await page.clock.runFor(900)
-    expect((await sample()).blends.fall).toBe(1)
-    expect((await sample()).signals.mode).toBe('fall')
+    if (kind === 'moving gate') expect((await sample()).signals.mode).toBe('hang')
+    else {
+      expect((await sample()).blends.fall).toBe(1)
+      expect((await sample()).signals.mode).toBe('fall')
+    }
     await page.screenshot({ path: info.outputPath('prone-approach.png') })
     await page.clock.runFor(1700)
-    if (kind === 'undercut') {
+    if (kind !== 'wall') {
       expect((await sample()).signals.mode).toBe('hang')
       await page.screenshot({ path: info.outputPath('prone-caught.png') })
       await page.keyboard.down('x'); await page.clock.runFor(100); await page.keyboard.up('x')
       expect((await sample()).signals.mode).not.toBe('hang')
-      await page.clock.runFor(1500)
+      await page.clock.runFor(kind === 'moving gate' ? 3000 : 1500)
     } else {
       expect((await sample()).signals.grounded).toBe(true)
       await page.screenshot({ path: info.outputPath('prone-recovery.png') })

@@ -500,11 +500,11 @@ function stepUpPose(p: Player): AthletePose {
 
 /** All supports are authored relative to the corner, independent of the camera and player root. */
 function ledgePose(p: Player): AthletePose {
-  if (p.hang && p.hang.time < LEDGE_CATCH_TIME && p.hang.caught.freeFall?.amount) {
+  if (p.hang && p.hang.time < LEDGE_CATCH_TIME && !p.hang.caught.climbing) {
     const h = p.hang, source = athletePose({ ...p, ...h.caught, hang: null, mantle: null, climbing: null, landing: 0 })
     const target = ledgePose({ ...p, hang: { ...h, time: LEDGE_CATCH_TIME } })
     const shift: Point = [(h.caught.x - p.x) * p.facing, h.caught.y - p.y]
-    // A prone arm can already be folded through depth beside the wall.
+    // An incoming arm can already be folded through depth beside the wall.
     // Transfer that full rig; rebuilding projected angles unfolds it into
     // the wall and can flip its elbow during the catch.
     let pose = transferPose(source, target, shift, smooth(h.time / LEDGE_CATCH_TIME), [0, 0], 6, true)

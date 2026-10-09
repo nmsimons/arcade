@@ -1,0 +1,313 @@
+{
+  "version": 1,
+  "jumpModel": "tap-hold",
+  "runs": [
+    {
+      "file": "00.json",
+      "recovery": false,
+      "trace": [
+        {
+          "frames": 124,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 270,
+          "input": {
+            "move": 1
+          }
+        }
+      ],
+      "events": [],
+      "finished": true,
+      "elapsed": 2.6083333333333267,
+      "activeTime": 3.466666666666657,
+      "medal": "Gold",
+      "x": 1204,
+      "y": 1200
+    },
+    {
+      "file": "00.json",
+      "recovery": true,
+      "trace": [
+        {
+          "frames": 151,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 131,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 578,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 292,
+          "input": {
+            "move": 1
+          }
+        }
+      ],
+      "events": [
+        {
+          "kind": "floor",
+          "x": 766.625,
+          "y": 1600
+        },
+        {
+          "kind": "ladder",
+          "x": 565.8611111111129,
+          "y": 1600
+        },
+        {
+          "kind": "recovered",
+          "x": 520,
+          "y": 1200
+        }
+      ],
+      "finished": true,
+      "elapsed": 9.025000000000128,
+      "activeTime": 9.883333333333413,
+      "medal": "Bronze",
+      "x": 1204,
+      "y": 1200
+    },
+    {
+      "file": "02.json",
+      "recovery": false,
+      "trace": [
+        {
+          "frames": 124,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 82,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 99,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 55,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 49,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 247,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "events": [
+        {
+          "kind": "automatic-rope",
+          "x": 807.1728855721373,
+          "y": 1006.021980821492,
+          "held": true,
+          "distance": 250.02197977639227
+        },
+        {
+          "kind": "release",
+          "x": 870.8149984493397,
+          "y": 931.7013944439985,
+          "vx": 215.24755739972534
+        }
+      ],
+      "finished": true,
+      "elapsed": 6.266666666666768,
+      "activeTime": 7.125000000000144,
+      "medal": "Gold",
+      "x": 1460,
+      "y": 1200
+    },
+    {
+      "file": "02.json",
+      "recovery": true,
+      "trace": [
+        {
+          "frames": 151,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 160,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 578,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 103,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 20,
+          "input": {
+            "jump": true
+          }
+        },
+        {
+          "frames": 1,
+          "input": {}
+        },
+        {
+          "frames": 174,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 68,
+          "input": {
+            "move": -1
+          }
+        },
+        {
+          "frames": 66,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 249,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        }
+      ],
+      "events": [
+        {
+          "kind": "floor",
+          "x": 793.8187189054727,
+          "y": 1600
+        },
+        {
+          "kind": "ladder",
+          "x": 566.7770522388082,
+          "y": 1600
+        },
+        {
+          "kind": "recovered",
+          "x": 520,
+          "y": 1200
+        },
+        {
+          "kind": "automatic-rope",
+          "x": 806.7083333333327,
+          "y": 1058.6416292813547,
+          "held": true,
+          "distance": 302.6416282772492
+        },
+        {
+          "kind": "release",
+          "x": 870.4692641509885,
+          "y": 931.097605822469,
+          "vx": 164.79686482996385
+        }
+      ],
+      "finished": true,
+      "elapsed": 12.508333333333264,
+      "activeTime": 13.366666666666548,
+      "medal": "Bronze",
+      "x": 1460,
+      "y": 1200
+    }
+  ]
+}

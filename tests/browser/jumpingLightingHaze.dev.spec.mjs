@@ -49,12 +49,13 @@ test('airborne beams stay behind clocks, collectibles, wall text and the player'
   await page.goto('/untitled-jumping-game/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { createPlayer } = await import('/src/games/jumping/model.ts')
     const h = await lightingHarness()
     h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []
     h.run.level = { ...h.run.level, platforms: [], timers: [{ x: 650, y: 180 }], triggers: [], climbables: { ropes: [], ladders: [] },
       // Larger glyphs provide opaque interiors with Windows and Linux fonts.
       texts: [{ x: 800, y: 180, w: 130, h: 50, fontSize: 32, align: 'left', style: 'official', text: 'BEAM' }] }
-    h.run.terrain = []; h.run.player.x = 980; h.run.player.y = 240
+    h.run.terrain = []; h.run.player = createPlayer({ x: 980, y: 240 })
     h.run.pickups = [{ definition: { kind: 'coin', x: 450, y: 200 }, collectedAge: null }]
     const source = { id: 'beam', x: 100, y: 200, intensity: 100, direction: 0, spread: 100, power: 'always' }
     const base = h.render(0), lit = h.render(0, [source]), full = h.normal('#e5e7e6')

@@ -1,5 +1,5 @@
 import type { Platform } from './model.ts'
-import { outsideCorner, pointInside, polygonPoints } from './geometry.ts'
+import { outsideCorner, pointInside, platformOutline } from './geometry.ts'
 import { canGrip } from './friction.ts'
 
 /** Slope is the top's rise per unit inward from the corner. */
@@ -15,7 +15,7 @@ export const platformLedgesDisabled = (platform: Platform) => disabled.has(platf
 export function platformLedges(platform: Platform): readonly TerrainLedge[] {
   const cached = ledges.get(platform)
   if (cached) return cached
-  const outline = polygonPoints(platform)
+  const outline = platformOutline(platform)
   // Extra editor nodes along a straight edge do not create or hide corners.
   const points = outline.filter((b, i) => {
     const a = outline[(i + outline.length - 1) % outline.length], c = outline[(i + 1) % outline.length]
@@ -57,7 +57,7 @@ export function ledgeObstacles(platforms: readonly Platform[], edge: TerrainLedg
   // Walk touching collinear top edges inward from the grip. A narrow post
   // joined to a beam must offer the same clearance as one solid L shape.
   const tops = platforms.flatMap(platform => {
-    const points = polygonPoints(platform)
+    const points = platformOutline(platform)
     const above = (point: readonly [number, number]) => point[1] - edge.edgeY - (point[0] - edge.edgeX) * edge.side * (edge.slope ?? 0)
     return points.flatMap((a, i) => {
       const b = points[(i + 1) % points.length]
@@ -76,7 +76,7 @@ export function ledgeObstacles(platforms: readonly Platform[], edge: TerrainLedg
   // and a flush wall beneath it are the same supporting corner as one polygon.
   // Keep genuine gaps separate, and retain anything above/outside via clipping.
   const faces = platforms.flatMap(platform => {
-    const points = polygonPoints(platform)
+    const points = platformOutline(platform)
     return points.flatMap((a, i) => {
       const b = points[(i + 1) % points.length]
       if (Math.abs(a[0] - edge.edgeX) > 1e-7 || Math.abs(b[0] - edge.edgeX) > 1e-7

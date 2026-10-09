@@ -4,7 +4,7 @@ import { LevelSaveStatus } from '../accounts/LevelSaveStatus'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
 import { playgroundLightingWorld } from './jumping/lightingModel'
-import { gameCamera } from './jumping/camera'
+import { GameCamera } from './jumping/camera'
 import { levelTerrain } from './jumping/level'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -14,6 +14,8 @@ import { createJumpController, keyboardMovement } from './jumping/input'
 import { createJumpTouch } from './jumping/touchInput'
 import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
+import { actionFeedbackText, playerActionFeedback } from './jumping/actionFeedback'
+import type { ActionFeedback } from './jumping/actionFeedback'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
@@ -171,7 +173,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
-  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
+  const [metrics, setMetrics] = useState<{state:string;elapsed:number;actions:ActionFeedback|null}>({ state: 'Ready', elapsed: 0, actions:null })
 
   function changeScreen(next: Screen, reason?: string) {
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
@@ -440,7 +442,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   })
 
   useEffect(() => {
-    const canvas = canvasRef.current!, ctx = canvas.getContext('2d')!
+    const canvas = canvasRef.current!, ctx = lightingRenderer.drawingContext(canvas)
     // The context itself is deferred until a pointer, keyboard or controller action.
     const sound = new JumpingSoundSession()
     const motion = import.meta.env.DEV || new URLSearchParams(window.location.search).get('motionDebug') === '1'
@@ -452,6 +454,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     audioState.reset(player.current, run.current)
     let width = 0, height = 0, ratio = 1, frame = 0, previous = 0, accumulator = 0, published = 0
     let lightingStats: PerformanceSnapshot['lighting'] = null
+    const gameCamera = new GameCamera()
     const paint = (dt = 0) => {
       if (!width || !height || screenRef.current === 'building' || screenRef.current === 'menu') return
       const level = run.current?.level ?? activeLevel.current
@@ -459,8 +462,8 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (ratio !== nextRatio) { ratio = nextRatio; canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio) }
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       // Fractional render scales round the backing dimensions to whole pixels.
-      // Frame against that drawable area so the player remains exactly centered.
-      const camera = gameCamera(canvas.width / ratio, canvas.height / ratio, player.current, level, !!run.current)
+      // Frame against the drawable area so rounding cannot shift the view.
+      const camera = gameCamera.view(canvas.width / ratio, canvas.height / ratio, player.current, level, !!run.current, dt)
       lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), lightingForLevel(level),
         { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
     }
@@ -527,7 +530,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (now - published > 80) {
         const p = player.current
         setMetrics({ state: run.current?.exit ? 'Entering the exit' : playerState(p),
-          elapsed: run.current?.elapsed ?? 0 })
+          elapsed: run.current?.elapsed ?? 0, actions:run.current?.exit ? null : playerActionFeedback(p,activeLevel.current.climbables) })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -551,6 +554,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
         onTouch={() => setTouchAvailable(true)} onPause={() => changeScreen('paused')} />}
       {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
+      {!devOpen && metrics.actions && <p className="jumping-action-hint" aria-label="Available actions">
+        {actionFeedbackText(metrics.actions,connected?'controller':touchAvailable?'touch':'keyboard')}
+      </p>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
         {challenge && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}

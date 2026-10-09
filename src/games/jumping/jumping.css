@@ -123,3 +123,4 @@
 }
 
 .jumping-visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.jumping-action-hint { position: absolute; z-index: 6; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); width: max-content; max-width: min(680px, calc(100% - 24px)); box-sizing: border-box; margin: 0; padding: 6px 10px; border-radius: 4px; color: #31433a; background: #f1f1ede6; font: 12px/1.5 ui-monospace, monospace; text-align: center; pointer-events: none; user-select: none; }

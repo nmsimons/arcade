@@ -13,6 +13,7 @@ import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_T
 import { ledgeObstacles } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless } from './gravity.ts'
+import { retainInterruptedStepPose } from './athlete.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -37,6 +38,8 @@ export interface PushContact {
   hands: PushHands | null
   /** A swimmer supplies the existing body load rather than a grounded shove. */
   swimming?: boolean
+  /** A visible approach reach; never consumed by the motor or prop solver. */
+  anticipation?: number
 }
 export interface PlayerContacts {
   support: SupportContact | null
@@ -143,7 +146,11 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     if (b) {
       const bounds = propBounds(b)
       if (p.y <= bounds.y + 12 || p.y - 42 >= bounds.y + bounds.h || p.y > bounds.y + bounds.h + b.size * .6) continue
-      const hands = propPushHands(b, p.x, p.y, direction)
+      const motorHands = propPushHands(b, p.x, p.y, direction)
+      const lowerHands = p.crouch ? propPushHands(b, p.x, p.y, direction, 43 - p.crouch * 15) : motorHands
+      // Working height changes the visible palms, while the existing motor
+      // spacing continues to follow its established face on tilted objects.
+      const hands = lowerHands && motorHands ? { ...lowerHands, wallX: motorHands.wallX, slope: motorHands.slope } : motorHands
       const face = b.kind === 'box' ? boxPushFace(b, p.x, p.y, direction, Math.min(43, b.size * .6)) : null
       const wallX = face?.wallX ?? hands?.wallX
       if (wallX === undefined || (b.kind === 'box' && !face)) continue
@@ -262,26 +269,73 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
   return (x - p.x) / dt
 }
 
+/** Lead a shove with a reach toward the first exposed prop. This deliberately
+ * lives outside the force-contact query: preparation cannot move an object. */
+export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld): PushContact | null {
+  if (p.inverted) {
+    mirrorPlayerState(p); p.inverted = false
+    try {
+      const contact = anticipatePush(p, input, mirrorContactWorld(world))
+      return contact && mirrorContacts({ support: null, push: contact, body: [], motion: { x: 0, y: 0, speed: 0 } }, world).push
+    } finally { mirrorPlayerState(p); p.inverted = true }
+  }
+  const direction = Math.sign(input.move)
+  // A brief slip retains its real slide/brace balance. An interrupted step
+  // already owns a continuous outgoing rig and can prepare its incoming hands;
+  // an ordinary free reach cannot take over another contact's torso.
+  const falling = !p.grounded && p.vy >= 0 && !p.jumpLift && !p.waterMotion
+    && (p.dryTurn?.step || !p.sliding?.amount && !p.wallBrace?.amount && !p.slideEntry)
+  if (!direction || !(p.grounded || falling) || p.hang || p.mantle || p.climbing || p.freeFall?.amount
+    || input.jump && !p.jumpHeld || p.buffer > 0) return null
+  const candidates = world.colliders.flatMap(collider => {
+    if (!collider.prop || collider.id === p.contacts?.support?.collider.id) return []
+    const hands = propPushHands(collider.prop, p.x, p.y, direction, 43 - p.crouch * 15, 72)
+    if (!hands) return []
+    const gap = (hands.wallX - p.x) * direction
+    if (gap >= 72) return []
+    const sweep = moveBody([p.x, p.y], [p.x + direction * gap, p.y], world.platforms,
+      p.crouching ? TUNING.crouchHeight : TUNING.height)
+    const first = sweep.contacts.find(contact => contact.normal[0] * direction < -.4)
+    if (first?.platform !== collider.platform) return []
+    const proximity = Math.max(0, Math.min(1, (72 - gap) / 34))
+    return [{ collider, direction, effort: 0, wallX: hands.wallX, hands,
+      anticipation: proximity * proximity * (3 - 2 * proximity) }]
+  })
+  candidates.sort((a, b) => (a.wallX - b.wallX) * direction)
+  return candidates[0] ?? null
+}
+
 /** Presentation consumes the solved contact; it never moves the player. */
-export function updatePushingPose(p: Player, contact: PushContact | null, dt: number) {
-  if (contact?.hands && (p.grounded || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
+export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0) {
+  if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
-    const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing.amount : 0
-    p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction, amount: Math.min(1, previous + dt / .14), effort: contact.effort }
+    const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing : null
+    // Opposition is the requested motion that the contact solver could not
+    // deliver. Ease its presentation independently of the hand-contact blend.
+    const targetLoad = Math.max(0, contact.effort - speed / TUNING.runSpeed)
+    const load = (previous?.load ?? 0) + (targetLoad - (previous?.load ?? 0)) * (1 - Math.exp(-dt / .08))
+    p.pushing = { ...contact.hands, colliderId: contact.collider.id, direction: contact.direction,
+      // A prop has already received this tick's force. Its working palms must
+      // be established now; resistance still loads the body gradually above.
+      amount: contact.anticipation === undefined ? Math.min(1, (previous?.amount ?? 0) + dt / .14) : previous?.amount ?? 0,
+      ready: contact.anticipation ?? (contact.collider.prop && !contact.swimming ? 1 : 0), effort: contact.effort, load }
   } else if (p.pushing) {
     const amount = Math.max(0, p.pushing.amount - dt / .16)
-    p.pushing = amount && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
-      ? { ...p.pushing, amount, effort: 0 } : null
+    const ready = Math.max(0, (p.pushing.ready ?? 0) - dt / .16)
+    p.pushing = (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
+      ? { ...p.pushing, amount, ready, effort: 0, load: (p.pushing.load ?? 0) * Math.exp(-dt / .08) } : null
   }
 }
 
 /** Transport the body and its planted anchors before measuring locomotion. */
 export function translatePlayer(p: Player, dx: number, dy: number) {
+  const interruptedStep = !!p.mantle?.step && Math.hypot(dx,dy) > .001
+  if (interruptedStep) retainInterruptedStepPose(p)
   p.x += dx; p.y += dy
   // An automatic step targets static terrain. A prop pushing the player away
   // interrupts it rather than moving the destination off the real ledge.
-  if (p.mantle?.step && Math.hypot(dx, dy) > .001) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
+  if (interruptedStep) { p.mantle = null; p.footwork = null; p.grabCooldown = .25 }
   translateFeet(p, dx, dy)
   if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
   if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }

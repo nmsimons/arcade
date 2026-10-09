@@ -1,6 +1,7 @@
 import { gameCamera } from './camera.ts'
 export { LEVEL_BOTTOM_PADDING } from './camera.ts'
 import type { Platform, Player } from './model.ts'
+import { airBoostStrength } from './model.ts'
 import { LEVEL_GRID_SIZE, levelHeight, levelTerrain } from './level.ts'
 import type { JumpLevel } from './level.ts'
 import { ropePath } from './climbables.ts'
@@ -67,7 +68,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
   if (started) ctx.fill()
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {
-  paint(ctx, 1, () => drawFootBoosters(ctx, p))
+  if (airBoostStrength(p) >= .01) paint(ctx, 1, () => drawFootBoosters(ctx, p))
   if (!p.sliding) return
   const { angle, amount, time, x, y } = p.sliding
   const speed = p.vx * Math.cos(angle) + p.vy * Math.sin(angle), direction = Math.sign(speed) || p.facing
@@ -87,8 +88,8 @@ export function drawCheckpointMarkers(ctx: CanvasRenderingContext2D, p: Player, 
     ctx.fillStyle = p.checkpoint >= index ? ACCENT : '#a0a3a4'; ctx.fillRect(point.x - 4, point.y - 2, 8, 2)
   }
 }
-export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel) {
-  const { zoom, x, y } = gameCamera(width, height, p, level, false)
+export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, height: number, p: Player, level: JumpLevel, view = gameCamera(width, height, p, level, false)) {
+  const { zoom, x, y } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
   drawTerrain(ctx, levelTerrain(level), level.platforms); drawClimbables(ctx, p, level.climbables)

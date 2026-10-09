@@ -75,7 +75,8 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
     ctx.fillStyle = '#b3a28d'; rounded(ctx, -26, top, 51, -12 - top, 4); ctx.fill()
     ctx.fillStyle = '#687b71'; rounded(ctx, -2, top + 8, 21, 9, 2); ctx.fill()
   })
-  if (powered) paint(ctx, 1, () => { ctx.fillStyle = angry ? TIME_PENALTY_COLOR : '#a5b3a7'; ctx.fillRect(11, top + 10, 5, 5) })
+  if (powered) paint(ctx, 1, () => { ctx.fillStyle = angry ? TIME_PENALTY_COLOR : '#a5b3a7'; ctx.fillRect(11, top + 10, 5, 5) }, true,
+    { x: 11, y: top + 10, w: 5, h: 5 })
   if (r.definition.headlight) {
     const y = robotHeadlightY(r)
     paint(ctx, 0, () => {
@@ -84,7 +85,8 @@ export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed:
     })
     if (headlightFade > 0) {
       ctx.save(); ctx.globalAlpha *= headlightFade
-      paint(ctx, 1, () => { ctx.fillStyle = '#f4f2e9'; ctx.fillRect(ROBOT_HEADLIGHT_X - 2, y - 4, 2, 8) })
+      paint(ctx, 1, () => { ctx.fillStyle = '#f4f2e9'; ctx.fillRect(ROBOT_HEADLIGHT_X - 2, y - 4, 2, 8) }, true,
+        { x: ROBOT_HEADLIGHT_X - 2, y: y - 4, w: 2, h: 8 })
       ctx.restore()
     }
   }
@@ -103,7 +105,7 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
   paint(ctx, complete ? 1 : 0, () => {
     ctx.fillStyle = complete ? '#a9d56b' : '#9aa38e'
     ctx.beginPath(); ctx.arc(pole, lamp, 11, 0, Math.PI * 2); ctx.fill()
-  })
+  }, true, { x: pole - 11, y: lamp - 11, w: 22, h: 22 })
 }
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
   const door = goalDoor(goal), width = door.w * goalEase(opening)
@@ -166,10 +168,10 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   for (const plate of level.gravityPlates ?? []) drawWaterRegion(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), editor, paint)
 }
-export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run) {
-  const { level, player: p } = run
+export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run, view = gameCamera(width, height, run.player, run.level, true)) {
+  const { level } = run
   ctx.fillStyle = '#f0efe8'; ctx.fillRect(0, 0, width, height)
-  const { zoom, x: left, y: top } = gameCamera(width, height, p, level, true)
+  const { zoom, x: left, y: top } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-left, -top)
   drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom)
   drawPuzzleWorld(ctx, run)

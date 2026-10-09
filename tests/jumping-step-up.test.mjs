@@ -5,6 +5,9 @@ import { bodyIntersects, pointInside, nearestBoundary } from '../src/games/jumpi
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { staticContactWorld, translatePlayer } from '../src/games/jumping/playerContacts.ts'
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
+import { stepUpCommitted } from '../src/games/jumping/stepUp.ts'
+import { mirrorPlatform } from '../src/games/jumping/gravityFrame.ts'
+import { FRONT_GRIP } from '../src/games/jumping/ledge.ts'
 
 const floor = { x: -400, y: 0, w: 800, h: 80 }
 const setup = (height, side = 1, x = 0) => ({
@@ -20,6 +23,107 @@ function approach(p, terrain, input = {}, world) {
   }
   return false
 }
+
+test('tall steps reverse safely before top commitment on opposite, Down, or detach intent', () => {
+  for (const height of [40,60]) for (const side of [-1,1]) for (const progress of [0,.1,.45,.8,.97]) {
+    for (const request of [{ move: -side }, { drop: true }, { descend: true }, { detach: true }, { move: -side, detach: true, drop: true }]) {
+      const { p, terrain } = setup(height, side, 74.5 * side)
+      assert.ok(approach(p, terrain, { move: side }))
+      while (p.mantle.time / p.mantle.step.duration < progress) tick(p, terrain, { move: side })
+      if (!p.mantle) continue
+      const committed = stepUpCommitted(p.mantle, staticContactWorld(terrain)), source = p.mantle.step.caught
+      let previous = [p.x,p.y], count = 0
+      while (p.mantle && count++ < 100) {
+        tick(p, terrain, request)
+        assert.ok(Math.hypot(p.x-previous[0],p.y-previous[1]) < 9, 'the reverse follows the entry curve without teleporting')
+        assert.ok(terrain.every(b => !bodyIntersects(p.x,p.y,b)), 'the reverse still sweeps real solids')
+        previous = [p.x,p.y]
+      }
+      assert.equal(p.mantle, null)
+      assert.ok(p.grounded)
+      assert.ok(Math.abs(p.y - (committed ? -height : source.y)) < .01)
+      assert.ok(Math.abs(p.x - (committed ? side * 120 : source.x)) < .01)
+    }
+  }
+})
+
+test('returning steps preserve the rig through source handoff in both gravity frames', () => {
+  for (const height of [40,60]) for (const side of [-1,1]) for (const inverted of [false,true]) {
+    const source = setup(height, side, 74.5 * side)
+    const terrain = inverted ? source.terrain.map(mirrorPlatform) : source.terrain, p = source.p
+    Object.assign(p, { inverted, gravity: inverted ? -TUNING.gravity : TUNING.gravity })
+    const advance = input => stepPlayer(p, { ...NEUTRAL_INPUT,...input }, STEP, terrain,
+      undefined,undefined,undefined,undefined,p.gravity)
+    for (let i = 0; i < 180 && !p.mantle; i++) advance({move:side})
+    assert.ok(p.mantle?.step)
+    const joints = () => {
+      const pose = athletePose(p)
+      return [pose.hip,pose.waist,pose.shoulder,pose.head,
+        ...[pose.frontArm,pose.backArm,pose.frontLeg,pose.backLeg].flatMap(l => [l.joint,l.end])]
+        .map(point => [p.x+point[0]*side,p.y+point[1]*(inverted ? -1 : 1)])
+    }
+    const entry = [{time:p.mantle.time,points:joints()}]
+    for (let i = 0; i < 15; i++) {
+      advance({move:side}); entry.push({time:p.mantle.time,points:joints()})
+    }
+    let previous = joints(), count = 0
+    while (p.mantle && count++ < 100) {
+      advance({move:-side})
+      const points = joints()
+      const matching = entry.find(frame => Math.abs(frame.time-(p.mantle?.time ?? 0)) < 1e-8)
+      assert.ok(matching,'the return visits the same entry samples')
+      // Ordinary gait settling resumes on the source tick; every joint must
+      // stay within one world unit of the exact captured entry silhouette.
+      points.forEach((point,i) => assert.ok(Math.hypot(point[0]-matching.points[i][0],point[1]-matching.points[i][1]) < (p.mantle ? .05 : 1),
+        `height ${height}, inverted ${inverted}, joint ${i} retraces its entry and settles continuously at the source`))
+      assert.ok(Math.hypot(points[3][0]-previous[3][0],points[3][1]-previous[3][1]) < 8,'the head follows the continuous entry path')
+      previous = points
+    }
+    assert.equal(p.mantle,null); assert.ok(p.grounded); assert.ok(Math.abs(p.y) < 1e-9)
+  }
+})
+
+test('a buffered jump survives cancellation once, and pausing clears it while returning', () => {
+  for (const height of [40,60]) for (const pause of [false,true]) {
+    const {p,terrain} = setup(height,1,74.5)
+    assert.ok(approach(p,terrain))
+    for (let i = 0; i < 12; i++) tick(p,terrain,{move:1})
+    tick(p,terrain,{move:-1,jump:true})
+    assert.ok(p.mantle.returning && p.mantle.step.jumpQueued)
+    if (pause) cancelJumpInput(p)
+    for (let i = 0; i < 80 && p.mantle; i++) tick(p,terrain,{move:-1})
+    assert.equal(p.mantle,null)
+    assert.equal(p.grounded,pause)
+    assert.equal(p.jumpLift !== null,!pause)
+    if (pause) assert.equal(p.buffer,0)
+    else {
+      const before = p.y
+      tick(p,terrain,{move:-1})
+      assert.ok(p.y < before && !p.grounded,'the buffered launch continues without relaunching')
+      assert.equal(p.buffer,0)
+    }
+  }
+})
+
+test('an object entering the return path interrupts a tall step at the last clear body', () => {
+  const {p,terrain} = setup(60,1,74.5)
+  assert.ok(approach(p,terrain))
+  for (let i = 0; i < 28; i++) tick(p,terrain,{move:1})
+  const obstacle = {x:68,y:-90,w:20,h:90}
+  assert.equal(bodyIntersects(p.x,p.y,obstacle),false)
+  const world = staticContactWorld([...terrain,obstacle])
+  // Dynamic objects use the same swept hull; they never become an auto step.
+  world.colliders.at(-1).id = 'prop:return-path'
+  for (let i = 0; i < 90 && p.mantle; i++) {
+    const before = [p.x,p.y]
+    tick(p,world.platforms,{move:-1},world)
+    assert.ok(world.platforms.every(b => !bodyIntersects(p.x,p.y,b)))
+    assert.ok(Math.hypot(p.x-before[0],p.y-before[1]) < 9)
+  }
+  assert.equal(p.mantle,null)
+  assert.ok(p.x >= obstacle.x+obstacle.w+TUNING.width/2-.01,'a blocked return never teleports to its captured source')
+  assert.ok(p.grabCooldown > 0)
+})
 
 test('one through three tile terrain steps climb in either direction without penetrating any solid', () => {
   for (const height of [20, 40, 60]) for (const side of [1, -1]) for (const start of [0, 88]) {
@@ -144,7 +248,7 @@ test('three-tile pull-ups keep both hands on the lip during the lift', () => {
         const pose = athletePose(p)
         for (const [arm, inset] of [[pose.frontArm, 2], [pose.backArm, -.5]]) {
           assert.ok(Math.abs(p.x + arm.hand[0] * side - (100 + inset) * side) < .01)
-          assert.ok(Math.abs(p.y + arm.hand[1] - (-60 - 1.3)) < .01)
+          assert.ok(Math.abs(p.y + arm.hand[1] - (-60 + FRONT_GRIP[1])) < .01)
         }
         samples++
       }

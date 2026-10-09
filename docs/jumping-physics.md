@@ -279,6 +279,36 @@ a hang. Moving props continue to receive the normal shove; an obstruction with
 no clear alternative still stops the climb. These are shared movement rules,
 not exceptions for particular objects or levels.
 
+## Vertical actions and departures
+
+Keyboard S/Down and controller Down set descend, crouch and drop together;
+the touch down-drag produces the same combination. They are contextual actions,
+not independently selectable dive and upright-floor-hold commands. W/Up requests
+climbing. X, controller B/○ and the released downward touch flick explicitly
+detach. A held Jump suppresses vertical acquisition; in a hang, explicit detach
+or an unlocked Down drop takes precedence over Jump.
+
+| Current situation | Action and priority |
+| --- | --- |
+| Supported, near an exposed eligible lip | Down first lowers along a clear pull-up path, before a nearby ladder/rope acquisition or crouch. The motor and contextual cue share `loweringOption`. |
+| Supported, lip path blocked or outside its 32-unit reach | Try eligible vertical climbable acquisition, then crouch. A low ceiling never authorizes standing through a solid. |
+| Supported at the middle of a ladder | Vertical input acquires it before ordinary crouch. At its bottom, Down does not acquire it; at its top, use the eligible lowering path. |
+| Supported beside a rope | Gravity-facing downward input does not directly acquire the rope. Up can acquire it; airborne acquisition remains automatic. A deliberate lowering can transfer onto a rope or ladder at its lip. |
+| Free in water | Down powers the dive. Release or Up restores upright presentation; buoyancy supplies the ascent. Up adds no powered upward acceleration. Normal Down crouches on the submerged floor. Loose props are pushed by swimming; Up requests a reachable grip, while terrain banks can catch automatically. |
+| Hanging after deliberate lowering | Held Down stops in a safe hang. Release and a separate Down press drops once; explicit detach is immediate. A fresh Jump leaps outward at 260 units/second; Up requests a clear pull-up. |
+| Catching while Jump is held | The catch consumes that press. Release, then press again to depart; continued hold cannot launch or renew lift. |
+| Inverted support | Up is the gravity-facing lowering request. Holding that original Up stops in a safe hang rather than immediately starting a pull-up. Release and another Up press can pull up; Down or explicit detach can drop. |
+
+`verticalClimbOption` shares the motor's acquisition exclusions with feedback.
+`actionFeedback.ts` describes the solved state without advancing physics or input;
+its lowering cue uses the full exposed-edge/path check. Pull-up feedback only
+advertises a currently clear landing. The motor can additionally start a safe
+shove through a yielding loose prop, so a conservative cue may omit that option
+while still offering Jump away and explicit detach. No cue promises a grip through
+a force field or an obstructed lip. Keyboard/controller/touch labels describe their
+actual bindings. Regression coverage includes the action-feedback suite and
+`tests/browser/jumpingActions.spec.mjs`.
+
 ## Boundaries to preserve
 
 - Animation may reposition limbs, but never the player's physical root.
@@ -298,6 +328,16 @@ not exceptions for particular objects or levels.
 `tests/jumping-player-contacts.test.mjs` covers contact selection, bracing,
 release and support transport. The slope, friction, prop-collision, animation
 and climbing suites cover the movement behavior around that boundary.
+
+When a moving curved support exposes a lower walkable floor, an airborne stride
+continues from its actual ankle position through the existing 80 ms swing
+release. That shoe remains unloaded until its sole reaches the current surface;
+declaring it planted above the floor would pull the pelvis down immediately.
+This changes foot presentation only, including the visible leg's support state.
+The player's collision root and the moving object's forces retain their normal
+simulation. Slipping faces use the slide-entry handoff instead of this walking
+landing. Coverage includes the actual moving-ball transfer in
+`tests/jumping-foot-landings.test.mjs` and the complete steep-slide entry suite.
 
 ## Motion continuity and diagnostics
 
@@ -327,6 +367,21 @@ a brief gap in a moving box, ball or bot contact. A new surface starts its own
 blend. This memory is presentation only: missing contacts release physical forces
 immediately, and jumping or turning away still clears the pose.
 
+A stationary reversal between blocked pushing faces releases the outgoing
+hands and reaches toward the incoming brace over the ordinary dry turn. This
+is an explicit presentation distinction: the motor selects the new pressure
+immediately, while the artwork does not claim an established hand load during
+the reach. It is allowed only while the contacted prop's speed is below one
+world unit per second. Moving-prop acquisition and returning-step transfers
+retain their exact incoming palms; no shove-induced visible object movement is
+shown with hands in transit. The completed blocked brace also retains its actual
+palms. Planted shoes keep their motor-owned ankles and material orientation,
+and the final cleared turning joints are budgeted in three dimensions.
+Coverage includes the repeated opposed-box/ball matrix in
+`tests/jumping-dry-turn.test.mjs` and the normal keyboard sequence in
+`tests/browser/jumpingMotion.spec.mjs`. Motion diagnostics identify this visual
+reach separately from an established brace.
+
 Sliding uses the same blended locomotion pose on contact and release. The raw
 `sliding.active` flag must not instantly replace the falling or running rig;
 the slide amount blends both the body pose and its foot-plane correction. The
@@ -335,6 +390,24 @@ repeatedly touches a ball as it rolls away: real contact gaps can occur without
 the limbs snapping back and forth. A separate wall brace keeps its own contact
 and release blend when a slope contact starts, and both poses compose through
 their existing weights.
+
+The last supported rig transfers into a new slide over 120 ms, including a
+one-tick slip that temporarily loses contact. A contact-selected facing change
+retains the outgoing rig while mechanical steering and fresh jumps remain
+immediate. Sliding turns use a 160 ms visible handoff. A connected grippable
+face can prepare the next landing up to 100 ms ahead. Its outgoing rig remains
+owned until the cleared target is reachable within five units of 3D joint and
+shoe-material travel per 1/120-second step. Shoe facing passes through the end
+view, and a knee crosses its reach axis through depth. Braking keeps the visible
+direction of the outgoing coast and hands the completed landing rig to the dry
+turn when needed. These presentation states never supply physical support or
+change the exact collision/friction contact. Actual support, gripping, water,
+gravity reorientation and cancellation keep their existing control ownership.
+Loaded landing shoes reach the actual drawn floor after the pose transfer;
+the pelvis lowers only enough to retain reachable fixed leg lengths. That
+solved support obeys the same continuity limit. Swing feet retain the running
+stride's brief flight phase. Broader dynamic/brief-contact review is tracked in #56;
+continuity and clearance alone do not prove a convincing support transfer.
 
 Development builds observe the final player state after each physics step with
 `JumpingMotionDiagnostics`. For a production build, open the game with

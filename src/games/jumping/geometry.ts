@@ -36,6 +36,11 @@ function boundaryGeometry(b: Platform): BoundaryGeometry {
   boundaries.set(b, geometry)
   return geometry
 }
+/** Read-only contact queries share the already validated world outline. The
+ * authoring helper above still returns independent, editable points. */
+export function platformOutline(b: Platform): readonly Vec[] {
+  return boundaryGeometry(b).points
+}
 function boundaryEdges(geometry: BoundaryGeometry) {
   return geometry.edges ??= geometry.points.map((a, i) => {
     const c = geometry.points[(i + 1) % geometry.points.length], dx = c[0] - a[0], dy = c[1] - a[1], length = Math.hypot(dx, dy)
@@ -74,7 +79,7 @@ export function pointInside(b: Platform, x: number, y: number) {
 function parts(b: Platform): Vec[][] {
   const geometry = boundaryGeometry(b)
   if (geometry.parts) return geometry.parts
-  const points = polygonPoints(b), result: Vec[][] = []
+  const points = geometry.points, result: Vec[][] = []
   if (points.every((p, i) => cross(points[(i + points.length - 1) % points.length], p, points[(i + 1) % points.length]) >= -EPS)) result.push(points)
   else {
     const remaining = [...points]

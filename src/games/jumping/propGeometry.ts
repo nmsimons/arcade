@@ -63,7 +63,7 @@ export interface PushHands {
 
 /** Two reachable contacts on the visible surface, independent of a ball's
  * rotation. Short props lower the hands instead of dropping the pushing pose. */
-export function propPushHands(b: Prop, x: number, y: number, direction: number, handHeight = 43): PushHands | null {
+export function propPushHands(b: Prop, x: number, y: number, direction: number, handHeight = 43, maxGap = 38): PushHands | null {
   if (b.kind === 'ball') {
     const r = b.size / 2, cy = b.y - r
     const handY = Math.max(cy - r * .6 + 3, Math.min(cy + r * .6, y - handHeight))
@@ -73,7 +73,7 @@ export function propPushHands(b: Prop, x: number, y: number, direction: number, 
     }
     const palms: [PushPalm, PushPalm] = [palm(handY), palm(handY - 3)]
     const gap = (palms[0].x - x) * direction
-    if (gap < 6 || gap > 38) return null
+    if (gap < 6 || gap > maxGap) return null
     return { wallX: palms[0].x, slope: handY === y - handHeight ? -palms[0].ny / palms[0].nx : 0, height: y - handY, palms }
   }
   const shape = boxShape(b), points = polygonPoints(shape)
@@ -92,7 +92,7 @@ export function propPushHands(b: Prop, x: number, y: number, direction: number, 
   const front = palm(handY), back = palm(handY - 3)
   if (!front || !back) return null
   const gap = (front.x - x) * direction
-  return gap >= 6 && gap <= 38 ? { wallX: front.x, slope: handY === y - handHeight ? -front.ny / front.nx : 0,
+  return gap >= 6 && gap <= maxGap ? { wallX: front.x, slope: handY === y - handHeight ? -front.ny / front.nx : 0,
     height: y - handY, palms: [front, back] } : null
 }
 

@@ -3,8 +3,9 @@ type LedgeFrame = { time: number; root: Point; hip: Point; waist: Point; shoulde
 export const LEDGE_CATCH_TIME = .14
 export const ROPE_LEDGE_CATCH_TIME = .24
 export const LEDGE_CLIMB_TIME = .82
-export const FRONT_GRIP: Point = [2, -1.3]
-export const BACK_GRIP: Point = [-.5, -1.3]
+// The loaded palm's 1.6-unit half-height rests on the top face.
+export const FRONT_GRIP: Point = [2, -1.6]
+export const BACK_GRIP: Point = [-.5, -1.6]
 export const FRONT_WRIST: Point = [-.3, 0]
 export const BACK_WRIST: Point = [-2, 0]
 export const KNEE_CONTACT: Point = [2, -1.7]

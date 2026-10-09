@@ -60,7 +60,7 @@ export class JumpingAudioState {
     const plant = p.footwork?.feet.some((f, i) => f.planted && before.feet[i] === false)
     const landing = !before.grounded && p.grounded && before.vy > 80
     if (continuous && !p.sliding?.active && !p.hang && !p.climbing && !p.mantle && this.stepCooldown === 0
-      && (landing || p.grounded && speed > 8 && plant)) {
+      && (landing || p.grounded && !(p.freeFall?.amount && p.freeFall.recovery !== null) && speed > 8 && plant)) {
       cue('footstep', p.x, p.y, landing ? .5 + clamp(before.vy / 800) * .5 : .3 + clamp(speed / 350) * .5)
       this.stepCooldown = .09
     }

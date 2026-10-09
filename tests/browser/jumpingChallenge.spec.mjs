@@ -27,8 +27,10 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
       return rect.apply(this, args)
     }
     proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && window.levelCamera) {
-        const body = this.getTransform(), camera = window.levelCamera
+      // Lighting replays the same head into cropped offscreen canvases. Only
+      // the canvas that painted this camera owns a world-position observation.
+      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.levelCamera) {
+        const body = this.getTransform(), camera = this.canvas.levelCamera
         window.levelPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
       }
       return ellipse.apply(this, args)

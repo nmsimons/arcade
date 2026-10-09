@@ -1,4 +1,4 @@
-import { GpuShadowMask } from './lightingGpuShadows.ts'
+import { GpuShadowMask, SoftwareLightingError } from './lightingGpuShadows.ts'
 import type { CasterGroup, LightSource } from './lightingModel.ts'
 import { ambientExposure, sourceCovered } from './lightingModel.ts'
 import type { LightingView } from './lightingRender.ts'
@@ -21,10 +21,10 @@ export class GpuLightingField {
   samples: number
   private width = 0
   private height = 0
-  static create(allowSoftware = false) {
+  static create(allowSoftware = false, onSoftware?: () => void) {
     let shadows: GpuShadowMask | undefined
     try { shadows = new GpuShadowMask(allowSoftware); return new GpuLightingField(shadows) }
-    catch { shadows?.dispose(); return null }
+    catch (error) { if (error instanceof SoftwareLightingError) onSoftware?.(); shadows?.dispose(); return null }
   }
   private constructor(shadows: GpuShadowMask) {
     this.shadows = shadows; this.canvas = shadows.canvas; this.gl = shadows.gl

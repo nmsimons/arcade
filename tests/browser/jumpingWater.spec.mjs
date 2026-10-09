@@ -1,7 +1,10 @@
-import { test, expect } from './helpers/folderTest.mjs'
+import { test, expect } from './helpers/test.mjs'
+import { test as folderTest } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 test.setTimeout(90000)
+// Keep the same Chromium variant used by the persistent authoring fixture.
+test.use({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chromium' })
 
 const fixture = () => ({ ...blankTrial(), id: 'water-browser', name: 'Water workshop',
   spawn: { x: 500, y: 920 }, goal: { id: 'exit', x: 1500, y: 920, power: 'switched' },
@@ -231,7 +234,8 @@ test('normal controls dive onto the pool floor, hold a crouch and release into f
   expect(rising.signals.grounded).toBe(false); expect(rising.y).toBeLessThan(890)
 })
 
-test('water authoring preserves appearance, resizing, power and wiring through save and reopen', async ({ page }, info) => {
+// Only authoring needs a persistent profile for structured-cloned file handles.
+folderTest('water authoring preserves appearance, resizing, power and wiring through save and reopen', async ({ page }, info) => {
   const level = fixture(); level.gravityPlates = []; level.props = []
   level.triggers = [{ x: 500, y: 920, w: 100, mode: 'weight', behavior: 'toggle', startsOn: true, targets: [] }]
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'water.json': level }); await recordWater(page)
@@ -242,6 +246,7 @@ test('water authoring preserves appearance, resizing, power and wiring through s
   if (await local.count()) await local.click()
   await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await page.getByRole('button', { name: 'Open water.json', exact: true }).click()
+  await waitForBuilderPreview(page)
   const canvas = page.getByRole('application', { name: 'Level canvas' })
   await page.getByRole('button', { name: 'Water', exact: true }).click()
   await canvas.click({ position: { x: 380, y: 220 } })
@@ -253,6 +258,7 @@ test('water authoring preserves appearance, resizing, power and wiring through s
   await height.fill('300'); await height.press('Enter')
   await selectBuilderOption(page, 'Water power', 'switched')
   await page.getByRole('group', { name: 'Switched by', exact: true }).getByRole('checkbox', { name: 'Pressure plate 1', exact: true }).check()
+  await waitForBuilderPreview(page)
   const saved = await saveTestLevel(page)
   expect(saved.level.gravityPlates[0]).toMatchObject({ effect: 'water', gravity: -1, power: 'switched', h: 300 })
   expect(saved.level.triggers[0].targets).toContain(saved.level.gravityPlates[0].id)

@@ -37,7 +37,7 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
               </dl>
               <p>Keep one finger down to move; use another to jump, crouch or climb. Lift a movement finger to stop directing the player. A flick is a short swipe followed by lifting; a drag and hold continues the action.</p>
               <p>Ledges and airborne ropes catch automatically; drag vertically to take a ladder. From a ledge, drag up to pull up or tap to jump away. After a catch, lift and tap again to jump. Down near a clear lip lowers to a safe hang; lift and drag down again to drop, or flick down and lift to let go. Under reverse gravity, drag up to lower instead.</p>
-              <p>In water, drag down to dive. Release or drag up to turn upright and let buoyancy float you upward; Up does not make you rise faster. On the pool floor, Down crouches. Tap at the surface to jump out. Swimming against a loose object pushes it; drag up for a reachable grip, then pull up. Terrain banks can catch automatically.</p>
+              <p>In water, drag down to dive. Release or drag up to turn upright and let buoyancy float you upward; Up does not make you rise faster. On the pool floor, Down crouches. Tap at the surface to jump out. Swim to push objects. Only a stable supported crate offers a grip: drag up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
             </> : <><dl>
               <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
               <div><dt>Press to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
@@ -48,7 +48,7 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
             </dl>
             <p>Ledges and airborne ropes catch automatically; use Up or Down to take a ladder. From a ledge, Up pulls up and Jump leaps away. A catch consumes a held Jump: release, then press again to leave. Down near a clear lip lowers to a safe hang; release and press Down again to drop, or use Drop to let go. Elsewhere on support, Down crouches; add movement to crouch walk. Under reverse gravity, Up lowers over an edge instead.</p>
             <p>Tap Jump for a short jump; hold it briefly after takeoff to jump higher. Release to stop adding lift. This also works from ledges, ropes, ladders, walls, and slopes. Running carries you farther.</p>
-            <p>In water, Down dives. Release or press Up to turn upright and let buoyancy float you upward; Up does not make you rise faster. On the pool floor, Down crouches. Jump at the surface to leave. Swimming against a loose object pushes it; Up requests a reachable grip, then pulls up. Terrain banks can catch automatically.</p>
+            <p>In water, Down dives. Release or press Up to turn upright and let buoyancy float you upward; Up does not make you rise faster. On the pool floor, Down crouches. Jump at the surface to leave. Swim to push objects. Only a stable supported crate offers a grip: use Up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
             </>}
           </section>
           <nav className="jumping-dialog-actions jumping-controls-actions" aria-label="Controls actions">

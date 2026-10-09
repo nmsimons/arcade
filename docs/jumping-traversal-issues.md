@@ -19,7 +19,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#50 UJG: initialize and settle into a readable relaxed idle stance](https://github.com/nmsimons/arcade/issues/50) | Medium (P2) | Acceptance complete: supported ready/settled stance, distinct quiet arms including crouch, ten-second planted rest and actual passive carrier transport |
 | [#51 UJG: make Down action priority and lower-then-drop behavior predictable](https://github.com/nmsimons/arcade/issues/51) | Medium (P2) | Confirmed control contract with a discoverability problem |
 | [#52 UJG: explain and animate ledge jump-away and fresh-press departures](https://github.com/nmsimons/arcade/issues/52) | Medium (P2) | Reproduced launch orientation and confirmed input semantics |
-| [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Confirmed mismatch between labels and motor/bindings |
+| [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Acceptance complete: actual keyboard/controller/touch dive, passive rise, surface jump, bottom crouch, float push, stable-crate grip and bank exit; truthful conditional feedback |
 | [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Acceptance complete: distinct flight phases, controlled braced fall, real landing anticipation, and force-driven jets |
 | [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance, entry/turn/landing continuity, shoe load and steep-face clearance addressed; dynamic and brief-contact acceptance remains incomplete |
@@ -2463,3 +2463,104 @@ every catch frame to clear within 0.02 units in both directions and gravity
 frames, fixed 3D bones, continuous wrists/elbows, unchanged root/velocity and
 grip transport, then normal pull-up, fresh Jump and explicit drop. Add the exact
 parsed fixture and a matched native sequence to #52's existing binding matrix.
+
+### Ordinary moving-gate catch repair
+
+October 9, 2026. The ordinary early-catch repair now preserves the incoming
+three-dimensional bend plane through the same clear full-rig transfer used by
+the prone catch. It excludes catches coming from a climbable, which retain
+their own transfer. It changes no catch selection, physical hull, impulse,
+moving-lip transport or force-bearing hand anchor.
+
+The exact parsed gate above is a permanent regression in
+`jumping-ledge-catch-clearance.test.mjs`. Both normal walk-offs catch before the
+prone transition begins. All 600 steps per direction preserve fixed 3D bones,
+joint continuity including actual moving-lip transport, read-only drawing and
+0.02-unit final-skin clearance throughout early catch frames. X releases the
+grip normally. The regression fails at tick 229 on preceding `eec269f`.
+The 134 focused catch/ledge/crouch/fall/turn/water checks pass. Two ordinary
+keyboard production-browser cases catch, hold, drop, land and respond to a
+fresh Jump. Types, changed-file lint and the isolated production build pass.
+
+The matched five-second native recordings compare all jumping modules from
+`eec269f` with this repair, using the same real inputs, framing and 0.72×/2.6×
+scales. The normal-size and enlarged phase review shows the incoming arm
+staying folded clear of the moving gate, followed by the established top-palm
+hang and explicit departure. All 150 paired physical samples are identical.
+This completes the reproduced ordinary-catch defect; #52's broader binding
+and first-time-player acceptance remains separately open.
+
+![Ordinary moving-gate catch before clearance](images/jumping-ordinary-ledge-catch-acceptance-before.gif)
+
+![Ordinary moving-gate catch with continuous clear arms](images/jumping-ordinary-ledge-catch-acceptance-current.gif)
+
+## Water bindings and truthful grip acceptance complete
+
+October 9, 2026. #53's complete capability check uses normal keyboard events,
+the production controller reader and actual touch handlers/native taps. It
+does not select impossible independent descend/crouch flags. Two permanent
+simulation groups additionally exercise the real controller/touch translators
+in both directions, through parsed and validated levels. Every transition
+retains the fixed 3D arm/leg lengths.
+
+| Parsed context | Actual player sequence and observed result |
+| --- | --- |
+| Clear pool | Down crouches on the submerged floor. Release rises all the way to the surface. A new Down dives head-first; release and Up give identical physical ascent through both production translators, bounded by the existing 85-unit/second rise speed. A fresh surface Jump leaves the water. |
+| Loose 80-unit float | Horizontal swimming pushes the real moving/tipping crate with sustained palms. Swimming never auto-grabs it. Up restores the upright float and never invents a grip on the unsupported object. |
+| Stable supported 80-unit crate | Start on the pool floor beside an inset plinth supporting both crate base contacts. After passive rise, a surface Jump followed by Up catches the crate's y350 lip, pulls up and leaves the player standing on its real top. Both directions pass without injecting a catch or player pose. |
+| Terrain bank | Normal movement and Up acquire the reachable y380 bank and pull out onto dry footing. Existing ordinary keyboard pool-bank coverage also retains automatic terrain catches. |
+
+All twelve new production-browser cases pass: four contexts each for keyboard,
+controller and touch. Keyboard/touch pass eight in the combined run; controller
+passes its four after the fixture gives the focused gameplay screen a released
+sampling frame, as required by the existing menu-transition button lock. The
+first trial's other mistakes were asserting an invented `water` diagnostics
+mode, reading a catch after it had expired from the two-second history, and
+using the touch Pause label on desktop. Those trial traces are retained.
+The corrected assertions observe the actual input, movement, contact and
+history, with the same 60-second deadlines. A native touch tap supplies the
+surface Jump; held gestures pass through the normal pointer handlers. This
+is software binding evidence; actual iPhone/controller comfort remains #57.
+
+The audit also found a more precise teaching distinction. The collision world
+disables every ball grip and every unsupported or unstable crate ledge. A
+generic “grip if reachable” cue beside a float invited an impossible action.
+`playerActionFeedback` now uses those same published ledges. At an unsupported
+float it offers pushing and upright floating; at a grabbable crate it offers
+Up and a surface Jump if needed. Controls and builder water help explain that
+only stable supported crates offer a grip. The touch finger label now says
+“Up”, matching “Down”, while the contextual cue names the actual action.
+
+The normal-size phone review confirms readable upright floating/contact and
+a calm supported stance after the real crate pull-up. The scrolled landscape
+help retains a reachable Back control and the crate distinction. The final
+four touch cases include the corrected “Up” finger label. This changes labels
+and conditional feedback; the water motor, buoyancy, drag, dive speed, jump
+impulse, floor crouch, contact eligibility and score timing are unchanged.
+Existing internal-pose water tests retain their explicit synthetic setup and
+are not evidence of another player action. The 214 focused motor/animation/
+water/action checks and ten touch-translator checks pass; types, changed-file
+lint and the isolated production build pass. Authored levels and medals are
+preserved. Hosted validation and deployment are recorded separately.
+
+![Water help explains supported crate grips](images/jumping-water-supported-grip-help.png)
+
+![An unsupported float offers pushing and upright floating](images/jumping-water-float-feedback.png)
+
+### First-encounter inventory for #54
+
+The current listed built-in catalog first introduces a ladder in `00.json`
+(First Leap), with its recovery-floor “Hold up to climb” hint; its missed-jump
+recovery is already a normal-keyboard browser witness. The first rope is
+`02.json` (A Little Swing), whose approach text explains the automatic catch;
+the current route witness covers held-Jump consumption and fresh departure.
+The first force field is `Drain.json`, a switched/reversed vertical 12×200
+beam at x200/y3000. Drain has no wall text explaining the player-only barrier.
+The current listed collection contains no water region or EMP pickup. Their
+rules are described in Controls/builder help and covered by playable binding
+fixtures, rather than claiming a nonexistent built-in first encounter.
+
+The remaining #54 work is a readable, recoverable first force-field encounter
+and the original fresh-player observation. Any authored hint/layout change
+must follow the design brief and preserve the user's collection; this inventory
+does not alter Drain or add new lessons merely to fill absent categories.

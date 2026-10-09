@@ -3,11 +3,13 @@ import { ledgeLanding, loweringOption, verticalClimbOption } from './model.ts'
 import { mirrorLadder, mirrorPlatform } from './gravityFrame.ts'
 import { NO_CLIMBABLES } from './climbables.ts'
 import type { ClimbableWorld } from './climbables.ts'
+import { platformLedges } from './terrainLedges.ts'
 
 export type ActionFeedback = { kind: 'lower'; inverted: boolean }
   | { kind: 'hang'; jumpHeld: boolean; downLocked: boolean; upLocked: boolean; pullUp: boolean }
   | { kind: 'climb'; jumpHeld: boolean }
-  | { kind: 'crouch' | 'lowering' | 'water' | 'water-bottom' | 'water-prop' }
+  | { kind: 'crouch' | 'lowering' | 'water' | 'water-bottom' }
+  | { kind: 'water-prop'; grippable: boolean }
 
 /** Describe the solved physical state without advancing input, pose or time. */
 export function playerActionFeedback(player: Player, climbables: ClimbableWorld = NO_CLIMBABLES): ActionFeedback | null {
@@ -25,7 +27,15 @@ export function playerActionFeedback(player: Player, climbables: ClimbableWorld 
     const world = player.inverted ? {...climbables,ladders:climbables.ladders.map(mirrorLadder)} : climbables
     if (verticalClimbOption(p,world,p.terrain??[],-1,player.inverted?-1:1)) return {kind:'climb',jumpHeld:false}
   }
-  if (p.waterMotion && !p.jumpLift && !p.waterJump) return {kind:p.grounded?'water-bottom':p.contacts?.push?.collider.prop?'water-prop':'water'}
+  if (p.waterMotion && !p.jumpLift && !p.waterJump) {
+    if (p.grounded) return {kind:'water-bottom'}
+    const contacted = p.contacts?.push?.collider
+    // The collision world disables unsupported/unstable crate ledges and all
+    // ball grips. Use that same published capability rather than promising a
+    // grab merely because the swimmer is pressing an object.
+    if (contacted?.prop) return {kind:'water-prop',grippable:platformLedges(contacted.platform).length>0}
+    return {kind:'water'}
+  }
   if (!p.grounded) return null
   return {kind:'crouch'}
 }
@@ -43,7 +53,8 @@ export function actionFeedbackText(feedback: ActionFeedback | null, device: 'key
     case 'lowering': return 'Lowering to a safe hang'
     case 'water': return `${down} to dive · ${up} to turn upright and float`
     case 'water-bottom': return `${down} to crouch · ${up} to turn upright and float`
-    case 'water-prop': return `${up}: grip if reachable, otherwise float · Move to push`
+    case 'water-prop': return feedback.grippable ? `${up} to grip · ${jump} first if out of reach · Move to push`
+      : `Move to push · ${up} to turn upright and float`
     case 'climb': return feedback.jumpHeld ? touch ? 'Lift, then tap again to jump off' : `Release ${jump}, then press again to jump off`
       : `${up} / ${down} to climb · ${jump} to jump off`
     case 'hang': {

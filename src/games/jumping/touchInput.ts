@@ -89,7 +89,7 @@ export function createJumpTouch() {
       update(now)
       return [...contacts.values()].map(c => ({ id: c.id, x: c.x, y: c.y,
         label: c.stroke ? c.stroke.direction > 0 ? '↑' : '↓'
-          : c.vertical ? c.vertical > 0 ? 'Climb ↑' : 'Down ↓'
+          : c.vertical ? c.vertical > 0 ? 'Up ↑' : 'Down ↓'
             : c.direction ? `${c.running ? 'Run' : 'Walk'} ${c.direction > 0 ? '→' : '←'}` : c.settled ? 'Swipe' : 'Tap / hold' }))
     },
   }

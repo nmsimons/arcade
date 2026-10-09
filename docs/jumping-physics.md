@@ -294,7 +294,7 @@ or an unlocked Down drop takes precedence over Jump.
 | Supported, lip path blocked or outside its 32-unit reach | Try eligible vertical climbable acquisition, then crouch. A low ceiling never authorizes standing through a solid. |
 | Supported at the middle of a ladder | Vertical input acquires it before ordinary crouch. At its bottom, Down does not acquire it; at its top, use the eligible lowering path. |
 | Supported beside a rope | Gravity-facing downward input does not directly acquire the rope. Up can acquire it; airborne acquisition remains automatic. A deliberate lowering can transfer onto a rope or ladder at its lip. |
-| Free in water | Down powers the dive. Release or Up restores upright presentation; buoyancy supplies the ascent. Up adds no powered upward acceleration. Normal Down crouches on the submerged floor. Loose props are pushed by swimming; Up requests a reachable grip, while terrain banks can catch automatically. |
+| Free in water | Down powers the dive. Release or Up restores upright presentation; buoyancy supplies the ascent. Up adds no powered upward acceleration. Normal Down crouches on the submerged floor. Swim to push loose props. Only stable supported crates offer a grip: use Up, with a surface jump first if needed. Terrain banks can catch automatically. |
 | Hanging after deliberate lowering | Held Down stops in a safe hang. Release and a separate Down press drops once; explicit detach is immediate. A fresh Jump leaps outward at 260 units/second; Up requests a clear pull-up. |
 | Catching while Jump is held | The catch consumes that press. Release, then press again to depart; continued hold cannot launch or renew lift. |
 | Inverted support | Up is the gravity-facing lowering request. Holding that original Up stops in a safe hang rather than immediately starting a pull-up. Release and another Up press can pull up; Down or explicit detach can drop. |
@@ -535,8 +535,12 @@ and presses both palms against its visible surface. The frog kick continues
 under pushing effort even when a prop is blocked; the arms hold contact instead
 of replaying the breaststroke pull. Approaching hands do not supply a grounded
 shove from a distance: shared body contacts supply the physical force and torque.
-Sideways swimming does not automatically catch a loose prop's ledge; Up requests
-that grip. Terrain keeps the ordinary automatic pool-bank catch.
+Sideways swimming does not automatically catch a loose prop's ledge. Only a
+stable, flat-supported crate at least 78 units tall offers a grip, as on dry
+ground; floating/unstable crates and balls have no grabbable ledge. Up requests
+an eligible grip, with a surface jump first if its lip is too high. Context
+feedback uses the collision world's published ledges and does not offer a grab
+on an unsupported float. Terrain keeps the ordinary automatic pool-bank catch.
 
 Starting a swim gathers the arms and knees, then extends into the stroke.
 Reversal brakes the current travel while gathering, changes facing near zero

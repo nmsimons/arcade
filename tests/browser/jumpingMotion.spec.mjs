@@ -352,3 +352,41 @@ test('the rendered torso transfers weight during a real moving push', async ({ p
   await page.screenshot({ path: info.outputPath('moving-push.png') })
   await page.keyboard.up('d')
 })
+
+test('first opposite keyboard press during stationary get-up retains the outgoing whole rig',async({page},info)=>{
+ const level={...blankTrial(),height:1400,floor:1400,spawn:{x:200,y:160},goal:{x:1620,y:1400},platforms:[{x:100,y:160,w:220,h:24}]}
+ await useLevelFixtures(page,[level]);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
+ await page.goto('/untitled-jumping-game?motionDebug=1')
+ await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+ await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+ await page.locator('.jumping-level-card[aria-pressed=true]').click();await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
+ await page.keyboard.down('Shift');await page.keyboard.down('d');await page.clock.runFor(1400)
+ await page.keyboard.up('d');await page.keyboard.up('Shift')
+ const read=()=>page.evaluate(()=>window.jumpingMotion.read().recent)
+ const latest=async()=>(await read()).at(-1)
+ for(let i=0;i<130&&!(await latest()).signals.grounded;i++)await page.clock.runFor(16)
+ await page.clock.runFor(300)
+ const before=await latest();expect(before.signals.mode).toBe('get-up');expect(before.vx).toBe(0);expect(before.signals.facing).toBe(1)
+ const world=(frame,p)=>[frame.x+p[0]*frame.signals.facing,frame.y+p[1]]
+ await page.keyboard.down('a');await page.clock.runFor(16)
+ await page.keyboard.up('a');await page.keyboard.down('d');await page.clock.runFor(16)
+ await page.keyboard.up('d');await page.keyboard.down('a');await page.clock.runFor(800)
+ let previous=before,recovering=0,supportedStride=false
+ for(const frame of (await read()).filter(f=>f.time>before.time)){
+  if(previous.signals.mode==='get-up'||frame.signals.mode==='get-up'){
+   recovering++
+   frame.points.forEach((point,j)=>{
+    const a=world(previous,previous.points[j]),b=world(frame,point)
+    expect(Math.hypot(b[0]-a[0],b[1]-a[1]),`world joint ${j} at ${frame.time}`).toBeLessThan(8)
+   })
+  }
+  supportedStride ||= frame.signals.mode==='free'&&frame.signals.grounded&&frame.contacts.feet.some(f=>f.planted)
+  previous=frame
+ }
+ expect(recovering).toBeGreaterThan(5);expect(previous.signals.mode).toBe('free');expect(previous.signals.grounded).toBe(true)
+ expect(previous.vx).toBe(-410);expect(supportedStride).toBe(true)
+ await page.screenshot({path:info.outputPath('opposite-get-up-keyboard.png')})
+ await page.keyboard.up('a');await page.clock.runFor(500)
+ await page.keyboard.down('Space');await page.clock.runFor(64)
+ expect((await latest()).vy).toBeLessThan(0);expect((await latest()).signals.grounded).toBe(false)
+})

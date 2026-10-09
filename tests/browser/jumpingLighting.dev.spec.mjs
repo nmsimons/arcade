@@ -101,11 +101,14 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player receives a
   const results = await page.evaluate(async backend => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { athletePose } = await import('/src/games/jumping/athlete.ts')
+    const { createPlayer } = await import('/src/games/jumping/model.ts')
     const h = await lightingHarness({ backend }), results = [], box = { ...h.run.props[0], x: 500, y: 250, size: 120, angle: 0 }
     h.run.level.platforms = []; h.run.terrain = []; h.run.props = []; h.run.mechanisms = []; h.run.robots = []
     const lamp = { id: 'overhead', x: 500, y: 80, intensity: 100, power: 'always', direction: 90, spread: 40 }
     for (const [ambient, nightMode] of [[0, true], [50, true], [100, true], [100, false]]) for (const x of [350, 500]) {
-      Object.assign(h.run.player, { x, y: 400, grounded: true })
+      // This isolated lighting fixture has no footing. Replacing the player
+      // avoids retaining the preview world's planted shoes at its old spawn.
+      h.run.player = createPlayer({ x, y: 400 })
       const { head, hip } = athletePose(h.run.player)
       for (const condition of ['unlit', 'spotlight', 'blocked', 'emp']) {
         h.run.props = condition === 'blocked' ? [box] : []

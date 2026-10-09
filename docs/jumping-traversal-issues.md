@@ -1318,3 +1318,83 @@ Evidence under `.tmp/ujg-traversal-fixes/`: `lower-floor-grip-unit.log`,
 `lower-floor-grip-evidence.log`, `moving-ball-floor-contact-sheet.png` and
 the rejected `step-exit-first.patch`, plus `lower-floor-browser.log`,
 `lower-floor-browser-results/` and `lower-floor-build-witnesses.json`.
+
+## Twenty-first diagnostic pass: preserve the whole pushing rig
+
+October 8, 2026, following pushed commit `34a1d8b`. The crowded-push prototypes
+remain outside the game source. Native review rejected two more approaches;
+neither #48 nor #49 is complete. This pass adds the repeatable current-source
+diagnostic `scripts/diagnose-jumping-contacts.mjs`, not an accepted animation fix.
+
+Tracing the earlier small-ball palm failure established its cause. The two
+`propPushHands` palms lie on the drawn analytic circle, while `clearLimb` checks
+`handOutline` against `ballShape`'s circumscribed 64-sided collision polygon.
+The back palm's samples did not hit an arm chord; one palm sample hit the narrow
+polygon rim and moved the whole wrist by 0.064335 units. Removing hand padding
+alone cannot resolve that difference. In an isolated candidate, checking only a
+real loaded ball palm against its actual drawn circle restores the exact
+1.6-unit contact offset while retaining rejection of genuine skin penetration.
+Other nearby solids and the physical collision hull remain unchanged. This
+requires an explicit visible-surface convention, not a larger contact tolerance.
+
+That candidate passes all 108 affected checks, including the proposed sixteen
+crowded reversals, but its interpolated waist/chest collapses. In the short,
+crouched crate turn, the projected chest segment shrinks from 10.1 to **0.188**
+units. Fixed arm/leg lengths and smooth head motion therefore do not establish
+valid torso animation. Native frames show the body flattening below its head.
+
+A subsequent candidate solves the turning pelvis and chest at their 6.5/10.1
+lengths, retains the higher working hips and fits the incoming shoulders/palms.
+Its revised 108-check selection passes with additional torso-length assertions.
+However, complete native sequences still show abrupt shoulder motion: the small
+standing ball case reaches **20.088 units per tick** despite its head remaining
+below eight. The first deeper-hip variant also failed the existing leg-drive
+assertion and was rejected before the higher-hip revision. Review the entire
+silhouette and support transfer, not a single smoothed landmark.
+
+The higher-hip revision also worsens the real moving short-crate contact at
+tick 48: the preceding live head step is **12.480** units; the new working
+posture produces **18.573**. Combining it with a retained interrupted-step
+pose improves the whole larger-crate/ball sequences to maxima of 6.828, 4.478
+and 6.666 units, but the short crate still jumps **17.363** units when its first
+force contact begins. Both directions retain the same defect. An additional
+later jump exposed contact ownership: a loaded incoming push must solve its
+target in the mechanical incoming direction, rather than temporarily reflecting
+that target according to the opposing root velocity. Correcting that target
+does not resolve the earlier short-crate reach constraint.
+
+In the rightward short-crate fixture, the retained outgoing head at tick 47 is
+approximately `(583.803,588.359)` while the next incoming palms are near
+`(564.976,628.311)` and `(565.118,625.311)`. Immediately fitting those much lower
+palms to 10/9-unit arms and a proportionate neck forces a large body relocation.
+The next repair must consider preparation during the returning step and the
+actual incoming object's geometry, instead of waiting until the grounded shove
+to start lowering the body. Preserve real shoes, unclipped skin and immediate
+input/jump response. If a genuine body collision supplies the force, #43 already
+allows showing that actual contact; do not invent a visible load unrelated to
+the solver. Any unavoidable force-onset change needs its own explicit gameplay
+contract and validation, as required by #43.
+
+The native crowded comparisons contain all 365 states of each of eight
+rightward encounters: settled brace, opposite hold, two-tick reversals, return
+and release, at 1× and 2.6×. Both diagnostic posture variants preserve all
+1,440 physical frames of the eight moving-step fixtures exactly. The higher-hip
+variant also preserves all 2,920 physical frames of the native crowded matrix.
+Comparisons include root, velocity, facing, gravity, crouch, jump/input state
+and complete moving props. Equal physical traces do not excuse poorer art.
+
+The committed diagnostic reproduces all 24 live cases, including the additional
+35.152-unit head jump on a later short-crate reversal. All 24 fresh jumps depart;
+maximum bone-length error is below `9e-15`, walking-ankle error is zero, and no
+visible walking support lacks its real foot contact. The script and its lint
+check pass. These measurements report the defects; they are not acceptance.
+No production animation, authored level, medal time or browser check was changed
+in this pass.
+
+Local evidence under `.tmp/ujg-traversal-fixes/`: `posture-contact-trace.log`,
+`posture-visible-ball-all.log`, `posture-fixed-spine-v3-all.log`,
+`posture-fixed-spine-v3-analysis.jsonl`, `posture-fixed-spine-v3-*-native.json`,
+`posture-fixed-spine-v3-*-frames/`, `posture-moving-step-detail.jsonl`,
+`posture-fixed-spine-step-v2-moving.log`, `posture-physical-comparison.json`,
+`contact-diagnostic-live.json` and `contact-diagnostic-lint.log`. Diagnostic
+bundles apply their candidate transforms without editing the game source.

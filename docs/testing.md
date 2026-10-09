@@ -132,6 +132,21 @@ real planted ankles and immediate fresh jump response. Inspect native animation
 at ordinary and enlarged scale. A short transition that passes can still hide a
 later torso drop. Run the steep-slide entry and release cases too: a slipping
 face owns a different presentation handoff and must not inherit this landing.
+
+Run `node scripts/diagnose-jumping-contacts.mjs` to measure the sixteen opposed
+blocked braces and eight actual moving-prop step interruptions. It prints JSON
+for the current source; a successful exit means the diagnostic ran, not that
+the animation passed. The opposed sequence includes two-tick reversals, release
+and a fresh jump. Review head and shoulder motion together, pelvis/chest/neck
+proportions, fixed limb lengths, real walking anchors and first-force palms.
+Walking-anchor comparisons exclude climbing's separate contact owner. Keep the
+moving-prop interruption and later low-object contact in the same review: a
+better first head sample can hide a collapsed torso or a worse subsequent shove.
+For ball palm clearance, distinguish the drawn circle from its circumscribed
+collision polygon. A loaded tangent palm can clear the visible ball while lying
+inside that polygon's narrow outer rim; never ignore true skin penetration or
+alter the physical hull to make an animation assertion pass.
+
 Resolve both images equally for paired
 performance measurements and retain the same memory budget. A passing normal
 CPU run does not complete slow-machine acceptance; the existing

@@ -68,7 +68,9 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     name: ${{ needs.validate.outputs.fast == 'true' && 'Homepage smoke checks' || format('Browser checks ({0}/3)', matrix.shard) }}
-    timeout-minutes: 20
+    # Cold browser/dependency installation can consume twelve minutes before
+    # tests begin. Keep individual test deadlines, with room for the full shard.
+    timeout-minutes: 30
     permissions:
       contents: read
     strategy:

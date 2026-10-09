@@ -75,8 +75,8 @@ Older files' retired ambient values and saved player brightness preferences are 
 
 Ambient is not blocked by geometry, consumed, switched, or affected by EMP.
 Disabling Night mode preserves lamps. Toggling is undoable and saved with the
-level. Daytime retains its existing dark player ink. Displays retain their
-separate minimum exposures.
+level. Daytime retains its existing dark player ink. Displays and the thin
+night player retain their separate minimum exposures.
 
 ### Daylight
 
@@ -224,7 +224,7 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
 | Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
 | Graffiti | Warm yellow (`#f4d35e`) in night mode, muted red in daytime. Ordinary exposure, including spotlights and shadows; no brightness floor. | No. | No. | Unchanged. |
-| Player | Near-white when lit at night, matching the ball's dark material under ambient light; existing dark ink in Day. | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
+| Player | Near-white in direct night light, with 65% minimum exposure for its thin silhouette in shadow; existing dark ink in Day. | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |
 | Shovebot chassis, wheels, and antenna | Ordinary. | No. | No. | Stops; artwork still receives room lighting. |
 | Shovebot eye | Full existing calm/angry color while powered. | No additional shadow. | Optional authored headlight in Day and Night. | Eye and headlight go dark. |
 | Coin | Ordinary face and edge colors; retains its spin and thickness. | No. | No. | Remains collectible and animated. |
@@ -288,19 +288,20 @@ ordering. Do not render all emissive artwork at the very end of the frame.
 
 ### Player lighting
 
-The player's lit material is near-white grey `#e5e7e6`. In ambient-only light,
-match the ball's shaded material `#8f9e98` multiplied by ambient exposure. Using
-near-white at both ends would make the unlit figure disappear into the pale wall.
-Interpolate between these endpoints using the same light field as movable props,
-including partial shadows, overlapping lamps, EMP, and lamp power fades. This
-treatment applies only to night-mode levels; daytime retains its existing dark
-ink. It replaces the earlier full-bright night-mode ink override.
+The player's night material is near-white grey `#e5e7e6`, receiving
+`max(localExposure, 0.65)`. The minimum keeps its thin hands, feet and body
+readable at phone scale on shadowed recovery ladders and against water. The
+earlier ball-matched ambient material lost those contacts in actual phone-size
+frames. Direct lamps still brighten the figure to full exposure, including
+partial shadows, overlapping lamps, EMP, and continuous lamp power fades above
+the minimum. Daytime retains its existing dark ink.
 
 The whole posed silhouette is one receiver and caster, so overlapping body parts
 do not shade one another. Other objects can cast partial shadows across the
-figure. There is no player-specific exposure floor, halo, or brightness sampling.
-Reuse the existing inverse-light scratch field for a correction confined to the
-figure's bounds, without another light calculation or framebuffer. Existing exit opacity, pose, contact points, and
+figure. The minimum reuses the existing 65% readable-artwork pass, without a
+halo, headlamp, brightness sampling, extra light calculation or framebuffer.
+Ordinary props, route objects and the room keep their normal illumination;
+authors must still make important contacts and route cues legible. Existing exit opacity, pose, contact points, and
 animation timing remain unchanged. Review the figure against both lit and
 shadowed backgrounds when authoring a level; illumination does not guarantee
 contrast against every material.
@@ -828,7 +829,7 @@ screenshots support, but do not replace, human review in motion.
 - Switched OR logic, shared gate/lamp targets, pressure release during EMP,
   already-latched versus newly-reached coin thresholds, stacked EMPs, spawn EMP,
   time freeze/acceleration, pause/resume, restart, and exit completion.
-- Near-white player material in direct light, ball-matched contrast in ambient,
+- Near-white player material in direct light, readable 65% exposure in shadow,
   partial shadows, the mode toggle, repeated movement across light/shadow boundaries,
   crouching, and exit fade; no changes to physics/poses.
 - Fixed wall-light positions through mechanism motion, resize, flip, duplication,

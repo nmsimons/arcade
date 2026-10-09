@@ -2919,3 +2919,16 @@ ball deadlines and all assertions; the Tower I spawn adjustment above makes
 both adjacent input schedules actually fall before catching. No movement or
 continuity assertion was relaxed. Evidence: `final-traversal-browser.log` and
 `final-traversal-browser-results`.
+
+The first hosted run passed full Linux gameplay validation (2,089 passed,
+zero failed, one Windows ZIP check skipped), lint, build and all three desktop
+packages. Browser group 3 then caught a real interaction regression: neutral
+floating beside a pool bank used the wider dry fallback window and acquired
+an unwanted grip. The extra six units are now limited to dry movement;
+deliberate swimming keeps its seven-unit window and passive floating its
+original thirteen-unit window. A permanent normal-input regression in both
+directions fails on `f89c92d` and passes with this correction. All 149 related
+water/ledge checks and the four exact Canvas/GPU ladder/water visibility cases
+pass, retaining the water-mode and contrast assertions. Evidence:
+`neutral-bank-regression-before/after.log` and `neutral-bank-browser-exact.log`.
+The corrected commit still requires fresh hosted release gates.

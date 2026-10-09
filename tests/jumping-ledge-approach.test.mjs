@@ -8,6 +8,7 @@ import {athletePose} from '../src/games/jumping/athlete.ts'
 import {bodyIntersects,pointInside,nearestBoundary} from '../src/games/jumping/geometry.ts'
 import {athleteOutlinePoints} from './helpers/jumpingAthleteOutline.mjs'
 import {ledgeApproachLevel,ledgeApproachInput} from './helpers/jumpingLedgeApproachScenarios.mjs'
+import {waterBindingLevel} from './helpers/jumpingWaterBindings.mjs'
 
 const read=file=>parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/'+file,import.meta.url),'utf8')))
 const cases=[
@@ -56,4 +57,20 @@ for(const [file,kind,turn,direction,expected] of cases) test(`${file}: ${kind}, 
   assert.ok(stable,'the acquired grip settles at rest')
   for(let i=0;i<140;i++)stepRun(run,{...NEUTRAL_INPUT,climb:true})
   assert.ok(p.grounded&&!p.hang&&!p.mantle,'Up pulls onto the actual receiving ledge')
+})
+
+test('passive floating beside a bank retains the original water catch range in both directions',()=>{
+  for(const direction of [-1,1]) {
+    const level=parseLevel(waterBindingLevel('bank',direction))
+    assert.deepEqual(levelProblems(level),[])
+    const run=createRun(level),p=run.player
+    if(direction<0)stepRun(run,{...NEUTRAL_INPUT,move:direction})
+    for(let tick=0;tick<120;tick++)stepRun(run,{...NEUTRAL_INPUT,crouch:true,descend:true,drop:true})
+    for(let tick=0;tick<1080;tick++) {
+      stepRun(run,NEUTRAL_INPUT)
+      assert.equal(p.hang,null,'the wider dry reach must not acquire a bank during passive floating')
+    }
+    assert.ok(p.waterMotion&&!p.grounded,'the swimmer remains afloat after releasing Down')
+    assert.ok(p.y>440&&p.y<460,'ordinary buoyancy reaches the original surface rest')
+  }
 })

@@ -1158,7 +1158,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       // Leave room for the last few units of an approaching hand reach. A
       // falling wall-jump can leave the vertical window before a body-near
       // catch opens; the existing catch blend settles that small separation.
-      const catchGap = waterReach ? 7 : 19
+      // Passive floating uses the original bank window too: without Up or
+      // forward swimming it must not acquire the wider dry reach by default.
+      const catchGap = waterReach ? 7 : swimStrength > 0 ? 13 : 19
       if (p.vy > (waterReach ? -TUNING.swimSpeed - 1 : -180) && outside && Math.abs(p.x + side * 14 - edge) < catchGap && reachable(p.y)) {
         const braced = ledgeBraced(platforms, edge, edgeY, side)
         const gripRoot = climbContactRoot(0, braced, ledge.slope)

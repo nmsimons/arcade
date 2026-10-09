@@ -813,11 +813,17 @@ function fallPose(p: Player): AthletePose {
  * travel in three dimensions so gathering cannot flip a knee across its IK
  * axis. The gait retains all real anchors; they become visible support only
  * when this handoff is complete. */
-export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean) {
+export function advanceMovingRecovery(p: Player, dt: number, traveling: boolean, captured?: DryTurnFrame | null) {
   const fall = p.freeFall
   if (!fall || fall.recovery === null || !p.grounded) return
   if (!fall.moving && !traveling) return
-  fall.moving ??= { pose: fallPose(p), time: 0, facing: p.facing }
+  if (!fall.moving) {
+    // The first steering press may already have changed mechanical facing.
+    // Seed from the actual preceding rig, expressed in the new local frame.
+    const source = captured?.pose ?? fallPose(p)
+    fall.moving = { pose: captured && captured.facing !== p.facing ? reflectAthletePose(source) : source,
+      time: 0, facing: p.facing }
+  }
   const motion = fall.moving
   if (motion.facing !== p.facing) {
     motion.pose = reflectAthletePose(motion.pose)
@@ -872,7 +878,7 @@ export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null
   }
   if (grip && !departing) return null
   const reversing = Math.abs(input.move) > .01 && Math.sign(input.move) !== p.facing
-    && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2 || !!p.contacts?.push?.hands && !!p.pushing?.palms)
+    && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2 || p.freeFall?.recovery != null || !!p.contacts?.push?.hands && !!p.pushing?.palms)
   const slide = !!(p.sliding || p.slideEntry)
   if (p.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, slide, pushing: !!p.contacts?.push?.hands && !!p.pushing?.palms }
   if (p.grounded) return null

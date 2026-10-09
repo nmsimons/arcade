@@ -646,7 +646,7 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
     advanceFootwork(feetPlayer, dt, from[0], world.platforms)
     p.footwork = feetPlayer.footwork; p.stride = feetPlayer.stride
   }
-  advanceMovingRecovery(p, dt, Math.abs(contacts.motion.x) > .05)
+  advanceMovingRecovery(p, dt, Math.abs(contacts.motion.x) > .05, turnFrame)
   advanceDryTurn(p, input, dt, turnFrame)
   advanceSlideEntry(p, dt, slideEntryFrame, input)
 }

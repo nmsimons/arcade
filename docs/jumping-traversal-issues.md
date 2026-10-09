@@ -13,7 +13,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#44 UJG: replace low-object squat shuffling with a supported working gait](https://github.com/nmsimons/arcade/issues/44) | Medium (P2) | Rendered visual quality issue |
 | [#45 UJG: keep crouched pushing head and torso outside the object](https://github.com/nmsimons/arcade/issues/45) | High (P1) | Reproduced visible penetration |
 | [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Reproduced visible penetration |
-| [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Reproduced support and animation mismatch |
+| [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Acceptance complete: prompt supported recovery, retained stationary sequence, continuous first opposite press and repeated turns, unchanged motor and jump availability |
 | [#48 UJG: show braking and turning before mirroring a moving run](https://github.com/nmsimons/arcade/issues/48) | Medium (P2) | Acceptance complete: immediate steering, supported braking, crowded release/reach, repeated turns, and full-body contact continuity |
 | [#49 UJG: allow reconsidering tall automatic steps before commitment](https://github.com/nmsimons/arcade/issues/49) | Medium (P2) | Acceptance complete: geometric cancellation, full returning skin, moving props, reversed gravity, and pause/restart |
 | [#50 UJG: initialize and settle into a readable relaxed idle stance](https://github.com/nmsimons/arcade/issues/50) | Medium (P2) | Reproduced overlapping idle silhouette |
@@ -23,7 +23,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Acceptance complete: distinct flight phases, controlled braced fall, real landing anticipation, and force-driven jets |
 | [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance, entry/turn/landing continuity, shoe load and steep-face clearance addressed; dynamic and brief-contact acceptance remains incomplete |
-| [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
+| [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Verified production release available for the user's iPhone and controller; actual device feel record remains pending |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
 | [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Resolved: all nine cases pass twice under both normal production-project settings and 2× CPU throttling, including cleanup and confirmed fresh bundles |
@@ -1885,3 +1885,90 @@ screenshot directory, and `flight-acceptance-build-witnesses.json`. This closes
 #55's animation work; hardware feel, encounter teaching, route enjoyment and
 the remaining clearance/recovery issues retain their separate scope. No new
 gameplay or authored-level change was needed for this acceptance audit.
+
+## Recovery-turn acceptance complete
+
+October 8, 2026. This completes #47's six original criteria together with the
+earlier moving/stationary recovery implementation and matched footage. The final
+audit reproduced a remaining first-press defect: after a stationary landing,
+steering opposite the resting facing mirrored the prone figure before the
+moving spring captured its source. At recovery stages 0.05/0.3/0.6/0.8 seconds,
+the first head displacement was 34.161/31.847/25.007/13.811 world units. The
+original reviewed version also has this defect.
+
+The first moving spring now takes the preceding complete rendered rig captured
+before mechanical facing changes. It expresses that rig in the new local frame;
+the existing fixed-length transfer performs the turn and gathering. Steering
+still responds immediately. Ordinary motor speed, contact selection, physical
+root, jump semantics and the complete stationary get-up sequence are preserved.
+Carrier travel alone continues to leave recovery stationary. The HUD remains
+Recovering and running footsteps wait for the visible locomotion gait.
+
+Permanent coverage in `tests/jumping-recovery-turn.test.mjs` exercises 80 actual
+flat, uphill, downhill and crouched-passage recoveries, both facings and gravity
+frames, movement introduced at the four stationary stages, repeated early turns,
+release and a completed supported gait. Sloped impacts retain their real
+tangential motion rather than erasing velocity to manufacture a stationary
+fixture. Another 32 sequences interrupt the transfer with fresh jumps. Checks
+retain fixed 3D limb lengths, read-only pose queries, actual claimed support
+ankles, complete rendered floor/roof clearance, honest audio/state and exact
+same-input motor/jump fields. Existing regressions retain held-before-landing,
+buffered jump, polygon support and carrier cases.
+
+Across the 80-case audit, maximum head displacement is 5.606 world units per
+1/120-second tick; maximum whole-joint displacement is 7.212 including actual
+root travel. After root translation, maximum final rig change is 5.065, including
+depth and the final clearance correction. Maximum shared drawn-skin overlap is
+0.00862 units, below the 0.02 tolerance. The permanent regression fails on the
+previous release source and passes on the final source. These bounds establish
+continuity and contact safety; the matched native sequence supplies the visual
+evaluation.
+
+The clips show the first opposite press, early repeated turns/release, a crouched
+passage and a ceiling recovery, at 0.72× gameplay scale and 2.6×. Inputs, geometry,
+camera, cadence and real-time playback match; the loop boundary resets the
+encounter. Review of the full phase sequences shows a gathered spring carrying
+the incoming momentum into the stride, a continuous turn rather than a mirrored
+prone body, and a clean return to rest. The preceding moving/stationary footage
+above retains the unchanged complete hands/knees/feet get-up.
+
+![Recovery reversal before the final fix](images/jumping-recovery-turn-before.gif)
+
+![Recovery reversal after the final fix](images/jumping-recovery-turn-current.gif)
+
+The four complete native captures retain exact physical fields in all 696
+matched frames. The permanent normal-keyboard browser test walks off a valid
+high platform, releases before impact, waits into the actual stationary get-up,
+reverses twice, reaches a supported ordinary stride and jumps again. It passes
+on the final fresh production build `UntitledJumpingGame-pql3nYby.js`; the same
+test fails on the preceding release source. Thirty focused recovery/fall/turn
+checks, type checks, changed-file lint and the isolated production build pass.
+The full UJG selection passes 1,421 of 1,423 checks; the two failures are Windows
+permission errors creating symlinks in unrelated file-security fixtures. Actual
+device feel, the wider clearance issues and complete-route judgments retain
+their own acceptance. Authored maps, local collections and medal times are
+preserved.
+
+## Production available for iPhone playtesting
+
+October 8, 2026. PR #61 is merged and deployed at
+[arcade.dreamlarge.com/untitled-jumping-game](https://arcade.dreamlarge.com/untitled-jumping-game).
+[Production validation and deployment](https://github.com/nmsimons/arcade/actions/runs/37894251684)
+passed for merge `192b681a86d9b178bd2d9d0ee755ddcda3527c7e`, including full
+gameplay/save checks, lint, build and all three browser groups. The separate
+desktop validation and Windows/macOS/Linux packaging also passed.
+
+Live entry JavaScript, CSS and UJG JavaScript match the successful validated
+artifact byte-for-byte by SHA-256. A fresh live browser run completed ordinary
+keyboard movement/jumping, pause/help navigation and a native touchscreen low
+tap. Landscape mobile emulation at 852×393 shows the Controls heading and Back
+button in the viewport, with accurate tap/flick and hold instructions, and no
+runtime exceptions. The release UJG asset is `UntitledJumpingGame-C2YKJk5x.js`.
+
+The user has an iPhone and controller available and confirmed the phone is on
+the same Wi-Fi. Device model, iOS/browser version and controller model are not
+yet recorded; actual comfort, simultaneous fingers, interruption recovery and
+route feel remain unverified. #57 stays open for that record. Emulation and the
+passing WebKit checks do not substitute for the physical-device test. The
+recovery-turn follow-up above is on the traversal branch after this release;
+do not attribute it to the deployed merge until its own deployment is verified.

@@ -32,6 +32,10 @@ test('plates, balls, lifts and coin displays nudge to both boundaries and surviv
     expect(value.mechanisms.map(m => m.x)).toEqual([0, 1660])
     expect(value.triggers.map(t => t.x)).toEqual([0, 1700, 0, 1680])
   }
+  await page.getByRole('tab', { name: 'Level', exact: true }).click()
+  const width = page.getByRole('spinbutton', { name: 'Level width', exact: true })
+  await width.fill('1801'); await width.press('Enter'); await expect(width).toHaveValue('1801')
+  await width.fill('1800'); await width.press('Enter'); await expect(width).toHaveValue('1800')
   const saved = await saveTestLevel(page); verify(saved.level)
   await page.screenshot({ path: info.outputPath('saved-boundary-placement.png') })
   await page.reload(); await reopenTestLevel(page, saved)

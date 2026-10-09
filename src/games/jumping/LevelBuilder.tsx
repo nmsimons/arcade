@@ -1,3 +1,4 @@
+import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
 import { nightModeEnabled } from './ambientLight'
 import { lightingForLevel } from './lightingDefinition'
 import { polygonPoints } from './geometry'
@@ -1041,7 +1042,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           }} />{selectionLabel(item, level)}</label>)}
           {!outgoingTargets.length && <span>No switched items</span>}
         </fieldset>}
-        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={50} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - 50)} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
+        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={ROBOT_HALF_WIDTH} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - ROBOT_HALF_WIDTH)} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
         {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['spawn', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}
@@ -1052,7 +1053,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
         <div className="builder-save-field"><span id="builder-save-label">Save location</span><button className="builder-save-location" aria-labelledby="builder-save-label builder-save-value" aria-haspopup="dialog" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => { setMessage(''); setLibraryOpen(true) }}><span id="builder-save-value">{local.name || 'Choose level folder'}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="miter"><path d="M3 7V4h7l2 3h9v13H3ZM3 9h18" /></svg></button></div>
         <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} {...numberEdit((base, value) => {
-          const extent = Math.ceil(Math.max(800, base.spawn.x + 40, ...(base.robots ?? []).map(robot => robot.right + 50), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w + (base.floor === undefined ? 0 : 24) })))
+          const extent = Math.ceil(Math.max(800, base.spawn.x + 40, ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
           return { ...base, width: clamp(value, extent, 20000) }
         })} /></label>
         <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>

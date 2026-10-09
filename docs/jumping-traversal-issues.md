@@ -2990,3 +2990,22 @@ reloads and reopens the level, and verifies the saved positions. It passes.
 Physical iPhone comfort/interruption acceptance and the six previously recorded
 broader traversal acceptance gaps remain open; boundary placement does not
 resolve those by implication.
+
+The fresh **Balls** browser route also passes with native held keyboard controls:
+Gold at **24.8 seconds**, using the user's x = 10 plate and adjusted receiving
+light. Every jump uses the current tap/hold model. The long delivery inputs keep
+every physics step while reducing rendered frames; this is a whole-route check,
+not a per-frame animation witness. Its 180-second browser budget scales the
+existing lit-route allowance to this longer route without relaxing the Gold
+deadline or completion assertions.
+
+The inspector uses the same real shovebot hull clearance as the decoder and
+editor, and changing room width no longer adds a 24-unit inset to every object.
+Existing platform slope patrol support remains unchanged. The focused slope
+placement and boundary run passes 24 tests, and the production browser patrol
+test verifies immediate preview, cancellation, undo, both limit fields and
+save/reopen at the new limits. It passes. The full local Windows suite passes
+**2,101 tests**; two security tests cannot create their file-symlink fixtures
+because Windows returns `EPERM`. They remain required in Linux CI and are not
+skipped or weakened. The final head must pass all hosted release checks before
+merge and deployment.

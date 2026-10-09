@@ -12,7 +12,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#43 UJG: establish visible palm contact before the object starts moving](https://github.com/nmsimons/arcade/issues/43) | High (P1) | Acceptance complete: exposed approach reach, palms by first force-bearing movement, changing faces, release/recontact/turn/jump and first keyboard press after restart |
 | [#44 UJG: replace low-object squat shuffling with a supported working gait](https://github.com/nmsimons/arcade/issues/44) | Medium (P2) | Acceptance complete: working hinge, alternating drive, low downhill reach, explicit crouch, blocked effort and native/browser review |
 | [#45 UJG: keep crouched pushing head and torso outside the object](https://github.com/nmsimons/arcade/issues/45) | High (P1) | Acceptance complete: final drawn skin, anchored palms, tilted-face reach, continuous crouch/release and both gravity frames |
-| [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Reproduced visible penetration |
+| [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Acceptance complete: full prone skin, continuous corner/catch/slide/recovery handoffs and unchanged physical traces |
 | [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Acceptance complete: prompt supported recovery, retained stationary sequence, continuous first opposite press and repeated turns, unchanged motor and jump availability |
 | [#48 UJG: show braking and turning before mirroring a moving run](https://github.com/nmsimons/arcade/issues/48) | Medium (P2) | Acceptance complete: immediate steering, supported braking, crowded release/reach, repeated turns, and full-body contact continuity |
 | [#49 UJG: allow reconsidering tall automatic steps before commitment](https://github.com/nmsimons/arcade/issues/49) | Medium (P2) | Acceptance complete: geometric cancellation, full returning skin, moving props, reversed gravity, and pause/restart |
@@ -2350,3 +2350,116 @@ This releases the grounded downhill reach fix and completes #44's production
 record. The crouched clearance follow-up is pushed in
 [PR #66](https://github.com/nmsimons/arcade/pull/66), with its hosted checks
 running separately. The user's iPhone/controller feel record remains open in #57.
+
+### Crouched clearance deployed
+
+[PR #66](https://github.com/nmsimons/arcade/pull/66), merge
+`784d6ba48dbf47af31d0a50edbf081e856099a42`, is live after
+[release run 37917852765](https://github.com/nmsimons/arcade/actions/runs/37917852765).
+Validation/build, all three browser groups, deployment and desktop checks pass.
+Live entry JavaScript, CSS and `UntitledJumpingGame-4HhkB7mU.js` match that
+validated artifact by SHA-256. Ordinary keyboard movement/jumping, native touch
+and landscape Controls/Back checks pass without exceptions. #45 is closed.
+The user's phone is an iPhone on the same Wi-Fi; its actual comfort and
+controller feel remain unverified in #57.
+
+## Prone clearance acceptance complete
+
+October 9, 2026. This completes #46's six criteria while preserving the ordinary
+physical hull. The exact 6.2-radius head-circle reproduction fails on original
+`4a66908`. The preceding `6d6930c` still fails the new full-skin and continuity
+checks: a rear knee cap enters a wall by 0.126 units, a concave catch unfolds a
+depth-folded arm into the wall, and a wall/floor seam can leave a palm embedded.
+The broader ordinary-control trace also exposed an abrupt change of clearance
+side at a crate corner and a prone-to-slide handoff on a ball.
+
+The final presentation addresses these together:
+
+- Prone catches transfer the entire fixed-length 3D rig. A six-unit depth arc
+  takes regripping wrists past the shoulder without flipping the elbow. The
+  final body, hands, legs and shoes clear the actual neighboring solids.
+- A tight front wrist tucks horizontally around the lip when it cannot spare
+  the full vertical cap clearance; its established top-surface palm remains.
+- Leg clearance uses the drawn upper/shin radii and complete prone shoe skin.
+  An unanchored hand retracts toward its clear shoulder when separating from a
+  wall would place it inside the adjoining floor.
+- A dry fall retains its established presentation clearance side around a
+  convex corner, including free arms. The offset relaxes at 240 units/second
+  when space opens. A nearby alternative along the retained axis is bounded
+  to 32 units; otherwise ordinary geometric separation applies. The offset is
+  advanced during simulation; drawing remains read-only. A moving recovery
+  already contains that offset and never applies it twice.
+- Prone flight is a valid outgoing source for the existing slide transfer,
+  including a slide contact acquired one tick before the fall pose releases.
+  Ledge departure now budgets its final cleared joints through the same
+  600-unit/second transfer used for crowded and sliding turns. Steering,
+  departure impulses, contacts and inherited motion remain immediate.
+
+`jumping-prone-clearance-acceptance.test.mjs` samples the actual exported drawn
+outline, including curves, caps, palms and shoes. Its 28 initialized sequences
+exercise walls on either side, corners, an overhead face beyond the ordinary
+hull, a concave undercut, a tilted box and a ball, in both facing directions and
+both gravity frames. Those are isolated presentation regressions, not a claim
+that reverse gravity was acquired through input. Existing live gravity-plate,
+mirrored recovery and rope-catch coverage supplements them.
+
+Twelve separately parsed playable traces start with a real Shift + direction
+walk-off and release, then a deliberate X departure. They encounter a wall,
+undercut, player-only force field, moving gate, actual crate and actual ball in
+both directions. All reach sustained complete prone flight. The moving gate
+starts at y1800, is 600 units tall and uses the supported reversed switch rule;
+it is genuinely moving during the encounter. The undercut and moving gate catch
+the incoming fall and retain deliberate departure. Per-step checks preserve
+10/9-unit arm bones and 15/14.5-unit leg bones in three dimensions. World joint
+travel stays below actual root travel plus six units; a caught moving lip also
+includes its measured transport. Full drawn-skin penetration stays below 0.02
+units through approach, catches, departure, prop/slide contact and floor
+recovery. Rendering cannot alter player state or invent a grip.
+
+The paired five-second recordings use identical geometry, input, framing,
+0.72×/2.6× scales and real-time playback, comparing all jumping modules from
+`6d6930c` with the final implementation. Both directions show the complete
+walk-off, prone approach, contact, catch/drift, release and recovery sequence.
+The reviewed normal-size and enlarged phases retain a readable folded arm,
+clear head and hands, continuous ledge reach and the established braced fall.
+The crate corner keeps its clearance side rather than kicking the body
+sideways; ball contact gathers through the outgoing rig into its real slide.
+All 900 paired samples have identical physical player roots/velocities,
+contacts controlling the catch, props, mechanisms and terrain.
+
+![Prone encounters before the final clearance and handoff fixes](images/jumping-prone-clearance-acceptance-before.gif)
+
+![Prone encounters with continuous clear body and limb handoffs](images/jumping-prone-clearance-acceptance-current.gif)
+
+Four new ordinary-keyboard production-browser cases pass wall recovery and
+concave catch/drop in both directions, followed by a fresh responsive Jump.
+The six existing normal-input fall/landing, real upward gravity lift,
+weightless ball drift and touching-ball cases also pass. The first combined
+run passed nine and hit the old landing case's original 30-second deadline
+during heavy parallel checks. Its isolated repeat passes with that same
+deadline and assertions. Water transitions, remembered prone rope catches,
+stationary recovery and the existing slide/dry-turn checks retain their
+coverage. The full suite passes 2,046/2,048; only the two existing Windows
+symlink-permission fixtures fail. The additional overhead matrix passes in its
+final focused run. Types, changed-file lint and the isolated production build
+pass on `UntitledJumpingGame-qtjHYISv.js`. Hosted checks and release follow
+separately. Authored maps, local collections and medals are preserved.
+
+### Separate ordinary catch finding for #52
+
+The gate matrix also exposed a distinct ordinary, not-yet-prone catch that
+remains part of #52's broader catch/departure acceptance. Reproduce with
+`proneDropLevel('moving gate', direction)` but set the reversed gate to
+`y:950,h:800,travel:800`; retain its 20-unit width and Shift + direction for
+168 ticks, followed by neutral input. In both directions the early catch at
+tick 229 admits approximately 0.215 units of drawn skin; the overlap reaches
+3.926 units at tick 236. The later fully prone gate encounter is clear.
+
+Investigate the ordinary catch's projected arm reconstruction and its moving
+lip frame. Preserve the established grip/catch timing and transport, retain
+the full outgoing bend plane, and clear the final forearm/palm around the
+current moving lip without shifting a force-bearing anchor. Success requires
+every catch frame to clear within 0.02 units in both directions and gravity
+frames, fixed 3D bones, continuous wrists/elbows, unchanged root/velocity and
+grip transport, then normal pull-up, fresh Jump and explicit drop. Add the exact
+parsed fixture and a matched native sequence to #52's existing binding matrix.

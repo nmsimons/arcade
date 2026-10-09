@@ -16,7 +16,7 @@ import type { CornerRadii } from './mechanismAppearance.ts'
 import { robotTop } from './robotPhysics.ts'
 import { robotHeadlightY, ROBOT_HEADLIGHT_X } from './robotHeadlight.ts'
 import { ambientPaint, paintNormally } from './worldPaint.ts'
-import type { WorldLayer, WorldPaint } from './worldPaint.ts'
+import type { Exposure, WorldLayer, WorldPaint } from './worldPaint.ts'
 import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
@@ -117,7 +117,7 @@ export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening:
   }
 }
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
-export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all') {
+export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0) {
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
@@ -160,11 +160,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint, lights.find(light => light.robot === i)?.fade ?? 0)
   if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
-    paint(ctx, 0, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
+    paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
   }
   else {
     drawMovementEffects(ctx, p, paint)
-    paint(ctx, 0, () => drawAthlete(ctx, p, playerInk))
+    paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk))
   }
   for (const plate of level.gravityPlates ?? []) drawWaterRegion(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), editor, paint)
 }

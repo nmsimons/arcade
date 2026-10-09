@@ -75,7 +75,7 @@ test('the player receives light, casts a moving shadow, and releases light while
   expect(result.gone).toEqual(result.full)
   expect(result.outage).toEqual(result.ambient)
   expectColor(result.ink, [229, 231, 230])
-  expectColor(result.ambientInk, [143, 158, 152].map(channel => Math.round(channel * ambientExposure(0))))
+  expectColor(result.ambientInk, [229, 231, 230].map(channel => Math.round(channel * .65)))
   expect(result.fading[0]).toBeGreaterThan(result.standing[0])
   expect(result.fading[0]).toBeLessThan(result.gone[0])
 })
@@ -96,7 +96,7 @@ test('lighting lab loads independently, exposes keyboard controls, and uses fixe
   await expect(page.locator('[role="alert"]')).toHaveCount(0)
 })
 
-for (const backend of ['canvas', 'gpu']) test(`${backend}: the player receives ambient, spotlights, shadows and EMP like other objects`, async ({ page }) => {
+for (const backend of ['canvas', 'gpu']) test(`${backend}: the readable night player retains spotlights, shadows and EMP`, async ({ page }) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   const results = await page.evaluate(async backend => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -122,7 +122,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player receives a
   }, backend)
   for (const result of results) {
     const lit = result.x === 500 && result.condition === 'spotlight'
-    const expected = !result.nightMode ? [48, 60, 54] : lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(result.ambient)))
+    const expected = !result.nightMode ? [48, 60, 54] : [229, 231, 230].map(channel => Math.round(channel * (lit ? 1 : .65)))
     for (const part of ['head', 'torso']) result[part].forEach((channel, i) =>
       expect(Math.abs(channel - expected[i]), JSON.stringify(result)).toBeLessThanOrEqual(1))
     expect(result.backend).toBe(backend)
@@ -169,10 +169,10 @@ test('playground players receive lighting with full or reduced object shadows', 
     h.renderer.dispose(); return samples
   })
   // Compare with quantized pixel channels, matching the other ambient checks.
-  for (const sample of samples) expectColor(sample.pixel, sample.lit ? [229, 231, 230] : [143, 158, 152].map(channel => Math.round(channel * ambientExposure(50))))
+  for (const sample of samples) expectColor(sample.pixel, [229, 231, 230].map(channel => Math.round(channel * (sample.lit ? 1 : .65))))
 })
 
-for (const backend of ['canvas', 'gpu']) test(`${backend}: the player matches ball contrast in darkness and receives partial shadows`, async ({ page }, info) => {
+for (const backend of ['canvas', 'gpu']) test(`${backend}: the player stays readable in darkness and receives partial shadows`, async ({ page }, info) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   const result = await page.evaluate(async backend => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -205,8 +205,9 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player matches ba
     document.body.replaceChildren(comparison)
     h.renderer.dispose(); return result
   }, backend)
-  expectColor(result.dark, result.ball)
-  expect(result.wall[0] - result.dark[0]).toBeGreaterThan(25)
+  expectColor(result.dark, [229, 231, 230].map(channel => Math.round(channel * .65)))
+  expectColor(result.ball, [143, 158, 152].map(channel => Math.round(channel * .35)))
+  expect(result.dark[0] - result.wall[0]).toBeGreaterThan(50)
   expectColor(result.lit, [229, 231, 230])
   expectColor(result.partialHead, result.dark)
   expectColor(result.partialTorso, result.lit)

@@ -24,7 +24,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Acceptance complete: distinct flight phases, controlled braced fall, real landing anticipation, and force-driven jets |
 | [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Acceptance complete: slip-driven fast balance, quiet rest, continuous entry/turn/landing, real shoe load and final moving-prop/brief-contact native review |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Verified production release available for the user's iPhone and controller; actual device feel record remains pending |
-| [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
+| [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Scale, short-room placement and running-jump preview addressed; phone-scale shadow visibility corrected with matched footage; broad response/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
 | [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Resolved: all nine cases pass twice under both normal production-project settings and 2× CPU throttling, including cleanup and confirmed fresh bundles |
 
@@ -2605,3 +2605,110 @@ Evidence is retained in `slide-final-acceptance.log`, `slide-final-browser.log`,
 `slide-dynamic-final-physical-comparison.json` under the task evidence folder.
 No friction, traction threshold, physical contact, authored level or medal time
 changes are needed. Actual iPhone/controller comfort remains separately #57.
+
+## Prone clearance release verified live
+
+October 9, 2026. [PR #67](https://github.com/nmsimons/arcade/pull/67) is merged
+at `e10765801fe7d65b7be8589caf0c7e6df0264afb` and verified live at
+[the production game](https://arcade.dreamlarge.com/untitled-jumping-game).
+[Production run](https://github.com/nmsimons/arcade/actions/runs/37922818991)
+passes validation/build, all three browser groups and deployment. Its second
+browser group required one retry because browser installation stalled until
+the hosted runner's 20-minute timeout; the first attempt ran no traversal
+assertions in that group. The retry installed successfully and passed.
+[Desktop builds](https://github.com/nmsimons/arcade/actions/runs/37922819198)
+also pass on all three platforms.
+
+The live entry JavaScript, CSS and `UntitledJumpingGame-DKlmHhrB.js` match the
+exact downloaded validated build byte-for-byte by SHA-256. Live keyboard
+movement/jump, pause/Controls, native landscape touch tap and reachable Back
+pass with no browser runtime errors. Evidence is retained in
+`prone-production-artifact` and `prone-production-smoke.log`. #46 is closed.
+[PR #68](https://github.com/nmsimons/arcade/pull/68) is also merged at
+`3ea017b4592e1d8f1a3186c311f16005d3818163`, closing #53; its water/ordinary-catch
+production release follows separately. Actual iPhone/controller comfort still
+requires the user's device feedback.
+
+## Water and ordinary catch release verified live
+
+October 9, 2026. [PR #68](https://github.com/nmsimons/arcade/pull/68), merge
+`3ea017b4592e1d8f1a3186c311f16005d3818163`, is verified live at
+[the production game](https://arcade.dreamlarge.com/untitled-jumping-game).
+[Production validation, all three browser groups and deployment](https://github.com/nmsimons/arcade/actions/runs/37927141415)
+and [all desktop packages](https://github.com/nmsimons/arcade/actions/runs/37927141414)
+pass without retry. Live entry JavaScript, CSS and
+`UntitledJumpingGame-D2K0i-Y3.js` match the exact successful artifact by SHA-256.
+Live keyboard move/jump, pause/Controls, native landscape touch tap and
+reachable Back pass without runtime errors. Evidence: `water-catch-production-artifact`,
+`water-catch-production-smoke.log` and `production-smoke.json`.
+#53 is closed; the ordinary moving-gate clearance correction is also released,
+while broader #52 acceptance and actual iPhone/controller comfort (#57) remain open.
+
+## Phone-scale shadow visibility correction
+
+October 9, 2026. Expanded #58 review found a repeatable readability failure
+that the camera-coordinate assertions could not detect. At 852×393, the
+swimmer beside a bank and the figure ascending First Leap's recovery ladder
+lost their thin silhouette against shadowed water and wall art. Their useful
+contacts were inside the frame, but the ball-matched ambient player material
+was too dark to read comfortably. These are isolated lighting variants of
+real motor encounters, not changes to authored levels.
+
+The night figure now receives `max(localExposure, 0.65)`, using the existing
+readable-artwork pass. Brighter lamps and partial shadows above the minimum
+still shade it normally; daytime retains its dark ink. Room and prop lighting,
+water overlay order, exit opacity, posed shadows, contacts and movement retain
+their existing behavior. The old ambient counter-tint is removed; there is no
+extra light, halo, light query or framebuffer. The lighting design contract is
+updated in `docs/jumping-lighting.md`.
+
+Two matched four-second comparisons retain the same normal motor input,
+actual camera and real-time playback, with native 852×393 frames and 2.6×
+contact details. They cover ladder ascent, release/rest and descent, and pool
+rest, bank transfer, dry movement and calm standing. All 240 paired physical
+and camera samples are identical. Whole-transition phase sheets and native
+frames were visually reviewed; the brighter thin figure is distinct without
+brightening the route or adding a glow.
+
+![Actual recovery ladder before and after the shadow visibility correction](images/jumping-night-player-ladder-comparison.gif)
+
+![Actual swimming-to-bank transfer before and after the shadow visibility correction](images/jumping-night-player-water-comparison.gif)
+
+Four permanent Canvas/GPU regressions drive the real motor into ladder and
+water poses, then independently locate opaque limb interiors from the actual
+artwork at the minimum 37-pixel standing scale. They compare the rendered
+figure with the same background rendered without player opacity, and verify
+the player state is unchanged. All four pass: 119 opaque ladder pixels have
+68.6 median luminance separation, and 102 swimmer pixels have 44.9; every
+sample retains at least 20 separation. Direct-light, partial-shadow, exit-fade,
+playground, day and full-bright checks also pass in both backends. This is a
+contrast regression, not a substitute for actual iPhone comfort.
+
+Evidence: `night-phone-visibility.log`, `night-player-native.log`,
+`night-player-physical-comparison.json`, native frames and phase sheets under
+the task evidence directory. All 23 existing lighting checks and all 13
+affected renderer/camera/daylight regressions pass across the initial runs and
+isolated reruns. Local cold development-route loading initially interrupted
+readiness checks and one source reload interrupted a test. Warming Vite's
+development imports before the final four startup-related reruns allowed all
+four to pass with their original assertions and deadlines. No permanent
+startup-test or readiness-deadline change is included. #58 remains open until its wider framing and response
+acceptance is recorded; coordinate bounds alone are not visual acceptance.
+
+The candidate production bundle `UntitledJumpingGame-BFEnS79f.js` passes all
+41 normal-control camera cases in 7.6 minutes with two workers. Seventeen
+cases include both running directions across four viewports and day/night,
+plus actual short-room reversed gravity. The other 24 cover ladder recovery,
+automatic rope acquisition/swing/departure, an ordinary moving gate catch,
+real carrier/cargo contact and passive transport, pool rest/bank exit and
+reversed-gravity rope contacts at phone landscape and desktop sizes with
+daytime and active night lighting. Target coordinates, actual motor modes,
+footing/transport and bounded camera increments are asserted; native
+checkpoint images and trajectories are retained. Their title explicitly says
+"in frame": the independent contrast checks and visual review establish
+readability for the demonstrated ladder/water failure. Original jump checks
+retain their 30-second deadlines; the new longer desktop night encounter
+cases use 90 seconds for software rendering, not an FPS acceptance threshold.
+All 65 focused light-field, camera, read-only rig and deployment-scope checks,
+types, changed-file lint and the isolated build pass. Evidence:
+`camera-night-contrast.log` and `night-camera-focused-approved.log`.

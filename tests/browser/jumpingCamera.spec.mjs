@@ -31,21 +31,30 @@ async function open(page, level, size) {
 }
 const read = page => page.evaluate(() => ({ camera: window.cameraFrames.at(-1), frames: window.cameraFrames, motion: window.jumpingMotion.read() }))
 
-for (const size of sizes) for (const night of [false, true]) test(`running held jump shows destination before takeoff and frames the full turn at ${size.width}x${size.height} ${night ? 'night' : 'day'}`, async ({ page }, info) => {
+for (const size of sizes) for (const night of [false, true]) for (const direction of [-1, 1]) test(`running held jump shows destination before takeoff and frames the full turn at ${size.width}x${size.height} ${night ? 'night' : 'day'} direction ${direction}`, async ({ page }, info) => {
   const level = { ...blankTrial(), version: 2, width: 4000, height: 1000, floor: 1000, spawn: { x: 1500, y: 600 }, goal: { x: 3800, y: 1000 },
     platforms: [{ x: 0, y: 600, w: 1780, h: 400 }, { x: 2030, y: 600, w: 450, h: 400 }],
     lighting: { nightMode: night, ambient: 35, lights: [] } }
+  if (direction < 0) {
+    level.spawn.x = level.width - level.spawn.x; level.goal.x = level.width - level.goal.x
+    level.platforms = level.platforms.map(p => ({ ...p, x: level.width - p.x - p.w }))
+  }
+  const destination = direction > 0 ? 2030 : 1970, key = direction > 0 ? 'd' : 'a', reverse = direction > 0 ? 'a' : 'd'
   await open(page, level, size)
   const still = await read(page)
   expect(62 * still.camera.zoom).toBeGreaterThanOrEqual(37)
-  await page.keyboard.down('d'); await page.clock.runFor(400)
+  await page.keyboard.down(key); await page.clock.runFor(400)
   const before = await read(page), p = before.motion.recent.at(-1), c = before.camera
-  expect(p.vx).toBe(410)
-  expect((2030 - c.x) * c.zoom).toBeLessThanOrEqual(size.width - 24 * c.zoom)
+  expect(p.vx).toBe(410 * direction)
+  const destinationX = (destination - c.x) * c.zoom
+  expect(destinationX).toBeGreaterThanOrEqual(direction > 0 ? 0 : 24 * c.zoom)
+  expect(destinationX).toBeLessThanOrEqual(size.width - (direction > 0 ? 24 * c.zoom : 0))
   expect((600 - c.y) * c.zoom).toBeGreaterThan(16)
   expect((600 - c.y) * c.zoom).toBeLessThan(size.height - 16)
   const approach = info.outputPath('approach-framing.json')
-  await writeFile(approach, JSON.stringify({ player: { x: p.x, y: p.y, vx: p.vx }, camera: c, ahead: c.x + size.width / c.zoom - p.x, destinationDistance: 2030 - p.x, groundStopDistance: 30 }, null, 2))
+  await writeFile(approach, JSON.stringify({ player: { x: p.x, y: p.y, vx: p.vx }, camera: c,
+    direction, ahead: direction > 0 ? c.x + size.width / c.zoom - p.x : p.x - c.x,
+    destinationDistance: (destination - p.x) * direction, groundStopDistance: 30 }, null, 2))
   await info.attach('approach-framing', { path: approach, contentType: 'application/json' })
   await page.screenshot({ path: info.outputPath('before-commitment.png') })
   await page.keyboard.down('Space'); await page.clock.runFor(180); await page.keyboard.up('Space')
@@ -53,10 +62,10 @@ for (const size of sizes) for (const night of [false, true]) test(`running held 
   await page.screenshot({ path: info.outputPath('held-apex.png') })
   await page.clock.runFor(540)
   const landed = await read(page), final = landed.motion.recent.at(-1)
-  expect(final.signals.grounded).toBe(true); expect(final.y).toBe(600); expect(final.x).toBeGreaterThan(2030)
-  await page.keyboard.up('d'); await page.keyboard.down('a'); await page.clock.runFor(500)
+  expect(final.signals.grounded).toBe(true); expect(final.y).toBe(600); expect((final.x - destination) * direction).toBeGreaterThan(0)
+  await page.keyboard.up(key); await page.keyboard.down(reverse); await page.clock.runFor(500)
   await page.screenshot({ path: info.outputPath('after-reversal.png') })
-  await page.keyboard.up('a'); await page.clock.runFor(640)
+  await page.keyboard.up(reverse); await page.clock.runFor(640)
   const result = await read(page), last = result.motion.recent.at(-1)
   expect(Math.abs(last.vx)).toBeLessThan(1)
   expect(Math.abs((last.x - result.camera.x) * result.camera.zoom - size.width / 2)).toBeLessThan(1)

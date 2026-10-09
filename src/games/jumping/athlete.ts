@@ -1591,8 +1591,15 @@ function resolveAthletePose(p: Player): AthletePose {
     const low = smooth((43 - (p.pushing!.height ?? 43)) / 28)
     if (low) {
       hip[1] += pushDip * low * 3
-      const pelvis = .25 + low * .4, chest = .35 + low * .9
+      const pelvis = .25 + low * .4
       const lowWaist = add(hip, [Math.sin(pelvis) * 6.5, -Math.cos(pelvis) * 6.5])
+      // Grounded downhill work can put a palm below the usual short-prop
+      // reach. Continue hinging the chest toward the real wrist while keeping
+      // the supported pelvis. Airborne preparation retains its own torso.
+      const wristY = Math.max(...(p.grounded ? p.pushing!.palms ?? [] : []).map(palm => palm.y + palm.ny * 2.8 - p.y))
+      const shoulderY = wristY - .7 - 18.4
+      const chest = Math.max(.35 + low * .9,
+        Number.isFinite(shoulderY) ? Math.acos(Math.max(-1, Math.min(1, (lowWaist[1] - shoulderY) / 10.1))) : 0)
       const lowShoulder = add(lowWaist, [Math.sin(chest) * 10.1, -Math.cos(chest) * 10.1])
       const lowHead = add(lowShoulder, [.45 + Math.sin(chest) * 2.2, -7.3])
       const blend = pushing * low

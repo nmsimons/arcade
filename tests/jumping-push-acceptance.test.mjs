@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PUSH_SCENARIOS, pushScenario } from './helpers/jumpingPushScenarios.mjs'
+import { LOW_PUSH_SCENARIOS, PUSH_SCENARIOS, pushScenario } from './helpers/jumpingPushScenarios.mjs'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
@@ -124,5 +124,61 @@ test('passive incoming balls, robots and carrier travel cannot load a voluntary 
       fixedLimbs(athletePose(p))
     }
     assert.ok(displaced > 20, source + ': the incoming object/support really displaces the body')
+  }
+})
+
+test('low working pushes retain drive, alternating support and clearance across crouch, blockage and slopes', () => {
+  for (const facing of [-1, 1]) for (const config of LOW_PUSH_SCENARIOS) {
+    const run = pushScenario(config, facing), p = run.player, start = p.x
+    let loaded = 0, previous = [true, true], lastHip, settledX, passedBehind = false, passedAhead = false
+    const steps = [0, 0]
+    for (let tick = 0; tick < 480; tick++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: facing, crouch: config.crouch })
+      if (tick === 360) settledX = p.x
+      const pose = athletePose(p)
+      fixedLimbs(pose)
+      assert.ok(p.grounded, config.name + ': the real support is retained')
+      assert.ok(p.footwork.feet.some(foot => foot.planted), config.name + ': a real leg supports the working body')
+      if (tick % 4 === 0) clearUpperBody(run, pose)
+      for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) {
+        const foot = p.footwork.feet[i]
+        if (previous[i] && !foot.planted) steps[i]++
+        if (foot.planted) assert.ok(Math.hypot(p.x + leg.end[0] * facing - foot.x, p.y + leg.end[1] - foot.y) < 1e-6,
+          config.name + ': the final shoe cannot drag off its motor ankle')
+        const kneeX = p.x + leg.joint[0] * facing, kneeY = p.y + leg.joint[1]
+        const ground = groundAt(p.terrain, kneeX, p.y)
+        assert.ok(!ground || kneeY <= ground.y - 1.49, config.name + ': knee outline clears the support')
+      }
+      previous = p.footwork.feet.map(foot => foot.planted)
+      if (lastHip !== undefined) assert.ok(Math.abs(pose.hip[1] - lastHip) < 2,
+        config.name + ': changing low contact cannot abruptly collapse the pelvis')
+      lastHip = pose.hip[1]
+      const gap = pose.frontLeg.end[0] - pose.backLeg.end[0]
+      passedBehind ||= gap < -3; passedAhead ||= gap > 3
+      if (!p.pushing?.effort) continue // A tipping crate can physically leave and reacquire the palms.
+      loaded++
+      for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+        const palm = p.pushing.palms[i]
+        assert.ok(Math.hypot(p.x + arm.hand[0] * facing - palm.x - palm.nx * 1.6,
+          p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .5, config.name + ': force keeps visible hand contact')
+      }
+      if (config.size === 30 && !config.crouch && !config.slope) {
+        assert.ok(pose.hip[1] < -23, 'upright intent retains room to drive from the legs')
+        assert.ok(pose.shoulder[0] - pose.hip[0] > 9, 'the torso hinges to the low grips')
+      }
+    }
+    assert.ok(loaded > 350, config.name + ': the encounter includes sustained real pushing')
+    if (!config.blocked) {
+      assert.ok(steps.every(count => count >= 2) && passedBehind && passedAhead,
+        config.name + ': both advancing feet pass their planted partner through full cycles')
+      assert.ok(Math.abs(p.x - start) > 30, config.name + ': the working cycles really cover ground')
+    } else {
+      // Matter's polygonal balls take up a small initial clearance against the
+      // wall. Test settled blockage, without erasing that physical movement.
+      assert.ok(Math.abs(p.x - settledX) < .001, config.name + ': the settled obstruction actually blocks the motor')
+      assert.ok(p.footwork.feet.every(foot => foot.planted), 'blocked low effort ends in a planted brace')
+    }
+    stepRun(run, { ...NEUTRAL_INPUT, jump: true })
+    assert.ok(!p.grounded && p.vy < 0, config.name + ': low contact retains immediate jump escape')
   }
 })

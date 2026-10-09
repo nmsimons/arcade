@@ -310,6 +310,46 @@ test('held keyboard movement springs a long-fall landing into supported running'
   await page.screenshot({ path: info.outputPath('supported-moving-recovery.png') })
 })
 
+for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low downhill ${kind} keeps working palms through crouch and restart: direction=${direction}`, async ({ page }, info) => {
+  const x = 800, slope = .3 * direction, surface = at => 650 + slope * (at - x)
+  const spawnX = x - direction * 40.5
+  const level = { ...blankTrial(), width: 3000, height: 1200, floor: 1100,
+    spawn: { x: spawnX, y: surface(spawnX) }, goal: { x: 2500, y: 1100 },
+    props: [{ kind, x, y: 650, size: 30 }],
+    platforms: [{ x: 200, y: 0, w: 2000, h: 1100, profile: [[0, surface(200)], [2000, surface(2200)]] }] }
+  await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  const key = direction === 1 ? 'd' : 'a'
+  const checkContact = async () => {
+    const samples = await page.evaluate(() => window.jumpingMotion.read().recent)
+    const loaded = samples.filter(frame => frame.signals.push && !frame.signals.reachingPush && frame.contacts.palms.length)
+    expect(loaded.length).toBeGreaterThan(10)
+    for (const frame of loaded) {
+      expect(frame.signals.grounded).toBe(true)
+      expect(frame.contacts.feet.some(foot => foot.planted)).toBe(true)
+      frame.contacts.hands.forEach((hand, i) => {
+        const palm = frame.contacts.palms[i]
+        expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
+      })
+    }
+  }
+  await page.keyboard.down(key); await page.clock.runFor(600); await checkContact()
+  await page.clock.runFor(1400); await checkContact()
+  await page.screenshot({ path: info.outputPath('low-downhill-working.png') })
+  await page.keyboard.down('ArrowDown'); await page.clock.runFor(600); await checkContact()
+  await page.keyboard.up('ArrowDown'); await page.clock.runFor(600); await checkContact()
+  await page.keyboard.up(key)
+  await restartFromPause(page); await page.clock.runFor(120)
+  await page.keyboard.down(key); await page.clock.runFor(300); await checkContact()
+  await page.screenshot({ path: info.outputPath('low-downhill-restart.png') })
+  await page.keyboard.up(key)
+})
+
 for (const direction of [-1, 1]) test(`crouched pushing keeps the final head clear and establishes a brace: direction=${direction}`, async ({ page }, info) => {
   const level = blankTrial(); level.spawn = { x: 540 - direction * 65.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]

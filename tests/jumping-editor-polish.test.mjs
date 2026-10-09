@@ -54,10 +54,10 @@ test('placement limits use each object footprint without pinning small items far
 test('patrol limits preserve the shovebot spawn, room clearance and minimum span', () => {
   const level = blankTrial(); level.robots = [{ x: 700, y: 920, left: 400, right: 1000 }]
   assert.deepEqual(setShovebotLimit(level, 0, 'left', 300).robots[0], { ...level.robots[0], left: 300 })
-  assert.equal(setShovebotLimit(level, 0, 'left', -100).robots[0].left, 50)
+  assert.equal(setShovebotLimit(level, 0, 'left', -100).robots[0].left, 26)
   assert.equal(setShovebotLimit(level, 0, 'left', 1200).robots[0].left, 700)
   assert.equal(setShovebotLimit(level, 0, 'right', 300).robots[0].right, 700)
-  assert.equal(setShovebotLimit(level, 0, 'right', 5000).robots[0].right, 1750)
+  assert.equal(setShovebotLimit(level, 0, 'right', 5000).robots[0].right, 1774)
   const narrow = setShovebotLimit(level, 0, 'left', 700)
   assert.equal(setShovebotLimit(narrow, 0, 'right', 650).robots[0].right, 750)
   const other = setShovebotLimit(level, 0, 'right', 700)

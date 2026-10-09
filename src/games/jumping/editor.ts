@@ -25,7 +25,7 @@ import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBounds } from './logicRelay.ts'
 import { editorRobotPose } from './editorGeometry.ts'
-import { robotHulls } from './robotPhysics.ts'
+import { ROBOT_HALF_WIDTH, robotHulls } from './robotPhysics.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
@@ -60,8 +60,8 @@ export function reorderTerrain(level: JumpLevel, index: number, action: TerrainO
 export function setShovebotLimit(level: JumpLevel, index: number, side: 'left' | 'right', value: number): JumpLevel {
   if (!level.robots?.[index] || !Number.isFinite(value)) return level
   const next = copyLevel(level), robot = next.robots![index]
-  robot[side] = side === 'left' ? clamp(Math.round(value), 50, Math.floor(Math.min(robot.x, robot.right - 50)))
-    : clamp(Math.round(value), Math.ceil(Math.max(robot.x, robot.left + 50)), Math.floor(next.width - 50))
+  robot[side] = side === 'left' ? clamp(Math.round(value), ROBOT_HALF_WIDTH, Math.floor(Math.min(robot.x, robot.right - 50)))
+    : clamp(Math.round(value), Math.ceil(Math.max(robot.x, robot.left + 50)), Math.floor(next.width - ROBOT_HALF_WIDTH))
   return next
 }
 
@@ -272,7 +272,7 @@ export function setCoinSwitchDisplay(level: JumpLevel, index: number, display: '
   if (before?.mode !== 'coins' || (before.display ?? 'bar') === display) return level
   const next = copyLevel(level), bounds = coinSwitchBounds(before)
   const w = DIGITAL_DISPLAY_WIDTH, h = display === 'digital' ? DIGITAL_DISPLAY_HEIGHT : COIN_SWITCH_THICKNESS
-  const x = clamp(bounds.x + (bounds.w - w) / 2, 24, level.width - w - 24)
+  const x = clamp(bounds.x + (bounds.w - w) / 2, 0, level.width - w)
   const y = clamp(bounds.y + (bounds.h - h) / 2, 0, levelHeight(level) - h)
   const connection = before.targets ? { targets: [...before.targets] } : { target: before.target }
   next.triggers![index] = { x, y, w, ...connection, mode: 'coins', threshold: before.threshold,
@@ -287,7 +287,7 @@ export function setCoinSwitchOrientation(level: JumpLevel, index: number, orient
   const bounds = coinSwitchBounds(trigger), length = trigger.orientation === 'vertical' ? trigger.h : trigger.w
   const dimensions = orientation === 'vertical' ? { orientation: 'vertical' as const, w: COIN_SWITCH_THICKNESS, h: length } : { w: length }
   const h = dimensions.h ?? COIN_SWITCH_THICKNESS
-  const x = clamp(bounds.x + (bounds.w - dimensions.w) / 2, 24, level.width - dimensions.w - 24)
+  const x = clamp(bounds.x + (bounds.w - dimensions.w) / 2, 0, level.width - dimensions.w)
   const y = clamp(bounds.y + (bounds.h - h) / 2, 0, levelHeight(level) - h)
   const connection = trigger.targets ? { targets: trigger.targets } : { target: trigger.target }
   next.triggers![index] = { x, y, ...dimensions, ...connection, mode: 'coins', threshold: trigger.threshold, ...(trigger.name ? { name: trigger.name } : {}) }
@@ -455,14 +455,14 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     const bounds = pickupBounds({ kind: next.pickups![selection.index].kind, x: 0, y: 0 })
     Object.assign(next.pickups![selection.index], { x: x - bounds.x, y: y - bounds.y })
   }
-  if (selection.kind === 'prop') Object.assign(next.props![selection.index], { x: clamp(x + b.w / 2, 24 + b.w / 2, level.width - 24 - b.w / 2), y: Math.min(next.floor!, y + b.h) })
+  if (selection.kind === 'prop') Object.assign(next.props![selection.index], { x: x + b.w / 2, y: Math.min(next.floor!, y + b.h) })
   if (selection.kind === 'robot') {
-    const r = next.robots![selection.index], point = { x: clamp(x + 26, 50, next.width - 50), y: y + 50 }
+    const r = next.robots![selection.index], point = { x: clamp(x + r.x - b.x, ROBOT_HALF_WIDTH, next.width - ROBOT_HALF_WIDTH), y: y + 50 }
     Object.assign(r, point, pusherRange(next, point.x, point.y))
   }
   if (selection.kind === 'mechanism') {
     const mechanism = next.mechanisms![selection.index]
-    Object.assign(mechanism, { x: clamp(x, 24, next.width - b.w - 24), y: Math.min(next.floor! - b.h, y) })
+    Object.assign(mechanism, { x, y: Math.min(next.floor! - b.h, y) })
   }
   if (selection.kind === 'force-field') Object.assign(next.forceFields![selection.index], { x, y })
   if (selection.kind === 'gravity-plate') Object.assign(next.gravityPlates![selection.index], { x, y })
@@ -470,7 +470,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'logic-relay') Object.assign(next.logicRelays![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
-    const t = next.triggers![selection.index]; t.x = clamp(x, 24, next.width - t.w - 24); t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
+    const t = next.triggers![selection.index]; t.x = x; t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
     attachPressurePlateOnSurface(next, t)
   }
   if (selection.kind === 'mechanism') syncPressurePlateMounts(next)
@@ -526,17 +526,17 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   if (selection.kind === 'prop') {
     const b = next.props![selection.index], before = itemBounds(level, selection)!
     const requested = Math.abs(w - b.size) >= Math.abs(h - b.size) ? w : h
-    const maxWidth = handle ? left ? before.x + before.w - 24 : next.width - before.x - 24 : Math.min(b.x - 24, next.width - 24 - b.x) * 2
+    const maxWidth = handle ? left ? before.x + before.w : next.width - before.x : Math.min(b.x, next.width - b.x) * 2
     const maxHeight = !handle || top ? b.y : levelHeight(level) - before.y
     b.size = clamp(requested, 30, Math.min(200, maxWidth, maxHeight))
     if (handle) { b.x = left ? before.x + before.w - b.size / 2 : before.x + b.size / 2; b.y = top ? b.y : before.y + b.size }
-    b.x = clamp(b.x, 24 + b.size / 2, next.width - 24 - b.size / 2)
+    b.x = clamp(b.x, b.size / 2, next.width - b.size / 2)
   }
   if (selection.kind === 'mechanism') {
     const m = next.mechanisms![selection.index], before = { ...m }
     const vertical = m.kind === 'gate' && !isHorizontalGate(m), keepBottom = vertical && (!handle || top)
     const minWidth = Math.max(30, ...(next.triggers ?? []).flatMap(t => t.mode !== 'coins' && t.mount?.mechanism === m.id ? [t.w] : []))
-    m.w = vertical ? MECHANISM_THICKNESS : clamp(w, minWidth, Math.min(600, left ? m.x + m.w - 24 : next.width - m.x - 24))
+    m.w = vertical ? MECHANISM_THICKNESS : clamp(w, minWidth, Math.min(600, left ? m.x + m.w : next.width - m.x))
     m.h = vertical ? clamp(h, 12, Math.min(800, keepBottom ? m.y + m.h : next.floor! - m.y)) : MECHANISM_THICKNESS
     if (left) m.x = before.x + before.w - m.w
     if (keepBottom) m.y = before.y + before.h - m.h
@@ -551,7 +551,7 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
       if (top) t.y = bottom - t.h
     } else {
       const right = t.x + t.w
-      t.w = clamp(w, t.mode === 'coins' ? COIN_SWITCH_MIN_LENGTH : 40, Math.min(240, left ? right - 24 : next.width - t.x - 24))
+      t.w = clamp(w, t.mode === 'coins' ? COIN_SWITCH_MIN_LENGTH : 40, Math.min(240, left ? right : next.width - t.x))
       if (left) t.x = right - t.w
     }
     if (t.mode !== 'coins' && t.mount) {
@@ -730,7 +730,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     const trial = asTrial(level)
     if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
     const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
-    trial.triggers.push({ x: clamp(start.x, 24, trial.width - DIGITAL_DISPLAY_WIDTH - 24), y: clamp(start.y, 0, levelHeight(trial) - DIGITAL_DISPLAY_HEIGHT),
+    trial.triggers.push({ x: clamp(start.x, 0, trial.width - DIGITAL_DISPLAY_WIDTH), y: clamp(start.y, 0, levelHeight(trial) - DIGITAL_DISPLAY_HEIGHT),
       w: DIGITAL_DISPLAY_WIDTH, display: 'digital', mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
@@ -738,25 +738,29 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     // New objects follow the authored point. The canvas applies nearby surface
     // snapping separately, so Snap off and Alt also preserve the cursor's height.
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
-    if (tool === 'goal') { trial.goal = { ...trial.goal, ...point, x: clamp(point.x, 70, trial.width - 110) }; return { level: trial, selection: { kind: 'goal', index: 0 } } }
+    if (tool === 'goal') {
+      const bounds = goalBounds({ ...trial.goal, x: 0, y: 0 })
+      trial.goal = { ...trial.goal, ...point, x: clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
+      return { level: trial, selection: { kind: 'goal', index: 0 } }
+    }
     if (tool === 'box' || tool === 'ball') {
       if (trial.props.length >= 80) throw new Error('This level already has 80 props.')
       const drawn = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y))
       const size = drawn > 10 ? clamp(drawn, 30, 200) : tool === 'box' ? 80 : 68
-      trial.props.push({ kind: tool, x: clamp(point.x + (drawn > 10 ? size / 2 : 0), 24 + size / 2, trial.width - 24 - size / 2),
+      trial.props.push({ kind: tool, x: clamp(point.x + (drawn > 10 ? size / 2 : 0), size / 2, trial.width - size / 2),
         y: clamp(drawn > 10 ? Math.max(start.y, end.y) : point.y, size, levelHeight(trial)), size })
       return { level: trial, selection: { kind: 'prop', index: trial.props.length - 1 } }
     }
     if (tool === 'pusher') {
       if (trial.robots.length >= 30) throw new Error('This level already has 30 shovebots.')
-      const position = { x: clamp(point.x, 50, trial.width - 50), y: Math.max(50, point.y) }
+      const position = { x: clamp(point.x, ROBOT_HALF_WIDTH, trial.width - ROBOT_HALF_WIDTH), y: Math.max(50, point.y) }
       trial.robots.push({ ...position, ...pusherRange(trial, position.x, position.y) })
       return { level: trial, selection: { kind: 'robot', index: trial.robots.length - 1 } }
     }
     if (tool === 'plate') {
       if (trial.triggers.length >= 40) throw new Error('This level already has 40 switches.')
       const nearest = trial.mechanisms.filter(m => m.power !== 'always').sort((a, b) => Math.hypot(a.x - x, a.y - y) - Math.hypot(b.x - x, b.y - y))[0]
-      const left = clamp(point.x - 50, 24, trial.width - 124)
+      const left = clamp(point.x - 50, 0, trial.width - 100)
       const ceiling = !!plateSurface(plateSolids(trial), left, 100, point.y, 12)?.ceiling
       trial.triggers.push({ x: left, y: clamp(point.y, ceiling ? 0 : 8, levelHeight(trial) - (ceiling ? 8 : 0)), w: 100,
         targets: nearest ? [nearest.id] : [], mode: 'touch', ...(ceiling ? { ceiling: true } : {}) })
@@ -769,7 +773,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       const moving = tool === 'moving-platform', lift = tool === 'lift' || moving
       const horizontal = tool === 'horizontal-gate' || moving, h = tool === 'gate' ? clamp(drawnHeight > 10 ? drawnHeight : 180, 12, 800) : MECHANISM_THICKNESS
       const w = lift ? 140 : horizontal ? clamp(Math.abs(end.x - start.x) || 180, 30, 600) : MECHANISM_THICKNESS
-      trial.mechanisms.push({ id: newLevelId(), kind: lift ? 'lift' : 'gate', x: clamp(moving ? start.x : x, 24, trial.width - w - 24),
+      trial.mechanisms.push({ id: newLevelId(), kind: lift ? 'lift' : 'gate', x: clamp(moving ? start.x : point.x, 0, trial.width - w),
         y: Math.max(0, Math.min(trial.floor - h, moving ? start.y : lift ? Math.max(start.y, end.y) : horizontal || drawnHeight > 10 ? point.y : point.y - h)), w, h,
         travel: lift ? clamp((moving ? Math.abs(end.x - start.x) : drawnHeight) || 300, 60, 1200) : horizontal ? w : h,
         ...(horizontal ? { orientation: 'horizontal' as const } : {}),

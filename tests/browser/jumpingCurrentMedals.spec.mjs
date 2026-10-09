@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
-const accepted = new Set(['Untitled.jump-level.json', '01.json', '03.json', 'Coins.jump-level.json'])
+const accepted = new Set(['Untitled.jump-level.json', '01.json', '03.json', 'Coins.jump-level.json', 'Balls.jump-level.json'])
 const records = JSON.parse(readFileSync(new URL('../fixtures/jumping-builtin-medal-runs.json', import.meta.url)))
 
 for (const recording of records.runs.filter(run => accepted.has(run.file))) {
@@ -33,7 +33,10 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
       for (const key of wanted) if (!held.has(key)) await page.keyboard.down(key)
       held = wanted
       const milliseconds = Math.round(segment.frames / 120 * 1000)
-      if (!wanted.size && milliseconds > 500) await advanceJumpingPassiveWait(page, milliseconds)
+      // The Balls whole-route check asserts completion, not frame-by-frame
+      // rendered transitions. Preserve every physics step with fewer rendered
+      // frames during its long held inputs, including the 7.5-second delivery.
+      if ((!wanted.size || recording.file === 'Balls.jump-level.json') && milliseconds > 500) await advanceJumpingPassiveWait(page, milliseconds)
       else await page.clock.runFor(milliseconds)
       checkpoints.push(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1)))
       await page.screenshot({ path: info.outputPath(`phase-${String(index++).padStart(2, '0')}.png`) })

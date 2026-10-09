@@ -56,13 +56,6 @@
       "y": 880,
       "w": 540,
       "h": 40
-    },
-    {
-      "x": 0,
-      "y": 860,
-      "w": 60,
-      "h": 60,
-      "material": "steel"
     }
   ],
   "spawn": {
@@ -111,7 +104,7 @@
   "mechanisms": [],
   "triggers": [
     {
-      "x": 24,
+      "x": 10,
       "y": 920,
       "w": 100,
       "targets": [
@@ -146,8 +139,8 @@
     "lights": [
       {
         "id": "c577e3fa-fc10-45f8-bbf9-a4bf8d2af203",
-        "x": 75,
-        "y": 490,
+        "x": 50,
+        "y": 495,
         "intensity": 100,
         "direction": 90,
         "spread": 25,

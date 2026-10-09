@@ -1,3 +1,4 @@
+import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
 import type { JumpLevel, PuzzleLevel } from './level.ts'
 import { copyLevel, isPuzzleLevel, levelTerrain, newLevelId, snapToGround } from './level.ts'
 import { blankTrial } from './level.ts'
@@ -52,7 +53,7 @@ export function carvePit(source: JumpLevel, start: { x: number; y: number }, end
 }
 export function pusherRange(level: JumpLevel, x: number, y: number) {
   const ground = groundAt(levelTerrain(level), x, y, 3)?.platform
-  const left = Math.max(50, ground ? ground.x + 30 : x - 180), right = Math.min(level.width - 50, ground ? ground.x + ground.w - 30 : x + 180)
-  const end = Math.min(level.width - 50, Math.max(right, x, 100))
-  return { left: Math.max(50, Math.min(left, x, end - 50)), right: end }
+  const left = Math.max(ROBOT_HALF_WIDTH, ground ? ground.x + ROBOT_HALF_WIDTH : x - 180), right = Math.min(level.width - ROBOT_HALF_WIDTH, ground ? ground.x + ground.w - ROBOT_HALF_WIDTH : x + 180)
+  const end = Math.min(level.width - ROBOT_HALF_WIDTH, Math.max(right, x, ROBOT_HALF_WIDTH + 50))
+  return { left: Math.max(ROBOT_HALF_WIDTH, Math.min(left, x, end - 50)), right: end }
 }

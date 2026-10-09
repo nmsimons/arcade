@@ -9,6 +9,8 @@ import type { ContactWorld } from './playerContacts.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 
 const RADIUS = 9, HALF_AXLE = 17
+/** Flat chassis and wheel footprint; no additional authoring inset. */
+export const ROBOT_HALF_WIDTH = HALF_AXLE + RADIUS
 
 export const robotDrive = (r: Pick<RobotState, 'phase'>) => r.phase === 'charge' ? 540 : r.phase === 'chase' ? 235 : r.phase === 'patrol' ? 92 : 0
 export const robotTop = (r: Pick<RobotState, 'phase'>) => r.phase === 'windup' ? -39 : -46

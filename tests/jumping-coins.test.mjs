@@ -113,7 +113,7 @@ test('coin and wall-switch authoring preserves geometry, thresholds and connecti
   assert.equal(edited.triggers[0].threshold, 2); assert.deepEqual(triggerTargets(edited.triggers[0]), ['gate'])
   edited = resizeItem(edited, selection, 160, 999)
   edited = moveItem(edited, selection, 10000, 10000)
-  assert.deepEqual(itemBounds(edited, selection), { x: 1656, y: 880, w: 120, h: 40 })
+  assert.deepEqual(itemBounds(edited, selection), { x: 1680, y: 880, w: 120, h: 40 })
   assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(edited))), edited)
   assert.deepEqual(levelProblems(edited), [])
   assert.ok(allSelections(edited).some(s => s.kind === 'trigger'))
@@ -133,7 +133,7 @@ test('coin switch imports reject invalid thresholds and wall bounds, and the edi
   for (const threshold of [undefined, null, '2', 0, -1, 1.5, 81, NaN, Infinity]) {
     assert.throws(() => parseLevel({ ...level, triggers: [{ ...switch_(), threshold }] }), `threshold ${threshold}`)
   }
-  for (const changes of [{ y: -1 }, { y: 901 }, { x: 0 }, { w: 119 }, { w: 241 }]) assert.throws(() => parseLevel({ ...level, triggers: [{ ...switch_(), ...changes }] }))
+  for (const changes of [{ y: -1 }, { y: 901 }, { x: -1 }, { w: 119 }, { w: 241 }]) assert.throws(() => parseLevel({ ...level, triggers: [{ ...switch_(), ...changes }] }))
   for (const pickup of [coin(19), coin(1781), coin(80, 19), coin(80, 901)]) assert.throws(() => parseLevel({ ...level, pickups: [pickup] }))
   assert.deepEqual(levelProblems(level), [])
   assert.match(levelProblems({ ...level, triggers: [switch_(4)] }).join(), /enough coins/)
@@ -158,11 +158,11 @@ test('vertical coin switches preserve connections and center, resize vertically,
   assert.equal(resizeItem(vertical, selection, 0, 10).triggers[0].h, 120)
   assert.equal(resizeItem(vertical, selection, 0, 10000).triggers[0].h, 240)
   const bottomRight = moveItem(vertical, selection, 10000, 10000)
-  assert.deepEqual(itemBounds(bottomRight, selection), { x: 1756, y: 720, w: 20, h: 200 })
+  assert.deepEqual(itemBounds(bottomRight, selection), { x: 1780, y: 720, w: 20, h: 200 })
   const horizontal = setCoinSwitchOrientation(bottomRight, 0, 'horizontal')
   assert.deepEqual(levelProblems(horizontal), [])
   assert.deepEqual(parseLevel(horizontal), horizontal)
-  assert.deepEqual(itemBounds(moveItem(vertical, selection, -10000, -10000), selection), { x: 24, y: 0, w: 20, h: 200 })
+  assert.deepEqual(itemBounds(moveItem(vertical, selection, -10000, -10000), selection), { x: 0, y: 0, w: 20, h: 200 })
   const taller = resizeLevelHeight(vertical, 1200)
   assert.equal(taller.triggers[0].y, 930); assert.equal(taller.triggers[0].h, 200)
   const copy = duplicateItem(taller, selection)
@@ -174,7 +174,7 @@ test('vertical coin switches preserve connections and center, resize vertically,
 test('vertical switch file validation bounds its height and requires its fixed width', () => {
   const level = setCoinSwitchOrientation(puzzle(), 0, 'vertical')
   for (const change of [{ h: undefined }, { h: 119 }, { h: 241 }, { h: NaN }, { w: 19 }, { w: 21 },
-    { y: 721 }, { x: 1757 }, { orientation: 'sideways' }, { orientation: null }]) {
+    { y: 721 }, { x: 1781 }, { orientation: 'sideways' }, { orientation: null }]) {
     assert.throws(() => parseLevel({ ...level, triggers: [{ ...level.triggers[0], ...change }] }), JSON.stringify(change))
   }
   const legacy = parseLevel({ ...level, triggers: [{ ...level.triggers[0], w: 60 }] })
@@ -226,7 +226,7 @@ test('legacy bars convert to bounded numeric faces without changing wiring, name
 test('numeric switch files validate their fixed footprint and exclude legacy orientation fields', () => {
   const numeric = setCoinSwitchDisplay(puzzle(), 0, 'digital')
   for (const change of [{ display: 'numbers' }, { display: null }, { w: 200 }, { h: 40 },
-    { orientation: 'vertical' }, { x: 1657 }, { y: 881 }]) {
+    { orientation: 'vertical' }, { x: 1681 }, { y: 881 }]) {
     assert.throws(() => parseLevel({ ...numeric, triggers: [{ ...numeric.triggers[0], ...change }] }), JSON.stringify(change))
   }
 })

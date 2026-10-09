@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 test('keyboard turns between blocked props retain the whole body and establish the incoming brace', async ({page},info) => {
@@ -255,8 +255,8 @@ for (const direction of [-1, 1]) for (const width of [16, 24]) test(`a keyboard 
   expect(departure.vy).toBeLessThan(0)
 })
 
-test('a keyboard shove begins with palms on the surface', async ({ page }, info) => {
-  const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
+for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the surface before and after restart (${direction})`, async ({ page }, info) => {
+  const level = blankTrial(); level.spawn = { x: 540 - direction * 65.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -265,16 +265,26 @@ test('a keyboard shove begins with palms on the surface', async ({ page }, info)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect(page.locator('canvas')).toBeFocused()
-  await page.keyboard.down('d'); await page.clock.runFor(200)
-  const frames = await page.evaluate(() => window.jumpingMotion.read().recent)
-  expect(frames.length).toBeGreaterThan(5)
-  for (const frame of frames.filter(frame => frame.contacts.palms.length)) {
-    frame.contacts.hands.forEach((hand, i) => {
-      const palm = frame.contacts.palms[i]
-      expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
-    })
+  const key = direction === 1 ? 'd' : 'a'
+  for (const attempt of ['fresh', 'restart']) {
+    if (attempt === 'restart') {
+      await page.keyboard.up(key)
+      await restartFromPause(page); await page.clock.runFor(120)
+      const ready = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+      expect(ready.x).toBe(level.spawn.x); expect(ready.y).toBe(level.spawn.y)
+    }
+    await page.keyboard.down(key); await page.clock.runFor(200)
+    const frames = await page.evaluate(() => window.jumpingMotion.read().recent)
+    expect(frames.length).toBeGreaterThan(5)
+    const loaded = frames.filter(frame => frame.contacts.palms.length)
+    expect(loaded.length).toBeGreaterThan(5)
+    expect(frames.at(-1).x * direction).toBeGreaterThan(level.spawn.x * direction + 1)
+    for (const frame of loaded) frame.contacts.hands.forEach((hand, i) => {
+        const palm = frame.contacts.palms[i]
+        expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
+      })
+    await page.screenshot({ path: info.outputPath(`${attempt}-palm-contact.png`) })
   }
-  await page.screenshot({ path: info.outputPath('first-palm-contact.png') })
 })
 
 test('held keyboard movement springs a long-fall landing into supported running', async ({ page }, info) => {

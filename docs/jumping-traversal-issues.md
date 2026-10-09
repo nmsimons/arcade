@@ -9,7 +9,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#40 UJG: make pushing body motion follow support and weight transfer](https://github.com/nmsimons/arcade/issues/40) | High (P1) | Acceptance complete: support-driven weight transfer, creep/crate/90-speed ball cadence, slopes, crouch, carrier-relative gait and stable blocked effort |
 | [#41 UJG: establish a staggered bracing stance when pushing begins](https://github.com/nmsimons/arcade/issues/41) | High (P1) | Acceptance complete: one-time supported brace, narrow/concave/slope footing, brief recontact, both advancing legs and carried blocked stance |
 | [#42 UJG: show pushing effort and resistance in the upper body](https://github.com/nmsimons/arcade/issues/42) | High (P1) | Acceptance complete: distinct partial/moving/blocked load, eased effort and release, maintained palms/clearance and no voluntary load from passive displacement |
-| [#43 UJG: establish visible palm contact before the object starts moving](https://github.com/nmsimons/arcade/issues/43) | High (P1) | Reproduced contact timing defect |
+| [#43 UJG: establish visible palm contact before the object starts moving](https://github.com/nmsimons/arcade/issues/43) | High (P1) | Acceptance complete: exposed approach reach, palms by first force-bearing movement, changing faces, release/recontact/turn/jump and first keyboard press after restart |
 | [#44 UJG: replace low-object squat shuffling with a supported working gait](https://github.com/nmsimons/arcade/issues/44) | Medium (P2) | Rendered visual quality issue |
 | [#45 UJG: keep crouched pushing head and torso outside the object](https://github.com/nmsimons/arcade/issues/45) | High (P1) | Reproduced visible penetration |
 | [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Reproduced visible penetration |
@@ -1948,6 +1948,48 @@ permission errors creating symlinks in unrelated file-security fixtures. Actual
 device feel, the wider clearance issues and complete-route judgments retain
 their own acceptance. Authored maps, local collections and medal times are
 preserved.
+
+## Push onset acceptance complete
+
+October 9, 2026. This completes #43's five original criteria using the earlier
+contact-onset implementation, final contact/turn/return ownership repairs and
+the broader push acceptance above. Exposed approaches prepare the arms without
+moving an object or claiming support; the selected loaded palms then meet their
+surface on the force-bearing tick while body loading eases independently. A
+still blocked incoming brace can release and reach continuously without moving
+its object. Turning into a moving object retains first-force palms. No arbitrary
+input or force delay is introduced.
+
+The original matched `jumping-pushes-second-baseline/current.gif` recordings
+include a running approach and fresh low/tall box/ball encounters. The complete
+motion comparison above adds real changing tilted faces, slopes and moving
+support in both directions. The ordinary, low and 100-unit prop checks now
+retain palm error below 0.5 units on every loaded tick, stricter than requiring
+contact only after the first 0.5 units of object travel. Existing running-approach
+tests prove preparation before force; thin intervening walls reject the reach,
+and releasing, active jumps, catch/recovery owners and an object behind the
+input direction cannot advertise a physical shove.
+
+`tests/jumping-dry-turn.test.mjs` retains exact first-force palms for both
+directions and 30/80-unit boxes/balls during a reversal, fixed support legs and
+head clearance. The accepted crowded-turn and interrupted-step matrices retain
+complete skin, contact ownership, release/recontact and fresh-jump continuity.
+Their native full-action recordings remain part of this audit, rather than
+accepting an isolated final wrist coordinate as proof of a natural reach.
+
+The permanent ordinary-keyboard first-shove test now runs both directions and
+repeats the first 200 ms after a pause/restart. Each attempt must really move
+the player and produce more than five loaded samples; every visible palm stays
+within the original 0.5-unit surface tolerance. Both production cases pass on
+`UntitledJumpingGame-up4IpwZx.js` in 2.5/2.2 seconds, including fresh/restarted
+screenshots and complete traces. Changed-file lint passes. Existing first-force,
+running approach and final-contact checks passed in the 63-check push selection;
+the dry-turn matrix also passes the final full UJG run and hosted release checks.
+This acceptance audit adds input coverage and evidence only. Earlier records
+retain the reproduction, unchanged physical traces and rejected prototypes.
+Authored maps and medal times are preserved. Low-object posture, the remaining
+clearance issues and actual device/camera/route judgments retain their separate
+acceptance.
 
 ## Production available for iPhone playtesting
 

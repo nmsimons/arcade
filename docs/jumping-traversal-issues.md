@@ -10,7 +10,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#41 UJG: establish a staggered bracing stance when pushing begins](https://github.com/nmsimons/arcade/issues/41) | High (P1) | Acceptance complete: one-time supported brace, narrow/concave/slope footing, brief recontact, both advancing legs and carried blocked stance |
 | [#42 UJG: show pushing effort and resistance in the upper body](https://github.com/nmsimons/arcade/issues/42) | High (P1) | Acceptance complete: distinct partial/moving/blocked load, eased effort and release, maintained palms/clearance and no voluntary load from passive displacement |
 | [#43 UJG: establish visible palm contact before the object starts moving](https://github.com/nmsimons/arcade/issues/43) | High (P1) | Acceptance complete: exposed approach reach, palms by first force-bearing movement, changing faces, release/recontact/turn/jump and first keyboard press after restart |
-| [#44 UJG: replace low-object squat shuffling with a supported working gait](https://github.com/nmsimons/arcade/issues/44) | Medium (P2) | Rendered visual quality issue |
+| [#44 UJG: replace low-object squat shuffling with a supported working gait](https://github.com/nmsimons/arcade/issues/44) | Medium (P2) | Acceptance complete: working hinge, alternating drive, low downhill reach, explicit crouch, blocked effort and native/browser review |
 | [#45 UJG: keep crouched pushing head and torso outside the object](https://github.com/nmsimons/arcade/issues/45) | High (P1) | Reproduced visible penetration |
 | [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Reproduced visible penetration |
 | [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Acceptance complete: prompt supported recovery, retained stationary sequence, continuous first opposite press and repeated turns, unchanged motor and jump availability |
@@ -1953,7 +1953,8 @@ preserved.
 
 October 9, 2026. This completes #43's five original criteria using the earlier
 contact-onset implementation, final contact/turn/return ownership repairs and
-the broader push acceptance above. Exposed approaches prepare the arms without
+the [broader push acceptance](#push-motion-stance-and-effort-acceptance-complete).
+Exposed approaches prepare the arms without
 moving an object or claiming support; the selected loaded palms then meet their
 surface on the force-bearing tick while body loading eases independently. A
 still blocked incoming brace can release and reach continuously without moving
@@ -1962,7 +1963,7 @@ input or force delay is introduced.
 
 The original matched `jumping-pushes-second-baseline/current.gif` recordings
 include a running approach and fresh low/tall box/ball encounters. The complete
-motion comparison above adds real changing tilted faces, slopes and moving
+motion comparison adds real changing tilted faces, slopes and moving
 support in both directions. The ordinary, low and 100-unit prop checks now
 retain palm error below 0.5 units on every loaded tick, stricter than requiring
 contact only after the first 0.5 units of object travel. Existing running-approach
@@ -2027,8 +2028,8 @@ jumping pass with no runtime exceptions. Live entry JavaScript, CSS and
 `UntitledJumpingGame-C0MeIHoc.js` match that exact validated artifact by SHA-256.
 The landscape Controls view retains its visible heading and Back button.
 This verifies #47's recovery-turn follow-up in production. The later #50 quiet
-crouch change below is pending its own release in PR #63; physical iPhone and
-controller feel remain open in #57.
+crouch change was released separately in PR #63 as recorded below; physical
+iPhone and controller feel remain open in #57.
 
 ## Idle acceptance complete
 
@@ -2089,6 +2090,20 @@ failures are the existing Windows symlink-permission fixtures. The separate
 also pass. Checkpoint/reset, anti-shuffle and contact regressions remain intact.
 Authored maps, local collections and medal times are preserved; actual device
 feel and the wider camera/route review retain their separate acceptance.
+
+### Idle follow-up deployed and verified
+
+October 9, 2026. [PR #63](https://github.com/nmsimons/arcade/pull/63) is merged
+and live at the same production URL. Validation/build, all three browser groups
+and deployment passed for merge `cb57d1157d2c160dc3281cde29ade2de9a08cb9a` in
+[release run 37903308117](https://github.com/nmsimons/arcade/actions/runs/37903308117).
+Separate desktop validation and all three platform packages also passed.
+The live entry JavaScript, CSS and `UntitledJumpingGame-CrHsS8Sp.js` match that
+exact validated artifact by SHA-256. Fresh live keyboard movement/jumping,
+native touch jumping and pause/Controls navigation pass without runtime
+exceptions; the landscape mobile Controls heading and Back button remain visible.
+This verifies the quiet-crouch fix in production. Actual iPhone/controller feel
+remains open in #57.
 
 ## Push motion, stance and effort acceptance complete
 
@@ -2160,6 +2175,69 @@ final added upper-body checks and changed-file lint pass. The final production
 motion/browser evidence above and successful PR #63 hosted browser groups
 retain the normal-control cases. Earlier implementation records retain their
 matched physical traces; this acceptance audit changes only tests and evidence.
-#43–#46's wider contact/clearance matrices and actual device, camera and route
+#44–#46's wider posture/clearance matrices and actual device, camera and route
 acceptance retain their separate scope. Authored maps and medal times are
 preserved.
+
+## Low-object working gait acceptance complete
+
+October 9, 2026. This completes #44's five original criteria, including the
+earlier replacement of the deep automatic squat with a supported working hinge.
+The expanded review caught a remaining reach defect on downhill 30-unit props:
+the real palms can sit below the existing chest's fixed-length arm reach.
+On the preceding `f23a7e5` source, the ordinary downhill ball retains up to
+5.52 units of visible hand error throughout the four-second encounter. A tipping
+crate also loses visible contact on some force-bearing frames. Crouching reduces
+the error after settling but does not fix the first force-bearing frames.
+
+The low posture now continues hinging the chest toward the lowest actual wrist
+target. The pelvis retains its supported working height, the chest retains its
+10.1-unit segment, and the ordinary reach correction solves both fixed-length
+arms against the established palms. This changes presentation only: contact
+selection, player root, prop forces, gravity and crouch hull are preserved.
+The new permanent regression fails against the preceding athlete source and
+passes with the fix, retaining the original 0.5-unit palm-error limit.
+
+The matched native recordings below compare `f23a7e5` with the final source,
+using identical geometry, input, framing, 0.72×/2.6× scale and four-second
+real-time playback. Rows show flat low crate/ball travel, downhill crate/ball
+travel, then their explicitly crouched variants. Both directions include the
+first shove, complete alternating cycles and changing crate tilt. The working
+body reads as reaching from bent driving legs; explicit crouch remains visibly
+lower. The corrected downhill chest brings the hands onto the surface without
+collapsing the hips. Additional native uphill, blocked and tall-object samples
+at one and three seconds retain credible knees, reachable palms and a still
+blocked brace. Earlier [second-pass recordings](#second-implementation-pass)
+retain the comparison against the original deep squat.
+
+![Low working pushes before the final downhill fix](images/jumping-low-push-acceptance-before.gif)
+
+![Low working pushes with complete contact](images/jumping-low-push-acceptance-current.gif)
+
+`tests/helpers/jumpingPushScenarios.mjs` supplies 72 real initialized encounters
+in both directions: boxes/balls of size 30 and 80 plus size-100 balls, each
+upright/crouched and moving/blocked on flat ground; low boxes/balls additionally
+cover both slope directions across the same posture/blockage combinations.
+`tests/jumping-push-acceptance.test.mjs` checks four seconds of real support,
+fixed limbs, exact planted motor ankles, knee/head/spine/elbow clearance,
+continuous pelvis height, actual force-bearing palms, full passing strides
+from both legs, settled blockage and immediate fresh-jump escape. Tipping crates
+can physically depart/reacquire contact; the test requires sustained actual
+pushing and checks every force-bearing palm without inventing permanent contact.
+Blocked balls retain their small initial solver settling before the stationary
+brace check. Existing creep, ten-second anti-shuffle and carrier checks remain.
+
+Four added ordinary-keyboard production-browser cases cover downhill box/ball
+travel in both directions, crouch entry/exit and restart. Together with the two
+existing crouched-brace cases and moving-body transfer case, all seven pass.
+The 83 focused movement/animation/support/ceiling checks pass; the final expanded
+three-group push run passes after adding fresh jump escape to every encounter.
+Existing 40-unit ceiling regressions preserve real crouch clearance. Types,
+changed-file lint and the isolated production build pass on
+`UntitledJumpingGame-C_A4H9KC.js`.
+
+All 3,456 recorded before/current samples have identical complete player state
+and prop state, proving that this final reach correction preserves the actual
+trajectories. Authored maps, local collections and medal times are preserved.
+#45/#46 retain their wider transition/inverted/body-clearance acceptance;
+actual iPhone/controller, camera and route review remain separately open.

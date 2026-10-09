@@ -17,6 +17,20 @@ export const PUSH_SCENARIOS = [
   { name: 'light blocked crate', kind: 'box', size: 80, blocked: true, effort: .2 },
 ]
 
+export const LOW_PUSH_SCENARIOS = []
+for (const [kind, size] of [['box', 30], ['ball', 30], ['box', 80], ['ball', 80], ['ball', 100]]) {
+  for (const crouch of [false, true]) for (const blocked of [false, true]) {
+    LOW_PUSH_SCENARIOS.push({ name: `${size} ${kind} ${crouch ? 'crouch' : 'upright'} ${blocked ? 'blocked' : 'moving'}`,
+      kind, size, crouch, blocked })
+  }
+}
+for (const kind of ['box', 'ball']) for (const slope of [-.3, .3]) {
+  for (const crouch of [false, true]) for (const blocked of [false, true]) {
+    LOW_PUSH_SCENARIOS.push({ name: `30 ${kind} slope ${slope} ${crouch ? 'crouch' : 'upright'} ${blocked ? 'blocked' : 'moving'}`,
+      kind, size: 30, slope, crouch, blocked })
+  }
+}
+
 /** Initialized motor encounters shared by contact checks and native recordings.
  * Carrier starts exercise prepared dynamic support; authored spawn validation
  * separately requires static ground. These are not authored route fixtures. */

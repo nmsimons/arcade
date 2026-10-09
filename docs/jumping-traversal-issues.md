@@ -28,6 +28,14 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Seven distinct built-ins have current-control browser Gold witnesses; collection-wide route, alternatives, recovery and enjoyment acceptance remains incomplete |
 | [#60 UJG: resolve the nine unverified traversal browser cases without weakening checks](https://github.com/nmsimons/arcade/issues/60) | Medium (P2) | Resolved: all nine cases pass twice under both normal production-project settings and 2× CPU throttling, including cleanup and confirmed fresh bundles |
 
+The subsequent hands-on follow-ups are tracked separately: [#70 downhill foot
+landings](https://github.com/nmsimons/arcade/issues/70), [#72 downhill ball
+release](https://github.com/nmsimons/arcade/issues/72), [#73 falling/wall-jump ledge
+reach](https://github.com/nmsimons/arcade/issues/73), and [#74 walking, idle and
+jog presentation](https://github.com/nmsimons/arcade/issues/74). These preserve
+the original acceptance gaps rather than implying that every device and route
+audit is complete.
+
 ## Implementation order and evaluation
 
 Correct crouched-push and prone clearance and moving recovery first. Build pushing around a supported stance, weight transfer, effort, and visible palm contact; coordinate those issues rather than introducing separate competing gait states. Then address turns, idle, automatic steps, and control teaching. Resolve incomplete browser cases independently and use device, visibility, and complete-route evidence to judge final feel.
@@ -2798,3 +2806,149 @@ initially reached their 60-second software-rendering limit; their final
 120-second budgets retain the same inputs, screenshots and gait assertions.
 They finish in 49.0/49.6 seconds. Existing published traversal deadlines are
 unchanged. Hosted and live release verification remain separate.
+
+## Final reported traversal follow-ups
+
+October 9, 2026. The following changes address the user's subsequent reports,
+without treating the six remaining original acceptance issues as complete.
+The user accepted the downhill ball behavior, the improved ledge catches, and
+the new walking lean and resting arms on localhost. Physical iPhone comfort
+and the remaining original cue, carrier, gravity, camera and route audits are
+still recorded separately in #51, #52, #54, #57, #58 and #59.
+
+### Downhill balls: a shove ends when gravity takes over (#72)
+
+The former signed speed controller could brake a freely rolling ball, then
+make the player follow its moving hand target. Ball shoves now apply only
+forward force. Once the ball exceeds the selected shove speed, its contact is
+passive: it can still obstruct the player, but supplies no hand force or
+working pose. The player follows ordinary selected steering rather than an
+escaping contact. Anticipatory hands require closing distance. Released palms
+fade with the player's actual displacement; wrapped arm angles and a short
+outgoing arm-phase blend prevent a push/walk or push/run snap. Boxes retain
+their existing loaded contact behavior.
+
+The permanent downhill regression covers 54 encounters across three slopes,
+three ball sizes, walking/running/crouching and both directions. It compares
+against an unloaded twin, requires the ball to escape, bounds player speed,
+and rejects renewed working contacts after release. The previous released
+code fails 26 of the 27 grouped cases. The remaining steep, small-ball running
+case already escaped without a reachable working contact. Existing loaded
+push checks retain their palm, fixed-bone, clearance and contact bounds.
+
+Freely rolling delivery also exposed two authored receivers that relied on
+the former artificial braking. Balls and Tower I now have small physical
+stops at their outside floor plates. The original plates remain in place;
+the stops hold the actual resting ball center on the plate after release.
+Strict route checks require both distinct delivered balls in each level.
+Legal movement/wait phases in six recordings were updated, retaining all
+pickups, gate/cargo requirements and authored Gold times. All 25 recorded
+route/mechanism checks and validation of all 23 built-ins pass. These historical
+recordings include legacy jump-strength inputs; they are mechanical regression
+evidence, not new full current-control route, alternative or enjoyment audits.
+
+### Falling and wall-jump ledge approaches (#73)
+
+Dry catches allow six more units of horizontal hand approach. Vertical reach,
+exposed lip, facing, deliberate-release cooldown, collision clearance and
+safe hanging space still gate the catch. The Spire II wall-jump and falling
+reproductions now catch the actual lower receiving lip at y1100; the old
+implementation misses them. Mirrored falling coverage also catches, while
+later out-of-reach turns remain misses. Tower I and II's y1760 catches already
+worked and remain compatibility checks. A quiet grip is followed by a separate
+normal Up pull-up to standing.
+
+Seven permanent isolated encounters retain authored geometry and use normal
+inputs. Matched native before/after footage covers Spire II wall-jump/fall and
+both towers, including approach, grip and rest. These are isolated encounters,
+with only the spawn changed; they do not claim completed tower routes. The
+browser approaches retain their original isolated spawns, count actual physics
+steps before turning, and explicitly require an airborne sample. The exact
+reported spawn and physics-tick timings remain strict in the unit tests.
+
+### Softer walking and idle, with an earlier jog (#74)
+
+Precision walking at 125 units/s keeps its walking stride, carries the chest
+slightly forward, and rolls each loaded shoe through its forefoot. Walking
+toe-off starts at 46% of stance instead of 58%, with heel pitch increasing
+from 0.48 to 0.60 radians. The loaded toes counter-rotate and remain on the
+actual footprint. Free arm swing increases from 0.38/1.05 to 0.52/1.18 radians
+for walking/running, with a modest rearward carry. Quiet elbows bend gently
+with separate hands and fixed feet; the pull-up endpoint matches that rest.
+
+The running blend begins above precision-walk speed and finishes over the
+next 164 units/s. At 150 there is still overlapping support; at 180 a short
+jog flight appears, and at 240 the stride is predominantly running. Motor
+speeds and input bindings are unchanged. Grounded braking reduces the running
+stride to avoid retaining a sprint-length shoe target. A raised recovery shoe
+waits for its actual sole to meet the floor after resuming; free arms preserve
+their outgoing phase briefly when the feet rephase to real support.
+
+Four new presentation checks cover gait thresholds, both arm reaches, walking
+lean, quiet elbows and repeated heel lift with stationary loaded toes. The
+52 affected animation, dry-turn, returning-step, gravity and presentation
+checks pass without loosening their continuity bounds. The earlier complete
+Windows run passed 2,087 of 2,090 tests: two failures were unavailable Windows
+symlink privileges, and the returning-step arm handoff failure was fixed and
+rechecked in those 52 tests. Hosted Linux validation remains the full-suite
+release gate. Types, changed-file lint and the final isolated build pass.
+
+Matched native five-second clips show both directions, ordinary gameplay and
+enlarged contact views, followed by two seconds of settling/rest. They compare
+the released implementation with the new walk, jog and run. The loop boundary
+resets the encounter.
+
+![Precision walking and quiet rest before and after](images/jumping-locomotion-125-comparison.gif)
+
+[Slow jog at 180 units/s](images/jumping-locomotion-180-comparison.gif),
+[middle speed at 240 units/s](images/jumping-locomotion-240-comparison.gif), and
+[full running at 410 units/s](images/jumping-locomotion-410-comparison.gif).
+
+Evidence is retained under `.tmp/ujg-traversal-fixes`: downhill baseline and
+focused checks, `final-recorded-routes.log`, `final-level-check.log`, ledge
+baseline/native encounters, `final-return-walk-check-2.log`,
+`walk-jog-run-native-final.log`, and the final traversal types/lint/build logs.
+Browser and deployed-build results are added after their release gates finish.
+
+The pre-hosted isolated production-browser run passed all 14 cases: eight downhill
+ball releases, four real airborne ledge approaches with quiet grips and normal
+pull-ups, and both existing keyboard rest/crouch/restart cases. The initial
+parallel run encountered two ball software-rendering/teardown timeouts and a
+Tower I fixture that never became airborne. The final serial run retains the
+ball deadlines and all assertions; a temporary four-unit Tower I spawn adjustment
+made its adjacent input schedules fall before catching. It is superseded by
+the measured-input timing below, which retains the original spawn. No movement or
+continuity assertion was relaxed. Evidence: `final-traversal-browser.log` and
+`final-traversal-browser-results`.
+
+The first hosted run passed full Linux gameplay validation (2,089 passed,
+zero failed, one Windows ZIP check skipped), lint, build and all three desktop
+packages. Browser group 3 then caught a real interaction regression: neutral
+floating beside a pool bank used the wider dry fallback window and acquired
+an unwanted grip. The extra six units are now limited to dry movement;
+deliberate swimming keeps its seven-unit window and passive floating its
+original thirteen-unit window. A permanent normal-input regression in both
+directions fails on `f89c92d` and passes with this correction. All 149 related
+water/ledge checks and the four exact Canvas/GPU ladder/water visibility cases
+pass, retaining the water-mode and contrast assertions. Evidence:
+`neutral-bank-regression-before/after.log` and `neutral-bank-browser-exact.log`.
+The corrected commit still requires fresh hosted release gates.
+
+Browser group 2 identified two fall fixtures that never left their upper
+platform on Linux: the same 100 ms key hold delivered eleven physics steps
+there and thirteen locally. The browser now reads the existing motion observer
+to hold the actual key for twelve or thirteen completed steps, restoring the
+original isolated spawns. All four airborne approach/grip/rest/pull-up cases
+pass across the corrected run and isolated Spire II rerun. The stricter exact
+unit failure witnesses remain unchanged. An initial measured Spire turn one
+step later was a genuine miss and remains outside the final browser route.
+
+The older low-downhill-ball browser cases also required a sustained working
+contact after the ball had freely escaped. Their ball now bears against a real
+physical stop, preserving the original more-than-ten loaded samples and all
+grounded-foot/palm-distance assertions through crouch and restart. All four
+loaded box/ball cases in both directions pass. The separate free-ball cases
+continue to require separation, bounded player speed and no renewed push pose;
+the accepted ball solver is unchanged. No browser deadlines were increased.
+Evidence: `hosted-fixture-correction.log`, `fall-physics-timing-final.log` and
+the retained original hosted browser failure artifacts.

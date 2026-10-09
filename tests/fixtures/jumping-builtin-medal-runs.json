@@ -561,8 +561,8 @@
     },
     {
       "file": "Balls.jump-level.json",
-      "elapsed": 24.55833333333258,
-      "activeTime": 25.416666666665865,
+      "elapsed": 24.591666666665912,
+      "activeTime": 25.449999999999196,
       "coins": 0,
       "trace": [
         {
@@ -635,7 +635,7 @@
           "input": {}
         },
         {
-          "frames": 198,
+          "frames": 202,
           "input": {
             "move": 1
           }
@@ -885,8 +885,8 @@
     },
     {
       "file": "spire1.jump-level.json",
-      "elapsed": 35.42499999999863,
-      "activeTime": 36.28333333333192,
+      "elapsed": 36.25833333333192,
+      "activeTime": 37.1166666666652,
       "coins": 0,
       "trace": [
         {
@@ -1020,6 +1020,10 @@
             "climb": true,
             "detach": true
           }
+        },
+        {
+          "frames": 100,
+          "input": {}
         }
       ]
     },
@@ -2068,8 +2072,8 @@
     },
     {
       "file": "Tower.jump-level.json",
-      "elapsed": 87.48333333334902,
-      "activeTime": 88.34166666668304,
+      "elapsed": 87.36666666668226,
+      "activeTime": 88.22500000001628,
       "coins": 0,
       "trace": [
         {
@@ -2512,7 +2516,7 @@
           }
         },
         {
-          "frames": 386,
+          "frames": 350,
           "input": {
             "move": -1,
             "crouch": true
@@ -2546,7 +2550,7 @@
           }
         },
         {
-          "frames": 128,
+          "frames": 149,
           "input": {
             "move": -1,
             "climb": true
@@ -2557,7 +2561,7 @@
           "input": {}
         },
         {
-          "frames": 49,
+          "frames": 48,
           "input": {
             "move": 1
           }
@@ -2740,7 +2744,7 @@
           "input": {}
         },
         {
-          "frames": 69,
+          "frames": 72,
           "input": {
             "move": 1
           }
@@ -2771,7 +2775,7 @@
           "input": {}
         },
         {
-          "frames": 277,
+          "frames": 276,
           "input": {
             "move": 1,
             "drop": true,
@@ -2783,8 +2787,8 @@
     {
       "file": "05.json",
       "jumpModel": "tap-hold",
-      "elapsed": 9.00000000000013,
-      "activeTime": 9.858333333333414,
+      "elapsed": 8.483333333333492,
+      "activeTime": 9.341666666666777,
       "coins": 0,
       "trace": [
         {
@@ -2813,7 +2817,7 @@
           }
         },
         {
-          "frames": 703,
+          "frames": 641,
           "input": {
             "move": 1
           }
@@ -2822,8 +2826,8 @@
     },
     {
       "file": "Tower II.jump-level.json",
-      "elapsed": 98.95000000002481,
-      "activeTime": 99.80833333335883,
+      "elapsed": 99.03333333335821,
+      "activeTime": 99.89166666669223,
       "coins": 8,
       "trace": [
         {
@@ -3375,7 +3379,7 @@
           }
         },
         {
-          "frames": 13,
+          "frames": 23,
           "input": {
             "move": 1
           }
@@ -4302,8 +4306,8 @@
     },
     {
       "file": "rampingup.jump-level.json",
-      "elapsed": 44.758333333331436,
-      "activeTime": 45.61666666666472,
+      "elapsed": 44.91666666666476,
+      "activeTime": 45.774999999998045,
       "coins": 10,
       "trace": [
         {
@@ -4649,6 +4653,10 @@
             "move": -1,
             "climb": true
           }
+        },
+        {
+          "frames": 19,
+          "input": {}
         }
       ]
     }

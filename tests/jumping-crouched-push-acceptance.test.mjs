@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { CROUCHED_PUSH_SCENARIOS, crouchedPushScenario } from './helpers/jumpingCrouchedPushScenarios.mjs'
+import { escapingDownhillBall } from './helpers/jumpingPushScenarios.mjs'
 import { athleteOutlinePoints } from './helpers/jumpingAthleteOutline.mjs'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
@@ -63,26 +64,34 @@ test('crouch entry, loaded work and release retain the complete skin, palms and 
     // normal slopes and the existing mirrored slope/rig tests cover that axis.
     if (inverted && config.slope) continue
     const run = crouchedPushScenario(config, facing, inverted), p = run.player
+    const escaping = escapingDownhillBall(config)
     assert.equal(p.inverted, inverted, 'the real gravity plate establishes the encounter')
-    let loaded = 0, previous, previousLoaded = false
+    let loaded = 0, previous, previousRoot, previousLoaded = false
     for (let tick = 0; tick < 600; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: tick < 480 ? facing : 0, crouch: config.ceiling || tick >= 120 && tick < 360 })
       const context = `${config.name}; facing=${facing}; inverted=${inverted}; tick=${tick}`
       const pose = athletePose(p)
       fixedLimbs(pose, context)
-      assert.ok(p.grounded && p.footwork.feet.some(foot => foot.planted), context + ': real support remains')
+      assert.ok(p.grounded, context + ': real receiving ground remains')
+      if (!escaping || p.pushing?.effort) assert.ok(p.footwork.feet.some(foot => foot.planted), context + ': a planted leg supports real working contact')
       for (const [i, leg] of [pose.frontLeg, pose.backLeg].entries()) if (p.footwork.feet[i].planted) {
         const foot = p.footwork.feet[i], [x, y] = worldPoint(p, leg.end)
         assert.ok(Math.hypot(x - foot.x, y - foot.y) < 1e-6, context + ': loaded shoe retains its motor ankle')
       }
       const points = joints(pose).map(point => worldPoint(p, point))
+      // This released encounter now includes full-speed free running. Count
+      // its actual root travel separately, as in the ordinary catch checks;
+      // loaded/relaxing work keeps the original eight-unit world-space bound.
+      const rootTravel = previousRoot ? Math.hypot(p.x - previousRoot[0], p.y - previousRoot[1]) : 0
+      const continuity = 8 + (escaping && !p.pushing ? rootTravel : 0)
       // The first physical force fixes a wrist to the real surface. The
       // supported trunk stays continuous even then; unloaded/loaded arm
       // transitions are reviewed in the paired native/browser recordings.
       if (previous) for (let i = 0; i < points.length; i++) if (i < 4 || previousLoaded === !!p.pushing?.effort) assert.ok(
-        Math.hypot(points[i][0] - previous[i][0], points[i][1] - previous[i][1]) < 8,
+        Math.hypot(points[i][0] - previous[i][0], points[i][1] - previous[i][1]) < continuity,
         context + ': joint ' + i + ' remains continuous')
       previous = points
+      previousRoot = [p.x, p.y]
       previousLoaded = !!p.pushing?.effort
       if (p.pushing?.effort) {
         loaded++
@@ -99,7 +108,11 @@ test('crouch entry, loaded work and release retain the complete skin, palms and 
         assert.deepEqual(p, before, context + ': presentation cannot move the physical player or contacts')
       }
     }
-    assert.ok(loaded > 350, config.name + ': sustained physical force is exercised')
+    if (escaping) {
+      assert.ok(loaded > 0 && loaded < 350, config.name + ': the actual downhill shove releases')
+      assert.equal(p.pushing, null, config.name + ': the ball leaves no residual reach after release and rest')
+      assert.ok((run.props[0].x - p.x) * facing - config.size / 2 > 60, config.name + ': the ball rolls out of hand reach')
+    } else assert.ok(loaded > 350, config.name + ': sustained physical force is exercised')
     if (!config.ceiling) {
       stepRun(run, { ...NEUTRAL_INPUT, jump: true })
       assert.ok(!p.grounded && p.vy * (inverted ? -1 : 1) < 0, config.name + ': fresh jump escape stays immediate')

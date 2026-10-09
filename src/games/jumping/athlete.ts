@@ -369,7 +369,10 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
   }
   const from = angles(free), to = angles(target)
   // Rotate through the reach; folding the elbow lifts a released hand clear of the top.
-  const arm = armPose(root, lerp(from[0], to[0], contact), lerp(from[1], to[1], contact) + Math.sin(contact * Math.PI) * lift)
+  // A departing surface can pass behind the shoulder while contact fades.
+  // Blend wrapped angles along the short arc instead of spinning a whole turn
+  // when atan2 crosses its branch cut.
+  const arm = armPose(root, mixAngle(from[0], to[0], contact), mixAngle(from[1], to[1], contact) + Math.sin(contact * Math.PI) * lift)
   const angle = Math.atan2(arm.end[1] - arm.joint[1], arm.end[0] - arm.joint[0])
   const freePalm: Point = [Math.cos(angle) * 1.4, Math.sin(angle) * 1.4]
   const contactPalm: Point = [grip[0] - wrist[0], grip[1] - wrist[1]]
@@ -545,9 +548,9 @@ function ledgePose(p: Player): AthletePose {
   let hip = at(frame.hip), waist = at(frame.waist), shoulder = at(frame.shoulder), head = at(frame.head)
   let frontFoot = at(frame.frontFoot), backFoot = at(frame.backFoot)
   const balance = smooth((t - .48) / .09) * (1 - smooth((t - .8) / .2))
-  const relaxed = smooth((t - .8) / .2) * (crouched ? 0 : .24)
-  let frontFree = armPose(add(shoulder, [0, .7]), -.03 + balance * 1.1 + relaxed, .1 + balance * 1.1)
-  let backFree = armPose(add(shoulder, [0, .7]), -.03 - balance * .8 - relaxed, .1 + balance * 1.7)
+  const rest = smooth((t - .8) / .2) * Number(!crouched), relaxed = rest * .24
+  let frontFree = armPose(add(shoulder, [0, .7]), -.03 + balance * 1.1 + relaxed, .1 + balance * 1.1 + rest * .16)
+  let backFree = armPose(add(shoulder, [0, .7]), -.03 - balance * .8 - relaxed, .1 + balance * 1.7 + rest * .24)
   if (crouched) {
     const fold = smooth((t - .73) / .23)
     frontFree = armPose(add(shoulder, [0, .7]), lerp(-.03 + balance * 1.1, -.65, fold), lerp(.1 + balance * 1.1, 2.1, fold))
@@ -1633,8 +1636,10 @@ function resolveAthletePose(p: Player): AthletePose {
   const dip = squat * (13.4 + 1.8 * (1 - moving)) + landingDepth
   const slopeLean = -p.groundAngle * p.facing * (1 - air) * .3
   const hipHeight = lerp(lerp(-33.2, lerp(-31.4, -28.3, run), moving), -31.5 + tuck * 2.5, air)
-  const pelvicPitch = (.025 + run * .2 + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014
-  const chestPitch = (.035 + run * .4 + Math.sin(cycle * 2 - .55) * lerp(.035, .1, run)
+  // A walk still carries the chest ahead of the supported pelvis. Keep the
+  // running pitch while giving the slower gait a small, sustained forward lean.
+  const pelvicPitch = (lerp(.065, .225, run) + Math.sin(cycle * 2 + .4) * lerp(.035, .1, run)) * gait + squat * .65 + air * (.08 + tuck * .28) + landingDepth * .014
+  const chestPitch = (lerp(.16, .435, run) + Math.sin(cycle * 2 - .55) * lerp(.035, .1, run)
     + Math.sin(cycle - .3) * run * .035) * gait + squat * 1.25 + air * (.12 + speed * .18 + tuck * .18 - descent * .06 + preparation * .12 + steering * .025) + landingDepth * .035 + slopeLean
   const hip: Point = [-squat * 3 - landingDepth * .24 + gait * (run * .8 + Math.sin(cycle * 2) * .4), hipHeight + dip + hipBob]
   const waist: Point = [hip[0] + Math.sin(pelvicPitch) * 6.5, hip[1] - Math.cos(pelvicPitch) * 6.5]
@@ -1694,15 +1699,18 @@ function resolveAthletePose(p: Player): AthletePose {
   frontAnkle = mix(frontAnkle, [4 + Math.sin(cycle) * speed * 3, -2.8], squat)
   backAnkle = mix(backAnkle, [-5 - Math.sin(cycle) * speed * 3, -2.8], squat)
 
-  const swing = Math.cos(cycle - run * .12) * moving * lerp(.38, 1.05, run)
+  const armOffset = p.footwork?.armOffset
+  const armCycle = cycle + (armOffset ? armOffset.angle * (1 - smooth(armOffset.time / .2)) : 0)
+  const swing = Math.cos(armCycle - run * .12) * moving * lerp(.52, 1.18, run)
   const relaxed = (1 - moving) * (1 - air) * (1 - squat)
-  let frontAngle = lerp(-swing - .03 - run * .13 + relaxed * .24, -.65, squat), backAngle = lerp(swing - .03 - run * .13 - relaxed * .24, -.75, squat)
+  const armCarry = lerp(.03, .07, moving) + run * .13
+  let frontAngle = lerp(-swing - armCarry + relaxed * .24, -.65, squat), backAngle = lerp(swing - armCarry - relaxed * .24, -.75, squat)
   // The backward arm opens; the forward arm folds up toward the chest.
-  let frontFlex = lerp(.1 + moving * lerp(.12, 1.2 - Math.cos(cycle - .12) * .5, run), 2.1, squat)
+  let frontFlex = lerp(.1 + relaxed * .16 * (1 - pushing) + moving * lerp(.12, 1.2 - Math.cos(armCycle - .12) * .5, run), 2.1, squat)
   // At quiet crouched rest, let the rear forearm fall beside the knee instead
   // of merging both hands into one. Travel and loaded palms keep their fold.
   const crouchRest = (1 - moving) * (1 - air) * (1 - pushing)
-  let backFlex = lerp(.1 + moving * lerp(.12, 1.2 + Math.cos(cycle - .12) * .5, run), 2.2 - 1.55 * crouchRest, squat)
+  let backFlex = lerp(.1 + relaxed * .24 * (1 - pushing) + moving * lerp(.12, 1.2 + Math.cos(armCycle - .12) * .5, run), 2.2 - 1.55 * crouchRest, squat)
   if (air > 0) {
     // Stretch off the ground, gather through the apex, then open the arms for
     // balance. A real approaching support sweeps them back for the contact.

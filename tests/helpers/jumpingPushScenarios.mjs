@@ -1,5 +1,8 @@
 import { createRun } from '../../src/games/jumping/challenge.ts'
 import { blankTrial } from '../../src/games/jumping/level.ts'
+import { downhillBallLevel } from './jumpingDownhillBallScenarios.mjs'
+
+export const escapingDownhillBall = config => config.kind === 'ball' && config.slope > 0 && !config.blocked
 
 export const PUSH_SCENARIOS = [
   { name: 'creep crate', kind: 'box', size: 80, effort: .02 },
@@ -35,6 +38,9 @@ for (const kind of ['box', 'ball']) for (const slope of [-.3, .3]) {
  * Carrier starts exercise prepared dynamic support; authored spawn validation
  * separately requires static ground. These are not authored route fixtures. */
 export function pushScenario(config, facing) {
+  // A released downhill ball now overtakes the player. Give the complete
+  // release/rest recording real receiving ground instead of the old ramp end.
+  if (escapingDownhillBall(config)) return createRun(downhillBallLevel(config.size, facing, config.slope))
   const size = config.size, x = 800, y = 650, slope = (config.slope ?? 0) * facing
   const surface = at => y + slope * (at - x)
   const spawnX = x - facing * (size / 2 + 25.5)

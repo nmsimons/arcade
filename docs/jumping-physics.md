@@ -319,6 +319,17 @@ actual bindings. Regression coverage includes the action-feedback suite and
   own points on the terrain, with the resolved support defining their stance.
 - Jumping, turning away and losing support release the push constraint. Cosmetic
   blend-out is not a physical contact and cannot keep applying prop forces.
+- A ground shove can add forward force to a ball, but cannot brake a ball that
+  rolls faster than that shove. Such a ball remains a unilateral obstruction
+  until it leaves reach; it supplies no working push pose or hand force and
+  cannot accelerate the player beyond their ordinary steering. Released palms
+  travel with the player's blend-out, and the arms retain their outgoing phase
+  briefly when short supported steps give way to ordinary walking or running.
+- Dry airborne ledge catches allow six additional units of horizontal hand
+  approach beyond the previous body-near window. The vertical reach, exposed
+  lip, facing, deliberate-release cooldown, collision sweep and clear hanging
+  space remain required. A catch consumes a held Jump; Up still requests the
+  separate, clearance-checked pull-up.
 - Physical surfaces belong in the collision world. Do not add a second player
   overlap correction after `stepPlayer`, or rewind and recompute its animation.
 - Add future surface friction properties to the contact's collider/material and

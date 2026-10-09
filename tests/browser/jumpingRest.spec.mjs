@@ -1,0 +1,60 @@
+import { test, expect } from './helpers/test.mjs'
+import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { blankTrial } from '../../src/games/jumping/level.ts'
+
+for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into the ready stance, including crouch and restart`, async ({ page }, info) => {
+  test.setTimeout(60000)
+  const level = { ...blankTrial(), height: 600, floor: 500, spawn: { x: 800, y: 500 }, goal: { x: 1620, y: 500 } }
+  await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
+  await page.clock.runFor(64)
+  const read = () => page.evaluate(() => window.jumpingMotion.read().recent)
+  const latest = async () => (await read()).at(-1)
+  const initial = await latest()
+  const hands = frame => Math.hypot(...frame.points[4].map((v, i) => v - frame.points[6][i]))
+  const points = frame => frame.points.map(point => point.map(value => value === 0 ? 0 : value))
+  expect(initial.signals.grounded).toBe(true)
+  expect(initial.contacts.feet.every(foot => foot.planted)).toBe(true)
+  expect(hands(initial)).toBeGreaterThan(6)
+  expect(Math.hypot(initial.contacts.feet[0].x - initial.contacts.feet[1].x, initial.contacts.feet[0].y - initial.contacts.feet[1].y)).toBeGreaterThan(.5)
+  await page.clock.fastForward(10000)
+  expect((await latest()).points).toEqual(initial.points)
+  await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  await page.keyboard.down('Shift'); await page.keyboard.down(key); await page.clock.runFor(200)
+  await page.keyboard.up(key); await page.keyboard.up('Shift'); await page.clock.runFor(1000)
+  const settled = await latest()
+  expect(settled.x * (key === 'd' ? 1 : -1)).toBeGreaterThan(initial.x * (key === 'd' ? 1 : -1))
+  expect(settled.signals.facing).toBe(key === 'd' ? 1 : -1)
+  expect(settled.vx).toBe(0); expect(points(settled)).toEqual(points(initial))
+  await page.keyboard.down('s'); await page.clock.runFor(600)
+  const crouched = await latest()
+  expect(hands(crouched)).toBeGreaterThan(6)
+  expect(crouched.signals.grounded).toBe(true)
+  expect(crouched.contacts.feet.every(foot => foot.planted)).toBe(true)
+  for (let second = 0; second < 10; second++) {
+    const previous = await latest()
+    await page.clock.runFor(1000)
+    for (const frame of (await read()).filter(frame => frame.time > previous.time)) {
+      expect(frame.contacts.feet).toEqual(crouched.contacts.feet)
+      expect(frame.points).toEqual(crouched.points)
+      expect(frame.vx).toBe(0); expect(frame.vy).toBe(0)
+    }
+  }
+  await page.screenshot({ path: info.outputPath('quiet-crouched-rest.png') })
+  await page.keyboard.up('s'); await page.clock.runFor(600)
+  expect(points(await latest())).toEqual(points(initial))
+  // The HUD publishes every 80 ms; observe a full publication interval.
+  await restartFromPause(page); await page.clock.runFor(120)
+  const restarted = await latest()
+  expect(restarted.x).toBe(initial.x); expect(restarted.y).toBe(initial.y)
+  expect(restarted.points).toEqual(initial.points); expect(restarted.contacts.feet).toEqual(initial.contacts.feet)
+  await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  await page.screenshot({ path: info.outputPath('ready-after-restart.png') })
+  await page.keyboard.down('Space'); await page.clock.runFor(64)
+  expect((await latest()).vy).toBeLessThan(0); expect((await latest()).signals.grounded).toBe(false)
+})

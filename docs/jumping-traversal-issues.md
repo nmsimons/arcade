@@ -16,7 +16,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Acceptance complete: prompt supported recovery, retained stationary sequence, continuous first opposite press and repeated turns, unchanged motor and jump availability |
 | [#48 UJG: show braking and turning before mirroring a moving run](https://github.com/nmsimons/arcade/issues/48) | Medium (P2) | Acceptance complete: immediate steering, supported braking, crowded release/reach, repeated turns, and full-body contact continuity |
 | [#49 UJG: allow reconsidering tall automatic steps before commitment](https://github.com/nmsimons/arcade/issues/49) | Medium (P2) | Acceptance complete: geometric cancellation, full returning skin, moving props, reversed gravity, and pause/restart |
-| [#50 UJG: initialize and settle into a readable relaxed idle stance](https://github.com/nmsimons/arcade/issues/50) | Medium (P2) | Reproduced overlapping idle silhouette |
+| [#50 UJG: initialize and settle into a readable relaxed idle stance](https://github.com/nmsimons/arcade/issues/50) | Medium (P2) | Acceptance complete: supported ready/settled stance, distinct quiet arms including crouch, ten-second planted rest and actual passive carrier transport |
 | [#51 UJG: make Down action priority and lower-then-drop behavior predictable](https://github.com/nmsimons/arcade/issues/51) | Medium (P2) | Confirmed control contract with a discoverability problem |
 | [#52 UJG: explain and animate ledge jump-away and fresh-press departures](https://github.com/nmsimons/arcade/issues/52) | Medium (P2) | Reproduced launch orientation and confirmed input semantics |
 | [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Confirmed mismatch between labels and motor/bindings |
@@ -1972,3 +1972,63 @@ route feel remain unverified. #57 stays open for that record. Emulation and the
 passing WebKit checks do not substitute for the physical-device test. The
 recovery-turn follow-up above is on the traversal branch after this release;
 do not attribute it to the deployed merge until its own deployment is verified.
+
+## Idle acceptance complete
+
+October 9, 2026. This completes #50's six original criteria. The earlier prepared
+support stance and relaxed standing arms now have their complete rest audit. It
+reproduced one remaining defect: quiet crouching folded the two hands within
+one world unit of each other. The rear forearm now relaxes beside the knee while
+the front arm stays forward for balance. The adjustment fades with movement,
+airborne posture and pushing; it changes neither the physical root nor contacts.
+
+The matched recordings below use the original reviewed source `4a66908` and the
+final current source, identical real inputs and prepared geometry, 0.72× and
+2.6× views, and real-time playback. Each includes the ready frame, first input,
+settling and sustained quiet rest on flat ground, a 16-unit ledge, both slope
+directions, a box, a ball, a genuinely moving carrier, crouch and reversed
+gravity. Gravity activates through the real first-input sequence rather than
+being installed into a frozen fixture. The stationary ready and settled poses
+read as the same character. Quiet arms are distinct, elbows remain relaxed,
+soles do not shuffle, and carrier travel moves the still rider with its support.
+
+![Idle before, moving left](images/jumping-idle-before-left.gif)
+
+![Idle current, moving left](images/jumping-idle-current-left.gif)
+
+![Idle before, moving right](images/jumping-idle-before-right.gif)
+
+![Idle current, moving right](images/jumping-idle-current-right.gif)
+
+Separately acquired wall bracing, free hanging, ladder holding, rope suspension
+and floating/sculling show their real support throughout five seconds of rest
+in both directions. Wall feet brace the face, free-hanging feet remain unbraced,
+ladder limbs retain different contacts, suspended feet claim no standing
+support, and floating retains water motion. No additional animation change was
+needed for those states.
+
+![Actual rest supports, left](images/jumping-rest-support-left.gif)
+
+![Actual rest supports, right](images/jumping-rest-support-right.gif)
+
+Permanent `tests/jumping-initial-rest.test.mjs` coverage checks twenty actual
+started contexts for ten seconds each: zero locomotion gait, planted soles,
+exact final motor ankles and support-relative anchors, read-only pose queries,
+distinct quiet hands and immediately available fresh jumps. The carrier fixture
+now uses the supported always-powered horizontal definition and really travels
+over 100 units. Initial-world tests keep all elapsed clocks and prepared objects
+unchanged for 1,200 neutral ticks, reproduce restart, and retain airborne rigs
+for unsupported starts. The new quiet-crouch assertion fails against the
+preceding `56662c0` athlete source.
+
+Two normal-keyboard production-browser cases cover both directions, ready
+clock/stance, movement/settling, ten seconds of crouched rest, standing, pause
+restart and a fresh jump. Both pass on `UntitledJumpingGame-up4IpwZx.js`.
+The native rendered-silhouette check passes eight standing/crouched views at
+0.60× and 0.72×, verifying exposed raster pixels from each arm rather than wrist
+coordinates alone. Final UJG coverage passes 1,422 of 1,424 checks; the only two
+failures are the existing Windows symlink-permission fixtures. The separate
+22-check general movement suite, types, changed-file lint and isolated build
+also pass. Checkpoint/reset, anti-shuffle and contact regressions remain intact.
+Authored maps, local collections and medal times are preserved; actual device
+feel and the wider camera/route review retain their separate acceptance.

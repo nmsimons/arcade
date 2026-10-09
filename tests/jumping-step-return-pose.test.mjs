@@ -6,21 +6,32 @@ import {athletePose,handOutline,advanceReturningStepPreparation} from '../src/ga
 import {pointInside,nearestBoundary} from '../src/games/jumping/geometry.ts'
 import {ballShape,boxShape} from '../src/games/jumping/propGeometry.ts'
 import {movingStepPropFixture} from './helpers/jumpingStepProps.mjs'
+import {assertReturningShoes} from './helpers/jumpingReturnRig.mjs'
 const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]))
 const world=(p,a)=>[p.x+a[0]*p.facing,p.y+a[1]]
 test('return preparation retains a proportionate, contact-safe rig throughout all real prop interruptions',()=>{
  for(const side of [-1,1])for(const kind of ['box','ball'])for(const size of [30,80]){
   const {level}=movingStepPropFixture(side,kind,size),run=createRun(level)
   run.props[0].vx=side*480
-  let previous=world(run.player,athletePose(run.player).head),prepared=0,interrupted=0,force=0,curvedSupport=0
+  let previous=world(run.player,athletePose(run.player).head),previousWrists,wasForce=false,prepared=0,interrupted=0,force=0,curvedSupport=0,airReady=0
   for(let tick=0;tick<180;tick++){
    const returning=run.player.mantle?.returning
    stepRun(run,{...NEUTRAL_INPUT,move:tick<38?side:tick<150?-side:0})
    const p=run.player,pose=athletePose(p),head=world(p,pose.head),context=JSON.stringify({side,kind,size,tick})
+   assertReturningShoes(p,pose,run.props[0],context)
    prepared+=Number(!!p.mantle?.step?.returnPreparation)
    interrupted+=Number(!!returning&&!p.mantle)
    curvedSupport+=Number(p.contacts.support?.collider.prop===run.props[0])
    assert.ok(distance(head,previous)<8,'head continuity '+context)
+   const wrists=[pose.frontArm,pose.backArm].map(arm=>world(p,arm.end)),loaded=!!p.contacts.push?.hands
+   if(previousWrists)for(const [i,wrist]of wrists.entries()){
+    assert.ok(distance(wrist,previousWrists[i])<10,'whole-transition wrist continuity '+context)
+   }
+   if(loaded&&!wasForce&&previousWrists)for(const [i,wrist]of wrists.entries()){
+    assert.ok(distance(wrist,previousWrists[i])<10,'first-force wrist continuity '+context)
+   }
+   if(!p.grounded&&p.pushing?.ready&&!p.pushing.effort&&!loaded)airReady++
+   previousWrists=wrists;wasForce=loaded
    assert.ok(distance(pose.hip,pose.waist)>6.2,'pelvis proportions '+context)
    assert.ok(distance(pose.waist,pose.shoulder)>8.5,'chest proportions '+context)
    assert.ok(distance(pose.head,pose.shoulder)<10,'neck proportions '+context)
@@ -61,6 +72,9 @@ test('return preparation retains a proportionate, contact-safe rig throughout al
   assert.ok(prepared>0,'preparation is exercised '+JSON.stringify({side,kind,size}))
   if(kind==='ball'&&size===30)assert.ok(curvedSupport>0,'real small-ball support is exercised')
   else assert.ok(force>0,'real pushing follows')
+  // A short crate may retain its real wall brace during the brief slip.
+  // The larger encounters include a genuinely free falling approach.
+  if(size===80)assert.ok(airReady>0,'unloaded reach precedes ground contact')
   stepRun(run,{...NEUTRAL_INPUT,jump:true});assert.ok(run.player.vy<0,'fresh jump')
  }
 })

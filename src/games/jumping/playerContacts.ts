@@ -280,14 +280,19 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
     } finally { mirrorPlayerState(p); p.inverted = true }
   }
   const direction = Math.sign(input.move)
-  if (!direction || !p.grounded || p.hang || p.mantle || p.climbing || p.freeFall?.amount
+  // A brief slip retains its real slide/brace balance. An interrupted step
+  // already owns a continuous outgoing rig and can prepare its incoming hands;
+  // an ordinary free reach cannot take over another contact's torso.
+  const falling = !p.grounded && p.vy >= 0 && !p.jumpLift && !p.waterMotion
+    && (p.dryTurn?.step || !p.sliding?.amount && !p.wallBrace?.amount && !p.slideEntry)
+  if (!direction || !(p.grounded || falling) || p.hang || p.mantle || p.climbing || p.freeFall?.amount
     || input.jump && !p.jumpHeld || p.buffer > 0) return null
   const candidates = world.colliders.flatMap(collider => {
     if (!collider.prop || collider.id === p.contacts?.support?.collider.id) return []
     const hands = propPushHands(collider.prop, p.x, p.y, direction, 43 - p.crouch * 15, 72)
     if (!hands) return []
     const gap = (hands.wallX - p.x) * direction
-    if (gap <= 38 || gap >= 72) return []
+    if (gap >= 72) return []
     const sweep = moveBody([p.x, p.y], [p.x + direction * gap, p.y], world.platforms,
       p.crouching ? TUNING.crouchHeight : TUNING.height)
     const first = sweep.contacts.find(contact => contact.normal[0] * direction < -.4)
@@ -302,7 +307,7 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
 
 /** Presentation consumes the solved contact; it never moves the player. */
 export function updatePushingPose(p: Player, contact: PushContact | null, dt: number, speed = 0) {
-  if (contact?.hands && (p.grounded || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
+  if (contact?.hands && (p.grounded || contact.anticipation !== undefined || contact.swimming && p.waterMotion) && !p.hang && !p.mantle && !p.climbing) {
     // The fading pose owns its source identity. A one-tick contact gap must not
     // restart the hands at rest when that same moving surface is reacquired.
     const previous = p.pushing?.direction === contact.direction && p.pushing.colliderId === contact.collider.id ? p.pushing : null

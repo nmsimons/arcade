@@ -5,6 +5,7 @@ import {NEUTRAL_INPUT,TUNING} from '../src/games/jumping/model.ts'
 import {athletePose} from '../src/games/jumping/athlete.ts'
 import {movingStepPropFixture} from './helpers/jumpingStepProps.mjs'
 import {mirrorPlayerState} from '../src/games/jumping/gravityFrame.ts'
+import {assertReturningRig,rigWorld,rigDistance} from './helpers/jumpingReturnRig.mjs'
 
 test('return preparation reflects and restores its live palms during reversed-gravity moving encounters',()=>{
  for(const side of [-1,1])for(const kind of ['box','ball'])for(const size of [30,80]){
@@ -16,7 +17,7 @@ test('return preparation reflects and restores its live palms during reversed-gr
   const run=createRun(level)
   Object.assign(run.player,{inverted:true,gravity:-TUNING.gravity,footwork:null})
   run.props[0].vx=side*480
-  let previous,maximum=0,prepared=0,interrupted=0,step=0
+  let previous,previousWrists,wasForce=false,maximum=0,prepared=0,interrupted=0,step=0,airReady=0
   for(let tick=0;tick<180;tick++){
    const returning=run.player.mantle?.returning
    stepRun(run,{...NEUTRAL_INPUT,move:tick<38?side:tick<150?-side:0})
@@ -24,6 +25,17 @@ test('return preparation reflects and restores its live palms during reversed-gr
    assert.deepEqual(p,snapshot,'pose query restores inverted preparation')
    mirrorPlayerState(p);mirrorPlayerState(p)
    assert.deepEqual(p,snapshot,'preparation palms are an involution')
+   const context=JSON.stringify({side,kind,size,tick,inverted:true})
+   assertReturningRig(p,pose,run.props[0],context)
+   const wrists=[pose.frontArm,pose.backArm].map(arm=>rigWorld(p,arm.end)),force=!!p.contacts.push?.hands
+   if(previousWrists)for(const [i,wrist]of wrists.entries()){
+    assert.ok(rigDistance(wrist,previousWrists[i])<10,'whole-transition wrist continuity '+context)
+   }
+   if(force&&!wasForce&&previousWrists)for(const [i,wrist]of wrists.entries()){
+    assert.ok(rigDistance(wrist,previousWrists[i])<10,'first-force wrist continuity '+context)
+   }
+   if(!p.grounded&&p.pushing?.ready&&!p.pushing.effort&&!p.contacts.push?.hands)airReady++
+   previousWrists=wrists;wasForce=force
    const head=[p.x+pose.head[0]*p.facing,p.y+pose.head[1]*(p.inverted?-1:1)]
    if(previous)maximum=Math.max(maximum,Math.hypot(head[0]-previous[0],head[1]-previous[1]))
    prepared+=Number(!!p.mantle?.step?.returnPreparation)
@@ -34,6 +46,9 @@ test('return preparation reflects and restores its live palms during reversed-gr
   console.log(JSON.stringify({side,kind,size,maximum,prepared,interrupted,step,grounded:run.player.grounded,y:run.player.y}))
   assert.ok(prepared>0&&interrupted>0,'real reversed return and obstruction')
   assert.ok(maximum<8,'reversed head continuity')
+  // The short crate can interrupt directly onto ceiling footing, so its
+  // unloaded preparation belongs to the returning step rather than free air.
+  if(size===80)assert.ok(airReady>0,'unloaded reversed reach precedes ground contact')
   stepRun(run,{...NEUTRAL_INPUT,jump:true});assert.ok(run.player.vy>0,'fresh reverse jump')
  }
 })

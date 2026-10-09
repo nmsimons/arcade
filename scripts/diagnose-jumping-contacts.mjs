@@ -11,14 +11,17 @@ const world = (p, point) => [p.x + point[0] * p.facing, p.y + point[1] * (p.inve
 
 function measure(run, inputs) {
   const result = { frames: 0, firstHeadStep: 0, maximumHead: { value: 0, tick: 0 },
-    maximumShoulder: { value: 0, tick: 0 }, minimumPelvis: Infinity, minimumChest: Infinity,
+    maximumShoulder: { value: 0, tick: 0 }, maximumWrist: { value: 0, tick: 0 },
+    maximumFirstForceWrist: { value: 0, tick: 0 }, minimumPelvis: Infinity, minimumChest: Infinity,
     minimumSpineSpan: Infinity, maximumNeck: 0, unownedPlantedFeet: 0,
     maximumBoneError: 0, maximumPlantedAnkleError: 0, maximumForcedPalmError: 0,
     missingPalms: 0, forceFrames: 0, interruptionTick: null }
-  let previous
+  let previous, previousForce = false
   function record(tick) {
     const p = run.player, pose = athletePose(p)
-    const points = { head: world(p, pose.head), shoulder: world(p, pose.shoulder) }
+    const force = !!p.contacts?.push?.hands
+    const points = { head: world(p, pose.head), shoulder: world(p, pose.shoulder),
+      wrists: [pose.frontArm, pose.backArm].map(arm => world(p, arm.end)) }
     if (previous) {
       for (const name of ['head', 'shoulder']) {
         const value = distance(previous[name], points[name])
@@ -26,6 +29,9 @@ function measure(run, inputs) {
         if (value > result[key].value) result[key] = { value, tick }
         if (tick === 0 && name === 'head') result.firstHeadStep = value
       }
+      const wrist = Math.max(...points.wrists.map((point, i) => distance(previous.wrists[i], point)))
+      if (wrist > result.maximumWrist.value) result.maximumWrist = { value: wrist, tick }
+      if (force && !previousForce && wrist > result.maximumFirstForceWrist.value) result.maximumFirstForceWrist = { value: wrist, tick }
     }
     result.minimumPelvis = Math.min(result.minimumPelvis, distance(pose.hip, pose.waist))
     result.minimumChest = Math.min(result.minimumChest, distance(pose.waist, pose.shoulder))
@@ -52,6 +58,7 @@ function measure(run, inputs) {
       }
     }
     previous = points
+    previousForce = force
     result.frames++
   }
   record(-1)

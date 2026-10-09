@@ -145,13 +145,34 @@ better first head sample can hide a collapsed torso or a worse subsequent shove.
 `tests/jumping-step-return-pose.test.mjs` covers the complete normal moving-prop
 return, loaded-contact handoff, free-hand skin and rejected wall-obstructed
 preparation. `tests/jumping-step-return-gravity.test.mjs` adds real reverse-field
-encounters, read-only pose queries and preparation-palm reflection. Keep both
-files with the original step, ledge, foot-landing and slide suites; passing one
+encounters with the same bone, torso, hand/shoe-skin and planted-ankle checks,
+read-only pose queries and preparation-palm reflection. Both suites bound wrist
+motion on every frame as well as on first force; moving a snap into the preceding
+unloaded frame must fail the same complete-transition review.
+`tests/jumping-push-anticipation.test.mjs` covers a close falling reach, rejected
+blockers, immediate release, fresh/active jump priority, and exclusion of other
+grip, recovery and balance owners. A retained interrupted-step rig can coordinate
+its incoming reach; an ordinary approach must not replace a fading slide brace.
+Keep the crowded box/ball/bot torso-continuity regression with these checks.
+The falling-reach suite also exercises a whole running/walking ball descent:
+the actual brief slip takes over from the outgoing reach without replacing the
+whole rig at once. A returning step's turn can finish before landing; keep its
+incoming reach owner until genuine footing or release ends that preparation.
+Keep both files with the original step, ledge, foot-landing and slide suites; passing one
 handoff must not excuse detached lip grips or later abrupt arm acquisition.
 For ball palm clearance, distinguish the drawn circle from its circumscribed
 collision polygon. A loaded tangent palm can clear the visible ball while lying
 inside that polygon's narrow outer rim; never ignore true skin penetration or
 alter the physical hull to make an animation assertion pass.
+
+During a loaded step handoff, use the actual incoming contact direction even
+if mechanical facing still belongs to the canceled climb for that tick. Fit
+the pelvis to real planted ankles as well as fitting the shoulder to the force
+palms. Clear a swinging shoe's final outline after torso fitting; retaining a
+fixed ankle does not establish that its old shoe pitch clears the floor.
+`diagnose-jumping-contacts.mjs` reports complete and first-force wrist maxima
+alongside head/shoulder and contact measurements. A good head trace alone can
+still conceal a late arm snap.
 
 Resolve both images equally for paired
 performance measurements and retain the same memory budget. A passing normal

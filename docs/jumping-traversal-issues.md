@@ -1488,3 +1488,126 @@ Evidence under `.tmp/ujg-traversal-fixes/`: `return-live-all-node.log`,
 `return-live-contact-diagnostic.json`, `return-live-physical-comparison.json`,
 `return-live-native-physical-comparison.json`, `return-live-native.json`,
 `return-live-frames/` and `return-preparation-joint-comparison.json`.
+
+## Twenty-third implementation pass: finish the incoming reach
+
+October 8, 2026, following pushed commit `1dc31ec`. A close descending approach
+can now prepare an exposed prop before the first grounded shove. Preparation
+retains zero effort/load and never supplies force or support. Rising/active and
+fresh jumps, water, grips and recovery retain their existing owners. Ordinary
+free reaches cannot replace an existing slide/brace balance. An interrupted
+step already retains its outgoing rig and coordinates its incoming hands through
+that transfer. The full crowded bot/box/ball regression caught a 3.276-unit torso
+hop when this distinction was absent; it passes with the original three-unit
+limit after the ownership correction.
+
+Returning preparation begins at the preceding gentle rate, then finishes its
+reach more quickly as the body approaches the floor. A uniformly faster blend
+was rejected because it worsened the initial head turn to 8.068–11.535 units.
+The accepted easing keeps the original eight-unit head reference. A loaded
+handoff uses the actual incoming contact direction: in the inverted short-crate
+encounter, that contact can arrive one tick before the canceled climb relinquishes
+mechanical facing. The former facing-based target left the force palms detached.
+
+Palm fitting also retains reachable real planted ankles. The first falling-reach
+candidate passed the arm checks but lifted a planted large-ball shoe by 0.172
+units after the torso adjustment; the retained solver fits both constraints.
+Final blended wall palms clear their actual skin without adding padding to a
+flush loaded wall. Expanding the inverted matrix found the preceding 0.098-unit
+wall-palm graze. Checking both shoes also found the small-crate handoff's unloaded
+trailing shoe cutting 0.381–1.450 units into the floor/ceiling. That shoe now clears
+its final outline during the grounded handoff while planted ankles remain fixed.
+All sixteen normal/reversed encounters retain clear sampled hand and shoe skin.
+
+The first falling-reach prototype reduced first-force wrist travel but moved the
+large-crate snap to the preceding unloaded frame: 27.294/27.501 units at tick 69.
+It was rejected after reviewing the complete native sequence. The turn had
+finished while the return was still airborne, discarding its incoming reach
+owner through the remaining one-tick slips. Retaining that preparation until
+actual footing or release removes the arm drop and reacquisition. The permanent
+normal/reversed regressions now bound every wrist frame, including unloaded
+preparation, rather than checking only the first force-bearing sample.
+
+An ordinary walking descent beside a ball exposed a related handoff: a free
+incoming reach disappeared when the brief slide balance took over. The existing
+production test failed its unchanged four-unit joint limit. Slide entry now
+captures that actual outgoing reach lazily and transfers the whole rig. The
+new simulation regression covers running and walking from the complete approach
+through slide entry/release and the lower landing. Maximum entry changes fall
+from 18.396 units running and 17.768 units walking to 1.272/1.287 units. The motor,
+prop forces and slide balance remain unchanged.
+
+The matched clips below preserve all four complete normal encounters, input,
+framing, 1×/2.6× scale and real-time playback. The preceding capture uses
+`1dc31ec`. The loop boundary resets each encounter. The reach now precedes the
+incoming shove, including the larger tumbling crate's later contact. The native
+reverse-field matrix also retains all eight encounters and their later release.
+These findings address the reported acquisition defects; the opposed stationary
+brace/repeated-turn defect in #48 remains a separate outstanding review.
+
+![Preceding airborne-to-push acquisition](images/jumping-falling-push-before.gif)
+
+![Revised airborne-to-push acquisition](images/jumping-falling-push-current.gif)
+
+Across the complete sixteen-case return matrix, first-force wrist maxima are
+4.063–4.799 units for normal crates, 2.912 for the large normal ball, 4.115–7.923
+for reversed crates and 3.994 for the large reversed ball. The small balls use
+actual curved support and have no force-bearing pushing episode. Normal large
+crates now have maximum whole-sequence wrist changes of 5.479/5.563 units,
+compared with the preceding 21.674/22.167-unit contact snaps. All sixteen
+whole-sequence wrist maxima stay below ten units; head maxima remain below eight,
+with the largest at 7.494. Loaded torso segments retain their 6.5/10.1-unit
+lengths; maximum neck length is 8.721, limb-length error is below 1e-13, planted
+ankle error is zero, and force-palm error is below 1e-12. These are regression
+bounds, alongside the complete matched native review, not general thresholds
+for accepting natural animation.
+
+All 2,880 normal/reversed simulation physical frames match `1dc31ec` exactly,
+including root, velocity, facing, gravity/crouch/jump state and complete props.
+All 2,160 native-browser physical frames match their respective same-browser
+baselines; comparing Node and Chromium floating-point traces is not used as
+proof. The four real crowded bot/box/ball scenes retain 2,640 identical physical
+frames and their original torso-continuity limit. Both hand and shoe sampled
+skin matrices have no penetration above 0.02 units.
+
+The complete current UJG run passes 1,439 of 1,441 checks. The two failures remain
+Windows symlink-creation `EPERM` fixtures, before their security assertions; every
+movement and recorded-route check passes. Types, changed-file lint and the
+isolated production build pass. Built-in and local authored levels and medal
+times are unchanged. The individual/combined cancellation matrix also adds
+progress 0 and 0.8 alongside 0.1/0.45/0.97, preserving its geometry-based
+commitment assertions.
+
+The earlier browser run reproduced the ball-slip pose discontinuity, which is
+fixed above. Its following run passed that check but had one 40-unit-stair
+startup failure: the game remained in its loading dialog before the first level
+card and any traversal input. Neither test's original deadline, input or
+assertion was changed. Final-source browser evidence is recorded below.
+
+All 43 final production-browser checks pass in 2.5 minutes with their ordinary
+two-worker settings and original inputs, assertions and deadlines. Every retained
+trace confirms `UntitledJumpingGame-lP3MOaI6.js`, including all nine original #60
+cases. Both squeeze checks retain their original 30-second deadlines. The final
+run's complete ball descent passes with the four-unit joint limit unchanged.
+
+Local evidence under `.tmp/ujg-traversal-fixes/`: `air-retained-all-node.log`,
+`air-retained-focused.log`, `air-retained-types.log`, `air-retained-lint.log`,
+`air-retained-build.log`, `air-retained-browser.log`,
+`air-retained-browser-results/`, `air-retained-build-witnesses.json`,
+`air-live-comparison.json`, `air-retained-comparison.log`,
+`air-live-native-physical-comparison.json`, `air-live-native.json`,
+`air-live-inverted-native.json`, `air-retained-evidence.log`,
+`air-retained-contact-diagnostic.json`, `air-retained-shoes.log` and
+`air-retained-inverted.log`. Baseline/native captures remain distinct. The earlier
+`air-live-browser-results/` and `air-final-browser-results/` retain the failed
+intermediate runs; the current matched clips were refreshed after the final
+reach-ownership correction. #48 still reproduces its separate 35.152-unit
+crowded repeated-reversal head jump.
+
+**#43 and #49 remain open pending their complete acceptance audit.** The known
+returning-step acquisition is corrected; that does not establish the broader
+crowded pushing/reversal contract in #48 or all movement contexts. Review actual
+whole-body skin, support and full normal-speed transitions against the original
+issue checklist before closing, and retain the recorded failure/prototype
+evidence. Hardware feel, camera adequacy and collection-wide current-control
+enjoyment remain separate outstanding work.

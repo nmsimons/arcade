@@ -25,8 +25,8 @@ function approach(p, terrain, input = {}, world) {
 }
 
 test('tall steps reverse safely before top commitment on opposite, Down, or detach intent', () => {
-  for (const height of [40,60]) for (const side of [-1,1]) for (const progress of [.1,.45,.8,.97]) {
-    for (const request of [{ move: -side }, { drop: true }, { descend: true }, { detach: true }]) {
+  for (const height of [40,60]) for (const side of [-1,1]) for (const progress of [0,.1,.45,.8,.97]) {
+    for (const request of [{ move: -side }, { drop: true }, { descend: true }, { detach: true }, { move: -side, detach: true, drop: true }]) {
       const { p, terrain } = setup(height, side, 74.5 * side)
       assert.ok(approach(p, terrain, { move: side }))
       while (p.mantle.time / p.mantle.step.duration < progress) tick(p, terrain, { move: side })

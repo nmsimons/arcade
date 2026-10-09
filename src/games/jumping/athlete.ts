@@ -393,7 +393,10 @@ export function advanceReturningStepPreparation(p: Player, input: JumpInput, dt:
   }) : []
   candidates.sort((a,b) => a.gap - b.gap)
   const contact = candidates[0], wanted = contact ? 1 : 0
-  const amount = (previous?.amount ?? 0) + (wanted - (previous?.amount ?? 0)) * (1 - Math.exp(-dt / .05))
+  // Begin gently, then finish the incoming reach before the returning body
+  // reaches the floor. A uniformly faster blend snaps the initial turn.
+  const preparationTime = contact ? .05 - .02 * smooth((previous?.amount ?? 0) / .5) : .05
+  const amount = (previous?.amount ?? 0) + (wanted - (previous?.amount ?? 0)) * (1 - Math.exp(-dt / preparationTime))
   if (contact) step.returnPreparation = { ...contact, amount }
   else if (previous && amount > .001) step.returnPreparation = { ...previous, amount }
   else delete step.returnPreparation
@@ -895,7 +898,8 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   // The landing transfer already retains the outgoing orientation. A second
   // owner would discard it when steering reverses against the remaining slip.
   if (p.slideEntry?.landing) { p.dryTurn = null; return }
-  const contactTurn = !!(p.contacts?.push?.hands && (p.dryTurn?.pushing || p.dryTurn?.step || before?.step && !p.mantle))
+  const push = p.contacts?.push
+  const contactTurn = !!(push?.hands && (p.dryTurn?.pushing || p.dryTurn?.step || before?.step && !p.mantle))
   // A first shove owns its reachable brace. An interrupted step can transfer
   // only with the incoming force's palms and real shoes held fixed.
   if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || p.freeFall?.recovery != null || p.contacts?.push?.hands && !contactTurn) {
@@ -911,7 +915,8 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
     slide: !!(before?.slide || p.sliding || p.slideEntry), pushing: contactTurn, step: !!interruptedStep }
   motion.pushing ||= contactTurn
   const braking = input.move * p.vx < -1
-  const direction = contactTurn ? p.facing : dryTurnDirection(p, input, before)
+  const approach = !p.grounded && (p.pushing?.ready ?? 0) > 0 && p.pushing?.effort === 0
+  const direction = contactTurn ? push!.direction : approach ? p.pushing!.direction : dryTurnDirection(p, input, before)
   if (motion.target !== direction) { motion.target = direction; motion.time = 0 }
   motion.time += dt
   const gait = p.gait && { ...p.gait, run: braking ? 0 : p.gait.run }
@@ -948,11 +953,21 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
         ? clearSlidingJoint(p, clearAirborneFoot(p, motion.pose[name], 16), 15, 14.5, 2.2)
         : clearAirborneFoot(p, { ...motion.pose[name], ...clearLimb(p, motion.pose[name], 15, 14.5, -1) })
     }
+  } else if (contactTurn) {
+    // A swinging shoe can retain its outgoing pitch at the first grounded
+    // shove. Clear its skin without moving either real planted ankle.
+    for (const name of ['frontLeg','backLeg'] as const) if (!motion.pose[name].planted) {
+      motion.pose[name] = clearAirborneFoot(p,motion.pose[name],16)
+    }
   }
   motion.pose.frontArm = clearLimb(p, motion.pose.frontArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
   motion.pose.backArm = clearLimb(p, motion.pose.backArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
   motion.facing = p.facing
-  if (fraction === 1 && direction === p.facing && !braking) p.dryTurn = null
+  // The turn can finish before a returning step reaches the floor. Keep its
+  // incoming reach owner through the intervening one-tick slips; dropping it
+  // here lowers the arms, only to reacquire the same palms on the next shove.
+  const preparingStep = motion.step && !p.grounded && (p.pushing?.ready ?? 0) > 0
+  if (fraction === 1 && direction === p.facing && !braking && !preparingStep) p.dryTurn = null
 }
 
 /** Incoming force keeps its palms immediately. Fit the shoulder to that reach,
@@ -980,6 +995,21 @@ function transferPushTurn(p: Player, pose: AthletePose, from: AthletePose, targe
   const dx = shoulder[0] - pose.hip[0], dy = shoulder[1] - pose.hip[1], span = Math.hypot(dx,dy)
   if (span < 12) pose.hip[1] = shoulder[1] + Math.sqrt(Math.max(0, 12 ** 2 - dx ** 2))
   if (span > 16.58) { pose.hip[0] = shoulder[0] - dx * 16.58 / span; pose.hip[1] = shoulder[1] - dy * 16.58 / span }
+  // Fitting an incoming palm can raise the pelvis beyond a loaded leg's reach.
+  // Keep the actual ankles reachable while the shoulder and torso meet those
+  // wrists; adjusting only the final leg would pull its planted shoe upward.
+  for (let pass = 0; pass < 24; pass++) {
+    for (const name of ['frontLeg','backLeg'] as const) if (target[name].planted) {
+      const end = target[name].end, dx = pose.hip[0] - end[0], dy = pose.hip[1] + 1 - end[1], reach = Math.hypot(dx,dy)
+      if (reach > 29.3) { pose.hip[0] = end[0] + dx * 29.3 / reach; pose.hip[1] = end[1] + dy * 29.3 / reach - 1 }
+    }
+    const dx = shoulder[0] - pose.hip[0], dy = shoulder[1] - pose.hip[1], span = Math.hypot(dx,dy)
+    if (span > 16.58) { shoulder[0] = pose.hip[0] + dx * 16.58 / span; shoulder[1] = pose.hip[1] + dy * 16.58 / span }
+    for (const arm of [target.frontArm,target.backArm]) {
+      const dx = shoulder[0] - arm.end[0], dy = shoulder[1] + .7 - arm.end[1], reach = Math.hypot(dx,dy)
+      if (reach > 18.7) { shoulder[0] = arm.end[0] + dx * 18.7 / reach; shoulder[1] = arm.end[1] + dy * 18.7 / reach - .7 }
+    }
+  }
   const trunk = solve(pose.hip,shoulder,6.5,10.1,1), alternative = solve(pose.hip,shoulder,6.5,10.1,-1)
   const distance = (point: Point) => Math.hypot(point[0] - pose.waist[0], point[1] - pose.waist[1])
   pose.waist = distance(trunk.joint) < distance(alternative.joint) ? trunk.joint : alternative.joint
@@ -1007,9 +1037,9 @@ function transferPushTurn(p: Player, pose: AthletePose, from: AthletePose, targe
   return pose
 }
 
-/** Delay solving the outgoing grounded rig until the motor actually slips. */
+/** Delay solving the outgoing support or approaching reach until a slip. */
 export function captureSlideEntry(p: Player): SlideEntryFrame | null {
-  if (!p.slideEntry && (!p.grounded && !p.sliding || p.hang || p.mantle || p.climbing || p.waterMotion || (p.freeFall?.amount ?? 0) > 0)) return null
+  if (!p.slideEntry && (!p.grounded && !p.sliding && !p.pushing?.ready || p.hang || p.mantle || p.climbing || p.waterMotion || (p.freeFall?.amount ?? 0) > 0)) return null
   if (p.slideEntry) return { player: { ...p }, facing: p.facing, sliding: !!p.sliding }
   return { player: snapshotDryPlayer(p), facing: p.facing, sliding: !!p.sliding }
 }
@@ -1587,11 +1617,13 @@ function resolveAthletePose(p: Player): AthletePose {
       return result
     }
     frontArm = press(frontArm, -43, 0); backArm = press(backArm, -46, 1)
-    // A fading or anticipated palm has no load owner. Clear its actual skin
-    // after the contact blend, which otherwise rotates it into a tilted face.
-    if (p.pushing!.palms && !p.contacts?.push?.hands) {
-      frontArm = clearLimb(p,frontArm,UPPER_ARM,FOREARM,1,true)
-      backArm = clearLimb(p,backArm,UPPER_ARM,FOREARM,1,true)
+    // An unloaded prop reach and a blending wall palm need final skin clearance.
+    // Real prop palms retain their exact force contact; a loaded wall's flush
+    // skin needs no additional padding during the reach.
+    if (!p.pushing!.palms || !p.contacts?.push?.hands) {
+      const wallContact = !!p.contacts?.push?.hands
+      frontArm = clearLimb(p,frontArm,UPPER_ARM,FOREARM,1,true,wallContact)
+      backArm = clearLimb(p,backArm,UPPER_ARM,FOREARM,1,true,wallContact)
     }
   }
   if (p.ledgeReach && !p.grounded) {
@@ -1636,6 +1668,7 @@ function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
   let current = leg
   const target: Point = [...leg.end]
   const landing = !!p.slideEntry?.landing || !!p.sliding && !!anticipateSlideLanding(p)
+    || p.grounded && !!p.dryTurn?.pushing
   if (landing) passes = Math.max(passes, 16)
   const boundary = p.slideEntry || p.dryTurn || landing ? footSkin : soleSkin
   for (let pass = 0; pass < passes; pass++) {

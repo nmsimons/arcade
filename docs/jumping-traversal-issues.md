@@ -2952,3 +2952,60 @@ continue to require separation, bounded player speed and no renewed push pose;
 the accepted ball solver is unchanged. No browser deadlines were increased.
 Evidence: `hosted-fixture-correction.log`, `fall-physics-timing-final.log` and
 the retained original hosted browser failure artifacts.
+
+## Boundary placement and the revised Balls receiver — October 9
+
+Follow-up [#76](https://github.com/nmsimons/arcade/issues/76) records the arbitrary
+24-unit horizontal authoring inset exposed by the Balls workaround. The world
+walls already sit at x = 0 and x = level.width; they do not need this padding.
+Creation, movement, resizing, coin-display rotation/conversion and the JSON
+decoder now use each object's actual footprint. Props may touch a wall,
+pressure plates and coin displays may start at zero, and mechanisms may meet
+either boundary. Shovebot patrol limits use the actual 26-unit half-width while
+retaining the minimum patrol span and support rules. Goal placement uses the
+door and indicator footprint. Real collision and support rules still apply.
+
+The user replaced the outside Balls receiver's x = 24 position with **x = 10**
+and confirmed that the level works. That working placement is preserved. The
+new artificial stop is removed; the 30-unit ball can rest at x = 15 over the
+plate. Tower I uses the same boundary-based solution with its outside plate at
+x = 0, also without the added stop. The other plate locations, target wiring,
+props and authored medal thresholds remain intact. The accepted downhill ball
+solver is unchanged.
+
+Twelve boundary regression groups exercise both sides, real out-of-bounds
+rejection, creating/dragging/snapping/resizing, legacy thicker vertical meters,
+style/orientation conversion, mounted plates after lift edits, shovebot patrol
+turning and physical small-ball rest after release. The focused editor/switch
+run passes 96 tests. Compatibility with the separate local Switch-start-state
+work passes 53 tests without bundling that work into this change. All 25 strict
+built-in mechanism/route checks pass; the user's final x = 10 Balls layout also
+passes a separate current tap/hold route and receiver check. Balls now has a
+current-control recording at 24.817 seconds, under its existing Gold 28. Tower I
+still completes with its two distinct required cargo balls and Gold 100.
+
+The browser editor check places plates, balls, lifts and numeric coin displays
+at both boundaries using normal keyboard nudges, saves to a real test folder,
+reloads and reopens the level, and verifies the saved positions. It passes.
+Physical iPhone comfort/interruption acceptance and the six previously recorded
+broader traversal acceptance gaps remain open; boundary placement does not
+resolve those by implication.
+
+The fresh **Balls** browser route also passes with native held keyboard controls:
+Gold at **24.8 seconds**, using the user's x = 10 plate and adjusted receiving
+light. Every jump uses the current tap/hold model. The long delivery inputs keep
+every physics step while reducing rendered frames; this is a whole-route check,
+not a per-frame animation witness. Its 180-second browser budget scales the
+existing lit-route allowance to this longer route without relaxing the Gold
+deadline or completion assertions.
+
+The inspector uses the same real shovebot hull clearance as the decoder and
+editor, and changing room width no longer adds a 24-unit inset to every object.
+Existing platform slope patrol support remains unchanged. The focused slope
+placement and boundary run passes 24 tests, and the production browser patrol
+test verifies immediate preview, cancellation, undo, both limit fields and
+save/reopen at the new limits. It passes. The full local Windows suite passes
+**2,101 tests**; two security tests cannot create their file-symlink fixtures
+because Windows returns `EPERM`. They remain required in Linux CI and are not
+skipped or weakened. The final head must pass all hosted release checks before
+merge and deployment.

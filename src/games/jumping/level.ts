@@ -28,6 +28,7 @@ import { isTerrainMaterial } from './terrainMaterials.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { lightingProblems, parseLighting } from './lightingDefinition.ts'
 import type { LightingDefinition } from './lightingDefinition.ts'
+import { ROBOT_HALF_WIDTH } from './robotPhysics.ts'
 import type { PressurePlateMount } from './pressurePlateMount.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 import type { WallLight } from './wallLight.ts'
@@ -169,7 +170,7 @@ export function levelProblems(level: JumpLevel): string[] {
       if (t.mode !== 'coins') continue
       if (t.threshold > coins) issues.push(`Add enough coins for ${objectReference(level, 'trigger', i)} to reach its threshold (${coins} available, ${t.threshold} required).`)
       const b = coinSwitchBounds(t)
-      if (b.x < 24 || b.y < 0 || b.x + b.w > level.width - 24 || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'trigger', i)} inside the level rectangle.`)
+      if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'trigger', i)} inside the level rectangle.`)
     }
     for (const [i, r] of level.robots.entries()) if (!groundAt(terrain, r.x, r.y, .2)) issues.push(`Place ${objectReference(level, 'robot', i)} on a terrain surface.`)
     for (const [i, t] of (level.timers ?? []).entries()) if (t.x < 0 || t.y < 0 || t.x + WALL_TIMER_WIDTH > level.width || t.y + WALL_TIMER_HEIGHT > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'timer', i)} inside the level rectangle.`)
@@ -297,7 +298,7 @@ export function parseLevel(value: unknown): JumpLevel {
     level.props = list(v.props, 80).map(item => {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
       const size = num(b.size, 30, 200)
-      return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2 + 24, width - size / 2 - 24), y: num(b.y, -1800, level.floor!), size }
+      return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2, width - size / 2), y: num(b.y, -1800, level.floor!), size }
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
@@ -305,7 +306,7 @@ export function parseLevel(value: unknown): JumpLevel {
       if (m.flipX !== undefined && (m.orientation !== 'horizontal' || typeof m.flipX !== 'boolean')) fail()
       if (m.power !== undefined && (m.kind === 'gate' || m.power !== 'always' && m.power !== 'switched')) fail()
       const w = num(m.w, m.kind === 'gate' ? MECHANISM_THICKNESS : 30, 600), h = num(m.h, 12, 800)
-      return prepareMechanism({ ...objectName(m), ...parseSwitchSettings(m, fail), id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 24, width - w - 24), y: num(m.y, -1000, level.floor! - h), w, h,
+      return prepareMechanism({ ...objectName(m), ...parseSwitchSettings(m, fail), id: m.id as string, kind: m.kind as 'lift' | 'gate', x: num(m.x, 0, width - w), y: num(m.y, -1000, level.floor! - h), w, h,
         travel: num(m.travel, m.kind === 'gate' ? 12 : 60, 1200),
         ...(m.power === undefined ? {} : { power: m.power as PowerMode }),
         ...(m.orientation === 'horizontal' ? { orientation: 'horizontal' as const } : {}),
@@ -333,7 +334,7 @@ export function parseLevel(value: unknown): JumpLevel {
         if (t.display !== undefined && t.display !== 'digital') fail()
         if (t.display === 'digital') {
           if (t.orientation !== undefined || t.h !== undefined || t.w !== DIGITAL_DISPLAY_WIDTH) fail()
-          return { ...objectName(t), x: num(t.x, 24, width - DIGITAL_DISPLAY_WIDTH - 24),
+          return { ...objectName(t), x: num(t.x, 0, width - DIGITAL_DISPLAY_WIDTH),
             y: num(t.y, 0, level.floor! - DIGITAL_DISPLAY_HEIGHT), w: DIGITAL_DISPLAY_WIDTH,
             ...connection, mode: 'coins', threshold, display: 'digital' }
         }
@@ -345,7 +346,7 @@ export function parseLevel(value: unknown): JumpLevel {
           ? { orientation: 'vertical' as const, w: COIN_SWITCH_THICKNESS, h: num(t.h, COIN_SWITCH_MIN_LENGTH, 240) }
           : { w: num(t.w, COIN_SWITCH_MIN_LENGTH, 240) }
         const h = dimensions.h ?? COIN_SWITCH_THICKNESS
-        const x = num(t.x, 24, width - (t.w as number) - 24) + (t.orientation === 'vertical' ? ((t.w as number) - dimensions.w) / 2 : 0)
+        const x = num(t.x, 0, width - (t.w as number)) + (t.orientation === 'vertical' ? ((t.w as number) - dimensions.w) / 2 : 0)
         return { ...objectName(t), x, y: num(t.y, 0, level.floor! - h), ...dimensions, ...connection, mode: 'coins', threshold }
       }
       const w = num(t.w, 40, 240)
@@ -355,14 +356,14 @@ export function parseLevel(value: unknown): JumpLevel {
         if (!host || host.w < w) return fail()
         mount = { mechanism: host.id, x: num(m.x, 0, host.w - w) }
       }
-      const position = { x: num(t.x, 24, width - w - 24), y: num(t.y, -1800, level.floor!) }
+      const position = { x: num(t.x, 0, width - w), y: num(t.y, -1800, level.floor!) }
       if (mount) { const host = level.mechanisms!.find(m => m.id === mount.mechanism)!; position.x = host.x + mount.x; position.y = host.y + (t.ceiling ? host.h : 0) }
       return { ...objectName(t), ...position, w, ...connection, mode: t.mode as 'touch' | 'weight', ...(mount ? { mount } : {}),
         ...(t.ceiling === undefined ? {} : { ceiling: t.ceiling as boolean }),
         ...(t.behavior === undefined ? {} : { behavior: t.behavior as PlateBehavior }), ...(t.startsOn === undefined ? {} : { startsOn: t.startsOn as boolean }) }
     })
     level.robots = list(v.robots, 30).map(item => {
-      const r = object(item), left = num(r.left, 50, width - 100), right = num(r.right, left + 50, width - 50)
+      const r = object(item), left = num(r.left, ROBOT_HALF_WIDTH, width - ROBOT_HALF_WIDTH - 50), right = num(r.right, left + 50, width - ROBOT_HALF_WIDTH)
       if (r.headlight !== undefined && typeof r.headlight !== 'boolean') fail()
       return { ...objectName(r), x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right,
         ...(r.headlight === undefined ? {} : { headlight: r.headlight as boolean }) }

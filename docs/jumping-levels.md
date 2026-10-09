@@ -12,6 +12,18 @@ below and in the [flat-lighting specification](jumping-lighting.md). The studio
 upgrades a level on its first Night mode or spotlight edit; it never silently
 removes lighting when saving.
 
+## Placement at level boundaries
+
+Objects may touch the playable rectangle. Plates, props, mechanisms and coin
+switches have no extra horizontal inset. Keep the actual footprint inside the
+room: a 30-unit ball may start at x = 15, while a plate may start at x = 0.
+Creation, dragging, resizing, display conversion and saving use the same bounds.
+Shovebots retain clearance for their 26-unit half-width and a minimum 50-unit
+patrol span; support and collision checks still apply on slopes. Other wall
+objects, pickups and fields already use their own footprint bounds. Attached
+ladders still need room outside their host platform, and exits need a clear,
+continuously supported doorway.
+
 ## Built-in levels
 
 The asset folder is `public/levels/jumping/` in the repository and `levels/jumping/`

@@ -193,6 +193,11 @@ bot can be an expert opportunity; its acceleration makes it an unreliable lift.
 Give a first encounter space to retreat or get above it. Increasing aggression
 inside a cramped physics pile is rarely a good difficulty progression.
 
+Receiving plates can meet the level boundary. Put the plate under the ball's
+actual resting center; do not add a stop solely to work around an editor inset.
+Use a separate stop when it serves the layout, rather than requiring one for a
+boundary receiver.
+
 When a layout exposes a movement bug, reproduce and fix the shared rule with a
 regression test. When a layout simply demands an unreliable maneuver, change
 the layout. Do not add object-specific exceptions to make one puzzle work.

@@ -21,7 +21,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#52 UJG: explain and animate ledge jump-away and fresh-press departures](https://github.com/nmsimons/arcade/issues/52) | Medium (P2) | Reproduced launch orientation and confirmed input semantics |
 | [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Confirmed mismatch between labels and motor/bindings |
 | [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
-| [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Rendered visual quality issue; artistic tuning required |
+| [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Acceptance complete: distinct flight phases, controlled braced fall, real landing anticipation, and force-driven jets |
 | [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance, entry/turn/landing continuity, shoe load and steep-face clearance addressed; dynamic and brief-contact acceptance remains incomplete |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Outstanding hardware playtesting and parity audit |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
@@ -1845,3 +1845,43 @@ Every successful case trace loads `UntitledJumpingGame-Ctw4kdZb.js`. The initial
 failed trace is retained; inputs, assertions, deadlines and worker count are
 unchanged. Evidence includes `crowd-reaching-water-browser.log` and
 `crowd-reaching-build-witnesses.json` alongside the full browser results.
+
+## Airborne acceptance complete
+
+October 8, 2026. The fifth-pass implementation and matched before/current flight
+recordings satisfy #55's six original acceptance criteria. The selected character
+language remains a controlled, braced fall: one arm opens for balance and the
+other folds below the chest, consistent with the game's existing air steering
+and foot thrust. The tighter fold was rejected because its palms merged with
+the head. No further artistic tuning is required to accept this change.
+
+At ordinary gameplay scale the full-action recordings show takeoff extension,
+a gathered apex, open descent, rearward arm preparation before actual contact,
+and the distinct sustained fall. Both directions use the same geometry, input,
+framing and playback; enlarged views check bends and contacts. The previously
+published `jumping-flights-fifth-*-baseline/current.gif` recordings and the
+variant comparison above remain the visual evidence. The new current-build
+keyboard screenshots confirm the gathered apex and supported settled landing
+with the actual camera and lighting.
+
+`tests/jumping-airborne-presentation.test.mjs` covers sixteen actual
+tap/hold/running/drop trajectories across both directions and gravity frames,
+fixed limbs, whole-flight and first-support continuity, planted landing,
+reachable pre-contact preparation, slope/concave support, gaps, ceilings and
+walls. Applied-force and neutral-drift checks keep the jets and balance honest;
+read-only queries cannot invent support, a grip or a jump charge. The remaining
+buffered/coyote, air-momentum, wall/rope launch, low-ceiling, water and gravity
+contracts pass in the full UJG run already recorded above. Historical artistic
+forward-arm assertions were replaced by meaningful phase-specific expectations,
+with the original contact, continuity and limb-safety coverage retained.
+
+All four unchanged normal-keyboard flight cases pass on the final `a274819`
+production build in 10.3 seconds with two workers. They cover tap/hold in both
+directions, the original 45–60/150–220-unit height ranges, phase balance,
+pre-contact preparation, fixed first landing and whole-flight joint continuity.
+Every trace loads `UntitledJumpingGame-Ctw4kdZb.js`. Evidence is retained in
+`.tmp/ujg-traversal-fixes/flight-acceptance-browser.log`, its complete trace and
+screenshot directory, and `flight-acceptance-build-witnesses.json`. This closes
+#55's animation work; hardware feel, encounter teaching, route enjoyment and
+the remaining clearance/recovery issues retain their separate scope. No new
+gameplay or authored-level change was needed for this acceptance audit.

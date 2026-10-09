@@ -2,6 +2,52 @@ import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
+test('keyboard turns between blocked props retain the whole body and establish the incoming brace', async ({page},info) => {
+  const root=474.5,size=80,offset=size/2+25.5
+  const level={...blankTrial(),spawn:{x:root,y:920},
+    props:[{kind:'box',x:root+offset,y:920,size},{kind:'box',x:root-offset,y:920,size}],
+    platforms:[{x:root+25.5+size,y:650,w:120,h:270},{x:root-25.5-size-120,y:650,w:120,h:270}]}
+  await useLevelFixtures(page,[level])
+  await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas')).toBeFocused()
+  await page.keyboard.down('d');await page.clock.runFor(3000)
+  let held='d',previous=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1)),reaches=0,braces=0
+  const world=(frame,point)=>[frame.x+point[0]*frame.signals.facing,frame.y+point[1]]
+  for(const [key,milliseconds] of [['a',1000],['d',16],['a',16],['d',1000],['',1000]]){
+    if(held)await page.keyboard.up(held)
+    if(key)await page.keyboard.down(key)
+    held=key
+    await page.clock.runFor(milliseconds)
+    const frames=await page.evaluate(()=>window.jumpingMotion.read().recent)
+    for(const frame of frames.filter(frame=>frame.time>previous.time)){
+      expect(frame.x).toBeCloseTo(root,3)
+      frame.points.forEach((point,i)=>{
+        const a=world(previous,previous.points[i]),b=world(frame,point)
+        expect(Math.hypot(b[0]-a[0],b[1]-a[1])).toBeLessThanOrEqual(5.00001)
+      })
+      if(frame.signals.reachingPush)reaches++
+      else if(frame.signals.push&&frame.contacts.palms.length){
+        braces++
+        frame.contacts.hands.forEach((hand,i)=>{
+          const palm=frame.contacts.palms[i]
+          expect(Math.hypot(hand.x-palm.x-palm.nx*1.6,hand.y-palm.y-palm.ny*1.6)).toBeLessThan(.001)
+        })
+      }
+      previous=frame
+    }
+  }
+  expect(reaches).toBeGreaterThan(0);expect(braces).toBeGreaterThan(20)
+  expect(previous.signals.reachingPush).toBe(false)
+  await page.screenshot({path:info.outputPath('settled-crowded-keyboard-turn.png')})
+  await page.keyboard.down('Space');await page.clock.runFor(64)
+  const departure=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1))
+  expect(departure.vy).toBeLessThan(0);expect(departure.signals.grounded).toBe(false)
+})
+
 test('keyboard reversal brakes continuously while steering responds on the first tick', async ({page},info) => {
   const level = blankTrial(); level.width=4000; level.spawn={x:1500,y:920};level.goal={x:3800,y:920}
   await useLevelFixtures(page,[level])

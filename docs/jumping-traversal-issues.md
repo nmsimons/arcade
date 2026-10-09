@@ -14,7 +14,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#45 UJG: keep crouched pushing head and torso outside the object](https://github.com/nmsimons/arcade/issues/45) | High (P1) | Reproduced visible penetration |
 | [#46 UJG: resolve visible prone-body clearance beside terrain and objects](https://github.com/nmsimons/arcade/issues/46) | High (P1) | Reproduced visible penetration |
 | [#47 UJG: transition moving fall recovery into a supported locomotion pose](https://github.com/nmsimons/arcade/issues/47) | High (P1) | Reproduced support and animation mismatch |
-| [#48 UJG: show braking and turning before mirroring a moving run](https://github.com/nmsimons/arcade/issues/48) | Medium (P2) | Reproduced abrupt visual reversal |
+| [#48 UJG: show braking and turning before mirroring a moving run](https://github.com/nmsimons/arcade/issues/48) | Medium (P2) | Acceptance complete: immediate steering, supported braking, crowded release/reach, repeated turns, and full-body contact continuity |
 | [#49 UJG: allow reconsidering tall automatic steps before commitment](https://github.com/nmsimons/arcade/issues/49) | Medium (P2) | Acceptance complete: geometric cancellation, full returning skin, moving props, reversed gravity, and pause/restart |
 | [#50 UJG: initialize and settle into a readable relaxed idle stance](https://github.com/nmsimons/arcade/issues/50) | Medium (P2) | Reproduced overlapping idle silhouette |
 | [#51 UJG: make Down action priority and lower-then-drop behavior predictable](https://github.com/nmsimons/arcade/issues/51) | Medium (P2) | Confirmed control contract with a discoverability problem |
@@ -1763,3 +1763,85 @@ Local evidence is under `.tmp/ujg-traversal-fixes/`: `return-skin-accepted-all-n
 frames/contact sheets/filmstrips, `return-skin-browser.log`,
 `return-skin-water-browser.log`, and their retained traces. Authored levels,
 local collections and medal thresholds are unchanged.
+
+## Crowded dry-turn acceptance complete
+
+October 8, 2026. This completes #48's dry-turn repair, including the separately
+reproduced stationary opposing braces. A real outgoing push now qualifies for
+the turn snapshot even without walking velocity. Its whole preceding rig
+releases and reaches toward the incoming blocked face instead of mirroring
+across the gap. Pelvis, chest and neck angles transfer through a proportionate
+trunk; arms keep their fixed lengths. Final clearance is included in the
+five-unit-per-STEP three-dimensional joint budget, so a tall crate cannot hide
+an elbow jump behind an otherwise smooth head trace.
+
+**Deliberate blocked-contact presentation contract.** Earlier diagnostics
+required every mechanical pressure tick to have both incoming palms already
+fixed, even when switching instantly across a 51-unit gap between stationary
+objects. With fixed arms and the outgoing torso, that forced the rejected
+shoulder/head relocation. The accepted stationary transfer instead shows an
+unloaded release/reach while the motor selects the new pressure immediately.
+It is permitted only below one unit/second of prop speed. It does not claim
+that mechanical pressure vanishes during that reach. Moving-object contacts,
+returning-step handoffs, and the completed blocked brace retain their exact
+incoming palms. Existing first-force palm assertions for moving encounters
+remain unchanged. This distinction is explicit in the physics document,
+debug signal and diagnostic report; it is not a hidden relaxation of those
+moving-contact checks.
+
+The new permanent opposed-brace regression runs 5,824 ordinary ticks across
+both directions, boxes/balls of sizes 30/80, and standing/crouched input. It
+includes the first reversal, two-tick repeated reversals, full release and a
+fresh jump. Every body/limb joint stays within five world units including
+depth, all limb lengths remain fixed, real planted ankle and shoe-material
+ownership are retained, and pelvis/chest proportions do not collapse. The
+renderer's complete drawn skin stays outside current solids within the
+existing 0.02-unit tolerance. During the visual reach, each blocked object's
+translation remains below 0.02 units/tick; established brace palms are exact.
+The same test fails the preceding `a39eb37` on the very first reversal.
+
+Matched native Chrome captures retain all 2,920 player and full prop physical
+frames exactly against `a39eb37`. Across the eight filmed standing/crouched
+box/ball scenes, whole-sequence head maxima fall from 13.158–35.152 units to
+1.742–3.024. Maximum joint travel including depth is below five units. Maximum
+prop translation during a reaching tick is 0.001020 units. These measurements
+support the reviewed whole-body action; they do not substitute for its visual
+judgment. The release, supported turn, incoming brace and settled rest were
+reviewed at 1x and 2.6x, with matched geometry, inputs and real-time playback.
+The original running/walking/partial-input, slope, inverted, ledge and airborne
+turn checks and matched dry-turn clips remain part of #48's evidence.
+
+![Crowded crate turns before the repair](images/jumping-crowded-turn-before-box.gif)
+
+![Crowded crate turns with release and reach](images/jumping-crowded-turn-current-box.gif)
+
+![Crowded ball turns before the repair](images/jumping-crowded-turn-before-ball.gif)
+
+![Crowded ball turns with release and reach](images/jumping-crowded-turn-current-ball.gif)
+
+The complete UJG suite passes 1,441/1,443 checks. Its two failures are the existing
+Windows symlink-creation EPERM fixtures, before their security assertions;
+all movement and recorded routes pass. Types, changed-file lint and the isolated
+production build pass. A new normal-keyboard browser case exercises the actual
+crowded reversal, brief reversals, incoming palms, release and immediate fresh
+jump. Final production-browser results are recorded below.
+
+Local evidence under `.tmp/ujg-traversal-fixes/`: `crowd-reaching-regression.log`,
+`crowd-reaching-baseline-failure.log`, `crowd-reaching-all-node.log`,
+`crowd-reaching-native-comparison.json`, complete before/current native states,
+real-time clips and phase sheets, `crowd-reaching-final-types.log`,
+`crowd-reaching-final-lint.log`, `crowd-reaching-build.log` and
+`crowd-reaching-browser.log`. Built-in/local levels and medal thresholds are
+preserved. #43's wider onset review, the remaining issue-specific acceptance,
+real-device feel and collection-wide route enjoyment retain their own scope;
+#48 is not a claim of universal animation perfection.
+
+Final production-browser acceptance: 45/46 pass the ordinary two-worker run;
+the left water-bank case stops at the initial level-card wait before traversal
+and its error context shows the loading screen. Both unchanged water-bank cases
+pass the focused two-worker rerun in 17.7 seconds. All 46 distinct affected cases,
+including the new crowded keyboard turn, therefore complete on the final source.
+Every successful case trace loads `UntitledJumpingGame-Ctw4kdZb.js`. The initial
+failed trace is retained; inputs, assertions, deadlines and worker count are
+unchanged. Evidence includes `crowd-reaching-water-browser.log` and
+`crowd-reaching-build-witnesses.json` alongside the full browser results.

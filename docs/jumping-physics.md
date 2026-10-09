@@ -367,6 +367,21 @@ a brief gap in a moving box, ball or bot contact. A new surface starts its own
 blend. This memory is presentation only: missing contacts release physical forces
 immediately, and jumping or turning away still clears the pose.
 
+A stationary reversal between blocked pushing faces releases the outgoing
+hands and reaches toward the incoming brace over the ordinary dry turn. This
+is an explicit presentation distinction: the motor selects the new pressure
+immediately, while the artwork does not claim an established hand load during
+the reach. It is allowed only while the contacted prop's speed is below one
+world unit per second. Moving-prop acquisition and returning-step transfers
+retain their exact incoming palms; no shove-induced visible object movement is
+shown with hands in transit. The completed blocked brace also retains its actual
+palms. Planted shoes keep their motor-owned ankles and material orientation,
+and the final cleared turning joints are budgeted in three dimensions.
+Coverage includes the repeated opposed-box/ball matrix in
+`tests/jumping-dry-turn.test.mjs` and the normal keyboard sequence in
+`tests/browser/jumpingMotion.spec.mjs`. Motion diagnostics identify this visual
+reach separately from an established brace.
+
 Sliding uses the same blended locomotion pose on contact and release. The raw
 `sliding.active` flag must not instantly replace the falling or running rig;
 the slide amount blends both the body pose and its foot-plane correction. The

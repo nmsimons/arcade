@@ -17,7 +17,7 @@ type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
 export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
-export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; slide?: boolean; step?: NonNullable<Player['mantle']> }
+export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; slide?: boolean; pushing?: boolean; step?: NonNullable<Player['mantle']> }
 export interface SlideEntryFrame { player: Player; facing: number; sliding: boolean }
 const renderPoses = new WeakMap<Player, { pose?: AthletePose }>()
 
@@ -872,9 +872,9 @@ export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null
   }
   if (grip && !departing) return null
   const reversing = Math.abs(input.move) > .01 && Math.sign(input.move) !== p.facing
-    && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2)
+    && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2 || !!p.contacts?.push?.hands && !!p.pushing?.palms)
   const slide = !!(p.sliding || p.slideEntry)
-  if (p.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, slide }
+  if (p.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, slide, pushing: !!p.contacts?.push?.hands && !!p.pushing?.palms }
   if (p.grounded) return null
   // A new canted contact can choose direction after a tick with no slide or
   // brace. Capture cheaply now, and only solve if that direction changes.
@@ -906,7 +906,7 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   // owner would discard it when steering reverses against the remaining slip.
   if (p.slideEntry?.landing) { p.dryTurn = null; return }
   const push = p.contacts?.push
-  const contactTurn = !!(push?.hands && (p.dryTurn?.pushing || p.dryTurn?.step || before?.step && !p.mantle))
+  const contactTurn = !!(push?.hands && (p.dryTurn?.pushing || p.dryTurn?.step || before?.step && !p.mantle || before?.pushing && before.facing !== p.facing))
   // A first shove owns its reachable brace. An interrupted step can transfer
   // only with the incoming force's palms and real shoes held fixed.
   if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || p.freeFall?.recovery != null || p.contacts?.push?.hands && !contactTurn) {
@@ -949,14 +949,21 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
   const duration = motion.step ? .1 : motion.slide ? .16 : .14
   const fraction = Math.min(1, dt / Math.max(dt, duration - motion.time + dt))
   const depth = Math.sin(Math.PI * smooth(motion.time / duration))
+  const prop = push?.collider.prop
+  // A blocked reversal can release the old hands and reach to the new brace.
+  // The motor's pressure still responds immediately, but no visible object
+  // travel is attributed to hands in transit. Moving contacts retain their
+  // exact palms, and the returning-step handoff keeps its separate anchors.
+  const reaching = !!(motion.pushing && !motion.step && (!prop || Math.hypot(prop.vx, prop.vy) < 1))
   const sample = (t: number) => {
     // A slowed slide turn also slows its added bend through depth. At zero
     // progress the outgoing bend is retained, rather than adding a full fold.
-    const bend = motion.slide ? depth * t / fraction : depth
+    const bend = motion.slide || reaching ? depth * t / fraction : depth
     let pose = t === 1 ? target : transferPose(from, target, [0,0], t, [0,0], 0, true, 0,
       { depth: bend * (motion.slide ? 6 : 8), kneeOpening: motion.slide ? MIN_KNEE_OPENING : 0,
         legDepth: motion.slide ? bend * 6 : undefined })
-    if (contactTurn && t < 1) pose = transferPushTurn(p, pose, from, target, t)
+    if (reaching && t < 1) pose = transferReachingPushTurn(p, pose, from, target, t)
+    else if (contactTurn && t < 1) pose = transferPushTurn(p, pose, from, target, t)
     if (!p.grounded) {
       pose = clearBody(p, pose).pose
       for (const name of ['frontLeg','backLeg'] as const) {
@@ -971,14 +978,14 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
         pose[name] = clearAirborneFoot(p,pose[name],16)
       }
     }
-    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
-    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true, contactTurn)
+    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true, contactTurn && !reaching)
+    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true, contactTurn && !reaching)
     return pose
   }
   let t = fraction, pose = sample(t)
-  if (motion.slide) {
-    // A briefly reacquired slope can require more shoe clearance than the
-    // raw transfer predicts. Budget the final cleared joints, preserving
+  if (motion.slide || reaching) {
+    // Reacquired slopes and crowded reaches can require more clearance than
+    // the raw transfer predicts. Budget the final cleared joints, preserving
     // fixed bones and safe skin instead of blending corrected coordinates.
     const points = (rig: AthletePose) => [rig.hip, rig.waist, rig.shoulder, rig.head,
       ...[rig.frontArm, rig.backArm, rig.frontLeg, rig.backLeg].flatMap(limb =>
@@ -996,12 +1003,33 @@ export function advanceDryTurn(p: Player, input: JumpInput, dt: number, before?:
     }
   }
   motion.pose = pose
+  motion.reaching = reaching && t < 1
   motion.facing = p.facing
   // The turn can finish before a returning step reaches the floor. Keep its
   // incoming reach owner through the intervening one-tick slips; dropping it
   // here lowers the arms, only to reacquire the same palms on the next shove.
   const preparingStep = motion.step && !p.grounded && (p.pushing?.ready ?? 0) > 0
   if (t === 1 && direction === p.facing && !braking && !preparingStep) p.dryTurn = null
+}
+
+/** Release/reach through a fixed-length trunk, rather than collapsing opposite
+ * chest positions. The current foot motor still owns both planted ankles. */
+function transferReachingPushTurn(p: Player, pose: AthletePose, from: AthletePose, target: AthletePose, t: number) {
+  const pitch = (a: Point, b: Point) => Math.atan2(b[0] - a[0], a[1] - b[1])
+  const pelvis = mixAngle(pitch(from.hip, from.waist), pitch(target.hip, target.waist), t)
+  const chest = mixAngle(pitch(from.waist, from.shoulder), pitch(target.waist, target.shoulder), t)
+  const neck = mixAngle(pitch(from.shoulder, from.head), pitch(target.shoulder, target.head), t)
+  const neckLength = lerp(Math.hypot(from.head[0] - from.shoulder[0], from.head[1] - from.shoulder[1]),
+    Math.hypot(target.head[0] - target.shoulder[0], target.head[1] - target.shoulder[1]), t)
+  pose.waist = add(pose.hip, [Math.sin(pelvis) * 6.5, -Math.cos(pelvis) * 6.5])
+  pose.shoulder = add(pose.waist, [Math.sin(chest) * 10.1, -Math.cos(chest) * 10.1])
+  pose.head = add(pose.shoulder, [Math.sin(neck) * neckLength, -Math.cos(neck) * neckLength])
+  pose = clearBody(p, pose).pose
+  for (const name of ['frontArm', 'backArm'] as const) {
+    const arm = pose[name], solved = solveNear({ ...arm, root: add(pose.shoulder, [0, .7]) }, arm.end, UPPER_ARM, FOREARM)
+    pose[name] = { ...solved, hand: arm.hand && add(arm.hand, [solved.end[0] - arm.end[0], solved.end[1] - arm.end[1]]) }
+  }
+  return pose
 }
 
 /** Incoming force keeps its palms immediately. Fit the shoulder to that reach,

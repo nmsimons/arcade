@@ -15,6 +15,7 @@ function measure(run, inputs) {
     maximumFirstForceWrist: { value: 0, tick: 0 }, minimumPelvis: Infinity, minimumChest: Infinity,
     minimumSpineSpan: Infinity, maximumNeck: 0, unownedPlantedFeet: 0,
     maximumBoneError: 0, maximumPlantedAnkleError: 0, maximumForcedPalmError: 0,
+    maximumReachTargetGap: 0, reachingFrames: 0,
     missingPalms: 0, forceFrames: 0, interruptionTick: null }
   let previous, previousForce = false
   function record(tick) {
@@ -49,12 +50,15 @@ function measure(run, inputs) {
       result.maximumPlantedAnkleError = Math.max(result.maximumPlantedAnkleError, distance(world(p, leg.end), [foot.x, foot.y]))
     }
     if (p.contacts?.push?.hands && p.pushing?.palms) {
-      result.forceFrames++
+      // Mechanical pressure is immediate during a blocked release/reach, but
+      // the hands visibly establish their brace before any object travels.
+      const reaching = !!p.dryTurn?.reaching
+      if (reaching) result.reachingFrames++; else result.forceFrames++
       for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
         if (!arm.hand) { result.missingPalms++; continue }
         const palm = p.pushing.palms[i]
-        result.maximumForcedPalmError = Math.max(result.maximumForcedPalmError,
-          distance(world(p, arm.hand), [palm.x + palm.nx * 1.6, palm.y + palm.ny * 1.6]))
+        const key = reaching ? 'maximumReachTargetGap' : 'maximumForcedPalmError'
+        result[key] = Math.max(result[key], distance(world(p, arm.hand), [palm.x + palm.nx * 1.6, palm.y + palm.ny * 1.6]))
       }
     }
     previous = points

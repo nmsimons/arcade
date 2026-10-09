@@ -8,6 +8,8 @@ import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
 import { mirrorPlatform, mirrorPlayerState } from '../src/games/jumping/gravityFrame.ts'
 import { footPoint, FOOT_CONTACT } from '../src/games/jumping/footwork.ts'
 import { LEDGE_CATCH_TIME } from '../src/games/jumping/ledge.ts'
+import { ballShape } from '../src/games/jumping/propGeometry.ts'
+import { athleteSkin } from './helpers/jumpingSkin.mjs'
 
 const worldPoint = (p, a) => [p.x + a[0] * p.facing, p.y + a[1] * (p.inverted ? -1 : 1)]
 const distance = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]))
@@ -147,5 +149,58 @@ test('turning into a real prop contact retains first-force palms and fixed suppo
       for (const solid of run.platforms) assert.ok(!pointInside(solid,...head) && nearestBoundary(solid,...head).distance >= 6.18, JSON.stringify({side,kind,size,i,head,solid,distance:nearestBoundary(solid,...head).distance,turn:!!p.dryTurn}))
     }
     assert.ok(touched>20,'the encounter actually applies the shove')
+  }
+})
+
+test('opposed blocked braces release and reach through repeated turns without moving unsupported objects', () => {
+  for (const side of [-1, 1]) for (const kind of ['box', 'ball']) for (const size of [30, 80]) for (const crouch of [false, true]) {
+    const root = 474.5, offset = size / 2 + 25.5
+    const level = { ...blankTrial(), spawn: { x: root, y: 920 },
+      props: [{ kind, x: root + offset, y: 920, size }, { kind, x: root - offset, y: 920, size }],
+      platforms: [{ x: root + 25.5 + size, y: 650, w: 120, h: 270 },
+        { x: root - 25.5 - size - 120, y: 650, w: 120, h: 270 }] }
+    const run = createRun(level)
+    for (let tick = 0; tick < 360; tick++) stepRun(run, { ...NEUTRAL_INPUT, move: side, crouch })
+    const points = pose => [...[pose.hip, pose.waist, pose.shoulder, pose.head].map(point => [point, 0]),
+      ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [[limb.joint, limb.jointDepth ?? 0], [limb.end, limb.endDepth ?? 0]])]
+      .map(([point, depth]) => [...worldPoint(run.player, point), depth])
+    let previous = points(athletePose(run.player)), reachingFrames = 0, braceFrames = 0
+    for (const [frames, move] of [[120, -side], [2, side], [2, -side], [120, side], [120, 0]]) {
+      for (let tick = 0; tick < frames; tick++) {
+        const propsBefore = run.props.map(prop => [prop.x, prop.y])
+        stepRun(run, { ...NEUTRAL_INPUT, move, crouch })
+        const p = run.player, pose = athletePose(p), current = points(pose)
+        for (const [i, point] of current.entries()) assert.ok(distance(point, previous[i]) <= 5.00001,
+          `whole-body turn continuity: ${JSON.stringify({ side, kind, size, crouch, move, tick, joint: i, distance: distance(point, previous[i]) })}`)
+        bones(pose); soles(p, pose)
+        assert.ok(distance(pose.hip, pose.waist) > 6.2, 'the pelvis cannot flatten during the turn')
+        assert.ok(distance(pose.waist, pose.shoulder) > 8.5, 'the chest cannot flatten during the turn')
+        if (p.dryTurn?.reaching) {
+          reachingFrames++
+          assert.ok(Math.abs(distance(pose.hip, pose.waist) - 6.5) < .001, 'the reaching pelvis retains its length')
+          assert.ok(Math.abs(distance(pose.waist, pose.shoulder) - 10.1) < .001, 'the reaching chest retains its length')
+          for (const [i, prop] of run.props.entries()) assert.ok(distance([prop.x, prop.y], propsBefore[i]) < .02,
+            'release/reach is allowed only while the blocked object has no visible travel')
+        } else if (p.contacts.push?.hands && p.pushing?.palms) {
+          braceFrames++
+          for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+            const palm = p.pushing.palms[i]
+            assert.ok(arm.hand && distance(worldPoint(p, arm.hand), [palm.x + palm.nx * 1.6, palm.y + palm.ny * 1.6]) < .001,
+              'the completed brace retains its actual contact palms')
+          }
+        }
+        const rounds = kind === 'ball' ? run.props.map(ballShape) : []
+        for (const shape of athleteSkin(p)) for (const [x, y] of shape.points) for (const solid of p.terrain) {
+          const depth = rounds.includes(solid) ? solid.w / 2 - Math.hypot(x - solid.x - solid.w / 2, y - solid.y - solid.h / 2)
+            : pointInside(solid, x, y) ? nearestBoundary(solid, x, y).distance : 0
+          if (depth >= .02) assert.fail(`turn skin clearance: ${JSON.stringify({ side, kind, size, crouch, move, tick, part: shape.name, depth })}`)
+        }
+        previous = current
+      }
+    }
+    assert.ok(reachingFrames > 0 && braceFrames > 20, 'the sequence exercises both the reach and its established brace')
+    assert.equal(run.player.dryTurn, null, 'release finishes the turn')
+    stepRun(run, { ...NEUTRAL_INPUT, jump: true })
+    assert.ok(run.player.vy < 0, 'a fresh jump still leaves immediately')
   }
 })

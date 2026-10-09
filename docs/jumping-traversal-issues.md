@@ -22,7 +22,7 @@ Logged October 7, 2026. [GitHub tracker #39](https://github.com/nmsimons/arcade/
 | [#53 UJG: make water instructions and acceptance tests match actual controls](https://github.com/nmsimons/arcade/issues/53) | Medium (P2) | Acceptance complete: actual keyboard/controller/touch dive, passive rise, surface jump, bottom crouch, float push, stable-crate grip and bank exit; truthful conditional feedback |
 | [#54 UJG: teach acquisition and solidity rules through clear first encounters](https://github.com/nmsimons/arcade/issues/54) | Medium (P2) | First ladder and rope guidance implemented and playtested; force-field and broader first-encounter acceptance remains incomplete |
 | [#55 UJG: give airborne phases distinct readable athlete poses](https://github.com/nmsimons/arcade/issues/55) | Medium (P2) | Acceptance complete: distinct flight phases, controlled braced fall, real landing anticipation, and force-driven jets |
-| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Fast balance, entry/turn/landing continuity, shoe load and steep-face clearance addressed; dynamic and brief-contact acceptance remains incomplete |
+| [#56 UJG: evaluate and strengthen balance cues during fast steep sliding](https://github.com/nmsimons/arcade/issues/56) | Medium (P2) | Acceptance complete: slip-driven fast balance, quiet rest, continuous entry/turn/landing, real shoe load and final moving-prop/brief-contact native review |
 | [#57 UJG: validate controller and phone traversal feel with real devices](https://github.com/nmsimons/arcade/issues/57) | Medium (P2) | Verified production release available for the user's iPhone and controller; actual device feel record remains pending |
 | [#58 UJG: verify fast-approach readability and tune framing only where needed](https://github.com/nmsimons/arcade/issues/58) | Medium (P2) | Narrow-screen scale, short-room placement and running-jump preview addressed; broad context/route acceptance remains incomplete |
 | [#59 UJG: playtest complete traversal routes and audit medals with current controls](https://github.com/nmsimons/arcade/issues/59) | Medium (P2) | Current-control Gold witnesses for First Leap, A Little Swing and Level Five; collection-wide route, recovery and timing acceptance remains incomplete |
@@ -2564,3 +2564,44 @@ The remaining #54 work is a readable, recoverable first force-field encounter
 and the original fresh-player observation. Any authored hint/layout change
 must follow the design brief and preserve the user's collection; this inventory
 does not alter Drain or add new lessons merely to fill absent categories.
+
+## Sliding acceptance complete
+
+October 9, 2026. The final #56 review accepts the existing completed changes;
+it adds no further animation tuning. At normal scale, the matched steep-slide
+recordings above visibly distinguish fast chest counterbalance and asymmetric
+raised-arm effort from restrained slow slip and calm supported rest. The
+connected landing and loaded-sole follow-ups supersede the earlier corner
+frames: real supporting shoes remain on the face while unloaded limbs gather,
+and a fresh Jump stays immediate through entry, turn and landing.
+
+The final moving-prop recordings compare all jumping modules from `a0aac7e`
+with `4e978e7`, retaining identical geometry, input, framing and real-time
+playback at 1× and 2.6×. These controlled dynamic encounters use 30/80-unit
+boxes and balls with a physical initial velocity of 480; that is fixture
+setup, not an authored route or an injected athlete pose. Direction reverses
+at 0.32 seconds, then releases after 150 ticks. The complete approach,
+interruption, brief slip, contact release, lower-floor landing and rest are
+reviewed. The tipping large crate retains its working reach and whole-body
+load; the small ball's brief support gathers continuously into actual floor
+footing. The four normal-direction native sequences finish with calm rest.
+The permanent matrices additionally cover both directions and actual reversed
+gravity. All 720 paired native physical samples are identical.
+
+![Moving-prop and brief-contact sequences before the completed transfers](images/jumping-slide-dynamic-acceptance-before.gif)
+
+![Moving-prop and brief-contact sequences with continuous supported balance](images/jumping-slide-dynamic-acceptance-current.gif)
+
+All 53 focused slide/animation/returning-step/gravity/skin checks pass. They
+retain meaningful fixed-bone, real palm/sole, whole-skin, read-only rendering
+and joint-continuity assertions across near-limit walking, fast 55°/70° slip,
+steering, brief contacts and real moving props. All 48 final production-browser
+cases pass in 3.1 minutes on `UntitledJumpingGame-8fiBsOqM.js`, with the original
+assertions, deadlines and ordinary two-worker settings. Normal controls cover
+walking/running ball descent, narrow-gap and crowded dynamic encounters,
+steep/inverted slides, connected landings, stairs, rope gravity and water exits.
+Evidence is retained in `slide-final-acceptance.log`, `slide-final-browser.log`,
+`slide-dynamic-final-native.log` and
+`slide-dynamic-final-physical-comparison.json` under the task evidence folder.
+No friction, traction threshold, physical contact, authored level or medal time
+changes are needed. Actual iPhone/controller comfort remains separately #57.

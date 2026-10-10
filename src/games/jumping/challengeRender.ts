@@ -48,14 +48,10 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
   const r = b.size / 2, x = b.x - r, y = b.y - b.size
   if (b.kind === 'box') {
     ctx.save(); ctx.translate(b.x, b.y - r); ctx.rotate(b.angle); ctx.translate(-b.x, -b.y + r)
-    ctx.fillStyle = b.weight === 'light' ? '#d2c6ad' : b.weight === 'heavy' ? '#6b777d' : '#b3a28d'
+    ctx.fillStyle = b.weight === 'heavy' ? '#6b777d' : '#b3a28d'
     rounded(ctx, x, y, b.size, b.size, 2); ctx.fill()
     const seam = Math.max(1, b.size * .025), inset = b.size * .12
-    if (b.weight === 'light') {
-      ctx.strokeStyle = '#a99b80'; ctx.lineWidth = Math.max(1.5, b.size * .035)
-      ctx.strokeRect(x + inset, y + inset, b.size - inset * 2, b.size - inset * 2)
-      ctx.beginPath(); ctx.moveTo(x + inset, y + b.size - inset); ctx.lineTo(x + b.size - inset, y + inset); ctx.stroke()
-    } else if (b.weight === 'heavy') {
+    if (b.weight === 'heavy') {
       ctx.fillStyle = '#4d5b62'
       for (const fraction of [1 / 3, 2 / 3]) ctx.fillRect(x + b.size * fraction - seam, y + inset, seam * 2, b.size - inset * 2)
       ctx.fillStyle = '#b6c1c5'; ctx.beginPath()
@@ -70,27 +66,19 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
     ctx.restore()
   } else {
     const cy = b.y - r
-    ctx.fillStyle = b.weight === 'light' ? '#d9d0b6' : b.weight === 'heavy' ? '#6b777d' : BALL_COLOR
+    ctx.fillStyle = b.weight === 'heavy' ? '#6b777d' : BALL_COLOR
     ctx.beginPath(); ctx.arc(b.x, cy, r, 0, Math.PI * 2); ctx.fill()
-    if (b.weight === 'light') {
-      ctx.save(); ctx.translate(b.x, cy); ctx.rotate(b.angle)
-      ctx.strokeStyle = '#a99b80'; ctx.lineWidth = Math.max(1.5, b.size * .05)
-      ctx.beginPath(); ctx.ellipse(0, 0, r * .32, r * .82, 0, 0, Math.PI * 2); ctx.stroke()
-      ctx.restore()
-    } else if (b.weight === 'heavy') {
-      ctx.strokeStyle = '#4d5b62'; ctx.lineWidth = Math.max(1, b.size * .035)
-      ctx.beginPath(); ctx.arc(b.x, cy, r * .72, 0, Math.PI * 2); ctx.stroke()
+    // One subtle offset dot gives the sphere its familiar cue and reveals rolling.
+    ctx.fillStyle = b.weight === 'heavy' ? '#4d5b62' : '#667b72'; ctx.beginPath()
+    ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
+    if (b.weight === 'heavy') {
+      // Two smaller highlights follow the dark dot's arc around the sphere.
       ctx.fillStyle = '#b6c1c5'; ctx.beginPath()
-      const rivet = Math.max(.8, r * .07)
-      for (let i = 0; i < 4; i++) {
-        const angle = b.angle + i * Math.PI / 2, px = b.x + Math.cos(angle) * r * .55, py = cy + Math.sin(angle) * r * .55
-        ctx.moveTo(px + rivet, py); ctx.arc(px, py, rivet, 0, Math.PI * 2)
+      for (const offset of [-.65, .65]) {
+        const angle = b.angle + offset, dotX = b.x + Math.cos(angle) * r * .52, dotY = cy + Math.sin(angle) * r * .52
+        ctx.moveTo(dotX + r * .065, dotY); ctx.arc(dotX, dotY, r * .065, 0, Math.PI * 2)
       }
       ctx.fill()
-    } else {
-      // A flat marking makes rolling visible without suggesting a shaded sphere.
-      ctx.fillStyle = '#667b72'; ctx.beginPath()
-      ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
     }
   }
 }

@@ -19,7 +19,7 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
   if (s.kind === 'prop') {
-    const prop = level.props?.[s.index], weight = prop?.weight === 'light' ? 'Light ' : prop?.weight === 'heavy' ? 'Heavy ' : ''
+    const prop = level.props?.[s.index], weight = prop?.weight === 'heavy' ? 'Heavy ' : ''
     return `${weight}${prop?.kind === 'ball' ? 'Ball' : 'Box'} ${s.index + 1}`
   }
   const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light'

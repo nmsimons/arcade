@@ -11,7 +11,7 @@ that terrain subtraction or adds contacts, fluid particles, solver iterations,
 currents or a volume grid. Surface arrays retain the global 128-point budget
 and reuse their buffers while topology stays unchanged. Low performance mode
 also skips ripple-geometry rebuilding; fill/drain and baseline buoyancy remain.
-Light/Normal/Heavy prop presets scale mass and the cached lifting contribution
+Normal/Heavy prop presets scale mass and the cached lifting contribution
 inside the existing field-area pass. They add no fluid solver, collision shape
 or geometric queries; variant artwork uses a few flat lines and rivets.
 

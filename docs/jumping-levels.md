@@ -612,15 +612,15 @@ while climbing, then the camera follows them in the center as before.
 Balls and boxes collide with each other, transfer momentum, and can rest on one
 another. Balls use round contact against other balls and box corners. Larger
 props carry more mass, and boxes are heavier than equally sized balls.
-Select **Weight: Light / Normal / Heavy** on each ball or box. Normal is the
-default for existing files. Light has half the normal mass, floats higher in
-water, and responds more to shoves, collisions and gravity-plate lift. Heavy
-has three times the normal mass, sinks in water, and yields less to those
-forces. Ordinary falling, positive gravity and zero gravity keep the same
-acceleration for every weight. The light variants are pale framed crates and
-striped balls; heavy variants are dark riveted metal.
-Save the optional preset as `"weight": "light"`, `"normal"` or `"heavy"` on a
-prop; omitting it preserves normal behavior.
+Select **Weight: Normal / Heavy** on each ball or box. Normal is the
+default for existing files. Heavy has three times the normal mass, sinks in
+water, and yields less to shoves, collisions and gravity-plate lift.
+Ordinary falling, positive gravity and zero gravity keep the same
+acceleration for every weight. Heavy crates are dark riveted metal. Heavy balls
+keep the offset dark dot on a darker metal-colored body, with two smaller light
+grey dots following a short arc to suggest the sphere's shape.
+Save the optional preset as `"weight": "normal"` or `"heavy"` on a prop;
+omitting it preserves normal behavior. The retired `"light"` preset loads as normal.
 Boxes rotate, settle on their faces, and tip over edges. Moderate slopes can hold
 a resting box; steeper slopes let it slide or tumble. Pushing applies a limited
 force, with the player's hands following the tilted face and steps following
@@ -1007,8 +1007,8 @@ active rectangles average their gravity settings at each point, then the body
 averages that field over its area. Entering or leaving changes acceleration,
 retaining momentum. The force acts at the center of mass; partial coverage does
 not invent an angular impulse. Free rope particles use the same local field.
-Negative plate lift scales inversely with prop weight, so light props float
-higher at the field's edge and heavy props settle deeper. The player's lift,
+Negative plate lift scales inversely with prop weight, so heavy props settle
+deeper at the field's edge. The player's lift,
 positive gravity and zero gravity are unchanged.
 On reaching a grippable ceiling under negative gravity, the player turns upside
 down to walk, run, crouch and jump away from that surface. Leaving the field
@@ -1108,7 +1108,7 @@ with relaxed arms; Down crouches, release stands, and Up swims away from the
 floor. Up toward a reachable pool rim catches the ledge and pulls out. A surface
 jump or an open side also permits leaving.
 Normal boxes and balls float half submerged and react to landings and riders;
-light ones float at about one-quarter submerged, and heavy ones sink. Gravity plates retain
+heavy ones sink. Gravity plates retain
 their surface floating behavior but have no Up/Down swimming control. See
 [the water physics contract](jumping-physics.md#water).
 

@@ -258,7 +258,7 @@ function propFieldValue(field: GravityField, prop: Prop, offsetY = 0, property: 
   const water = property === 'swim', baseline = water ? 1 : TUNING.gravity, outside = water ? 0 : 1
   if (!field.strips.length) return water ? 0 : TUNING.gravity
   const radius = prop.size / 2, cx = prop.x, cy = prop.y - radius + offsetY
-  // Lift is a force: light props respond more, heavy props less. Keep ordinary,
+  // Lift is a force: heavy props respond less. Keep ordinary,
   // positive and zero gravity unchanged. Use the existing area pass; resistance
   // still uses immersion, independent of the object's weight.
   const weightShift = water ? 0 : 1 / propWeightScale(prop) - 1

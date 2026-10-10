@@ -917,14 +917,14 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           })}
         </div>
         {prop && <>
-          <BuilderSelect label="Weight" accessibleLabel="Object weight" value={prop.weight ?? 'normal'}
-            options={[{ value: 'light', label: 'Light' }, { value: 'normal', label: 'Normal' }, { value: 'heavy', label: 'Heavy' }]}
+          <BuilderSelect label="Weight" accessibleLabel="Object weight" value={prop.weight === 'heavy' ? 'heavy' : 'normal'}
+            options={[{ value: 'normal', label: 'Normal' }, { value: 'heavy', label: 'Heavy' }]}
             onChange={value => {
               const next = copyLevel(history.present), object = next.props![selection.index]
-              if (value === 'light' || value === 'heavy') object.weight = value; else delete object.weight
+              if (value === 'heavy') object.weight = value; else delete object.weight
               commit(next)
             }} />
-          <p className="builder-hint">Light is easier to push and floats higher. Normal floats half submerged. Heavy is harder to push and sinks.</p>
+          <p className="builder-hint">Normal floats half submerged. Heavy is harder to push and sinks.</p>
         </>}
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
           const next = copyLevel(history.present); next.platforms[selection.index].material = material; commit(next)

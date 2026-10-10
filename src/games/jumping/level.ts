@@ -302,7 +302,8 @@ export function parseLevel(value: unknown): JumpLevel {
       if (b.weight !== undefined && b.weight !== 'light' && b.weight !== 'normal' && b.weight !== 'heavy') fail()
       const size = num(b.size, 30, 200)
       return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2, width - size / 2), y: num(b.y, -1800, level.floor!), size,
-        ...(b.weight === undefined ? {} : { weight: b.weight as PropWeight }) }
+        // Retired light variants load as ordinary props, keeping saved levels usable.
+        ...(b.weight === undefined || b.weight === 'light' ? {} : { weight: b.weight as PropWeight }) }
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()

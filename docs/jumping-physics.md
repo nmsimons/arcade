@@ -459,18 +459,19 @@ Rope particles use their local field multiplier with the rope's usual baseline.
 Grips and authored climbing paths retain their constraints; release returns the
 body to free movement. Field forces act through the center of mass.
 
-Balls and boxes have an optional `weight` preset: Light has 0.5× normal mass,
-Normal has 1×, and Heavy has 3×. The preset scales solver mass and rotational
-inertia together; collision impulses use that real mass. Player and shovebot
+Balls and boxes have an optional `weight` preset: Normal has 1× mass and Heavy
+has 3×. The preset scales solver mass and rotational inertia together;
+collision impulses use that real mass. Player and shovebot
 push motors retain their normal force budget rather than increasing force to
 cancel the extra weight. Negative plate lift is a fixed lifting force, scaled
 inversely by this mass factor; heavy props rise more slowly and float deeper
-at a plate boundary, while light ones rise faster and float higher. Ordinary
-falling, positive gravity and zero gravity remain mass-independent.
+at a plate boundary. Ordinary falling, positive gravity and zero gravity
+remain mass-independent.
 Cached field spans store their negative lift contribution. Each prop scales it
 inside the existing area integration; no additional clipping, bodies or solver
 passes are needed. The cached maximum lift also bounds fast-prop substeps.
-Unspecified weights preserve existing behavior. Regression coverage is in
+Unspecified weights preserve existing behavior. The retired light preset is
+normalized to ordinary weight on load. Regression coverage is in
 `tests/jumping-prop-weights.test.mjs`.
 
 Unsupported players in the five-percent gravity deadband experience air
@@ -518,7 +519,7 @@ removing water. Pause stops progress; restart restores the initial level.
 Existing files retain their full passive pools. Its buoyancy is
 fixed; there is no editable gravity strength. Prop lift uses submerged area
 and the weight preset: normal props float half submerged without a rider,
-light props float at one-quarter immersion, and heavy props sink. Water drag
+and heavy props sink. Water drag
 still follows immersion, independently of weight. Players use a fixed density of 0.78 and a
 posture-dependent displacement profile: idle floating is upright with the
 waterline at the neck, while horizontal surface swimming lies at the surface.

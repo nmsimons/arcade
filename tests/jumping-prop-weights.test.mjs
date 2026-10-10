@@ -11,7 +11,7 @@ import { copySelections, pasteSelections } from '../src/games/jumping/editorSele
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
 import { objectLabel } from '../src/games/jumping/objectLabels.ts'
 
-const weights = ['light', 'normal', 'heavy']
+const weights = ['normal', 'heavy']
 const pool = effect => ({ id: 'pool', x: 200, y: 400, w: 1000, h: 520, gravity: -1, power: 'always', ...(effect ? { effect } : {}) })
 const fieldFor = plates => {
   const field = createGravityField(); updateGravityField(field, plates, new Map(plates.map(p => [p.id, true])), true); return field
@@ -28,18 +28,24 @@ for (const version of [1, 2]) test(`prop weight presets round trip without rewri
   const parsed = parseLevel(source)
   assert.deepEqual(parsed.props.map(p => p.weight), [...weights, undefined])
   assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(parsed))), parsed)
+  for (const kind of ['box', 'ball']) {
+    const legacyProp = { kind, x: 500, y: 700, size: 60, weight: 'light' }
+    const migrated = parseLevel({ ...source, props: [legacyProp] })
+    const { weight: _retiredWeight, ...normalProp } = legacyProp
+    assert.deepEqual(migrated.props[0], normalProp, 'saved light variants become ordinary props')
+  }
   for (const weight of ['dense', 0, null, false]) assert.throws(() => parseLevel({ ...source, props: [{ ...source.props[0], weight }] }))
 })
 
 test('weight presets survive duplicate, clipboard, resizing and new editable copies', () => {
-  const source = { ...blankTrial(), props: [{ kind: 'ball', x: 400, y: 920, size: 60, weight: 'light' }, { kind: 'box', x: 700, y: 920, size: 60, weight: 'heavy' }] }
-  const selection = { kind: 'prop', index: 0 }
-  assert.equal(duplicateItem(source, selection).level.props[2].weight, 'light')
-  assert.equal(pasteSelections(source, copySelections(source, [selection]), 0, 0).level.props[2].weight, 'light')
-  assert.equal(resizeItem(source, selection, 100, 100).props[0].weight, 'light')
-  assert.deepEqual(copyForEditing(source).props.map(p => p.weight), ['light', 'heavy'])
-  assert.equal(objectLabel(source, selection), 'Light Ball 1')
-  assert.equal(objectLabel(source, { kind: 'prop', index: 1 }), 'Heavy Box 2')
+  const source = { ...blankTrial(), props: [{ kind: 'ball', x: 400, y: 920, size: 60 }, { kind: 'box', x: 700, y: 920, size: 60, weight: 'heavy' }] }
+  const selection = { kind: 'prop', index: 1 }
+  assert.equal(duplicateItem(source, selection).level.props[2].weight, 'heavy')
+  assert.equal(pasteSelections(source, copySelections(source, [selection]), 0, 0).level.props[2].weight, 'heavy')
+  assert.equal(resizeItem(source, selection, 100, 100).props[1].weight, 'heavy')
+  assert.deepEqual(copyForEditing(source).props.map(p => p.weight), [undefined, 'heavy'])
+  assert.equal(objectLabel(source, { kind: 'prop', index: 0 }), 'Ball 1')
+  assert.equal(objectLabel(source, selection), 'Heavy Box 2')
 })
 
 for (const kind of ['ball', 'box']) test(`${kind} weight scales water and negative plate lift in one area pass`, () => {
@@ -70,18 +76,15 @@ for (const kind of ['ball', 'box']) for (const dt of [STEP, 1 / 30]) for (const 
   test(`${kind} presets settle at different water depths or sink, dt=${dt}, effects=${effects}`, () => {
     const run = createRun({ ...blankTrial(), props: weights.map((weight, i) => ({ kind, weight, x: 450 + i * 250, y: 750, size: 80 })), gravityPlates: [pool('water')] })
     setWaterEffectsEnabled(run, effects); advance(run, 10, dt)
-    for (let i = 0; i < 2; i++) {
-      const b = run.props[i]
-      assert.ok(Math.abs(propWaterStrength(run.gravityField, b) - [.25, .5][i]) < .03, `equilibrium immersion for ${b.weight}: ${b.y}`)
-      assert.equal(b.grounded, false); assert.ok(Math.abs(b.vy) < 8)
-    }
-    assert.ok(run.props[0].y < run.props[1].y - 10)
-    assert.ok(Math.abs(run.props[2].y - 920) < .5); assert.equal(run.props[2].grounded, true)
+    const normal = run.props[0], heavy = run.props[1]
+    assert.ok(Math.abs(propWaterStrength(run.gravityField, normal) - .5) < .03, `equilibrium immersion for normal: ${normal.y}`)
+    assert.equal(normal.grounded, false); assert.ok(Math.abs(normal.vy) < 8)
+    assert.ok(Math.abs(heavy.y - 920) < .5); assert.equal(heavy.grounded, true)
     assert.ok(run.props.every(b => Number.isFinite(b.y) && Math.abs(b.vy) < 8))
   })
 
 for (const kind of ['ball', 'box']) for (const dt of [STEP, 1 / 30])
-  test(`a gravity plate lifts a light ${kind} higher and a heavy one deeper, dt=${dt}`, () => {
+  test(`a gravity plate lifts a normal ${kind} higher and a heavy one deeper, dt=${dt}`, () => {
     const run = createRun({ ...blankTrial(), props: weights.map((weight, i) => ({ kind, weight, x: 450 + i * 250, y: 750, size: 80 })), gravityPlates: [pool()] })
     advance(run, 12, dt)
     for (const b of run.props) {
@@ -89,7 +92,6 @@ for (const kind of ['ball', 'box']) for (const dt of [STEP, 1 / 30])
       assert.ok(Math.abs(b.vy) < .1)
     }
     assert.ok(run.props[0].y < run.props[1].y - 8)
-    assert.ok(run.props[1].y < run.props[2].y - 8)
   })
 
 for (const kind of ['ball', 'box']) test(`${kind} presets change solver mass and yield differently in a collision`, () => {
@@ -110,17 +112,16 @@ for (const kind of ['ball', 'box']) test(`${kind} presets change solver mass and
       advance(run, .15, STEP)
       collisions.push(run.props[0].vx)
     }
-    assert.ok(Math.abs(masses[0] / masses[1] - .5) < 1e-8)
-    assert.ok(Math.abs(masses[2] / masses[1] - 3) < 1e-8)
-    assert.ok(collisions[0] > collisions[1] + 3 && collisions[1] > collisions[2] + 3, JSON.stringify(collisions))
+    assert.ok(Math.abs(masses[1] / masses[0] - 3) < 1e-8)
+    assert.ok(collisions[0] > collisions[1] + 3, JSON.stringify(collisions))
   } finally { Matter.Engine.update = original }
 })
 
-for (const kind of ['ball', 'box']) test(`a short player shove accelerates a light ${kind} more than a heavy one`, () => {
+for (const kind of ['ball', 'box']) test(`a short player shove accelerates a normal ${kind} more than a heavy one`, () => {
   const distances = weights.map(weight => {
     const run = createRun({ ...blankTrial(), spawn: { x: 200, y: 920 }, props: [{ kind, weight, x: 250, y: 920, size: 60 }] })
     advance(run, .35, STEP, { ...NEUTRAL_INPUT, move: 1 })
     return run.props[0].x - 250
   })
-  assert.ok(distances[0] > distances[1] + .5 && distances[1] > distances[2] + .5, JSON.stringify(distances))
+  assert.ok(distances[0] > distances[1] + .5, JSON.stringify(distances))
 })

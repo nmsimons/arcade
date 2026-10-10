@@ -125,8 +125,8 @@ test('water uses coordinated breaststroke pulls, frog kicks, glides and a head-f
   const dive = athletePose(p)
   assert.ok(dive.head[1] > dive.hip[1] + 20, 'diving leads with the head and trails the legs above it')
   assert.ok(p.vy > 0)
-  for (let i = 0; i < 90; i++) stepPlayer(p, { ...NEUTRAL_INPUT, climb: true }, STEP, [], undefined, undefined, undefined, field)
-  assert.equal(p.waterMotion.amount, 0, 'rising is upright floating without a stroke')
+  for (let i = 0; i < 150; i++) stepPlayer(p, { ...NEUTRAL_INPUT, climb: true }, STEP, [], undefined, undefined, undefined, field)
+  assert.equal(p.waterMotion.amount, 1, 'underwater ascent continues a coordinated stroke')
   assert.ok(athletePose(p).head[1] < athletePose(p).hip[1] - 20)
 })
 
@@ -145,22 +145,24 @@ for (const dt of [STEP, 1 / 30]) for (const crouch of [false, true]) test(`divin
       assert.ok(pose.head[1] < pose.hip[1] - 7, 'underwater contact has an upright torso')
       assert.equal(pose.frontLeg.planted || pose.backLeg.planted, true, 'the floor owns foot placement')
       assert.equal(p.freeFall, null, 'contact does not replay prone landing recovery')
+      for (const arm of [pose.frontArm, pose.backArm]) assert.ok(arm.end[1] > pose.shoulder[1] + (crouch ? 5 : 12), 'resting arms rest below the shoulders instead of treading')
     }
   }
   assert.equal(grounded, true); assert.equal(releasedContact, false, 'buoyancy and the Down motor retain one continuous support')
-  assert.ok(maxRoot - minRoot < 1e-7); assert.ok(maxHead - minHead < .1, 'holding-down strokes do not bob the torso')
+  assert.ok(maxRoot - minRoot < 1e-7); assert.ok(maxHead - minHead < .1, 'resting on the floor does not bob the torso')
   assert.equal(run.player.waterMotion.bottom, 1); assert.equal(run.player.crouching, crouch)
-  const stride = run.player.stride, phase = run.player.waterMotion.phase, holdPhase = run.player.waterMotion.hold
+  const stride = run.player.stride, phase = run.player.waterMotion.phase
   for (let i = 0; i < Math.round(.5 / dt); i++) stepRun(run, hold, dt)
   assert.equal(run.player.stride, stride, 'stationary feet do not step'); assert.equal(run.player.waterMotion.phase, phase, 'no traveling stroke at the floor')
-  assert.notEqual(run.player.waterMotion.hold, holdPhase, 'hands work against actual downward load')
   const x = run.player.x
   const footAnchors = run.player.footwork.feet.map(f => f.anchorX)
   for (let i = 0; i < Math.round(1 / dt); i++) stepRun(run, { ...hold, move: -1 }, dt)
   assert.ok(run.player.x < x - 60); assert.equal(run.player.grounded, true); assert.ok(Math.abs(run.player.vx) <= TUNING.swimHorizontalSpeed + .01)
   assert.ok(run.player.stride !== stride || run.player.footwork.feet.some((f, i) => Math.abs(f.anchorX - footAnchors[i]) > 14), 'steps follow actual underwater floor travel')
   for (let i = 0; i < Math.round(.6 / dt); i++) stepRun(run, NEUTRAL_INPUT, dt)
-  assert.equal(run.player.grounded, false); assert.ok(run.player.y < 895, 'release floats freely away from the bottom')
+  assert.equal(run.player.grounded, true); assert.equal(run.player.crouching, false); assert.equal(run.player.y, 920, 'release stands on the bottom with neutral buoyancy')
+  for (let i = 0; i < Math.round(.6 / dt); i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true }, dt)
+  assert.equal(run.player.grounded, false); assert.ok(run.player.y < 895, 'Up swims away from the bottom')
   assert.equal(run.player.waterMotion.bottom, 0)
 })
 
@@ -268,7 +270,7 @@ test('water shares field composition and round-trips through editor operations a
   const source = blankTrial(), { level, selection } = addItem(source, 'water', { x: 400, y: 400 }, { x: 800, y: 920 })
   assert.equal(objectLabel(level, selection), 'Water 1')
   assert.equal(level.gravityPlates[0].effect, 'water')
-  assert.equal(level.gravityPlates[0].power, 'always')
+  assert.equal(level.gravityPlates[0].power, undefined)
   for (const version of [1, 2]) assert.deepEqual(parseLevel({ ...level, version, ...(version === 2 ? { lighting: { nightMode: false, ambient: 0, lights: [] } } : {}) }).gravityPlates, level.gravityPlates)
   assert.throws(() => parseLevel({ ...level, gravityPlates: [{ ...level.gravityPlates[0], effect: 'lava' }] }))
   assert.deepEqual(hitItem(level, 600, 550, 5), selection)
@@ -276,7 +278,7 @@ test('water shares field composition and round-trips through editor operations a
   assert.equal(resized.gravityPlates[0].effect, 'water')
   assert.equal(duplicateItem(resized, selection).level.gravityPlates[1].effect, 'water')
   assert.equal(pasteSelections(level, copySelections(level, [selection])).level.gravityPlates[1].effect, 'water')
-  assert.equal(setObjectPower(level, selection, 'switched').gravityPlates[0].effect, 'water')
+  assert.equal(setObjectPower(level, selection, 'switched'), level, 'water has no power setting')
   const click = addItem(source, 'water', { x: 400, y: 400 }, { x: 400, y: 400 }).level.gravityPlates[0]
   assert.deepEqual([click.y, click.h], [400, 520], 'a click treats the pointer as the water surface')
   const plates = [pool({ effect: 'water' }), pool({ id: 'grav', gravity: 0 })]
@@ -284,19 +286,20 @@ test('water shares field composition and round-trips through editor operations a
   assert.equal(propGravity(fieldFor(plates), b), -.5 * TUNING.gravity)
 })
 
-test('active water draws only a blue rectangle; inactive water is hidden in play and outlined in the editor', () => {
+test('water always draws a blue rectangle, with an outline in the editor and no emitter or dust', () => {
   const draws = [], ctx = new Proxy({ globalAlpha: 1, canvas: { width: 1800, height: 920 }, getTransform: () => ({ a: 1, d: 1, e: 0, f: 0 }) }, {
     get(target, key) { return key in target ? target[key] : (...args) => draws.push({ kind: key, args, color: target.fillStyle }) },
   })
   const plate = pool({ effect: 'water' }), field = fieldFor([plate])
-  drawWaterRegion(ctx, plate, true); drawGravityPlate(ctx, plate, true); drawGravityDust(ctx, [plate], field, 2)
+  drawWaterRegion(ctx, plate); drawGravityPlate(ctx, plate, true); drawGravityDust(ctx, [plate], field, 2)
   assert.deepEqual(draws.filter(d => d.kind === 'fillRect'), [{ kind: 'fillRect', args: [200, 400, 1000, 520], color: WATER_COLOR }])
   assert.equal(draws.some(d => d.kind === 'strokeRect'), false)
   draws.length = 0
-  drawWaterRegion(ctx, plate, false)
-  assert.equal(draws.length, 0)
+  drawWaterRegion(ctx, plate)
+  assert.equal(draws.filter(d => d.kind === 'fillRect').length, 1)
+  draws.length = 0
   drawGravityRegion(ctx, plate, false, true)
-  drawWaterRegion(ctx, plate, false, true)
+  drawWaterRegion(ctx, plate)
   assert.ok(draws.some(d => d.kind === 'fillRect'))
   assert.ok(draws.some(d => d.kind === 'strokeRect'))
 })
@@ -324,7 +327,7 @@ for (const inverted of [false, true]) {
   })
 }
 
-test('swimming coverage fades at field edges, overlapping regions average, and EMP removes the motor', () => {
+test('swimming coverage fades at field edges, overlapping regions average, and EMP leaves water present', () => {
   const p = createPlayer({ x: 500, y: 600 })
   assert.equal(playerSwimStrength(fieldFor([pool({ effect: 'water' })]), p), 1)
   assert.equal(playerSwimStrength(fieldFor([pool()]), p), 0)
@@ -333,7 +336,7 @@ test('swimming coverage fades at field edges, overlapping regions average, and E
   assert.ok(Math.abs(playerSwimStrength(fieldFor([pool({ effect: 'water' })]), p) - .5) < 1e-8)
   const field = fieldFor([pool({ effect: 'water' })])
   updateGravityField(field, [pool({ effect: 'water' })], new Map(), false)
-  assert.equal(playerSwimStrength(field, p), 0)
+  assert.ok(Math.abs(playerSwimStrength(field, p) - .5) < 1e-8)
 })
 
 test('Up and Down do not provide free-flight steering in gravity plates', () => {
@@ -558,8 +561,10 @@ for (const dt of [STEP, 1 / 30]) test(`water resists released player momentum wi
   assert.ok(p.vx > 100 && p.vx <= TUNING.swimHorizontalSpeed)
   const x = p.x
   for (let i = 0; i < Math.round(.5 / dt); i++) stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, field)
-  assert.ok(p.x - x < 18, 'release loses momentum within a short glide')
-  assert.ok(Math.abs(p.vx) < 1)
+  assert.ok(p.x - x > 20 && p.x - x < 28, 'release carries a little momentum through a damped glide')
+  assert.ok(p.vx > 12 && p.vx < 17)
+  for (let i = 0; i < Math.round(1 / dt); i++) stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, field)
+  assert.ok(Math.abs(p.vx) < .3, 'the longer glide still settles into a quiet rest')
   p.vx = 500
   for (let i = 0; i < Math.round(.5 / dt); i++) stepPlayer(p, { ...NEUTRAL_INPUT, move: 1 }, dt, [], undefined, undefined, undefined, field)
   assert.ok(p.vx <= TUNING.swimHorizontalSpeed + .01, 'large carried momentum dissipates without a hard reset')
@@ -577,7 +582,7 @@ for (const dt of [STEP, 1 / 30]) test(`water resists floating box and ball drift
   assert.ok(Math.abs(run.props[0].angularVelocity) < .06, 'water damps tumbling as well as translation')
 })
 
-test('water resistance scales with submerged area and composition and disappears outside water or during EMP', () => {
+test('water resistance scales with submerged area and composition, persists during EMP and ends outside water', () => {
   const b = { kind: 'box', x: 500, y: 440, size: 80, angle: 0 }
   assert.equal(propWaterStrength(fieldFor([pool({ effect: 'water' })]), b), .5)
   assert.equal(propWaterStrength(fieldFor([pool()]), b), 0)
@@ -586,7 +591,7 @@ test('water resistance scales with submerged area and composition and disappears
   const run = fixture([{ kind: 'box', x: 500, y: 440, size: 80 }], 'water')
   run.empRemaining = 2; run.props[0].vx = 110
   step(run, .2)
-  assert.ok(Math.abs(run.props[0].vx - 110) < .001, 'suppressed water supplies no resistance')
+  assert.ok(run.props[0].vx > 0 && run.props[0].vx < 105, 'EMP does not remove water resistance')
   run.empRemaining = 0; run.props[0].x = 1400; run.props[0].vx = 110
   step(run, .2)
   assert.ok(Math.abs(run.props[0].vx - 110) < .001, 'leaving water restores ordinary prop travel')

@@ -435,6 +435,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     if (pad.pause) { changeScreen('paused'); return null }
     const k = keys.current, keyboard = keyboardMovement(k)
     return { move: keyboard || pad.move, jump: pad.jump,
+      swimVertical: Number(k.has('KeyS') || k.has('ArrowDown')) - Number(k.has('KeyW') || k.has('ArrowUp')) || pad.swimVertical,
       climb: k.has('KeyW') || k.has('ArrowUp') || pad.climb,
       drop: k.has('KeyS') || k.has('ArrowDown') || k.has('KeyX') || pad.drop,
       descend: k.has('KeyS') || k.has('ArrowDown') || pad.descend, detach: k.has('KeyX') || pad.detach,
@@ -501,6 +502,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
           }
           const gesture = touch.sample(now)
           const controls = { ...input, move: input.move || gesture.move,
+            swimVertical: input.swimVertical || Number(gesture.descend) - Number(gesture.climb),
             climb: input.climb || gesture.climb, descend: input.descend || gesture.descend,
             drop: input.drop || gesture.drop, detach: input.detach || gesture.detach, crouch: input.crouch || gesture.crouch,
             jump: input.jump || keyboardJump.current || gesture.jump,

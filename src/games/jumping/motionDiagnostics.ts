@@ -1,4 +1,5 @@
 import { athletePose } from './athlete.ts'
+import { playerWaterCenterOffset } from './gravity.ts'
 import type { JumpInput, Player } from './model.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 
@@ -9,17 +10,21 @@ const pointNames = ['hip', 'shoulder', 'head', 'frontElbow', 'frontHand', 'backE
 function snapshot(p: Player, input: JumpInput, time: number) {
   const pose = athletePose(p)
   return {
-    time, x: p.x, y: p.y, vx: p.vx, vy: p.vy, input: { ...input },
+    time, x: p.x, y: p.y, waterCenter: p.y + playerWaterCenterOffset(p), vx: p.vx, vy: p.vy, input: { ...input },
     signals: {
       mode: p.mantle?.step ? 'step' : p.mantle ? 'mantle' : p.hang ? 'hang' : p.climbing?.kind
         ?? ((p.freeFall?.amount ?? 0) > 0 ? p.freeFall?.recovery === null ? 'fall' : 'get-up' : 'free'),
       grounded: p.grounded, inverted: !!p.inverted, sliding: !!p.sliding?.active, bracing: !!p.wallBrace?.active, facing: p.facing,
+      waterLanding: !!p.waterMotion?.landing && !p.waterMotion.landing.leaving,
+      waterCeiling: (p.waterMotion?.ceiling?.amount ?? 0) > .5,
       slideLanding: !!p.slideEntry?.landing,
       reachingPush: !!p.dryTurn?.reaching,
       support: p.contacts?.support?.collider.id ?? null, push: p.contacts?.push?.collider.id ?? null,
     },
-    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0, gravityTurn: playerTurnAngle(p) },
+    blends: { push: p.pushing?.amount ?? 0, slide: p.sliding?.amount ?? 0, air: p.gait?.air ?? 0, fall: p.freeFall?.amount ?? 0,
+      ceiling: p.waterMotion?.ceiling?.amount ?? 0, gravityTurn: playerTurnAngle(p) },
     contacts: {
+      floorHand: p.waterMotion?.landing && !p.waterMotion.landing.leaving ? { ...p.waterMotion.landing.hand } : null,
       palms: p.pushing?.palms?.map(palm => ({ ...palm })) ?? [],
       feet: [pose.frontLeg, pose.backLeg].map(leg => ({ planted: leg.planted,
         x: p.x + leg.end[0] * p.facing, y: p.y + leg.end[1] * (p.inverted ? -1 : 1) })),

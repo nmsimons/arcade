@@ -19,7 +19,7 @@ for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const size of 
       const p = run.player, b = run.props[0]
       touched ||= p.contacts.body.some(c => c.collider.prop === b)
       climbed ||= !!p.mantle
-      assert.equal(p.swimAcceleration, 0, 'Up remains passive floating without an added lift motor')
+      if (p.waterMotion?.underwater) assert.ok(Math.abs(p.vy) < 105, 'underwater ascent retains the bounded swim pace through ball contact')
       assert.ok(Math.abs(b.x - previousX) < dt * 220, 'the ball moves through physical contacts without a position reset')
       previousX = b.x
       if (p.waterMotion) {

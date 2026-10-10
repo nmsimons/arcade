@@ -6,7 +6,7 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
   await page.goto('/untitled-jumping-game')
   const result = await page.evaluate(async () => {
     const { JumpingSound, MAX_LOOP_VOICES } = await import('/src/games/jumping/sound.ts')
-    const rate = 24000, ctx = new OfflineAudioContext(2, rate * 4.8, rate)
+    const rate = 24000, ctx = new OfflineAudioContext(2, rate * 5.6, rate)
     let sources = 0
     const create = ctx.createBufferSource.bind(ctx)
     ctx.createBufferSource = () => { sources++; return create() }
@@ -27,6 +27,8 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
       [3.75, () => sound.cue({ kind: 'box-impact', volume: 1, pan: 0, strength: .65, size: 40 })],
       [4.05, () => sound.cue({ kind: 'ball-impact', volume: 1, pan: 0, strength: .65, size: 68 })],
       [4.4, () => sound.silence()],
+      [4.65, () => sound.cue({ kind: 'water-entry', volume: 1, pan: 0, strength: .8, size: 60 })],
+      [5.2, () => sound.silence()],
     ].map(([time, action]) => ({ ready: ctx.suspend(time), action }))
     const rendering = ctx.startRendering()
     for (const stage of stages) { await stage.ready; stage.action(); await ctx.resume() }
@@ -38,10 +40,11 @@ test('all sound textures render quietly, loops reuse a bounded bank, and stoppin
     sound.dispose(); sound.dispose()
     return { quiet: measure(0, .09), loops: [.25, .65, 1.05, 1.45, 1.85].map(t => measure(t, t + .15)),
       steps: measure(2.7, 2.86), switch: measure(2.95, 3.11), timer: measure(3.2, 3.55), crowd: measure(2.3, 2.5),
-      box: measure(3.75, 3.93), ball: measure(4.05, 4.29), stopped: measure(4.6, 4.79), peak: measure(0, 4.8).peak, counts, limit: MAX_LOOP_VOICES }
+      box: measure(3.75, 3.93), ball: measure(4.05, 4.29), splash: measure(4.65, 4.9), waterTail: measure(4.95, 5.15),
+      stopped: measure(5.4, 5.59), peak: measure(0, 5.6).peak, counts, limit: MAX_LOOP_VOICES }
   })
   expect(result.quiet.peak).toBe(0)
-  for (const sound of [...result.loops, result.steps, result.switch, result.timer, result.box, result.ball]) expect(sound.rms, JSON.stringify(result)).toBeGreaterThan(.001)
+  for (const sound of [...result.loops, result.steps, result.switch, result.timer, result.box, result.ball, result.splash, result.waterTail]) expect(sound.rms, JSON.stringify(result)).toBeGreaterThan(.001)
   expect(result.peak).toBeLessThan(.3)
   expect(result.counts).toEqual([1, result.limit])
   expect(result.stopped.peak).toBe(0)
@@ -111,4 +114,35 @@ test('an old mute preference cannot leave gameplay silent after removing the tog
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await expect(page.getByRole('button', { name: /^Sound (on|off)$/ })).toHaveCount(0)
+})
+
+test('normal gameplay plays one splash for the player and each falling prop, then floating stays quiet', async ({ page }, info) => {
+  const level = blankTrial()
+  level.name = 'Water sound test'; level.spawn = { x: 600, y: 200 }
+  level.platforms = [{ x: 560, y: 200, w: 80, h: 20 }]
+  level.props = [{ kind: 'ball', size: 68, x: 780, y: 390 }, { kind: 'box', size: 50, x: 900, y: 410 }]
+  level.gravityPlates = [{ id: 'pool', effect: 'water', power: 'always', x: 400, y: 500, w: 1000, h: 420, gravity: -1 }]
+  await useLevelFixtures(page, [level])
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  const play = page.getByRole('button', { name: 'Play Water sound test', exact: true })
+  await expect(play).toBeEnabled()
+  await page.evaluate(async () => {
+    const { JumpingSound } = await import('/src/games/jumping/sound.ts')
+    window.waterSounds = []
+    const cue = JumpingSound.prototype.cue
+    JumpingSound.prototype.cue = function (sound) { window.waterSounds.push(sound); return cue.call(this, sound) }
+  })
+  await play.click()
+  await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
+  await page.keyboard.down('ArrowRight')
+  await expect.poll(() => page.evaluate(() => window.jumpingMotion.read().recent.at(-1)?.x ?? 0)).toBeGreaterThan(660)
+  await page.keyboard.up('ArrowRight')
+  const splashes = () => page.evaluate(() => window.waterSounds.filter(c => c.kind === 'water-entry'))
+  await expect.poll(async () => (await splashes()).length).toBe(3)
+  const entries = await splashes()
+  expect(entries.map(c => c.size).sort((a, b) => a - b)).toEqual([50, 60, 68])
+  expect(entries.every(c => c.volume > .05 && c.strength > .2)).toBe(true)
+  await expect.poll(() => page.evaluate(() => window.jumpingMotion.read().recent.at(-1)?.time ?? 0)).toBeGreaterThan(5)
+  expect(await splashes()).toEqual(entries)
+  await info.attach('water-entry-sounds', { body: JSON.stringify(entries, null, 2), contentType: 'application/json' })
 })

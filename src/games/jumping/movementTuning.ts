@@ -10,6 +10,7 @@ export const TUNING = {
   freeFallTime: .9, freeFallBlendTime: .28, fallRecoveryTime: .95,
   zeroGravityDrag: .6,
   swimSpeed: 85, diveSpeed: 100, swimHorizontalSpeed: 110, swimHorizontalAcceleration: 160, swimBlendTime: .65, swimStrokeDistance: 130, swimAcceleration: 4000, waterRiseDrag: 5.2,
+  swimSteeringAcceleration: 260, swimResponse: 7, swimCoastResponse: 4, swimPitchTime: .42,
   waterMomentumDrag: 4, waterPropDrag: 5, waterSpinDrag: 6,
   waterBobHeight: 2.25, waterBobPeriod: 3.8,
 } as const

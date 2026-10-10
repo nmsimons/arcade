@@ -227,13 +227,24 @@ export function setObjectPower(level: JumpLevel, selection: Selection, power: Po
   const next = copyLevel(level)
   const item = selection.kind === 'goal' ? next.goal : selection.kind === 'mechanism' ? next.mechanisms?.[selection.index]
     : selection.kind === 'force-field' ? next.forceFields?.[selection.index] : selection.kind === 'light' ? next.lighting?.lights[selection.index] : selection.kind === 'gravity-plate' ? next.gravityPlates?.[selection.index] : null
-  if (!item || 'kind' in item && item.kind === 'gate') return level
+  if (!item || 'kind' in item && item.kind === 'gate' || 'effect' in item && item.effect === 'water') return level
   item.power = power
   if (selection.kind === 'goal' && !item.id) item.id = newLevelId()
   if (power === 'always') {
     removeSwitchTarget(next, item.id!)
     delete item.targets; delete item.relay
   }
+  return next
+}
+export function setGravityPlateEffect(level: JumpLevel, index: number, effect: 'water' | 'gravity'): JumpLevel {
+  const previous = level.gravityPlates?.[index]
+  if (!previous || (previous.effect ?? 'gravity') === effect) return level
+  const next = copyLevel(level), plate = next.gravityPlates![index]
+  if (effect === 'water') {
+    plate.effect = 'water'; plate.gravity = -1
+    removeSwitchTarget(next, plate.id)
+    delete plate.power; delete plate.ceiling; delete plate.switchLogic; delete plate.switchReversed; delete plate.relay; delete plate.targets
+  } else { delete plate.effect; plate.power = 'always' }
   return next
 }
 export function setObjectSwitchLogic(level: JumpLevel, selection: Selection, logic: SwitchLogic): JumpLevel {
@@ -638,7 +649,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     const ceiling = !water && !!plateSurface(plateSolids(trial), left, w, start.y, 12)?.ceiling
     const h = Math.min(levelHeight(trial), dragged ? Math.max(40, Math.abs(end.y - start.y)) : Math.max(40, water || ceiling ? levelHeight(trial) - start.y : start.y))
     const top = clamp(dragged ? Math.min(start.y, end.y) : water || ceiling ? start.y : start.y - h, 0, levelHeight(trial) - h)
-    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1, ...(water ? { effect: 'water', power: 'always' } as const : {}), ...(ceiling ? { ceiling: true } : {}) })
+    plates.push({ id: newLevelId(), x: left, y: top, w, h, gravity: -1, ...(water ? { effect: 'water' } as const : {}), ...(ceiling ? { ceiling: true } : {}) })
     return { level: trial, selection: { kind: 'gravity-plate', index: plates.length - 1 } }
   }
   if (tool === 'wall-light') {

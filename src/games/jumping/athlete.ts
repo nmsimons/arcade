@@ -1,7 +1,7 @@
 import { mirrorPlatform, mirrorPlayerState } from './gravityFrame.ts'
 import { gaitPose } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
+import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
 import { moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
@@ -125,7 +125,7 @@ function solveRear(root: Point, target: Point, upper: number, lower: number, sid
 }
 /** Turn between the ladder and ledge rigs without snapping elbows/knees into a different bend plane. */
 function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: number, offset: Point = [0, 0], reachClearance = 0, turning = false, legClearance = 0,
-  transition?: { depth: number; kneeOpening: number; legDepth?: number; footTurn?: boolean }): AthletePose {
+  transition?: { depth: number; kneeOpening: number; armOpening?: number; legDepth?: number; footTurn?: boolean }): AthletePose {
   const point = (a: Point, b: Point) => add(mix(add(a, shift), b, t), offset)
   const limb = (a: Limb, b: Limb, upper: number, lower: number, clearance = 0, minOpening = 0, reachDepth?: number): Limb => {
     const root = point(a.root, b.root), target = point(a.end, b.end)
@@ -163,7 +163,8 @@ function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: numbe
       toeAngle: toe, footFacing: facing, planted: a.planted && b.planted, rear }
   }
   return { hip: point(from.hip, to.hip), waist: point(from.waist, to.waist), shoulder: point(from.shoulder, to.shoulder), head: point(from.head, to.head),
-    frontArm: limb(from.frontArm, to.frontArm, UPPER_ARM, FOREARM, reachClearance), backArm: limb(from.backArm, to.backArm, UPPER_ARM, FOREARM, reachClearance),
+    frontArm: limb(from.frontArm, to.frontArm, UPPER_ARM, FOREARM, reachClearance, transition?.armOpening),
+    backArm: limb(from.backArm, to.backArm, UPPER_ARM, FOREARM, reachClearance, transition?.armOpening),
     frontLeg: leg(from.frontLeg, to.frontLeg), backLeg: leg(from.backLeg, to.backLeg),
     backView: lerp(from.backView ?? 0, to.backView ?? 0, t), headTilt: lerp(from.headTilt ?? 0, to.headTilt ?? 0, t) }
 }
@@ -1277,45 +1278,76 @@ export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFram
   }
 }
 
-/** Breaststroke coordinates the outsweep, insweep, forward recovery, frog kick
- * and glide. Resting or rising keeps a vertical body with gentle hand sculling. */
+/** Breaststroke coordinates the pull, recovery, kick and glide. Submerged
+ * steering leads through the chest and neck while the hips and feet trail. */
 function waterPose(p: Player): AthletePose {
   const motion = p.waterMotion!
+  if (motion.landing) return waterLandingPose(p)
   const pushing = !p.grounded ? smooth(p.pushing?.amount ?? 0) : 0
   const floatHip: Point = [0, -31.4], floatWaist: Point = [.2, -38], floatShoulder: Point = [.5, -48], floatHead: Point = [2.8, -55.3]
   const baseScull = motion.scull ?? motion.phase, bob = p.waterBob?.amount ?? 0
   const scull = (Math.sin(baseScull) * (1 - bob) + Math.sin(baseScull + (p.waterBob?.phase ?? 0)) * bob) * .8
-  const floatingLeg = (back: boolean): Leg => ({ ...solve(add(floatHip, [back ? -1 : 0, 0]), [back ? -2 : 2, back ? -2.5 : -2], 15, 14.5, -1),
-    footAngle: Math.PI / 2 + (back ? .05 : -.15), toeAngle: 0, footFacing: 1, planted: false })
+  const quietFloat = (1 - smooth(motion.amount)) * (1 - (motion.bottom ?? 0)) * (1 - pushing)
+    * (1 - smooth(Math.hypot(p.vx, p.vy) / 25))
+  const floatingLeg = (back: boolean): Leg => {
+    const drift = Math.sin(baseScull + (back ? Math.PI : .6)) * .65 * quietFloat
+    return { ...solve(add(floatHip, [back ? -1 : 0, 0]), [(back ? -2 : 2) + drift, back ? -2.5 : -2], 15, 14.5, -1),
+      footAngle: Math.PI / 2 + (back ? .05 : -.15) + drift * .06, toeAngle: 0, footFacing: 1, planted: false }
+  }
   const floatingArm = (back: boolean): Limb => ({ ...solve(add(floatShoulder, [back ? -1.2 : 0, .5]),
     [back ? 3 - scull : 10 + scull, back ? -42.5 : -40], UPPER_ARM, FOREARM, 1), handAngle: (back ? -scull : scull) * .12 })
-  const upright = rotatePose({ hip: floatHip, waist: floatWaist, shoulder: floatShoulder, head: floatHead,
+  const floating = rotatePose({ hip: floatHip, waist: floatWaist, shoulder: floatShoulder, head: floatHead,
     frontArm: floatingArm(false), backArm: floatingArm(true),
     frontLeg: floatingLeg(false), backLeg: floatingLeg(true) }, 0, p.facing)
+  // A quiet float breathes through a small sway and drifting ankles. Rotate the
+  // intact rig around the hips; the physical depth and clearance solve stay live.
+  const upright = rotatePose(floating, Math.sin(baseScull) * .04 * quietFloat, 1, floatHip)
   const cycle = (motion.phase / TAU % 1 + 1) % 1
-  const strokeWeight = smooth((motion.amount - .65) / .35) * Math.max(smooth(Math.hypot(p.vx, p.vy) / 70), pushing * (p.pushing?.effort ?? 0))
-  const breath = smooth((cycle - .22) / .2) * (1 - smooth((cycle - .55) / .17)) * strokeWeight
+  const strokeWeight = smooth((motion.amount - .65) / .35) * Math.max(smooth(motion.effort ?? Math.hypot(p.vx, p.vy) / 70), pushing * (p.pushing?.effort ?? 0))
+  const steering = smooth(motion.steering ?? Number(motion.underwater ?? false))
+  const breath = smooth((cycle - .22) / .2) * (1 - smooth((cycle - .55) / .17)) * strokeWeight * (1 - steering)
+  const resting = steering * (1 - smooth(Math.hypot(p.vx, p.vy) / 35))
   const hip: Point = [-7, -9], waist: Point = [-.5, -8.6], shoulder: Point = [9.6, -8 - breath * 2], head: Point = [17.6, -7.8 - breath * 5]
   const out = smooth((cycle - .18) / .2) * strokeWeight, inward = smooth((cycle - .38) / .17) * strokeWeight, forward = smooth((cycle - .55) / .17) * strokeWeight
-  const dx = 18.7 - out * 11.7 - inward * 5 + forward * 16.7, dy = out * 6 + inward * 2 - forward * 8
+  const dx = 18.7 - out * 11.7 - inward * 5 + forward * 16.7 - resting * (2 + scull), dy = out * 6 + inward * 2 - forward * 8 + resting * (1.5 + scull)
   const arm = (back: boolean): Limb => {
     const sweep = Math.sin(Math.PI * smooth((cycle - .18) / .37))
     const root = add(shoulder, [back ? -.5 : 0, back ? -.6 : .6])
     return solveRear(root, add(root, [dx, dy]), UPPER_ARM, FOREARM, 1, 1 - sweep * .5)
   }
-  const tuck = smooth((cycle - .28) / .24), kick = smooth((cycle - .55) / .23), folded = tuck * (1 - kick) * strokeWeight
+  const tuck = smooth((cycle - .28) / .24), kick = smooth((cycle - .55) / .23), folded = tuck * (1 - kick) * strokeWeight + resting * (.15 + scull * .025)
   const leg = (back: boolean): Leg => ({ ...solveRear(add(hip, [back ? -.4 : 0, back ? .4 : 1]),
     [-36.3 + folded * 16, (back ? -8.6 : -8) + folded * 5], 15, 14.5, -1, 1 - folded * .65),
     footAngle: Math.PI - folded * .65, toeAngle: 0, footFacing: 1, planted: false })
   let stroke: AthletePose = { hip, waist, shoulder, head, frontArm: arm(false), backArm: arm(true),
     frontLeg: leg(false), backLeg: leg(true), headTilt: Math.PI / 2 }
+  const bend = (motion.bend ?? 0) * smooth(motion.amount) * (1 - (motion.bottom ?? 0)) * (1 - pushing)
+  if (bend) {
+    const around = (point: Point, root: Point, angle: number): Point => {
+      const x = point[0] - root[0], y = point[1] - root[1], c = Math.cos(angle), s = Math.sin(angle)
+      return [root[0] + x * c - y * s, root[1] + x * s + y * c]
+    }
+    const waist = around(stroke.waist, stroke.hip, bend * .3)
+    const chestShift: Point = [waist[0] - stroke.waist[0], waist[1] - stroke.waist[1]]
+    const shoulder = add(around(stroke.shoulder, stroke.waist, bend * 1.1), chestShift)
+    const head = add(around(stroke.head, stroke.shoulder, bend * 1.2), [shoulder[0] - stroke.shoulder[0], shoulder[1] - stroke.shoulder[1]])
+    const steerArm = (limb: Limb): Limb => {
+      const root = add(around(limb.root, stroke.shoulder, bend * 1.1), [shoulder[0] - stroke.shoulder[0], shoulder[1] - stroke.shoulder[1]])
+      const shift: Point = [root[0] - limb.root[0], root[1] - limb.root[1]]
+      return { ...limb, root, joint: add(around(limb.joint, limb.root, bend * 1.2), shift), end: add(around(limb.end, limb.root, bend * 1.2), shift) }
+    }
+    const trailLeg = (leg: Leg): Leg => ({ ...leg, joint: around(leg.joint, leg.root, -bend * .12),
+      end: around(leg.end, leg.root, -bend * .12), footAngle: leg.footAngle - bend * .12 })
+    stroke = { ...stroke, waist, shoulder, head, frontArm: steerArm(stroke.frontArm), backArm: steerArm(stroke.backArm),
+      frontLeg: trailLeg(stroke.frontLeg), backLeg: trailLeg(stroke.backLeg), headTilt: Math.PI / 2 + bend }
+  }
   const angle = motion.dive * Math.PI / 2, cos = Math.cos(angle), sin = Math.sin(angle)
   const point = ([x, y]: Point): Point => [x * cos - (y + 8) * sin, -8 - Math.abs(motion.dive) * 21 + x * sin + (y + 8) * cos]
   const limb = (value: Limb): Limb => ({ ...value, root: point(value.root), joint: point(value.joint), end: point(value.end) })
-  stroke = { hip: point(hip), waist: point(waist), shoulder: point(shoulder), head: point(head),
+  stroke = { hip: point(stroke.hip), waist: point(stroke.waist), shoulder: point(stroke.shoulder), head: point(stroke.head),
     frontArm: limb(stroke.frontArm), backArm: limb(stroke.backArm),
     frontLeg: { ...stroke.frontLeg, ...limb(stroke.frontLeg), footAngle: stroke.frontLeg.footAngle + angle },
-    backLeg: { ...stroke.backLeg, ...limb(stroke.backLeg), footAngle: stroke.backLeg.footAngle + angle }, headTilt: Math.PI / 2 + angle }
+    backLeg: { ...stroke.backLeg, ...limb(stroke.backLeg), footAngle: stroke.backLeg.footAngle + angle }, headTilt: (stroke.headTilt ?? Math.PI / 2) + angle }
   // Rotate the spine into the heading; the deliberate tuck below gathers the
   // limbs without collapsing the torso or changing their segment lengths.
   const transitionHip = mix(floatHip, stroke.hip, motion.amount)
@@ -1346,21 +1378,11 @@ function waterPose(p: Player): AthletePose {
     pose = transferPose(pose, curled, [0, 0], gather, [0, 0], 0, true)
   }
   if (motion.bottom) {
-    // The floor owns the legs and crouch. Upward palm sweeps oppose buoyancy;
-    // the recovery folds through depth rather than flapping in a frontal view.
+    // Neutral buoyancy lets the whole planted rig rest naturally on the floor.
     const planted = athletePose({ ...p, waterMotion: undefined, freeFall: null, landing: 0,
       // This is the water floor-contact endpoint, including its release blend.
       // A buoyant lift must not make that endpoint adopt dry apex balance.
       gait: { ...(p.gait ?? gaitPose(p.vx)), air: 0 } })
-    const cycle = ((motion.hold ?? 0) / TAU) % 1
-    const pull = smooth(cycle / .55), recover = smooth((cycle - .55) / .45)
-    const lift = pull * (1 - recover), reach = 12 + Math.sin(cycle * TAU) * 2
-    const arm = (back: boolean): Limb => {
-      const root = add(planted.shoulder, [back ? -.8 : 0, .7])
-      return { ...solveRear(root, add(root, [reach - lift * 5, 12 - lift * 19]), UPPER_ARM, FOREARM, 1, 1 - recover * (1 - recover) * 2),
-        handAngle: -.2 - lift * .7 }
-    }
-    if (!p.pushing?.amount) { planted.frontArm = arm(false); planted.backArm = arm(true) }
     pose = motion.bottom >= 1 ? planted : transferPose(pose, planted, [0, 0], motion.bottom, [0, 0], 0, true)
   }
   if (pushing && p.pushing?.palms) {
@@ -1371,20 +1393,26 @@ function waterPose(p: Player): AthletePose {
   if (!p.grounded) {
     // Turn through depth while gathered instead of mirroring the extended body
     // in one frame. Every projected limb retains its actual bone lengths.
-    const cos = (motion.heading ?? p.facing) * p.facing, sin = Math.sqrt(Math.max(0, 1 - cos ** 2))
-    const point = ([x, y]: Point): Point => [x * cos, y]
-    const limb = (value: Limb): Limb => {
-      const root = point(value.root)
-      const at = (position: Point, depth: number): Point => [root[0] + (position[0] - value.root[0]) * cos - depth * sin, position[1]]
+    const cos = (motion.heading ?? p.facing) * p.facing
+    const lead = cos + ((motion.leadHeading ?? motion.heading ?? p.facing) * p.facing - cos) * steering
+    const point = ([x, y]: Point, turn = cos): Point => [x * turn, y]
+    const limb = (value: Limb, turn = cos, root = point(value.root)): Limb => {
+      // Keep the turn's depth axis in world space when mechanical facing flips.
+      // Otherwise a bent elbow changes sides in one frame halfway through yaw.
+      const sin = Math.sqrt(Math.max(0, 1 - turn ** 2)) * p.facing
+      const at = (position: Point, depth: number): Point => [root[0] + (position[0] - value.root[0]) * turn - depth * sin, position[1]]
       return { ...value, root, joint: at(value.joint, value.jointDepth ?? 0), end: at(value.end, value.endDepth ?? 0),
-        jointDepth: (value.joint[0] - value.root[0]) * sin + (value.jointDepth ?? 0) * cos,
-        endDepth: (value.end[0] - value.root[0]) * sin + (value.endDepth ?? 0) * cos }
+        jointDepth: (value.joint[0] - value.root[0]) * sin + (value.jointDepth ?? 0) * turn,
+        endDepth: (value.end[0] - value.root[0]) * sin + (value.endDepth ?? 0) * turn }
     }
+    const shoulder = point(pose.shoulder, cos * .25 + lead * .75)
+    const arm = (value: Limb): Limb => limb(value, lead, [shoulder[0] + (value.root[0] - pose.shoulder[0]) * lead, value.root[1]])
     const leg = (value: Leg): Leg => ({ ...value, ...limb(value), footAngle: Math.atan2(Math.sin(value.footAngle), Math.cos(value.footAngle) * cos) })
-    pose = { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head),
-      frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
+    pose = { ...pose, hip: point(pose.hip), waist: point(pose.waist, cos * .65 + lead * .35), shoulder, head: point(pose.head, lead),
+      frontArm: arm(pose.frontArm), backArm: arm(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg) }
   }
   if (p.terrain && !p.grounded) {
+    if (motion.ceiling?.amount) pose = waterCeilingPose(p, pose)
     const cleared = clearBody(p, pose, motion.bodyOffset)
     pose = { ...cleared.pose, waterOffset: cleared.offset }
   }
@@ -1406,6 +1434,16 @@ function waterPose(p: Player): AthletePose {
     }
     pose.frontArm = brace(pose.frontArm, false); pose.backArm = brace(pose.backArm, true)
   }
+  if (motion.floor && !pushing && motion.amount > .65) {
+    // The arm's fixed bones limit this late reach without turning the torso.
+    const x = p.x + pose.frontArm.root[0] * p.facing
+    const y = motion.floor.y + (x - p.x) * Math.tan(motion.floor.angle)
+    const point: Point = [pose.frontArm.root[0], y - p.y]
+    const normal: Point = [Math.sin(motion.floor.angle) * p.facing, -Math.cos(motion.floor.angle)]
+    pose.frontArm = grippingArm(pose.frontArm.root, add(point, [normal[0] * 2.8, normal[1] * 2.8]),
+      add(point, [normal[0] * 1.6, normal[1] * 1.6]), pose.frontArm, motion.floor.reach)
+  }
+  if (motion.ceiling?.amount && !p.grounded) pose = waterCeilingHands(p, pose)
   if (p.ledgeReach) {
     const origin: Point = [(p.ledgeReach.x - p.x) * p.facing, p.ledgeReach.y - p.y]
     pose.frontArm = grippingArm(pose.frontArm.root, add(origin, FRONT_WRIST), add(origin, FRONT_GRIP), pose.frontArm, p.ledgeReach.amount)
@@ -1425,6 +1463,206 @@ function waterPose(p: Player): AthletePose {
     pose.frontLeg = leg(pose.frontLeg); pose.backLeg = leg(pose.backLeg)
     pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
     pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+  }
+  return pose
+}
+
+/** The underside reach follows real exposed faces, including curved props and
+ * internal ceilings of a concave block. It supplies presentation, not forces. */
+export function advanceWaterCeiling(p: Player, input: JumpInput, dt: number, world: ContactWorld) {
+  const motion = p.waterMotion
+  if (!motion) return
+  const previous = motion.ceiling
+  const ascending = input.climb || (input.swimVertical ?? 0) < -.01 || p.vy < -6
+  let target: NonNullable<Player['waterMotion']>['ceiling'], wanted = 0, load = 0
+  if (!p.grounded && !motion.landing && (ascending || previous?.amount)) {
+    const source = waterPose({ ...p, waterMotion: { ...motion, ceiling: undefined } })
+    const x = p.x + source.head[0] * p.facing + p.vx * .04, y = p.y - TUNING.height
+    let nearest = Infinity
+    for (const collider of world.colliders) {
+      const b = collider.platform
+      if (x < b.x - 32 || x > b.x + b.w + 32 || y < b.y - 32 || y > b.y + b.h + 32) continue
+      const face = nearestBoundary(b, x, y, [0, 1])
+      const dx = x - face.x, dy = y - face.y, gap = dx * face.nx + dy * face.ny
+      if (face.ny < .35 || gap < -.2 || face.distance > 32 || face.distance >= nearest) continue
+      nearest = face.distance
+      const overrun = Math.abs(dx * face.ny - dy * face.nx)
+      wanted = ascending ? smooth((32 - face.distance) / 24) * (1 - smooth(overrun / 16)) : 0
+      load = ascending ? smooth((8 - gap) / 8) : 0
+      const shoulder = p.x + source.shoulder[0] * p.facing
+      target = { collider: collider.id, amount: 0, load: 0, nx: face.nx, ny: face.ny,
+        hands: [8, -7].map(offset => {
+          const point = nearestBoundary(b, shoulder + offset * (motion.leadHeading ?? p.facing), p.y + source.shoulder[1], [0, 1])
+          return { x: point.x, y: point.y, nx: point.nx, ny: point.ny }
+        }) }
+    }
+  }
+  const amount = (previous?.amount ?? 0) + Math.max(-dt / .22, Math.min(dt / .14, wanted - (previous?.amount ?? 0)))
+  if (amount <= 0 || !target && !previous) { delete motion.ceiling; return }
+  motion.ceiling = { ...(target ?? previous!), amount,
+    load: (previous?.load ?? 0) + Math.max(-dt / .18, Math.min(dt / .15, load - (previous?.load ?? 0))) }
+}
+
+function waterCeilingPose(p: Player, source: AthletePose): AthletePose {
+  const ceiling = p.waterMotion!.ceiling!, weight = smooth(ceiling.amount), load = ceiling.load * weight
+  const lead = (p.waterMotion!.leadHeading ?? p.facing) * p.facing
+  const chest = rotatePose(source, .12 * load * lead, 1, source.waist)
+  let pose: AthletePose = { ...source, shoulder: chest.shoulder, head: chest.head, headTilt: chest.headTilt,
+    frontArm: chest.frontArm, backArm: chest.backArm }
+  const palm = ceiling.hands[0], normal: Point = [ceiling.nx * p.facing, ceiling.ny]
+  const gap = (p.x + pose.frontArm.root[0] * p.facing - palm.x) * ceiling.nx
+    + (p.y + pose.frontArm.root[1] - palm.y) * ceiling.ny - 2.8
+  const lift = Math.max(0, Math.min(24, gap - 18 + load * 2)) * weight * smooth(p.waterMotion!.amount)
+  pose = rotatePose(pose, 0, 1, [0, 0], [-normal[0] * lift, -normal[1] * lift])
+  for (const name of ['frontLeg', 'backLeg'] as const) {
+    const leg = pose[name], target = add(leg.root, [(leg.end[0] - leg.root[0]) * .8, (leg.end[1] - leg.root[1]) * .8 + 4])
+    pose[name] = { ...leg, ...solveNear(leg, mix(leg.end, target, load * .2), 15, 14.5), planted: false }
+  }
+  return pose
+}
+
+function waterCeilingHands(p: Player, pose: AthletePose): AthletePose {
+  const ceiling = p.waterMotion!.ceiling!, contact = smooth(ceiling.amount)
+  for (const [i, name] of (['frontArm', 'backArm'] as const).entries()) {
+    const free = pose[name], palm = ceiling.hands[i]
+    const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
+    const wrist = add(point, [normal[0] * 2.8, normal[1] * 2.8])
+    const heading = (p.waterMotion!.leadHeading ?? p.facing) * p.facing
+    const pressed = solveRear(free.root, wrist, UPPER_ARM, FOREARM, (i ? -1 : 1) * (Math.sign(heading) || 1), Math.abs(heading))
+    const grip = { ...pressed, hand: add(pressed.end, [-normal[0] * 1.2, -normal[1] * 1.2]), handAngle: Math.atan2(-normal[0], normal[1]) }
+    const angle = free.handAngle ?? Math.atan2(free.end[1] - free.joint[1], free.end[0] - free.joint[0])
+    const withPalm = { ...free, hand: free.hand ?? add(free.end, [Math.cos(angle) * 1.4, Math.sin(angle) * 1.4]) }
+    pose[name] = transferPose({ ...pose, [name]: withPalm }, { ...pose, [name]: grip }, [0, 0], contact, [0, 0], 6,
+      false, 0, { depth: Math.sin(Math.PI * contact) * 8, kneeOpening: 0, armOpening: Math.PI / 3 })[name]
+  }
+  return pose
+}
+
+const WATER_LANDING_TIME = .75, WATER_LANDING_RELEASE = .25
+
+/** A captured hand contact owns the rig until the feet settle, so becoming
+ * grounded cannot replace an extended dive with a standing pose in one frame. */
+export function advanceWaterLanding(p: Player, input: JumpInput, dt: number, incomingVy: number) {
+  const motion = p.waterMotion
+  if (!motion) return
+  const landing = motion.landing
+  if (landing) {
+    if ((input.climb || (input.swimVertical ?? 0) < -.01) && !landing.leaving) {
+      landing.pose = waterLandingPose(p); landing.y = p.y; landing.facing = p.facing
+      landing.time = 0; landing.leaving = true
+    }
+    landing.time += dt
+    motion.bottom = landing.leaving ? 0 : smooth(landing.time / WATER_LANDING_TIME)
+    if (landing.time >= (landing.leaving ? WATER_LANDING_RELEASE : WATER_LANDING_TIME)) {
+      delete motion.landing; motion.bottom = p.grounded ? 1 : 0
+      if (p.grounded && !landing.leaving) {
+        // Begin walking from the stance that just received the feet, rather
+        // than inheriting a gait cycle advanced while they were still tucked.
+        p.gait = gaitPose(0); p.footwork = null
+        advanceFootwork(p, 0, p.x, p.terrain ?? [])
+      }
+    }
+    return
+  }
+  if (motion.amount < .65 || motion.dive < .25 || incomingVy <= 0 || p.pushing?.amount || input.climb || (input.swimVertical ?? 0) < -.01) return
+  const pose = waterPose(p), arm = pose.frontArm
+  const point = arm.hand ?? arm.end, x = p.x + point[0] * p.facing, y = p.y + point[1]
+  const surface = groundAt(p.terrain ?? [], x, y, p.grounded ? 12 : 2, s => s.y >= y - .2 && canGrip(s.angle))
+  if (!surface) return
+  const approach = Math.max(0, incomingVy * Math.cos(surface.angle) - p.vx * Math.sin(surface.angle))
+  motion.landing = { pose, y: p.y, facing: p.facing, time: 0, load: clamp(approach / TUNING.diveSpeed), hand: { x, y: surface.y, angle: surface.angle } }
+  motion.bottom = 0; delete motion.floor
+}
+
+function waterLandingPose(p: Player): AthletePose {
+  const motion = p.waterMotion!, landing = motion.landing!
+  const captured = landing.facing === p.facing ? landing.pose : reflectAthletePose(landing.pose)
+  const from = rotatePose(captured, 0, 1,
+    [0, 0], [0, landing.y - p.y])
+  const t = landing.leaving ? smooth(landing.time / WATER_LANDING_RELEASE)
+    : smooth(landing.time / WATER_LANDING_TIME)
+  const target = landing.leaving
+    ? waterPose({ ...p, waterMotion: { ...motion, landing: undefined, bottom: 0 } })
+    : athletePose({ ...p, waterMotion: undefined, freeFall: null, dryTurn: null, slideEntry: null, landing: 0,
+      footwork: null, gait: gaitPose(0) })
+  const angle = (pose: AthletePose) => Math.atan2(pose.shoulder[1] - pose.hip[1], pose.shoulder[0] - pose.hip[0])
+  let delta = Math.atan2(Math.sin(angle(target) - angle(from)), Math.cos(angle(target) - angle(from)))
+  // A nearly vertical dive has two similar half-turns available. Continue
+  // through the swimmer's forward side instead of changing sides at pi.
+  const turnSide = landing.facing * p.facing
+  if (!landing.leaving && from.shoulder[1] > from.hip[1]) {
+    if (turnSide > 0 && delta > Math.PI / 2) delta -= TAU
+    if (turnSide < 0 && delta < -Math.PI / 2) delta += TAU
+  }
+  const hip = mix(from.hip, target.hip, t)
+  const outgoing = rotatePose(from, delta * t, 1, from.hip, [hip[0] - from.hip[0], hip[1] - from.hip[1]])
+  const incoming = rotatePose(target, -delta * (1 - t), 1, target.hip, [hip[0] - target.hip[0], hip[1] - target.hip[1]])
+  let pose = t === 1 ? target : transferPose(outgoing, incoming, [0, 0], t, [0, 0], Math.sin(Math.PI * t) * 6, true, 0,
+    { depth: Math.sin(Math.PI * t) * 12, kneeOpening: MIN_KNEE_OPENING, armOpening: Math.PI / 2, legDepth: Math.sin(Math.PI * t) * 6 })
+  const fold = landing.leaving ? 0 : Math.sin(Math.PI * t) ** 2 * .75
+  if (t < 1) {
+    const upperAngle = (s: AthletePose) => Math.atan2(s.shoulder[1] - s.waist[1], s.shoulder[0] - s.waist[0])
+    const spineBend = (s: AthletePose) => {
+      const lower = Math.atan2(s.waist[1] - s.hip[1], s.waist[0] - s.hip[0])
+      return Math.atan2(Math.sin(upperAngle(s) - lower), Math.cos(upperAngle(s) - lower))
+    }
+    // Curl forward through the two spine segments. Shortening their endpoints
+    // and choosing an IK side can arch the back the wrong way, then reverse it
+    // as the standing rig arrives. A modest bend unwinds without that kink.
+    const curl = fold * .47 * Math.min(1, Math.abs(delta) / Math.PI) * turnSide
+    const bend = mixAngle(spineBend(from), spineBend(target), t) + curl
+    const lowerLength = lerp(Math.hypot(from.waist[0] - from.hip[0], from.waist[1] - from.hip[1]),
+      Math.hypot(target.waist[0] - target.hip[0], target.waist[1] - target.hip[1]), t)
+    const upperLength = lerp(Math.hypot(from.shoulder[0] - from.waist[0], from.shoulder[1] - from.waist[1]),
+      Math.hypot(target.shoulder[0] - target.waist[0], target.shoulder[1] - target.waist[1]), t)
+    const lower = angle(from) + delta * t - Math.atan2(upperLength * Math.sin(bend), lowerLength + upperLength * Math.cos(bend))
+    const waist = add(pose.hip, [Math.cos(lower) * lowerLength, Math.sin(lower) * lowerLength])
+    const shoulder = add(waist, [Math.cos(lower + bend) * upperLength, Math.sin(lower + bend) * upperLength])
+    const chestTurn = mixAngle(upperAngle(pose), lower + bend, 1) - upperAngle(pose)
+    const chest = rotatePose(pose, chestTurn, 1, pose.shoulder,
+      [shoulder[0] - pose.shoulder[0], shoulder[1] - pose.shoulder[1]])
+    pose = { ...pose, waist, shoulder, head: chest.head, headTilt: chest.headTilt, frontArm: chest.frontArm, backArm: chest.backArm }
+  }
+  if (fold) {
+    const dx = pose.shoulder[0] - pose.hip[0], dy = pose.shoulder[1] - pose.hip[1], span = Math.hypot(dx, dy)
+    const u: Point = [dx / span, dy / span], normal: Point = [-u[1] * turnSide, u[0] * turnSide]
+    for (const name of ['frontLeg', 'backLeg'] as const) {
+      const leg = pose[name], tucked = add(pose.hip, [-u[0] * 4 + normal[0] * 11, -u[1] * 4 + normal[1] * 11])
+      pose[name] = { ...leg, ...solveNear(leg, mix(leg.end, tucked, fold), 15, 14.5), planted: false }
+    }
+  }
+  const point: Point = [(landing.hand.x - p.x) * p.facing, landing.hand.y - p.y]
+  const normal: Point = [Math.sin(landing.hand.angle) * p.facing, -Math.cos(landing.hand.angle)]
+  const tangent: Point = [-normal[1], normal[0]], wrist = add(point, [normal[0] * 2.8, normal[1] * 2.8])
+  const contact = landing.leaving ? 0 : 1 - smooth((landing.time - .275) / .265)
+  if (contact) {
+    // Load the planted palm with a soft elbow, then extend it to lift and
+    // redirect the chest. Moving the body with this reach makes the hand a
+    // real support for the turn, rather than a brief touch during a rotation.
+    const palm = captured.frontArm.hand ?? captured.frontArm.end
+    const initial: Point = [captured.frontArm.root[0] - palm[0] - normal[0] * 2.8,
+      captured.frontArm.root[1] + landing.y - landing.hand.y - normal[1] * 2.8]
+    const absorb = smooth(landing.time / .095), push = smooth((landing.time - .075) / .2)
+    const initialReach = Math.hypot(...initial)
+    const reach = lerp(lerp(initialReach, initialReach - 3 - 3.3 * landing.load, absorb), 18.6, push)
+    const across = initial[0] * tangent[0] + initial[1] * tangent[1] + push * (3 + 3 * landing.load) * turnSide
+    const height = Math.sqrt(Math.max(0, reach * reach - across * across))
+    const root = add(wrist, [normal[0] * height + tangent[0] * across, normal[1] * height + tangent[1] * across])
+    pose = rotatePose(pose, 0, 1, [0, 0], [(root[0] - pose.frontArm.root[0]) * contact, (root[1] - pose.frontArm.root[1]) * contact])
+  }
+  if (p.terrain) pose = clearBody(p, pose).pose
+  if (contact) {
+    const free = pose.frontArm, angle = free.handAngle ?? Math.atan2(free.end[1] - free.joint[1], free.end[0] - free.joint[0])
+    const withPalm = { ...free, hand: free.hand ?? add(free.end, [Math.cos(angle) * 1.4, Math.sin(angle) * 1.4]) }
+    const pressed = solve(free.root, wrist, UPPER_ARM, FOREARM, turnSide)
+    const grip = { ...pressed, hand: add(pressed.end, [-normal[0] * 1.2, -normal[1] * 1.2]), handAngle: landing.hand.angle * p.facing }
+    pose.frontArm = transferPose({ ...pose, frontArm: withPalm }, { ...pose, frontArm: grip }, [0, 0], contact, [0, 0], 6,
+      false, 0, { depth: Math.sin(Math.PI * contact) * 8, kneeOpening: 0, armOpening: Math.PI / 3 }).frontArm
+  }
+  for (const name of ['frontArm', 'backArm'] as const) pose[name] = clearLimb(p, pose[name], UPPER_ARM, FOREARM, 1, true)
+  if (t < 1) for (const name of ['frontLeg', 'backLeg'] as const) {
+    const leg = clearAirborneFoot(p, pose[name], 16)
+    pose[name] = { ...leg, ...clearLimb(p, leg, 15, 14.5, -1), planted: false }
   }
   return pose
 }

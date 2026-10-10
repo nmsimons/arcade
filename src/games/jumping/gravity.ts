@@ -18,7 +18,7 @@ export interface GravityPlate extends NamedObject, SwitchSettings {
   effect?: 'water'
   gravity: number // Multiplier of ordinary gravity; negative values accelerate up.
 }
-export const gravityPlateActive = (plate: GravityPlate, states: ReadonlyMap<string, boolean>) => plate.power === 'always' || !!states.get(plate.id)
+export const gravityPlateActive = (plate: GravityPlate, states: ReadonlyMap<string, boolean>, powered = true) => plate.effect === 'water' || powered && (plate.power === 'always' || !!states.get(plate.id))
 
 interface Span { top: number; bottom: number; multiplier: number; dryMultiplier: number; swim: number; coverage: number }
 interface Strip { left: number; right: number; spans: Span[] }
@@ -29,7 +29,7 @@ export const createGravityField = (): GravityField => ({ strips: [], mask: -1, r
  * so integrating a body counts its mass exactly once, even under several plates. */
 export function updateGravityField(field: GravityField, plates: readonly GravityPlate[], states: ReadonlyMap<string, boolean>, powered: boolean) {
   let mask = 0
-  if (powered) for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states)) mask |= 1 << i
+  for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states, powered)) mask |= 1 << i
   if (mask === field.mask) return
   field.mask = mask; field.revision++; field.strips = []; field.maxMultiplier = 1
   const active = plates.filter((_, i) => mask & (1 << i))
@@ -198,16 +198,47 @@ export function playerGravity(field: GravityField, player: Player, offsetY = 0) 
 }
 /** Buoyancy can lift a swimmer without reversing their footing or rope hang. */
 export const playerOrientationGravity = (field: GravityField, player: Player) => playerFieldValue(field, player, 0, field.hasWater ? 'dryMultiplier' : 'multiplier')
-export const playerSwimStrength = (field: GravityField, player: Player) => field.hasWater ? playerWaterValue(field, player) : 0
+export const playerSwimStrength = (field: GravityField, player: Player, offsetY = 0) => field.hasWater ? playerWaterValue(field, player, offsetY) : 0
+/** Compare immersion above the displaced body with its current immersion.
+ * A bank clips both samples sideways; only the waterline reduces the upper
+ * sample. Surface reorientation therefore cannot masquerade as a dive, and
+ * touching a wall cannot masquerade as surfacing. */
+export function playerSwimDepth(field: GravityField, player: Player) {
+  const strength = playerSwimStrength(field, player)
+  return strength ? Math.min(1, playerSwimStrength(field, player, player.inverted ? 30 : -30) / strength) : 0
+}
 export const playerFieldCoverage = (field: GravityField, player: Player) => field.hasWater ? playerWaterValue(field, player, 0, 'coverage') : playerFieldValue(field, player, 0, 'coverage')
 
-/** Down drives a bounded dive motor. Up releases the dive and returns upright;
- * ordinary buoyancy lifts and settles the swimmer at the same neck depth. */
-export function swimmingAcceleration(player: Player, input: JumpInput, strength: number, coverage: number) {
-  const direction = Number(input.descend || input.drop && !input.detach) - Number(input.climb)
-  if (direction <= 0 || strength <= 0 || player.hang || player.mantle || player.climbing) return 0
-  const target = TUNING.diveSpeed * strength / Math.max(coverage, 1e-9)
-  const requested = (target - player.vy) * 10 - (player.gravity ?? TUNING.gravity)
+/** One steering vector keeps diagonals at the same pace as axial swimming. */
+export function swimmingDirection(input: JumpInput) {
+  const x = Math.max(-1, Math.min(1, input.move))
+  const y = Math.max(-1, Math.min(1, input.swimVertical ?? Number(input.descend || input.drop && !input.detach) - Number(input.climb)))
+  const length = Math.max(1, Math.hypot(x, y))
+  return { x: x / length, y: y / length }
+}
+
+/** Deliberate steering or submerged support engages neutral buoyancy. Entry
+ * without swimming still floats naturally; shallow water restores surface
+ * buoyancy. This is an effort state, never a position/depth constraint. */
+export function underwaterSwimming(player: Player, input: JumpInput, strength: number, depth = strength) {
+  if (!strength || player.jumpLift || player.waterJump || player.hang || player.mantle || player.climbing || player.releaseTurn) return 0
+  const direction = swimmingDirection(input)
+  const engaged = player.grounded || player.waterMotion?.underwater || player.waterPushOff || Math.hypot(direction.x, direction.y) > .01
+  const t = Math.max(0, Math.min(1, (depth - .9) / .08))
+  return engaged ? t * t * (3 - 2 * t) : 0
+}
+
+/** Buoyancy remains physical. Submerged sculling balances it while the bounded
+ * motor steers velocity, including a short release glide and a depth hold.
+ * At the surface, Up/idle retain the ordinary neck-depth floating equilibrium. */
+export function swimmingAcceleration(player: Player, input: JumpInput, strength: number, coverage: number, depth = strength) {
+  if (strength <= 0 || player.jumpLift || player.waterJump || player.hang || player.mantle || player.climbing || player.releaseTurn) return 0
+  const direction = swimmingDirection(input), underwater = underwaterSwimming(player, input, strength, depth)
+  if (direction.y <= 0 && !underwater) return 0
+  const target = direction.y * TUNING.diveSpeed * strength / Math.max(coverage, 1e-9)
+  const response = Math.abs(direction.y) > .01 ? TUNING.swimResponse : TUNING.swimCoastResponse
+  const steering = Math.max(-TUNING.swimSteeringAcceleration, Math.min(TUNING.swimSteeringAcceleration, (target - player.vy) * response))
+  const requested = (steering - (player.gravity ?? TUNING.gravity)) * (direction.y > 0 ? 1 : underwater)
   const maximum = TUNING.swimAcceleration * strength
   return Math.max(-maximum, Math.min(maximum, requested))
 }

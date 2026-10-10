@@ -2,9 +2,10 @@ import type { Run } from './challenge.ts'
 import type { Player } from './model.ts'
 import { airBoostStrength } from './model.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
+import { playerSwimStrength, propWaterStrength } from './gravity.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster'
-export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp'
+export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -18,9 +19,11 @@ export function soundPosition(x: number, y: number, listener: Player) {
 
 function snapshot(p: Player, run: Run | null) {
   return {
-    x: p.x, y: p.y, grounded: p.grounded, vy: p.vy,
+    x: p.x, y: p.y, grounded: p.grounded, vx: p.vx, vy: p.vy,
+    water: run ? playerSwimStrength(run.gravityField, p) : 0,
+    fieldRevision: run?.gravityField.revision ?? 0,
     feet: p.footwork?.feet.map(f => f.planted) ?? [],
-    props: run?.props.map(b => ({ x: b.x, y: b.y, vy: b.vy, grounded: b.grounded, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
+    props: run?.props.map(b => ({ x: b.x, y: b.y, vx: b.vx, vy: b.vy, water: propWaterStrength(run.gravityField, b), grounded: b.grounded, angle: b.angle, angularVelocity: b.angularVelocity })) ?? [],
     mechanisms: run?.mechanisms.map(m => ({ x: m.x, y: m.y })) ?? [],
     triggers: run?.triggers.map(t => t.active) ?? [],
     coins: run?.coinsCollected ?? 0,
@@ -31,23 +34,45 @@ function snapshot(p: Player, run: Run | null) {
   }
 }
 
+interface WaterContact { wet: boolean; dryTime: number }
+const waterContact = (immersion: number): WaterContact => ({ wet: immersion > .001, dryTime: 0 })
+function enteredWater(contact: WaterContact, immersion: number, dt: number) {
+  // A little immersion rejects edge jitter. Fully clearing the water briefly
+  // rearms the splash, so surface bobbing cannot replay an entry every frame.
+  contact.dryTime = immersion <= .001 ? contact.dryTime + dt : 0
+  if (contact.dryTime >= .12) contact.wet = false
+  if (immersion < .02 || contact.wet) return false
+  contact.wet = true
+  return true
+}
+function splashStrength(speed: number, size: number) {
+  return clamp((.2 + .8 * clamp(speed / 650)) * clamp(Math.sqrt(size / 60), .65, 1.3))
+}
+
 /** Observe solved contacts at physics cadence; drain cues once per rendered frame.
- * No sound code changes physics, queries collision geometry, or advances the gait. */
+ * Water uses the existing active field and resolved body transforms. Sound never
+ * changes physics, queries collision geometry, or advances the gait. */
 export class JumpingAudioState {
   private previous: ReturnType<typeof snapshot> | null = null
   private loops: SoundLoop[] = []
   private cues: SoundCue[] = []
   private stepCooldown = 0
   private impacts: { angle: number; excursion: number; cooldown: number }[] = []
+  private playerWater: WaterContact = waterContact(0)
+  private propWater: WaterContact[] = []
 
   reset(p: Player, run: Run | null) {
     this.previous = snapshot(p, run)
     this.loops = []; this.cues = []; this.stepCooldown = 0; this.impacts = []
+    this.playerWater = waterContact(this.previous.water)
+    this.propWater = this.previous.props.map(b => waterContact(b.water))
   }
 
   step(p: Player, run: Run | null, dt: number) {
     if (!this.previous || dt <= 0) { this.reset(p, run); return }
     const before = this.previous
+    const current = snapshot(p, run)
+    const fieldChanged = current.fieldRevision !== before.fieldRevision
     this.stepCooldown = Math.max(0, this.stepCooldown - dt)
     const cue = (kind: CueKind, x: number, y: number, strength = 1, size?: number) => {
       const mix = soundPosition(x, y, p)
@@ -56,6 +81,11 @@ export class JumpingAudioState {
     // Respawns and editor changes are not impacts. Support transport is excluded
     // by the contact solver, so standing on an elevator never produces footsteps.
     const continuous = Math.hypot(p.x - before.x, p.y - before.y) < 80
+    // Resuming, teleporting, or powering water around a body is not an entry.
+    if (!continuous || fieldChanged) this.playerWater = waterContact(current.water)
+    else if (enteredWater(this.playerWater, current.water, dt)) {
+      cue('water-entry', p.x, p.y, splashStrength(Math.max(Math.hypot(before.vx, before.vy), Math.hypot(p.vx, p.vy)), 60), 60)
+    }
     const speed = p.contacts?.motion.speed ?? 0
     const plant = p.footwork?.feet.some((f, i) => f.planted && before.feet[i] === false)
     const landing = !before.grounded && p.grounded && before.vy > 80
@@ -72,9 +102,14 @@ export class JumpingAudioState {
     if (run) {
       for (let i = 0; i < run.props.length; i++) {
         const b = run.props[i], old = before.props[i]
-        if (!old) continue
+        if (!old) { this.propWater[i] = waterContact(current.props[i].water); continue }
         const distance = Math.hypot(b.x - old.x, b.y - old.y), rotation = Math.abs(b.angle - old.angle)
-        if (distance > 80 || rotation > Math.PI / 2) { delete this.impacts[i]; continue }
+        if (distance > 80 || rotation > Math.PI / 2) { delete this.impacts[i]; this.propWater[i] = waterContact(current.props[i].water); continue }
+        if (fieldChanged) this.propWater[i] = waterContact(current.props[i].water)
+        else if (enteredWater(this.propWater[i] ??= waterContact(old.water), current.props[i].water, dt)) {
+          const speed = Math.max(Math.hypot(old.vx, old.vy), Math.hypot(b.vx, b.vy), Math.abs(b.angularVelocity) * b.size / 2)
+          cue('water-entry', b.x, b.y - b.size / 2, splashStrength(speed, b.size), b.size)
+        }
         const contact = this.impacts[i] ??= { angle: old.angle, excursion: 0, cooldown: 0 }
         contact.cooldown = Math.max(0, contact.cooldown - dt)
         // Ground contact includes terrain, elevators and supported props. Read
@@ -126,7 +161,7 @@ export class JumpingAudioState {
       if (run.timeStopRemaining > before.stopped + .01 || run.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length > before.timeBonuses
         || run.exit && !before.exiting) cue('timer-paused', p.x, p.y - 30)
     }
-    this.previous = snapshot(p, run)
+    this.previous = current
   }
 
   drain(): SoundFrame {

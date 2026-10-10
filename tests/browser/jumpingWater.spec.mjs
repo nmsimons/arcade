@@ -36,6 +36,31 @@ async function recordWater(page) {
   })
 }
 
+test('collecting an EMP leaves water visible and swimming available while gravity devices turn off', async ({ page }, info) => {
+  const level = fixture()
+  level.pickups = [{ kind: 'emp', x: 500, y: 888 }]
+  level.gravityPlates.push({ id: 'gravity', x: 0, y: 0, w: 150, h: 920, gravity: -1, power: 'always' })
+  await useLevelFixtures(page, [level]); await recordWater(page)
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(1000)
+  const player = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  const suppressed = await page.locator('canvas[tabindex="0"]').evaluate(c => c.waterFrame)
+  expect(player.y).toBeLessThan(880)
+  expect(player.vy).toBeLessThan(-60)
+  expect(suppressed.fills).toContainEqual({ args: [200, 400, 1000, 520], alpha: .35 })
+  expect(suppressed.dust).toBe(0)
+  await page.clock.runFor(5500); await page.keyboard.up('ArrowUp')
+  const restored = await page.locator('canvas[tabindex="0"]').evaluate(c => c.waterFrame)
+  expect(restored.dust).toBeGreaterThan(0)
+  expect(restored.fills).toContainEqual({ args: [200, 400, 1000, 520], alpha: .35 })
+  await info.attach('water-during-emp', { body: JSON.stringify({ player, suppressed, restored }, null, 2), contentType: 'application/json' })
+})
+
 test('normal controls settle the player and props in translucent water and allow leaving the pool', async ({ page }, info) => {
   await useLevelFixtures(page, [fixture()]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -45,7 +70,7 @@ test('normal controls settle the player and props in translucent water and allow
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect(page.locator('canvas')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(64); await page.keyboard.up('d')
-  await page.clock.runFor(8000)
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
   const player = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   const bob = []
   for (let i = 0; i < 9; i++) { await page.clock.runFor(500); bob.push((await player()).y) }
@@ -62,18 +87,19 @@ test('normal controls settle the player and props in translucent water and allow
   expect(frame.fills).toHaveLength(1); expect(frame.fills[0].alpha).toBeGreaterThan(0); expect(frame.fills[0].alpha).toBeLessThan(1)
   expect(frame.dust).toBe(0)
   await page.screenshot({ path: info.outputPath('water-floating.png') })
-  await page.keyboard.down('ArrowDown'); await page.clock.runFor(650)
+  await page.keyboard.down('ArrowDown'); await page.clock.runFor(1000)
   const diving = await player()
   expect(diving.points[2][1]).toBeGreaterThan(diving.points[0][1] + 20)
   expect(diving.y).toBeGreaterThan(settled.y + 40)
   await page.screenshot({ path: info.outputPath('water-diving.png') })
-  await page.keyboard.up('ArrowDown'); await page.keyboard.down('ArrowUp'); await page.clock.runFor(750)
+  await page.keyboard.up('ArrowDown'); await page.keyboard.down('ArrowUp'); await page.clock.runFor(1600)
   const rising = await player()
-  expect(rising.blends.fall).toBe(0)
-  expect(rising.points[2][1]).toBeLessThan(rising.points[0][1] - 20)
+  expect(rising.blends.fall).toBeLessThan(.5)
+  expect(rising.points[2][1]).toBeLessThan(rising.points[0][1] - 15)
   await page.screenshot({ path: info.outputPath('water-rising.png') })
   await page.clock.runFor(4000)
   const heldUp = await player()
+  expect(heldUp.blends.fall).toBe(0)
   expect(Math.abs(heldUp.y - settled.y)).toBeLessThan(4.6)
   expect(Math.abs(heldUp.y + heldUp.points[1][1] - 2 - 400)).toBeLessThan(3)
   await page.screenshot({ path: info.outputPath('water-held-up.png') })
@@ -110,8 +136,10 @@ for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect(page.locator('canvas')).toBeFocused()
   const towardBank = side > 0 ? 'd' : 'a'
+  // Leave the neutral pool-floor stance before steering: a grounded shove
+  // deliberately steps back to give the palms room against this close wall.
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(32)
   await page.keyboard.down(towardBank); await page.clock.runFor(64); await page.keyboard.up(towardBank)
-  await page.keyboard.down('ArrowUp')
   await page.clock.runFor(4500)
   await page.screenshot({ path: info.outputPath('water-small-ball-contact.png') })
   await page.clock.runFor(5500)
@@ -198,7 +226,7 @@ for (const left of [false, true]) test(`normal controls pull out at the ${left ?
   await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
   const direction = left ? 'a' : 'd'
   await page.keyboard.down(direction); await page.clock.runFor(160); await page.keyboard.up(direction)
-  await page.clock.runFor(8000)
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
   const settled = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   expect(Math.abs(settled.y - 450.34), JSON.stringify(settled)).toBeLessThan(2.4)
   await page.keyboard.down(direction); await page.keyboard.down('ArrowUp')
@@ -210,7 +238,7 @@ for (const left of [false, true]) test(`normal controls pull out at the ${left ?
   await page.screenshot({ path: info.outputPath('water-pull-up.png') })
 })
 
-test('normal controls dive onto the pool floor, hold a crouch and release into floating', async ({ page }, info) => {
+test('normal controls crouch on the pool floor, rest standing and swim away with Up', async ({ page }, info) => {
   const level = fixture(); level.props = []
   await useLevelFixtures(page, [level]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -227,15 +255,22 @@ test('normal controls dive onto the pool floor, hold a crouch and release into f
   for (const sample of holding.slice(-100)) {
     expect(sample.signals.grounded).toBe(true); expect(sample.y).toBeCloseTo(920, 5)
     expect(sample.blends.fall).toBe(0); expect(sample.points[2][1]).toBeLessThan(sample.points[0][1] - 7)
+    expect(sample.points[4][1]).toBeGreaterThan(sample.points[1][1] + 5)
+    expect(sample.points[6][1]).toBeGreaterThan(sample.points[1][1] + 5)
   }
-  await page.screenshot({ path: info.outputPath('water-bottom-crouch.png') })
-  await page.keyboard.up('ArrowDown'); await page.clock.runFor(650)
+  await page.screenshot({ path: info.outputPath('water-bottom-crouching.png') })
+  await page.keyboard.up('ArrowDown'); await page.clock.runFor(1000)
+  const resting = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  expect(resting.signals.grounded).toBe(true); expect(resting.y).toBeCloseTo(920, 5)
+  expect(resting.points[2][1]).toBeLessThan(resting.points[0][1] - 20)
+  await page.screenshot({ path: info.outputPath('water-bottom-standing.png') })
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(800); await page.keyboard.up('ArrowUp')
   const rising = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   expect(rising.signals.grounded).toBe(false); expect(rising.y).toBeLessThan(890)
 })
 
 // Only authoring needs a persistent profile for structured-cloned file handles.
-folderTest('water authoring preserves appearance, resizing, power and wiring through save and reopen', async ({ page }, info) => {
+folderTest('water authoring preserves its rectangle through save and reopen without power or wiring controls', async ({ page }, info) => {
   const level = fixture(); level.gravityPlates = []; level.props = []
   level.triggers = [{ x: 500, y: 920, w: 100, mode: 'weight', behavior: 'toggle', startsOn: true, targets: [] }]
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'water.json': level }); await recordWater(page)
@@ -252,23 +287,23 @@ folderTest('water authoring preserves appearance, resizing, power and wiring thr
   await canvas.click({ position: { x: 380, y: 220 } })
   await selectBuilderObject(page, 'gravity-plate:0')
   await expect(page.getByRole('combobox', { name: 'Selected object', exact: true })).toContainText('Water 1')
-  await expect(page.getByRole('combobox', { name: 'Water power', exact: true })).toHaveText('Always on')
+  await expect(page.getByRole('combobox', { name: 'Water power', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('group', { name: 'Switched by', exact: true })).toHaveCount(0)
   await expect(page.getByRole('spinbutton', { name: 'Gravity strength', exact: true })).toHaveCount(0)
   const height = page.getByRole('spinbutton', { name: 'Object h', exact: true })
   await height.fill('300'); await height.press('Enter')
-  await selectBuilderOption(page, 'Water power', 'switched')
-  await page.getByRole('group', { name: 'Switched by', exact: true }).getByRole('checkbox', { name: 'Pressure plate 1', exact: true }).check()
   await waitForBuilderPreview(page)
   const saved = await saveTestLevel(page)
-  expect(saved.level.gravityPlates[0]).toMatchObject({ effect: 'water', gravity: -1, power: 'switched', h: 300 })
-  expect(saved.level.triggers[0].targets).toContain(saved.level.gravityPlates[0].id)
+  expect(saved.level.gravityPlates[0]).toMatchObject({ effect: 'water', gravity: -1, h: 300 })
+  expect(saved.level.gravityPlates[0].power).toBeUndefined()
+  expect(saved.level.triggers[0].targets).not.toContain(saved.level.gravityPlates[0].id)
   await reopenTestLevel(page, saved); await selectBuilderObject(page, 'gravity-plate:0')
   await expect(page.getByRole('combobox', { name: 'Field appearance', exact: true })).toHaveText('Water')
   await expect(height).toHaveValue('300')
-  await expect(page.getByRole('group', { name: 'Switched by', exact: true }).getByRole('checkbox', { name: 'Pressure plate 1', exact: true })).toBeChecked()
+  await expect(page.getByRole('group', { name: 'Switched by', exact: true })).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('water-editor.png') })
   await selectBuilderOption(page, 'Field appearance', 'gravity')
-  await expect(page.getByRole('combobox', { name: 'Gravity plate power', exact: true })).toHaveText('Switched')
+  await expect(page.getByRole('combobox', { name: 'Gravity plate power', exact: true })).toHaveText('Always on')
   await page.getByRole('button', { name: 'Undo', exact: true }).click()
   await selectBuilderObject(page, 'gravity-plate:0')
   await expect(page.getByRole('combobox', { name: 'Field appearance', exact: true })).toHaveText('Water')
@@ -283,7 +318,7 @@ test('normal controls push a float with kicking legs and quickly lose momentum o
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
   await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
-  await page.keyboard.down('d'); await page.clock.runFor(64); await page.keyboard.up('d'); await page.clock.runFor(8000)
+  await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
   await page.keyboard.down('d'); await page.clock.runFor(5000)
   const history = await page.evaluate(() => window.jumpingMotion.read().recent)
   const pushing = history.at(-1)

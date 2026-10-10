@@ -79,7 +79,12 @@ export function propPushHands(b: Prop, x: number, y: number, direction: number, 
   const shape = boxShape(b), points = polygonPoints(shape)
   // Base low grips on the center, not the top of whichever edge is currently
   // facing us: a tumbling box must not make the stance jump between corners.
-  const handY = Math.max(b.y - b.size * .7, Math.min(shape.y + shape.h - 5, y - handHeight))
+  // A higher footing can bring the upper face into ordinary standing reach.
+  // Keep the center-based low grip for short props, but do not drag those hands
+  // down toward a tall box's center while the player is standing on a ball.
+  const lowGrip = b.size * .7 < handHeight ? b.y - b.size * .7
+    : Math.min(b.y - b.size * .7, Math.max(shape.y + 3, y - handHeight))
+  const handY = Math.max(lowGrip, Math.min(shape.y + shape.h - 5, y - handHeight))
   const palm = (height: number): PushPalm | null => {
     for (let i = 0; i < points.length; i++) {
       const a = points[i], c = points[(i + 1) % points.length], dx = c[0] - a[0], dy = c[1] - a[1]

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "id": "ball-beside-box",
+  "name": "Ball beside box",
+  "width": 1200,
+  "height": 920,
+  "floor": 920,
+  "spawn": { "x": 360, "y": 920 },
+  "goal": { "x": 1040, "y": 920 },
+  "platforms": [],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [
+    { "kind": "ball", "x": 480, "y": 920, "size": 80 },
+    { "kind": "box", "x": 560, "y": 920, "size": 80 }
+  ],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [],
+  "gravityPlates": [],
+  "times": { "gold": 10, "silver": 20, "bronze": 40 }
+}

@@ -33,10 +33,10 @@ export function drawGravityRegion(ctx: CanvasRenderingContext2D, plate: GravityP
 }
 
 /** Water overlays actors and props; it adds no collider, particles or lights. */
-export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, active: boolean, editor = false, paint: WorldPaint = paintNormally) {
-  if (plate.effect !== 'water' || !active && !editor) return
+export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, paint: WorldPaint = paintNormally) {
+  if (plate.effect !== 'water') return
   paint(ctx, 0, () => {
-    ctx.save(); ctx.fillStyle = WATER_COLOR; ctx.globalAlpha *= active ? .35 : .12
+    ctx.save(); ctx.fillStyle = WATER_COLOR; ctx.globalAlpha *= .35
     ctx.fillRect(plate.x, plate.y, plate.w, plate.h); ctx.restore()
   })
 }

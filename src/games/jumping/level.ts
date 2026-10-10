@@ -11,7 +11,7 @@ import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { bodyIntersects, nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { goalBounds, goalDoor, goalPoleX } from './goal.ts'
-import { MAX_SWITCH_TARGETS, parseSwitchSettings, switchWiringProblems } from './switchPower.ts'
+import { MAX_SWITCH_TARGETS, parseSwitchSettings, removeSwitchTarget, switchWiringProblems } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings } from './switchPower.ts'
 import type { Goal } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
@@ -406,10 +406,11 @@ export function parseLevel(value: unknown): JumpLevel {
     if (p.ceiling !== undefined && typeof p.ceiling !== 'boolean') return fail()
     if (p.effect !== undefined && p.effect !== 'water') return fail()
     const w = num(p.w, 40, width), h = num(p.h, 40, 6000)
-    return { ...objectName(p), ...parseSwitchSettings(p, fail), id: p.id,
+    const settings = parseSwitchSettings(p, fail), water = p.effect === 'water'
+    return { ...objectName(p), ...(water ? {} : settings), id: p.id,
       x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: p.effect === 'water' ? -1 : num(p.gravity, -3, 3),
       ...(p.effect === undefined ? {} : { effect: p.effect as 'water' }),
-      ...(p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(p.power === undefined ? {} : { power: p.power as PowerMode }) }
+      ...(water || p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(water || p.power === undefined ? {} : { power: p.power as PowerMode }) }
   })
   if (v.forceFields !== undefined) level.forceFields = list(v.forceFields, MAX_FORCE_FIELDS).map(item => {
     const field = object(item)
@@ -436,8 +437,11 @@ export function parseLevel(value: unknown): JumpLevel {
       x: num(relay.x, LOGIC_RELAY_WIDTH / 2, width - LOGIC_RELAY_WIDTH / 2),
       y: num(relay.y, LOGIC_RELAY_HEIGHT / 2, levelHeight(level) - LOGIC_RELAY_HEIGHT / 2) }
   })
+  if (level.version === 2) level.lighting = parseLighting(v.lighting)
+  // Older pools were wired like gravity devices. Water is now a passive region;
+  // remove those obsolete connections before validating the remaining circuit.
+  for (const plate of level.gravityPlates ?? []) if (plate.effect === 'water') removeSwitchTarget(level, plate.id)
   if (level.version === 2) {
-    level.lighting = parseLighting(v.lighting)
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }

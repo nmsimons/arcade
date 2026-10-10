@@ -22,7 +22,7 @@ import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism
 import { canHangFromBox } from './boxSupport.ts'
 import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
 
-import { createGravityField, playerFieldCoverage, playerFloatDrag, playerGravity, playerSwimStrength, propGravity, setPlayerGravity, swimmingAcceleration, updateGravityField } from './gravity.ts'
+import { createGravityField, playerFieldCoverage, playerFloatDrag, playerGravity, playerSwimStrength, playerSwimDepth, propGravity, setPlayerGravity, swimmingAcceleration, updateGravityField } from './gravity.ts'
 import { waterBobAcceleration } from './waterBob.ts'
 import type { WaterBob } from './waterBob.ts'
 import type { GravityField } from './gravity.ts'
@@ -332,7 +332,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (run.forceFields.length) world = syncPlatforms(run)
   const swimStrength = playerSwimStrength(run.gravityField, run.player)
   run.player.gravity = playerGravity(run.gravityField, run.player) + (run.player.waterBob && swimStrength ? waterBobAcceleration(run.player.waterBob, playerFloatDrag(run.gravityField, run.player)) : 0)
-  run.player.swimAcceleration = swimmingAcceleration(run.player, input, swimStrength, playerFieldCoverage(run.gravityField, run.player))
+  run.player.swimAcceleration = swimmingAcceleration(run.player, input, swimStrength, playerFieldCoverage(run.gravityField, run.player), playerSwimDepth(run.gravityField, run.player))
   setPlayerGravity(run.player, run.player.gravity, run.player.gravity + run.player.swimAcceleration)
   if (powered) stepMechanisms(run, poweredDt, playerContacts(run.player, input, world, dt))
   world = syncPlatforms(run)

@@ -102,12 +102,12 @@ test('water pose contact sheet keeps floating side-on and coordinates the breast
   await page.locator('#water-review').screenshot({ path: info.outputPath('water-poses.png') })
 })
 
-test('water floor contact keeps planted legs while the arms work against buoyancy', async ({ page }, info) => {
+test('water floor contact rests standing with relaxed arms and blends into an upward swim', async ({ page }, info) => {
   await page.goto('/')
   await page.evaluate(async () => {
     const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
     const { createGravityField, updateGravityField } = await import('/src/games/jumping/gravity.ts')
-    const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
+    const { drawAthlete, athletePose } = await import('/src/games/jumping/athlete.ts')
     const field = createGravityField(), p = createPlayer({ x: 500, y: 650 }), floor = [{ x: 0, y: 920, w: 1800, h: 80 }]
     updateGravityField(field, [{ id: 'water', x: 0, y: 400, w: 1800, h: 520, effect: 'water', gravity: -1, power: 'always' }], new Map(), true)
     p.grounded = false; p.coyote = 0
@@ -119,23 +119,28 @@ test('water floor contact keeps planted legs while the arms work against buoyanc
         source.footwork.terrain = [{ x: -1000, y: 0, w: 2000, h: 80 }]
         for (const f of source.footwork.feet) { f.x -= p.x; f.anchorX -= p.x; f.y -= p.y; f.anchorY -= p.y; f.groundY -= p.y }
       }
-      const root = 245 - (920 - p.y) * 3
+      const pose = athletePose(source)
+      const ys = [pose.head, pose.hip, pose.frontArm.end, pose.backArm.end, pose.frontLeg.end, pose.backLeg.end].map(point => point[1])
+      const top = Math.min(...ys) - 7, bottom = Math.max(...ys) + 4
+      const root = row ? 30 + (215 - (bottom - top) * 3) / 2 - top * 3 : 245 - (920 - p.y) * 3
       ctx.save(); ctx.beginPath(); ctx.rect(col * 250, row * 270, 250, 270); ctx.clip()
       ctx.fillStyle = '#f1f1ed'; ctx.fillRect(col * 250, row * 270, 250, 270)
       ctx.save(); ctx.translate(col * 250 + 125, row * 270 + root); ctx.scale(3, 3); drawAthlete(ctx, source); ctx.restore()
       ctx.globalAlpha = .35; ctx.fillStyle = '#58a9df'; ctx.fillRect(col * 250, row * 270, 250, 245); ctx.globalAlpha = 1
-      ctx.fillStyle = '#858a8d'; ctx.fillRect(col * 250, row * 270 + 245, 250, 25)
+      const floorY = root + (920 - p.y) * 3
+      ctx.fillStyle = '#858a8d'; ctx.fillRect(col * 250, row * 270 + floorY, 250, 270 - floorY)
       ctx.fillStyle = '#f1f1ed'; ctx.fillRect(col * 250, row * 270, 250, 30)
       ctx.font = '13px sans-serif'; ctx.fillStyle = '#43494b'; ctx.fillText(label, col * 250 + 12, row * 270 + 20)
       ctx.strokeStyle = '#ddd'; ctx.strokeRect(col * 250, row * 270, 250, 270); ctx.restore()
     }
     const advance = (n, input) => { for (let i = 0; i < n; i++) stepPlayer(p, input, STEP, floor, undefined, undefined, undefined, field) }
     advance(600, { ...NEUTRAL_INPUT, descend: true })
-    p.waterMotion.hold = 0
-    for (let i = 0; i < 5; i++) { draw(['Stand / palms low', 'Stand / upward push', 'Stand / recovery', 'Stand / repeat', 'Stand / push'][i], i, 0); advance(30, { ...NEUTRAL_INPUT, descend: true }) }
-    advance(60, { ...NEUTRAL_INPUT, descend: true, crouch: true })
-    for (let i = 0; i < 4; i++) { draw(['Crouch / hold down', 'Crouch / push', 'Crouch / recovery', 'Crouch / repeat'][i], i, 1); advance(30, { ...NEUTRAL_INPUT, descend: true, crouch: true }) }
-    advance(24, NEUTRAL_INPUT); draw('Release / float up', 4, 1)
+    draw('Down / crouch', 0, 0)
+    advance(120, NEUTRAL_INPUT); draw('Release / feet planted', 1, 0)
+    advance(60, { ...NEUTRAL_INPUT, move: 1 }); draw('Walk along the floor', 2, 0)
+    advance(90, NEUTRAL_INPUT); draw('Rest after walking', 3, 0)
+    advance(60, { ...NEUTRAL_INPUT, descend: true, crouch: true }); draw('Down / crouch again', 4, 0)
+    for (let i = 0; i < 5; i++) { advance(18, { ...NEUTRAL_INPUT, climb: true }); draw(['Up / leave the floor', 'Up / gather', 'Up / shoulders lead', 'Up / extend', 'Up / swim away'][i], i, 1) }
   })
   await page.locator('#water-floor').screenshot({ path: info.outputPath('water-floor-poses.png') })
 })
@@ -281,7 +286,7 @@ test('slow standing-to-swimming transitions gather clear of floats banks and the
         gravityPlates: [{ id: 'water', x: row === 1 ? 450 : 200, y: 400, w: row === 1 ? 400 : 1000, h: 520, effect: 'water', gravity: -1, power: 'always' }] })
       run.started = true; run.player.grounded = false; run.player.coyote = 0
       for (let i = 0; i < 360; i++) stepRun(run, row === 2 ? { ...NEUTRAL_INPUT, descend: true, crouch: true } : NEUTRAL_INPUT)
-      const input = { ...NEUTRAL_INPUT, move: row === 1 ? .2 : -.2 }, captures = [0, 18, 42, 66, 102, 150]
+      const input = { ...NEUTRAL_INPUT, move: row === 1 ? .2 : -.2, climb: row === 2 }, captures = [0, 18, 42, 66, 102, 150]
       let col = 0
       for (let i = 0; i <= 150; i++) {
         if (i) stepRun(run, input)
@@ -298,7 +303,7 @@ test('slow standing-to-swimming transitions gather clear of floats banks and the
         const surface = row === 2 ? originY : originY + (row === 1 ? 180 : 80)
         ctx.fillStyle = '#58a9df'; ctx.globalAlpha = .35; ctx.fillRect(originX, surface, 250, originY + 300 - surface); ctx.globalAlpha = 1
         ctx.fillStyle = '#f1f1ed'; ctx.fillRect(originX, originY, 250, 30); ctx.font = '13px sans-serif'; ctx.fillStyle = '#43494b'
-        ctx.fillText(`${['Leave float', 'Step from bank', 'Release floor crouch'][row]} / ${(i / 120).toFixed(2)}s`, originX + 10, originY + 20)
+        ctx.fillText(`${['Leave float', 'Step from bank', 'Swim off the floor'][row]} / ${(i / 120).toFixed(2)}s`, originX + 10, originY + 20)
         ctx.strokeStyle = '#ddd'; ctx.strokeRect(originX, originY, 250, 300); ctx.restore()
         samples.push({ row, col, amount: p.waterMotion?.amount ?? 0 }); col++
       }

@@ -50,7 +50,7 @@ export function switchedItems(level: JumpLevel) {
     ...(level.logicRelays ?? []).map((definition, index) => ({ id: definition.id, kind: 'logic-relay' as const, index, definition })),
     ...(level.mechanisms ?? []).flatMap((m, index) => m.power === 'always' ? [] : [{ id: m.id, kind: 'mechanism' as const, index, definition: m }]),
     ...(level.lighting?.lights ?? []).flatMap((l, index) => l.power === 'switched' ? [{ id: l.id, kind: 'light' as const, index, definition: l }] : []),
-    ...(level.gravityPlates ?? []).flatMap((definition, index) => definition.power === 'always' ? [] : [{ id: definition.id, kind: 'gravity-plate' as const, index, definition }]),
+    ...(level.gravityPlates ?? []).flatMap((definition, index) => definition.effect === 'water' || definition.power === 'always' ? [] : [{ id: definition.id, kind: 'gravity-plate' as const, index, definition }]),
     ...(level.forceFields ?? []).flatMap((definition, index) => definition.power === 'switched' ? [{ id: definition.id, kind: 'force-field' as const, index, definition }] : []),
     ...(level.wallLights ?? []).map((definition, index) => ({ id: definition.id, kind: 'wall-light' as const, index, definition })),
     ...(level.goal?.power === 'switched' && level.goal.id ? [{ id: level.goal.id, kind: 'goal' as const, index: 0, definition: level.goal }] : []),
@@ -101,7 +101,7 @@ export function switchWiringProblems(level: JumpLevel, validateTriggers = true):
     ...(level.mechanisms ?? []).map((definition, index) => ({ definition, kind: 'mechanism' as const, index })),
     ...(level.lighting?.lights ?? []).map((definition, index) => ({ definition, kind: 'light' as const, index })),
     ...(level.forceFields ?? []).map((definition, index) => ({ definition, kind: 'force-field' as const, index })),
-    ...(level.gravityPlates ?? []).map((definition, index) => ({ definition, kind: 'gravity-plate' as const, index })),
+    ...(level.gravityPlates ?? []).flatMap((definition, index) => definition.effect === 'water' ? [] : [{ definition, kind: 'gravity-plate' as const, index }]),
     ...(level.wallLights ?? []).map((definition, index) => ({ definition, kind: 'wall-light' as const, index })),
     ...(level.goal ? [{ definition: level.goal, kind: 'goal' as const, index: 0 }] : [])]
   for (const item of definitions) {

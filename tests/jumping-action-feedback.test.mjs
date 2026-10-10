@@ -88,7 +88,7 @@ test('supported ladder acquisition precedes crouch while supported rope Down ret
   stepPlayer(q,down,STEP,floor,ropes);assert.equal(q.climbing,null);assert.ok(q.crouching)
 })
 
-test('normal controller Down crouches on the pool floor and Up matches passive ascent',()=>{
+test('normal controller Down crouches on the pool floor, release stands and Up swims away',()=>{
   const level=blankTrial();level.spawn={x:700,y:920}
   level.gravityPlates=[{id:'water',x:200,y:400,w:1000,h:520,gravity:-1,effect:'water',power:'always'}]
   const results=[]
@@ -96,13 +96,21 @@ test('normal controller Down crouches on the pool floor and Up matches passive a
     const run=createRun(level),read=controller()
     for(let i=0;i<480;i++)stepRun(run,read([13]))
     assert.ok(run.player.grounded&&run.player.crouching)
+    assert.match(actionFeedbackText(playerActionFeedback(run.player)), /Down to crouch/)
     assert.equal(playerActionFeedback(run.player).kind,'water-bottom')
     const floorY=run.player.y
     for(let i=0;i<240;i++)stepRun(run,read(rise))
-    assert.ok(!run.player.grounded&&!run.player.crouching)
-    assert.ok(run.player.y<floorY-100,'buoyancy lifts after Down ends')
-    assert.equal(playerActionFeedback(run.player).kind,'water')
+    if(rise.length) {
+      assert.ok(!run.player.grounded&&!run.player.crouching)
+      assert.ok(run.player.y<floorY-100,'Up swims away from the floor')
+      assert.equal(playerActionFeedback(run.player).kind,'water')
+    } else {
+      assert.ok(run.player.grounded&&!run.player.crouching)
+      assert.equal(run.player.y,floorY,'neutral release rests on the floor')
+      assert.equal(playerActionFeedback(run.player).kind,'water-bottom')
+    }
     results.push([run.player.y,run.player.vy])
   }
-  assert.deepEqual(results[0],results[1],'Up adds no powered ascent to passive buoyancy')
+  assert.ok(results[1][0]<results[0][0]-100,'Up deliberately swims away from the resting floor position')
+  assert.ok(results[1][1]>=-100.01,'Up remains at the bounded swim pace')
 })

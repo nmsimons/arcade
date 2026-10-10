@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { blankTrial } from '../src/games/jumping/level.ts'
+import { readFileSync } from 'node:fs'
+import { blankTrial, parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
 import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
 import { FOOT_CONTACT, footPoint } from '../src/games/jumping/footwork.ts'
-import { createGravityField, updateGravityField, playerWaterCenterOffset } from '../src/games/jumping/gravity.ts'
+import { createGravityField, updateGravityField, playerWaterCenterOffset, playerSwimDepth } from '../src/games/jumping/gravity.ts'
 
 const water = { id: 'water', x: 200, y: 400, w: 1000, h: 520, gravity: -1, effect: 'water', power: 'always' }
 const rigPoints = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -75,6 +76,40 @@ function exercise(level, direction, speed, dt, setup) {
   assert.ok(waterFrames > 1 / dt, 'the route actually exercises swimming transitions')
 }
 
+// Keep the banks and floor in one concave outline, with water ending exactly
+// at the inner faces. Splitting it into rectangles misses the reported pool.
+const singleBlockPool = parseLevel(JSON.parse(readFileSync(new URL('./fixtures/jumping/single-block-pool.json', import.meta.url), 'utf8')))
+assert.deepEqual(levelProblems(singleBlockPool), [])
+for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) {
+  test(`a submerged swimmer stays at depth against a single-block pool wall and can turn away: direction=${direction}, dt=${dt}`, () => {
+    const run = createRun({ ...singleBlockPool, spawn: { x: direction > 0 ? 1395 : 650, y: 700 } })
+    run.started = true; run.player.grounded = false; run.player.coyote = 0
+    let previous = null
+    const step = (seconds, intent) => {
+      for (let i = 0; i < Math.round(seconds / dt); i++) {
+        stepRun(run, { ...NEUTRAL_INPUT, ...intent }, dt)
+        previous = checkFrame(run.player, previous, dt, `single-block wall ${direction}, input ${JSON.stringify(intent)}, frame ${i}`)
+      }
+    }
+    const depth = run.player.y + playerWaterCenterOffset(run.player)
+    step(3, { move: direction })
+    const p = run.player, wallX = direction > 0 ? 1475 : 570, x = p.x
+    assert.ok(Math.abs(p.x - wallX + direction * 12) < .01, 'the actual hull reaches the inner wall')
+    assert.ok(p.waterMotion.underwater && Math.abs(p.vy) < .01)
+    const amount = p.waterMotion.amount, phase = p.waterMotion.phase
+    step(2, { move: direction })
+    assert.ok(Math.abs(p.y + playerWaterCenterOffset(p) - depth) < .01, 'a lateral water edge cannot trigger ascent')
+    assert.ok(Math.abs(p.waterMotion.amount - amount) < .001, 'wall contact cannot toggle the swimming posture')
+    assert.ok(Math.abs(p.waterMotion.phase - phase) < .001, 'a blocked stroke does not cycle')
+    assert.ok(playerSwimDepth(run.gravityField, p) > .99)
+    step(2, {})
+    assert.equal(p.waterMotion.amount, 0, 'release still gathers into an upright float beside the wall')
+    assert.ok(Math.abs(p.y + playerWaterCenterOffset(p) - depth) < .01)
+    step(1, { move: -direction })
+    assert.ok((p.x - x) * -direction > 60 && p.vx * -direction > 100, 'ordinary steering separates from the wall')
+  })
+}
+
 for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const speed of [.2, .5, 1]) {
   for (const kind of ['box', 'ball']) test(`water transitions beside a ${kind}: direction=${direction}, input=${speed}, dt=${dt}`, () => {
     exercise({ spawn: { x: 600 - direction * 52, y: 450.34 }, props: [{ kind, x: 600, y: 440, size: 80 }] }, -direction, speed, dt)
@@ -135,18 +170,26 @@ for (const dt of [STEP, 1 / 30]) for (const start of ['surface', 'deep', 'diving
     }
     if (start === 'diving') advance(p, { ...NEUTRAL_INPUT, descend: true }, .9)
     if (start === 'swimming') advance(p, { ...NEUTRAL_INPUT, move: 1 }, 1.5)
-    const passive = structuredClone(p)
+    const passive = createPlayer({ x: p.x, y: 450.34 })
+    passive.grounded = false; passive.coyote = 0
     advance(passive, NEUTRAL_INPUT, 10)
     let previous = null
     for (let i = 0; i < Math.round(10 / dt); i++) {
       stepPlayer(p, { ...NEUTRAL_INPUT, climb: true }, dt, [], undefined, undefined, undefined, field)
       previous = checkFrame(p, previous, dt, `${start}: Up frame ${i}`)
-      assert.equal(p.swimAcceleration, 0, 'Up uses buoyancy without an upward motor')
-      assert.ok(p.vy >= -86, 'returning to the surface remains at the upright float pace')
+      assert.ok(p.vy >= -101, 'underwater ascent remains within the swimming pace')
     }
-    assert.ok(Math.abs(p.y - passive.y) < .02, 'holding Up does not change the surface equilibrium')
+    let activeMean = 0, passiveMean = 0
+    const samples = Math.round(3.8 / dt)
+    for (let i = 0; i < samples; i++) {
+      stepPlayer(p, { ...NEUTRAL_INPUT, climb: true }, dt, [], undefined, undefined, undefined, field)
+      stepPlayer(passive, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, field)
+      activeMean += p.y / samples; passiveMean += passive.y / samples
+    }
+    assert.ok(Math.abs(activeMean - passiveMean) < .1, 'holding Up retains the same surface equilibrium across a complete bob cycle')
     assert.ok(Math.abs(p.y + athletePose(p).shoulder[1] - 2 - water.y) < 3, 'water stays at the neck')
     assert.ok(Math.abs(p.vy) < 4, 'a held Up input settles into the same small bob as idle floating')
     assert.equal(p.waterMotion.amount, 0)
+    assert.equal(p.swimAcceleration, 0, 'holding Up adds no powered lift at the surface')
   })
 }

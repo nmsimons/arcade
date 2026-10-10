@@ -59,7 +59,7 @@ for(const [file,kind,turn,direction,expected] of cases) test(`${file}: ${kind}, 
   assert.ok(p.grounded&&!p.hang&&!p.mantle,'Up pulls onto the actual receiving ledge')
 })
 
-test('passive floating beside a bank retains the original water catch range in both directions',()=>{
+test('resting beside a submerged bank stays supported, and Up retains the original surface catch range in both directions',()=>{
   for(const direction of [-1,1]) {
     const level=parseLevel(waterBindingLevel('bank',direction))
     assert.deepEqual(levelProblems(level),[])
@@ -70,7 +70,13 @@ test('passive floating beside a bank retains the original water catch range in b
       stepRun(run,NEUTRAL_INPUT)
       assert.equal(p.hang,null,'the wider dry reach must not acquire a bank during passive floating')
     }
-    assert.ok(p.waterMotion&&!p.grounded,'the swimmer remains afloat after releasing Down')
+    assert.ok(p.waterMotion&&p.grounded,'releasing Down keeps the neutral swimmer standing on the bottom')
+    assert.equal(p.y,920)
+    for(let tick=0;tick<1080;tick++) {
+      stepRun(run,{...NEUTRAL_INPUT,climb:true})
+      assert.equal(p.hang,null,'the unchanged surface reach must not acquire the distant bank')
+    }
+    assert.ok(p.waterMotion&&!p.grounded,'Up swims from the floor to the surface')
     assert.ok(p.y>440&&p.y<460,'ordinary buoyancy reaches the original surface rest')
   }
 })

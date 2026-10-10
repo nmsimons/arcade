@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "id": "water-tunnel-regression",
+  "name": "Flooded passage",
+  "width": 1800,
+  "height": 920,
+  "floor": 920,
+  "spawn": { "x": 350, "y": 920 },
+  "goal": { "x": 1500, "y": 400 },
+  "platforms": [
+    { "x": 0, "y": 400, "w": 200, "h": 520 },
+    { "x": 450, "y": 400, "w": 750, "h": 170 },
+    { "x": 450, "y": 720, "w": 750, "h": 200 },
+    { "x": 1400, "y": 400, "w": 400, "h": 520 }
+  ],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "robots": [],
+  "mechanisms": [],
+  "triggers": [],
+  "timers": [],
+  "texts": [],
+  "pickups": [
+    { "kind": "coin", "x": 650, "y": 650 },
+    { "kind": "coin", "x": 850, "y": 650 },
+    { "kind": "coin", "x": 1050, "y": 650 }
+  ],
+  "gravityPlates": [
+    { "id": "pool", "effect": "water", "x": 200, "y": 400, "w": 1200, "h": 520, "power": "always" }
+  ],
+  "times": { "gold": 28, "silver": 35, "bronze": 45 }
+}

@@ -217,6 +217,10 @@ waits until this exit finishes.
 Geometry must be refreshed after moving objects, and final contacts must be
 revalidated after a jump or collision. These are successive stages of the same
 contact policy, not independent object-specific decisions about the player.
+An approaching prop reach needs a usable grip at least 12 units above the feet.
+Standing on a ball beside a box must not prepare a grip below the player's feet.
+When higher footing brings a tall box's upper face into reach, the palms follow that face
+instead of pulling the torso down toward the box's center.
 When identifying the contacted face, retain only faces whose outward normal
 can supply the collision's separating normal. A tall body's side midpoint may
 sit above a short box; tiny solver overlap must not turn that lateral contact
@@ -294,7 +298,7 @@ or an unlocked Down drop takes precedence over Jump.
 | Supported, lip path blocked or outside its 32-unit reach | Try eligible vertical climbable acquisition, then crouch. A low ceiling never authorizes standing through a solid. |
 | Supported at the middle of a ladder | Vertical input acquires it before ordinary crouch. At its bottom, Down does not acquire it; at its top, use the eligible lowering path. |
 | Supported beside a rope | Gravity-facing downward input does not directly acquire the rope. Up can acquire it; airborne acquisition remains automatic. A deliberate lowering can transfer onto a rope or ladder at its lip. |
-| Free in water | Down powers the dive. Release or Up restores upright presentation; buoyancy supplies the ascent. Up adds no powered upward acceleration. Normal Down crouches on the submerged floor. Swim to push loose props. Only stable supported crates offer a grip: use Up, with a surface jump first if needed. Terrain banks can catch automatically. |
+| Free in water | Up/Down steer ascent/dive; combine with horizontal movement for diagonals. Once swimming below the surface, release glides to a stop and floats upright at the reached depth. On the submerged floor, stand or walk with relaxed arms; Down crouches, release stands, and Up swims away. Swim to push loose props. Only stable supported crates offer a grip: use Up, with a surface jump first if needed. Terrain banks can catch automatically. |
 | Hanging after deliberate lowering | Held Down stops in a safe hang. Release and a separate Down press drops once; explicit detach is immediate. A fresh Jump leaps outward at 260 units/second; Up requests a clear pull-up. |
 | Catching while Jump is held | The catch consumes that press. Release, then press again to depart; continued hold cannot launch or renew lift. |
 | Inverted support | Up is the gravity-facing lowering request. Holding that original Up stops in a safe hang rather than immediately starting a pull-up. Release and another Up press can pull up; Down or explicit detach can drop. |
@@ -487,13 +491,20 @@ the walking gait.
 
 ### Water
 
-Water uses the same switched rectangles with `effect: "water"`. Its buoyancy is
+Water uses the same rectangle format with `effect: "water"`, but is always
+present and has no power or switch controls. EMP leaves it intact. Its buoyancy is
 fixed; there is no editable gravity strength. Props use submerged area and float
 half-submerged without a rider. Players use a fixed density of 0.78 and a
 posture-dependent displacement profile: idle floating is upright with the
-waterline at the neck, while horizontal swimming lies at the surface. Stopping
-returns upright. Posture changes preserve the displaced center while the foot
-root changes its offset, and buoyant force settles the new immersion depth.
+waterline at the neck, while horizontal surface swimming lies at the surface.
+Stopping eases into an upright float, including below the surface; a submerged
+rest holds its reached depth with gentle hand sculling. The glide remains
+streamlined until the swimmer slows. Posture changes preserve the displaced
+center while the foot root changes its offset, and buoyant force settles the
+new immersion depth.
+The transition gathers the arms and curls the knees before extending upright.
+The tuck scales with the starting angle: a head-first dive curls more than a
+horizontal glide, while an upward swimmer is already close to the resting pose.
 The collision hull retains the existing shared sweep rules.
 Water's lifting force does not turn a swimmer upside down on a ceiling or rope.
 
@@ -505,7 +516,8 @@ or impacts over 0.22 seconds. The normal solver retains position and momentum
 through both transitions; drawing has no separate bob offset. A resting rider
 is carried by the actual bobbing support with planted feet. Active bobbing floats
 remain awake, while settled gravity-plate floats can still sleep. Deep water,
-solid footing, inactive water, EMP and leaving the water receive no bob force.
+solid footing and leaving the water receive no bob force. EMP leaves water and
+its surface motion intact.
 While the swimmer or their floating support rests, the camera gradually holds
 its vertical framing so following does not hide the real bob. Movement resumes
 ordinary following over 0.25 seconds; changing support also releases the anchor
@@ -519,23 +531,62 @@ so held Down can lower over the bank as soon as an obstacle moves away without
 repeating the entire blocked animation search. The bank/float responsiveness
 regression lives in `tests/jumping-ledge-performance.test.mjs`.
 
-Left/Right use ordinary horizontal steering. Up rises in the upright floating
-pose; Down dives head-first. Horizontal swimming and diving use a coordinated
+Left/Right steer horizontally; Up swims upward and Down dives head-first.
+Horizontal swimming, ascent and diving use a coordinated
 breaststroke arm pull, frog kick and glide, blended into and out of the floating
 pose. Stroke phase follows actual traveled distance, including dives; a swimmer
 blocked by terrain does not cycle on a timer. Dive pitch follows resolved vertical and
 horizontal velocity, including diagonals and wall-blocked sideways motion.
 Floating uses only gentle hand sculling and
-keeps the usual side profile and facing. Horizontal swimming targets 110 units
-per second and diving 100, with bounded acceleration. Passive vertical water
-resistance keeps deep buoyant ascent below 85 units per second and damps arrival
-at the surface. Up returns upright and releases the dive motor; it adds no lift
-and settles at the same neck depth as idle floating, even while held.
+keeps the usual side profile and facing. Quiet upright floats also sway gently
+around the hips with slowly drifting ankles, fading into the traveling pose;
+this adds no depth displacement or motion to planted feet. Horizontal swimming targets 110 units
+per second and vertical swimming 100. A shared normalized steering vector keeps
+diagonals at the same combined pace, with continuous vertical stick control
+below the ladder/grip input threshold. Vertical steering uses a seven-per-second
+velocity response capped at 260 units per second squared, so reversals brake
+through zero. Release uses a gentler four-per-second damping on both axes,
+carrying roughly a quarter second of the previous velocity as glide distance
+before settling; active input can brake sooner. Body pitch follows the actual
+resolved travel through both ascent and descent, blending over 0.42 seconds.
+The chest and neck curve toward steering input before the pelvis finishes
+following that travel, with a small counterbend in the trailing legs. Horizontal
+reversals lead with the head and shoulders while the hips follow, gathering the
+limbs without returning upright. Both yaw layers ease through their turn angles;
+the elbow/knee depth axis stays continuous when mechanical facing changes.
+Interrupted turns and quick Up/Down changes keep every visible rig point
+continuous while preserving the limb lengths and normal clearance solves.
+
+Intentional swimming well below the surface engages sculling that balances
+physical buoyancy. Horizontal travel can then maintain depth; releasing inputs
+decelerates to a quiet hold at the reached position. There is no stored target
+position, teleport or hard velocity reset. Contacts can still displace the body.
+Water coverage sampled 30 units above the displaced body, relative to its current
+coverage, distinguishes a dive from a surface posture change. The comparison
+also separates vertical surfacing from lateral clipping at a pool wall; a bank
+must not toggle submerged control or repeatedly gather and extend the swimmer.
+This applies to a concave pool made from one terrain block as well as separate
+banks. Approaching
+the surface smoothly releases sculling and restores ordinary buoyancy and drag.
+Up prepares the upright float there and settles at the same neck depth as idle,
+even while held. An idle entry without swimming still floats upward naturally;
+passive vertical resistance limits that ascent to about 85 units per second.
 Released, reversed and excess horizontal player momentum also meets water
 resistance. Prop translation and box spin damp according to submerged area,
-including at the surface. Switched-off water, EMP and leaving the rectangle
-remove that resistance; gravity plates retain ordinary horizontal momentum.
-Down supplies a bounded vertical motor only in water, never in gravity plates.
+including at the surface. Leaving the rectangle removes that resistance;
+switches and EMP do not affect water. Gravity plates retain ordinary horizontal momentum.
+Holding Down during an entry retains resistance to falling speed above the
+normal dive pace. That excess slows continuously instead of carrying dry falling
+velocity through the pool; ordinary dive propulsion and release glides remain
+unchanged. A surface jump keeps enough upward launch momentum to clear the water.
+Jumping from submerged support supplies the usual immediate leg impulse, but
+water drag remains active while a held jump adds lift. Excess upward speed also
+meets resistance after the lift ends, including while the swimming motor is
+active. A held bottom jump remembers the submerged support while its ordinary
+jump pose runs, so releasing it restores neutral sculling and holds the reached
+depth. Near the surface that launch resistance fades with upper-body immersion,
+preserving deliberate jumps out of a pool. Dry jumping is unchanged.
+The bounded vertical motor and sculling apply only in water, never in gravity plates.
 Partial coverage fades its force. A fresh jump can launch from a settled surface;
 the water remains nonsolid. Both buoyancy and the dive motor apply load through
 shared prop contacts. Rims beyond the swimmer's upright arm reach require that
@@ -558,6 +609,11 @@ Reversal brakes the current travel while gathering, changes facing near zero
 horizontal speed, and extends into the new heading. The torso rotates without
 collapsing its spine; all tucked limbs retain their segment lengths. Extension
 does not add a velocity impulse or teleport the displaced body.
+Both pitch changes and sideways reversals curve through the chest and neck
+while the hips trail. A larger steering difference produces a deeper torso
+curve; the curve unwinds as the pelvis catches the requested heading. Gathered
+arms and knees extend a little more slowly than they tuck, smoothing interrupted
+turns without losing their fixed bone lengths.
 Gathering, facing changes, crouch release and bank/floor posture limits blend
 continuously. The visible head and spine clear solid boundaries, while arms,
 knees and soles fold around corners without changing bone lengths. A retained
@@ -567,13 +623,34 @@ Arm clearance includes the full drawn palm, not just the wrist or arm bones.
 When a blocked wrist retracts, its contact palm follows it; resting sculls and
 pushing hands remain outside nearby floats through contact and release.
 
-Approaching a grippable floor while holding Down gathers the feet underneath
-the body. Support uses buoyancy plus the swimming motor, so upward buoyancy
-cannot repeatedly clear a contact that the motor is holding down. On the
-bottom, standing/crouching and steps use the ordinary planted-foot rig and
-resolved travel. Only the arms sweep upward against buoyancy while Down is
-held; the traveling breaststroke stops. Releasing Down or pressing Up releases
-that load and blends back into upright floating.
+Ascending toward a solid underside reaches both palms ahead of the head. The
+elbows soften and the chest gives slightly as the swimmer meets the surface;
+the legs trail instead of abruptly switching to a motionless pose. Stroke
+effort eases over a short interval when the collision blocks upward travel.
+The reach follows exposed downward faces of terrain, including internal
+ceilings of a single concave block, sloped ceilings, boxes and curved balls.
+Steering carries the hands along the underside, then releases them smoothly
+around its edge or when leaving upward intent. These visual contacts supply no
+extra lift, lateral shove or force; the ordinary body contacts still own the
+physical response.
+
+An extended dive retains its swimming silhouette until the final hand-length
+above a grippable floor. The leading hand reaches and plants first. The elbow
+softens with the arrival, then extends against the floor to lift and redirect
+the chest as the knees gather underneath. Incoming motion controls how deeply
+the arm loads; the planted palm releases gradually into the turn and foot placement.
+The spine keeps its segment lengths through a modest forward curl, then unfolds
+smoothly into standing or crouching without reversing its bend at the waist.
+Ground contact cannot snap that captured rig straight upright. Up can interrupt
+the landing and blend back into swimming immediately.
+Fully submerged neutral control balances buoyancy on support as well
+as during free swimming; releasing Down rests on the bottom rather than lifting
+the feet repeatedly. On the bottom, standing and steps use the ordinary planted
+rig and resolved travel, with relaxed arms and no traveling stroke or treading
+animation. Down can crouch with planted feet; release stands back up when the
+ceiling is clear. Up supplies a smooth ascent off the support and blends into
+the swimming pose. Ordinary jump and contact
+rules still apply, and removing water restores ordinary gravity.
 
 When a swimmer rises into the underside of a ball, buoyant load and impact
 use the ball's actual curved contact face. The broad player hull still protects
@@ -593,16 +670,38 @@ and Down releases it. Lower rims can be swum over directly.
 
 Active water draws a blue rectangle at 35% opacity over the player and props.
 It adds no emitter, gravity dust, solid boundary, lighting or fluid particles.
-Switched-off or EMP-suppressed water has no effect or gameplay fill; the studio
-retains its outline and a faint fill. Water shares the 16-device field limit and
-the existing overlap averaging, power logic and field compiler. Regression
+The player, balls and boxes make a spatial splash on entering active water.
+Entry speed scales its strength; larger props have a fuller, lower sound.
+Floating and surface bobbing stay quiet. Spawning or resuming in water,
+teleports, and EMP do not create an entry sound. Water-entry audio
+coverage lives in `tests/jumping-water-audio.test.mjs` and
+`tests/browser/jumpingAudio.dev.spec.mjs`.
+Water remains visible and physical regardless of switches or EMP. The studio
+adds a selection outline. Water shares the 16-region field limit,
+existing overlap averaging and field compiler. Regression
 coverage lives in `tests/jumping-floating.test.mjs`,
 `tests/jumping-water-transitions.test.mjs` and `tests/browser/jumpingWater.spec.mjs`.
 The transition matrix covers boxes, balls, floating-box departures, pool banks,
-floor standing/crouching, close floats and low ceilings, with both directions,
+floor standing/crouching and departures, close floats and low ceilings, with both directions,
 several input strengths and update rates. It checks the visible rig's clearance,
 continuity and bone lengths and held-Up surface settling. Browser capture sheets
 in `tests/browser/jumpingWater.dev.spec.mjs` support visual review.
+The single-block pool fixture also checks both inner walls, depth retention,
+blocked posture, release and turning away through shared contacts.
+Underwater steering and interrupted turns, release glides, upright depth holds,
+analog ascent, and fresh flooded-passage routes with submerged pickups are covered
+in `tests/jumping-underwater-steering.test.mjs` and
+`tests/browser/jumpingUnderwater.spec.mjs`. The corresponding development browser
+test captures the turn/rest poses and crosses the passage at normal speed.
+Bottom-jump impulses, held and preset lift, momentum loss, neutral depth holds
+and water-exit cleanup are covered in `tests/jumping-water-push-offs.test.mjs`;
+`tests/browser/jumpingWaterPushOff.spec.mjs` checks the held keyboard jump from
+submerged support through release and rest.
+Underside approaches, loaded palms, edge release and mirrored contact data are
+covered in `tests/jumping-water-ceilings.test.mjs`. Browser ceiling capture
+sheets and a fresh keyboard route through a flooded tunnel are in
+`tests/browser/jumpingWaterCeiling.dev.spec.mjs` and
+`tests/browser/jumpingWaterCeiling.spec.mjs`.
 
 Ropes can be caught from either player orientation. Up and Down follow the
 visible rope's vertical direction, including a rope floating upward from a floor

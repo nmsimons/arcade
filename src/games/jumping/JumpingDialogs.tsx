@@ -31,24 +31,24 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
                 <div><dt>Jump / higher jump</dt><dd>Tap / flick up and lift</dd></div>
                 <div><dt>Walk left / right</dt><dd>Hold on that side of the screen</dd></div>
                 <div><dt>Run / turn / swing</dt><dd>Swipe left or right and keep holding</dd></div>
-                <div><dt>Climb / float upright</dt><dd>Drag up and hold</dd></div>
+                <div><dt>Climb / swim up</dt><dd>Drag up and hold</dd></div>
                 <div><dt>Crouch / lower / dive</dt><dd>Drag down and hold</dd></div>
                 <div><dt>Let go</dt><dd>Flick down and lift</dd></div>
               </dl>
               <p>Keep one finger down to move; use another to jump, crouch or climb. Lift a movement finger to stop directing the player. A flick is a short swipe followed by lifting; a drag and hold continues the action.</p>
               <p>Ledges and airborne ropes catch automatically; drag vertically to take a ladder. From a ledge, drag up to pull up or tap to jump away. After a catch, lift and tap again to jump. Down near a clear lip lowers to a safe hang; lift and drag down again to drop, or flick down and lift to let go. Under reverse gravity, drag up to lower instead.</p>
-              <p>In water, drag down to dive. Release or drag up to turn upright and let buoyancy float you upward; Up does not make you rise faster. On the pool floor, Down crouches. Tap at the surface to jump out. Swim to push objects. Only a stable supported crate offers a grip: drag up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
+              <p>In water, drag up to swim up and down to dive. Combine movement and vertical drags to swim diagonally. Release to glide, then ease into an upright float at your reached depth underwater. On the pool floor, stand or walk with relaxed arms; Down crouches and Up swims away. Tap at the surface to jump out. Swim to push objects. Only a stable supported crate offers a grip: drag up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
             </> : <><dl>
               <div><dt>Move / swing</dt><dd><kbd>{connected ? 'L stick / D-pad' : 'A D / ← →'}</kbd></dd></div>
               <div><dt>Press to jump</dt><dd><kbd>{connected ? 'A / ×' : 'Space'}</kbd></dd></div>
-              <div><dt>Climb / float upright</dt><dd><kbd>{connected ? '↑' : 'W / ↑'}</kbd></dd></div>
+              <div><dt>Climb / swim up</dt><dd><kbd>{connected ? '↑' : 'W / ↑'}</kbd></dd></div>
               <div><dt>Crouch / lower / descend / dive</dt><dd><kbd>{connected ? '↓' : 'S / ↓'}</kbd></dd></div>
               <div><dt>Drop</dt><dd><kbd>{connected ? 'B / ○' : 'X'}</kbd></dd></div>
               {!connected && <div><dt>Walk</dt><dd><kbd>Shift</kbd></dd></div>}
             </dl>
             <p>Ledges and airborne ropes catch automatically; use Up or Down to take a ladder. From a ledge, Up pulls up and Jump leaps away. A catch consumes a held Jump: release, then press again to leave. Down near a clear lip lowers to a safe hang; release and press Down again to drop, or use Drop to let go. Elsewhere on support, Down crouches; add movement to crouch walk. Under reverse gravity, Up lowers over an edge instead.</p>
             <p>Tap Jump for a short jump; hold it briefly after takeoff to jump higher. Release to stop adding lift. This also works from ledges, ropes, ladders, walls, and slopes. Running carries you farther.</p>
-            <p>In water, Down dives. Release or press Up to turn upright and let buoyancy float you upward; Up does not make you rise faster. On the pool floor, Down crouches. Jump at the surface to leave. Swim to push objects. Only a stable supported crate offers a grip: use Up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
+            <p>In water, Up swims up and Down dives. Combine horizontal and vertical movement to swim diagonally. Release to glide, then ease into an upright float at your reached depth underwater. On the pool floor, stand or walk with relaxed arms; Down crouches and Up swims away. Jump at the surface to leave. Swim to push objects. Only a stable supported crate offers a grip: use Up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
             </>}
           </section>
           <nav className="jumping-dialog-actions jumping-controls-actions" aria-label="Controls actions">

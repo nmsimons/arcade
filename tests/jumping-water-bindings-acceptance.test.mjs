@@ -2,8 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
-import { STEP, TUNING } from '../src/games/jumping/model.ts'
+import { STEP } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
+import { playerWaterCenterOffset } from '../src/games/jumping/gravity.ts'
 import { actionFeedbackText, playerActionFeedback } from '../src/games/jumping/actionFeedback.ts'
 import { waterBindingLevel, waterBindings } from './helpers/jumpingWaterBindings.mjs'
 
@@ -28,21 +29,25 @@ for (const device of ['controller', 'touch']) test(`${device} exposes the comple
         }
       }
       advance(1, { vertical: -1 })
-      assert.ok(p.grounded && p.crouching, 'ordinary Down includes crouch on the underwater floor')
+      assert.ok(p.grounded && p.crouching, 'ordinary Down crouches on the underwater floor')
       assert.equal(playerActionFeedback(p).kind, 'water-bottom')
-      advance(8)
-      assert.ok(!p.grounded && !p.crouching && p.y < 460, 'release permits passive rise all the way to the surface')
+      advance(1)
+      assert.ok(p.grounded && p.y === 920, 'release leaves a stable standing rest on the bottom')
+      advance(8, { vertical: 1 })
+      assert.ok(!p.grounded && !p.crouching && p.y < 460, 'Up swims all the way to the surface')
       return { run, p, advance, counts: () => ({ catches, pulls, pushes }) }
     }
 
     const passive = scenario('clear'), upright = scenario('clear')
+    const diveStart = passive.p.y + playerWaterCenterOffset(passive.p)
     passive.advance(1, { vertical: -1 }); upright.advance(1, { vertical: -1 })
-    assert.ok(passive.p.y > 510 && passive.p.vy > 90, 'Down really dives, rather than selecting only a pose')
-    passive.advance(1); upright.advance(1, { vertical: 1 })
-    assert.deepEqual([upright.p.x, upright.p.y, upright.p.vx, upright.p.vy], [passive.p.x, passive.p.y, passive.p.vx, passive.p.vy], 'Up and release produce identical passive ascent')
-    assert.ok(upright.p.vy < -60 && upright.p.vy >= -TUNING.swimSpeed - .01)
-    assert.match(actionFeedbackText(playerActionFeedback(upright.p), device), /turn upright and float/)
-    upright.advance(4)
+    assert.ok(passive.p.y + playerWaterCenterOffset(passive.p) > diveStart + 40 && passive.p.vy > 90, 'Down really dives, rather than selecting only a pose')
+    passive.advance(1.6); upright.advance(1, { vertical: 1 })
+    assert.ok(Math.abs(passive.p.vy) < .3, 'release settles into underwater sculling')
+    assert.ok(upright.p.y + playerWaterCenterOffset(upright.p) < passive.p.y + playerWaterCenterOffset(passive.p) - 40, 'Up deliberately ascends from the held depth')
+    assert.ok(upright.p.vy < -60 && upright.p.vy >= -100.01)
+    assert.match(actionFeedbackText(playerActionFeedback(upright.p), device), /swim up/)
+    upright.advance(4, { vertical: 1 })
     const surface = upright.p.y
     upright.advance(STEP, { jump: true }); upright.advance(.12)
     assert.ok(upright.p.y < surface - 30 && upright.p.vy < -150, 'a new surface jump actually leaves the water')
@@ -52,7 +57,7 @@ for (const device of ['controller', 'touch']) test(`${device} exposes the comple
     assert.ok((floating.run.props[0].x - originalX) * direction > 12 && floating.counts().pushes > 20, 'swimming moves the real float with sustained working palms')
     assert.equal(floating.counts().catches, 0, 'ordinary swimming never auto-grabs a loose float')
     assert.equal(playerActionFeedback(floating.p).grippable, false)
-    assert.match(actionFeedbackText(playerActionFeedback(floating.p), device), /turn upright and float/)
+    assert.match(actionFeedbackText(playerActionFeedback(floating.p), device), /swim up/)
     assert.doesNotMatch(actionFeedbackText(playerActionFeedback(floating.p), device), /grip/)
     floating.advance(1, { move: direction, vertical: 1 })
     assert.equal(floating.counts().catches, 0, 'Up never invents a grip on an unsupported unstable float')

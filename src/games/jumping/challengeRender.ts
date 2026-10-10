@@ -121,7 +121,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
-    for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), editor, wallPaint)
+    for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), editor, wallPaint)
     drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
@@ -149,7 +149,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
       drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression, plate.ceiling)
     }
   })
-  for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), paint)
+  for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), paint)
   for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
   drawGoal(ctx, level.goal, run.goalLit, paint)
   paint(ctx, 0, () => {
@@ -166,7 +166,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawMovementEffects(ctx, p, paint)
     paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk))
   }
-  for (const plate of level.gravityPlates ?? []) drawWaterRegion(ctx, plate, run.empRemaining === 0 && gravityPlateActive(plate, run.switchStates), editor, paint)
+  for (const plate of level.gravityPlates ?? []) drawWaterRegion(ctx, plate, paint)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run, view = gameCamera(width, height, run.player, run.level, true)) {
   const { level } = run

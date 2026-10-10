@@ -18,13 +18,13 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, captureDryTurn, captureSlideEntry, dryTurnDirection, settleFallClearance, settleWaterClearance } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, captureDryTurn, captureSlideEntry, dryTurnDirection, settleFallClearance, settleWaterClearance } from './athlete.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
 import type { WaterBob, WaterCamera } from './waterBob.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform, mirrorLadder } from './gravityFrame.ts'
-import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSwimStrength, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration } from './gravity.ts'
+import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSwimStrength, playerSwimDepth, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration, swimmingDirection, underwaterSwimming } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
 import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn } from './ropeGravity.ts'
 export { TUNING } from './movementTuning.ts'
@@ -33,7 +33,7 @@ export interface Platform extends NamedObject { x: number; y: number; w: number;
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean }
+export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export interface GaitPose { speed: number; moving: number; run: number; air: number }
 export function gaitPose(vx: number, airborne = false): GaitPose {
@@ -75,9 +75,13 @@ export interface Player {
   contacts: PlayerContacts | null
   swimAcceleration?: number
   waterJump?: boolean
+  waterPushOff?: boolean
   waterBob?: WaterBob
   waterCamera?: WaterCamera
-  waterMotion?: { amount: number; dive: number; phase: number; scull?: number; bottom?: number; hold?: number; gather?: number; heading?: number; bodyOffset?: [number, number]; wall?: { x: number; amount: number } }
+  waterMotion?: { amount: number; dive: number; phase: number; effort?: number; underwater?: boolean; steering?: number; bend?: number; leadHeading?: number; scull?: number; bottom?: number; gather?: number; floatCurl?: number; heading?: number; bodyOffset?: [number, number]; wall?: { x: number; amount: number };
+    ceiling?: { collider: string; amount: number; load: number; nx: number; ny: number; hands: { x: number; y: number; nx: number; ny: number }[] };
+    floor?: { y: number; angle: number; reach: number };
+    landing?: { pose: AthletePose; y: number; facing: number; time: number; load: number; hand: { x: number; y: number; angle: number }; leaving?: boolean } }
   terrain?: readonly Platform[]
   gravity?: number
   inverted?: boolean
@@ -87,7 +91,7 @@ export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
     coyote: TUNING.coyoteTime, buffer: 0, jumpStrength: undefined, jumpHeld: false, jumpLift: null,
     grabCooldown: 0, wallJumpBuffer: 0, wallJump: null, wallBrace: null, climbing: null, ropes: null, pushing: null, ledgeReach: null, hang: null, mantle: null, stride: 0, landing: 0, landingImpact: 0,
-    freeFall: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0,
+    freeFall: null, dryTurn: null, slideEntry: null, stepIntent: null, spawnX: spawn.x, spawnY: spawn.y, checkpoint: 0, jumpStart: spawn.y, jumpHeight: 0, bestHeight: 0, waterPushOff: false,
     crouching: false, crouch: 0, reach: 0, look: 0, gait: null, airBoost: { x: 0, lift: 0, time: 0 }, footwork: null, contacts: null, gravity: TUNING.gravity, inverted: false, waterJump: false, swimAcceleration: 0 }
 }
 export function airBoostStrength(p: Player) {
@@ -109,6 +113,7 @@ function settleGait(p: Player, dt: number) {
 export function cancelJumpInput(p: Player) {
   p.slideEntry = null
   p.waterJump = false
+  p.waterPushOff = false
   delete p.waterMotion
   p.jumpStrength = undefined; p.jumpHeld = false; p.jumpLift = null; p.buffer = 0; p.wallJumpBuffer = 0
   p.airBoost.x = 0; p.airBoost.lift = 0
@@ -272,8 +277,8 @@ function advanceFreeFall(p: Player, dt: number, floating = false, swimming = fal
     p.freeFall.recovery += dt
     if (p.freeFall.recovery >= TUNING.fallRecoveryTime && !p.freeFall.moving) { p.freeFall = null; p.landing = 0 }
   } else if (!p.grounded && floating) {
-    // Resting swimmers float upright. Horizontal travel and diving use strokes;
-    // rising keeps the head and hands ready to reach out.
+    // Steering and gliding retain the extended rig. A quiet rest unwinds into
+    // upright floating while submerged neutral control still holds the depth.
     if (swimStroke) {
       p.freeFall ??= { time: 0, amount: 0, recovery: null }
       p.freeFall.recovery = null
@@ -396,6 +401,10 @@ function ropeLedge(p: Player, climb: Climbing, platforms: readonly Platform[], w
   })
 }
 export function playerState(p: Player) {
+  if (p.waterMotion && !p.grounded && !p.hang && !p.mantle && !p.climbing && !p.jumpLift && !p.waterJump) {
+    return p.waterMotion.underwater && p.vy > 8 ? 'Diving' : p.waterMotion.underwater && p.vy < -8 ? 'Swimming up'
+      : Math.abs(p.vx) > 8 ? 'Swimming' : 'Floating'
+  }
   if (p.mantle?.returning) return 'Lowering'
   if (p.grounded && p.freeFall?.recovery !== null && p.freeFall?.amount) return 'Recovering'
   const climbDirection = p.climbing?.screenDirection ?? p.climbing?.direction ?? 0
@@ -408,9 +417,11 @@ export function playerState(p: Player) {
 export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: readonly Platform[] = [],
   climbables: ClimbableWorld = NO_CLIMBABLES,
   rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms), gravityField?: GravityField, gravityOverride?: number, frameDirection = 1,
-  fieldMotionOverride?: { floatDrag: number; swimStrength: number; swimAcceleration: number; orientationGravity: number }) {
+  fieldMotionOverride?: { floatDrag: number; swimStrength: number; swimDepth: number; swimAcceleration: number; orientationGravity: number }) {
   const swimStrength = fieldMotionOverride?.swimStrength ?? (gravityField ? playerSwimStrength(gravityField, p) : 0)
+  const swimDepth = fieldMotionOverride?.swimDepth ?? (gravityField ? playerSwimDepth(gravityField, p) : 0)
   const floatDrag = fieldMotionOverride?.floatDrag ?? (gravityField ? playerFloatDrag(gravityField, p) : 0)
+  if (!swimStrength || p.hang || p.mantle || p.climbing) p.waterPushOff = false
   if (frameDirection === 1) {
     const resting = swimStrength > .2 && swimStrength < .95 && floatDrag > 0
       && !p.grounded && !p.hang && !p.mantle && !p.climbing && !p.releaseTurn && !p.jumpLift && !p.waterJump
@@ -420,7 +431,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   }
   const gravity = gravityOverride ?? (gravityField ? playerGravity(gravityField, p) + (swimStrength ? waterBobAcceleration(p.waterBob, floatDrag) : 0) : TUNING.gravity)
   p.gravity = gravity
-  p.swimAcceleration = fieldMotionOverride?.swimAcceleration ?? swimmingAcceleration(p, input, swimStrength, gravityField ? playerFieldCoverage(gravityField, p) : 0)
+  p.swimAcceleration = fieldMotionOverride?.swimAcceleration ?? swimmingAcceleration(p, input, swimStrength, gravityField ? playerFieldCoverage(gravityField, p) : 0, swimDepth)
   setPlayerGravity(p, gravity, gravity + p.swimAcceleration)
   const orientationGravity = fieldMotionOverride?.orientationGravity ?? (gravityField?.hasWater ? playerOrientationGravity(gravityField, p) : gravity)
   if (p.inverted) {
@@ -428,7 +439,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     // Field samples remain in world space and the authored anchor is untouched.
     if (climbables.ropes.length) p.ropes ??= climbables.ropes.map(createRope)
     const reflected = mirrorContactWorld(world)
-    const reflectedMotion = { floatDrag, swimStrength, swimAcceleration: -(p.swimAcceleration ?? 0), orientationGravity: -orientationGravity }
+    const reflectedMotion = { floatDrag, swimStrength, swimDepth, swimAcceleration: -(p.swimAcceleration ?? 0), orientationGravity: -orientationGravity }
     mirrorPlayerState(p, true); p.inverted = false
     try {
       stepPlayer(p, input, dt, reflected.platforms, { ladders: climbables.ladders.map(mirrorLadder), ropes: p.ropes?.map(r => r.definition) ?? [] },
@@ -450,13 +461,14 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   const turnFrame = captureDryTurn(p, input)
   const slideEntryFrame = captureSlideEntry(p)
   const previousWaterCenter = inWater ? playerWaterCenterOffset(p) : 0
-  const diving = !input.climb && !!(input.descend || input.drop && !input.detach)
-  const bottomSurface = inWater && diving && gravity + (p.swimAcceleration ?? 0) >= 0
-    ? groundAt(platforms, p.x, p.y, 100, s => s.y >= p.y - .2 && canGrip(s.angle)) : null
-  const bottom = bottomSurface ? ease((100 - (bottomSurface.y - p.y)) / 75) : 0
+  const swimDirection = swimmingDirection(input)
+  const diving = swimDirection.y > .01
+  const underwater = underwaterSwimming(p, input, swimStrength, swimDepth)
+  const bottomSurface = inWater && diving && (p.vy >= 0 || gravity + (p.swimAcceleration ?? 0) >= 0)
+    ? groundAt(platforms, p.x, p.y, 16, s => s.y >= p.y - .2 && canGrip(s.angle)) : null
   const reversing = Math.abs(input.move) > .1 && p.vx * input.move < -1
   let waterWall: { x: number; amount: number } | undefined
-  if (inWater && !diving && !p.grounded && input.move * p.facing > .1) {
+  if (inWater && !diving && !underwater && !p.grounded && input.move * p.facing > .1) {
     const uprightCenter = playerWaterCenterOffset({ ...p, freeFall: null, waterMotion: undefined })
     const previewY = beforeBody.y + previousWaterCenter - uprightCenter
     const banks = world.colliders.filter(c => !c.prop).map(c => c.platform)
@@ -467,30 +479,68 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     }
   }
   advanceFreeFall(p, dt, inWater, inWater && !!(input.climb || diving),
-    !input.climb && !p.grounded && !reversing && (diving || Math.abs(input.move) > .1))
-  if (inWater && reversing && p.freeFall) p.freeFall.amount = Math.max(.45, p.freeFall.amount)
+    !p.grounded && (underwater > .5
+      ? Math.hypot(swimDirection.x, swimDirection.y) > .01 || Math.hypot(p.vx, p.vy) > 20
+      : !reversing && !input.climb && (diving || Math.abs(input.move) > .1)))
+  if (inWater && reversing && p.freeFall) p.freeFall.amount = Math.max(Math.min(.45, p.waterMotion?.amount ?? 0), p.freeFall.amount)
   if (inWater && !p.hang && !p.mantle && !p.climbing && !p.releaseTurn) {
     p.waterMotion ??= { amount: 0, dive: 0, phase: 0 }
+    p.waterMotion.underwater = underwater > .5
+    if (p.waterMotion.underwater) p.waterPushOff = false
+    p.waterMotion.steering = approach(p.waterMotion.steering ?? 0, underwater, dt / .2)
     p.waterMotion.heading ??= p.facing
+    const previousAmount = p.waterMotion.amount
     const postureFloor = Math.max(0, (p.waterMotion.amount ?? 0) - dt / .12)
-    if (p.freeFall && bottom) p.freeFall.amount = Math.min(p.freeFall.amount, Math.max(postureFloor, 1 - bottom))
     if (p.freeFall && waterWall) p.freeFall.amount = Math.min(p.freeFall.amount, Math.max(postureFloor, 1 - waterWall.amount))
     if (p.grounded) p.freeFall = null
     p.waterMotion.amount = p.freeFall?.amount ?? 0
-    const gather = !input.climb && (diving || Math.abs(input.move) > .1) ? Math.sin(Math.PI * p.waterMotion.amount) ** 2 : 0
-    p.waterMotion.gather = approach(p.waterMotion.gather ?? 0, gather, dt / .12)
-    p.waterMotion.bottom = bottom || Math.max(0, (p.waterMotion.bottom ?? 0) - dt / .25)
+    const floating = Math.hypot(swimDirection.x, swimDirection.y) < .01 || !underwater && input.climb
+    // Remember the angular change at the beginning of the rest: an ascending
+    // body is already nearly upright, while a head-first dive needs a full tuck.
+    if (floating && !p.grounded && p.waterMotion.amount < previousAmount && p.waterMotion.floatCurl === undefined) {
+      p.waterMotion.floatCurl = Math.max(0, Math.min(1, (1 + p.waterMotion.dive) / 2))
+    }
+    if (!floating || p.grounded || !p.waterMotion.amount) delete p.waterMotion.floatCurl
+    const floatGather = Math.sin(Math.PI * p.waterMotion.amount) ** 2 * .9 * (p.waterMotion.floatCurl ?? 0) ** .8
+    const steeringGather = underwater > .5 ? reversing ? .65 : 0
+      : !input.climb && (diving || Math.abs(input.move) > .1) ? Math.sin(Math.PI * p.waterMotion.amount) ** 2 : 0
+    const gather = Math.max(steeringGather, floatGather)
+    const gathered = p.waterMotion.gather ?? 0
+    const gatherTime = underwater > .5 ? gather < gathered ? .26 : .2 : .12
+    p.waterMotion.gather = approach(gathered, gather, dt / gatherTime)
+    p.waterMotion.bottom = p.waterMotion.landing ? 0
+      : approach(p.waterMotion.bottom ?? 0, Number(p.grounded), dt / .25)
+    p.waterMotion.floor = bottomSurface && !p.waterMotion.landing
+      ? { y: bottomSurface.y, angle: bottomSurface.angle, reach: ease((16 - (bottomSurface.y - p.y)) / 12) } : undefined
     p.waterMotion.wall = waterWall
     const verticalTravel = p.vy * frameDirection
-    const diveDirection = diving ? Math.atan2(Math.max(0, verticalTravel), Math.abs(p.vx)) / (Math.PI / 2) : 0
-    const diveTarget = diving && Math.hypot(p.vx, verticalTravel) < 1 ? 1 : diveDirection
-    p.waterMotion.dive = approach(p.waterMotion.dive, diveTarget * frameDirection, dt / .25)
+    const speed = Math.hypot(p.vx, verticalTravel)
+    const diveDirection = underwater > .5 ? Math.atan2(verticalTravel, Math.abs(p.vx)) / (Math.PI / 2)
+      : diving ? Math.atan2(Math.max(0, verticalTravel), Math.abs(p.vx)) / (Math.PI / 2) : 0
+    const diveTarget = speed < 8 ? (diving ? 1 : underwater && swimDirection.y < -.01 ? -1 : 0) : diveDirection
+    p.waterMotion.dive = approach(p.waterMotion.dive, diveTarget * frameDirection, dt / TUNING.swimPitchTime)
+    // The chest starts the turn while the pelvis still follows the travel.
+    // Release unwinds that steering curve rather than straightening in a frame.
+    const steeringPitch = Math.hypot(swimDirection.x, swimDirection.y) > .01
+      ? Math.atan2(swimDirection.y, Math.abs(swimDirection.x)) / (Math.PI / 2) : diveTarget
+    // A sideways reversal also curls through the chest while the hips still
+    // follow the old heading. Pure yaw projection makes that turn look rigid.
+    const yaw = Math.acos(Math.max(-1, Math.min(1, p.waterMotion.heading)))
+    const requestedYaw = Math.abs(input.move) > .1 ? input.move > 0 ? 0 : Math.PI : yaw
+    const turnCurl = Math.abs(requestedYaw - yaw) / Math.PI * .7 * (1 - Math.abs(steeringPitch))
+    const bend = underwater > .5 ? Math.max(-.85, Math.min(.85,
+      (steeringPitch * frameDirection - p.waterMotion.dive) * Math.PI / 2 + turnCurl * frameDirection)) : 0
+    p.waterMotion.bend = (p.waterMotion.bend ?? 0) + (bend - (p.waterMotion.bend ?? 0)) * (1 - Math.exp(-dt / .2))
+    const leadHeading = underwater > .5 && Math.abs(input.move) > .1 ? Math.sign(input.move) : p.waterMotion.heading
+    const leadAngle = Math.acos(Math.max(-1, Math.min(1, p.waterMotion.leadHeading ?? p.waterMotion.heading)))
+    const targetLeadAngle = Math.acos(Math.max(-1, Math.min(1, leadHeading)))
+    p.waterMotion.leadHeading = Math.cos(leadAngle + (targetLeadAngle - leadAngle) * (1 - Math.exp(-dt / .12)))
     p.waterMotion.scull = ((p.waterMotion.scull ?? 0) + dt * Math.PI * 2 * .18) % (Math.PI * 2)
     if (!p.grounded) p.y += previousWaterCenter - playerWaterCenterOffset(p)
   } else delete p.waterMotion
   const verticalUsed = !!(p.climbing || p.hang || p.mantle)
   const initialContacts = playerContacts(p, input, world, dt), previousGround = initialContacts.support
-  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField, frameDirection, floatDrag, swimStrength, orientationGravity)) return
+  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField, frameDirection, floatDrag, swimStrength, swimDepth, orientationGravity)) return
   const leavingGround = previousGround && !p.grounded
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
   // The hanging climb clears its own ledge; low steps use the full solid hull.
@@ -570,7 +620,12 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   settleFallClearance(p, dt, previousFacing)
   if (p.waterMotion) {
     if (p.facing !== previousFacing && p.waterMotion.bodyOffset) p.waterMotion.bodyOffset[0] *= -1
-    p.waterMotion.heading = approach(p.waterMotion.heading ?? p.facing, p.facing, dt * 2 / .18)
+    if (p.waterMotion.underwater) {
+      // Ease the turn angle, not its projection: a linear cosine makes knees
+      // jerk out of their bend plane at the beginning and end of a reversal.
+      const angle = Math.acos(Math.max(-1, Math.min(1, p.waterMotion.heading ?? p.facing)))
+      p.waterMotion.heading = Math.cos(angle + ((p.facing > 0 ? 0 : Math.PI) - angle) * (1 - Math.exp(-dt / .18)))
+    } else p.waterMotion.heading = approach(p.waterMotion.heading ?? p.facing, p.facing, dt * 2 / .18)
     // Strokes cover actual traveled distance, excluding the foot-root change
     // that keeps the displaced center fixed while changing posture.
     const distance = Math.hypot(p.x - from[0], p.y + playerWaterCenterOffset(p) - from[1] - previousWaterCenter)
@@ -581,11 +636,13 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       const travel = Math.max(distance, dt * TUNING.swimStrokeDistance * .55 * effort)
       p.waterMotion.phase = (p.waterMotion.phase + travel * Math.PI * 2 / TUNING.swimStrokeDistance) % (Math.PI * 2)
     }
+    advanceWaterLanding(p, input, dt, oldVy)
+    advanceWaterCeiling(p, input, dt, world)
+    const effort = Math.max(Math.hypot(p.vx, p.vy) / 70, p.contacts?.push?.swimming ? p.contacts.push.effort : 0)
+    p.waterMotion.effort = approach(p.waterMotion.effort ?? Math.min(1, effort), Math.min(1, effort), dt / .16)
     if (p.grounded) {
-      p.freeFall = null; p.waterMotion.amount = 0; p.waterMotion.bottom = 1
-      // Holding down is real effort against buoyancy even without translation.
-      // Foot steps still follow resolved travel; only the hands tread in place.
-      if (diving && (p.swimAcceleration ?? 0) > 0) p.waterMotion.hold = ((p.waterMotion.hold ?? 0) + dt * Math.PI * 2 * .65) % (Math.PI * 2)
+      p.freeFall = null; p.waterMotion.amount = 0; p.waterMotion.underwater = false
+      if (!p.waterMotion.landing) p.waterMotion.bottom = 1
     }
     settleWaterClearance(p, dt)
   }
@@ -680,7 +737,7 @@ export function verticalClimbOption(p: Player, climbables: ClimbableWorld, platf
     && !(found.ladder && p.grounded && (Math.abs(p.y - found.ladder.top) < 1 || (Math.abs(p.y - found.ladder.bottom) < 1 && vertical < 0))) ? found : null
 }
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
-  world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1, floatDrag = 0, swimStrength = 0, orientationGravity = p.gravity ?? TUNING.gravity) {
+  world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1, floatDrag = 0, swimStrength = 0, swimDepth = 0, orientationGravity = p.gravity ?? TUNING.gravity) {
   const gravity = p.gravity ?? TUNING.gravity
   p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt
   const stepIntent = p.stepIntent; p.stepIntent = null
@@ -1008,24 +1065,32 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     return
   }
   // Feet stay planted when ducking. Do not stand up through a low ceiling.
-  p.crouching = ((input.crouch || input.descend && swimStrength <= 0) && p.grounded) || (p.crouching && platforms.some(b => overlaps(p.x, p.y, b)))
+  p.crouching = ((input.crouch || input.descend) && p.grounded) || (p.crouching && platforms.some(b => overlaps(p.x, p.y, b)))
   p.crouch = approach(p.crouch, Number(p.crouching), dt * 10)
   p.reach = approach(p.reach, Number(input.reach && !p.crouching), dt * 10)
   const height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const wasGrounded = p.grounded
   tryWallJump(p, platforms)
   p.coyote = wasGrounded ? TUNING.coyoteTime : Math.max(0, p.coyote - dt)
-  if (p.coyote > 0 && p.buffer > 0) launch(p)
+  if (p.coyote > 0 && p.buffer > 0) {
+    launch(p)
+    // Held lift temporarily releases the swimming rig. Remember submerged
+    // support so that neutral sculling resumes when that lift ends.
+    p.waterPushOff = swimStrength > 0 && swimDepth > .98
+  }
   // The water surface supplies a jump opportunity without becoming solid ground.
   if (!p.grounded && swimStrength > 0 && floatDrag > 0 && isWeightless(gravity) && p.buffer > 0) { launch(p); p.waterJump = true }
   if (p.waterJump && (swimStrength === 0 || p.vy >= 0 || p.grounded)) p.waterJump = false
 
   const move = Math.max(-1, Math.min(1, input.move)), waterControl = Math.min(1, swimStrength / .2)
   const drySpeed = p.crouching ? TUNING.walkSpeed : TUNING.runSpeed
-  const target = move * (drySpeed + (Math.min(drySpeed, TUNING.swimHorizontalSpeed) - drySpeed) * waterControl)
-  // Propulsion sustains the swimming pace. Released, reversed or excess
-  // momentum meets water resistance instead of coasting like dry free flight.
-  if (waterControl && (!move || move * p.vx < 0 || Math.abs(p.vx) > Math.abs(target))) p.vx *= Math.exp(-TUNING.waterMomentumDrag * waterControl * dt)
+  const swimMove = p.grounded ? move : swimmingDirection(input).x
+  const target = move * drySpeed * (1 - waterControl) + swimMove * Math.min(drySpeed, TUNING.swimHorizontalSpeed) * waterControl
+  // Release carries a damped glide; intentional reversals still steer firmly.
+  const coasting = waterControl > 0 && !p.grounded && !move
+  if (waterControl && (coasting || move * p.vx < 0 || Math.abs(p.vx) > Math.abs(target))) {
+    p.vx *= Math.exp(-(coasting ? TUNING.swimCoastResponse : TUNING.waterMomentumDrag) * waterControl * dt)
+  }
   const groundSteering = (move ? TUNING.acceleration : TUNING.braking) * (1 - waterControl) + TUNING.swimHorizontalAcceleration * waterControl
   if (p.wallJump && p.wallJump.time < TUNING.wallJumpControlTime) {
     // A short outward push survives holding toward the wall; ordinary steering follows.
@@ -1049,7 +1114,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     // bot, but cannot instantly match a charge or erase momentum on departure.
     const steered = ground && canGrip(ground.angle)
       ? groundVelocity(p.vx - (carrier?.vx ?? 0), target, ground.angle, carrier ? Math.max(0, gravity + (p.swimAcceleration ?? 0)) * .8 : groundSteering, dt) + (carrier?.vx ?? 0)
-      : !p.grounded && isWeightless(gravity) && !move ? p.vx
+      : coasting || !p.grounded && isWeightless(gravity) && !move ? p.vx
       : approach(p.vx, target, (p.grounded ? groundSteering : TUNING.airAcceleration + (TUNING.swimHorizontalAcceleration - TUNING.airAcceleration) * waterControl) * dt)
     const constrained = pushingVelocity(p, contacts.push, world, dt, steered)
     p.vx = constrained ?? steered
@@ -1104,10 +1169,16 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   }
   sustainJump(p, dt)
   p.vy = Math.max(-1100, Math.min(1100, p.vy + (gravity + (p.swimAcceleration ?? 0)) * dt))
-  // Diving supplies active propulsion; floating keeps surface damping. Jump
-  // lift retains enough momentum to clear the water deliberately.
+  // Propulsion replaces drag at ordinary swimming speeds. A push-off still
+  // meets water resistance during its held lift and its subsequent glide.
   const passiveDrag = Math.max(floatDrag, TUNING.waterRiseDrag * waterControl)
-  p.vy *= drag * Math.exp(-(p.swimAcceleration || p.jumpLift || p.waterJump ? 0 : passiveDrag) * dt)
+  const verticalControl = swimmingDirection(input).y > 0 ? 1 : underwaterSwimming(p, input, swimStrength, swimDepth)
+  const powered = !p.jumpLift && !p.waterJump && p.swimAcceleration ? verticalControl : 0
+  const launchResistance = passiveDrag * ease((swimDepth - .8) / .18)
+  const waterDrag = p.jumpLift || p.waterJump ? launchResistance : passiveDrag * (1 - powered)
+  p.vy *= drag * Math.exp(-waterDrag * dt)
+  const excessTravel = Math.max(0, Math.abs(p.vy) - TUNING.diveSpeed)
+  p.vy -= Math.sign(p.vy) * excessTravel * (1 - Math.exp(-passiveDrag * powered * dt))
   p.y += p.vy * dt; p.grounded = false
   if (support) { p.y = support.y; p.vy = 0; p.grounded = true }
   for (const b of platforms) {

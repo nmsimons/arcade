@@ -92,7 +92,20 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
   const caught = (value: { y: number; vy: number; footwork?: Footwork | null; pushing?: Player['pushing']; ledgeReach?: Player['ledgeReach']; climbing?: Climbing | null; waterMotion?: Player['waterMotion'] }) => {
     if (seen.has(value)) return
     seen.add(value); value.y = -value.y; value.vy = -value.vy
-    if (value.waterMotion && !seen.has(value.waterMotion)) { seen.add(value.waterMotion); value.waterMotion.dive = -value.waterMotion.dive }
+    if (value.waterMotion && !seen.has(value.waterMotion)) {
+      seen.add(value.waterMotion); value.waterMotion.dive = -value.waterMotion.dive
+      if (value.waterMotion.bend !== undefined) value.waterMotion.bend = -value.waterMotion.bend
+      if (value.waterMotion.floor) { value.waterMotion.floor.y = -value.waterMotion.floor.y; value.waterMotion.floor.angle = -value.waterMotion.floor.angle }
+      if (value.waterMotion.landing) {
+        value.waterMotion.landing.y = -value.waterMotion.landing.y
+        value.waterMotion.landing.hand.y = -value.waterMotion.landing.hand.y
+        value.waterMotion.landing.hand.angle = -value.waterMotion.landing.hand.angle
+      }
+      if (value.waterMotion.ceiling) {
+        value.waterMotion.ceiling.ny *= -1
+        for (const hand of value.waterMotion.ceiling.hands) { hand.y *= -1; hand.ny *= -1 }
+      }
+    }
     if (value.footwork) footwork(value.footwork)
     if (value.pushing) hands(value.pushing)
     if (value.ledgeReach && !seen.has(value.ledgeReach)) { seen.add(value.ledgeReach); value.ledgeReach.y = -value.ledgeReach.y }
@@ -114,7 +127,20 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
   }
   p.y = -p.y; p.vy = -p.vy; p.spawnY = -p.spawnY; p.jumpStart = -p.jumpStart; p.groundAngle = -p.groundAngle
   if (p.gravity !== undefined) p.gravity = -p.gravity
-  if (p.waterMotion) p.waterMotion.dive = -p.waterMotion.dive
+  if (p.waterMotion) {
+    p.waterMotion.dive = -p.waterMotion.dive
+    if (p.waterMotion.bend !== undefined) p.waterMotion.bend = -p.waterMotion.bend
+    if (p.waterMotion.floor) { p.waterMotion.floor.y = -p.waterMotion.floor.y; p.waterMotion.floor.angle = -p.waterMotion.floor.angle }
+    if (p.waterMotion.landing) {
+      p.waterMotion.landing.y = -p.waterMotion.landing.y
+      p.waterMotion.landing.hand.y = -p.waterMotion.landing.hand.y
+      p.waterMotion.landing.hand.angle = -p.waterMotion.landing.hand.angle
+    }
+    if (p.waterMotion.ceiling) {
+      p.waterMotion.ceiling.ny *= -1
+      for (const hand of p.waterMotion.ceiling.hands) { hand.y *= -1; hand.ny *= -1 }
+    }
+  }
   if (p.waterCamera) p.waterCamera.y = -p.waterCamera.y
   if (p.swimAcceleration !== undefined) p.swimAcceleration = -p.swimAcceleration
   if (p.terrain) p.terrain = mirrorPlatforms(p.terrain)

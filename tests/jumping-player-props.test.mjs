@@ -20,6 +20,46 @@ function clear(run) {
   }
 }
 
+for (const size of [80, 120, 160]) for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) {
+  test(`pushing toward a ${size}-unit box from a ball keeps a reachable stance (${direction}, ${dt})`, () => {
+    const level = blankTrial(), x = n => direction > 0 ? n : level.width - n
+    level.spawn = { x: x(480), y: 840 }
+    level.props = [{ kind: 'ball', x: x(480), y: 920, size: 80 },
+      { kind: 'box', x: x(520 + size / 2), y: 920, size }]
+    const run = createRun(level), p = run.player
+    run.started = true; p.facing = direction
+    for (let t = 0; t < 1; t += dt) stepRun(run, NEUTRAL_INPUT, dt)
+    assert.equal(p.contacts.support.collider.prop.kind, 'ball', 'the player starts standing on the actual curved support')
+    let supported = 0, loaded = 0
+    for (let t = 0; t < 2; t += dt) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: direction }, dt)
+      if (p.contacts?.support?.collider.prop?.kind !== 'ball') continue
+      supported++
+      const pose = athletePose(p)
+      assert.ok(pose.shoulder[1] < pose.waist[1] - 1, 'the chest cannot fold below the waist to reach a low box face')
+      assert.ok(Math.atan2(pose.shoulder[0] - pose.hip[0], pose.hip[1] - pose.shoulder[1]) < 1,
+        'the supported torso retains a natural forward lean')
+      if (p.pushing) assert.ok(p.pushing.height >= 20, 'an approach cannot reach down below the working hand band')
+      if (p.contacts.push?.effort) {
+        loaded++
+        for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+          const palm = p.pushing.palms[i]
+          assert.ok(Math.hypot(p.x + arm.hand[0] * p.facing - palm.x - palm.nx * 1.6,
+            p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < .5, 'a reachable tall box still receives the real working palms')
+        }
+      }
+      for (const limb of [pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg]) {
+        const leg = 'footAngle' in limb
+        assert.ok(Math.abs(Math.hypot(...limb.joint.map((v, i) => v - limb.root[i]), limb.jointDepth ?? 0) - (leg ? 15 : 10)) < 1e-5)
+        assert.ok(Math.abs(Math.hypot(...limb.end.map((v, i) => v - limb.joint[i]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - (leg ? 14.5 : 9)) < 1e-5)
+      }
+    }
+    assert.ok(supported > 3, 'held input actually exercises balance on the ball')
+    if (size === 80) assert.equal(loaded, 0, 'a box top level with the footing is not a pushing face')
+    if (size === 160) assert.ok(loaded > 3, 'curved support does not disable a legitimate push')
+  })
+}
+
 for (const kind of ['ball', 'box']) for (const slope of [0, .3]) {
   test(`an incoming ${kind} cannot push the player through a gate on ${slope ? 'a slope' : 'flat ground'}`, () => {
     for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) {

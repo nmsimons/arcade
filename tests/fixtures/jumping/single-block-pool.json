@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "single-block-pool",
+  "name": "Single block pool",
+  "width": 1800,
+  "height": 920,
+  "platforms": [
+    {
+      "x": 0,
+      "y": 290,
+      "w": 1800,
+      "h": 630,
+      "polygon": [[0, 0], [570, 0], [570, 475], [1475, 475], [1475, 0], [1800, 0], [1800, 630], [0, 630]]
+    }
+  ],
+  "spawn": { "x": 115, "y": 290 },
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "floor": 920,
+  "goal": { "x": 1585, "y": 290 },
+  "times": { "gold": 10, "silver": 20, "bronze": 40 },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [],
+  "gravityPlates": [
+    { "id": "water", "x": 570, "y": 325, "w": 905, "h": 440, "gravity": -1, "effect": "water", "power": "always" }
+  ]
+}

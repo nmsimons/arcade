@@ -129,18 +129,19 @@ for (const dt of [STEP, 1 / 30]) for (const rider of [false, true]) {
       before = c
     }
     assert.equal(run.player.waterCamera, undefined, 'ordinary following resumes after interaction')
+    if (!rider) for (let i = 0; i < Math.round(2 / dt); i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true }, dt)
     advance(run, 8, dt)
     assert.ok(run.player.waterCamera?.amount > .9, 'resting framing returns after movement settles')
   })
 }
 
-test('EMP, leaving water, deep water, gravity plates and respawn do not retain ambient lift', () => {
+test('EMP leaves water bobbing intact; leaving water, deep water, gravity plates and respawn do not retain ambient lift', () => {
   const run = fixture([{ kind: 'box', x: 500, y: 440, size: 80 }]); advance(run, 10, STEP)
   assert.ok(run.player.waterBob.amount > .9 && run.props[0].waterBob.amount > .9)
+  const playerY = run.player.y, propY = run.props[0].y
   run.empRemaining = 1; advance(run, .2, STEP)
-  assert.equal(run.player.gravity, TUNING.gravity)
-  assert.equal(run.props[0].gravity, TUNING.gravity)
-  assert.ok(run.props[0].y > 460, 'suppressed water resumes real falling')
+  assert.ok(run.player.waterBob.amount > .9 && run.props[0].waterBob.amount > .9)
+  assert.ok(Math.abs(run.player.y - playerY) < 4 && Math.abs(run.props[0].y - propY) < 4, 'EMP leaves floating intact')
   const dry = createRun({ ...blankTrial(), props: [{ kind: 'box', x: 600, y: 440, size: 80 }], gravityPlates: [{ ...water, effect: undefined }] })
   dry.started = true; advance(dry, 10, STEP)
   assert.equal(dry.props[0].waterBob, undefined, 'gravity plates retain their stable rest')

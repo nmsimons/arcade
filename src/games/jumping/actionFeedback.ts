@@ -51,10 +51,10 @@ export function actionFeedbackText(feedback: ActionFeedback | null, device: 'key
     case 'lower': return `${feedback.inverted?up:down} to lower to a safe hang`
     case 'crouch': return `${down} to crouch`
     case 'lowering': return 'Lowering to a safe hang'
-    case 'water': return `${down} to dive · ${up} to turn upright and float`
-    case 'water-bottom': return `${down} to crouch · ${up} to turn upright and float`
+    case 'water': return `${up} to swim up · ${down} to dive · Release to glide`
+    case 'water-bottom': return `Move to walk · ${down} to crouch · ${up} to swim up`
     case 'water-prop': return feedback.grippable ? `${up} to grip · ${jump} first if out of reach · Move to push`
-      : `Move to push · ${up} to turn upright and float`
+      : `Move to push · ${up} to swim up`
     case 'climb': return feedback.jumpHeld ? touch ? 'Lift, then tap again to jump off' : `Release ${jump}, then press again to jump off`
       : `${up} / ${down} to climb · ${jump} to jump off`
     case 'hang': {

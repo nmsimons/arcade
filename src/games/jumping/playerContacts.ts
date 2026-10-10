@@ -318,7 +318,10 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
     // keeps the unloaded palms stretched forward and delays the gait release.
     if ((collider.prop.vx - p.vx) * direction > 0) return []
     const hands = propPushHands(collider.prop, p.x, p.y, direction, 43 - p.crouch * 15, 72)
-    if (!hands) return []
+    // Higher footing can put a neighboring prop's grip below the feet. Such
+    // a reach cannot become a working push; leave walking/stepping in control
+    // rather than folding the whole body toward an unreachable low surface.
+    if (!hands || (hands.height ?? 43) < 12) return []
     const gap = (hands.wallX - p.x) * direction
     if (gap >= 72) return []
     const sweep = moveBody([p.x, p.y], [p.x + direction * gap, p.y], world.platforms,

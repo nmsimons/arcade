@@ -181,7 +181,15 @@ Treat a pool as a space with a visible, usable exit. Give its rim an exposed
 grippable edge and room for the player's body and landing, or provide a lower
 bank or ladder. Test reaching and pulling out from the water with normal controls;
 a nearby top surface alone does not establish an exit. Consider floating props,
-a blocked pull-up, and losing water power when reviewing recovery.
+a blocked pull-up when reviewing recovery. Water is always present; switches and
+EMPs cannot empty the pool.
+Flooded passages can place coins and other pickups below the surface. Give the
+player room to dive, turn, and stop beside the item; submerged steering maintains
+depth and release eases into an upright float after a short glide. Test the passage in both directions
+and test returning to the surface with Up. Size openings for the actual collision
+envelope and visible limb clearance, including the turn and release poses, rather
+than assuming the prone drawing fits any thin slot. A covered route should show
+its continuation or a usable way back before the player commits to it.
 Leave enough space to approach a box and push it from the useful side. Avoid
 packing a box, ball, and shovebot into the only place the player can hang or
 land. The challenge should survive small differences in movement and prop

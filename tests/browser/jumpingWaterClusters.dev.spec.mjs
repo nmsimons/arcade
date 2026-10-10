@@ -61,18 +61,41 @@ test('normal controls skim beneath a floating cluster, rise into it and turn awa
   level.name = 'Beneath six floats'; level.spawn = { x: 1080, y: 765 }
   level.goal = { ...level.goal, id: 'closed', power: 'switched' }
   level.props = Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: 1000 + i * 48, y: 345, size: 40 }))
-  await useLevelFixtures(page, [level]); await page.goto('/untitled-jumping-game?motionDebug=1')
+  await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-10-10T00:00:00Z') })
+  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await expect(page.getByRole('button', { name: 'Play Beneath six floats', exact: true })).toBeVisible()
+  await page.clock.pauseAt(new Date('2026-10-10T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Beneath six floats', exact: true }).click()
   const canvas = page.locator('canvas'); await expect(canvas).toBeFocused()
+  await page.clock.runFor(64)
   const samples = []
-  for (const [label, keys, ms] of [ ['Ascent', ['ArrowUp'], 3300], ['Underneath', ['d'], 1200], ['Rise', ['ArrowUp'], 1100],
+  // Stop the ascent below the balls with room for the remaining upward glide.
+  // Pause simulated time during screenshots so runner speed cannot carry the
+  // swimmer to the surface before the horizontal underside pass begins.
+  await page.keyboard.down('ArrowUp')
+  let ascent
+  for (let elapsed = 0; elapsed < 5000; elapsed += 64) {
+    await page.clock.runFor(64)
+    ascent = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+    if (ascent.waterCenter <= 425) break
+  }
+  await page.keyboard.up('ArrowUp')
+  expect(ascent.waterCenter).toBeGreaterThan(410)
+  expect(ascent.waterCenter).toBeLessThanOrEqual(425)
+  await page.clock.runFor(640)
+  samples.push({ label: 'Ascent', ...await page.evaluate(() => window.jumpingMotion.read()) })
+  await canvas.screenshot({ path: info.outputPath('underside-ascent.png') })
+  for (const [label, keys, ms] of [ ['Underneath', ['d'], 1200], ['Rise', ['ArrowUp'], 1100],
     ['Turn-and-dive', ['a', 'ArrowDown'], 800], ['Rise-again', ['d', 'ArrowUp'], 900], ['Float', [], 500] ]) {
     for (const key of keys) await page.keyboard.down(key)
-    await page.waitForTimeout(ms)
+    await page.clock.runFor(ms)
     for (const key of keys) await page.keyboard.up(key)
     samples.push({ label, ...await page.evaluate(() => window.jumpingMotion.read()) })
     await canvas.screenshot({ path: info.outputPath(`underside-${label.toLowerCase()}.png`) })
   }
   await info.attach('underside-motion', { body: JSON.stringify(samples, null, 2), contentType: 'application/json' })
-  expect(samples.find(s => s.label === 'Underneath').recent.at(-1).waterCenter).toBeGreaterThan(370)
+  const underneath = samples.find(s => s.label === 'Underneath').recent.at(-1)
+  expect(underneath.waterCenter).toBeGreaterThan(370)
+  expect(underneath.x - samples[0].recent.at(-1).x).toBeGreaterThan(75)
 })

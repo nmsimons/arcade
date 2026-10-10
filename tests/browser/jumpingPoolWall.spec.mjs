@@ -28,7 +28,11 @@ for (const side of [-1, 1]) test(`normal swimming stays stable against the ${sid
   expect(submerged.waterCenter).toBeGreaterThan(490)
   await hold([toward], 9000)
   const blocked = await player(), wallX = side > 0 ? 1475 : 570
-  expect(Math.abs(blocked.x - wallX + side * 12)).toBeLessThan(.01)
+  // Submerged contacts follow the visible swimming head and torso. The foot
+  // root no longer has the standing body's fixed 12-unit wall offset.
+  const headGap = (wallX - blocked.x - blocked.points[2][0] * blocked.signals.facing) * side
+  expect(headGap).toBeGreaterThanOrEqual(6.15)
+  expect(headGap).toBeLessThan(7.25)
   expect(Math.abs(blocked.vx)).toBeLessThan(.01)
   expect(Math.abs(blocked.waterCenter - submerged.waterCenter)).toBeLessThan(2)
   await hold([toward], 2000)

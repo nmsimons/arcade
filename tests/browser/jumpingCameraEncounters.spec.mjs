@@ -145,7 +145,10 @@ for (const size of sizes) for (const night of [false, true]) for (const kind of 
       await checkpoint('passive-carrier-travel', [carried.x, carried.y])
     } else if (kind === 'water') {
       await page.keyboard.down('s'); await page.clock.runFor(1000); await page.keyboard.up('s')
-      await advanceJumpingPassiveWait(page, 8000)
+      // Neutral buoyancy leaves the player standing on the pool floor. Swim
+      // to the surface before measuring the resting water camera and bank exit.
+      await page.keyboard.down('w'); await page.clock.runFor(8000); await page.keyboard.up('w')
+      await advanceJumpingPassiveWait(page, 1000)
       await checkpoint('pool-rest-next-bank', [640, 380])
       const rest = await page.evaluate(() => window.cameraEncounterFrames.at(-1))
       await advanceJumpingPassiveWait(page, 1000)

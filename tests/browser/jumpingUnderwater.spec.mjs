@@ -1,9 +1,11 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/water-tunnel.json', import.meta.url), 'utf8'))
-test.setTimeout(90000)
+// The route includes a complete restart and second completion on CI.
+test.setTimeout(120000)
 
 test('normal keyboard swimming holds depth, collects submerged coins, recovers in a covered passage and exits', async ({ page }, info) => {
   const errors = []
@@ -18,7 +20,8 @@ test('normal keyboard swimming holds depth, collects submerged coins, recovers i
   const p = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   async function hold(keys, ms) {
     for (const key of keys) await page.keyboard.down(key)
-    await page.clock.runFor(ms)
+    if (keys.length) await page.clock.runFor(ms)
+    else await advanceJumpingPassiveWait(page, ms)
     for (const key of keys) await page.keyboard.up(key)
   }
   const records = []

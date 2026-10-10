@@ -31,10 +31,14 @@ test('normal swimming reaches a tunnel ceiling and releases the palms at its exi
   await hold(['ArrowUp'], 1600)
   const contact = await sample()
   expect(contact.blends.ceiling).toBeGreaterThan(.95)
-  expect(contact.y).toBeCloseTo(632, 0)
+  // Check the visible rig against the underside; the compact swimming hull
+  // no longer holds its foot root at the standing body's 62-unit offset.
+  const roof = level.platforms[1].y + level.platforms[1].h
+  const headGap = contact.y + contact.points[2][1] - 6.2 - roof
+  expect(headGap).toBeGreaterThan(2)
+  expect(headGap).toBeLessThan(5)
   expect(Math.abs(contact.vy)).toBeLessThan(.1)
-  expect(Math.min(...contact.contacts.hands.map(h => h.y))).toBeLessThan(574)
-  expect(contact.y + contact.points[2][1] - 6.2).toBeGreaterThan(572)
+  expect(Math.min(...contact.contacts.hands.map(h => h.y)) - roof).toBeLessThan(4)
   await page.screenshot({ path: info.outputPath('tunnel-ceiling-contact.png') })
   await hold(['d', 'ArrowUp'], 8200)
   const leaving = await sample()

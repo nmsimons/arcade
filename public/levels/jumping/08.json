@@ -1162,7 +1162,8 @@
       "kind": "ball",
       "x": 1260,
       "y": 640,
-      "size": 70
+      "size": 70,
+      "weight": "heavy"
     }
   ],
   "mechanisms": [],

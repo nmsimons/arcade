@@ -505,7 +505,8 @@
       "kind": "ball",
       "x": 110,
       "y": 1549.603109860769,
-      "size": 30
+      "size": 30,
+      "weight": "heavy"
     },
     {
       "kind": "ball",
@@ -517,7 +518,8 @@
       "kind": "ball",
       "x": 224,
       "y": 1600,
-      "size": 68
+      "size": 68,
+      "weight": "heavy"
     }
   ],
   "mechanisms": [],

@@ -36,6 +36,7 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
   let gravityStarted = false
   let gravityReleased = false
   let bracedOnBall = false
+  let waterFilled = false
   const jumpModel = recording.jumpModel ?? recordings.jumpModel
   assert.ok(['recorded-impulses', 'tap-hold'].includes(jumpModel))
   const weighted = plate => run.props.filter(prop => propLoadsPlate(prop, plate.x, plate.y, plate.w, plate.ceiling))
@@ -59,6 +60,7 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
       }
       if (recording.file === '05.json' && run.player.contacts.support?.collider.prop === run.props[0]
         && run.player.contacts.push?.collider.id === 'mechanism:0') bracedOnBall = true
+      if (recording.file === 'buoyancy.jump-level.json' && run.water.pools[0].level >= 99.9) waterFilled = true
     }
   }
   assert.ok(entryTime !== undefined, 'the player must enter the powered doorway')
@@ -117,6 +119,13 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
     assert.equal(run.coinsCollected, 3)
     assert.deepEqual(run.triggers.slice(1, 5).map(button => button.active), [false, true, false, true])
     assert.equal(weighted(level.triggers[5]).length, 1, 'the ball must hold the exit plate')
+  }
+  if (recording.file === 'buoyancy.jump-level.json') {
+    assert.ok(waterFilled, 'release the heavy ball to fill the reservoir')
+    assert.equal(run.water.pools[0].level, 25, 'drain back to the low water mark')
+    assert.deepEqual(weighted(level.triggers[0]), [run.props[4]], 'the heavy ball must keep draining')
+    assert.deepEqual(weighted(level.triggers[1]), [run.props[1], run.props[2]], 'the delivered floats must keep the exit and gravity lift powered')
+    assert.ok(run.pickups.every(pickup => pickup.collectedAge !== null), 'collect both timing rewards')
   }
 })
 

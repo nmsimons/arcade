@@ -101,7 +101,8 @@
       "kind": "box",
       "x": 840,
       "y": 880,
-      "size": 80
+      "size": 80,
+      "weight": "heavy"
     },
     {
       "kind": "box",

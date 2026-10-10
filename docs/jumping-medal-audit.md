@@ -1,5 +1,38 @@
 # Built-in jumping medal audit
 
+October 10 update: Buoyancy uses **35 / 50 / 75** medal times. Its fresh-start
+recording scores 30.82 seconds with 50.67 seconds of active play. Repeated browser
+keyboard runs also earned Gold; one scored 30.55 seconds. The route fills the
+pool by moving the heavy ball off its switch, collects both time pickups, ferries
+floating balls to the left shelf, then restores the heavy ball to drain to the
+25 percent low-water mark. The delivered balls hold the exit switch while the
+player uses the gravity lift. The regression checks verify both cargo switches,
+full filling, final draining and both pickups. Silver and bronze allow extra
+swimming, cargo placement and recovery; these are initial targets based on the
+completed route, not a study of first-time players.
+
+The catalog now has 24 levels. Escapade remains explicitly pending. Heavy-prop
+edits required fresh route recordings for Boxes, Balls, Tower I, Drain and
+Ramping Up; their existing medal targets and puzzle assertions are retained.
+Balls uses current held-jump controls and also passed its browser keyboard
+check. The other four refreshed recordings preserve their historical jump
+impulses, so they verify the authored puzzles without establishing medal times
+for current tap/hold controls.
+
+| Refreshed level | Clock | Active | Gold / Silver / Bronze |
+| --- | ---: | ---: | --- |
+| Boxes | 26.80 | 27.66 | 30 / 50 / 90 |
+| Balls | 25.33 | 26.19 | 28 / 40 / 60 |
+| Tower I | 87.62 | 88.48 | 100 / 140 / 210 |
+| Drain | 31.27 | 42.12 | 35 / 50 / 75 |
+| Ramping Up | 54.08 | 54.93 | 55 / 80 / 120 |
+| Buoyancy | 30.82 | 50.67 | 35 / 50 / 75 |
+
+Ramping Up's new recording returns up the free ladder after launching cargo,
+hops over the ball on the bench, then pushes it onto the gravity switch. It
+collects all ten coins and hops past heavy cargo on the upper ramp. Its narrower
+Gold margin has not been independently checked with current keyboard jumping.
+
 October 7 update: Escapade was added after the recorded audit. Its current
 10 / 20 / 40 medal times remain unverified; the fixture lists it explicitly as
 pending rather than claiming a completed route. All earlier route recordings

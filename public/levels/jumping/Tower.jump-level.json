@@ -1484,7 +1484,8 @@
       "kind": "ball",
       "x": 1115,
       "y": 1540,
-      "size": 30
+      "size": 30,
+      "weight": "heavy"
     },
     {
       "kind": "ball",

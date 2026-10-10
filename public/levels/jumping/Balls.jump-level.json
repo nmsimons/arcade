@@ -86,7 +86,8 @@
       "kind": "ball",
       "x": 1020,
       "y": 880,
-      "size": 200
+      "size": 200,
+      "weight": "heavy"
     },
     {
       "kind": "ball",

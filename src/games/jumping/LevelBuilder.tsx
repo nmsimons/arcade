@@ -39,9 +39,10 @@ import { isHorizontalGate, mechanismAnchor, mechanismOpenPosition, mechanismRope
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
-import { switchedItems, switchSources, switchTargets } from './switchPower'
+import { switchedItems, switchSources, switchTargets, switchItemLabel } from './switchPower'
+import { waterControlId } from './waterLevel'
 import { drawLogicRelay } from './logicRelay'
-import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPlateCeiling, setGravityPlateEffect } from './editor'
+import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPlateCeiling, setGravityPlateEffect, setWaterControl } from './editor'
 import { useLightingGeometry } from './useLightingGeometry'
 import { useBuilderController } from './useBuilderController'
 import { BuilderTextEntry } from './BuilderTextEntry'
@@ -215,6 +216,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const resizeCursor = resizeCorner === 'top' || resizeCorner === 'bottom' ? 'ns-resize' : resizeCorner === 'left' || resizeCorner === 'right' ? 'ew-resize' : resizeCorner === 'top-left' || resizeCorner === 'bottom-right' ? 'nwse-resize' : 'nesw-resize'
   const problems = useMemo(() => levelProblems(level), [level]), problem = problems[0]
   const mechanism = selection?.kind === 'mechanism' ? level.mechanisms?.[selection.index] : null
+  const prop = selection?.kind === 'prop' ? level.props?.[selection.index] : null
   const travelHandle = mechanism?.kind === 'lift' ? mechanismAnchor(mechanism) : null
   const travelHandleAt = (p: Point) => travelHandle && Math.hypot(p.x - travelHandle.x, p.y - travelHandle.y) < 10 / view.zoom
   const adjustingTravel = drag?.mode === 'travel' || pointer && travelHandleAt(pointer)
@@ -235,7 +237,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
   const objectPower = switchable ? switchable.power ?? (goal || forceField ? 'always' : 'switched') : null
   const targets = switchedItems(level)
-  const switchedObject = targets.find(item => item.kind === selection?.kind && item.index === selection.index)
+  const switchedObject = targets.find(item => !('waterAction' in item) && item.kind === selection?.kind && item.index === selection.index)
   const objectSwitchLogic = switchedObject?.definition.switchLogic ?? 'or'
   const objectSwitchReversed = !!switchedObject?.definition.switchReversed
   const sources = switchSources(level)
@@ -914,6 +916,16 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
               value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
           })}
         </div>
+        {prop && <>
+          <BuilderSelect label="Weight" accessibleLabel="Object weight" value={prop.weight ?? 'normal'}
+            options={[{ value: 'light', label: 'Light' }, { value: 'normal', label: 'Normal' }, { value: 'heavy', label: 'Heavy' }]}
+            onChange={value => {
+              const next = copyLevel(history.present), object = next.props![selection.index]
+              if (value === 'light' || value === 'heavy') object.weight = value; else delete object.weight
+              commit(next)
+            }} />
+          <p className="builder-hint">Light is easier to push and floats higher. Normal floats half submerged. Heavy is harder to push and sinks.</p>
+        </>}
         {chosen && <TerrainMaterialPicker label="Terrain material" value={chosen.material} onChange={material => {
           const next = copyLevel(history.present); next.platforms[selection.index].material = material; commit(next)
         }} />}
@@ -951,8 +963,45 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
               if (!Number.isFinite(value)) return base
               const next = copyLevel(base); next.gravityPlates![selection.index].gravity = clamp(value, -3, 3); return next
             })} /></label>}
+          {gravityPlate.effect === 'water' && <>
+            <label>Initial level (%)<NumberField label="Initial water level" min={gravityPlate.waterMinLevel ?? 0} max={100} step={5} value={gravityPlate.waterLevel ?? 100}
+              {...numberEdit((base, value) => {
+                if (!Number.isFinite(value)) return base
+                const next = copyLevel(base), plate = next.gravityPlates![selection.index]
+                plate.waterLevel = clamp(value, plate.waterMinLevel ?? 0, 100); return next
+              })} /></label>
+            <label>Low water mark (%)<NumberField label="Low water mark" min={0} max={100} step={5} value={gravityPlate.waterMinLevel ?? 0}
+              {...numberEdit((base, value) => {
+                if (!Number.isFinite(value)) return base
+                const next = copyLevel(base), plate = next.gravityPlates![selection.index]
+                plate.waterMinLevel = clamp(value, 0, 100)
+                if ((plate.waterLevel ?? 100) < plate.waterMinLevel) plate.waterLevel = plate.waterMinLevel
+                return next
+              })} /></label>
+            <label>Fill / drain speed (% per second)<NumberField label="Water level speed" min={.1} max={100} step={1} value={gravityPlate.waterRate ?? 10}
+              {...numberEdit((base, value) => {
+                if (!Number.isFinite(value)) return base
+                const next = copyLevel(base); next.gravityPlates![selection.index].waterRate = clamp(value, .1, 100); return next
+              })} /></label>
+            <p className="builder-hint">The rectangle is the reservoir at 100%. Terrain stays solid inside it. Fill raises the waterline; Drain lowers it to the low water mark. Initial level stays at or above that mark. Both on holds the level. Pumps pause during EMP.</p>
+            {(['fill', 'drain'] as const).map(action => {
+              const title = action === 'fill' ? 'Fill' : 'Drain', control = gravityPlate[action], id = waterControlId(gravityPlate.id, action)
+              return <fieldset className="builder-connections" key={action}><legend>{title} water</legend>
+                <BuilderSelect label="Logic" accessibleLabel={`${title} switch logic`} value={control?.switchLogic ?? 'or'}
+                  options={[{ value: 'or', label: 'OR' }, { value: 'and', label: 'AND' }, { value: 'xor', label: 'XOR' }]}
+                  onChange={value => commit(setWaterControl(history.present, selection.index, action, { switchLogic: value === 'and' ? 'and' : value === 'xor' ? 'xor' : 'or' }))} />
+                <label><input type="checkbox" checked={!!control?.switchReversed} onChange={e => commit(setWaterControl(history.present, selection.index, action, { switchReversed: e.target.checked }))} />Reversed</label>
+                {incomingSources.map(source => <label key={`${source.kind}:${source.index}`}><input type="checkbox" checked={switchTargets(source.definition).includes(id)} onChange={e => {
+                  const ids = switchTargets(source.definition)
+                  commit(setSwitchTargets(history.present, source, e.target.checked ? [...ids, id] : ids.filter(target => target !== id)))
+                }} />{selectionLabel(source, level)}{source.kind !== 'trigger' && source.kind !== 'logic-relay' ? ' · Relay' : ''}</label>)}
+                {!incomingSources.length && <span>No switches</span>}
+              </fieldset>
+            })}
+            <p className="builder-hint">For one toggle: connect it to Fill and Drain, and reverse Drain. On fills, off drains. With two switches, connect each to its own action.</p>
+          </>}
           <p className="builder-hint">{gravityPlate.effect === 'water'
-            ? 'Fixed buoyancy lets bodies settle partly submerged. Up and Down swim; Jump at the surface helps you get out.'
+            ? 'Objects float or sink according to their weight. Up and Down swim; Jump at the surface helps you get out.'
             : `Negative lifts; zero removes gravity; positive pulls down. The rectangle ${gravityPlate.ceiling ? 'below' : 'above'} the plate is the field. Flipping leaves gravity strength unchanged.`}</p>
         </>}
         {light && <>
@@ -1035,7 +1084,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           {outgoingTargets.map(item => <label key={item.id}><input type="checkbox" checked={switchTargets(selectedSource.definition).includes(item.id)} onChange={e => {
             const ids = switchTargets(selectedSource.definition)
             commit(setSwitchTargets(history.present, selection, e.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))
-          }} />{selectionLabel(item, level)}</label>)}
+          }} />{switchItemLabel(level, item)}</label>)}
           {!outgoingTargets.length && <span>No switched items</span>}
         </fieldset>}
         {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={ROBOT_HALF_WIDTH} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - ROBOT_HALF_WIDTH)} step={snap ? BUILDER_GRID_SIZE : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}

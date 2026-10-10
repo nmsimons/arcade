@@ -5,7 +5,7 @@ import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { bodyIntersects, polygonIntersects } from '../src/games/jumping/geometry.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { ballShape } from '../src/games/jumping/propGeometry.ts'
+import { ballHull, ballShape } from '../src/games/jumping/propGeometry.ts'
 
 test('distant props skip detailed player collision queries', t => {
   const level = blankTrial()
@@ -16,7 +16,7 @@ test('distant props skip detailed player collision queries', t => {
   const collides = Matter.Collision.collides
   t.mock.method(Matter.Collision, 'collides', function (a, b, pairs) {
     // The controlled player's five-point hull is distinct from the four-point
-    // room bounds and 64-point balls. Count actual SAT calls, not elapsed time.
+    // room bounds and 32/64-point balls. Count actual SAT calls, not elapsed time.
     if (a.vertices.length === 5 || b.vertices.length === 5) playerQueries++
     return collides(a, b, pairs)
   })
@@ -52,4 +52,41 @@ test('polygon broad phase preserves touching edges and tiny real overlaps', () =
   assert.equal(polygonIntersects(square(80.001, 120), terrain, .0001), true)
   assert.equal(polygonIntersects(square(80.001, 120), terrain, .01), false)
   assert.equal(polygonIntersects(square(500, 500), terrain), false)
+})
+
+
+test('small balls use a cheaper shared round hull without clipping their visible circle', () => {
+  for (const size of [16, 30, 40, 60, 80, 120, 200]) {
+    const hull = ballHull(size, true), r = size / 2
+    assert.equal(hull.length, size <= 60 ? 32 : 64)
+    for (const [i, a] of hull.entries()) {
+      const b = hull[(i + 1) % hull.length], length = Math.hypot(b[0] - a[0], b[1] - a[1])
+      const distance = Math.abs(a[0] * b[1] - a[1] * b[0]) / length
+      assert.ok(Math.abs(distance - r) < 1e-9, 'each physical face is tangent to the drawn circle')
+      assert.ok(Math.hypot(...a) - r < .15, 'corners add less than .15 units of clearance')
+    }
+    assert.equal(ballHull(size).length, 64, 'dry traversal retains its original contact resolution')
+    const shape = ballShape({ x: 300, y: 500, size, waterImmersion: 1 })
+    assert.deepEqual(shape.polygon, hull.map(([x, y]) => [r + x, r + y]), 'player and rigid-body contact outlines match')
+  }
+})
+
+test('water contact resolution switches without retaining a stale dry or wet hull', () => {
+  const prop = { x: 300, y: 500, size: 40, waterImmersion: 0 }
+  const dry = ballShape(prop)
+  const radius = 20 / Math.cos(Math.PI / 64)
+  assert.deepEqual(ballHull(40), Array.from({ length: 64 }, (_, i) => {
+    const angle = (i + .5) * Math.PI / 32
+    return [Math.cos(angle) * radius, Math.sin(angle) * radius]
+  }), 'dry traversal preserves the exact original floating-point vertices')
+  prop.waterImmersion = .1
+  const wet = ballShape(prop)
+  assert.equal(wet.polygon.length, 32)
+  assert.notEqual(wet, dry)
+  assert.equal(ballShape(prop), wet, 'a resting wet ball reuses its geometry')
+  prop.waterImmersion = 0
+  const released = ballShape(prop)
+  assert.equal(released.polygon.length, 64)
+  assert.deepEqual(released.polygon, dry.polygon)
+  assert.deepEqual([released.x, released.y], [wet.x, wet.y], 'changing detail does not change position')
 })

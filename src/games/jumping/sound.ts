@@ -70,7 +70,6 @@ export class JumpingSound {
     const ballDamping = 1 - Math.exp(-2 * Math.PI * 140 / ctx.sampleRate)
     const waterSoftening = 1 - Math.exp(-2 * Math.PI * 1600 / ctx.sampleRate)
     const waterDamping = 1 - Math.exp(-2 * Math.PI * 220 / ctx.sampleRate)
-    const bubbleStarts = [.075, .18, .32]
     this.cues = {
       footstep: makeBuffer(ctx, .17, (t, noise) => {
         // A cushioned rubber sole: a rounded low thump and a faint, soft scuff.
@@ -97,18 +96,12 @@ export class JumpingSound {
           + ballSurface * .35 * Math.exp(-t * 48)) * Math.min(1, (.24 - t) / .035)
       }),
       'water-entry': makeBuffer(ctx, .62, (t, noise) => {
-        // A rounded splash, followed by a spreading wash and a few small bubbles.
+        // A rounded splash followed by a spreading wash, without pitched bubbles.
         waterSurface += (noise - waterSurface) * waterSoftening
         waterBody += (waterSurface - waterBody) * waterDamping
         const attack = Math.sin(Math.min(1, t / .012) * Math.PI / 2) ** 2
-        let bubbles = 0
-        for (let i = 0; i < 3; i++) {
-          const age = t - bubbleStarts[i]
-          if (age >= 0) bubbles += Math.sin(2 * Math.PI * (380 + i * 170) * (age + .9 * age * age))
-            * Math.min(1, age / .008) * Math.exp(-age * 38) * .07
-        }
-        return (attack * (waterBody * 1.6 * Math.exp(-t * 19)
-          + (waterSurface - waterBody) * .65 * Math.exp(-t * 7)) + bubbles) * Math.min(1, (.62 - t) / .09)
+        return attack * (waterBody * 1.6 * Math.exp(-t * 19)
+          + (waterSurface - waterBody) * .65 * Math.exp(-t * 7)) * Math.min(1, (.62 - t) / .09)
       }),
       switch: makeBuffer(ctx, .16, (t, noise) => Math.min(1, t / .002) *
         (noise * .16 * Math.exp(-t * 90) + Math.sin(t * Math.PI * 2 * 480) * .2 * Math.exp(-t * 55)) * Math.min(1, (.16 - t) / .01)),

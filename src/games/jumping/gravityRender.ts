@@ -3,6 +3,9 @@ import { gravityAtPoint } from './gravity.ts'
 import { TUNING } from './movementTuning.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { paintNormally } from './worldPaint.ts'
+import { sampleWaterSurface, WATER_STEP } from './waterSurface.ts'
+import type { WaterSurfaceState } from './waterSurface.ts'
+import type { Vec } from './geometry.ts'
 
 export const MAX_GRAVITY_DUST = 96
 export const WATER_COLOR = '#58a9df'
@@ -32,12 +35,70 @@ export function drawGravityRegion(ctx: CanvasRenderingContext2D, plate: GravityP
   })
 }
 
-/** Water overlays actors and props; it adds no collider, particles or lights. */
-export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, paint: WorldPaint = paintNormally) {
-  if (plate.effect !== 'water') return
+/** Water overlays actors and props. The resting rectangle remains the fast path. */
+const waterClips = new WeakMap<readonly Vec[][], Path2D>()
+export function drawWaterRegion(ctx: CanvasRenderingContext2D, plate: GravityPlate, paint: WorldPaint = paintNormally, state?: WaterSurfaceState, space?: readonly Vec[][]) {
+  if (plate.effect !== 'water' || plate.h <= 0) return
+  if (ctx.canvas && ctx.getTransform) {
+    const t = ctx.getTransform()
+    if (plate.x > (ctx.canvas.width - t.e) / t.a || plate.x + plate.w < -t.e / t.a
+      || plate.y - 6 > (ctx.canvas.height - t.f) / t.d || plate.y + plate.h < -t.f / t.d) return
+  }
+  const spans = state?.enabled === false ? undefined : state?.regions.get(plate), moving = spans?.some(span => span.surface.active)
   paint(ctx, 0, () => {
     ctx.save(); ctx.fillStyle = WATER_COLOR; ctx.globalAlpha *= .35
-    ctx.fillRect(plate.x, plate.y, plate.w, plate.h); ctx.restore()
+    if (space) {
+      let path = waterClips.get(space)
+      if (!path) {
+        path = new Path2D()
+        for (const polygon of space) {
+          path.moveTo(polygon[0][0], polygon[0][1])
+          for (let i = 1; i < polygon.length; i++) path.lineTo(polygon[i][0], polygon[i][1])
+          path.closePath()
+        }
+        waterClips.set(space, path)
+      }
+      ctx.clip(path)
+    }
+    if (!moving) ctx.fillRect(plate.x, plate.y, plate.w, plate.h)
+    else {
+      const blend = Math.min(1, state!.accumulator / WATER_STEP)
+      ctx.beginPath(); ctx.moveTo(plate.x, plate.y)
+      for (const span of spans!) {
+        const s = span.surface
+        ctx.lineTo(span.left, plate.y)
+        ctx.lineTo(span.left, plate.y + sampleWaterSurface(s, span.left, true, blend))
+        for (let i = Math.floor((span.left - s.left) / s.spacing) + 1; i < s.height.length && s.left + i * s.spacing < span.right; i++)
+          ctx.lineTo(s.left + i * s.spacing, plate.y + s.previous[i] + (s.height[i] - s.previous[i]) * blend)
+        ctx.lineTo(span.right, plate.y + sampleWaterSurface(s, span.right, true, blend))
+        ctx.lineTo(span.right, plate.y)
+      }
+      ctx.lineTo(plate.x + plate.w, plate.y); ctx.lineTo(plate.x + plate.w, plate.y + plate.h)
+      ctx.lineTo(plate.x, plate.y + plate.h); ctx.closePath(); ctx.fill()
+    }
+    ctx.restore()
+  })
+}
+
+/** Only exposed, visible waterlines receive a highlight. */
+export function drawWaterSurfaceDetails(ctx: CanvasRenderingContext2D, state: WaterSurfaceState, paint: WorldPaint = paintNormally) {
+  if (state.enabled === false) return
+  const t = ctx.getTransform(), left = -t.e / t.a, right = (ctx.canvas.width - t.e) / t.a
+  const top = -t.f / t.d, bottom = (ctx.canvas.height - t.f) / t.d
+  if (!state.surfaces.some(s => s.right >= left && s.left <= right && s.y + 6 >= top && s.y - 6 <= bottom)) return
+  const blend = Math.min(1, state.accumulator / WATER_STEP)
+  paint(ctx, 0, () => {
+    ctx.save(); ctx.strokeStyle = '#bce3f2'; ctx.lineWidth = 1.3; ctx.globalAlpha *= .6
+    ctx.beginPath()
+    for (const s of state.surfaces) {
+      if (s.right < left || s.left > right || s.y + 6 < top || s.y - 6 > bottom) continue
+      ctx.moveTo(s.left, s.y)
+      if (s.active) for (let i = 1; i < s.height.length - 1; i++)
+        ctx.lineTo(s.left + i * s.spacing, s.y + s.previous[i] + (s.height[i] - s.previous[i]) * blend)
+      ctx.lineTo(s.right, s.y)
+    }
+    ctx.stroke()
+    ctx.restore()
   })
 }
 

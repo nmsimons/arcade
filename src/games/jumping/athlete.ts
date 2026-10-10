@@ -3,7 +3,7 @@ import { gaitPose } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, toeBend } from './footwork.ts'
 import { groundAt } from './terrain.ts'
-import { moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
+import { bodyPolygon, moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { climbBody, climbGait, climbNormal, climbPoint, climbRoot, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
 import { keepRopeGrip } from './ropeGravity.ts'
@@ -12,6 +12,7 @@ import { TUNING } from './movementTuning.ts'
 import { canGrip } from './friction.ts'
 import { propPushHands } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
+import type { Prop } from './challenge.ts'
 
 type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
@@ -1282,6 +1283,7 @@ export function advanceSlideEntry(p: Player, dt: number, before?: SlideEntryFram
  * steering leads through the chest and neck while the hips and feet trail. */
 function waterPose(p: Player): AthletePose {
   const motion = p.waterMotion!
+  const clearancePlayer = p.terrain ? { ...p, terrain: p.terrain.filter(b => !b.looseProp) } : p
   if (motion.landing) return waterLandingPose(p)
   const pushing = !p.grounded ? smooth(p.pushing?.amount ?? 0) : 0
   const floatHip: Point = [0, -31.4], floatWaist: Point = [.2, -38], floatShoulder: Point = [.5, -48], floatHead: Point = [2.8, -55.3]
@@ -1371,11 +1373,14 @@ function waterPose(p: Player): AthletePose {
     const arm = (back: boolean): Limb => {
       const source = back ? pose.backArm : pose.frontArm
       const root = add(shoulder, [source.root[0] - pose.shoulder[0], source.root[1] - pose.shoulder[1]])
-      return solveRear(root, at(pose.hip, back ? 8 : 10, back ? 8 : 10), UPPER_ARM, FOREARM, 1, back ? .75 : .95)
+      return solveRear(root, at(root, back ? -3 : -2, back ? 6 : 8), UPPER_ARM, FOREARM, 1, back ? .75 : .95)
     }
     const curled = { ...pose, waist, shoulder, head: at(shoulder, 5, 4),
       frontArm: arm(false), backArm: arm(true), frontLeg: leg(false), backLeg: leg(true) }
-    pose = transferPose(pose, curled, [0, 0], gather, [0, 0], 0, true)
+    // Fold the hands through depth instead of letting a wrist cross directly
+    // through its shoulder and flip the elbow's bend axis during the dive.
+    pose = transferPose(pose, curled, [0, 0], gather, [0, 0], 0, true, 0,
+      { depth: Math.sin(Math.PI * gather) * 8, kneeOpening: 0, armOpening: Math.PI / 4 * gather })
   }
   if (motion.bottom) {
     // Neutral buoyancy lets the whole planted rig rest naturally on the floor.
@@ -1420,17 +1425,26 @@ function waterPose(p: Player): AthletePose {
     const press = (arm: Limb, index: number) => {
       const palm = p.pushing!.palms![index]
       const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
-      const result = grippingArm(arm.root, add(point, [normal[0] * 2.8, normal[1] * 2.8]), add(point, [normal[0] * 1.6, normal[1] * 1.6]), arm, pushing)
-      result.handAngle = (result.handAngle ?? 0) + Math.atan2(-normal[0], normal[1]) * pushing
-      return result
+      const wrist = add(point, [normal[0] * 2.8, normal[1] * 2.8])
+      const pressed = solve(arm.root, wrist, UPPER_ARM, FOREARM, 1)
+      const grip = { ...pressed, hand: add(pressed.end, [normal[0] * -1.2, normal[1] * -1.2]),
+        handAngle: Math.atan2(-normal[0], normal[1]) }
+      const free = { ...arm, hand: handGeometry(arm).palm }
+      // Keep the stroke's depth bend as contact fades. Flattening a 3D arm
+      // before blending used to make the wrist snap on its last contact frame.
+      return transferPose({ ...pose, frontArm: free }, { ...pose, frontArm: grip }, [0, 0], pushing,
+        [0, 0], 0, true).frontArm
     }
     pose.frontArm = press(pose.frontArm, 0); pose.backArm = press(pose.backArm, 1)
   }
-  if (motion.wall && !p.ledgeReach?.amount && !pushing) {
+  if (motion.wall && !pushing) {
     const gap = (motion.wall.x - p.x) * p.facing
     const brace = (arm: Limb, back: boolean) => {
       const palm: Point = [gap - 1.5, arm.root[1] + (back ? 3 : 6)]
-      return grippingArm(arm.root, [gap - 2.8, palm[1]], palm, arm, motion.wall!.amount)
+      const wrist: Point = [gap - 2.8, palm[1]]
+      const reach = smooth((27 - Math.hypot(wrist[0] - arm.root[0], wrist[1] - arm.root[1])) / 10)
+      const contact = motion.wall!.amount * reach
+      return contact ? grippingArm(arm.root, wrist, palm, arm, contact) : arm
     }
     pose.frontArm = brace(pose.frontArm, false); pose.backArm = brace(pose.backArm, true)
   }
@@ -1450,25 +1464,122 @@ function waterPose(p: Player): AthletePose {
     pose.backArm = grippingArm(pose.backArm.root, add(origin, BACK_WRIST), add(origin, BACK_GRIP), pose.backArm, p.ledgeReach.amount)
   }
   if (p.terrain && !p.grounded) {
+    // Loose floats occlude free strokes instead of folding each knee/palm
+    // around a moving polygon. Working hands still fit their actual surface.
     const leg = (source: Leg) => {
       let current = source
       for (let i = 0; i < 4; i++) {
-        const foot = clearAirborneFoot(p, current, 16)
-        const limb = clearLimb(p, foot, 15, 14.5, -1)
+        const foot = clearAirborneFoot(clearancePlayer, current, 16)
+        const limb = clearLimb(clearancePlayer, foot, 15, 14.5, -1)
         if (foot === current && limb === foot) break
         current = { ...current, ...limb }
       }
       return current
     }
     pose.frontLeg = leg(pose.frontLeg); pose.backLeg = leg(pose.backLeg)
-    pose.frontArm = clearLimb(p, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
-    pose.backArm = clearLimb(p, pose.backArm, UPPER_ARM, FOREARM, 1, true)
+    const handsPlayer = p.pushing?.amount ? p : clearancePlayer
+    pose.frontArm = clearLimb(handsPlayer, pose.frontArm, UPPER_ARM, FOREARM, 1, true)
+    pose.backArm = clearLimb(handsPlayer, pose.backArm, UPPER_ARM, FOREARM, 1, true)
   }
   return pose
 }
 
-/** The underside reach follows real exposed faces, including curved props and
- * internal ceilings of a concave block. It supplies presentation, not forces. */
+/** A small convex core follows the visible head and torso through pitch/yaw.
+ * Free strokes provide its construction; limb clearance never changes physics. */
+export function swimmingBodyOutline(p: Player): Point[] {
+  const motion = p.waterMotion!
+  const pose = waterPose({ ...p, terrain: undefined, ledgeReach: null,
+    waterMotion: { ...motion, ceiling: undefined, wall: undefined, floor: undefined } })
+  const points: Point[] = []
+  for (const [center, radius] of [[pose.hip, 3.7], [pose.waist, 2.8], [pose.shoulder, 2.4], [pose.head, 6.25]] as const) {
+    const r = radius / Math.cos(Math.PI / 8)
+    for (let i = 0; i < 8; i++) {
+      const angle = (i + .5) * TAU / 8
+      points.push([(center[0] + Math.cos(angle) * r + (motion.bodyOffset?.[0] ?? 0)) * p.facing, center[1] + Math.sin(angle) * r + (motion.bodyOffset?.[1] ?? 0)])
+    }
+  }
+  const compact = smooth(motion.amount / .4)
+  // The upright float retains the standing contact envelope used by buoyancy
+  // and bank catches. Blend convex hulls so this handoff has no size threshold.
+  if (compact < 1) {
+    const standing = bodyPolygon(0, 0, p.crouching ? TUNING.crouchHeight : TUNING.height)
+    const core = points.splice(0)
+    for (const [x, y] of core) for (const [sx, sy] of standing) points.push([x * compact + sx * (1 - compact), y * compact + sy * (1 - compact)])
+  }
+  return swimmingHull(points)
+}
+
+/** Keep the foot root as the floor contact while the head and torso determine
+ * clearance above it. A horizontal swimmer has no standing cap overhead. */
+export function swimmingTerrainOutline(core: readonly (readonly [number, number])[], ceiling?: NonNullable<Player['waterMotion']>['ceiling']): Point[] {
+  const points: Point[] = [...core.map(([x, y]): Point => [x, y]), [0, 0]]
+  // Leave a little room for the planted palms to lead an ascending head.
+  if (ceiling?.amount) {
+    const reach = 3 * smooth(ceiling.amount)
+    points.push(...core.map(([x, y]): Point => [x - ceiling.nx * reach, y - ceiling.ny * reach]))
+  }
+  return swimmingHull(points)
+}
+
+function swimmingHull(points: Point[]): Point[] {
+  points.sort((a, b) => a[0] - b[0] || a[1] - b[1])
+  const cross = (a: Point, b: Point, c: Point) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+  const half = (input: Point[]) => {
+    const hull: Point[] = []
+    for (const point of input) {
+      while (hull.length > 1 && cross(hull[hull.length - 2], hull[hull.length - 1], point) <= 0) hull.pop()
+      hull.push(point)
+    }
+    return hull.slice(0, -1)
+  }
+  return [...half(points), ...half([...points].reverse())]
+}
+
+/** Prepare only nearby lips the swimming shoulders can actually reach. The
+ * standing foot-to-hand window is much taller than a neck-depth float. */
+export function swimmingLedgeReach(p: Player, edgeX: number, edgeY: number) {
+  const motion = p.waterMotion!
+  if ((motion.leadHeading ?? motion.heading ?? p.facing) * p.facing < .35) return 0
+  const pose = waterPose({ ...p, terrain: undefined, ledgeReach: null,
+    waterMotion: { ...motion, wall: undefined } })
+  const offset = motion.bodyOffset ?? [0, 0]
+  const edge: Point = [(edgeX - p.x) * p.facing, edgeY - p.y]
+  let distance = 0
+  for (const [arm, wrist] of [[pose.frontArm, FRONT_WRIST], [pose.backArm, BACK_WRIST]] as const) {
+    const dx = edge[0] + wrist[0] - arm.root[0] - offset[0]
+    const dy = edge[1] + wrist[1] - arm.root[1] - offset[1]
+    // A horizontal approach cannot make an unreachable high lip usable.
+    if (Math.abs(dy) > UPPER_ARM + FOREARM - .02) return 0
+    distance = Math.max(distance, Math.hypot(dx, dy))
+  }
+  return smooth((26 - distance) / 8)
+}
+
+/** Fit swimming palms to the visible shoulder, rather than the standing hull.
+ * Passing below a float leaves the stroke free until its side is within reach. */
+export function swimmingPushHands(p: Player, prop: Prop, direction: number) {
+  const motion = p.waterMotion
+  if (!motion || (motion.leadHeading ?? motion.heading ?? p.facing) * direction < .35) return null
+  const pose = waterPose({ ...p, terrain: undefined, pushing: null, waterMotion: { ...motion, ceiling: undefined } })
+  const offset = motion.bodyOffset ?? [0, 0]
+  pose.shoulder = add(pose.shoulder, offset)
+  pose.waist = add(pose.waist, offset)
+  pose.frontArm.root = add(pose.frontArm.root, offset); pose.backArm.root = add(pose.backArm.root, offset)
+  const hands = propPushHands(prop, p.x, p.y, direction, -pose.shoulder[1])
+  if (!hands?.palms) return null
+  let distance = 0
+  for (const [i, arm] of [pose.frontArm, pose.backArm].entries()) {
+    const palm = hands.palms[i], dx = (palm.x - p.x) * p.facing - arm.root[0], dy = palm.y - p.y - arm.root[1]
+    const forward: Point = [pose.shoulder[0] - pose.waist[0], pose.shoulder[1] - pose.waist[1]]
+    if (dx * forward[0] + dy * forward[1] < 0) return null
+    distance = Math.max(distance, Math.hypot(dx, dy))
+  }
+  if (distance >= 22) return null
+  return { hands, reach: smooth((22 - distance) / 2) }
+}
+
+/** Terrain ceilings receive a hand brace. Loose floats use ordinary bumps,
+ * avoiding competing hand anchors when swimming beneath a moving cluster. */
 export function advanceWaterCeiling(p: Player, input: JumpInput, dt: number, world: ContactWorld) {
   const motion = p.waterMotion
   if (!motion) return
@@ -1477,9 +1588,10 @@ export function advanceWaterCeiling(p: Player, input: JumpInput, dt: number, wor
   let target: NonNullable<Player['waterMotion']>['ceiling'], wanted = 0, load = 0
   if (!p.grounded && !motion.landing && (ascending || previous?.amount)) {
     const source = waterPose({ ...p, waterMotion: { ...motion, ceiling: undefined } })
-    const x = p.x + source.head[0] * p.facing + p.vx * .04, y = p.y - TUNING.height
+    const x = p.x + source.head[0] * p.facing + p.vx * .04, y = p.y + source.head[1] - HEAD_RADIUS
     let nearest = Infinity
     for (const collider of world.colliders) {
+      if (collider.prop) continue
       const b = collider.platform
       if (x < b.x - 32 || x > b.x + b.w + 32 || y < b.y - 32 || y > b.y + b.h + 32) continue
       const face = nearestBoundary(b, x, y, [0, 1])
@@ -1496,6 +1608,10 @@ export function advanceWaterCeiling(p: Player, input: JumpInput, dt: number, wor
           return { x: point.x, y: point.y, nx: point.nx, ny: point.ny }
         }) }
     }
+  }
+  // Release a loaded underside before reaching to another ceiling face.
+  if (previous && target && previous.collider !== target.collider && previous.amount > 0) {
+    target = previous; wanted = 0; load = 0
   }
   const amount = (previous?.amount ?? 0) + Math.max(-dt / .22, Math.min(dt / .14, wanted - (previous?.amount ?? 0)))
   if (amount <= 0 || !target && !previous) { delete motion.ceiling; return }
@@ -1759,6 +1875,11 @@ function pushBallSurface(p: Player) {
 function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false, handContact = false, holdContact = false): Limb {
   const visibleBall = handContact ? pushBallSurface(p) : undefined
   const handIntrusion = (limb: Limb) => {
+    // An unanchored swimming palm uses one enclosing circle. Full contour
+    // queries remain for planted/working hands that must touch a surface.
+    if (p.waterMotion && !p.pushing?.amount && !p.waterMotion.landing && !p.waterMotion.ceiling?.amount && !p.waterMotion.floor) {
+      return bodyIntrusion(p, handGeometry(limb).palm, 2.1)
+    }
     let deepest: ReturnType<typeof bodyIntrusion> = null
     for (const point of handOutline(limb)) {
       const hit = bodyIntrusion(p, point, handContact ? 0 : .03, visibleBall)

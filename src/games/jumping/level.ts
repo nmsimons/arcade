@@ -11,7 +11,7 @@ import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { bodyIntersects, nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { goalBounds, goalDoor, goalPoleX } from './goal.ts'
-import { MAX_SWITCH_TARGETS, parseSwitchSettings, removeSwitchTarget, switchWiringProblems } from './switchPower.ts'
+import { MAX_SWITCH_TARGETS, parseSwitchSettings, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings } from './switchPower.ts'
 import type { Goal } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
@@ -37,12 +37,14 @@ import type { LogicRelay } from './logicRelay.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import type { GravityPlate } from './gravity.ts'
+import { waterControlId } from './waterLevel.ts'
 import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
 import type { ForceField } from './forceField.ts'
+import type { PropWeight } from './propWeight.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
-export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number }
+export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight }
 export interface Mechanism extends NamedObject, SwitchSettings { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
@@ -297,8 +299,10 @@ export function parseLevel(value: unknown): JumpLevel {
     if (!(level.times.gold < level.times.silver && level.times.silver < level.times.bronze)) fail()
     level.props = list(v.props, 80).map(item => {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
+      if (b.weight !== undefined && b.weight !== 'light' && b.weight !== 'normal' && b.weight !== 'heavy') fail()
       const size = num(b.size, 30, 200)
-      return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2, width - size / 2), y: num(b.y, -1800, level.floor!), size }
+      return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2, width - size / 2), y: num(b.y, -1800, level.floor!), size,
+        ...(b.weight === undefined ? {} : { weight: b.weight as PropWeight }) }
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
@@ -322,10 +326,10 @@ export function parseLevel(value: unknown): JumpLevel {
       let connection: TriggerConnection
       if (t.targets !== undefined) {
         if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > MAX_SWITCH_TARGETS - (v.version === 1 ? 16 : 0)
-          || t.targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(t.targets).size !== t.targets.length) fail()
+          || t.targets.some(id => !validSwitchTargetId(id)) || new Set(t.targets).size !== t.targets.length) fail()
         connection = { targets: [...t.targets as string[]] }
       } else {
-        if (typeof t.target !== 'string' || t.target.length > 100) fail()
+        if (t.target !== '' && !validSwitchTargetId(t.target)) fail()
         connection = { target: t.target as string }
       }
       if (t.mode === 'coins') {
@@ -407,9 +411,20 @@ export function parseLevel(value: unknown): JumpLevel {
     if (p.effect !== undefined && p.effect !== 'water') return fail()
     const w = num(p.w, 40, width), h = num(p.h, 40, 6000)
     const settings = parseSwitchSettings(p, fail), water = p.effect === 'water'
+    if (!water && ['waterLevel', 'waterMinLevel', 'waterRate', 'fill', 'drain'].some(key => p[key] !== undefined)) return fail()
+    const minimum = p.waterMinLevel === undefined ? 0 : num(p.waterMinLevel, 0, 100)
+    const control = (value: unknown) => {
+      const input = object(value)
+      if (input.relay !== undefined || input.targets !== undefined) return fail()
+      return parseSwitchSettings(input, fail)
+    }
     return { ...objectName(p), ...(water ? {} : settings), id: p.id,
       x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: p.effect === 'water' ? -1 : num(p.gravity, -3, 3),
       ...(p.effect === undefined ? {} : { effect: p.effect as 'water' }),
+      ...(p.waterLevel === undefined ? {} : { waterLevel: num(p.waterLevel, minimum, 100) }),
+      ...(p.waterMinLevel === undefined ? {} : { waterMinLevel: minimum }),
+      ...(p.waterRate === undefined ? {} : { waterRate: num(p.waterRate, .1, 100) }),
+      ...(p.fill === undefined ? {} : { fill: control(p.fill) }), ...(p.drain === undefined ? {} : { drain: control(p.drain) }),
       ...(water || p.ceiling === undefined ? {} : { ceiling: p.ceiling as boolean }), ...(water || p.power === undefined ? {} : { power: p.power as PowerMode }) }
   })
   if (v.forceFields !== undefined) level.forceFields = list(v.forceFields, MAX_FORCE_FIELDS).map(item => {
@@ -446,6 +461,7 @@ export function parseLevel(value: unknown): JumpLevel {
     if (issues.length) throw new Error(issues[0])
   }
   const ids = [...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
+  for (const p of level.gravityPlates ?? []) if (p.effect === 'water') ids.push(waterControlId(p.id, 'fill'), waterControlId(p.id, 'drain'))
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.
   const wiring = switchWiringProblems(level, level.version === 2)

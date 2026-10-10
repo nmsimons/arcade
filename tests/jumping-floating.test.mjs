@@ -538,7 +538,9 @@ test('a swimmer keeps kicking against a blocked float but cannot push it from ha
   run.started = true; run.player.grounded = false; run.player.coyote = 0
   run.player.freeFall = { amount: 1, time: 0, recovery: null }; run.player.waterMotion = { amount: 1, dive: 0, phase: 0 }
   for (let i = 0; i < 10; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
-  assert.ok(run.player.pushing?.amount > 0, 'hands reach ahead of the head')
+  assert.equal(run.player.pushing, null, 'a distant float does not pull the swimmer into a reach')
+  for (let i = 0; i < 30; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
+  assert.ok(run.player.pushing?.amount > 0, 'palms engage only after the visible shoulder reaches the float')
   assert.ok(Math.abs(run.props[0].x - 500) < .001, 'reaching does not add the grounded pushing motor')
   for (let i = 0; i < 600; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
   const p = run.player, x = p.x, phase = p.waterMotion.phase, foot = athletePose(p).frontLeg.end

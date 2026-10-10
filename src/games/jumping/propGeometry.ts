@@ -6,32 +6,43 @@ import { polygonPoints } from './geometry.ts'
 /** Prop positions retain their file convention: center X and unrotated bottom Y. */
 export function boxShape(b: Pick<Prop, 'x' | 'y' | 'size' | 'angle'>): Platform {
   const r = b.size / 2
-  if (Math.abs(b.angle - Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2)) < 1e-8) return { x: b.x - r, y: b.y - b.size, w: b.size, h: b.size }
+  if (Math.abs(b.angle - Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2)) < 1e-8) return { looseProp: true, x: b.x - r, y: b.y - b.size, w: b.size, h: b.size }
   const c = Math.cos(b.angle), s = Math.sin(b.angle)
   const points = [[-r, -r], [r, -r], [r, r], [-r, r]].map(([x, y]) => [b.x + x * c - y * s, b.y - r + x * s + y * c] as Vec)
   const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
-  return { x, y, w: Math.max(...points.map(p => p[0])) - x, h: Math.max(...points.map(p => p[1])) - y,
+  return { looseProp: true, x, y, w: Math.max(...points.map(p => p[0])) - x, h: Math.max(...points.map(p => p[1])) - y,
     polygon: points.map(p => [p[0] - x, p[1] - y]) }
 }
 
-const circleVertices = Array.from({ length: 64 }, (_, i) => {
-  const angle = (i + .5) * Math.PI / 32
-  return [Math.cos(angle), Math.sin(angle)] as Vec
-})
-const ballShapes = new WeakMap<object, { size: number; shape: Platform }>()
+const circleHulls = new Map<number, Vec[]>()
+/** Small balls halve the collision sides; corners stay within .15 units of the circle. */
+export function ballHull(size: number, inWater = false): readonly Vec[] {
+  const r = size / 2, sides = inWater && size <= 60 ? 32 : 64
+  let unit = circleHulls.get(sides)
+  if (!unit) {
+    unit = Array.from({ length: sides }, (_, i) => {
+      const angle = (i + .5) * Math.PI * 2 / sides
+      return [Math.cos(angle), Math.sin(angle)] as Vec
+    })
+    circleHulls.set(sides, unit)
+  }
+  const radius = r / Math.cos(Math.PI / sides)
+  return unit.map(([x, y]) => [x * radius, y * radius])
+}
+const ballShapes = new WeakMap<object, { size: number; inWater: boolean; shape: Platform }>()
 /** Match the prop solver's round hull so feet, jumps and neighboring terrain
  * all participate in the same player contact resolution. */
-export function ballShape(b: Pick<Prop, 'x' | 'y' | 'size'>): Platform {
+export function ballShape(b: Pick<Prop, 'x' | 'y' | 'size'> & { waterImmersion?: number }): Platform {
   const cached = ballShapes.get(b)
-  const r = b.size / 2, radius = r / Math.cos(Math.PI / 64)
+  const r = b.size / 2, inWater = (b.waterImmersion ?? 0) > 0
   const x = b.x - r, y = b.y - b.size
-  if (cached?.size === b.size && cached.shape.x === x && cached.shape.y === y) return cached.shape
+  if (cached?.size === b.size && cached.inWater === inWater && cached.shape.x === x && cached.shape.y === y) return cached.shape
   // Reuse the local outline during translation, and the entire shape at rest.
   // A moving shape gets a new identity so world-space collision caches stay valid.
-  const polygon = cached?.size === b.size ? cached.shape.polygon
-    : circleVertices.map(([cx, cy]): Vec => [r + cx * radius, r + cy * radius])
-  const shape = { x, y, w: b.size, h: b.size, polygon }
-  ballShapes.set(b, { size: b.size, shape })
+  const polygon = cached?.size === b.size && cached.inWater === inWater ? cached.shape.polygon
+    : ballHull(b.size, inWater).map(([x, y]): Vec => [r + x, r + y])
+  const shape = { looseProp: true, x, y, w: b.size, h: b.size, polygon }
+  ballShapes.set(b, { size: b.size, inWater, shape })
   return shape
 }
 

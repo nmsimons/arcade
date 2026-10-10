@@ -8,6 +8,7 @@ import { ropePath } from './climbables.ts'
 import { platformSurface } from './terrain.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 import { switchedItems } from './switchPower.ts'
+import { waterControlId } from './waterLevel.ts'
 import { goalBounds } from './goal.ts'
 import { attachPressurePlateOnSurface, syncPressurePlateMounts } from './pressurePlateMount.ts'
 
@@ -200,7 +201,12 @@ export function pasteSelections(level: JumpLevel, clipboard: EditorClipboard, dx
     const array = itemArray(next, s.kind)
     if (array.length >= limits[s.kind]!) throw new Error(`This level has no room for more ${s.kind} items.`)
     const definition = structuredClone(itemDefinition(source, s)) as Item
-    if (typeof definition.id === 'string') { const id = newLevelId(); ids.set(definition.id, id); definition.id = id }
+    if (typeof definition.id === 'string') {
+      const id = newLevelId(); ids.set(definition.id, id)
+      if (s.kind === 'gravity-plate' && source.gravityPlates?.[s.index]?.effect === 'water') for (const action of ['fill', 'drain'] as const)
+        ids.set(waterControlId(definition.id, action), waterControlId(id, action))
+      definition.id = id
+    }
     const index = array.push(definition) - 1
     indices.set(key(s), index); pasted.push({ kind: s.kind, index })
   }

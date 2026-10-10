@@ -4,10 +4,11 @@ import type { Platform } from './model.ts'
 import type { PlayerContacts } from './playerContacts.ts'
 import { TUNING } from './model.ts'
 import { bodyPolygon, convexParts, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
-import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
+import { ballHull, ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { playerContactBody, rotateFeet, translatePlayer } from './playerContacts.ts'
+import { swimmingTerrainOutline } from './athlete.ts'
 import { advanceWaterBob, waterBobAcceleration } from './waterBob.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { mechanismShape } from './mechanisms.ts'
@@ -16,6 +17,7 @@ import { moveRobot, robotDrive, robotHulls, robotPlatforms } from './robotPhysic
 import type { Vec } from './geometry.ts'
 
 import { propFloatDrag, propGravity, propWaterStrength } from './gravity.ts'
+import { propWeightScale } from './propWeight.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
@@ -51,14 +53,11 @@ function terrainBodies(s: Platform, run: Run) {
 }
 
 function makeProp(b: Prop) {
-  const r = b.size / 2, options = { ...material, density: b.kind === 'box' ? .002 : .001, sleepThreshold: 45 }
+  const r = b.size / 2, options = { ...material, density: (b.kind === 'box' ? .002 : .001) * propWeightScale(b), sleepThreshold: 45 }
   const body = b.kind === 'box' ? Bodies.rectangle(b.x, b.y - r, b.size, b.size, options)
-    // Circumscribe the visible circle so even the spaces between hull vertices
-    // cannot clip terrain. The maximum clearance is under .13 units at size 200.
-    : Body.create({ ...options, friction: 0, position: { x: b.x, y: b.y - r }, vertices: Array.from({ length: 64 }, (_, i) => {
-      const angle = (i + .5) * Math.PI / 32, radius = r / Math.cos(Math.PI / 64)
-      return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius }
-    }) })
+    // Circumscribe the same visible circle as player contacts, within .15 units.
+    : Body.create({ ...options, friction: 0, position: { x: b.x, y: b.y - r },
+      vertices: ballHull(b.size, (b.waterImmersion ?? 0) > 0).map(([x, y]) => ({ x, y })) })
   Body.setInertia(body, b.kind === 'box' ? body.mass * b.size ** 2 / 6 : Infinity)
   if (b.kind === 'box') Body.setAngle(body, b.angle)
   return body
@@ -71,7 +70,7 @@ function worldFor(run: Run) {
   engine.gravity.y = 1; engine.gravity.scale = TUNING.gravity / 1e6
   const terrain = run.terrain.flatMap(s => terrainBodies(s, run))
   const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
-  const bodies = new Map(run.props.map(b => [b, makeProp(b)]))
+  const bodies = new Map(run.props.map(b => { b.waterImmersion = propWaterStrength(run.gravityField, b); return [b, makeProp(b)] as const }))
   Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values()])
   const world: PropWorld = { engine, terrain, mechanisms, bodies, gravity: new Map(), floatDrag: new Map(), waterStrength: new Map(), floatQuiet: new Map(), driven: new Set() }; worlds.set(run, world)
   // Adjust field gravity and water resistance after Matter's sleeping decision,
@@ -138,6 +137,7 @@ export function prepareProps(run: Run) {
  * together for terrain, moving platforms, balls and boxes. */
 export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: number, powered = run.empRemaining === 0) {
   const world = worldFor(run), push = playerContact.push
+  const surface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   const barriers = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
   const driven = world.driven
   driven.clear()
@@ -163,6 +163,13 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     b.gravity = gravity
     world.floatDrag.set(body, propFloatDrag(run.gravityField, b))
     world.waterStrength.set(body, propWaterStrength(run.gravityField, b))
+    b.waterImmersion = world.waterStrength.get(body)
+    const sides = b.kind === 'ball' && b.size <= 60 && b.waterImmersion! > 0 ? 32 : 64
+    if (b.kind === 'ball' && body.vertices.length !== sides) {
+      const mass = body.mass
+      Body.setVertices(body, ballHull(b.size, b.waterImmersion! > 0).map(([x, y]) => ({ x: body.position.x + x, y: body.position.y + y })))
+      Body.setMass(body, mass); Body.setInertia(body, Infinity)
+    }
     // Motors push only at an actual forward contact, using the same bounded
     // forces as the player. A charge has a faster target, never a velocity reset.
     for (const { robot, hulls } of robotProbes) {
@@ -178,7 +185,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const target = robot.facing * (robot.phase === 'charge' ? (b.kind === 'ball' ? 500 : 280) : 90)
       const maximum = b.kind === 'ball' ? 3800 : 1900, response = b.kind === 'ball' ? 70 : 35
       const acceleration = Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
-      Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
+      Body.applyForce(body, body.position, { x: body.mass * acceleration / propWeightScale(b) / 1e6, y: 0 })
     }
     const contact = playerContact.body.find(c => c.collider.prop === b)
     const braced = push && playerContact.support?.collider.prop === b && push.collider.prop !== b
@@ -212,7 +219,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const acceleration = b.kind === 'ball'
         ? push.direction * Math.max(0, Math.min(maximum, (target - b.vx) * push.direction * response))
         : Math.max(-maximum, Math.min(maximum, (target - b.vx) * response))
-      Body.applyForce(body, body.position, { x: body.mass * acceleration / 1e6, y: 0 })
+      Body.applyForce(body, body.position, { x: body.mass * acceleration / propWeightScale(b) / 1e6, y: 0 })
     } else if (b.kind === 'ball' && gravity !== 0 && b.grounded && !driven.has(body)) {
       // Settling drag is for an unloaded ball. Applying it during a body load
       // or braced shove cancels the player's force on large balls every step,
@@ -229,7 +236,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       // goes into it rather than treating the player's feet as a fixed anchor.
       const target = -push.direction * push.effort * 90
       const acceleration = Math.max(-900, Math.min(900, (target - b.vx) * 20))
-      Body.applyForce(body, { x: run.player.x, y: run.player.y }, { x: body.mass * acceleration / 1e6, y: 0 })
+      Body.applyForce(body, { x: run.player.x, y: run.player.y }, { x: body.mass * acceleration / propWeightScale(b) / 1e6, y: 0 })
     }
     if (contact && (push?.collider.prop !== b || push.swimming)) {
       // The player is a controlled body, but its normal load still belongs in
@@ -251,11 +258,29 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       && Math.hypot(b.vx, b.vy) < 12 && Math.abs(b.angularVelocity) < .03 && !interacting
     b.waterBob = advanceWaterBob(b.waterBob, dt, resting, b.x)
     const bob = water ? waterBobAcceleration(b.waterBob, floatDrag) : 0
-    if (bob) {
+    const waveIndex = surface?.propIndex.get(b)
+    const floating = !b.grounded && water > .1 && water < .9 && floatDrag > 0
+    const stiffness = Math.min(100, floatDrag ** 2 / 4)
+    const wave = floating && waveIndex !== undefined ? Math.max(-100, Math.min(100, surface!.propHeight[waveIndex] * stiffness * 1.35)) : 0
+    if (bob || wave) {
       // Use real integration and contact transport, including a planted rider.
       // The blend changes force only; incoming impacts and motion remain intact.
-      world.gravity.set(body, gravity + bob); b.gravity = gravity + bob
+      world.gravity.set(body, gravity + bob + wave); b.gravity = gravity + bob + wave
       Sleeping.set(body, false)
+    }
+    if (b.kind === 'box' && waveIndex !== undefined && surface!.propRock[waveIndex]) {
+      // Opposing forces rock the real hull without adding net lift or solver
+      // iterations. A restoring force returns it to its pre-ripple attitude;
+      // existing spin resistance supplies damping, without an angle reset.
+      const tilt = b.angle - surface!.propRestAngle[waveIndex], slope = surface!.propSlope[waveIndex]
+      if (!floating || !slope && Math.abs(tilt) < .0003 && Math.abs(b.angularVelocity) < .001) surface!.propRock[waveIndex] = 0
+      else {
+        const acceleration = Math.max(-27, Math.min(27, (slope - tilt * 1.4) * b.size * stiffness * .16))
+        const force = body.mass * acceleration / 1e6, lever = b.size * .3
+        Body.applyForce(body, { x: body.position.x - lever, y: body.position.y }, { x: 0, y: -force })
+        Body.applyForce(body, { x: body.position.x + lever, y: body.position.y }, { x: 0, y: force })
+        Sleeping.set(body, false)
+      }
     }
     Body.setVelocity(body, { x: b.vx / 60, y: Math.max(-1000, Math.min(1000, b.vy)) / 60 })
     if (b.kind === 'box' && Math.abs(Body.getAngularVelocity(body) * 60 - b.angularVelocity) > 1e-5) Body.setAngularVelocity(body, b.angularVelocity / 60)
@@ -272,7 +297,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     // Contact corrections change props during this solve. Sweep against their
     // current hulls, so separating one contact cannot bury the player in the
     // next prop or bot. The source receives any blocked travel below.
-    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...forceFieldPlatforms(run.forceFields), ...propShapes(source), ...run.robots.flatMap(robotPlatforms)], height, p.inverted ? -1 : 1, playerTurnAngle(p))
+    const contactBody = playerContactBody(p, true)
+    const props = propShapes(source)
+    const terrainOutline = contactBody.outline && p.waterMotion?.underwater
+      ? swimmingTerrainOutline(contactBody.outline, p.waterMotion.ceiling) : undefined
+    const safe = moveBody([p.x, p.y], [x, y], [...barriers, ...forceFieldPlatforms(run.forceFields), ...props, ...run.robots.flatMap(robotPlatforms)], height, p.inverted ? -1 : 1, playerTurnAngle(p),
+      contactBody.outline ? solid => props.includes(solid) ? contactBody.outline : terrainOutline : undefined)
     translatePlayer(p, safe.x - p.x, safe.y - p.y)
   }
   for (const [b, body] of world.bodies) {
@@ -283,8 +313,8 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     transport(body.position.x + x * Math.cos(angle) - y * Math.sin(angle), body.position.y + x * Math.sin(angle) + y * Math.cos(angle), body)
     if (riding && angle) rotateFeet(p, angle)
   }
-  const contactBody = playerContactBody(p)
-  const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height, p.inverted ? -1 : 1, playerTurnAngle(p)))
+  const contactBody = playerContactBody(p, true)
+  const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height, p.inverted ? -1 : 1, playerTurnAngle(p), contactBody.outline))
   // Props may displace the controlled player only along a clear sweep. Any
   // blocked part of that displacement is resolved back into the prop, in the
   // same iterations as prop/terrain and prop/prop contacts.

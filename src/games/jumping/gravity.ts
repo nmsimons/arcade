@@ -7,6 +7,7 @@ import { bodyPolygon } from './geometry.ts'
 import { playerContactBody } from './playerContacts.ts'
 import type { Vec } from './geometry.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
+import { propWeightScale } from './propWeight.ts'
 
 export const MAX_GRAVITY_PLATES = 16
 export const isWeightless = (gravity: number) => Math.abs(gravity) < TUNING.gravity * .05
@@ -16,22 +17,28 @@ export interface GravityPlate extends NamedObject, SwitchSettings {
   power?: PowerMode
   ceiling?: boolean
   effect?: 'water'
+  waterLevel?: number // Initial waterline height, as a percentage of the reservoir.
+  waterMinLevel?: number // Lowest filled height allowed by the drain pump; defaults to zero.
+  waterRate?: number // Percentage points per second for either pump.
+  fill?: Pick<SwitchSettings, 'switchLogic' | 'switchReversed'>
+  drain?: Pick<SwitchSettings, 'switchLogic' | 'switchReversed'>
   gravity: number // Multiplier of ordinary gravity; negative values accelerate up.
 }
-export const gravityPlateActive = (plate: GravityPlate, states: ReadonlyMap<string, boolean>, powered = true) => plate.effect === 'water' || powered && (plate.power === 'always' || !!states.get(plate.id))
+export const gravityPlateActive = (plate: GravityPlate, states: ReadonlyMap<string, boolean>, powered = true) => plate.effect === 'water' ? plate.h > 0 : powered && (plate.power === 'always' || !!states.get(plate.id))
 
-interface Span { top: number; bottom: number; multiplier: number; dryMultiplier: number; swim: number; coverage: number }
+interface Span { top: number; bottom: number; multiplier: number; dryMultiplier: number; swim: number; coverage: number; propLift: number }
 interface Strip { left: number; right: number; spans: Span[] }
-export interface GravityField { strips: Strip[]; mask: number; revision: number; maxMultiplier: number; hasWater: boolean }
-export const createGravityField = (): GravityField => ({ strips: [], mask: -1, revision: 0, maxMultiplier: 1, hasWater: false })
+export interface GravityField { strips: Strip[]; mask: number; revision: number; maxMultiplier: number; maxPropLift?: number; hasWater: boolean; geometryRevision?: number }
+export const createGravityField = (): GravityField => ({ strips: [], mask: -1, revision: 0, maxMultiplier: 1, maxPropLift: 0, hasWater: false })
 
 /** Partition switched rectangles once per power change. Cells never overlap,
  * so integrating a body counts its mass exactly once, even under several plates. */
-export function updateGravityField(field: GravityField, plates: readonly GravityPlate[], states: ReadonlyMap<string, boolean>, powered: boolean) {
+export function updateGravityField(field: GravityField, plates: readonly GravityPlate[], states: ReadonlyMap<string, boolean>, powered: boolean, geometryRevision = 0) {
   let mask = 0
   for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states, powered)) mask |= 1 << i
-  if (mask === field.mask) return
-  field.mask = mask; field.revision++; field.strips = []; field.maxMultiplier = 1
+  if (mask === field.mask && geometryRevision === (field.geometryRevision ?? 0)) return
+  field.geometryRevision = geometryRevision
+  field.mask = mask; field.revision++; field.strips = []; field.maxMultiplier = 1; field.maxPropLift = 0
   const active = plates.filter((_, i) => mask & (1 << i))
   field.hasWater = active.some(p => p.effect === 'water')
   const xs = [...new Set(active.flatMap(p => [p.x, p.x + p.w]))].sort((a, b) => a - b)
@@ -42,14 +49,18 @@ export function updateGravityField(field: GravityField, plates: readonly Gravity
     const spans: Span[] = []
     for (let j = 1; j < ys.length; j++) {
       const top = ys[j - 1], bottom = ys[j]
-      let sum = 0, swimSum = 0, count = 0
-      for (const p of crossing) if (p.y < bottom && p.y + p.h > top) { sum += p.effect === 'water' ? -1 : p.gravity; swimSum += p.effect === 'water' ? 1 : 0; count++ }
+      let sum = 0, swimSum = 0, liftSum = 0, count = 0
+      for (const p of crossing) if (p.y < bottom && p.y + p.h > top) {
+        sum += p.effect === 'water' ? -1 : p.gravity; swimSum += p.effect === 'water' ? 1 : 0
+        liftSum += p.effect === 'water' ? -2 : Math.min(0, p.gravity); count++
+      }
       if (!count) continue
-      const multiplier = sum / count, swim = swimSum / count
+      const multiplier = sum / count, swim = swimSum / count, propLift = liftSum / count
       field.maxMultiplier = Math.max(field.maxMultiplier, Math.abs(multiplier))
+      field.maxPropLift = Math.max(field.maxPropLift, Math.abs(propLift))
       const previous = spans.at(-1)
-      if (previous && previous.bottom === top && previous.multiplier === multiplier && previous.swim === swim) previous.bottom = bottom
-      else spans.push({ top, bottom, multiplier, dryMultiplier: multiplier + 2 * swim, swim, coverage: 1 })
+      if (previous && previous.bottom === top && previous.multiplier === multiplier && previous.swim === swim && previous.propLift === propLift) previous.bottom = bottom
+      else spans.push({ top, bottom, multiplier, dryMultiplier: multiplier + 2 * swim, swim, coverage: 1, propLift })
     }
     if (spans.length) field.strips.push({ left, right, spans })
   }
@@ -113,7 +124,7 @@ export function circleRectangleArea(cx: number, cy: number, radius: number, left
 
 function integrate(field: GravityField, left: number, top: number, right: number, bottom: number, area: number,
   intersection: (left: number, top: number, right: number, bottom: number) => number,
-  property: 'multiplier' | 'dryMultiplier' | 'swim' | 'coverage' = 'multiplier', baseline: number = TUNING.gravity, outside = 1) {
+  property: 'multiplier' | 'dryMultiplier' | 'swim' | 'coverage' = 'multiplier', baseline: number = TUNING.gravity, outside = 1, weightShift = 0) {
   let multiplier = outside
   for (const strip of field.strips) {
     if (strip.left >= right) break
@@ -121,9 +132,10 @@ function integrate(field: GravityField, left: number, top: number, right: number
     for (const span of strip.spans) {
       if (span.top >= bottom) break
       if (span.bottom <= top) continue
+      const value = weightShift ? span[property] + weightShift * span.propLift : span[property]
       // Most bodies are wholly inside one cell: no clipping or trig needed.
-      if (strip.left <= left && strip.right >= right && span.top <= top && span.bottom >= bottom) return span[property] * baseline
-      multiplier += (span[property] - outside) * intersection(strip.left, span.top, strip.right, span.bottom) / area
+      if (strip.left <= left && strip.right >= right && span.top <= top && span.bottom >= bottom) return value * baseline
+      multiplier += (value - outside) * intersection(strip.left, span.top, strip.right, span.bottom) / area
     }
   }
   return multiplier * baseline
@@ -246,14 +258,18 @@ function propFieldValue(field: GravityField, prop: Prop, offsetY = 0, property: 
   const water = property === 'swim', baseline = water ? 1 : TUNING.gravity, outside = water ? 0 : 1
   if (!field.strips.length) return water ? 0 : TUNING.gravity
   const radius = prop.size / 2, cx = prop.x, cy = prop.y - radius + offsetY
+  // Lift is a force: light props respond more, heavy props less. Keep ordinary,
+  // positive and zero gravity unchanged. Use the existing area pass; resistance
+  // still uses immersion, independent of the object's weight.
+  const weightShift = water ? 0 : 1 / propWeightScale(prop) - 1
   if (prop.kind === 'ball') return integrate(field, cx - radius, cy - radius, cx + radius, cy + radius, Math.PI * radius * radius,
-    (l, t, r, b) => circleRectangleArea(cx, cy, radius, l, t, r, b), property, baseline, outside)
+    (l, t, r, b) => circleRectangleArea(cx, cy, radius, l, t, r, b), property, baseline, outside, weightShift)
   const cos = Math.cos(prop.angle), sin = Math.sin(prop.angle), extent = radius * (Math.abs(cos) + Math.abs(sin))
   let points: Vec[] | undefined
   return integrate(field, cx - extent, cy - extent, cx + extent, cy + extent, prop.size * prop.size, (l, t, r, b) => {
     points ??= [[-radius, -radius], [radius, -radius], [radius, radius], [-radius, radius]].map(([x, y]) => [cx + x * cos - y * sin, cy + x * sin + y * cos])
     return clippedPolygonArea(points, l, t, r, b)
-  }, property, baseline, outside)
+  }, property, baseline, outside, weightShift)
 }
 export const propGravity = (field: GravityField, prop: Prop, offsetY = 0) => propFieldValue(field, prop, offsetY)
 /** Water resistance uses the same submerged area and overlap composition as buoyancy. */

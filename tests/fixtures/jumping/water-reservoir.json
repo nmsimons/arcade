@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "id": "water-reservoir-test",
+  "name": "Water reservoir test",
+  "width": 1800,
+  "height": 1040,
+  "floor": 920,
+  "spawn": { "x": 120, "y": 920 },
+  "goal": { "id": "closed", "power": "switched", "x": 1640, "y": 920 },
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "times": { "gold": 10, "silver": 20, "bronze": 40 },
+  "platforms": [
+    { "x": 400, "y": 250, "w": 100, "h": 670 },
+    { "x": 1400, "y": 250, "w": 80, "h": 670 },
+    { "x": 800, "y": 550, "w": 160, "h": 370 },
+    { "x": 650, "y": 750, "w": 150, "h": 170, "polygon": [[0, 170], [150, 0], [150, 170]] },
+    { "x": 1030, "y": 550, "w": 200, "h": 50 }
+  ],
+  "props": [
+    { "kind": "ball", "size": 40, "x": 650, "y": 800 },
+    { "kind": "box", "size": 50, "x": 1100, "y": 800 }
+  ],
+  "mechanisms": [],
+  "robots": [],
+  "triggers": [
+    { "x": 220, "y": 920, "w": 80, "mode": "weight", "behavior": "toggle", "startsOn": false, "targets": ["pool:fill", "pool:drain"] }
+  ],
+  "gravityPlates": [
+    { "id": "pool", "effect": "water", "x": 400, "y": 320, "w": 1080, "h": 600, "waterLevel": 25, "waterRate": 20, "drain": { "switchReversed": true } }
+  ]
+}

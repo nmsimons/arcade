@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "id": "narrow-water-tunnel-regression",
+  "name": "Narrow flooded passage",
+  "width": 1800,
+  "height": 920,
+  "floor": 920,
+  "spawn": { "x": 1350, "y": 920 },
+  "goal": { "id": "closed", "x": 1500, "y": 920, "power": "switched" },
+  "platforms": [
+    {
+      "x": 400, "y": 400, "w": 800, "h": 520,
+      "polygon": [[0, 0], [800, 0], [800, 216], [50, 216], [50, 250], [800, 250], [800, 520], [0, 520]]
+    }
+  ],
+  "checkpoints": [],
+  "climbables": { "ladders": [], "ropes": [] },
+  "props": [],
+  "robots": [],
+  "mechanisms": [],
+  "triggers": [],
+  "timers": [],
+  "texts": [],
+  "pickups": [
+    { "kind": "coin", "x": 950, "y": 635 }
+  ],
+  "gravityPlates": [
+    { "id": "pool", "effect": "water", "x": 0, "y": 300, "w": 1800, "h": 620 }
+  ],
+  "times": { "gold": 20, "silver": 30, "bronze": 40 }
+}

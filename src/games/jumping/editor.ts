@@ -13,6 +13,7 @@ import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
 import { goalBounds } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources } from './switchPower.ts'
+import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
 import { attachPressurePlateOnSurface, syncPressurePlateMounts } from './pressurePlateMount.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
@@ -244,7 +245,16 @@ export function setGravityPlateEffect(level: JumpLevel, index: number, effect: '
     plate.effect = 'water'; plate.gravity = -1
     removeSwitchTarget(next, plate.id)
     delete plate.power; delete plate.ceiling; delete plate.switchLogic; delete plate.switchReversed; delete plate.relay; delete plate.targets
-  } else { delete plate.effect; plate.power = 'always' }
+  } else {
+    for (const action of ['fill', 'drain'] as const) removeSwitchTarget(next, waterControlId(plate.id, action))
+    delete plate.effect; delete plate.waterLevel; delete plate.waterMinLevel; delete plate.waterRate; delete plate.fill; delete plate.drain; plate.power = 'always'
+  }
+  return next
+}
+export function setWaterControl(level: JumpLevel, index: number, action: 'fill' | 'drain', settings: Pick<SwitchSettings, 'switchLogic' | 'switchReversed'>): JumpLevel {
+  if (level.gravityPlates?.[index]?.effect !== 'water') return level
+  const next = copyLevel(level), plate = next.gravityPlates![index]
+  plate[action] = { ...plate[action], ...settings }
   return next
 }
 export function setObjectSwitchLogic(level: JumpLevel, selection: Selection, logic: SwitchLogic): JumpLevel {
@@ -265,6 +275,7 @@ export function setObjectRelay(level: JumpLevel, selection: Selection, relay: bo
   return next
 }
 function editObjectSwitchSettings(level: JumpLevel, selection: Selection, settings: SwitchSettings): JumpLevel {
+  if (selection.kind === 'gravity-plate' && level.gravityPlates?.[selection.index]?.effect === 'water') return level
   if (!switchedItems(level).some(item => item.kind === selection.kind && item.index === selection.index)) return level
   const next = copyLevel(level)
   const item = switchedItems(next).find(item => item.kind === selection.kind && item.index === selection.index)!
@@ -599,6 +610,7 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   else if (selection.kind === 'gravity-plate') {
     const [plate] = next.gravityPlates!.splice(i, 1)
     removeSwitchTarget(next, plate.id)
+    for (const action of ['fill', 'drain'] as const) removeSwitchTarget(next, waterControlId(plate.id, action))
   }
   else if (selection.kind === 'wall-light') {
     const [light] = next.wallLights!.splice(i, 1)

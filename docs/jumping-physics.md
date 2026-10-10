@@ -449,8 +449,8 @@ planted feet away from their surface merely to conceal an oscillation.
 ## Gravity fields
 
 Gravity plates define fixed rectangles and use standard switched or Always on
-power. They obey EMP independently of logical relay outputs. Player and loose
-prop acceleration is the area-weighted mean of the gravity field across the body.
+power. They obey EMP independently of logical relay outputs. For the player and
+normal-weight props, acceleration is the area-weighted mean of the field across the body.
 Each overlapping active device contributes equally at a point; ordinary gravity
 applies outside all fields. This prevents a center-point threshold from abruptly
 reversing a large object. The player uses its tapered collision hull, rotated
@@ -458,6 +458,20 @@ boxes use their square hull, and balls use exact disk/rectangle intersection.
 Rope particles use their local field multiplier with the rope's usual baseline.
 Grips and authored climbing paths retain their constraints; release returns the
 body to free movement. Field forces act through the center of mass.
+
+Balls and boxes have an optional `weight` preset: Light has 0.5× normal mass,
+Normal has 1×, and Heavy has 3×. The preset scales solver mass and rotational
+inertia together; collision impulses use that real mass. Player and shovebot
+push motors retain their normal force budget rather than increasing force to
+cancel the extra weight. Negative plate lift is a fixed lifting force, scaled
+inversely by this mass factor; heavy props rise more slowly and float deeper
+at a plate boundary, while light ones rise faster and float higher. Ordinary
+falling, positive gravity and zero gravity remain mass-independent.
+Cached field spans store their negative lift contribution. Each prop scales it
+inside the existing area integration; no additional clipping, bodies or solver
+passes are needed. The cached maximum lift also bounds fast-prop substeps.
+Unspecified weights preserve existing behavior. Regression coverage is in
+`tests/jumping-prop-weights.test.mjs`.
 
 Unsupported players in the five-percent gravity deadband experience air
 resistance on both velocity axes: exponential drag at 0.6 per second halves
@@ -491,10 +505,21 @@ the walking gait.
 
 ### Water
 
-Water uses the same rectangle format with `effect: "water"`, but is always
-present and has no power or switch controls. EMP leaves it intact. Its buoyancy is
-fixed; there is no editable gravity strength. Props use submerged area and float
-half-submerged without a rider. Players use a fixed density of 0.78 and a
+Water uses the same rectangle format with `effect: "water"`. The rectangle is
+the reservoir at 100%; `waterLevel` sets its initial filled height (0–100,
+default 100), measured upward from its fixed bottom. `waterMinLevel` sets the
+low water mark (0–100, default 0): Drain stops there, and the authored initial
+level cannot be lower. Water itself is passive.
+Its Fill and Drain inputs operate pumps through the normal switch evaluator,
+including logic relays, OR/AND/XOR and reversal. `waterRate` sets percentage
+points per second (default 10). Both pumps off or both on hold the current level;
+one toggle can drive both ports with Drain reversed. EMP pauses pumping without
+removing water. Pause stops progress; restart restores the initial level.
+Existing files retain their full passive pools. Its buoyancy is
+fixed; there is no editable gravity strength. Prop lift uses submerged area
+and the weight preset: normal props float half submerged without a rider,
+light props float at one-quarter immersion, and heavy props sink. Water drag
+still follows immersion, independently of weight. Players use a fixed density of 0.78 and a
 posture-dependent displacement profile: idle floating is upright with the
 waterline at the neck, while horizontal surface swimming lies at the surface.
 Stopping eases into an upright float, including below the surface; a submerged
@@ -505,7 +530,18 @@ new immersion depth.
 The transition gathers the arms and curls the knees before extending upright.
 The tuck scales with the starting angle: a head-first dive curls more than a
 horizontal glide, while an upward swimmer is already close to the resting pose.
-The collision hull retains the existing shared sweep rules.
+Loose props and submerged terrain meet a compact convex hull around the swimming
+head and torso, including pitch and turns. The old standing axis stops skip
+these contacts so an invisible standing head cannot block swimmers beneath
+floating objects or inside flooded tunnels. Terrain keeps the foot-root floor
+contact for hand-first landings, and surface banks retain their catch envelope.
+The hull blends back to the established upright envelope during the last part
+of a float transition. Where a tunnel cannot fit an upright float, gathering
+stops at the available clearance; leaving the tunnel permits the full transition.
+Pose clearance reuses the cached terrain geometry and runs only while gathering
+near a solid. Regression coverage includes 34-unit rectangular, sloped and
+single-block tunnels and 20-unit vertical shafts, with optional surface physics
+both enabled and disabled.
 Water's lifting force does not turn a swimmer upside down on a ceiling or rope.
 
 Resting water floats receive a tiny periodic buoyancy force: a moving equilibrium
@@ -593,7 +629,11 @@ shared prop contacts. Rims beyond the swimmer's upright arm reach require that
 surface jump before catching and pulling up.
 
 Swimming toward a loose prop keeps the body mostly prone, lifts the face clear
-and presses both palms against its visible surface. The frog kick continues
+and presses both palms against its visible surface when that surface lies within
+22 units of the visible shoulders and ahead of the torso. The reach eases in,
+and preserves the arm's depth bend while releasing into the free stroke.
+Underwater, only a real side body contact engages the palms; an overhead ball
+does not attract a reach from a distance. The frog kick continues
 under pushing effort even when a prop is blocked; the arms hold contact instead
 of replaying the breaststroke pull. Approaching hands do not supply a grounded
 shove from a distance: shared body contacts supply the physical force and torque.
@@ -605,6 +645,9 @@ feedback uses the collision world's published ledges and does not offer a grab
 on an unsupported float. Terrain keeps the ordinary automatic pool-bank catch.
 
 Starting a swim gathers the arms and knees, then extends into the stroke.
+A downward start from an upright float keeps that tuck through the switch to
+underwater steering, including starts already below the surface. The knees
+draw toward the hips and the arms fold in before extending into the dive.
 Reversal brakes the current travel while gathering, changes facing near zero
 horizontal speed, and extends into the new heading. The torso rotates without
 collapsing its spine; all tucked limbs retain their segment lengths. Extension
@@ -615,21 +658,26 @@ curve; the curve unwinds as the pelvis catches the requested heading. Gathered
 arms and knees extend a little more slowly than they tuck, smoothing interrupted
 turns without losing their fixed bone lengths.
 Gathering, facing changes, crouch release and bank/floor posture limits blend
-continuously. The visible head and spine clear solid boundaries, while arms,
-knees and soles fold around corners without changing bone lengths. A retained
+continuously. The visible head and spine clear solid boundaries. Arms, knees
+and soles fold around terrain corners without changing bone lengths; free
+strokes pass through depth beside loose floats instead of contorting around
+each moving object. A retained
 clearance offset relaxes gradually so adjacent corner faces cannot snap the
 torso back and forth during a slow start or stop.
-Arm clearance includes the full drawn palm, not just the wrist or arm bones.
-When a blocked wrist retracts, its contact palm follows it; resting sculls and
-pushing hands remain outside nearby floats through contact and release.
+Working-hand clearance includes the full drawn palm. Unanchored swimming hands
+use one enclosing 2.1-unit circle, avoiding repeated silhouette queries while
+keeping the whole palm clear of terrain.
+When a blocked wrist retracts, its contact palm follows it; deliberate pushing
+palms meet the prop surface while free sculls retain their stroke.
 
 Ascending toward a solid underside reaches both palms ahead of the head. The
 elbows soften and the chest gives slightly as the swimmer meets the surface;
 the legs trail instead of abruptly switching to a motionless pose. Stroke
 effort eases over a short interval when the collision blocks upward travel.
 The reach follows exposed downward faces of terrain, including internal
-ceilings of a single concave block, sloped ceilings, boxes and curved balls.
-Steering carries the hands along the underside, then releases them smoothly
+ceilings of a single concave block and sloped ceilings. Loose objects receive
+ordinary head/torso bumps, without overhead hand anchors or per-limb fitting.
+Steering carries the hands along terrain undersides, then releases them smoothly
 around its edge or when leaving upward intent. These visual contacts supply no
 extra lift, lateral shove or force; the ordinary body contacts still own the
 physical response.
@@ -653,23 +701,77 @@ the swimming pose. Ordinary jump and contact
 rules still apply, and removing water restores ordinary gravity.
 
 When a swimmer rises into the underside of a ball, buoyant load and impact
-use the ball's actual curved contact face. The broad player hull still protects
-the body, but its flat upper cap cannot turn a small off-center ball into a
-balancing shelf. The ordinary contact force lets it roll away from a bank and
+use the ball's actual curved contact face and the swimming body hull. An
+invisible standing cap cannot turn an off-center ball into a balancing shelf. The ordinary contact force lets it roll away from a bank and
 leave the ledge usable, without a lifting motor or a proximity shove. Centered
-contacts remain symmetric and can be escaped with normal sideways swimming.
+contacts follow the visible head and reflect with facing; ordinary sideways
+swimming releases them. Small wet balls (up to 60 units) share a 32-sided
+circumscribed hull between both solvers, with less than .15 units of additional
+clearance. Dry balls retain their exact original 64-sided geometry.
 Small and large balls, both banks, head clearance and contact release are covered
-in `tests/jumping-water-ball-contacts.test.mjs`.
+in `tests/jumping-water-ball-contacts.test.mjs`. Six-ball groups at different
+spacings/depths, both directions, and 120/30 Hz are covered in
+`tests/jumping-water-clusters.test.mjs`, including comparison with untouched
+floats during underwater passes, stops and reversals.
 
 Approaching a solid side in water gathers and raises the torso before impact,
-with the hands reaching ahead of the head. A reachable exposed pool lip uses
+with the hands reaching ahead of the head only during the last short approach.
+Lip preparation measures the visible swimming shoulders: it starts within 26
+units of the wrists' target and rejects tops beyond the arms' vertical range.
+Wall palms similarly wait until the side is close, then blend into a lip reach
+without discarding their existing brace. The ordinary catch transfer still
+settles the body into its loaded grip. A reachable exposed pool lip uses
 the ordinary catch; holding Up queues the pull-up. A taller wall gets a palm
 brace instead. Body sweeps and
 landing clearance still apply; an obstructed pull-up retains a recoverable grip,
 and Down releases it. Lower rims can be swum over directly.
+Both approaches, high tops, delayed hand motion and surface-jump escapes are
+covered at 120/30 Hz in `tests/jumping-water-reach.test.mjs`.
 
-Active water draws a blue rectangle at 35% opacity over the player and props.
-It adds no emitter, gravity dust, solid boundary, lighting or fluid particles.
+Water draws a blue region at 35% opacity over the player and props. Exposed
+waterlines receive small entry ripples. Static terrain,
+including concave pool openings, clips both the fill and surface; solid dividers separate
+independent ripples, overlapping rectangles share a surface, and flooded roofs
+have no air/water boundary. Crests stay below nearby static roofs.
+Terrain is subtracted once from each reservoir into disjoint convex regions,
+then cached as one Canvas clipping path per reservoir. Overlapping terrain
+does not reopen holes. Full-height water therefore works around islands,
+slopes, shelves and tunnel roofs without tinting their solid interiors.
+Rising and falling water changes immersion through the existing buoyancy,
+drag and contact solvers; actors are never transported by the pump itself.
+Floats meet roofs and later settle onto terrain as the reservoir drains.
+
+Levels are scalar heights, not conserved volume: terrain does not change the
+percentage scale. Each authored reservoir has one shared level, even across
+terrain dividers; separate reservoirs do not exchange water or spill outside
+their rectangles. No pressure, flood grid or currents are simulated.
+
+The terrain mask is compiled at run creation. Moving levels update field cells
+and exposed surface spans at most 30 Hz. Idle/end-point pumps do not rebuild
+them, and surface buffers are reused while their topology is unchanged.
+At most 128 spring points exist
+across the whole level. Springs update at 30 Hz with interpolated
+drawing and stop when settled; invisible effects submit no artwork.
+Surface floats sample the ripples at 30 Hz. Small bounded forces lift balls and
+boxes and rock boxes through the existing prop solver, with water resistance
+and a restoring force returning their prior attitude. Grounded and deeply
+submerged objects receive no ripple forces. Riders follow normal support
+contacts. Water adds no emitter, gravity dust, solid boundary or light; its
+resting fill keeps the rectangle fast path. This is a surface effect, without
+volume flow or additional contact-solver iterations. Coverage lives in
+`tests/jumping-water-surface.test.mjs` and
+`tests/browser/jumpingWaterSurface.dev.spec.mjs`; the repeatable CPU benchmark
+is `scripts/benchmark-jumping-water.mjs` (CPU simulation and drawing submission,
+with optional simulated slower CPU). `WATER_CONTACTS=1` adds the six-ball
+swimming route and lighting; `WATER_CONTACT_LIGHTING=0` isolates contact and
+artwork costs with effects on/off. `WATER_CONTACT_PROFILE=/tmp/water` saves CPU
+profiles. Reports identify the lighting backend; GPU completion is excluded.
+When automatic performance reduction engages, the surface simulation and its
+float forces stop and water returns to a flat, terrain-clipped fill. Fill/drain
+mechanics keep operating, without rebuilding ripple geometry. Swimming, ordinary
+buoyancy, resistance and splash audio remain active. Restarting or disabling
+performance mode restores fresh effects using current immersion, so old entries
+and ripples do not replay.
 The player, balls and boxes make a spatial splash on entering active water.
 Entry speed scales its strength; larger props have a fuller, lower sound.
 Floating and surface bobbing stay quiet. Spawning or resuming in water,

@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 
-test('water hands stay outside small balls while floating, pushing and releasing on either side', async ({ page }, info) => {
+test('water strokes stay relaxed beside balls while working palms meet their surface', async ({ page }, info) => {
   await page.goto('/')
   const samples = await page.evaluate(async () => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
@@ -33,7 +33,8 @@ test('water hands stay outside small balls while floating, pushing and releasing
         for (const arm of [pose.frontArm, pose.backArm]) for (const point of handOutline(arm)) {
           clearance = Math.min(clearance, Math.hypot(p.x + point[0] * p.facing - b.x, p.y + point[1] - (b.y - b.size / 2)) - b.size / 2)
         }
-        samples.push({ label, clearance, pushing: p.pushing?.amount ?? 0, backView: pose.backView ?? 0 })
+        samples.push({ label, clearance, pushing: p.pushing?.amount ?? 0, backView: pose.backView ?? 0,
+          headClearance: Math.hypot(p.x + pose.head[0] * p.facing - b.x, p.y + pose.head[1] - b.y + b.size / 2) - b.size / 2 - 6.2 })
       }
       advance(5); capture(0, 'Rest beside ball')
       advance(.95); capture(1, 'Rest / gentle scull')
@@ -42,7 +43,11 @@ test('water hands stay outside small balls while floating, pushing and releasing
     }
     return samples
   })
-  for (const sample of samples) { expect(sample.clearance, sample.label).toBeGreaterThan(-.01); expect(sample.backView).toBe(0) }
+  for (const sample of samples) {
+    expect(sample.headClearance, sample.label).toBeGreaterThan(-.01)
+    if (sample.pushing > .99) expect(sample.clearance, sample.label).toBeGreaterThan(-.01)
+    expect(sample.backView).toBe(0)
+  }
   for (const sample of samples.filter(s => s.label === 'Swim and push')) expect(sample.pushing).toBeGreaterThan(.5)
   await page.locator('#water-hand-review').screenshot({ path: info.outputPath('water-ball-hands.png') })
 })
@@ -145,9 +150,9 @@ test('water floor contact rests standing with relaxed arms and blends into an up
   await page.locator('#water-floor').screenshot({ path: info.outputPath('water-floor-poses.png') })
 })
 
-test('water approach lifts the head and leads into the pool lip with the hands', async ({ page }, info) => {
+test('water approach lifts the head then prepares the hands close to the pool lip', async ({ page }, info) => {
   await page.goto('/')
-  await page.evaluate(async () => {
+  const samples = await page.evaluate(async () => {
     const { blankTrial } = await import('/src/games/jumping/level.ts')
     const { createRun, stepRun } = await import('/src/games/jumping/challenge.ts')
     const { NEUTRAL_INPUT } = await import('/src/games/jumping/model.ts')
@@ -158,8 +163,10 @@ test('water approach lifts the head and leads into the pool lip with the hands',
     const canvas = document.createElement('canvas'); canvas.id = 'water-lip'; canvas.width = 1250; canvas.height = 300
     document.body.replaceChildren(canvas); document.body.style.margin = '0'; const ctx = canvas.getContext('2d')
     let col = 0
+    const samples = []
     const draw = label => {
       const p = run.player, surface = col === 4 ? 225 : 100, edge = col === 0 ? 230 : col === 4 ? 130 : 190, originX = col * 250
+      samples.push({ label, gap: 850 - p.x, reach: p.ledgeReach?.amount ?? 0, hang: !!p.hang, grounded: p.grounded })
       ctx.save(); ctx.beginPath(); ctx.rect(originX, 0, 250, 300); ctx.clip()
       ctx.fillStyle = '#f1f1ed'; ctx.fillRect(originX, 0, 250, 300)
       ctx.fillStyle = '#858a8d'; ctx.fillRect(originX + edge, surface, 60, 200)
@@ -173,14 +180,70 @@ test('water approach lifts the head and leads into the pool lip with the hands',
       stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
       const gap = 850 - run.player.x
       if (col === 0 && gap < 55) draw('Gather before the edge')
-      else if (col === 1 && gap < 43) draw('Head up / hands reach')
-      else if (col === 2 && gap < 25 && !run.player.hang) draw('Hands lead the catch')
+      else if (col === 1 && gap < 43) draw('Head up / hands relaxed')
+      else if (col === 2 && run.player.ledgeReach?.amount > .05 && !run.player.hang) draw('Close hand preparation')
       else if (col === 3 && run.player.hang?.time > .15) draw('Grip / ready to pull')
     }
     for (let i = 0; i < 180; i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true })
     draw('Pull onto the bank')
+    return samples
   })
+  expect(samples).toHaveLength(5)
+  expect(samples[0].reach).toBe(0)
+  expect(samples[1].reach).toBe(0)
+  expect(samples[2].gap).toBeLessThan(27)
+  expect(samples[2].reach).toBeGreaterThan(.05)
+  expect(samples[3].hang).toBe(true)
+  expect(samples[4].grounded).toBe(true)
   await page.locator('#water-lip').screenshot({ path: info.outputPath('water-ledge-approach.png') })
+})
+
+test('a high pool lip leaves swimming hands relaxed until the nearby wall brace', async ({ page }, info) => {
+  await page.goto('/')
+  const samples = await page.evaluate(async () => {
+    const { blankTrial } = await import('/src/games/jumping/level.ts')
+    const { createRun, stepRun } = await import('/src/games/jumping/challenge.ts')
+    const { NEUTRAL_INPUT } = await import('/src/games/jumping/model.ts')
+    const { athletePose, drawAthlete } = await import('/src/games/jumping/athlete.ts')
+    const canvas = document.createElement('canvas'); canvas.id = 'high-water-lip'; canvas.width = 1200; canvas.height = 680
+    document.body.replaceChildren(canvas); document.body.style.margin = '0'
+    const ctx = canvas.getContext('2d'), samples = [], scale = 4
+    for (const [row, side] of [1, -1].entries()) {
+      const edge = side > 0 ? 850 : 450
+      const bank = { x: side > 0 ? edge : 0, y: 375, w: side > 0 ? 950 : 450, h: 545 }
+      const run = createRun({ ...blankTrial(), spawn: { x: edge - side * 80, y: 450.34 }, platforms: [bank],
+        gravityPlates: [{ id: 'water', x: 450, y: 400, w: 400, h: 520, effect: 'water', gravity: -1 }],
+        goal: { id: 'closed', x: 1600, y: 920, power: 'switched' } })
+      run.started = true; run.player.grounded = false; run.player.coyote = 0; run.player.facing = side
+      let col = 0
+      for (let i = 0; i < 360 && col < 4; i++) {
+        stepRun(run, { ...NEUTRAL_INPUT, move: side })
+        const p = run.player, gap = (edge - p.x) * side
+        if (col < 3 ? p.hang || gap >= [44, 32, 24][col] : !p.hang || p.hang.time < .18) continue
+        const pose = athletePose(p), x = col * 300, y = row * 340, wall = side > 0 ? 240 : 60
+        const label = ['Approach / hands free', 'Closer / no high reach', 'Prepare the side brace', 'Settle into the grip'][col]
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, 300, 340); ctx.clip()
+        ctx.fillStyle = '#f1f1ed'; ctx.fillRect(x, y, 300, 340)
+        ctx.save(); ctx.translate(x + wall - edge * scale, y + 150 - 400 * scale); ctx.scale(scale, scale)
+        ctx.fillStyle = '#858a8d'; ctx.fillRect(bank.x, bank.y, bank.w, bank.h); drawAthlete(ctx, p); ctx.restore()
+        ctx.fillStyle = '#58a9df'; ctx.globalAlpha = .35; ctx.fillRect(x, y + 150, 300, 190); ctx.globalAlpha = 1
+        ctx.fillStyle = '#f1f1ed'; ctx.fillRect(x, y, 300, 30); ctx.fillStyle = '#43494b'; ctx.font = '13px sans-serif'; ctx.fillText(label, x + 10, y + 20)
+        ctx.strokeStyle = '#ddd'; ctx.strokeRect(x, y, 300, 340); ctx.restore()
+        samples.push({ row, col, gap, reach: p.ledgeReach?.amount ?? 0, hang: !!p.hang,
+          handsBelowHead: Math.min(pose.frontArm.end[1], pose.backArm.end[1]) - pose.head[1] })
+        col++
+      }
+    }
+    return samples
+  })
+  expect(samples).toHaveLength(8)
+  for (const sample of samples.filter(s => s.col < 3)) {
+    expect(sample.reach).toBe(0)
+    expect(sample.hang).toBe(false)
+    expect(sample.handsBelowHead).toBeGreaterThan(5)
+  }
+  for (const sample of samples.filter(s => s.col === 3)) expect(sample.hang).toBe(true)
+  await page.locator('#high-water-lip').screenshot({ path: info.outputPath('high-water-ledge-approach.png') })
 })
 
 test('water pushing keeps palms on floats and kicks through recovery extension and glide', async ({ page }, info) => {

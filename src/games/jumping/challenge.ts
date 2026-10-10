@@ -4,7 +4,7 @@ import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
 import { resolveSwitchStates } from './switchPower.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
-import type { PuzzleLevel, Mechanism, Pusher } from './level.ts'
+import type { PuzzleLevel, Mechanism, Pusher, PropDefinition } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
 import { moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
@@ -24,6 +24,13 @@ import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
 
 import { createGravityField, playerFieldCoverage, playerFloatDrag, playerGravity, playerSwimStrength, playerSwimDepth, propGravity, setPlayerGravity, swimmingAcceleration, updateGravityField } from './gravity.ts'
 import { waterBobAcceleration } from './waterBob.ts'
+import { advanceWaterSurface, createWaterSurface, setWaterSurfaceEnabled } from './waterSurface.ts'
+import type { WaterSurfaceState } from './waterSurface.ts'
+import { advanceWaterLevels, createWaterLevels } from './waterLevel.ts'
+import type { WaterLevels } from './waterLevel.ts'
+import { waterSpace } from './waterTerrain.ts'
+import type { GravityPlate } from './gravity.ts'
+import { propWeightScale } from './propWeight.ts'
 import type { WaterBob } from './waterBob.ts'
 import type { GravityField } from './gravity.ts'
 import { createForceField, forceFieldPlatforms, updateForceFields } from './forceField.ts'
@@ -31,10 +38,11 @@ import type { ForceFieldState } from './forceField.ts'
 import { mirrorPlatform } from './gravityFrame.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
-export interface Prop {
+export interface Prop extends PropDefinition {
   gravity?: number
   waterBob?: WaterBob
-  kind: 'box' | 'ball'; x: number; y: number; size: number; vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
+  waterImmersion?: number
+  vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
 }
 export interface MechanismState { definition: Mechanism; x: number; y: number; direction: number; wait: number; active: boolean; safetyHold: number | null }
 export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean }
@@ -43,6 +51,8 @@ export interface Run {
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
   forceFields: ForceFieldState[]
   switchStates: Map<string, boolean>; gravityField: GravityField
+  waterSurface?: WaterSurfaceState
+  water: WaterLevels; waterSpaces: Map<GravityPlate, ReturnType<typeof waterSpace>>; waterEffectsEnabled: boolean
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
   elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
   finished: boolean; medal: Medal | null
@@ -72,6 +82,12 @@ export function createRun(level: PuzzleLevel): Run {
 export function createPreviewRun(level: PuzzleLevel): Run {
   return createInitialWorld(level, true)
 }
+export function setWaterEffectsEnabled(run: Run, enabled: boolean) {
+  if (run.waterEffectsEnabled === enabled) return
+  run.waterEffectsEnabled = enabled
+  if (enabled) run.waterSurface = createWaterSurface(run.water.plates, run.terrain, run.player, run.props, run.gravityField, run.waterSurface)
+  if (run.waterSurface) setWaterSurfaceEnabled(run.waterSurface, run.player, run.props, run.gravityField, enabled)
+}
 function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   const run: Run = { level, player: levelPlayer(level, preview), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],
@@ -82,7 +98,9 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && t.behavior === 'toggle' && !!t.startsOn, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
+    water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
     forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+  for (const pool of run.water.pools) run.waterSpaces.set(pool.region, waterSpace({ ...pool.definition, y: pool.definition.y - 6, h: pool.definition.h + 6 }, run.terrain))
   updateSwitchTargets(run)
   if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
   if (!preview) {
@@ -105,6 +123,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   p.contacts = playerContacts(p, NEUTRAL_INPUT, world)
   p.terrain = world.platforms
   advanceFootwork(p, 0, p.x, world.platforms)
+  run.waterSurface = createWaterSurface(run.water.plates, run.terrain, p, run.props, run.gravityField)
   return run
 }
 function syncPlatforms(run: Run): ContactWorld {
@@ -219,7 +238,8 @@ function stepProps(run: Run, contacts: PlayerContacts, dt: number, powered: bool
   if (!run.props.length) return
   // Fixed small steps stabilize corners; fast linear or angular motion takes
   // additional steps so even a small prop cannot skip a thin wall or another prop.
-  const travel = Math.max(175, ...run.props.map(b => Math.hypot(b.vx, b.vy) + Math.abs(b.angularVelocity) * b.size + TUNING.gravity * run.gravityField.maxMultiplier * dt)) * dt
+  const travel = Math.max(175, ...run.props.map(b => Math.hypot(b.vx, b.vy) + Math.abs(b.angularVelocity) * b.size
+    + TUNING.gravity * (run.gravityField.maxMultiplier + Math.abs(1 / propWeightScale(b) - 1) * (run.gravityField.maxPropLift ?? 0)) * dt)) * dt
   const steps = Math.max(1, Math.ceil(dt * 240), Math.ceil(travel / (Math.min(...run.props.map(b => b.size)) * .15))), h = dt / steps
   for (let step = 0; step < steps; step++) stepPropPhysics(run, contacts, h, powered)
 }
@@ -250,7 +270,7 @@ function updateSwitchTargets(run: Run) {
   const states = resolveSwitchStates(run.level, run.triggers)
   run.switchStates = states
   updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0)
-  updateGravityField(run.gravityField, run.level.gravityPlates ?? [], states, run.empRemaining === 0)
+  updateGravityField(run.gravityField, run.water.plates, states, run.empRemaining === 0, run.water.revision)
   for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
   run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || !!states.get(run.level.goal.id ?? '')
 }
@@ -329,6 +349,10 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   let world = syncPlatforms(run)
   const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
   stepTriggers(run, poweredDt, powered)
+  if (advanceWaterLevels(run.water, run.switchStates, poweredDt)) {
+    updateGravityField(run.gravityField, run.water.plates, run.switchStates, powered, run.water.revision)
+    if (run.waterEffectsEnabled) run.waterSurface = createWaterSurface(run.water.plates, run.terrain, run.player, run.props, run.gravityField, run.waterSurface)
+  }
   if (run.forceFields.length) world = syncPlatforms(run)
   const swimStrength = playerSwimStrength(run.gravityField, run.player)
   run.player.gravity = playerGravity(run.gravityField, run.player) + (run.player.waterBob && swimStrength ? waterBobAcceleration(run.player.waterBob, playerFloatDrag(run.gravityField, run.player)) : 0)
@@ -360,6 +384,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     else { run.player.hang = null; run.player.mantle = null; run.player.grounded = false; run.player.grabCooldown = .25; cancelJumpInput(run.player) }
   }
   stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world, run.gravityField)
+  if (run.waterSurface) advanceWaterSurface(run.waterSurface, run.player, run.props, swimStrength, dt)
   // EMP time is gameplay time, independent of every clock collectible. Spend
   // the old duration before collection so a fresh pulse gets its full five seconds.
   run.empRemaining = Math.max(0, run.empRemaining - dt)

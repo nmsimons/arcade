@@ -732,12 +732,14 @@ Report actual results; passing a unit test proves no frame-time claim.
 
 In default full quality, keep the same lights, shadows, power, and exposure rules.
 Never silently drop lamps, dynamic shadows, or add distance cutoffs based on device
-type. **Lighting performance mode**, enabled by default in development and production,
+type. **Performance mode**, enabled by default in development and production,
 may remove player, loose
 prop, and robot shadows after two consecutive one-second windows below 35 FPS.
 It also caps render pixel ratio at 1 and render area at one million pixels,
 trading some artwork sharpness for smoother motion while retaining native UI
-resolution. It retains all lights and their power/fades, beam effects, object
+resolution. The same fallback disables optional water-surface ripples and their
+forces on floats, retaining normal swimming, buoyancy and water audio.
+It retains all lights and their power/fades, beam effects, object
 artwork, exposure rules, and terrain and moving-mechanism shadows. The reduction lasts for
 that run to avoid oscillation; restarting, entering another level, or disabling
 the setting restores full shadows and render resolution. Paused/hidden time does not count. The development

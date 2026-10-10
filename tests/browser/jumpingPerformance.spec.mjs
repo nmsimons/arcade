@@ -43,7 +43,7 @@ for (const { savedPreference, nightMode } of [
     else expect(pixels).toBe(fullPixels)
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
-    await expect(page.getByRole('switch', { name: /Performance monitor|Lighting performance mode/ })).toHaveCount(0)
+    await expect(page.getByRole('switch', { name: /Performance monitor|Performance mode/ })).toHaveCount(0)
     await expect(page.locator('#jumping-performance-mode-help')).toHaveCount(0)
     await page.keyboard.press('Backquote')
     await expect(page.getByRole('dialog', { name: 'Developer panel' })).toHaveCount(0)

@@ -37,15 +37,18 @@ test('the loaded underside reach draws identically in the reflected gravity fram
 })
 
 for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const kind of ['shelf', 'concave', 'slope', 'box', 'ball40', 'ball120']) {
-  test(`ascending under ${kind} reaches with the hands and steers away continuously (${direction}, ${dt})`, () => {
+  test(`ascending under ${kind} retains clear, continuous contact and steers away (${direction}, ${dt})`, () => {
     const run = fixture(kind), p = run.player; p.facing = direction
-    let previous, braceFrames = 0, leadingTouch = false, releaseTime = Infinity
+    const loose = ['box', 'ball40', 'ball120'].includes(kind)
+    let previous, braceFrames = 0, physicalFrames = 0, leadingTouch = false, releaseTime = Infinity
     const stages = [[4.5, { climb: true }], [.5, { climb: true, move: direction }],
       [.5, { climb: true, move: -direction }], [1.8, { climb: true, move: direction }], [.8, { move: direction }], [.5, { descend: true }]]
     for (const [seconds, intent] of stages) for (let time = 0; time < seconds; time += dt) {
       stepRun(run, { ...NEUTRAL_INPUT, ...intent }, dt)
       const pose = athletePose(p), current = points(pose).map(([x, y]) => [p.x + x * p.facing, p.y + y])
       releaseTime = p.waterMotion?.ceiling ? 0 : releaseTime + dt
+      physicalFrames += Number(p.contacts.body.some(c => c.collider.prop))
+      if (loose) assert.equal(p.waterMotion?.ceiling, undefined, 'loose floats use physical bumps without overhead hand anchors')
       // Follow the approach, contact, and handoff into the next free stroke.
       // A floating prop can subsequently leave this interaction at the surface.
       if (previous && releaseTime < .35) for (const [i, point] of current.entries()) {
@@ -62,7 +65,7 @@ for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const kin
         const x = p.x + pose.head[0] * p.facing, y = p.y + pose.head[1]
         assert.equal(pointInside(b, x, y), false)
         assert.ok(nearestBoundary(b, x, y).distance > 6.1, 'the head stays clear of the underside')
-        for (const arm of [pose.frontArm, pose.backArm]) for (const point of handOutline(arm)) {
+        if (!b.looseProp) for (const arm of [pose.frontArm, pose.backArm]) for (const point of handOutline(arm)) {
           const hx = p.x + point[0] * p.facing, hy = p.y + point[1]
           assert.equal(pointInside(b, hx, hy), false, 'the drawn palm stays outside solids')
         }
@@ -81,8 +84,11 @@ for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const kin
         mirrorPlayerState(p); mirrorPlayerState(p); assert.deepEqual(p, snapshot, 'overhead normals and palms survive gravity reflection')
       }
     }
-    assert.ok(braceFrames > .2 / dt, 'the route includes sustained upward contact')
-    assert.ok(leadingTouch, 'a palm meets the underside while the head remains comfortably below it')
+    if (loose) assert.ok(physicalFrames > 0, 'the route still physically meets the float')
+    else {
+      assert.ok(braceFrames > .2 / dt, 'the route includes sustained upward contact')
+      assert.ok(leadingTouch, 'a palm meets the underside while the head remains comfortably below it')
+    }
     assert.equal(p.waterMotion.ceiling, undefined, 'diving away releases the overhead reach')
   })
 }

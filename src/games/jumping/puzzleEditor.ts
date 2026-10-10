@@ -4,6 +4,7 @@ import { copyLevel, isPuzzleLevel, levelTerrain, newLevelId, snapToGround } from
 import { blankTrial } from './level.ts'
 import { groundAt } from './terrain.ts'
 import { switchSources } from './switchPower.ts'
+import { waterControlId } from './waterLevel.ts'
 
 export function asTrial(level: JumpLevel): PuzzleLevel {
   if (isPuzzleLevel(level)) return copyLevel(level)
@@ -15,7 +16,9 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
 export function copyForEditing(level: JumpLevel): JumpLevel {
   const next = { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` }
   const items = [...(next.logicRelays ?? []), ...(next.mechanisms ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? []), ...(next.goal?.id ? [next.goal] : [])]
-  const ids = new Map(items.map(item => [item.id!, newLevelId()]))
+  const ids = new Map<string, string>(items.map(item => [item.id!, newLevelId()]))
+  for (const p of next.gravityPlates ?? []) if (p.effect === 'water') for (const action of ['fill', 'drain'] as const)
+    ids.set(waterControlId(p.id, action), waterControlId(ids.get(p.id)!, action))
   for (const item of items) item.id = ids.get(item.id!)!
   for (const source of switchSources(next)) {
     const definition = source.definition

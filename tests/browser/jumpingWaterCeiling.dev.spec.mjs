@@ -61,10 +61,14 @@ test('upward swimming meets undersides and releases smoothly around their edges'
     return samples
   })
   expect(samples).toHaveLength(32)
-  for (const sample of samples.filter(s => s.label === 'Hold Up')) {
+  for (const sample of samples.filter(s => s.label === 'Hold Up' && !['Box', 'Ball'].includes(s.kind))) {
     expect(sample.ceiling.amount).toBeGreaterThan(.95)
     expect(sample.palmGap).toBeLessThan(.4)
     expect(sample.headGap).toBeGreaterThan(2)
+  }
+  for (const sample of samples.filter(s => ['Box', 'Ball'].includes(s.kind))) {
+    expect(sample.ceiling).toBeNull()
+    expect(sample.headGap).toBeGreaterThan(-.01)
   }
   for (const sample of samples.filter(s => s.label === 'Release Up')) expect(sample.ceiling).toBeNull()
   await page.locator('#water-ceilings').screenshot({ path: info.outputPath('water-ceilings.png') })

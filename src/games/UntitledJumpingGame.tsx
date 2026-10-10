@@ -19,7 +19,7 @@ import type { ActionFeedback } from './jumping/actionFeedback'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
-import { createRun, formatTime, readBest, saveBest, stepRun } from './jumping/challenge'
+import { createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile, LocalLevelEntry } from './jumping/levelAssets'
@@ -139,6 +139,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     if (!import.meta.env.DEV) return
     adaptiveEnabled.current = value; setPerformanceMode(value)
     adaptiveLighting?.reset(); setLightingReduced(false)
+    if (run.current) setWaterEffectsEnabled(run.current, true)
     performanceMonitor?.reset(); setPerformanceSnapshot(null)
     try { localStorage.setItem('jumping:lighting-performance-mode', String(value)) } catch { /* Keep the choice for this visit. */ }
   }
@@ -179,6 +180,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
     if (next === 'menu' || next === 'building') {
       setPerformanceSnapshot(null); adaptiveLighting?.reset(); setLightingReduced(false)
+      if (run.current) setWaterEffectsEnabled(run.current, true)
     }
     audio.current?.silence()
     if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
@@ -519,7 +521,10 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       } else { accumulator = 0; motion?.reset() }
       if (adaptiveLighting && adaptiveEnabled.current && input && !document.hidden) {
         const before = adaptiveLighting.reduced, after = adaptiveLighting.observe(now)
-        if (after !== before) { setLightingReduced(after); performanceMonitor?.reset() }
+        if (after !== before) {
+          setLightingReduced(after); performanceMonitor?.reset()
+          if (run.current) setWaterEffectsEnabled(run.current, !after)
+        }
       } else adaptiveLighting?.suspend()
       const updated = measuring ? performance.now() : 0
       paint(input ? dt : 0)

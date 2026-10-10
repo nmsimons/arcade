@@ -1,13 +1,20 @@
 import type { JumpLevel, Trigger } from './level.ts'
-import { objectReference } from './objectLabels.ts'
+import { objectReference, objectLabel } from './objectLabels.ts'
+import { waterControlId } from './waterLevel.ts'
 
 export type PowerMode = 'always' | 'switched'
 export type PlateBehavior = 'pressure' | 'switch' | 'toggle'
 export type SwitchLogic = 'or' | 'and' | 'xor'
-/** 40 mechanisms, 16 spotlights, 40 wall lights, 40 logic nodes, 16 gravity plates, 40 fields and an exit. */
-export const MAX_SWITCH_TARGETS = 193
+/** Water shares the 16-field limit and supplies two pump inputs per reservoir. */
+export const MAX_SWITCH_TARGETS = 209
 export interface SwitchSettings { switchLogic?: SwitchLogic; switchReversed?: boolean; relay?: boolean; targets?: string[] }
 interface SwitchInputs { connected: number; active: number }
+export const validSwitchTargetId = (id: unknown): id is string => typeof id === 'string' && !!id
+  && (id.length <= 100 || id.length <= 106 && /:(fill|drain)$/.test(id))
+interface GravitySwitchItem {
+  id: string; kind: 'gravity-plate'; index: number; waterAction?: 'fill' | 'drain'
+  definition: SwitchSettings & { id?: string }
+}
 
 export function parseSwitchSettings(value: { switchLogic?: unknown; switchReversed?: unknown; relay?: unknown; targets?: unknown }, fail: () => never): SwitchSettings {
   const { switchLogic, switchReversed, relay, targets } = value
@@ -15,7 +22,7 @@ export function parseSwitchSettings(value: { switchLogic?: unknown; switchRevers
   if (switchReversed !== undefined && typeof switchReversed !== 'boolean') return fail()
   if (relay !== undefined && typeof relay !== 'boolean') return fail()
   if (targets !== undefined && (!Array.isArray(targets) || targets.length > MAX_SWITCH_TARGETS
-    || targets.some(id => typeof id !== 'string' || !id || id.length > 100) || new Set(targets).size !== targets.length)) return fail()
+    || targets.some(id => !validSwitchTargetId(id)) || new Set(targets).size !== targets.length)) return fail()
   return { ...(switchLogic === undefined ? {} : { switchLogic }), ...(switchReversed === undefined ? {} : { switchReversed }), ...(relay === undefined ? {} : { relay }),
     ...(targets === undefined ? {} : { targets: [...targets as string[]] }) }
 }
@@ -50,11 +57,18 @@ export function switchedItems(level: JumpLevel) {
     ...(level.logicRelays ?? []).map((definition, index) => ({ id: definition.id, kind: 'logic-relay' as const, index, definition })),
     ...(level.mechanisms ?? []).flatMap((m, index) => m.power === 'always' ? [] : [{ id: m.id, kind: 'mechanism' as const, index, definition: m }]),
     ...(level.lighting?.lights ?? []).flatMap((l, index) => l.power === 'switched' ? [{ id: l.id, kind: 'light' as const, index, definition: l }] : []),
-    ...(level.gravityPlates ?? []).flatMap((definition, index) => definition.effect === 'water' || definition.power === 'always' ? [] : [{ id: definition.id, kind: 'gravity-plate' as const, index, definition }]),
+    ...(level.gravityPlates ?? []).flatMap<GravitySwitchItem>((definition, index) => definition.effect === 'water'
+      ? (['fill', 'drain'] as const).map(waterAction => ({ id: waterControlId(definition.id, waterAction), kind: 'gravity-plate' as const, index, waterAction, definition: definition[waterAction] ?? {} }))
+      : definition.power === 'always' ? [] : [{ id: definition.id, kind: 'gravity-plate' as const, index, definition }]),
     ...(level.forceFields ?? []).flatMap((definition, index) => definition.power === 'switched' ? [{ id: definition.id, kind: 'force-field' as const, index, definition }] : []),
     ...(level.wallLights ?? []).map((definition, index) => ({ id: definition.id, kind: 'wall-light' as const, index, definition })),
     ...(level.goal?.power === 'switched' && level.goal.id ? [{ id: level.goal.id, kind: 'goal' as const, index: 0, definition: level.goal }] : []),
   ]
+}
+
+export function switchItemLabel(level: JumpLevel, item: ReturnType<typeof switchedItems>[number]) {
+  const label = objectLabel(level, item)
+  return 'waterAction' in item ? `${label} · ${item.waterAction === 'fill' ? 'Fill' : 'Drain'}` : label
 }
 
 /** Logic nodes always relay; physical items opt in. */

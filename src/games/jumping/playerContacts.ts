@@ -12,8 +12,8 @@ import type { Vec } from './geometry.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
 import { ledgeObstacles } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
-import { isWeightless } from './gravity.ts'
-import { retainInterruptedStepPose } from './athlete.ts'
+import { isWeightless, playerWaterCenterOffset } from './gravity.ts'
+import { retainInterruptedStepPose, swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './athlete.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -38,6 +38,8 @@ export interface PushContact {
   hands: PushHands | null
   /** A swimmer supplies the existing body load rather than a grounded shove. */
   swimming?: boolean
+  /** A swimming palm eases into its comfortable reach without stretching the trunk. */
+  reach?: number
   /** A visible approach reach; never consumed by the motor or prop solver. */
   anticipation?: number
   /** A self-moving ball still blocks travel, but supplies no voluntary shove. */
@@ -64,13 +66,16 @@ function propContactNormal(p: Player, collider: PlayerCollider, normal: Vec, poi
 
 /** Use the existing climb envelope for every solid contact, including props
  * and bots. The locomotion root lies below the feet during a folded hang. */
-export function playerContactBody(p: Player): { x: number; y: number; height: number } {
-  if (!p.hang && (!p.mantle || p.mantle.step)) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
+export function playerContactBody(p: Player, swimmingOutline = false): { x: number; y: number; height: number; outline?: Vec[] } {
   if (p.inverted) {
     mirrorPlayerState(p); p.inverted = false
-    try { const body = playerContactBody(p); return { ...body, y: -body.y } }
+    try { const body = playerContactBody(p, swimmingOutline); return { ...body, y: -body.y,
+      ...(body.outline ? { outline: body.outline.map(([x, y]) => [x, -y] as Vec).reverse() } : {}) } }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
+  const swimming = swimmingOutline && p.waterMotion && p.waterMotion.amount > 0 && !p.jumpLift && !p.waterJump && !p.grounded && !p.climbing && !p.releaseTurn && !p.waterMotion.landing
+  if (!p.hang && (!p.mantle || p.mantle.step)) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height,
+    outline: swimming ? swimmingBodyOutline(p) : undefined }
   const m = p.mantle?.step ? null : p.mantle, h = p.hang, grip = m ?? h
   if (!grip) return { x: p.x, y: p.y, height: p.crouching ? TUNING.crouchHeight : TUNING.height }
   const progress = m ? Math.max(0, Math.min(1, (m.time - (m.descending ? LEDGE_CATCH_TIME : 0)) / LEDGE_CLIMB_TIME)) : 0
@@ -81,6 +86,55 @@ export function playerContactBody(p: Player): { x: number; y: number; height: nu
     : m?.descending ? ledgeEase(m.time / LEDGE_CATCH_TIME) : 1
   return { x: p.x + (root[0] - pose.root[0]) * grip.side * blend,
     y: p.y + (root[1] - pose.root[1]) * blend, height: climbBodyHeight(t, crouched) }
+}
+
+/** Submerged terrain and loose objects meet the swimming body. Surface banks
+ * retain their upright catch envelope; terrain keeps the foot-root floor contact. */
+export function playerCollisionOutline(p: Player, world: ContactWorld, body?: ReturnType<typeof playerContactBody>) {
+  if (!p.waterMotion?.amount || p.grounded) return undefined
+  const submerged = p.waterMotion.underwater
+  const props = new Set(world.colliders.filter(c => c.prop).map(c => c.platform))
+  if (!submerged && !props.size) return undefined
+  const outline = (body ?? playerContactBody(p, true)).outline
+  if (!outline) return undefined
+  const terrain = submerged ? swimmingTerrainOutline(outline, p.waterMotion.ceiling) : undefined
+  return (solid: Platform) => props.has(solid) ? outline : terrain
+}
+
+/** A swimmer may gather toward an upright rest only as far as the tunnel
+ * permits. Limit the pose at a fixed displaced center instead of letting a
+ * growing standing hull shove the player through a roof or floor. */
+export function constrainWaterPosture(p: Player, previous: Player['waterMotion'], center: number, world: ContactWorld) {
+  const motion = p.waterMotion
+  if (!motion?.underwater || !previous?.underwater || !previous.amount || p.grounded
+    || p.jumpLift || p.waterJump || motion.landing || motion.amount >= previous.amount) return
+  const terrain = world.colliders.filter(c => !c.prop && !c.platform.looseProp).map(c => c.platform)
+    .filter(b => p.x + 80 >= b.x && p.x - 80 <= b.x + b.w && p.y + 80 >= b.y && p.y - 80 <= b.y + b.h)
+  if (!terrain.length) return
+  const sample = (t: number) => {
+    const pose = { ...motion }
+    for (const key of ['amount', 'dive', 'gather', 'bend', 'leadHeading'] as const) {
+      const from = previous[key] ?? 0, to = motion[key] ?? 0
+      pose[key] = from + (to - from) * t
+    }
+    const candidate = { ...p, waterMotion: pose, freeFall: { time: 0, amount: pose.amount, recovery: null } }
+    candidate.y += center - playerWaterCenterOffset(candidate)
+    const outline = swimmingTerrainOutline(swimmingBodyOutline(candidate), pose.ceiling)
+    if (!terrain.some(b => bodyIntersects(candidate.x, candidate.y, b, TUNING.height, 1, 0, outline))) return { pose, clear: true }
+    // Curling beside a wall can need a little lateral retreat. The ordinary
+    // sweep supplies that separation without changing the held water depth.
+    const safe = moveBody([candidate.x, candidate.y], [candidate.x, candidate.y], terrain, TUNING.height, 1, 0, outline)
+    return { pose, clear: Math.abs(safe.y - candidate.y) < 1e-7
+      && !terrain.some(b => bodyIntersects(safe.x, safe.y, b, TUNING.height, 1, 0, outline)) }
+  }
+  if (sample(1).clear) return
+  let low = 0, high = 1
+  for (let i = 0; i < 8; i++) {
+    const mid = (low + high) / 2
+    if (sample(mid).clear) low = mid; else high = mid
+  }
+  Object.assign(motion, sample(low).pose)
+  p.freeFall = { time: p.freeFall?.time ?? 0, amount: motion.amount, recovery: null }
 }
 
 /** The climb motor and prop forces use the same next-pose contact. */
@@ -132,6 +186,9 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     try { return mirrorContacts(playerContacts(p, input, reflected, dt), world) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
+  const hasProps = world.colliders.some(c => c.prop)
+  let cachedBody: ReturnType<typeof playerContactBody> | undefined
+  const propBody = () => cachedBody ??= playerContactBody(p, hasProps)
   const free = !p.hang && !p.mantle && !p.climbing && !p.releaseTurn
   const ground = p.grounded && free ? groundAt(world.platforms, p.x, p.y, .2, s => canGrip(s.angle)) : null
   const collider = ground && world.colliders.find(c => c.platform === ground.platform)
@@ -201,13 +258,13 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     }
   }
   const needsBodyLoad = !support || !push?.collider.prop && Math.abs(input.move) > .01
-  if (free && !departing && needsBodyLoad && world.colliders.some(c => c.prop)) {
+  if (free && !departing && needsBodyLoad && hasProps) {
     // Probe the same body hull used by the player sweep. This includes torso
     // and sloping foot contacts while airborne, where no standing support exists.
     const move = Math.max(-1, Math.min(1, input.move))
-    const height = p.crouching ? TUNING.crouchHeight : TUNING.height
+    const hull = propBody(), { height } = hull
     const accelerationY = (p.gravity ?? TUNING.gravity) + (p.swimAcceleration ?? 0)
-    const probe = moveBody([p.x, p.y], [p.x + move * .2, p.y + (accelerationY < 0 ? -.2 : .2)], world.platforms, height, 1, playerTurnAngle(p))
+    const probe = moveBody([hull.x, hull.y], [hull.x + move * .2, hull.y + (accelerationY < 0 ? -.2 : .2)], world.platforms, height, 1, playerTurnAngle(p), playerCollisionOutline(p, world, hull))
     for (const hit of probe.contacts) {
       const collider = world.colliders.find(c => c.platform === hit.platform && c.prop)
       if (!collider || collider === support?.collider || body.some(c => c.collider === collider)) continue
@@ -217,31 +274,32 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       const gravity = support ? 0 : accelerationY
       // Input away from this contact cannot cancel gravity's load: a wall on
       // the other side may prevent that requested separation altogether.
-      const point = bodyContact(hit.platform, p.x, p.y, hit.normal, height)
+      const point = bodyContact(hit.platform, hull.x, hull.y, hit.normal, height, hull.outline)
       const normal = propContactNormal(p, collider, hit.normal, point)
       const load = Math.max(0, -normal[0] * move * (p.grounded ? TUNING.acceleration : TUNING.airAcceleration))
         + Math.max(0, -normal[1] * gravity)
       if (load) body.push({ collider, normal, point: [point.x, point.y], load })
     }
   }
-  if (free && !support) {
+  if (free && !support && hasProps) {
     // Drift is a physical collision even without steering or gravitational load.
     // Sweep relative to each nearby prop; include the other solids so a wall
     // cannot transmit an impact into an object hidden behind it.
-    const hull = playerContactBody(p)
+    const hull = propBody()
     for (const collider of world.colliders) {
       const prop = collider.prop
       if (!prop || prop.grounded && !isWeightless(p.gravity ?? TUNING.gravity)) continue
       if (Math.abs(p.gravity ?? TUNING.gravity) >= TUNING.gravity - 1e-7
         && (prop.gravity ?? TUNING.gravity) >= TUNING.gravity - 1e-7 && !p.swimAcceleration) continue
       const vx = p.vx - prop.vx, vy = p.vy - prop.vy, b = collider.platform
-      if (Math.hypot(vx, vy) < .01 || hull.x + TUNING.width / 2 + Math.abs(vx * dt) < b.x
-        || hull.x - TUNING.width / 2 - Math.abs(vx * dt) > b.x + b.w
-        || hull.y + Math.abs(vy * dt) < b.y || hull.y - hull.height - Math.abs(vy * dt) > b.y + b.h) continue
-      const probe = moveBody([hull.x, hull.y], [hull.x + vx * dt, hull.y + vy * dt], world.platforms, hull.height, 1, playerTurnAngle(p))
+      const extent = hull.outline ? TUNING.height : TUNING.width / 2
+      if (Math.hypot(vx, vy) < .01 || hull.x + extent + Math.abs(vx * dt) < b.x
+        || hull.x - extent - Math.abs(vx * dt) > b.x + b.w
+        || hull.y + (hull.outline ? extent : 0) + Math.abs(vy * dt) < b.y || hull.y - hull.height - Math.abs(vy * dt) > b.y + b.h) continue
+      const probe = moveBody([hull.x, hull.y], [hull.x + vx * dt, hull.y + vy * dt], world.platforms, hull.height, 1, playerTurnAngle(p), playerCollisionOutline(p, world, hull))
       const hit = probe.contacts.find(hit => hit.platform === b)
       if (!hit) continue
-      const point = bodyContact(b, probe.x, probe.y, hit.normal, hull.height)
+      const point = bodyContact(b, probe.x, probe.y, hit.normal, hull.height, hull.outline)
       const normal = propContactNormal(p, collider, hit.normal, point)
       const rx = point.x - prop.x, ry = point.y - prop.y + prop.size / 2
       const closing = -(normal[0] * (vx + prop.angularVelocity * ry) + normal[1] * (vy - prop.angularVelocity * rx))
@@ -251,17 +309,24 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
       else body.push({ collider, normal, point: [point.x, point.y], load: 0, impactSpeed: closing })
     }
   }
-  if (!support && p.waterMotion && free && direction && !departing) {
+  if (!support && p.waterMotion && free && direction && !departing && hasProps) {
     // Reach toward the first side face in the same solid sweep, so palms lead
     // the head and remain on a slowly moving float between body contacts.
     // Only the actual body load above drives the prop and supplies torque.
-    const hull = playerContactBody(p)
-    const reach = moveBody([hull.x, hull.y], [hull.x + direction * 38, hull.y], world.platforms, hull.height)
-    const hit = reach.contacts.find(c => c.normal[0] * direction < -.55)
-    const collider = hit && world.colliders.find(c => c.platform === hit.platform && c.prop)
+    let collider: PlayerCollider | undefined
+    if (p.waterMotion.underwater) {
+      // Below the surface, only a real side bump engages the palms. Nearby
+      // overhead floats must never attract a reaching/gripping animation.
+      collider = body.find(c => c.normal[0] * direction < -.7)?.collider
+    } else {
+      const hull = propBody()
+      const reach = moveBody([hull.x, hull.y], [hull.x + direction * 38, hull.y], world.platforms, hull.height, 1, playerTurnAngle(p), playerCollisionOutline(p, world, hull))
+      const hit = reach.contacts.find(c => c.normal[0] * direction < -.55)
+      collider = hit && world.colliders.find(c => c.platform === hit.platform && c.prop)
+    }
     if (collider?.prop) {
-      const hands = propPushHands(collider.prop, p.x, p.y, direction, 12 + 31 * (1 - p.waterMotion.amount))
-      if (hands) push = { collider, direction, effort: Math.min(1, Math.abs(input.move)), wallX: hands.wallX, hands, swimming: true }
+      const grip = swimmingPushHands({ ...p, terrain: world.platforms }, collider.prop, direction)
+      if (grip) push = { collider, direction, effort: Math.min(1, Math.abs(input.move)), wallX: grip.hands.wallX, hands: grip.hands, swimming: true, reach: grip.reach }
     }
   }
   return { support, push, body, motion: { x: 0, y: 0, speed: 0 } }
@@ -358,7 +423,9 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
     p.pushing = { ...hands, colliderId: contact.collider.id, direction: contact.direction,
       // A prop has already received this tick's force. Its working palms must
       // be established now; resistance still loads the body gradually above.
-      amount: contact.anticipation === undefined ? Math.min(1, (previous?.amount ?? 0) + dt / .14) : previous?.amount ?? 0,
+      amount: contact.anticipation === undefined
+        ? (previous?.amount ?? 0) + Math.max(-dt / .16, Math.min(dt / .14, (contact.reach ?? 1) - (previous?.amount ?? 0)))
+        : previous?.amount ?? 0,
       ready: contact.anticipation ?? (contact.collider.prop && !contact.swimming ? 1 : 0), effort: contact.effort, load }
   } else if (p.pushing) {
     const amount = Math.max(0, p.pushing.amount - dt / .16)

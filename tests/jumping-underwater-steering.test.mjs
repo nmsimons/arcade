@@ -20,6 +20,49 @@ const advance = (p, f, seconds, intent, dt, terrain = []) => {
   for (let i = 0; i < Math.round(seconds / dt); i++) stepPlayer(p, { ...NEUTRAL_INPUT, ...intent }, dt, terrain, undefined, undefined, undefined, f)
 }
 
+for (const dt of [STEP, 1 / 60, 1 / 30]) for (const side of [-1, 1]) for (const start of ['surface', 'submerged']) {
+  test(`Down from an upright float folds the limbs then extends into a dive: ${start}, side=${side}, dt=${dt}`, () => {
+    const p = swimmer(), f = field(); p.facing = side
+    if (start === 'surface') p.y = 450.34
+    else p.waterMotion = { amount: 0, dive: 0, phase: 0, underwater: true }
+    advance(p, f, 3, {}, dt)
+    assert.equal(p.waterMotion.amount, 0)
+    assert.ok(athletePose(p).head[1] < athletePose(p).hip[1] - 20, 'the route begins floating upright')
+    let shortestLeg = Infinity, shortestArm = Infinity, deepestTuck = 0, previous
+    for (let i = 0; i < Math.round(1.5 / dt); i++) {
+      const before = center(p)
+      stepPlayer(p, { ...NEUTRAL_INPUT, descend: true, swimVertical: 1 }, dt, [], undefined, undefined, undefined, f)
+      assert.ok(Math.abs(center(p) - before - p.vy * dt) < .001, 'folding cannot teleport the displaced body')
+      assert.ok(p.vy <= TUNING.diveSpeed + .01, 'extension cannot add a launch impulse')
+      const pose = athletePose(p), leg = pose.frontLeg, arm = pose.frontArm
+      if (i * dt < .65) {
+        shortestLeg = Math.min(shortestLeg, Math.hypot(...leg.end.map((v, j) => v - leg.root[j]), leg.endDepth ?? 0))
+        shortestArm = Math.min(shortestArm, Math.hypot(...arm.end.map((v, j) => v - arm.root[j]), arm.endDepth ?? 0))
+        deepestTuck = Math.max(deepestTuck, p.waterMotion.gather)
+      }
+      const points = [pose.hip, pose.waist, pose.shoulder, pose.head,
+        ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end])]
+        .map(([x, y]) => [p.x + x * p.facing, p.y + y])
+      if (previous) for (const [j, point] of points.entries()) {
+        assert.ok(Math.hypot(point[0] - previous[j][0], point[1] - previous[j][1]) < 450 * dt + .02, `continuous dive joint ${j}`)
+      }
+      previous = points
+      for (const limb of [pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg]) {
+        const leg = 'footAngle' in limb
+        assert.ok(Math.abs(Math.hypot(...limb.joint.map((v, j) => v - limb.root[j]), limb.jointDepth ?? 0) - (leg ? 15 : 10)) < .001)
+        assert.ok(Math.abs(Math.hypot(...limb.end.map((v, j) => v - limb.joint[j]), (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - (leg ? 14.5 : 9)) < .001)
+      }
+    }
+    assert.ok(deepestTuck > .9 && shortestLeg < 16 && shortestArm < 12, 'the first turn visibly gathers the knees and arms')
+    assert.equal(p.waterMotion.amount, 1)
+    assert.ok(p.waterMotion.gather < .001, 'the entry tuck releases into the ordinary stroke')
+    assert.ok(athletePose(p).head[1] > athletePose(p).hip[1] + 20, 'the extended stroke points head-first down')
+    assert.ok(p.vy > 99 && p.vy < 101)
+    advance(p, f, 3, {}, dt)
+    assert.equal(p.waterMotion.amount, 0, 'release can still return to an upright depth hold')
+  })
+}
+
 for (const dt of [STEP, 1 / 60, 1 / 30]) for (const side of [-1, 1]) {
   test(`the visible underwater rig curves through interrupted turns without snapping: side=${side}, dt=${dt}`, () => {
     const p = swimmer(), f = field(); p.y = 1100

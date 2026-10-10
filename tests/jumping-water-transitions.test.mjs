@@ -13,8 +13,8 @@ const water = { id: 'water', x: 200, y: 400, w: 1000, h: 520, gravity: -1, effec
 const rigPoints = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
   ...[pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg].flatMap(limb => [limb.root, limb.joint, limb.end])]
 
-/** Test the visible rig, rather than just the narrower controller hull. Palms
- * and soles may touch a boundary; bones and the head must remain outside. */
+/** Terrain clears the whole rig; loose floats occlude free strokes through
+ * depth. The head/torso and deliberate working palms still require clearance. */
 function checkFrame(p, previous, dt, label) {
   const pose = athletePose(p), points = rigPoints(pose)
   assert.ok(points.flat().every(Number.isFinite), `${label}: finite pose`)
@@ -36,6 +36,9 @@ function checkFrame(p, previous, dt, label) {
   const clear = (point, radius, name) => {
     const x = p.x + point[0] * p.facing, y = p.y + point[1]
     for (const b of p.terrain ?? []) {
+      const freeLimb = !['head', 'pelvis', 'chest'].includes(name) && p.waterMotion && !p.grounded && !p.waterMotion.landing
+      const workingPalm = name === 'drawn palm' && (p.pushing?.amount ?? 0) > .99 && p.contacts?.push?.collider.platform === b
+      if (b.looseProp && freeLimb && !workingPalm) continue
       if (x < b.x - radius || x > b.x + b.w + radius || y < b.y - radius || y > b.y + b.h + radius) continue
       const distance = nearestBoundary(b, x, y).distance
       const penetration = pointInside(b, x, y) ? radius + distance : radius - distance
@@ -92,9 +95,10 @@ for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) {
       }
     }
     const depth = run.player.y + playerWaterCenterOffset(run.player)
-    step(3, { move: direction })
+    step(5, { move: direction })
     const p = run.player, wallX = direction > 0 ? 1475 : 570, x = p.x
-    assert.ok(Math.abs(p.x - wallX + direction * 12) < .01, 'the actual hull reaches the inner wall')
+    const head = athletePose(p).head
+    assert.ok(Math.abs(wallX - p.x - head[0] * p.facing) - 6.2 < .1, 'the visible head reaches the inner wall')
     assert.ok(p.waterMotion.underwater && Math.abs(p.vy) < .01)
     const amount = p.waterMotion.amount, phase = p.waterMotion.phase
     step(2, { move: direction })
@@ -138,7 +142,7 @@ for (const direction of [-1, 1]) for (const speed of [.2, 1]) {
 }
 
 for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const size of [40, 80]) {
-  test(`drawn hands clear a floating ${size}-unit ball through rest, pushing and release: side=${side}, dt=${dt}`, () => {
+  test(`hands follow a floating ${size}-unit ball through free strokes, working contact and release: side=${side}, dt=${dt}`, () => {
     const run = createRun({ ...blankTrial(), spawn: { x: 600 - side * (size / 2 + 12), y: 450.34 },
       props: [{ kind: 'ball', x: 600, y: 400 + size / 2, size }], gravityPlates: [water],
       goal: { id: 'closed', x: 1500, y: 920, power: 'switched' } })

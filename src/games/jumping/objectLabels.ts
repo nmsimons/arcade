@@ -18,7 +18,11 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
 
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
-  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light' : s.kind === 'prop' ? level.props?.[s.index]?.kind === 'ball' ? 'Ball' : 'Box'
+  if (s.kind === 'prop') {
+    const prop = level.props?.[s.index], weight = prop?.weight === 'light' ? 'Light ' : prop?.weight === 'heavy' ? 'Heavy ' : ''
+    return `${weight}${prop?.kind === 'ball' ? 'Ball' : 'Box'} ${s.index + 1}`
+  }
+  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light'
     : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'light' ? 'Spotlight' : s.kind === 'force-field' ? level.forceFields![s.index].orientation === 'horizontal' ? 'Horizontal force field' : 'Vertical force field' : s.kind === 'gravity-plate' ? level.gravityPlates?.[s.index]?.effect === 'water' ? 'Water' : 'Gravity plate' : s.kind === 'wall-light' ? 'Wall light' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
   return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }

@@ -5,6 +5,56 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/water-tunnel.json', import.meta.url), 'utf8'))
 test.setTimeout(90000)
 
+test('upright floats fold and uncurl into a head-first dive at the surface and below', async ({ page }, info) => {
+  await page.goto('/')
+  const samples = await page.evaluate(async () => {
+    const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
+    const { createGravityField, updateGravityField, playerWaterCenterOffset } = await import('/src/games/jumping/gravity.ts')
+    const { drawAthlete, athletePose } = await import('/src/games/jumping/athlete.ts')
+    const canvas = document.createElement('canvas'); canvas.id = 'float-to-dive'; canvas.width = 1500; canvas.height = 1280
+    document.body.replaceChildren(canvas); document.body.style.margin = '0'
+    const ctx = canvas.getContext('2d'), samples = [], field = createGravityField()
+    updateGravityField(field, [{ id: 'water', x: 0, y: 400, w: 5000, h: 1600, effect: 'water' }], new Map(), true)
+    for (const [row, [start, side]] of [['surface', 1], ['submerged', 1], ['surface', -1], ['submerged', -1]].entries()) {
+      const p = createPlayer({ x: 1000, y: start === 'surface' ? 450.34 : 1100 }); p.grounded = false; p.coyote = 0; p.facing = side
+      if (start === 'submerged') p.waterMotion = { amount: 0, dive: 0, phase: 0, underwater: true }
+      const advance = (seconds, input) => {
+        for (let i = 0; i < Math.round(seconds / STEP); i++) stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, STEP, [], undefined, undefined, undefined, field)
+      }
+      advance(3, {})
+      let age = 0
+      for (const [col, target] of [0, .16, .32, .55, 1.4].entries()) {
+        advance(target - age, { descend: true }); age = target
+        const pose = athletePose(p), x = col * 300, y = row * 320, center = p.y + playerWaterCenterOffset(p)
+        const label = ['Upright float', 'Gather knees and arms', 'Turn while folded', 'Uncurl / extend down', 'Head-first dive'][col]
+        ctx.save(); ctx.beginPath(); ctx.rect(x, y, 300, 320); ctx.clip()
+        ctx.fillStyle = '#f1f1ed'; ctx.fillRect(x, y, 300, 320)
+        ctx.save(); ctx.translate(x + 150 - p.x * 3.5, y + 175 - center * 3.5); ctx.scale(3.5, 3.5); drawAthlete(ctx, p); ctx.restore()
+        const surface = Math.max(y + 30, y + 175 + (400 - center) * 3.5)
+        ctx.fillStyle = '#58a9df'; ctx.globalAlpha = .35; ctx.fillRect(x, surface, 300, y + 320 - surface); ctx.globalAlpha = 1
+        ctx.fillStyle = '#f1f1ed'; ctx.fillRect(x, y, 300, 30); ctx.fillStyle = '#43494b'; ctx.font = '13px sans-serif'
+        ctx.fillText(`${start} / ${label}`, x + 10, y + 20); ctx.strokeStyle = '#ddd'; ctx.strokeRect(x, y, 300, 320); ctx.restore()
+        const leg = pose.frontLeg, arm = pose.frontArm
+        samples.push({ start, side, col, head: pose.head, hip: pose.hip, gather: p.waterMotion.gather,
+          leg: Math.hypot(...leg.end.map((v, j) => v - leg.root[j]), leg.endDepth ?? 0),
+          arm: Math.hypot(...arm.end.map((v, j) => v - arm.root[j]), arm.endDepth ?? 0) })
+      }
+    }
+    return samples
+  })
+  expect(samples).toHaveLength(20)
+  for (const sample of samples.filter(s => s.col === 2)) {
+    expect(sample.gather).toBeGreaterThan(.9)
+    expect(sample.leg).toBeLessThan(16)
+    expect(sample.arm).toBeLessThan(12)
+  }
+  for (const sample of samples.filter(s => s.col === 4)) {
+    expect(sample.gather).toBeLessThan(.001)
+    expect(sample.head[1]).toBeGreaterThan(sample.hip[1] + 20)
+  }
+  await page.locator('#float-to-dive').screenshot({ path: info.outputPath('float-to-dive-poses.png') })
+})
+
 test('underwater pose review shows braking, ascent, upright rests and gathered reversals', async ({ page }, info) => {
   await page.goto('/')
   const samples = await page.evaluate(async () => {

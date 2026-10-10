@@ -612,6 +612,15 @@ while climbing, then the camera follows them in the center as before.
 Balls and boxes collide with each other, transfer momentum, and can rest on one
 another. Balls use round contact against other balls and box corners. Larger
 props carry more mass, and boxes are heavier than equally sized balls.
+Select **Weight: Light / Normal / Heavy** on each ball or box. Normal is the
+default for existing files. Light has half the normal mass, floats higher in
+water, and responds more to shoves, collisions and gravity-plate lift. Heavy
+has three times the normal mass, sinks in water, and yields less to those
+forces. Ordinary falling, positive gravity and zero gravity keep the same
+acceleration for every weight. The light variants are pale framed crates and
+striped balls; heavy variants are dark riveted metal.
+Save the optional preset as `"weight": "light"`, `"normal"` or `"heavy"` on a
+prop; omitting it preserves normal behavior.
 Boxes rotate, settle on their faces, and tip over edges. Moderate slopes can hold
 a resting box; steeper slopes let it slide or tumble. Pushing applies a limited
 force, with the player's hands following the tilted face and steps following
@@ -729,7 +738,7 @@ outline, and static editor drawing follow the same tilted pose as gameplay.
 The saved `y` remains the surface height at the bot's center; wheel clearance
 and tilt are calculated from the terrain. Snap off and Alt retain floating
 placement at the cursor. Cliff edges and obstructed chassis still reject a snap.
-Select a ball or box to change its size, or a shovebot to set its patrol limits.
+Select a ball or box to change its size and weight, or a shovebot to set its patrol limits.
 Drag either square handle on the shovebot's patrol line to move that endpoint;
 the inspector follows while dragging. Snap aligns endpoints to the grid, and
 Alt bypasses snapping. Limits include the bot's starting position, stay inside
@@ -991,13 +1000,16 @@ incoming and outgoing wiring. EMP suppresses both power modes, restoring
 ordinary gravity until power returns while preserving latched switch states.
 
 Gravity blends by the fraction of each body's area inside the rectangle. A
-half-covered body between ordinary and equally reversed gravity has zero net
+half-covered player or normal-weight prop between ordinary and equally reversed gravity has zero net
 acceleration. Boxes use their rotated shape, balls their actual circular area,
 and the player their current collision hull, including crouching. Overlapping
 active rectangles average their gravity settings at each point, then the body
 averages that field over its area. Entering or leaving changes acceleration,
 retaining momentum. The force acts at the center of mass; partial coverage does
 not invent an angular impulse. Free rope particles use the same local field.
+Negative plate lift scales inversely with prop weight, so light props float
+higher at the field's edge and heavy props settle deeper. The player's lift,
+positive gravity and zero gravity are unchanged.
 On reaching a grippable ceiling under negative gravity, the player turns upside
 down to walk, run, crouch and jump away from that surface. Leaving the field
 restores ordinary gravity; landing on a floor returns normal footing.
@@ -1026,12 +1038,15 @@ save and reopen preserve geometry, power and wiring.
 
 Both file versions support water in `gravityPlates` with optional
 `effect: "water"`. Water and gravity plates share the limit of 16 rectangles and
-the same rectangle geometry. Water is always present, needs no power and cannot
-be connected to switches or used as a relay. EMP does not affect it.
+the same rectangle geometry. The rectangle defines the reservoir at its maximum
+level. Water needs no power and cannot be used as a relay. Its optional Fill and
+Drain pump inputs use the existing switch system; EMP pauses the pumps while
+the water already present keeps its buoyancy.
 Water uses fixed buoyancy: `gravity` may be omitted, and an older saved value is
 normalized to −1. The studio shows no gravity-strength or emitter-facing control
 for water. Older saved power and switch settings are removed on load, along with
-connections to the water region; the rest of the circuit stays intact.
+connections to the old water-region ID; the rest of the circuit stays intact.
+Connections to the new `id:fill` and `id:drain` inputs are preserved.
 
 ```json
 "gravityPlates": [
@@ -1047,7 +1062,44 @@ convert a selected rectangle between water and a gravity plate. Duplicate,
 copy/paste, undo, save and reopen preserve the rectangle and effect. Converting
 a gravity plate to water removes its power settings and connections.
 
-During play, water is a translucent blue rectangle in front of objects and the
+**Initial level** ranges from 0 to 100, defaulting to 100 for existing pools.
+This is the percentage of rectangle height filled upward from the bottom,
+rather than a percentage of volume. **Low water mark** (0–100, default 0) is
+the lowest percentage Drain can reach. Initial level must be at or above this
+mark; raising the mark above the initial level also raises the initial level
+in the studio. **Fill / drain speed** is percentage points
+per second (0.1–100, default 10). Terrain inside the rectangle remains solid:
+islands, slopes, concave shelves and roofs exclude the water tint, and exposed
+surface ripples stop at terrain dividers. Rising floats still collide with
+undersides; draining floats settle onto the ordinary terrain.
+
+Wire **Fill water** and **Drain water** in the water inspector, or choose
+**Water · Fill** / **Water · Drain** in a switch's **Activates** list. Each input
+supports OR, AND, XOR and Reversed, including connections from logic relays.
+Neither active holds the level; both active also hold it. A pressure switch can
+pump only while held. Separate fill and drain toggles give independent controls.
+For a single toggle, connect it to both inputs and reverse Drain: on fills, off
+drains. Restart restores the authored initial level. Pumps stop on pause.
+
+```json
+"gravityPlates": [
+  { "id": "pool", "effect": "water", "x": 400, "y": 320,
+    "w": 1000, "h": 600, "waterLevel": 25, "waterMinLevel": 10, "waterRate": 10,
+    "drain": { "switchReversed": true } }
+],
+"triggers": [
+  { "x": 200, "y": 920, "w": 80, "mode": "weight",
+    "behavior": "toggle", "startsOn": false,
+    "targets": ["pool:fill", "pool:drain"] }
+]
+```
+
+Reservoirs are authored regions with a shared horizontal level within each
+rectangle. They do not spill outside their rectangle, exchange water between
+separate reservoirs, or simulate currents or pressure. Terrain divides their
+visible openings without creating additional fluid solvers.
+
+During play, water is translucent blue in front of objects and the
 player. Idle surface rests float upright at neck depth. Up swims upward, Down
 dives, and horizontal movement maintains depth after intentional submersion.
 Combine directions for diagonals; releasing underwater glides to a stop and
@@ -1055,7 +1107,8 @@ floats upright at the reached depth. The player can stand or walk on the bottom
 with relaxed arms; Down crouches, release stands, and Up swims away from the
 floor. Up toward a reachable pool rim catches the ledge and pulls out. A surface
 jump or an open side also permits leaving.
-Boxes and balls float and react to landings and riders. Gravity plates retain
+Normal boxes and balls float half submerged and react to landings and riders;
+light ones float at about one-quarter submerged, and heavy ones sink. Gravity plates retain
 their surface floating behavior but have no Up/Down swimming control. See
 [the water physics contract](jumping-physics.md#water).
 
@@ -1179,8 +1232,8 @@ platforms. Editing either this list or a switch’s **Activates** list updates t
 same connections. Logic and Reversed combine the light's connected inputs. Changing
 the light to Always on removes incoming connections. An unconnected switched
 light is valid and stays off during play unless Reversed is enabled. Version 2 allows up to
-193 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 40 logic relays,
-16 gravity plates, 40 force fields, and one exit); version 1 allows 177
+209 switch targets (40 mechanisms, 16 spotlights, 40 wall lights, 40 logic relays,
+up to 32 water pump inputs in the 16 gravity/water fields, 40 force fields, and one exit); version 1 allows 193
 (without spotlights).
 
 Spotlights stay fixed on the back wall at their saved world coordinates. Gates,

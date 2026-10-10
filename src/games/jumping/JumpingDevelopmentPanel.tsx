@@ -17,11 +17,11 @@ export function JumpingDevelopmentPanel({ onClose, showPerformance, onPerformanc
       <div className="jumping-dialog-body" data-controller-scroll>
         <div className="jumping-dialog-actions">
           <button data-initial-focus role="switch" aria-checked={showPerformance} aria-label="Performance monitor" onClick={() => onPerformanceChange(!showPerformance)}>Performance monitor <span>{showPerformance ? 'On' : 'Off'}</span></button>
-          <button role="switch" aria-checked={performanceMode} aria-label="Lighting performance mode" aria-describedby="jumping-performance-mode-help" onClick={() => onPerformanceModeChange(!performanceMode)}>Lighting performance mode <span>{performanceMode ? 'On' : 'Off'}</span></button>
+          <button role="switch" aria-checked={performanceMode} aria-label="Performance mode" aria-describedby="jumping-performance-mode-help" onClick={() => onPerformanceModeChange(!performanceMode)}>Performance mode <span>{performanceMode ? 'On' : 'Off'}</span></button>
         </div>
         <p id="jumping-performance-mode-help" className="jumping-performance-mode-help">{performanceMode
-          ? `${reducedResolution ? 'Rendering resolution is reduced for this run.' : 'Normal resolution is on. After two seconds below 35 FPS, rendering resolution drops for this run.'} Restart or turn this mode off to restore normal resolution.`
-          : 'Normal resolution. Enable to reduce rendering resolution during sustained low frame rates.'}</p>
+          ? `${reducedResolution ? 'Rendering resolution is reduced and water surface effects are off for this run.' : 'Full quality is on. After two seconds below 35 FPS, rendering resolution drops and water surface effects turn off for this run.'} Restart or turn this mode off to restore full quality.`
+          : 'Full quality. Enable to reduce rendering resolution and turn off water surface effects during sustained low frame rates.'}</p>
         {showPerformance && <PerformancePanel snapshot={snapshot} paused />}
       </div>
       <div className="jumping-dialog-actions jumping-pause-destinations">

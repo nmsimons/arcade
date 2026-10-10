@@ -1,6 +1,6 @@
 import { gravityPlateActive } from './gravity.ts'
 import { drawForceField } from './forceFieldRender.ts'
-import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion } from './gravityRender.ts'
+import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion, drawWaterSurfaceDetails } from './gravityRender.ts'
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
@@ -48,19 +48,50 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
   const r = b.size / 2, x = b.x - r, y = b.y - b.size
   if (b.kind === 'box') {
     ctx.save(); ctx.translate(b.x, b.y - r); ctx.rotate(b.angle); ctx.translate(-b.x, -b.y + r)
-    ctx.fillStyle = '#b3a28d'; rounded(ctx, x, y, b.size, b.size, 2); ctx.fill()
-    ctx.fillStyle = '#938777'
+    ctx.fillStyle = b.weight === 'light' ? '#d2c6ad' : b.weight === 'heavy' ? '#6b777d' : '#b3a28d'
+    rounded(ctx, x, y, b.size, b.size, 2); ctx.fill()
     const seam = Math.max(1, b.size * .025), inset = b.size * .12
-    for (const fraction of [1 / 3, 2 / 3]) {
-      ctx.fillRect(x + inset, y + b.size * fraction - seam / 2, b.size - inset * 2, seam)
+    if (b.weight === 'light') {
+      ctx.strokeStyle = '#a99b80'; ctx.lineWidth = Math.max(1.5, b.size * .035)
+      ctx.strokeRect(x + inset, y + inset, b.size - inset * 2, b.size - inset * 2)
+      ctx.beginPath(); ctx.moveTo(x + inset, y + b.size - inset); ctx.lineTo(x + b.size - inset, y + inset); ctx.stroke()
+    } else if (b.weight === 'heavy') {
+      ctx.fillStyle = '#4d5b62'
+      for (const fraction of [1 / 3, 2 / 3]) ctx.fillRect(x + b.size * fraction - seam, y + inset, seam * 2, b.size - inset * 2)
+      ctx.fillStyle = '#b6c1c5'; ctx.beginPath()
+      for (const dx of [inset, b.size - inset]) for (const dy of [inset, b.size - inset]) {
+        ctx.moveTo(x + dx + seam, y + dy); ctx.arc(x + dx, y + dy, seam, 0, Math.PI * 2)
+      }
+      ctx.fill()
+    } else {
+      ctx.fillStyle = '#938777'
+      for (const fraction of [1 / 3, 2 / 3]) ctx.fillRect(x + inset, y + b.size * fraction - seam / 2, b.size - inset * 2, seam)
     }
     ctx.restore()
   } else {
     const cy = b.y - r
-    ctx.fillStyle = BALL_COLOR; ctx.beginPath(); ctx.arc(b.x, cy, r, 0, Math.PI * 2); ctx.fill()
-    // A flat marking makes rolling visible without suggesting a shaded sphere.
-    ctx.fillStyle = '#667b72'; ctx.beginPath()
-    ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = b.weight === 'light' ? '#d9d0b6' : b.weight === 'heavy' ? '#6b777d' : BALL_COLOR
+    ctx.beginPath(); ctx.arc(b.x, cy, r, 0, Math.PI * 2); ctx.fill()
+    if (b.weight === 'light') {
+      ctx.save(); ctx.translate(b.x, cy); ctx.rotate(b.angle)
+      ctx.strokeStyle = '#a99b80'; ctx.lineWidth = Math.max(1.5, b.size * .05)
+      ctx.beginPath(); ctx.ellipse(0, 0, r * .32, r * .82, 0, 0, Math.PI * 2); ctx.stroke()
+      ctx.restore()
+    } else if (b.weight === 'heavy') {
+      ctx.strokeStyle = '#4d5b62'; ctx.lineWidth = Math.max(1, b.size * .035)
+      ctx.beginPath(); ctx.arc(b.x, cy, r * .72, 0, Math.PI * 2); ctx.stroke()
+      ctx.fillStyle = '#b6c1c5'; ctx.beginPath()
+      const rivet = Math.max(.8, r * .07)
+      for (let i = 0; i < 4; i++) {
+        const angle = b.angle + i * Math.PI / 2, px = b.x + Math.cos(angle) * r * .55, py = cy + Math.sin(angle) * r * .55
+        ctx.moveTo(px + rivet, py); ctx.arc(px, py, rivet, 0, Math.PI * 2)
+      }
+      ctx.fill()
+    } else {
+      // A flat marking makes rolling visible without suggesting a shaded sphere.
+      ctx.fillStyle = '#667b72'; ctx.beginPath()
+      ctx.arc(b.x + Math.cos(b.angle) * r * .52, cy + Math.sin(b.angle) * r * .52, r * .12, 0, Math.PI * 2); ctx.fill()
+    }
   }
 }
 export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed: number, angry = false, powered = true, paint: WorldPaint = paintNormally, headlightFade = 0) {
@@ -166,7 +197,9 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawMovementEffects(ctx, p, paint)
     paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk))
   }
-  for (const plate of level.gravityPlates ?? []) drawWaterRegion(ctx, plate, paint)
+  const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
+  for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
+  if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)
 }
 export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, height: number, run: Run, view = gameCamera(width, height, run.player, run.level, true)) {
   const { level } = run

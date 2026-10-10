@@ -8,6 +8,7 @@ import { carvePit } from '../src/games/jumping/puzzleEditor.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { mechanismAnchor, mechanismOpenPosition } from '../src/games/jumping/mechanisms.ts'
+import { MAX_SWITCH_TARGETS } from '../src/games/jumping/switchPower.ts'
 
 test('a drawn pit includes solid banks, a catch floor, and a ladder returning to the left', () => {
   const source = blankTrial(), level = carvePit(source, { x: 540, y: 920 }, { x: 860, y: 1320 })
@@ -65,7 +66,7 @@ test('plate files accept legacy connections and validate multiple targets', () =
     assert.deepEqual(levelProblems(level), [])
   }
   for (const connection of [{}, { targets: id }, { targets: [null] }, { targets: [''] }, { targets: [id, id] },
-    { targets: ['x'.repeat(101)] }, { targets: Array.from({ length: 178 }, (_, i) => String(i)) }, { target: id, targets: [id] }]) {
+    { targets: ['x'.repeat(101)] }, { targets: Array.from({ length: MAX_SWITCH_TARGETS - 16 + 1 }, (_, i) => String(i)) }, { target: id, targets: [id] }]) {
     assert.throws(() => parseLevel({ ...level, triggers: [{ ...plate, ...connection }] }))
   }
   const invalid = parseLevel({ ...level, triggers: [{ ...plate, targets: [id, 'missing'] }] })

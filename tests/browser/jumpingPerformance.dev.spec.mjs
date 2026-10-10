@@ -110,7 +110,7 @@ for (const lighting of [true, 'day', false]) for (const savedPreference of [null
   const shadows = panel.locator('dl > div').filter({ has: page.getByText('Object shadows', { exact: true }) }).locator('dd')
   await expect(shadows).toHaveText('Off')
   await page.keyboard.press('Backquote')
-  const mode = page.getByRole('switch', { name: 'Lighting performance mode', exact: true })
+  const mode = page.getByRole('switch', { name: 'Performance mode', exact: true })
   if (savedPreference === 'false') {
     await expect(mode).not.toBeChecked()
     await mode.click()
@@ -123,7 +123,7 @@ for (const lighting of [true, 'day', false]) for (const savedPreference of [null
   expect(reducedPixels).toBeLessThan(1_005_000)
   await page.keyboard.press('Backquote')
   await expect(mode).toBeChecked()
-  await expect(page.getByText(/Rendering resolution is reduced for this run/)).toBeVisible()
+  await expect(page.getByText(/Rendering resolution is reduced and water surface effects are off for this run/)).toBeVisible()
   await mode.click()
   await page.keyboard.press('Backquote')
   await page.clock.runFor(600)

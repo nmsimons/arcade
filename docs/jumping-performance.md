@@ -1,5 +1,39 @@
 # Lighting performance notes
 
+## October 10, 2026: Terrain inside switch-controlled reservoirs
+
+Water reservoirs keep one scalar height each. Fill and Drain use ordinary switch
+inputs; field partitions and exposed ripple spans update at most 30 Hz while
+the level changes. Idle pumps and pumps at the low water mark or 100% do not rebuild geometry.
+Terrain is subtracted once at world creation into nonoverlapping convex pieces,
+then retained as one Canvas clipping path per reservoir. Pumping never repeats
+that terrain subtraction or adds contacts, fluid particles, solver iterations,
+currents or a volume grid. Surface arrays retain the global 128-point budget
+and reuse their buffers while topology stays unchanged. Low performance mode
+also skips ripple-geometry rebuilding; fill/drain and baseline buoyancy remain.
+Light/Normal/Heavy prop presets scale mass and the cached lifting contribution
+inside the existing field-area pass. They add no fluid solver, collision shape
+or geometric queries; variant artwork uses a few flat lines and rivets.
+
+Run Vite, then `WATER_RESERVOIRS=1 node scripts/benchmark-jumping-water.mjs`.
+The stress fixture has 16 reservoirs, 48 terrain blocks (including slopes and
+roofs), 48 floats and 96 cached water-space pieces. Each measured frame advances
+two 120 Hz game steps and submits Canvas artwork at 1280×800. After 120 warmup
+frames, each configuration measures 240 frames. On Apple M5 Pro with Chromium
+153.0.8010.12:
+
+| Reservoirs / effects | Native median / p95 | 4× CPU median / p95 |
+| --- | ---: | ---: |
+| Static / on | 1.1 / 1.3 ms | 3.2 / 4.9 ms |
+| Filling / on | 1.1 / 1.6 ms | 4.2 / 6.3 ms |
+| Static / off | 0.8 / 1.1 ms | 3.0 / 4.7 ms |
+| Filling / off | 0.9 / 1.2 ms | 3.5 / 5.1 ms |
+
+Filling produced exactly 120 field/surface updates during the 240 measured
+frames; static reservoirs produced none. Lighting and GPU completion are
+excluded, and simulated 4× CPU throttling is not a measurement of a real slow
+device. These timings do not establish whole-game frame rate.
+
 ## October 5, 2026: Final rope with earlier ropes still swinging
 
 The first-rope improvement did not cover the worst case near the end of the wide
@@ -133,7 +167,7 @@ hide distracting stutters. Keep the GPU renderer and prioritize measured,
 low-risk improvements before considering a wider engine change.
 
 In development, backtick (`) opens the developer panel with the **Performance
-monitor** and **Lighting performance mode** controls. Backtick or Escape closes
+monitor** and **Performance mode** controls. Backtick or Escape closes
 the panel. Gameplay and measurements pause while it is open; the enabled monitor
 remains visible during play. Production hides the panel, shortcut, monitor and performance-mode controls,
 ignores the monitor's saved preference, and does not allocate the monitor.
@@ -149,18 +183,35 @@ not require a saved Night mode flag to observe or reduce render resolution.
 
 Every run starts at normal resolution. Player, prop and robot shadows are off
 in gameplay and previews; terrain and mechanisms still block light.
-**Lighting performance mode** is enabled by
+**Performance mode** is enabled by
 default in development and production; an explicitly saved off preference is
 honored in both builds. It observes two consecutive one-second windows below 35 FPS,
 then caps
 rendering at pixel ratio 1 and one million pixels. This trades some sharpness for
 frame time; the HTML interface retains its native resolution. Terrain
 and moving mechanisms still block light; all six authored Tower lights, exposure,
-power/fades, haze and object artwork remain. It does not change level files or
-physics. Disabling the mode, restarting, or entering a new level restores normal
-resolution. The reduction is latched to avoid oscillating between quality levels.
+power/fades, haze and object artwork remain. The same reduction stops optional
+water-surface physics: entry observation, spring ticks and ripple
+forces on floating props. Water uses its original flat fill. Swimming, ordinary
+buoyancy, water resistance and splash audio continue normally. Disabling the mode,
+restarting, or entering a new level restores resolution and fresh surface effects
+without replaying skipped splashes. Level files do not change. The reduction is
+latched to avoid oscillating between quality levels.
 The 35 FPS trigger leaves some headroom above the minimum while retaining full
 quality at sustained rates in the high 30s and 40s.
+
+Water contacts use the visible swimming head/torso, short deliberate side
+reaches and 32-sided small wet balls. Free swimming limbs no longer repeatedly
+fit themselves around each moving prop. Dry ball geometry is unchanged.
+Reproduce the six-ball route with Vite running and
+`WATER_CONTACTS=1 WATER_CONTACT_LIGHTING=0 node scripts/benchmark-jumping-water.mjs`.
+On an Apple M5 Pro with Chromium 153.0.8010.12, 852 frames per mode measured
+simulation plus drawing submission at 1.5 ms p95 with surface effects, and
+1.3 ms with them disabled. Simulated 4x CPU slowdown measured 6.2 / 5.9 ms
+respectively; the busiest surface-pushing stage reached 9.1 ms p95 with effects.
+These CPU measurements exclude lighting and GPU completion and do not establish
+whole-game FPS. Omit `WATER_CONTACT_LIGHTING=0` to include the lighting backend,
+which the report identifies; `WATER_CONTACT_PROFILE=/tmp/water` saves CPU profiles.
 
 Live play now prefers a WebGL2 light field when supported. The monitor identifies
 the active backend as GPU or Canvas. The GPU pass keeps all authored lights and

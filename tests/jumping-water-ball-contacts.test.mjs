@@ -37,12 +37,17 @@ for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const size of 
   })
 }
 
-for (const dt of [STEP, 1 / 30]) test(`a centered small ball adds no invented sideways force and steering releases the contact at ${dt}`, () => {
+for (const dt of [STEP, 1 / 30]) test(`a small ball follows mirrored curved contacts and sideways steering releases it at ${dt}`, () => {
   const run = createRun({ ...blankTrial(), spawn: { x: 600, y: 650 }, props: [{ kind: 'ball', x: 600, y: 420, size: 40 }],
     goal: { x: 1500, y: 920, id: 'closed', power: 'switched' }, gravityPlates: [water] })
   run.started = true; run.player.grounded = false; run.player.coyote = 0
   for (let i = 0; i < Math.round(7 / dt); i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true }, dt)
-  assert.ok(Math.abs(run.props[0].x - 600) < .01 && Math.abs(run.player.x - 600) < .01, 'symmetric contact stays symmetric')
+  const mirror = createRun({ ...blankTrial(), spawn: { x: 600, y: 650 }, props: [{ kind: 'ball', x: 600, y: 420, size: 40 }],
+    goal: { x: 1500, y: 920, id: 'closed', power: 'switched' }, gravityPlates: [water] })
+  mirror.started = true; mirror.player.grounded = false; mirror.player.coyote = 0; mirror.player.facing = -1
+  for (let i = 0; i < Math.round(7 / dt); i++) stepRun(mirror, { ...NEUTRAL_INPUT, climb: true }, dt)
+  assert.ok(Math.abs(run.props[0].x + mirror.props[0].x - 1200) < .001, 'the curved contact follows the visible head and reflects with facing')
+  assert.ok(Math.abs(run.player.x + mirror.player.x - 1200) < .001, 'there is no fixed sideways escape force')
   for (let i = 0; i < Math.round(2 / dt); i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true, move: 1 }, dt)
   assert.ok(run.player.x > 680, 'ordinary swimming escapes a centered contact')
   assert.equal(run.player.hang, null)

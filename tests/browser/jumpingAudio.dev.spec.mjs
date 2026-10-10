@@ -120,12 +120,16 @@ test('normal gameplay plays one splash for the player and each falling prop, the
   const level = blankTrial()
   level.name = 'Water sound test'; level.spawn = { x: 600, y: 200 }
   level.platforms = [{ x: 560, y: 200, w: 80, h: 20 }]
-  level.props = [{ kind: 'ball', size: 68, x: 780, y: 390 }, { kind: 'box', size: 50, x: 900, y: 410 }]
+  // Keep the falling routes separate so the player cannot land on a float
+  // and turn the intended hard entry into a zero-speed, gentle splash.
+  level.props = [{ kind: 'ball', size: 68, x: 1120, y: 390 }, { kind: 'box', size: 50, x: 1260, y: 410 }]
   level.gravityPlates = [{ id: 'pool', effect: 'water', power: 'always', x: 400, y: 500, w: 1000, h: 420, gravity: -1 }]
   await useLevelFixtures(page, [level])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game?motionDebug=1')
   const play = page.getByRole('button', { name: 'Play Water sound test', exact: true })
   await expect(play).toBeEnabled()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.evaluate(async () => {
     const { JumpingSound } = await import('/src/games/jumping/sound.ts')
     window.waterSounds = []
@@ -135,14 +139,17 @@ test('normal gameplay plays one splash for the player and each falling prop, the
   await play.click()
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.keyboard.down('ArrowRight')
-  await expect.poll(() => page.evaluate(() => window.jumpingMotion.read().recent.at(-1)?.x ?? 0)).toBeGreaterThan(660)
+  await page.clock.runFor(600)
+  expect(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1)?.x ?? 0)).toBeGreaterThan(660)
   await page.keyboard.up('ArrowRight')
+  await page.clock.runFor(1400)
   const splashes = () => page.evaluate(() => window.waterSounds.filter(c => c.kind === 'water-entry'))
   await expect.poll(async () => (await splashes()).length).toBe(3)
   const entries = await splashes()
+  await info.attach('water-entry-sounds', { body: JSON.stringify(entries, null, 2), contentType: 'application/json' })
   expect(entries.map(c => c.size).sort((a, b) => a - b)).toEqual([50, 60, 68])
   expect(entries.every(c => c.volume > .05 && c.strength > .2)).toBe(true)
-  await expect.poll(() => page.evaluate(() => window.jumpingMotion.read().recent.at(-1)?.time ?? 0)).toBeGreaterThan(5)
+  await page.clock.runFor(4000)
+  expect(await page.evaluate(() => window.jumpingMotion.read().recent.at(-1)?.time ?? 0)).toBeGreaterThan(5)
   expect(await splashes()).toEqual(entries)
-  await info.attach('water-entry-sounds', { body: JSON.stringify(entries, null, 2), contentType: 'application/json' })
 })

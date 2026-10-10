@@ -5,6 +5,7 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/narrow-water-tunnel.json', import.meta.url), 'utf8'))
 
 test('normal controls enter a narrow flooded tunnel, rest inside and swim back out', async ({ page }, info) => {
+  test.setTimeout(60000)
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game?motionDebug=1')

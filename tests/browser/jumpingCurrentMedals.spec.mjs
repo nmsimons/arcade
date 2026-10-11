@@ -16,9 +16,14 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
     const errors = [], checkpoints = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 852, height: 393 })
     await page.clock.install({ time: new Date('2026-10-09T12:00:00Z') })
-    await page.goto(`/untitled-jumping-game/levels/built-in/${encodeURIComponent(recording.file)}?motionDebug=1`)
-    await expect(page.getByRole('img', { name: `${data.name}: reach the exit`, exact: true })).toBeFocused()
+    await page.goto('/untitled-jumping-game?motionDebug=1')
+    const play = page.getByRole('button', { name: `Play ${data.name}`, exact: true })
+    await expect(play).toBeVisible()
+    // Freeze on the menu before starting the route. Waiting for a live canvas
+    // lets free balls settle for a machine-dependent time before the first key.
     await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'))
+    await play.click()
+    await expect(page.getByRole('img', { name: `${data.name}: reach the exit`, exact: true })).toBeFocused()
     await page.clock.runFor(64)
     await page.screenshot({ path: info.outputPath('fresh-start.png') })
     let held = new Set(), index = 0
@@ -49,6 +54,7 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
     const complete = page.getByRole('dialog', { name: 'Level complete', exact: true })
     for (let fade = 0; fade < 16 && !await complete.isVisible()
       && await page.getByText('Entering the exit', { exact: true }).isVisible(); fade++) await page.clock.runFor(64)
+    await writeFile(info.outputPath('route-checkpoints.json'), JSON.stringify({ file: recording.file, checkpoints }, null, 2))
     await expect(complete).toBeVisible()
     await expect(complete.getByText('Gold medal', { exact: true })).toBeVisible()
     const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)

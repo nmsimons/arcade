@@ -126,7 +126,7 @@ test('swimming visual review at normal speed crosses the flooded passage and ret
   await useLevelFixtures(page, [level])
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await page.getByRole('button', { name: 'Play Flooded passage', exact: true }).click()
-  await expect(page.locator('canvas')).toBeFocused()
+  await expect(page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })).toBeFocused()
   const state = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   async function hold(keys, milliseconds) {
     for (const key of keys) await page.keyboard.down(key)

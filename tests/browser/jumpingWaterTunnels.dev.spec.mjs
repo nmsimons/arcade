@@ -12,8 +12,8 @@ test('normal controls enter a narrow flooded tunnel, rest inside and swim back o
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
-  await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(150)
+  await expect(page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })).toBeFocused()
   const state = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   const hold = async (keys, ms) => {
     for (const key of keys) await page.keyboard.down(key)

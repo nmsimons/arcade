@@ -73,7 +73,7 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
   await page.clock.install()
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await page.getByRole('button', { name: 'Play Water reservoir test', exact: true }).click()
-  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.getByRole('img', { name: 'Water reservoir test: reach the exit', exact: true })).toBeFocused()
   await page.clock.runFor(150)
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')
   await page.clock.runFor(2500)

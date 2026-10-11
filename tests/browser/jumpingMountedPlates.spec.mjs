@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 function fixture(horizontal) {
   const level = blankTrial(); level.id = 'mounted-plate-playtest'; level.name = 'Mounted plate'
@@ -37,7 +37,7 @@ for (const horizontal of [false, true]) test(`normal controls load a mounted pla
   await page.goto('/untitled-jumping-game')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Mounted plate: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   const state = () => canvas.evaluate(c => ({ plate: c.mountPosition, active: c.mountActive, face: c.wallFace, rim: c.wallRim, gate: c.gateY }))

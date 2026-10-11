@@ -47,7 +47,7 @@ test('the silhouette emerges through a closing entrance; idle play, pause and re
   expect(await page.evaluate(() => window.entranceFrames.filter(f => f.kind === 'door').at(-1).width)).toBeLessThan(40)
   await page.clock.runFor(300)
   await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
-  await restartFromPause(page)
+  await restartFromPause(page, false)
   await page.clock.runFor(200)
   await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   await page.clock.runFor(1300)

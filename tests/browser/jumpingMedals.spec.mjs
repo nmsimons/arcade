@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 
@@ -9,10 +10,11 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   const canvas = page.getByRole('img', { name: 'Level Five: reach the exit', exact: true })
   await expect(canvas).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-05T13:00:00Z'))
+    await finishJumpingEntrance(page)
   // Exercise different input phases within the 48 ms rendered-frame batches.
   if (frameOffset) await page.clock.runFor(frameOffset)
   await page.keyboard.down('d')
-  await advanceJumpingSimulation(page, 2292)
+  await advanceJumpingSimulation(page, 2758)
   await page.keyboard.down('Space')
   await advanceJumpingSimulation(page, 100)
   await page.keyboard.up('Space')

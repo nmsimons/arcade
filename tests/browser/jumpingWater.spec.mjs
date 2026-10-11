@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { test as folderTest } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 test.setTimeout(90000)
 // Keep the same Chromium variant used by the persistent authoring fixture.
 test.use({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chromium' })
@@ -45,7 +45,7 @@ test('collecting an EMP leaves water visible and swimming available while gravit
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(1000)
   const player = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -67,7 +67,7 @@ test('normal controls settle the player and props in translucent water and allow
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.keyboard.down('d'); await page.clock.runFor(64); await page.keyboard.up('d')
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
@@ -123,7 +123,7 @@ test('normal controls settle the player and props in translucent water and allow
 
 for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${side > 0 ? 'right' : 'left'} bank with normal controls`, async ({ page }, info) => {
   const level = fixture(), edge = side > 0 ? 640 : 1160, ballX = edge - side * 20
-  level.entrance = { x: edge - side * 14, y: 920 }
+  level.entrance = { x: edge - side * 22, y: 920 }
   level.goal = { ...level.goal, x: side > 0 ? 120 : 1500 }
   level.platforms = [{ x: side > 0 ? edge : 0, y: 380, w: 1160, h: 540 }]
   level.props = [{ kind: 'ball', x: ballX, y: 420, size: 40 }]
@@ -133,7 +133,7 @@ for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   const towardBank = side > 0 ? 'd' : 'a'
   // Leave the neutral pool-floor stance before steering: a grounded shove
@@ -156,7 +156,7 @@ for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${
 
 for (const side of [-1, 1]) test(`holding Down at the ${side > 0 ? 'left' : 'right'} bank beside a floating ball stays responsive`, async ({ page }, info) => {
   const level = fixture(), edge = side > 0 ? 640 : 1160
-  level.entrance = { x: edge + side * 14, y: 360 }
+  level.entrance = { x: edge + side * 22, y: 360 }
   level.goal = { ...level.goal, x: side > 0 ? 120 : 1500 }
   level.platforms = [{ x: side > 0 ? edge : 0, y: 360, w: 1160, h: 560 }]
   level.props = [{ kind: 'ball', x: edge - side * 40, y: 440, size: 80 }]
@@ -168,7 +168,7 @@ for (const side of [-1, 1]) test(`holding Down at the ${side > 0 ? 'left' : 'rig
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.evaluate(() => {
     const raf = window.requestAnimationFrame
@@ -222,7 +222,7 @@ for (const left of [false, true]) test(`normal controls pull out at the ${left ?
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
   const direction = left ? 'a' : 'd'
   await page.keyboard.down(direction); await page.clock.runFor(160); await page.keyboard.up(direction)
@@ -245,7 +245,7 @@ test('normal controls crouch on the pool floor, rest standing and swim away with
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(1800); await page.keyboard.up('ArrowUp')
   const lifted = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -316,7 +316,7 @@ test('normal controls push a float with kicking legs and quickly lose momentum o
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(100)
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(8000); await page.keyboard.up('ArrowUp')
   await page.keyboard.down('d'); await page.clock.runFor(5000)

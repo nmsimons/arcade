@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { writeFile } from 'node:fs/promises'
 
@@ -25,7 +25,7 @@ async function open(page, level, size) {
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
 }
@@ -43,7 +43,7 @@ for (const size of sizes) for (const night of [false, true]) for (const directio
   await open(page, level, size)
   const still = await read(page)
   expect(62 * still.camera.zoom).toBeGreaterThanOrEqual(37)
-  await page.keyboard.down(key); await page.clock.runFor(400)
+  await page.keyboard.down(key); await page.clock.runFor(480)
   const before = await read(page), p = before.motion.recent.at(-1), c = before.camera
   expect(p.vx).toBe(410 * direction)
   const destinationX = (destination - c.x) * c.zoom

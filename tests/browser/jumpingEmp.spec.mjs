@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
-import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'emp-browser-test', name: 'Power cut', width: 1200, height: 600, floor: 600,
   entrance: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
@@ -10,7 +10,7 @@ const level = () => ({ ...blankTrial(), id: 'emp-browser-test', name: 'Power cut
     { id: 'lift', kind: 'lift', x: 800, y: 560, w: 140, h: 20, travel: 160 },
   ],
   triggers: [{ mode: 'coins', x: 420, y: 360, w: 200, threshold: 1, targets: ['gate', 'lift'] }],
-  robots: [{ x: 650, y: 600, left: 350, right: 760 }] })
+  robots: [{ x: 900, y: 600, left: 650, right: 1100 }] })
 async function open(page, editor = false) {
   const fixture = level()
   expect(levelProblems(fixture)).toEqual([])
@@ -66,7 +66,7 @@ async function open(page, editor = false) {
     await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
   } else {
-    await page.locator('.jumping-level-card[aria-pressed=true]').click()
+    await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
     await expect(page.getByRole('img', { name: 'Power cut: reach the exit' })).toBeFocused()
   }
   await page.clock.runFor(64)

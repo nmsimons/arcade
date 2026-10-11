@@ -62,7 +62,7 @@ test('mouse and Tab canvas entry remember the last control and dialogs preserve 
   await focus(page, box); await canvas(page).click({ position: { x: 240, y: 160 } }); await page.clock.runFor(64)
   await expect(canvas(page)).toBeFocused()
   await tap(page, 1); await expect(box).toBeFocused()
-  const text = page.getByRole('button', { name: 'Wall text', exact: true })
+  const text = page.getByRole('button', { name: 'L.A.B. wall stamp', exact: true })
   await focus(page, text); await page.keyboard.press('Tab'); await page.clock.runFor(64)
   await expect(canvas(page)).toBeFocused()
   await tap(page, 8)

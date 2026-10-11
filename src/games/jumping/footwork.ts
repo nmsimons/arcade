@@ -192,12 +192,13 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
     const safe = inside + Math.sign(p.x - inside) * Math.min(3, Math.abs(p.x - inside))
     return groundAt(platforms, safe, p.y) ? safe : inside
   })
-  const corrections = previous.feet.map((foot, i) => Math.abs(foot.anchorX - targets[i]) + (foot.facing !== p.facing ? 4 : 0))
+  const corrections = previous.feet.map((foot, i) => Math.abs(foot.anchorX - targets[i]) + (foot.facing !== p.facing ? 4 : 0)
+    + (brace && !groundAt(platforms, foot.anchorX, p.y) ? 14 : 0))
   // A braced foot stays planted until the body has actually moved far enough
   // to need another step. Retargeting every fraction of a pixel caused a fast
   // shuffle even when a heavy box was barely moving.
-  const needsBrace = !!p.pushing?.effort && Math.abs(previous.feet[0].anchorX - previous.feet[1].anchorX) < 8
-  const threshold = steppingForward ? stepDistance : p.pushing?.effort && !needsBrace ? 12 : .15
+  const needsBrace = !!brace && Math.abs(previous.feet[0].anchorX - previous.feet[1].anchorX) < 8
+  const threshold = steppingForward ? stepDistance : brace && !needsBrace ? 12 : .15
   // Finish airborne feet first, then reposition the remaining support foot with a small step.
   const adjusting = previous.feet.some(foot => !foot.planted) ? -1
     : corrections[0] >= corrections[1] && corrections[0] > threshold ? 0 : corrections[1] > threshold ? 1 : -1

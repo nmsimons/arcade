@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
 const board = page => page.getByRole('application', { name: 'Level canvas' })
 const player = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 function fixture(horizontal = false, night = false) {
@@ -48,7 +48,7 @@ async function openGame(page, level) {
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(64)
 }
 async function point(page, x, y) {
@@ -100,11 +100,11 @@ for (const night of [false,true]) test(`horizontal fields support the player whi
 })
 
 test('a pressure switch enables a field and a collected EMP removes it, restoring it after the outage', async ({ page }, info) => {
-  const level=fixture(); level.props=[]; level.forceFields[0].power='switched'
+  const level=fixture(); level.entrance.x=240; level.props=[]; level.forceFields[0].power='switched'
   level.triggers=[{x:260,y:600,w:100,mode:'touch',behavior:'switch',targets:['barrier']}]
   level.pickups=[{kind:'emp',x:460,y:575}]
   await openGame(page,level)
-  await page.keyboard.down('d'); await page.clock.runFor(280); await page.keyboard.up('d')
+  await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')
   expect((await page.locator('canvas').evaluate(c=>c.fieldBeams)).length).toBeGreaterThan(0)
   await page.keyboard.down('d'); await page.clock.runFor(1400); await page.keyboard.up('d')
   expect((await player(page)).x).toBeGreaterThan(540)

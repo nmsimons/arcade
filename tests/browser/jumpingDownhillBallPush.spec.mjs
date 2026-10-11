@@ -1,3 +1,5 @@
+import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
@@ -7,6 +9,7 @@ import { TUNING } from '../../src/games/jumping/model.ts'
 for (const direction of [-1, 1]) for (const mode of ['run', 'walk', 'crouch', 'gentle walk']) {
   test(`a downhill ball releases its working hands during ${mode}, direction ${direction}`, async ({ page }, info) => {
     const level = downhillBallLevel(100, direction, mode === 'gentle walk' ? .1 : .3)
+    flattenFixtureEntrance(level, 0, 'downhill')
     await useLevelFixtures(page, [level])
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 852, height: 393 })
@@ -23,6 +26,7 @@ for (const direction of [-1, 1]) for (const mode of ['run', 'walk', 'crouch', 'g
     const canvas = page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })
     await expect(canvas).toBeFocused()
     await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z')); await page.clock.runFor(64)
+    await finishJumpingEntrance(page)
     if (mode.includes('walk')) await page.keyboard.down('Shift')
     if (mode === 'crouch') await page.keyboard.down('s')
     const key = direction > 0 ? 'd' : 'a'

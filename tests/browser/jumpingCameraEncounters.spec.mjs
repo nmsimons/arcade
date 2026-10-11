@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { reverseRopeWorkshop } from './helpers/jumpingRopeGravity.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
@@ -54,7 +54,7 @@ async function open(page, level, size) {
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
   await page.evaluate(() => { window.cameraEncounterFrames = [window.cameraEncounterFrames.at(-1)] })
@@ -83,25 +83,25 @@ for (const size of sizes) for (const night of [false, true]) for (const kind of 
       await page.screenshot({ path: info.outputPath(`${label}.png`) })
     }
     if (kind === 'ladder') {
-      await checkpoint('first-gap-destination', [780, 1200])
+      await checkpoint('first-gap-destination', [780, 600])
       await page.keyboard.down('d'); await page.clock.runFor(1264)
       await page.keyboard.up('d'); await page.keyboard.down('a')
       let p
-      for (let i = 0; i < 80; i++) { await page.clock.runFor(32); p = await sample(page); if (p.signals.grounded && p.y === 1600) break }
-      expect(p.y).toBe(1600); expect(p.signals.grounded).toBe(true)
-      await checkpoint('missed-jump-recovery-ladder', [560, 1520])
+      for (let i = 0; i < 80; i++) { await page.clock.runFor(32); p = await sample(page); if (p.signals.grounded && p.y === 1000) break }
+      expect(p.y).toBe(1000); expect(p.signals.grounded).toBe(true)
+      await checkpoint('missed-jump-recovery-ladder', [560, 920])
       for (let i = 0; i < 80 && p.x > 573; i++) { await page.clock.runFor(16); p = await sample(page) }
       await page.keyboard.up('a'); await page.keyboard.down('w'); await page.clock.runFor(160)
       expect((await sample(page)).signals.mode).toBe('ladder')
-      await checkpoint('ladder-acquisition', [560, 1200])
+      await checkpoint('ladder-acquisition', [560, 600])
       const acquiredY = (await sample(page)).y
       await page.clock.runFor(1500); await page.keyboard.up('w')
       expect((await sample(page)).signals.mode).toBe('ladder'); expect((await sample(page)).y).toBeLessThan(acquiredY - 80)
-      await checkpoint('ladder-ascent-next-footing', [560, 1200])
+      await checkpoint('ladder-ascent-next-footing', [560, 600])
       // Full floor-to-start recovery remains in jumpingIntroduction.spec.mjs.
     } else if (kind === 'rope') {
       await page.keyboard.down('d'); await page.clock.runFor(1040)
-      await checkpoint('rope-before-jump', [840, 1090])
+      await checkpoint('rope-before-jump', [840, 490])
       await page.keyboard.down('Space'); await page.clock.runFor(688)
       expect((await sample(page)).signals.mode).toBe('rope')
       await page.keyboard.up('d'); await page.keyboard.up('Space'); await page.clock.runFor(16)
@@ -109,7 +109,7 @@ for (const size of sizes) for (const night of [false, true]) for (const kind of 
       await page.keyboard.down('w'); await page.clock.runFor(832); await page.keyboard.up('w')
       await page.keyboard.down('d'); await page.clock.runFor(700); await page.keyboard.up('d')
       expect((await sample(page)).signals.mode).toBe('rope')
-      await checkpoint('rope-swing-next-landing', [1140, 1200])
+      await checkpoint('rope-swing-next-landing', [1140, 600])
       await page.keyboard.down('Space'); await page.clock.runFor(32); await page.keyboard.up('Space')
       expect((await sample(page)).signals.mode).toBe('free')
     } else if (kind === 'gate') {

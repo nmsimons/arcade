@@ -581,7 +581,7 @@ test('horizontal gates resize, flip, round-trip and retract one width only while
       return arc.call(this, x, y, r, ...rest)
     }
   })
-  const level = blankTrial(); level.entrance.x = 340
+  const level = blankTrial(); level.entrance.x = 240
   await open(page, level)
   await page.getByRole('button', { name: 'Horizontal gate', exact: true }).click()
   await dragWorld(page, { x: 700, y: 780 }, { x: 880, y: 780 })
@@ -610,7 +610,8 @@ test('horizontal gates resize, flip, round-trip and retract one width only while
   await saveTestLevel(page, 'Save and Test'); await page.clock.runFor(64)
   const game = page.getByRole('img', { name: 'Untitled level: reach the exit' })
   expect(await game.evaluate(canvas => canvas.gateBody)).toEqual({ x: 700, y: 780, w: 200, h: 20 })
-  await page.keyboard.down('d'); await page.clock.runFor(32); await page.keyboard.up('d'); await page.clock.runFor(2300)
+  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.clock.runFor(850)
+  await page.keyboard.up('d'); await page.keyboard.up('Shift'); await page.clock.runFor(2300)
   expect(await game.evaluate(canvas => canvas.gateBody)).toEqual({ x: 900, y: 780, w: 200, h: 20 })
   expect(await game.evaluate(canvas => canvas.gateAnchor)).toBeUndefined()
   await page.screenshot({ path: info.outputPath('horizontal-gate-open.png') })

@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/folderTest.mjs'
-import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 
 test('float switch editor controls, outputs, undo, duplication and saved templates work', async ({page}, info) => {
@@ -63,7 +63,7 @@ test('normal controls raise water and grav floats, open the exit, drain and rest
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas=page.getByRole('img',{name:`${level.name}: reach the exit`})
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   const contacts=()=>canvas.evaluate(c=>c.floatContacts)

@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import {test,expect} from './helpers/test.mjs'
 import {useLevelFixtures} from './helpers/jumpingLevels.mjs'
 import {blankTrial,levelProblems} from '../../src/games/jumping/level.ts'
@@ -9,7 +10,7 @@ async function start(page,level) {
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(120)
 }

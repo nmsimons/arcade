@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into the ready stance, including crouch and restart`, async ({ page }, info) => {
@@ -10,7 +10,7 @@ for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into 
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.clock.runFor(64)
   const read = () => page.evaluate(() => window.jumpingMotion.read().recent)
@@ -24,7 +24,7 @@ for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into 
   expect(Math.hypot(initial.contacts.feet[0].x - initial.contacts.feet[1].x, initial.contacts.feet[0].y - initial.contacts.feet[1].y)).toBeGreaterThan(.5)
   await page.clock.fastForward(10000)
   expect((await latest()).points).toEqual(initial.points)
-  await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
   await page.keyboard.down('Shift'); await page.keyboard.down(key); await page.clock.runFor(200)
   await page.keyboard.up(key); await page.keyboard.up('Shift'); await page.clock.runFor(1000)
   const settled = await latest()
@@ -53,7 +53,7 @@ for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into 
   const restarted = await latest()
   expect(restarted.x).toBe(initial.x); expect(restarted.y).toBe(initial.y)
   expect(restarted.points).toEqual(initial.points); expect(restarted.contacts.feet).toEqual(initial.contacts.feet)
-  await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
   await page.screenshot({ path: info.outputPath('ready-after-restart.png') })
   await page.keyboard.down('Space'); await page.clock.runFor(64)
   expect((await latest()).vy).toBeLessThan(0); expect((await latest()).signals.grounded).toBe(false)

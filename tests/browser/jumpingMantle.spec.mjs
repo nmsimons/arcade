@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 
 for (const gap of [24, 18]) test(`a pull-up beside a box uses available space (${gap}-unit gap)`, async ({ page }, info) => {
@@ -30,7 +30,7 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
   await page.goto('/untitled-jumping-game')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Resisted pull-up: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await page.keyboard.down('Space'); await page.clock.runFor(64); await page.keyboard.up('Space')
@@ -67,7 +67,7 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
   // Repeated full climb/lower cycles render every daylight frame on CI.
   test.setTimeout(60_000)
   const level = { ...blankTrial(), name: 'Narrow ledge', width: 1000, height: 420, floor: 420,
-    entrance: start === 'below' ? { x: 586, y: 420 } : { x: 608, y: 300 }, goal: { x: 150, y: 420 },
+    entrance: { x: 586, y: 420 }, goal: { x: 150, y: 420 },
     platforms: [{ x: 600, y: 300, w: 160, h: 40 }, { x: 720, y: 220, w: 40, h: 80 }],
     props: [{ kind: 'ball', x: start === 'below' ? 610 : 670, y: 300, size: 100 }] }
   expect(levelProblems(level)).toEqual([])
@@ -91,13 +91,14 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
   await page.goto('/untitled-jumping-game')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Narrow ledge: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
-  if (start === 'below') {
-    await page.keyboard.down('Space'); await page.clock.runFor(100); await page.keyboard.up('Space')
-    await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d')
-  } else {
+  await page.keyboard.down('Space'); await page.clock.runFor(100); await page.keyboard.up('Space')
+  await page.keyboard.down('d'); await page.clock.runFor(650); await page.keyboard.up('d')
+  if (start === 'narrow landing') {
+    await page.keyboard.down('w'); await page.clock.runFor(6000); await page.keyboard.up('w')
+    await expect(page.locator('.jumping-state')).toHaveText('Ready')
     await page.keyboard.down('s'); await page.clock.runFor(1500); await page.keyboard.up('s')
   }
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')

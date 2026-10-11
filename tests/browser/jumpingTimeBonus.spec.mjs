@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'time-bonus-browser-test', name: 'Time bonus trial', width: 1200, height: 600, floor: 600,
@@ -50,7 +50,7 @@ async function open(page, editor = false, crouch = false) {
     await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
   } else {
-    await page.locator('.jumping-level-card[aria-pressed=true]').click()
+    await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
     await expect(page.getByRole('img', { name: 'Time bonus trial: reach the exit' })).toBeFocused()
   }
   await page.clock.runFor(64)

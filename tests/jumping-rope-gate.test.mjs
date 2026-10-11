@@ -22,8 +22,7 @@ for (const side of [1, -1]) for (const transfer of [false, true]) {
   test(`${transfer ? 'transferring through a window' : 'climbing beside an open gate'} keeps every loaded rope span clear (${side})`, () => {
     const original = readLevelAsset(transfer ? 'rope-window-transfer.json' : 'rope-window-gate.json')
     const level = side === 1 ? original : mirrored(original)
-    // The contact fixture starts under a window, too low for an authored doorway.
-    assert.deepEqual(levelProblems(level), ['Place “Entrance door” on a continuous flat surface, with a clear doorway inside the level.'])
+    assert.deepEqual(levelProblems(level), [])
     const run = createRun(level), p = run.player
     let frame = 0, caught = 0, transferred = false
     const tick = input => {
@@ -37,7 +36,7 @@ for (const side of [1, -1]) for (const transfer of [false, true]) {
     }
     const walk = TUNING.walkSpeed / TUNING.runSpeed
     if (transfer) {
-      for (let i = 0; i < 8; i++) tick({ move: side * walk })
+      for (let i = 0; i < 16; i++) tick({ move: side * walk })
       for (let i = 0; i < 150; i++) tick({})
     } else {
       // Turn toward the rope without automatically stepping onto the window sill.

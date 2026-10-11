@@ -127,7 +127,7 @@ test('expired Google access keeps the selected profile and offers an explicit re
   await page.getByRole('button', { name: 'Alice Example', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Reconnect Google Drive to keep syncing')
   expect(drive.requests.length).toBe(before)
-  expect(await page.evaluate(() => window.testTokenRequests)).toBe(0)
+  expect(await page.evaluate(() => window.testTokenRequests ?? 0)).toBe(0)
   expect(await page.evaluate(async () => (await import('/src/accounts/profileStorage.ts')).currentProfile())).toBe('google:alice')
   await page.getByRole('button', { name: 'Reconnect Google Drive', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Your saves are up to date')

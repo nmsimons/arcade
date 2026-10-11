@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 import { levelProblems } from '../../src/games/jumping/level.ts'
 
@@ -9,7 +9,7 @@ for (const cant of [-15, 0, 15]) for (const side of [-1, 1]) test(`normal keyboa
     const lean = Math.tan(Math.abs(cant) * Math.PI / 180) * 680
     const top = 80 + (cant < 0 ? lean : 0), bottom = 80 + (cant > 0 ? lean : 0)
     level.platforms[0].polygon = [[0,0],[top,0],[bottom,680],[400,680],[400,800],[0,800]]
-    level.entrance.x = 300 + bottom + 30
+    level.entrance.x = 300 + bottom + (cant < 0 ? 55 : 30)
   }
   if (side === 1) {
     level.entrance.x = level.width - level.entrance.x
@@ -24,7 +24,7 @@ for (const cant of [-15, 0, 15]) for (const side of [-1, 1]) test(`normal keyboa
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
+  await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit` })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   const toward = side === -1 ? 'a' : 'd'

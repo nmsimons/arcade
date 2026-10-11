@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 test('all sound textures render quietly, loops reuse a bounded bank, and stopping leaves silence', async ({ page }) => {
@@ -79,7 +79,7 @@ const peakGain = page => page.evaluate(() => Math.max(0, ...window.soundGains.ma
 test('gameplay unlocks sound, pause/builder silence it, and leaving closes the context', async ({ page }) => {
   await setup(page)
   expect(await page.evaluate(() => window.soundContexts.length)).toBe(0)
-  await page.getByRole('button', { name: 'Play Sound test', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Sound test', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('img', { name: 'Sound test: reach the exit' })).toBeFocused()
   await page.keyboard.down('ArrowRight')
   await expect.poll(() => peakGain(page)).toBeGreaterThan(.005)
@@ -105,7 +105,7 @@ test('an old mute preference cannot leave gameplay silent after removing the tog
   await setup(page, true)
   await expect(page.getByRole('button', { name: /^Sound (on|off)$/ })).toHaveCount(0)
   expect(await page.evaluate(() => window.soundContexts.length)).toBe(0)
-  await page.getByRole('button', { name: 'Play Sound test', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Sound test', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('img', { name: 'Sound test: reach the exit' })).toBeFocused()
   await page.keyboard.down('ArrowRight')
   await expect.poll(() => page.evaluate(() => window.soundContexts[0]?.state)).toBe('running')
@@ -136,7 +136,7 @@ test('normal gameplay plays one splash for the player and each falling prop, the
     const cue = JumpingSound.prototype.cue
     JumpingSound.prototype.cue = function (sound) { window.waterSounds.push(sound); return cue.call(this, sound) }
   })
-  await play.click()
+  await play.click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   await page.keyboard.down('ArrowRight')
   await page.clock.runFor(600)

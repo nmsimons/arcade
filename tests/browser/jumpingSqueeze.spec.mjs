@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { bodyPolygon, polygonIntersects } from '../../src/games/jumping/geometry.ts'
 import { smallPropGap, observeGapHead } from './helpers/jumpingSqueeze.mjs'
@@ -16,14 +16,13 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Small prop gap: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
-  await page.keyboard.down('w'); await page.clock.runFor(16); await page.keyboard.up('w')
   await advanceJumpingPassiveWait(page, 2000)
   await page.screenshot({ path: info.outputPath('idle-in-gap.png') })
   for (let cycle = 0; cycle < 2; cycle++) {
-    await page.keyboard.down('a'); await page.clock.runFor(150)
+    await page.keyboard.down('a'); await page.clock.runFor(300)
     await canvas.evaluate(c => { c.gapFrames = [] })
     await page.clock.runFor(2000)
     const frames = await canvas.evaluate(c => c.gapFrames)
@@ -34,10 +33,16 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
       expect(Math.abs(after.x - 642)).toBeLessThan(10)
     }
     const samples = (await page.evaluate(() => window.jumpingMotion.read())).recent
+    await info.attach(`gap-motion-${cycle}`, { body: JSON.stringify(samples), contentType: 'application/json' })
     expect(samples.filter(s => s.signals.sliding).length).toBeGreaterThan(60)
     for (let i = 1; i < samples.length; i++) {
       const before = samples[i - 1], after = samples[i]
-      for (const joint of [0, 1, 2]) expect(Math.hypot(...after.points[joint].map((v, axis) => v - before.points[joint][axis]))).toBeLessThan(3)
+      // Debug rig points are relative to the root. Contact correction can move
+      // that root while the pose compensates to keep the drawn joints still.
+      for (const joint of [0, 1, 2]) expect(Math.hypot(
+        after.x - before.x + after.points[joint][0] * after.signals.facing - before.points[joint][0] * before.signals.facing,
+        after.y - before.y + after.points[joint][1] - before.points[joint][1],
+      )).toBeLessThan(3)
     }
     await page.screenshot({ path: info.outputPath(`holding-left-${cycle}.png`) })
     await page.keyboard.up('a'); await advanceJumpingPassiveWait(page, 500)
@@ -82,7 +87,7 @@ test('a shovebot cannot squeeze the player inside two balls, and jumping remains
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Ball squeeze: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   // A short movement input starts the run; the rest of the squeeze is passive.

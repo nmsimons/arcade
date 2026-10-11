@@ -1,6 +1,7 @@
+import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { outwardBankLevel } from '../helpers/jumpingBankLedges.mjs'
 
 for (const device of ['keyboard', 'stick']) for (const direction of [-1, 1]) {
@@ -19,7 +20,7 @@ for (const device of ['keyboard', 'stick']) for (const direction of [-1, 1]) {
     await page.goto('/untitled-jumping-game?motionDebug=1')
     const play = page.getByRole('button', { name: `Play ${level.name}`, exact: true })
     await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
-    await play.click(); await page.clock.runFor(128)
+    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(128)
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     const state = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
     let keys = []
@@ -70,13 +71,14 @@ for (const direction of [-1, 1]) for (const uphill of [0, .05]) {
   test(`running leaves an outward bank at full speed, direction ${direction}, uphill ${uphill}`, async ({ page }, info) => {
     const level = outwardBankLevel(direction, 20, uphill), edgeX = direction > 0 ? 660 : 1140
     level.gravityPlates = []; level.entrance = { x: edgeX + direction * 150, y: 380 - 150 * uphill }
+    if (uphill) flattenFixtureEntrance(level)
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-10-10T12:00:00Z') })
     await page.goto('/untitled-jumping-game?motionDebug=1')
     const play = page.getByRole('button', { name: `Play ${level.name}`, exact: true })
     await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
-    await play.click(); await page.clock.runFor(64)
+    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     const key = direction > 0 ? 'a' : 'd'
     await page.keyboard.down(key); await page.clock.runFor(1000); await page.keyboard.up(key)

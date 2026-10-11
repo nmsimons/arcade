@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
@@ -22,7 +23,7 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
     // Freeze on the menu before starting the route. Waiting for a live canvas
     // lets free balls settle for a machine-dependent time before the first key.
     await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'))
-    await play.click()
+    await play.click(); await finishJumpingEntrance(page)
     await expect(page.getByRole('img', { name: `${data.name}: reach the exit`, exact: true })).toBeFocused()
     await page.clock.runFor(64)
     await page.screenshot({ path: info.outputPath('fresh-start.png') })

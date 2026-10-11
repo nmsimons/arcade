@@ -1,3 +1,5 @@
+import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
@@ -10,7 +12,8 @@ for (const mode of ['run', 'walk', 'crouch']) test(`Spelunk downhill ${mode} kee
   test.setTimeout(mode === 'run' ? 60000 : 120000)
   // Isolate the reported descent with its original polygon, ball and lighting.
   // Only this fetched test fixture starts on the ridge; no authored file changes.
-  const fixture = { ...spelunk, name: 'Spelunk downhill encounter', entrance: { x: 1280, y: 1460 } }
+  const fixture = { ...spelunk, platforms: structuredClone(spelunk.platforms), name: 'Spelunk downhill encounter', entrance: { x: 1250, y: 1465 } }
+  flattenFixtureEntrance(fixture, 0)
   await useLevelFixtures(page, [fixture])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 852, height: 393 })
@@ -18,6 +21,7 @@ for (const mode of ['run', 'walk', 'crouch']) test(`Spelunk downhill ${mode} kee
   await page.goto('/untitled-jumping-game/levels/built-in/00-fixture.json?motionDebug=1')
   await expect(page.getByRole('img', { name: 'Spelunk downhill encounter: reach the exit', exact: true })).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'))
+    await finishJumpingEntrance(page)
   await page.clock.runFor(64)
   if (mode === 'walk') await page.keyboard.down('Shift')
   if (mode === 'crouch') await page.keyboard.down('s')

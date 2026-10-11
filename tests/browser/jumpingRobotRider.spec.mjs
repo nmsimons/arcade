@@ -1,10 +1,10 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 test('a rear rider stays unseen and can stand, crouch and jump from the bot body', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Bot rider', width: 1200, height: 600, floor: 600,
-    entrance: { x: 539, y: 500 }, goal: { x: 1040, y: 600 }, platforms: [{ x: 300, y: 500, w: 240, h: 100 }],
+    entrance: { x: 520, y: 500 }, goal: { x: 1040, y: 600 }, platforms: [{ x: 300, y: 500, w: 240, h: 100 }],
     robots: [{ x: 600, y: 600, left: 100, right: 1000 }] }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -30,18 +30,21 @@ test('a rear rider stays unseen and can stand, crouch and jump from the bot body
       return arc.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/untitled-jumping-game?motionDebug=1')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Bot rider: reach the exit' })
   await expect(canvas).toBeFocused()
   const state = () => canvas.evaluate(c => ({ player: c.rider, bot: c.bot, eye: c.botEye }))
   await page.clock.runFor(64)
   // Step off the ledge onto the bot, then cross its roof while it is blocked.
   // Once it passes the rider, forward sight prevents another roof charge.
-  await page.keyboard.down('d'); await page.clock.runFor(120); await page.keyboard.up('d'); await page.clock.runFor(250)
-  expect((await state()).player.y).toBeCloseTo(554, 1)
+  await page.keyboard.down('d'); await page.clock.runFor(120); await page.keyboard.up('d'); await page.clock.runFor(500)
+  await info.attach('boarding', { body: JSON.stringify(await state()), contentType: 'application/json' })
+  const boarded = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  expect(boarded.signals.grounded).toBe(true)
+  expect(boarded.signals.support).toBe('robot:0:0')
   await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(140)
   await page.keyboard.up('d'); await page.keyboard.up('s'); await page.clock.runFor(650)
   const standing = await state()

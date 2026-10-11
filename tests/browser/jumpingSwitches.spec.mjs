@@ -1,8 +1,8 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 
-async function open(page, level) {
+async function open(page, level, finishEntrance = true) {
   await useLevelFixtures(page, [level])
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype, arc = proto.arc, rect = proto.roundRect, fill = proto.fillRect
@@ -28,6 +28,7 @@ async function open(page, level) {
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  if (finishEntrance) await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit` })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   return canvas
@@ -124,11 +125,11 @@ test('always-on exits and moving mechanisms start in their authored state and th
   const level = readLevelAsset('switch-modes.json')
   delete level.goal.power; delete level.goal.id; level.triggers = []
   level.mechanisms = level.mechanisms.filter(m => m.kind === 'lift').map(m => ({ ...m, power: 'always' }))
-  const canvas = await open(page, level)
+  const canvas = await open(page, level, false)
   expect(await canvas.evaluate(c => c.exitOn)).toBe(true)
   expect(await canvas.evaluate(c => c.liftY)).toBe(600)
   expect(await canvas.evaluate(c => c.platformX)).toBe(950)
-  await page.keyboard.down('w'); await page.clock.runFor(1000); await page.keyboard.up('w')
+  await finishJumpingEntrance(page); await page.clock.runFor(1000)
   expect(await canvas.evaluate(c => c.liftY)).toBeLessThan(600)
   expect(await canvas.evaluate(c => c.platformX)).toBeGreaterThan(950)
   await page.screenshot({ path: info.outputPath('always-on.png') })

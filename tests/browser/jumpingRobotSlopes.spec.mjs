@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { nearestBoundary } from '../../src/games/jumping/geometry.ts'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 for (const slope of [-3, 3]) test(`normal controls start a bot patrolling up and down a steep ramp (${slope})`, async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Bot slope', width: 1200, height: 1200, floor: 1200,
@@ -46,20 +46,26 @@ for (const slope of [-3, 3]) test(`normal controls start a bot patrolling up and
   const initial = await state()
   expect(initial.angle).toBeCloseTo(Math.atan(slope), 3)
   await page.screenshot({ path: info.outputPath('bot-starts-on-slope.png') })
+  await finishJumpingEntrance(page)
   await canvas.evaluate(c => { c.slopeFrames = [] })
   await page.keyboard.down('w'); await page.clock.runFor(64); await page.keyboard.up('w')
-  await page.clock.runFor(936)
-  const left = await state()
+  let left = await state()
+  for (let i = 0; i < 40 && left.x >= initial.x - 85; i++) {
+    await page.clock.runFor(64); left = await state()
+  }
   expect(left.x).toBeLessThan(initial.x - 85)
   expect((left.y - initial.y) * -Math.sign(slope)).toBeGreaterThan(200)
-  await page.clock.runFor(2000)
-  expect((await state()).x).toBeGreaterThan(initial.x + 70)
+  let right = await state()
+  for (let i = 0; i < 80 && right.x <= initial.x + 70; i++) {
+    await page.clock.runFor(64); right = await state()
+  }
+  expect(right.x).toBeGreaterThan(initial.x + 70)
   for (const frame of await canvas.evaluate(c => c.slopeFrames)) for (const wheel of frame.wheels) {
     expect(Math.abs(nearestBoundary(level.platforms[0], wheel.x, wheel.y).distance - 9)).toBeLessThan(.01)
     expect(wheel.x).toBeGreaterThanOrEqual(300); expect(wheel.x).toBeLessThanOrEqual(500)
   }
   await page.screenshot({ path: info.outputPath('bot-turns-and-traverses-slope.png') })
-  await restartFromPause(page); await page.clock.runFor(64)
+  await restartFromPause(page, false); await page.clock.runFor(64)
   expect(await state()).toEqual(initial)
   expect(errors).toEqual([])
 })

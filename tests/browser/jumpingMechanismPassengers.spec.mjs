@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 for (const kind of ['gate', 'lift']) test(`a horizontal ${kind} slides out from under a crate blocked by an overhang`, async ({ page }, info) => {
   const name = `Unloading ${kind}`, level = { ...blankTrial(), name,
@@ -35,7 +35,7 @@ for (const kind of ['gate', 'lift']) test(`a horizontal ${kind} slides out from 
   await page.goto('/untitled-jumping-game')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${name}: reach the exit` })
   await expect(canvas).toBeFocused()
   await page.keyboard.down('s'); await page.clock.runFor(100); await page.keyboard.up('s')

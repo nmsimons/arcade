@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { bodyPolygon, polygonIntersects } from '../../src/games/jumping/geometry.ts'
 import { addItem } from '../../src/games/jumping/editor.ts'
@@ -32,7 +32,7 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
   await page.goto('/untitled-jumping-game')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Stair treads: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   await canvas.evaluate(c => { c.stairFrames = [] })

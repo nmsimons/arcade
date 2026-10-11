@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -10,7 +10,7 @@ async function start(page) {
   await page.goto('/untitled-jumping-game')
   await page.getByRole('button', { name: 'Play Jump experiment', exact: true }).waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Jump experiment', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Jump experiment', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.clock.runFor(64)
 }

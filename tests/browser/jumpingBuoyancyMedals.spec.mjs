@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
 
@@ -12,6 +13,7 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   await page.goto('/untitled-jumping-game/levels/built-in/buoyancy.jump-level.json?motionDebug=1')
   await expect(page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
+    await finishJumpingEntrance(page)
   await page.clock.runFor(64)
   let held = new Set()
   const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))

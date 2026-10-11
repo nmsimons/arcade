@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { advanceJumpingSimulation as advance } from './helpers/simulation.mjs'
 
 test.use({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true })
@@ -25,7 +25,7 @@ async function open(page, level = blankTrial()) {
   await page.goto('/untitled-jumping-game')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('button', { name: 'Pause game', exact: true })).toBeVisible()
   await advance(page, 100)
   return level

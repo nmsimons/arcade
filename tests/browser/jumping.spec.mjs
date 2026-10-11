@@ -1,4 +1,5 @@
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold, tap } from './helpers/controller.mjs'
@@ -51,6 +52,7 @@ test('jumping across slopes restores traction while holding uphill, then permits
       polygon: [[0, 160], [400, 160], [800, 360], [1200, 0], [2000, 0], [2000, 760], [0, 760]] }],
     climbables: { ladders: [], ropes: [] },
   }
+  flattenFixtureEntrance(level)
   await setup(page, false, level); await enter(page)
   await page.keyboard.down('d'); await page.clock.runFor(300)
   await page.keyboard.down('Space'); await page.clock.runFor(24); await page.keyboard.up('Space')
@@ -86,7 +88,7 @@ async function expectCentered(page) {
   expect(point.x).toBeCloseTo(.5, 5); expect(point.y).toBeCloseTo(.5, 5)
 }
 async function enter(page) {
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
 }
@@ -122,12 +124,18 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
     : value ? page.keyboard.down('a') : page.keyboard.up('a')
   const jump = value => controller ? page.evaluate(value => { window.testPad.buttons[0] = { pressed: value, value: Number(value) } }, value)
     : value ? page.keyboard.down('Space') : page.keyboard.up('Space')
+  // Join the uphill face directly to the flat entrance bank. A centered cut
+  // would create a steeper lip than the 1.03-grade surface under test.
+  const left = 779.5, right = 820.5, bankY = left * 1.03
+  level.entrance.y = 200 + bankY
+  level.platforms[0].polygon = [[0, 0], [left, bankY], [right, bankY],
+    [right, right * 1.03], [1600, 1648], [1600, 2000], [0, 2000]]
   await setup(page, controller, level); await enter(page)
   await page.clock.runFor(500)
   const start = await position(page)
-  expect(start.x).toBeCloseTo(800, 3); expect(start.y).toBeCloseTo(1024, 3)
+  expect(start.x).toBeCloseTo(800, 3); expect(start.y).toBeCloseTo(level.entrance.y, 3)
   await expect(page.locator('.jumping-state')).toHaveText('Ready')
-  await move(-1); await page.clock.runFor(600)
+  await move(-1); await page.clock.runFor(2000)
   const climbing = await position(page)
   expect(climbing.x).toBeLessThan(start.x - 15)
   expect(climbing.y).toBeCloseTo(200 + climbing.x * 1.03, 3)
@@ -150,6 +158,7 @@ test('controller stays steady where a gentle slope meets a steep face, then walk
       polygon: [[0, 640], [700, 360], [900, 40], [1200, 0], [1600, 0], [1600, 1000], [0, 1000]] }],
     climbables: { ladders: [], ropes: [] },
   }
+  flattenFixtureEntrance(level)
   await setup(page, true, level); await enter(page)
   const move = value => page.evaluate(value => { window.testPad.axes[0] = value }, value)
   await move(1); await page.clock.runFor(1800)
@@ -280,11 +289,15 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 
 test('keyboard walks and runs, taps low and holds higher without repeating on landing', async ({ page }, info) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message))
-  await setup(page); await enter(page)
+  // Measure horizontal speeds on a flat runway; the opening ramp has its own
+  // contact regression below and changes horizontal speed along its slope.
+  const level = structuredClone(DEFAULT_LEVEL)
+  level.platforms = level.platforms.filter(platform => platform.x !== 320)
+  await setup(page, false, level); await enter(page)
   await expectCentered(page)
   await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.clock.runFor(350)
   expect(Math.abs(await speed(page) - 2.1)).toBeLessThan(.2)
-  await page.keyboard.up('Shift'); await page.clock.runFor(300)
+  await page.keyboard.up('Shift'); await page.clock.runFor(400)
   expect(Math.abs(await speed(page) - 6.8)).toBeLessThan(.2)
   const runStart = await position(page)
   await page.keyboard.down('Space'); await page.clock.runFor(400)
@@ -318,7 +331,7 @@ test('controller-only play gates launch, supports analog speed and held jumps, a
   await hold(page, 0, 1, 850)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   expect((await position(page)).y).toBeCloseTo(620)
-  await hold(page, 0, 0); expect((await position(page)).y).toBeCloseTo(620)
+  await hold(page, 0, 0); await finishJumpingEntrance(page); expect((await position(page)).y).toBeCloseTo(620)
   await page.evaluate(() => { window.testPad.axes[0] = .59 }); await page.clock.runFor(400)
   expect(Math.abs(await speed(page) - 3.4)).toBeLessThan(.2)
   await page.evaluate(() => { window.testPad.axes[0] = 0 }); await page.clock.runFor(200)
@@ -389,6 +402,7 @@ test('controller pause clears held jump input and reset is available only throug
   await tap(page, 0)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.locator('canvas')).toBeFocused()
+  await finishJumpingEntrance(page)
   expect(await position(page)).toEqual(initial)
 })
 

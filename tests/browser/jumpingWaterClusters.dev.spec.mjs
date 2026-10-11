@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 test('six floating balls: surface pushes, underwater passes and reversals stay graceful', async ({ page }, info) => {
   await page.goto('/')
@@ -38,7 +38,7 @@ test('normal keyboard swimming pushes a group at the surface, dives underneath a
   level.name = 'Six floating balls'; level.goal = { ...level.goal, id: 'closed', power: 'switched' }
   level.props = Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: 1000 + i * 48, y: 345, size: 40 }))
   await useLevelFixtures(page, [level]); await page.goto('/untitled-jumping-game?motionDebug=1')
-  await page.getByRole('button', { name: 'Play Six floating balls', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Six floating balls', exact: true }).click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true }); await expect(canvas).toBeFocused()
   const stages = [ ['Surface', ['d'], 9000], ['Dive', ['ArrowDown'], 1500], ['Below left', ['a'], 2200],
     ['Rise right', ['d', 'ArrowUp'], 2600], ['Reverse', ['a'], 1600], ['Float', [], 1000] ]
@@ -66,7 +66,7 @@ test('normal controls skim beneath a floating cluster, rise into it and turn awa
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.getByRole('button', { name: 'Play Beneath six floats', exact: true })).toBeVisible()
   await page.clock.pauseAt(new Date('2026-10-10T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Beneath six floats', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Beneath six floats', exact: true }).click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true }); await expect(canvas).toBeFocused()
   await page.clock.runFor(64)
   const samples = []

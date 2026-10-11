@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
 
 async function controls(page, device) {
@@ -55,7 +55,7 @@ for (const device of ['keyboard', 'controller', 'touch']) test.describe(`${devic
     await page.goto('/untitled-jumping-game?motionDebug=1')
     const play = page.getByRole('button', { name: `Play Water ${kind} 1`, exact: true })
     await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-    await play.click(); await page.clock.runFor(64)
+    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     // The controller blocks buttons carried across menu/play transitions. Give
     // the committed, focused gameplay screen its released sampling frame.

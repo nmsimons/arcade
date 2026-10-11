@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 test('walking off a high platform falls prone, lands flat and gets up with normal controls', async ({ page }, info) => {
@@ -12,7 +12,7 @@ test('walking off a high platform falls prone, lands flat and gets up with norma
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Untitled level', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Untitled level', exact: true }).click(); await finishJumpingEntrance(page)
   await page.clock.runFor(64)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   const read = () => page.evaluate(() => window.jumpingMotion.read())
@@ -68,11 +68,11 @@ test('an upward grav lift eases into a prone floating pose while steering remain
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.getByRole('button', { name: 'Play Prone grav lift', exact: true })).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Prone grav lift', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Prone grav lift', exact: true }).click(); await finishJumpingEntrance(page)
   await page.clock.runFor(64)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   const sample = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
-  await page.keyboard.down('d'); await page.clock.runFor(800)
+  await page.keyboard.down('d'); await page.clock.runFor(700)
   expect((await sample()).blends.fall).toBe(0)
   await page.clock.runFor(500)
   const floating = await sample()
@@ -107,7 +107,7 @@ test('zero-g drift becomes prone, bumps a floating ball with neutral input and s
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.getByRole('button', { name: 'Play Weightless drift', exact: true })).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Weightless drift', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Weightless drift', exact: true }).click(); await finishJumpingEntrance(page)
   await page.clock.runFor(64)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   const sample = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -160,7 +160,7 @@ test('rolling away a sleeping ball support in 0.1 gravity makes the upper ball f
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.getByRole('button', { name: 'Play Weak gravity stack', exact: true })).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Weak gravity stack', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Weak gravity stack', exact: true }).click(); await finishJumpingEntrance(page)
   await page.clock.runFor(64)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   const balls = () => page.locator('canvas[tabindex="0"]').evaluate(canvas => canvas.stackBalls)
@@ -202,7 +202,7 @@ for (const gravity of [1, .1]) test(`normal controls push a settled touching bal
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.getByRole('button', { name: `Play ${name}`, exact: true })).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: `Play ${name}`, exact: true }).click()
+  await page.getByRole('button', { name: `Play ${name}`, exact: true }).click(); await finishJumpingEntrance(page)
   await page.clock.runFor(64)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   const balls = () => page.locator('canvas[tabindex="0"]').evaluate(canvas => canvas.pairBalls)

@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import {readFile,writeFile} from 'node:fs/promises'
 import {test,expect} from './helpers/test.mjs'
 import {useLevelFixtures} from './helpers/jumpingLevels.mjs'
@@ -15,7 +16,7 @@ for (const direction of [-1, 1]) {
     const play = page.getByRole('button', {name: `Play ${level.name}`, exact: true})
     await expect(play).toBeVisible()
     await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
-    await play.click()
+    await play.click(); await finishJumpingEntrance(page)
     await expect(page.getByRole('img', {name: `${level.name}: reach the exit`, exact: true})).toBeFocused()
     await page.clock.runFor(64)
     const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -64,7 +65,7 @@ for(const [file,kind,turn] of [['spire2.jump-level.json','wall jump',80],['spire
     await page.goto('/untitled-jumping-game/levels/built-in/00-fixture.json?motionDebug=1')
     const canvas=page.getByRole('img',{name:`${level.name}: reach the exit`,exact:true})
     await expect(canvas).toBeFocused()
-    await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'));await page.clock.runFor(64)
+    await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'));await finishJumpingEntrance(page);await page.clock.runFor(64)
     const started=await page.evaluate(()=>window.jumpingMotion.read().recent.at(-1).time)
     await page.keyboard.down('d')
     if(kind==='wall jump') {

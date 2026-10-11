@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
@@ -6,12 +7,13 @@ async function open(page, file, name) {
   await page.goto(`/untitled-jumping-game/levels/built-in/${file}?motionDebug=1`)
   await expect(page.getByRole('img', { name: `${name}: reach the exit`, exact: true })).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-08T13:00:00Z'))
+  await finishJumpingEntrance(page)
   await page.clock.runFor(64)
 }
 
-test('First Leap shows its approach hint and accepts a normal held running jump in portrait', async ({ page }, info) => {
+test('First Gap shows its approach hint and accepts a normal held running jump in portrait', async ({ page }, info) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await open(page, '00.json', 'First Leap')
+  await open(page, '00.json', 'First Gap')
   await page.screenshot({ path: info.outputPath('first-leap-approach.png') })
   await page.keyboard.down('d'); await page.clock.runFor(1040)
   await page.keyboard.down('Space'); await page.clock.runFor(184)
@@ -23,7 +25,7 @@ test('First Leap shows its approach hint and accepts a normal held running jump 
   await page.screenshot({ path: info.outputPath('first-leap-complete.png') })
 })
 
-for (const [file, name] of [['00.json', 'First Leap'], ['02.json', 'A Little Swing']]) {
+for (const [file, name] of [['00.json', 'First Gap'], ['02.json', 'A Little Swing']]) {
   test(`${name} shows its recovery hint and a missed approach returns through the ladder`, async ({ page }, info) => {
     // This is the whole descent and 400-unit recovery climb at ordinary render
     // cadence. The deadline belongs to this new full-route test.
@@ -35,9 +37,9 @@ for (const [file, name] of [['00.json', 'First Leap'], ['02.json', 'A Little Swi
     let p
     for (let i = 0; i < 80; i++) {
       await page.clock.runFor(32); p = await sample(page)
-      if (p.signals.grounded && p.y === 1600) break
+      if (p.signals.grounded && p.y === 1000) break
     }
-    expect(p.signals.grounded).toBe(true); expect(p.y).toBe(1600)
+    expect(p.signals.grounded).toBe(true); expect(p.y).toBe(1000)
     await page.screenshot({ path: info.outputPath('recovery-floor-hint.png') })
     for (let i = 0; i < 80 && p.x > 573; i++) {
       await page.clock.runFor(16); p = await sample(page)
@@ -51,7 +53,7 @@ for (const [file, name] of [['00.json', 'First Leap'], ['02.json', 'A Little Swi
     await page.screenshot({ path: info.outputPath('ladder-acquired.png') })
     await page.clock.runFor(5400); await page.keyboard.up('w')
     p = await sample(page)
-    expect(p.signals.grounded).toBe(true); expect(p.y).toBe(1200); expect(p.x).toBeLessThan(540)
+    expect(p.signals.grounded).toBe(true); expect(p.y).toBe(600); expect(p.x).toBeLessThan(540)
     await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
     await page.screenshot({ path: info.outputPath('recovery-complete.png') })
   })

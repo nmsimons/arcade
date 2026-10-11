@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/water-tunnel.json', import.meta.url), 'utf8'))
@@ -15,7 +15,7 @@ test('normal keyboard swimming holds depth, collects submerged coins, recovers i
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   const p = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
   async function hold(keys, ms) {

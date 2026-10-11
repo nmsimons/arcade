@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/narrow-water-tunnel.json', import.meta.url), 'utf8'))
 
@@ -11,7 +11,7 @@ test('normal controls enter a narrow flooded tunnel, rest inside and swim back o
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await page.clock.runFor(150)
   await expect(page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })).toBeFocused()
   const state = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))

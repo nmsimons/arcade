@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/folderTest.mjs'
 import { installTestFolder, useLevelFixtures, readTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 import { hold, tap } from './helpers/controller.mjs'
@@ -133,6 +134,7 @@ for (const slope of [-3, -.5, .5, 3]) test(`shovebot slope placement previews, d
   for (const key of ['x', 'y', 'angle']) expect(initial[key]).toBeCloseTo(dragged[key], 5)
   const saved = await readTestLevel(page, 'preview.json')
   expect(saved.robots[0].y).toBeCloseTo(700 + slope * (saved.robots[0].x - 400), 5)
+  await finishJumpingEntrance(page)
   await page.keyboard.down('w'); await page.clock.runFor(64); await page.keyboard.up('w'); await page.clock.runFor(436)
   const moving = await pose(playing); supported(moving)
   expect(moving.x).toBeLessThan(initial.x - 40)

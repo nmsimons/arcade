@@ -6,7 +6,7 @@ for (const backend of ['canvas', 'gpu']) for (const kind of ['ladder', 'water'])
     await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
     const result = await page.evaluate(async ({ backend, kind }) => {
       const [{ createRun, stepRun }, { parseLevel }, { NEUTRAL_INPUT, STEP }, { drawAthlete }, { LightingRenderer }, { waterBindingLevel }] = await Promise.all([
-        import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'), import('/src/games/jumping/model.ts'),
+        import('/tests/helpers/jumping-active-run.mjs'), import('/src/games/jumping/level.ts'), import('/src/games/jumping/model.ts'),
         import('/src/games/jumping/athlete.ts'), import('/src/games/jumping/lightingRender.ts'), import('/tests/helpers/jumpingWaterBindings.mjs'),
       ])
       const data = kind === 'water' ? waterBindingLevel('bank') : await (await fetch('/levels/jumping/00.json')).json()
@@ -16,7 +16,7 @@ for (const backend of ['canvas', 'gpu']) for (const kind of ['ladder', 'water'])
       if (kind === 'water') { advance(120, { crouch: true, descend: true, drop: true }); advance(1080) }
       else {
         advance(152, { move: 1 })
-        for (let i = 0; i < 400 && !(run.player.grounded && run.player.y === 1600); i++) advance(1, { move: -1 })
+        for (let i = 0; i < 400 && !(run.player.grounded && run.player.y === 1000); i++) advance(1, { move: -1 })
         for (let i = 0; i < 400 && run.player.x > 573; i++) advance(1, { move: -1 })
         advance(200, { climb: true })
       }

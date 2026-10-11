@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { hold, tap } from './helpers/controller.mjs'
@@ -59,6 +60,8 @@ test('level tiles launch immediately by click, Enter or controller A, with focus
   await page.getByRole('button', { name: 'Level 1: First room', exact: true }).focus(); await page.clock.runFor(64)
   await hold(page, 0, 1, 600)
   await expect(page.getByRole('img', { name: 'First room: reach the exit' })).toBeFocused()
+  await expect(page.locator('.jumping-state')).toHaveText('Entering the level')
+  await finishJumpingEntrance(page)
   await expect(page.locator('.jumping-state')).toHaveText('Ready')
   await hold(page, 0, 0)
 })

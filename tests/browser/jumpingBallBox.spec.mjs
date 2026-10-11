@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/jumping/ball-beside-box.json', import.meta.url), 'utf8'))
 
@@ -20,7 +20,7 @@ for (const size of [80, 120, 160]) for (const direction of [-1, 1]) {
     const play = page.getByRole('button', { name: 'Play Ball beside box', exact: true })
     await expect(play).toBeEnabled()
     await page.clock.pauseAt(new Date('2026-10-10T01:00:00Z'))
-    await play.click(); await page.clock.runFor(128)
+    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(128)
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     const key = direction > 0 ? 'd' : 'a'
     // Mount the ball from the floor with ordinary run/jump controls, release

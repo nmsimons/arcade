@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { TIME_PENALTY_COLOR } from '../../src/games/jumping/pickups.ts'
-import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 import { DIGITAL_RED } from '../../src/games/jumping/digitalDisplay.ts'
 
@@ -43,7 +43,7 @@ async function open(page, editor = false) {
     await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
   } else {
-    await page.locator('.jumping-level-card[aria-pressed=true]').click()
+    await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
     await expect(page.getByRole('img', { name: 'Bad timing: reach the exit' })).toBeFocused()
   }
   await page.clock.runFor(64)

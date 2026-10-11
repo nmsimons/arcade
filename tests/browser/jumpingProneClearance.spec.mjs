@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { proneDropLevel } from '../helpers/jumpingProneScenarios.mjs'
 
 for (const direction of [-1, 1]) for (const kind of ['wall', 'undercut', 'moving gate']) {
@@ -13,7 +13,7 @@ for (const direction of [-1, 1]) for (const kind of ['wall', 'undercut', 'moving
     const play = page.getByRole('button', { name: `Play Prone ${kind}`, exact: true })
     await expect(play).toBeEnabled()
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-    await play.click(); await page.clock.runFor(64)
+    await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
     const sample = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
     await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
     const key = direction > 0 ? 'd' : 'a'

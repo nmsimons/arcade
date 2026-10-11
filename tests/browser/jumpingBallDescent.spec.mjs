@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 
 for (const walking of [false, true]) test(`walking off a ledge beside a ball keeps brief slide contacts visually continuous${walking ? ' at walking speed' : ''}`, async ({ page }, info) => {
@@ -21,7 +21,7 @@ for (const walking of [false, true]) test(`walking off a ledge beside a ball kee
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: 'Ball descent: reach the exit' })
   await expect(canvas).toBeFocused(); await page.clock.runFor(64)
   if (walking) await page.keyboard.down('Shift')

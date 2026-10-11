@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
 
 function fixture(power = 'always') {
   return { ...blankTrial(), id: 'gravity-browser-test', name: 'Gravity workshop', width: 1200, height: 600, floor: 600,
@@ -47,7 +47,7 @@ async function open(page, power = 'always', level = fixture(power)) {
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)
 }
@@ -99,13 +99,11 @@ for (const power of ['always', 'switched']) test(`${power} rectangular gravity l
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await open(page, power)
   const initial = await frame(page)
-  expect(initial.active).toBe(power === 'always')
+  expect(initial.active).toBe(true)
   expect(initial.fieldFill).toBe(false); expect(initial.fieldOutline).toBe(false)
-  expect(initial.dust.length > 0).toBe(power === 'always')
-  // A small input starts the simulation. The switched case physically presses
-  // its latching pressure switch before the player leaves the floor.
+  expect(initial.dust.length).toBeGreaterThan(0)
   await page.keyboard.down('d'); await page.clock.runFor(32); await page.keyboard.up('d')
-  await page.clock.runFor(700)
+  await page.clock.runFor(power === 'always' ? 400 : 500)
   const rising = await player(page), props = await frame(page)
   expect(rising.y).toBeLessThan(400); expect(rising.vy).toBeLessThan(-700)
   expect(rising.signals.grounded).toBe(false)
@@ -142,7 +140,7 @@ for (const power of ['always', 'switched']) test(`${power} rectangular gravity l
   expect(recovered.x).toBeGreaterThan(712); expect(recovered.y).toBeCloseTo(600, 1)
   expect(recovered.signals.grounded).toBe(true)
   await page.screenshot({ path: info.outputPath(`gravity-${power}-recovery.png`) })
-  await restartFromPause(page); await page.clock.runFor(64)
+  await restartFromPause(page, false); await page.clock.runFor(64)
   expect((await frame(page)).active).toBe(power === 'always')
   expect((await frame(page)).boxBottom).toBeCloseTo(600, 1)
   expect((await frame(page)).ballBottom).toBeCloseTo(600, 1)

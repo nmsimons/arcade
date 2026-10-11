@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 import { DIGITAL_AMBER } from '../../src/games/jumping/digitalDisplay.ts'
 
@@ -38,7 +38,7 @@ test('stopwatches freeze only the clock, animate through the effect, pause and r
   // headroom to render every frame without shortening the gameplay assertions.
   test.setTimeout(60000)
   await open(page)
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.clock.runFor(64)
   expect((await state(page)).scales).toEqual([1, 1])

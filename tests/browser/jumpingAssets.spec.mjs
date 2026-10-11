@@ -1,3 +1,4 @@
+import { finishJumpingEntrance } from './helpers/jumpingLevels.mjs'
 import { test, expect } from './helpers/folderTest.mjs'
 import { readFile, writeFile, mkdir, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -275,6 +276,7 @@ test('local Next level follows manifest order and skips files that need repairs'
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
     await page.locator('.jumping-level-card[aria-pressed=true]').click()
     await expect(page.getByRole('img', { name: 'Start here: reach the exit' })).toBeFocused()
+    await finishJumpingEntrance(page)
     await page.keyboard.down('d'); await page.clock.runFor(2600); await page.keyboard.up('d')
     await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
     await page.getByRole('button', { name: 'Next level' }).click()

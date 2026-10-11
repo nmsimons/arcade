@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 import { lineBlocked } from '../../src/games/jumping/geometry.ts'
 
@@ -32,12 +32,12 @@ for (const transfer of [false, true]) test(`${transfer ? 'rope to window transfe
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit` })
   await expect(canvas).toBeFocused()
   await page.keyboard.down('Shift')
   if (transfer) {
-    await page.keyboard.down('d'); await page.clock.runFor(65); await page.keyboard.up('d')
+    await page.keyboard.down('d'); await page.clock.runFor(130); await page.keyboard.up('d')
     await page.keyboard.up('Shift'); await page.clock.runFor(1250)
   } else {
     await page.keyboard.down('a'); await page.keyboard.down('ArrowDown')
@@ -47,7 +47,7 @@ for (const transfer of [false, true]) test(`${transfer ? 'rope to window transfe
   await canvas.evaluate(c => { c.ropeTestFrames = [] })
   await page.keyboard.down('ArrowUp')
   if (transfer) await page.keyboard.down('d')
-  await page.clock.runFor(transfer ? 1900 : 4000)
+  await page.clock.runFor(transfer ? 2100 : 4000)
   if (transfer) { await page.keyboard.up('ArrowUp'); await page.keyboard.up('d') }
   const samples = (await page.evaluate(() => window.jumpingMotion.read())).recent
   expect(samples.some(s => s.signals.mode === 'rope')).toBe(true)

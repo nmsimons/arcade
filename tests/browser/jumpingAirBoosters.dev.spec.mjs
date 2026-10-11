@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 for (const night of [false, true]) test(`subtle foot jets follow normal jump, steering and braking controls in ${night ? 'darkness' : 'daylight'}`, async ({ page }, info) => {
@@ -24,7 +24,7 @@ for (const night of [false, true]) test(`subtle foot jets follow normal jump, st
   await page.goto('/untitled-jumping-game?motionDebug=1')
   await page.getByRole('button', { name: 'Play Booster check', exact: true }).waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.getByRole('button', { name: 'Play Booster check', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Booster check', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(64)

@@ -167,6 +167,39 @@ test('a blocked brace adapts to narrow real footing and stays settled through re
   }
 })
 
+test('a brace reached by jumping and pulling up keeps its narrow supported base through recontact', () => {
+  for (const direction of [-1, 1]) for (const width of [16, 24]) {
+    const rect = (x, y, w, h) => ({ x: direction === 1 ? x : 900 - x - w, y, w, h })
+    const footing = rect(414.5 - width / 2, 500, width, 20)
+    const run = createRun({ ...blankTrial(), width: 900, height: 700, floor: 650,
+      entrance: { x: direction === 1 ? 360 : 540, y: 650 },
+      goal: { x: direction === 1 ? 100 : 800, y: 650, flipX: direction === -1 },
+      platforms: [footing, rect(440, 500, 80, 20), rect(520, 350, 100, 300)],
+      props: [{ kind: 'box', x: direction === 1 ? 480 : 420, y: 500, size: 80 }] })
+    advance(run, 24, { jump: true })
+    advance(run, 38, { jump: true, move: direction * TUNING.walkSpeed / TUNING.runSpeed })
+    advance(run, 77, {})
+    advance(run, 120, { climb: true })
+    advance(run, 60, {})
+    advance(run, 120, { move: direction })
+    const p = run.player
+    assert.equal(p.grounded, true)
+    assert.equal(p.y, 500)
+    const anchors = p.footwork.feet.map(foot => [foot.anchorX, foot.anchorY])
+    for (const foot of p.footwork.feet) {
+      assert.ok(foot.planted)
+      assert.ok(foot.anchorX >= footing.x && foot.anchorX <= footing.x + width)
+    }
+    for (let cycle = 0; cycle < 3; cycle++) for (let tick = 0; tick < 10; tick++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: tick < 2 ? 0 : direction })
+      assert.ok(p.footwork.feet.every(foot => foot.planted))
+      assert.deepEqual(p.footwork.feet.map(foot => [foot.anchorX, foot.anchorY]), anchors)
+      const pose = athletePose(p)
+      assert.ok(pose.frontLeg.planted && pose.backLeg.planted)
+    }
+  }
+})
+
 test('a moving push transfers torso weight while its load-bearing palms stay fixed', () => {
   const run = pushingRun(1, false)
   advance(run, 180, { move: 1 })

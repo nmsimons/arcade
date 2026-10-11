@@ -21,9 +21,27 @@ export async function waitForBuilderPreview(page) {
   await expect(page.getByRole('application', { name: 'Level canvas' })).toHaveAttribute('aria-busy', 'false')
 }
 
-export async function restartFromPause(page) {
+export async function restartFromPause(page, finishEntrance = true) {
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: /^(Restart level|Reset position)$/ }).click()
+  if (finishEntrance) await finishJumpingEntrance(page)
+}
+
+/** Gameplay routes start after the doorway closes; entrance tests cover the opening itself. */
+export async function finishJumpingEntrance(page) {
+  const { expect } = await import('@playwright/test')
+  await expect(page.locator('.jumping-game > canvas')).toBeFocused()
+  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await page.clock.runFor(1350)
+  // Preparation and the first RAF can delay the opening. Advance neutral
+  // frames until its published status confirms that ordinary controls are live.
+  await expect.poll(async () => {
+    await page.clock.runFor(16)
+    return page.locator('.jumping-state').innerText()
+  }, { intervals: [0] }).not.toBe('Entering the level')
+  // Begin controls on a rendered frame, keeping recorded input phases stable.
+  const now = await page.evaluate(() => performance.now())
+  await page.clock.runFor((16 - now % 16) % 16)
 }
 
 /** Real file handles, isolated in browser-test storage; production always uses the user's folder. */
@@ -65,7 +83,7 @@ export async function saveTestLevel(page, button = 'Save level') {
     await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
     await expect(page.getByRole('img', { name: /: reach the exit$/ })).toBeFocused()
     // Gameplay assertions begin after the entrance; entry itself has dedicated coverage.
-    await page.clock.runFor(1350)
+    await finishJumpingEntrance(page)
   }
   else await expect(page.getByRole('status', { name: 'Builder status' })).toContainText(`Saved “${fileName}”`)
   return { fileName, level: await readTestLevel(page, fileName) }

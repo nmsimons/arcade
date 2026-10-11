@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/folderTest.mjs'
-import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 
 const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/jumping/water-reservoir.json', import.meta.url), 'utf8'))
 
@@ -72,7 +72,7 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
   })
   await page.clock.install()
   await page.goto('/untitled-jumping-game?motionDebug=1')
-  await page.getByRole('button', { name: 'Play Water reservoir test', exact: true }).click()
+  await page.getByRole('button', { name: 'Play Water reservoir test', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('img', { name: 'Water reservoir test: reach the exit', exact: true })).toBeFocused()
   await page.clock.runFor(150)
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')

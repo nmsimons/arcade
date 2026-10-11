@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { waterBindingLevel } from '../helpers/jumpingWaterBindings.mjs'
 
 const pool = JSON.parse(readFileSync(new URL('../fixtures/jumping/single-block-pool.json', import.meta.url), 'utf8'))
@@ -17,7 +17,7 @@ test('the controller stick folds an upright float before extending down at the s
   await page.goto('/untitled-jumping-game?motionDebug=1')
   const play = page.getByRole('button', { name: 'Play Water clear 1', exact: true })
   await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await play.click(); await expect(page.locator('canvas[tabindex="0"]')).toBeFocused(); await page.clock.runFor(150)
+  await play.click(); await finishJumpingEntrance(page); await expect(page.locator('canvas[tabindex="0"]')).toBeFocused(); await page.clock.runFor(150)
   const stick = async (y, ms) => {
     await page.evaluate(y => { window.testPad.axes[1] = y }, y)
     await page.clock.runFor(ms)
@@ -61,7 +61,7 @@ for (const device of ['keyboard', 'controller']) test(`${device} holding Down th
   const play = page.getByRole('button', { name: 'Play Single block pool', exact: true })
   await expect(play).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await play.click(); await page.clock.runFor(64)
+  await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)
   await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()
   // Let the committed gameplay screen sample a released controller before
   // moving its stick; menu-to-play input is deliberately blocked until then.

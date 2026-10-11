@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { selectBuilderOption, selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, selectBuilderOption, selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = (orientation = 'horizontal') => ({ ...blankTrial(), id: 'coins-browser-test', name: 'Coin collection', width: 1200, height: 600, floor: 600,
   entrance: { x: 160, y: 600 }, goal: { x: 1040, y: 600 },
@@ -45,7 +45,7 @@ async function open(page, editor = false, orientation = 'horizontal') {
     await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
     await page.getByRole('button', { name: 'Open fixture.json', exact: true }).click()
   } else {
-    await page.locator('.jumping-level-card[aria-pressed=true]').click()
+    await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
     await expect(page.getByRole('img', { name: 'Coin collection: reach the exit' })).toBeFocused()
   }
   await page.clock.runFor(64)

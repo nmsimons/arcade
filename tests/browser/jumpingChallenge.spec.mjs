@@ -1,6 +1,7 @@
+import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold } from './helpers/controller.mjs'
-import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { installDigitalClockSpy, wallTimeFromHud } from './helpers/digitalClock.mjs'
@@ -46,7 +47,7 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
 }
 const position = page => page.evaluate(() => window.levelPlayer)
 async function enter(page) {
-  await page.locator('.jumping-level-card[aria-pressed=true]').click()
+  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.clock.runFor(64)
 }
@@ -68,15 +69,16 @@ test('the new level menu presents a readable progression', async ({ page }, info
   await expect(page.locator('.jumping-level-detail').getByRole('heading', { name: 'Hand Over Hand', exact: true })).toBeVisible()
   await expect(page.locator('.jumping-level-detail .jumping-medal-times')).toHaveText('Gold 11sSilver 18sBronze 32s')
 })
-test('the trial waits, pauses, restarts, completes, saves a best and advances to the next lesson', async ({ page }, info) => {
+test('the trial activates, pauses, restarts, completes, saves a best and advances to the next lesson', async ({ page }, info) => {
   // Advancing the virtual clock still renders every frame on the CI runner.
   test.setTimeout(60000)
   await setup(page); await enter(page)
-  await advanceJumpingSimulation(page, 1500); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  await advanceJumpingSimulation(page, 1500); await expect(page.getByTestId('level-time')).not.toHaveText('0:00.00')
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')
+  const beforePause = await page.getByTestId('level-time').innerText()
   await page.keyboard.press('Escape'); await page.clock.fastForward(5000)
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(100)
-  expect(await page.getByTestId('level-time').innerText()).toMatch(/^0:00\./)
+  expect(Number((await page.getByTestId('level-time').innerText()).slice(2)) - Number(beforePause.slice(2))).toBeLessThan(.2)
   await page.clock.runFor(300)
   const moved = await position(page)
   expect(moved.x).toBeGreaterThan(200)
@@ -89,9 +91,9 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await page.keyboard.press('ArrowDown')
   await expect(page.getByRole('button', { name: 'Restart level', exact: true })).toBeFocused()
-  await page.keyboard.press('Enter'); await page.clock.runFor(100)
+  await page.keyboard.press('Enter'); await finishJumpingEntrance(page); await page.clock.runFor(100)
   expect((await position(page)).x).toBeCloseTo(170)
-  await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  expect(Number((await page.getByTestId('level-time').innerText()).slice(2))).toBeLessThan(.3)
   await page.screenshot({ path: info.outputPath('first-leap.png') })
   await finishFirst(page); await expect(page.getByText('Gold medal')).toBeVisible()
   await page.screenshot({ path: info.outputPath('first-leap-medal.png') })
@@ -108,10 +110,12 @@ test('the trial waits, pauses, restarts, completes, saves a best and advances to
   await page.clock.runFor(100)
   releasePreparation()
   await expect(page.getByRole('img', { name: 'A Little Swing: reach the exit' })).toBeFocused()
+  await finishJumpingEntrance(page)
   // Read the new level only after it has rendered and published its reset timer.
   await page.clock.runFor(100)
   await page.unroute('**/ropeLayout.worker*', delayPreparation)
-  expect((await position(page)).x).toBeCloseTo(170); await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
+  expect((await position(page)).x).toBeCloseTo(170)
+  expect(Number((await page.getByTestId('level-time').innerText()).slice(2))).toBeLessThan(.3)
   await page.clock.resume(); await page.reload()
   await expect(page.getByRole('img', { name: 'A Little Swing: reach the exit' })).toBeFocused()
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Level menu', exact: true }).click()
@@ -296,6 +300,7 @@ test('a rolling ball stops against the player at a closed gate on a slope', asyn
   level.entrance = { x: 870, y: 751 }
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: 900, y: 350, w: 20, h: 570, travel: 570 }]
   level.props = [{ kind: 'ball', x: 710, y: 703, size: 100 }]
+  flattenFixtureEntrance(level)
   await setup(page, 0, [level]); await enter(page)
   await page.keyboard.down('w'); await page.clock.runFor(32); await page.keyboard.up('w')
   for (let i = 0; i < 60; i++) {
@@ -338,9 +343,10 @@ test('a separate Switch plate opens a hidden black door; entering stops the time
   expect(await page.evaluate(() => window.goalDoor)).toBeNull()
   expect((await page.evaluate(() => window.goalLight)).lit).toBe(false)
   await page.screenshot({ path: info.outputPath('hidden-door-closed.png') })
-  await page.keyboard.down('d')
-  for (let i = 0; i < 100 && !await page.evaluate(() => window.goalLight.lit); i++) await page.clock.runFor(16)
-  await page.keyboard.up('d'); await page.clock.runFor(500)
+  // Walk onto the plate and stop before the distant doorway. Lighting may draw
+  // the indicator through an offscreen cache, so it cannot time this approach.
+  await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.clock.runFor(500)
+  await page.keyboard.up('d'); await page.keyboard.up('Shift'); await page.clock.runFor(500)
   const time = await page.getByTestId('level-time').innerText()
   expect(await page.evaluate(() => window.goalDoor)).toEqual({ x: 580, y: 840, w: 40, h: 80 })
   await page.clock.runFor(4000)
@@ -373,7 +379,7 @@ test('a separate Switch plate opens a hidden black door; entering stops the time
   expect(await page.evaluate(id => JSON.parse(localStorage.getItem('arcade.jumping.times.v1'))[id], level.id)).toBeGreaterThan(0)
 })
 
-test('an object can open a distant exit without moving the camera or completing; restart hides it again', async ({ page }, info) => {
+test('an object can open a distant exit without moving the camera or completing; restart resets it during the entrance', async ({ page }, info) => {
   const level = blankTrial(); level.goal.x = 1500
   level.goal.id = 'exit'; level.goal.power = 'switched'
   level.triggers = [{ x: 1472, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
@@ -392,11 +398,15 @@ test('an object can open a distant exit without moving the camera or completing;
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   await page.getByRole('button', { name: 'Resume', exact: true }).click(); await page.clock.runFor(200)
   await expect(page.getByRole('dialog')).toHaveCount(0)
-  await restartFromPause(page); await page.clock.runFor(2000)
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Restart level', exact: true }).click(); await page.clock.runFor(128)
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByTestId('level-time')).toHaveText('0:00.00')
   expect((await page.evaluate(() => window.goalLight)).lit).toBe(false)
-  expect(await page.evaluate(() => window.goalDoor)).toBeNull()
+  await expect(page.locator('.jumping-state')).toHaveText('Entering the level')
+  await finishJumpingEntrance(page); await page.clock.runFor(2000)
+  expect((await page.evaluate(() => window.goalLight)).lit).toBe(true)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
 for (const anchor of ['summit', 'shoulder']) test(`Up climbs a rope draped over a steep shoulder (${anchor} anchor)`, async ({ page }, info) => {
@@ -442,11 +452,12 @@ for (const slope of [-.2, .2]) test(`Up climbs around a sloped lip (${slope})`, 
 
 test('a pointed ramp with an inward-slanting face supports a jump, hang, and pull-up', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Pointed ramp'; level.width = 1200; level.height = level.floor = 600
-  level.entrance = { x: 514, y: 580 }; level.goal = { x: 1040, y: 580 }
+  level.entrance = { x: 534, y: 580 }; level.goal = { x: 1040, y: 580 }
   level.platforms = [{ x: 0, y: 300, w: 1200, h: 300,
     polygon: [[0,280],[320,280],[500,180],[480,280],[1200,280],[1200,300],[0,300]] }]
   await setup(page, 0, [level]); await enter(page)
-  await page.keyboard.down('Space'); await page.keyboard.down('a'); await page.clock.runFor(32)
+  await page.keyboard.down('a'); await page.clock.runFor(100)
+  await page.keyboard.down('Space'); await page.clock.runFor(32)
   await page.keyboard.up('Space'); await page.clock.runFor(550); await page.keyboard.up('a'); await page.clock.runFor(150)
   await expect(page.locator('.jumping-state')).toHaveText('Hanging')
   expect((await position(page)).x).toBeCloseTo(514); expect((await position(page)).y).toBeCloseTo(554)
@@ -593,6 +604,7 @@ for (const pointed of [false, true]) test(`crouch-walking lowers from a ${pointe
       polygon: pointed ? [[0,240],[400,0],[360,240]] : [[0,200],[200,0],[400,0],[400,200]] },
     { x: 460, y: 300, w: 360, h: 40 },
   ]
+  flattenFixtureEntrance(level, 0, 'uphill')
   expect(levelProblems(level)).toEqual([])
   await setup(page, 0, [level]); await enter(page)
   await page.keyboard.down('s'); await page.keyboard.down('d'); await page.clock.runFor(5500)
@@ -620,6 +632,7 @@ test('clutter below a low ledge keeps a stable grip and allows a crouched pull-u
     props: [{ kind: 'box', x: 715, y: 620, size: 30 }, { kind: 'ball', x: 745, y: 620, size: 30 }],
     robots: [{ x: 820, y: 620, left: 400, right: 1000 }],
   }
+  flattenFixtureEntrance(level, 0, 'uphill')
   expect(levelProblems(level)).toEqual([])
   await setup(page, 0, [level]); await enter(page)
   for (let attempt = 0; attempt < 2; attempt++) {

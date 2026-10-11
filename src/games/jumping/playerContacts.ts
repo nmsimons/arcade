@@ -349,11 +349,11 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
   if (!ground || world.platforms.some(b => bodyIntersects(x, ground.y, b, p.crouching ? TUNING.crouchHeight : TUNING.height))) return 0
   const constrained = (x - p.x) / dt
   const workingApproach = !contact.passive
-    && (requestedVelocity * direction < 0 || (p.contacts?.support?.angle ?? 0) * direction <= 0)
+    && (requestedVelocity * direction < 0 || (p.contacts?.support?.angle ?? 0) * direction < 0)
   if (contact.collider.prop?.kind !== 'ball' || workingApproach) return constrained
   // Working hands keep the voluntary shove pace while a faster prop escapes.
   // The face can constrain travel or displace an incoming body, but it cannot
-  // make the pusher sprint after an outgoing prop. Free steering resumes once
+  // make a flat or downhill pusher sprint after an outgoing prop. Free steering resumes once
   // that surface leaves hand reach; the prop itself is never speed-clamped.
   return direction * Math.min(requestedVelocity * direction, constrained * direction)
 }

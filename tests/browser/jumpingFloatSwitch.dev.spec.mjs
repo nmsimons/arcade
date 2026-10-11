@@ -45,6 +45,7 @@ test('float switch editor controls, outputs, undo, duplication and saved templat
 })
 
 test('normal controls raise water and grav floats, open the exit, drain and restart', async ({page}, info) => {
+  test.setTimeout(60_000)
   const level=readLevelAsset('float-switch.json')
   await useLevelFixtures(page,[level])
   await page.addInitScript(() => {

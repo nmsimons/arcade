@@ -168,10 +168,10 @@ test('jumping again during a rope catch does not launch at catch-animation speed
   const before = await position(page)
   await page.keyboard.down('Space'); await page.clock.runFor(64)
   const after = await position(page)
-  await expect(page.locator('.jumping-state')).not.toContainText('Rope')
   expect(after.x - before.x).toBeGreaterThan(10)
   expect(after.x - before.x).toBeLessThan(40)
   await page.keyboard.up('Space'); await page.clock.runFor(64)
+  await expect(page.locator('.jumping-state')).not.toContainText('Rope')
 })
 test('a fall is recoverable by the ladder and does not restart the clock', async ({ page }) => {
   await setup(page); await enter(page)

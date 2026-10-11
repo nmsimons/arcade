@@ -3,6 +3,7 @@ import { selectBuilderOption, installTestFolder, useLevelFixtures, saveTestLevel
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 async function open(page, level = blankTrial()) {
+  await page.clock.install()
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'lighting.json': level })
   await page.addInitScript(() => {
     const fill = CanvasRenderingContext2D.prototype.fillRect

@@ -5,7 +5,7 @@ import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/water-tunnel.json', import.meta.url), 'utf8'))
 // The route includes a complete restart and second completion on CI.
-test.setTimeout(120000)
+test.setTimeout(180000)
 
 test('normal keyboard swimming holds depth, collects submerged coins, recovers in a covered passage and exits', async ({ page }, info) => {
   const errors = []

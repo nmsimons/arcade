@@ -2,6 +2,7 @@ import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { reverseRopeWorkshop as fixture } from './helpers/jumpingRopeGravity.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
+import { TUNING } from '../../src/games/jumping/model.ts'
 
 async function open(page, level) {
   await useLevelFixtures(page, [level])
@@ -32,7 +33,12 @@ for (const release of ['jump', 'let go']) test(`normal controls catch a floating
   await page.keyboard.down(release === 'jump' ? 'Space' : 'x'); await page.clock.runFor(32)
   const after = await sample(page)
   expect(after.signals.mode).toBe('free')
-  if (release === 'jump') expect(after.vy).toBeGreaterThan(400)
+  if (release === 'jump') {
+    const launched = await page.evaluate(time => window.jumpingMotion.read().recent.find(s =>
+      s.time > time && s.input.jump && s.signals.mode === 'free'), before.time)
+    expect(launched).toBeDefined()
+    expect(launched.vy).toBeGreaterThanOrEqual(TUNING.jumpSpeed)
+  }
   else expect(Math.abs(after.vy - before.vy)).toBeLessThan(80)
   await page.clock.runFor(100); expect((await sample(page)).signals.mode).toBe('free')
   await page.keyboard.up(release === 'jump' ? 'Space' : 'x')

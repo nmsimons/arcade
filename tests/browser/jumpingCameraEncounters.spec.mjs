@@ -129,7 +129,7 @@ for (const size of sizes) for (const night of [false, true]) for (const kind of 
       await checkpoint('carrier-boarding', [360, 650])
       await page.keyboard.down('d'); await page.clock.runFor(120)
       await page.keyboard.down('Space'); await page.clock.runFor(180); await page.keyboard.up('Space')
-      await page.clock.runFor(550); await page.keyboard.up('d'); await page.clock.runFor(1200)
+      await page.clock.runFor(750); await page.keyboard.up('d'); await page.clock.runFor(1200)
       expect((await sample(page)).signals.mode).toBe('hang')
       await checkpoint('carried-crate-caught-lip', [(await sample(page)).contacts.hands[0].x, (await sample(page)).contacts.hands[0].y])
       await page.keyboard.down('w'); await page.clock.runFor(900); await page.keyboard.up('w')

@@ -570,8 +570,8 @@
     {
       "file": "Balls.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 25.333333333332536,
-      "activeTime": 26.19166666666582,
+      "elapsed": 25.324999999999203,
+      "activeTime": 26.183333333332488,
       "coins": 0,
       "trace": [
         {
@@ -952,7 +952,7 @@
           }
         },
         {
-          "frames": 78,
+          "frames": 77,
           "input": {
             "move": 0,
             "jump": false,

@@ -5,6 +5,23 @@ import {NEUTRAL_INPUT,TUNING} from '../src/games/jumping/model.ts'
 import {levelProblems,parseLevel} from '../src/games/jumping/level.ts'
 import {playerContacts} from '../src/games/jumping/playerContacts.ts'
 import {downhillBallLevel,downhillBallInput} from './helpers/jumpingDownhillBallScenarios.mjs'
+import {flattenFixtureEntrance} from './helpers/jumping-entrance-bank.mjs'
+
+test('flat doorway footing keeps a walking or crouching ball pusher within their movement speed after idle motion',()=>{
+  for(const direction of [-1,1])for(const idleTicks of [12,24])for(const mode of ['walk','crouch']) {
+    const level=flattenFixtureEntrance(downhillBallLevel(100,direction),0,'downhill')
+    assert.deepEqual(levelProblems(level),[])
+    const run=createRun(level),input=downhillBallInput(mode,direction)
+    for(let tick=0;tick<idleTicks;tick++)stepRun(run,NEUTRAL_INPUT)
+    let maxSpeed=0
+    for(let tick=0;tick<360;tick++) {
+      stepRun(run,input)
+      maxSpeed=Math.max(maxSpeed,run.player.vx*direction)
+    }
+    assert.ok(maxSpeed<=TUNING.walkSpeed+.001,`${mode}, direction ${direction}, idle ${idleTicks}: ${maxSpeed}`)
+    assert.ok((run.props[0].x-run.player.x)*direction-50>60,'the ball still rolls out of hand reach')
+  }
+})
 
 for(const slope of [.15,.3,.6])for(const size of [30,100,200])for(const mode of ['run','walk','crouch']) {
   test(`${size}-unit ball rolls freely ahead of a downhill ${mode} on grade ${slope} in both directions`,()=>{

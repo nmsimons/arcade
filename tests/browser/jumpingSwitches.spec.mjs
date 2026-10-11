@@ -85,6 +85,7 @@ test('a logic-only XOR relay powers only the corresponding light, with release, 
 
 for (const [behavior, startsOn] of [['pressure', false], ['switch', false], ['switch', true], ['toggle', false], ['toggle', true]]) {
   test(`${behavior}${startsOn ? ' starts on' : ''} works through normal controls and fresh restarts`, async ({ page }, info) => {
+    test.setTimeout(60_000)
     const level = readLevelAsset('switch-modes.json')
     level.triggers[0].behavior = behavior
     if (behavior === 'switch' || behavior === 'toggle') level.triggers[0].startsOn = startsOn

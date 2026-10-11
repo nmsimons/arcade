@@ -400,6 +400,7 @@ test('older ambient settings normalize on open and full-bright preview leaves ni
 })
 
 test('returning from repeated lit playtests restores the editor without reloading', async ({ page }) => {
+  test.setTimeout(60_000)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()) })

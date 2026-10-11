@@ -144,8 +144,12 @@ test('a cached Google token for another account cannot read or write Drive', asy
   await expect(page.locator('.account-status')).toContainText('Reconnect Google Drive')
   expect(drive.requests.length).toBe(before)
   expect(await page.evaluate(key => sessionStorage.getItem(key), ACCESS)).toBeNull()
+  const reconnect = page.getByRole('button', { name: 'Reconnect Google Drive', exact: true })
+  // Loading the mocked SDK initializes its account choice. Wait for that
+  // before selecting Bob, otherwise a delayed SDK response resets it to Alice.
+  await expect(reconnect).toBeEnabled()
   await page.evaluate(() => { window.testAccount = 'bob' })
-  await page.getByRole('button', { name: 'Reconnect Google Drive', exact: true }).click()
+  await reconnect.click()
   await expect(page.locator('.account-status')).toContainText('account changed')
   await expect(page.getByRole('heading', { name: 'Alice Example' })).toBeVisible()
 })

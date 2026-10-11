@@ -151,11 +151,12 @@ Click an object to select it, drag it to move it, or drag empty space to select 
 Selecting a placement tool shows its default-size object under the mouse or
 controller cursor while it hovers over the canvas. Every placement tool follows
 the cursor in both directions; objects never jump to a distant surface below.
-With **Snap** enabled, all positions, sizes and terrain nodes align in 5-unit steps.
-Previews, placement, dragging, resize handles, arrow-key nudges and numeric field
-steps use the same spacing. The 20-unit wall grid and stair template dimensions
-are independent of this authoring precision. Nodes inserted on slopes stay on
-the existing edge, snapping along its dominant axis.
+With **Snap** enabled, choose **5 units** (the default) or **20 units** with the
+**Grid** control beside Snap. Previews, placement, dragging, resize handles,
+terrain nodes, arrow-key nudges and numeric field steps use the selected spacing.
+Changing Grid does not move existing objects. Shift + arrow keys still nudge by
+one unit. The wall grid and stair template dimensions remain 20 units. Nodes
+inserted on slopes stay on the existing edge, snapping along its dominant axis.
 Snap also catches nearby surfaces. Hold Alt or disable Snap to bypass this. The preview does not
 edit the level; click to place it or drag to set its size. **Place on surface**
 (End) moves a selected object to a supporting surface below.

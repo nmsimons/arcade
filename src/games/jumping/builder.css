@@ -78,6 +78,8 @@
 }
 .builder-control-group { display: flex; align-items: center; gap: 8px; flex: none; }
 .builder-placement-options { gap: 16px; }
+.builder-placement-options .builder-select-field { display: flex; align-items: center; gap: 8px; }
+.jumping-game .builder-placement-options .builder-select { gap: 8px; }
 .builder-zoom-controls { margin-left: auto; }
 .jumping-game .builder-view-controls button { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; padding: 10px; background: var(--jumping-paper); white-space: nowrap; }
 .jumping-game .builder-view-controls button:hover:not(:disabled) { color: var(--jumping-color-paper); }

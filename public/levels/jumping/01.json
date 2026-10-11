@@ -72,15 +72,37 @@
   "timers": [],
   "texts": [
     {
-      "x": 620,
-      "y": 940,
-      "w": 240,
-      "h": 120,
-      "text": "Run up, then jump",
-      "fontSize": 22,
+      "x": 630,
+      "y": 1000,
+      "w": 205,
+      "h": 225,
+      "text": "Run up, hold jump",
+      "fontSize": 40,
       "align": "center",
       "style": "graffiti",
       "rotation": 5
+    },
+    {
+      "x": 215,
+      "y": 1095,
+      "w": 50,
+      "h": 60,
+      "text": "->",
+      "fontSize": 36,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": 115
+    },
+    {
+      "x": 205,
+      "y": 1030,
+      "w": 125,
+      "h": 75,
+      "text": "Don't ignore.",
+      "fontSize": 28,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": 15
     }
   ],
   "lighting": {

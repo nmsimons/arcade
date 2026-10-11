@@ -157,7 +157,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   if (layer === 'wall') return
   paint(ctx, 0, () => {
-    drawTerrain(ctx, run.terrain, level.platforms)
+    drawTerrain(ctx, run.terrain, level.platforms, level)
     const corners = mechanismCornerRadii(run)
     for (const [i, m] of run.mechanisms.entries()) drawMechanism(ctx, m, corners[i])
   }, false)

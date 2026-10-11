@@ -57,22 +57,11 @@
       "y": 1020,
       "w": 300,
       "h": 100,
-      "text": "Run up.\nHold jump.",
+      "text": "Run up.\nTap jump.",
       "fontSize": 32,
       "align": "left",
       "style": "graffiti",
       "rotation": -10
-    },
-    {
-      "x": 600,
-      "y": 1280,
-      "w": 140,
-      "h": 120,
-      "text": " (or  whatever the shape on the PS controler is)",
-      "fontSize": 18,
-      "align": "center",
-      "style": "graffiti",
-      "rotation": 5
     },
     {
       "x": 580,

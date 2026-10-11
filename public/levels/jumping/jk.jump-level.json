@@ -293,7 +293,12 @@
     }
   ],
   "robots": [],
-  "timers": [],
+  "timers": [
+    {
+      "x": 1635,
+      "y": 1075
+    }
+  ],
   "pickups": [],
   "texts": [],
   "lighting": {

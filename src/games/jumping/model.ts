@@ -590,6 +590,12 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // A nearly vertical face is a wall contact. Solver-sized box tilts can
       // give it a tiny upward normal without making it a place to plant feet.
       if (c.face.ny >= -.01) return false
+      // A trailing foot can brush the bank while running off its lip. A
+      // separating contact cannot capture the body into a downhill slide.
+      if (p.coyote > 0 && !p.sliding?.active && !c.platform.looseProp && p.vx * c.face.nx + p.vy * c.face.ny > .1
+        && platformLedges(c.platform).some(edge => edge.outwardSlope && c.face.nx * edge.side < 0
+          && (edge.edgeX - p.x) * edge.side >= 0 && (edge.edgeX - p.x) * edge.side <= TUNING.width
+          && p.y >= edge.edgeY && p.y < edge.edgeY + TUNING.height)) return false
       const angle = Math.atan2(c.face.nx, -c.face.ny), speed = p.vx * Math.cos(angle) + p.vy * Math.sin(angle)
       return !canGrip(angle) || p.sliding?.active && Math.abs(speed) > 1e-5
     })

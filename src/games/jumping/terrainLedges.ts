@@ -4,9 +4,10 @@ import { canGrip } from './friction.ts'
 import { BOX_RESTING_ANGLE_TOLERANCE } from './propGeometry.ts'
 
 /** Slope is the top's rise per unit inward from the corner. */
-export interface TerrainLedge { edgeX: number; edgeY: number; side: number; slope?: number }
+export interface TerrainLedge { edgeX: number; edgeY: number; side: number; slope?: number; outwardSlope?: number }
 const ledges = new WeakMap<Platform, readonly TerrainLedge[]>()
 const disabled = new WeakSet<Platform>()
+const OUTWARD_FACE_SLOPE = Math.tan(Math.PI / 18) // Ten degrees from vertical.
 
 /** Moving bodies can explicitly opt out of grips while unsupported or unstable. */
 export function disablePlatformLedges(platform: Platform) { disabled.add(platform); ledges.set(platform, []) }
@@ -33,12 +34,19 @@ export function platformLedges(platform: Platform): readonly TerrainLedge[] {
     const slope = (b[1] - a[1]) / (b[0] - a[0])
     if (!canGrip(Math.atan(slope))) continue
     const before = points[(i + points.length - 1) % points.length], after = points[(i + 2) % points.length]
-    // A hanging face may retreat underneath the top instead of being exactly
-    // vertical. Keep only outward corners; a concave recess is not a lip.
+    // A bank may lean slightly into the hanging space. Keep only convex lips
+    // with a modest outward lean; the actual body sweep and climb
+    // clearance still decide whether the player fits beneath that corner.
     const leftTurn = (a[0] - before[0]) * (b[1] - a[1]) - (a[1] - before[1]) * (b[0] - a[0])
     const rightTurn = (b[0] - a[0]) * (after[1] - b[1]) - (b[1] - a[1]) * (after[0] - b[0])
-    if (before[0] >= a[0] - sideTolerance && before[1] > a[1] && leftTurn > 1e-7) found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}) })
-    if (after[0] <= b[0] + sideTolerance && after[1] > b[1] && rightTurn > 1e-7) found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}) })
+    if (before[0] >= a[0] - sideTolerance - (before[1] - a[1]) * OUTWARD_FACE_SLOPE && before[1] > a[1] && leftTurn > 1e-7) {
+      const outwardSlope = Math.max(0, (a[0] - before[0]) / (before[1] - a[1]))
+      found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}), ...(outwardSlope ? { outwardSlope } : {}) })
+    }
+    if (after[0] <= b[0] + sideTolerance + (after[1] - b[1]) * OUTWARD_FACE_SLOPE && after[1] > b[1] && rightTurn > 1e-7) {
+      const outwardSlope = Math.max(0, (after[0] - b[0]) / (after[1] - b[1]))
+      found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}), ...(outwardSlope ? { outwardSlope } : {}) })
+    }
   }
   ledges.set(platform, found)
   return found
@@ -57,7 +65,11 @@ export function ledgeExposed(platforms: readonly Platform[], edge: TerrainLedge)
 /** The climb pose clears its continuous supporting top, including joined pieces.
  * Geometry above or outside the corner still blocks the authored climb. */
 export function ledgeObstacles(platforms: readonly Platform[], edge: TerrainLedge): readonly Platform[] {
-  const support = new Set(platforms.filter(b => platformLedges(b).some(candidate => sameLedge(candidate, edge))))
+  const support = new Set<Platform>()
+  let outwardSlope = 0
+  for (const b of platforms) for (const candidate of platformLedges(b)) if (sameLedge(candidate, edge)) {
+    support.add(b); outwardSlope = Math.max(outwardSlope, candidate.outwardSlope ?? 0)
+  }
   if (!support.size) return platforms
   // Walk touching collinear top edges inward from the grip. A narrow post
   // joined to a beam must offer the same clearance as one solid L shape.
@@ -84,7 +96,8 @@ export function ledgeObstacles(platforms: readonly Platform[], edge: TerrainLedg
     const points = platformOutline(platform)
     return points.flatMap((a, i) => {
       const b = points[(i + 1) % points.length]
-      if (Math.abs(a[0] - edge.edgeX) > 1e-7 || Math.abs(b[0] - edge.edgeX) > 1e-7
+      const alongFace = (p: readonly [number, number]) => (p[0] - edge.edgeX) * edge.side + (p[1] - edge.edgeY) * outwardSlope
+      if (Math.abs(alongFace(a)) > 1e-7 || Math.abs(alongFace(b)) > 1e-7
         || (b[1] - a[1]) * edge.side >= 0) return []
       return [{ platform, from: Math.min(a[1], b[1]) - edge.edgeY, to: Math.max(a[1], b[1]) - edge.edgeY }]
     })
@@ -96,5 +109,5 @@ export function ledgeObstacles(platforms: readonly Platform[], edge: TerrainLedg
     support.add(face.platform); depth = Math.max(depth, face.to)
   }
   return platforms.flatMap(b => support.has(b)
-    ? outsideCorner(b, edge.edgeX, edge.edgeY, edge.side, edge.slope) : [b])
+    ? outsideCorner(b, edge.edgeX, edge.edgeY, edge.side, edge.slope, outwardSlope) : [b])
 }

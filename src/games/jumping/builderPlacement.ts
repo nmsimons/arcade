@@ -22,9 +22,8 @@ import { editorRobotPose } from './editorGeometry.ts'
 export type PlacementPreview = { level: JumpLevel; selection: Selection }
 
 /** A click-sized candidate uses the editor's placement rules without editing its draft. */
-export function placementPreview(level: JumpLevel, tool: Tool, point: { x: number; y: number; free?: boolean }, snap: boolean, zoom: number): PlacementPreview | null {
+export function placementPreview(level: JumpLevel, tool: Tool, point: { x: number; y: number; free?: boolean }, snap: boolean, zoom: number, grid = BUILDER_GRID_SIZE): PlacementPreview | null {
   if (tool === 'select' || tool === 'node') return null
-  const grid = BUILDER_GRID_SIZE
   const quantize = (value: number) => snap ? Math.round(value / grid) * grid : Math.round(value)
   const bottom = levelHeight(level)
   const position = point.free ? point : { x: quantize(point.x), y: bottom - quantize(bottom - point.y) }

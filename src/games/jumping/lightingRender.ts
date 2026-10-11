@@ -187,7 +187,7 @@ export class LightingRenderer {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
       if (layer !== 'wall') {
         paint(ctx, 0, () => {
-          drawTerrain(ctx, levelTerrain(run.level), run.level.platforms)
+          drawTerrain(ctx, levelTerrain(run.level), run.level.platforms, run.level)
         }, false)
         paint(ctx, 0, () => {
           drawClimbables(ctx, run.player, run.level.climbables)
@@ -580,7 +580,7 @@ export class LightingRenderer {
           drawLevelBackdrop(correction.ctx, run.level,
             { x: view.x, y: view.y, w: width / view.zoom, h: height / view.zoom }, view.zoom, false)
           drawWallTexts(correction.ctx, run.level.texts ?? [], false)
-          drawTerrain(correction.ctx, run.terrain, run.level.platforms)
+          drawTerrain(correction.ctx, run.terrain, run.level.platforms, run.level)
           correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'multiply'; drawField(correction.ctx)
           correction.ctx.globalCompositeOperation = 'difference'; correction.ctx.drawImage(this.dayAmbient.buffer.canvas, 0, 0)
           this.dayBackground = { key: backgroundKey, groups: structures.fixed, buffer: correction }

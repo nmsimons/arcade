@@ -244,6 +244,18 @@ supporting face, so its internal seam cannot block a rope transfer, pull-up or
 lowering motion. Follow only touching face intervals; real gaps retain separate
 collision geometry.
 
+The outside face below a lip may lean outward by up to ten degrees from vertical,
+including a pool bank with a sloping top. This only admits the corner for a
+possible grip: the catch sweep, hanging body and complete pull-up path still
+have to clear the actual terrain. Supporting-corner clearance follows the real
+slanted face, including flush joined pieces; a leaning bank's own wedge does not
+block its pull-up. Steeper outward banks, shallow hill crests and concave
+recesses do not gain ledge grips.
+
+Running off a lip retains the departing surface velocity. A trailing foot may
+briefly touch an outward-sloping bank, but a contact the player is moving away
+from cannot redirect that momentum into a downhill slide.
+
 Box grips allow the same 0.001-radian resting tilt that the prop solver corrects
 once a box stops moving. Ordinary player contact must not remove a supported
 box's lip because of imperceptible solver rotation. The box still needs two flat

@@ -11,8 +11,12 @@ full filling, final draining and both pickups. Silver and bronze allow extra
 swimming, cargo placement and recovery; these are initial targets based on the
 completed route, not a study of first-time players.
 
-The catalog now has 24 levels. Escapade remains explicitly pending. Heavy-prop
-edits required fresh route recordings for Boxes, Balls, Tower I, Drain and
+The catalog now has 25 levels. Untitled II's authored **13 / 20 / 30** targets
+are explicitly pending a fresh-start medal recording. Escapade remains pending;
+its revised spawn and **300 / 360 / 580** targets also need a completed route.
+These authored targets are preserved without claiming new medal evidence.
+
+Heavy-prop edits required fresh route recordings for Boxes, Balls, Tower I, Drain and
 Ramping Up; their existing medal targets and puzzle assertions are retained.
 Balls uses current held-jump controls and also passed its browser keyboard
 check. The other four refreshed recordings preserve their historical jump
@@ -25,13 +29,15 @@ for current tap/hold controls.
 | Balls | 25.33 | 26.19 | 28 / 40 / 60 |
 | Tower I | 87.62 | 88.48 | 100 / 140 / 210 |
 | Drain | 31.27 | 42.12 | 35 / 50 / 75 |
-| Ramping Up | 54.08 | 54.93 | 55 / 80 / 120 |
+| Ramping Up | 44.92 | 45.77 | 55 / 80 / 120 |
 | Buoyancy | 30.82 | 50.67 | 35 / 50 / 75 |
 
-Ramping Up's new recording returns up the free ladder after launching cargo,
-hops over the ball on the bench, then pushes it onto the gravity switch. It
-collects all ten coins and hops past heavy cargo on the upper ramp. Its narrower
-Gold margin has not been independently checked with current keyboard jumping.
+Ramping Up now uses standard balls throughout. Its earlier route was replayed
+successfully against the updated asset from a fresh start and retained as the
+current recording. It activates and releases gravity, lets a ball take over the
+pressure plate, collects all ten coins, and completes in 44.92 scored seconds.
+The **55 / 80 / 120** targets remain unchanged. This recording preserves its
+historical jump impulses; current keyboard medal timing remains unverified.
 
 October 7 update: Escapade was added after the recorded audit. Its current
 10 / 20 / 40 medal times remain unverified; the fixture lists it explicitly as

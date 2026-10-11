@@ -4,6 +4,10 @@
     {
       "file": "escapade.jump-level.json",
       "reason": "Added after the October 4 medal audit; a fresh-start medal route has not yet been recorded."
+    },
+    {
+      "file": "Untitled 2.jump-level.json",
+      "reason": "New authored level; its 13 / 20 / 30 medal targets have not yet been verified by a recorded fresh-start route."
     }
   ],
   "runs": [
@@ -4566,8 +4570,8 @@
     },
     {
       "file": "rampingup.jump-level.json",
-      "elapsed": 54.07499999999757,
-      "activeTime": 54.93333333333086,
+      "elapsed": 44.91666666666476,
+      "activeTime": 45.774999999998045,
       "coins": 10,
       "trace": [
         {
@@ -4583,8 +4587,8 @@
         {
           "frames": 1,
           "input": {
-            "jump": true,
             "climb": true,
+            "jump": true,
             "jumpStrength": 1
           }
         },
@@ -4622,7 +4626,7 @@
           }
         },
         {
-          "frames": 59,
+          "frames": 65,
           "input": {}
         },
         {
@@ -4636,67 +4640,19 @@
           "input": {}
         },
         {
-          "frames": 35,
-          "input": {
-            "move": -1,
-            "climb": true
-          }
-        },
-        {
-          "frames": 355,
-          "input": {
-            "climb": true
-          }
-        },
-        {
-          "frames": 38,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 70,
-          "input": {}
-        },
-        {
-          "frames": 12,
-          "input": {
-            "move": -1
-          }
-        },
-        {
           "frames": 1,
           "input": {
             "move": -1,
+            "climb": true,
             "jump": true,
-            "jumpStrength": 0.25
+            "jumpStrength": 1
           }
         },
         {
-          "frames": 50,
+          "frames": 102,
           "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 45,
-          "input": {}
-        },
-        {
-          "frames": 196,
-          "input": {
-            "move": 1,
-            "crouch": true
-          }
-        },
-        {
-          "frames": 180,
-          "input": {}
-        },
-        {
-          "frames": 21,
-          "input": {
-            "move": -1
+            "move": -1,
+            "climb": true
           }
         },
         {
@@ -4738,8 +4694,8 @@
           "frames": 1,
           "input": {
             "move": -1,
-            "jump": true,
             "climb": true,
+            "jump": true,
             "jumpStrength": 1
           }
         },
@@ -4769,8 +4725,8 @@
         {
           "frames": 1,
           "input": {
-            "jump": true,
             "climb": true,
+            "jump": true,
             "jumpStrength": 1
           }
         },
@@ -4792,8 +4748,8 @@
         {
           "frames": 1,
           "input": {
-            "jump": true,
             "climb": true,
+            "jump": true,
             "jumpStrength": 1
           }
         },
@@ -4818,8 +4774,8 @@
           "frames": 1,
           "input": {
             "move": -1,
-            "jump": true,
             "climb": true,
+            "jump": true,
             "jumpStrength": 1
           }
         },
@@ -4844,30 +4800,6 @@
           "input": {
             "move": -1,
             "climb": true
-          }
-        },
-        {
-          "frames": 70,
-          "input": {}
-        },
-        {
-          "frames": 12,
-          "input": {
-            "move": -1
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": -1,
-            "jump": true,
-            "jumpStrength": 0.25
-          }
-        },
-        {
-          "frames": 110,
-          "input": {
-            "move": -1
           }
         },
         {
@@ -4936,8 +4868,8 @@
           "frames": 1,
           "input": {
             "move": -1,
-            "jump": true,
             "climb": true,
+            "jump": true,
             "jumpStrength": 1
           }
         },
@@ -4974,8 +4906,8 @@
           "frames": 1,
           "input": {
             "move": -1,
-            "jump": true,
             "climb": true,
+            "jump": true,
             "jumpStrength": 1
           }
         },
@@ -4988,10 +4920,6 @@
         },
         {
           "frames": 19,
-          "input": {}
-        },
-        {
-          "frames": 12,
           "input": {}
         }
       ]

@@ -9,7 +9,7 @@ const seams = [
   { edge: 'right', material: 'stone', axis: 'x', boundary: 1000, shape: { x: 800, y: 100, w: 200, h: 400 }, cover: { x: 980, y: 250, w: 40, h: 100 } },
 ]
 
-for (const seam of seams) test(`${seam.material} ${seam.edge} forms a seamless silhouette at fractional zoom`, async ({ page }, info) => {
+for (const seam of [...seams, ...seams.map(seam => ({ ...seam, separated: true }))]) test(`${seam.material} ${seam.edge}${seam.separated ? ' with another material in between' : ''} forms a seamless silhouette at fractional zoom`, async ({ page }, info) => {
   // Separate materials/boundaries keep each software-rendered sweep bounded.
   // The inert fixture also avoids running the lab's animation loop in parallel.
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
@@ -21,19 +21,20 @@ for (const seam of seams) test(`${seam.material} ${seam.edge} forms a seamless s
     h.run.level = { ...h.run.level, width: 1000, floor: 600, height: 600, texts: [], timers: [], triggers: [], climbables: { ropes: [], ladders: [] },
       platforms: [{ x: 100, y: 400, w: 800, h: 200, material: 'chalk' }], floorMaterial: 'chalk' }
     for (const ambient of [0, 100]) for (const zoom of [.63, .81, 1, 1.37, 2]) for (const phase of [.15, .5, .85]) {
-      h.run.level = { ...h.run.level, platforms: [c.shape], floorMaterial: c.material }
+      h.run.level = { ...h.run.level, platforms: [c.shape, ...(c.separated ? [{ x: 920, y: 520, w: 20, h: 20, material: c.material === 'chalk' ? 'earth' : 'chalk' }] : [])], floorMaterial: c.material }
       h.view.zoom = zoom; h.view.x = c.axis === 'x' ? c.boundary - (640 + phase) / zoom : 0
       h.view.y = c.axis === 'y' ? c.boundary - (450 + phase) / zoom : -40
       h.run.terrain = levelTerrain(h.run.level)
-      const joined = h.render(ambient)
+      const joined = h.render(ambient), joinedPlain = c.separated && h.fullBright()
       // A continuous solid is the reference for two surfaces with no air gap.
       h.run.terrain = [...h.run.terrain, c.cover]
-      const continuous = h.render(ambient)
+      const continuous = h.render(ambient), continuousPlain = c.separated && h.fullBright()
       for (let offset = -2; offset <= 2; offset++) {
         const x = c.axis === 'x' ? 640 + offset : Math.round(500 * zoom)
         const y = c.axis === 'y' ? 450 + offset : Math.round(340 * zoom)
         const i = (y * h.canvas.width + x) * 4
-        samples.push({ edge: c.edge, material: c.material, ambient, zoom, phase, offset, joined: [...joined.pixels.slice(i, i + 3)], continuous: [...continuous.pixels.slice(i, i + 3)] })
+        samples.push({ edge: c.edge, material: c.material, ambient, zoom, phase, offset, joined: [...joined.pixels.slice(i, i + 3)], continuous: [...continuous.pixels.slice(i, i + 3)],
+          ...(c.separated ? { plainJoined: [...joinedPlain.pixels.slice(i, i + 3)], plainContinuous: [...continuousPlain.pixels.slice(i, i + 3)] } : {}) })
       }
     }
     h.run.terrain = levelTerrain(h.run.level); h.render(0)
@@ -41,7 +42,15 @@ for (const seam of seams) test(`${seam.material} ${seam.edge} forms a seamless s
     h.renderer.dispose(); return { samples, screenshot }
   }, seam)
   await info.attach('floor-seam', { body: Buffer.from(result.screenshot.split(',')[1], 'base64'), contentType: 'image/png' })
-  for (const sample of result.samples) expect(sample.joined, JSON.stringify(sample)).toEqual(sample.continuous)
+  for (const sample of result.samples) {
+    if (seam.separated) {
+      // Blending the same color again at an antialiased edge can round a
+      // channel by one step compared with an opaque overlapping reference.
+      for (const [actual, expected] of [[sample.plainJoined, sample.plainContinuous], [sample.joined, sample.continuous]]) {
+        actual.forEach((channel, i) => expect(Math.abs(channel - expected[i]), JSON.stringify(sample)).toBeLessThanOrEqual(1))
+      }
+    } else expect(sample.joined, JSON.stringify(sample)).toEqual(sample.continuous)
+  }
 })
 
 
@@ -64,4 +73,52 @@ test('terrain batching preserves real gaps and overlapping material order', asyn
   })
   expect(result.gap).toEqual([255, 255, 255, 255])
   expect(result.top).toEqual(result.expected)
+})
+
+const boundaryJoins = [
+  { edge: 'left', axis: 'x', boundary: 0, shape: { x: 0, y: 100, w: 200, h: 400 }, extended: { x: -4, y: 100, w: 204, h: 400 },
+    gap: { x: 2, y: 100, w: 198, h: 400 }, sample: [1, 300] },
+  { edge: 'right', axis: 'x', boundary: 1000, shape: { x: 800, y: 100, w: 200, h: 400 }, extended: { x: 800, y: 100, w: 204, h: 400 },
+    gap: { x: 800, y: 100, w: 198, h: 400 }, sample: [999, 300] },
+  { edge: 'ceiling', axis: 'y', boundary: 0, shape: { x: 100, y: 0, w: 800, h: 200 }, extended: { x: 100, y: -4, w: 800, h: 204 },
+    gap: { x: 100, y: 2, w: 800, h: 198 }, sample: [500, 1] },
+  { edge: 'floor', axis: 'y', boundary: 600, shape: { x: 100, y: 400, w: 800, h: 200 }, extended: { x: 100, y: 400, w: 800, h: 204 },
+    gap: { x: 100, y: 400, w: 800, h: 198 }, sample: [500, 599] },
+]
+
+for (const join of boundaryJoins) test(`${join.edge}: different materials meet cleanly and real gaps remain visible`, async ({ page }, info) => {
+  await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
+  const result = await page.evaluate(async c => {
+    const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
+    const { levelTerrain } = await import('/src/games/jumping/level.ts')
+    const h = await lightingHarness(), samples = []
+    h.run.props = []; h.run.robots = []; h.run.mechanisms = []; h.run.triggers = []; h.run.pickups = []
+    h.run.level = { ...h.run.level, width: 1000, floor: 600, height: 600, floorMaterial: 'stone', texts: [], timers: [], triggers: [],
+      climbables: { ropes: [], ladders: [] } }
+    const scene = shape => {
+      h.run.level = { ...h.run.level, platforms: shape ? [{ ...shape, material: 'earth' }] : [] }
+      h.run.terrain = levelTerrain(h.run.level)
+    }
+    for (const zoom of [.63, .81, 1, 1.37, 2]) for (const phase of [.15, .5, .85]) {
+      h.view.zoom = zoom
+      h.view.x = (c.axis === 'x' ? c.boundary : 500) - (640 + phase) / zoom
+      h.view.y = (c.axis === 'y' ? c.boundary : 300) - (450 + phase) / zoom
+      scene(c.shape); const joined = h.fullBright()
+      // An overlapping reference has no separately antialiased edge at the join.
+      scene(c.extended); const continuous = h.fullBright()
+      for (let offset = -2; offset <= 2; offset++) {
+        const x = 640 + (c.axis === 'x' ? offset : 0), y = 450 + (c.axis === 'y' ? offset : 0)
+        const i = (y * h.canvas.width + x) * 4
+        samples.push({ zoom, phase, offset, joined: [...joined.pixels.slice(i, i + 3)], continuous: [...continuous.pixels.slice(i, i + 3)] })
+      }
+    }
+    h.view.zoom = 2; h.view.x = c.sample[0] - 320; h.view.y = c.sample[1] - 225
+    scene(c.gap); const gap = h.pixel(h.fullBright(), ...c.sample)
+    scene(null); const air = h.pixel(h.fullBright(), ...c.sample)
+    scene(c.shape); h.fullBright(); const screenshot = h.canvas.toDataURL()
+    h.renderer.dispose(); return { samples, gap, air, screenshot }
+  }, join)
+  await info.attach(`${join.edge}-material-join`, { body: Buffer.from(result.screenshot.split(',')[1], 'base64'), contentType: 'image/png' })
+  for (const sample of result.samples) expect(sample.joined, JSON.stringify(sample)).toEqual(sample.continuous)
+  expect(result.gap).toEqual(result.air)
 })

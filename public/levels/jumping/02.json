@@ -373,13 +373,13 @@
   ],
   "texts": [
     {
-      "x": 220,
-      "y": 1030,
-      "w": 320,
-      "h": 100,
+      "x": 405,
+      "y": 800,
+      "w": 220,
+      "h": 195,
       "text": "Jump into the rope.\nIt catches you.",
-      "fontSize": 24,
-      "align": "left",
+      "fontSize": 34,
+      "align": "center",
       "style": "graffiti",
       "rotation": -4
     },

@@ -790,23 +790,23 @@
   ],
   "texts": [
     {
-      "x": 880,
-      "y": 880,
+      "x": 855,
+      "y": 900,
       "w": 320,
       "h": 100,
       "text": "Stop time ->",
-      "fontSize": 16,
+      "fontSize": 22,
       "align": "left",
       "style": "graffiti",
       "rotation": -30
     },
     {
-      "x": 1060,
-      "y": 1420,
+      "x": 1050,
+      "y": 1405,
       "w": 300,
       "h": 24,
       "text": "<- Make time",
-      "fontSize": 16,
+      "fontSize": 22,
       "align": "left",
       "style": "graffiti",
       "rotation": 10

@@ -49,11 +49,14 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   ctx.stroke(); ctx.restore()
   if (includeText) drawWallTexts(ctx, level.texts ?? [])
 }
-export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms) {
+export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
   const order = terrainDrawOrder(authored)
+  const transform = level && ctx.getTransform(), bottom = level ? levelHeight(level) : 0
+  const bleedX = transform ? 1 / Math.hypot(transform.a, transform.b) : 0
+  const bleedY = transform ? 1 / Math.hypot(transform.c, transform.d) : 0
   for (let i = 0; i < platforms.length; i++) {
     // Enclosing floor and walls stay above authored terrain, as before.
     const b = platforms[i < order.length ? order[i] : i]
@@ -63,7 +66,20 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
       ctx.fillStyle = terrainFill(ctx, next); ctx.beginPath()
       material = next; started = true
     }
-    polygonPoints(b).forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath()
+    const points = polygonPoints(b)
+    points.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath()
+    // Carry flush terrain edges one canvas pixel into the enclosing solid.
+    // Different material batches cannot share antialias coverage, even when
+    // their geometry meets exactly. The enclosing walls still paint on top.
+    if (level && i < order.length && (b.x <= 0 || b.y <= 0 || b.x + b.w >= level.width || b.y + b.h >= bottom)) for (let edge = 0; edge < points.length; edge++) {
+      const a = points[edge], end = points[(edge + 1) % points.length]
+      if (a[0] === end[0] && (a[0] === 0 || a[0] === level.width)) {
+        ctx.rect(a[0] === 0 ? -bleedX : level.width, Math.min(a[1], end[1]), bleedX, Math.abs(end[1] - a[1]))
+      }
+      if (a[1] === end[1] && (a[1] === 0 || a[1] === bottom)) {
+        ctx.rect(Math.min(a[0], end[0]), a[1] === 0 ? -bleedY : bottom, Math.abs(end[0] - a[0]), bleedY)
+      }
+    }
   }
   if (started) ctx.fill()
 }
@@ -92,7 +108,7 @@ export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, hei
   const { zoom, x, y } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-x, -y)
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
-  drawTerrain(ctx, levelTerrain(level), level.platforms); drawClimbables(ctx, p, level.climbables)
+  drawTerrain(ctx, levelTerrain(level), level.platforms, level); drawClimbables(ctx, p, level.climbables)
   drawCheckpointMarkers(ctx, p, level)
   drawMovementEffects(ctx, p); drawAthlete(ctx, p); ctx.restore()
 }

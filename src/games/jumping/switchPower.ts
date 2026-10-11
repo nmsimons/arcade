@@ -76,13 +76,20 @@ export const isSwitchRelay = (item: { kind: string; definition: SwitchSettings }
 
 /** Both wiring directions in the inspector edit these same source definitions. */
 export function switchSources(level: JumpLevel) {
-  return [...(level.triggers ?? []).map((definition, index) => ({ kind: 'trigger' as const, index, definition })), ...switchedItems(level).filter(isSwitchRelay)]
+  return [...(level.triggers ?? []).map((definition, index) => ({ kind: 'trigger' as const, index, definition })),
+    ...(level.floatSwitches ?? []).map((definition, index) => ({ kind: 'float-switch' as const, index, definition })), ...switchedItems(level).filter(isSwitchRelay)]
 }
 
 /** Settle a whole relay chain before mechanisms, exit and lights read the result. */
-export function resolveSwitchStates(level: JumpLevel, triggers: readonly { active: boolean }[]) {
+export function resolveSwitchStates(level: JumpLevel, triggers: readonly { active: boolean }[], floats: readonly { active: boolean }[] = []) {
   const items = switchedItems(level), byId = new Map(items.map(item => [item.id, item]))
-  const inputs = collectSwitchInputs(level.triggers, triggers), pending = new Map(items.map(item => [item.id, 0]))
+  const inputs = collectSwitchInputs(level.triggers, triggers)
+  for (const [i, source] of (level.floatSwitches ?? []).entries()) for (const id of source.targets) {
+    const counts = inputs.get(id) ?? { connected: 0, active: 0 }
+    counts.connected++; if (floats[i]?.active) counts.active++
+    inputs.set(id, counts)
+  }
+  const pending = new Map(items.map(item => [item.id, 0]))
   for (const item of items) if (isSwitchRelay(item)) for (const id of item.definition.targets ?? []) {
     if (byId.has(id)) pending.set(id, pending.get(id)! + 1)
   }
@@ -146,7 +153,7 @@ export function switchWiringProblems(level: JumpLevel, validateTriggers = true):
 
 /** Called only on an editor copy, after deleting an item or changing its power. */
 export function removeSwitchTarget(level: JumpLevel, id: string) {
-  for (const item of [...level.triggers ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal ? [level.goal] : [])]) {
+  for (const item of [...level.triggers ?? [], ...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal ? [level.goal] : [])]) {
     if (item.targets) item.targets = item.targets.filter(target => target !== id)
     else if ('target' in item && item.target === id) item.target = ''
   }

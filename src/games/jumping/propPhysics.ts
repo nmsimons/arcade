@@ -1,4 +1,5 @@
 import Matter from 'matter-js'
+import { constrainFloatSwitch, floatSwitchConstraint } from './floatSwitchPhysics.ts'
 import type { Prop, Run } from './challenge.ts'
 import type { Platform } from './model.ts'
 import type { PlayerContacts } from './playerContacts.ts'
@@ -71,7 +72,8 @@ function worldFor(run: Run) {
   const terrain = run.terrain.flatMap(s => terrainBodies(s, run))
   const mechanisms = run.mechanisms.map(m => Bodies.rectangle(m.x + m.definition.w / 2, m.y + m.definition.h / 2, m.definition.w, m.definition.h, { ...material, isStatic: true }))
   const bodies = new Map(run.props.map(b => { b.waterImmersion = propWaterStrength(run.gravityField, b); return [b, makeProp(b)] as const }))
-  Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values()])
+  Composite.add(engine.world, [...terrain, ...mechanisms, ...bodies.values(),
+    ...[...bodies].flatMap(([prop, body]) => prop.floatSwitch ? [floatSwitchConstraint(body, prop.floatSwitch)] : [])])
   const world: PropWorld = { engine, terrain, mechanisms, bodies, gravity: new Map(), floatDrag: new Map(), waterStrength: new Map(), floatQuiet: new Map(), driven: new Set() }; worlds.set(run, world)
   // Adjust field gravity and water resistance after Matter's sleeping decision,
   // before collision detection/solving. A persistent applied force would wake
@@ -92,6 +94,7 @@ function worldFor(run: Run) {
       previous.x -= dx; previous.y -= dy; body.velocity.x += dx; body.velocity.y += dy
       Bounds.update(body.bounds, body.vertices, body.velocity)
     }
+    for (const [prop, body] of bodies) if (prop.floatSwitch) constrainFloatSwitch(body, prop.floatSwitch)
     // Speed-based waking cannot propagate a gentle shove into a sleeping chain:
     // the first body is stopped by its sleeping neighbor before gaining speed.
     // Wake the connected prop contacts after integration and before solving.
@@ -119,6 +122,7 @@ export function prepareProps(run: Run) {
   if (!run.props.length) return
   const world = worldFor(run), solids = [...world.terrain, ...world.mechanisms]
   for (const [prop, body] of world.bodies) {
+    if (prop.floatSwitch) continue
     for (let pass = 0; pass < 32; pass++) {
       const hits = Query.collides(body, solids)
       const hit = hits.sort((a, b) => a.depth - b.depth)[0]
@@ -402,6 +406,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
         }
       }
     }
+    for (const [prop, body] of world.bodies) if (prop.floatSwitch) corrected = constrainFloatSwitch(body, prop.floatSwitch) || corrected
     if (!corrected) break
   }
   const byBody = new Map([...world.bodies].map(([prop, body]) => [body, prop]))
@@ -449,7 +454,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     const gravity = Math.abs(world.gravity.get(body) ?? TUNING.gravity)
     const floating = !b.grounded && (world.floatDrag.get(body) ?? 0) > 0 && gravity < .5 && !driven.has(body)
     const falling = !b.grounded && gravity > 1e-7 && !floating
-    body.sleepThreshold = b.waterBob ? 0 : falling && gravity < TUNING.gravity * .05 ? 0 : 45
+    body.sleepThreshold = b.floatSwitch || b.waterBob ? 0 : falling && gravity < TUNING.gravity * .05 ? 0 : 45
     if (falling && body.isSleeping) Sleeping.set(body, false)
     // A force-balanced float is support without a solid contact. Require quiet
     // motion before sleeping; field changes, impacts and player loads still wake it.

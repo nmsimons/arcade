@@ -315,9 +315,10 @@ lights and mechanisms. More elaborate sequencing can come from geometry and
 motion; programmable delays are not supported.
 
 For reusable circuits and their route, recovery, and playtesting criteria, see
-[Button and light puzzle specifications](jumping-logic-puzzles.md). The six
+[Button and light puzzle specifications](jumping-logic-puzzles.md). The seven
 components cover lamp patterns, agreement, load counts, grouped selections,
-load handoffs, and changing a crossing into an exit configuration.
+load handoffs, changing a crossing into an exit configuration, and buoyant levers
+that react to water or grav lifts.
 
 Connections are optional. A switch may serve as a coin meter without activating
 anything, and a gate, platform, or switched lamp may remain unconnected. Give

@@ -37,8 +37,12 @@ import { createForceField, forceFieldPlatforms, updateForceFields } from './forc
 import type { ForceFieldState } from './forceField.ts'
 import { mirrorPlatform } from './gravityFrame.ts'
 
+import { createFloatSwitch, updateFloatSwitch } from './floatSwitch.ts'
+import type { FloatSwitch, FloatSwitchState } from './floatSwitch.ts'
+
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop extends PropDefinition {
+  floatSwitch?: FloatSwitch
   gravity?: number
   waterBob?: WaterBob
   waterImmersion?: number
@@ -50,6 +54,7 @@ export interface Run {
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
   forceFields: ForceFieldState[]
+  floatSwitches: FloatSwitchState[]
   switchStates: Map<string, boolean>; gravityField: GravityField
   waterSurface?: WaterSurfaceState
   water: WaterLevels; waterSpaces: Map<GravityPlate, ReturnType<typeof waterSpace>>; waterEffectsEnabled: boolean
@@ -89,7 +94,8 @@ export function setWaterEffectsEnabled(run: Run, enabled: boolean) {
   if (run.waterSurface) setWaterSurfaceEnabled(run.waterSurface, run.player, run.props, run.gravityField, enabled)
 }
 function createInitialWorld(level: PuzzleLevel, preview = false): Run {
-  const run: Run = { level, player: levelPlayer(level, preview), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
+  const floats = (level.floatSwitches ?? []).map(createFloatSwitch)
+  const run: Run = { floatSwitches: floats, level, player: levelPlayer(level, preview), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],
     mechanisms: level.mechanisms.map(m => {
       const definition = prepareMechanism(m, level.floor)
@@ -100,6 +106,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
     water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
     forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+  run.props.push(...floats.map(f => f.prop))
   for (const pool of run.water.pools) run.waterSpaces.set(pool.region, waterSpace({ ...pool.definition, y: pool.definition.y - 6, h: pool.definition.h + 6 }, run.terrain))
   updateSwitchTargets(run)
   if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
@@ -267,7 +274,8 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
   updateSwitchTargets(run)
 }
 function updateSwitchTargets(run: Run) {
-  const states = resolveSwitchStates(run.level, run.triggers)
+  for (const state of run.floatSwitches) updateFloatSwitch(state, run.empRemaining === 0)
+  const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches)
   run.switchStates = states
   updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0)
   updateGravityField(run.gravityField, run.water.plates, states, run.empRemaining === 0, run.water.revision)

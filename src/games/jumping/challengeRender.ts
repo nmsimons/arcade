@@ -20,6 +20,7 @@ import type { Exposure, WorldLayer, WorldPaint } from './worldPaint.ts'
 import { drawLightFixtures } from './lightFixture.ts'
 import type { LightSource } from './lightingModel.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
+import { drawFloatSwitchArm } from './floatSwitch.ts'
 import { drawWallLight } from './wallLight.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 
@@ -171,6 +172,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), paint)
   for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
   drawGoal(ctx, level.goal, run.goalLit, paint)
+  for (const state of run.floatSwitches) drawFloatSwitchArm(ctx, state, paint)
   paint(ctx, 0, () => {
     if (editor) drawCheckpointMarkers(ctx, p, level)
     for (const b of run.props) drawProp(ctx, b)

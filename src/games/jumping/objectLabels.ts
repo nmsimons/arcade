@@ -11,12 +11,13 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
   const collections = {
     platform: level.platforms, rope: level.climbables.ropes, ladder: level.climbables.ladders,
     checkpoint: level.checkpoints, prop: level.props, robot: level.robots, mechanism: level.mechanisms,
-    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'logic-relay': level.logicRelays, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
+    trigger: level.triggers, timer: level.timers, text: level.texts, pickup: level.pickups, light: level.lighting?.lights, 'wall-light': level.wallLights, 'logic-relay': level.logicRelays, 'float-switch': level.floatSwitches, 'gravity-plate': level.gravityPlates, 'force-field': level.forceFields,
   }
   return collections[selection.kind]?.[selection.index]
 }
 
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
+  if (s.kind === 'float-switch') return `Float switch ${s.index + 1}`
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
   if (s.kind === 'prop') {
     const prop = level.props?.[s.index], weight = prop?.weight === 'heavy' ? 'Heavy ' : ''

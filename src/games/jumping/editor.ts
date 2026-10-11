@@ -25,6 +25,8 @@ import { MECHANISM_THICKNESS, isHorizontalGate, mechanismAnchor, mechanismRopeEn
 import { lightBounds, MAX_LIGHTS } from './lightingDefinition.ts'
 import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight.ts'
 import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBounds } from './logicRelay.ts'
+import { MAX_FLOAT_SWITCHES, floatSwitchBounds, floatBallCenter } from './floatSwitch.ts'
+import type { FloatSwitch } from './floatSwitch.ts'
 import { editorRobotPose } from './editorGeometry.ts'
 import { ROBOT_HALF_WIDTH, robotHulls } from './robotPhysics.ts'
 
@@ -33,12 +35,12 @@ import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from 
 import { plateSolids, plateSurface } from './plateSurface.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'gravity-plate' | 'force-field'; index: number }
+export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
 /** Change only visual depth; terrain indices and all attachments stay stable. */
@@ -114,7 +116,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   next.height = height
   if (next.floor !== undefined) next.floor = height
   for (const point of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
-    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
+    ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
     rope.y += dy
@@ -128,6 +130,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   const i = selection.index
   if (selection.kind === 'light') { const l = level.lighting?.lights[i]; return l ? lightBounds(l) : null }
   if (selection.kind === 'wall-light') { const light = level.wallLights?.[i]; return light ? wallLightBounds(light) : null }
+  if (selection.kind === 'float-switch') { const f = level.floatSwitches?.[i]; return f ? floatSwitchBounds(f) : null }
   if (selection.kind === 'logic-relay') { const relay = level.logicRelays?.[i]; return relay ? logicRelayBounds(relay) : null }
   if (selection.kind === 'force-field') return level.forceFields?.[i] ?? null
   if (selection.kind === 'gravity-plate') return level.gravityPlates?.[i] ?? null
@@ -282,6 +285,20 @@ function editObjectSwitchSettings(level: JumpLevel, selection: Selection, settin
   Object.assign(item.definition, settings)
   return next
 }
+export function editFloatSwitch(level: JumpLevel, index: number, patch: Partial<Pick<FloatSwitch, 'armLength' | 'size' | 'travelAngle' | 'flipX' | 'startsRaised' | 'activeWhen'>>): JumpLevel {
+  if (!level.floatSwitches?.[index]) return level
+  const next = copyLevel(level), f = next.floatSwitches![index]
+  Object.assign(f, patch)
+  if (![f.armLength, f.size, f.travelAngle ?? 45].every(Number.isFinite)) return level
+  f.armLength = clamp(f.armLength, 40, 400); f.size = clamp(f.size, 20, 100)
+  if (f.travelAngle !== undefined) f.travelAngle = clamp(f.travelAngle, 10, 80)
+  if (f.activeWhen !== undefined && f.activeWhen !== 'raised' && f.activeWhen !== 'lowered') return level
+  const b = floatSwitchBounds(f)
+  if (b.w > next.width || b.h > levelHeight(next)) return level
+  f.x += clamp(b.x, 0, next.width - b.w) - b.x
+  f.y += clamp(b.y, 0, levelHeight(next) - b.h) - b.y
+  return next
+}
 export function setCoinThreshold(level: JumpLevel, index: number, threshold: number): JumpLevel {
   if (level.triggers?.[index]?.mode !== 'coins' || !Number.isFinite(threshold)) return level
   const next = copyLevel(level), trigger = next.triggers![index]
@@ -317,6 +334,11 @@ export function setCoinSwitchOrientation(level: JumpLevel, index: number, orient
 }
 export function hitItem(level: JumpLevel, x: number, y: number, tolerance: number): Selection | null {
   // Logic nodes are studio overlays, so remain selectable even over terrain.
+  for (let i = (level.floatSwitches?.length ?? 0) - 1; i >= 0; i--) {
+    const f = level.floatSwitches![i], c = floatBallCenter(f), dx = c.x - f.x, dy = c.y - f.y
+    const t = clamp(((x - f.x) * dx + (y - f.y) * dy) / f.armLength ** 2, 0, 1)
+    if (Math.hypot(x - f.x, y - f.y) <= WALL_LIGHT_RADIUS + tolerance || Math.hypot(x - c.x, y - c.y) <= f.size / 2 + tolerance || Math.hypot(x - f.x - t * dx, y - f.y - t * dy) <= 5 + tolerance) return { kind: 'float-switch', index: i }
+  }
   for (let i = (level.logicRelays?.length ?? 0) - 1; i >= 0; i--) {
     const b = logicRelayBounds(level.logicRelays![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'logic-relay', index: i }
@@ -490,6 +512,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   if (selection.kind === 'gravity-plate') Object.assign(next.gravityPlates![selection.index], { x, y })
   if (selection.kind === 'light') Object.assign(next.lighting!.lights[selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'wall-light') Object.assign(next.wallLights![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
+  if (selection.kind === 'float-switch') { const f = next.floatSwitches![selection.index]; f.x += x - b.x; f.y += y - b.y }
   if (selection.kind === 'logic-relay') Object.assign(next.logicRelays![selection.index], { x: x + b.w / 2, y: y + b.h / 2 })
   if (selection.kind === 'trigger') {
     const t = next.triggers![selection.index]; t.x = x; t.y = t.mode === 'coins' || t.ceiling ? y : y + 8
@@ -616,6 +639,7 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
     const [light] = next.wallLights!.splice(i, 1)
     removeSwitchTarget(next, light.id)
   }
+  else if (selection.kind === 'float-switch') next.floatSwitches!.splice(i, 1)
   else if (selection.kind === 'logic-relay') {
     const [relay] = next.logicRelays!.splice(i, 1)
     removeSwitchTarget(next, relay.id)
@@ -634,6 +658,16 @@ export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
 }
 export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: number }, end: { x: number; y: number }): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), x = clamp(Math.min(start.x, end.x), 0, level.width - 40), y = clamp(Math.min(start.y, end.y), 0, levelHeight(level) - 80)
+  if (tool === 'float-switch') {
+    const trial = asTrial(next), floats = trial.floatSwitches ??= []
+    if (floats.length >= MAX_FLOAT_SWITCHES) throw new Error('This level already has 16 float switches.')
+    const definition = { id: newLevelId(), x: start.x, y: start.y, armLength: 100, size: 40, targets: [] }
+    const b = floatSwitchBounds(definition)
+    definition.x += clamp(b.x, 0, trial.width - b.w) - b.x
+    definition.y += clamp(b.y, 0, levelHeight(trial) - b.h) - b.y
+    floats.push(definition)
+    return { level: trial, selection: { kind: 'float-switch', index: floats.length - 1 } }
+  }
   if (tool === 'logic-relay') {
     const trial = asTrial(next), relays = trial.logicRelays ??= []
     if (relays.length >= MAX_LOGIC_RELAYS) throw new Error('This level already has 40 logic relays.')
@@ -827,6 +861,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   else if (selection.kind === 'force-field') { if (next.forceFields!.length >= MAX_FORCE_FIELDS) return null; index = next.forceFields!.push({ ...next.forceFields![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'gravity-plate') { if (next.gravityPlates!.length >= MAX_GRAVITY_PLATES) return null; index = next.gravityPlates!.push({ ...next.gravityPlates![i], id: newLevelId() }) - 1 }
   else if (selection.kind === 'wall-light') { if (next.wallLights!.length >= MAX_WALL_LIGHTS) return null; index = next.wallLights!.push({ ...next.wallLights![i], id: newLevelId() }) - 1 }
+  else if (selection.kind === 'float-switch') { if (next.floatSwitches!.length >= MAX_FLOAT_SWITCHES) return null; index = next.floatSwitches!.push({ ...next.floatSwitches![i], targets: [...next.floatSwitches![i].targets], id: newLevelId() }) - 1 }
   else if (selection.kind === 'logic-relay') { if (next.logicRelays!.length >= MAX_LOGIC_RELAYS) return null; index = next.logicRelays!.push({ ...next.logicRelays![i], id: newLevelId() }) - 1 }
   else { if (next.checkpoints.length >= 30) return null; index = next.checkpoints.push({ ...next.checkpoints[i] }) - 1 }
   const result = { kind: selection.kind, index }
@@ -835,6 +870,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
 }
 export function allSelections(level: JumpLevel): Selection[] {
   return [{ kind: 'spawn', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+    ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
     ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),
     ...(level.gravityPlates ?? []).map((_, index) => ({ kind: 'gravity-plate' as const, index })),

@@ -526,6 +526,26 @@ so a centered rider does not add a false torque as the box drifts. Planted foot
 anchors and foot angles rotate with a tilting support; carrying does not advance
 the walking gait.
 
+### Buoyant lever switches
+
+Float switches use a normal-weight ball in the ordinary prop solver, constrained
+to a fixed wall pivot by a rigid arm. Forces and contacts move the ball along
+its arc. The hinge preserves tangential momentum, removes radial motion, and
+absorbs outward motion at the travel stops. Water buoyancy, area-weighted grav
+lift, prop collisions, and player loads use the existing ball rules. The arm is
+a visual linkage rather than a separate standing surface. Obstructions can
+stop the ball before its contact changes; the sensor never follows water height
+or a field's powered state directly.
+
+Raised becomes true at three degrees above horizontal and false at three degrees
+below, retaining its previous value between those positions. Lowered inverts
+that mechanical state. EMP suppresses either electrical output like a Pressure
+input while the ball continues under the remaining forces. Restart restores the
+authored start of travel and contact; editor previews use that same pose.
+Pumps or grav lifts controlled by a float form physical feedback, not a cycle
+in the immediate relay evaluator. Regression coverage lives in
+`tests/jumping-float-switch.test.mjs`.
+
 ### Water
 
 Water uses the same rectangle format with `effect: "water"`. The rectangle is

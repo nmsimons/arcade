@@ -5,6 +5,7 @@ import { BuilderIcon } from './BuilderIcon'
 const SECTIONS = ['Canvas', 'Inspector', 'Objects', 'Levels', 'Shortcuts', 'Controller'] as const
 type Section = typeof SECTIONS[number]
 const OBJECT_NOTES: Partial<Record<Tool, string>> = {
+  'float-switch': 'A buoyant ball on a hinged arm. Water or a gravity lift raises it; gravity and physical loads lower it. Choose Raised or Lowered activation, then connect Activates. A small gap between on and off prevents chatter.',
   'logic-relay': 'Combines connected switches with OR, AND or XOR and optional Reversed, then sends its result to the items in Activates. The node appears only in the studio; it has no physical shape, light or sound during play. Relay output is always enabled.',
   platform: 'Square handles resize the whole shape. A terrain shape must keep at least three nodes.',
   rope: 'An attached anchor moves with its terrain. Use the inspector to attach or detach it.',

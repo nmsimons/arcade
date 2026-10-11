@@ -1,6 +1,6 @@
 # Jumping button and light puzzle specifications
 
-These six reusable components combine buttons, indicator lights, and logic
+These seven reusable components combine buttons, indicator lights, and logic
 relays to operate a machine or unlock a route. Their challenges are changing
 lamp patterns, satisfying relationships, arranging loads, and preparing a
 crossing. They should add variety after the existing binary-number puzzles.
@@ -28,7 +28,7 @@ Refer to this file and a component name, for example:
 > docs/jumping-logic-puzzles.md.
 
 Specify a collection or target level when one matters. For a set of new levels,
-give each component its own central role rather than putting all six in one
+give each component its own central role rather than putting all seven in one
 room. Lights Out panel, Transfer the load, and Door versus bridge are the first
 choices for a varied set: panel reasoning, physical preparation, and spatial
 sequencing respectively.
@@ -375,6 +375,62 @@ the authored initial geometry, across the bridge, through the door, and back
 after turning B off. Test a fall before crossing, after crossing, and after both
 buttons are active. Check that gate safety, an obstruction, or an early sprint
 does not create a mandatory fragile maneuver or defeat the central sequence.
+
+## Buoyant lever switch
+
+**Central decision:** use a force or physical load to move a visible lever and
+change its electrical contact. The same component works with water and grav
+lifts.
+
+Use the studio's **Float switch**: one ball with its usual small dark dot, a
+straight arm matching the exit lamp post's thickness, and a pivot matching the
+wall light's size and face. Keep the artwork simple; the arm's actual movement
+explains the switch. The ball has ordinary physical
+contacts and buoyancy. Its fixed pivot and travel stops keep it attached.
+
+Choose Raised or Lowered activation, with the contact changing near horizontal.
+A small mechanical gap between activation and release prevents chatter. Set an
+explicit starting position and keep the ball's entire sweep clear of unintended
+obstructions. Adjustable arm length, ball size, travel angle, and horizontal
+facing let the switch fit the room. See [Float switches](jumping-levels.md#float-switches)
+for authoring and [the physics contract](jumping-physics.md#buoyant-lever-switches)
+for movement and EMP behavior.
+
+### Circuit and puzzle variants
+
+- **Automatic fill:** `Fill = AND(Enable, FloatLowered)`. The water lifts the
+  ball and stops filling when its contact changes. Draining restores the lower
+  contact. Make the cutoff and the resulting route visible together.
+- **Water or grav lift lock:** `Ready = AND(ManualButton, FloatRaised)`. The
+  player prepares the field or water level, observes the readiness lamp, then
+  operates the second control to open a gate.
+- **Two reservoirs:** `Ready = AND(FloatRaisedA, FloatRaisedB)`. Separate tanks
+  must both reach their conditions. Give each tank a local indicator and the
+  final machine a shared readiness lamp.
+- **Physical override:** a player or crate lowers the ball against its lifting
+  force. The resulting contact controls another mechanism. Review the force on
+  the load too: a crate fully inside a grav lift rises with the float. A load
+  partly outside the field, or a heavy crate sinking in water, can press it down.
+- **Mechanical cycle:** the Lowered contact powers its own grav lift; raising
+  the ball removes lift, and dropping it restores lift. Its period comes from
+  physical movement and the contact gap. Prototype its stability and readability
+  before making boarding or another timed action depend on it.
+
+### Layout and recovery
+
+Teach the arm rising or dropping in a safe, visible setting before combining its
+output with other buttons. Use a stable tank, a bounded field, or generous load
+placement. Let the player recover a load, revisit pump controls, and retry a
+missed boarding attempt. Avoid requiring an exact impact or a trapped prop.
+
+### Acceptance
+
+Play rising and falling activation with both water and a grav lift. Check the
+opposite contact mode, a physical load, a blocked ball, stable behavior near the
+threshold, and signals combined with buttons through ordinary logic. Test pause,
+restart, EMP, initial preview, wiring, duplication, and save/reopen. For automatic
+filling and mechanical cycles, verify the physical feedback over repeated
+cycles and useful recovery. Review the simple silhouette at gameplay scale.
 
 ## Completion criteria for future builds
 

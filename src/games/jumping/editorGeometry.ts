@@ -1,6 +1,7 @@
 import type { JumpLevel, Pusher } from './level.ts'
 import { levelTerrain } from './level.ts'
 import type { Selection } from './editor.ts'
+import { createFloatSwitch } from './floatSwitch.ts'
 import { ballShape } from './propGeometry.ts'
 import { robotPreviewPose } from './robotPhysics.ts'
 
@@ -10,7 +11,7 @@ export function editorSolids(level: JumpLevel, selection?: Selection) {
     : [p.kind === 'ball' ? ballShape(p) : { x: p.x - p.size / 2, y: p.y - p.size, w: p.size, h: p.size }])
   return [...levelTerrain(level).filter(b => selection?.kind !== 'platform' || b !== level.platforms[selection.index]),
     ...(level.mechanisms ?? []).filter((_, i) => selection?.kind !== 'mechanism' || i !== selection.index),
-    ...props]
+    ...props, ...(level.floatSwitches ?? []).flatMap((f, i) => selection?.kind === 'float-switch' && selection.index === i ? [] : [ballShape(createFloatSwitch(f).prop)])]
 }
 
 export function editorRobotPose(level: JumpLevel, robot: Pusher) {

@@ -1,0 +1,156 @@
+{
+  "version": 1,
+  "id": "float-switch-review",
+  "name": "Float switch review",
+  "width": 1800,
+  "height": 920,
+  "floor": 920,
+  "spawn": {
+    "x": 100,
+    "y": 920
+  },
+  "checkpoints": [],
+  "platforms": [
+    {
+      "x": 350,
+      "y": 700,
+      "w": 340,
+      "h": 20,
+      "material": "steel"
+    }
+  ],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "goal": {
+    "id": "exit",
+    "x": 1640,
+    "y": 920,
+    "power": "switched",
+    "switchLogic": "and"
+  },
+  "times": {
+    "gold": 15,
+    "silver": 25,
+    "bronze": 40
+  },
+  "props": [],
+  "robots": [],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "name": "Fill or drain",
+      "x": 280,
+      "y": 920,
+      "w": 80,
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false,
+      "targets": [
+        "pool:fill",
+        "pool:drain"
+      ]
+    },
+    {
+      "name": "Grav lift",
+      "x": 830,
+      "y": 920,
+      "w": 80,
+      "mode": "weight",
+      "behavior": "toggle",
+      "startsOn": false,
+      "targets": [
+        "grav"
+      ]
+    }
+  ],
+  "floatSwitches": [
+    {
+      "id": "water-float",
+      "name": "Water float",
+      "x": 420,
+      "y": 550,
+      "armLength": 100,
+      "size": 40,
+      "targets": [
+        "water-ready",
+        "exit"
+      ]
+    },
+    {
+      "id": "grav-float",
+      "name": "Grav float",
+      "x": 950,
+      "y": 550,
+      "armLength": 100,
+      "size": 40,
+      "targets": [
+        "grav-ready",
+        "exit"
+      ]
+    }
+  ],
+  "wallLights": [
+    {
+      "id": "water-ready",
+      "x": 650,
+      "y": 550
+    },
+    {
+      "id": "grav-ready",
+      "x": 1180,
+      "y": 550
+    }
+  ],
+  "gravityPlates": [
+    {
+      "id": "pool",
+      "name": "Tank",
+      "x": 360,
+      "y": 400,
+      "w": 320,
+      "h": 300,
+      "effect": "water",
+      "waterLevel": 0,
+      "waterRate": 40,
+      "gravity": -1,
+      "drain": {
+        "switchReversed": true
+      }
+    },
+    {
+      "id": "grav",
+      "x": 900,
+      "y": 400,
+      "w": 270,
+      "h": 300,
+      "power": "switched",
+      "gravity": -1
+    }
+  ],
+  "texts": [
+    {
+      "x": 280,
+      "y": 790,
+      "w": 130,
+      "h": 24,
+      "fontSize": 20,
+      "text": "fill / drain",
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 830,
+      "y": 790,
+      "w": 120,
+      "h": 24,
+      "fontSize": 20,
+      "text": "grav lift",
+      "align": "left",
+      "style": "official"
+    }
+  ],
+  "timers": [],
+  "pickups": []
+}

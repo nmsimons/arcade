@@ -1118,6 +1118,51 @@ heavy ones sink. Gravity plates retain
 their surface floating behavior but have no Up/Down swimming control. See
 [the water physics contract](jumping-physics.md#water).
 
+### Float switches
+
+**Mechanisms → Float switch** places a buoyant ball on a fixed hinged arm. Water
+and negative gravity lift the ball; ordinary gravity and physical loads lower
+it. The ball has the normal ball's mass, buoyancy, field coverage, drag, and
+collision behavior. The thin arm marks its constraint and is not a separate
+platform. Its pivot is fixed to the back wall.
+
+Choose **Active when: Raised / Lowered**. The contact changes near the arm's
+horizontal position, with a three-degree gap on either side to prevent small
+bobs from repeatedly switching. **Starts** chooses the initial end of travel;
+restart restores it. **Arm length**, **Ball size**, and **Travel angle** change
+the geometry. Travel angle is the limit above and below horizontal, default
+45 degrees. **Flip horizontally** puts the ball on the other side of the pivot.
+Position fields refer to the pivot. Keep the full sweep inside the room.
+
+The ball keeps its usual small dark dot. Its straight arm matches the exit lamp
+post's 4-unit thickness, and the pivot uses the wall light's 28-unit circular rim
+and indicator face to show the contact state. Select and move the ball, pivot,
+or arm, name it, and wire **Activates**
+to any standard switched target, including logic relays and water Fill/Drain.
+Float switches are sensor inputs; they have no incoming power or Relay control.
+A float may control the field or pump that moves it: feedback travels through
+physical motion, while instantaneous relay feedback loops remain invalid.
+
+EMP suppresses the electrical contact like a Pressure plate. The arm and ball
+continue moving: water keeps its buoyancy and gravity plates lose power under
+their ordinary rules. Pause freezes the whole mechanism. Undo, duplication,
+copy/paste, templates, save/reopen, and thumbnails preserve the authored switch.
+Both file versions support up to 16 optional `floatSwitches`:
+
+```json
+"floatSwitches": [
+  { "id": "tank-full", "x": 400, "y": 600, "armLength": 100, "size": 40,
+    "travelAngle": 45, "activeWhen": "raised", "startsRaised": false,
+    "targets": ["ready-lamp"] }
+]
+```
+
+IDs share the existing device namespace. Arm length is 40–400, ball diameter
+20–100, and travel angle 10–80 degrees. `flipX`, `startsRaised`, `activeWhen`,
+and `travelAngle` are optional; defaults are right-facing, lowered, Raised,
+and 45 degrees respectively. `targets` may be empty or omitted. There is no
+water-region assignment: forces act on the actual ball wherever it moves.
+
 ### Force fields
 
 Both file versions support up to 40 `forceFields`. A field is a thin rectangle

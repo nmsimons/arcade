@@ -7,7 +7,7 @@ import { copyableSelection, copySelections, deleteSelections, moveSelections, pa
 import type { EditorClipboard } from './editorSelection'
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
+import { anchorRope, itemDefinition, renameItem, moveVertex, insertTerrainNode, deleteTerrainNode, terrainNodeTarget, terrainVertexTarget, addItem, allSelections, clamp, hitItem, itemBounds, itemOutline, itemHandle, moveItem, resizeItem, resizeLevelHeight, setElevatorTravel, editFloatSwitch, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, reorderTerrain } from './editor'
 import type { ResizeHandle, Selection, Tool, TerrainTransform } from './editor'
 import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, parseLevel, prepareLevelRopes, LEVEL_GRID_SIZE } from './level'
 import type { JumpLevel } from './level'
@@ -113,6 +113,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'water', group: 'Mechanisms', label: 'Water', help: 'Drag a semi-transparent blue rectangle, or click to fill down to the floor. Water is always present. Fixed buoyancy lets bodies settle partly submerged. Up and Down swim; Jump at the surface helps you get out.' },
   { id: 'plate', group: 'Mechanisms', label: 'Pressure plate', help: 'Click to place a pressure plate at the cursor. Snap catches nearby surfaces. Choose Pressure, Switch, or Toggle mode and the items it activates. The player, boxes, and balls can press it.' },
   { id: 'coin-switch', group: 'Mechanisms', label: 'Coin switch', help: 'Mount a numeric coin switch on the back wall. It shows collected coins / coins required. The inspector also supports horizontal or vertical progress bars; reaching Coins required activates its connected mechanisms and spotlights until restart.' },
+  { id: 'float-switch', group: 'Mechanisms', label: 'Float switch', help: 'A buoyant ball on a hinged arm. Water or a gravity lift raises it. Choose Raised or Lowered activation and connect its outputs.' },
   { id: 'logic-relay', group: 'Mechanisms', label: 'Logic relay', help: 'Place a studio-only logic node. Combine switches with OR, AND or XOR, optionally reverse the result, then connect its Activates outputs. Invisible during play, with no physical behavior.' },
   { id: 'checkpoint', group: 'Markers', label: 'Checkpoint', help: 'Reset marker for movement playgrounds. Time trials always restart at the beginning.' },
   { id: 'timer', group: 'Back wall', label: 'Wall timer', help: 'Click to mount a timer on the back wall. Place as many as you need; all show the same run time and never block movement.' },
@@ -234,6 +235,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const forceField = selection?.kind === 'force-field' ? level.forceFields?.[selection.index] : null
   const facingPlate = (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? (trigger?.mode !== 'coins' ? trigger : null)
   const wallLight = selection?.kind === 'wall-light' ? level.wallLights?.[selection.index] : null
+  const floatSwitch = selection?.kind === 'float-switch' ? level.floatSwitches?.[selection.index] : null
   const logicRelay = selection?.kind === 'logic-relay' ? level.logicRelays?.[selection.index] : null
   const switchable = goal ?? (mechanism?.kind === 'lift' ? mechanism : null) ?? light ?? (gravityPlate?.effect === 'water' ? null : gravityPlate) ?? forceField
   const objectPower = switchable ? switchable.power ?? (goal || forceField ? 'always' : 'switched') : null
@@ -646,6 +648,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       const rawBounds = itemBounds(d.base, d.selection)!
       const b = d.selection.kind === 'light' ? { ...rawBounds, ...d.base.lighting!.lights[d.selection.index] }
         : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] }
+        : d.selection.kind === 'float-switch' ? { ...rawBounds, ...d.base.floatSwitches![d.selection.index] }
         : d.selection.kind === 'logic-relay' ? { ...rawBounds, ...d.base.logicRelays![d.selection.index] } : rawBounds
       if (d.mode === 'move') {
         next = moveSelections(d.base, d.selections ?? [d.selection], qx(b.x + dx) - b.x, qy(b.y + dy) - b.y)
@@ -731,7 +734,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     const bounds = selection && itemBounds(base, selection)
     if (!selection || !bounds || !Number.isFinite(value)) return base
     const light = selection.kind === 'light' ? base.lighting?.lights[selection.index] : selection.kind === 'wall-light' ? base.wallLights?.[selection.index]
-      : selection.kind === 'logic-relay' ? base.logicRelays?.[selection.index] : null
+      : selection.kind === 'float-switch' ? base.floatSwitches?.[selection.index] : selection.kind === 'logic-relay' ? base.logicRelays?.[selection.index] : null
     return axis === 'x' || axis === 'y' ? moveItem(base, selection, axis === 'x' ? value - (light?.x ?? bounds.x) : 0, axis === 'y' ? levelHeight(base) - value - (light?.y ?? bounds.y) : 0)
       : resizeItem(base, selection, axis === 'w' ? value : bounds.w, axis === 'h' ? value : bounds.h)
   }
@@ -755,8 +758,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     setMessage(`Created a new level from “${template.name}”. Its file will be created when you save.`)
     requestAnimationFrame(() => canvasRef.current?.focus())
   }
-  function changedObject(base: JumpLevel, field: string, value: number | string) {
+  function changedObject(base: JumpLevel, field: string, value: number | string | boolean) {
     if (!selection) return base
+    if (selection.kind === 'float-switch') return editFloatSwitch(base, selection.index, { [field]: value })
     if (selection.kind === 'light') return editLight(base, selection.index, { [field]: value })
     if (selection.kind === 'mechanism' && field === 'travel') {
       return setElevatorTravel(base, selection.index, Number(value))
@@ -775,7 +779,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     }
     return next
   }
-  function changeObject(field: string, value: number | string) {
+  function changeObject(field: string, value: number | string | boolean) {
     commit(changedObject(history.present, field, value))
   }
 
@@ -915,11 +919,22 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             || axis === 'h' && (verticalCoinSwitch || ['platform', 'mechanism', 'text', 'rope', 'ladder', 'gravity-plate', 'force-field'].includes(selection.kind))).map(axis => {
             const fixed = !!mechanism && (mechanism.kind === 'gate' && !isHorizontalGate(mechanism) ? axis === 'w' : axis === 'h') || !!forceField && (forceField.orientation === 'vertical' ? axis === 'w' : axis === 'h')
             const label = axis === 'w' && selection.kind === 'prop' ? 'Size' : fixed ? 'Thickness' : axis === 'h' && selection.kind === 'rope' ? 'Length'
-              : ({ x: light || wallLight || logicRelay ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
+              : ({ x: light || wallLight || logicRelay || floatSwitch ? 'X' : bounds.w ? 'Left' : 'X', y: light || wallLight || logicRelay || floatSwitch ? 'Y' : bounds.h ? 'Top' : 'Y', w: 'Width', h: 'Height' })[axis]
             return <label key={axis}>{label}<NumberField label={`Object ${axis}`} disabled={fixed} step={snap ? gridSize : 1}
-              value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
+              value={axis === 'y' ? roomHeight - (light?.y ?? wallLight?.y ?? logicRelay?.y ?? floatSwitch?.y ?? bounds.y) : axis === 'x' ? light?.x ?? wallLight?.x ?? logicRelay?.x ?? floatSwitch?.x ?? bounds.x : bounds[axis]} {...numberEdit((base, value) => setDimension(base, axis, value))} /></label>
           })}
         </div>
+        {floatSwitch && <>
+          <div className="builder-dimensions">
+            <label>Arm length<NumberField label="Float arm length" min={40} max={400} step={5} value={floatSwitch.armLength} {...numberEdit((base, value) => changedObject(base, 'armLength', value))} /></label>
+            <label>Ball size<NumberField label="Float ball size" min={20} max={100} step={5} value={floatSwitch.size} {...numberEdit((base, value) => changedObject(base, 'size', value))} /></label>
+          </div>
+          <label>Travel angle (°)<NumberField label="Float travel angle" min={10} max={80} step={5} value={floatSwitch.travelAngle ?? 45} {...numberEdit((base, value) => changedObject(base, 'travelAngle', value))} /></label>
+          <BuilderSelect label="Active when" accessibleLabel="Float activation" value={floatSwitch.activeWhen ?? 'raised'} options={[{ value: 'raised', label: 'Raised' }, { value: 'lowered', label: 'Lowered' }]} onChange={value => changeObject('activeWhen', value)} />
+          <BuilderSelect label="Starts" accessibleLabel="Float starting position" value={floatSwitch.startsRaised ? 'raised' : 'lowered'} options={[{ value: 'lowered', label: 'Lowered' }, { value: 'raised', label: 'Raised' }]} onChange={value => changeObject('startsRaised', value === 'raised')} />
+          <button className="builder-property-action" onClick={() => changeObject('flipX', !floatSwitch.flipX)}>Flip horizontally</button>
+          <p className="builder-hint">Water and gravity lifts raise the ball. Gravity and physical loads lower it. The switch changes near the arm's horizontal position.</p>
+        </>}
         {prop && <>
           <BuilderSelect label="Weight" accessibleLabel="Object weight" value={prop.weight === 'heavy' ? 'heavy' : 'normal'}
             options={[{ value: 'normal', label: 'Normal' }, { value: 'heavy', label: 'Heavy' }]}
@@ -998,7 +1013,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
                 {incomingSources.map(source => <label key={`${source.kind}:${source.index}`}><input type="checkbox" checked={switchTargets(source.definition).includes(id)} onChange={e => {
                   const ids = switchTargets(source.definition)
                   commit(setSwitchTargets(history.present, source, e.target.checked ? [...ids, id] : ids.filter(target => target !== id)))
-                }} />{selectionLabel(source, level)}{source.kind !== 'trigger' && source.kind !== 'logic-relay' ? ' · Relay' : ''}</label>)}
+                }} />{selectionLabel(source, level)}{source.kind !== 'trigger' && source.kind !== 'float-switch' && source.kind !== 'logic-relay' ? ' · Relay' : ''}</label>)}
                 {!incomingSources.length && <span>No switches</span>}
               </fieldset>
             })}
@@ -1051,7 +1066,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           {incomingSources.map(source => <label key={`${source.kind}:${source.index}`}><input type="checkbox" checked={switchTargets(source.definition).includes(switchedObject.id)} onChange={e => {
             const ids = switchTargets(source.definition)
             commit(setSwitchTargets(history.present, source, e.target.checked ? [...ids, switchedObject.id] : ids.filter(id => id !== switchedObject.id)))
-          }} />{selectionLabel(source, level)}{source.kind !== 'trigger' && source.kind !== 'logic-relay' ? ' · Relay' : ''}</label>)}
+          }} />{selectionLabel(source, level)}{source.kind !== 'trigger' && source.kind !== 'float-switch' && source.kind !== 'logic-relay' ? ' · Relay' : ''}</label>)}
           {!incomingSources.length && <span>No switches</span>}
         </fieldset></>}
         {light?.power === 'switched' &&
@@ -1084,7 +1099,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
             : trigger.behavior === 'toggle' ? 'Each press reverses the state. Release before pressing again.' : 'On while held down; off when released.'}</p>
         </>}
         {selectedSource && <fieldset className="builder-connections"><legend>Activates</legend>
-          {selectedSource.kind !== 'trigger' && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed.{selectedSource.kind !== 'logic-relay' && ' Turning Relay off clears these outputs.'}</p>}
+          {selectedSource.kind !== 'trigger' && selectedSource.kind !== 'float-switch' && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed.{selectedSource.kind !== 'logic-relay' && ' Turning Relay off clears these outputs.'}</p>}
           {outgoingTargets.map(item => <label key={item.id}><input type="checkbox" checked={switchTargets(selectedSource.definition).includes(item.id)} onChange={e => {
             const ids = switchTargets(selectedSource.definition)
             commit(setSwitchTargets(history.present, selection, e.target.checked ? [...ids, item.id] : ids.filter(id => id !== item.id)))

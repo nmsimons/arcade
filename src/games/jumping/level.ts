@@ -34,6 +34,8 @@ import { MAX_WALL_LIGHTS, WALL_LIGHT_RADIUS, wallLightBounds } from './wallLight
 import type { WallLight } from './wallLight.ts'
 import { MAX_LOGIC_RELAYS, LOGIC_RELAY_WIDTH, LOGIC_RELAY_HEIGHT, logicRelayBounds } from './logicRelay.ts'
 import type { LogicRelay } from './logicRelay.ts'
+import { MAX_FLOAT_SWITCHES, floatSwitchBounds } from './floatSwitch.ts'
+import type { FloatSwitch } from './floatSwitch.ts'
 
 import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import type { GravityPlate } from './gravity.ts'
@@ -65,6 +67,7 @@ export interface JumpLevel {
   timers?: WallTimer[]
   wallLights?: WallLight[]
   logicRelays?: LogicRelay[]
+  floatSwitches?: FloatSwitch[]
   gravityPlates?: GravityPlate[]
   forceFields?: ForceField[]
   texts?: WallText[]
@@ -146,6 +149,10 @@ export function levelProblems(level: JumpLevel): string[] {
   for (const [i, relay] of (level.logicRelays ?? []).entries()) {
     const b = logicRelayBounds(relay)
     if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'logic-relay', i)} inside the level rectangle.`)
+  }
+  for (const [i, f] of (level.floatSwitches ?? []).entries()) {
+    const b = floatSwitchBounds(f)
+    if (b.x < 0 || b.y < 0 || b.x + b.w > level.width || b.y + b.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'float-switch', i)} inside the level rectangle.`)
   }
   for (const [i, p] of (level.gravityPlates ?? []).entries()) {
     if (p.x < 0 || p.y < 0 || p.x + p.w > level.width || p.y + p.h > levelHeight(level)) issues.push(`Keep ${objectReference(level, 'gravity-plate', i)} inside the level rectangle.`)
@@ -391,7 +398,7 @@ export function parseLevel(value: unknown): JumpLevel {
       }
       return { ...position, kind }
     })
-  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
+  } else if (['floor', 'times', 'props', 'mechanisms', 'triggers', 'robots', 'timers', 'pickups', 'wallLights', 'logicRelays', 'floatSwitches', 'gravityPlates', 'forceFields'].some(key => v[key] !== undefined)) fail()
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
@@ -446,6 +453,20 @@ export function parseLevel(value: unknown): JumpLevel {
     return { ...objectName(light), ...parseSwitchSettings(light, fail), id: light.id,
       x: num(light.x, WALL_LIGHT_RADIUS, width - WALL_LIGHT_RADIUS), y: num(light.y, WALL_LIGHT_RADIUS, levelHeight(level) - WALL_LIGHT_RADIUS) }
   })
+  if (v.floatSwitches !== undefined) level.floatSwitches = list(v.floatSwitches, MAX_FLOAT_SWITCHES).map(item => {
+    const f = object(item)
+    if (typeof f.id !== 'string' || !f.id.trim() || f.id.length > 100 || f.power !== undefined || f.relay !== undefined || f.switchLogic !== undefined || f.switchReversed !== undefined) return fail()
+    if (f.activeWhen !== undefined && f.activeWhen !== 'raised' && f.activeWhen !== 'lowered') return fail()
+    for (const key of ['flipX', 'startsRaised']) if (f[key] !== undefined && typeof f[key] !== 'boolean') return fail()
+    const definition: FloatSwitch = { ...objectName(f), id: f.id, x: num(f.x, 0, width), y: num(f.y, 0, levelHeight(level)),
+      armLength: num(f.armLength, 40, 400), size: num(f.size, 20, 100), targets: parseSwitchSettings(f, fail).targets ?? [],
+      ...(f.travelAngle === undefined ? {} : { travelAngle: num(f.travelAngle, 10, 80) }),
+      ...(f.activeWhen === undefined ? {} : { activeWhen: f.activeWhen as 'raised' | 'lowered' }),
+      ...(f.flipX === undefined ? {} : { flipX: f.flipX as boolean }), ...(f.startsRaised === undefined ? {} : { startsRaised: f.startsRaised as boolean }) }
+    const b = floatSwitchBounds(definition)
+    if (b.x < 0 || b.y < 0 || b.x + b.w > width || b.y + b.h > levelHeight(level)) return fail()
+    return definition
+  })
   if (v.logicRelays !== undefined) level.logicRelays = list(v.logicRelays, MAX_LOGIC_RELAYS).map(item => {
     const relay = object(item)
     if (typeof relay.id !== 'string' || !relay.id.trim() || relay.id.length > 100 || relay.relay !== undefined || relay.power !== undefined) return fail()
@@ -461,7 +482,7 @@ export function parseLevel(value: unknown): JumpLevel {
     const issues = lightingProblems(level)
     if (issues.length) throw new Error(issues[0])
   }
-  const ids = [...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
+  const ids = [...level.floatSwitches ?? [], ...level.logicRelays ?? [], ...level.mechanisms ?? [], ...level.lighting?.lights ?? [], ...level.wallLights ?? [], ...level.gravityPlates ?? [], ...level.forceFields ?? [], ...(level.goal?.id ? [level.goal] : [])].map(item => item.id)
   for (const p of level.gravityPlates ?? []) if (p.effect === 'water') ids.push(waterControlId(p.id, 'fill'), waterControlId(p.id, 'drain'))
   if (new Set(ids).size !== ids.length) fail()
   // Legacy version-1 trigger references remain editor validation, as before.

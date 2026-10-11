@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { blankTrial } from '../src/games/jumping/level.ts'
+import { readFileSync } from 'node:fs'
+import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { platformLedges } from '../src/games/jumping/terrainLedges.ts'
@@ -26,6 +27,35 @@ function advance(run, frames, input = {}) {
     // Mantling uses the authored limb contacts rather than the standing hull.
     if (!run.player.mantle) assert.ok(!run.platforms.some(b => bodyIntersects(run.player.x, run.player.y, b)), 'the hanging or standing body stays clear')
   }
+}
+
+for (const direction of [-1, 1]) for (const approach of ['running', 'pushing']) for (const hold of [14, 22]) {
+  test(`the first level box catches a ${approach} jump, hold ${hold}, direction ${direction}`, () => {
+    const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/Untitled.jump-level.json', import.meta.url))))
+    if (direction < 0) level.spawn.x = level.width - level.spawn.x
+    const run = createRun(level), p = run.player, b = run.props[0]
+    let approached = false
+    for (let tick = 0; tick < 500; tick++) {
+      if ((b.x - p.x) * direction - b.size / 2 <= 80) { approached = true; break }
+      stepRun(run, { ...NEUTRAL_INPUT, move: direction })
+    }
+    assert.ok(approached, 'normal movement reaches the box')
+    if (approach === 'pushing') {
+      advance(run, 120, { move: direction })
+      assert.ok(p.pushing?.amount > .8, 'the jump starts from an ordinary working shove')
+    }
+    for (let tick = 0; tick < 180 && !p.hang; tick++) {
+      stepRun(run, { ...NEUTRAL_INPUT, move: direction, jump: tick < hold })
+      assert.ok(!run.platforms.some(solid => bodyIntersects(p.x, p.y, solid)), 'the airborne body clears the box')
+    }
+    assert.ok(p.hang, 'a reachable lip remains grabbable after ordinary player contact')
+    assert.ok(Math.abs(b.angle) > 1e-7, 'the encounter exercises actual resting solver tilt')
+    advance(run, 120)
+    assert.ok(p.hang, 'the grip remains stable after releasing the movement and jump keys')
+    advance(run, 180, { climb: true })
+    assert.ok(p.grounded && !p.hang && !p.mantle, 'Up completes a normal pull-up onto the box')
+    assert.ok(Math.abs(p.y - (b.y - b.size)) < .01, 'the player finishes on the actual box top')
+  })
 }
 
 test('settled boxes support a lasting hang and climb from both sides, on floors and platforms', () => {

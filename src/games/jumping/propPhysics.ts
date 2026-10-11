@@ -4,7 +4,7 @@ import type { Platform } from './model.ts'
 import type { PlayerContacts } from './playerContacts.ts'
 import { TUNING } from './model.ts'
 import { bodyPolygon, convexParts, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
-import { ballHull, ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
+import { BOX_RESTING_ANGLE_TOLERANCE, ballHull, ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { playerContactBody, rotateFeet, translatePlayer } from './playerContacts.ts'
@@ -475,7 +475,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   for (const [b, body] of world.bodies) {
     if (b.kind !== 'box' || !b.grounded || Math.hypot(b.vx, b.vy) > .5 || Math.abs(b.angularVelocity) > .005) continue
     const angle = Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2)
-    if (Math.abs(b.angle - angle) > .001) continue
+    if (Math.abs(b.angle - angle) > BOX_RESTING_ANGLE_TOLERANCE) continue
     const solids = [...barriers, ...run.props.filter(other => other !== b).map(other => other.kind === 'box' ? boxShape(other) : ballShape(other))]
     const y = flatBoxSupport(b, solids)
     if (y === null) continue

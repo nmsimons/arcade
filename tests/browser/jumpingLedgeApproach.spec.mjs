@@ -3,6 +3,54 @@ import {test,expect} from './helpers/test.mjs'
 import {useLevelFixtures} from './helpers/jumpingLevels.mjs'
 import {ledgeApproachLevel} from '../helpers/jumpingLedgeApproachScenarios.mjs'
 
+for (const direction of [-1, 1]) {
+  test(`the first level box catches and pulls up with normal keyboard controls, direction ${direction}`, async ({page}, info) => {
+    const level = JSON.parse(await readFile(new URL('../../public/levels/jumping/Untitled.jump-level.json', import.meta.url), 'utf8'))
+    if (direction < 0) level.spawn.x = level.width - level.spawn.x
+    await useLevelFixtures(page, [level])
+    const errors = []; page.on('pageerror', error => errors.push(error.message))
+    await page.setViewportSize({width: 852, height: 393})
+    await page.clock.install({time: new Date('2026-10-10T12:00:00Z')})
+    await page.goto('/untitled-jumping-game?motionDebug=1')
+    const play = page.getByRole('button', {name: `Play ${level.name}`, exact: true})
+    await expect(play).toBeVisible()
+    await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
+    await play.click()
+    await expect(page.getByRole('img', {name: `${level.name}: reach the exit`, exact: true})).toBeFocused()
+    await page.clock.runFor(64)
+    const read = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+    const move = direction > 0 ? 'd' : 'a', box = level.props[0]
+    await page.keyboard.down(move)
+    let approaching
+    for (let tick = 0; tick < 100; tick++) {
+      await page.clock.runFor(32); approaching = await read()
+      if ((box.x - approaching.x) * direction - box.size / 2 <= 80) break
+    }
+    expect((box.x - approaching.x) * direction - box.size / 2).toBeLessThanOrEqual(80)
+    await page.keyboard.down('Space'); await page.clock.runFor(128); await page.keyboard.up('Space')
+    let caught
+    for (let tick = 0; tick < 30; tick++) {
+      await page.clock.runFor(64); caught = await read()
+      if (caught.signals.mode === 'hang') break
+    }
+    await page.keyboard.up(move)
+    expect(caught.signals.mode).toBe('hang')
+    await page.clock.runFor(640)
+    const quiet = await read()
+    expect(quiet.signals.mode).toBe('hang')
+    expect(quiet.vx).toBe(0); expect(quiet.vy).toBe(0)
+    await page.screenshot({path: info.outputPath('first-box-grip.png')})
+    await page.keyboard.down('w'); await page.clock.runFor(1600); await page.keyboard.up('w')
+    const standing = await read()
+    expect(standing.signals.grounded).toBe(true)
+    expect(standing.signals.support).toBe('prop:0')
+    expect(standing.y).toBeCloseTo(box.y - box.size, 1)
+    expect(errors).toEqual([])
+    await writeFile(info.outputPath('first-box-grip.json'), JSON.stringify({direction, approaching, caught, quiet, standing}, null, 2))
+    await page.screenshot({path: info.outputPath('first-box-pull-up.png')})
+  })
+}
+
 for(const [file,kind,turn] of [['spire2.jump-level.json','wall jump',80],['spire2.jump-level.json','fall',12],
   ['Tower.jump-level.json','fall',12],['Tower II.jump-level.json','fall',12]]) {
   test(`${file} catches a reachable ${kind} approach with normal controls`,async({page},info)=>{

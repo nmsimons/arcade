@@ -1,6 +1,7 @@
 import type { Platform } from './model.ts'
 import { outsideCorner, pointInside, platformOutline } from './geometry.ts'
 import { canGrip } from './friction.ts'
+import { BOX_RESTING_ANGLE_TOLERANCE } from './propGeometry.ts'
 
 /** Slope is the top's rise per unit inward from the corner. */
 export interface TerrainLedge { edgeX: number; edgeY: number; side: number; slope?: number }
@@ -22,6 +23,10 @@ export function platformLedges(platform: Platform): readonly TerrainLedge[] {
     return Math.abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) > 1e-7
   })
   const found: TerrainLedge[] = []
+  // A stable box can retain tiny solver rotation while sliding. Both corners
+  // still offer a grip, using their actual positions and the unchanged hull.
+  // Eligibility for a moving prop is checked separately by the contact world.
+  const sideTolerance = platform.looseProp ? platform.h * BOX_RESTING_ANGLE_TOLERANCE + 1e-7 : 1e-7
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = points[(i + 1) % points.length]
     if (b[0] <= a[0]) continue
@@ -32,8 +37,8 @@ export function platformLedges(platform: Platform): readonly TerrainLedge[] {
     // vertical. Keep only outward corners; a concave recess is not a lip.
     const leftTurn = (a[0] - before[0]) * (b[1] - a[1]) - (a[1] - before[1]) * (b[0] - a[0])
     const rightTurn = (b[0] - a[0]) * (after[1] - b[1]) - (b[1] - a[1]) * (after[0] - b[0])
-    if (before[0] >= a[0] - 1e-7 && before[1] > a[1] && leftTurn > 1e-7) found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}) })
-    if (after[0] <= b[0] + 1e-7 && after[1] > b[1] && rightTurn > 1e-7) found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}) })
+    if (before[0] >= a[0] - sideTolerance && before[1] > a[1] && leftTurn > 1e-7) found.push({ edgeX: a[0], edgeY: a[1], side: 1, ...(slope ? { slope } : {}) })
+    if (after[0] <= b[0] + sideTolerance && after[1] > b[1] && rightTurn > 1e-7) found.push({ edgeX: b[0], edgeY: b[1], side: -1, ...(slope ? { slope: -slope } : {}) })
   }
   ledges.set(platform, found)
   return found

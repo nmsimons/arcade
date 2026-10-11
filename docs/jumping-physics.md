@@ -244,6 +244,12 @@ supporting face, so its internal seam cannot block a rope transfer, pull-up or
 lowering motion. Follow only touching face intervals; real gaps retain separate
 collision geometry.
 
+Box grips allow the same 0.001-radian resting tilt that the prop solver corrects
+once a box stops moving. Ordinary player contact must not remove a supported
+box's lip because of imperceptible solver rotation. The box still needs two flat
+base contacts, grounded support, and low vertical and angular speed; falling,
+tipping, balancing, and floating boxes remain ineligible.
+
 Rope contacts apply to the complete path, including spans between particles and
 corner bends. Body corrections during climbing must keep adjacent spans clear;
 clear endpoints alone cannot justify pulling a rope through an open gate or

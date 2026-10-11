@@ -3,6 +3,9 @@ import type { Platform } from './model.ts'
 import type { Vec } from './geometry.ts'
 import { polygonPoints } from './geometry.ts'
 
+/** Maximum imperceptible resting rotation from a square face, in radians. */
+export const BOX_RESTING_ANGLE_TOLERANCE = .001
+
 /** Prop positions retain their file convention: center X and unrotated bottom Y. */
 export function boxShape(b: Pick<Prop, 'x' | 'y' | 'size' | 'angle'>): Platform {
   const r = b.size / 2

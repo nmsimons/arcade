@@ -380,7 +380,14 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   const held = pGrip?.platform === undefined ? undefined : world.colliders[pGrip.platform]
   if (held?.prop && pGrip) {
     const edge = platformLedges(run.player.inverted ? mirrorPlatform(held.platform) : held.platform).find(e => e.side === pGrip.side)
-    if (edge) translatePlayer(run.player, edge.edgeX - pGrip.edgeX, (run.player.inverted ? -edge.edgeY : edge.edgeY) - pGrip.edgeY)
+    if (edge) {
+      translatePlayer(run.player, edge.edgeX - pGrip.edgeX, (run.player.inverted ? -edge.edgeY : edge.edgeY) - pGrip.edgeY)
+      // A settling box can square its lip after the catch. Follow its current
+      // slope too, so the pull-up cannot retain a path through the old top.
+      pGrip.slope = edge.slope === undefined ? undefined : run.player.inverted ? -edge.slope : edge.slope
+      const mantle = run.player.mantle
+      if (mantle === pGrip) mantle.toY = mantle.edgeY + (mantle.toX - mantle.edgeX) * mantle.side * (pGrip.slope ?? 0)
+    }
     else { run.player.hang = null; run.player.mantle = null; run.player.grounded = false; run.player.grabCooldown = .25; cancelJumpInput(run.player) }
   }
   stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world, run.gravityField)

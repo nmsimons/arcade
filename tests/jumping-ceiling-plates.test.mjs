@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, setPlateCeiling, itemBounds, hitItem, moveItem, resizeItem, duplicateItem } from '../src/games/jumping/editor.ts'
 import { placeOnSurface, surfacePlacement } from '../src/games/jumping/editorPlacement.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { createGravityField, updateGravityField, gravityAtPoint } from '../src/games/jumping/gravity.ts'
 import { propLoadsPlate } from '../src/games/jumping/propGeometry.ts'
@@ -14,7 +14,7 @@ import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
 
 const step = (run, frames) => { for (let i = 0; i < frames; i++) stepRun(run, NEUTRAL_INPUT) }
 function fixture(load = 'player', behavior = 'pressure') {
-  const level = blankTrial(); level.spawn.x = load === 'player' ? 300 : 100
+  const level = blankTrial(); level.entrance.x = load === 'player' ? 300 : 100
   level.gravityPlates = [{ id: 'field', x: 200, y: 0, w: 400, h: 920, gravity: -1, power: 'always', ceiling: true }]
   level.triggers = [{ x: 240, y: 0, w: 160, mode: 'touch', ceiling: true, behavior, targets: ['lamp'] },
     { x: 240, y: 0, w: 160, mode: 'touch', targets: [] }]

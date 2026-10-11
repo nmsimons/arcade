@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import Matter from 'matter-js'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { createRun, stepRun, setWaterEffectsEnabled } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun, setWaterEffectsEnabled } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { createGravityField, updateGravityField, propGravity, propWaterStrength, propFloatDrag } from '../src/games/jumping/gravity.ts'
 import { propWeightScale } from '../src/games/jumping/propWeight.ts'
@@ -119,7 +119,7 @@ for (const kind of ['ball', 'box']) test(`${kind} presets change solver mass and
 
 for (const kind of ['ball', 'box']) test(`a short player shove accelerates a normal ${kind} more than a heavy one`, () => {
   const distances = weights.map(weight => {
-    const run = createRun({ ...blankTrial(), spawn: { x: 200, y: 920 }, props: [{ kind, weight, x: 250, y: 920, size: 60 }] })
+    const run = createRun({ ...blankTrial(), entrance: { x: 200, y: 920 }, props: [{ kind, weight, x: 250, y: 920, size: 60 }] })
     advance(run, .35, STEP, { ...NEUTRAL_INPUT, move: 1 })
     return run.props[0].x - 250
   })

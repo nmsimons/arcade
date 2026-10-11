@@ -4,7 +4,7 @@ import { ropeSegmentCount } from '../../src/games/jumping/climbables.ts'
 /** A rope draped over a vertical face, steep shoulder, and shallow summit. */
 export function ropeSlope(mirror = false, { anchor = 'summit', length = 380 } = {}) {
   const level = { ...blankTrial(), id: 'rope-slope', name: 'Rope scramble', width: 1800, height: 920, floor: 920,
-    spawn: { x: 620, y: 740 }, goal: { x: 1620, y: 920 },
+    entrance: { x: 620, y: 740 }, goal: { x: 1620, y: 920 },
     platforms: [
       { x: 720, y: 360, w: 440, h: 400, polygon: [[0, 100], [40, 40], [100, 160 / 7], [180, 0], [280, 40], [340, 120], [440, 100], [380, 260], [440, 400], [280, 340], [140, 320], [0, 400]] },
       { x: 540, y: 740, w: 120, h: 180 },
@@ -21,7 +21,7 @@ export function ropeSlope(mirror = false, { anchor = 'summit', length = 380 } = 
       rope.x = level.width - rope.x
       if (rope.anchor) rope.anchor.x = level.platforms[rope.anchor.platform].w - rope.anchor.x
     }
-    level.spawn.x = level.width - level.spawn.x
+    level.entrance.x = level.width - level.entrance.x
     level.goal.x = level.width - level.goal.x; level.goal.flipX = true
   }
   return level
@@ -31,7 +31,7 @@ export function ropeSlope(mirror = false, { anchor = 'summit', length = 380 } = 
 export function slopedLip(mirror = false, slope = .2, thickness = 40) {
   const far = Math.max(0, 400 * slope), near = Math.max(0, -400 * slope)
   const level = { ...blankTrial(), id: 'sloped-lip', name: 'Sloped lip', width: 1800, height: 920, floor: 920,
-    spawn: { x: 1162, y: 780 }, goal: { x: 1600, y: 920 },
+    entrance: { x: 1162, y: 780 }, goal: { x: 1600, y: 920 },
     platforms: [
       { x: 760, y: 460 - near, w: 400, h: Math.max(far + thickness + 80, near + thickness),
         polygon: [[0, far], [400, near], [400, near + thickness], [0, far + thickness + 80]] },
@@ -46,7 +46,7 @@ export function slopedLip(mirror = false, slope = .2, thickness = 40) {
     }
     const rope = level.climbables.ropes[0]
     rope.x = level.width - rope.x; rope.anchor.x = 0
-    level.spawn.x = level.width - level.spawn.x
+    level.entrance.x = level.width - level.entrance.x
     level.goal.x = level.width - level.goal.x; level.goal.flipX = true
   }
   return level

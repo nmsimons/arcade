@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { blankTrial, newLevel, levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, deleteItem, duplicateItem, hitItem, itemOutline, moveItem, resizeItem, resizeLevelHeight, setWallTextRotation } from '../src/games/jumping/editor.ts'
 import { wallTextBounds, wallTextLines, wallTextPoint } from '../src/games/jumping/wallText.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
 test('wall text supports editing, duplication, room resizing, and lossless JSON for trials and playgrounds', () => {
@@ -100,7 +100,7 @@ test('rotating a large text area fits it inside the room and height reduction re
 })
 
 test('a long vertical text area fits a narrow room and stays valid when the ceiling is lowered', () => {
-  const source = { ...blankTrial(), width: 800, height: 2200, floor: 2200, spawn: { x: 160, y: 2200 }, goal: { x: 640, y: 2200 } }
+  const source = { ...blankTrial(), width: 800, height: 2200, floor: 2200, entrance: { x: 160, y: 2200 }, goal: { x: 640, y: 2200 } }
   const added = addItem(source, 'text', { x: 200, y: 1000 }, { x: 400, y: 1060 })
   let level = setWallTextRotation(added.level, 0, 90)
   level = resizeItem(level, added.selection, 1800, 120)

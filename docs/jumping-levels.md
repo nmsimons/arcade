@@ -164,8 +164,8 @@ Space + drag or the middle mouse button pans from anywhere. Placement tools retu
 to this default interaction after one use unless **Keep placing** is enabled;
 press Esc or click the active tool again to stop placing. Zoom centers on the
 selected object, or on the cursor for wheel zoom when nothing is selected.
-Start and goal markers are already part of each time trial. Drag the existing
-markers, or select **Start** / **Goal light** in the Inspector’s **Object** tab to edit their position.
+Entrance and exit doors are already part of each time trial. Drag the existing
+doors, or select **Entrance door** / **Exit door** in the Inspector’s **Object** tab to edit their position.
 
 The Inspector separates **Level** settings (names, save location, dimensions,
 night mode, floor material, and medal times) from **Object** properties. Selecting
@@ -223,7 +223,7 @@ when opening another level. **Duplicate** (Ctrl/⌘ + D) also accepts groups. Pa
 groups preserve their layout and terrain order, remap copied rope/ladder anchors
 and plate mounts, and receive independent device IDs with their internal wiring
 intact. Children copied without their hosts become independent. External switch
-connections are retained only within the source level. Start and goal remain
+connections are retained only within the source level. Entrance and exit remain
 unique and are excluded from copies and deletion. Rotate and flip are enabled
 when all selected objects are terrain, acting around the entire group's center.
 Every group move, paste, deletion, or transform is one undoable edit.
@@ -412,7 +412,7 @@ hidden built-ins.
 ## File format
 
 The version 1 file contains `id`, `name`, `width`, `height`,
-`spawn`, `platforms`, `checkpoints`, and `climbables` (ladders and ropes). A timed
+`entrance`, `platforms`, `checkpoints`, and `climbables` (ladders and ropes). A timed
 trial also includes `floor`, `goal`, `times`, `props`, `robots`, `mechanisms`, and
 `triggers`. Empty arrays are explicit. Old playground files without trial fields
 remain readable. Legacy `description` fields are ignored; use wall text for
@@ -593,6 +593,20 @@ duplicated, deleted, undone, and copied through templates. It moves with the
 camera, sits behind terrain and actors, and never affects physics. Growing the
 level adds space above it. Older files may omit `texts`.
 
+**Back wall → L.A.B. wall stamp** places the facility mark with its small,
+full-width `experiments` subtitle and an ink border. It is an ordinary wall text
+area with `style: "lab-stamp"`; its mark is fixed, while position, width, height,
+rotation, duplication, and undo/redo work like other wall text. The logo fits the
+area without stretching. It uses muted red ink by day and warm yellow at night,
+renders behind terrain and actors in gameplay, editor previews and thumbnails,
+and has no collision. Stamps count toward the same 80-area wall-text limit.
+
+```json
+"texts": [{ "x": 100, "y": 200, "w": 240, "h": 110,
+  "text": "L.A.B.\nexperiments", "fontSize": 28, "align": "center",
+  "style": "lab-stamp", "rotation": -5 }]
+```
+
 The builder uses `(0, 0)` at the bottom-left, with positive X to the right and
 positive Y upward. Inspector Y measures the object's top, a rope's anchor, or a
 marker's feet above the floor. Grid snapping uses this same origin. Changing level
@@ -622,6 +636,15 @@ keep the offset dark dot on a darker metal-colored body, with two smaller light
 grey dots following a short arc to suggest the sphere's shape.
 Save the optional preset as `"weight": "normal"` or `"heavy"` on a prop;
 omitting it preserves normal behavior. The retired `"light"` preset loads as normal.
+
+Crate branding is optional per box. **Objects → L.A.B. crate** places a box with
+`"branded": true`; the ordinary **Box** tool creates a plain box. The box
+inspector's **L.A.B. branding** checkbox changes either style. Omitted or false
+`branded` values keep crates plain, including existing files. Both normal wooden
+and heavy metal crates support the stencil. Branding follows the crate's rotation,
+survives duplication and saves, and changes artwork only: size, weight, buoyancy,
+and collisions are identical. Balls do not accept a branding field.
+
 Boxes rotate, settle on their faces, and tip over edges. Moderate slopes can hold
 a resting box; steeper slopes let it slide or tumble. Pushing applies a limited
 force, with the player's hands following the tilted face and steps following
@@ -668,7 +691,18 @@ Existing version 1 files with `flag: { x, y }` remain readable with their origin
 door placement and default to Always on. Saved files use `goal`; if both fields
 are present, `goal` takes precedence. No built-in level files need rewriting.
 
-Player starts use a feet Y coordinate. Terrain uses a top-left `x, y`
+The entrance uses `entrance: { x, y }`, where X is the door center and Y is its
+flat sill. It is 40 units wide and 80 high, matching the exit doorway without
+an indicator. Its full width needs continuous flat terrain and clear headroom.
+The editor selects and draws the doorway. Legacy `spawn` positions load as
+entrances at the same coordinates; new saves use `entrance`.
+
+On play and restart, the silhouette fades into view and takes a short step out
+of the open entrance, then the door closes into the wall. The entrance lasts
+1.35 seconds. The clock and physical world remain frozen during it and start
+automatically as soon as it disappears. Pause freezes the entrance too.
+
+Terrain uses a top-left `x, y`
 and a `w, h` bounding rectangle. Without additional fields, it is a solid rectangle.
 An optional `polygon` contains 3–64 local `[x, y]` vertices in either winding order;
 it must be a simple, nonintersecting polygon contained in its bounds. Concave shapes,
@@ -778,7 +812,7 @@ existing items whose power is Switched (gates always use switches).
 
 Elevators and moving platforms accept optional `power: "always"` or `"switched"`.
 Omission preserves existing switched behavior. **Always on** runs their normal
-travel cycle after the first gameplay input, including endpoint pauses and
+travel cycle after the entrance closes, including endpoint pauses and
 obstruction reversal. EMP still pauses them. Gates have no power setting.
 Changing any item's power to Always on removes its incoming connections.
 

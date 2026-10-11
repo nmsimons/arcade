@@ -207,7 +207,7 @@
       ]
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 160,
     "y": 1400
   },
@@ -235,7 +235,8 @@
       "kind": "box",
       "x": 620,
       "y": 640,
-      "size": 200
+      "size": 200,
+      "branded": true
     },
     {
       "kind": "ball",

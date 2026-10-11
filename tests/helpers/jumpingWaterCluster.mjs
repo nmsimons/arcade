@@ -1,5 +1,5 @@
 import { blankTrial } from '../../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../../src/games/jumping/model.ts'
 
 export const clusterStages = [
@@ -13,7 +13,7 @@ export const clusterStages = [
 
 export function createWaterCluster(side = 1, spacing = 48, depth = 50, dt = STEP) {
   const at = x => side > 0 ? x : 1800 - x
-  const run = createRun({ ...blankTrial(), spawn: { x: at(420), y: 450 },
+  const run = createRun({ ...blankTrial(), entrance: { x: at(420), y: 450 },
     goal: { x: 1700, y: 900, id: 'closed', power: 'switched' },
     props: Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: at(570 + i * spacing), y: 420, size: 40 })),
     platforms: [{ x: 0, y: 900, w: 1800, h: 80 }],

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, TUNING, respawn } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { playerWaterCenterOffset } from '../src/games/jumping/gravity.ts'
@@ -9,7 +9,7 @@ import { gameCamera } from '../src/games/jumping/camera.ts'
 
 const water = { id: 'water', x: 0, y: 400, w: 1800, h: 520, gravity: -1, effect: 'water', power: 'always' }
 function fixture(props = []) {
-  const run = createRun({ ...blankTrial(), spawn: { x: 850, y: 700 }, props,
+  const run = createRun({ ...blankTrial(), entrance: { x: 850, y: 700 }, props,
     goal: { id: 'closed', x: 1600, y: 920, power: 'switched' }, gravityPlates: [water] })
   run.started = true; run.player.grounded = false; run.player.coyote = 0
   return run

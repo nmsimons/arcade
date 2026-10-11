@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import Matter from 'matter-js'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 
@@ -10,7 +10,7 @@ const step = (run, seconds, input = NEUTRAL_INPUT, dt = STEP) => {
   for (let i = 0; i < Math.round(seconds / dt); i++) stepRun(run, input, dt)
 }
 const runFor = (gravity, props, spawn = { x: 100, y: 920 }) => {
-  const run = createRun({ ...blankTrial(), gravityPlates: field(gravity), props, spawn })
+  const run = createRun({ ...blankTrial(), gravityPlates: field(gravity), props, entrance: spawn })
   run.started = true
   return run
 }

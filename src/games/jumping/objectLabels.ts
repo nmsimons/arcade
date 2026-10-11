@@ -6,7 +6,7 @@ import { pickupLabel } from './pickups.ts'
 
 /** Resolve authored data rather than the bounds derived for editor handles. */
 export function itemDefinition(level: JumpLevel, selection: Selection): NamedObject | undefined {
-  if (selection.kind === 'spawn') return level.spawn
+  if (selection.kind === 'entrance') return level.entrance
   if (selection.kind === 'goal') return level.goal
   const collections = {
     platform: level.platforms, rope: level.climbables.ropes, ladder: level.climbables.ladders,
@@ -21,11 +21,12 @@ export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
   if (s.kind === 'prop') {
     const prop = level.props?.[s.index], weight = prop?.weight === 'heavy' ? 'Heavy ' : ''
-    return `${weight}${prop?.kind === 'ball' ? 'Ball' : 'Box'} ${s.index + 1}`
+    return `${weight}${prop?.kind === 'ball' ? 'Ball' : prop?.branded ? 'L.A.B. crate' : 'Box'} ${s.index + 1}`
   }
-  const name = s.kind === 'spawn' ? 'Start' : s.kind === 'goal' ? 'Goal light'
+  if (s.kind === 'text' && level.texts?.[s.index]?.style === 'lab-stamp') return `L.A.B. wall stamp ${s.index + 1}`
+  const name = s.kind === 'entrance' ? 'Entrance door' : s.kind === 'goal' ? 'Exit door'
     : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'light' ? 'Spotlight' : s.kind === 'force-field' ? level.forceFields![s.index].orientation === 'horizontal' ? 'Horizontal force field' : 'Vertical force field' : s.kind === 'gravity-plate' ? level.gravityPlates?.[s.index]?.effect === 'water' ? 'Water' : 'Gravity plate' : s.kind === 'wall-light' ? 'Wall light' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
-  return `${name}${s.kind === 'spawn' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
+  return `${name}${s.kind === 'entrance' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }
 
 /** Keep the type and number visible to distinguish duplicate or missing names. */

@@ -10,7 +10,7 @@ for (const mode of ['run', 'walk', 'crouch']) test(`Spelunk downhill ${mode} kee
   test.setTimeout(mode === 'run' ? 60000 : 120000)
   // Isolate the reported descent with its original polygon, ball and lighting.
   // Only this fetched test fixture starts on the ridge; no authored file changes.
-  const fixture = { ...spelunk, name: 'Spelunk downhill encounter', spawn: { x: 1280, y: 1460 } }
+  const fixture = { ...spelunk, name: 'Spelunk downhill encounter', entrance: { x: 1280, y: 1460 } }
   await useLevelFixtures(page, [fixture])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 852, height: 393 })

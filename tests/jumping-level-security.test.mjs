@@ -8,7 +8,7 @@ import { decodeLevelFile, loadLocalLevelFiles, loadLevelCatalog } from '../src/g
 import { MAX_COLLECTION_BYTES, MAX_LEVEL_BYTES, readLevelResponse, readInBatches } from '../src/games/jumping/levelLimits.ts'
 import { prepareLevelInWorker, clonePreparedLevel, LEVEL_PREPARATION_TIMEOUT } from '../src/games/jumping/levelPreparation.ts'
 import { blankTrial, levelProblems, prepareLevelRopes } from '../src/games/jumping/level.ts'
-import { createRun, createPreviewRun } from '../src/games/jumping/challenge.ts'
+import { createRun, createPreviewRun } from './helpers/jumping-active-run.mjs'
 import { ropeCanSleep } from '../src/games/jumping/ropeSleep.ts'
 import { FIRST_LEVEL, CAMPAIGN } from './helpers/jumping-fixtures.mjs'
 

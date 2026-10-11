@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { JumpingMotionDiagnostics } from '../src/games/jumping/motionDiagnostics.ts'
 import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer } from '../src/games/jumping/model.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 
 const player = () => Object.assign(createPlayer({ x: 200, y: 620 }), {
   contacts: { support: null, push: null, body: [], motion: { x: 0, y: 0, speed: 0 } },
@@ -87,7 +87,7 @@ test('ordinary walking, running, crouching, jumping and landing remain quiet', (
 
 test('steady pushes on boxes and balls do not produce false reports', () => {
   for (const kind of ['box', 'ball']) {
-    const level = blankTrial(); level.props = [{ kind, x: 900, y: 920, size: 80 }]; level.spawn.x = 834.5
+    const level = blankTrial(); level.props = [{ kind, x: 900, y: 920, size: 80 }]; level.entrance.x = 834.5
     const run = createRun(level), monitor = new JumpingMotionDiagnostics()
     const input = { ...NEUTRAL_INPUT, move: 1 }
     for (let i = 0; i < 480; i++) { stepRun(run, input); observe(monitor, run.player, input) }

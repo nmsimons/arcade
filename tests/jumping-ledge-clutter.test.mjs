@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { bodyIntersects, polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
@@ -12,7 +12,7 @@ import { robotHulls } from '../src/games/jumping/robotPhysics.ts'
 function fixture(side, clutter = true) {
   const x = value => 700 + side * (500 - value)
   const level = { ...blankTrial(), width: 1400, height: 700, floor: 620,
-    spawn: { x: x(260), y: 560 }, goal: { x: 1240, y: 620 },
+    entrance: { x: x(260), y: 560 }, goal: { x: 1240, y: 620 },
     platforms: [
       { x: Math.min(x(200), x(500)), y: 520, w: 300, h: 100,
         polygon: (side === -1 ? [[0,100],[100,0],[300,0],[300,100]] : [[0,0],[200,0],[300,100],[0,100]]) },
@@ -21,7 +21,8 @@ function fixture(side, clutter = true) {
     props: clutter ? [{ kind: 'box', x: x(515), y: 620, size: 30 }, { kind: 'ball', x: x(545), y: 620, size: 30 }] : [],
     robots: clutter ? [{ x: x(620), y: 620, left: 400, right: 1000 }] : [],
   }
-  assert.deepEqual(levelProblems(level), [])
+  // Begin inside the low opening to isolate ledge contacts, below doorway clearance.
+  assert.deepEqual(levelProblems(level), ['Place “Entrance door” on a continuous flat surface, with a clear doorway inside the level.'])
   return createRun(level)
 }
 function advance(run, seconds, input = {}) {
@@ -59,7 +60,7 @@ for (const side of [-1, 1]) test(`a small box, ball and shovebot below a low led
 
 for (const side of [-1, 1]) test(`jumping past a small box can catch and climb the ledge: ${side}`, () => {
   const level = fixture(side).level
-  level.spawn = { x: 700 - side * 160, y: 620 }
+  level.entrance = { x: 700 - side * 160, y: 620 }
   level.props = level.props.slice(0, 1); level.robots = []
   assert.deepEqual(levelProblems(level), [])
   const run = createRun(level)

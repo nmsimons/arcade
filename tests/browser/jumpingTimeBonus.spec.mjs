@@ -4,7 +4,7 @@ import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPau
 import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'time-bonus-browser-test', name: 'Time bonus trial', width: 1200, height: 600, floor: 600,
-  spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
+  entrance: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
   pickups: [{ kind: 'time-bonus', seconds: 5, x: 360, y: 568 }, { kind: 'time-bonus', seconds: 9, x: 640, y: 568 }] })
 async function open(page, editor = false, crouch = false) {
   const fixture = level()

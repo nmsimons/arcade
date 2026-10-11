@@ -2,15 +2,15 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { GameCamera, gameCamera, LEVEL_BOTTOM_PADDING } from '../src/games/jumping/camera.ts'
 import { blankTrial, levelHeight } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 
 const sizes = [{ width: 320, height: 740 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1280, height: 800 }]
-const room = (height = 600, width = 4000) => ({ ...blankTrial(), width, height, floor: height, spawn: { x: 1500, y: height }, goal: { x: width - 200, y: height } })
+const room = (height = 600, width = 4000) => ({ ...blankTrial(), width, height, floor: height, entrance: { x: 1500, y: height }, goal: { x: width - 200, y: height } })
 const screen = (c, point) => [(point[0] - c.x) * c.zoom, (point[1] - c.y) * c.zoom]
 
 test('phone challenge framing gives a readable figure and balances unused short-room space', () => {
-  const level = room(), p = createPlayer(level.spawn)
+  const level = room(), p = createPlayer(level.entrance)
   for (const size of sizes) {
     const c = gameCamera(size.width, size.height, p, level, true)
     assert.ok(TUNING.height * c.zoom >= 37, 'the standing hull occupies at least 37 CSS pixels')
@@ -43,7 +43,7 @@ test('tall-room framing keeps enclosing support visible and is continuous where 
 
 test('a narrow-screen running held jump reveals useful destination footing before commitment and lands through the ordinary motor', () => {
   for (const size of sizes) {
-    const level = room(1000); level.spawn.y = 600
+    const level = room(1000); level.entrance.y = 600
     level.platforms = [{ x: 0, y: 600, w: 1780, h: 400 }, { x: 2030, y: 600, w: 450, h: 400 }]
     const run = createRun(level), camera = new GameCamera()
     camera.view(size.width, size.height, run.player, level, true)

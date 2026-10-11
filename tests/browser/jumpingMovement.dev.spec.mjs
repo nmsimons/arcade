@@ -4,7 +4,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 async function start(page) {
-  const level = { ...blankTrial(), name: 'Jump experiment', width: 3000, height: 1200, floor: 1000, spawn: { x: 200, y: 1000 }, goal: { x: 2800, y: 1000 } }
+  const level = { ...blankTrial(), name: 'Jump experiment', width: 3000, height: 1200, floor: 1000, entrance: { x: 200, y: 1000 }, goal: { x: 2800, y: 1000 } }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game')

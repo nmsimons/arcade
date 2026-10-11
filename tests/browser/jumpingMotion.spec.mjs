@@ -5,7 +5,7 @@ import { crouchedPushLevel } from '../helpers/jumpingCrouchedPushScenarios.mjs'
 
 test('keyboard turns between blocked props retain the whole body and establish the incoming brace', async ({page},info) => {
   const root=474.5,size=80,offset=size/2+25.5
-  const level={...blankTrial(),spawn:{x:root,y:920},
+  const level={...blankTrial(),entrance:{x:root,y:920},
     props:[{kind:'box',x:root+offset,y:920,size},{kind:'box',x:root-offset,y:920,size}],
     platforms:[{x:root+25.5+size,y:650,w:120,h:270},{x:root-25.5-size-120,y:650,w:120,h:270}]}
   await useLevelFixtures(page,[level])
@@ -50,7 +50,7 @@ test('keyboard turns between blocked props retain the whole body and establish t
 })
 
 test('keyboard reversal brakes continuously while steering responds on the first tick', async ({page},info) => {
-  const level = blankTrial(); level.width=4000; level.spawn={x:1500,y:920};level.goal={x:3800,y:920}
+  const level = blankTrial(); level.width=4000; level.entrance={x:1500,y:920};level.goal={x:3800,y:920}
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
   await page.goto('/untitled-jumping-game?motionDebug=1')
@@ -80,7 +80,7 @@ test('keyboard reversal brakes continuously while steering responds on the first
 
 test('keyboard lowering then Jump away retains the ledge impulse while holding toward it', async ({page},info) => {
   const level=blankTrial();level.height=600;level.floor=500
-  level.spawn={x:530,y:300};level.goal={x:900,y:500}
+  level.entrance={x:530,y:300};level.goal={x:900,y:500}
   level.platforms=[{x:500,y:300,w:200,h:200}]
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
@@ -106,7 +106,7 @@ test('keyboard lowering then Jump away retains the ledge impulse while holding t
 
 for (const key of ['a','s']) test(`keyboard ${key === 'a' ? 'opposite movement' : 'Down'} backs out of a tall step before top support`, async ({page},info) => {
   const level = blankTrial(); level.height = 600; level.floor = 500
-  level.spawn = {x:474.5,y:500}; level.goal = {x:900,y:500}
+  level.entrance = {x:474.5,y:500}; level.goal = {x:900,y:500}
   level.platforms = [{x:500,y:440,w:200,h:60}]
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
@@ -127,7 +127,7 @@ for (const key of ['a','s']) test(`keyboard ${key === 'a' ? 'opposite movement' 
 
 for (const operation of ['resume','restart']) test(`keyboard ${operation} clears a queued jump during an actual returning tall step`, async ({page},info) => {
   const level=blankTrial();level.height=600;level.floor=500
-  level.spawn={x:474.5,y:500};level.goal={x:900,y:500}
+  level.entrance={x:474.5,y:500};level.goal={x:900,y:500}
   level.platforms=[{x:500,y:440,w:200,h:60}]
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
@@ -176,7 +176,7 @@ for (const operation of ['resume','restart']) test(`keyboard ${operation} clears
 })
 
 test('motion diagnostics observe real controls and pushing resumes smoothly after a brief release', async ({ page }, info) => {
-  const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
+  const level = blankTrial(); level.entrance = { x: 474.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   level.platforms = [{ x: 580, y: 700, w: 100, h: 220 }]
   const errors = []; page.on('pageerror', error => errors.push(error.message))
@@ -220,7 +220,7 @@ test('production play does not enable diagnostics without the flag', async ({ pa
 for (const direction of [-1, 1]) for (const width of [16, 24]) test(`a keyboard brace keeps both soles on ${width}-unit footing through recontact (${direction})`, async ({ page }, info) => {
   const rect = (x, y, w, h) => ({ x: direction === 1 ? x : 900 - x - w, y, w, h })
   const level = { ...blankTrial(), width: 900, height: 700, floor: 650,
-    spawn: { x: direction === 1 ? 414.5 : 485.5, y: 500 },
+    entrance: { x: direction === 1 ? 414.5 : 485.5, y: 500 },
     goal: { x: direction === 1 ? 100 : 800, y: 650, flipX: direction === -1 },
     platforms: [rect(414.5 - width / 2, 500, width, 20), rect(440, 500, 80, 20), rect(520, 350, 100, 300)],
     props: [{ kind: 'box', x: direction === 1 ? 480 : 420, y: 500, size: 80 }] }
@@ -257,7 +257,7 @@ for (const direction of [-1, 1]) for (const width of [16, 24]) test(`a keyboard 
 })
 
 for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the surface before and after restart (${direction})`, async ({ page }, info) => {
-  const level = blankTrial(); level.spawn = { x: 540 - direction * 65.5, y: 920 }
+  const level = blankTrial(); level.entrance = { x: 540 - direction * 65.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -272,14 +272,14 @@ for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the
       await page.keyboard.up(key)
       await restartFromPause(page); await page.clock.runFor(120)
       const ready = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
-      expect(ready.x).toBe(level.spawn.x); expect(ready.y).toBe(level.spawn.y)
+      expect(ready.x).toBe(level.entrance.x); expect(ready.y).toBe(level.entrance.y)
     }
     await page.keyboard.down(key); await page.clock.runFor(200)
     const frames = await page.evaluate(() => window.jumpingMotion.read().recent)
     expect(frames.length).toBeGreaterThan(5)
     const loaded = frames.filter(frame => frame.contacts.palms.length)
     expect(loaded.length).toBeGreaterThan(5)
-    expect(frames.at(-1).x * direction).toBeGreaterThan(level.spawn.x * direction + 1)
+    expect(frames.at(-1).x * direction).toBeGreaterThan(level.entrance.x * direction + 1)
     for (const frame of loaded) frame.contacts.hands.forEach((hand, i) => {
         const palm = frame.contacts.palms[i]
         expect(Math.hypot(hand.x - palm.x - palm.nx * 1.6, hand.y - palm.y - palm.ny * 1.6)).toBeLessThan(.5)
@@ -290,7 +290,7 @@ for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the
 
 test('held keyboard movement springs a long-fall landing into supported running', async ({ page }, info) => {
   const level = blankTrial(); level.height = 1480; level.floor = 1400; level.width = 4000
-  level.spawn = { x: 540, y: 100 }; level.goal.y = 1400
+  level.entrance = { x: 540, y: 100 }; level.goal.y = 1400
   level.platforms = [{ x: 500, y: 100, w: 120, h: 20 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -315,7 +315,7 @@ for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low d
   const x = 800, slope = .3 * direction, surface = at => 650 + slope * (at - x)
   const spawnX = x - direction * 40.5
   const level = { ...blankTrial(), width: 3000, height: 1200, floor: 1100,
-    spawn: { x: spawnX, y: surface(spawnX) }, goal: { x: 2500, y: 1100 },
+    entrance: { x: spawnX, y: surface(spawnX) }, goal: { x: 2500, y: 1100 },
     props: [{ kind, x, y: 650, size: 30 }],
     platforms: [{ x: 200, y: 0, w: 2000, h: 1100, profile: [[0, surface(200)], [2000, surface(2200)]] }] }
   // Working palms require a real resisting load. A free downhill ball now
@@ -403,7 +403,7 @@ for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`cro
 })
 
 for (const direction of [-1, 1]) test(`crouched pushing keeps the final head clear and establishes a brace: direction=${direction}`, async ({ page }, info) => {
-  const level = blankTrial(); level.spawn = { x: 540 - direction * 65.5, y: 920 }
+  const level = blankTrial(); level.entrance = { x: 540 - direction * 65.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   level.platforms = [{ x: direction === 1 ? 580 : 380, y: 650, w: 120, h: 270 }]
   await useLevelFixtures(page, [level])
@@ -432,7 +432,7 @@ for (const direction of [-1, 1]) test(`crouched pushing keeps the final head cle
 })
 
 test('the rendered torso transfers weight during a real moving push', async ({ page }, info) => {
-  const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
+  const level = blankTrial(); level.entrance = { x: 474.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
@@ -456,7 +456,7 @@ test('the rendered torso transfers weight during a real moving push', async ({ p
 })
 
 test('first opposite keyboard press during stationary get-up retains the outgoing whole rig',async({page},info)=>{
- const level={...blankTrial(),height:1400,floor:1400,spawn:{x:200,y:160},goal:{x:1620,y:1400},platforms:[{x:100,y:160,w:220,h:24}]}
+ const level={...blankTrial(),height:1400,floor:1400,entrance:{x:200,y:160},goal:{x:1620,y:1400},platforms:[{x:100,y:160,w:220,h:24}]}
  await useLevelFixtures(page,[level]);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
  await page.goto('/untitled-jumping-game?motionDebug=1')
  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()

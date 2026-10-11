@@ -7,7 +7,7 @@ import { groundAt } from '../src/games/jumping/terrain.ts'
 function fixture() {
   return prepareLevelRopes({
     version: 1, id: 'resize', name: 'Resize', width: 1600, height: 1200, floor: 1000,
-    spawn: { x: 120, y: 1000 }, goal: { x: 1450, y: 1000 }, checkpoints: [{ x: 400, y: 400, radius: 60 }],
+    entrance: { x: 120, y: 1000 }, goal: { x: 1450, y: 1000 }, checkpoints: [{ x: 400, y: 400, radius: 60 }],
     platforms: [
       { x: 300, y: 400, w: 300, h: 600 },
       { x: 900, y: 700, w: 200, h: 300, polygon: [[0, 300], [200, 0], [200, 300]] },
@@ -30,7 +30,7 @@ test('adding height preserves every object above the floor, including attachment
   assert.equal(levelHeight(next), 1600)
   assert.equal(next.height, next.floor)
   const shifted = value => ({ ...value, y: value.y + 600 })
-  for (const key of ['spawn', 'goal']) assert.deepEqual(next[key], shifted(level[key]))
+  for (const key of ['entrance', 'goal']) assert.deepEqual(next[key], shifted(level[key]))
   for (const key of ['platforms', 'checkpoints', 'props', 'robots', 'mechanisms', 'triggers']) assert.deepEqual(next[key], level[key].map(shifted))
   assert.deepEqual(next.climbables.ladders, level.climbables.ladders.map(l => ({ ...l, top: l.top + 600, bottom: l.bottom + 600 })))
   const rope = next.climbables.ropes[0], old = level.climbables.ropes[0]
@@ -53,15 +53,15 @@ test('shrinking removes the ceiling space, stops before cropping contents, and c
   assert.equal(levelHeight(smaller), 662, 'leave standing room for the elevated checkpoint')
   assert.equal(smaller.platforms[0].y, 62)
   assert.equal(smaller.checkpoints[0].y, 62)
-  assert.equal(smaller.spawn.y, 662)
+  assert.equal(smaller.entrance.y, 662)
   assert.deepEqual(levelProblems(smaller), [])
   assert.deepEqual(parseLevel(smaller), smaller)
 })
 
 test('height changes support playground files, arbitrary heights, and bounded input', () => {
-  const level = newLevel(); delete level.height; level.spawn.y = 1020
+  const level = newLevel(); delete level.height; level.entrance.y = 1020
   const next = resizeLevelHeight(level, 1437)
-  assert.equal(next.height, 1437); assert.equal(next.spawn.y, 1437)
+  assert.equal(next.height, 1437); assert.equal(next.entrance.y, 1437)
   assert.equal(next.floor, undefined)
   assert.deepEqual(parseLevel(next), next)
   assert.equal(resizeLevelHeight(next, 1437), next)

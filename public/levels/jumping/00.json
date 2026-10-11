@@ -1,44 +1,44 @@
 {
   "version": 1,
   "id": "a90ceb11-5e2a-4b24-80f2-73648ffab13d",
-  "name": "First Leap",
+  "name": "First Gap",
   "width": 1304,
-  "height": 1600,
+  "height": 1000,
   "platforms": [
     {
       "x": 0,
-      "y": 1200,
+      "y": 600,
       "w": 540,
       "h": 400
     },
     {
       "x": 780,
-      "y": 1200,
+      "y": 600,
       "w": 524,
       "h": 400
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 147.08955223880596,
-    "y": 1200
+    "y": 600
   },
   "checkpoints": [],
   "climbables": {
     "ladders": [
       {
         "x": 560,
-        "top": 1200,
-        "bottom": 1600,
+        "top": 600,
+        "bottom": 1000,
         "platform": -1,
         "side": -1
       }
     ],
     "ropes": []
   },
-  "floor": 1600,
+  "floor": 1000,
   "goal": {
     "x": 1304,
-    "y": 1200,
+    "y": 600,
     "flipX": true
   },
   "times": {
@@ -54,7 +54,7 @@
   "texts": [
     {
       "x": 240,
-      "y": 1020,
+      "y": 420,
       "w": 300,
       "h": 100,
       "text": "Run up.\nTap jump.",
@@ -65,7 +65,7 @@
     },
     {
       "x": 580,
-      "y": 1430,
+      "y": 830,
       "w": 180,
       "h": 100,
       "text": "Hold up\nto climb.",
@@ -73,6 +73,16 @@
       "align": "left",
       "style": "graffiti",
       "rotation": -4
+    },
+    {
+      "x": 1040,
+      "y": 20,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
     }
   ]
 }

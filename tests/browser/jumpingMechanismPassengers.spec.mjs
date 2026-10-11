@@ -4,7 +4,7 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 for (const kind of ['gate', 'lift']) test(`a horizontal ${kind} slides out from under a crate blocked by an overhang`, async ({ page }, info) => {
   const name = `Unloading ${kind}`, level = { ...blankTrial(), name,
-    spawn: { x: 100, y: 920 },
+    entrance: { x: 100, y: 920 },
     platforms: [{ x: 820, y: 600, w: 20, h: 80 }],
     props: [{ kind: 'box', x: 740, y: 700, size: 60 }],
     mechanisms: [{ id: 'carrier', kind, orientation: 'horizontal', flipX: true, x: 700, y: 700, w: 160, h: 20, travel: 300 }],

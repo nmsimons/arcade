@@ -9,7 +9,7 @@ test('lit and original renderers use identical supplied framing across running l
       import('/src/games/jumping/camera.ts'), import('/src/games/jumping/level.ts'), import('/src/games/jumping/challenge.ts'),
       import('/src/games/jumping/model.ts'), import('/src/games/jumping/challengeRender.ts'), import('/src/games/jumping/lightingRender.ts'),
     ])
-    const level = { ...blankTrial(), width: 4000, floor: 1800, height: 1800, spawn: { x: 1500, y: 1800 } }
+    const level = { ...blankTrial(), width: 4000, floor: 1800, height: 1800, entrance: { x: 1500, y: 1800 } }
     const run = createRun(level), camera = new GameCamera(), renderer = new LightingRenderer(), canvas = document.createElement('canvas'), ctx = canvas.getContext('2d'), seen = []
     const original = ctx.fillRect.bind(ctx)
     ctx.fillRect = (...args) => {

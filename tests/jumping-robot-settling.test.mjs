@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { polygonIntersects } from '../src/games/jumping/geometry.ts'
 import { boxShape } from '../src/games/jumping/propGeometry.ts'
@@ -9,7 +9,7 @@ import { robotHulls } from '../src/games/jumping/robotPhysics.ts'
 
 function fixture(direction = 1, size = 40) {
   const level = blankTrial()
-  level.spawn = { x: 1500, y: 500 }
+  level.entrance = { x: 1500, y: 500 }
   level.platforms = [{ x: 1400, y: 500, w: 300, h: 20 }]
   level.robots = [{ x: 700, y: 920, left: 200, right: 1300 }]
   level.props = size ? [{ kind: 'box', x: 700 + direction * 50, y: 920, size }] : []
@@ -74,7 +74,7 @@ test('EMP pauses settling until power returns', () => {
 
 test('settling cannot rotate the chassis or wheels through an adjacent wall', () => {
   const level = blankTrial()
-  level.spawn = { x: 1500, y: 920 }
+  level.entrance = { x: 1500, y: 920 }
   level.platforms = [{ x: 724, y: 700, w: 20, h: 220 }]
   level.robots = [{ x: 700, y: 920, left: 200, right: 1300 }]
   const run = createRun(level), r = run.robots[0]; run.started = true
@@ -86,7 +86,7 @@ test('settling cannot rotate the chassis or wheels through an adjacent wall', ()
 
 test('support recovery does not let a patrolling bot drive over a cliff', () => {
   const level = blankTrial()
-  level.spawn = { x: 1500, y: 920 }
+  level.entrance = { x: 1500, y: 920 }
   level.platforms = [{ x: 600, y: 650, w: 200, h: 20 }]
   level.robots = [{ x: 700, y: 650, left: 200, right: 1300 }]
   const run = createRun(level), r = run.robots[0]; run.started = true

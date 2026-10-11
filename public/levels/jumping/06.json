@@ -24,7 +24,7 @@
       "h": 700
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 120,
     "y": 800
   },
@@ -450,5 +450,16 @@
     }
   ],
   "pickups": [],
-  "texts": []
+  "texts": [
+    {
+      "x": 1220,
+      "y": 20,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ]
 }

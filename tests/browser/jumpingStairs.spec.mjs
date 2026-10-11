@@ -9,7 +9,7 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
   const stairs = template ? addItem(blankTrial(), 'steps-wide', { x: 300, y: 320 }, { x: 300, y: 320 }).level.platforms[0] : { x: 300, y: 320, w: 420, h: 100,
     polygon: [...steps.flatMap(s => [[s.x - 300, s.y - 320], [s.x + s.w - 300, s.y - 320]]), [420,100],[0,100]] }
   const level = { ...blankTrial(), name: 'Stair treads', width: 1000, height: 420, floor: 420,
-    spawn: { x: 250, y: 420 }, goal: { x: 100, y: 420 }, platforms: [stairs] }
+    entrance: { x: 250, y: 420 }, goal: { x: 100, y: 420 }, platforms: [stairs] }
   expect(levelProblems(level)).toEqual([])
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))

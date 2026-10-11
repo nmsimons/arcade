@@ -5,7 +5,7 @@ import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 import { DIGITAL_AMBER } from '../../src/games/jumping/digitalDisplay.ts'
 
 const level = () => ({ ...blankTrial(), id: 'stopwatch-browser-test', name: 'Stopwatch run', width: 1000, height: 600, floor: 600,
-  spawn: { x: 160, y: 600 }, goal: { x: 800, y: 600 },
+  entrance: { x: 160, y: 600 }, goal: { x: 800, y: 600 },
   pickups: [{ kind: 'stopwatch', x: 320, y: 568 }, { kind: 'stopwatch', x: 560, y: 568 }],
   timers: [{ x: 80, y: 420 }, { x: 600, y: 420 }] })
 

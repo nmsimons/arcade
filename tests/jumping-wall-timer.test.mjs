@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, deleteItem, duplicateItem, hitItem, moveItem, resizeLevelHeight } from '../src/games/jumping/editor.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT, formatWallTime } from '../src/games/jumping/wallTimer.ts'
 

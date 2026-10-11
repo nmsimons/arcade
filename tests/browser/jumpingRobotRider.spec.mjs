@@ -4,7 +4,7 @@ import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 test('a rear rider stays unseen and can stand, crouch and jump from the bot body', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Bot rider', width: 1200, height: 600, floor: 600,
-    spawn: { x: 539, y: 500 }, goal: { x: 1040, y: 600 }, platforms: [{ x: 300, y: 500, w: 240, h: 100 }],
+    entrance: { x: 539, y: 500 }, goal: { x: 1040, y: 600 }, platforms: [{ x: 300, y: 500, w: 240, h: 100 }],
     robots: [{ x: 600, y: 600, left: 100, right: 1000 }] }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })

@@ -65,9 +65,9 @@
       "h": 20
     }
   ],
-  "spawn": {
-    "x": 320.8888888888889,
-    "y": 894.0952380952381
+  "entrance": {
+    "x": 165,
+    "y": 920
   },
   "checkpoints": [],
   "climbables": {
@@ -147,17 +147,17 @@
   "pickups": [],
   "texts": [
     {
-      "x": 1420,
-      "y": 520,
-      "w": 320,
-      "h": 100,
+      "x": 1465,
+      "y": 460,
+      "w": 230,
+      "h": 115,
       "text": "5",
       "fontSize": 96,
       "align": "center"
     },
     {
-      "x": 1620,
-      "y": 540,
+      "x": 1605,
+      "y": 480,
       "w": 120,
       "h": 80,
       "text": "But why?",
@@ -165,6 +165,16 @@
       "align": "left",
       "style": "graffiti",
       "rotation": -10
+    },
+    {
+      "x": 1460,
+      "y": 340,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
     }
   ],
   "lighting": {

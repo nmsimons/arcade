@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, stepRun, saveBest } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun, saveBest } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { addItem, duplicateItem, moveItem, deleteItem, setPickupSeconds, resizeLevelHeight } from '../src/games/jumping/editor.ts'
 import { FAST_STOPWATCH_SECONDS, TIME_BONUS_LABEL_SECONDS, pickupBounds } from '../src/games/jumping/pickups.ts'
@@ -30,12 +30,12 @@ for (const seconds of [1, 5, 9]) for (const elapsed of [0, 2, 15]) {
 
 test('a fast stopwatch runs at double speed for exactly five gameplay seconds', () => {
   const run = createRun(fixture([fastWatch()]))
-  step(run, 120)
-  assert.equal(run.started, false); assert.equal(run.elapsed, 0)
-  assert.equal(run.timeFastRemaining, FAST_STOPWATCH_SECONDS, 'waiting to start never spends the effect')
+  step(run, 1)
+  assert.equal(run.started, true); assert.equal(run.elapsed, STEP)
+  assert.equal(run.timeFastRemaining, FAST_STOPWATCH_SECONDS, 'collection grants the complete effect')
   step(run, 600, { ...NEUTRAL_INPUT, climb: true })
-  near(run.elapsed, 10); near(run.timeFastRemaining, 0); near(run.activeTime, 5)
-  step(run, 120); near(run.elapsed, 11); assert.equal(run.timeFastRemaining, 0)
+  near(run.elapsed, 10 + STEP); near(run.timeFastRemaining, 0); near(run.activeTime, 5 + STEP)
+  step(run, 120); near(run.elapsed, 11 + STEP); assert.equal(run.timeFastRemaining, 0)
   const reset = createRun(run.level)
   assert.equal(reset.elapsed, 0); assert.equal(reset.timeFastRemaining, 0); assert.equal(reset.pickups[0].collectedAge, null)
 })
@@ -44,17 +44,17 @@ test('extra fast watches extend the effect without increasing the multiplier', (
   const run = createRun(fixture([fastWatch(), fastWatch(165), fastWatch(500)]))
   step(run, 1); assert.equal(run.timeFastRemaining, 10)
   run.started = true; step(run, 120)
-  near(run.elapsed, 2); near(run.timeFastRemaining, 9)
+  near(run.elapsed, 2 + STEP); near(run.timeFastRemaining, 9)
   run.player.x = 500; step(run, 1)
-  near(run.elapsed, 2 + 2 * STEP); near(run.timeFastRemaining, 14 - STEP)
-  step(run, 1680); near(run.timeFastRemaining, 0); near(run.elapsed, 30 + STEP)
+  near(run.elapsed, 2 + 3 * STEP); near(run.timeFastRemaining, 14 - STEP)
+  step(run, 1680); near(run.timeFastRemaining, 0); near(run.elapsed, 30 + 2 * STEP)
 })
 
 test('freeze takes precedence while both durations count down, including fractional expiration', () => {
   const run = createRun(fixture([fastWatch(), { kind: 'stopwatch', x: 160, y: 888 }]))
   step(run, 1); run.started = true
-  step(run, 600); near(run.elapsed, 0); near(run.timeFastRemaining, 0); near(run.timeStopRemaining, 5)
-  step(run, 720); near(run.elapsed, 1)
+  step(run, 600); near(run.elapsed, STEP); near(run.timeFastRemaining, 0); near(run.timeStopRemaining, 5)
+  step(run, 720); near(run.elapsed, 1 + STEP)
   for (const [frozen, fast, added] of [[0, .5, 1.5], [.25, .75, 1.25], [.75, .25, .25], [.25, 2, 1.5], [2, .5, 0]]) {
     run.timeStopRemaining = frozen * STEP; run.timeFastRemaining = fast * STEP; run.elapsed = 4
     step(run, 1)
@@ -92,7 +92,7 @@ for (const item of [penalty(), fastWatch()]) {
     level.props = [{ kind: 'ball', x: 500, y: 920, size: 80 }]
     const run = createRun(level), audio = new JumpingAudioState()
     run.player.crouching = true; audio.reset(run.player, run)
-    step(run, 1); assert.ok(run.pickups.every(p => p.collectedAge === null))
+    step(run, 1, { ...NEUTRAL_INPUT, crouch: true }); assert.ok(run.pickups.every(p => p.collectedAge === null))
     run.player.crouching = false; step(run, 1); audio.step(run.player, run, STEP)
     assert.equal(run.pickups[0].collectedAge, 0); assert.equal(run.pickups[1].collectedAge, null)
     assert.deepEqual(audio.drain().cues.map(c => c.kind), ['time-penalty'])

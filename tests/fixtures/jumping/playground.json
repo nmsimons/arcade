@@ -3,7 +3,7 @@
   "id": "playground",
   "name": "Movement playground",
   "width": 4500,
-  "spawn": {
+  "entrance": {
     "x": 200,
     "y": 620
   },

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { LEDGE_CLIMB_TIME } from '../src/games/jumping/ledge.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
@@ -73,7 +73,7 @@ test('a pull-up uses the available pocket beside a box at normal pace, then push
     const level = blankTrial()
     level.platforms = [{ x: side > 0 ? 600 : 200, y: 300, w: 400, h: 40 }]
     level.props = [{ kind: 'box', x: 600 + side * (gap + size / 2), y: 300, size }]
-    level.spawn = { x: 600 - side * 14, y: 374 }
+    level.entrance = { x: 600 - side * 14, y: 374 }
     const run = createRun(level), p = run.player, box = run.props[0]
     let climbed = false, duration = 0
     for (let frame = 0; frame < 240; frame++) {
@@ -108,7 +108,7 @@ test('a resisted pull takes a compact route as soon as the moving box leaves roo
     const level = blankTrial()
     level.platforms = [{ x: side > 0 ? 600 : 200, y: 300, w: 400, h: 40 }]
     level.props = [{ kind: 'box', x: 600 + side * (18 + size / 2), y: 300, size }]
-    level.spawn = { x: 600 - side * 14, y: 374 }
+    level.entrance = { x: 600 - side * 14, y: 374 }
     const run = createRun(level), p = run.player, box = run.props[0]
     let climbed = false, adapted = false, partialSteps = 0, frozen = 0, longestFreeze = 0, duration = 0, previousHead
     for (let frame = 0; frame < 1200; frame++) {
@@ -149,7 +149,7 @@ test('a ball pinned against a wall leaves a usable narrow pull-up and lowering r
     if (singlePolygon) level.platforms = [{ x: side > 0 ? 600 : 440, y: 220, w: 160, h: 120,
       polygon: side > 0 ? [[0,80],[120,80],[120,0],[160,0],[160,120],[0,120]] : [[0,0],[40,0],[40,80],[160,80],[160,120],[0,120]] }]
     level.props = [{ kind: 'ball', x: 600 + side * 10, y: 300, size: 100 }]
-    level.spawn = { x: 600 - side * 14, y: 374 }
+    level.entrance = { x: 600 - side * 14, y: 374 }
     const run = createRun(level), p = run.player, ball = run.props[0]
     let adapted = false, previous
     const tick = input => {

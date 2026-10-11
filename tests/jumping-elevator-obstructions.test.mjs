@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { bodyIntersects, polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
@@ -9,7 +9,7 @@ import { boxShape } from '../src/games/jumping/propGeometry.ts'
 
 function fixture() {
   const level = blankTrial()
-  level.spawn = { x: 100, y: 920 }
+  level.entrance = { x: 100, y: 920 }
   level.mechanisms = [{ id: 'lift', kind: 'lift', x: 700, y: 900, w: 160, h: 20, travel: 300 }]
   level.triggers = [{ x: 50, y: 920, w: 100, target: 'lift', mode: 'touch' }]
   return level
@@ -104,7 +104,7 @@ for (const passenger of ['player', 'box']) test(`a carried ${passenger} limits u
   const level = fixture(), height = passenger === 'player' ? 62 : 80
   level.platforms = [{ x: 700, y: 620, w: 160, h: 40 }]
   if (passenger === 'player') {
-    level.spawn = { x: 780, y: 900 }
+    level.entrance = { x: 780, y: 900 }
     level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }]
   } else level.props = [{ kind: 'box', x: 780, y: 900, size: 80 }]
   const run = start(level)

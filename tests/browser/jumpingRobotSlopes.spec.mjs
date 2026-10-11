@@ -5,7 +5,7 @@ import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 for (const slope of [-3, 3]) test(`normal controls start a bot patrolling up and down a steep ramp (${slope})`, async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Bot slope', width: 1200, height: 1200, floor: 1200,
-    spawn: { x: 1100, y: 1200 }, goal: { x: 1040, y: 1200 },
+    entrance: { x: 1100, y: 1200 }, goal: { x: 1040, y: 1200 },
     platforms: [{ x: 300, y: 400, w: 200, h: 620,
       polygon: slope > 0 ? [[0, 0], [200, 600], [200, 620], [0, 20]] : [[0, 600], [200, 0], [200, 20], [0, 620]] }],
     robots: [{ x: 400, y: 700, left: 280, right: 520 }] }

@@ -58,7 +58,7 @@ test('normal keyboard swimming pushes a group at the surface, dives underneath a
 test('normal controls skim beneath a floating cluster, rise into it and turn away', async ({ page }, info) => {
   test.setTimeout(60000)
   const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/single-block-pool.json', import.meta.url), 'utf8'))
-  level.name = 'Beneath six floats'; level.spawn = { x: 1080, y: 765 }
+  level.name = 'Beneath six floats'; level.entrance = { x: 1080, y: 765 }
   level.goal = { ...level.goal, id: 'closed', power: 'switched' }
   level.props = Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: 1000 + i * 48, y: 345, size: 40 }))
   await useLevelFixtures(page, [level])

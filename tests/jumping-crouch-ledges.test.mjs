@@ -4,7 +4,7 @@ import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, TUNING } from '../src/ga
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { bodyIntersects, nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 
 function fixture(slope, side, gap = 40) {
   const outline = slope ? [[0,240],[400,0],[360,240]] : [[0,200],[160,0],[400,0],[400,240],[0,240]]
@@ -99,7 +99,7 @@ test('a crouched pull-up can be canceled back to the same grip', () => {
 
 for (const pointed of [false, true]) for (const dt of [STEP, 1 / 60]) test(`a distant shovebot cannot move the first ledge grip: ${pointed ? 'pointed' : 'flat'}, ${1 / dt} Hz`, () => {
   const level = { ...blankTrial(), width: 1800, height: 700, floor: 700,
-    spawn: { x: 360, y: pointed ? 560 : 480 }, goal: { x: 1640, y: 700 },
+    entrance: { x: 360, y: pointed ? 560 : 480 }, goal: { x: 1640, y: 700 },
     platforms: [
       { x: 260, y: 380, w: 400, h: pointed ? 240 : 200,
         polygon: pointed ? [[0,240],[400,0],[360,240]] : [[0,200],[200,0],[400,0],[400,200]] },

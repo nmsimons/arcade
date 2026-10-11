@@ -84,7 +84,7 @@ async function expectHandle(page, point) {
 }
 
 test('Terrain step templates and toolbar transforms support undo, redo and folder round trips', async ({ page }, info) => {
-  await open(page, { ...blankTrial(), width: 1200, height: 800, floor: 800, spawn: { x: 120, y: 800 }, goal: { x: 1040, y: 800 } })
+  await open(page, { ...blankTrial(), width: 1200, height: 800, floor: 800, entrance: { x: 120, y: 800 }, goal: { x: 1040, y: 800 } })
   const wideOutline = [[0,100],[0,80],[40,80],[40,60],[80,60],[80,40],[120,40],[120,20],[160,20],[160,0],
     [220,0],[220,20],[180,20],[180,40],[140,40],[140,60],[100,60],[100,80],[60,80],[60,100]]
   const terrainTools = page.locator('.builder-tool-group').filter({ has: page.getByRole('heading', { name: 'Terrain', exact: true }) })
@@ -132,7 +132,7 @@ test('Terrain step templates and toolbar transforms support undo, redo and folde
   for (let i = 0; i < 7; i++) await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
   await page.getByRole('application', { name: 'Level canvas' }).screenshot({ path: info.outputPath('steps-wide-template.png') })
   await page.screenshot({ path: info.outputPath('terrain-tools-desktop.png') })
-  await selectBuilderObject(page, 'spawn:0')
+  await selectBuilderObject(page, 'entrance:0')
   for (const button of await transforms.getByRole('button').all()) await expect(button).toBeDisabled()
   await page.setViewportSize({ width: 390, height: 844 })
   await selectBuilderObject(page, 'platform:0')
@@ -267,7 +267,7 @@ test('every selectable item can be named in the inspector and reopened with its 
 })
 
 test('terrain and floor materials undo, save and render consistently in the editor and game', async ({ page }, info) => {
-  const level = { ...blankTrial(), width: 1200, height: 800, floor: 800, spawn: { x: 120, y: 800 }, goal: { x: 1040, y: 800 },
+  const level = { ...blankTrial(), width: 1200, height: 800, floor: 800, entrance: { x: 120, y: 800 }, goal: { x: 1040, y: 800 },
     platforms: [{ x: 400, y: 680, w: 240, h: 120 }] }
   await open(page, level)
   await selectBuilderObject(page, 'platform:0')
@@ -443,7 +443,7 @@ test('one pressure plate controls a gate and elevator through editing, save and 
       return arc.call(this, x, y, r, ...rest)
     }
   })
-  const level = blankTrial(); level.spawn.x = 340
+  const level = blankTrial(); level.entrance.x = 340
   level.mechanisms = [
     { id: 'gate', kind: 'gate', x: 600, y: 740, w: 44, h: 180, travel: 220 },
     { id: 'lift', kind: 'lift', x: 900, y: 890, w: 160, h: 22, travel: 200 },
@@ -509,7 +509,7 @@ test('moving platforms edit horizontal stops, flip, save and cycle during play',
       return roundRect.call(this, x, y, w, h, ...rest)
     }
   })
-  const level = blankTrial(); level.spawn.x = 340
+  const level = blankTrial(); level.entrance.x = 340
   await open(page, level)
   await page.getByRole('button', { name: 'Moving platform', exact: true }).click()
   await dragWorld(page, { x: 700, y: 700 }, { x: 400, y: 700 })
@@ -581,7 +581,7 @@ test('horizontal gates resize, flip, round-trip and retract one width only while
       return arc.call(this, x, y, r, ...rest)
     }
   })
-  const level = blankTrial(); level.spawn.x = 340
+  const level = blankTrial(); level.entrance.x = 340
   await open(page, level)
   await page.getByRole('button', { name: 'Horizontal gate', exact: true }).click()
   await dragWorld(page, { x: 700, y: 780 }, { x: 880, y: 780 })
@@ -649,7 +649,7 @@ test('goal lights flip horizontally, survive moving and save, and still activate
   await flip.click(); await expect(flip).toHaveAttribute('aria-pressed', 'false')
   await flip.click()
   await page.getByRole('spinbutton', { name: 'Object x', exact: true }).fill('600'); await page.getByRole('spinbutton', { name: 'Object x', exact: true }).press('Enter')
-  await selectBuilderObject(page, 'spawn:0'); await page.clock.runFor(32)
+  await selectBuilderObject(page, 'entrance:0'); await page.clock.runFor(32)
   await dragWorld(page, { x: 556, y: 824 }, { x: 556, y: 824 })
   await expect(selected).toHaveAttribute('data-value', 'goal:0')
   const exported = await saveTestLevel(page)
@@ -750,7 +750,7 @@ test('wall text styles and rotation preserve selection, rotated resizing, save a
   await page.clock.runFor(64)
   expect(await page.evaluate(() => [...document.fonts].some(f => f.family.replaceAll('"', '') === 'UJG Graffiti' && f.status === 'loaded'))).toBe(true)
   // The visible left edge now lies outside the original unrotated box.
-  await selectBuilderObject(page, 'spawn:0')
+  await selectBuilderObject(page, 'entrance:0')
   await dragWorld(page, { x: 480, y: 830 }, { x: 480, y: 830 })
   await expect(selected).toHaveAttribute('data-value', 'text:0')
   // Bottom-right corner rotates to the upper right; dragging it up widens the text.
@@ -804,7 +804,7 @@ test('wall timers can be placed, duplicated, edited, deleted, undone, saved and 
 })
 
 test('wall timers share the run clock, travel with the map, and allow the player to pass through', async ({ page }, info) => {
-  const level = blankTrial(); level.width = 3200; level.spawn.x = 800; level.goal.x = 2800
+  const level = blankTrial(); level.width = 3200; level.entrance.x = 800; level.goal.x = 2800
   level.timers = [{ x: 920, y: 860 }, { x: 1180, y: 740 }]
   await open(page, level)
   await saveTestLevel(page, 'Save and Test'); await page.clock.runFor(64)
@@ -871,7 +871,7 @@ test('build, edit, undo, save, playtest, return and reload a custom level', asyn
 })
 
 test('terrain nodes and all four resize handles edit independently, with undo and folder saves', async ({ page }, info) => {
-  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 } }
+  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, entrance: { x: 100, y: 600 }, goal: { x: 800, y: 600 } }
   await open(page, level)
   await expect(page.getByRole('button', { name: /^(Polygon|Rectangle)$/ })).toHaveCount(0)
   await page.getByRole('button', { name: 'Terrain', exact: true }).click()
@@ -917,7 +917,7 @@ test('terrain nodes and all four resize handles edit independently, with undo an
 })
 
 test('selected nodes delete with the button or keyboard, preserve the terrain, and support undo', async ({ page }) => {
-  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 },
+  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, entrance: { x: 100, y: 600 }, goal: { x: 800, y: 600 },
     platforms: [{ x: 300, y: 200, w: 200, h: 120, polygon: [[0,0],[100,0],[200,0],[200,120],[0,120]] }] }
   await open(page, level)
   const selected = page.getByRole('combobox', { name: 'Selected object' }), remove = page.getByRole('button', { name: 'Delete node', exact: true })
@@ -970,14 +970,17 @@ test('zoom buttons and wheel zoom center the selected object including an elevat
   await page.mouse.wheel(0, 100); await page.clock.runFor(32)
   expect(await scale()).toBeCloseTo(beforeWheel)
   const after = await pointAtCursor()
-  expect(after.x).toBeCloseTo(anchor.x); expect(after.y).toBeCloseTo(anchor.y)
+  // Fractional CSS dimensions round the backing canvas; the cursor stays within half a pixel.
+  const cssScale = await canvas.evaluate(c => c.jumpCamera.a / devicePixelRatio)
+  expect(Math.abs(after.x - anchor.x) * cssScale).toBeLessThan(.5)
+  expect(Math.abs(after.y - anchor.y) * cssScale).toBeLessThan(.5)
   expect(await canvas.evaluate(c => !c.dispatchEvent(new WheelEvent('wheel', { deltaY: 0, cancelable: true })))).toBe(true)
   await selectBuilderObject(page, 'mechanism:0')
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click(); await centered(590, 710)
 })
 
 test('Space-drag pans without changing the selection or moving or creating objects', async ({ page }) => {
-  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 },
+  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, entrance: { x: 100, y: 600 }, goal: { x: 800, y: 600 },
     platforms: [{ x: 300, y: 300, w: 200, h: 120 }] }
   await open(page, level)
   const selected = page.getByRole('combobox', { name: 'Selected object' }), canvas = page.getByRole('application', { name: 'Level canvas' })
@@ -1025,7 +1028,7 @@ test('folder saves reopen successfully and invalid files leave the current draft
 })
 
 test('the Node tool grabs existing nodes across shapes without inserting points or leaving the tool', async ({ page }, info) => {
-  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, spawn: { x: 100, y: 600 }, goal: { x: 900, y: 600 },
+  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, entrance: { x: 100, y: 600 }, goal: { x: 900, y: 600 },
     platforms: [{ x: 300, y: 200, w: 200, h: 120 }, { x: 650, y: 140, w: 200, h: 180, polygon: [[0, 80], [200, 0], [200, 180], [0, 180]] }] }
   await open(page, level)
   const canvas = page.getByRole('application', { name: 'Level canvas' }), nodeTool = page.getByRole('button', { name: 'Node', exact: true })
@@ -1075,7 +1078,7 @@ test('the Node tool grabs existing nodes across shapes without inserting points 
 })
 
 test('the Node tool stays active for insertion and shaping with Keep placing off', async ({ page }, info) => {
-  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, spawn: { x: 100, y: 600 }, goal: { x: 900, y: 600 },
+  const level = { ...blankTrial(), width: 1000, height: 600, floor: 600, entrance: { x: 100, y: 600 }, goal: { x: 900, y: 600 },
     platforms: [{ x: 300, y: 200, w: 300, h: 200 }, { x: 650, y: 140, w: 200, h: 180, polygon: [[0, 80], [200, 0], [200, 180], [0, 180]] }] }
   await open(page, level)
   const canvas = page.getByRole('application', { name: 'Level canvas' }), nodeTool = page.getByRole('button', { name: 'Node', exact: true })
@@ -1177,7 +1180,7 @@ test('inspector level settings expose independent level and file names, and save
   await title.fill('Tower climb')
   await expect(fileName).toHaveValue('First route.jump-level.json')
   await fileName.fill('00-tower.json')
-  await selectBuilderObject(page, 'spawn:0')
+  await selectBuilderObject(page, 'entrance:0')
   await expect(title).toBeHidden()
   await page.getByRole('tab', { name: 'Level', exact: true }).click()
   for (const field of [title, fileName]) { await field.scrollIntoViewIfNeeded(); await expect(field).toBeInViewport() }
@@ -1235,7 +1238,7 @@ test('author terrain, a free ladder and an anchored rope with portable JSON file
 
 test('rope layout is resolved in the editor, saved, and reused unchanged on playtest and reload', async ({ page }, info) => {
   const level = { version: 1, id: 'rope-layout', name: 'Rope layout', width: 1200, height: 1000, floor: 1000,
-    spawn: { x: 120, y: 1000 }, goal: { x: 1000, y: 1000 }, checkpoints: [],
+    entrance: { x: 120, y: 1000 }, goal: { x: 1000, y: 1000 }, checkpoints: [],
     platforms: [{ x: 300, y: 300, w: 200, h: 300 }], climbables: { ladders: [], ropes: [{ x: 400, y: 200, length: 500, segments: 24 }] },
     props: [], robots: [], mechanisms: [], triggers: [], times: { gold: 10, silver: 20, bronze: 40 } }
   await page.addInitScript(() => {
@@ -1283,7 +1286,7 @@ test('rope layout is resolved in the editor, saved, and reused unchanged on play
 
 for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} Up pulls up from a ledge and Jump jumps away with neutral direction`, async ({ page }) => {
   const level = { ...blankTrial(), id: 'ledge-jump-input', name: 'Ledge jump input', width: 1000, height: 600, floor: 600,
-    spawn: { x: 410, y: 200 }, goal: { x: 620, y: 200 }, platforms: [{ x: 400, y: 200, w: 400, h: 400 }] }
+    entrance: { x: 420, y: 200 }, goal: { x: 620, y: 200 }, platforms: [{ x: 400, y: 200, w: 400, h: 400 }] }
   if (controller) await page.addInitScript(() => {
     window.testPad = { index: 0, id: 'Ledge pad', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
     Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] })
@@ -1318,7 +1321,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 })
 
 for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyboard'} Down transfers onto its rope, descends, swings away and drops`, async ({page},info) => {
-  const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,spawn:{x:410,y:200},goal:{x:620,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
+  const level={version:1,id:'rappel-test',name:'Rappel test',width:1000,height:920,floor:920,entrance:{x:420,y:200},goal:{x:620,y:200},checkpoints:[],platforms:[{x:400,y:200,w:400,h:720}],climbables:{ladders:[],ropes:[{x:398,y:100,length:600,segments:28}]},props:[],robots:[],triggers:[],mechanisms:[],times:{gold:10,silver:20,bronze:40}}
   await page.addInitScript(({controller})=>{
     if(controller){window.testPad={index:0,id:'Rappel pad',connected:true,mapping:'standard',axes:[0,0,0,0],buttons:Array.from({length:17},()=>({pressed:false,value:0}))};Object.defineProperty(navigator,'getGamepads',{value:()=>[window.testPad]})}
   },{controller})
@@ -1373,7 +1376,7 @@ for (const controller of [false,true]) test(`${controller ? 'controller' : 'keyb
 
 for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} climbs a grid-snapped free ladder onto its neighboring cliff`, async ({ page }, info) => {
   const level = { version: 1, id: 'ladder-exit-test', name: 'Ladder exit test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 420, y: 600 }, goal: { x: 100, y: 200 }, checkpoints: [], platforms: [{ x: 0, y: 200, w: 400, h: 400 }],
+    entrance: { x: 420, y: 600 }, goal: { x: 100, y: 200 }, checkpoints: [], platforms: [{ x: 0, y: 200, w: 400, h: 400 }],
     climbables: { ladders: [{ x: 420, top: 200, bottom: 600, platform: -1, side: 1 }], ropes: [] },
     props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
   await page.addInitScript(({ controller }) => {
@@ -1404,7 +1407,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 
 for (const anchorY of [200, 220]) for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} climbs onto a thin platform from a rope anchored at ${anchorY}`, async ({ page }, info) => {
   const level = { version: 1, id: 'rope-exit-test', name: 'Rope exit test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 400, y: 600 }, goal: { x: 620, y: 200 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 20 }],
+    entrance: { x: 400, y: 600 }, goal: { x: 620, y: 200 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 20 }],
     climbables: { ladders: [], ropes: [{ x: 400, y: anchorY, length: 330, segments: 24, anchor: { platform: 0, x: 0, y: anchorY - 200 } }] },
     props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
   await page.addInitScript(({ controller }) => {
@@ -1427,7 +1430,7 @@ for (const anchorY of [200, 220]) for (const controller of [false, true]) test(`
 
 for (const pinned of [false, true]) test(`a ${pinned ? 'pinned' : 'loose'} ball at the rope exit permits climbing or retreating`, async ({ page }, info) => {
   const level = { version: 1, id: 'rope-ball-exit', name: 'Rope ball exit', width: 1000, height: 600, floor: 600,
-    spawn: { x: 383, y: 600 }, goal: { x: 850, y: 600 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 400 }],
+    entrance: { x: 380, y: 600 }, goal: { x: 850, y: 600 }, checkpoints: [], platforms: [{ x: 400, y: 200, w: 400, h: 400 }],
     climbables: { ladders: [], ropes: [{ x: 400, y: 200, length: 330, segments: 42 }] },
     props: [{ kind: 'ball', x: 406, y: 200, size: 30 }], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
   if (pinned) level.platforms.push({ x: 440, y: 0, w: 60, h: 200 })
@@ -1450,7 +1453,7 @@ for (const pinned of [false, true]) test(`a ${pinned ? 'pinned' : 'loose'} ball 
 
 test('five-unit snap aligns final terrain positions and resize edges, including previously offset terrain', async ({ page }, info) => {
   const level = { version: 1, id: 'grid-test', name: 'Grid test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 403, y: 203, w: 203, h: 117 }],
+    entrance: { x: 100, y: 600 }, goal: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 403, y: 203, w: 203, h: 117 }],
     climbables: { ladders: [], ropes: [] }, props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
   await open(page, level)
   await dragWorld(page, { x: 500, y: 250 }, { x: 523, y: 271 })
@@ -1482,13 +1485,13 @@ test('five-unit snap aligns final terrain positions and resize edges, including 
 
 test('start and goal move off the floor by dragging, nudging and height entry before adding support', async ({ page }) => {
   const level = { ...blankTrial(), name: 'Raised markers', width: 1000, height: 600, floor: 600,
-    spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 } }
+    entrance: { x: 100, y: 600 }, goal: { x: 800, y: 600 } }
   await open(page, level)
   await page.getByRole('button', { name: 'Fit level', exact: true }).click(); await page.clock.runFor(64)
   const canvas = page.getByRole('application', { name: 'Level canvas' })
   const height = page.getByRole('spinbutton', { name: 'Object y', exact: true })
   await dragWorld(page, { x: 100, y: 570 }, { x: 100, y: 470 })
-  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveAttribute('data-value', 'spawn:0')
+  await expect(page.getByRole('combobox', { name: 'Selected object' })).toHaveAttribute('data-value', 'entrance:0')
   await expect(height).toHaveValue('100')
   await canvas.focus(); await page.keyboard.press('ArrowUp')
   await expect(height).toHaveValue('105')
@@ -1514,14 +1517,14 @@ test('start and goal move off the floor by dragging, nudging and height entry be
   await dragWorld(page, { x: 40, y: 400 }, { x: 960, y: 420 })
   await expect(page.getByRole('button', { name: 'Save and Test', exact: true })).toBeEnabled()
   const saved = await saveTestLevel(page, 'Save and Test')
-  expect(saved.level.spawn).toEqual({ x: 100, y: 400 })
+  expect(saved.level.entrance).toEqual({ x: 100, y: 400 })
   expect(saved.level.goal).toEqual({ x: 800, y: 400 })
   await page.clock.runFor(100)
   await expect(page.getByRole('img', { name: 'Raised markers: reach the exit' })).toBeFocused()
   expect((await page.evaluate(() => window.jumpPlayer)).y).toBeCloseTo(400, 1)
   await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
   await reopenTestLevel(page, saved)
-  for (const selection of ['spawn:0', 'goal:0']) {
+  for (const selection of ['entrance:0', 'goal:0']) {
     await selectBuilderObject(page, selection)
     await expect(height).toHaveValue('200')
   }
@@ -1529,7 +1532,7 @@ test('start and goal move off the floor by dragging, nudging and height entry be
 
 test('height grows above the layout with a bottom-left origin, stable view, undo, save and playtest', async ({ page }, info) => {
   const level = { version: 1, id: 'height-test', name: 'Height test', width: 1000, height: 600, floor: 600,
-    spawn: { x: 100, y: 600 }, goal: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 300, y: 200, w: 200, h: 100 }],
+    entrance: { x: 100, y: 600 }, goal: { x: 800, y: 600 }, checkpoints: [], platforms: [{ x: 300, y: 200, w: 200, h: 100 }],
     climbables: { ladders: [{ x: 284, top: 200, bottom: 600, platform: 0, side: 1 }], ropes: [{ x: 500, y: 200, length: 300, segments: 24, anchor: { platform: 0, x: 200, y: 0 } }] },
     props: [], robots: [], triggers: [], mechanisms: [], times: { gold: 10, silver: 20, bronze: 40 } }
   await open(page, level)
@@ -1555,7 +1558,7 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   await expect.poll(camera).toEqual(originalView)
   await page.getByRole('button', { name: 'Redo', exact: true }).click()
   await expect.poll(camera).toEqual(tallerView)
-  await selectBuilderObject(page, 'spawn:0')
+  await selectBuilderObject(page, 'entrance:0')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('0')
   await selectBuilderObject(page, 'rope:0')
   await expect(page.getByRole('spinbutton', { name: 'Object y', exact: true })).toHaveValue('400')
@@ -1579,7 +1582,7 @@ test('height grows above the layout with a bottom-left origin, stable view, undo
   expect(exported.platforms.map(p => p.y)).toEqual([577, 737])
   expect(exported.climbables.ladders[0]).toMatchObject({ top: 577, bottom: 977, platform: 0 })
   expect(exported.climbables.ropes[0]).toMatchObject({ y: 577, anchor: { platform: 0, x: 200, y: 0 } })
-  expect(exported.spawn.y).toBe(1037); expect(exported.goal.y).toBe(1037)
+  expect(exported.entrance.y).toBe(1037); expect(exported.goal.y).toBe(1037)
   await page.getByRole('button', { name: 'Fit level', exact: true }).click()
   await page.screenshot({ path: info.outputPath('height-added-at-top.png') })
   await saveTestLevel(page, 'Save and Test'); await page.clock.runFor(100)
@@ -1788,7 +1791,7 @@ test('surface placement and Alt dragging are predictable off the grid', async ({
 
 for (const side of [-1, 1]) test(`rope exits onto a thin cap with a separate flush wall, side ${side}`, async ({ page }, info) => {
   const level = { ...blankTrial(), width: 1040, height: 800, floor: 800,
-    spawn: { x: 520 - side * 22, y: 600 }, goal: { x: 100, y: 800 },
+    entrance: { x: 520 - side * 20, y: 600 }, goal: { x: 100, y: 800 },
     platforms: [{ x: side === -1 ? 0 : 520, y: 460, w: 520, h: 20 },
       { x: side === -1 ? 500 : 520, y: 480, w: 20, h: 220 },
       { x: side === -1 ? 520 : 480, y: 600, w: 40, h: 20 }],

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {createPlayer,NEUTRAL_INPUT,STEP,TUNING} from '../src/games/jumping/model.ts'
 import {anticipatePush,playerContacts,updatePushingPose} from '../src/games/jumping/playerContacts.ts'
 import {boxShape} from '../src/games/jumping/propGeometry.ts'
-import {createRun,stepRun} from '../src/games/jumping/challenge.ts'
+import {createRun,stepRun} from './helpers/jumping-active-run.mjs'
 import {blankTrial} from '../src/games/jumping/level.ts'
 import {athletePose} from '../src/games/jumping/athlete.ts'
 
@@ -50,7 +50,7 @@ test('a close falling approach prepares unloaded hands without acquiring support
 
 test('an unloaded falling reach transfers its whole outgoing rig into a brief ball slide',()=>{
  const level={...blankTrial(),name:'Ball descent',width:1000,height:620,floor:620,
-  spawn:{x:740,y:420},goal:{x:150,y:620},
+  entrance:{x:740,y:420},goal:{x:150,y:620},
   platforms:[{x:600,y:420,w:160,h:120,polygon:[[0,80],[120,80],[120,0],[160,0],[160,120],[0,120]]}],
   props:[{kind:'ball',x:666,y:500,size:100}]}
  for(const walking of [false,true]){

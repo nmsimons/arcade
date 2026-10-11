@@ -20,7 +20,7 @@
           167.25806451612925
         ],
         [
-          155,
+          105,
           205
         ],
         [
@@ -246,9 +246,9 @@
       ]
     }
   ],
-  "spawn": {
-    "x": 101.58333333333333,
-    "y": 719.4919354838711
+  "entrance": {
+    "x": 145,
+    "y": 735
   },
   "checkpoints": [],
   "climbables": {
@@ -326,8 +326,8 @@
   "robots": [],
   "timers": [
     {
-      "x": 245,
-      "y": 125
+      "x": 50,
+      "y": 140
     }
   ],
   "pickups": [
@@ -343,7 +343,18 @@
       "seconds": 9
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 1325,
+      "y": 20,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "gravityPlates": [
     {
       "id": "83c5299c-da2f-4377-b3cc-74c5aefe6135",

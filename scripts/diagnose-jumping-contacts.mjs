@@ -81,7 +81,7 @@ const reports = []
 for (const side of [-1, 1]) for (const kind of ['box', 'ball']) for (const size of [30, 80]) {
   for (const crouch of [false, true]) {
     const root = 474.5, offset = size / 2 + 25.5
-    const level = { ...blankTrial(), spawn: { x: root, y: 920 },
+    const level = { ...blankTrial(), entrance: { x: root, y: 920 },
       props: [{ kind, x: root + offset, y: 920, size }, { kind, x: root - offset, y: 920, size }],
       platforms: [{ x: root + 25.5 + size, y: 650, w: 120, h: 270 },
         { x: root - 25.5 - size - 120, y: 650, w: 120, h: 270 }] }

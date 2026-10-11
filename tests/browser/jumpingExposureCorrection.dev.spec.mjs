@@ -7,7 +7,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: reusing exposure corr
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, spawn: { x: 720, y: 500 }, goal: { x: 100, y: 500 },
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, entrance: { x: 720, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 742, y: 450, w: 24, h: 50 }], robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }
     const run = createPreviewRun(level), robot = run.robots[0]
     const renderers = [new LightingRenderer({ backend, reuseExposureCorrection: true, cacheDayAmbient: true }), new LightingRenderer({ backend, reuseExposureCorrection: false, cacheDayAmbient: false })]
@@ -51,7 +51,7 @@ test('a reused daylight terrain mask restores moving artwork, recovery indicator
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, spawn: { x: 780, y: 500 }, goal: { x: 100, y: 500 },
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, entrance: { x: 780, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 400, y: 200, w: 200, h: 300, material: 'steel',
         polygon: [[0, 0], [120, 0], [120, 50], [200, 50], [200, 300], [0, 300]] },
       { x: 650, y: 420, w: 80, h: 30 }],
@@ -146,7 +146,7 @@ test('automatic lighting chooses a software drawing context for a CPU driver and
     const driver = extension ? probe.getParameter(extension.UNMASKED_RENDERER_WEBGL) : ''
     probe?.getExtension('WEBGL_lose_context')?.loseContext()
     const softwareDriver = /SwiftShader|llvmpipe|softpipe|Software Rasterizer|Microsoft Basic Render Driver/i.test(driver)
-    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, spawn: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, entrance: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 400, y: 200, w: 200, h: 300 }], props: [{ kind: 'box', x: 615, y: 500, size: 30 }] }
     const run = createPreviewRun(level)
     const renderers = [new LightingRenderer({ backend: 'auto' }), new LightingRenderer({ backend: 'auto', reuseExposureCorrection: false, cacheDayAmbient: false })]
@@ -181,7 +181,7 @@ test('a settled daylight background preserves wall art, changing actors and cach
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, spawn: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, entrance: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 400, y: 200, w: 200, h: 300 }],
       texts: [{ x: 320, y: 160, w: 400, h: 50, text: 'Push, release, then jump.', fontSize: 24, align: 'left', rotation: -4 }],
       props: [{ kind: 'box', x: 615, y: 500, size: 30 }], robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }

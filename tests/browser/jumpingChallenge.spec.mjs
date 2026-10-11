@@ -271,7 +271,7 @@ test('pushing a ball transfers motion to a box without either prop passing throu
       return roundRect.apply(this, args)
     }
   })
-  const level = blankTrial(); level.spawn.x = 250
+  const level = blankTrial(); level.entrance.x = 250
   level.props = [{ kind: 'ball', x: 360, y: 920, size: 80 }, { kind: 'box', x: 460, y: 920, size: 80 }]
   await setup(page, 0, [level]); await enter(page)
   await page.keyboard.down('d')
@@ -293,7 +293,7 @@ test('pushing a ball transfers motion to a box without either prop passing throu
 test('a rolling ball stops against the player at a closed gate on a slope', async ({ page }, info) => {
   const level = blankTrial()
   level.platforms = [{ x: 200, y: 550, w: 1200, h: 370, polygon: [[0,0],[1200,360],[1200,370],[0,370]] }]
-  level.spawn = { x: 870, y: 751 }
+  level.entrance = { x: 870, y: 751 }
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: 900, y: 350, w: 20, h: 570, travel: 570 }]
   level.props = [{ kind: 'ball', x: 710, y: 703, size: 100 }]
   await setup(page, 0, [level]); await enter(page)
@@ -312,7 +312,7 @@ test('the player can jump out from a ball beside a tilted box and closed gate', 
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: 750, y: 450, w: 20, h: 470, travel: 300 }]
   level.props = [{ kind: 'ball', x: 716, y: 769, size: 68 }, { kind: 'box', x: 650, y: 778, size: 80 }]
   level.platforms.push({ x: 550, y: 620, w: 80, h: 12 })
-  level.spawn = { x: 600, y: 620 }
+  level.entrance = { x: 600, y: 620 }
   await setup(page, 0, [level]); await enter(page)
   await page.keyboard.down('d')
   for (let i = 0; i < 80 && (await position(page)).x < 685; i++) await page.clock.runFor(16)
@@ -330,7 +330,7 @@ test('the player can jump out from a ball beside a tilted box and closed gate', 
 })
 
 test('a separate Switch plate opens a hidden black door; entering stops the timer and a pausable exit saves results', async ({ page }, info) => {
-  const level = blankTrial(); level.goal.x = 500; level.spawn.x = 450
+  const level = blankTrial(); level.goal.x = 500; level.entrance.x = 450
   level.goal.id = 'exit'; level.goal.power = 'switched'
   level.triggers = [{ x: 480, y: 920, w: 80, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   level.timers = [{ x: 340, y: 740 }, { x: 740, y: 660 }]
@@ -442,7 +442,7 @@ for (const slope of [-.2, .2]) test(`Up climbs around a sloped lip (${slope})`, 
 
 test('a pointed ramp with an inward-slanting face supports a jump, hang, and pull-up', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Pointed ramp'; level.width = 1200; level.height = level.floor = 600
-  level.spawn = { x: 514, y: 580 }; level.goal = { x: 1040, y: 580 }
+  level.entrance = { x: 514, y: 580 }; level.goal = { x: 1040, y: 580 }
   level.platforms = [{ x: 0, y: 300, w: 1200, h: 300,
     polygon: [[0,280],[320,280],[500,180],[480,280],[1200,280],[1200,300],[0,300]] }]
   await setup(page, 0, [level]); await enter(page)
@@ -459,7 +459,7 @@ test('a pointed ramp with an inward-slanting face supports a jump, hang, and pul
 
 test('objects occlude collectibles, wall timers and text in thumbnails and gameplay', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Wall layers'; level.width = 1280; level.height = level.floor = 620
-  level.spawn = { x: 80, y: 620 }; level.goal = { x: 1120, y: 620 }
+  level.entrance = { x: 80, y: 620 }; level.goal = { x: 1120, y: 620 }
   const kinds = ['coin', 'stopwatch', 'fast-stopwatch', 'time-bonus', 'time-penalty', 'emp']
   level.pickups = kinds.map((kind, i) => ({ kind, x: 200 + i * 160, y: 560,
     ...(['time-bonus', 'time-penalty'].includes(kind) ? { seconds: 5 } : {}) }))
@@ -508,7 +508,7 @@ test('objects occlude collectibles, wall timers and text in thumbnails and gamep
 
 test('the first staircase approach and a restart keep the rendered leg outside the second step', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Staircase clearance'; level.width = 1200; level.height = level.floor = 620
-  level.spawn = { x: 268, y: 620 }; level.goal = { x: 1040, y: 620 }
+  level.entrance = { x: 268, y: 620 }; level.goal = { x: 1040, y: 620 }
   level.platforms = [{ x: 300, y: 420, w: 380, h: 200,
     polygon: [[0,180],[80,180],[80,140],[180,140],[180,80],[280,80],[280,0],[380,0],[380,200],[0,200]] }]
   expect(levelProblems(level)).toEqual([])
@@ -546,7 +546,7 @@ test('the first staircase approach and a restart keep the rendered leg outside t
 
 test('sustained walking pulls up a three-tile ledge without a jump', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Three tile climb'; level.width = 1200; level.height = level.floor = 620
-  level.spawn = { x: 220, y: 620 }; level.goal = { x: 1040, y: 620 }
+  level.entrance = { x: 220, y: 620 }; level.goal = { x: 1040, y: 620 }
   level.platforms = [{ x: 300, y: 560, w: 300, h: 60 }]
   expect(levelProblems(level)).toEqual([])
   await setup(page, 0, [level]); await enter(page)
@@ -566,7 +566,7 @@ test('sustained walking pulls up a three-tile ledge without a jump', async ({ pa
 
 test('crouch walking passes through a two-tile opening after bracing against it', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Two tile clearance'; level.width = 1200; level.height = level.floor = 620
-  level.spawn = { x: 220, y: 620 }; level.goal = { x: 1040, y: 620 }
+  level.entrance = { x: 220, y: 620 }; level.goal = { x: 1040, y: 620 }
   level.platforms = [{ x: 300, y: 540, w: 160, h: 40 }]
   expect(levelProblems(level)).toEqual([])
   await setup(page, 0, [level]); await enter(page)
@@ -586,7 +586,7 @@ test('crouch walking passes through a two-tile opening after bracing against it'
 
 for (const pointed of [false, true]) test(`crouch-walking lowers from a ${pointed ? 'pointed' : 'flat'} lip under a low ceiling and pulls back up`, async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Low ceiling ledge'; level.width = 1800; level.height = level.floor = 700
-  level.spawn = { x: 360, y: pointed ? 560 : 480 }; level.goal = { x: 1640, y: 700 }
+  level.entrance = { x: 360, y: pointed ? 560 : 480 }; level.goal = { x: 1640, y: 700 }
   level.robots = [{ x: 1200, y: 700, left: 900, right: 1500 }]
   level.platforms = [
     { x: 260, y: 380, w: 400, h: pointed ? 240 : 200,
@@ -612,7 +612,7 @@ test('clutter below a low ledge keeps a stable grip and allows a crouched pull-u
   // Two complete attempts still render every daylight frame on the CI runner.
   test.setTimeout(60_000)
   const level = { ...blankTrial(), name: 'Cluttered ledge', width: 1400, height: 700, floor: 620,
-    spawn: { x: 460, y: 560 }, goal: { x: 1240, y: 620 },
+    entrance: { x: 460, y: 560 }, goal: { x: 1240, y: 620 },
     platforms: [
       { x: 400, y: 520, w: 300, h: 100, polygon: [[0,100],[100,0],[300,0],[300,100]] },
       { x: 540, y: 440, w: 320, h: 40 },
@@ -643,7 +643,7 @@ test('clutter below a low ledge keeps a stable grip and allows a crouched pull-u
 
 test('Up climbs a narrow post joined to a platform above a closed gate', async ({ page }, info) => {
   const level = blankTrial(); level.name = 'Joined gate ledge'; level.width = 1200; level.height = level.floor = 660
-  level.spawn = { x: 550, y: 660 }; level.goal = { x: 1000, y: 660 }
+  level.entrance = { x: 550, y: 660 }; level.goal = { x: 1000, y: 660 }
   level.platforms = [{ x: 600, y: 500, w: 20, h: 80 }, { x: 620, y: 500, w: 280, h: 20 }]
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: 600, y: 580, w: 20, h: 80, travel: 80 }]
   await setup(page, 0, [level]); await enter(page)
@@ -661,7 +661,7 @@ test('Up climbs a narrow post joined to a platform above a closed gate', async (
 })
 
 test('a player can jump to a large box, hang, and climb onto its flat top', async ({ page }, info) => {
-  const level = blankTrial(); level.name = 'Box ledge'; level.spawn = { x: 370, y: 920 }
+  const level = blankTrial(); level.name = 'Box ledge'; level.entrance = { x: 370, y: 920 }
   level.props = [{ kind: 'box', x: 500, y: 920, size: 160 }]
   await setup(page, 0, [level]); await enter(page)
   await page.keyboard.down('Shift'); await page.keyboard.down('d'); await page.keyboard.down('Space')

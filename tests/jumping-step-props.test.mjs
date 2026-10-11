@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 import { movingStepPropFixture } from './helpers/jumpingStepProps.mjs'

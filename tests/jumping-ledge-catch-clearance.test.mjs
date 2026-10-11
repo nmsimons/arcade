@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { pointInside, nearestBoundary } from '../src/games/jumping/geometry.ts'

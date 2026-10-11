@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { ballShape } from '../src/games/jumping/propGeometry.ts'
 import { exposedSide, exposedWallFaces, platformSurface } from '../src/games/jumping/terrain.ts'
@@ -77,7 +77,7 @@ test('bracing against an inset polygon face above a gate rolls the supporting ba
   for (const side of [1, -1]) for (const reversed of [false, true]) for (const effort of [.35, 1]) {
     const level = structuredClone(readLevelAsset('inset-wall-brace.json'))
     if (side === -1) {
-      level.spawn.x = level.width - level.spawn.x
+      level.entrance.x = level.width - level.entrance.x
       level.props[0].x = level.width - level.props[0].x
       level.platforms = level.platforms.map(b => ({ ...b, x: level.width - b.x - b.w,
         polygon: b.polygon?.map(([x, y]) => [b.w - x, y]) }))
@@ -124,7 +124,7 @@ test('disjoint outer faces of one polygon do not fill its open side', () => {
 function joinedGateLedge(side, reversed = false, ceiling = false) {
   const level = blankTrial()
   level.width = 1200; level.height = level.floor = 660
-  level.spawn = { x: 100, y: 660 }; level.goal = { x: 1000, y: 660 }
+  level.entrance = { x: 100, y: 660 }; level.goal = { x: 1000, y: 660 }
   const mirror = b => side === 1 ? b : { ...b, x: 1200 - b.x - b.w }
   // The narrow post and adjacent beam form the same top as a single L shape.
   level.platforms = [{ x: 600, y: 500, w: 20, h: 80 }, { x: 620, y: 500, w: 280, h: 20 }].map(mirror)

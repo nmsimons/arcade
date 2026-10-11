@@ -9,6 +9,7 @@ import { placeOnSurface } from './editorPlacement.ts'
 import { createPlayer } from './model.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import { drawGoal, drawGoalDoor, drawMechanism, drawPressurePlate, drawProp, drawRobot } from './challengeRender.ts'
+import { drawDoorway, entranceDoor } from './goal.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
 import { drawCoinSwitch } from './coins.ts'
 import { drawPickup } from './pickups.ts'
@@ -56,8 +57,8 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
       else drawPressurePlate(ctx, trigger.x, trigger.y, trigger.w, false, 0, trigger.ceiling)
       break
     }
-    case 'rope': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [level.climbables.ropes[i]], ladders: [] }); break
-    case 'ladder': drawClimbables(ctx, createPlayer(level.spawn), { ropes: [], ladders: [level.climbables.ladders[i]] }); break
+    case 'rope': drawClimbables(ctx, createPlayer(level.entrance), { ropes: [level.climbables.ropes[i]], ladders: [] }); break
+    case 'ladder': drawClimbables(ctx, createPlayer(level.entrance), { ropes: [], ladders: [level.climbables.ladders[i]] }); break
     case 'light': drawLightFixtures(ctx, [{ ...level.lighting!.lights[i], fade: 1 }]); break
     case 'force-field': drawForceField(ctx, level.forceFields![i], true); break
     case 'gravity-plate': drawGravityRegion(ctx, level.gravityPlates![i], false, true); drawGravityPlate(ctx, level.gravityPlates![i], false); drawWaterRegion(ctx, level.gravityPlates![i]); break
@@ -68,7 +69,8 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'text': drawWallTexts(ctx, [level.texts![i]]); break
     case 'pickup': drawPickup(ctx, { definition: level.pickups![i], collectedAge: null }); break
     case 'goal': drawGoalDoor(ctx, level.goal!, 1, true); drawGoal(ctx, level.goal!, true); break
-    case 'spawn': case 'checkpoint': drawAthlete(ctx, createPlayer(selection.kind === 'spawn' ? level.spawn : level.checkpoints[i])); break
+    case 'entrance': drawDoorway(ctx, entranceDoor(level.entrance), 1); break
+    case 'checkpoint': drawAthlete(ctx, createPlayer(level.checkpoints[i])); break
   }
   const outline = itemOutline(level, selection)
   if (outline) {

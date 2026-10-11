@@ -1,0 +1,10 @@
+.lab-logo { display: block; width: 100%; height: auto; flex: none; }
+.jumping-game .lab-logo { --lab-subtitle-ink: var(--jumping-color-sage); }
+.jumping-brand-heading { display: flex; align-items: center; gap: clamp(20px, 3vw, 40px); }
+.jumping-game .jumping-brand-heading .lab-logo { width: clamp(120px, 14vw, 180px); max-width: 40%; }
+.arcade-choice-jumping .arcade-title { max-width: 240px; width: 100%; }
+.arcade-choice-jumping .lab-logo { --lab-subtitle-ink: var(--jumping-color-sage); }
+@media (max-height: 540px), (max-width: 600px) {
+  .jumping-brand-heading { gap: 16px; }
+  .jumping-game .jumping-brand-heading .lab-logo { width: 100px; }
+}

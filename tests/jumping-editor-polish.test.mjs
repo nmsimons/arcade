@@ -10,7 +10,7 @@ test('click placement follows the cursor height instead of choosing a distant su
   const source = blankTrial()
   source.platforms = [{ x: 300, y: 700, w: 400, h: 20 }]
   const original = structuredClone(source)
-  for (const tool of ['box', 'ball', 'pusher', 'plate', 'gate', 'spawn', 'checkpoint', 'goal']) {
+  for (const tool of ['box', 'ball', 'pusher', 'plate', 'gate', 'entrance', 'checkpoint', 'goal']) {
     for (const y of [320, 440, source.floor]) {
       const added = addItem(source, tool, { x: 500, y }, { x: 500, y })
       const bounds = itemBounds(added.level, added.selection)
@@ -124,12 +124,12 @@ test('boxes and balls meet sloping terrain without burying their corners or hull
 
 test('start and goal placement respects their standing space and fixed terrain support', () => {
   const level = blankTrial()
-  level.spawn = { x: 200, y: 500 }; level.goal = { x: 700, y: 500 }
+  level.entrance = { x: 200, y: 500 }; level.goal = { x: 700, y: 500 }
   level.props = [{ kind: 'box', x: 200, y: 920, size: 160 }]
-  assert.equal(surfacePlacement(level, { kind: 'spawn', index: 0 }), null, 'a start cannot be snapped through a box to the floor')
+  assert.equal(surfacePlacement(level, { kind: 'entrance', index: 0 }), null, 'a start cannot be snapped through a box to the floor')
   level.props = []; level.platforms = [{ x: 100, y: 700, w: 900, h: 20 }]
-  const start = placeOnSurface(level, { kind: 'spawn', index: 0 })
+  const start = placeOnSurface(level, { kind: 'entrance', index: 0 })
   const both = placeOnSurface(start, { kind: 'goal', index: 0 })
-  assert.equal(both.spawn.y, 700); assert.equal(both.goal.y, 700)
+  assert.equal(both.entrance.y, 700); assert.equal(both.goal.y, 700)
   assert.deepEqual(levelProblems(both), [])
 })

@@ -10,24 +10,24 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: one render reuses the
       import('/src/games/jumping/level.ts'), import('/src/games/jumping/model.ts'),
     ])
     const base = () => ({ ...blankTrial(), width: 1200, height: 600, floor: 500,
-      spawn: { x: 650, y: 500 }, goal: { x: 100, y: 500 } })
+      entrance: { x: 650, y: 500 }, goal: { x: 100, y: 500 } })
     const gap = { ...base(), platforms: [{ x: 400, y: 200, w: 200, h: 300 }],
       props: [{ kind: 'box', x: 615, y: 500, size: 30 }, { kind: 'ball', x: 668, y: 500, size: 30 }],
       robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }
-    const rope = { ...base(), floor: 600, spawn: { x: 380, y: 600 },
+    const rope = { ...base(), floor: 600, entrance: { x: 380, y: 600 },
       climbables: { ladders: [], ropes: [{ x: 400, y: 600, length: 600, segments: 75 }] },
       gravityPlates: [{ id: 'gravity', x: 0, y: 0, w: 1200, h: 600, gravity: -1, power: 'always' }] }
     const water = { ...base(), gravityPlates: [{ id: 'pool', x: 200, y: 200, w: 700, h: 300, gravity: -1, effect: 'water', power: 'always' }] }
     const fixtures = [
       { name: 'pressured gap', level: gap, input: i => ({ jump: i < 2, move: i > 180 ? -1 : 0 }) },
       ...[-1, 1].flatMap(direction => [30, 80].map(size => ({ name: `low and crouched brace ${direction}/${size}`,
-        level: { ...base(), spawn: { x: 650 - direction * (size / 2 + 25.5), y: 500 },
+        level: { ...base(), entrance: { x: 650 - direction * (size / 2 + 25.5), y: 500 },
           props: [{ kind: 'box', x: 650, y: 500, size }],
           platforms: [{ x: direction === 1 ? 650 + size / 2 : 530 - size / 2, y: 300, w: 120, h: 200 }] },
         input: i => ({ move: direction, crouch: i > 180 }) }))),
       { name: 'inverted rope', level: rope, input: i => ({ move: i < 3 ? 1 : 0, descend: i > 300 }) },
       { name: 'water', level: water, input: i => ({ move: i < 90 ? 1 : 0, descend: i > 180 && i < 240, climb: i >= 240 }) },
-      { name: 'flight and landing', level: { ...base(), spawn: { x: 650, y: 200 } }, input: i => ({ move: .6, jump: i >= 300 && i < 324 }) },
+      { name: 'flight and landing', level: { ...base(), entrance: { x: 650, y: 200 } }, input: i => ({ move: .6, jump: i >= 300 && i < 324 }) },
     ]
     const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d', { willReadFrequently: true })
     canvas.width = 512; canvas.height = 384

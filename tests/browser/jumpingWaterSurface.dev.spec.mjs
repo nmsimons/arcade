@@ -9,10 +9,10 @@ test('water entry review shows restrained ripples and physical float motion in a
     const { drawPuzzleWorld } = await import('/src/games/jumping/challengeRender.ts')
     const { playerSwimStrength } = await import('/src/games/jumping/gravity.ts')
     const level = parseLevel(await (await fetch('/tests/fixtures/jumping/single-block-pool.json')).json())
-    level.spawn = { x: 950, y: 210 }; level.goal = { ...level.goal, id: 'closed', power: 'switched' }
+    level.entrance = { x: 950, y: 210 }; level.goal = { ...level.goal, id: 'closed', power: 'switched' }
     level.props = [{ kind: 'box', x: 1020, y: 355, size: 60 }, { kind: 'ball', x: 1130, y: 355, size: 60 }]
     const run = createRun(level); run.started = true
-    const quietLevel = { ...level, spawn: { x: 115, y: 290 } }, quiet = createRun(quietLevel); quiet.started = true
+    const quietLevel = { ...level, entrance: { x: 115, y: 290 } }, quiet = createRun(quietLevel); quiet.started = true
     const canvas = document.createElement('canvas'); canvas.id = 'water-surface-review'; canvas.width = 1200; canvas.height = 860
     document.body.replaceChildren(canvas); document.body.style.margin = '0'
     const ctx = canvas.getContext('2d'), frames = [], columns = 2, scale = 1.4

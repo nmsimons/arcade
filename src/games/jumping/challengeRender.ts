@@ -5,7 +5,7 @@ import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, goalDoor, goalEase, goalPoleX } from './goal.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX } from './goal.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
 import { drawCoinSwitch } from './coins.ts'
@@ -23,6 +23,7 @@ import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { drawFloatSwitchArm } from './floatSwitch.ts'
 import { drawWallLight } from './wallLight.ts'
 import { nightModeEnabled } from './ambientLight.ts'
+import { drawLabLogo, LAB_LOGO_HEIGHT, LAB_LOGO_WIDTH } from '../../branding/lab.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -62,7 +63,11 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
       ctx.fill()
     } else {
       ctx.fillStyle = '#938777'
-      for (const fraction of [1 / 3, 2 / 3]) ctx.fillRect(x + inset, y + b.size * fraction - seam / 2, b.size - inset * 2, seam)
+      for (const fraction of b.branded ? [.16, .84] : [1 / 3, 2 / 3]) ctx.fillRect(x + inset, y + b.size * fraction - seam / 2, b.size - inset * 2, seam)
+    }
+    if (b.branded) {
+      const width = b.size * .76, height = width * LAB_LOGO_HEIGHT / LAB_LOGO_WIDTH
+      drawLabLogo(ctx, x + (b.size - width) / 2, y + (b.size - height) / 2, width, b.weight === 'heavy' ? '#b6c1c5' : '#625746')
     }
     ctx.restore()
   } else {
@@ -128,13 +133,7 @@ export function drawGoal(ctx: CanvasRenderingContext2D, goal: Goal, complete = f
   }, true, { x: pole - 11, y: lamp - 11, w: 22, h: 22 })
 }
 export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening: number, editor = false) {
-  const door = goalDoor(goal), width = door.w * goalEase(opening)
-  if (width > 0) {
-    ctx.fillStyle = '#000000'; ctx.fillRect(door.x + (door.w - width) / 2, door.y, width, door.h)
-  } else if (editor) {
-    ctx.save(); ctx.strokeStyle = '#8a938b'; ctx.lineWidth = 1; ctx.setLineDash([4, 4])
-    ctx.strokeRect(door.x, door.y, door.w, door.h); ctx.restore()
-  }
+  drawDoorway(ctx, goalDoor(goal), opening, editor)
 }
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
 export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0) {
@@ -146,6 +145,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
     wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
+    if (editor || !run.started && run.entrance) wallPaint(ctx, 0, () =>
+      drawDoorway(ctx, entranceDoor(level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
     const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
     const clockFast = !clockFinished && !clockStopped && run.timeFastRemaining > 0
@@ -179,7 +180,11 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawClimbables(ctx, p, level.climbables)
   })
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint, lights.find(light => light.robot === i)?.fade ?? 0)
-  if (run.exit) {
+  if (!run.started && run.entrance && !editor) {
+    ctx.save(); ctx.globalAlpha *= entranceVisibility(run.entrance.elapsed)
+    paint(ctx, playerExposure, () => drawAthlete(ctx, run.entrance!.player, playerInk)); ctx.restore()
+  }
+  else if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
     paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk)); ctx.restore()
   }

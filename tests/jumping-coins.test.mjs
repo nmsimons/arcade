@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial, levelProblems, parseLevel, triggerTargets } from '../src/games/jumping/level.ts'
 import { addItem, allSelections, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, resizeItem, resizeLevelHeight, setCoinThreshold, setCoinSwitchOrientation, setCoinSwitchDisplay, setTriggerTargets } from '../src/games/jumping/editor.ts'
 import { canPlaceOnSurface, placeOnSurface } from '../src/games/jumping/editorPlacement.ts'
@@ -20,7 +20,7 @@ test('coins collect once, activate on the threshold step, and stay active until 
   const level = puzzle(), original = structuredClone(level), run = createRun(level)
   step(run)
   assert.equal(run.coinsCollected, 1); assert.equal(run.triggers[0].active, false)
-  assert.equal(run.elapsed, 0); assert.equal(run.timeStopRemaining, 0)
+  assert.equal(run.elapsed, STEP); assert.equal(run.timeStopRemaining, 0)
   const time = run.pickupTime
   step(run, 120)
   assert.ok(run.pickupTime > time, 'coins spin before the first movement')

@@ -4,14 +4,14 @@ import { blankTrial, levelProblems, levelTerrain } from '../src/games/jumping/le
 import { addItem, hitItem, itemOutline, moveItem } from '../src/games/jumping/editor.ts'
 import { placeOnSurface, surfacePlacement } from '../src/games/jumping/editorPlacement.ts'
 import { placementPreview } from '../src/games/jumping/builderPlacement.ts'
-import { createPreviewRun, createRun } from '../src/games/jumping/challenge.ts'
+import { createPreviewRun, createRun } from './helpers/jumping-active-run.mjs'
 import { nearestBoundary, polygonIntersects } from '../src/games/jumping/geometry.ts'
 import { robotHulls } from '../src/games/jumping/robotPhysics.ts'
 
 function ramp(slope) {
   const rise = Math.abs(slope) * 400
   return { ...blankTrial(), height: 1800, floor: 1800,
-    spawn: { x: 150, y: 1800 }, goal: { x: 1650, y: 1800 },
+    entrance: { x: 150, y: 1800 }, goal: { x: 1650, y: 1800 },
     platforms: [{ x: 400, y: 800 - rise / 2, w: 400, h: rise + 20,
       polygon: slope > 0 ? [[0, 0], [400, rise], [400, rise + 20], [0, 20]]
         : [[0, rise], [400, 0], [400, 20], [0, rise + 20]] }] }

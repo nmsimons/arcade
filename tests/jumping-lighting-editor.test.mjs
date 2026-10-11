@@ -7,7 +7,7 @@ import { editLight, lightHandles, setLevelNightMode } from '../src/games/jumping
 import { nightModeEnabled } from '../src/games/jumping/ambientLight.ts'
 import { lightBounds } from '../src/games/jumping/lightingDefinition.ts'
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { LightingState } from '../src/games/jumping/lightingModel.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { addItem, duplicateItem, moveItem, deleteItem, setPickupSeconds, resizeLevelHeight } from '../src/games/jumping/editor.ts'
 import { TIME_BONUS_LABEL_SECONDS, pickupBounds } from '../src/games/jumping/pickups.ts'
@@ -42,7 +42,7 @@ test('only player contact collects bonuses, and contact respects crouched height
   const level = fixture([bonus(5, 160, 852), bonus(5, 500, 888)])
   level.props = [{ kind: 'ball', x: 500, y: 920, size: 80 }]
   const run = createRun(level); run.player.crouching = true
-  stepRun(run, NEUTRAL_INPUT)
+  stepRun(run, { ...NEUTRAL_INPUT, crouch: true })
   assert.ok(run.pickups.every(p => p.collectedAge === null))
   run.player.crouching = false; stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.pickups[0].collectedAge, 0); assert.equal(run.pickups[1].collectedAge, null)

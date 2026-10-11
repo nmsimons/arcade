@@ -1,9 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel, levelProblems, triggerTargets } from '../src/games/jumping/level.ts'
-import { createRun, createPreviewRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, createPreviewRun, stepRun } from './helpers/jumping-active-run.mjs'
+import { createRun as createInitialRun } from '../src/games/jumping/challenge.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { goalDoor, GOAL_OPEN_SECONDS } from '../src/games/jumping/goal.ts'
+import { goalDoor, GOAL_OPEN_SECONDS, ENTRANCE_SECONDS } from '../src/games/jumping/goal.ts'
 import { setObjectPower, setPlateBehavior, setTriggerTargets, duplicateItem, deleteItem, moveItem } from '../src/games/jumping/editor.ts'
 import { placeOnSurface } from '../src/games/jumping/editorPlacement.ts'
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
@@ -25,7 +26,7 @@ test('legacy exits start fully open without moving; legacy plates and lifts keep
   level.triggers[0].targets = ['lift']
   const restored = parseLevel(JSON.parse(JSON.stringify(level)))
   assert.deepEqual(restored, level)
-  for (const create of [createRun, createPreviewRun]) {
+  for (const create of [createInitialRun, createPreviewRun]) {
     const run = create(restored)
     assert.equal(run.goalLit, true); assert.equal(run.goalElapsed, GOAL_OPEN_SECONDS)
     assert.equal(run.mechanisms[0].active, false); assert.equal(run.triggers[0].active, false)
@@ -140,13 +141,14 @@ test('coin switches can open an exit and its timer locks only when the player en
   step(run, 120); assert.equal(run.finished, true); assert.equal(run.elapsed, locked)
 })
 
-for (const horizontal of [false, true]) test(`always-on ${horizontal ? 'platforms' : 'elevators'} cycle, wait for input, and resume after EMP`, () => {
+for (const horizontal of [false, true]) test(`always-on ${horizontal ? 'platforms' : 'elevators'} cycle after entry and resume after EMP`, () => {
   const level = fixture(); level.triggers = []; level.goal.power = 'always'
   level.mechanisms[0] = { ...level.mechanisms[0], power: 'always', ...(horizontal ? { orientation: 'horizontal', flipX: true } : {}) }
-  const run = createRun(level), m = run.mechanisms[0]
+  const run = createInitialRun(level), m = run.mechanisms[0]
   const position = () => horizontal ? m.x : m.y
   assert.equal(m.active, true); const original = position(); step(run, 60); assert.equal(position(), original)
-  run.started = true; step(run, 120); assert.notEqual(position(), original)
+  stepRun(run, NEUTRAL_INPUT, ENTRANCE_SECONDS - 60 * STEP)
+  step(run, 120); assert.notEqual(position(), original)
   const direction = m.direction; step(run, 300); assert.notEqual(m.direction, direction)
   run.empRemaining = .5; const saved = structuredClone(m); step(run, 60); assert.deepEqual(m, saved)
   step(run, Math.ceil(saved.wait / STEP) + 60); assert.notEqual(position(), saved[horizontal ? 'x' : 'y'])

@@ -68,7 +68,7 @@
       "h": 700
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 160,
     "y": 1400
   },
@@ -480,7 +480,18 @@
       "kind": "coin"
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 15,
+      "y": 225,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "lighting": {
     "nightMode": true,
     "ambient": 0,

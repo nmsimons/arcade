@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose, dryTurnDirection } from '../src/games/jumping/athlete.ts'
 import { athleteCasters } from '../src/games/jumping/athleteShadow.ts'
@@ -14,7 +14,7 @@ function trace(level, entry, steer, observe, jumpAt) {
   for (let i = 0; i < 550; i++) {
     const p = run.player
     started ||= !level.gravityPlates || p.inverted && p.grounded
-    const direction = level.spawn.x < level.width / 2 ? 1 : -1
+    const direction = level.entrance.x < level.width / 2 ? 1 : -1
     const move = !started ? 0 : contact < 0 ? direction * (entry === 'walk' ? 125 / 350 : 1)
       : steer === 'uphill' ? -direction : steer === 'downhill' ? direction : 0
     const jump = typeof jumpAt === 'function' ? jumpAt(p, i) : jumpAt !== undefined && contact >= 0 && i >= contact + jumpAt && i < contact + jumpAt + 3

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
@@ -12,7 +12,7 @@ test('Spelunk downhill running completes descending-foot landings instead of res
   // Retain the reported polygon and actual ball; place this isolated encounter
   // at the ridge above the exit. The authored level and its spawn stay unchanged.
   for (const mode of ['walk', 'run', 'crouch']) {
-    const run = createRun(parseLevel({ ...spelunk, spawn: { x: 1280, y: 1460 } }))
+    const run = createRun(parseLevel({ ...spelunk, entrance: { x: 1280, y: 1460 } }))
     let previous = [], completedLandings = 0, maximumTrail = 0
     for (let tick = 0; tick < 160; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: mode === 'walk' ? -TUNING.walkSpeed / TUNING.runSpeed : -1,

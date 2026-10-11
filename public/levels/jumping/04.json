@@ -13,10 +13,6 @@
       "material": "earth",
       "polygon": [
         [
-          80,
-          820
-        ],
-        [
           420,
           680
         ],
@@ -59,6 +55,14 @@
         [
           0,
           840
+        ],
+        [
+          0,
+          830
+        ],
+        [
+          60,
+          830
         ]
       ]
     },
@@ -233,8 +237,8 @@
       "h": 220
     }
   ],
-  "spawn": {
-    "x": 40,
+  "entrance": {
+    "x": 30,
     "y": 1590
   },
   "checkpoints": [],
@@ -1083,7 +1087,18 @@
       "kind": "stopwatch"
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 30,
+      "y": 135,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "lighting": {
     "nightMode": true,
     "ambient": 0,

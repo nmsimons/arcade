@@ -5,7 +5,7 @@
   "width": 1200,
   "height": 920,
   "floor": 920,
-  "spawn": { "x": 360, "y": 920 },
+  "entrance": { "x": 360, "y": 920 },
   "goal": { "x": 1040, "y": 920 },
   "platforms": [],
   "checkpoints": [],

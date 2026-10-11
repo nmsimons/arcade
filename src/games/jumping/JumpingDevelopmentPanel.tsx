@@ -10,7 +10,7 @@ export function JumpingDevelopmentPanel({ onClose, showPerformance, onPerformanc
   return <KeyboardDialog label="Developer panel" focusKey="jumping-development" onClose={onClose} className="jumping-overlay jumping-dialog-overlay jumping-development-overlay">
     <div className="jumping-dialog-panel jumping-development" data-controller-scroll>
       <header className="jumping-dialog-heading">
-        <p className="jumping-eyebrow">UNTITLED JUMPING GAME · DEVELOPMENT</p>
+        <p className="jumping-eyebrow">L.A.B. EXPERIMENTS · DEVELOPMENT</p>
         <h2>Developer panel.</h2>
         <p>Gameplay pauses while this panel is open.</p>
       </header>

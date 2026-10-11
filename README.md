@@ -42,7 +42,7 @@ registrations, production configuration, security boundaries and live testing.
 - **Bumper Ball** — single-player physics soccer-ish bumper cars against a computer opponent
 - **Sling Load** — helicopter sling-load delivery / survival
 - **Hello World** — vector display “HELLO WORLD” screen
-- **Untitled Jumping Game** — a timed, nonlethal puzzle platformer with local JSON levels and a level builder
+- **L.A.B. Experiments (Leaps and Bounds)** — a timed, nonlethal puzzle platformer with local JSON levels and a level builder
 
 ## Controls
 
@@ -502,7 +502,7 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 - Escape / Enter / Space: exit
 
-**Untitled Jumping Game** (`/untitled-jumping-game`)
+**L.A.B. Experiments (Leaps and Bounds)** (`/untitled-jumping-game`)
 
 **First Leap** and **Second Leap** are included as built-in levels. Open a local
 folder to play your own levels, ordered by its manifest or filename. **JSON Test Lab** lives in the automated test

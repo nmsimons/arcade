@@ -9,7 +9,7 @@ test('the native quiet standing and crouched silhouettes expose both arms at gam
     ])
     const results = []
     for (const facing of [-1, 1]) for (const crouch of [false, true]) for (const scale of [.6, .72]) {
-      const run = createRun({ ...blankTrial(), spawn: { x: 800, y: 920 } }), p = run.player
+      const run = createRun({ ...blankTrial(), entrance: { x: 800, y: 920 } }), p = run.player
       if (crouch || facing < 0) {
         for (let i = 0; i < 4; i++) stepRun(run, { ...NEUTRAL_INPUT, move: facing, crouch })
         for (let i = 0; i < 360; i++) stepRun(run, { ...NEUTRAL_INPUT, crouch })

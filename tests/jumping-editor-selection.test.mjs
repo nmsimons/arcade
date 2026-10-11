@@ -6,7 +6,7 @@ import { polygonPoints } from '../src/games/jumping/geometry.ts'
 import { terrainDrawOrder } from '../src/games/jumping/terrainOrder.ts'
 const pick = (kind, index = 0) => ({ kind, index })
 function scene() {
-  const level = { ...blankTrial(), width: 1400, height: 900, floor: 900, spawn: { x: 440, y: 400 }, goal: { x: 1200, y: 900 } }
+  const level = { ...blankTrial(), width: 1400, height: 900, floor: 900, entrance: { x: 440, y: 400 }, goal: { x: 1200, y: 900 } }
   level.platforms = [{ x: 400, y: 400, w: 200, h: 100, name: 'A', zIndex: 2 }, { x: 600, y: 500, w: 100, h: 160, name: 'B', zIndex: 1 }]
   level.climbables.ropes = [{ x: 440, y: 400, length: 180, segments: 23, anchor: { platform: 0, x: 40, y: 0 } }]
   level.climbables.ladders = [{ x: 384, top: 400, bottom: 700, side: 1, platform: 0 }]
@@ -17,8 +17,8 @@ function scene() {
 }
 test('a selected terrain, rope, ladder and marker move exactly once with their bindings intact', () => {
   const level = scene(), original = copyLevel(level)
-  const changed = moveSelections(level, [pick('spawn'), pick('ladder'), pick('rope'), pick('platform')], 40, 20)
-  assert.deepEqual(changed.spawn, { x: 480, y: 420 })
+  const changed = moveSelections(level, [pick('entrance'), pick('ladder'), pick('rope'), pick('platform')], 40, 20)
+  assert.deepEqual(changed.entrance, { x: 480, y: 420 })
   assert.deepEqual([changed.climbables.ropes[0].x, changed.climbables.ropes[0].y], [480, 420])
   assert.equal(changed.climbables.ropes[0].anchor.platform, 0)
   assert.deepEqual(changed.climbables.ladders[0], { x: 424, top: 420, bottom: 720, side: 1, platform: 0 })
@@ -40,7 +40,7 @@ test('pasting terrain and its attachments remaps indices without moving any orig
   const clipboard = copySelections(level, group)
   const result = pasteSelections(level, clipboard, 80, 40), changed = result.level
   assert.equal(changed.platforms.length, 4)
-  assert.deepEqual(changed.spawn, original.spawn)
+  assert.deepEqual(changed.entrance, original.entrance)
   assert.deepEqual(changed.goal, original.goal)
   assert.deepEqual(changed.platforms.slice(0, 2).map(({ zIndex, ...b }) => b), original.platforms.map(({ zIndex, ...b }) => b))
   assert.deepEqual([changed.climbables.ropes[1].x, changed.climbables.ropes[1].y], [520, 440])
@@ -70,7 +70,7 @@ test('copying an attached child alone detaches the copy, and foreign-level wirin
   assert.deepEqual(result.triggers[1].targets, [])
 })
 test('paste limits fail atomically and unique markers cannot be duplicated', () => {
-  const level = scene(), copy = copySelections(level, [pick('spawn'), pick('goal'), pick('platform')])
+  const level = scene(), copy = copySelections(level, [pick('entrance'), pick('goal'), pick('platform')])
   assert.deepEqual(copy.selections, [pick('platform')])
   level.platforms = Array.from({ length: 160 }, () => structuredClone(level.platforms[0]))
   const before = copyLevel(level)
@@ -105,7 +105,7 @@ test('terrain group transforms preserve the layout through inverses and carry ro
     const changed = transformSelections(level, group, action)
     const rope = changed.climbables.ropes[0], b = changed.platforms[0]
     assert.equal(rope.x, b.x + rope.anchor.x); assert.equal(rope.y, b.y + rope.anchor.y)
-    assert.deepEqual(changed.spawn, level.spawn)
+    assert.deepEqual(changed.entrance, level.entrance)
     assert.deepEqual(changed.platforms.map(b => b.zIndex), [2, 1])
     assert.doesNotThrow(() => parseLevel(changed))
     const inverse = action === 'rotate-left' ? 'rotate-right' : action === 'rotate-right' ? 'rotate-left' : action
@@ -123,9 +123,9 @@ test('marquee tests actual terrain polygons rather than their empty bounding-box
 })
 test('group deletion removes the intended indices and retains unique markers', () => {
   const level = scene()
-  const changed = deleteSelections(level, [pick('platform'), pick('platform', 1), pick('rope'), pick('spawn'), pick('goal')])
+  const changed = deleteSelections(level, [pick('platform'), pick('platform', 1), pick('rope'), pick('entrance'), pick('goal')])
   assert.equal(changed.platforms.length, 0); assert.equal(changed.climbables.ropes.length, 0)
-  assert.deepEqual(changed.spawn, level.spawn); assert.deepEqual(changed.goal, level.goal)
+  assert.deepEqual(changed.entrance, level.entrance); assert.deepEqual(changed.goal, level.goal)
 })
 
 test('marquee follows upward and bent rope artwork and does not catch invisible gravity interiors', () => {

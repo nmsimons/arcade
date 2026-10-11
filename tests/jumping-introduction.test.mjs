@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 
@@ -10,6 +10,9 @@ for (const recording of evidence.runs) test(`${recording.file}: current held-jum
   const level = parseLevel(JSON.parse(await readFile(new URL(`../public/levels/jumping/${recording.file}`, import.meta.url))))
   assert.deepEqual(levelProblems(level), [])
   const run = createRun(level), p = run.player
+  const startingBank = level.platforms.find(platform => platform.y === level.entrance.y
+    && level.entrance.x >= platform.x && level.entrance.x < platform.x + platform.w)
+  assert.ok(startingBank, 'the entrance sits on the starting bank')
   let reachedFloor = false, ladder = false, recovered = false, automaticRope = false, heldCatch = false, departed = false
   for (const segment of recording.trace) {
     assert.ok(Number.isInteger(segment.frames) && segment.frames > 0)
@@ -20,9 +23,10 @@ for (const recording of evidence.runs) test(`${recording.file}: current held-jum
       assert.equal(run.finished, false, 'stop recording at completion')
       const wasRope = p.climbing?.kind === 'rope'
       stepRun(run, input)
-      reachedFloor ||= p.grounded && p.y === 1600
+      reachedFloor ||= p.grounded && p.y === level.floor
       ladder ||= p.climbing?.kind === 'ladder'
-      recovered ||= ladder && p.grounded && p.y === 1200 && p.x < 540
+      recovered ||= ladder && p.grounded && p.y === startingBank.y
+        && p.x >= startingBank.x && p.x < startingBank.x + startingBank.w
       if (p.climbing?.kind === 'rope' && !input.climb) automaticRope = true
       if (wasRope && p.climbing?.kind === 'rope' && input.jump) heldCatch = true
       if (wasRope && !p.climbing && input.jump) departed = true

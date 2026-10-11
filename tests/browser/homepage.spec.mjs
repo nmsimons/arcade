@@ -1,6 +1,6 @@
 import { test, expect } from './helpers/test.mjs'
 
-const titles = ['Hard Vacuum', 'Bumper Ball', 'Urban Fire', 'Untitled Jumping Game']
+const titles = ['Hard Vacuum', 'Bumper Ball', 'Urban Fire', 'L.A.B. Experiments']
 
 for (const width of [320, 390, 768, 1280]) {
   test(`homepage presentation and account controls at ${width}px`, async ({ page }) => {

@@ -1,13 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 
 function pool(side, top) {
   const edge = side > 0 ? 850 : 450
-  const run = createRun({ ...blankTrial(), spawn: { x: edge - side * 80, y: 450.34 },
+  const run = createRun({ ...blankTrial(), entrance: { x: edge - side * 80, y: 450.34 },
     platforms: [{ x: side > 0 ? edge : 0, y: top, w: side > 0 ? 950 : 450, h: 920 - top }],
     gravityPlates: [{ id: 'water', x: 450, y: 400, w: 400, h: 520, effect: 'water', gravity: -1 }],
     goal: { id: 'closed', x: 1600, y: 920, power: 'switched' } })

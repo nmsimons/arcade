@@ -5,7 +5,7 @@
   "width": 1800,
   "height": 1040,
   "floor": 920,
-  "spawn": { "x": 120, "y": 920 },
+  "entrance": { "x": 120, "y": 920 },
   "goal": { "id": "closed", "power": "switched", "x": 1640, "y": 920 },
   "checkpoints": [],
   "climbables": { "ladders": [], "ropes": [] },

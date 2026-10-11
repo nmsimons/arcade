@@ -8,7 +8,7 @@ test('cropping daylight emissions preserves every pixel across views, occlusion,
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
     const level = blankTrial()
-    Object.assign(level, { width: 1200, height: 600, floor: 500, spawn: { x: 720, y: 500 }, goal: { x: 100, y: 500 },
+    Object.assign(level, { width: 1200, height: 600, floor: 500, entrance: { x: 720, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 742, y: 450, w: 24, h: 50 }], robots: [{ x: 710, y: 500, left: 300, right: 1000 }] })
     const run = createPreviewRun(level), robot = run.robots[0]
     const renderers = [new LightingRenderer(), new LightingRenderer({ boundedEmissions: false, skipEmptyNightPasses: false, reuseAmbientBuffer: false })]

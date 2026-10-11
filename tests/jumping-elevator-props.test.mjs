@@ -1,14 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { bodyIntersects, nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
 import { mechanismShape } from '../src/games/jumping/mechanisms.ts'
 
 function fixture(direction = 1, offset = 20) {
   const level = blankTrial(), edge = direction > 0 ? 860 : 700
-  level.spawn = { x: 100, y: 920 }
+  level.entrance = { x: 100, y: 920 }
   level.mechanisms = [{ id: 'lift', kind: 'lift', x: 700, y: 900, w: 160, h: 20, travel: 300 }]
   level.triggers = [{ x: 50, y: 920, w: 100, target: 'lift', mode: 'touch' }]
   level.props = [{ kind: 'ball', x: edge + offset * direction, y: 920, size: 100 }]
@@ -118,7 +118,7 @@ test('contact displacement propagates through neighboring balls', () => {
 })
 
 test('the player rides a ball displaced by an elevator', () => {
-  const level = fixture(); level.spawn = { x: 880, y: 820 }
+  const level = fixture(); level.entrance = { x: 880, y: 820 }
   level.props.push({ kind: 'box', x: 100, y: 920, size: 40 })
   const run = descending(level)
   advance(run, 3)

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, stepRun, setWaterEffectsEnabled } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun, setWaterEffectsEnabled } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
 import { playerWaterCenterOffset } from '../src/games/jumping/gravity.ts'
@@ -14,13 +14,13 @@ assert.deepEqual(levelProblems(parseLevel(source)), [])
 for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const kind of ['rectangles', 'single block', 'sloped block']) {
   test(`a swimmer enters, rests, turns and leaves a 34-unit ${kind} tunnel (${direction}, ${dt})`, () => {
     const level = structuredClone(source)
-    level.spawn.y = 670
+    level.entrance.y = 670
     if (kind === 'rectangles') level.platforms = [
       { x: 400, y: 400, w: 800, h: 216 }, { x: 400, y: 650, w: 800, h: 270 }, { x: 400, y: 616, w: 50, h: 34 },
     ]
     if (kind === 'sloped block') level.platforms[0].polygon = [[0, 0], [800, 0], [800, 218], [50, 216], [50, 250], [800, 252], [800, 520], [0, 520]]
     if (direction > 0) {
-      level.spawn.x = 1800 - level.spawn.x
+      level.entrance.x = 1800 - level.entrance.x
       for (const b of level.platforms) {
         b.x = 1800 - b.x - b.w
         if (b.polygon) b.polygon = b.polygon.map(([x, y]) => [b.w - x, y]).reverse()
@@ -77,7 +77,7 @@ for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const kin
 
 for (const dt of [STEP, 1 / 30]) for (const vertical of [-1, 1]) {
   test(`a swimmer passes through a 20-unit vertical shaft (${vertical}, ${dt})`, () => {
-    const run = createRun({ ...parseLevel(source), spawn: { x: 600, y: vertical > 0 ? 550 : 900 },
+    const run = createRun({ ...parseLevel(source), entrance: { x: 600, y: vertical > 0 ? 550 : 900 },
       platforms: [{ x: 0, y: 600, w: 590, h: 200 }, { x: 610, y: 600, w: 1190, h: 200 }] })
     const p = run.player
     run.started = true; p.grounded = false; p.coyote = 0

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { playerContactBody } from '../src/games/jumping/playerContacts.ts'
@@ -72,7 +72,7 @@ for (const direction of [-1, 1]) test(`swimming up against an outward bank reach
 for (const direction of [-1, 1]) test(`ordinary jumps retain the outward bank grip, direction ${direction}`, () => {
   const level = outwardBankLevel(direction, 10, .05), bank = level.platforms[0]
   const edgeX = bank.x + (direction > 0 ? 10 : bank.w - 10)
-  level.gravityPlates = []; level.spawn = { x: edgeX - direction * 50, y: 600 }; level.goal.y = 600
+  level.gravityPlates = []; level.entrance = { x: edgeX - direction * 50, y: 600 }; level.goal.y = 600
   level.platforms.push({ x: 0, y: 600, w: level.width, h: 320 })
   const run = createRun(parseLevel(level)), p = run.player
   for (let tick = 0; tick < 180 && !p.hang; tick++) stepRun(run, { ...NEUTRAL_INPUT, move: direction, jump: tick < 18 })
@@ -88,7 +88,7 @@ for (const direction of [-1, 1]) test(`running off an outward bank preserves dep
   for (const lean of [.1, 1, 5, 20, 80]) for (const uphill of [0, .05]) {
     const level = outwardBankLevel(direction, lean, uphill), bank = level.platforms[0]
     const edgeX = bank.x + (direction > 0 ? lean : bank.w - lean)
-    level.gravityPlates = []; level.spawn = { x: edgeX + direction * 150, y: 380 - 150 * uphill }
+    level.gravityPlates = []; level.entrance = { x: edgeX + direction * 150, y: 380 - 150 * uphill }
     const run = createRun(parseLevel(level)), p = run.player
     let departureSpeed, departed = 0
     for (let tick = 0; tick < 240 && departed < 36; tick++) {

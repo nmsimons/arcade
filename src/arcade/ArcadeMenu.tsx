@@ -4,6 +4,7 @@ import { ARCADE_GAMES } from './games'
 import { GameArt } from './GameArt'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { getPlatform } from '../platform/runtime'
+import { LabLogo } from '../branding/LabLogo'
 
 export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
   selectedIndex: number; onSelection: (index: number) => void; onPlay: (path: string) => void
@@ -26,7 +27,7 @@ export function ArcadeMenu({ selectedIndex, onSelection, onPlay }: {
           aria-label={game.label} aria-describedby={`${game.id}-description`}
           onFocus={() => onSelection(index)} onClick={() => onPlay(game.path)}
           className={`arcade-choice arcade-choice-${game.theme}`}>
-          <span className="arcade-card-heading"><span className="arcade-genre">{game.genre}</span><span className="arcade-title">{game.label}</span></span>
+          <span className="arcade-card-heading"><span className="arcade-genre">{game.genre}</span><span className="arcade-title">{game.id === 'jumping' ? <LabLogo decorative /> : game.label}</span></span>
           <GameArt theme={game.theme} />
           <span className="arcade-card-footer"><span id={`${game.id}-description`}>{game.detail}</span><span className="arcade-play" aria-hidden="true">Play <span>→</span></span></span>
         </button>)}

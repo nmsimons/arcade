@@ -89,11 +89,11 @@ test('grip balance, rather than a fixed angle, controls stable starts and slip o
   }
   for (const degrees of [46, 48]) {
     const shape = ramp(degrees), p = on(shape)
-    const level = { width: 2200, height: shape.y + shape.h + 100, platforms: [shape], spawn: { x: p.x, y: p.y } }
+    const level = { width: 2200, height: shape.y + shape.h + 100, platforms: [shape], entrance: { x: p.x, y: p.y } }
+    assert.match(spawnProblem(level), /continuous flat surface/, 'a grippable slope still cannot support an entrance door')
     if (degrees === 46) {
-      assert.equal(spawnProblem(level), null)
-      assert.deepEqual(snapToGround(level, p.x, p.y - 10), level.spawn)
-    } else assert.match(spawnProblem(level), /grip/)
+      assert.deepEqual(snapToGround(level, p.x, p.y - 10), level.entrance)
+    }
   }
 })
 

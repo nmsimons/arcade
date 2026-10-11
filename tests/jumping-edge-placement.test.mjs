@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { blankTrial, levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, itemBounds, moveItem, resizeItem, setCoinSwitchDisplay, setCoinSwitchOrientation, setShovebotLimit } from '../src/games/jumping/editor.ts'
 import { placeOnSurface } from '../src/games/jumping/editorPlacement.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { propLoadsPlate } from '../src/games/jumping/propGeometry.ts'
 import { robotHulls } from '../src/games/jumping/robotPhysics.ts'
@@ -142,7 +142,7 @@ test('edge receivers replace artificial stops and hold real cargo at the wall af
     assert.ok(!level.platforms.some(p => p.x === 0 && p.y + p.h === y), `${file} has no added boundary stop`)
     const plate = level.triggers.find(t => t.x <= 15 && t.y === y)
     assert.ok(plate, `${file} receiver covers the resting ball center beside the world wall`)
-    const trial = blankTrial(); trial.spawn.x = 500; trial.goal.power = 'always'; trial.props = [{ kind: 'ball', x: 160, y: trial.floor, size: 30 }]
+    const trial = blankTrial(); trial.entrance.x = 500; trial.goal.power = 'always'; trial.props = [{ kind: 'ball', x: 160, y: trial.floor, size: 30 }]
     trial.triggers = [{ ...plate, y: trial.floor, targets: [] }]
     const run = createRun(parseLevel(trial)); stepRun(run, { ...NEUTRAL_INPUT, move: 1 }); run.props[0].vx = -500
     for (let frame = 0; frame < 10 / STEP; frame++) stepRun(run, NEUTRAL_INPUT)

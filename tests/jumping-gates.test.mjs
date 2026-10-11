@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { addItem, duplicateItem, hitItem, itemOutline, moveItem, resizeItem } from '../src/games/jumping/editor.ts'
@@ -10,7 +10,7 @@ import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 
 const advance = (run, frames, dt = STEP) => { for (let i = 0; i < frames; i++) stepRun(run, NEUTRAL_INPUT, dt) }
 const fixture = flipX => {
-  const level = blankTrial(); level.spawn.x = 340
+  const level = blankTrial(); level.entrance.x = 340
   level.mechanisms = [{ id: 'gate', kind: 'gate', orientation: 'horizontal', flipX, x: 700, y: 780, w: 180, h: 20, travel: 500 }]
   level.triggers = [{ x: 300, y: 920, w: 80, target: 'gate', mode: 'weight' }]
   return level
@@ -127,7 +127,7 @@ for (const flipX of [false, true]) {
 
   test(`horizontal gate ${flipX ? 'right' : 'left'} carries a player and a box with its moving collider`, () => {
     const level = fixture(flipX)
-    level.spawn = { x: 740, y: 780 }
+    level.entrance = { x: 740, y: 780 }
     level.props = [{ kind: 'box', x: 340, y: 920, size: 60 }, { kind: 'box', x: 830, y: 780, size: 40 }]
     const run = createRun(level), gate = run.mechanisms[0]; run.started = true
     for (let i = 0; i < 240; i++) {

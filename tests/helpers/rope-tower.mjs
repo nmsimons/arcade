@@ -3,7 +3,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 // A continuous tower face interrupted by retracting gates and undercut floors.
 export function ropeTower() {
   const level = blankTrial()
-  Object.assign(level, { width: 1000, height: 1500, floor: 1500, spawn: { x: 200, y: 1500 }, goal: { x: 750, y: 1500 } })
+  Object.assign(level, { width: 1000, height: 1500, floor: 1500, entrance: { x: 200, y: 1500 }, goal: { x: 750, y: 1500 } })
   const floor = y => ({ x: 340, y, w: 400, h: 160,
     polygon: [[0, 0], [20, 0], [20, 40], [400, 40], [400, 60], [320, 60], [320, 160], [300, 160], [300, 60], [20, 60], [20, 120], [0, 120]] })
   level.platforms = [

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, TUNING, respawn, gaitPose } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
 import { mirrorPlatform, mirrorPlayerState } from '../src/games/jumping/gravityFrame.ts'
@@ -129,7 +129,7 @@ test('a ledge jump transfers out of the real grip while retaining outward impuls
 
 test('turning into a real prop contact retains first-force palms and fixed support legs', () => {
   for (const side of [-1,1]) for (const kind of ['box','ball']) for (const size of [30,80]) {
-    const level = blankTrial(); level.spawn = {x:540-side*(size/2+25.5),y:920}
+    const level = blankTrial(); level.entrance = {x:540-side*(size/2+25.5),y:920}
     level.props = [{kind,x:540,y:920,size}]
     const run = createRun(level)
     Object.assign(run.player,{facing:-side,vx:-side*410,gait:gaitPose(-side*410)})
@@ -155,7 +155,7 @@ test('turning into a real prop contact retains first-force palms and fixed suppo
 test('opposed blocked braces release and reach through repeated turns without moving unsupported objects', () => {
   for (const side of [-1, 1]) for (const kind of ['box', 'ball']) for (const size of [30, 80]) for (const crouch of [false, true]) {
     const root = 474.5, offset = size / 2 + 25.5
-    const level = { ...blankTrial(), spawn: { x: root, y: 920 },
+    const level = { ...blankTrial(), entrance: { x: root, y: 920 },
       props: [{ kind, x: root + offset, y: 920, size }, { kind, x: root - offset, y: 920, size }],
       platforms: [{ x: root + 25.5 + size, y: 650, w: 120, h: 270 },
         { x: root - 25.5 - size - 120, y: 650, w: 120, h: 270 }] }

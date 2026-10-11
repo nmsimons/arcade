@@ -4,7 +4,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 
 test('walking off a high platform falls prone, lands flat and gets up with normal controls', async ({ page }, info) => {
   const level = blankTrial()
-  Object.assign(level, { height: 1400, floor: 1400, spawn: { x: 200, y: 160 }, goal: { x: 1620, y: 1400 },
+  Object.assign(level, { height: 1400, floor: 1400, entrance: { x: 200, y: 160 }, goal: { x: 1620, y: 1400 },
     platforms: [{ x: 100, y: 160, w: 220, h: 24 }] })
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
@@ -60,7 +60,7 @@ test('walking off a high platform falls prone, lands flat and gets up with norma
 
 test('an upward grav lift eases into a prone floating pose while steering remains available', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Prone grav lift', height: 2000, floor: 2000,
-    spawn: { x: 700, y: 2000 }, goal: { x: 1620, y: 2000 },
+    entrance: { x: 700, y: 2000 }, goal: { x: 1620, y: 2000 },
     gravityPlates: [{ id: 'lift', x: 100, y: 80, w: 1500, h: 1920, gravity: -1, power: 'always' }] }
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
@@ -90,7 +90,7 @@ test('an upward grav lift eases into a prone floating pose while steering remain
 
 test('zero-g drift becomes prone, bumps a floating ball with neutral input and slows in the air', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Weightless drift', height: 1400, floor: 1400,
-    spawn: { x: 300, y: 500 }, goal: { x: 1620, y: 1400 },
+    entrance: { x: 300, y: 500 }, goal: { x: 1620, y: 1400 },
     platforms: [{ x: 100, y: 500, w: 260, h: 24 }],
     props: [{ kind: 'ball', x: 720, y: 500, size: 60 }],
     gravityPlates: [{ id: 'zero-g', x: 20, y: 20, w: 1760, h: 1360, gravity: 0, power: 'always' }] }
@@ -140,7 +140,7 @@ test('zero-g drift becomes prone, bumps a floating ball with neutral input and s
 })
 
 test('rolling away a sleeping ball support in 0.1 gravity makes the upper ball fall', async ({ page }, info) => {
-  const level = { ...blankTrial(), name: 'Weak gravity stack', spawn: { x: 630, y: 920 },
+  const level = { ...blankTrial(), name: 'Weak gravity stack', entrance: { x: 630, y: 920 },
     props: [{ kind: 'ball', x: 700, y: 920, size: 80 }, { kind: 'ball', x: 700, y: 840, size: 80 }],
     gravityPlates: [{ id: 'weak', x: 0, y: 0, w: 1800, h: 920, gravity: .1, power: 'always' }] }
   const errors = []; page.on('pageerror', error => errors.push(error.message))
@@ -182,7 +182,7 @@ test('rolling away a sleeping ball support in 0.1 gravity makes the upper ball f
 })
 
 for (const gravity of [1, .1]) test(`normal controls push a settled touching ball pair at ${gravity} gravity`, async ({ page }, info) => {
-  const name = `Sleeping ball pair ${gravity}`, level = { ...blankTrial(), name, spawn: { x: 630, y: 920 },
+  const name = `Sleeping ball pair ${gravity}`, level = { ...blankTrial(), name, entrance: { x: 630, y: 920 },
     props: [{ kind: 'ball', x: 700, y: 920, size: 80 }, { kind: 'ball', x: 780, y: 920, size: 80 }],
     gravityPlates: [{ id: 'gravity', x: 0, y: 0, w: 1800, h: 920, gravity, power: 'always' }] }
   const errors = []; page.on('pageerror', error => errors.push(error.message))

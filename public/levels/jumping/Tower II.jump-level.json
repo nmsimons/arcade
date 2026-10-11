@@ -906,7 +906,7 @@
       ]
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 140,
     "y": 2000
   },
@@ -1410,6 +1410,27 @@
       "align": "center",
       "style": "graffiti",
       "rotation": 140
+    },
+    {
+      "x": 455,
+      "y": 1820,
+      "w": 95,
+      "h": 40,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    },
+    {
+      "x": 445.8376783071345,
+      "y": 1832.4244453496287,
+      "w": 125,
+      "h": 35,
+      "text": "Eat the rich!",
+      "fontSize": 20,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -10
     }
   ],
   "lighting": {

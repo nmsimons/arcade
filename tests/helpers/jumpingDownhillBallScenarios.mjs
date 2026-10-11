@@ -8,7 +8,7 @@ export function downhillBallLevel(size=100,direction=1,slope=.3) {
   const surface=at=>y+grade*(at-x)
   const spawnX=x-direction*(size/2+25.5)
   return {...blankTrial(),version:2,name:`Downhill ${size} ball`,width:8000,height:6000,floor:6000,
-    spawn:{x:spawnX,y:surface(spawnX)},goal:{x:7820,y:6000},
+    entrance:{x:spawnX,y:surface(spawnX)},goal:{x:7820,y:6000},
     platforms:[{x:200,y:0,w:7600,h:6000,profile:[[0,surface(200)],[7600,surface(7800)]]}],
     props:[{kind:'ball',x,y,size}],lighting:{nightMode:false,ambient:0,lights:[]}}
 }

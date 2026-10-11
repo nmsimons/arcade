@@ -4,7 +4,7 @@ import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 
 for (const walking of [false, true]) test(`walking off a ledge beside a ball keeps brief slide contacts visually continuous${walking ? ' at walking speed' : ''}`, async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Ball descent', width: 1000, height: 620, floor: 620,
-    spawn: { x: 740, y: 420 }, goal: { x: 150, y: 620 },
+    entrance: { x: 740, y: 420 }, goal: { x: 150, y: 620 },
     platforms: [{ x: 600, y: 420, w: 160, h: 120, polygon: [[0,80],[120,80],[120,0],[160,0],[160,120],[0,120]] }],
     props: [{ kind: 'ball', x: 666, y: 500, size: 100 }] }
   expect(levelProblems(level)).toEqual([])

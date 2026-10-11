@@ -47,7 +47,7 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
 
 test('a shovebot cannot squeeze the player inside two balls, and jumping remains available', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Ball squeeze', width: 1000, height: 500, floor: 420,
-    spawn: { x: 650, y: 420 }, goal: { x: 150, y: 420 },
+    entrance: { x: 650, y: 420 }, goal: { x: 150, y: 420 },
     platforms: [{ x: 744, y: 100, w: 20, h: 320 }],
     robots: [{ x: 450, y: 420, left: 450, right: 900 }],
     props: [{ kind: 'box', x: 520, y: 420, size: 80 }, { kind: 'ball', x: 594, y: 420, size: 68 }, { kind: 'ball', x: 710, y: 420, size: 68 }] }

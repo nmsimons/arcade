@@ -9,8 +9,8 @@ import type { ClimbableWorld } from './climbables.ts'
 import { groundAt, platformSurfaces } from './terrain.ts'
 import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
-import { bodyIntersects, nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
-import { goalBounds, goalDoor, goalPoleX } from './goal.ts'
+import { nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
+import { entranceDoor, goalBounds, goalDoor, goalPoleX } from './goal.ts'
 import { MAX_SWITCH_TARGETS, parseSwitchSettings, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
 import type { PlateBehavior, PowerMode, SwitchSettings } from './switchPower.ts'
 import type { Goal } from './goal.ts'
@@ -46,7 +46,7 @@ import type { PropWeight } from './propWeight.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
-export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight }
+export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight; branded?: boolean }
 export interface Mechanism extends NamedObject, SwitchSettings { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
@@ -58,7 +58,7 @@ export interface Pusher extends NamedObject { x: number; y: number; left: number
 export interface JumpLevel {
   version: 1 | 2; id: string; name: string; width: number; height?: number
   lighting?: LightingDefinition
-  spawn: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
+  entrance: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
   floorMaterial?: TerrainMaterial
@@ -91,17 +91,17 @@ export function levelTerrain(level: JumpLevel): Platform[] {
 export const copyLevel = <T extends JumpLevel>(level: T): T => structuredClone(level)
 export const newLevelId = () => globalThis.crypto.randomUUID()
 export function newLevel(): JumpLevel {
-  return { version: 1, id: newLevelId(), name: 'Untitled level', width: 3200, height: 1000, spawn: { x: 200, y: 1000 }, checkpoints: [],
+  return { version: 1, id: newLevelId(), name: 'Untitled level', width: 3200, height: 1000, entrance: { x: 200, y: 1000 }, checkpoints: [],
     platforms: [], climbables: { ladders: [], ropes: [] } }
 }
 export function levelRules(level: JumpLevel): LevelRules {
   return { checkpoints: level.checkpoints, fallY: levelHeight(level) + 100 }
 }
 export function levelPlayer(level: JumpLevel, preview = false) {
-  const p = createPlayer(level.spawn), terrain = levelTerrain(level), ground = groundAt(terrain, level.spawn.x, level.spawn.y, .1)
+  const p = createPlayer(level.entrance), terrain = levelTerrain(level), ground = groundAt(terrain, level.entrance.x, level.entrance.y, .1)
   p.ropes = level.climbables.ropes.map(r => createRope(preview ? r : prepareRope(r, terrain)))
-  Object.assign(p, { x: level.spawn.x, y: level.spawn.y, spawnX: level.spawn.x, spawnY: level.spawn.y,
-    grounded: !!ground, groundAngle: ground?.angle ?? 0, jumpStart: level.spawn.y })
+  Object.assign(p, { x: level.entrance.x, y: level.entrance.y, spawnX: level.entrance.x, spawnY: level.entrance.y,
+    grounded: !!ground, groundAngle: ground?.angle ?? 0, jumpStart: level.entrance.y })
   p.terrain = terrain
   advanceFootwork(p, 0, p.x, terrain)
   return p
@@ -125,12 +125,16 @@ export function snapToGround(level: JumpLevel, x: number, y: number): Checkpoint
 }
 export function spawnProblem(level: JumpLevel): string | null {
   const terrain = levelTerrain(level)
-  const { x, y } = level.spawn
-  const ground = groundAt(terrain, x, y, .15)
-  if (!ground || !canGrip(ground.angle)) return `Place ${objectReference(level, 'spawn')} on a surface with enough grip to stand still.`
-  if (terrain.some(b => bodyIntersects(x, y, b))) {
-    return `${objectReference(level, 'spawn')} needs enough space for the player to stand.`
-  }
+  const { y } = level.entrance
+  const door = entranceDoor(level.entrance)
+  const supported = Array.from({ length: 11 }, (_, i) => door.x + .01 + (door.w - .02) * i / 10).every(px => {
+    const ground = groundAt(terrain, px, y, .15)
+    return ground && Math.abs(ground.angle) < .02
+  })
+  const blocked = terrain.some(b => polygonIntersects([[door.x, door.y], [door.x + door.w, door.y],
+    [door.x + door.w, y], [door.x, y]], b, .01))
+  if (!supported || blocked || door.x < 0 || door.x + door.w > level.width || door.y < 0 || y > levelHeight(level))
+    return `Place ${objectReference(level, 'entrance')} on a continuous flat surface, with a clear doorway inside the level.`
   return null
 }
 export function levelProblems(level: JumpLevel): string[] {
@@ -282,11 +286,12 @@ export function parseLevel(value: unknown): JumpLevel {
     }
     return rope
   })
-  const spawn = point(v.spawn), checkpoints = list(v.checkpoints, 30).map(point)
-  if (spawn.x > width || checkpoints.some(p => p.x > width)) fail()
+  // Legacy player positions become entrance doors at the same feet position.
+  const entrance = point(v.entrance ?? v.spawn), checkpoints = list(v.checkpoints, 30).map(point)
+  if (entrance.x > width || checkpoints.some(p => p.x > width)) fail()
   const level: JumpLevel = { version: v.version as 1 | 2, id: v.id as string, name: (v.name as string).trim(), width,
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
-    platforms, spawn, checkpoints, climbables: { ladders, ropes } }
+    platforms, entrance, checkpoints, climbables: { ladders, ropes } }
   if (v.floorMaterial !== undefined) {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()
     level.floorMaterial = v.floorMaterial
@@ -307,10 +312,12 @@ export function parseLevel(value: unknown): JumpLevel {
     level.props = list(v.props, 80).map(item => {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
       if (b.weight !== undefined && b.weight !== 'light' && b.weight !== 'normal' && b.weight !== 'heavy') fail()
+      if (b.branded !== undefined && (b.kind !== 'box' || typeof b.branded !== 'boolean')) fail()
       const size = num(b.size, 30, 200)
       return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2, width - size / 2), y: num(b.y, -1800, level.floor!), size,
         // Retired light variants load as ordinary props, keeping saved levels usable.
-        ...(b.weight === undefined || b.weight === 'light' ? {} : { weight: b.weight as PropWeight }) }
+        ...(b.weight === undefined || b.weight === 'light' ? {} : { weight: b.weight as PropWeight }),
+        ...(b.branded === undefined ? {} : { branded: b.branded as boolean }) }
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
@@ -402,7 +409,7 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
-    if (t.style !== undefined && t.style !== 'official' && t.style !== 'graffiti') fail()
+    if (t.style !== undefined && t.style !== 'official' && t.style !== 'graffiti' && t.style !== 'lab-stamp') fail()
     const text: WallText = { ...objectName(t), x: num(t.x, -1000, width), y: num(t.y, -600, levelHeight(level)), w, h,
       text: t.text as string, fontSize: num(t.fontSize, 12, 96), align: t.align as WallText['align'],
       ...(t.style === undefined ? {} : { style: t.style as WallText['style'] }),
@@ -493,6 +500,6 @@ export function parseLevel(value: unknown): JumpLevel {
 /** An empty editor document; all authored maps are external JSON assets. */
 export function blankTrial(): PuzzleLevel {
   return { version: 1, id: newLevelId(), name: 'Untitled level', width: 1800, height: 920, floor: 920,
-    spawn: { x: 160, y: 920 }, goal: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
+    entrance: { x: 160, y: 920 }, goal: { x: 1620, y: 920 }, platforms: [], checkpoints: [],
     climbables: { ropes: [], ladders: [] }, props: [], robots: [], triggers: [], mechanisms: [], timers: [], texts: [], pickups: [], times: { gold: 10, silver: 20, bronze: 40 } }
 }

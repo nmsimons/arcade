@@ -3,7 +3,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 import { installTestFolder, saveTestLevel, reopenTestLevel, selectBuilderObject, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 test('plates, balls, lifts and coin displays nudge to both boundaries and survive save/reopen', async ({ page }, info) => {
-  const level = blankTrial(); level.spawn.x = 500
+  const level = blankTrial(); level.entrance.x = 500
   level.props = [{ kind: 'ball', x: 20, y: 920, size: 30 }, { kind: 'ball', x: 1780, y: 920, size: 30 }]
   level.mechanisms = [{ id: 'left-lift', kind: 'lift', x: 5, y: 500, w: 140, h: 20, travel: 180 },
     { id: 'right-lift', kind: 'lift', x: 1655, y: 500, w: 140, h: 20, travel: 180 }]

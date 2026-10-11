@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { stepRun } from '../src/games/jumping/challenge.ts'
+import { stepRun } from './helpers/jumping-active-run.mjs'
 import { STEP } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
 import { createWaterCluster, clusterStages, clusterInput } from './helpers/jumpingWaterCluster.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun } from '../src/games/jumping/challenge.ts'
+import { createRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 
 const rigPoints = pose => [pose.hip, pose.waist, pose.shoulder, pose.head,
@@ -54,11 +54,11 @@ for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const spacing 
 
 for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) test(`swimming below six balls cannot move them through an invisible standing hull (${dt}, ${side})`, () => {
   const at = x => side > 0 ? x : 1800 - x
-  const level = { ...blankTrial(), spawn: { x: at(420), y: 500 },
+  const level = { ...blankTrial(), entrance: { x: at(420), y: 500 },
     goal: { x: 1700, y: 900, id: 'closed', power: 'switched' },
     props: Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: at(570 + i * 48), y: 420, size: 40 })),
     gravityPlates: [{ id: 'water', x: 0, y: 400, w: 1800, h: 500, effect: 'water' }] }
-  const run = createRun(level), quiet = createRun({ ...level, spawn: { x: at(1500), y: 500 } })
+  const run = createRun(level), quiet = createRun({ ...level, entrance: { x: at(1500), y: 500 } })
   for (const r of [run, quiet]) { r.started = true; r.player.grounded = false; r.player.coyote = 0 }
   let passed = false
   for (const [seconds, move] of [[6, side], [1, 0], [5, -side], [1, 0]]) for (let i = 0; i < Math.round(seconds / dt); i++) {

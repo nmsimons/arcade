@@ -104,7 +104,7 @@ test('two browsers sync from the builder and chooser, with file status and cloud
     await page.getByRole('button', { name: 'Back to arcade', exact: true }).click()
     async function newLevel(name) {
       if (name === 'First') {
-        await page.getByRole('button', { name: 'Untitled Jumping Game', exact: true }).click()
+        await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
         await page.getByRole('button', { name: 'Account levels', exact: true }).click()
       }
       await page.getByRole('button', { name: /^(Level studio|Return to builder)$/ }).click()
@@ -158,7 +158,7 @@ test('two browsers sync from the builder and chooser, with file status and cloud
     await other.getByRole('button', { name: 'Connect OneDrive', exact: true }).click()
     await expect(other.locator('.account-status')).toContainText('Your saves are up to date')
     await other.getByRole('button', { name: 'Back to arcade', exact: true }).click()
-    await other.getByRole('button', { name: 'Untitled Jumping Game', exact: true }).click()
+    await other.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
     await other.getByRole('button', { name: 'Account levels', exact: true }).click()
     await expect(other.getByRole('button', { name: 'Level 1: First', exact: true })).toContainText('Saved to OneDrive')
 
@@ -314,7 +314,7 @@ test('completing an older upload keeps the newer edit visibly pending', async ({
   await page.getByRole('button', { name: 'Connect OneDrive', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Your saves are up to date')
   await page.getByRole('button', { name: 'Back to arcade', exact: true }).click()
-  await page.getByRole('button', { name: 'Untitled Jumping Game', exact: true }).click()
+  await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
   await expect(page.locator('.account-indicator.is-synced')).toBeVisible()
   let finishUpload
   const upload = new Promise(resolve => { finishUpload = resolve })

@@ -1,4 +1,4 @@
-import { createRun } from '../../src/games/jumping/challenge.ts'
+import { createRun } from './jumping-active-run.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { downhillBallLevel } from './jumpingDownhillBallScenarios.mjs'
 
@@ -45,7 +45,7 @@ export function pushScenario(config, facing) {
   const surface = at => y + slope * (at - x)
   const spawnX = x - facing * (size / 2 + 25.5)
   const level = { ...blankTrial(), width: 3000, height: 1200, floor: 1100,
-    spawn: { x: spawnX, y: surface(spawnX) }, goal: { x: 2500, y: config.slope || config.carrier ? 1100 : 650 },
+    entrance: { x: spawnX, y: surface(spawnX) }, goal: { x: 2500, y: config.slope || config.carrier ? 1100 : 650 },
     props: [{ kind: config.kind, x, y, size }] }
   if (!config.carrier) level.platforms = [slope
     ? { x: 200, y: 0, w: 2000, h: 1100, profile: [[0, surface(200)], [2000, surface(2200)]] }

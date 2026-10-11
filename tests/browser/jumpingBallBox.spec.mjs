@@ -9,7 +9,7 @@ for (const size of [80, 120, 160]) for (const direction of [-1, 1]) {
     const level = structuredClone(fixture)
     level.props[1].size = size; level.props[1].x = 520 + size / 2
     if (direction < 0) {
-      level.spawn.x = level.width - level.spawn.x; level.goal.x = level.width - level.goal.x
+      level.entrance.x = level.width - level.entrance.x; level.goal.x = level.width - level.goal.x
       level.goal.flipX = true
       for (const prop of level.props) prop.x = level.width - prop.x
     }

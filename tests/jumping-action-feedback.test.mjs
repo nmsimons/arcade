@@ -6,7 +6,7 @@ import { mirrorPlatform, mirrorPlayerState } from '../src/games/jumping/gravityF
 import { createJumpController } from '../src/games/jumping/input.ts'
 import { createJumpTouch } from '../src/games/jumping/touchInput.ts'
 import { createRope } from '../src/games/jumping/climbables.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 
 const down={...NEUTRAL_INPUT,drop:true,descend:true,crouch:true}
@@ -89,7 +89,7 @@ test('supported ladder acquisition precedes crouch while supported rope Down ret
 })
 
 test('normal controller Down crouches on the pool floor, release stands and Up swims away',()=>{
-  const level=blankTrial();level.spawn={x:700,y:920}
+  const level=blankTrial();level.entrance={x:700,y:920}
   level.gravityPlates=[{id:'water',x:200,y:400,w:1000,h:520,gravity:-1,effect:'water',power:'always'}]
   const results=[]
   for(const rise of [[],[12]]) {

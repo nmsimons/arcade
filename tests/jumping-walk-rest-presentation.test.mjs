@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { NEUTRAL_INPUT, gaitPose, TUNING } from '../src/games/jumping/model.ts'
@@ -23,7 +23,7 @@ test('precision walking stays a walk and rising analog speed promptly becomes a 
 test('walking and running arms reach behind the torso while the opposite arm folds forward', () => {
   for (const speed of [125, 410]) {
     const run = createRun({ ...blankTrial(), width: 4000, height: 1000, floor: 900,
-      spawn: { x: 1500, y: 900 }, goal: { x: 3900, y: 900 } })
+      entrance: { x: 1500, y: 900 }, goal: { x: 3900, y: 900 } })
     let rearReach = 0, frontReach = 0
     for (let tick = 0; tick < 360; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: speed / TUNING.runSpeed })
@@ -42,7 +42,7 @@ test('walking and running arms reach behind the torso while the opposite arm fol
 test('slow walking carries the chest forward and settles into soft elbows with fixed feet', () => {
   for (const direction of [-1, 1]) for (const gravity of [-1, 1]) {
     const level = { ...blankTrial(), width: 2400, height: 1000, floor: 900,
-      spawn: { x: 1200, y: gravity === 1 ? 900 : 100 }, goal: { x: 2300, y: 900 },
+      entrance: { x: 1200, y: gravity === 1 ? 900 : 100 }, goal: { x: 2300, y: 900 },
       platforms: gravity === 1 ? [] : [{ x: 0, y: 0, w: 2400, h: 100 }],
       gravityPlates: gravity === 1 ? [] : [{ id: 'ceiling', x: 0, y: 0, w: 2400, h: 1000, gravity: -1, power: 'always' }] }
     const run = createRun(level), p = run.player
@@ -73,7 +73,7 @@ test('slow walking carries the chest forward and settles into soft elbows with f
 test('walking toe-off visibly lifts each heel while the loaded forefoot stays on its footprint', () => {
   for (const direction of [-1, 1]) for (const speed of [35, 80, 125]) {
     const run = createRun({ ...blankTrial(), width: 3000, height: 1000, floor: 900,
-      spawn: { x: 1500, y: 900 }, goal: { x: 2900, y: 900 } })
+      entrance: { x: 1500, y: 900 }, goal: { x: 2900, y: 900 } })
     const lifted = [0, 0]
     for (let tick = 0; tick < 600; tick++) {
       stepRun(run, { ...NEUTRAL_INPUT, move: direction * speed / 410 })

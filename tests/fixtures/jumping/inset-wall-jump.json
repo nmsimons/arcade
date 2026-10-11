@@ -5,7 +5,7 @@
   "width": 1200,
   "height": 920,
   "floor": 920,
-  "spawn": { "x": 410, "y": 780 },
+  "entrance": { "x": 410, "y": 780 },
   "goal": { "x": 1050, "y": 920 },
   "platforms": [
     {

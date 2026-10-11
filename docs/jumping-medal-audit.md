@@ -1,5 +1,16 @@
 # Built-in jumping medal audit
 
+October 11 entrance update: all 25 levels now use entrance doors. Revised
+landings required fresh recordings for Level Five, Spelunk I, Ramping Up and
+Buoyancy. Their scored times are **9.13 / 51.27 / 46.68 / 30.77** seconds,
+respectively; the existing medal targets remain unchanged. The entrance
+animation is excluded from both the scored clock and active duration. Once it
+closes, idle play runs automatically. The refreshed recordings retain the
+required cargo, switch, coin and water interactions. Level Five and Buoyancy
+use current tap/hold controls; Spelunk I and Ramping Up preserve their historical
+jump impulses. These are automated fresh-start route checks, with graphical
+entrance checks separate from a full normal-speed review of the revised routes.
+
 October 10 update: Buoyancy uses **35 / 50 / 75** medal times. Its fresh-start
 recording scores 30.82 seconds with 50.67 seconds of active play. Repeated browser
 keyboard runs also earned Gold; one scored 30.55 seconds. The route fills the

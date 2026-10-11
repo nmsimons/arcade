@@ -256,8 +256,8 @@ test('folder picker handles cancel, busy, errors and empty folders without losin
 test('local Next level follows manifest order and skips files that need repairs', async ({ page }) => {
   const dir = await mkdtemp(join(tmpdir(), 'jumping-level-order-'))
   try {
-    const start = custom('local-start', 'Start here'); start.goal = { x: 330, y: start.spawn.y }
-    const broken = custom('local-repair', 'Needs repair'); broken.spawn.y += 100
+    const start = custom('local-start', 'Start here'); start.goal = { x: 330, y: start.entrance.y }
+    const broken = custom('local-repair', 'Needs repair'); broken.entrance.y += 100
     await writeFile(join(dir, '00-last.json'), JSON.stringify(custom('local-last', 'Alphabetically first title')))
     await writeFile(join(dir, '02-repair.json'), JSON.stringify(broken))
     await writeFile(join(dir, 'index.json'), JSON.stringify({ version: 1, order: 'listed', levels: ['10-start.json', '02-repair.json', '00-last.json'] }))
@@ -270,7 +270,7 @@ test('local Next level follows manifest order and skips files that need repairs'
     expect(await names(page)).toEqual(['Start here', 'Needs repair', 'Alphabetically first title'])
     await page.getByRole('button', { name: 'Level 2: Needs repair' }).click()
     await expect(page.locator('.jumping-level-detail .jumping-load-error').first()).toBeVisible()
-    await expect(page.getByRole('dialog', { name: 'Untitled Jumping Game', exact: true })).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Level 1: Start here' }).focus()
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
     await page.locator('.jumping-level-card[aria-pressed=true]').click()

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { EMP_SECONDS, EMP_ANIMATION_SECONDS, pickupBounds } from '../src/games/jumping/pickups.ts'
 import { addItem, duplicateItem, moveItem, deleteItem, resizeLevelHeight } from '../src/games/jumping/editor.ts'
@@ -24,14 +24,15 @@ const fixture = () => ({ ...blankTrial(), pickups: [emp()],
   triggers: [{ mode: 'coins', x: 400, y: 600, w: 200, threshold: 1, targets: ['gate', 'horizontal', 'lift'] }],
   robots: [{ x: 1400, y: 920, left: 1300, right: 1600 }] })
 
-test('EMP collects once, waits for the run to start, extends by five seconds, and resets', () => {
+test('EMP collects once after entry, extends by five seconds, and resets', () => {
   const level = fixture(); level.pickups.push(emp(500))
-  const run = createRun(level); step(run, 120)
-  assert.equal(run.started, false); assert.equal(run.empRemaining, EMP_SECONDS)
-  assert.equal(run.elapsed, 0); assert.equal(run.coinsCollected, 0)
+  const run = createRun(level); step(run)
+  assert.equal(run.started, true); assert.equal(run.empRemaining, EMP_SECONDS)
+  assert.equal(run.elapsed, STEP); assert.equal(run.coinsCollected, 0)
   assert.equal(run.timeStopRemaining, 0); assert.equal(run.timeFastRemaining, 0)
+  assert.equal(run.pickups[0].collectedAge, 0)
+  step(run, 120); near(run.empRemaining, 4); near(run.elapsed, 1 + STEP)
   assert.equal(run.pickups[0].collectedAge, EMP_ANIMATION_SECONDS)
-  run.started = true; step(run, 120); near(run.empRemaining, 4); near(run.elapsed, 1)
   run.player.x = 500; step(run); near(run.empRemaining, 9 - STEP)
   const reset = createRun(level)
   assert.equal(reset.empRemaining, 0); assert.ok(reset.pickups.every(p => p.collectedAge === null))
@@ -105,7 +106,7 @@ test('pressure plates cannot switch during EMP and use their current load after 
 })
 
 for (const kind of ['box', 'ball']) for (const incoming of [false, true]) test(`disabled bot neither drives nor overlaps a ${incoming ? 'moving' : 'stationary'} ${kind}`, () => {
-  const level = fixture(); level.spawn = { x: 160, y: 500 }
+  const level = fixture(); level.entrance = { x: 160, y: 500 }
   level.platforms = [{ x: 100, y: 500, w: 200, h: 20 }]; level.pickups = []
   level.props = [{ kind, x: incoming ? 1500 : 1466, y: 920, size: 80 }]
   const run = createRun(level); run.started = true; run.empRemaining = 5
@@ -131,7 +132,7 @@ test('EMP leaves the player, loose objects, and elapsed clock running; clock eff
   for (const watch of ['stopwatch', 'fast-stopwatch']) {
     const run = createRun({ ...blankTrial(), pickups: [emp(), { kind: watch, x: 160, y: 888 }] })
     step(run); run.started = true; step(run, 600)
-    assert.equal(run.empRemaining, 0); near(run.elapsed, watch === 'stopwatch' ? 0 : 10)
+    assert.equal(run.empRemaining, 0); near(run.elapsed, (watch === 'stopwatch' ? 0 : 10) + STEP)
   }
 })
 
@@ -150,7 +151,7 @@ test('EMP collects only through player contact and produces one power-down cue',
   const level = blankTrial(); level.pickups = [emp(160, 848), emp(500)]
   level.props = [{ kind: 'ball', x: 500, y: 920, size: 80 }]
   const run = createRun(level), audio = new JumpingAudioState(); run.player.crouching = true; audio.reset(run.player, run)
-  step(run); assert.ok(run.pickups.every(p => p.collectedAge === null))
+  step(run, 1, { ...NEUTRAL_INPUT, crouch: true }); assert.ok(run.pickups.every(p => p.collectedAge === null))
   run.player.crouching = false; step(run); audio.step(run.player, run, STEP)
   assert.equal(run.pickups[0].collectedAge, 0); assert.equal(run.pickups[1].collectedAge, null)
   assert.deepEqual(audio.drain().cues.map(c => c.kind), ['emp'])

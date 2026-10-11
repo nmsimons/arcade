@@ -51,7 +51,7 @@ test('quarter turns and flips preserve rectangle, slope and concave geometry, na
       assert.equal(terrain.name, before.name); assert.equal(terrain.material, before.material)
       assert.equal(Math.abs(polygonArea(polygonPoints(terrain))), Math.abs(polygonArea(polygonPoints(before))))
       assert.deepEqual(parseLevel(changed).platforms, changed.platforms)
-      assert.deepEqual(changed.spawn, level.spawn); assert.deepEqual(changed.goal, level.goal)
+      assert.deepEqual(changed.entrance, level.entrance); assert.deepEqual(changed.goal, level.goal)
       const inverse = transform === 'rotate-left' ? 'rotate-right' : transform === 'rotate-right' ? 'rotate-left' : transform
       assert.deepEqual(outline(transformTerrain(changed, 0, inverse).platforms[0]), outline(before))
     }

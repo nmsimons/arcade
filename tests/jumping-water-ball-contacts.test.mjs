@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 
@@ -9,7 +9,7 @@ const water = { id: 'water', x: 0, y: 400, w: 1800, h: 520, effect: 'water', gra
 for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const size of [40, 60, 80, 120]) {
   test(`floating up beneath a ${size}-unit ball clears the ${side > 0 ? 'right' : 'left'} pool bank at ${dt}`, () => {
     const edge = side > 0 ? 640 : 1160, x = edge - side * size / 2
-    const run = createRun({ ...blankTrial(), spawn: { x: edge - side * 14, y: 650 },
+    const run = createRun({ ...blankTrial(), entrance: { x: edge - side * 14, y: 650 },
       platforms: [{ x: side > 0 ? edge : 0, y: 380, w: 1160, h: 540 }], props: [{ kind: 'ball', x, y: 400 + size / 2, size }],
       goal: { x: side > 0 ? 120 : 1500, y: 920, id: 'closed', power: 'switched' }, gravityPlates: [water] })
     run.started = true; run.player.grounded = false; run.player.coyote = 0; run.player.facing = side
@@ -38,11 +38,11 @@ for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const size of 
 }
 
 for (const dt of [STEP, 1 / 30]) test(`a small ball follows mirrored curved contacts and sideways steering releases it at ${dt}`, () => {
-  const run = createRun({ ...blankTrial(), spawn: { x: 600, y: 650 }, props: [{ kind: 'ball', x: 600, y: 420, size: 40 }],
+  const run = createRun({ ...blankTrial(), entrance: { x: 600, y: 650 }, props: [{ kind: 'ball', x: 600, y: 420, size: 40 }],
     goal: { x: 1500, y: 920, id: 'closed', power: 'switched' }, gravityPlates: [water] })
   run.started = true; run.player.grounded = false; run.player.coyote = 0
   for (let i = 0; i < Math.round(7 / dt); i++) stepRun(run, { ...NEUTRAL_INPUT, climb: true }, dt)
-  const mirror = createRun({ ...blankTrial(), spawn: { x: 600, y: 650 }, props: [{ kind: 'ball', x: 600, y: 420, size: 40 }],
+  const mirror = createRun({ ...blankTrial(), entrance: { x: 600, y: 650 }, props: [{ kind: 'ball', x: 600, y: 420, size: 40 }],
     goal: { x: 1500, y: 920, id: 'closed', power: 'switched' }, gravityPlates: [water] })
   mirror.started = true; mirror.player.grounded = false; mirror.player.coyote = 0; mirror.player.facing = -1
   for (let i = 0; i < Math.round(7 / dt); i++) stepRun(mirror, { ...NEUTRAL_INPUT, climb: true }, dt)

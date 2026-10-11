@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 
@@ -12,7 +12,7 @@ const float = (p, input = NEUTRAL_INPUT, dt = STEP, gravity = 0) =>
   stepPlayer(p, input, dt, [], undefined, undefined, undefined, undefined, gravity)
 function fixture(kind, overrides = {}) {
   const level = { ...blankTrial(), width: 1800, height: 1400, floor: 1400,
-    spawn: { x: 300, y: 838 }, goal: { x: 1600, y: 1400 },
+    entrance: { x: 300, y: 838 }, goal: { x: 1600, y: 1400 },
     gravityPlates: [{ id: 'zero-g', x: 20, y: 20, w: 1760, h: 1360, gravity: 0, power: 'always' }],
     props: [{ kind, x: 300, y: 900, size: 60 }], ...overrides }
   const run = createRun(level); run.started = true; run.player.grounded = false
@@ -72,7 +72,7 @@ for (const kind of ['box', 'ball']) test(`a neutral drifting player transfers mo
 })
 
 test('an off-center floating box bump transfers angular momentum as well as drift', () => {
-  const run = fixture('box', { spawn: { x: 336, y: 780 }, props: [{ kind: 'box', x: 380, y: 800, size: 60 }] })
+  const run = fixture('box', { entrance: { x: 336, y: 780 }, props: [{ kind: 'box', x: 380, y: 800, size: 60 }] })
   run.player.vx = 300
   stepRun(run, NEUTRAL_INPUT)
   assert.ok(run.props[0].vx > 30)
@@ -81,7 +81,7 @@ test('an off-center floating box bump transfers angular momentum as well as drif
 })
 
 test('an incoming weightless object also shares its momentum with a stationary player', () => {
-  const run = fixture('ball', { spawn: { x: 300, y: 800 }, props: [{ kind: 'ball', x: 300, y: 862, size: 60 }] })
+  const run = fixture('ball', { entrance: { x: 300, y: 800 }, props: [{ kind: 'ball', x: 300, y: 862, size: 60 }] })
   run.props[0].vy = -300
   stepRun(run, NEUTRAL_INPUT)
   assert.ok(run.player.vy < -100)
@@ -99,7 +99,7 @@ test('neutral player impacts also move unsupported objects in a 0.1 gravity fiel
 
 test('a separating prop or one beyond a solid wall receives no player impact', () => {
   for (const blocked of [false, true]) {
-    const run = fixture('box', { spawn: { x: 300, y: 800 }, props: [{ kind: 'box', x: 345, y: 800, size: 60 }],
+    const run = fixture('box', { entrance: { x: 300, y: 800 }, props: [{ kind: 'box', x: 345, y: 800, size: 60 }],
       platforms: blocked ? [{ x: 313, y: 650, w: 2, h: 200 }] : [] })
     Object.assign(run.player, { vx: blocked ? 900 : -300 })
     stepRun(run, NEUTRAL_INPUT)

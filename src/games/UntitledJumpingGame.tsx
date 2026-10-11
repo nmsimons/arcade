@@ -1,4 +1,6 @@
 import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
+import { LabLogo } from '../branding/LabLogo'
+import { LAB_NAME } from '../branding/lab'
 import { lightingForLevel } from './jumping/lightingDefinition'
 import { LevelSaveStatus } from '../accounts/LevelSaveStatus'
 import { AccountSurface } from '../accounts/AccountSurface'
@@ -21,6 +23,8 @@ import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
 import { createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
+import { advanceEntranceAnimation, createEntranceAnimation, ENTRANCE_SECONDS } from './jumping/goal'
+import type { EntranceAnimation } from './jumping/goal'
 import { loadLevelCatalog } from './jumping/levelAssets'
 import type { LevelCatalog, LevelFile, LocalLevelEntry } from './jumping/levelAssets'
 import { levelFileName, missingManifestPrompt, useLocalLevels } from './jumping/localLevels'
@@ -53,6 +57,11 @@ const COLLECTION_KEY = 'arcade.jumping.collection.v1'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
+  useEffect(() => {
+    const title = document.title
+    document.title = `${LAB_NAME} | Dream Large Arcade`
+    return () => { document.title = title }
+  }, [])
   useWallTextFont()
   const [accountLevels, setAccountLevels] = useState(() => !!currentProfile())
   const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
@@ -118,6 +127,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const [initialRun] = useState(() => createRun(blankTrial()))
   const run = useRef<Run | null>(initialRun)
   const player = useRef(initialRun.player), keys = useRef(new Set<string>())
+  const playgroundEntrance = useRef<EntranceAnimation | null>(null)
   const audio = useRef<JumpingSoundSession | null>(null)
   const paintFrame = useRef<() => void>(() => {})
   const [lightingRenderer] = useState(() => new LightingRenderer({ backend: 'auto' }))
@@ -217,6 +227,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       if (world.lighting) lightingRenderer.prepare(world.run?.level ?? world.level, world.lighting)
     }
     else respawn(player.current)
+    playgroundEntrance.current = run.current ? null : createEntranceAnimation(player.current, levelTerrain(activeLevel.current))
     keys.current.clear(); controller.reset(); touch.reset()
     jumpQueue.current = []; keyboardJump.current = false
     canvasRef.current?.focus({ preventScroll: true })
@@ -236,6 +247,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       activePlayKey.current = location.key
       if (world.run) { setTrial(world.run.level); setRecordKey(key) }
       else { activeLevel.current = world.level; setActiveLevelName(world.level.name); terrain.current = levelTerrain(world.level); rules.current = levelRules(world.level) }
+      playgroundEntrance.current = world.run ? null : createEntranceAnimation(player.current, terrain.current)
       setChallenge(!!world.run); setTesting(fromBuilder); setSaveError(false); changeScreen('playing'); paintFrame.current()
     } catch (error) {
       if (controller.signal.aborted) return
@@ -467,7 +479,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       // Fractional render scales round the backing dimensions to whole pixels.
       // Frame against the drawable area so rounding cannot shift the view.
       const camera = gameCamera.view(canvas.width / ratio, canvas.height / ratio, player.current, level, !!run.current, dt)
-      lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current), lightingForLevel(level),
+      lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current, playgroundEntrance.current), lightingForLevel(level),
         { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
     }
     paintFrame.current = paint
@@ -510,7 +522,15 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
             jump: input.jump || keyboardJump.current || gesture.jump,
             jumpStrength: gesture.jump ? gesture.jumpStrength : undefined }
           if (run.current) stepRun(run.current, controls)
-          else stepPlayer(player.current, controls, STEP, terrain.current, activeLevel.current.climbables, rules.current)
+          else {
+            let activeDt = STEP
+            if (playgroundEntrance.current) {
+              activeDt = advanceEntranceAnimation(playgroundEntrance.current, STEP)
+              if (playgroundEntrance.current.elapsed + 1e-9 >= ENTRANCE_SECONDS) playgroundEntrance.current = null
+              else activeDt = 0
+            }
+            if (activeDt > 1e-9) stepPlayer(player.current, controls, activeDt, terrain.current, activeLevel.current.climbables, rules.current)
+          }
           const report = motion?.step(player.current, controls, STEP, (run.current?.level ?? activeLevel.current).id)
           if (report) console.warn('[Jumping motion] Repeated oscillation detected', report)
           audioState.step(player.current, run.current, STEP)
@@ -536,8 +556,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       } else performanceMonitor?.reset()
       if (now - published > 80) {
         const p = player.current
-        setMetrics({ state: run.current?.exit ? 'Entering the exit' : playerState(p),
-          elapsed: run.current?.elapsed ?? 0, actions:run.current?.exit ? null : playerActionFeedback(p,activeLevel.current.climbables) })
+        const entering = run.current?.entrance || playgroundEntrance.current
+        setMetrics({ state: entering ? 'Entering the level' : run.current?.exit ? 'Entering the exit' : playerState(p),
+          elapsed: run.current?.elapsed ?? 0, actions: entering || run.current?.exit ? null : playerActionFeedback(p,activeLevel.current.climbables) })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -555,7 +576,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
 
   const manifestPrompt = missingManifestPrompt(local)
   return <div className={`jumping-game${screen === 'playing' && !devOpen ? ' jumping-playing' : ''}`} ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
-    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the exit` : 'Untitled Jumping Game movement playground'} />
+    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the exit` : `${LAB_NAME} movement playground`} />
     {screen === 'playing' && <>
       {!devOpen && <JumpingTouchControls canvasRef={canvasRef} reader={touch} active available={touchAvailable}
         onTouch={() => setTouchAvailable(true)} onPause={() => changeScreen('paused')} />}
@@ -571,7 +592,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     </>}
     {preparing && <KeyboardDialog label="Preparing level" focusKey="jumping-preparing" onClose={cancelPreparation} className="jumping-overlay jumping-dialog-overlay jumping-ui">
       <div className="jumping-notice-panel">
-        <header className="jumping-ui-heading"><p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h2>Preparing level.</h2></header>
+        <header className="jumping-ui-heading jumping-brand-heading"><LabLogo /><h2>Preparing level.</h2></header>
         <div className="jumping-notice-copy"><p role="status">{preparing}</p></div>
         <div className="jumping-notice-actions"><button onClick={cancelPreparation}>Cancel</button></div>
       </div>
@@ -582,12 +603,12 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     {!preparing && screen === 'paused' && <JumpingPauseDialog name={challenge ? trial.name : activeLevelName} reason={pauseReason}
       connected={connected} touchControls={touchAvailable} testing={testing} challenge={challenge} onResume={() => changeScreen('playing')}
       onRestart={() => { resetPosition(); changeScreen('playing') }} onBuilder={openBuilder} onLevels={showMenu} onExit={onExit} />}
-    {!preparing && screen === 'menu' && <KeyboardDialog label="Untitled Jumping Game" focusKey="jumping-menu"
+    {!preparing && screen === 'menu' && <KeyboardDialog label={LAB_NAME} focusKey="jumping-menu"
       onClose={onExit} className="jumping-overlay jumping-level-screen jumping-ui">
       <div className="jumping-menu jumping-level-menu">
         <div className="jumping-menu-header">
-          <div className="jumping-menu-heading">
-            <p className="jumping-eyebrow">UNTITLED JUMPING GAME</p><h2>Levels.</h2>
+          <div className="jumping-menu-heading jumping-brand-heading">
+            <LabLogo /><h2>Levels.</h2>
           </div>
           <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button disabled={local.refreshing} onClick={openBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button></div>
           <AccountSurface />

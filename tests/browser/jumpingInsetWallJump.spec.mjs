@@ -9,10 +9,10 @@ for (const cant of [-15, 0, 15]) for (const side of [-1, 1]) test(`normal keyboa
     const lean = Math.tan(Math.abs(cant) * Math.PI / 180) * 680
     const top = 80 + (cant < 0 ? lean : 0), bottom = 80 + (cant > 0 ? lean : 0)
     level.platforms[0].polygon = [[0,0],[top,0],[bottom,680],[400,680],[400,800],[0,800]]
-    level.spawn.x = 300 + bottom + 30
+    level.entrance.x = 300 + bottom + 30
   }
   if (side === 1) {
-    level.spawn.x = level.width - level.spawn.x
+    level.entrance.x = level.width - level.entrance.x
     level.goal = { ...level.goal, x: level.width - level.goal.x, flipX: true }
     level.platforms = level.platforms.map(p => ({ ...p, x: level.width - p.x - p.w,
       polygon: p.polygon.map(([x,y]) => [p.w-x,y]) }))

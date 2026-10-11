@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {createRun,stepRun} from '../src/games/jumping/challenge.ts'
+import {createRun,stepRun} from './helpers/jumping-active-run.mjs'
 import {NEUTRAL_INPUT,TUNING} from '../src/games/jumping/model.ts'
 import {levelProblems,parseLevel} from '../src/games/jumping/level.ts'
 import {playerContacts} from '../src/games/jumping/playerContacts.ts'
@@ -10,7 +10,9 @@ for(const slope of [.15,.3,.6])for(const size of [30,100,200])for(const mode of 
   test(`${size}-unit ball rolls freely ahead of a downhill ${mode} on grade ${slope} in both directions`,()=>{
     for(const direction of [-1,1]) {
       const level=parseLevel(downhillBallLevel(size,direction,slope))
-      assert.deepEqual(levelProblems(level),[])
+      // This isolated motor encounter begins on the slope beside the ball.
+      // Its start cannot serve as an authored doorway; all other geometry is valid.
+      assert.deepEqual(levelProblems(level),['Place “Entrance door” on a continuous flat surface, with a clear doorway inside the level.'])
       const run=createRun(level),passive=createRun(level),input=downhillBallInput(mode,direction)
       run.started=passive.started=true
       // The steep small-ball case can finish its first actual shove during

@@ -5,7 +5,7 @@
   "width": 1800,
   "height": 920,
   "floor": 920,
-  "spawn": { "x": 1350, "y": 920 },
+  "entrance": { "x": 1350, "y": 920 },
   "goal": { "id": "closed", "x": 1500, "y": 920, "power": "switched" },
   "platforms": [
     {

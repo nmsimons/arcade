@@ -17,7 +17,7 @@ type Item = Record<string, unknown>
 export interface EditorClipboard { level: JumpLevel; selections: Selection[] }
 export const sameSelection = (a: Selection, b: Selection) => a.kind === b.kind && a.index === b.index
 const key = (s: Selection) => `${s.kind}:${s.index}`
-export const copyableSelection = (s: Selection) => s.kind !== 'spawn' && s.kind !== 'goal'
+export const copyableSelection = (s: Selection) => s.kind !== 'entrance' && s.kind !== 'goal'
 
 export function validSelections(level: JumpLevel, selections: readonly Selection[]): Selection[] {
   const seen = new Set<string>()
@@ -70,7 +70,7 @@ function itemArray(level: JumpLevel, kind: Selection['kind']): Item[] {
   if (kind === 'rope') return level.climbables.ropes as unknown as Item[]
   if (kind === 'ladder') return level.climbables.ladders as unknown as Item[]
   if (kind === 'light') return level.lighting!.lights as unknown as Item[]
-  if (kind === 'spawn' || kind === 'goal') throw new Error('Start and goal are unique markers.')
+  if (kind === 'entrance' || kind === 'goal') throw new Error('Entrance and exit doors are unique.')
   const fields = { checkpoint: 'checkpoints', prop: 'props', robot: 'robots', mechanism: 'mechanisms', trigger: 'triggers',
     timer: 'timers', text: 'texts', pickup: 'pickups', 'wall-light': 'wallLights', 'logic-relay': 'logicRelays', 'float-switch': 'floatSwitches', 'gravity-plate': 'gravityPlates', 'force-field': 'forceFields' } as const
   const record = level as unknown as Record<string, unknown>
@@ -123,7 +123,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
   }
   syncPressurePlateMounts(next)
   // A marker resting on two selected blocks must be carried only once.
-  for (const s of allSelections(level).filter(s => ['spawn', 'checkpoint', 'goal'].includes(s.kind))) {
+  for (const s of allSelections(level).filter(s => ['entrance', 'checkpoint', 'goal'].includes(s.kind))) {
     if (selected.has(key(s))) continue
     const marker = itemDefinition(level, s) as unknown as { x: number; y: number }
     const supportX = s.kind === 'goal' ? (() => { const b = goalBounds(level.goal!); return b.x + b.w / 2 })() : marker.x

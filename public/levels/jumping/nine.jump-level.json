@@ -30,7 +30,7 @@
       ]
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 55,
     "y": 400
   },
@@ -190,6 +190,16 @@
       "text": "1",
       "fontSize": 20,
       "align": "right"
+    },
+    {
+      "x": 200,
+      "y": 20,
+      "w": 300,
+      "h": 135,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
     }
   ],
   "wallLights": [
@@ -258,8 +268,8 @@
         "e82dd66a-4e1a-40f4-a1df-b4c365688516"
       ],
       "id": "a6ed5b0f-69da-456a-b8d1-0a601a23eb5d",
-      "x": 235,
-      "y": 125
+      "x": 70,
+      "y": 90
     },
     {
       "switchLogic": "and",
@@ -267,8 +277,8 @@
         "50d6e26f-b4a4-4b77-b2de-85534f20e2f6"
       ],
       "id": "e82dd66a-4e1a-40f4-a1df-b4c365688516",
-      "x": 265,
-      "y": 185
+      "x": 70,
+      "y": 200
     },
     {
       "name": "Only One Mask",
@@ -282,8 +292,8 @@
         "4f5a0a94-4083-4783-8446-cb84d10d11c5"
       ],
       "id": "6be3ba69-9b91-4227-bc38-bf1784b3262f",
-      "x": 320,
-      "y": 115
+      "x": 160,
+      "y": 45
     }
   ]
 }

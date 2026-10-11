@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { blankTrial, parseLevel, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
 import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
@@ -85,7 +85,7 @@ const singleBlockPool = parseLevel(JSON.parse(readFileSync(new URL('./fixtures/j
 assert.deepEqual(levelProblems(singleBlockPool), [])
 for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) {
   test(`a submerged swimmer stays at depth against a single-block pool wall and can turn away: direction=${direction}, dt=${dt}`, () => {
-    const run = createRun({ ...singleBlockPool, spawn: { x: direction > 0 ? 1395 : 650, y: 700 } })
+    const run = createRun({ ...singleBlockPool, entrance: { x: direction > 0 ? 1395 : 650, y: 700 } })
     run.started = true; run.player.grounded = false; run.player.coyote = 0
     let previous = null
     const step = (seconds, intent) => {
@@ -116,34 +116,34 @@ for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) {
 
 for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const speed of [.2, .5, 1]) {
   for (const kind of ['box', 'ball']) test(`water transitions beside a ${kind}: direction=${direction}, input=${speed}, dt=${dt}`, () => {
-    exercise({ spawn: { x: 600 - direction * 52, y: 450.34 }, props: [{ kind, x: 600, y: 440, size: 80 }] }, -direction, speed, dt)
+    exercise({ entrance: { x: 600 - direction * 52, y: 450.34 }, props: [{ kind, x: 600, y: 440, size: 80 }] }, -direction, speed, dt)
   })
   test(`standing on a floating box then swimming: direction=${direction}, input=${speed}, dt=${dt}`, () => {
-    exercise({ spawn: { x: 600, y: 330 }, props: [{ kind: 'box', x: 600, y: 460, size: 120 }] }, direction, speed, dt,
+    exercise({ entrance: { x: 600, y: 330 }, props: [{ kind: 'box', x: 600, y: 460, size: 120 }] }, direction, speed, dt,
       run => { for (let i = 0; i < Math.round(3 / dt); i++) stepRun(run, NEUTRAL_INPUT, dt) })
   })
   test(`standing on a pool bank then swimming: direction=${direction}, input=${speed}, dt=${dt}`, () => {
     const bank = direction > 0 ? { x: 0, y: 400, w: 450, h: 520 } : { x: 850, y: 400, w: 950, h: 520 }
-    exercise({ spawn: { x: direction > 0 ? 435 : 865, y: 400 }, platforms: [bank], gravityPlates: [{ ...water, x: 450, w: 400 }] }, direction, speed, dt)
+    exercise({ entrance: { x: direction > 0 ? 435 : 865, y: 400 }, platforms: [bank], gravityPlates: [{ ...water, x: 450, w: 400 }] }, direction, speed, dt)
   })
   for (const crouch of [false, true]) test(`standing on the pool floor then swimming: crouch=${crouch}, direction=${direction}, input=${speed}, dt=${dt}`, () => {
-    exercise({ spawn: { x: 550, y: 920 }, platforms: [{ x: 600, y: 840, w: 80, h: 80 }] }, direction, speed, dt,
+    exercise({ entrance: { x: 550, y: 920 }, platforms: [{ x: 600, y: 840, w: 80, h: 80 }] }, direction, speed, dt,
       run => { for (let i = 0; i < Math.round(.5 / dt); i++) stepRun(run, { ...NEUTRAL_INPUT, descend: true, crouch }, dt) })
   })
 }
 
 for (const direction of [-1, 1]) for (const speed of [.2, 1]) {
   test(`water transitions between close floats: direction=${direction}, input=${speed}`, () => {
-    exercise({ spawn: { x: 660, y: 450.34 }, props: [{ kind: 'box', x: 600, y: 440, size: 80 }, { kind: 'box', x: 730, y: 440, size: 80 }] }, direction, speed, STEP)
+    exercise({ entrance: { x: 660, y: 450.34 }, props: [{ kind: 'box', x: 600, y: 440, size: 80 }, { kind: 'box', x: 730, y: 440, size: 80 }] }, direction, speed, STEP)
   })
   test(`water transitions beneath a low ceiling: direction=${direction}, input=${speed}`, () => {
-    exercise({ spawn: { x: 650, y: 580 }, platforms: [{ x: 400, y: 480, w: 500, h: 40 }], gravityPlates: [{ ...water, y: 0, h: 920 }] }, direction, speed, STEP)
+    exercise({ entrance: { x: 650, y: 580 }, platforms: [{ x: 400, y: 480, w: 500, h: 40 }], gravityPlates: [{ ...water, y: 0, h: 920 }] }, direction, speed, STEP)
   })
 }
 
 for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const size of [40, 80]) {
   test(`hands follow a floating ${size}-unit ball through free strokes, working contact and release: side=${side}, dt=${dt}`, () => {
-    const run = createRun({ ...blankTrial(), spawn: { x: 600 - side * (size / 2 + 12), y: 450.34 },
+    const run = createRun({ ...blankTrial(), entrance: { x: 600 - side * (size / 2 + 12), y: 450.34 },
       props: [{ kind: 'ball', x: 600, y: 400 + size / 2, size }], gravityPlates: [water],
       goal: { id: 'closed', x: 1500, y: 920, power: 'switched' } })
     run.started = true; run.player.grounded = false; run.player.coyote = 0; run.player.facing = side

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { bodyIntersects, bodyPolygon, polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
@@ -23,7 +23,7 @@ function clear(run) {
 for (const size of [80, 120, 160]) for (const direction of [-1, 1]) for (const dt of [STEP, 1 / 30]) {
   test(`pushing toward a ${size}-unit box from a ball keeps a reachable stance (${direction}, ${dt})`, () => {
     const level = blankTrial(), x = n => direction > 0 ? n : level.width - n
-    level.spawn = { x: x(480), y: 840 }
+    level.entrance = { x: x(480), y: 840 }
     level.props = [{ kind: 'ball', x: x(480), y: 920, size: 80 },
       { kind: 'box', x: x(520 + size / 2), y: 920, size }]
     const run = createRun(level), p = run.player
@@ -68,7 +68,7 @@ for (const kind of ['ball', 'box']) for (const slope of [0, .3]) {
       if (slope) level.platforms = [{ x: 200, y: 400, w: 1200, h: 520,
         polygon: [[0, surface(200) - 400], [1200, surface(1400) - 400], [1200, 520], [0, 520]] }]
       level.mechanisms = [{ id: 'gate', kind: 'gate', x: wall - (direction < 0 ? 20 : 0), y: 350, w: 20, h: 570, travel: 570 }]
-      level.spawn = { x: start, y: surface(start) }
+      level.entrance = { x: start, y: surface(start) }
       level.props = [{ kind, x: wall - direction * 190, y: surface(wall - direction * 190), size: 100 }]
       const run = createRun(level); run.started = true; run.props[0].vx = direction * 900
       let displaced = false
@@ -87,7 +87,7 @@ for (const kind of ['ball', 'box']) test(`a rising ${kind} cannot carry the play
   const level = blankTrial()
   level.props = [{ kind, x: 740, y: 920, size: 80 }]
   level.mechanisms = [{ id: 'gate', kind: 'gate', orientation: 'horizontal', x: 650, y: 740, w: 180, h: 20, travel: 180 }]
-  level.spawn = { x: 740, y: 840 }
+  level.entrance = { x: 740, y: 840 }
   const run = createRun(level); run.started = true; run.player.grounded = true
   run.props[0].vy = -500
   let rose = false
@@ -100,7 +100,7 @@ for (const kind of ['ball', 'box']) test(`a rising ${kind} cannot carry the play
 })
 
 test('a ball still pushes a player through open space', () => {
-  const level = blankTrial(); level.spawn = { x: 800, y: 920 }
+  const level = blankTrial(); level.entrance = { x: 800, y: 920 }
   level.props = [{ kind: 'ball', x: 650, y: 920, size: 100 }]
   const run = createRun(level); run.started = true; run.props[0].vx = 400
   for (let i = 0; i < 120; i++) { stepRun(run, NEUTRAL_INPUT); clear(run) }
@@ -111,7 +111,7 @@ test('moving toward a short box while a bot presses a ball behind the player kee
   for (const direction of [-1, 1]) for (const reverse of [false, true]) {
     const x = value => direction === -1 ? value : 1200 - value
     const level = { ...blankTrial(), width: 1200, height: 600, floor: 500,
-      spawn: { x: x(650), y: 500 }, goal: { x: 100, y: 500 },
+      entrance: { x: x(650), y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: direction === -1 ? 400 : 600, y: 200, w: 200, h: 300 }],
       props: [{ kind: 'box', x: x(615), y: 500, size: 30 }, { kind: 'ball', x: x(668), y: 500, size: 30 }],
       robots: [{ x: x(710), y: 500, left: 300, right: 1000 }] }
@@ -143,7 +143,7 @@ test('moving toward a short box while a bot presses a ball behind the player kee
 for (const pinned of [false, true]) test(`a bot pushing a box cannot squeeze the player into ${pinned ? 'wall-blocked' : 'free'} balls`, () => {
   for (const direction of [-1, 1]) for (const reverse of [false, true]) {
     const level = blankTrial(), x = n => direction === 1 ? n : level.width - n
-    level.spawn = { x: x(650), y: 920 }
+    level.entrance = { x: x(650), y: 920 }
     const wall = pinned ? 744 : 880
     level.platforms = [{ x: direction === 1 ? wall : x(wall) - 20, y: 600, w: 20, h: 320 }]
     level.robots = [{ x: x(450), y: 920, left: 200, right: 1600 }]

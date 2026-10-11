@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { createGravityField, updateGravityField, playerWaterCenterOffset } from '../src/games/jumping/gravity.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { createJumpController } from '../src/games/jumping/input.ts'
 import { mirrorPlayerState } from '../src/games/jumping/gravityFrame.ts'
@@ -303,7 +303,7 @@ for (const dt of [STEP, 1 / 30]) for (const held of [dt, .18]) {
         checked = true
       }
     }
-    assert.ok(highest < level.spawn.y - 30, 'a normal jump still lifts off the bank')
+    assert.ok(highest < level.entrance.y - 30, 'a normal jump still lifts off the bank')
     assert.ok(checked, 'the route reaches and checks the water entry')
     assert.ok(!run.player.grounded && run.player.vy > 60 && run.player.vy < 80, 'the diagonal dive settles to its ordinary normalized pace')
   })

@@ -118,7 +118,7 @@ test('an old mute preference cannot leave gameplay silent after removing the tog
 
 test('normal gameplay plays one splash for the player and each falling prop, then floating stays quiet', async ({ page }, info) => {
   const level = blankTrial()
-  level.name = 'Water sound test'; level.spawn = { x: 600, y: 200 }
+  level.name = 'Water sound test'; level.entrance = { x: 600, y: 200 }
   level.platforms = [{ x: 560, y: 200, w: 80, h: 20 }]
   // Keep the falling routes separate so the player cannot land on a float
   // and turn the intended hard entry into a zero-speed, gentle splash.

@@ -5,8 +5,8 @@ import {ledgeApproachLevel} from '../helpers/jumpingLedgeApproachScenarios.mjs'
 
 for (const direction of [-1, 1]) {
   test(`the first level box catches and pulls up with normal keyboard controls, direction ${direction}`, async ({page}, info) => {
-    const level = JSON.parse(await readFile(new URL('../../public/levels/jumping/Untitled.jump-level.json', import.meta.url), 'utf8'))
-    if (direction < 0) level.spawn.x = level.width - level.spawn.x
+    const level = JSON.parse(await readFile(new URL('../../public/levels/jumping/LAB1.jump-level.json', import.meta.url), 'utf8'))
+    if (direction < 0) level.entrance.x = level.width - level.entrance.x
     await useLevelFixtures(page, [level])
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({width: 852, height: 393})

@@ -1,23 +1,23 @@
 {
   "version": 1,
   "id": "4a6b61ae-b74f-4305-97ba-8c0a282aaf80",
-  "name": "Untitled I",
+  "name": "Leaps and Bounds I",
   "width": 1800,
-  "height": 1400,
+  "height": 700,
   "platforms": [],
-  "spawn": {
+  "entrance": {
     "x": 160,
-    "y": 1400
+    "y": 700
   },
   "checkpoints": [],
   "climbables": {
     "ladders": [],
     "ropes": []
   },
-  "floor": 1400,
+  "floor": 700,
   "goal": {
     "x": 1800,
-    "y": 1400,
+    "y": 700,
     "flipX": true
   },
   "times": {
@@ -29,7 +29,7 @@
     {
       "kind": "box",
       "x": 860,
-      "y": 1400,
+      "y": 700,
       "size": 200
     }
   ],
@@ -41,7 +41,7 @@
   "texts": [
     {
       "x": 680,
-      "y": 1120,
+      "y": 420,
       "w": 320,
       "h": 100,
       "text": "Don't over think it",
@@ -49,6 +49,16 @@
       "align": "left",
       "style": "graffiti",
       "rotation": -5
+    },
+    {
+      "x": 1560,
+      "y": 20,
+      "w": 220,
+      "h": 100,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
     }
   ]
 }

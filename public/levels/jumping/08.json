@@ -168,7 +168,7 @@
       ]
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 23.846153846153847,
     "y": 1160
   },
@@ -1200,7 +1200,18 @@
       "kind": "fast-stopwatch"
     }
   ],
-  "texts": [],
+  "texts": [
+    {
+      "x": 20,
+      "y": 20,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
   "lighting": {
     "nightMode": false,
     "ambient": 0,

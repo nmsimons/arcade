@@ -11,7 +11,7 @@ import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
-import { goalBounds } from './goal.ts'
+import { entranceDoor, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
@@ -35,12 +35,12 @@ import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from 
 import { plateSolids, plateSurface } from './plateSurface.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
-export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'spawn' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
+export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
 
 /** Change only visual depth; terrain indices and all attachments stay stable. */
@@ -76,6 +76,14 @@ export function setShovebotHeadlight(level: JumpLevel, index: number, enabled: b
   return next
 }
 
+export function setCrateBranding(level: JumpLevel, index: number, enabled: boolean): JumpLevel {
+  if (level.props?.[index]?.kind !== 'box') return level
+  const next = copyLevel(level), crate = next.props![index]
+  if (enabled) crate.branded = true
+  else delete crate.branded
+  return next
+}
+
 export function setWallTextRotation(level: JumpLevel, index: number, rotation: number): JumpLevel {
   if (!level.texts?.[index] || !Number.isFinite(rotation)) return level
   const next = copyLevel(level), text = next.texts![index]
@@ -106,7 +114,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   // Shrink from the ceiling, stopping before any authored object is cropped.
   const tops = allSelections(level).map(s => {
     const b = itemOutline(level, s)!
-    const clearance = s.kind === 'spawn' || s.kind === 'checkpoint' ? TUNING.height : 0
+    const clearance = s.kind === 'checkpoint' ? TUNING.height : 0
     return b.y - clearance
   })
   const height = clamp(requested, Math.ceil(Math.max(400, ...tops.map(y => before - y))), 6000)
@@ -115,7 +123,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
   const next = copyLevel(level)
   next.height = height
   if (next.floor !== undefined) next.floor = height
-  for (const point of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
+  for (const point of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : []), ...next.platforms,
     ...(next.props ?? []), ...(next.robots ?? []), ...(next.mechanisms ?? []), ...(next.triggers ?? []), ...(next.timers ?? []), ...(next.texts ?? []), ...(next.pickups ?? []), ...(next.lighting?.lights ?? []), ...(next.wallLights ?? []), ...(next.logicRelays ?? []), ...(next.floatSwitches ?? []), ...(next.gravityPlates ?? []), ...(next.forceFields ?? [])]) point.y += dy
   for (const ladder of next.climbables.ladders) { ladder.top += dy; ladder.bottom += dy }
   for (const rope of next.climbables.ropes) {
@@ -145,10 +153,11 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'timer') { const timer = level.timers?.[i]; return timer ? { ...timer, w: WALL_TIMER_WIDTH, h: WALL_TIMER_HEIGHT } : null }
   if (selection.kind === 'text') return level.texts?.[i] ?? null
   if (selection.kind === 'pickup') { const p = level.pickups?.[i]; return p ? pickupBounds(p) : null }
-  const p = selection.kind === 'spawn' ? level.spawn : level.checkpoints[i]
+  const p = selection.kind === 'entrance' ? level.entrance : level.checkpoints[i]
   return p ? { x: p.x, y: p.y, w: 0, h: 0 } : null
 }
 export function itemOutline(level: JumpLevel, selection: Selection) {
+  if (selection.kind === 'entrance') return entranceDoor(level.entrance)
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
@@ -343,7 +352,8 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     const b = logicRelayBounds(level.logicRelays![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'logic-relay', index: i }
   }
-  if (Math.abs(x - level.spawn.x) < tolerance * 1.5 && y <= level.spawn.y + tolerance && y >= level.spawn.y - 62 - tolerance) return { kind: 'spawn', index: 0 }
+  const entrance = entranceDoor(level.entrance)
+  if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) return { kind: 'entrance', index: 0 }
   for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) return { kind: 'checkpoint', index: i }
   if (level.goal) {
     const b = goalBounds(level.goal)
@@ -427,7 +437,7 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
     rope.x = edge.x; rope.y = edge.y; rope.anchor.x = edge.x - platform.x; rope.anchor.y = edge.y - platform.y
   }
   // Carry start/checkpoint markers with the surface that supports them.
-  for (const p of [next.spawn, ...next.checkpoints, ...(next.goal ? [next.goal] : [])]) {
+  for (const p of [next.entrance, ...next.checkpoints, ...(next.goal ? [next.goal] : [])]) {
     const supportX = p === next.goal ? (() => { const b = goalBounds(next.goal); return b.x + b.w / 2 })() : p.x
     if (supportX < before.x || supportX > before.x + before.w || Math.abs(p.y - platformSurface(before, supportX).y) >= .1) continue
     const carriedX = platform.x + (supportX - before.x) / before.w * platform.w
@@ -487,7 +497,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
   }
   // Moving a marker must honor the requested height, even before its supporting
   // terrain is built. Snapping every move to ground traps nudges at the floor.
-  if (selection.kind === 'spawn') next.spawn = { ...next.spawn, x, y }
+  if (selection.kind === 'entrance') next.entrance = { ...next.entrance, x: clamp(x, GOAL_DOOR_WIDTH / 2, level.width - GOAL_DOOR_WIDTH / 2), y: clamp(y, GOAL_DOOR_HEIGHT, levelHeight(level)) }
   if (selection.kind === 'checkpoint') Object.assign(next.checkpoints[selection.index], { x, y })
   if (selection.kind === 'goal') {
     const b = goalBounds({ ...next.goal, x: 0, y: 0 })
@@ -610,7 +620,7 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
 }
 export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   const next = copyLevel(level), i = selection.index
-  if (selection.kind === 'spawn' || selection.kind === 'goal') return level
+  if (selection.kind === 'entrance' || selection.kind === 'goal') return level
   if (selection.kind === 'platform') {
     next.platforms.splice(i, 1)
     next.climbables.ladders = next.climbables.ladders.map(l => ({ ...l, platform: l.platform === i ? -1 : l.platform > i ? l.platform - 1 : l.platform }))
@@ -724,13 +734,16 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       intensity: 100, direction: drag ? Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI : 90, spread: 70, power: 'always' })
     return { level: next, selection: { kind: 'light', index: next.lighting.lights.length - 1 } }
   }
-  if (tool === 'text') {
+  if (tool === 'text' || tool === 'lab-stamp') {
     const texts = next.texts ??= []
     if (texts.length >= 80) throw new Error('This level already has 80 wall text areas.')
     const click = Math.hypot(end.x - start.x, end.y - start.y) < 10
-    const w = clamp(click ? 320 : Math.abs(end.x - start.x), 40, Math.min(2000, next.width))
-    const h = clamp(click ? 100 : Math.abs(end.y - start.y), 24, Math.min(1200, levelHeight(next)))
-    texts.push({ x: clamp(x, 0, next.width - w), y: clamp(y, 0, levelHeight(next) - h), w, h, text: 'Your text', fontSize: 28, align: 'left' })
+    const stamp = tool === 'lab-stamp'
+    const w = clamp(click ? stamp ? 240 : 320 : Math.abs(end.x - start.x), 40, Math.min(2000, next.width))
+    const h = clamp(click ? stamp ? 110 : 100 : Math.abs(end.y - start.y), 24, Math.min(1200, levelHeight(next)))
+    texts.push({ x: clamp(x, 0, next.width - w), y: clamp(y, 0, levelHeight(next) - h), w, h,
+      text: stamp ? 'L.A.B.\nexperiments' : 'Your text', fontSize: 28, align: stamp ? 'center' : 'left',
+      ...(stamp ? { style: 'lab-stamp' as const } : {}) })
     return { level: next, selection: { kind: 'text', index: texts.length - 1 } }
   }
   if (['platform', 'pillar', 'ramp', 'rough'].includes(tool)) {
@@ -749,11 +762,11 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
     next.platforms.push(b)
     return { level: reorderTerrain(next, next.platforms.length - 1, 'front'), selection: { kind: 'platform', index: next.platforms.length - 1 } }
   }
-  if (tool === 'spawn' || tool === 'checkpoint') {
+  if (tool === 'entrance' || tool === 'checkpoint') {
     const point = { x: clamp(end.x, 10, next.width - 10), y: clamp(end.y, 0, levelHeight(next)) }
-    if (tool === 'spawn') next.spawn = point
+    if (tool === 'entrance') next.entrance = point
     else { if (next.checkpoints.length >= 30) throw new Error('This level already has 30 checkpoints.'); next.checkpoints.push(point) }
-    return { level: next, selection: { kind: tool, index: tool === 'spawn' ? 0 : next.checkpoints.length - 1 } }
+    return { level: next, selection: { kind: tool, index: tool === 'entrance' ? 0 : next.checkpoints.length - 1 } }
   }
   if (tool === 'rope') {
     if (next.climbables.ropes.length >= 40) throw new Error('This level already has 40 ropes.')
@@ -791,7 +804,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       w: DIGITAL_DISPLAY_WIDTH, display: 'digital', mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
-  if (['goal', 'box', 'ball', 'pusher', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
+  if (['goal', 'box', 'branded-box', 'ball', 'pusher', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
     // New objects follow the authored point. The canvas applies nearby surface
     // snapping separately, so Snap off and Alt also preserve the cursor's height.
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
@@ -800,12 +813,13 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       trial.goal = { ...trial.goal, ...point, x: clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
       return { level: trial, selection: { kind: 'goal', index: 0 } }
     }
-    if (tool === 'box' || tool === 'ball') {
+    if (tool === 'box' || tool === 'branded-box' || tool === 'ball') {
       if (trial.props.length >= 80) throw new Error('This level already has 80 props.')
       const drawn = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y))
-      const size = drawn > 10 ? clamp(drawn, 30, 200) : tool === 'box' ? 80 : 68
-      trial.props.push({ kind: tool, x: clamp(point.x + (drawn > 10 ? size / 2 : 0), size / 2, trial.width - size / 2),
-        y: clamp(drawn > 10 ? Math.max(start.y, end.y) : point.y, size, levelHeight(trial)), size })
+      const size = drawn > 10 ? clamp(drawn, 30, 200) : tool === 'ball' ? 68 : 80
+      trial.props.push({ kind: tool === 'branded-box' ? 'box' : tool, x: clamp(point.x + (drawn > 10 ? size / 2 : 0), size / 2, trial.width - size / 2),
+        y: clamp(drawn > 10 ? Math.max(start.y, end.y) : point.y, size, levelHeight(trial)), size,
+        ...(tool === 'branded-box' ? { branded: true } : {}) })
       return { level: trial, selection: { kind: 'prop', index: trial.props.length - 1 } }
     }
     if (tool === 'pusher') {
@@ -843,7 +857,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
 
 export function duplicateItem(level: JumpLevel, selection: Selection): { level: JumpLevel; selection: Selection } | null {
   const next = copyLevel(level), i = selection.index
-  if (selection.kind === 'spawn' || selection.kind === 'goal') return null
+  if (selection.kind === 'entrance' || selection.kind === 'goal') return null
   let index = 0
   if (selection.kind === 'platform') {
     if (next.platforms.length >= 160) return null
@@ -869,7 +883,7 @@ export function duplicateItem(level: JumpLevel, selection: Selection): { level: 
   return { level: selection.kind === 'platform' ? reorderTerrain(moved, index, 'front') : moved, selection: result }
 }
 export function allSelections(level: JumpLevel): Selection[] {
-  return [{ kind: 'spawn', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
+  return [{ kind: 'entrance', index: 0 }, ...(level.goal ? [{ kind: 'goal' as const, index: 0 }] : []),
     ...(level.floatSwitches ?? []).map((_, index) => ({ kind: 'float-switch' as const, index })),
     ...(level.logicRelays ?? []).map((_, index) => ({ kind: 'logic-relay' as const, index })),
     ...(level.forceFields ?? []).map((_, index) => ({ kind: 'force-field' as const, index })),

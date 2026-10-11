@@ -4,7 +4,7 @@ import { CROUCHED_PUSH_SCENARIOS, crouchedPushScenario } from './helpers/jumping
 import { escapingDownhillBall } from './helpers/jumpingPushScenarios.mjs'
 import { athleteOutlinePoints } from './helpers/jumpingAthleteOutline.mjs'
 import { athletePose } from '../src/games/jumping/athlete.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
@@ -39,7 +39,7 @@ function clearSkin(run, context) {
 
 test('the reported blocked 80-unit crate keeps the final crouched head outside its face', () => {
   for (const facing of [-1, 1]) {
-    const level = { ...blankTrial(), spawn: { x: 540 - facing * 65.5, y: 920 },
+    const level = { ...blankTrial(), entrance: { x: 540 - facing * 65.5, y: 920 },
       props: [{ kind: 'box', x: 540, y: 920, size: 80 }],
       platforms: [{ x: facing > 0 ? 580 : 380, y: 650, w: 120, h: 270 }] }
     const run = createRun(level)

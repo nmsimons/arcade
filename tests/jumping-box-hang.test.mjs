@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { platformLedges } from '../src/games/jumping/terrainLedges.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
@@ -31,8 +31,8 @@ function advance(run, frames, input = {}) {
 
 for (const direction of [-1, 1]) for (const approach of ['running', 'pushing']) for (const hold of [14, 22]) {
   test(`the first level box catches a ${approach} jump, hold ${hold}, direction ${direction}`, () => {
-    const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/Untitled.jump-level.json', import.meta.url))))
-    if (direction < 0) level.spawn.x = level.width - level.spawn.x
+    const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/LAB1.jump-level.json', import.meta.url))))
+    if (direction < 0) level.entrance.x = level.width - level.entrance.x
     const run = createRun(level), p = run.player, b = run.props[0]
     let approached = false
     for (let tick = 0; tick < 500; tick++) {

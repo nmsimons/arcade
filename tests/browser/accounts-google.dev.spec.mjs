@@ -181,7 +181,7 @@ test('Drive picker finds manually copied levels in place and refreshes the game 
   await expect(page.locator('.account-overlay')).not.toHaveAttribute('inert')
   expect(drive.find('Untitled Jumping Game/Levels/From Drive.json').id).toBe(file.id)
   await page.getByRole('button', { name: 'Close account', exact: true }).click()
-  await page.getByRole('button', { name: 'Untitled Jumping Game', exact: true }).click()
+  await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
   await page.getByRole('button', { name: 'Account levels', exact: true }).click()
   await expect(page.getByRole('button', { name: 'From Drive.json' })).toBeVisible()
 })
@@ -222,7 +222,7 @@ test('Google shows upload progress and the chooser Refresh loads another browser
     await other.getByRole('button', { name: 'Connect Google Drive', exact: true }).click()
     await expect(other.locator('.account-status')).toContainText('Your saves are up to date')
     await other.getByRole('button', { name: 'Back to arcade', exact: true }).click()
-    await other.getByRole('button', { name: 'Untitled Jumping Game', exact: true }).click()
+    await other.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
     await other.getByRole('button', { name: 'Account levels', exact: true }).click()
     const upload = new Promise(resolve => { finishUpload = resolve })
     drive.before = async request => { if (request.url.pathname.startsWith('/upload/')) await upload }

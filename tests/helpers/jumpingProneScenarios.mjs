@@ -34,7 +34,7 @@ export const PRONE_DROP_SCENARIOS = ['wall', 'undercut', 'force field', 'moving 
 export function proneDropLevel(kind, direction) {
   const width = 2000, rect = (x, y, w, h) => ({ x: direction > 0 ? x : width - x - w, y, w, h })
   const level = { ...blankTrial(), width, height: 2500, floor: 2400,
-    spawn: { x: direction > 0 ? 200 : 1800, y: 160 }, goal: { x: direction > 0 ? 1820 : 180, y: 2400 },
+    entrance: { x: direction > 0 ? 200 : 1800, y: 160 }, goal: { x: direction > 0 ? 1820 : 180, y: 2400 },
     platforms: [rect(100, 160, 220, 24)] }
   if (kind === 'wall') level.platforms.push(rect(420, 0, 200, 2400))
   if (kind === 'undercut') {

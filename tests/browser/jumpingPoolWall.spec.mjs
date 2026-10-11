@@ -6,7 +6,7 @@ const pool = JSON.parse(readFileSync(new URL('../fixtures/jumping/single-block-p
 test.setTimeout(90000)
 
 for (const side of [-1, 1]) test(`normal swimming stays stable against the ${side > 0 ? 'right' : 'left'} inner wall of a single terrain block`, async ({ page }, info) => {
-  const level = { ...pool, spawn: { x: side > 0 ? 115 : 1685, y: 290 }, goal: { ...pool.goal, id: 'closed', power: 'switched' } }
+  const level = { ...pool, entrance: { x: side > 0 ? 115 : 1685, y: 290 }, goal: { ...pool.goal, id: 'closed', power: 'switched' } }
   const toward = side > 0 ? 'd' : 'a', away = side > 0 ? 'a' : 'd', errors = []
   page.on('pageerror', error => errors.push(String(error)))
   await useLevelFixtures(page, [level])

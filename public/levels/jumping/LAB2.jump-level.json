@@ -1,7 +1,7 @@
 {
   "version": 2,
   "id": "e784fe84-2ab2-427c-b5a2-1d1fec663e5c",
-  "name": "Untitled II",
+  "name": "Leaps and Bounds II",
   "width": 4000,
   "height": 900,
   "platforms": [
@@ -79,7 +79,7 @@
       ]
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 120,
     "y": 460
   },
@@ -1117,7 +1117,8 @@
       "kind": "box",
       "x": 2200,
       "y": 460,
-      "size": 200
+      "size": 200,
+      "branded": true
     }
   ],
   "mechanisms": [],

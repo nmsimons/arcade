@@ -104,7 +104,7 @@ test('terrain stays opaque inside water and floats meet a submerged roof as the 
     const { drawPuzzleWorld } = await import('/src/games/jumping/challengeRender.ts')
     const { STEP, NEUTRAL_INPUT } = await import('/src/games/jumping/model.ts')
     const source = await (await fetch('/tests/fixtures/jumping/water-reservoir.json')).json()
-    source.gravityPlates[0].drain = {}; source.triggers[0].targets = ['pool:fill']; source.spawn = { x: 1000, y: 920 }
+    source.gravityPlates[0].drain = {}; source.triggers[0].targets = ['pool:fill']; source.entrance = { x: 1000, y: 920 }
     const run = createRun(parseLevel(source)); run.started = true; run.triggers[0].active = true
     const canvas = document.createElement('canvas'); canvas.id = 'reservoir-review'; canvas.width = 1200; canvas.height = 1500
     document.body.replaceChildren(canvas); const ctx = canvas.getContext('2d'), frames = []

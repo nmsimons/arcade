@@ -47,7 +47,7 @@ test('level tiles launch immediately by click, Enter or controller A, with focus
   await expect(second).toBeFocused(); await expect(second).toHaveAttribute('aria-pressed', 'true')
   await expect(page.locator('.jumping-level-detail')).toContainText('Second room')
   await tap(page, 3)
-  await expect(page.getByRole('dialog', { name: 'Untitled Jumping Game', exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('direct-level-menu.png') })
   await second.click()
   await expect(page.getByRole('img', { name: 'Second room: reach the exit' })).toBeFocused()
@@ -201,7 +201,7 @@ test('pause has no brightness control and night ignores the retired saved prefer
 
 test('completion actions retain accessible selection and reflow with enlarged text', async ({ page }, info) => {
   const maps = levels()
-  maps[0].goal = { ...maps[0].spawn }
+  maps[0].goal = { ...maps[0].entrance }
   await open(page, false, maps)
   await page.getByRole('button', { name: 'Play First room', exact: true }).click()
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
@@ -282,7 +282,7 @@ test('all object types appear in menu, library and overview previews through the
     await route.continue()
   })
   const level = { ...blankTrial(), id: 'preview-all', name: 'All objects', width: 800, height: 600, floor: 600,
-    spawn: { x: 60, y: 600 }, goal: { x: 650, y: 600 }, checkpoints: [{ x: 90, y: 600 }],
+    entrance: { x: 60, y: 600 }, goal: { x: 650, y: 600 }, checkpoints: [{ x: 90, y: 600 }],
     platforms: [{ x: 50, y: 420, w: 100, h: 20 }],
     props: [{ kind: 'ball', x: 160, y: 600, size: 60 }, { kind: 'box', x: 240, y: 600, size: 60 }],
     robots: [{ x: 340, y: 600, left: 300, right: 400 }],

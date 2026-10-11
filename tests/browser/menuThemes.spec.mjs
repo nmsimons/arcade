@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 import { setup, tap } from './helpers/controller.mjs'
 
-const titles = ['Hard Vacuum', 'Bumper Ball', 'Urban Fire', 'Untitled Jumping Game']
+const titles = ['Hard Vacuum', 'Bumper Ball', 'Urban Fire', 'L.A.B. Experiments']
 const paint = button => button.evaluate(element => {
   const style = getComputedStyle(element)
   return { font: style.fontFamily, fill: style.backgroundColor, outline: style.outlineColor, width: style.outlineWidth }
@@ -198,7 +198,7 @@ test('real-renderer covers stay still, resize sharply, and never start audio or 
       && image.naturalHeight === Math.round(image.getBoundingClientRect().height * 2)))).toBe(true)
     expect(await covers.evaluateAll(images => images.map(image => image.src))).not.toEqual(sources)
     await checkPlayerContrast()
-    await page.getByRole('button', { name: 'Untitled Jumping Game', exact: true }).screenshot({ path: info.outputPath('jumping-card-compact.png') })
+    await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).screenshot({ path: info.outputPath('jumping-card-compact.png') })
     expect(await page.evaluate(() => window.previewEffects)).toEqual({ audio: 0, saves: 0 })
     await expect(page.locator('canvas')).toHaveCount(0)
   } finally { await context.close() }
@@ -250,9 +250,9 @@ for (const [path, chunk, title, viewport = { width: 1280, height: 800 }] of [
   ['hard-vacuum', 'HardVacuumGame', 'Hard Vacuum'],
   ['bumper-ball', 'KickballGame', 'Bumper Ball'],
   ['urban-fire', 'UrbanFireGame', 'Urban Fire'],
-  ['untitled-jumping-game', 'UntitledJumpingGame', 'Untitled Jumping Game'],
-  ['untitled-jumping-game/levels/built-in/07.json', 'UntitledJumpingGame', 'Untitled Jumping Game', { width: 360, height: 640 }],
-  ['untitled-jumping-game/levels/built-in/07.json', 'UntitledJumpingGame', 'Untitled Jumping Game', { width: 620, height: 360 }],
+  ['untitled-jumping-game', 'UntitledJumpingGame', 'L.A.B. Experiments'],
+  ['untitled-jumping-game/levels/built-in/07.json', 'UntitledJumpingGame', 'L.A.B. Experiments', { width: 360, height: 640 }],
+  ['untitled-jumping-game/levels/built-in/07.json', 'UntitledJumpingGame', 'L.A.B. Experiments', { width: 620, height: 360 }],
 ]) {
   test(`${path} uses neutral arcade loading and recovery at ${viewport.width}×${viewport.height}`, async ({ page }, info) => {
     await page.setViewportSize(viewport)

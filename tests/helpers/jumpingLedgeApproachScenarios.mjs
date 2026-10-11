@@ -4,7 +4,7 @@ import {NEUTRAL_INPUT} from '../../src/games/jumping/model.ts'
 export function ledgeApproachLevel(authored,kind,direction=1) {
   const level=structuredClone(authored)
   const spire=level.name==='Spire II'
-  level.spawn=kind==='wall jump' ? {x:direction>0?650:830,y:1400}
+  level.entrance=kind==='wall jump' ? {x:direction>0?650:830,y:1400}
     : {x:spire?(direction>0?440:1020):(direction>0?720:920),y:spire?600:1760}
   return level
 }

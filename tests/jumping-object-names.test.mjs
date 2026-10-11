@@ -12,7 +12,7 @@ const NAMING_LAB = { ...structuredClone(JSON_LAB), version: 2,
 test('every object type keeps its name through movement, duplication, templates and JSON round trips', () => {
   const selections = allSelections(NAMING_LAB)
   assert.deepEqual([...new Set(selections.map(s => s.kind))].sort(),
-    ['spawn', 'goal', 'platform', 'rope', 'ladder', 'checkpoint', 'timer', 'text', 'light', 'pickup', 'prop', 'robot', 'trigger', 'mechanism'].sort())
+    ['entrance', 'goal', 'platform', 'rope', 'ladder', 'checkpoint', 'timer', 'text', 'light', 'pickup', 'prop', 'robot', 'trigger', 'mechanism'].sort())
   let level = NAMING_LAB
   for (const selection of selections) level = renameItem(level, selection, `  ${selection.kind} ${selection.index} — north  `)
   for (const selection of selections) {
@@ -35,7 +35,7 @@ test('every object type keeps its name through movement, duplication, templates 
   const selection = selections[0]
   const cleared = renameItem(restored, selection, '   ')
   assert.equal('name' in itemDefinition(cleared, selection), false)
-  assert.equal(itemDefinition(restored, selection).name, 'spawn 0 — north')
+  assert.equal(itemDefinition(restored, selection).name, 'entrance 0 — north')
 })
 
 test('names survive terrain node edits and pressure-plate connection edits without changing mechanism IDs', () => {
@@ -74,7 +74,7 @@ test('object names are bounded strings, normalized on import, and optional for o
 
 test('validation identifies every offending named object, including individual switch connections', () => {
   const level = blankTrial()
-  level.spawn = { x: 100, y: 300, name: 'Arrival' }
+  level.entrance = { x: 100, y: 300, name: 'Arrival' }
   level.goal = { x: 1500, y: 300, name: 'Departure' }
   level.platforms = [{ x: -10, y: 800, w: 40, h: 120, name: 'West wall' }]
   level.texts = [{ x: -100, y: 100, w: 80, h: 40, text: 'Hint', fontSize: 24, align: 'left', name: 'Warning' }]

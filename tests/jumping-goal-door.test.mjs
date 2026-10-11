@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial, levelProblems } from '../src/games/jumping/level.ts'
 import { goalBounds, goalDoor, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS } from '../src/games/jumping/goal.ts'
 import { drawGoalDoor } from '../src/games/jumping/challengeRender.ts'
@@ -36,7 +36,7 @@ test('a ball in front of the doorway cannot prevent entry or pull the player thr
     const level = blankTrial(); level.goal = { x: 700, y: 920, flipX: direction < 0 }
     const door = goalDoor(level.goal), center = door.x + door.w / 2
     level.props = [{ kind: 'box', x: 700, y: 920, size: 40 }, { kind: 'ball', x: center + direction * 30, y: 920, size: 68 }]
-    level.spawn.x = center - direction * 18
+    level.entrance.x = center - direction * 18
     const run = createRun(level), p = run.player; run.started = true
     for (let i = 0; i < 60 && !run.exit; i++) stepRun(run, NEUTRAL_INPUT)
     assert.equal(run.goalLit, true); assert.equal(run.goalElapsed, GOAL_OPEN_SECONDS); assert.ok(run.exit)
@@ -50,7 +50,7 @@ test('a ball in front of the doorway cannot prevent entry or pull the player thr
 })
 
 test('the short exit preserves the walking rig and foot contacts instead of switching to a separate pose', () => {
-  const level = blankTrial(); level.goal.x = 500; level.spawn.x = 450
+  const level = blankTrial(); level.goal.x = 500; level.entrance.x = 450
   const run = createRun(level), p = run.player
   let previous = null, entered = false
   for (let i = 0; i < 240 && !run.finished; i++) {

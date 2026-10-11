@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { boxShape } from '../src/games/jumping/propGeometry.ts'
@@ -188,7 +188,7 @@ test('standing on a ball wedged between a tilted box and gate preserves support 
 
 test('small boxes remain pushable below hand height',()=>{
   for(const size of [20,40]){
-    const level=blankTrial();level.props=[{kind:'box',x:400,y:920,size}];level.spawn.x=400-size/2-26
+    const level=blankTrial();level.props=[{kind:'box',x:400,y:920,size}];level.entrance.x=400-size/2-26
     const run=createRun(level);advance(run,180,1)
     assert.ok(run.props[0].x>430)
   }

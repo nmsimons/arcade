@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { loadLevelCatalog, loadLocalLevelFiles, decodeLevelFile, playableLevelFile } from '../src/games/jumping/levelAssets.ts'
 import { readLocalLevelDirectory, writeLocalLevel, writeLevelOrder, deleteLocalLevel, readDeletedLevels, restoreDeletedLevel, emptyDeletedLevels } from '../src/games/jumping/levelFiles.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { levelProblems, parseLevel, prepareLevelRopes } from '../src/games/jumping/level.ts'
 import { JSON_LAB, FIRST_LEVEL } from './helpers/jumping-fixtures.mjs'
@@ -124,7 +124,7 @@ test('the JSON test lab exercises all geometry, attachments, saved rope paths an
 })
 
 const malformed = {
-  version: l => { l.version = 2 }, dimensions: l => { l.width = -1 }, spawn: l => { l.spawn.x = Infinity },
+  version: l => { l.version = 2 }, dimensions: l => { l.width = -1 }, entrance: l => { l.entrance.x = Infinity },
   checkpoint: l => { l.checkpoints[0].radius = 0 }, rectangle: l => { l.platforms[0].w = 0 },
   polygon: l => { l.platforms[1].polygon[2] = [9000, 0] }, profile: l => { l.platforms[2].profile[1][0] = 0 },
   mixedGeometry: l => { l.platforms[1].profile = [[0, 0], [340, 360]] },
@@ -167,7 +167,7 @@ for (const [name, mutate] of Object.entries(malformed)) test(`JSON test lab reje
   const level = structuredClone(JSON_LAB); mutate(level); assert.throws(() => parseLevel(level))
 })
 test('structurally valid files still need valid terrain bounds and mechanism links before play', () => {
-  for (const mutate of [l => { l.platforms[0].y = -10 }, l => { l.triggers[0].target = 'missing' }, l => { l.spawn.y -= 200 }]) {
+  for (const mutate of [l => { l.platforms[0].y = -10 }, l => { l.triggers[0].target = 'missing' }, l => { l.entrance.y -= 200 }]) {
     const level = structuredClone(JSON_LAB); mutate(level)
     assert.throws(() => playableLevelFile({ fileName: 'bad.json', level: parseLevel(level) }))
   }

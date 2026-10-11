@@ -32,11 +32,11 @@ async function open(page, level, size) {
 const read = page => page.evaluate(() => ({ camera: window.cameraFrames.at(-1), frames: window.cameraFrames, motion: window.jumpingMotion.read() }))
 
 for (const size of sizes) for (const night of [false, true]) for (const direction of [-1, 1]) test(`running held jump shows destination before takeoff and frames the full turn at ${size.width}x${size.height} ${night ? 'night' : 'day'} direction ${direction}`, async ({ page }, info) => {
-  const level = { ...blankTrial(), version: 2, width: 4000, height: 1000, floor: 1000, spawn: { x: 1500, y: 600 }, goal: { x: 3800, y: 1000 },
+  const level = { ...blankTrial(), version: 2, width: 4000, height: 1000, floor: 1000, entrance: { x: 1500, y: 600 }, goal: { x: 3800, y: 1000 },
     platforms: [{ x: 0, y: 600, w: 1780, h: 400 }, { x: 2030, y: 600, w: 450, h: 400 }],
     lighting: { nightMode: night, ambient: 35, lights: [] } }
   if (direction < 0) {
-    level.spawn.x = level.width - level.spawn.x; level.goal.x = level.width - level.goal.x
+    level.entrance.x = level.width - level.entrance.x; level.goal.x = level.width - level.goal.x
     level.platforms = level.platforms.map(p => ({ ...p, x: level.width - p.x - p.w }))
   }
   const destination = direction > 0 ? 2030 : 1970, key = direction > 0 ? 'd' : 'a', reverse = direction > 0 ? 'a' : 'd'
@@ -80,7 +80,7 @@ for (const size of sizes) for (const night of [false, true]) for (const directio
 })
 
 test('portrait short-room framing remains still through a real gravity reversal and the ceiling contact stays clear', async ({ page }, info) => {
-  const size = { width: 390, height: 844 }, level = { ...blankTrial(), version: 2, width: 1400, height: 600, floor: 600, spawn: { x: 600, y: 600 }, goal: { x: 1200, y: 600 },
+  const size = { width: 390, height: 844 }, level = { ...blankTrial(), version: 2, width: 1400, height: 600, floor: 600, entrance: { x: 600, y: 600 }, goal: { x: 1200, y: 600 },
     lighting: { nightMode: false, ambient: 100, lights: [] },
     gravityPlates: [{ id: 'reverse', x: 0, y: 0, w: 1400, h: 600, gravity: -1, power: 'always' }] }
   await open(page, level, size)

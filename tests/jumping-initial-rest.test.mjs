@@ -5,15 +5,16 @@ import { blankTrial } from '../src/games/jumping/level.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { groundAt } from '../src/games/jumping/terrain.ts'
+import { ENTRANCE_SECONDS } from '../src/games/jumping/goal.ts'
 
 const base = () => ({ ...blankTrial(), width: 1200, height: 750, floor: 650,
-  spawn: { x: 500, y: 500 }, goal: { x: 1100, y: 650 } })
+  entrance: { x: 500, y: 500 }, goal: { x: 1100, y: 650 } })
 const fixtures = [
-  { name: 'floor', level: { ...base(), spawn: { x: 500, y: 650 } } },
+  { name: 'floor', level: { ...base(), entrance: { x: 500, y: 650 } } },
   { name: 'narrow ledge', level: { ...base(), platforms: [{ x: 492, y: 500, w: 16, h: 20 }] } },
   ...[-1, 1].map(side => ({ name: `slope ${side}`, level: { ...base(),
     platforms: [{ x: 300, y: 450, w: 400, h: 250, profile: side > 0 ? [[0, 100], [400, 0]] : [[0, 0], [400, 100]] }] } })),
-  ...['box', 'ball'].map(kind => ({ name: kind, level: { ...base(), spawn: { x: 500, y: 570 },
+  ...['box', 'ball'].map(kind => ({ name: kind, level: { ...base(), entrance: { x: 500, y: 570 },
     props: [{ kind, x: 500, y: 650, size: 80 }] } })),
   { name: 'carrier', level: { ...base(), mechanisms: [{ id: 'carrier', kind: 'lift',
     x: 400, y: 500, w: 260, h: 20, travel: 120, orientation: 'horizontal', power: 'always' }] } },
@@ -42,8 +43,9 @@ test('the ready stance uses final narrow, sloped, prop and carrier support witho
           `${name}: the rig retains its motor ankle`)
       }
       assert.equal(JSON.stringify(run), before, `${name}: pose queries are read-only`)
-      for (let tick = 0; tick < 1200; tick++) stepRun(run, NEUTRAL_INPUT)
-      assert.equal(JSON.stringify(run), before, `${name}: ten seconds of waiting cannot start clocks, props or ropes`)
+      const frozen = structuredClone({ ...run, entrance: null })
+      stepRun(run, NEUTRAL_INPUT, ENTRANCE_SECONDS / 2)
+      assert.deepEqual({ ...run, entrance: null }, frozen, `${name}: the entrance freezes the physical world`)
       assert.equal(run.started, false, name)
       assert.equal(run.elapsed, 0, name)
       assert.equal(run.activeTime, 0, name)
@@ -52,13 +54,14 @@ test('the ready stance uses final narrow, sloped, prop and carrier support witho
 })
 
 test('ten seconds of started idle retain real support, readable quiet arms and passive carrier transport', () => {
-  const reverse = { ...base(), spawn: { x: 500, y: 650 }, platforms: [{ x: 0, y: 0, w: 1200, h: 100 }],
+  const reverse = { ...base(), entrance: { x: 500, y: 650 }, platforms: [{ x: 0, y: 0, w: 1200, h: 100 }],
     gravityPlates: [{ id: 'reverse', x: 0, y: 0, w: 1200, h: 750, gravity: -1, power: 'always' }] }
   const contexts = [...fixtures,
-    { name: 'crouched floor', level: { ...base(), spawn: { x: 500, y: 650 } } },
+    { name: 'crouched floor', level: { ...base(), entrance: { x: 500, y: 650 } } },
     { name: 'reversed gravity', level: reverse }, { name: 'crouched reversed gravity', level: reverse }]
   for (const { name, level } of contexts) for (const facing of [-1, 1]) {
     const run = createRun(level), p = run.player, input = { ...NEUTRAL_INPUT, crouch: name.includes('crouched') }
+    stepRun(run, NEUTRAL_INPUT, ENTRANCE_SECONDS)
     for (let tick = 0; tick < 4; tick++) stepRun(run, { ...input, move: facing })
     for (let tick = 0; tick < 360; tick++) stepRun(run, input)
     assert.equal(run.started, true, `${name}: exercise the started world rather than the frozen ready frame`)
@@ -97,7 +100,7 @@ test('ten seconds of started idle retain real support, readable quiet arms and p
 
 test('unsupported ready frames retain an airborne rig instead of borrowing the lower floor', () => {
   for (const { name, level } of fixtures) {
-    const run = createRun({ ...level, spawn: { x: level.spawn.x, y: level.spawn.y - 100 } }), p = run.player
+    const run = createRun({ ...level, entrance: { x: level.entrance.x, y: level.entrance.y - 100 } }), p = run.player
     assert.equal(p.grounded, false, name)
     assert.equal(p.footwork, null, name)
     assert.equal(p.contacts.support, null, name)

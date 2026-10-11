@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { createPlayer, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { playerContacts } from '../src/games/jumping/playerContacts.ts'
@@ -101,7 +101,7 @@ test('crouching still respects openings smaller than two tiles and real walls', 
 test('pressing Down while still pushing an overhead edge enters the two-tile opening', () => {
   for (const direction of [-1, 1]) for (const down of [{ crouch: true }, { descend: true }]) {
     const level = blankTrial(); level.width = 1200; level.height = level.floor = 620
-    level.spawn = { x: direction > 0 ? 200 : 560, y: 620 }; level.goal = { x: 1040, y: 620 }
+    level.entrance = { x: direction > 0 ? 200 : 560, y: 620 }; level.goal = { x: 1040, y: 620 }
     level.platforms = [{ x: 300, y: 540, w: 160, h: 40 }]
     const run = createRun(level), p = run.player
     advance(run, 90, { move: direction })
@@ -125,7 +125,7 @@ test('pressing Down while still pushing an overhead edge enters the two-tile ope
 test('pushing varied prop sizes keeps palms on the surface and feet moving with the body', () => {
   for (const kind of ['box', 'ball']) for (const size of [30, 40, 50, 60, 100, 200]) for (const direction of [-1, 1]) {
     const level = blankTrial(); level.props = [{ kind, x: 900, y: 920, size }]
-    level.spawn.x = 900 - direction * (size / 2 + 26)
+    level.entrance.x = 900 - direction * (size / 2 + 26)
     const run = createRun(level), p = run.player; run.started = true; p.facing = direction
     let previous, previousLegs, contacts = 0
     for (let i = 0; i < 600; i++) {
@@ -186,7 +186,7 @@ test('nearest contact wins in either direction, independent of collider order, a
 
 test('one resolved frame drives wall and box bracing, with no pose double-step', () => {
   for (const prop of [false, true]) {
-    const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
+    const level = blankTrial(); level.entrance = { x: 474.5, y: 920 }
     if (prop) level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
     else level.platforms = [{ x: 500, y: 700, w: 80, h: 220 }]
     const run = createRun(level), p = run.player
@@ -205,7 +205,7 @@ test('one resolved frame drives wall and box bracing, with no pose double-step',
 })
 
 test('a blocked box keeps the solved body and animation still and releases for a jump', () => {
-  const level = blankTrial(); level.spawn = { x: 474.5, y: 920 }
+  const level = blankTrial(); level.entrance = { x: 474.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   level.platforms = [{ x: 580, y: 700, w: 100, h: 220 }]
   const run = createRun(level), p = run.player
@@ -334,7 +334,7 @@ test('descending beside a yielding ball blends intermittent sliding contacts wit
       : [{ x: 600, y: 500, w: 160, h: 40 }, { x: 720, y: 420, w: 40, h: 80 }]
     level.platforms = direction > 0 ? shapes : shapes.map(b => ({ ...b, x: mirror(b.x + b.w),
       polygon: b.polygon?.map(([x, y]) => [b.w - x, y]) }))
-    level.spawn = { x: mirror(708), y: 400 }
+    level.entrance = { x: mirror(708), y: 400 }
     level.props = [{ kind: 'ball', x: mirror(666), y: 500, size: 100 }]
     const run = createRun(level), p = run.player, ball = run.props[0]; run.started = true
     Object.assign(p, { grounded: false, footwork: null, facing: -direction })

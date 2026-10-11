@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {createRun,stepRun} from '../src/games/jumping/challenge.ts'
+import {createRun,stepRun} from './helpers/jumping-active-run.mjs'
 import {NEUTRAL_INPUT,TUNING} from '../src/games/jumping/model.ts'
 import {athletePose} from '../src/games/jumping/athlete.ts'
 import {movingStepPropFixture} from './helpers/jumpingStepProps.mjs'
@@ -10,7 +10,7 @@ import {assertReturningRig,rigWorld,rigDistance} from './helpers/jumpingReturnRi
 test('return preparation reflects and restores its live palms during reversed-gravity moving encounters',()=>{
  for(const side of [-1,1])for(const kind of ['box','ball'])for(const size of [30,80]){
   const {level}=movingStepPropFixture(side,kind,size)
-  level.spawn.y=100;level.floor=750;level.goal={x:1100,y:750}
+  level.entrance.y=100;level.floor=750;level.goal={x:1100,y:750}
   level.platforms=[{x:0,y:0,w:1200,h:100},{...level.platforms[0],y:100}]
   level.props[0].y=100+size
   level.gravityPlates=[{id:'reverse',x:0,y:0,w:1200,h:750,gravity:-1,power:'always'}]

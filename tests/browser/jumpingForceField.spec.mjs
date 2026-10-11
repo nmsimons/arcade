@@ -5,7 +5,7 @@ const board = page => page.getByRole('application', { name: 'Level canvas' })
 const player = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 function fixture(horizontal = false, night = false) {
   return { ...blankTrial(), id: 'force-field-browser', name: 'Force field workshop', width: 1200, height: 600, floor: 600,
-    spawn: { x: horizontal ? 220 : 300, y: horizontal ? 180 : 600 }, goal: { x: 1000, y: 600 },
+    entrance: { x: horizontal ? 220 : 300, y: horizontal ? 180 : 600 }, goal: { x: 1000, y: 600 },
     platforms: horizontal ? [{ x: 180, y: 180, w: 80, h: 20 }] : [],
     props: [{ kind: 'box', x: horizontal ? 700 : 395, y: horizontal ? 160 : 600, size: 40 }],
     forceFields: [{ id: 'barrier', x: horizontal ? 120 : 500, y: horizontal ? 330 : 100,

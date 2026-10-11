@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createJumpTouch } from '../src/games/jumping/touchInput.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { STEP, TUNING } from '../src/games/jumping/model.ts'
 
 const press = (touch, id = 1, x = 750, y = 240, now = 0) => touch.down(id, x, y, now, 1000)
@@ -25,7 +25,7 @@ test('holding walks, swiping runs immediately, and reversing turns without lifti
   const touch = createJumpTouch(), run = createRun(blankTrial())
   press(touch)
   advance(run, touch, 0, 100)
-  assert.equal(run.player.x, run.level.spawn.x)
+  assert.equal(run.player.x, run.level.entrance.x)
   advance(run, touch, 150, 400)
   assert.ok(Math.abs(run.player.vx - TUNING.walkSpeed) < 1)
   touch.move(1, 780, 240, 550)

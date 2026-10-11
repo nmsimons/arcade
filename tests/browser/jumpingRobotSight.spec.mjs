@@ -30,7 +30,7 @@ async function openSightLevel(page, level) {
 
 test('a player behind the bot is unseen until its patrol turns toward them', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Forward sight', width: 1400, height: 600, floor: 600,
-    spawn: { x: 800, y: 600 }, goal: { x: 1240, y: 600 },
+    entrance: { x: 800, y: 600 }, goal: { x: 1240, y: 600 },
     robots: [{ x: 400, y: 600, left: 300, right: 1000 }] }
   const canvas = await openSightLevel(page, level)
   const state = () => canvas.evaluate(c => ({ eye: c.botEye, x: c.botX }))
@@ -47,7 +47,7 @@ test('a player behind the bot is unseen until its patrol turns toward them', asy
 
 test('a gate hides the player, opening reveals them, and closing restores the calm eye', async ({ page }, info) => {
   const level = { ...blankTrial(), name: 'Bot sight', width: 1400, height: 600, floor: 600,
-    spawn: { x: 820, y: 500 }, goal: { x: 1240, y: 600 },
+    entrance: { x: 820, y: 500 }, goal: { x: 1240, y: 600 },
     platforms: [{ x: 100, y: 500, w: 380, h: 100 }, { x: 700, y: 500, w: 400, h: 100 }],
     robots: [{ x: 300, y: 500, left: 100, right: 1250 }],
     mechanisms: [{ id: 'cover', kind: 'gate', x: 580, y: 300, w: 40, h: 200, travel: 240 }],

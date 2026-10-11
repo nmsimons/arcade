@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
-const accepted = new Set(['Untitled.jump-level.json', '01.json', '03.json', 'Coins.jump-level.json', 'Balls.jump-level.json'])
+const accepted = new Set(['LAB1.jump-level.json', '01.json', '03.json', 'Coins.jump-level.json', 'Balls.jump-level.json'])
 const records = JSON.parse(readFileSync(new URL('../fixtures/jumping-builtin-medal-runs.json', import.meta.url)))
 
 for (const recording of records.runs.filter(run => accepted.has(run.file))) {

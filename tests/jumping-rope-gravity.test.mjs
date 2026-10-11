@@ -8,7 +8,7 @@ import { bodyPolygon, polygonIntersects } from '../src/games/jumping/geometry.ts
 import { mirrorPlayerState, mirrorPlatform } from '../src/games/jumping/gravityFrame.ts'
 import { playerTurnAngle } from '../src/games/jumping/ropeGravity.ts'
 import { blankTrial, levelPlayer, levelTerrain, prepareLevelRopes } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
 import { ropeSlope } from './helpers/rope-slope.mjs'
 import { ropePath } from '../src/games/jumping/climbables.ts'
@@ -185,7 +185,7 @@ test('zero gravity pauses a partially completed turn without losing the material
 })
 
 for (const kind of ['box', 'ball']) test(`a gravity turn collides with a loose ${kind} using its actual rotated body`, () => {
-  const level = { ...blankTrial(), spawn: { x: 490, y: 480 },
+  const level = { ...blankTrial(), entrance: { x: 490, y: 480 },
     climbables: { ladders: [], ropes: [{ x: 500, y: 100, length: 600, segments: 75 }] },
     props: [{ kind, x: 430, y: 500, size: 60 }],
     gravityPlates: [{ id: 'g', x: 0, y: 0, w: 1000, h: 920, gravity: -1, power: 'always' }] }

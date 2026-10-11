@@ -7,7 +7,7 @@ test('omitting empty night correction and haze passes preserves every pixel thro
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    const level = { ...blankTrial(), width: 2000, floor: 1000, height: 1000, spawn: { x: 600, y: 600 }, goal: { x: 1750, y: 1000 },
+    const level = { ...blankTrial(), width: 2000, floor: 1000, height: 1000, entrance: { x: 600, y: 600 }, goal: { x: 1750, y: 1000 },
       platforms: [{ x: 0, y: 600, w: 700, h: 400 }, { x: 760, y: 580, w: 500, h: 420, polygon: [[0,20],[100,0],[500,160],[500,420],[0,420]] }],
       props: [{ kind: 'ball', x: 650, y: 600, size: 30 }], robots: [{ x: 540, y: 600, left: 300, right: 670 }],
       texts: [{ x: 520, y: 470, w: 180, h: 60, text: 'See the landing', fontSize: 24, align: 'left' }] }

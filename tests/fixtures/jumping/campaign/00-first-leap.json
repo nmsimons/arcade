@@ -5,7 +5,7 @@
   "width": 1280,
   "height": 920,
   "floor": 920,
-  "spawn": {
+  "entrance": {
     "x": 170,
     "y": 520
   },

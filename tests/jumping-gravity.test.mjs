@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import Matter from 'matter-js'
 import { createGravityField, updateGravityField, playerGravity, propGravity, gravityAtPoint, circleRectangleArea, clippedPolygonArea } from '../src/games/jumping/gravity.ts'
 import { blankTrial, parseLevel, levelProblems, levelTerrain } from '../src/games/jumping/level.ts'
-import { createRun, createPreviewRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, createPreviewRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, NEUTRAL_INPUT, STEP, TUNING, stepPlayer, respawn } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
 import { playerContactBody } from '../src/games/jumping/playerContacts.ts'
@@ -193,7 +193,7 @@ test('reverse footing follows polygon undersides without penetrating and can use
 
 for (const slope of [-2.5, -1.2, -.7, .7, 1.2, 2.5]) test(`reverse contact uses ordinary grip or sliding on an underside slope of ${slope}`, () => {
   const level = fixture({ x: 0, w: 1800, h: 2000 })
-  level.height = level.floor = 2000; level.spawn = { x: 500, y: 2000 }; level.goal.y = 2000
+  level.height = level.floor = 2000; level.entrance = { x: 500, y: 2000 }; level.goal.y = 2000
   const rise = Math.abs(slope) * 240
   level.platforms = [{ x: 380, y: 400, w: 240, h: rise + 60,
     polygon: [[0, 0], [240, 0], [240, slope > 0 ? rise + 60 : 60], [0, slope > 0 ? 60 : rise + 60]] }]
@@ -240,7 +240,7 @@ test('reverse running follows a concave ceiling across flat and sloped seams', (
 })
 
 for (const horizontal of [false, true]) test(`reverse footing rides the underside of a ${horizontal ? 'horizontal platform' : 'vertical elevator'}`, () => {
-  const level = fixture({ x: 0, w: 1800 }); level.spawn.x = 460
+  const level = fixture({ x: 0, w: 1800 }); level.entrance.x = 460
   level.mechanisms = [{ id: 'ferry', kind: 'lift', x: 400, y: 400, w: 240, h: 20, travel: 160, power: 'always',
     ...(horizontal ? { orientation: 'horizontal' } : {}) }]
   const run = createRun(level); run.started = true; step(run, 200)
@@ -387,7 +387,7 @@ test('editor authors a rectangle with a bottom plate, resizes, moves, duplicates
 test('an inactive field leaves ordinary player movement unchanged', () => {
   const level = fixture(); level.triggers[0].startsOn = false; level.triggers[0].x = 800
   const run = createRun(level); run.started = true
-  const p = createPlayer(level.spawn), terrain = levelTerrain(level)
+  const p = createPlayer(level.entrance), terrain = levelTerrain(level)
   for (let i = 0; i < 100; i++) {
     const input = { ...NEUTRAL_INPUT, move: 1, jump: i === 20 }
     stepRun(run, input); stepPlayer(p, input, STEP, terrain)

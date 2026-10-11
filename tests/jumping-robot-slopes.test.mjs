@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { nearestBoundary, polygonIntersects } from '../src/games/jumping/geometry.ts'
 import { robotHulls } from '../src/games/jumping/robotPhysics.ts'
@@ -9,7 +9,7 @@ import { robotHulls } from '../src/games/jumping/robotPhysics.ts'
 function fixture(slope, direction) {
   const level = blankTrial()
   level.width = 2400; level.height = level.floor = 1400
-  level.spawn = { x: 2000, y: 1400 }
+  level.entrance = { x: 2000, y: 1400 }
   level.platforms = [{ x: 400, y: 200, w: 400, h: 1200,
     polygon: slope > 0 ? [[0, 0], [400, 1200], [0, 1200]] : [[0, 1200], [400, 0], [400, 1200]] }]
   level.robots = [{ x: 600, y: 800, left: 420, right: 780 }]
@@ -21,7 +21,7 @@ function fixture(slope, direction) {
 function cliffFixture(slope) {
   const level = blankTrial()
   level.width = 2400; level.height = level.floor = 2000
-  level.spawn = { x: 2000, y: 2000 }
+  level.entrance = { x: 2000, y: 2000 }
   level.platforms = [{ x: 400, y: 200, w: 400, h: 1220,
     polygon: slope > 0 ? [[0, 0], [400, 1200], [400, 1220], [0, 20]] : [[0, 1200], [400, 0], [400, 20], [0, 1220]] }]
   level.robots = [{ x: 600, y: 800, left: 100, right: 2300 }]

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
 import { nearestBoundary, pointInside } from '../src/games/jumping/geometry.ts'
@@ -16,7 +16,7 @@ const fixture = kind => {
   if (kind === 'slope') shelf.polygon = [[0, 0], [600, 0], [600, 100], [0, 50]]
   const prop = kind === 'box' || kind.startsWith('ball')
   const size = kind === 'ball40' ? 40 : kind === 'ball120' ? 120 : 80
-  const run = createRun({ ...blankTrial(), spawn: { x: 700, y: 750 },
+  const run = createRun({ ...blankTrial(), entrance: { x: 700, y: 750 },
     platforms: prop ? [] : [shelf], props: prop ? [{ kind: kind.startsWith('ball') ? 'ball' : 'box', x: 700, y: 300 + size / 2, size }] : [],
     gravityPlates: [water], goal: { id: 'closed', x: 1500, y: 920, power: 'switched' } })
   run.started = true; run.player.grounded = false; run.player.coyote = 0

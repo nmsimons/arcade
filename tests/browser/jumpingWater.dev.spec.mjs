@@ -13,7 +13,7 @@ test('water strokes stay relaxed beside balls while working palms meet their sur
     const ctx = canvas.getContext('2d'), samples = [], scale = 3
     for (const [row, side] of [1, -1].entries()) {
       const edge = side > 0 ? 640 : 1160
-      const run = createRun({ ...blankTrial(), spawn: { x: edge - side * 52, y: 450.34 },
+      const run = createRun({ ...blankTrial(), entrance: { x: edge - side * 52, y: 450.34 },
         props: [{ kind: 'ball', x: edge - side * 20, y: 420, size: 40 }],
         platforms: [{ x: side > 0 ? edge : 0, y: 380, w: 1160, h: 540 }],
         gravityPlates: [{ id: 'water', x: side > 0 ? 200 : edge, y: 400, w: 440, h: 520, effect: 'water', gravity: -1, power: 'always' }] })
@@ -157,7 +157,7 @@ test('water approach lifts the head then prepares the hands close to the pool li
     const { createRun, stepRun } = await import('/src/games/jumping/challenge.ts')
     const { NEUTRAL_INPUT } = await import('/src/games/jumping/model.ts')
     const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
-    const run = createRun({ ...blankTrial(), spawn: { x: 650, y: 450.34 }, platforms: [{ x: 850, y: 400, w: 950, h: 520 }],
+    const run = createRun({ ...blankTrial(), entrance: { x: 650, y: 450.34 }, platforms: [{ x: 850, y: 400, w: 950, h: 520 }],
       gravityPlates: [{ id: 'water', x: 450, y: 400, w: 400, h: 520, effect: 'water', gravity: -1, power: 'always' }] })
     run.started = true; run.player.grounded = false; run.player.coyote = 0
     const canvas = document.createElement('canvas'); canvas.id = 'water-lip'; canvas.width = 1250; canvas.height = 300
@@ -211,7 +211,7 @@ test('a high pool lip leaves swimming hands relaxed until the nearby wall brace'
     for (const [row, side] of [1, -1].entries()) {
       const edge = side > 0 ? 850 : 450
       const bank = { x: side > 0 ? edge : 0, y: 375, w: side > 0 ? 950 : 450, h: 545 }
-      const run = createRun({ ...blankTrial(), spawn: { x: edge - side * 80, y: 450.34 }, platforms: [bank],
+      const run = createRun({ ...blankTrial(), entrance: { x: edge - side * 80, y: 450.34 }, platforms: [bank],
         gravityPlates: [{ id: 'water', x: 450, y: 400, w: 400, h: 520, effect: 'water', gravity: -1 }],
         goal: { id: 'closed', x: 1600, y: 920, power: 'switched' } })
       run.started = true; run.player.grounded = false; run.player.coyote = 0; run.player.facing = side
@@ -258,7 +258,7 @@ test('water pushing keeps palms on floats and kicks through recovery extension a
     document.body.replaceChildren(canvas); document.body.style.margin = '0'; const ctx = canvas.getContext('2d'), samples = []
     const modes = [{ kind: 'box', direction: 1 }, { kind: 'ball', direction: -1 }, { kind: 'box', direction: 1, blocked: true }]
     for (const [row, mode] of modes.entries()) {
-      const run = createRun({ ...blankTrial(), spawn: { x: 600 - mode.direction * 120, y: 450.34 },
+      const run = createRun({ ...blankTrial(), entrance: { x: 600 - mode.direction * 120, y: 450.34 },
         props: [{ kind: mode.kind, x: 600, y: 440, size: 80 }],
         platforms: mode.blocked ? [{ x: 640, y: 300, w: 100, h: 620 }] : [],
         gravityPlates: [{ id: 'water', x: 0, y: 400, w: 1800, h: 520, effect: 'water', gravity: -1, power: 'always' }] })
@@ -303,7 +303,7 @@ test('floating box drift bobbing and rocking retain the rider pose and planted f
     const { NEUTRAL_INPUT } = await import('/src/games/jumping/model.ts')
     const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
     const { drawProp } = await import('/src/games/jumping/challengeRender.ts')
-    const run = createRun({ ...blankTrial(), spawn: { x: 600, y: 330 }, props: [{ kind: 'box', x: 600, y: 460, size: 120 }],
+    const run = createRun({ ...blankTrial(), entrance: { x: 600, y: 330 }, props: [{ kind: 'box', x: 600, y: 460, size: 120 }],
       gravityPlates: [{ id: 'water', x: 0, y: 400, w: 1800, h: 520, effect: 'water', gravity: -1, power: 'always' }] })
     run.started = true; run.player.grounded = false; run.player.coyote = 0
     for (let i = 0; i < 480; i++) stepRun(run, NEUTRAL_INPUT)
@@ -343,7 +343,7 @@ test('slow standing-to-swimming transitions gather clear of floats banks and the
     const canvas = document.createElement('canvas'); canvas.id = 'water-transitions'; canvas.width = 1500; canvas.height = 900
     document.body.replaceChildren(canvas); document.body.style.margin = '0'; const ctx = canvas.getContext('2d'), samples = []
     for (let row = 0; row < 3; row++) {
-      const run = createRun({ ...blankTrial(), spawn: row === 0 ? { x: 548, y: 450.34 } : row === 1 ? { x: 435, y: 400 } : { x: 550, y: 920 },
+      const run = createRun({ ...blankTrial(), entrance: row === 0 ? { x: 548, y: 450.34 } : row === 1 ? { x: 435, y: 400 } : { x: 550, y: 920 },
         props: row === 0 ? [{ kind: 'box', x: 600, y: 440, size: 80 }] : [],
         platforms: row === 1 ? [{ x: 0, y: 400, w: 450, h: 520 }] : row === 2 ? [{ x: 600, y: 840, w: 80, h: 80 }] : [],
         gravityPlates: [{ id: 'water', x: row === 1 ? 450 : 200, y: 400, w: row === 1 ? 400 : 1000, h: 520, effect: 'water', gravity: -1, power: 'always' }] })

@@ -3,6 +3,8 @@ import { drawAthlete, drawTerrain } from '../../games/jumping/render'
 import { NIGHT_PLAYER_COLOR } from '../../games/jumping/athlete'
 import { ambientExposure } from '../../games/jumping/ambientLight'
 import { beamHazeStrength, drawLightFixtures, drawLightHaze } from '../../games/jumping/lightFixture'
+import { drawLabStamp } from '../../branding/lab'
+import { drawProp } from '../../games/jumping/challengeRender'
 
 export function drawPreview(ctx: CanvasRenderingContext2D, width: number, height: number) {
   // A still night scene: the lit figure stays legible at card size. Scale
@@ -24,7 +26,9 @@ export function drawPreview(ctx: CanvasRenderingContext2D, width: number, height
   ctx.restore()
   drawLightHaze(ctx, lamp, 0); drawLightFixtures(ctx, [lamp])
   ctx.save(); ctx.filter = `brightness(${ambientExposure(0)})`
+  drawLabStamp(ctx, 254, 50, 82, 38, '#f4d35e')
   drawTerrain(ctx, [{ x: 0, y: 185, w: 120, h: 45 }, { x: 175, y: 135, w: 185, h: 95 }])
+  drawProp(ctx, { kind: 'box', x: 286, y: 135, size: 40, branded: true, angle: 0, angularVelocity: 0, vx: 0, vy: 0, grounded: true })
   ctx.restore()
   const player = createPlayer(); Object.assign(player, { x: 153, y: 133, grounded: false, vx: 270, vy: -150, stride: 1.8 })
   drawAthlete(ctx, player, NIGHT_PLAYER_COLOR)

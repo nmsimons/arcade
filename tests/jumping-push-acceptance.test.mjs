@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { LOW_PUSH_SCENARIOS, PUSH_SCENARIOS, pushScenario, escapingDownhillBall } from './helpers/jumpingPushScenarios.mjs'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
@@ -102,7 +102,7 @@ test('actual push cadence and load follow opposed travel, slopes and carrier-rel
 
 test('passive incoming balls, robots and carrier travel cannot load a voluntary shove', () => {
   for (const source of ['ball', 'robot', 'carrier']) for (const facing of [-1, 1]) {
-    const level = { ...blankTrial(), spawn: { x: 800, y: 920 } }
+    const level = { ...blankTrial(), entrance: { x: 800, y: 920 } }
     if (source === 'ball') level.props = [{ kind: 'ball', x: 800 - facing * 140, y: 920, size: 100 }]
     if (source === 'robot') level.robots = [{ x: 800 - facing * 100, y: 920, left: 200, right: 1400 }]
     if (source === 'carrier') {

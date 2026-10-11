@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JumpingAudioState, soundPosition } from '../src/games/jumping/audioState.ts'
 import { loopTone } from '../src/games/jumping/sound.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 
@@ -126,7 +126,7 @@ test('pushed small boxes knock once per new edge in either direction, while larg
     const { run, step } = setup(l => {
       l.width = 4000; l.goal.x = 3000
       l.props = [{ kind: 'box', x: 800, y: 920, size }]
-      l.spawn.x = 800 - direction * (size / 2 + 40)
+      l.entrance.x = 800 - direction * (size / 2 + 40)
     })
     const impacts = [], scrape = []
     for (let i = 0; i < 600; i++) {

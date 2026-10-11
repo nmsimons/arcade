@@ -11,7 +11,7 @@ export function slideLevel(degrees = 55, direction = 1, inverted = false) {
     polygon: platform.polygon.map(([x, y]) => [platform.w - x, y]).reverse() }
   if (inverted) { platform = mirrorPlatform(platform); platform = { ...platform, y: platform.y + height } }
   const level = { ...blankTrial(), name: `${degrees} degree slide ${direction} ${inverted ? 'inverted' : 'normal'}`,
-    width, height, floor: height, spawn: { x: direction > 0 ? 250 : width - 250, y: inverted ? height : 200 },
+    width, height, floor: height, entrance: { x: direction > 0 ? 250 : width - 250, y: inverted ? height : 200 },
     goal: { x: direction > 0 ? 1600 : 200, y: height }, platforms: [platform],
     ...(inverted ? { gravityPlates: [{ id: 'up', x: 0, y: 0, w: width, h: height, gravity: -1, power: 'always' }] } : {}) }
   const problems = levelProblems(level)

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { createPlayer, NEUTRAL_INPUT, playerState, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
@@ -13,7 +13,7 @@ import { groundAt } from '../src/games/jumping/terrain.ts'
 
 function pushingRun(direction = 1, blocked = true) {
   const level = blankTrial()
-  level.spawn = { x: 540 - direction * 65.5, y: 920 }
+  level.entrance = { x: 540 - direction * 65.5, y: 920 }
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   level.platforms = blocked ? [{ x: direction === 1 ? 580 : 380, y: 650, w: 120, h: 270 }] : []
   return createRun(level)
@@ -106,7 +106,7 @@ test('a blocked brace adapts to narrow real footing and stays settled through re
     const platform = width === 'concave' ? { ...rect(374.5, 500, 80, 70),
       polygon: [[0, 35], [32, 35], [32, 0], [48, 0], [48, 35], [80, 35], [80, 70], [0, 70]] } : footing
     const level = { ...blankTrial(), width: 900, height: 700, floor: 650,
-      spawn: { x: direction === 1 ? 414.5 : 485.5, y: 500 },
+      entrance: { x: direction === 1 ? 414.5 : 485.5, y: 500 },
       goal: { x: direction === 1 ? 100 : 800, y: 650, flipX: direction === -1 },
       platforms: [platform, rect(440, 500, 80, 20), rect(520, 350, 100, 300)],
       props: [{ kind: 'box', x: direction === 1 ? 480 : 420, y: 500, size: 80 }] }
@@ -199,7 +199,7 @@ test('light and full blocked efforts have different supported body loading', () 
 test('prop motion starts with both palms on the face, including fresh low and tall encounters', () => {
   for (const direction of [-1, 1]) for (const kind of ['box', 'ball']) for (const size of [30, 80]) {
     const level = blankTrial()
-    level.spawn = { x: 540 - direction * (size / 2 + 25.5), y: 920 }
+    level.entrance = { x: 540 - direction * (size / 2 + 25.5), y: 920 }
     level.props = [{ kind, x: 540, y: 920, size }]
     const run = createRun(level)
     for (let frame = 0; frame < 30; frame++) {
@@ -220,7 +220,7 @@ test('prop motion starts with both palms on the face, including fresh low and ta
 test('short-object pushing hinges over working legs rather than staying in a full squat', () => {
   for (const direction of [-1, 1]) for (const kind of ['box', 'ball']) {
     const level = blankTrial()
-    level.spawn = { x: 540 - direction * 40.5, y: 920 }
+    level.entrance = { x: 540 - direction * 40.5, y: 920 }
     level.props = [{ kind, x: 540, y: 920, size: 30 }]
     const run = createRun(level), supports = new Set(), ankles = []
     advance(run, 120, { move: direction })
@@ -243,13 +243,13 @@ test('short-object pushing hinges over working legs rather than staying in a ful
 test('the first playable frame has real idle support without advancing the challenge', () => {
   const level = blankTrial(), run = createRun(level), p = run.player, pose = athletePose(p)
   assert.equal(run.elapsed, 0)
-  assert.equal(run.started, false)
+  assert.equal(run.started, true)
   assert.ok(p.contacts?.support, 'the ready frame already knows its support')
   assert.ok(p.footwork?.feet.every(foot => foot.planted))
   assert.ok(Math.abs(pose.frontLeg.end[0] - pose.backLeg.end[0]) >= 3, 'idle soles are distinct')
   assert.ok(Math.hypot(...pose.frontArm.end.map((v, i) => v - pose.backArm.end[i])) > 6, 'relaxed hands clear the torso silhouette')
   const unsupported = blankTrial()
-  unsupported.spawn.y -= 100
+  unsupported.entrance.y -= 100
   const airborne = createRun(unsupported).player
   assert.equal(airborne.grounded, false)
   assert.equal(airborne.footwork, null)
@@ -259,7 +259,7 @@ test('the first playable frame has real idle support without advancing the chall
 test('a running approach reaches before the shove and cannot anticipate through a wall', () => {
   for (const direction of [-1, 1]) for (const kind of ['box', 'ball']) {
     const level = blankTrial()
-    level.spawn = { x: 540 - direction * 140, y: 920 }
+    level.entrance = { x: 540 - direction * 140, y: 920 }
     level.props = [{ kind, x: 540, y: 920, size: 80 }]
     const run = createRun(level)
     let prepared = false, loaded = false
@@ -372,7 +372,7 @@ test('moving recovery preserves mirrored trajectories, crouch clearance, and a f
 
 test('a moving carrier transports a stationary get-up without starting the locomotion spring', () => {
   const level = blankTrial(); level.floor = 1700; level.height = 1800; level.goal.y = 1700
-  level.spawn = { x: 500, y: 100 }
+  level.entrance = { x: 500, y: 100 }
   level.mechanisms = [{ id: 'carrier', kind: 'lift', x: 400, y: 1400, w: 260, h: 20,
     travel: 120, orientation: 'horizontal', power: 'always' }]
   const run = createRun(level)
@@ -396,10 +396,10 @@ test('crouched working silhouettes clear tilted and round props under a low ceil
   for (const direction of [-1, 1]) for (const kind of ['box', 'ball']) for (const size of [30,80,140]) {
     for (const angle of kind === 'box' ? [-.2,0,.2] : [0]) for (const ceiling of [false,true]) {
       const level = blankTrial()
-      level.spawn = { x: 540 - direction * (size / 2 + 25.5), y: 920 }
+      level.entrance = { x: 540 - direction * (size / 2 + 25.5), y: 920 }
       level.props = [{ kind, x: 540, y: 920, size }]
       level.platforms = [{ x: direction === 1 ? 540 + size / 2 : 540 - size / 2 - 120, y: 650, w: 120, h: 270 }]
-      if (ceiling) level.platforms.push({ x: direction === 1 ? level.spawn.x - 100 : 540 + size / 2 + 2, y: 840, w: 120, h: 40 })
+      if (ceiling) level.platforms.push({ x: direction === 1 ? level.entrance.x - 100 : 540 + size / 2 + 2, y: 840, w: 120, h: 40 })
       const run = createRun(level)
       run.props[0].angle = angle
       for (let frame = 0; frame < 240; frame++) {

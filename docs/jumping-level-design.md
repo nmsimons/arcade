@@ -1,7 +1,7 @@
 # Making a fun jumping level
 
 **First draft — September 27, 2026.** This is the design brief for creating and
-reviewing levels in Untitled Jumping Game. It draws on the built-in maps, the
+reviewing levels in L.A.B. Experiments (Leaps and Bounds). It draws on the built-in maps, the
 authored Tower maps, and the local Night Shift collection. Existing levels are
 references, not evidence that every placement in them is ideal.
 
@@ -169,6 +169,12 @@ surfaces. Preserve flat areas where a crate must rest, a plate must be loaded, o
 the exit needs support. A slightly tilted platform can introduce a useful choice;
 a field of arbitrary angles makes movement harder to read.
 
+The entrance is a doorway, with a 40-unit flat sill and 80 units of clear
+headroom. Work that landing into the architecture instead of placing the player
+directly on a slope or balancing the door on a narrow ledge. Review the opening
+from a fresh start: the silhouette emerges and the door closes before machinery
+and the medal clock activate automatically.
+
 Build around the actual movement envelope. The wall grid uses 20-unit tiles;
 crouching fits a two-tile opening, and automatic step climbing reaches three
 tiles under suitable conditions. These are useful starting dimensions, not proof
@@ -227,6 +233,12 @@ Keep text brief. Rotate it with purpose and retain legibility. Avoid scattering
 instructions across every surface or recreating a tutorial HUD on the wall.
 Check the actual camera view: wall items render behind terrain and physical
 objects, so an important sentence can become obscured.
+
+Use L.A.B. crate stencils and wall stamps sparingly to suggest the place's
+ordinary use. Crate branding is an opt-in appearance choice; plain crates remain
+part of the same world. Keep facility marks separate from functional labels and
+graffiti hints, with enough space that they do not compete with movement,
+collectibles, clocks, or the advice a player needs to read.
 
 ### Coin meters belong to an objective
 

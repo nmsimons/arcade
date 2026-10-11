@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, TUNING } from '../src/games/jumping/model.ts'
 import { ropePath } from '../src/games/jumping/climbables.ts'
 import { bodyPolygon, polygonIntersects, lineBlocked } from '../src/games/jumping/geometry.ts'
@@ -9,7 +9,7 @@ import { readLevelAsset } from './helpers/jumping-fixtures.mjs'
 
 function mirrored(level) {
   const l = structuredClone(level), mirror = x => l.width - x
-  l.spawn.x = mirror(l.spawn.x); l.goal = { ...l.goal, x: mirror(l.goal.x), flipX: true }
+  l.entrance.x = mirror(l.entrance.x); l.goal = { ...l.goal, x: mirror(l.goal.x), flipX: true }
   l.platforms = l.platforms.map(b => ({ ...b, x: mirror(b.x + b.w), polygon: b.polygon?.map(([x, y]) => [b.w - x, y]) }))
   l.mechanisms.forEach(m => { m.x = mirror(m.x + m.w) })
   l.triggers.forEach(t => { t.x = mirror(t.x + t.w) })
@@ -22,7 +22,8 @@ for (const side of [1, -1]) for (const transfer of [false, true]) {
   test(`${transfer ? 'transferring through a window' : 'climbing beside an open gate'} keeps every loaded rope span clear (${side})`, () => {
     const original = readLevelAsset(transfer ? 'rope-window-transfer.json' : 'rope-window-gate.json')
     const level = side === 1 ? original : mirrored(original)
-    assert.deepEqual(levelProblems(level), [])
+    // The contact fixture starts under a window, too low for an authored doorway.
+    assert.deepEqual(levelProblems(level), ['Place “Entrance door” on a continuous flat surface, with a clear doorway inside the level.'])
     const run = createRun(level), p = run.player
     let frame = 0, caught = 0, transferred = false
     const tick = input => {

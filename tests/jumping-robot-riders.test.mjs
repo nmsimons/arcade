@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP, stepPlayer } from '../src/games/jumping/model.ts'
 import { robotPlatforms, moveRobot } from '../src/games/jumping/robotPhysics.ts'
 import { bodyIntersects, polygonIntersects, bodyPolygon } from '../src/games/jumping/geometry.ts'

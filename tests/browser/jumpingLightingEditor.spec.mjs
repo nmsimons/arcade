@@ -289,7 +289,7 @@ test('switchable objects show a clear empty list until a switch exists', async (
   const incoming = page.getByRole('group', { name: 'Switched by', exact: true })
   await expect(incoming).toContainText('No switches')
   await expect(incoming.getByRole('checkbox')).toHaveCount(0)
-  await select(page, 'spawn:0')
+  await select(page, 'entrance:0')
   await expect(incoming).toHaveCount(0)
 })
 

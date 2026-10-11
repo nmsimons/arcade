@@ -46,7 +46,7 @@ test('jumping across slopes restores traction while holding uphill, then permits
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   const level = {
     version: 1, id: 'slope-friction', name: 'Slope friction', width: 2000, height: 1400,
-    spawn: { x: 600, y: 900 }, checkpoints: [],
+    entrance: { x: 600, y: 900 }, checkpoints: [],
     platforms: [{ x: 0, y: 640, w: 2000, h: 760,
       polygon: [[0, 160], [400, 160], [800, 360], [1200, 0], [2000, 0], [2000, 760], [0, 760]] }],
     climbables: { ladders: [], ropes: [] },
@@ -114,7 +114,7 @@ test('desktop hides touch Pause even with touchscreen hardware, until a touch ge
 for (const controller of [false, true]) test(`${controller ? 'controller' : 'keyboard'} keeps grip above 45 degrees and releases it for a jump`, async ({ page }, info) => {
   const level = {
     version: 1, id: 'grip-balance', name: 'Grip balance', width: 1600, height: 2200,
-    spawn: { x: 800, y: 1024 }, checkpoints: [],
+    entrance: { x: 800, y: 1024 }, checkpoints: [],
     platforms: [{ x: 0, y: 200, w: 1600, h: 2000, polygon: [[0, 0], [1600, 1648], [1600, 2000], [0, 2000]] }],
     climbables: { ladders: [], ropes: [] },
   }
@@ -145,7 +145,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
 test('controller stays steady where a gentle slope meets a steep face, then walks away and jumps', async ({ page }, info) => {
   const level = {
     version: 1, id: 'angled-slope-base', name: 'Angled slope base', width: 1600, height: 1200,
-    spawn: { x: 650, y: 580 }, checkpoints: [],
+    entrance: { x: 650, y: 580 }, checkpoints: [],
     platforms: [{ x: 0, y: 200, w: 1600, h: 1000,
       polygon: [[0, 640], [700, 360], [900, 40], [1200, 0], [1600, 0], [1600, 1000], [0, 1000]] }],
     climbables: { ladders: [], ropes: [] },
@@ -177,7 +177,7 @@ test('holding uphill against steep terrain stays still, then jumping onto it pro
   const rise = 500 * Math.tan(55 * Math.PI / 180)
   const level = {
     version: 1, id: 'slope-base', name: 'Slope base', width: 1800, height: 1000,
-    spawn: { x: 550, y: 1000 }, checkpoints: [],
+    entrance: { x: 550, y: 1000 }, checkpoints: [],
     platforms: [{ x: 600, y: 1000 - rise, w: 500, h: rise, polygon: [[0, rise], [500, 0], [500, rise]] }],
     climbables: { ladders: [], ropes: [] },
   }
@@ -206,7 +206,7 @@ for (const trial of [false, true]) test(`${trial ? 'trial' : 'playground'} camer
   const bottom = 1800
   const level = {
     version: 1, id: 'camera-floor', name: 'Camera floor', width: 2000, height: bottom,
-    spawn: { x: 1000, y: bottom }, checkpoints: [], platforms: [],
+    entrance: { x: 1000, y: bottom }, checkpoints: [], platforms: [],
     climbables: { ladders: [{ x: 1000, top: 200, bottom, platform: -1, side: 1 }], ropes: [] },
     ...(trial ? { height: 2000, floor: bottom, goal: { x: 1500, y: bottom }, times: { gold: 30, silver: 60, bronze: 120 },
       props: [], mechanisms: [], triggers: [], robots: [] } : {}),
@@ -242,7 +242,7 @@ for (const controller of [false, true]) test(`${controller ? 'controller' : 'key
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   const level = {
     version: 1, id: 'long-rope-regression', name: 'Long rope', width: 2000, height: 2600,
-    spawn: { x: 990, y: 2300 }, checkpoints: [],
+    entrance: { x: 990, y: 2300 }, checkpoints: [],
     platforms: [{ x: 0, y: 2300, w: 2000, h: 300 }],
     climbables: { ladders: [], ropes: [{ x: 1000, y: 200, length: 2000, segments: 250 }] },
   }

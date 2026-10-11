@@ -7,7 +7,7 @@
     "height": 640,
     "floor": 640,
     "floorMaterial": "earth",
-    "spawn": { "x": 160, "y": 640 },
+    "entrance": { "x": 160, "y": 640 },
     "checkpoints": [],
     "goal": { "x": 1150, "y": 640 },
     "times": { "gold": 25, "silver": 40, "bronze": 60 },

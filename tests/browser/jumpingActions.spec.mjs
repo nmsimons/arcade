@@ -13,7 +13,7 @@ async function start(page,level) {
   await expect(page.locator('canvas')).toBeFocused()
   await page.clock.runFor(120)
 }
-const lipLevel=()=>({...blankTrial(),height:600,floor:500,spawn:{x:530,y:300},goal:{x:900,y:500},platforms:[{x:500,y:300,w:200,h:200}]})
+const lipLevel=()=>({...blankTrial(),height:600,floor:500,entrance:{x:530,y:300},goal:{x:900,y:500},platforms:[{x:500,y:300,w:200,h:200}]})
 const state=page=>page.evaluate(()=>window.jumpingMotion.read().recent.at(-1))
 
 test('keyboard action cues predict lowering, a held safe hang, and a separate Down drop',async({page},info)=>{
@@ -38,7 +38,7 @@ test('keyboard action cues predict lowering, a held safe hang, and a separate Do
 })
 
 test('keyboard Up under reverse gravity lowers to a held hang and needs a new press to pull up',async({page},info)=>{
-  const level={...blankTrial(),height:600,floor:500,spawn:{x:530,y:500},goal:{x:900,y:500},
+  const level={...blankTrial(),height:600,floor:500,entrance:{x:530,y:500},goal:{x:900,y:500},
     platforms:[{x:500,y:100,w:220,h:20}],gravityPlates:[{id:'reverse',x:300,y:0,w:500,h:500,gravity:-1,power:'always'}]}
   await start(page,level)
   // A normal input starts the challenge; waiting on its ready frame does not
@@ -68,7 +68,7 @@ test('a blocked lowering path advertises and executes crouch',async({page},info)
 })
 
 test('keyboard water feedback matches floor crouching, standing and swimming up and explains it in help',async({page},info)=>{
-  const level=blankTrial();level.spawn={x:700,y:920}
+  const level=blankTrial();level.entrance={x:700,y:920}
   level.gravityPlates=[{id:'water',x:200,y:400,w:1000,h:520,gravity:-1,effect:'water',power:'always'}]
   await start(page,level)
   await page.keyboard.down('s');await page.clock.runFor(2500)

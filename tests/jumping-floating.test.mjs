@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import Matter from 'matter-js'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from '../src/games/jumping/model.ts'
 import { createGravityField, updateGravityField, playerGravity, propGravity, playerFloatDrag, propFloatDrag, playerSwimStrength, playerWaterCenterOffset, propWaterStrength } from '../src/games/jumping/gravity.ts'
 import { addItem, duplicateItem, hitItem, resizeItem, setObjectPower } from '../src/games/jumping/editor.ts'
@@ -402,7 +402,7 @@ for (const effect of [undefined, 'water']) for (const kind of ['box', 'ball']) {
 
 for (const left of [false, true]) for (const rim of [360, 400, 440]) test(`${rim < 380 ? 'Jump then Up' : 'Up'} pulls out over the ${left ? 'left' : 'right'} pool rim at ${rim}`, () => {
   const wall = left ? { x: 0, y: rim, w: 450, h: 920 - rim } : { x: 850, y: rim, w: 950, h: 920 - rim }
-  const run = createRun({ ...blankTrial(), platforms: [wall], spawn: { x: left ? 520 : 780, y: 430 },
+  const run = createRun({ ...blankTrial(), platforms: [wall], entrance: { x: left ? 520 : 780, y: 430 },
     gravityPlates: [pool({ x: 450, w: 400, effect: 'water' })] })
   run.started = true; run.player.grounded = false; run.player.coyote = 0
   step(run, 4)
@@ -421,7 +421,7 @@ for (const left of [false, true]) for (const rim of [360, 400, 440]) test(`${rim
 })
 
 test('a blocked pool pull-up keeps the grip and allows dropping back into the water', () => {
-  const run = createRun({ ...blankTrial(), spawn: { x: 780, y: 430 }, platforms: [
+  const run = createRun({ ...blankTrial(), entrance: { x: 780, y: 430 }, platforms: [
     { x: 850, y: 400, w: 950, h: 520 }, { x: 850, y: 280, w: 950, h: 90 },
   ], gravityPlates: [pool({ x: 450, w: 400, effect: 'water' })] })
   run.started = true; run.player.grounded = false; run.player.coyote = 0
@@ -434,7 +434,7 @@ test('a blocked pool pull-up keeps the grip and allows dropping back into the wa
 
 for (const left of [false, true]) test(`a swimmer reaches the ${left ? 'left' : 'right'} pool lip before their head meets terrain`, () => {
   const wall = left ? { x: 0, y: 400, w: 450, h: 520 } : { x: 850, y: 400, w: 950, h: 520 }
-  const run = createRun({ ...blankTrial(), platforms: [wall], spawn: { x: 650, y: 450.34 },
+  const run = createRun({ ...blankTrial(), platforms: [wall], entrance: { x: 650, y: 450.34 },
     gravityPlates: [pool({ x: 450, w: 400, effect: 'water' })] })
   run.started = true; run.player.grounded = false; run.player.coyote = 0
   let prepared = false, handsLead = false, caught = false
@@ -533,7 +533,7 @@ for (const dt of [STEP, 1 / 30]) for (const kind of ['box', 'ball']) for (const 
 }
 
 test('a swimmer keeps kicking against a blocked float but cannot push it from hand-reach distance', () => {
-  const run = createRun({ ...blankTrial(), spawn: { x: 425, y: 408.36 }, props: [{ kind: 'box', x: 500, y: 440, size: 80 }],
+  const run = createRun({ ...blankTrial(), entrance: { x: 425, y: 408.36 }, props: [{ kind: 'box', x: 500, y: 440, size: 80 }],
     platforms: [{ x: 540, y: 300, w: 100, h: 620 }], gravityPlates: [pool({ x: 0, w: 1800, effect: 'water' })] })
   run.started = true; run.player.grounded = false; run.player.coyote = 0
   run.player.freeFall = { amount: 1, time: 0, recovery: null }; run.player.waterMotion = { amount: 1, dive: 0, phase: 0 }

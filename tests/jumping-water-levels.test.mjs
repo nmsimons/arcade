@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { createRun, stepRun, setWaterEffectsEnabled } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun, setWaterEffectsEnabled } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createWaterLevels, advanceWaterLevels, waterControlId } from '../src/games/jumping/waterLevel.ts'
 import { playerSwimStrength, createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
@@ -13,7 +13,7 @@ import { copySelections, pasteSelections } from '../src/games/jumping/editorSele
 import { copyForEditing } from '../src/games/jumping/puzzleEditor.ts'
 
 const pool = { id: 'pool', effect: 'water', gravity: -1, x: 400, y: 320, w: 1000, h: 600, waterLevel: 25, waterRate: 20 }
-const level = () => ({ ...blankTrial(), spawn: { x: 100, y: 920 }, gravityPlates: [{ ...pool }],
+const level = () => ({ ...blankTrial(), entrance: { x: 100, y: 920 }, gravityPlates: [{ ...pool }],
   goal: { id: 'closed', power: 'switched', x: 1600, y: 920 },
   triggers: [{ x: 200, y: 920, w: 80, mode: 'weight', behavior: 'toggle', startsOn: false, targets: ['pool:fill', 'pool:drain'] }] })
 const advance = (run, seconds, input = NEUTRAL_INPUT, dt = STEP) => {
@@ -199,7 +199,7 @@ test('copied reservoirs remap both pump ports, and deleting/converting removes t
 
 test('a completely drained reservoir has no water force or hidden collision volume', () => {
   const document = level(); document.gravityPlates[0].waterLevel = 0
-  document.spawn = { x: 1100, y: 920 }
+  document.entrance = { x: 1100, y: 920 }
   const run = createRun(document), field = createGravityField()
   updateGravityField(field, run.water.plates, new Map(), true)
   assert.equal(playerSwimStrength(field, run.player), 0)

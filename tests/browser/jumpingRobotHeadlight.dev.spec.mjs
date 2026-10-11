@@ -10,7 +10,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend} shovebot headlights mo
     const h = await lightingHarness({ backend })
     Object.assign(h.run, createPreviewRun(parseLevel({ ...h.fixture.level,
       platforms: [], climbables: { ladders: [], ropes: [] }, mechanisms: [], triggers: [], pickups: [], timers: [], texts: [],
-      spawn: { x: 1100, y: 640 },
+      entrance: { x: 1100, y: 640 },
       props: [350, 650].map(x => ({ kind: 'box', x, y: 530, size: 60 })),
       robots: [{ x: 500, y: 500, left: 100, right: 1000 }],
     })))

@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import Matter from 'matter-js'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { bodyIntersects, polygonIntersects } from '../src/games/jumping/geometry.ts'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
@@ -9,7 +9,7 @@ import { ballHull, ballShape } from '../src/games/jumping/propGeometry.ts'
 
 test('distant props skip detailed player collision queries', t => {
   const level = blankTrial()
-  level.width = 2600; level.spawn = { x: 160, y: level.floor }
+  level.width = 2600; level.entrance = { x: 160, y: level.floor }
   level.props = Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: 1000 + i * 200, y: level.floor, size: 80 }))
   const run = createRun(level); run.started = true
   let playerQueries = 0

@@ -6,7 +6,7 @@ import type { Selection } from './editor.ts'
 import { bodyIntersects, polygonIntersects, polygonPoints } from './geometry.ts'
 import { ballShape } from './propGeometry.ts'
 import { TUNING } from './model.ts'
-import { goalBounds } from './goal.ts'
+import { entranceDoor, goalBounds } from './goal.ts'
 import { groundAt } from './terrain.ts'
 import { editorSolids } from './editorGeometry.ts'
 import { robotHulls, robotSupport } from './robotPhysics.ts'
@@ -14,7 +14,7 @@ import { plateSolids, plateSurface } from './plateSurface.ts'
 
 export function canPlaceOnSurface(selection: Selection, level?: JumpLevel) {
   if (selection.kind === 'trigger' && level?.triggers?.[selection.index]?.mode === 'coins') return false
-  return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'spawn', 'checkpoint', 'goal', 'ladder', 'gravity-plate'].includes(selection.kind)
+  return ['platform', 'prop', 'mechanism', 'robot', 'trigger', 'entrance', 'checkpoint', 'goal', 'ladder', 'gravity-plate'].includes(selection.kind)
 }
 
 type SurfacePlacement = { y: number; left: number; right: number; delta: number; ceiling?: boolean }
@@ -31,8 +31,8 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
   }
   const bounds = itemBounds(level, selection)
   if (!bounds) return null
-  const marker = ['spawn', 'checkpoint', 'goal'].includes(selection.kind)
-  const footprint = selection.kind === 'goal' && level.goal ? goalBounds(level.goal) : { ...bounds, x: bounds.w ? bounds.x : bounds.x - TUNING.width / 2,
+  const marker = ['entrance', 'checkpoint', 'goal'].includes(selection.kind)
+  const footprint = selection.kind === 'entrance' ? entranceDoor(level.entrance) : selection.kind === 'goal' && level.goal ? goalBounds(level.goal) : { ...bounds, x: bounds.w ? bounds.x : bounds.x - TUNING.width / 2,
     w: bounds.w || TUNING.width, y: marker ? bounds.y - TUNING.height : bounds.y, h: marker ? TUNING.height : bounds.h }
   const bottom = footprint.y + footprint.h, solids = editorSolids(level, selection)
   const supports = marker ? levelTerrain(level) : solids
@@ -43,7 +43,7 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
     const points = polygonPoints(solid)
     for (const [i, a] of points.entries()) {
       const b = points[(i + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1]
-      if (dx <= .01 || !robot && Math.abs(dy / dx) > .8) continue
+      if (dx <= .01 || selection.kind === 'entrance' && Math.abs(dy / dx) >= .02 || !robot && Math.abs(dy / dx) > .8) continue
       const left = Math.max(footprint.x, a[0]), right = Math.min(footprint.x + footprint.w, b[0])
       if (right - left < .5) continue
       const slope = dy / dx, surface = (x: number) => a[1] + (x - a[0]) * slope
@@ -58,8 +58,8 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
         const supportX = selection.kind === 'goal' ? footprint.x + footprint.w / 2 : bounds.x
         if (supportX < a[0] || supportX > b[0]) continue
         y = surface(supportX)
-        if (selection.kind === 'goal' && (Math.abs(slope) > .001 || Array.from({ length: Math.ceil(footprint.w / 8) + 1 }, (_, j) => {
-          const support = groundAt(supports, footprint.x + Math.min(j * 8, footprint.w), y, .15)
+        if ((selection.kind === 'goal' || selection.kind === 'entrance') && (Math.abs(slope) > .001 || Array.from({ length: Math.ceil(footprint.w / 8) + 1 }, (_, j) => {
+          const support = groundAt(supports, footprint.x + Math.max(.01, Math.min(j * 8, footprint.w - .01)), y, .15)
           return !support || Math.abs(support.angle) > .001
         }).some(Boolean))) continue
       }
@@ -84,7 +84,7 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
       const shape = selection.kind === 'platform' ? { ...level.platforms[selection.index], y: bounds.y + delta }
         : prop?.kind === 'ball' ? ballShape({ ...prop, y: prop.y + delta }) : { ...footprint, y: footprint.y + delta }
       if (solids.some(other => robotShapes ? robotShapes.some(hull => polygonIntersects(hull, other, .02))
-        : marker && selection.kind !== 'goal' ? bodyIntersects(bounds.x, y, other)
+        : marker && selection.kind !== 'goal' && selection.kind !== 'entrance' ? bodyIntersects(bounds.x, y, other)
         : polygonIntersects(polygonPoints(shape), other, .02))) continue
       candidates.push({ y, left, right, delta })
     }

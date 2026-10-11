@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { JumpingAudioState } from '../src/games/jumping/audioState.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { updateGravityField } from '../src/games/jumping/gravity.ts'
@@ -22,7 +22,7 @@ for (const dt of [STEP, 1 / 30]) for (const kind of ['player', 'ball', 'box']) {
     const strengths = []
     for (const drop of [20, 300]) {
       const { run, observe } = setup(l => {
-        if (kind === 'player') l.spawn = { x: 600, y: 500 - drop }
+        if (kind === 'player') l.entrance = { x: 600, y: 500 - drop }
         else l.props = [{ kind, size: 68, x: 600, y: 500 - drop }]
       })
       const splashes = []
@@ -40,7 +40,7 @@ for (const dt of [STEP, 1 / 30]) for (const kind of ['player', 'ball', 'box']) {
 
 for (const kind of ['player', 'ball', 'box']) test(`${kind} splashes on side entry, rearms after leaving, and ignores waterline chatter`, () => {
   const { run, audio, observe } = setup(l => {
-    l.spawn = { x: 370, y: 700 }
+    l.entrance = { x: 370, y: 700 }
     if (kind !== 'player') l.props = [{ kind, size: 60, x: 360, y: 700 }]
   })
   const body = kind === 'player' ? run.player : run.props[0], dryX = body.x
@@ -79,7 +79,7 @@ test('larger objects make fuller splashes, with spatial falloff and panning', ()
 
 test('submerged spawns, reset/resume, teleports and EMP do not splash', () => {
   const { run, audio, observe } = setup(l => {
-    l.spawn = { x: 600, y: 700 }
+    l.entrance = { x: 600, y: 700 }
     l.props = [{ kind: 'ball', size: 68, x: 800, y: 700 }, { kind: 'box', size: 60, x: 1000, y: 700 }]
   })
   for (let i = 0; i < 120; i++) { stepRun(run, NEUTRAL_INPUT); assert.equal(observe().length, 0) }
@@ -99,7 +99,7 @@ test('submerged spawns, reset/resume, teleports and EMP do not splash', () => {
 test('ordinary gravity fields have no splash sound', () => {
   for (const power of ['always', 'switched']) {
     const { run, observe } = setup(l => {
-      l.spawn = { x: 600, y: 490 }
+      l.entrance = { x: 600, y: 490 }
       l.props = [{ kind: 'box', size: 60, x: 800, y: 490 }]
       l.gravityPlates[0].power = power
       delete l.gravityPlates[0].effect
@@ -110,7 +110,7 @@ test('ordinary gravity fields have no splash sound', () => {
 })
 
 test('entering legacy switched water during EMP still makes a splash', () => {
-  const { run, observe } = setup(l => { l.spawn = { x: 600, y: 490 }; l.gravityPlates[0].power = 'switched' })
+  const { run, observe } = setup(l => { l.entrance = { x: 600, y: 490 }; l.gravityPlates[0].power = 'switched' })
   updateGravityField(run.gravityField, run.level.gravityPlates, run.switchStates, false)
   run.player.vy = 300; run.player.y += 20
   assert.equal(observe().length, 1)

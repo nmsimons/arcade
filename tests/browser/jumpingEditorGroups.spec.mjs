@@ -5,7 +5,7 @@ import { dayAmbientChannel, expectDayAmbientPixel } from './helpers/jumpingLight
 const board = page => page.getByRole('application', { name: 'Level canvas' })
 function fixture() {
   return { ...blankTrial(), id: 'editor-groups', name: 'Editor groups', width: 1200, height: 800, floor: 800,
-    spawn: { x: 180, y: 800 }, goal: { x: 960, y: 800 },
+    entrance: { x: 180, y: 800 }, goal: { x: 960, y: 800 },
     platforms: [{ x: 300, y: 300, w: 240, h: 180, material: 'earth', name: 'A' },
       { x: 400, y: 360, w: 220, h: 140, material: 'chalk', name: 'B' },
       { x: 700, y: 400, w: 120, h: 80, material: 'steel', name: 'C' }],

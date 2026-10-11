@@ -3,7 +3,7 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { DAY_AMBIENT_EXPOSURE, daylightShadowPolygons } from './daylight.ts'
 import { drawPuzzleWorld } from './challengeRender.ts'
 import { NIGHT_PLAYER_COLOR, withAthletePose } from './athlete.ts'
-import { goalBounds } from './goal.ts'
+import { drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds } from './goal.ts'
 import { airBoostStrength } from './model.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawLevelBackdrop, drawMovementEffects, drawTerrain } from './render.ts'
 import { levelHeight, levelTerrain } from './level.ts'
@@ -185,6 +185,8 @@ export class LightingRenderer {
     if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer, playerExposure)
     else {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
+      if (layer !== 'objects' && (editor || run.entrance)) ambientPaint(paint)(ctx, 0, () =>
+        drawDoorway(ctx, entranceDoor(run.level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))
       if (layer !== 'wall') {
         paint(ctx, 0, () => {
           drawTerrain(ctx, levelTerrain(run.level), run.level.platforms, run.level)
@@ -193,8 +195,13 @@ export class LightingRenderer {
           drawClimbables(ctx, run.player, run.level.climbables)
           drawCheckpointMarkers(ctx, run.player, run.level)
         })
-        drawMovementEffects(ctx, run.player, paint)
-        paint(ctx, playerExposure, () => drawAthlete(ctx, run.player, ink))
+        if (run.entrance && !editor) {
+          ctx.save(); ctx.globalAlpha *= entranceVisibility(run.entrance.elapsed)
+          paint(ctx, playerExposure, () => drawAthlete(ctx, run.entrance!.player, ink)); ctx.restore()
+        } else {
+          drawMovementEffects(ctx, run.player, paint)
+          paint(ctx, playerExposure, () => drawAthlete(ctx, run.player, ink))
+        }
       }
     }
     ctx.restore()

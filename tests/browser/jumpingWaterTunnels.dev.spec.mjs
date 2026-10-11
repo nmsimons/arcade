@@ -61,9 +61,9 @@ test('the tunnel silhouette stays clear while gathering and turning', async ({ p
     document.body.replaceChildren(canvas); document.body.style.margin = '0'
     const ctx = canvas.getContext('2d')
     for (const [row, direction] of [-1, 1].entries()) {
-      const level = structuredClone(source); level.spawn.y = 670
+      const level = structuredClone(source); level.entrance.y = 670
       if (direction > 0) {
-        level.spawn.x = 1800 - level.spawn.x
+        level.entrance.x = 1800 - level.entrance.x
         for (const b of level.platforms) {
           b.x = 1800 - b.x - b.w
           b.polygon = b.polygon.map(([x, y]) => [b.w - x, y]).reverse()

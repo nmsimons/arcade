@@ -9,8 +9,8 @@ export type { PuzzleLevel } from './level.ts'
 import { moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
-import type { GoalExit } from './goal.ts'
+import { advanceEntranceAnimation, createEntranceAnimation, ENTRANCE_SECONDS, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
+import type { EntranceAnimation, GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
 import { planMechanismMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
@@ -59,7 +59,7 @@ export interface Run {
   waterSurface?: WaterSurfaceState
   water: WaterLevels; waterSpaces: Map<GravityPlate, ReturnType<typeof waterSpace>>; waterEffectsEnabled: boolean
   pickups: PickupState[]; pickupTime: number; coinsCollected: number; activeTime: number; timeStopRemaining: number; timeFastRemaining: number; empRemaining: number
-  elapsed: number; started: boolean; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
+  elapsed: number; started: boolean; entrance: EntranceAnimation | null; goalLit: boolean; goalElapsed: number; exit: GoalExit | null
   finished: boolean; medal: Medal | null
 }
 export const BEST_TIME_KEY = 'arcade.jumping.times.v1'
@@ -105,7 +105,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
     water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
-    forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
+    forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, entrance: null, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
   run.props.push(...floats.map(f => f.prop))
   for (const pool of run.water.pools) run.waterSpaces.set(pool.region, waterSpace({ ...pool.definition, y: pool.definition.y - 6, h: pool.definition.h + 6 }, run.terrain))
   updateSwitchTargets(run)
@@ -131,6 +131,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   p.terrain = world.platforms
   advanceFootwork(p, 0, p.x, world.platforms)
   run.waterSurface = createWaterSurface(run.water.plates, run.terrain, p, run.props, run.gravityField)
+  if (!preview) run.entrance = createEntranceAnimation(p, world.platforms)
   return run
 }
 function syncPlatforms(run: Run): ContactWorld {
@@ -329,9 +330,15 @@ function collectPickups(run: Run, dt: number) {
 }
 export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (run.finished) return
+  if (!run.started) {
+    if (!run.entrance) return // Static previews never activate.
+    dt = advanceEntranceAnimation(run.entrance, dt, syncPlatforms(run))
+    if (run.entrance.elapsed + 1e-9 < ENTRANCE_SECONDS) return
+    run.entrance = null; run.started = true
+    if (dt < 1e-9) return
+  }
+  run.entrance = null
   if (run.pickups.length) run.pickupTime += dt
-  if (!run.started && (Math.abs(input.move) > .01 || input.jump || input.climb || input.descend || input.crouch)) run.started = true
-  if (!run.started) { collectPickups(run, dt); stepTriggers(run, 0); return }
   run.activeTime += dt
   run.goalElapsed = approach(run.goalElapsed, run.goalLit ? GOAL_OPEN_SECONDS : 0, dt)
   if (!run.exit) {

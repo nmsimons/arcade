@@ -61,7 +61,12 @@ export async function saveTestLevel(page, button = 'Save level') {
   const writes = await page.evaluate(() => window.testFolderWrites)
   await page.getByRole('button', { name: button, exact: true }).click()
   await expect.poll(() => page.evaluate(() => window.testFolderWrites)).toBeGreaterThan(writes)
-  if (button === 'Save and Test') await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
+  if (button === 'Save and Test') {
+    await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
+    await expect(page.getByRole('img', { name: /: reach the exit$/ })).toBeFocused()
+    // Gameplay assertions begin after the entrance; entry itself has dedicated coverage.
+    await page.clock.runFor(1350)
+  }
   else await expect(page.getByRole('status', { name: 'Builder status' })).toContainText(`Saved “${fileName}”`)
   return { fileName, level: await readTestLevel(page, fileName) }
 }

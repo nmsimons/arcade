@@ -11,7 +11,7 @@ export const FIRST_LEVEL = CAMPAIGN[0]
 export const YARD_LEVEL = readLevelAsset('examples/01-counterweight-yard.json')
 export const JSON_LAB = readLevelAsset('00-json-test-lab.json')
 // Legacy movement regression tests use the playground fixture explicitly. The engine has no default map.
-export const createPlayer = () => makePlayer(DEFAULT_LEVEL.spawn)
+export const createPlayer = () => makePlayer(DEFAULT_LEVEL.entrance)
 export function stepPlayer(p, input, dt = STEP, platforms = PLATFORMS,
   climbables = platforms === PLATFORMS ? CLIMBABLES : NO_CLIMBABLES,
   rules = { checkpoints: platforms === PLATFORMS ? DEFAULT_LEVEL.checkpoints : [], fallY: 1020 }) {

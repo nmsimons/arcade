@@ -4,7 +4,7 @@ import { restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 function fixture(horizontal) {
   const level = blankTrial(); level.id = 'mounted-plate-playtest'; level.name = 'Mounted plate'
-  level.spawn.x = 170
+  level.entrance.x = 170
   level.mechanisms = [
     { id: 'carrier', kind: 'lift', x: 260, y: 900, w: 240, h: 20, travel: 240, ...(horizontal ? { orientation: 'horizontal', flipX: true } : {}) },
     { id: 'gate', kind: 'gate', x: 1300, y: 740, w: 20, h: 180, travel: 180, switchLogic: 'and' },

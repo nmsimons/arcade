@@ -26,7 +26,7 @@ try {
         document.body.replaceChildren(canvas); const ctx = canvas.getContext('2d'), output = []
         const percentile = (values, p) => [...values].sort((a, b) => a - b)[Math.floor(values.length * p)]
         for (const dynamic of [false, true]) for (const effects of [true, false]) {
-          const level = blankTrial(); level.width = 10400; level.spawn = { x: 120, y: 920 }
+          const level = blankTrial(); level.width = 10400; level.entrance = { x: 120, y: 920 }
           level.goal = { id: 'closed', power: 'switched', x: 10200, y: 920 }
           level.gravityPlates = Array.from({ length: 16 }, (_, i) => ({ id: `pool-${i}`, effect: 'water', gravity: -1,
             x: 320 + i * 600, y: 320, w: 560, h: 600, waterLevel: 35, waterRate: 4, fill: { switchReversed: dynamic } }))
@@ -115,7 +115,7 @@ try {
       ctx.setTransform(.27, 0, 0, .8, 0, 0)
       const plates = Array.from({ length: 16 }, (_, i) => ({ id: `w${i}`, x: i * 290, y: 400, w: 280, h: 520, gravity: -1, effect: 'water' }))
       const props = Array.from({ length: 40 }, (_, i) => ({ kind: i % 2 ? 'box' : 'ball', x: Math.floor(i / 3) * 290 + 45 + i % 3 * 85, y: 420, size: 40 }))
-      const level = { ...blankTrial(), width: 4640, gravityPlates: plates, props, spawn: { x: 4550, y: 920 }, goal: { id: 'closed', x: 20, y: 920, power: 'switched' } }
+      const level = { ...blankTrial(), width: 4640, gravityPlates: plates, props, entrance: { x: 4550, y: 920 }, goal: { id: 'closed', x: 20, y: 920, power: 'switched' } }
       const percentile = (samples, p) => [...samples].sort((a, b) => a - b)[Math.floor(samples.length * p)]
       const output = []
       for (const scenario of ['effect only', 'busy game']) for (const mode of ['baseline', 'idle', 'entry storm']) {

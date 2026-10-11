@@ -2,13 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { performance } from 'node:perf_hooks'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 
 for (const side of [-1, 1]) for (const kind of ['box', 'ball']) {
   test(`holding Down beside a floating ${kind} blocking the ${side < 0 ? 'right' : 'left'} bank stays responsive and retries when clear`, () => {
     const edge = side > 0 ? 640 : 1160
-    const run = createRun({ ...blankTrial(), spawn: { x: edge + side * 14, y: 360 },
+    const run = createRun({ ...blankTrial(), entrance: { x: edge + side * 14, y: 360 },
       platforms: [{ x: side > 0 ? edge : 0, y: 360, w: 1160, h: 560 }],
       props: [{ kind, x: edge - side * 40, y: 440, size: 80 }],
       goal: { id: 'closed', x: 1600, y: 920, power: 'switched' },

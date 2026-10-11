@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, createPreviewRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, createPreviewRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { robotSensesPlayer } from '../src/games/jumping/robotPhysics.ts'
 import { ballShape, boxShape } from '../src/games/jumping/propGeometry.ts'
@@ -37,7 +37,7 @@ test('sight only detects players ahead of the current facing in every phase', ()
 for (const facing of [-1, 1]) for (const phase of ['patrol', 'chase', 'windup', 'charge']) {
   test(`a player behind a ${phase} bot cannot redirect it (${facing})`, () => {
     const level = blankTrial()
-    level.spawn = { x: 900 - facing * 200, y: 920 }
+    level.entrance = { x: 900 - facing * 200, y: 920 }
     level.robots = [{ x: 900, y: 920, left: 100, right: 1700 }]
     const run = createRun(level), r = run.robots[0]
     run.started = true; Object.assign(r, { facing, phase, time: .1 })
@@ -51,7 +51,7 @@ for (const facing of [-1, 1]) for (const phase of ['patrol', 'chase', 'windup', 
 
 test('turning toward the player reacquires sight and returning behind it loses sight', () => {
   const level = blankTrial()
-  level.spawn = { x: 1200, y: 920 }
+  level.entrance = { x: 1200, y: 920 }
   level.robots = [{ x: 900, y: 920, left: 100, right: 1700 }]
   const run = createRun(level), r = run.robots[0]; run.started = true
   stepRun(run, NEUTRAL_INPUT)
@@ -97,7 +97,7 @@ test('range and bounds reject irrelevant geometry before testing polygon edges',
 })
 
 function gateLevel() {
-  return { ...blankTrial(), spawn: { x: 400, y: 920 },
+  return { ...blankTrial(), entrance: { x: 400, y: 920 },
     robots: [{ x: 1000, y: 920, left: 100, right: 1600 }],
     mechanisms: [{ id: 'cover', kind: 'gate', x: 500, y: 700, w: 40, h: 220, travel: 300 }] }
 }
@@ -140,7 +140,7 @@ test('the initial game and editor preview agree, and wall decorations do not con
 })
 
 test('an unobstructed bot still winds up and charges', () => {
-  const level = gateLevel(); level.mechanisms = []; level.spawn.x = 900
+  const level = gateLevel(); level.mechanisms = []; level.entrance.x = 900
   const run = createRun(level); run.started = true
   stepRun(run, NEUTRAL_INPUT)
   assert.equal(run.robots[0].phase, 'windup')

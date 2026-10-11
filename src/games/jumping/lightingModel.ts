@@ -11,7 +11,8 @@ import { levelHeight } from './level.ts'
 import { resolveSwitchStates } from './switchPower.ts'
 import type { JumpLevel } from './level.ts'
 import { athleteCasters } from './athleteShadow.ts'
-import { goalEase } from './goal.ts'
+import { entranceVisibility, goalEase } from './goal.ts'
+import type { EntranceAnimation } from './goal.ts'
 import { terrainBoundary, terrainShadowsPoint } from './lightingBoundary.ts'
 import type { TerrainEdge } from './lightingBoundary.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
@@ -22,8 +23,8 @@ import type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
 export type { LevelLight, LightingDefinition } from './lightingDefinition.ts'
 export interface LightSource extends LevelLight { fade: number; robot?: number }
 export type CasterGroup = readonly Platform[] & { opacity?: number; player?: true; mechanism?: true; boundary?: readonly TerrainEdge[] }
-export type LightingWorld = Run | { level: JumpLevel; player: Player; props: []; mechanisms: []; robots: []; triggers: []; empRemaining: number; exit: null }
-export const playgroundLightingWorld = (level: JumpLevel, player: Player): LightingWorld => ({ level, player, props: [], mechanisms: [], robots: [], triggers: [], empRemaining: 0, exit: null })
+export type LightingWorld = Run | { level: JumpLevel; player: Player; props: []; mechanisms: []; robots: []; triggers: []; empRemaining: number; entrance: EntranceAnimation | null; exit: null }
+export const playgroundLightingWorld = (level: JumpLevel, player: Player, entrance: EntranceAnimation | null = null): LightingWorld => ({ level, player, props: [], mechanisms: [], robots: [], triggers: [], empRemaining: 0, entrance, exit: null })
 export const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 const smooth = (n: number) => { const t = clamp01(n); return t * t * (3 - 2 * t) }
 // A narrow angular feather near the source, capped in world units farther away.
@@ -135,11 +136,12 @@ function roundedCaster(rect: Platform, radius: number | CornerRadii): Platform {
 }
 export function dynamicCasters(run: LightingWorld, objectShadows = true): CasterGroup[] {
   const corners = mechanismCornerRadii(run)
-  const opacity = run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
+  const entrance = 'entrance' in run ? run.entrance : null
+  const opacity = entrance ? entranceVisibility(entrance.elapsed) : run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
   return [...(objectShadows ? run.props.map(prop => [prop.kind === 'ball' ? ballShape(prop) : roundedCaster(boxShape(prop), 2)]) : []),
     ...run.mechanisms.map((m, i) => Object.assign([roundedCaster({ x: m.x, y: m.y, w: m.definition.w, h: m.definition.h }, corners[i])], { mechanism: true as const })),
     ...(objectShadows ? run.robots.map(robot => robotPlatforms(robot).map((shape, i) => i === 0 ? roundedCaster(shape, 4) : shape)) : []),
-    ...(objectShadows && opacity > 0 ? [Object.assign(athleteCasters(run.player), { player: true as const, opacity })] : [])]
+    ...(objectShadows && opacity > 0 ? [Object.assign(athleteCasters(entrance?.player ?? run.player), { player: true as const, opacity })] : [])]
 }
 export class LightingState {
   private fades = new Map<string, number>()

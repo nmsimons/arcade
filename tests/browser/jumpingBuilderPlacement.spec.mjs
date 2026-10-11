@@ -82,7 +82,7 @@ async function outside(page) {
 function slopeLevel(slope) {
   const rise = Math.abs(slope) * 200
   return { ...blankTrial(), name: 'Bot placement', width: 1200, height: 1200, floor: 1200,
-    spawn: { x: 1100, y: 1200 }, goal: { x: 1040, y: 1200 },
+    entrance: { x: 1100, y: 1200 }, goal: { x: 1040, y: 1200 },
     platforms: [{ x: 300, y: 700 - rise / 2, w: 200, h: rise + 20,
       polygon: slope > 0 ? [[0, 0], [200, rise], [200, rise + 20], [0, 20]]
         : [[0, rise], [200, 0], [200, 20], [0, rise + 20]] }] }
@@ -194,7 +194,7 @@ for (const mode of ['Snap', 'Snap off', 'Alt']) test(`objects stay at the cursor
 })
 
 test('20-unit snapping matches previews, placement, nudges and fields, with 5 units still available', async ({ page }, info) => {
-  const level = blankTrial(); level.height = level.floor = level.spawn.y = level.goal.y = 937
+  const level = blankTrial(); level.height = level.floor = level.entrance.y = level.goal.y = 937
   await open(page, level)
   const grid = page.getByRole('combobox', { name: 'Snap grid', exact: true })
   await expect(grid).toHaveAttribute('data-value', '5')

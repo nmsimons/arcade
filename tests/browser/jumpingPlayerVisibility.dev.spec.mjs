@@ -22,7 +22,7 @@ for (const backend of ['canvas', 'gpu']) for (const kind of ['ladder', 'water'])
       }
       const before = JSON.stringify(run.player), zoom = .6, width = 852, height = 393
       const view = { x: run.player.x - width / zoom / 2, y: run.player.y - 200 / zoom, width, height, zoom }
-      const definition = { nightMode: true, ambient: 0, lights: [{ id: 'off-to-side', x: data.spawn.x + 300, y: Math.max(40, data.spawn.y - 320), direction: 90, spread: 100, power: 'always' }] }
+      const definition = { nightMode: true, ambient: 0, lights: [{ id: 'off-to-side', x: data.entrance.x + 300, y: Math.max(40, data.entrance.y - 320), direction: 90, spread: 100, power: 'always' }] }
       const renderer = new LightingRenderer({ backend }), canvas = document.createElement('canvas')
       canvas.width = width; canvas.height = height
       const ctx = canvas.getContext('2d', { willReadFrequently: true })

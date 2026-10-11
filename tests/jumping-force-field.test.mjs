@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, createPreviewRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, createPreviewRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 import { addItem, hitItem, itemBounds, resizeItem, moveItem, deleteItem, setObjectPower, setObjectSwitchReversed, resizeLevelHeight } from '../src/games/jumping/editor.ts'
@@ -15,13 +15,13 @@ const field = (orientation = 'vertical', changes = {}) => ({ id: 'barrier', x: 5
 const pick = (index = 0) => ({ kind: 'force-field', index })
 function fixture(orientation = 'vertical', changes = {}) {
   return { ...blankTrial(), id: 'force-field-test', width: 1200, height: 600, floor: 600,
-    spawn: { x: 300, y: 600 }, goal: { x: 1000, y: 600 }, forceFields: [field(orientation, changes)] }
+    entrance: { x: 300, y: 600 }, goal: { x: 1000, y: 600 }, forceFields: [field(orientation, changes)] }
 }
 const step = (run, count, input = NEUTRAL_INPUT) => { for (let i = 0; i < count; i++) stepRun(run, input) }
 const close = (a, b, tolerance = .02) => assert.ok(Math.abs(a - b) < tolerance, `${a} != ${b}`)
 
 for (const direction of [-1, 1]) test(`vertical field blocks a running player from direction ${direction} without blocking free objects`, () => {
-  const level = fixture(); level.spawn.x = direction > 0 ? 300 : 700
+  const level = fixture(); level.entrance.x = direction > 0 ? 300 : 700
   level.props = ['box', 'ball'].map((kind, i) => ({ kind, x: direction > 0 ? 360 : 660, y: 220 + i * 110, size: 50 }))
   const run = createRun(level); run.started = true
   for (const p of run.props) { p.vx = direction * 650; p.vy = -80 }
@@ -66,7 +66,7 @@ test('fast player sweeps cannot tunnel through either field orientation', () => 
 
 test('a switched field waits for an overlapping player to leave, then blocks; EMP disables and safely restores it', () => {
   const level = fixture('vertical', { power: 'switched', switchReversed: true })
-  level.spawn.x = 506
+  level.entrance.x = 506
   const run = createRun(level); run.started = true
   assert.equal(run.forceFields[0].active, false); assert.equal(run.forceFields[0].pending, true)
   step(run, 40, { ...NEUTRAL_INPUT, move: 1 })
@@ -94,7 +94,7 @@ test('fields do not obstruct rope particles, shovebot navigation, or cast shadow
   level.climbables.ropes = [{ x: 250, y: 120, length: 420, segments: 53 }]
   level.forceFields.push(field('vertical', { id: 'v', x: 500, y: 0, h: 600 }))
   level.robots = [{ x: 370, y: 600, left: 300, right: 850 }]
-  level.spawn.x = 900
+  level.entrance.x = 900
   const run = createRun(level); run.started = true
   step(run, 240)
   assert.ok(run.player.ropes[0].nodes.at(-1).y > 500)
@@ -103,13 +103,13 @@ test('fields do not obstruct rope particles, shovebot navigation, or cast shadow
 })
 
 test('moving supports and charging bots cannot carry or push the player through a field', () => {
-  const level = fixture('vertical', { x: 480, y: 0, h: 600 }); level.spawn.x = 400
+  const level = fixture('vertical', { x: 480, y: 0, h: 600 }); level.entrance.x = 400
   level.mechanisms = [{ id: 'lift', kind: 'lift', orientation: 'horizontal', flipX: true, x: 340, y: 540, w: 140, h: 20, travel: 300, power: 'always' }]
-  level.spawn.y = 540
+  level.entrance.y = 540
   const run = createRun(level); run.started = true; step(run, 180)
   assert.ok(run.player.x <= 468.01); assert.equal(bodyIntersects(run.player.x, run.player.y, run.forceFields[0].platform), false)
   assert.ok(run.mechanisms[0].x > 500, 'the lift itself should pass through')
-  const botLevel = fixture('vertical', { x: 500, y: 0, h: 600 }); botLevel.spawn.x = 488
+  const botLevel = fixture('vertical', { x: 500, y: 0, h: 600 }); botLevel.entrance.x = 488
   botLevel.robots = [{ x: 370, y: 600, left: 300, right: 900 }]
   const botRun = createRun(botLevel); botRun.started = true; step(botRun, 120)
   assert.ok(botRun.player.x <= 488.01); assert.equal(bodyIntersects(botRun.player.x, botRun.player.y, botRun.forceFields[0].platform), false)

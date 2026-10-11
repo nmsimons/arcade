@@ -6,7 +6,7 @@ import { installDigitalClockSpy } from './helpers/digitalClock.mjs'
 import { DIGITAL_RED } from '../../src/games/jumping/digitalDisplay.ts'
 
 const level = () => ({ ...blankTrial(), id: 'time-penalty-browser-test', name: 'Bad timing', width: 1200, height: 600, floor: 600,
-  spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
+  entrance: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
   pickups: [{ kind: 'time-penalty', seconds: 5, x: 360, y: 568 }, { kind: 'fast-stopwatch', x: 640, y: 568 }] })
 async function open(page, editor = false) {
   const fixture = level()

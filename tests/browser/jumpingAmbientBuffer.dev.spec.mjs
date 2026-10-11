@@ -7,7 +7,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: daylight ambient corr
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
       import('/src/games/jumping/lightingRender.ts'), import('/src/games/jumping/challenge.ts'), import('/src/games/jumping/level.ts'),
     ])
-    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, spawn: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
+    const level = { ...blankTrial(), width: 1200, height: 600, floor: 500, entrance: { x: 650, y: 500 }, goal: { x: 100, y: 500 },
       platforms: [{ x: 400, y: 200, w: 200, h: 300 }],
       props: [{ kind: 'box', x: 615, y: 500, size: 30 }, { kind: 'ball', x: 668, y: 500, size: 30 }],
       robots: [{ x: 710, y: 500, left: 300, right: 1000 }] }

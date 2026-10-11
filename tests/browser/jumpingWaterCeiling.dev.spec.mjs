@@ -15,7 +15,7 @@ test('upward swimming meets undersides and releases smoothly around their edges'
       const platform = { x: 600, y: 500, w: 180, h: kind === 'One terrain block' ? 400 : 50 }
       if (kind === 'One terrain block') platform.polygon = [[0, 0], [180, 0], [180, 50], [20, 50], [20, 400], [0, 400]]
       const prop = kind === 'Box' || kind === 'Ball'
-      const run = createRun({ ...blankTrial(), spawn: { x: 700, y: 750 },
+      const run = createRun({ ...blankTrial(), entrance: { x: 700, y: 750 },
         platforms: prop ? [] : [platform], props: prop ? [{ kind: kind.toLowerCase(), x: 700, y: 340, size: 80 }] : [],
         goal: { id: 'closed', x: 1500, y: 920, power: 'switched' },
         gravityPlates: [{ id: 'w', x: 0, y: 300, w: 1800, h: 700, effect: 'water', power: 'always' }] })

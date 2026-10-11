@@ -69,7 +69,7 @@ for (const device of ['keyboard', 'stick']) for (const direction of [-1, 1]) {
 for (const direction of [-1, 1]) for (const uphill of [0, .05]) {
   test(`running leaves an outward bank at full speed, direction ${direction}, uphill ${uphill}`, async ({ page }, info) => {
     const level = outwardBankLevel(direction, 20, uphill), edgeX = direction > 0 ? 660 : 1140
-    level.gravityPlates = []; level.spawn = { x: edgeX + direction * 150, y: 380 - 150 * uphill }
+    level.gravityPlates = []; level.entrance = { x: edgeX + direction * 150, y: 380 - 150 * uphill }
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-10-10T12:00:00Z') })

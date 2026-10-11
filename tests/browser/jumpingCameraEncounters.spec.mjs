@@ -22,15 +22,15 @@ function encounter(kind, night) {
     level = proneDropLevel('moving gate', 1)
     Object.assign(level.mechanisms[0], { y: 950, h: 800, travel: 800 })
   } else level = { ...blankTrial(), width: 2400, height: 1200, floor: 1000,
-    spawn: { x: 260, y: 650 }, goal: { x: 2100, y: 1000 },
+    entrance: { x: 260, y: 650 }, goal: { x: 2100, y: 1000 },
     platforms: [{ x: 0, y: 650, w: 320, h: 350 }],
     props: [{ kind: 'box', x: 530, y: 650, size: 80 }],
     mechanisms: [{ id: 'carrier', kind: 'lift', x: 320, y: 650, w: 400, h: 20,
       travel: 1200, orientation: 'horizontal', flipX: true, power: 'always' }] }
   // Variants are isolated regression maps; never overwrite the authored files.
   return { ...level, version: 2, lighting: { nightMode: night, ambient: 0,
-    lights: [{ id: 'camera-encounter-lamp', x: Math.min(level.width - 40, level.spawn.x + 300),
-      y: Math.max(40, level.spawn.y - 320), direction: 90, spread: 100, power: 'always' }] } }
+    lights: [{ id: 'camera-encounter-lamp', x: Math.min(level.width - 40, level.entrance.x + 300),
+      y: Math.max(40, level.entrance.y - 320), direction: 90, spread: 100, power: 'always' }] } }
 }
 
 async function open(page, level, size) {

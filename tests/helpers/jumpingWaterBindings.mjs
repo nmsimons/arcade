@@ -6,24 +6,24 @@ import { STEP } from '../../src/games/jumping/model.ts'
 /** Parsed regression maps only; these never alter a built-in/local collection. */
 export function waterBindingLevel(kind = 'clear', direction = 1) {
   const level = { ...blankTrial(), id: `water-bindings-${kind}-${direction}`, name: `Water ${kind} ${direction}`,
-    spawn: { x: 500, y: 920 }, platforms: [], props: [],
+    entrance: { x: 500, y: 920 }, platforms: [], props: [],
     goal: { id: 'exit', x: 1500, y: 920, power: 'switched' },
     gravityPlates: [{ id: 'water', x: 200, y: 400, w: 1000, h: 520, gravity: -1, effect: 'water', power: 'always' }] }
   if (kind === 'float') level.props = [{ kind: 'box', x: 560, y: 920, size: 80 }]
   if (kind === 'grip') {
-    level.spawn.x = 516
+    level.entrance.x = 516
     level.props = [{ kind: 'box', x: 570, y: 430, size: 80 }]
     // Both base contacts support the stable crate. The inset plinth cannot be
     // mistaken for the crate's higher lip when the swimmer reaches from below.
     level.platforms = [{ x: 536, y: 430, w: 68, h: 490 }]
   }
   if (kind === 'bank') {
-    level.spawn.x = 610; level.goal.x = 400
+    level.entrance.x = 610; level.goal.x = 400
     level.platforms = [{ x: 640, y: 380, w: 1160, h: 540 }]
     level.gravityPlates[0].w = 440
   }
   if (direction < 0) {
-    level.spawn.x = level.width - level.spawn.x; level.goal.x = level.width - level.goal.x
+    level.entrance.x = level.width - level.entrance.x; level.goal.x = level.width - level.goal.x
     level.props = level.props.map(p => ({ ...p, x: level.width - p.x }))
     level.platforms = level.platforms.map(p => ({ ...p, x: level.width - p.x - p.w }))
     level.gravityPlates = level.gravityPlates.map(p => ({ ...p, x: level.width - p.x - p.w }))

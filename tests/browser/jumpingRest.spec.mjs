@@ -4,7 +4,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 
 for (const key of ['a', 'd']) test(`quiet keyboard ${key} movement settles into the ready stance, including crouch and restart`, async ({ page }, info) => {
   test.setTimeout(60000)
-  const level = { ...blankTrial(), height: 600, floor: 500, spawn: { x: 800, y: 500 }, goal: { x: 1620, y: 500 } }
+  const level = { ...blankTrial(), height: 600, floor: 500, entrance: { x: 800, y: 500 }, goal: { x: 1620, y: 500 } }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game?motionDebug=1')

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, formatTime, readBest, saveBest, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, formatTime, readBest, saveBest, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial, levelProblems, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, allSelections, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, resizeLevelHeight } from '../src/games/jumping/editor.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
@@ -15,12 +15,12 @@ test('touching a stopwatch stops the clock once; start pickups keep their durati
   const level = blankTrial(); level.pickups = [stopwatch(160, 888), stopwatch(320, 888)]
   const run = createRun(level)
   step(run, 1)
-  assert.equal(run.elapsed, 0); assert.equal(run.started, false); assert.equal(run.timeStopRemaining, 10)
+  assert.equal(run.elapsed, STEP); assert.equal(run.started, true); assert.equal(run.timeStopRemaining, 10)
   assert.equal(run.pickups[0].collectedAge, 0); assert.equal(run.pickups[1].collectedAge, null)
   step(run, 120)
-  assert.equal(run.elapsed, 0); assert.equal(run.timeStopRemaining, 10); assert.equal(run.pickups[0].collectedAge, PICKUP_ANIMATION_SECONDS)
+  assert.equal(run.elapsed, STEP); assert.ok(Math.abs(run.timeStopRemaining - 9) < 1e-9); assert.equal(run.pickups[0].collectedAge, PICKUP_ANIMATION_SECONDS)
   step(run, 120, { ...NEUTRAL_INPUT, move: 1 })
-  assert.equal(run.elapsed, 0); assert.ok(Math.abs(run.timeStopRemaining - 19) < 1e-9)
+  assert.equal(run.elapsed, STEP); assert.ok(Math.abs(run.timeStopRemaining - 18) < 1e-9)
   assert.ok(run.pickups.every(p => p.collectedAge === PICKUP_ANIMATION_SECONDS))
   assert.deepEqual(level.pickups, [stopwatch(160, 888), stopwatch(320, 888)], 'collecting never changes the authored file')
   const reset = createRun(run.level)
@@ -32,10 +32,10 @@ test('the clock resumes after exactly ten gameplay seconds, including a partial 
   const run = createRun(level); step(run, 1)
   const input = { ...NEUTRAL_INPUT, climb: true }
   step(run, 1200, input)
-  assert.ok(Math.abs(run.elapsed) < 1e-9)
+  assert.ok(Math.abs(run.elapsed - STEP) < 1e-9)
   assert.ok(run.timeStopRemaining < 1e-9)
   step(run, 120, input)
-  assert.ok(Math.abs(run.elapsed - 1) < 1e-9)
+  assert.ok(Math.abs(run.elapsed - 1 - STEP) < 1e-9)
   assert.equal(run.timeStopRemaining, 0)
   run.timeStopRemaining = STEP / 2; run.elapsed = 4
   step(run, 1, input)
@@ -46,11 +46,11 @@ test('the clock resumes after exactly ten gameplay seconds, including a partial 
 test('overlapping stopwatches each grant ten seconds and cannot be collected twice', () => {
   const level = blankTrial(); level.pickups = [stopwatch(160, 888), stopwatch(165, 888)]
   const run = createRun(level); step(run, 1)
-  assert.equal(run.timeStopRemaining, 20); assert.equal(run.elapsed, 0)
+  assert.equal(run.timeStopRemaining, 20); assert.equal(run.elapsed, STEP)
   step(run, 2400, { ...NEUTRAL_INPUT, climb: true })
-  assert.ok(run.timeStopRemaining < 1e-9); assert.ok(run.elapsed < 1e-9)
+  assert.ok(run.timeStopRemaining < 1e-9); assert.ok(Math.abs(run.elapsed - STEP) < 1e-9)
   step(run, 120)
-  assert.ok(Math.abs(run.elapsed - 1) < 1e-9)
+  assert.ok(Math.abs(run.elapsed - 1 - STEP) < 1e-9)
 })
 
 test('pickup contact is local to the player, includes the crown, and ignores nearby props', () => {
@@ -59,7 +59,7 @@ test('pickup contact is local to the player, includes the crown, and ignores nea
   level.props = [{ kind: 'ball', x: 700, y: 920, size: 80 }]
   const run = createRun(level); step(run, 1)
   assert.deepEqual(run.pickups.map(p => p.collectedAge !== null), [false, false, true, false])
-  assert.equal(run.elapsed, 0); assert.equal(run.timeStopRemaining, 10)
+  assert.equal(run.elapsed, STEP); assert.equal(run.timeStopRemaining, 10)
 })
 
 test('collecting changes only scoring and pickup state, with identical movement, props and robot behavior', () => {

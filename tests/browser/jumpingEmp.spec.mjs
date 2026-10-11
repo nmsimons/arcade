@@ -3,7 +3,7 @@ import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
 import { selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = () => ({ ...blankTrial(), id: 'emp-browser-test', name: 'Power cut', width: 1200, height: 600, floor: 600,
-  spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
+  entrance: { x: 160, y: 600 }, goal: { x: 1040, y: 600 }, timers: [{ x: 80, y: 420 }],
   pickups: [{ kind: 'emp', x: 360, y: 568 }, { kind: 'coin', x: 420, y: 568 }],
   mechanisms: [
     { id: 'gate', kind: 'gate', x: 1000, y: 420, w: 20, h: 180, travel: 180 },

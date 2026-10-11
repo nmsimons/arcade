@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial, parseLevel, levelProblems } from '../src/games/jumping/level.ts'
-import { createRun, createPreviewRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, createPreviewRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { createFloatSwitch, floatBallCenter, floatSwitchBounds, updateFloatSwitch } from '../src/games/jumping/floatSwitch.ts'
 import { resolveSwitchStates, switchSources } from '../src/games/jumping/switchPower.ts'

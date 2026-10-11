@@ -6,13 +6,13 @@
       "reason": "Added after the October 4 medal audit; a fresh-start medal route has not yet been recorded."
     },
     {
-      "file": "Untitled 2.jump-level.json",
+      "file": "LAB2.jump-level.json",
       "reason": "New authored level; its 13 / 20 / 30 medal targets have not yet been verified by a recorded fresh-start route."
     }
   ],
   "runs": [
     {
-      "file": "Untitled.jump-level.json",
+      "file": "LAB1.jump-level.json",
       "jumpModel": "tap-hold",
       "elapsed": 3.791666666666656,
       "activeTime": 4.650000000000021,
@@ -3035,12 +3035,12 @@
     {
       "file": "05.json",
       "jumpModel": "tap-hold",
-      "elapsed": 8.483333333333492,
-      "activeTime": 9.341666666666777,
+      "elapsed": 9.125000000000123,
+      "activeTime": 9.983333333333407,
       "coins": 0,
       "trace": [
         {
-          "frames": 275,
+          "frames": 331,
           "input": {
             "move": 1
           }
@@ -3069,6 +3069,10 @@
           "input": {
             "move": 1
           }
+        },
+        {
+          "frames": 21,
+          "input": {}
         }
       ]
     },
@@ -3970,8 +3974,8 @@
     },
     {
       "file": "spelunk1.jump-level.json",
-      "elapsed": 50.641666666664435,
-      "activeTime": 51.49999999999772,
+      "elapsed": 51.27499999999773,
+      "activeTime": 52.13333333333102,
       "coins": 3,
       "trace": [
         {
@@ -3984,13 +3988,13 @@
           "frames": 1,
           "input": {
             "move": 1,
-            "jump": true,
+            "jump": false,
             "climb": true,
             "jumpStrength": 1
           }
         },
         {
-          "frames": 388,
+          "frames": 464,
           "input": {
             "move": 1,
             "climb": true
@@ -4570,12 +4574,22 @@
     },
     {
       "file": "rampingup.jump-level.json",
-      "elapsed": 44.91666666666476,
-      "activeTime": 45.774999999998045,
+      "elapsed": 46.683333333331326,
+      "activeTime": 47.54166666666461,
       "coins": 10,
       "trace": [
         {
-          "frames": 126,
+          "frames": 142,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 60,
+          "input": {}
+        },
+        {
+          "frames": 136,
           "input": {
             "move": -1
           }
@@ -4927,12 +4941,12 @@
     {
       "file": "buoyancy.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 30.81666666666532,
-      "activeTime": 50.674999999997766,
+      "elapsed": 30.766666666665323,
+      "activeTime": 50.62499999999777,
       "coins": 0,
       "trace": [
         {
-          "frames": 180,
+          "frames": 174,
           "input": {
             "move": 1,
             "jump": false,

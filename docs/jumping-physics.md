@@ -165,6 +165,14 @@ the real game adapter; an actual iPhone playtest is still needed to tune feel.
 
 ## Step order
 
+Levels begin through a 40-by-80 entrance door, without the exit's indicator.
+Its sill needs continuous flat terrain and an unobstructed doorway. During
+the 1.35-second entrance, a separate presentation actor emerges using the ordinary
+walking rig; clocks, props, ropes, pumps, robots and gameplay input remain frozen.
+When the door disappears, the world and clock activate automatically, including
+with neutral input. The entrance time does not count toward medals. Pause freezes
+its progress; restart reconstructs it. Static editor previews show the open entrance.
+
 1. Read pressure plates and move mechanisms, carrying supported riders.
 2. Apply shovebot actions and advance prop physics using the selected pushing
    contact. Carry riders and their foot anchors with their supporting prop.

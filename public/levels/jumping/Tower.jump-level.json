@@ -865,7 +865,7 @@
       ]
     }
   ],
-  "spawn": {
+  "entrance": {
     "x": 140,
     "y": 2000
   },
@@ -1880,6 +1880,16 @@
       "text": "6",
       "fontSize": 96,
       "align": "center"
+    },
+    {
+      "x": 455,
+      "y": 1825,
+      "w": 95,
+      "h": 40,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
     }
   ],
   "lighting": {

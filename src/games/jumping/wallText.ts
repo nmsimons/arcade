@@ -1,10 +1,11 @@
 import type { NamedObject } from './objectNames.ts'
+import { drawLabStamp } from '../../branding/lab.ts'
 /** A non-solid text area, positioned by its top-left corner in world coordinates. */
 export interface WallText extends NamedObject {
   x: number; y: number; w: number; h: number
   text: string; fontSize: number; align: 'left' | 'center' | 'right'
   rotation?: number // Clockwise degrees around the center of the text area.
-  style?: 'official' | 'graffiti'
+  style?: 'official' | 'graffiti' | 'lab-stamp'
 }
 export const WALL_TEXT_COLOR = '#718074'
 export const WALL_TEXT_FONT = 'ui-monospace, monospace'
@@ -93,6 +94,10 @@ export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
     ctx.save(); ctx.translate(text.x + text.w / 2, text.y + text.h / 2); ctx.rotate((text.rotation ?? 0) * Math.PI / 180)
     ctx.translate(-text.w / 2, -text.h / 2)
     ctx.beginPath(); ctx.rect(0, 0, text.w, text.h); ctx.clip()
+    if (text.style === 'lab-stamp') {
+      drawLabStamp(ctx, 0, 0, text.w, text.h, nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR)
+      ctx.restore(); continue
+    }
     const graffiti = text.style === 'graffiti'
     const transform = ctx.getTransform(), scale = Math.hypot(transform.c, transform.d) || 1
     const font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize * scale}px ${WALL_TEXT_FONT}`

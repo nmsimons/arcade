@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
-import { createRun, setWaterEffectsEnabled, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, setWaterEffectsEnabled, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
 import { advanceWaterSurface, createWaterSurface, disturbWaterSurface, MAX_WATER_POINTS, MAX_WAVE_HEIGHT } from '../src/games/jumping/waterSurface.ts'
@@ -135,7 +135,7 @@ test('offscreen water effects submit no drawing commands; active fills move the 
 })
 
 test('normal game integration caches geometry and observes an actual falling player entry', () => {
-  const run = createRun({ ...blankTrial(), spawn: { x: 450, y: 250 }, gravityPlates: [water()], goal: { id: 'closed', x: 1600, y: 920, power: 'switched' } })
+  const run = createRun({ ...blankTrial(), entrance: { x: 450, y: 250 }, gravityPlates: [water()], goal: { id: 'closed', x: 1600, y: 920, power: 'switched' } })
   run.started = true
   const state = run.waterSurface, outline = state.outlines
   let disturbed = false
@@ -144,7 +144,7 @@ test('normal game integration caches geometry and observes an actual falling pla
 })
 
 for (const dt of [STEP, 1 / 30]) test(`entry ripples gently lift and rock real floats, then restore their attitude at ${dt}`, () => {
-  const level = { ...blankTrial(), spawn: { x: 1500, y: 920 }, goal: { id: 'closed', x: 1600, y: 920, power: 'switched' },
+  const level = { ...blankTrial(), entrance: { x: 1500, y: 920 }, goal: { id: 'closed', x: 1600, y: 920, power: 'switched' },
     props: [{ kind: 'box', x: 500, y: 440, size: 80 }, { kind: 'ball', x: 800, y: 440, size: 80 }], gravityPlates: [water(0, 1400)] }
   const wave = createRun(level), quiet = createRun(level)
   wave.started = quiet.started = true
@@ -166,7 +166,7 @@ for (const dt of [STEP, 1 / 30]) test(`entry ripples gently lift and rock real f
 })
 
 test('a divider prevents a ripple from disturbing a float in the next pool', () => {
-  const level = { ...blankTrial(), spawn: { x: 1600, y: 920 }, goal: { id: 'closed', x: 1500, y: 920, power: 'switched' },
+  const level = { ...blankTrial(), entrance: { x: 1600, y: 920 }, goal: { id: 'closed', x: 1500, y: 920, power: 'switched' },
     platforms: [{ x: 440, y: 380, w: 30, h: 540 }], props: [{ kind: 'box', x: 500, y: 430, size: 60 }], gravityPlates: [water()] }
   const wave = createRun(level), quiet = createRun(level); wave.started = quiet.started = true
   disturbWaterSurface(wave.waterSurface, 400, 400, 800, 90)
@@ -175,7 +175,7 @@ test('a divider prevents a ripple from disturbing a float in the next pool', () 
 })
 
 test('a ripple moves a box and its rider through normal support contacts', () => {
-  const run = createRun({ ...blankTrial(), spawn: { x: 600, y: 330 }, props: [{ kind: 'box', x: 600, y: 460, size: 120 }],
+  const run = createRun({ ...blankTrial(), entrance: { x: 600, y: 330 }, props: [{ kind: 'box', x: 600, y: 460, size: 120 }],
     goal: { id: 'closed', x: 1600, y: 920, power: 'switched' }, gravityPlates: [water(0, 1400)] })
   run.started = true
   for (let i = 0; i < 1200; i++) stepRun(run, NEUTRAL_INPUT)
@@ -188,7 +188,7 @@ test('a ripple moves a box and its rider through normal support contacts', () =>
 })
 
 test('low performance mode stops all surface simulation and float reactions immediately', () => {
-  const level = { ...blankTrial(), spawn: { x: 1500, y: 920 }, goal: { id: 'closed', x: 1600, y: 920, power: 'switched' },
+  const level = { ...blankTrial(), entrance: { x: 1500, y: 920 }, goal: { id: 'closed', x: 1600, y: 920, power: 'switched' },
     props: [{ kind: 'box', x: 500, y: 440, size: 80 }], gravityPlates: [water(0, 1400)] }
   const run = createRun(level), quiet = createRun(level); run.started = quiet.started = true
   for (let i = 0; i < 1200; i++) { stepRun(run, NEUTRAL_INPUT); stepRun(quiet, NEUTRAL_INPUT) }
@@ -213,7 +213,7 @@ test('low performance mode stops all surface simulation and float reactions imme
 })
 
 test('restoring quality starts from current immersion without replaying old splashes', () => {
-  const run = createRun({ ...blankTrial(), spawn: { x: 450, y: 350 }, gravityPlates: [water()] }), state = run.waterSurface
+  const run = createRun({ ...blankTrial(), entrance: { x: 450, y: 350 }, gravityPlates: [water()] }), state = run.waterSurface
   setWaterEffectsEnabled(run, false)
   run.player.y = 700; run.player.vy = 300
   advanceWaterSurface(state, run.player, [], .9, STEP)

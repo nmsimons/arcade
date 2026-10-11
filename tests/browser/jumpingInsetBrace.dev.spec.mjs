@@ -6,7 +6,7 @@ import { levelProblems } from '../../src/games/jumping/level.ts'
 for (const side of [1, -1]) test(`ordinary movement braces on an inset wall and rolls its supporting ball (${side})`, async ({ page }, info) => {
   const level = structuredClone(readLevelAsset('inset-wall-brace.json'))
   if (side === -1) {
-    level.spawn.x = level.width - level.spawn.x
+    level.entrance.x = level.width - level.entrance.x
     level.goal = { x: level.width - level.goal.x, y: level.goal.y, flipX: true }
     level.props[0].x = level.width - level.props[0].x
     level.platforms = level.platforms.map(b => ({ ...b, x: level.width - b.x - b.w,

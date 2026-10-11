@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { blankTrial } from '../src/games/jumping/level.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { boxShape, ballShape } from '../src/games/jumping/propGeometry.ts'
@@ -10,7 +10,7 @@ import { mechanismShape } from '../src/games/jumping/mechanisms.ts'
 
 function fixture(kind, size, direction = 1, change = () => {}) {
   const level = blankTrial()
-  level.spawn = { x: 1500, y: 500 }
+  level.entrance = { x: 1500, y: 500 }
   level.platforms = [{ x: 1400, y: 500, w: 300, h: 20 }]
   level.robots = [{ x: 700, y: 920, left: 200, right: 1300 }]
   level.props = [{ kind, x: 700 + direction * (size / 2 + 70), y: 920, size }]
@@ -43,7 +43,7 @@ for (const kind of ['box', 'ball']) test(`a charging bot shoves a ${kind} with b
   // An elevated player ahead stays visible above the cargo until the bot passes.
   // Concealed or rear targets cancel aggression and cannot test charge forces.
   const run = fixture(kind, 80, 1, level => {
-    level.spawn = { x: 810, y: 700 }
+    level.entrance = { x: 810, y: 700 }
     level.platforms = [{ x: 810, y: 700, w: 200, h: 20 }]
   }), start = run.props[0].x
   run.robots[0].phase = 'charge'

@@ -3,7 +3,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 import { selectBuilderOption, selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 const level = (orientation = 'horizontal') => ({ ...blankTrial(), id: 'coins-browser-test', name: 'Coin collection', width: 1200, height: 600, floor: 600,
-  spawn: { x: 160, y: 600 }, goal: { x: 1040, y: 600 },
+  entrance: { x: 160, y: 600 }, goal: { x: 1040, y: 600 },
   pickups: [300, 500, 700].map(x => ({ kind: 'coin', x, y: 568 })),
   triggers: [{ mode: 'coins', x: 360, y: 320, ...(orientation === 'vertical' ? { orientation, w: 20, h: 200 } : { w: 200 }), threshold: 3, targets: ['gate'] }],
   mechanisms: [{ id: 'gate', kind: 'gate', x: 820, y: 420, w: 20, h: 180, travel: 180 }] })

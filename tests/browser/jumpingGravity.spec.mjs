@@ -4,7 +4,7 @@ import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilder
 
 function fixture(power = 'always') {
   return { ...blankTrial(), id: 'gravity-browser-test', name: 'Gravity workshop', width: 1200, height: 600, floor: 600,
-    spawn: { x: 300, y: 600 }, goal: { x: 1040, y: 600 },
+    entrance: { x: 300, y: 600 }, goal: { x: 1040, y: 600 },
     props: [{ kind: 'box', x: 160, y: 600, size: 60 }, { kind: 'ball', x: 230, y: 600, size: 60 }],
     gravityPlates: [{ id: 'gravity', x: 120, y: 0, w: 580, h: 600, gravity: -1, power }],
     triggers: power === 'switched' ? [{ x: 260, y: 600, w: 100, mode: 'weight', behavior: 'switch', targets: ['gravity'] }] : [] }
@@ -72,7 +72,7 @@ test('normal controls reach and release a flipped ceiling pressure plate in a ce
 })
 
 for (const night of [false, true]) test(`small weak-gravity fields have visible moving dust in ${night ? 'night' : 'day'} rooms`, async ({ page }, info) => {
-  const level = fixture(); level.props = []; level.spawn.x = 200
+  const level = fixture(); level.props = []; level.entrance.x = 200
   level.gravityPlates[0] = { ...level.gravityPlates[0], w: 160, y: 280, h: 320, gravity: -.2 }
   if (night) { level.version = 2; level.lighting = { nightMode: true, ambient: 0, lights: [] } }
   await open(page, 'always', level)

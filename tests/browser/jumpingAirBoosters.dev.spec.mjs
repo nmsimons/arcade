@@ -5,7 +5,7 @@ import { blankTrial } from '../../src/games/jumping/level.ts'
 for (const night of [false, true]) test(`subtle foot jets follow normal jump, steering and braking controls in ${night ? 'darkness' : 'daylight'}`, async ({ page }, info) => {
   test.setTimeout(60000)
   const level = { ...blankTrial(), name: 'Booster check', width: 3000, height: 1200, floor: 1000,
-    spawn: { x: 600, y: 1000 }, goal: { x: 2800, y: 1000 } }
+    entrance: { x: 600, y: 1000 }, goal: { x: 2800, y: 1000 } }
   if (night) { level.version = 2; level.lighting = { nightMode: true, ambient: 0, lights: [] } }
   await useLevelFixtures(page, [level])
   await page.addInitScript(() => {

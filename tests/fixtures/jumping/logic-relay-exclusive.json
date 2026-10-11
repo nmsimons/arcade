@@ -5,7 +5,7 @@
   "width": 1800,
   "height": 920,
   "floor": 920,
-  "spawn": { "x": 160, "y": 920 },
+  "entrance": { "x": 160, "y": 920 },
   "goal": { "x": 1620, "y": 920 },
   "times": { "gold": 10, "silver": 20, "bronze": 40 },
   "platforms": [],

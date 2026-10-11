@@ -1,7 +1,7 @@
 import { CAMPAIGN, FIRST_LEVEL, YARD_LEVEL, createPlayer, stepPlayer } from './helpers/jumping-fixtures.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, formatTime, medalFor, readBest, saveBest, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { levelProblems, levelTerrain, parseLevel } from '../src/games/jumping/level.ts'
@@ -26,7 +26,7 @@ test('a running jump cannot skip either rope lesson', () => {
     while (p.x < 535) advance(run, 1, { move: 1 })
     advance(run, 24, { move: 1, jump: true })
     advance(run, 180, { move: 1 }); assert.equal(run.finished, false)
-    assert.ok(p.y > level.spawn.y + 100)
+    assert.ok(p.y > level.entrance.y + 100)
   }
 })
 test('a missed jump lands on the floor, and the ladder returns to the left bank', () => {
@@ -36,9 +36,9 @@ test('a missed jump lands on the floor, and the ladder returns to the left bank'
   advance(run, 800, { climb: true }); assert.equal(p.y, 520); assert.ok(p.x < 560)
   assert.ok(run.elapsed > 6); assert.equal(run.player.spawnX, 170)
 })
-test('all actors wait for the first input and restarting reconstructs the entire puzzle', () => {
+test('idle play runs automatically after entry and restarting reconstructs the entire puzzle', () => {
   const run = createRun(YARD_LEVEL), fresh = createRun(YARD_LEVEL)
-  advance(run, 1000); assert.deepEqual(run, fresh)
+  advance(run, 1000); assert.equal(run.started, true); assert.ok(run.elapsed > 8)
   let pressed = false
   for (let i = 0; i < 360; i++) { advance(run, 1, { move: 1 }); pressed ||= run.triggers[0].active }
   assert.equal(pressed, true); advance(run, 120, { move: -1 }); assert.ok(run.elapsed > 2.9)
@@ -72,7 +72,7 @@ test('elevators carry the player and reverse above them without crushing or trap
 })
 
 test('a thin gate rises while pressed and closes on release without crushing a player underneath', () => {
-  const level = blankTrial(); level.spawn.x = 500
+  const level = blankTrial(); level.entrance.x = 500
   level.mechanisms = [{ id: 'gate', kind: 'gate', x: 600, y: 740, w: 20, h: 180, travel: 220 }]
   level.triggers = [{ x: 300, y: 920, w: 80, target: 'gate', mode: 'touch' }]
   const run = createRun(level), gate = run.mechanisms[0], anchor = mechanismAnchor(gate.definition)
@@ -132,7 +132,7 @@ test('an elevator pauses on plate release and resumes its direction on pressure 
 })
 
 test('one plate powers several mechanisms and shared connections remain active until every plate releases', () => {
-  const level = blankTrial(); level.spawn.x = 340
+  const level = blankTrial(); level.entrance.x = 340
   level.mechanisms = [
     { id: 'gate', kind: 'gate', x: 1000, y: 740, w: 20, h: 180, travel: 180 },
     { id: 'lift', kind: 'lift', x: 700, y: 900, w: 160, h: 20, travel: 300 },
@@ -171,7 +171,7 @@ test('the player or either of two weighted plates can keep a gate open', () => {
 })
 
 for (const mode of ['weight', 'touch']) for (const kind of ['gate', 'lift']) test(`the player alone activates a ${mode} plate for a ${kind}, and leaving releases it`, () => {
-  const level = blankTrial(); level.spawn.x = 340
+  const level = blankTrial(); level.entrance.x = 340
   level.mechanisms = [{ id: 'mechanism', kind, x: 700, y: 740, w: kind === 'gate' ? 20 : 160, h: kind === 'gate' ? 180 : 20, travel: 220 }]
   level.triggers = [{ x: 300, y: 920, w: 80, target: 'mechanism', mode }]
   const run = createRun(level), mechanism = run.mechanisms[0]
@@ -282,7 +282,7 @@ for (const kind of ['box', 'ball']) test(`a ${kind} can switch an exit remotely 
   level.triggers = [{ x: 772, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
   level.props = [{ kind, x: 800, y: 920, size: 80 }]
   const run = createRun(level)
-  advance(run, 100); assert.equal(run.goalLit, false, 'the puzzle still waits for first input')
+  advance(run, 100); assert.equal(run.goalLit, true, 'the cargo activates the exit without player input')
   advance(run, 20, { move: -1 })
   assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null); assert.ok(run.player.x < 200)
   const time = run.elapsed, player = structuredClone(run.player)

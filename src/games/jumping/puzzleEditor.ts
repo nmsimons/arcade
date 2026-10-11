@@ -11,7 +11,7 @@ export function asTrial(level: JumpLevel): PuzzleLevel {
   const floor = Math.min(2800, Math.max(920, ...level.platforms.map(b => b.y + b.h)))
   const defaults = blankTrial()
   return { ...defaults, ...copyLevel(level), height: Math.max(floor + 120, level.height ?? 1040), floor,
-    goal: snapToGround(level, level.width - 160, level.spawn.y), times: defaults.times, props: [], mechanisms: [], triggers: [], robots: [] }
+    goal: snapToGround(level, level.width - 160, level.entrance.y), times: defaults.times, props: [], mechanisms: [], triggers: [], robots: [] }
 }
 export function copyForEditing(level: JumpLevel): JumpLevel {
   const next = { ...copyLevel(level), id: newLevelId(), name: `${level.name.slice(0, 73)} — copy` }

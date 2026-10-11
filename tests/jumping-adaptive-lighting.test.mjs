@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { AdaptiveLighting } from '../src/games/jumping/adaptiveLighting.ts'
 import { dynamicCasters } from '../src/games/jumping/lightingModel.ts'
-import { createRun } from '../src/games/jumping/challenge.ts'
+import { createRun } from './helpers/jumping-active-run.mjs'
 import { JSON_LAB } from './helpers/jumping-fixtures.mjs'
 
 function frames(adaptive, hz, seconds, start = 0) {

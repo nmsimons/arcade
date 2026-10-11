@@ -7,7 +7,7 @@ test.setTimeout(90000)
 test.use({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chromium' })
 
 const fixture = () => ({ ...blankTrial(), id: 'water-browser', name: 'Water workshop',
-  spawn: { x: 500, y: 920 }, goal: { id: 'exit', x: 1500, y: 920, power: 'switched' },
+  entrance: { x: 500, y: 920 }, goal: { id: 'exit', x: 1500, y: 920, power: 'switched' },
   props: [{ kind: 'box', x: 350, y: 920, size: 80 }, { kind: 'ball', x: 750, y: 920, size: 80 }],
   gravityPlates: [{ id: 'water', x: 200, y: 400, w: 1000, h: 520, gravity: -1, effect: 'water', power: 'always' }] })
 
@@ -123,7 +123,7 @@ test('normal controls settle the player and props in translucent water and allow
 
 for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${side > 0 ? 'right' : 'left'} bank with normal controls`, async ({ page }, info) => {
   const level = fixture(), edge = side > 0 ? 640 : 1160, ballX = edge - side * 20
-  level.spawn = { x: edge - side * 14, y: 920 }
+  level.entrance = { x: edge - side * 14, y: 920 }
   level.goal = { ...level.goal, x: side > 0 ? 120 : 1500 }
   level.platforms = [{ x: side > 0 ? edge : 0, y: 380, w: 1160, h: 540 }]
   level.props = [{ kind: 'ball', x: ballX, y: 420, size: 40 }]
@@ -156,7 +156,7 @@ for (const side of [-1, 1]) test(`floating Up beneath a small ball clears the ${
 
 for (const side of [-1, 1]) test(`holding Down at the ${side > 0 ? 'left' : 'right'} bank beside a floating ball stays responsive`, async ({ page }, info) => {
   const level = fixture(), edge = side > 0 ? 640 : 1160
-  level.spawn = { x: edge + side * 14, y: 360 }
+  level.entrance = { x: edge + side * 14, y: 360 }
   level.goal = { ...level.goal, x: side > 0 ? 120 : 1500 }
   level.platforms = [{ x: side > 0 ? edge : 0, y: 360, w: 1160, h: 560 }]
   level.props = [{ kind: 'ball', x: edge - side * 40, y: 440, size: 80 }]
@@ -213,7 +213,7 @@ for (const side of [-1, 1]) test(`holding Down at the ${side > 0 ? 'left' : 'rig
 
 for (const left of [false, true]) test(`normal controls pull out at the ${left ? 'left' : 'right'} pool ledge`, async ({ page }, info) => {
   const level = fixture(); level.props = []
-  level.spawn = { x: left ? 520 : 780, y: 920 }
+  level.entrance = { x: left ? 520 : 780, y: 920 }
   level.goal = { ...level.goal, x: left ? 200 : 1500, y: 400 }
   level.gravityPlates[0] = { ...level.gravityPlates[0], x: 450, w: 400 }
   level.platforms = [left ? { x: 0, y: 400, w: 450, h: 520 } : { x: 850, y: 400, w: 950, h: 520 }]
@@ -310,7 +310,7 @@ folderTest('water authoring preserves its rectangle through save and reopen with
 })
 
 test('normal controls push a float with kicking legs and quickly lose momentum on release', async ({ page }, info) => {
-  const level = fixture(); level.spawn = { x: 380, y: 920 }; level.props = [{ kind: 'box', x: 500, y: 440, size: 80 }]
+  const level = fixture(); level.entrance = { x: 380, y: 920 }; level.props = [{ kind: 'box', x: 500, y: 440, size: 80 }]
   await useLevelFixtures(page, [level]); await recordWater(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/untitled-jumping-game?motionDebug=1')

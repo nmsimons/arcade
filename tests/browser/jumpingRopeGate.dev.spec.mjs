@@ -54,7 +54,7 @@ for (const transfer of [false, true]) test(`${transfer ? 'rope to window transfe
   if (transfer) {
     expect(samples.some(s => s.signals.mode === 'hang' || s.signals.mode === 'mantle')).toBe(true)
     expect(samples.some(s => s.signals.grounded && s.y === 560 && s.x >= 360)).toBe(true)
-  } else expect(samples.at(-1).y).toBeLessThan(level.spawn.y - 100)
+  } else expect(samples.at(-1).y).toBeLessThan(level.entrance.y - 100)
   const frames = await canvas.evaluate(c => c.ropeTestFrames)
   expect(frames.length).toBeGreaterThan(50)
   const invalidGates = [], blockedSpans = []

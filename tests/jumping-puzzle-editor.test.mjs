@@ -5,7 +5,7 @@ import { addItem, deleteItem, duplicateItem, hitItem, itemBounds, moveItem, resi
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { levelProblems, parseLevel, triggerTargets } from '../src/games/jumping/level.ts'
 import { carvePit } from '../src/games/jumping/puzzleEditor.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT } from '../src/games/jumping/model.ts'
 import { mechanismAnchor, mechanismOpenPosition } from '../src/games/jumping/mechanisms.ts'
 import { MAX_SWITCH_TARGETS } from '../src/games/jumping/switchPower.ts'
@@ -77,11 +77,11 @@ test('goals follow their supporting platform, and the start and goal cannot be d
   const before = CAMPAIGN[0], after = moveItem(before, { kind: 'platform', index: 1 }, -40, -60)
   assert.equal(after.goal.y, 460); assert.equal(after.goal.x, before.goal.x - 40)
   assert.deepEqual(deleteItem(after, { kind: 'goal', index: 0 }), after)
-  assert.deepEqual(deleteItem(after, { kind: 'spawn', index: 0 }), after)
+  assert.deepEqual(deleteItem(after, { kind: 'entrance', index: 0 }), after)
 })
 
 test('markers can leave the floor before their supporting terrain is built', () => {
-  for (const kind of ['spawn', 'goal', 'checkpoint']) {
+  for (const kind of ['entrance', 'goal', 'checkpoint']) {
     const source = blankTrial(); source.checkpoints = [{ x: 500, y: source.floor, radius: 60 }]
     const marker = level => kind === 'checkpoint' ? level.checkpoints[0] : level[kind]
     const original = { ...marker(source) }, selection = { kind, index: 0 }

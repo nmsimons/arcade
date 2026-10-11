@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { blankTrial, parseLevel } from '../src/games/jumping/level.ts'
 import { addItem, duplicateItem, hitItem, itemOutline, moveItem, resizeItem, setElevatorTravel } from '../src/games/jumping/editor.ts'
 import { mechanismAnchor, mechanismLabel, mechanismOpenPosition, mechanismShape } from '../src/games/jumping/mechanisms.ts'
-import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
+import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { bodyIntersects, polygonIntersects, polygonPoints } from '../src/games/jumping/geometry.ts'
 import { boxShape, ballShape } from '../src/games/jumping/propGeometry.ts'
 
 function fixture(flipX = false) {
-  return { ...blankTrial(), spawn: { x: 100, y: 920 },
+  return { ...blankTrial(), entrance: { x: 100, y: 920 },
     mechanisms: [{ id: 'ferry', kind: 'lift', orientation: 'horizontal', flipX, x: 700, y: 700, w: 160, h: 20, travel: 300 }],
     triggers: [{ mode: 'touch', x: 50, y: 920, w: 100, targets: ['ferry'] }] }
 }
@@ -90,7 +90,7 @@ for (const flipX of [false, true]) {
   for (const passenger of ['player', 'box', 'ball']) test(`moving ${label} carries a ${passenger} through a full cycle`, () => {
     const level = fixture(flipX)
     if (passenger === 'player') {
-      level.spawn = { x: 780, y: 700 }
+      level.entrance = { x: 780, y: 700 }
       level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }]
     } else level.props = [{ kind: passenger, x: 780, y: 700, size: 60 }]
     const run = start(level), rider = passenger === 'player' ? run.player : run.props[0]
@@ -127,7 +127,7 @@ for (const flipX of [false, true]) {
     const level = fixture(flipX), obstacle = { x: flipX ? 920 : 650, y: 600, w: 20, h: 80 }
     level.platforms = [obstacle]
     if (passenger === 'player') {
-      level.spawn = { x: 780, y: 700 }
+      level.entrance = { x: 780, y: 700 }
       level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }]
     } else level.props = [{ kind: passenger, x: 780, y: 700, size: 60 }]
     const run = start(level), rider = passenger === 'player' ? run.player : run.props[0]
@@ -147,7 +147,7 @@ for (const flipX of [false, true]) {
 
   test(`moving ${label} leaves a blocked player behind while carrying their supporting crate onward`, () => {
     const level = fixture(flipX)
-    level.spawn = { x: 780, y: 640 }
+    level.entrance = { x: 780, y: 640 }
     level.props = [{ kind: 'box', x: 100, y: 920, size: 40 }, { kind: 'box', x: 780, y: 700, size: 60 }]
     level.platforms = [{ x: flipX ? 920 : 650, y: 540, w: 20, h: 80 }]
     const run = start(level), box = run.props[1]

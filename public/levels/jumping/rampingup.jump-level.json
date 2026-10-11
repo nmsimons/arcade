@@ -439,9 +439,9 @@
       ]
     }
   ],
-  "spawn": {
-    "x": 865,
-    "y": 1535.8333333333333
+  "entrance": {
+    "x": 410,
+    "y": 1300
   },
   "checkpoints": [],
   "climbables": {
@@ -622,6 +622,28 @@
       "fontSize": 28,
       "align": "left",
       "style": "official"
+    },
+    {
+      "x": 1380,
+      "y": 875,
+      "w": 215,
+      "h": 100,
+      "text": "L.A.B.",
+      "fontSize": 64,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": 5
+    },
+    {
+      "x": 1390,
+      "y": 945,
+      "w": 170,
+      "h": 95,
+      "text": "experience",
+      "fontSize": 30,
+      "align": "center",
+      "style": "graffiti",
+      "rotation": 5
     }
   ],
   "gravityPlates": [

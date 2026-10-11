@@ -1509,6 +1509,18 @@
           580
         ],
         [
+          715,
+          495.6975108756092
+        ],
+        [
+          675,
+          520
+        ],
+        [
+          625,
+          473.70555719098553
+        ],
+        [
           239.61538461538453,
           379.5348837209302
         ],
@@ -1675,100 +1687,100 @@
       ]
     },
     {
-      "x": 2100,
-      "y": 640,
-      "w": 1240,
-      "h": 440,
+      "x": 1865,
+      "y": 690,
+      "w": 1475,
+      "h": 390,
       "zIndex": 36,
       "material": "earth",
       "polygon": [
         [
-          160,
-          40
+          440,
+          15
         ],
         [
-          300,
+          545,
+          5
+        ],
+        [
+          610,
           0
         ],
         [
-          375,
-          50
+          630,
+          35
         ],
         [
-          395,
-          85
+          660,
+          30
         ],
         [
-          425,
-          80
+          955,
+          193.15789473684208
         ],
         [
-          720,
-          243.15789473684208
+          1175,
+          290
         ],
         [
-          940,
-          340
-        ],
-        [
-          1060,
-          360
-        ],
-        [
-          1200,
-          280
-        ],
-        [
-          1240,
-          300
-        ],
-        [
-          1060,
-          440
-        ],
-        [
-          1000,
-          440
-        ],
-        [
-          780,
-          338.7234042553191
-        ],
-        [
-          580,
-          266.3829787234042
-        ],
-        [
-          425,
-          210.3191489361701
-        ],
-        [
-          400,
+          1295,
           310
         ],
         [
-          365,
-          295
+          1435,
+          230
         ],
         [
-          335,
-          177.76595744680844
+          1475,
+          250
         ],
         [
-          220,
-          136.17021276595733
+          1295,
+          390
+        ],
+        [
+          1235,
+          390
+        ],
+        [
+          1015,
+          288.7234042553191
+        ],
+        [
+          815,
+          216.38297872340422
+        ],
+        [
+          660,
+          160.3191489361701
+        ],
+        [
+          635,
+          260
+        ],
+        [
+          600,
+          245
+        ],
+        [
+          570,
+          127.76595744680844
+        ],
+        [
+          455,
+          86.17021276595733
+        ],
+        [
+          5,
+          65
         ],
         [
           0,
-          120
+          30
         ],
         [
-          0,
-          80
-        ],
-        [
-          120,
-          80
+          355,
+          30
         ]
       ]
     },
@@ -1949,120 +1961,6 @@
       ]
     },
     {
-      "x": 2285,
-      "y": 1345,
-      "w": 665,
-      "h": 500,
-      "zIndex": 41,
-      "material": "earth",
-      "polygon": [
-        [
-          190,
-          355
-        ],
-        [
-          205,
-          330
-        ],
-        [
-          175,
-          50
-        ],
-        [
-          185,
-          0
-        ],
-        [
-          230,
-          15
-        ],
-        [
-          265,
-          75
-        ],
-        [
-          300,
-          155
-        ],
-        [
-          320,
-          215
-        ],
-        [
-          365,
-          295
-        ],
-        [
-          445,
-          315
-        ],
-        [
-          510,
-          360.7954545454545
-        ],
-        [
-          595,
-          400
-        ],
-        [
-          665,
-          470
-        ],
-        [
-          415,
-          470
-        ],
-        [
-          395,
-          470
-        ],
-        [
-          360,
-          470
-        ],
-        [
-          360,
-          500
-        ],
-        [
-          345,
-          485
-        ],
-        [
-          330,
-          465
-        ],
-        [
-          300,
-          445
-        ],
-        [
-          260,
-          435
-        ],
-        [
-          260,
-          395
-        ],
-        [
-          185,
-          395
-        ],
-        [
-          0,
-          395
-        ],
-        [
-          45,
-          365
-        ],
-        [
-          145,
-          365
-        ]
-      ]
-    },
-    {
       "x": 3975,
       "y": 2235,
       "w": 150,
@@ -2205,8 +2103,8 @@
     }
   ],
   "spawn": {
-    "x": 265,
-    "y": 2380
+    "x": 1340,
+    "y": 1740
   },
   "checkpoints": [],
   "climbables": {
@@ -2559,7 +2457,7 @@
   "props": [
     {
       "kind": "ball",
-      "x": 2087.5,
+      "x": 2007.5,
       "y": 2840,
       "size": 55
     },
@@ -2571,7 +2469,7 @@
     },
     {
       "kind": "ball",
-      "x": 1997.5,
+      "x": 2457.5,
       "y": 2840,
       "size": 55
     },
@@ -2583,8 +2481,8 @@
     },
     {
       "kind": "ball",
-      "x": 3247.5,
-      "y": 2255,
+      "x": 2377.5,
+      "y": 2840,
       "size": 55
     },
     {
@@ -2595,101 +2493,107 @@
     },
     {
       "kind": "ball",
-      "x": 2312.5,
+      "x": 2097.5,
       "y": 2840,
       "size": 55
     },
     {
       "kind": "ball",
-      "x": 2462,
+      "x": 2697,
       "y": 2840,
       "size": 34
+    },
+    {
+      "kind": "box",
+      "x": 2427.5,
+      "y": 1740,
+      "size": 155
+    },
+    {
+      "kind": "box",
+      "x": 3815,
+      "y": 1815,
+      "size": 80
+    },
+    {
+      "kind": "box",
+      "x": 3920,
+      "y": 1815,
+      "size": 80
+    },
+    {
+      "kind": "box",
+      "x": 3875,
+      "y": 1735,
+      "size": 80
     }
   ],
   "mechanisms": [
     {
-      "id": "1be60c37-5e24-4c31-846b-1d66c41cf60d",
+      "switchReversed": true,
+      "relay": true,
+      "targets": [
+        "a60848b2-2f86-4312-8191-fef00d226ed5",
+        "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb"
+      ],
+      "id": "aa0a2929-66ab-4566-a2e1-adf6af674b97",
       "kind": "gate",
       "x": 900,
       "y": 2380,
-      "w": 40,
+      "w": 80,
       "h": 20,
-      "travel": 40,
-      "orientation": "horizontal"
-    },
-    {
-      "id": "aa0a2929-66ab-4566-a2e1-adf6af674b97",
-      "kind": "gate",
-      "x": 940,
-      "y": 2380,
-      "w": 40,
-      "h": 20,
-      "travel": 40,
+      "travel": 80,
       "orientation": "horizontal",
       "flipX": true
     },
     {
-      "id": "f2898a1e-94ab-4913-8e9b-0c91cae28434",
+      "switchReversed": true,
+      "relay": true,
+      "targets": [
+        "ee84eedf-7a5a-4227-9241-965d7a395060",
+        "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb"
+      ],
+      "id": "6238fec2-bbe5-4b2d-885e-b33392d1864e",
       "kind": "gate",
       "x": 1765,
       "y": 1740,
-      "w": 40,
+      "w": 80,
       "h": 20,
-      "travel": 40,
-      "orientation": "horizontal"
-    },
-    {
-      "id": "6238fec2-bbe5-4b2d-885e-b33392d1864e",
-      "kind": "gate",
-      "x": 1805,
-      "y": 1740,
-      "w": 40,
-      "h": 20,
-      "travel": 40,
+      "travel": 80,
       "orientation": "horizontal",
       "flipX": true
     },
     {
       "switchLogic": "and",
-      "id": "42c9c929-aaa9-44ff-8b90-57db9406c4f9",
+      "switchReversed": false,
+      "relay": true,
+      "targets": [
+        "ac0d63f6-c397-4783-bbef-fc2dc82780fe"
+      ],
+      "id": "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb",
       "kind": "gate",
       "x": 920,
       "y": 700,
-      "w": 40,
+      "w": 80,
       "h": 20,
-      "travel": 40,
-      "orientation": "horizontal"
-    },
-    {
-      "switchLogic": "and",
-      "id": "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb",
-      "kind": "gate",
-      "x": 960,
-      "y": 700,
-      "w": 40,
-      "h": 20,
-      "travel": 40,
+      "travel": 80,
       "orientation": "horizontal",
       "flipX": true
     },
     {
-      "id": "1e9c28a5-7aab-44f3-9d37-2ee88756c2e2",
+      "switchReversed": true,
+      "relay": true,
+      "targets": [
+        "5666089b-0c6c-420c-9235-2d94d98200bc",
+        "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb"
+      ],
+      "id": "15ae70ed-d7f3-4498-a5a6-1e8a61fb2776",
       "kind": "gate",
       "x": 3345,
       "y": 1815,
-      "w": 40,
+      "w": 80,
       "h": 20,
-      "travel": 40,
-      "orientation": "horizontal"
-    },
-    {
-      "id": "15ae70ed-d7f3-4498-a5a6-1e8a61fb2776",
-      "kind": "gate",
-      "x": 3385,
-      "y": 1815,
-      "w": 40,
-      "h": 20,
-      "travel": 40,
+      "travel": 80,
       "orientation": "horizontal",
       "flipX": true
     }
@@ -2710,15 +2614,11 @@
       "y": 2380,
       "w": 40,
       "targets": [
-        "1be60c37-5e24-4c31-846b-1d66c41cf60d",
-        "aa0a2929-66ab-4566-a2e1-adf6af674b97",
-        "a60848b2-2f86-4312-8191-fef00d226ed5",
-        "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb",
-        "42c9c929-aaa9-44ff-8b90-57db9406c4f9"
+        "aa0a2929-66ab-4566-a2e1-adf6af674b97"
       ],
       "mode": "touch",
-      "behavior": "toggle",
-      "startsOn": false
+      "behavior": "switch",
+      "startsOn": true
     },
     {
       "x": 1135,
@@ -2738,7 +2638,7 @@
         "7c896a4c-a974-42fe-b20a-3dc3eea72036"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2751,7 +2651,7 @@
         "bfa74ddd-801a-4195-bdd3-8deda29aef52"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2764,7 +2664,7 @@
         "3661baac-79e8-4cff-9bb2-9a35ecf40a14"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2777,7 +2677,7 @@
         "b0af3bed-d7b3-46a8-9a2e-7de9a44d4bc1"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2795,15 +2695,11 @@
       "y": 1740,
       "w": 40,
       "targets": [
-        "f2898a1e-94ab-4913-8e9b-0c91cae28434",
-        "6238fec2-bbe5-4b2d-885e-b33392d1864e",
-        "ee84eedf-7a5a-4227-9241-965d7a395060",
-        "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb",
-        "42c9c929-aaa9-44ff-8b90-57db9406c4f9"
+        "6238fec2-bbe5-4b2d-885e-b33392d1864e"
       ],
       "mode": "touch",
-      "behavior": "toggle",
-      "startsOn": false
+      "behavior": "switch",
+      "startsOn": true
     },
     {
       "x": 2020,
@@ -2821,7 +2717,7 @@
       "w": 40,
       "targets": [],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2834,7 +2730,7 @@
         "488bcfed-862c-44df-9d4e-c73beb952937"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2847,7 +2743,7 @@
         "3661baac-79e8-4cff-9bb2-9a35ecf40a14"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2860,7 +2756,7 @@
         "b0af3bed-d7b3-46a8-9a2e-7de9a44d4bc1"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2878,15 +2774,11 @@
       "y": 1815,
       "w": 40,
       "targets": [
-        "1e9c28a5-7aab-44f3-9d37-2ee88756c2e2",
-        "15ae70ed-d7f3-4498-a5a6-1e8a61fb2776",
-        "5666089b-0c6c-420c-9235-2d94d98200bc",
-        "ae3d6cdb-6aaf-4b9f-8d84-a274556dd0eb",
-        "42c9c929-aaa9-44ff-8b90-57db9406c4f9"
+        "15ae70ed-d7f3-4498-a5a6-1e8a61fb2776"
       ],
       "mode": "touch",
-      "behavior": "toggle",
-      "startsOn": false
+      "behavior": "switch",
+      "startsOn": true
     },
     {
       "x": 3600,
@@ -2906,7 +2798,7 @@
         "64383d32-5843-4b29-aa6d-aeb60376463c"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2918,7 +2810,7 @@
         "bfa74ddd-801a-4195-bdd3-8deda29aef52"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2931,7 +2823,7 @@
         "3661baac-79e8-4cff-9bb2-9a35ecf40a14"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2944,7 +2836,7 @@
         "b0af3bed-d7b3-46a8-9a2e-7de9a44d4bc1"
       ],
       "mode": "touch",
-      "behavior": "toggle",
+      "behavior": "switch",
       "startsOn": true
     },
     {
@@ -2977,6 +2869,7 @@
   "gravityPlates": [
     {
       "switchLogic": "and",
+      "switchReversed": false,
       "relay": true,
       "targets": [
         "ac0d63f6-c397-4783-bbef-fc2dc82780fe"
@@ -2999,12 +2892,11 @@
       "y": 370,
       "w": 70,
       "h": 1790,
-      "gravity": -1
+      "gravity": -3
     },
     {
       "switchLogic": "and",
       "relay": true,
-      "targets": [],
       "id": "ac0d63f6-c397-4783-bbef-fc2dc82780fe",
       "x": 925,
       "y": 280,
@@ -3038,6 +2930,7 @@
       "power": "switched"
     },
     {
+      "switchReversed": false,
       "id": "6564a70f-d41f-444e-86dc-2482f47bdd36",
       "x": 1665,
       "y": 2680,
@@ -3047,6 +2940,7 @@
       "power": "switched"
     },
     {
+      "switchReversed": false,
       "id": "0ab2b9f3-fe86-4839-9533-a572621f473a",
       "x": 205,
       "y": 2460,
@@ -3056,6 +2950,7 @@
       "power": "switched"
     },
     {
+      "switchReversed": false,
       "id": "27b656b2-450e-4c54-a05f-7292a8ce2899",
       "x": 1665,
       "y": 2460,
@@ -3065,6 +2960,7 @@
       "power": "switched"
     },
     {
+      "switchReversed": false,
       "id": "1e38ebf2-6f61-48ce-b4b3-571c7a297c69",
       "x": 2530,
       "y": 2040,
@@ -3074,6 +2970,7 @@
       "power": "switched"
     },
     {
+      "switchReversed": false,
       "id": "209050ce-c169-4bbe-870a-2493ddad131e",
       "x": 2530,
       "y": 1820,
@@ -3126,6 +3023,7 @@
       "power": "switched"
     },
     {
+      "switchReversed": false,
       "id": "90ca83f7-66b8-4e9a-beff-62083fc02e32",
       "x": 4110,
       "y": 2115,
@@ -3135,6 +3033,7 @@
       "power": "switched"
     },
     {
+      "switchReversed": false,
       "id": "338cea1e-ad52-4e91-a9bd-a4a53bd423ef",
       "x": 4110,
       "y": 1895,
@@ -3165,6 +3064,8 @@
   ],
   "logicRelays": [
     {
+      "switchLogic": "or",
+      "switchReversed": false,
       "targets": [
         "a60848b2-2f86-4312-8191-fef00d226ed5"
       ],

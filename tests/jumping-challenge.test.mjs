@@ -318,7 +318,7 @@ test('an object above the plate only activates it after landing', () => {
   advance(run, 90); assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.ok(Math.abs(run.props[0].y - level.goal.y) < .01)
 })
 
-test('walking away releases a Switch plate while the exit stays open and the timer keeps running', () => {
+test('walking away unloads a Switch plate while it stays depressed, the exit stays open and the timer keeps running', () => {
   const level = blankTrial(); level.goal.x = 800
   level.goal.id = 'exit'; level.goal.power = 'switched'
   level.triggers = [{ x: 772, y: 920, w: 56, mode: 'weight', behavior: 'switch', targets: ['exit'] }]
@@ -327,7 +327,8 @@ test('walking away releases a Switch plate while the exit stays open and the tim
   assert.equal(run.goalLit, true); assert.equal(run.triggers[0].depression, 1)
   const time = run.elapsed
   advance(run, 100, { move: -1 })
-  assert.ok(run.player.x < 600); assert.equal(run.triggers[0].depression, 0)
+  assert.ok(run.player.x < 600); assert.equal(run.triggers[0].pressed, false)
+  assert.equal(run.triggers[0].depression, 1)
   assert.equal(run.goalLit, true); assert.equal(run.finished, false); assert.equal(run.medal, null)
   assert.ok(Math.abs(run.elapsed - time - 100 * STEP) < 1e-9)
 })

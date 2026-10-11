@@ -196,7 +196,7 @@ export function setPlateBehavior(level: JumpLevel, index: number, behavior: Plat
   if (plate.mode === 'coins') return level
   plate.behavior = behavior
   delete plate.startsOn
-  if (behavior === 'toggle') plate.startsOn = startsOn
+  if (behavior === 'switch' || behavior === 'toggle') plate.startsOn = startsOn
   return next
 }
 /** Flip the artwork and exposed face. Gravity strength and wiring stay authored. */

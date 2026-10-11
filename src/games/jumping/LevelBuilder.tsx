@@ -1073,10 +1073,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <BuilderSelect label="Mode" accessibleLabel="Pressure plate mode" value={trigger.behavior ?? 'pressure'}
             options={[{ value: 'pressure', label: 'Pressure' }, { value: 'switch', label: 'Switch' }, { value: 'toggle', label: 'Toggle' }]}
             onChange={value => commit(setPlateBehavior(history.present, selection.index, value === 'switch' ? 'switch' : value === 'toggle' ? 'toggle' : 'pressure'))} />
-          {trigger.behavior === 'toggle' && <BuilderSelect label="Starts" accessibleLabel="Pressure plate initial state" value={trigger.startsOn ? 'on' : 'off'}
+          {(trigger.behavior === 'switch' || trigger.behavior === 'toggle') && <BuilderSelect label="Starts" accessibleLabel="Pressure plate initial state" value={trigger.startsOn ? 'on' : 'off'}
             options={[{ value: 'off', label: 'Off' }, { value: 'on', label: 'On' }]}
-            onChange={value => commit(setPlateBehavior(history.present, selection.index, 'toggle', value === 'on'))} />}
-          <p className="builder-hint">{trigger.behavior === 'switch' ? 'The first press switches on until restart.'
+            onChange={value => commit(setPlateBehavior(history.present, selection.index, trigger.behavior === 'switch' ? 'switch' : 'toggle', value === 'on'))} />}
+          <p className="builder-hint">{trigger.behavior === 'switch' ? `The first press switches ${trigger.startsOn ? 'off' : 'on'} until restart.`
             : trigger.behavior === 'toggle' ? 'Each press reverses the state. Release before pressing again.' : 'On while held down; off when released.'}</p>
         </>}
         {selectedSource && <fieldset className="builder-connections"><legend>Activates</legend>

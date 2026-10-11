@@ -905,14 +905,17 @@ thicknesses are normalized while preserving the standing surface where possible.
 Every pressure plate accepts the grounded player, crates, and balls. Select **Mode**:
 
 - **Pressure** (default): on while held down, off on release.
-- **Switch**: the first press turns it on until restart, even after release.
+- **Switch**: the first press reverses its starting state until restart, even
+  after release or more presses. Choose **Starts: Off** (default) or **On**.
 - **Toggle**: each press reverses its state; release before pressing again. Choose
   **Starts: Off** (default) or **On**. Adding another load while held does not toggle.
 
-All modes keep the existing 0.15-second press debounce. The physical plate follows
-its load independently of its green active indicator. Restart resets Switch to
-off and Toggle to its chosen starting state. An initially on Toggle powers its
-targets in the first playable frame and in editor previews.
+All modes keep the existing 0.15-second press debounce. Switch plates start raised
+and stay depressed after their first press, whether they switch on or off.
+Pressure and Toggle plates follow their load independently of their green active
+indicator. Restart restores Switch and Toggle to their chosen starting state.
+An initially on Switch or Toggle powers its targets in the first playable frame
+and in editor previews.
 
 **Flip vertically** mirrors a pressure plate for ceiling placement. Snap catches
 both floors and exposed undersides, choosing the facing automatically. A ceiling
@@ -922,12 +925,14 @@ optional `ceiling: true`, with `y` still the mounting surface. Omission keeps
 floor-facing artwork and contacts. Coin switches do not use this setting.
 
 Files use optional `behavior: "pressure"`, `"switch"`, or `"toggle"` on the plate,
-and optional boolean `startsOn` only for Toggle. Omitted `behavior` means Pressure;
+and optional boolean `startsOn` for Switch and Toggle. Omitted `behavior` means Pressure;
 omitted `startsOn` means off. The legacy `mode` values `weight` and `touch` remain
 readable and preserved, with the same contact rules. Coin switches use
 `mode: "coins"` and retain their existing latching rules; they have no plate behavior.
 For example: `{ "mode": "weight", "behavior": "toggle", "startsOn": true,
 "x": 120, "y": 920, "w": 100, "targets": ["exit"] }`.
+Using `"behavior": "switch"` in that example starts the exit powered, then the
+first press turns the switch off until restart.
 
 Pressure plates attach to elevators and moving platforms when placed on their
 top surface or underside, according to their facing. **Mount** also lets you choose an existing platform wide enough

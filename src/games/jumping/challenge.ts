@@ -95,7 +95,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
       const definition = prepareMechanism(m, level.floor)
       return { definition, x: definition.x, y: definition.y, direction: -1, wait: 0, active: false, safetyHold: null }
     }),
-    triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && t.behavior === 'toggle' && !!t.startsOn, depression: 0 })),
+    triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && (t.behavior === 'switch' || t.behavior === 'toggle') && !!t.startsOn, depression: 0 })),
     robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
     water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
@@ -258,11 +258,11 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
     if (behavior === 'pressure') sensor.active = powered && pressed
-    else if (powered && pressed && !sensor.pressed) sensor.active = behavior === 'switch' || !sensor.active
+    else if (powered && pressed && !sensor.pressed) sensor.active = behavior === 'switch' ? !plate.startsOn : !sensor.active
     // Track the physical press separately: the final-position sample cannot
     // toggle twice, and another load cannot retrigger an already held plate.
     sensor.pressed = pressed
-    sensor.depression = approach(sensor.depression, weighted || touched ? 1 : 0, dt / .12)
+    sensor.depression = approach(sensor.depression, weighted || touched || behavior === 'switch' && sensor.active !== !!plate.startsOn ? 1 : 0, dt / .12)
   })
   updateSwitchTargets(run)
 }

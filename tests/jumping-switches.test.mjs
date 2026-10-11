@@ -15,7 +15,7 @@ function fixture(behavior = 'pressure', startsOn = false) {
   const level = blankTrial()
   level.goal = { ...level.goal, power: 'switched', id: 'exit' }
   level.mechanisms = [{ id: 'lift', kind: 'lift', x: 600, y: 900, w: 120, h: 20, travel: 240 }]
-  level.triggers = [{ x: 120, y: 920, w: 100, mode: 'weight', behavior, ...(behavior === 'toggle' ? { startsOn } : {}), targets: ['exit', 'lift'] }]
+  level.triggers = [{ x: 120, y: 920, w: 100, mode: 'weight', behavior, ...(behavior === 'switch' || behavior === 'toggle' ? { startsOn } : {}), targets: ['exit', 'lift'] }]
   return level
 }
 const start = level => { const run = createRun(level); run.started = true; return run }
@@ -43,20 +43,32 @@ test('Pressure is the default for both legacy contact modes and opens and closes
     run.player.x = 300; step(run)
     assert.equal(run.goalLit, false); assert.equal(run.mechanisms[0].active, false)
     step(run, 40); assert.equal(run.goalElapsed, 0)
+    assert.equal(run.triggers[0].depression, 0)
     run.player.x = goalDoor(level.goal).x + 20; step(run, 5)
     assert.equal(run.exit, null, 'a closed exit cannot be entered')
   }
 })
 
-test('Switch stays on after release and subsequent presses, and restart clears it', () => {
-  const level = fixture('switch'), run = start(level)
-  step(run, 24); assert.equal(run.triggers[0].active, true)
+for (const startsOn of [false, true]) test(`Switch starts ${startsOn ? 'on' : 'off'}, changes once and stays depressed until restart`, () => {
+  const level = parseLevel(fixture('switch', startsOn)), run = start(level)
+  assert.equal(run.triggers[0].active, startsOn); assert.equal(run.goalLit, startsOn)
+  assert.equal(run.mechanisms[0].active, startsOn)
+  const preview = createPreviewRun(level)
+  assert.equal(preview.triggers[0].active, startsOn); assert.equal(preview.triggers[0].depression, 0)
+  assert.equal(preview.goalLit, startsOn)
+  assert.equal(run.triggers[0].depression, 0)
+  step(run, 17); assert.equal(run.triggers[0].active, startsOn, 'the first press keeps the existing debounce')
+  step(run, 7); assert.equal(run.triggers[0].active, !startsOn)
+  step(run, 60); assert.equal(run.triggers[0].active, !startsOn, 'holding keeps the changed state')
   run.player.x = 300; step(run, 60)
-  assert.equal(run.triggers[0].pressed, false); assert.equal(run.triggers[0].depression, 0)
-  assert.equal(run.goalLit, true); assert.equal(run.mechanisms[0].active, true)
-  run.player.x = 160; step(run, 60); assert.equal(run.triggers[0].active, true)
+  assert.equal(run.triggers[0].pressed, false); assert.equal(run.triggers[0].depression, 1)
+  assert.equal(run.goalLit, !startsOn); assert.equal(run.mechanisms[0].active, !startsOn)
+  run.player.x = 160; step(run, 60); assert.equal(run.triggers[0].active, !startsOn)
+  run.player.x = 300; step(run, 60); assert.equal(run.triggers[0].active, !startsOn)
+  assert.equal(run.triggers[0].depression, 1)
   const fresh = createRun(level)
-  assert.equal(fresh.triggers[0].active, false); assert.equal(fresh.goalLit, false)
+  assert.equal(fresh.triggers[0].active, startsOn); assert.equal(fresh.goalLit, startsOn)
+  assert.equal(fresh.triggers[0].depression, 0)
 })
 
 for (const startsOn of [false, true]) test(`Toggle starts ${startsOn ? 'on' : 'off'}, changes once per press, and restores on restart`, () => {
@@ -68,6 +80,7 @@ for (const startsOn of [false, true]) test(`Toggle starts ${startsOn ? 'on' : 'o
   step(run, 300); assert.equal(run.triggers[0].active, !startsOn, 'holding does not oscillate')
   run.player.x = 300; step(run, 24)
   assert.equal(run.triggers[0].active, !startsOn, 'release rearms without changing state')
+  assert.equal(run.triggers[0].depression, 0)
   run.player.x = 160; step(run, 24); assert.equal(run.triggers[0].active, startsOn)
   assert.equal(createRun(level).triggers[0].active, startsOn)
 })
@@ -91,24 +104,28 @@ test('active switches combine with OR, including an initially on Toggle', () => 
   run.player.x = 160; step(run, 24); assert.equal(run.goalLit, true)
 })
 
-for (const behavior of ['switch', 'toggle']) test(`${behavior} retains its state through EMP without recording presses while unpowered`, () => {
-  const run = start(fixture(behavior)); step(run, 24)
-  assert.equal(run.goalLit, true)
+for (const behavior of ['switch', 'toggle']) for (const startsOn of [false, true]) test(`${behavior} starting ${startsOn ? 'on' : 'off'} retains its state through EMP without recording presses while unpowered`, () => {
+  const run = start(fixture(behavior, startsOn)); step(run, 24)
+  assert.equal(run.goalLit, !startsOn)
   run.empRemaining = 1; const y = run.mechanisms[0].y
-  step(run, 60); assert.equal(run.triggers[0].active, true); assert.equal(run.mechanisms[0].y, y)
+  step(run, 60); assert.equal(run.triggers[0].active, !startsOn); assert.equal(run.mechanisms[0].y, y)
   run.player.x = 300; step(run, 1); run.player.x = 160; step(run, 10)
   run.player.x = 300; step(run, 49)
-  assert.equal(run.empRemaining, 0); assert.equal(run.triggers[0].active, true)
-  step(run, 24); assert.equal(run.triggers[0].active, true)
+  assert.equal(run.empRemaining, 0); assert.equal(run.triggers[0].active, !startsOn)
+  if (behavior === 'switch') assert.equal(run.triggers[0].depression, 1)
+  step(run, 24); assert.equal(run.triggers[0].active, !startsOn)
+  assert.equal(run.triggers[0].depression, behavior === 'switch' ? 1 : 0)
   run.player.x = 160; step(run, 24)
-  assert.equal(run.triggers[0].active, behavior === 'switch')
-  assert.equal(run.goalLit, behavior === 'switch')
+  assert.equal(run.triggers[0].active, behavior === 'switch' ? !startsOn : startsOn)
+  assert.equal(run.goalLit, behavior === 'switch' ? !startsOn : startsOn)
 })
 
-test('a fresh Switch press during EMP waits for a powered press instead of latching silently', () => {
-  const run = start(fixture('switch')); run.empRemaining = 1
-  step(run, 120); assert.equal(run.triggers[0].active, false)
-  step(run, 24); assert.equal(run.triggers[0].active, true)
+for (const startsOn of [false, true]) test(`a fresh Switch starting ${startsOn ? 'on' : 'off'} waits for a powered press during EMP`, () => {
+  const run = start(fixture('switch', startsOn)); run.empRemaining = 1
+  step(run, 120); assert.equal(run.triggers[0].active, startsOn)
+  assert.equal(run.triggers[0].depression, 0)
+  step(run, 24); assert.equal(run.triggers[0].active, !startsOn)
+  assert.equal(run.triggers[0].depression, 1)
 })
 
 test('coin switches can open an exit and its timer locks only when the player enters', () => {
@@ -150,10 +167,10 @@ test('builder power settings clean both connection formats, expose only switched
 })
 
 test('plate settings, duplicates, templates, and portable files preserve state and remap every target', () => {
-  for (const version of [1, 2]) {
+  for (const version of [1, 2]) for (const behavior of ['switch', 'toggle']) {
     let level = fixture(); level.version = version
     if (version === 2) level.lighting = { nightMode: true, ambient: 0, lights: [] }
-    level = setPlateBehavior(level, 0, 'toggle', true)
+    level = setPlateBehavior(level, 0, behavior, true)
     const copy = duplicateItem(level, { kind: 'trigger', index: 0 }).level
     assert.equal(copy.triggers[1].startsOn, true)
     const template = copyForEditing(copy)
@@ -169,7 +186,8 @@ test('plate settings, duplicates, templates, and portable files preserve state a
 
 test('shared-file validation rejects malformed behaviors, power states and colliding exit IDs', () => {
   for (const patch of [{ behavior: 'invalid' }, { behavior: null }, { behavior: 'toggle', startsOn: 1 },
-    { behavior: 'pressure', startsOn: true }, { behavior: 'switch', startsOn: false }]) {
+    { behavior: 'pressure', startsOn: true }, { behavior: 'switch', startsOn: 1 },
+    { behavior: 'switch', startsOn: 'false' }, { behavior: 'switch', startsOn: null }]) {
     const level = fixture(); Object.assign(level.triggers[0], patch); assert.throws(() => parseLevel(level))
   }
   for (const patch of [{ power: 'invalid' }, { power: null }, { id: '' }, { id: 'lift' }, { id: undefined }]) {
@@ -195,8 +213,8 @@ test('the removed goal plate needs no support; an exit on a narrow landing place
   assert.equal(moved.goal.x, 0); assert.deepEqual(parseLevel(moved), moved)
 })
 
-test('Toggle off emits one switch cue and a restored initial state is quiet', () => {
-  const level = fixture('toggle', true), run = start(level), audio = new JumpingAudioState()
+for (const behavior of ['switch', 'toggle']) test(`${behavior} off emits one switch cue and a restored initial state is quiet`, () => {
+  const level = fixture(behavior, true), run = start(level), audio = new JumpingAudioState()
   audio.reset(run.player, run); audio.step(run.player, run, STEP); assert.deepEqual(audio.drain().cues, [])
   step(run, 24); audio.step(run.player, run, STEP)
   assert.deepEqual(audio.drain().cues.map(c => c.kind), ['switch'])

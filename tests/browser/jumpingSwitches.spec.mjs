@@ -19,6 +19,7 @@ async function open(page, level) {
     }
     proto.fillRect = function (x, y, w, h) {
       if (w === 56 && h === 3 && ['#c4a66b', '#9bb878'].includes(this.fillStyle)) this.canvas.removedGoalPlate = true
+      if (x === 320 && w === 200 && h === 3 && ['#c4a66b', '#9bb878'].includes(this.fillStyle)) this.canvas.plateY = y
       return fill.call(this, x, y, w, h)
     }
   })
@@ -81,34 +82,40 @@ test('a logic-only XOR relay powers only the corresponding light, with release, 
   await stopAt(370); expect(await lights()).toEqual([370])
 })
 
-for (const [behavior, startsOn] of [['pressure', false], ['switch', false], ['toggle', false], ['toggle', true]]) {
+for (const [behavior, startsOn] of [['pressure', false], ['switch', false], ['switch', true], ['toggle', false], ['toggle', true]]) {
   test(`${behavior}${startsOn ? ' starts on' : ''} works through normal controls and fresh restarts`, async ({ page }, info) => {
     const level = readLevelAsset('switch-modes.json')
     level.triggers[0].behavior = behavior
-    if (behavior === 'toggle') level.triggers[0].startsOn = startsOn
+    if (behavior === 'switch' || behavior === 'toggle') level.triggers[0].startsOn = startsOn
     const canvas = await open(page, level)
     const on = () => canvas.evaluate(c => c.exitOn)
+    const plateY = () => canvas.evaluate(c => c.plateY)
     expect(await on()).toBe(startsOn)
+    expect(await plateY()).toBe(913)
     await walkTo(page, 420)
     expect(await x(page)).toBeGreaterThan(320); expect(await x(page)).toBeLessThan(520)
     expect(await on()).toBe(!startsOn)
     await page.clock.runFor(1000); expect(await on()).toBe(!startsOn)
+    expect(await plateY()).toBe(917)
     await walkTo(page, 650)
     expect(await on()).toBe(behavior === 'pressure' ? false : !startsOn)
+    expect(await plateY()).toBe(behavior === 'switch' ? 917 : 913)
+    if (behavior === 'switch') await page.screenshot({ path: info.outputPath('switch-after-release.png') })
     await walkTo(page, 420)
-    expect(await on()).toBe(behavior === 'toggle' ? startsOn : true)
+    expect(await on()).toBe(behavior === 'toggle' ? startsOn : !startsOn)
     await page.screenshot({ path: info.outputPath(`${behavior}-${startsOn}.png`) })
     expect(await canvas.evaluate(c => !!c.removedGoalPlate)).toBe(false)
     if (behavior === 'toggle' && !startsOn) {
       await walkTo(page, 650); await walkTo(page, 420); expect(await on()).toBe(true)
     }
-    if (behavior !== 'pressure') {
+    if (behavior !== 'pressure' && !(behavior === 'switch' && startsOn)) {
       await page.keyboard.down('d'); await page.clock.runFor(4000); await page.keyboard.up('d')
       await expect(page.getByRole('dialog', { name: 'Level complete' })).toBeVisible()
     }
     if (await page.getByRole('dialog', { name: 'Level complete' }).count()) await page.getByRole('button', { name: 'Try again', exact: true }).click()
     else await restartFromPause(page)
     await page.clock.runFor(64); expect(await on()).toBe(startsOn)
+    expect(await plateY()).toBe(913)
     expect(await x(page)).toBeLessThan(200)
   })
 }

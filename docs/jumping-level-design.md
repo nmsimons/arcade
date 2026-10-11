@@ -322,7 +322,9 @@ require wiring every object or invent a connection on the author's behalf.
 Choose each plate's behavior deliberately: Pressure needs a continuing load,
 Switch preserves a completed action, and Toggle allows the player to reverse it
 after releasing and pressing again. Make the consequence legible, especially
-for an initially on Toggle. Exits default to Always on; a locked exit needs an
+for an initially on Switch or Toggle. A Switch that starts on can make a shutdown
+permanent until restart; its depressed plate marks the completed action.
+Exits default to Always on; a locked exit needs an
 explicit switch connection. Use Always on for a continuously cycling lift when
 operating a switch adds no meaningful decision.
 

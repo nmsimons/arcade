@@ -202,10 +202,14 @@ change contact rules, debounce, plate modes or EMP behavior. Wall lights use the
 goal indicator's activation colors and brightness, without emitting light or
 adding colliders.
 
-Plate inputs use Pressure (while loaded), Switch (latched after one press), or Toggle (one reversal
-per press after release, with an authored initial state). Physical load and stored
-activation are distinct; two sensor samples in one physics step cannot toggle
+Plate inputs use Pressure (while loaded), Switch (one reversal until restart), or Toggle (one reversal
+per press after release). Switch and Toggle have an authored initial state,
+defaulting to off. Physical load and stored activation are distinct; two sensor
+samples in one physics step cannot toggle
 twice. Switch and Toggle retain their state during EMP; new presses wait for power.
+Switch plates start raised and, once switched on or off, stay visually depressed
+until restart, including during EMP. Pressure and Toggle plates retain their
+existing press and release animation.
 Always-on elevators and moving platforms still obey global EMP pauses.
 
 Entering the fully open back-wall door locks scoring and

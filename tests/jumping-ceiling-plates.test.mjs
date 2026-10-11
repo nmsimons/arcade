@@ -37,7 +37,9 @@ for (const load of ['player', 'box', 'ball']) test(`${load} presses a ceiling pl
 for (const behavior of ['switch', 'toggle']) test(`ceiling ${behavior} uses the ordinary press and release transitions`, () => {
   const run = createRun(fixture('player', behavior)); run.started = true
   step(run, 330); assert.equal(run.triggers[0].active, true)
-  run.player.x = 800; step(run, 2); assert.equal(run.triggers[0].active, true)
+  run.player.x = 800; step(run, 24); assert.equal(run.triggers[0].active, true)
+  assert.equal(run.triggers[0].pressed, false)
+  assert.equal(run.triggers[0].depression, behavior === 'switch' ? 1 : 0)
   Object.assign(run.player, { x: 300, y: 0, inverted: true, grounded: true, vy: 0 })
   step(run, 25); assert.equal(run.triggers[0].active, behavior === 'switch')
 })

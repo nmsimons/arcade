@@ -323,7 +323,7 @@ export function parseLevel(value: unknown): JumpLevel {
       if (t.mode === 'coins' && t.mount !== undefined) fail()
       if (t.ceiling !== undefined && (t.mode === 'coins' || typeof t.ceiling !== 'boolean')) fail()
       if (t.behavior !== undefined && (t.mode === 'coins' || !['pressure', 'switch', 'toggle'].includes(t.behavior as string))) fail()
-      if (t.startsOn !== undefined && (t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
+      if (t.startsOn !== undefined && (t.behavior !== 'switch' && t.behavior !== 'toggle' || typeof t.startsOn !== 'boolean')) fail()
       let connection: TriggerConnection
       if (t.targets !== undefined) {
         if (t.target !== undefined || !Array.isArray(t.targets) || t.targets.length > MAX_SWITCH_TARGETS - (v.version === 1 ? 16 : 0)

@@ -66,8 +66,9 @@ test('the new level menu presents a readable progression', async ({ page }, info
   await setup(page); await page.screenshot({ path: info.outputPath('campaign-menu.png') })
   await expect(page.getByRole('button', { name: 'Level 1: First Leap' })).toHaveAttribute('aria-pressed', 'true')
   await page.getByRole('button', { name: 'Level 3: Hand Over Hand' }).focus()
-  await expect(page.locator('.jumping-level-detail').getByRole('heading', { name: 'Hand Over Hand', exact: true })).toBeVisible()
-  await expect(page.locator('.jumping-level-detail .jumping-medal-times')).toHaveText('Gold 11sSilver 18sBronze 32s')
+  await expect(page.getByRole('button', { name: 'Level 3: Hand Over Hand' })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Level 3: Hand Over Hand' })).toHaveAccessibleDescription('Best — No medal yet')
+  await expect(page.locator('.jumping-medal-times')).toHaveCount(0)
 })
 test('the trial activates, pauses, restarts, completes, saves a best and advances to the next lesson', async ({ page }, info) => {
   // Advancing the virtual clock still renders every frame on the CI runner.

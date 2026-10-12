@@ -38,15 +38,14 @@ async function open(page, local = false, maps = levels()) {
   }
 }
 
-test('level tiles launch immediately by click, Enter or controller A, with focus updating the details', async ({ page }, info) => {
+test('level tiles launch immediately by click, Enter or controller A, with focus updating the selection', async ({ page }, info) => {
   await open(page)
-  await expect(page.locator('.jumping-level-detail button')).toHaveCount(0)
-  await expect(page.locator('.jumping-level-detail canvas')).toHaveCount(0)
+  await expect(page.locator('.jumping-level-detail')).toHaveCount(0)
   await expect(page.locator('.jumping-level-edit')).toHaveCount(0)
   const second = page.getByRole('button', { name: 'Level 2: Second room', exact: true })
   await second.hover()
   await expect(second).toBeFocused(); await expect(second).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.locator('.jumping-level-detail')).toContainText('Second room')
+  await expect(second).toHaveAccessibleDescription('Best — No medal yet')
   await tap(page, 3)
   await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
   await page.screenshot({ path: info.outputPath('direct-level-menu.png') })
@@ -240,7 +239,7 @@ test('local tiles edit independently by button and Y while arrows browse tiles a
   await first.focus(); await page.clock.runFor(64)
   await tap(page, 15)
   await expect(page.getByRole('button', { name: 'Level 2: Second room', exact: true })).toBeFocused()
-  await expect(page.locator('.jumping-level-detail')).toContainText('Second room')
+  await expect(page.getByRole('button', { name: 'Level 2: Second room', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await tap(page, 3)
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Second room')
   await expect(page.getByRole('textbox', { name: 'Player hint', exact: true })).toHaveCount(0)

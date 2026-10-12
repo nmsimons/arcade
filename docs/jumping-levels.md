@@ -242,8 +242,10 @@ Choose **Local folder → Choose folder** in the game menu. The game reads JSON 
 directly in that folder, applies its manifest (or filename order), and lets you play them or choose
 **Edit** on a level tile. Click a tile, press Enter, or press controller A while
 it is selected to play immediately. Thumbnails fill the width of the picker.
-Focus or hover a tile to show its name and medal times in the compact strip
-below the grid. Add wall text to give players guidance inside a level.
+Each timed level tile shows your personal best and highest earned medal; unplayed
+levels show **Best —** and **No medal yet**. These update after completing a run.
+Medal target times appear after completing a run. Add wall text to give players
+guidance inside a level.
 Each tile has **Play** at the bottom right, beside **Edit** for local
 levels. Controller Y (or keyboard Y) edits the selected local level. Built-in
 levels remain available as templates in the builder's Library. Files in nested

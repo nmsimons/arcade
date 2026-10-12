@@ -123,21 +123,25 @@
   margin-top: 16px; height: 3em; font-size: var(--jumping-type-normal); line-height: 1.5;
   font-weight: 600; -webkit-line-clamp: 2;
 }
+.jumping-ui .jumping-level-progress {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+  gap: 4px 12px; margin-top: 8px; min-height: 1.5em;
+  font-size: var(--jumping-type-small); line-height: 1.5;
+}
+.jumping-ui .jumping-level-best { font-variant-numeric: tabular-nums; }
+.jumping-ui .jumping-level-medal { display: inline-flex; align-items: center; gap: 6px; }
+.jumping-ui .jumping-level-medal svg { flex: none; width: 12px; height: 16px; }
+.jumping-ui .jumping-level-medal .gold { color: var(--jumping-color-gold); }
+.jumping-ui .jumping-level-medal .silver { color: var(--jumping-color-steel); }
+.jumping-ui .jumping-level-medal .bronze { color: var(--jumping-color-bronze); }
 .jumping-ui .jumping-level-tile .jumping-level-card::after { height: 56px; }
 .jumping-ui .jumping-level-tile-actions {
   gap: 8px; bottom: 0; left: 0; right: 0; justify-content: flex-end;
   padding: 12px; background: var(--jumping-card-actions);
 }
 .jumping-game .jumping-ui .jumping-level-tile-actions button { min-height: 44px; padding: 10px 12px; font-size: var(--jumping-type-normal); }
-.jumping-ui .jumping-level-detail {
-  padding: 18px var(--jumping-inset); border: 0; background: var(--jumping-section);
-  grid-template-rows: auto; gap: 8px;
-}
-.jumping-ui .jumping-level-detail h3 { font-size: var(--jumping-type-normal); line-height: 1.5; }
 .jumping-ui .jumping-level-problems p { color: var(--jumping-muted); font-size: var(--jumping-type-small); line-height: 1.5; }
 .jumping-ui .jumping-level-problems .jumping-load-error { color: var(--jumping-danger); }
-.jumping-ui .jumping-medal-times { color: var(--jumping-muted); font-size: var(--jumping-type-small); line-height: 1.5; }
-.jumping-ui .jumping-medal-times :is(.gold, .bronze) { color: inherit; }
 
 /* Library and recycle bin use identical cards and a stable, centered shell. */
 .jumping-game .builder-library.jumping-ui {
@@ -309,8 +313,6 @@
   .jumping-ui .jumping-library-bar { padding: 12px 20px; gap: 8px; }
   .jumping-ui .jumping-library-bar .local-folder-actions { width: auto; margin-left: auto; }
   .jumping-ui .jumping-library-folder { flex-basis: auto; }
-  .jumping-ui .jumping-level-detail-heading { gap: 6px; }
-  .jumping-ui .jumping-level-detail .jumping-medal-times { gap: 12px; font-size: var(--jumping-type-small); }
   .jumping-ui .builder-library-header { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title close' 'actions actions'; padding: 12px 20px; gap: 8px; }
   .jumping-ui .builder-library-header:has(.builder-library-actions:empty) { grid-template-areas: 'title close'; }
   .jumping-ui .builder-library-header > .builder-library-actions { justify-content: flex-start; }
@@ -336,7 +338,6 @@
   .jumping-ui .jumping-library-bar { min-height: 64px; padding-block: 8px; }
   .jumping-ui .jumping-level-cards { padding-block: 16px; }
   .jumping-ui :is(.jumping-level-card, .builder-file-preview, .builder-templates) .level-thumbnail { height: 100px; }
-  .jumping-ui .jumping-level-detail { padding-block: 12px; }
   .jumping-ui .builder-library-folder { padding-block: 12px; }
 }
 @media (max-height: 540px) and (min-width: 761px) {

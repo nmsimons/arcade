@@ -65,11 +65,11 @@ test('preview hover matches the library and stays independent of card actions af
 
 test('level picker keeps its bands stable and gives each keyboard action a contrasting selection', async ({ page }, info) => {
   await open(page)
-  const header = page.locator('.jumping-menu-header'), detail = page.locator('.jumping-level-detail')
-  const bounds = [await header.boundingBox(), await detail.boundingBox()]
+  const header = page.locator('.jumping-menu-header')
+  const bounds = await header.boundingBox()
   for (const name of ['Built-in levels', 'Local folder']) {
     await page.getByRole('button', { name, exact: true }).click()
-    expect([await header.boundingBox(), await detail.boundingBox()]).toEqual(bounds)
+    expect(await header.boundingBox()).toEqual(bounds)
   }
   for (const forcedColors of ['none', 'active']) {
     await page.emulateMedia({ forcedColors })

@@ -8,7 +8,7 @@ import { useCloudDownloads } from '../accounts/useCloudDownloads'
 import { playgroundLightingWorld } from './jumping/lightingModel'
 import { GameCamera } from './jumping/camera'
 import { levelTerrain } from './jumping/level'
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
@@ -21,7 +21,7 @@ import type { ActionFeedback } from './jumping/actionFeedback'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { LevelBuilder } from './jumping/LevelBuilder'
-import { createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
+import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
 import type { Run } from './jumping/challenge'
 import { advanceEntranceAnimation, createEntranceAnimation, ENTRANCE_SECONDS } from './jumping/goal'
 import type { EntranceAnimation } from './jumping/goal'
@@ -30,6 +30,7 @@ import type { LevelCatalog, LevelFile, LocalLevelEntry } from './jumping/levelAs
 import { levelFileName, missingManifestPrompt, useLocalLevels } from './jumping/localLevels'
 import { LocalFolderActions } from './jumping/LocalFolderPanel'
 import { LevelThumbnail } from './jumping/LevelThumbnail'
+import { LevelProgress } from './jumping/LevelProgress'
 import { JumpingPauseDialog, JumpingResultDialog } from './jumping/JumpingDialogs'
 import { DeleteLevelButton, MissingLevelNotice } from './jumping/LevelFileActions'
 import { JUMPING_BUILDER, JUMPING_BUILTIN_BUILDER, JUMPING_MENU, jumpingRoute, levelPath, playtestPath } from './jumping/routes'
@@ -46,7 +47,7 @@ import type { PreparedLevel } from './jumping/levelPreparation'
 import { createDevLevelRepository } from './jumping/devLevelRepository'
 import type { LevelSource } from './jumping/routes'
 import { useWallTextFont } from './jumping/useWallTextFont'
-import { currentProfile, gameStorage } from '../accounts/profileStorage'
+import { currentProfile, gameStorage, subscribeGameStorage } from '../accounts/profileStorage'
 import { accountLevelRepository } from '../accounts/levelLibrary'
 import './jumping/jumping.css'
 import './jumping/dialogs.css'
@@ -164,8 +165,11 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
   const [result, setResult] = useState({ elapsed: 0, medal: 'No medal' })
   const [challenge, setChallenge] = useState(true)
   const [trial, setTrial] = useState<PuzzleLevel>(initialRun.level)
+  const savedTimes = useSyncExternalStore(subscribeGameStorage, () => {
+    try { return playerStorage.getItem(BEST_TIME_KEY) } catch { return null }
+  })
   const [bestTimes, setBestTimes] = useState<Record<string, number | null>>({})
-  function bestTime(id: string) { try { return bestTimes[id] ?? readBest(playerStorage, id) } catch { return null } }
+  function bestTime(id: string) { return bestTimes[id] ?? readBest({ getItem: () => savedTimes }, id) }
   const best = bestTime(recordKey)
   const [saveError, setSaveError] = useState(false)
   const terrain = useRef(levelTerrain(initialRun.level))
@@ -376,8 +380,8 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     setResult({ elapsed: run.current.elapsed, medal: run.current.medal ?? 'No medal' })
     if (!testing) {
       const { elapsed } = run.current
-      try { const time = saveBest(playerStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: time })); setSaveError(false) }
-      catch { setBestTimes(previous => ({ ...previous, [recordKey]: Math.min(previous[recordKey] ?? Infinity, elapsed) })); setSaveError(true) }
+      try { saveBest(playerStorage, elapsed, recordKey); setBestTimes(previous => ({ ...previous, [recordKey]: null })); setSaveError(false) }
+      catch { const time = Math.min(bestTime(recordKey) ?? Infinity, elapsed); setBestTimes(previous => ({ ...previous, [recordKey]: time })); setSaveError(true) }
     }
     changeScreen('complete')
   })
@@ -623,6 +627,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
             {!!currentProfile() && <button onClick={() => onAccountLevels(!accountLevels)}>{accountLevels ? 'Use local folder' : 'Use account levels'}</button>}
           </div>
           <div className="jumping-library-status">
+            {selectedProblems.length > 0 && <div key={`${collection}:${selected?.fileName}`} className="jumping-level-problems" role="region" aria-label="Level issues" data-controller-scroll>
+              {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
+            </div>}
             {collection === 'local' && manifestPrompt && <p className="jumping-folder-note" role="status">{manifestPrompt}</p>}
             {(collection === 'local' ? local.errors : catalog.errors).map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}
             {canEditCollection && deleteError && <p className="jumping-load-error" role="alert">{deleteError}</p>}
@@ -642,6 +649,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
             </div>
             const level = file.level
             const needsRepair = levelProblems(level).length > 0
+            const progressId = `jumping-level-progress-${index}`
             return <div key={file.fileName} className="jumping-level-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)}>
             <button className="jumping-level-card" data-menu-primary data-initial-focus={selected?.fileName === file.fileName || undefined}
               onPointerEnter={event => {
@@ -651,8 +659,10 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
                   event.currentTarget.focus({ preventScroll: true })
                 }
               }}
-              disabled={local.refreshing} aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}>
+              disabled={local.refreshing} aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}
+              aria-describedby={isPuzzleLevel(level) ? progressId : undefined}>
               <LevelThumbnail level={level} /><strong>{level.name}</strong>
+              {isPuzzleLevel(level) && <LevelProgress id={progressId} level={level} best={bestTime(collection === 'local' ? `local:${level.id}` : level.id)} />}
               {collection === 'local' && accountLevels && <LevelSaveStatus kind="account" fileName={file.fileName} text={file.sourceText} />}
             </button>
             <div className="jumping-level-tile-actions">
@@ -662,15 +672,6 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
             </div>
             </div>
           })}</div>
-          <div className="jumping-level-detail">
-            <div className="jumping-level-detail-heading">
-              <h3 title={selected?.level.name}>{selected?.level.name}</h3>
-              <div className="jumping-medal-times">{selected && isPuzzleLevel(selected.level) && <><span className="gold">Gold {selected.level.times.gold}s</span><span>Silver {selected.level.times.silver}s</span><span className="bronze">Bronze {selected.level.times.bronze}s</span></>}</div>
-            </div>
-            {selectedProblems.length > 0 && <div key={`${collection}:${selected?.fileName}`} className="jumping-level-problems" role="region" aria-label="Level issues" data-controller-scroll>
-              {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
-            </div>}
-          </div>
           </div>
       </div>
     </KeyboardDialog>}

@@ -611,7 +611,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
       <div className="jumping-menu jumping-level-menu">
         <div className="jumping-menu-header">
           <div className="jumping-menu-heading jumping-brand-heading">
-            <LabLogo /><h2>Levels.</h2>
+            <LabLogo />
           </div>
           <div className="jumping-menu-navigation"><button onClick={onExit}>Back to arcade</button><button disabled={local.refreshing} onClick={openBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button></div>
           <AccountSurface />

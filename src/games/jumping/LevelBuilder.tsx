@@ -23,7 +23,6 @@ import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPla
 import { NumberField } from './NumberField'
 import { BuilderSelect } from './BuilderSelect'
 import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight, setCrateBranding } from './editor'
-import { LabLogo } from '../../branding/LabLogo'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
 import { ObjectNameField } from './ObjectNameField'
@@ -832,7 +831,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     }
   }} onKeyUp={event => { if (event.code === 'Space') panHeld.current = false; if (event.key === 'Alt') setPointer(previous => previous && { ...previous, free: false }) }} onBlur={() => { panHeld.current = false }}>
     <header className="builder-header">
-      <div className="builder-brand jumping-brand-heading"><LabLogo /><h1>Level studio.</h1></div>
+      <div className="builder-brand"><h1>Level studio</h1></div>
       <div className="builder-main-actions">
         <button className="builder-play" title="Save this level and playtest it" disabled={!!problem || local.busy || saving} aria-busy={saving} onClick={() => void save(true)}><span aria-hidden="true">▶</span> Save and Test</button>
         <button title="Save this level (Ctrl/⌘ + S)" disabled={local.busy || saving} onClick={() => void save()}>Save level</button>

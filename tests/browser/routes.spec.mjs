@@ -1,12 +1,12 @@
 import { test, expect } from './helpers/test.mjs'
 
-const games=[['hard-vacuum','Hard Vacuum'],['bumper-ball','BUMPER BALL'],['no-exit','No Exit'],['final-approach','Final Approach'],['urban-fire','Urban Fire'],['sling-load','Sling Load'],['hello-world',null],['untitled-jumping-game','Levels.']]
+const games=[['hard-vacuum','Hard Vacuum'],['bumper-ball','BUMPER BALL'],['no-exit','No Exit'],['final-approach','Final Approach'],['urban-fire','Urban Fire'],['sling-load','Sling Load'],['hello-world',null],['untitled-jumping-game','L.A.B. Experiments']]
 for(const [path,title]of games) test(`${path}: direct route, compatibility redirect, rendering and exit`,async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message))
   for(const prefix of ['', '/games']) {
     await page.goto(`${prefix}/${path}`)
     await expect(page).toHaveURL(new RegExp(`/${path}$`))
-    if(title)await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible()
+    if(title)await expect(page.getByRole(path==='untitled-jumping-game'?'img':'heading',{name:title,exact:true})).toBeVisible()
     else await expect(page.getByRole('button',{name:'Back',exact:true})).toBeVisible()
     await expect(page.locator('canvas:not([aria-hidden="true"])')).toBeVisible()
     await page.evaluate(()=>new Promise(requestAnimationFrame))

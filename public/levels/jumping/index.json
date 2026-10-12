@@ -26,6 +26,7 @@
     "Drain.json",
     "rampingup.jump-level.json",
     "escapade.jump-level.json",
-    "buoyancy.jump-level.json"
+    "buoyancy.jump-level.json",
+    "Waterline.jump-level.json"
   ]
 }

@@ -5245,6 +5245,89 @@
           }
         }
       ]
+    },
+    {
+      "file": "Waterline.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 29.4833333333323,
+      "activeTime": 30.341666666665585,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 2,
+          "input": {}
+        },
+        {
+          "frames": 74,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 35,
+          "input": {}
+        },
+        {
+          "frames": 324,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 35,
+          "input": {}
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1160,
+          "input": {}
+        },
+        {
+          "frames": 78,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1102,
+          "input": {}
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 379,
+          "input": {}
+        },
+        {
+          "frames": 17,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 155,
+          "input": {}
+        },
+        {
+          "frames": 29,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 160,
+          "input": {}
+        }
+      ]
     }
   ],
   "jumpModel": "recorded-impulses"

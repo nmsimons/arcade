@@ -37,6 +37,7 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
   let gravityReleased = false
   let bracedOnBall = false
   let waterFilled = false
+  let waterlineUpperControls = false
   const jumpModel = recording.jumpModel ?? recordings.jumpModel
   assert.ok(['recorded-impulses', 'tap-hold'].includes(jumpModel))
   const weighted = plate => run.props.filter(prop => propLoadsPlate(prop, plate.x, plate.y, plate.w, plate.ceiling))
@@ -61,6 +62,8 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
       if (recording.file === '05.json' && run.player.contacts.support?.collider.prop === run.props[0]
         && run.player.contacts.push?.collider.id === 'mechanism:0') bracedOnBall = true
       if (recording.file === 'buoyancy.jump-level.json' && run.water.pools[0].level >= 99.9) waterFilled = true
+      if (recording.file === 'Waterline.jump-level.json' && run.player.grounded && Math.abs(run.player.y - 160) < 1
+        && run.triggers.some(button => button.active)) waterlineUpperControls = true
     }
   }
   assert.ok(entryTime !== undefined, 'the player must enter the powered doorway')
@@ -126,6 +129,28 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
     assert.deepEqual(weighted(level.triggers[0]), [run.props[4]], 'the heavy ball must keep draining')
     assert.deepEqual(weighted(level.triggers[1]), [run.props[1], run.props[2]], 'the delivered floats must keep the exit and gravity lift powered')
     assert.ok(run.pickups.every(pickup => pickup.collectedAge !== null), 'collect both timing rewards')
+  }
+  if (recording.file === 'Waterline.jump-level.json') {
+    assert.ok(waterlineUpperControls, 'operate the paired pumps from the upper deck')
+    assert.deepEqual(run.floatSwitches.map(float => float.active), [false, true, true, true, true, true, false, false, true],
+      'shaft 1 middle, shaft 2 high, shaft 3 low')
+    assert.ok(level.wallLights.every(light => run.switchStates.get(light.id)), 'all three readiness lamps must light')
+  }
+})
+
+test('Waterline accepts only shaft 1 middle, shaft 2 high and shaft 3 low across all float patterns', async () => {
+  const level = parseLevel(JSON.parse(await readFile(new URL('Waterline.jump-level.json', root), 'utf8')))
+  const needed = new Map([
+    ['Left top', false], ['Left middle', true], ['Left bottom', true],
+    ['Centre top', true], ['Centre middle', true], ['Centre bottom', true],
+    ['Right top', false], ['Right middle', false], ['Right bottom', true],
+  ])
+  assert.equal(level.floatSwitches.length, needed.size)
+  assert.ok(level.floatSwitches.every(float => needed.has(float.name)))
+  for (let mask = 0; mask < 512; mask++) {
+    const floats = level.floatSwitches.map((_, index) => ({ active: !!(mask & (1 << index)) }))
+    const expected = level.floatSwitches.every((float, index) => floats[index].active === needed.get(float.name))
+    assert.equal(resolveSwitchStates(level, level.triggers.map(() => ({ active: false })), floats).get(level.goal.id), expected, `float mask ${mask}`)
   }
 })
 

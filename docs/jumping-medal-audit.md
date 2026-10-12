@@ -1,5 +1,14 @@
 # Built-in jumping medal audit
 
+October 11 Waterline update: the built-in collection now has 26 levels. Waterline
+keeps its verified **30 / 45 / 60** medal times. Its fresh-start control recording
+scores **29.48** seconds, and its browser keyboard playthrough scored **29.55**.
+The route climbs to the upper controls, uses the three paired pumps, and sets
+shaft 1 to middle, shaft 2 to high, and shaft 3 to low before entering the exit.
+Regression coverage checks the complete 512-pattern float truth table, the
+upper controls, all three readiness lamps, completion and Gold. The browser
+review also checked restart; the ladder clearance correction is retained.
+
 October 11 entrance update: all 25 levels now use entrance doors. Revised
 landings required fresh recordings for Level Five, Spelunk I, Ramping Up and
 Buoyancy. Their scored times are **9.13 / 51.27 / 46.68 / 30.77** seconds,
@@ -22,7 +31,7 @@ full filling, final draining and both pickups. Silver and bronze allow extra
 swimming, cargo placement and recovery; these are initial targets based on the
 completed route, not a study of first-time players.
 
-The catalog now has 25 levels. Untitled II's authored **13 / 20 / 30** targets
+Before Waterline, the catalog had 25 levels. Untitled II's authored **13 / 20 / 30** targets
 are explicitly pending a fresh-start medal recording. Escapade remains pending;
 its revised spawn and **300 / 360 / 580** targets also need a completed route.
 These authored targets are preserved without claiming new medal evidence.

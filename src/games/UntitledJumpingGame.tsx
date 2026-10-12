@@ -117,7 +117,6 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     catch (error) { setDeleteError((error as Error).message) }
     finally { deleting.current = false }
   }
-  const selectedProblems = selected ? levelProblems(selected.level) : []
   const [playingFile, setPlayingFile] = useState({ collection: 'built-in', fileName: initialCatalog.files[0]?.fileName ?? '' })
   const playingFiles = playingFile.collection === 'built-in' ? catalog.files : local.files
   const campaignIndex = playingFiles.findIndex(file => file.fileName === playingFile.fileName)
@@ -627,9 +626,6 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
             {!!currentProfile() && <button onClick={() => onAccountLevels(!accountLevels)}>{accountLevels ? 'Use local folder' : 'Use account levels'}</button>}
           </div>
           <div className="jumping-library-status">
-            {selectedProblems.length > 0 && <div key={`${collection}:${selected?.fileName}`} className="jumping-level-problems" role="region" aria-label="Level issues" data-controller-scroll>
-              {selectedProblems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
-            </div>}
             {collection === 'local' && manifestPrompt && <p className="jumping-folder-note" role="status">{manifestPrompt}</p>}
             {(collection === 'local' ? local.errors : catalog.errors).map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}
             {canEditCollection && deleteError && <p className="jumping-load-error" role="alert">{deleteError}</p>}
@@ -648,8 +644,9 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
               <div className="jumping-level-tile-actions"><DeleteLevelButton fileName={file.fileName} primary disabled={menuStore.busy || !menuStore.canWrite} onClick={() => void deleteFile(file)} /></div>
             </div>
             const level = file.level
-            const needsRepair = levelProblems(level).length > 0
+            const problems = levelProblems(level), needsRepair = problems.length > 0
             const progressId = `jumping-level-progress-${index}`
+            const issuesId = `jumping-level-issues-${index}`
             return <div key={file.fileName} className="jumping-level-tile" data-menu-item onFocusCapture={() => setSelectedName(file.fileName)}>
             <button className="jumping-level-card" data-menu-primary data-initial-focus={selected?.fileName === file.fileName || undefined}
               onPointerEnter={event => {
@@ -660,11 +657,14 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
                 }
               }}
               disabled={local.refreshing} aria-pressed={selected?.fileName === file.fileName} onClick={() => playFile(file)} aria-label={`Level ${index + 1}: ${level.name}`}
-              aria-describedby={isPuzzleLevel(level) ? progressId : undefined}>
+              aria-describedby={[isPuzzleLevel(level) ? progressId : '', needsRepair ? issuesId : ''].filter(Boolean).join(' ') || undefined}>
               <LevelThumbnail level={level} /><strong>{level.name}</strong>
               {isPuzzleLevel(level) && <LevelProgress id={progressId} level={level} best={bestTime(collection === 'local' ? `local:${level.id}` : level.id)} />}
               {collection === 'local' && accountLevels && <LevelSaveStatus kind="account" fileName={file.fileName} text={file.sourceText} />}
             </button>
+            {needsRepair && <div id={issuesId} className="jumping-level-problems" role="region" aria-label={`Level issues for ${level.name}`} data-controller-scroll>
+              {problems.map(problem => <p className="jumping-load-error" role="alert" key={problem}>{problem}</p>)}
+            </div>}
             <div className="jumping-level-tile-actions">
               <button className="jumping-level-play" data-menu-secondary aria-label={`Play ${level.name}`} disabled={needsRepair || local.refreshing} onClick={() => playFile(file)}>Play{connected && <kbd aria-hidden="true">A</kbd>}</button>
               {canEditCollection && <button className="jumping-level-edit" data-menu-secondary aria-label={`Edit ${level.name}`} disabled={local.refreshing} onClick={() => editFile(file)}>Edit<kbd aria-hidden="true">Y</kbd></button>}

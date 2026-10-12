@@ -134,12 +134,13 @@
 .jumping-ui .jumping-level-medal .gold { color: var(--jumping-color-gold); }
 .jumping-ui .jumping-level-medal .silver { color: var(--jumping-color-steel); }
 .jumping-ui .jumping-level-medal .bronze { color: var(--jumping-color-bronze); }
-.jumping-ui .jumping-level-tile .jumping-level-card::after { height: 56px; }
+.jumping-ui .jumping-level-tile .jumping-level-card::after { content: none; }
 .jumping-ui .jumping-level-tile-actions {
-  gap: 8px; bottom: 0; left: 0; right: 0; justify-content: flex-end;
+  position: static; gap: 8px; justify-content: flex-end;
   padding: 12px; background: var(--jumping-card-actions);
 }
 .jumping-game .jumping-ui .jumping-level-tile-actions button { min-height: 44px; padding: 10px 12px; font-size: var(--jumping-type-normal); }
+.jumping-ui .jumping-level-tile > .jumping-level-problems { padding: 12px 16px; background: var(--jumping-card); }
 .jumping-ui .jumping-level-problems p { color: var(--jumping-muted); font-size: var(--jumping-type-small); line-height: 1.5; }
 .jumping-ui .jumping-level-problems .jumping-load-error { color: var(--jumping-danger); }
 

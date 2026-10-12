@@ -271,7 +271,7 @@ test('local Next level follows manifest order and skips files that need repairs'
     await expect(page.getByRole('button', { name: 'Level 1: Start here' })).toBeVisible()
     expect(await names(page)).toEqual(['Start here', 'Needs repair', 'Alphabetically first title'])
     await page.getByRole('button', { name: 'Level 2: Needs repair' }).click()
-    await expect(page.getByRole('region', { name: 'Level issues' }).getByRole('alert').first()).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Level issues for Needs repair' }).getByRole('alert').first()).toBeVisible()
     await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Level 1: Start here' }).focus()
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

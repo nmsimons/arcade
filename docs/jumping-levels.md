@@ -244,6 +244,7 @@ directly in that folder, applies its manifest (or filename order), and lets you 
 it is selected to play immediately. Thumbnails fill the width of the picker.
 Each timed level tile shows your personal best and highest earned medal; unplayed
 levels show **Best —** and **No medal yet**. These update after completing a run.
+Unfinished levels show repair messages on their tiles and remain available to edit.
 Medal target times appear after completing a run. Add wall text to give players
 guidance inside a level.
 Each tile has **Play** at the bottom right, beside **Edit** for local

@@ -62,8 +62,8 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
       if (recording.file === '05.json' && run.player.contacts.support?.collider.prop === run.props[0]
         && run.player.contacts.push?.collider.id === 'mechanism:0') bracedOnBall = true
       if (recording.file === 'buoyancy.jump-level.json' && run.water.pools[0].level >= 99.9) waterFilled = true
-      if (recording.file === 'Waterline.jump-level.json' && run.player.grounded && Math.abs(run.player.y - 160) < 1
-        && run.triggers.some(button => button.active)) waterlineUpperControls = true
+      if (recording.file === 'Waterline.jump-level.json' && run.player.grounded
+        && run.triggers.some((button, index) => button.active && Math.abs(run.player.y - level.triggers[index].y) < 1)) waterlineUpperControls = true
     }
   }
   assert.ok(entryTime !== undefined, 'the player must enter the powered doorway')

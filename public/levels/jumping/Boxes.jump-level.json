@@ -95,15 +95,15 @@
       "kind": "box",
       "x": 755,
       "y": 880,
-      "size": 30
+      "size": 30,
+      "branded": true
     },
     {
       "kind": "box",
       "x": 840,
       "y": 880,
       "size": 80,
-      "weight": "heavy",
-      "branded": true
+      "weight": "heavy"
     },
     {
       "kind": "box",

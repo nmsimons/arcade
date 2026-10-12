@@ -6,11 +6,13 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   // Run the full prop reaction and doorway entry with software-rendered frames.
   test.setTimeout(60000)
   await page.clock.install({ time: new Date('2026-10-05T12:00:00Z') })
-  await page.goto('/untitled-jumping-game/levels/built-in/05.json')
-  const canvas = page.getByRole('img', { name: 'Level Five: reach the exit', exact: true })
-  await expect(canvas).toBeFocused()
+  await page.goto('/untitled-jumping-game')
+  const play = page.getByRole('button', { name: 'Play Level Five', exact: true })
+  await expect(play).toBeEnabled()
+  // Pause on the menu so loading speed cannot advance the ball before the replay.
   await page.clock.pauseAt(new Date('2026-10-05T13:00:00Z'))
-    await finishJumpingEntrance(page)
+  await play.click()
+  await finishJumpingEntrance(page)
   // Exercise different input phases within the 48 ms rendered-frame batches.
   if (frameOffset) await page.clock.runFor(frameOffset)
   await page.keyboard.down('d')
@@ -32,7 +34,7 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   await expect(complete).toBeVisible()
   await expect(complete.getByText('Gold medal', { exact: true })).toBeVisible()
   // Rendered input phases vary. Check the authored Gold deadline here; the
-  // fixed-step simulation recording separately verifies the 9.00 s route.
+  // fixed-step simulation recording separately checks the exact recorded time.
   const [minutes, seconds] = (await complete.locator('.jumping-result-time').innerText()).split(':').map(Number)
   const elapsed = minutes * 60 + seconds
   expect(elapsed).toBeGreaterThan(0)

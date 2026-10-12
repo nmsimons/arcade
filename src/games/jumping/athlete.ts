@@ -18,7 +18,7 @@ type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
 export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
-export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; slide?: boolean; pushing?: boolean; step?: NonNullable<Player['mantle']> }
+export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; ledgeDrop?: boolean; slide?: boolean; pushing?: boolean; step?: NonNullable<Player['mantle']> }
 export interface SlideEntryFrame { player: Player; facing: number; sliding: boolean }
 const renderPoses = new WeakMap<Player, { pose?: AthletePose }>()
 
@@ -908,6 +908,7 @@ export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null
   if (p.waterMotion || p.releaseTurn) return null
   const grip = !!(p.hang || p.climbing)
   const departing = grip && ((input.jump && !p.jumpHeld) || input.detach || input.drop || input.descend)
+  const ledgeDrop = !!p.hang && (input.detach || (input.drop || input.descend) && !p.hang.dropLocked)
   if (p.mantle) {
     if (!p.mantle.step || p.mantle.step.climbing) return null
     const step = p.mantle, source = snapshotDryPlayer(p)
@@ -917,7 +918,7 @@ export function captureDryTurn(p: Player, input: JumpInput): DryTurnFrame | null
   const reversing = Math.abs(input.move) > .01 && Math.sign(input.move) !== p.facing
     && (Math.abs(p.vx) > 5 || (p.gait?.moving ?? 0) > .2 || p.freeFall?.recovery != null || !!p.contacts?.push?.hands && !!p.pushing?.palms)
   const slide = !!(p.sliding || p.slideEntry)
-  if (p.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, slide, pushing: !!p.contacts?.push?.hands && !!p.pushing?.palms }
+  if (p.dryTurn || departing || reversing) return { pose: athletePose(p), facing: p.facing, grip, ledgeDrop, slide, pushing: !!p.contacts?.push?.hands && !!p.pushing?.palms }
   if (p.grounded) return null
   // A new canted contact can choose direction after a tick with no slide or
   // brace. Capture cheaply now, and only solve if that direction changes.
@@ -934,6 +935,8 @@ export function retainInterruptedStepPose(p: Player) {
 
 export function dryTurnDirection(p: Player, input: JumpInput, before?: DryTurnFrame | null) {
   if (p.hang || p.mantle || p.climbing || p.waterMotion || p.releaseTurn || p.freeFall?.recovery != null) return p.facing
+  // A neutral ledge drop's small clearance impulse must not select a turn.
+  if (before?.ledgeDrop && Math.abs(input.move) <= .01) return before.facing
   if (p.slideEntry?.landing && input.move * p.vx < -1 && Math.abs(p.vx) > 20) return Math.sign(p.vx)
   const changing = before && (before.grip || before.facing !== p.facing)
   if (!p.dryTurn && !changing) return p.facing

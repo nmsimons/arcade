@@ -97,14 +97,14 @@ test('air reversals stay unsupported and a restart discards the preceding turn',
 })
 
 test('a ledge jump transfers out of the real grip while retaining outward impulse and fresh-press semantics', () => {
-  for (const side of [-1, 1]) for (const inverted of [false, true]) {
+  for (const side of [-1, 1]) for (const inverted of [false, true]) for (const heldDown of [false, true]) {
     const p = createPlayer({ x: 400 - side * 14, y: 274 })
     Object.assign(p, { facing: side, grounded: false, coyote: 0, jumpHeld: true,
-      hang: { edgeX: 400, edgeY: 200, side, time: LEDGE_CATCH_TIME, braced: true, caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: null, ledgeReach: null } } })
+      hang: { edgeX: 400, edgeY: 200, side, time: LEDGE_CATCH_TIME, braced: true, dropLocked: heldDown, caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: null, ledgeReach: null } } })
     const terrain = [{ x: side === 1 ? 400 : 200, y: 200, w: 200, h: 400 }]
     if (inverted) { mirrorPlayerState(p); p.inverted = true }
     const floor = inverted ? terrain.map(mirrorPlatform) : terrain
-    const step = jump => stepPlayer(p, { ...NEUTRAL_INPUT, move: side, jump }, STEP, floor, undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
+    const step = jump => stepPlayer(p, { ...NEUTRAL_INPUT, move: heldDown ? 0 : side, jump, drop: heldDown, descend: heldDown }, STEP, floor, undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
     step(true); assert.ok(p.hang, 'the held catch press is consumed')
     step(false); const before = worldPoint(p, athletePose(p).head)
     step(true)
@@ -123,6 +123,46 @@ test('a ledge jump transfers out of the real grip while retaining outward impuls
         assert.ok(nearestBoundary(floor[0],x,y).distance >= radius - .02)
       }
       bones(rig); step(i < 3)
+    }
+  }
+})
+
+test('letting go of a ledge preserves visible facing through the release without changing clearance or steering', () => {
+  for (const side of [-1, 1]) for (const inverted of [false, true]) for (const braced of [false, true]) {
+    for (const release of [{ drop: true }, { descend: true }, { detach: true }, { detach: true, jump: true }]) {
+      const p = createPlayer({ x: 400 - side * 14, y: 274 })
+      Object.assign(p, { facing: side, grounded: false, coyote: 0,
+        hang: { platform: 0, edgeX: 400, edgeY: 200, side, time: LEDGE_CATCH_TIME, braced,
+          caught: { x: p.x, y: p.y, vx: 0, vy: 0, stride: 0, gait: null, ledgeReach: null } } })
+      const terrain = [{ x: side === 1 ? 400 : 200, y: 200, w: 200, h: braced ? 400 : 12 }]
+      if (inverted) { mirrorPlayerState(p); p.inverted = true }
+      const floor = inverted ? terrain.map(mirrorPlatform) : terrain
+      const step = input => stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, STEP, floor, undefined, undefined, undefined, undefined, inverted ? -TUNING.gravity : TUNING.gravity)
+      let previous = worldPoint(p, athletePose(p).head)
+      step(release)
+      assert.equal(p.hang, null)
+      assert.equal(p.vx, -side * 60, 'letting go keeps its small outward clearance impulse')
+      assert.equal(p.vy, inverted ? -80 : 80)
+      assert.equal(p.grabCooldown, .35)
+      assert.equal(p.dryTurn?.target, side, 'release faces the ledge rather than its outward impulse')
+      for (let i = 0; i < 30; i++) {
+        const pose = athletePose(p), head = worldPoint(p, pose.head)
+        assert.equal(p.facing, side)
+        if (p.dryTurn) assert.equal(p.dryTurn.target, side, 'neutral falling never introduces a turn away')
+        assert.ok(distance(previous, head) < 8, 'the retained facing releases smoothly from the hanging rig')
+        const points = [[pose.head, 6.2], ...[pose.hip, pose.waist, pose.shoulder].map(a => [a, 2.8]),
+          ...[pose.frontArm, pose.backArm].flatMap(arm => handOutline(arm).map(a => [a, 0]))]
+        for (const [a, radius] of points) {
+          const [x, y] = worldPoint(p, a)
+          assert.equal(pointInside(floor[0], x, y), false, 'the release still clears the real lip')
+          assert.ok(nearestBoundary(floor[0], x, y).distance >= radius - .02)
+        }
+        bones(pose)
+        assert.equal(pose.frontLeg.planted || pose.backLeg.planted, false)
+        previous = head; step({})
+      }
+      step({ move: -side })
+      assert.equal(p.facing, -side, 'explicit air steering can still turn away from the ledge')
     }
   }
 })

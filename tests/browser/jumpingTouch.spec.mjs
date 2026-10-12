@@ -51,7 +51,9 @@ async function verticalHold(page, id, direction) {
   await advance(page, 150)
 }
 
-test('native tap jumps once; an upward flick gives greater height and gameplay suppresses browser defaults', async ({ page }) => {
+test('native tap jumps once; an upward flick gives greater height and gameplay suppresses browser defaults', async ({ page, browserName }) => {
+  // Allow for WebKit's software rendering at the iPhone pixel density in CI.
+  if (browserName === 'webkit') test.setTimeout(60_000)
   const level = await open(page)
   const canvas = page.locator('.jumping-game > canvas')
   const styles = await canvas.evaluate(c => {

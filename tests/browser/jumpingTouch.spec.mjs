@@ -78,7 +78,9 @@ test('native tap jumps once; an upward flick gives greater height and gameplay s
   await expect(page.locator('.jumping-state')).toHaveText('Ready')
 })
 
-test('two fingers walk, run, jump and crouch without switching ownership or jumping on movement release', async ({ page }, info) => {
+test('two fingers walk, run, jump and crouch without switching ownership or jumping on movement release', async ({ page, browserName }, info) => {
+  // This longer sequence also needs time for WebKit software rendering at iPhone DPR.
+  if (browserName === 'webkit') test.setTimeout(60_000)
   const level = await open(page)
   await pointer(page, 'pointerdown', 1)
   await advance(page, 120)

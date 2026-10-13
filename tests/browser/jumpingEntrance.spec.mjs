@@ -23,7 +23,7 @@ test('the silhouette emerges through a closing entrance; idle play, pause and re
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   const card = page.locator('.jumping-level-card[aria-pressed=true]')
   await expect(card).toBeVisible()
   await expect.poll(() => card.locator('canvas').evaluate(c => c.width)).toBeGreaterThan(1)
@@ -59,7 +59,7 @@ for (const file of ['spire1.jump-level.json', '04.json', '05.json', 'spelunk1.ju
     const level = JSON.parse(await readFile(new URL(`../../public/levels/jumping/${file}`, import.meta.url), 'utf8'))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-    await page.goto('/untitled-jumping-game')
+    await page.goto('/lab')
     const card = page.locator('.jumping-level-card[aria-pressed=true]')
     await expect(card).toBeVisible()
     await expect.poll(() => card.locator('canvas').evaluate(c => c.width)).toBeGreaterThan(1)

@@ -29,7 +29,7 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
       return ellipse.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

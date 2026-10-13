@@ -1,5 +1,6 @@
 /** The approved L.A.B. mark, shared by SVG UI and Canvas world artwork. */
 export const LAB_NAME = 'L.A.B. Experiments'
+export const LAB_PATH = '/lab'
 export const LAB_LOGO_WIDTH = 876
 export const LAB_LOGO_HEIGHT = 318
 export const LAB_WORDMARK_PATH = [

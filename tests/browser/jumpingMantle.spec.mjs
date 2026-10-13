@@ -27,7 +27,7 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
       return ellipse.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -88,7 +88,7 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
       return ellipse.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

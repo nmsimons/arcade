@@ -16,7 +16,7 @@ for (const size of [80, 120, 160]) for (const direction of [-1, 1]) {
     await useLevelFixtures(page, [level])
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await page.clock.install({ time: new Date('2026-10-10T00:00:00Z') })
-    await page.goto('/untitled-jumping-game?motionDebug=1')
+    await page.goto('/lab?motionDebug=1')
     const play = page.getByRole('button', { name: 'Play Ball beside box', exact: true })
     await expect(play).toBeEnabled()
     await page.clock.pauseAt(new Date('2026-10-10T01:00:00Z'))

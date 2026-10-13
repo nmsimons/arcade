@@ -32,7 +32,7 @@ for (const kind of ['gate', 'lift']) test(`a horizontal ${kind} slides out from 
       return roundRect.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

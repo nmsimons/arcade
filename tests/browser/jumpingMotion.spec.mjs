@@ -12,7 +12,7 @@ test('keyboard turns between blocked props retain the whole body and establish t
     platforms:[{x:root+25.5+size,y:650,w:120,h:270},{x:root-25.5-size-120,y:650,w:120,h:270}]}
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -55,7 +55,7 @@ test('keyboard reversal brakes continuously while steering responds on the first
   const level = blankTrial(); level.width=4000; level.entrance={x:1500,y:920};level.goal={x:3800,y:920}
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -86,7 +86,7 @@ test('keyboard lowering then Jump away retains the ledge impulse while holding t
   level.platforms=[{x:500,y:300,w:200,h:200}]
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -112,7 +112,7 @@ for (const key of ['a','s']) test(`keyboard ${key === 'a' ? 'opposite movement' 
   level.platforms = [{x:500,y:440,w:200,h:60}]
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -133,7 +133,7 @@ for (const operation of ['resume','restart']) test(`keyboard ${operation} clears
   level.platforms=[{x:500,y:440,w:200,h:60}]
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -185,7 +185,7 @@ test('motion diagnostics observe real controls and pushing resumes smoothly afte
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -215,7 +215,7 @@ test('motion diagnostics observe real controls and pushing resumes smoothly afte
 
 test('production play does not enable diagnostics without the flag', async ({ page }) => {
   await useLevelFixtures(page, [blankTrial()])
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   expect(await page.evaluate(() => window.jumpingMotion)).toBeUndefined()
 })
@@ -229,7 +229,7 @@ for (const direction of [-1, 1]) for (const width of [16, 24]) test(`a keyboard 
     props: [{ kind: 'box', x: direction === 1 ? 480 : 420, y: 500, size: 80 }] }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -273,7 +273,7 @@ for (const direction of [-1, 1]) test(`a keyboard shove begins with palms on the
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -306,7 +306,7 @@ test('held keyboard movement springs a long-fall landing into supported running'
   level.platforms = [{ x: 500, y: 100, w: 120, h: 20 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -337,7 +337,7 @@ for (const kind of ['box', 'ball']) for (const direction of [-1, 1]) test(`low d
   flattenFixtureEntrance(level)
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -381,7 +381,7 @@ for (const direction of [-1, 1]) for (const reversed of [false, true]) test(`cro
   }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -422,7 +422,7 @@ for (const direction of [-1, 1]) test(`crouched pushing keeps the final head cle
   level.platforms = [{ x: direction === 1 ? 580 : 380, y: 650, w: 120, h: 270 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -450,7 +450,7 @@ test('the rendered torso transfers weight during a real moving push', async ({ p
   level.props = [{ kind: 'box', x: 540, y: 920, size: 80 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -472,7 +472,7 @@ test('the rendered torso transfers weight during a real moving push', async ({ p
 test('first opposite keyboard press during stationary get-up retains the outgoing whole rig',async({page},info)=>{
  const level={...blankTrial(),height:1400,floor:1400,entrance:{x:200,y:160},goal:{x:1620,y:1400},platforms:[{x:100,y:160,w:220,h:24}]}
  await useLevelFixtures(page,[level]);await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
- await page.goto('/untitled-jumping-game?motionDebug=1')
+ await page.goto('/lab?motionDebug=1')
  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page);await expect(page.locator('canvas[tabindex="0"]')).toBeFocused()

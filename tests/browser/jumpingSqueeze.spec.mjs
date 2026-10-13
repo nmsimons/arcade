@@ -13,7 +13,7 @@ for (const reverse of [false, true]) test(`holding left between a small box and 
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await observeGapHead(page)
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
@@ -84,7 +84,7 @@ test('a shovebot cannot squeeze the player inside two balls, and jumping remains
       return ellipse.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

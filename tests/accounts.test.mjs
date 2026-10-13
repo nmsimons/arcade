@@ -323,6 +323,9 @@ test('production hosts apply restrictive scripts, frame protection, and matching
   const config = readFileSync(new URL('../public/staticwebapp.config.json', import.meta.url), 'utf8')
   assert.equal(config, readFileSync(new URL('../staticwebapp.config.json', import.meta.url), 'utf8'))
   const headers = JSON.parse(config).globalHeaders, policy = headers['Content-Security-Policy']
+  assert.deepEqual(JSON.parse(config).routes.find(rule => rule.route === '/lab/*'), {
+    route: '/lab/*', rewrite: '/index.html', methods: ['GET', 'HEAD'],
+  }, 'LAB page links ending in .json must reach the app even though missing JSON assets are excluded from fallback')
   const connections = policy.split(';').find(part => part.trim().startsWith('connect-src'))
   assert.ok(connections.split(/\s+/).includes('https://my.microsoftpersonalcontent.com'))
   assert.ok(!connections.split(/\s+/).includes('https:'))

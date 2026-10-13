@@ -52,7 +52,7 @@ for (const device of ['keyboard', 'controller', 'touch']) test.describe(`${devic
       Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [window.testPad] })
     })
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-    await page.goto('/untitled-jumping-game?motionDebug=1')
+    await page.goto('/lab?motionDebug=1')
     const play = page.getByRole('button', { name: `Play Water ${kind} 1`, exact: true })
     await expect(play).toBeEnabled(); await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
     await play.click(); await finishJumpingEntrance(page); await page.clock.runFor(64)

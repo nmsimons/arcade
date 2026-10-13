@@ -12,9 +12,11 @@ test('desktop routing serves installed assets and rejects escaping paths and rem
     mkdirSync(join(root, 'levels')); writeFileSync(join(root, 'levels', 'index.json'), '{}')
     assert.equal(assetPath(root, 'arcade://game/'), join(root, 'index.html'))
     assert.equal(assetPath(root, 'arcade://game/hard-vacuum'), join(root, 'index.html'))
-    assert.equal(assetPath(root, 'arcade://game/untitled-jumping-game/build'), join(root, 'index.html'))
+    for (const path of ['/lab', '/lab/builder', '/lab/levels/built-in/Tower%20%232.json', '/lab/builder/local/Tower.JSON', '/lab/builder/local/Tower.json/playtest']) {
+      assert.equal(assetPath(root, `arcade://game${path}`), join(root, 'index.html'))
+    }
     assert.equal(assetPath(root, 'arcade://game/levels/index.json'), join(root, 'levels', 'index.json'))
-    for (const url of ['https://example.com/', 'arcade://elsewhere/', 'arcade://game/levels/missing.json', 'arcade://game/%2e%2e%2foutside', 'arcade://game/%5coutside', 'arcade://game/C%3A/outside']) assert.equal(assetPath(root, url), undefined)
+    for (const url of ['https://example.com/', 'arcade://elsewhere/', 'arcade://game/levels/missing.json', 'arcade://game/lab/missing.js', 'arcade://game/lab/levels/local/missing.png', 'arcade://game/untitled-jumping-game', 'arcade://game/%2e%2e%2foutside', 'arcade://game/%5coutside', 'arcade://game/C%3A/outside']) assert.equal(assetPath(root, url), undefined)
     assert.equal(isAppUrl('arcade://user:password@game/'), false)
   } finally { rmSync(root, { recursive: true, force: true }) }
 })

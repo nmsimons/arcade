@@ -10,6 +10,7 @@ import { controlDialog, scrollDialog } from './games/hardVacuum/controllerUi'
 import { createKeyboardGate } from './games/hardVacuum/keyboardGate'
 import { ControlHintsContext } from './games/hardVacuum/controlHints'
 import { ArcadeMenu } from './arcade/ArcadeMenu'
+import { LAB_PATH } from './branding/lab'
 
 const HardVacuumGame = lazy(() => import('./games/HardVacuumGame').then(m => ({ default: m.HardVacuumGame })))
 const HelloWorldGame = lazy(() => import('./games/HelloWorldGame').then(m => ({ default: m.HelloWorldGame })))
@@ -74,7 +75,7 @@ export default function App({ accountControls }: { accountControls?: ReactNode }
   return (
     <ControlHintsContext.Provider value={{ connected: controllerConnected, layout: controller.layout }}>
     {accountControls}
-    <GameLoadBoundary key={`${profile}:${accountGameRevision}:${pathname.startsWith('/untitled-jumping-game/') ? '/untitled-jumping-game' : pathname}`} onExit={onExit}>
+    <GameLoadBoundary key={`${profile}:${accountGameRevision}:${pathname === LAB_PATH || pathname.startsWith(`${LAB_PATH}/`) ? LAB_PATH : pathname}`} onExit={onExit}>
     <Suspense fallback={<GameLoading onExit={onExit} />}>
     <Routes>
       <Route
@@ -91,8 +92,8 @@ export default function App({ accountControls }: { accountControls?: ReactNode }
       <Route path="/bumper-ball" element={<GameViewport><KickballGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
       <Route path="/sling-load" element={<GameViewport><SlingLoadGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
       <Route path="/hello-world" element={<GameViewport><HelloWorldGame onExit={() => navigate('/', { replace: true })} /></GameViewport>} />
-      {LightingLab && <Route path="/untitled-jumping-game/lighting-lab" element={<LightingLab />} />}
-      <Route path="/untitled-jumping-game/*" element={<GameViewport><UntitledJumpingGame onExit={onExit} /></GameViewport>} />
+      {LightingLab && <Route path={`${LAB_PATH}/lighting-lab`} element={<LightingLab />} />}
+      <Route path={`${LAB_PATH}/*`} element={<GameViewport><UntitledJumpingGame onExit={onExit} /></GameViewport>} />
 
       {/* Back-compat redirects */}
       <Route path="/games/hard-vacuum" element={<Navigate to="/hard-vacuum" replace />} />
@@ -102,7 +103,6 @@ export default function App({ accountControls }: { accountControls?: ReactNode }
       <Route path="/games/bumper-ball" element={<Navigate to="/bumper-ball" replace />} />
       <Route path="/games/sling-load" element={<Navigate to="/sling-load" replace />} />
       <Route path="/games/hello-world" element={<Navigate to="/hello-world" replace />} />
-      <Route path="/games/untitled-jumping-game" element={<Navigate to="/untitled-jumping-game" replace />} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

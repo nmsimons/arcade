@@ -10,7 +10,7 @@ test('Buoyancy earns Gold with keyboard cargo delivery, both time pickups and dr
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 852, height: 393 })
   await page.clock.install({ time: new Date('2026-10-10T12:00:00Z') })
-  await page.goto('/untitled-jumping-game/levels/built-in/buoyancy.jump-level.json?motionDebug=1')
+  await page.goto('/lab/levels/built-in/buoyancy.jump-level.json?motionDebug=1')
   await expect(page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-10T13:00:00Z'))
     await finishJumpingEntrance(page)

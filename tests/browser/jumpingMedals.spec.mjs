@@ -6,7 +6,7 @@ for (const frameOffset of [0, 24]) test(`Level Five accepts the ball-downhill sh
   // Run the full prop reaction and doorway entry with software-rendered frames.
   test.setTimeout(60000)
   await page.clock.install({ time: new Date('2026-10-05T12:00:00Z') })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   const play = page.getByRole('button', { name: 'Play Level Five', exact: true })
   await expect(play).toBeEnabled()
   // Pause on the menu so loading speed cannot advance the ball before the replay.

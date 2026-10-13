@@ -171,7 +171,7 @@ test('existing version-1 levels receive daylight in the live game without upgrad
       return fill.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: `Play ${legacy.name}`, exact: true }).click()
   await expect(page.getByRole('img', { name: `${legacy.name}: reach the exit` })).toBeFocused()
   await expect.poll(() => page.evaluate(() => !!window.daylightCamera)).toBe(true)

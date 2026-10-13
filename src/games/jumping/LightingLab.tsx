@@ -1,5 +1,6 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { LAB_PATH } from '../../branding/lab'
 import fixtureUrl from '../../../tests/fixtures/jumping/lighting-prototype.json?url'
 import { createPreviewRun, createRun, stepRun } from './challenge.ts'
 import type { Run } from './challenge.ts'
@@ -114,7 +115,7 @@ export default function LightingLab() {
     if (play) { setBlackout(false); setGoal(false); canvas.current?.focus() }
   }
   return <main className="lighting-lab">
-    <header><div><p>L.A.B. EXPERIMENTS · DEVELOPMENT</p><h1>After hours.</h1></div><Link to="/untitled-jumping-game">Back to game</Link></header>
+    <header><div><p>L.A.B. EXPERIMENTS · DEVELOPMENT</p><h1>After hours.</h1></div><Link to={LAB_PATH}>Back to game</Link></header>
     <div className="lighting-lab-controls">
       <button type="button" role="switch" aria-checked={nightMode} title="Switch between full daylight and authored night lighting" onClick={() => setNightMode(!nightMode)}>Night mode</button>
       <button type="button" aria-pressed={blackout} disabled={playing} onClick={() => setBlackout(!blackout)}>EMP blackout</button>

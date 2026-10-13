@@ -124,7 +124,7 @@ test('underwater pose review shows braking, ascent, upright rests and gathered r
 // Wait durations here are held gameplay inputs at normal speed, with no test clock.
 test('swimming visual review at normal speed crosses the flooded passage and returns to the surface', async ({ page }, info) => {
   await useLevelFixtures(page, [level])
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await page.getByRole('button', { name: 'Play Flooded passage', exact: true }).click()
   await expect(page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })).toBeFocused()
   const state = () => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))

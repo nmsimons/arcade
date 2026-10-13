@@ -22,7 +22,7 @@ for (const direction of [-1, 1]) for (const mode of ['run', 'walk', 'crouch', 'g
         return arc.apply(this, args)
       }
     })
-    await page.goto('/untitled-jumping-game/levels/built-in/00-fixture.json?motionDebug=1')
+    await page.goto('/lab/levels/built-in/00-fixture.json?motionDebug=1')
     const canvas = page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true })
     await expect(canvas).toBeFocused()
     await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z')); await page.clock.runFor(64)

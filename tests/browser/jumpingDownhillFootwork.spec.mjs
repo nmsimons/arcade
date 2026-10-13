@@ -18,7 +18,7 @@ for (const mode of ['run', 'walk', 'crouch']) test(`Spelunk downhill ${mode} kee
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 852, height: 393 })
   await page.clock.install({ time: new Date('2026-10-09T12:00:00Z') })
-  await page.goto('/untitled-jumping-game/levels/built-in/00-fixture.json?motionDebug=1')
+  await page.goto('/lab/levels/built-in/00-fixture.json?motionDebug=1')
   await expect(page.getByRole('img', { name: 'Spelunk downhill encounter: reach the exit', exact: true })).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-09T13:00:00Z'))
     await finishJumpingEntrance(page)

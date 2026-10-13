@@ -17,7 +17,7 @@ for (const recording of records.runs.filter(run => accepted.has(run.file))) {
     const errors = [], checkpoints = []; page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 852, height: 393 })
     await page.clock.install({ time: new Date('2026-10-09T12:00:00Z') })
-    await page.goto('/untitled-jumping-game?motionDebug=1')
+    await page.goto('/lab?motionDebug=1')
     const play = page.getByRole('button', { name: `Play ${data.name}`, exact: true })
     await expect(play).toBeVisible()
     // Freeze on the menu before starting the route. Waiting for a live canvas

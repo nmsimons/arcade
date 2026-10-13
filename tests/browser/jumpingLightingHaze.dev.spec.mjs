@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 test('full beams stay faint and consistent regardless of legacy ambient and disappear when night mode is off', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -46,7 +46,7 @@ test('full beams stay faint and consistent regardless of legacy ambient and disa
 })
 
 test('airborne beams stay behind clocks, collectibles, wall text and the player', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { createPlayer } = await import('/src/games/jumping/model.ts')

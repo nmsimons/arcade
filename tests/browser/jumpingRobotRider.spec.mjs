@@ -30,7 +30,7 @@ test('a rear rider stays unseen and can stand, crouch and jump from the bot body
       return arc.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

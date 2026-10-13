@@ -53,7 +53,7 @@ async function open(page, level) {
       return text.call(this, value, x, y, ...rest)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.getByRole('application', { name: 'Level canvas' })).toBeVisible()
   await waitForBuilderPreview(page)

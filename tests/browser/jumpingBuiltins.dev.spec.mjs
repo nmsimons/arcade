@@ -32,7 +32,7 @@ test('built-in maps edit, rename, save and test directly in the Git checkout', a
     { id: 'ceiling-light', x: 600, y: 200, direction: 90, spread: 60, intensity: 100, power: 'always' },
   ] } }
   await writeFile(join(project.assets, '00.json'), JSON.stringify(lit))
-  await page.goto(`${project.url}/untitled-jumping-game`)
+  await page.goto(`${project.url}/lab`)
   await page.getByRole('button', { name: 'Edit First Leap', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/built-in\/00.json$/)
   await expect(page.locator('.builder-save-location')).toContainText('Built-in levels')
@@ -63,7 +63,7 @@ test('built-in maps edit, rename, save and test directly in the Git checkout', a
 })
 
 test('built-in library creates, reorders, recycles and recovers maps without publishing recovery files', async ({ page, project }, info) => {
-  await page.goto(`${project.url}/untitled-jumping-game`)
+  await page.goto(`${project.url}/lab`)
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await expect(page.locator('.builder-save-location')).toContainText('Built-in levels')
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('New repository map')
@@ -94,7 +94,7 @@ test('built-in library creates, reorders, recycles and recovers maps without pub
 test('switching Library collections keeps save destinations and unsaved changes separate', async ({ page, project }) => {
   // A local copy may have the same filename and level id as the built-in.
   await installTestFolder(page, { '00.json': { ...CAMPAIGN[0], name: 'Local original' } })
-  await page.goto(`${project.url}/untitled-jumping-game`)
+  await page.goto(`${project.url}/lab`)
   await page.getByRole('button', { name: 'Edit First Leap', exact: true }).click()
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Built-in draft')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
@@ -119,7 +119,7 @@ test('switching Library collections keeps save destinations and unsaved changes 
 test('unfinished built-in maps remain available for editing and saving', async ({ page, project }) => {
   const unfinished = { ...(await project.read('00.json')), name: 'Unfinished built-in', goal: { x: 500, y: 150 } }
   await writeFile(join(project.assets, '00.json'), JSON.stringify(unfinished))
-  await page.goto(`${project.url}/untitled-jumping-game`)
+  await page.goto(`${project.url}/lab`)
   await expect(page.getByRole('button', { name: 'Play Unfinished built-in', exact: true })).toBeDisabled()
   await page.getByRole('button', { name: 'Edit Unfinished built-in', exact: true }).click()
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Still working on this')

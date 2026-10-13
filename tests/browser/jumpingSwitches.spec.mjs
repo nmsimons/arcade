@@ -24,7 +24,7 @@ async function open(page, level, finishEntrance = true) {
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click()

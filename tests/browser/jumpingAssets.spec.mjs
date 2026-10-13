@@ -10,7 +10,7 @@ import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 const custom = (id, name) => ({ ...structuredClone(first), id, name })
 
 async function open(page) {
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.getByRole('button', { name: 'Level studio', exact: true })).toBeVisible()
 }
 const names = page => page.locator('.jumping-level-card strong').allTextContents()
@@ -111,7 +111,7 @@ test('a missing index reports the failure and page reload recovers without a com
   for (const [index, level] of builtIns.slice(0, 2).entries()) {
     await page.getByRole('button', { name: `Level ${index + 1}: ${level.name}`, exact: true }).click()
     await expect(page.getByRole('img', { name: `${level.name}: reach the exit` })).toBeFocused()
-    await page.goto('/untitled-jumping-game')
+    await page.goto('/lab')
   }
 })
 

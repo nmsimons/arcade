@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { test, expect } from './helpers/test.mjs'
 
 for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'vertical'} gates stay ambient-only, shadow objects and stop the airborne beam`, async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async horizontal => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -51,7 +51,7 @@ for (const horizontal of [true, false]) test(`${horizontal ? 'horizontal' : 'ver
 })
 
 test('terrain stays ambient-only while wall displays receive the beam behind a blocker', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -80,7 +80,7 @@ test('terrain stays ambient-only while wall displays receive the beam behind a b
 })
 
 test('gates seal the photographed stepped-floor layout with two spotlights', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -103,7 +103,7 @@ test('gates seal the photographed stepped-floor layout with two spotlights', asy
 })
 
 test('a wall joined to the room boundary blocks light beyond it while the gate stays ambient', async ({ page }, testInfo) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')
@@ -128,7 +128,7 @@ test('a wall joined to the room boundary blocks light beyond it while the gate s
 })
 
 test('source glow remains stronger than the full beam, fades with EMP, and stops at a nearby gate', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -155,7 +155,7 @@ test('source glow remains stronger than the full beam, fades with EMP, and stops
 
 for (const kind of ['gate', 'lift']) for (const horizontal of [true, false]) {
   test(`${horizontal ? 'horizontal' : 'vertical'} ${kind} stays ambient-only through terrain contact and travel, preserving downstream shadows`, async ({ page }) => {
-    await page.goto('/untitled-jumping-game/lighting-lab')
+    await page.goto('/lab/lighting-lab')
     const result = await page.evaluate(async ({ kind, horizontal }) => {
       const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
       const { LightingRenderer } = await import('/src/games/jumping/lightingRender.ts')
@@ -203,7 +203,7 @@ for (const kind of ['gate', 'lift']) for (const horizontal of [true, false]) {
 }
 
 test('an offscreen mechanism cannot remove the visible shadow of a long terrain edge', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -222,7 +222,7 @@ test('an offscreen mechanism cannot remove the visible shadow of a long terrain 
 })
 
 test('a flush gate corner leaves no diagonal pinhole shadow through its face', async ({ page }, testInfo) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { createPreviewRun } = await import('/src/games/jumping/challenge.ts')

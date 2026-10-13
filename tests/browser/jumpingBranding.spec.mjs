@@ -53,7 +53,7 @@ test('plain and branded crates plus wall stamps edit, undo, save, reopen and ren
       return fill.apply(this, args)
     }
   }, { main: LAB_WORDMARK_PATH, sub: LAB_SUBTITLE_PATH })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await waitForBuilderPreview(page)
   await page.getByRole('button', { name: 'Library', exact: true }).click()

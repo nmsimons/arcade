@@ -37,7 +37,7 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
       return ellipse.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   // Let real worker preparation finish before jumping the virtual clock past
   // its deadline. A visible card can still have an unprepared thumbnail.

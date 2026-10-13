@@ -191,8 +191,8 @@ test('two browsers sync from the builder and chooser, with file status and cloud
     drive.put('Untitled Jumping Game/Levels/Third.json', JSON.stringify({ ...JSON.parse(saved['Second.jump-level.json']), id: 'third', name: 'Copied into OneDrive' }))
     await refresh.click()
     await expect(other.getByRole('button', { name: 'Level 3: Copied into OneDrive', exact: true })).toContainText('Saved to OneDrive')
-    await expect(other).toHaveURL(/untitled-jumping-game/)
-    await expect(page).toHaveURL(/untitled-jumping-game/)
+    await expect(other).toHaveURL(/lab/)
+    await expect(page).toHaveURL(/lab/)
   } finally { finishUpload?.(); await otherContext.close() }
 })
 

@@ -66,8 +66,8 @@ export async function loadLocalLevelFiles(files: readonly LevelInputFile[]) {
   return { ...result, files: orderLevelFiles(result.files, manifest), missing, manifest, manifestSource }
 }
 /** Public assets are fetched afresh, never imported into the JavaScript bundle. */
-export async function loadLevelCatalog(base: string, fetchFile: typeof fetch = fetch): Promise<LevelCatalog> {
-  const root = `${base.replace(/\/?$/, '/')}levels/jumping/`
+export async function loadLevelCatalog(base: string, fetchFile: typeof fetch = fetch, assetPath = 'levels/jumping/'): Promise<LevelCatalog> {
+  const root = `${base.replace(/\/?$/, '/')}${assetPath}`
   let bytes = 0
   const read = async (path: string) => {
     checkCollectionSize(bytes, 0)

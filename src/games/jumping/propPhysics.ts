@@ -1,4 +1,5 @@
 import Matter from 'matter-js'
+import { CollisionQueries } from './collisionQueries.ts'
 import { constrainFloatSwitch, floatSwitchConstraint } from './floatSwitchPhysics.ts'
 import type { Prop, Run } from './challenge.ts'
 import type { Platform } from './model.ts'
@@ -361,12 +362,13 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   }
   const solids = [...world.terrain, ...world.mechanisms, ...world.bodies.values()]
   const candidates = new Map([...world.bodies.values()].map(body => [body, solids.filter(other => other !== body)]))
+  const queries = new CollisionQueries()
   // Recompute normals at joins after the solver's position iterations. A ball
   // reaching the flat floor can have a new contact that the old ramp normal
   // alone cannot separate, even with more iterations of that old contact.
   for (let pass = 0; pass < 32; pass++) {
     let corrected = false
-    for (const body of world.bodies.values()) for (const hit of Query.collides(body, candidates.get(body)!)) {
+    for (const body of world.bodies.values()) for (const hit of queries.collides(body, candidates.get(body)!)) {
       if (hit.depth < .001) continue
       const a = hit.bodyA, b = hit.bodyB, wa = a.isStatic || a.isSleeping ? 0 : a.inverseMass, wb = b.isStatic || b.isSleeping ? 0 : b.inverseMass
       if (!wa && !wb) continue
@@ -412,7 +414,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const byBody = new Map([...world.bodies].map(([prop, body]) => [body, prop]))
   const supports = new Map<Matter.Body, Matter.Vector>()
   const contacts: Matter.Collision[] = world.engine.pairs.list.filter((pair: Matter.Pair) => pair.isActive).map((pair: Matter.Pair) => pair.collision)
-  for (const body of world.bodies.values()) contacts.push(...Query.collides(body, candidates.get(body)!))
+  for (const body of world.bodies.values()) contacts.push(...queries.collides(body, candidates.get(body)!))
   // Validate sleeping support separately, keeping the solver's original
   // contact ordering and friction normals for awake objects. Sleep can leave
   // inactive cached pairs, so check the current hulls with a small tolerance.

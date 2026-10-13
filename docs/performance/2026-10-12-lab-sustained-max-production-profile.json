@@ -1,0 +1,132 @@
+{
+  "scenario": "mixed-max",
+  "start": 210,
+  "frames": 60,
+  "phaseBuild": false,
+  "browser": "155.0.4283.45",
+  "wasmHash": "c51cc273d0bbfeae6656ac7cadad61c9b303ac36c5eee2576528775820b2daba",
+  "fixtureHash": "dc0f9294542e35fce97e4edbf09f4d92f5ed516161b02f38af26c3cdc0bfaa4e",
+  "samples": 7460,
+  "note": "Instrumented production-browser sampling profile. Phase build inhibits helper inlining. Timings are diagnostic only; compare uninstrumented stress runs for FPS.",
+  "phases": [
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain",
+      "count": 48,
+      "percent": 0.6434316353887399
+    }
+  ],
+  "topSelfSamples": [
+    [
+      "n._overlapAxes http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      2487
+    ],
+    [
+      "n.collides http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      2111
+    ],
+    [
+      "js-to-wasm:dddddi:i wasm://wasm/lab_rope.wasm-0004c272",
+      1114
+    ],
+    [
+      "K0 http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      516
+    ],
+    [
+      "n._findSupports http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      111
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope4bend wasm://wasm/lab_rope.wasm-0004c272",
+      99
+    ],
+    [
+      "(anonymous) http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      71
+    ],
+    [
+      "solve wasm://wasm/lab_rope.wasm-0004c272",
+      63
+    ],
+    [
+      "(garbage collector) ",
+      46
+    ],
+    [
+      "Jf http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      44
+    ],
+    [
+      "Ut http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      44
+    ],
+    [
+      "oo http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      43
+    ],
+    [
+      "Ma http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      41
+    ],
+    [
+      "Ac http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      37
+    ],
+    [
+      "drawImage ",
+      37
+    ],
+    [
+      "re http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      36
+    ],
+    [
+      "dd http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      36
+    ],
+    [
+      "Ze http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      27
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain wasm://wasm/lab_rope.wasm-0004c272",
+      27
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope5clear wasm://wasm/lab_rope.wasm-0004c272",
+      24
+    ],
+    [
+      "Se http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      24
+    ],
+    [
+      "n.contains http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      20
+    ],
+    [
+      "to http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      18
+    ],
+    [
+      "Zf http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      18
+    ],
+    [
+      "no http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      18
+    ]
+  ],
+  "outcomeHash": "48aa361d0ee5688119526f0723bd930b7d6c4ea9fb4a416b6448f34ab2f72716",
+  "output": "C:\\Users\\nsimons\\code\\arcade\\.local\\lab-max-late-production.cpuprofile",
+  "selfSampleFamilies": {
+    "wasm": {
+      "count": 1408,
+      "percent": 18.873994638069703
+    },
+    "matterCollision": {
+      "count": 4709,
+      "percent": 63.12332439678284
+    }
+  }
+}

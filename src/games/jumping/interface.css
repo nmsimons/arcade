@@ -101,6 +101,8 @@
 .jumping-game .jumping-ui .local-folder-actions button { min-width: 0; font-size: var(--jumping-type-normal); background: transparent; color: var(--jumping-ink); }
 .jumping-ui :is(.jumping-library-status, .jumping-route-notice) { padding-inline: var(--jumping-inset); }
 .jumping-ui .jumping-library-status:empty { display: none; }
+.jumping-ui .jumping-stress-levels { flex: none; }
+.jumping-ui .jumping-stress-levels summary { padding: 12px var(--jumping-inset); cursor: pointer; }
 .jumping-ui .jumping-library-status p { margin: 12px 0; }
 .jumping-ui :is(.jumping-load-error, .jumping-route-notice, .jumping-folder-note) {
   color: var(--jumping-danger); font-size: var(--jumping-type-small); line-height: 1.5;

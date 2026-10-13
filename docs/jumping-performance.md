@@ -1,4 +1,581 @@
-# Lighting performance notes
+# LAB performance notes
+
+## October 13 cleanup decision
+
+The active app remains in JavaScript. Keep the exact prop collision cache,
+unchanged stress workloads, playable development-only stress maps, profiling
+tools and these recorded findings. Remove Rust/Wasm, alternate solvers, Rapier,
+native build/test tooling and their extra CSP permissions. No 60 FPS improvement
+is claimed by this cleanup.
+
+The sections below are a historical investigation log: references to a
+"shipped" kernel, experimental flags and old validation counts describe the
+build measured at that time. All experiment source, binaries, provenance and
+original reproduction commands are preserved in
+commit `321d047`.
+Use [the current stress guide](jumping-stress.md) for the JavaScript tools and
+development level launcher.
+
+### JavaScript cleanup verification
+
+The [fresh JavaScript-only report](performance/2026-10-13-lab-javascript-cleanup.json)
+uses one paired episode per mixed case, with the same 30 warmup / 300 measured
+frames, fixtures, 1280×800 / DPR 1, full lighting, hardware Edge GPU and two
+120 Hz ticks per RAF. Both final trajectory hashes are identical and graphics
+settings match. The interactive previews were idle; the earlier attempt after
+a desktop-build reload was discarded before accepting measurements.
+
+| Workload | Original queries → cache FPS | Frame interval p95 |
+| --- | ---: | ---: |
+| Mixed medium | 11.0 → 10.1 | 133.2 → 150.3 ms |
+| Mixed maximum | 3.1 → 3.5 | 500.6 → 517.1 ms |
+
+This verifies the cleaned comparison harness and physics parity, **not a new
+mixed-scene speedup**. One episode is insufficient to qualify a regression or
+gain, and both p95 intervals worsened. The repeated earlier cache measurements
+used the native rope path; their mixed-scene FPS must not be presented as
+JavaScript-only results. The cache is retained for its repeated prop-only wins
+(those controls execute no native rope steps) and exact parity. The current
+JavaScript mixed workloads remain expensive and have not been qualified at
+60 FPS. Historical native results below retain their original build conditions.
+
+## October 13, 2026: Chain tension solver trial — rejected
+
+**The trial did not make the mixed LAB scenes cheaper while preserving their
+mechanical quality.** The shipped Rust source, binary (`e83d8b69…`) and provenance
+are restored. The rejected source, binary and build hashes are frozen in
+`tests/fixtures/jumping/lab-rope-chain-probe/` at that commit.
+The adapter exposes benchmark controls, but there is no playable query flag and
+the shipped binary cannot enable this solver.
+
+The [fresh slow-window profile](performance/2026-10-13-lab-rope-chain-before-profile.json)
+uses the current Matter prop engine and active rope/prop experiments at maximum
+frames 210–270. About 46.2% of samples descend through rope work and 33.2% through
+props; constraint passes alone account for 19.3%, versus 9.8% span contacts and
+7.5% node contacts. These are diagnostic samples from a readable phase build.
+Inclusive ancestry was reprocessed from the same raw profile after fixing the
+formatter's early exit at a Rust phase; phase/self counts did not change. The
+earlier 69.3% rope finding used the separate Rapier prop model.
+
+The experiment replaces local tension propagation with a simultaneous
+tridiagonal chain projection. It uses Newton steps, a bounded active set that
+drops compression multipliers, and a four-unit correction line search. It is
+informed by [direct position-based chain solvers](https://onlinelibrary.wiley.com/doi/abs/10.1111/cgf.13326),
+but is a simpler unilateral particle-chain trial, not that paper's rod model or
+its claimed speedup. It retains 8-unit segments, integration, gravity, damping,
+ordered node/whole-span contacts, corner bends and final-clear recovery. The
+player-loaded rope still uses the original TypeScript solve. A complete contact
+cycle can stop early only with stable bends, changes below 0.00001 units and
+remaining tension error below 0.0005 units; the original maximum pass budget
+remains available. This changes unattached trajectories, so exact parity is not
+an acceptance requirement for this mode.
+
+The first [unguarded medium pilot](performance/2026-10-13-lab-rope-chain-pilot-rejected.json)
+measured 36.8 → 43.7 FPS, but failed the local-stretch and solid-crossing gates.
+That was not an accepted gain. The guarded candidate reruns the ordered solver
+from the untouched input packet whenever its final path crosses a solid, local
+stretch reaches 10%, or total stretch reaches 2%. A regression checks that a
+solid intruding around an anchor restores the exact ordered result for that tick.
+
+The [final guarded report](performance/2026-10-13-lab-rope-chain-guarded-rejected.json)
+contains all six planned alternating pairs / twelve arms: 30 warmup plus 300
+measured frames, three episodes per mixed case, Edge 155 / Adreno X1-85,
+1280×800 / DPR 1, hardware GPU, full-quality lighting and two 120 Hz ticks per RAF.
+Both arms use Matter props and `labSolver=active` in the same bundle and frozen
+dual-mode kernel (`c73f4825…`). Fixtures and populations are unchanged. Quality
+checks occur after timing. Medians of episode statistics:
+
+| Workload | Ordered → guarded chain FPS | Simulation CPU p95 | Frame interval p95 |
+| --- | ---: | ---: | ---: |
+| Mixed medium | 37.8 → 16.4 | 33.5 → 80.7 ms | 41.6 → 99.9 ms |
+| Mixed maximum | 10.0 → 8.2 | 127.3 → 202.3 ms | 133.5 → 216.7 ms |
+
+All paired FPS comparisons were worse. Medium varied substantially: ordered
+19.9 / 37.8 / 42.5 FPS, chain 15.2 / 16.4 / 36.3. Maximum was ordered
+9.9 / 10.0 / 10.0 versus chain 8.1 / 8.2 / 8.2. Use these paired measurements,
+not ratios to earlier runs. Prop, rope and lift activity matched: about 24/40,
+16/16 and 1.49/4 in medium; 59/80, 40/40 and 2.06/6 in maximum. States were
+repeatable within each mode, but rope trajectories differed between modes.
+
+The chain attempt averaged 39.5 / 37.7 passes out of 72. However, 4,911/10,560
+medium rope ticks (46.5%) and 10,955/26,400 maximum ticks (41.5%) also reran the
+full ordered solve. Those extra passes are excluded from the chain-pass counter.
+Global matrix work and frequent full retries consume the nominal pass savings.
+`chainStats` records attempts, chain passes, original budget, attempts reaching
+that budget, and ordered retries. Wasm memory also excludes JavaScript heaps.
+
+The new end-state checks expose a limitation in the reference too. Moving props
+can invalidate the previous clear configuration: reference medium has 12 blocked
+path legs against props, maximum 15; both have zero blocked legs against fixed
+terrain or mechanisms. The candidate has 13 / 19 blocked prop legs, also zero
+against terrain/mechanisms. Reference/candidate maximum total arc stretch is
+3.50% / 7.53%; maximum local stretch is about 160% above rest in both. Thus the
+absolute mechanical bars already fail in this extreme reference, and the trial
+does not improve those limits. The guard preserves the ordered fallback's
+contract for each rejected attempt, not a universal guarantee for dynamically
+intruding props. No quality thresholds were widened to accept the trial.
+
+The runner saves all requested arms even when these gates fail, then exits with
+an assertion. Its report has `measurementsComplete: true`, `complete: false`
+and explicit `qualityFailures`. These are rejected-candidate timings, not an
+accepted performance improvement or proof that all rope algorithms must fail.
+
+Free-swing peaks differed by at most 3.1%, and first-return timing by one/two
+120 Hz ticks over five seconds for 240/760-unit ropes. The eight focused checks
+cover those bounds, wall/corner clearance, exact loaded-rope behavior, catch/drop,
+guard restoration, frozen provenance and safe refusal by the shipped kernel.
+They do not qualify crowded contacts or establish subjective feel. The result
+points to joint tension/contact resolution around moving props as the remaining
+problem; fast tension propagation alone is insufficient. See
+[reproduction](jumping-stress.md). No level layout or normal gameplay is changed.
+
+Validation after archiving: all 26 focused probe/original-kernel tests passed,
+including the historical Spelunk replay. Targeted lint and the production build
+passed; the build validated 28 built-in levels. All four production-browser
+checks passed (baseline/active release under CSP, missing binary, incompatible
+arithmetic). Two short original-mode controls retained identical trajectory
+hashes, and one free-rope archive control exercised the frozen chain binary with
+zero retries and passed its quality gates. Short controls verify reproduction;
+they do not supersede the rejected sustained mixed-scene measurements.
+
+## October 13, 2026: Native-physics go/no-go investigation
+
+**Recommendation: retain JavaScript as the app codebase; do not commit to a full
+Rust rewrite on this evidence.** The accepted collision-cache improvement stays.
+The existing Rust rope kernel remains an optional experiment. The current dense
+mixed-scene limits remain real; this investigation did not establish sustained
+60 FPS at those populations.
+
+The user accepted small loose-object trajectory changes while retaining controls,
+mechanics and overall feel. That allowed an algorithm comparison instead of
+requiring bit-identical output. A benchmark-only Rapier 0.21.0 Rust/Wasm probe
+replaces the ordinary prop solve. The real mechanism planner, player controller,
+renderer, and optimized Rust rope solve continue. Production gameplay never
+imports these probes. Direct player contacts, grabs, robots, inverted players,
+water and float switches use the established prop boundary; this is a capacity
+probe, not completed gameplay integration. No fallback occurred in the recorded
+dense comparison arms.
+
+The [final report](performance/2026-10-13-lab-rapier-long.json) contains three
+alternating fresh pairs per case: 30 warmup + 300 measured frames, Edge 155,
+Adreno X1-85, 1280×800 / DPR 1, full-quality lighting and two 120 Hz ticks per RAF.
+The current comparison arm enables both existing opt-in experiments; this is not
+a comparison with the unflagged TypeScript default. All arms share one bundle
+and custom rope binary (`e83d8b69…`). Tables use medians of episode statistics.
+
+| Workload | Current best → Rapier props FPS | Simulation CPU p95 | Combined CPU p95 |
+| --- | ---: | ---: | ---: |
+| 80 props | 17.5 → 60.3 | 150.8 → 7.3 ms | 152.5 → 9.3 ms |
+| Mixed medium | 41.4 → 31.2 | 25.7 → 41.2 ms | 29.0 → 48.2 ms |
+| Mixed maximum | 9.8 → 11.8 | 133.3 → 123.9 ms | 146.6 → 134.7 ms |
+
+The prop-only gain is substantial, but it did not transfer to the mixed scenes.
+Medium became about 24% slower by these medians; maximum gained about 21%, still
+far below the previous 2× bar and 60 FPS. Maximum frame p95 was 150.1 → 134.0 ms.
+Variation matters: the three medium pairs were 25.9→31.8, 41.4→31.2 and 41.9→31.1
+FPS; maximum was 9.6→11.4, 9.8→11.8 and 10.1→18.9. Do not select the last maximum
+episode as the result or compare today's medians with yesterday's runs.
+
+Rapier uses true circles, f32 state in a 100-unit/metre scale, twelve solver
+iterations with two internal PGS iterations, CCD, and hard contact settings.
+Immovable kinematic hulls retain infinite-mass terrain and the existing mechanism
+planner's cargo positions; both current and next native poses are set together,
+avoiding a second carrying velocity. All native props are kept awake. Native
+average moving populations were 77/80, 32/40 and 70/80, versus 59/80, 24/40 and
+59/80 in the reference. Changed contact trajectories create a different rope
+workload despite identical populations and inputs. These are whole-scene capacity
+results for the alternative model, not a pure language speed comparison.
+
+Every final native residual overlap was below the declared 0.5-unit crowded-scene
+gate (0.311 / 0.331 / 0.015 units by case). Separate stacked-box, fast-ball thin-wall
+and cargo tests require less than 0.15-unit penetration. Sleeping did not supply
+the speedup. The report's `wasmMemoryBytes` covers only the custom rope kernel;
+Rapier's additional memory is excluded. Fixture hashes match the previous stress
+fixtures, and the bundle hash also fingerprints the embedded Rapier module.
+
+The [slow-window profile](performance/2026-10-13-lab-rapier-max-profile.json) samples
+maximum frames 210–270 after the prop substitution. About 69.3% of samples descend
+through `stepRope`, 59.8% through its Rust/Wasm adapter, and 6.0% through the prop
+step. Its readable diagnostic build is unminified; these are inclusive sampling
+observations, not production timing fractions to add together. The limiting
+rope work is already native Rust code. Translating remaining JavaScript alone
+does not remove that algorithmic cost.
+
+A separate batched Rapier soft-rope trial kept the same 8-unit particles, fixed
+anchors, per-particle gravity sampling, tension-only edges and whole-surface
+contacts. It disabled sleeping and rope-to-rope collisions, with lower rope
+dominance to preserve one-way prop contact. The first budget failed the local
+stretch gate. Raising edge stiffness and internal iterations produced a
+[rejected medium pair](performance/2026-10-13-lab-rapier-rope-rejected.json): current
+29.3 FPS versus candidate 12.9 FPS, 0.552-unit prop overlap, 15.2% local rope
+stretch, and **four rope spans crossing solids**. Total rope stretch and anchor
+drift were small, showing why those checks alone are insufficient. The report is
+intentionally incomplete and the runner rejected it. Its timing is not an
+accepted improvement. A simple static-wall rope test passed, but did not qualify
+the crowded model.
+
+This tests Rust/Wasm solver substitutions under the current renderer, not a
+fully native desktop executable or a parallel engine/renderer redesign. Such a
+redesign could produce different results, but would need its own successful
+vertical slice before justifying a rewrite. The current evidence supports
+keeping the JavaScript app and practical authored workloads. A separate prop-only
+game or workload could justify Rapier; it does not justify integrating this
+partial backend into LAB now. No replacement is enabled in normal gameplay.
+
+All five focused probe tests passed, covering stack support, thin-wall CCD, cargo
+positions, guarded legacy interactions, and static-wall rope clearance. Targeted
+lint and the production TypeScript/Vite build passed; the build validated all 28
+built-in levels. Probe identifiers are absent from the production JavaScript.
+The original TypeScript/Wasm mode also passed two short parity controls (eight
+ropes and eight props), with identical trajectory hashes. These short controls
+verify harness compatibility, not sustained performance. The crowded soft-rope
+model remains rejected regardless of the narrower test pass.
+See [reproduction](jumping-stress.md) for the benchmark-only flags and limits.
+
+## October 12, 2026: Selective solver experiment
+
+The separate `labSolver=active` prototype tests whether revisiting only affected
+work can double sustained mixed-scene FPS. Prop corrections track hull mutations
+and reactivate queries overlapping either the old or new bounds. Rope constraints
+and node contacts reuse exactly unchanged outcomes; conservative slack and
+outside-contact regions also exclude movements that cannot change the result.
+The original correction order, fixed steps, pass counts, sleep/wake policy,
+segment resolution, terrain and lighting remain. This is an opt-in experiment.
+
+An initial exact-input version gained only 10–13% in single long pairs. Its rope
+inputs often changed by tiny amounts, so conservative regions were added with
+wide numerical margins and coordinate guards. The final candidate was then
+compared with the frozen implementation from before this experiment, including
+its `c51cc273…` kernel. The candidate binary is `e83d8b69…`.
+
+The [repeated long report](performance/2026-10-12-lab-active-long.json) contains
+three alternating fresh pairs per case, 30 warmup + 300 measured frames,
+Edge 155 / Adreno X1-85 at 1280×800 / DPR 1, full-quality lighting and two 120 Hz
+ticks per RAF. Tables are medians of episode statistics:
+
+| Workload | Before → selective FPS | Simulation CPU p95 | Combined CPU p95 |
+| --- | ---: | ---: | ---: |
+| 80 props | 13.6 → 15.8 | 176.8 → 167.2 ms | 179.3 → 168.8 ms |
+| Mixed medium | 25.8 → 28.9 | 45.0 → 40.5 ms | 50.5 → 47.4 ms |
+| Mixed maximum | 8.1 → 10.1 | 144.6 → 134.8 ms | 156.7 → 146.6 ms |
+
+All nine long pairs had exactly identical final physics state. This is about
+12% more medium FPS and 24% more maximum FPS, **well below the 2× success bar**.
+Maximum simulation p95 improved only 7%. Its remaining CPU p95 spans nearly
+nine 16.7 ms budgets. This does not establish a credible near-term 60 FPS path.
+
+Counters were identical across repetitions: the scheduler skipped 72% / 82% of
+medium/maximum prop correction queries, 91% / 89% of node-contact checks, but
+only 12% of local constraint checks. High skip counts did not translate into
+similar CPU savings. Cheap empty/bounds/slack checks were removed; remaining
+changing contacts and constraints still dominate. There are no reduced physics
+budgets behind the timing gains.
+
+The [17-case coverage report](performance/2026-10-12-lab-active-coverage.json)
+adds 17 exact matched pairs, for 26 accepted pairs / 52 arms across both reports.
+Short-window results varied: 40 free ropes slowed from 49.1 to 42.9 FPS, wall
+ropes from 44.4 to 40.8, and short mixed maximum from 7.9 to 7.4. These are single
+pairs, not established regression medians, but show that the bookkeeping can
+cost more than it saves in some workloads. Do not promote this flag to default.
+
+Object activity matched the earlier runs: medium averaged 24/40 moving props,
+16/16 ropes and 1.49/4 lifts; maximum 59/80 props, nearly 40/40 ropes and 2.06/6
+lifts. The mixed Wasm-memory figures stayed around 3.3 MiB; this excludes extra
+JavaScript scheduler state. Follow the [experiment and reproduction instructions](jumping-stress.md).
+Keep the prototype for inspection, stop expanding this direction on the present
+evidence, and retain the prior exact collision-cache optimization as the default.
+
+All **1,074 physics regressions across 69 files passed with the experimental flag
+preloaded**, including built-in medal replays, loaded ropes and grab/release,
+stretch/contact/clearance checks, sleep/wake, props, robots, elevators and water.
+The added test also compares every tick of the medium workload through its slow
+period. TypeScript and lint passed, excluding pre-existing `.tmp` checkouts and
+native build output. The production build validated all 26 built-in levels, and
+all four production browser checks passed: baseline and active rope release
+under CSP, missing-Wasm fallback, and incompatible-arithmetic fallback. Exact
+state matches are stronger than relaxing trajectory tolerances to accept this
+experiment.
+
+## October 12, 2026: Sustained-frame investigation and prop queries
+
+The slow periods repeat at fixed simulation times. In the existing 300-frame
+reports, medium spikes around absolute frames 150–200 and maximum stays slow
+around frames 210–270. Sampling those windows changed the diagnosis: the maximum
+production-kernel profile put **63.1% of samples in Matter collision/SAT routines**
+and 18.9% in Wasm. The medium phase profile put 46.2% in Matter collision and
+29.5% in Wasm. Most collision samples descended from `stepPropPhysics`'s ordered
+post-integration correction loop, rather than mechanism construction or the
+engine's main collision detector. Recovery was below 0.2% in both phase profiles.
+
+The [maximum production profile summary](performance/2026-10-12-lab-sustained-max-production-profile.json),
+[maximum phase summary](performance/2026-10-12-lab-sustained-max-phases-profile.json)
+and [medium phase summary](performance/2026-10-12-lab-sustained-medium-phases-profile.json)
+retain counts, windows, fixture/binary hashes and sample rankings. Percentages
+include idle/scheduling observations and are diagnostic, not uninstrumented
+timings. The separate phase kernel inhibits helper inlining without changing
+operation order; its maximum outcome hash exactly matched the production kernel.
+
+`CollisionQueries` now reuses a pair's result during one prop correction step
+only while both hulls are exactly unchanged. It compares position, every vertex
+and axis coordinate (including signed zero), vertex identity, body ID and parent.
+Bounds are tested live. Changed geometry runs the original Matter SAT; query
+direction and candidate order are retained. Compound bodies and padded probes
+use the original traversal. Corrections still read current mass and sleep state.
+The cache is discarded each prop substep. This optimization applies to normal
+TypeScript sessions too; the Rust source, binary and opt-in policy are unchanged.
+
+A frozen production bundle from immediately before this change was alternated
+against the new bundle. Both execute the **same** Rust binary (`c51cc273…`). All
+17 unchanged fixtures passed a 30-warmup / 90-frame coverage pair with exactly
+identical final physics state. The [coverage report](performance/2026-10-12-lab-collision-coverage.json)
+contains 34 measured arms. Its short mixed scenes showed little gain, reinforcing
+the need to include the later contact-heavy periods.
+
+The decisive follow-up used 30 warmup + **300 measured frames**, three fresh
+alternating pairs per case, Edge 155 / Adreno X1-85, 1280×800 / DPR 1, identical
+full-quality lighting and exactly two 120 Hz ticks per animation callback:
+
+| Five-second workload | Before → cached FPS | Simulation CPU p95 | Combined CPU p95 |
+| --- | ---: | ---: | ---: |
+| 80 props | 7.4 → 14.0 | 299.0 → 178.7 ms | 300.6 → 179.8 ms |
+| 16 ropes, eight lights, 40 props, four lifts | 23.5 → 27.4 | 62.2 → 42.0 ms | 67.5 → 48.0 ms |
+| 40 ropes, 16 lights, 80 props, six lifts | 6.0 → 9.1 | 259.7 → 138.6 ms | 270.7 → 150.9 ms |
+
+These are medians of episode statistics. The [long-window report](performance/2026-10-12-lab-collision-long.json)
+retains every timing sample, both bundle hashes and identical binary hashes.
+Every one of its nine pairs had identical final state, for **26 exact matched
+pairs across the coverage and repeated long runs**. Episode variation remained
+large: cached maximum FPS was 9.1, 14.0 and 8.3; baseline was 5.9, 6.0 and 6.0.
+Do not select the fastest episode as the result or compare unrelated runs.
+
+The prop-only long control is important: its short window ran at 60 FPS while
+later crowded contacts made it expensive without any ropes. The scene's activity
+averaged about 59/80 moving props in both arms; medium averaged 24/40 moving
+props and 16/16 moving ropes, and maximum 59/80 props and nearly 40/40 ropes.
+Lifts averaged 1.49/4 and 2.06/6 moving. Natural settling is unchanged. Wasm
+memory was unchanged at about 3.3 MiB in mixed scenes. JavaScript cache memory
+is additional per-substep state and is not measured by that number.
+
+In the [same maximum window after caching](performance/2026-10-12-lab-sustained-max-cached-profile.json),
+Matter collision accounted for 11.5% of samples and Wasm 40.5%. Rope node contacts
+were 19.5%, constraints 11.8%, span contacts 7.3%, and recovery 0.3%. The remaining
+prop loop and exact geometry checks were also substantial. Its final outcome hash
+again matched the earlier maximum profiles. The bottleneck has become distributed;
+another distance-query adjustment or port of the remaining SAT alone cannot be
+assumed to solve it.
+
+This is a useful optimization: maximum average throughput improved about 52%
+and its simulation p95 about 47%, with a stronger prop-only benefit. **It does
+not establish a near-term path to 60 FPS at maximum density.** Maximum still
+needs roughly 6.6× the measured throughput, and its combined CPU p95 is about
+nine 16.7 ms frame budgets. Medium needs about 2.2× throughput. Further work
+would need substantial reductions in both rope and prop-solver workload, with
+lighting/presentation still included. Expanding the native port by itself is
+not supported as the next step. Keep the rope prototype opt-in.
+
+The runner now defaults to 300 measured frames. Its original-query reference
+mode reconstructs the pre-cache prop module before TypeScript transformation;
+the normalized source hash was verified against the frozen baseline. See
+[reproduction and profiling](jumping-stress.md). All **1,070 physics regressions**
+across 68 files passed, including exact query invalidation/order tests, built-in
+medal replays, props, robots, elevators, water, ropes and Wasm parity. TypeScript
+and the production build passed, including validation of 26 built-in levels.
+All three production-browser checks passed for real rope release, CSP loading
+and fallback. Repository lint passed, excluding pre-existing `.tmp` checkouts
+and native build output.
+
+## October 12, 2026: Repeated mixed-scene contact optimization
+
+The earlier short-window Edge profile directed this round toward Rust rope solving
+and its nearest-face, corner and containment queries. Matter geometry
+construction was also visible; rendering was a smaller CPU cost. The kernel now
+uses conservative edge/corner bounds, large-hull edge trees, binned ray queries,
+regional nearest-face hints, guarded convex-face certificates and bounded shared
+hull preparation. It retains the existing resolution, ordered constraints,
+pass counts, forces, contacts and clear-configuration recovery. It remains opt-in.
+
+The original, validated ABI 2 source/binary/build record is frozen in the test
+fixtures. The runner alternates that reference against the optimized kernel,
+with actual Wasm execution in both arms. Immutable binary buffers and per-arm
+hashes prevent a rebuild from changing a running comparison. Fixtures, two
+120 Hz ticks per RAF, viewport, lighting quality and renderer are identical.
+Use these fresh matched comparisons rather than ratios between separate days
+or development runs; even the unchanged reference showed substantial variation.
+
+A 17-scenario coverage run used three alternating pairs, 30 warmup + 90 measured
+frames, Edge 155.0.4283.45 / Adreno X1-85 at 1280×800 / DPR 1. Every one of its
+51 pairs had identical final physics state. Before a final removal of duplicate
+bounds checks, the short mixed-medium median improved from 31.0 to 36.7 FPS,
+and mixed-maximum from 6.3 to 7.9 FPS. The
+[coverage report](performance/2026-10-12-lab-contact-coverage.json) retains all
+102 arms, raw samples and binary hashes. Small light/prop control differences
+cannot be attributed to this kernel: they execute no rope steps.
+
+The **final binary** was then measured over 300 frames (five simulated seconds
+after warmup), again with three alternating fresh pairs per scene:
+
+| Longer workload | Original Rust FPS / frame p95 | Optimized Rust FPS / frame p95 |
+| --- | ---: | ---: |
+| 40 ropes beside walls | 46.0 / 33.5 ms | 44.6 / 33.5 ms |
+| 16 ropes, eight lights, 40 props, four lifts | 20.2 / 82.5 ms | 23.1 / 66.9 ms |
+| 40 ropes, 16 lights, 80 props, six lifts | 5.4 / 275.0 ms | 5.8 / 267.1 ms |
+
+These are medians of episode statistics. All nine pairs had exactly identical
+final state. The [final long-window report](performance/2026-10-12-lab-contact-long.json)
+records the current binary hash and every timing sample. Rope activity averaged
+16/16 and 39.997/40 in the mixed scenes. Props naturally settled, averaging 24.0/40 and
+59.0/80 moving respectively; these are not fully active prop populations for
+the entire five-second window. The intended goal of 60 FPS has **not** been met.
+
+The longer medium scene gained about 14% average FPS; maximum gained about 9%.
+Neither establishes a large capacity increase. The wall-only control showed no
+gain and was about 3% slower in its medians. The medium simulation CPU p95 was
+69.2 → 67.7 ms, and maximum was 265.5 → 261.9 ms, while draw submission remained
+about 9–15 ms. Average improvements therefore did not resolve the worst simulation
+frames. The next investigation should focus on late-window constraint/contact
+and clear-configuration recovery work, rather than claim that the initial
+distance-query savings solved the mixed-scene bottleneck.
+
+Wasm linear memory in the final mixed runs increased from 1.19–1.25 MiB to
+3.25–3.31 MiB. Retained preparations are capped at 256 shapes / 16,384 vertices,
+with a regression exercising repeated eviction. Renderer estimates stayed near
+32.2 MiB; they exclude Wasm and JavaScript heaps and driver copies. Rust-only
+speed ratios cannot establish full-app FPS, input latency, other devices or
+enjoyment. [Reproduction and measurement scope](jumping-stress.md) document the
+same exclusions as the original stress suite.
+
+## October 12, 2026: Browser stress matrix
+
+The production LAB simulation and full-quality renderer were compared in installed
+Edge 155.0.4283.45 on Snapdragon X Elite / Adreno X1-85, Windows ARM64. Hardware
+Canvas and compositing were verified. The interactive preview was paused during
+measurements. Each of 17 JSON workloads had three fresh matched episodes with
+alternating backend order: 30 warmup + 90 measured frames, 1280×800 CSS / DPR 1,
+and exactly two 120 Hz ticks per real animation callback. The current ABI 2
+binary before the contact optimization was used. No authoring limits or physics iterations changed.
+
+| Workload | TypeScript FPS / frame p95 | Rust/Wasm FPS / frame p95 |
+| --- | ---: | ---: |
+| Eight free ropes | 60.0 / 16.8 ms | 60.0 / 16.9 ms |
+| 40 free ropes | 58.4 / 24.1 ms | 60.0 / 17.1 ms |
+| 40 ropes beside walls | 52.4 / 33.3 ms | 60.0 / 16.8 ms |
+| 16 lights, 48 static blockers | 52.7 / 33.4 ms | 52.2 / 33.3 ms |
+| 16 lights, 16 props, six lifts, scrolling | 44.6 / 33.4 ms | 47.8 / 33.4 ms |
+| 80 moving props | 60.0 / 16.8 ms | 60.0 / 16.8 ms |
+| 16 ropes, eight lights, 40 props, four lifts | 7.1 / 174.9 ms | 19.5 / 66.8 ms |
+| 40 ropes, 16 lights, 80 props, six lifts | 2.1 / 550.0 ms | 6.2 / 183.4 ms |
+
+Values are medians of the three episode statistics, not one pooled percentile.
+The [raw report](performance/2026-10-12-lab-browser-stress.json) includes all
+102 measured arms, timing arrays, episode variation, activity and build hashes.
+Every one of the 51 comparisons had exactly matching final physics state
+(maximum drift zero). All ropes kept moving during their measured windows;
+the combined scenes averaged 39.8/40 and 79.0/80 moving props respectively.
+Lifts pause naturally at their endpoints, so their activity is below the count
+present in the scene. All arms retained the GPU renderer and matched backing
+dimensions, with approximately 32.2 MiB of estimated renderer buffers.
+
+A follow-up extended the wall-contact and mixed-medium cases to 300 measured
+frames (five simulated seconds after warmup), again with three alternating
+fresh episodes per backend. All six comparisons were exactly identical:
+
+| Longer workload | TypeScript FPS / simulation p95 | Rust/Wasm FPS / simulation p95 |
+| --- | ---: | ---: |
+| 40 ropes beside walls | 33.4 / 33.3 ms | 46.6 / 23.4 ms |
+| 16 ropes, eight lights, 40 props, four lifts | 10.2 / 143.0 ms | 22.2 / 64.4 ms |
+
+The longer rope case kept all 40 ropes moving, but **neither backend sustained
+60 FPS**. Its frame-interval p95 was 34.0/33.6 ms. The mixed case's frame p95
+was 150.1/66.9 ms; props naturally settled, averaging 24.0/40 moving over this
+window, while all 16 ropes stayed active. Its average FPS should not be treated
+as a fully active 40-prop result. The
+[long-window report](performance/2026-10-12-lab-browser-stress-long.json)
+retains all timing samples and activity. Both windows support a real Rust benefit,
+but the short 40-rope result does not establish sustained smooth play.
+
+The rope benefit is clear when the scene runs out of simulation capacity. The
+mixed-medium simulation CPU p95 fell from 164.9 to 57.3 ms, while draw submission
+p95 stayed at 7.0 ms. At the maximum population it fell from 544.3 to 170.2 ms;
+draw submission was 12.6–13.5 ms. Both packed mixed scenes remain too slow for
+smooth play, even after the improvement. Shared contacts and moving collision
+geometry deserve further profiling before increasing limits.
+
+Light-only and prop-only arms execute **zero** Wasm rope steps: small differences
+there are scheduling/run variation, not Rust gains. Sixteen lights lose frames
+even with simulation p95 below 1 ms. That points to rendering/presentation as a
+separate limitation; this measurement does not identify a specific GPU pass.
+The rope kernel cannot resolve it. Eight-ropes-at-60-FPS also explains why a
+normal preview can feel unchanged despite lower CPU work.
+
+RAF intervals include browser/GPU scheduling and presentation. Simulation/draw
+spans are CPU measurements and exclude asynchronous GPU execution. Fixed ticks
+ensure identical workload, rather than exercising the app's wall-clock catch-up
+policy; React UI, accounts, audio and input latency are excluded. These short
+stress windows demonstrate capacity, not sustained whole-app FPS on all devices.
+See [workloads, method and reproduction](jumping-stress.md).
+
+The new mixed-contact workload also found a real numerical bug in the initial
+kernel. Different distance rounding changed a nearest-face tie and then the
+rope trajectory. ABI 2 matches the tested runtime's operation order and refuses
+installation if arithmetic probes disagree. A regression checks exact state
+on every tick through the formerly failing contact sequence. Divergent timings
+were rejected; the comparison tolerance was not relaxed.
+
+## October 12, 2026: Opt-in Rust/Wasm for unattached ropes
+
+The first Rust kernel preserves free-rope integration, tension and complete-span
+terrain contacts. Awake ropes not attached to the player can use Wasm; the
+attached rope retains the existing TypeScript body/contact path. Load LAB with
+`?labRopes=wasm` to try it. See [builds, architecture and acceptance](jumping-rust.md).
+Ordinary sessions still use TypeScript.
+
+Sequential measurements on Snapdragon X Elite X1E80100, Windows ARM64,
+Node 24.14.1 and a Rust 1.99.0 release Wasm build produced:
+
+These are historical, CPU-only results from the initial ABI 1 prototype. They
+predate the mixed-contact rounding correction and are retained as development
+evidence, rather than current-binary acceptance. Use the ABI 2 browser results
+above for the current comparison.
+
+| Historical Spelunk route, two 120 Hz ticks | TypeScript | Wasm |
+| --- | ---: | ---: |
+| Simulation CPU average | 8.99 ms | 4.15 ms |
+| Simulation CPU p95 | 17.98 ms | 8.06 ms |
+
+The 6,256-tick recording completed with the same Gold, coins and clock. The
+player, props, rope nodes, mechanisms and elapsed-time trajectory hash was
+identical on this runtime. Each backend had one complete warmup and one measured
+fresh-start replay; the substantial tail/scheduling variance limits how broadly
+these timing ratios can be applied. Raw reports:
+[TypeScript](performance/2026-10-12-lab-spelunk-typescript.json),
+[Wasm](performance/2026-10-12-lab-spelunk-wasm.json).
+
+A separate scaling runner used three fresh episodes per backend, alternating
+backend order, 30 warmup frames and 120 measured frames per episode. Each frame
+advanced two ticks. Every active rope had 95 segments and 760 units of material.
+The table reports the median of episode p95 CPU times, including culling,
+sleep/wake checks, packing, transfers, result validation and solver work:
+
+| Active ropes / workload | TypeScript p95 | Wasm p95 |
+| --- | ---: | ---: |
+| 8 / free swings | 5.13 ms | 4.78 ms |
+| 32 / free swings | 40.11 ms | 35.95 ms |
+| 64 / free swings | 73.80 ms | 72.60 ms |
+| 8 / narrow wall contacts | 18.26 ms | 13.06 ms |
+| 32 / narrow wall contacts | 66.37 ms | 52.99 ms |
+| 64 / narrow wall contacts | 118.59 ms | 94.85 ms |
+
+The final node trajectories were identical in these workloads, and bend presence
+matched. The full [scaling report](performance/2026-10-12-lab-rope-scaling.json)
+includes 1-rope cases and every episode. These are stress fixtures, not playable
+level reviews. They demonstrate stronger benefits in repeated terrain queries
+than in simple constraints; they do not establish 60 FPS with 64 long ropes.
+All timings exclude rendering, GPU completion, browser scheduling and input.
+
+The prototype remains opt-in. Production browser checks verify loading under
+CSP, ordinary keyboard acquisition/release, actual Wasm execution after release
+and playable fallback when the binary is missing. Whole-game performance,
+additional hardware and attached-rope Wasm integration remain future work.
 
 ## October 10, 2026: Terrain inside switch-controlled reservoirs
 

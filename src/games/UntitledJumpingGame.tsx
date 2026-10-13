@@ -66,6 +66,15 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   useWallTextFont()
   const [accountLevels, setAccountLevels] = useState(() => !!currentProfile())
   const [catalog, setCatalog] = useState<LevelCatalog | null>(null)
+  const [stressCatalog, setStressCatalog] = useState<LevelCatalog>({ files: [], errors: [] })
+  useEffect(() => {
+    if (!import.meta.env.DEV) return
+    let active = true
+    loadLevelCatalog(import.meta.env.BASE_URL, fetch, '__arcade/jumping-stress-levels/').then(result => {
+      if (active) setStressCatalog(result)
+    }, error => { if (active) setStressCatalog({ files: [], errors: [error.message] }) })
+    return () => { active = false }
+  }, [])
   useEffect(() => {
     let active = true
     loadLevelCatalog(import.meta.env.BASE_URL).then(result => { if (active) setCatalog(result) }, error => {
@@ -73,10 +82,10 @@ export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
     })
     return () => { active = false }
   }, [])
-  return catalog ? <JumpingGameSession key={String(accountLevels)} accountLevels={accountLevels} onAccountLevels={setAccountLevels} initialCatalog={catalog} onExit={onExit} /> : <div className="jumping-game jumping-loading"><p role="status">Loading levels…</p><button onClick={onExit}>Back to arcade</button></div>
+  return catalog ? <JumpingGameSession key={String(accountLevels)} accountLevels={accountLevels} onAccountLevels={setAccountLevels} initialCatalog={catalog} stressCatalog={stressCatalog} onExit={onExit} /> : <div className="jumping-game jumping-loading"><p role="status">Loading levels…</p><button onClick={onExit}>Back to arcade</button></div>
 }
 
-function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLevels }: { initialCatalog: LevelCatalog; onExit: () => void; accountLevels: boolean; onAccountLevels: (value: boolean) => void }) {
+function JumpingGameSession({ initialCatalog, stressCatalog, onExit, accountLevels, onAccountLevels }: { initialCatalog: LevelCatalog; stressCatalog: LevelCatalog; onExit: () => void; accountLevels: boolean; onAccountLevels: (value: boolean) => void }) {
   const location = useLocation(), navigate = useNavigate()
   const handledRoute = useRef(''), activePlayKey = useRef(''), builderPath = useRef(JUMPING_BUILDER)
   const editorPath = useRef(JUMPING_BUILDER), playtests = useRef(new Map<number, { level: JumpLevel; path: string; builderPath: string }>())
@@ -118,7 +127,7 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     finally { deleting.current = false }
   }
   const [playingFile, setPlayingFile] = useState({ collection: 'built-in', fileName: initialCatalog.files[0]?.fileName ?? '' })
-  const playingFiles = playingFile.collection === 'built-in' ? catalog.files : local.files
+  const playingFiles = playingFile.collection === 'built-in' ? catalog.files : playingFile.collection === 'local' ? local.files : []
   const campaignIndex = playingFiles.findIndex(file => file.fileName === playingFile.fileName)
   const nextFile = playingFiles.slice(campaignIndex + 1).find(file => levelProblems(file.level).length === 0)
   const [editorFile, setEditorFile] = useState<{ file: LevelFile; key: number } | null>(null)
@@ -267,6 +276,10 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     setPlayingFile({ collection: source, fileName: file.fileName })
     void beginPlay(file.level, false, source === 'local' ? `local:${file.level.id}` : file.level.id)
   }
+  function startStressFile(file: LevelFile) {
+    setPlayingFile({ collection: 'development', fileName: file.fileName })
+    void beginPlay(file.level, false, `stress:${file.level.id}`)
+  }
   function visit(path: string, state = {}) {
     navigate(path, { state: { from: location.pathname, ...state } })
   }
@@ -274,7 +287,11 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
     if (location.state?.from === path) navigate(-1)
     else visit(path)
   }
-  function showMenu() { returnTo(JUMPING_MENU) }
+  function showMenu() {
+    if (import.meta.env.DEV && playingFile.collection === 'development' && location.pathname === JUMPING_MENU) {
+      setTesting(false); changeScreen('menu')
+    } else returnTo(JUMPING_MENU)
+  }
   function playFile(file: LevelFile, source = collection) {
     setSelectedName(file.fileName)
     if (!levelProblems(file.level).length) visit(levelPath(source, file.fileName))
@@ -632,6 +649,15 @@ function JumpingGameSession({ initialCatalog, onExit, accountLevels, onAccountLe
             {collection === 'local' && local.status === 'reconnect' && local.notice && <p className="jumping-load-error" role="status">{local.notice}</p>}
           </div>
           {routeNotice && <p className="jumping-route-notice" role="status">{routeNotice}</p>}
+          {import.meta.env.DEV && <details className="jumping-stress-levels">
+            <summary>Stress tests · Development</summary>
+            {stressCatalog.errors.map(error => <p className="jumping-load-error" role="alert" key={error}>{error}</p>)}
+            <div className="jumping-level-cards">{stressCatalog.files.map(file => <div key={file.fileName} className="jumping-level-tile">
+              <button className="jumping-level-card" onClick={() => startStressFile(file)} aria-label={`Play ${file.level.name}`}>
+                <LevelThumbnail level={file.level} /><strong>{file.level.name}</strong>
+              </button>
+            </div>)}</div>
+          </details>}
           <div className="jumping-level-browser">
           <div key={collection} className="jumping-level-cards" data-menu-grid data-controller-scroll onPointerMove={event => {
             if (event.pointerType === 'mouse') {

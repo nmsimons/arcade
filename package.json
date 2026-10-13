@@ -24,11 +24,15 @@
     "benchmark": "node scripts/benchmark.mjs",
     "benchmark:urban-fire": "node scripts/benchmark-urban-fire.mjs",
     "benchmark:bumper-ai": "node scripts/benchmark-bumper-ai.mjs",
+    "benchmark:lab-stress": "node scripts/benchmark-lab-stress.mjs",
+    "profile:lab-stress": "node scripts/profile-lab-stress.mjs",
+    "profile:lab-stress-browser": "node scripts/profile-lab-stress-browser.mjs",
     "preview": "vite preview",
     "levels:index": "node scripts/jumping-levels.mjs index",
     "levels:sync": "node scripts/jumping-levels.mjs sync",
     "levels:check": "node scripts/jumping-levels.mjs check",
-    "prebuild": "npm run levels:index"
+    "prebuild": "npm run levels:index",
+    "levels:check:dev": "node scripts/jumping-levels.mjs check dev/levels/jumping"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.23.0",

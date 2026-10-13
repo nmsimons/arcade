@@ -1,0 +1,40 @@
+{
+  "level": {
+    "version": 2, "id": "lab-stress", "name": "LAB stress fixture",
+    "width": 1280, "height": 800, "floor": 800,
+    "entrance": { "x": 60, "y": 800 }, "goal": { "x": 1110, "y": 800 },
+    "times": { "gold": 100, "silver": 200, "bronze": 300 },
+    "platforms": [], "checkpoints": [], "climbables": { "ladders": [], "ropes": [] },
+    "props": [], "robots": [], "mechanisms": [], "triggers": [], "timers": [], "texts": [], "pickups": [],
+    "lighting": { "nightMode": false, "ambient": 0, "lights": [] }
+  },
+  "layout": {
+    "rope": { "x": 200, "y": 32, "columns": 8, "dx": 125, "dy": 12, "length": 520, "segments": 65 },
+    "ropeWall": { "offsetX": -22, "y": 180, "w": 12, "h": 330 },
+    "ropeImpulse": { "distanceFraction": 0.8, "vx": -220, "vy": -60 },
+    "terrain": { "x": 200, "y": 120, "columns": 12, "dx": 80, "dy": 80, "w": 16, "h": 60 },
+    "prop": { "x": 205, "y": 70, "columns": 16, "dx": 60, "dy": 64, "size": 32, "vx": 100, "vy": -20 },
+    "propGravity": { "id": "stress-gravity", "x": 170, "y": 0, "w": 1000, "h": 800, "gravity": 0.1, "power": "always" },
+    "light": { "x": 170, "y": 70, "columns": 4, "dx": 290, "dy": 120, "intensity": 100, "direction": 90, "spread": 120, "power": "always" },
+    "lift": { "x": 160, "y": 710, "dx": 180, "w": 110, "h": 20, "travel": 240, "power": "always", "stagger": 0.3 }
+  },
+  "cases": [
+    { "id": "ropes-free-1", "ropes": 1 },
+    { "id": "ropes-free-8", "ropes": 8 },
+    { "id": "ropes-free-24", "ropes": 24 },
+    { "id": "ropes-free-40", "ropes": 40 },
+    { "id": "ropes-contact-8", "ropes": 8, "ropeContacts": true },
+    { "id": "ropes-contact-24", "ropes": 24, "ropeContacts": true },
+    { "id": "ropes-contact-40", "ropes": 40, "ropeContacts": true },
+    { "id": "lights-1", "lights": 1, "terrain": 48 },
+    { "id": "lights-4", "lights": 4, "terrain": 48 },
+    { "id": "lights-8", "lights": 8, "terrain": 48 },
+    { "id": "lights-16", "lights": 16, "terrain": 48 },
+    { "id": "lights-moving-16", "lights": 16, "terrain": 48, "props": 16, "lifts": 6, "scroll": true },
+    { "id": "props-8", "props": 8 },
+    { "id": "props-40", "props": 40 },
+    { "id": "props-80", "props": 80 },
+    { "id": "mixed-medium", "ropes": 16, "ropeContacts": true, "lights": 8, "props": 40, "lifts": 4, "scroll": true },
+    { "id": "mixed-max", "ropes": 40, "ropeContacts": true, "lights": 16, "props": 80, "lifts": 6, "scroll": true }
+  ]
+}

@@ -17,6 +17,7 @@ test-results
 test-results-desktop
 *.local
 .local/
+native/**/target/
 
 # Editor directories and files
 .vscode/*

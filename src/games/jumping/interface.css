@@ -233,6 +233,9 @@
   overflow: auto; background: var(--jumping-paper); box-shadow: var(--ui-shadow-overlay);
 }
 .jumping-ui .jumping-ui-heading { padding: 28px 32px; background: var(--jumping-header); }
+/* The preparation title needs the panel's full width to keep its words intact. */
+.jumping-ui .jumping-notice-panel .jumping-brand-heading { flex-direction: column; align-items: flex-start; gap: 16px; overflow-wrap: normal; }
+.jumping-game .jumping-notice-panel .jumping-brand-heading .lab-logo { max-width: 100%; }
 .jumping-ui.is-destructive .jumping-ui-heading { --jumping-header: var(--jumping-danger); }
 .jumping-ui .jumping-notice-copy { padding: 28px 32px; }
 .jumping-ui .jumping-notice-copy p { font-size: var(--jumping-type-normal); line-height: 1.5; margin: 0 0 16px; }

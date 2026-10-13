@@ -14,7 +14,7 @@ test('picker shows saved medals and best times on every timed level, including z
   await page.addInitScript(({ key, records }) => localStorage.setItem(key, JSON.stringify(records)), {
     key: BEST_TIME_KEY, records: { Gold: 10, Silver: 20, Bronze: 30, Completed: 35.67, Zero: 0, Bonus: -2.5, Invalid: '5' },
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.locator('.jumping-level-detail')).toHaveCount(0)
   await expect(page.locator('.jumping-medal-times')).toHaveCount(0)
   for (const [name, description] of [
@@ -41,7 +41,7 @@ test('local and built-in records remain separate and the picker reacts to saved 
   await useLevelFixtures(page, [map])
   await installTestFolder(page, { 'shared.json': map })
   await page.addInitScript(key => localStorage.setItem(key, JSON.stringify({ 'shared-id': 8, 'local:shared-id': 25 })), BEST_TIME_KEY)
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(card(page, 'Shared room')).toHaveAccessibleDescription('Best 0:08.00 Gold medal')
   await page.getByRole('button', { name: 'Local folder', exact: true }).click()
   await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
@@ -66,7 +66,7 @@ test('repair warnings keep tile actions stable while selecting and editing an un
     '00-fixture.json': unfinished, '01-fixture.json': ready,
     'index.json': { version: 1, order: 'listed', levels: ['00-fixture.json', '01-fixture.json'] },
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Local folder', exact: true }).click()
   await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   const readyCard = card(page, 'Ready room')
@@ -92,7 +92,7 @@ for (const storageAvailable of [true, false]) test(`a completed run updates the 
     }
   }, BEST_TIME_KEY)
   await page.clock.install({ time: new Date('2026-10-12T12:00:00Z') })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(card(page, 'Finish room')).toHaveAccessibleDescription('Best — No medal yet')
   await card(page, 'Finish room').click()
   await expect(page.getByRole('img', { name: 'Finish room: reach the exit', exact: true })).toBeFocused()

@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: daylight ambient correction reuses an existing full-size surface without resizing emissions or changing any pixels`, async ({ page }, info) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async backend => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([

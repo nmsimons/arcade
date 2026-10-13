@@ -15,7 +15,7 @@ async function open(page) {
     Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [null, window.testPad] })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await waitForBuilderPreview(page)
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

@@ -12,7 +12,7 @@ test('plates, balls, lifts and coin displays nudge to both boundaries and surviv
     { mode: 'coins', display: 'digital', x: 1675, y: 200, w: 120, threshold: 3, targets: [] }]
   level.pickups = [300, 400, 500].map(x => ({ kind: 'coin', x, y: 300 }))
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'edge-placement.json': level })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })

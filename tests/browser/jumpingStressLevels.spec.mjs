@@ -4,7 +4,7 @@ test('production excludes stress maps and retired native experiments', async ({ 
   const requested = [], errors = []
   page.on('request', req => requested.push(req.url()))
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/untitled-jumping-game?labRopes=wasm&labSolver=active')
+  await page.goto('/lab?labRopes=wasm&labSolver=active')
   await expect(page.locator('.jumping-level-browser .jumping-level-card').first()).toBeVisible()
   await expect(page.locator('.jumping-stress-levels')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Load Test/ })).toHaveCount(0)

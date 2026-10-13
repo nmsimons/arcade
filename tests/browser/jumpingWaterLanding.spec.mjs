@@ -7,7 +7,7 @@ const pool = JSON.parse(readFileSync(new URL('../fixtures/jumping/single-block-p
 test('a normal bank jump and dive reaches the floor hand first before standing', async ({ page }, info) => {
   await useLevelFixtures(page, [pool])
   await page.clock.install({ time: new Date('2026-10-10T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   const play = page.getByRole('button', { name: 'Play Single block pool', exact: true })
   await expect(play).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-10-10T01:00:00Z'))

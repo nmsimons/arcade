@@ -51,7 +51,7 @@ test('Google keeps the selected player and saves across browser sessions; reconn
   try {
     const next = await reopened.newPage()
     await providers(next, drive)
-    await next.goto('/untitled-jumping-game')
+    await next.goto('/lab')
     await expect(next.getByRole('button', { name: 'Alice Example', exact: true })).toBeVisible()
     expect(await next.evaluate(async () => {
       const { currentProfile, gameStorage } = await import('/src/accounts/profileStorage.ts')
@@ -157,7 +157,7 @@ test('a cached Google token for another account cannot read or write Drive', asy
 test('Google restores the save owner before a game starts, without granting cloud access', async ({ page }) => {
   await providers(page); await useLevelFixtures(page, [FIRST_LEVEL])
   await page.goto('/'); await login(page)
-  await page.goto('/untitled-jumping-game/levels/built-in/00-fixture.json')
+  await page.goto('/lab/levels/built-in/00-fixture.json')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
   expect(await page.evaluate(async () => ({ profile: (await import('/src/accounts/profileStorage.ts')).currentProfile(), cloud: (await import('/src/accounts/session.ts')).getSession().cloudEnabled }))).toEqual({ profile: 'google:alice', cloud: false })
   await expect(page.locator('.arcade-account-bar')).toHaveCount(0)
@@ -235,6 +235,6 @@ test('Google shows upload progress and the chooser Refresh loads another browser
     await expect(page.locator('.account-status')).toContainText('Synced with Google Drive')
     await other.getByRole('button', { name: 'Refresh account levels', exact: true }).click()
     await expect(other.getByRole('button', { name: 'Level 1: JSON Test Lab', exact: true })).toContainText('Saved to Google Drive')
-    await expect(other).toHaveURL(/untitled-jumping-game/)
+    await expect(other).toHaveURL(/lab/)
   } finally { finishUpload?.(); await otherContext.close() }
 })

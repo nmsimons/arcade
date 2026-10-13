@@ -7,7 +7,7 @@ async function start(page) {
   const level = { ...blankTrial(), name: 'Jump experiment', width: 3000, height: 1200, floor: 1000, entrance: { x: 200, y: 1000 }, goal: { x: 2800, y: 1000 } }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Play Jump experiment', exact: true }).waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Jump experiment', exact: true }).click(); await finishJumpingEntrance(page)

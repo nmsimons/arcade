@@ -52,7 +52,7 @@ test('installed assets, deep routes, file saves, and fullscreen work without a s
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
       await expect(page.getByRole('dialog').getByRole('button').first()).toBeVisible()
     }
-    await page.goto('arcade://game/untitled-jumping-game')
+    await page.goto('arcade://game/lab')
     await expect(page.locator('.jumping-game')).toBeVisible()
     await expect.poll(() => page.locator('.jumping-loading').count()).toBe(0)
     await page.reload()
@@ -60,13 +60,20 @@ test('installed assets, deep routes, file saves, and fullscreen work without a s
     const firstLevel = page.locator('.jumping-level-card').first()
     await firstLevel.focus()
     await page.keyboard.press('Enter')
-    await expect(page).toHaveURL(/\/levels\/built-in\//)
+    await expect(page).toHaveURL(/\/lab\/levels\/built-in\//)
+    await expect(page.locator('canvas[role="img"]')).toBeFocused()
+    // Saved level URLs contain .json but represent pages, not asset requests.
+    await page.reload()
     await expect(page.locator('canvas[role="img"]')).toBeFocused()
     await page.keyboard.press('ArrowRight')
     await page.keyboard.press('Escape')
     await expect(page.getByRole('dialog')).toBeVisible()
     expect(errors).toEqual([])
-    await app.close(); app = undefined
+    const firstClosed = app.waitForEvent('close')
+    await page.getByRole('button', { name: 'Back to arcade', exact: true }).click()
+    await page.getByRole('button', { name: 'Quit arcade', exact: true }).click()
+    await firstClosed
+    app = undefined
     app = await launch(directory)
     page = await app.firstWindow()
     await expect(page.getByRole('button', { name: 'Quit arcade', exact: true })).toBeVisible()

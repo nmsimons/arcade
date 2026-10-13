@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 for (const caster of ['box', 'ball', 'player']) test(`${caster} casts unfaded shadows on objects and airborne light at long distances`, async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const results = await page.evaluate(async caster => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { athletePose } = await import('/src/games/jumping/athlete.ts')

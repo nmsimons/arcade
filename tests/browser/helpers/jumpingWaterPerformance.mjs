@@ -25,7 +25,7 @@ export async function playWaterPerformanceFixture(page) {
     }
   })
   await page.clock.install()
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
   const canvas = page.locator('.jumping-game > canvas')
   await expect(canvas).toBeFocused()

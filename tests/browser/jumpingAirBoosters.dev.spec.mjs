@@ -21,7 +21,7 @@ for (const night of [false, true]) test(`subtle foot jets follow normal jump, st
     }
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await page.getByRole('button', { name: 'Play Booster check', exact: true }).waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Booster check', exact: true }).click(); await finishJumpingEntrance(page)
@@ -51,7 +51,7 @@ for (const night of [false, true]) test(`subtle foot jets follow normal jump, st
 })
 
 test('the booster hiss is quiet, has no tone, reuses its voice and fades to silence', async ({ page }) => {
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   const result = await page.evaluate(async () => {
     const { JumpingSound } = await import('/src/games/jumping/sound.ts')
     const rate = 24000, ctx = new OfflineAudioContext(2, rate, rate), sound = new JumpingSound(ctx)

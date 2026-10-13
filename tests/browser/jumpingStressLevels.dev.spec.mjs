@@ -4,7 +4,7 @@ test('development offers separate read-only stress levels with ordinary play, pa
   test.setTimeout(60000)
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   const section = page.locator('.jumping-stress-levels')
   await section.locator('summary').click()
   await expect(section.getByRole('button', { name: 'Play Load Test', exact: true })).toBeVisible()

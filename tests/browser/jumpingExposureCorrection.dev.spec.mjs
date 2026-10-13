@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: reusing exposure corrections preserves every pixel through light, view and mode changes`, async ({ page }, info) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async backend => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
@@ -45,7 +45,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: reusing exposure corr
 })
 
 test('a reused daylight terrain mask restores moving artwork, recovery indicators and material edges exactly', async ({ page }, info) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async () => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
@@ -93,7 +93,7 @@ test('a reused daylight terrain mask restores moving artwork, recovery indicator
 })
 
 test('immutable daylight corrections preserve the complete changing artwork in a rope and pickup scene', async ({ page }, info) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async () => {
     const [{ LightingRenderer }, { createPreviewRun }, fixture] = await Promise.all([
@@ -134,7 +134,7 @@ test('immutable daylight corrections preserve the complete changing artwork in a
 })
 
 test('automatic lighting chooses a software drawing context for a CPU driver and preserves complete frames', async ({ page }, info) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async () => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([
@@ -175,7 +175,7 @@ test('automatic lighting chooses a software drawing context for a CPU driver and
 })
 
 test('a settled daylight background preserves wall art, changing actors and cache invalidation', async ({ page }, info) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async () => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([

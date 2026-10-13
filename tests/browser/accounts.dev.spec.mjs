@@ -16,7 +16,7 @@ test('account controls stay in menus and the studio, and switch jumping game sav
     await page.keyboard.press('F8')
     await expect(page.getByRole('dialog', { name: 'Player account', exact: true })).toHaveCount(0)
   }
-  for (const route of ['/', '/untitled-jumping-game']) {
+  for (const route of ['/', '/lab']) {
     await page.goto(route)
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
     await expect(page.getByRole('dialog', { name: 'Player account', exact: true })).toBeVisible()
@@ -39,7 +39,7 @@ test('account controls stay in menus and the studio, and switch jumping game sav
   await page.getByRole('alertdialog', { name: 'Sign in and switch saves', exact: true }).getByRole('button', { name: 'Sign in and switch saves', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Alice Example' })).toBeVisible()
   await page.getByRole('button', { name: 'Close account', exact: true }).click()
-  await expect(page).toHaveURL(/untitled-jumping-game/)
+  await expect(page).toHaveURL(/lab/)
   await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Untitled level')
   await page.getByRole('button', { name: 'Back to game', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Account levels', exact: true })).toBeVisible()

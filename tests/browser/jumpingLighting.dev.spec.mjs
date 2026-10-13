@@ -8,7 +8,7 @@ function expectColor(actual, expected) {
 import { test, expect } from './helpers/test.mjs'
 
 test('player shadow outlines match the actual artwork in standing, running, crouching and airborne poses', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
     const { athleteCasters } = await import('/src/games/jumping/athleteShadow.ts')
@@ -48,7 +48,7 @@ test('player shadow outlines match the actual artwork in standing, running, crou
 })
 
 test('the player receives light, casts a moving shadow, and releases light while exiting', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { athletePose } = await import('/src/games/jumping/athlete.ts')
@@ -81,7 +81,7 @@ test('the player receives light, casts a moving shadow, and releases light while
 })
 
 test('lighting lab loads independently, exposes keyboard controls, and uses fixed night brightness during EMP', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('canvas')).toHaveAttribute('data-ready', 'true')
   await expect(page.getByRole('slider', { name: 'Ambient light' })).toHaveCount(0)
   await page.getByRole('button', { name: 'EMP blackout' }).click()
@@ -130,7 +130,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the readable night pl
 })
 
 test('full-bright editing preserves the original dark player ink with no lighting surfaces', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { athletePose } = await import('/src/games/jumping/athlete.ts')
@@ -216,7 +216,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player stays read
 })
 
 test('darkness shades pickups and preserves display exposure without painting through foreground objects', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness(), bright = h.fullBright(), dark = h.render(0)
@@ -244,7 +244,7 @@ test('darkness shades pickups and preserves display exposure without painting th
 })
 
 test('lamp overlap, order, ambient-only terrain and source occlusion agree at the pixel level', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -272,7 +272,7 @@ test('lamp overlap, order, ambient-only terrain and source occlusion agree at th
 })
 
 test('EMP leaves ambient and the green exit indicator visible without casting any exit light', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -310,7 +310,7 @@ test('EMP leaves ambient and the green exit indicator visible without casting an
 })
 
 test('spotlights reach distant viewports; offscreen objects and structures block without distance fade', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness(), results = []
@@ -341,7 +341,7 @@ test('spotlights reach distant viewports; offscreen objects and structures block
 })
 
 test('spotlights stop at all four room edges', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -362,7 +362,7 @@ test('spotlights stop at all four room edges', async ({ page }) => {
 })
 
 test('study source isolation and elevator controls can freeze a shadow for inspection', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('canvas')).toHaveAttribute('data-ready', 'true')
   const markers = page.getByRole('button', { name: 'Show sources' })
   await expect(markers).toHaveAttribute('aria-pressed', 'true')
@@ -385,7 +385,7 @@ test('study source isolation and elevator controls can freeze a shadow for inspe
 })
 
 test('bot body and wheels share lighting while its eye stays readable until EMP, across facings and tilted/windup poses', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const cases = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { robotTop } = await import('/src/games/jumping/robotPhysics.ts')
@@ -430,7 +430,7 @@ test('bot body and wheels share lighting while its eye stays readable until EMP,
 })
 
 test('spotlight edges remain narrow at long distances and agree with exposure sampling', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const samples = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { lightContribution, combineExposure } = await import('/src/games/jumping/lightingModel.ts')
@@ -459,7 +459,7 @@ test('spotlight edges remain narrow at long distances and agree with exposure sa
 })
 
 test('source markers use resolved positions and isolation does not mutate the scene or power states', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { drawLightSources } = await import('/src/games/jumping/lightingStudy.ts')
@@ -496,7 +496,7 @@ test('source markers use resolved positions and isolation does not mutate the sc
 })
 
 test('elevator shadows match visibility rays throughout travel, including crossing a lamp height', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { ambientExposure, staticCasters, dynamicCasters, exposureAt } = await import('/src/games/jumping/lightingModel.ts')
@@ -533,7 +533,7 @@ test('elevator shadows match visibility rays throughout travel, including crossi
 })
 
 test('stationary caches invalidate on light edits, camera changes and terrain revisions, and remain bounded at high DPR', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { LightingRenderer, lightingPixelRatio } = await import('/src/games/jumping/lightingRender.ts')
@@ -568,7 +568,7 @@ test('stationary caches invalidate on light edits, camera changes and terrain re
 
 
 test('empty lighting viewports release buffers and resume with an unchanged image', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness(), lights = h.fixture.lighting.lights
@@ -588,7 +588,7 @@ test('empty lighting viewports release buffers and resume with an unchanged imag
 
 
 test('night and day modes ignore legacy ambient values', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const results = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness()
@@ -613,7 +613,7 @@ test('night and day modes ignore legacy ambient values', async ({ page }) => {
 
 
 test('legacy light intensity cannot dim spotlights or their haze', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const h = await lightingHarness(), lights = h.fixture.lighting.lights

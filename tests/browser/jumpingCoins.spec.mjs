@@ -36,7 +36,7 @@ async function open(page, editor = false, orientation = 'horizontal') {
       return rounded.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   if (editor) {

@@ -3,7 +3,7 @@ import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels
 import { blankTrial } from '../../src/games/jumping/level.ts'
 
 test('all sound textures render quietly, loops reuse a bounded bank, and stopping leaves silence', async ({ page }) => {
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   const result = await page.evaluate(async () => {
     const { JumpingSound, MAX_LOOP_VOICES } = await import('/src/games/jumping/sound.ts')
     const rate = 24000, ctx = new OfflineAudioContext(2, rate * 5.6, rate)
@@ -71,7 +71,7 @@ async function setup(page, savedMute = false) {
     }
     AudioBufferSourceNode.prototype.start = function (...args) { window.soundStarts++; return start.apply(this, args) }
   }, savedMute)
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.getByRole('button', { name: /^Play Sound test$/ })).toBeVisible()
 }
 const peakGain = page => page.evaluate(() => Math.max(0, ...window.soundGains.map(g => g.gain.value)))
@@ -126,7 +126,7 @@ test('normal gameplay plays one splash for the player and each falling prop, the
   level.gravityPlates = [{ id: 'pool', effect: 'water', power: 'always', x: 400, y: 500, w: 1000, h: 420, gravity: -1 }]
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   const play = page.getByRole('button', { name: 'Play Water sound test', exact: true })
   await expect(play).toBeEnabled()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

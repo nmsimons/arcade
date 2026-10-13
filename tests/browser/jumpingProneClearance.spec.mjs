@@ -9,7 +9,7 @@ for (const direction of [-1, 1]) for (const kind of ['wall', 'undercut', 'moving
     const errors = []; page.on('pageerror', error => errors.push(error.message))
     await useLevelFixtures(page, [level])
     await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-    await page.goto('/untitled-jumping-game?motionDebug=1')
+    await page.goto('/lab?motionDebug=1')
     const play = page.getByRole('button', { name: `Play Prone ${kind}`, exact: true })
     await expect(play).toBeEnabled()
     await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))

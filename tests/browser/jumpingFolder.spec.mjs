@@ -56,7 +56,7 @@ async function seed(page, folder, files) {
 
 async function openFolder(page, files = { '00-first.json': level('first', 'First local level') }) {
   await installPicker(page)
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await seed(page, 'My levels', files)
   await page.getByRole('button', { name: 'Local folder', exact: true }).click()
   await page.getByRole('button', { name: 'Choose folder' }).click()
@@ -155,7 +155,7 @@ test('Save and Test waits for the file, preserves edits on failure, and tests re
   await page.getByRole('button', { name: 'Return to builder', exact: true }).click()
   await expect(page).toHaveURL(/\/builder\/local\/01-renamed.json$/)
   await page.goBack()
-  await expect(page).toHaveURL(/\/untitled-jumping-game$/)
+  await expect(page).toHaveURL(/\/lab$/)
 })
 
 for (const writable of [true, false]) test(`local templates create independent levels in a ${writable ? 'writable' : 'read-only'} folder`, async ({ page }, info) => {
@@ -395,7 +395,7 @@ test('folder-input browsers remember the folder name and request reselection ins
   try {
     await writeFile(join(folder, '00-first.json'), JSON.stringify(level('fallback', 'Local file')))
     await page.addInitScript(() => { window.showDirectoryPicker = undefined })
-    await page.goto('/untitled-jumping-game')
+    await page.goto('/lab')
     await page.getByRole('button', { name: 'Local folder', exact: true }).click()
     await page.getByLabel('Open local level folder').setInputFiles(folder)
     await expect(page.getByRole('button', { name: 'Reselect folder' })).toBeEnabled()
@@ -506,7 +506,7 @@ test('a failed save cannot replace the draft, and changing folders cannot overwr
 test('Save and Test requires a writable folder and never downloads a fallback file', async ({ page }, info) => {
   await installPicker(page)
   const downloads = []; page.on('download', download => downloads.push(download.suggestedFilename()))
-  await page.goto('/untitled-jumping-game/builder')
+  await page.goto('/lab/builder')
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Ready to save')
   await page.getByRole('button', { name: 'Save and Test', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Level library', exact: true })).toBeVisible()

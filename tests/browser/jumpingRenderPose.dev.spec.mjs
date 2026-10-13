@@ -2,7 +2,7 @@ import { test, expect } from './helpers/test.mjs'
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: one render reuses the rig with identical pixels across traversal and gravity poses`, async ({ page }, info) => {
   test.setTimeout(90000)
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async backend => {
     const [{ LightingRenderer }, { createRun, stepRun }, { blankTrial }, { NEUTRAL_INPUT }] = await Promise.all([

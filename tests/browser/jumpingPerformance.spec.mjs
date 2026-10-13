@@ -22,7 +22,7 @@ for (const { savedPreference, nightMode } of [
       Object.defineProperty(window, 'devicePixelRatio', { configurable: true, value: 2 })
     }, savedPreference)
     await page.clock.install()
-    await page.goto('/untitled-jumping-game')
+    await page.goto('/lab')
     await page.getByRole('button', { name: `Play ${level.name}`, exact: true }).click()
     const canvas = page.locator('.jumping-game > canvas')
     await expect(canvas).toBeFocused()

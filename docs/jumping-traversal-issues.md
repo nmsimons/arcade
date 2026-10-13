@@ -2003,7 +2003,7 @@ acceptance.
 ## Production available for iPhone playtesting
 
 October 8, 2026. PR #61 is merged and deployed at
-[arcade.dreamlarge.com/untitled-jumping-game](https://arcade.dreamlarge.com/untitled-jumping-game).
+[arcade.dreamlarge.com/lab](https://arcade.dreamlarge.com/lab).
 [Production validation and deployment](https://github.com/nmsimons/arcade/actions/runs/37894251684)
 passed for merge `192b681a86d9b178bd2d9d0ee755ddcda3527c7e`, including full
 gameplay/save checks, lint, build and all three browser groups. The separate
@@ -2618,7 +2618,7 @@ changes are needed. Actual iPhone/controller comfort remains separately #57.
 
 October 9, 2026. [PR #67](https://github.com/nmsimons/arcade/pull/67) is merged
 at `e10765801fe7d65b7be8589caf0c7e6df0264afb` and verified live at
-[the production game](https://arcade.dreamlarge.com/untitled-jumping-game).
+[the production game](https://arcade.dreamlarge.com/lab).
 [Production run](https://github.com/nmsimons/arcade/actions/runs/37922818991)
 passes validation/build, all three browser groups and deployment. Its second
 browser group required one retry because browser installation stalled until
@@ -2641,7 +2641,7 @@ requires the user's device feedback.
 
 October 9, 2026. [PR #68](https://github.com/nmsimons/arcade/pull/68), merge
 `3ea017b4592e1d8f1a3186c311f16005d3818163`, is verified live at
-[the production game](https://arcade.dreamlarge.com/untitled-jumping-game).
+[the production game](https://arcade.dreamlarge.com/lab).
 [Production validation, all three browser groups and deployment](https://github.com/nmsimons/arcade/actions/runs/37927141415)
 and [all desktop packages](https://github.com/nmsimons/arcade/actions/runs/37927141414)
 pass without retry. Live entry JavaScript, CSS and

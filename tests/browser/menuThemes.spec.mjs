@@ -250,9 +250,9 @@ for (const [path, chunk, title, viewport = { width: 1280, height: 800 }] of [
   ['hard-vacuum', 'HardVacuumGame', 'Hard Vacuum'],
   ['bumper-ball', 'KickballGame', 'Bumper Ball'],
   ['urban-fire', 'UrbanFireGame', 'Urban Fire'],
-  ['untitled-jumping-game', 'UntitledJumpingGame', 'L.A.B. Experiments'],
-  ['untitled-jumping-game/levels/built-in/07.json', 'UntitledJumpingGame', 'L.A.B. Experiments', { width: 360, height: 640 }],
-  ['untitled-jumping-game/levels/built-in/07.json', 'UntitledJumpingGame', 'L.A.B. Experiments', { width: 620, height: 360 }],
+  ['lab', 'UntitledJumpingGame', 'L.A.B. Experiments'],
+  ['lab/levels/built-in/07.json', 'UntitledJumpingGame', 'L.A.B. Experiments', { width: 360, height: 640 }],
+  ['lab/levels/built-in/07.json', 'UntitledJumpingGame', 'L.A.B. Experiments', { width: 620, height: 360 }],
 ]) {
   test(`${path} uses neutral arcade loading and recovery at ${viewport.width}×${viewport.height}`, async ({ page }, info) => {
     await page.setViewportSize(viewport)

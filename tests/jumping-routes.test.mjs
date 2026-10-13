@@ -11,9 +11,19 @@ test('level links preserve filenames with spaces, Unicode, percent, query and ha
 })
 
 test('menu, draft builder and session playtest have distinct routes', () => {
+  assert.equal(JUMPING_MENU, '/lab')
+  assert.equal(JUMPING_BUILDER, '/lab/builder')
   assert.deepEqual(jumpingRoute(JUMPING_MENU + '/'), { screen: 'menu' })
   assert.deepEqual(jumpingRoute(JUMPING_BUILDER), { screen: 'builder' })
   assert.deepEqual(jumpingRoute(JUMPING_PLAYTEST), { screen: 'playtest' })
+})
+
+test('LAB file links use /lab and reject unrelated or retired route prefixes', () => {
+  assert.equal(levelPath('built-in', 'Tower #2.json'), '/lab/levels/built-in/Tower%20%232.json')
+  assert.equal(levelPath('local', 'Tower #2.json', true), '/lab/builder/local/Tower%20%232.json')
+  for (const prefix of ['/lab-other', '/untitled-jumping-game', '/games/lab']) {
+    assert.deepEqual(jumpingRoute(`${prefix}/levels/built-in/00.json`), { screen: 'missing' })
+  }
 })
 
 test('playtest URLs identify saved files or unsaved draft IDs without confusing normal play routes', () => {

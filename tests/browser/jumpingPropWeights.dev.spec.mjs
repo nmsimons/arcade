@@ -7,7 +7,7 @@ const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/jumping/water
 test('ball and box weights update their appearance, undo, duplicate, save and reopen', async ({ page }, info) => {
   const level = fixture()
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'weights.json': level })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })

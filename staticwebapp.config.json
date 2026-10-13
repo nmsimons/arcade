@@ -29,6 +29,11 @@
   },
   "routes": [
     {
+      "route": "/lab/*",
+      "rewrite": "/index.html",
+      "methods": ["GET", "HEAD"]
+    },
+    {
       "route": "/levels/jumping/*",
       "headers": {
         "Cache-Control": "no-store"

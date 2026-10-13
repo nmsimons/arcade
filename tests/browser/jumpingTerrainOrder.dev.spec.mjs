@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 test('terrain depth matches the top material in gameplay, daytime and night lighting masks', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const samples = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
     const { levelTerrain } = await import('/src/games/jumping/level.ts')

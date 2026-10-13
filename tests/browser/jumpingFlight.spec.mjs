@@ -6,7 +6,7 @@ for(const hold of [false,true])for(const direction of [-1,1])test(`keyboard ${ho
   const level=blankTrial();level.width=4000;level.entrance={x:1500,y:920};level.goal={x:3800,y:920}
   await useLevelFixtures(page,[level])
   await page.clock.install({time:new Date('2026-01-01T00:00:00Z')})
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

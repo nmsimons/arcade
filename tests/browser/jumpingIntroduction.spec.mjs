@@ -4,7 +4,7 @@ import { test, expect } from './helpers/test.mjs'
 const sample = page => page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
 async function open(page, file, name) {
   await page.clock.install({ time: new Date('2026-10-08T12:00:00Z') })
-  await page.goto(`/untitled-jumping-game/levels/built-in/${file}?motionDebug=1`)
+  await page.goto(`/lab/levels/built-in/${file}?motionDebug=1`)
   await expect(page.getByRole('img', { name: `${name}: reach the exit`, exact: true })).toBeFocused()
   await page.clock.pauseAt(new Date('2026-10-08T13:00:00Z'))
   await finishJumpingEntrance(page)

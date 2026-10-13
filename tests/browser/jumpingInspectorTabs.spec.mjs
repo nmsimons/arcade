@@ -11,7 +11,7 @@ async function open(page, level = blankTrial()) {
       return fill.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })

@@ -36,7 +36,7 @@ for (const slope of [-3, 3]) test(`normal controls start a bot patrolling up and
       return arc.apply(this, args)
     }
   })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Play Bot slope', exact: true }).waitFor()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Bot slope', exact: true }).click()

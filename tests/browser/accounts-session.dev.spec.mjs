@@ -105,7 +105,7 @@ test('Microsoft refresh restores the selected account and consent; disconnect an
 test('refreshing a game restores its save owner before mounting, without granting cloud access', async ({ page, context }) => {
   await microsoftSession(page, context)
   await useLevelFixtures(page, [FIRST_LEVEL])
-  await page.goto('/untitled-jumping-game/levels/built-in/00-fixture.json')
+  await page.goto('/lab/levels/built-in/00-fixture.json')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
   await page.reload()
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
@@ -128,7 +128,7 @@ test('a missing cached account blocks game startup and offers recovery without s
     localStorage.removeItem(account)
     sessionStorage.setItem(legacy, JSON.stringify({ id: 'missing-account', cloudEnabled: true }))
   }, { account: ACCOUNT_KEY, legacy: SESSION_KEY })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await expect(page.getByRole('status')).toHaveText('Your account couldn’t be restored')
   await expect(page.locator('.jumping-game')).toHaveCount(0)
   await page.getByRole('button', { name: 'Try again', exact: true }).click()
@@ -163,7 +163,7 @@ test('Microsoft stays signed in after browser credentials expire and reconnects 
   try {
     const next = await reopened.newPage()
     await microsoftProviders(next, reopened, drive)
-    await next.goto('/untitled-jumping-game')
+    await next.goto('/lab')
     await expect(next.getByRole('button', { name: 'Alice Microsoft', exact: true })).toBeVisible()
     expect(await next.evaluate(async () => {
       const { currentProfile, gameStorage } = await import('/src/accounts/profileStorage.ts')

@@ -5,7 +5,7 @@ the studio and thumbnails. Version-2 files carry ambient and spotlights. The lab
 and its fixture remain development-only; the shared compositor ships in the app.
 See [the specification](jumping-lighting.md) and [authoring guide](jumping-levels.md#lighting-version-2).
 
-Run `npm run dev`, then open `/untitled-jumping-game/lighting-lab` on the URL Vite
+Run `npm run dev`, then open `/lab/lighting-lab` on the URL Vite
 prints. The initial preview for this branch uses port 5175. The controls provide
 Night mode with fixed 35% ambient brightness, a sustained EMP blackout, a completed exit, identical overlapping
 lamps, and a moving/rotating crate. Play room switches to the normal movement and

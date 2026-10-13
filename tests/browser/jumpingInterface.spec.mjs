@@ -6,7 +6,7 @@ import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 async function open(page) {
   await useLevelFixtures(page, [FIRST_LEVEL])
   await installTestFolder(page, { 'first.json': FIRST_LEVEL })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Local folder', exact: true }).click()
   await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await expect(page.locator('.jumping-level-card')).toHaveCount(1)

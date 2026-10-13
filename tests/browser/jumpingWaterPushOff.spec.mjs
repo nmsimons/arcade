@@ -6,7 +6,7 @@ const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/water-tunnel.
 test('a held keyboard jump pushes from the pool bottom and settles against water resistance', async ({ page }, info) => {
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)

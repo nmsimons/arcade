@@ -7,7 +7,7 @@ const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/jumping/water
 test('reservoir controls wire both directions, undo, duplicate, save and reopen', async ({ page }, info) => {
   const level = fixture()
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'reservoir.json': level })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })
@@ -71,7 +71,7 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
     }
   })
   await page.clock.install()
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await page.getByRole('button', { name: 'Play Water reservoir test', exact: true }).click(); await finishJumpingEntrance(page)
   await expect(page.getByRole('img', { name: 'Water reservoir test: reach the exit', exact: true })).toBeFocused()
   await page.clock.runFor(150)

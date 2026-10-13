@@ -375,17 +375,22 @@ game's world renderer for their static previews. They include props, shovebots,
 pressure plates, both gate orientations, elevators, moving platforms, ropes, ladders, timers, text,
 pickups and goal exits in their starting state.
 
-The level menu is `/untitled-jumping-game`, playing a saved level uses
-`/untitled-jumping-game/levels/built-in/<filename>` or
-`/untitled-jumping-game/levels/local/<filename>`,
-and the builder is `/untitled-jumping-game/builder`. Editing a local file uses
-`/untitled-jumping-game/builder/local/<filename>`. Filenames are URL encoded.
-Back and Forward navigate between these screens; returning from
+The level menu is `/lab`, playing a saved level uses
+`/lab/levels/built-in/<filename>` or
+`/lab/levels/local/<filename>`,
+and the builder is `/lab/builder`. Editing a local file uses
+`/lab/builder/local/<filename>`. Filenames are URL encoded.
+All LAB entry points use `/lab`; the former untitled-game routes are retired.
+Published hosting uses an [explicit route rewrite](https://learn.microsoft.com/en-us/azure/static-web-apps/configuration#routes)
+for `/lab/*` so saved-level URLs ending in
+`.json` also work on direct visits and reloads. Raw level assets remain under
+`/levels/jumping/`.
+Back and Forward navigate between these screens.
 Playtesting a file appends `/playtest` to its builder URL, for example
-`/untitled-jumping-game/builder/local/Tower.json/playtest`. Back and **Return to
+`/lab/builder/local/Tower.json/playtest`. Back and **Return to
 builder** preserve the current draft and undo history. Reloading a file playtest
 uses the saved level; local links reopen the remembered folder or ask for access.
-Unsaved levels use `/untitled-jumping-game/builder/playtest/<level-id>` and remain
+Unsaved levels use `/lab/builder/playtest/<level-id>` and remain
 session-only. Reloading an unsaved playtest returns to the empty builder.
 
 There are no browser copies or automatic draft saves. Edits and undo history stay

@@ -37,7 +37,7 @@ test('normal keyboard swimming pushes a group at the surface, dives underneath a
   const level = JSON.parse(readFileSync(new URL('../fixtures/jumping/single-block-pool.json', import.meta.url), 'utf8'))
   level.name = 'Six floating balls'; level.goal = { ...level.goal, id: 'closed', power: 'switched' }
   level.props = Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: 1000 + i * 48, y: 345, size: 40 }))
-  await useLevelFixtures(page, [level]); await page.goto('/untitled-jumping-game?motionDebug=1')
+  await useLevelFixtures(page, [level]); await page.goto('/lab?motionDebug=1')
   await page.getByRole('button', { name: 'Play Six floating balls', exact: true }).click(); await finishJumpingEntrance(page)
   const canvas = page.getByRole('img', { name: `${level.name}: reach the exit`, exact: true }); await expect(canvas).toBeFocused()
   const stages = [ ['Surface', ['d'], 9000], ['Dive', ['ArrowDown'], 1500], ['Below left', ['a'], 2200],
@@ -63,7 +63,7 @@ test('normal controls skim beneath a floating cluster, rise into it and turn awa
   level.props = Array.from({ length: 6 }, (_, i) => ({ kind: 'ball', x: 1000 + i * 48, y: 345, size: 40 }))
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-10-10T00:00:00Z') })
-  await page.goto('/untitled-jumping-game?motionDebug=1')
+  await page.goto('/lab?motionDebug=1')
   await expect(page.getByRole('button', { name: 'Play Beneath six floats', exact: true })).toBeVisible()
   await page.clock.pauseAt(new Date('2026-10-10T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Beneath six floats', exact: true }).click(); await finishJumpingEntrance(page)

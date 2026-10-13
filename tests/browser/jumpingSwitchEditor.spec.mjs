@@ -6,7 +6,7 @@ async function openSwitches(page) {
   const level = readLevelAsset('switch-modes.json')
   level.triggers[0].w = 100
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'switches.json': level })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })
@@ -160,7 +160,7 @@ test('logic, reversal, opt-in relays and plate mounts save, undo, reopen and fla
 test('plate modes, exit wiring and always-on mechanisms save, undo and reopen in the studio', async ({ page }, info) => {
   const level = readLevelAsset('switch-modes.json')
   await useLevelFixtures(page, [level]); await installTestFolder(page, { 'switches.json': level })
-  await page.goto('/untitled-jumping-game')
+  await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })

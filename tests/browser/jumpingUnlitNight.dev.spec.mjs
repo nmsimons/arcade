@@ -1,7 +1,7 @@
 import { test, expect } from './helpers/test.mjs'
 
 test('omitting empty night correction and haze passes preserves every pixel through resizing, occlusion and power transitions', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   await expect(page.locator('.lighting-lab-study')).toBeVisible()
   const result = await page.evaluate(async () => {
     const [{ LightingRenderer }, { createPreviewRun }, { blankTrial }] = await Promise.all([

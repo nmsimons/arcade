@@ -55,7 +55,7 @@ for (const seam of [...seams, ...seams.map(seam => ({ ...seam, separated: true }
 
 
 test('terrain batching preserves real gaps and overlapping material order', async ({ page }) => {
-  await page.goto('/untitled-jumping-game/lighting-lab')
+  await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { drawTerrain } = await import('/src/games/jumping/render.ts')
     const { terrainFill } = await import('/src/games/jumping/terrainMaterials.ts')

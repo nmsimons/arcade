@@ -52,8 +52,7 @@ test('installed assets, deep routes, file saves, and fullscreen work without a s
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
       await expect(page.getByRole('dialog').getByRole('button').first()).toBeVisible()
     }
-    await page.goto('arcade://game/untitled-jumping-game?labRopes=wasm')
-    await expect.poll(() => page.evaluate(() => window.labRopeWasm?.status().enabled)).toBe(true)
+    await page.goto('arcade://game/untitled-jumping-game')
     await expect(page.locator('.jumping-game')).toBeVisible()
     await expect.poll(() => page.locator('.jumping-loading').count()).toBe(0)
     await page.reload()

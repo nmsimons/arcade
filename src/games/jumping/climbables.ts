@@ -5,7 +5,6 @@ import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
 import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend, polygonIntersects } from './geometry.ts'
 import { initRopeSleep, ropeCanSleep, settleRopeSleep } from './ropeSleep.ts'
-import { stepUnattachedRopeWasm } from './ropeWasm.ts'
 
 export type Point = [number, number]
 export const ROPE_CLEARANCE = 1.5
@@ -343,10 +342,6 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   const nearby = platforms.filter(b => b.x < right + 96 && b.x + b.w > left - 96 && b.y < bottom + 96 && b.y + b.h > top - 96
     && (!(b.polygon || b.profile) || polygonIntersects(sweepBounds, b)))
   if (ropeCanSleep(rope, nearby, !!load)) return
-  if (!load && stepUnattachedRopeWasm(rope, dt, nearby, gravity)) {
-    settleRopeSleep(rope, nearby, false, dt)
-    return
-  }
   const before = nodes.map(node => [node.x, node.y] as Point), previousBends = rope.bends.slice()
   const wasClear = ropeIsClear(rope, nearby)
   const lengths = nodes.slice(1).map((_, i) => ropeDistance(rope, i + 1) - ropeDistance(rope, i))

@@ -1,0 +1,25 @@
+import { test, expect } from '@playwright/test'
+
+test('development offers separate read-only stress levels with ordinary play, pause and restart', async ({ page }) => {
+  test.setTimeout(60000)
+  const errors = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/untitled-jumping-game')
+  const section = page.locator('.jumping-stress-levels')
+  await section.locator('summary').click()
+  await expect(section.getByRole('button', { name: 'Play Load Test', exact: true })).toBeVisible()
+  await expect(section.getByRole('button', { name: 'Play Load Test Max', exact: true })).toBeVisible()
+  await expect(section.getByRole('button', { name: /Edit|Delete/ })).toHaveCount(0)
+  await expect(page.locator('.jumping-level-browser')).not.toContainText('Load Test')
+  await section.getByRole('button', { name: 'Play Load Test', exact: true }).click()
+  const canvas = page.getByRole('img', { name: 'Load Test: reach the exit', exact: true })
+  await expect(canvas).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog', { name: 'Game paused', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Restart level', exact: true }).click()
+  await expect(canvas).toBeFocused()
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Level menu', exact: true }).click()
+  await expect(page.locator('.jumping-stress-levels')).toBeVisible()
+  expect(errors).toEqual([])
+})

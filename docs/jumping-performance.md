@@ -1,11 +1,50 @@
 # LAB performance notes
 
+## October 13 cleanup decision
+
+The active app remains in JavaScript. Keep the exact prop collision cache,
+unchanged stress workloads, playable development-only stress maps, profiling
+tools and these recorded findings. Remove Rust/Wasm, alternate solvers, Rapier,
+native build/test tooling and their extra CSP permissions. No 60 FPS improvement
+is claimed by this cleanup.
+
+The sections below are a historical investigation log: references to a
+"shipped" kernel, experimental flags and old validation counts describe the
+build measured at that time. All experiment source, binaries, provenance and
+original reproduction commands are preserved in
+commit `321d047`.
+Use [the current stress guide](jumping-stress.md) for the JavaScript tools and
+development level launcher.
+
+### JavaScript cleanup verification
+
+The [fresh JavaScript-only report](performance/2026-10-13-lab-javascript-cleanup.json)
+uses one paired episode per mixed case, with the same 30 warmup / 300 measured
+frames, fixtures, 1280×800 / DPR 1, full lighting, hardware Edge GPU and two
+120 Hz ticks per RAF. Both final trajectory hashes are identical and graphics
+settings match. The interactive previews were idle; the earlier attempt after
+a desktop-build reload was discarded before accepting measurements.
+
+| Workload | Original queries → cache FPS | Frame interval p95 |
+| --- | ---: | ---: |
+| Mixed medium | 11.0 → 10.1 | 133.2 → 150.3 ms |
+| Mixed maximum | 3.1 → 3.5 | 500.6 → 517.1 ms |
+
+This verifies the cleaned comparison harness and physics parity, **not a new
+mixed-scene speedup**. One episode is insufficient to qualify a regression or
+gain, and both p95 intervals worsened. The repeated earlier cache measurements
+used the native rope path; their mixed-scene FPS must not be presented as
+JavaScript-only results. The cache is retained for its repeated prop-only wins
+(those controls execute no native rope steps) and exact parity. The current
+JavaScript mixed workloads remain expensive and have not been qualified at
+60 FPS. Historical native results below retain their original build conditions.
+
 ## October 13, 2026: Chain tension solver trial — rejected
 
 **The trial did not make the mixed LAB scenes cheaper while preserving their
 mechanical quality.** The shipped Rust source, binary (`e83d8b69…`) and provenance
 are restored. The rejected source, binary and build hashes are frozen in
-[`lab-rope-chain-probe`](../tests/fixtures/jumping/lab-rope-chain-probe/).
+`tests/fixtures/jumping/lab-rope-chain-probe/` at that commit.
 The adapter exposes benchmark controls, but there is no playable query flag and
 the shipped binary cannot enable this solver.
 

@@ -18,15 +18,7 @@ interface CachedCollision { body: number; other: number; hit: Matter.Collision |
 export class CollisionQueries {
   private geometry = new Map<Matter.Body, Geometry>()
   private pairs = new Map<Matter.Body, Map<Matter.Body, CachedCollision>>()
-  private tracked = new Map<Matter.Body, number>()
-  // The tracked variant is confined to ActivePropContacts' synchronous epoch.
-  // Its caller reports every geometry mutation. Other callers keep exact scans.
-  private trackChanges: boolean
-  constructor(trackChanges = false) { this.trackChanges = trackChanges }
-  changed(body: Matter.Body) { this.tracked.set(body, (this.tracked.get(body) ?? 0) + 1) }
-
   private revision(body: Matter.Body) {
-    if (this.trackChanges) return this.tracked.get(body) ?? 0
     let g = this.geometry.get(body)
     const size = 2 + body.vertices.length * 2 + body.axes.length * 2
     let changed = !g || g.id !== body.id || g.parent !== body.parent

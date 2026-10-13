@@ -24,17 +24,15 @@
     "benchmark": "node scripts/benchmark.mjs",
     "benchmark:urban-fire": "node scripts/benchmark-urban-fire.mjs",
     "benchmark:bumper-ai": "node scripts/benchmark-bumper-ai.mjs",
-    "build:lab-rope": "node scripts/build-lab-rope.mjs",
-    "benchmark:lab-rope": "node scripts/benchmark-lab-rope.mjs",
     "benchmark:lab-stress": "node scripts/benchmark-lab-stress.mjs",
     "profile:lab-stress": "node scripts/profile-lab-stress.mjs",
     "profile:lab-stress-browser": "node scripts/profile-lab-stress-browser.mjs",
-    "test:lab-rope": "node --test tests/jumping-rope-wasm.test.mjs",
     "preview": "vite preview",
     "levels:index": "node scripts/jumping-levels.mjs index",
     "levels:sync": "node scripts/jumping-levels.mjs sync",
     "levels:check": "node scripts/jumping-levels.mjs check",
-    "prebuild": "npm run levels:index"
+    "prebuild": "npm run levels:index",
+    "levels:check:dev": "node scripts/jumping-levels.mjs check dev/levels/jumping"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.23.0",
@@ -44,7 +42,6 @@
     "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
-    "@dimforge/rapier2d-compat": "0.21.0",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.1.18",

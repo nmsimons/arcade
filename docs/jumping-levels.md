@@ -40,6 +40,14 @@ automated tests. They are not copied into or offered by the deployed game.
 When the built-in catalog is empty, the level picker opens Local folder and the
 builder omits the built-in templates section.
 
+Playable stress challenges live separately in `dev/levels/jumping/`, using the
+same JSON schema and manifest. `npm run dev` offers them under **Stress tests ·
+Development** as read-only levels to try. They are outside `public/`, excluded
+from production builds and unavailable through the production preview. Validate
+them with `npm run levels:check:dev`; see [the stress guide](jumping-stress.md)
+for recorded routes and numerical benchmarks. Do not move these maps into the
+production built-in collection just to make them available for testing.
+
 Local and built-in collections share the same `index.json` manifest format:
 
 ```json

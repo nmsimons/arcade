@@ -6,14 +6,6 @@ import { createRun, stepRun } from '../src/games/jumping/challenge.ts'
 import { parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { ENTRANCE_SECONDS } from '../src/games/jumping/goal.ts'
-import { installRopeWasm, setRopeWasmEnabled, ropeWasmStatus } from '../src/games/jumping/ropeWasm.ts'
-
-const backend = process.env.LAB_ROPE_BACKEND ?? 'typescript'
-if (!['typescript', 'wasm'].includes(backend)) throw new Error('LAB_ROPE_BACKEND must be typescript or wasm')
-if (backend === 'wasm') {
-  await installRopeWasm(readFileSync(new URL('../public/wasm/lab-rope.wasm', import.meta.url)))
-  setRopeWasmEnabled(true)
-}
 
 // Simulation CPU only. The historical recording preserves its original explicit
 // jump impulses so a before/after run visits identical contacts and mechanisms.
@@ -50,7 +42,7 @@ for (let trial = 0; trial < 2; trial++) {
 }
 const sorted = samples.toSorted((a, b) => a - b), percentile = p => sorted[Math.ceil(sorted.length * p) - 1]
 const result = { machine: cpus()[0].model, system: `${platform()} ${arch()}`, node: process.version,
-  backend, ropeWasm: ropeWasmStatus(),
+  backend: 'javascript',
   note: 'Simulation CPU for two adjacent 120 Hz ticks; excludes rendering, browser scheduling and input latency. One warmup and one measured historical route.',
   frames: samples.length, meanMs: samples.reduce((a, b) => a + b, 0) / samples.length,
   p50Ms: percentile(.5), p95Ms: percentile(.95), p99Ms: percentile(.99), worstMs: sorted.at(-1),

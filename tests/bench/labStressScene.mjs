@@ -3,7 +3,6 @@ import { parseLevel, levelProblems } from '../../src/games/jumping/level.ts'
 import { ENTRANCE_SECONDS } from '../../src/games/jumping/goal.ts'
 import { NEUTRAL_INPUT, STEP } from '../../src/games/jumping/model.ts'
 import { createRope, ropeImpulse } from '../../src/games/jumping/climbables.ts'
-import { setRopeWasmEnabled } from '../../src/games/jumping/ropeWasm.ts'
 
 /** All layout coordinates/prototypes are JSON data. Counts scale a numerical
  * workload within current file limits; these are not authored game challenges.
@@ -39,7 +38,6 @@ export function stressLevel(fixture, scenario) {
 }
 export function stressRun(fixture, scenario) {
   // Initial authoring/settling is identical in both arms and outside timing.
-  setRopeWasmEnabled(false)
   const run = createRun(stressLevel(fixture, scenario))
   stepRun(run, NEUTRAL_INPUT, ENTRANCE_SECONDS)
   run.player.ropes ??= run.level.climbables.ropes.map(createRope)

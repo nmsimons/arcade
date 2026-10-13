@@ -1,4 +1,5 @@
 import { LightingRenderer, lightingPixelRatio } from './jumping/lightingRender'
+import { initializeRopeWasm } from './jumping/ropeWasmBrowser'
 import { LabLogo } from '../branding/LabLogo'
 import { LAB_NAME } from '../branding/lab'
 import { lightingForLevel } from './jumping/lightingDefinition'
@@ -58,6 +59,7 @@ const COLLECTION_KEY = 'arcade.jumping.collection.v1'
 const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
+  useEffect(() => { void initializeRopeWasm() }, [])
   useEffect(() => {
     const title = document.title
     document.title = `${LAB_NAME} | Dream Large Arcade`

@@ -19,6 +19,9 @@ import type { Vec } from './geometry.ts'
 
 import { propFloatDrag, propGravity, propWaterStrength } from './gravity.ts'
 import { propWeightScale } from './propWeight.ts'
+import { CollisionQueries } from './collisionQueries.ts'
+import { ActivePropContacts, copyBounds } from './activePropContacts.ts'
+import { labSolverEnabled } from './labSolver.ts'
 
 const { Bodies, Body, Bounds, Collision, Composite, Engine, Events, Query, Sleeping, Vertices } = Matter
 interface PropWorld { engine: Matter.Engine; bodies: Map<Prop, Matter.Body>; terrain: Matter.Body[]; mechanisms: Matter.Body[]; gravity: Map<Matter.Body, number>; floatDrag: Map<Matter.Body, number>; waterStrength: Map<Matter.Body, number>; floatQuiet: Map<Matter.Body, number>; driven: Set<Matter.Body> }
@@ -319,6 +322,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   }
   const contactBody = playerContactBody(p, true)
   const playerHull = controlledHull(bodyPolygon(contactBody.x, contactBody.y, contactBody.height, p.inverted ? -1 : 1, playerTurnAngle(p), contactBody.outline))
+  const active = labSolverEnabled() ? new ActivePropContacts([...world.bodies.values()]) : null
+  const translateResolved = (body: Matter.Body, translation: Matter.Vector) => {
+    const before = active ? copyBounds(body) : null
+    Body.translate(body, translation)
+    if (before) active!.changed(body, before)
+  }
   // Props may displace the controlled player only along a clear sweep. Any
   // blocked part of that displacement is resolved back into the prop, in the
   // same iterations as prop/terrain and prop/prop contacts.
@@ -343,10 +352,10 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       // player as pinned and transferring an impulse back to the prop.
       dx = movedX * blocked / separated; dy = movedY * blocked / separated
     }
-    Body.translate(hull, { x: actor.x - startX, y: actor.y - startY })
+    translateResolved(hull, { x: actor.x - startX, y: actor.y - startY })
     if (blocked > 1e-7) {
       Sleeping.set(body, false)
-      Body.translate(body, { x: -nx * blocked, y: -ny * blocked })
+      translateResolved(body, { x: -nx * blocked, y: -ny * blocked })
       const point = hit.supports[0]!
       const lever = (point.x - body.position.x) * ny - (point.y - body.position.y) * nx
       const velocity = Body.getVelocity(body), angular = Body.getAngularVelocity(body)
@@ -361,18 +370,19 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   }
   const solids = [...world.terrain, ...world.mechanisms, ...world.bodies.values()]
   const candidates = new Map([...world.bodies.values()].map(body => [body, solids.filter(other => other !== body)]))
+  const queries = active?.queries ?? new CollisionQueries()
   // Recompute normals at joins after the solver's position iterations. A ball
   // reaching the flat floor can have a new contact that the old ramp normal
   // alone cannot separate, even with more iterations of that old contact.
   for (let pass = 0; pass < 32; pass++) {
     let corrected = false
-    for (const body of world.bodies.values()) for (const hit of Query.collides(body, candidates.get(body)!)) {
+    for (const body of world.bodies.values()) for (const hit of active ? active.collides(body, candidates.get(body)!) : queries.collides(body, candidates.get(body)!)) {
       if (hit.depth < .001) continue
       const a = hit.bodyA, b = hit.bodyB, wa = a.isStatic || a.isSleeping ? 0 : a.inverseMass, wb = b.isStatic || b.isSleeping ? 0 : b.inverseMass
       if (!wa && !wb) continue
       const distance = (hit.depth - .0001) / (wa + wb)
-      if (wa) Body.translate(a, { x: hit.normal.x * distance * wa, y: hit.normal.y * distance * wa })
-      if (wb) Body.translate(b, { x: -hit.normal.x * distance * wb, y: -hit.normal.y * distance * wb })
+      if (wa) translateResolved(a, { x: hit.normal.x * distance * wa, y: hit.normal.y * distance * wa })
+      if (wb) translateResolved(b, { x: -hit.normal.x * distance * wb, y: -hit.normal.y * distance * wb })
       corrected = true
     }
     for (const [prop, body] of world.bodies) {
@@ -394,25 +404,31 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
           const movedProp = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2, angle: body.angle }
           const footing = prop.kind === 'box' ? boxShape(movedProp) : ballShape(movedProp)
           moveRobot([...barriers, ...props], robot, x, props, p, footing, forceFieldPlatforms(run.forceFields))
-          Body.translate(playerHull, { x: p.x - oldX, y: p.y - oldY })
+          translateResolved(playerHull, { x: p.x - oldX, y: p.y - oldY })
         })
         if (moved) {
           // Contact can change wheel height and tilt as well as position.
           robotHulls(robot).forEach((points, i) => {
+            const before = active ? copyBounds(hulls[i]) : null
             const vertices = points.map(([x, y]) => ({ x, y }))
             Body.setPosition(hulls[i], Vertices.centre(vertices)); Body.setVertices(hulls[i], vertices)
+            if (before) active!.changed(hulls[i], before)
           })
           corrected = true
         }
       }
     }
-    for (const [prop, body] of world.bodies) if (prop.floatSwitch) corrected = constrainFloatSwitch(body, prop.floatSwitch) || corrected
+    for (const [prop, body] of world.bodies) if (prop.floatSwitch) {
+      const before = active ? copyBounds(body) : null
+      corrected = constrainFloatSwitch(body, prop.floatSwitch) || corrected
+      if (before) active!.changed(body, before)
+    }
     if (!corrected) break
   }
   const byBody = new Map([...world.bodies].map(([prop, body]) => [body, prop]))
   const supports = new Map<Matter.Body, Matter.Vector>()
   const contacts: Matter.Collision[] = world.engine.pairs.list.filter((pair: Matter.Pair) => pair.isActive).map((pair: Matter.Pair) => pair.collision)
-  for (const body of world.bodies.values()) contacts.push(...Query.collides(body, candidates.get(body)!))
+  for (const body of world.bodies.values()) contacts.push(...queries.collides(body, candidates.get(body)!))
   // Validate sleeping support separately, keeping the solver's original
   // contact ordering and friction normals for awake objects. Sleep can leave
   // inactive cached pairs, so check the current hulls with a small tolerance.

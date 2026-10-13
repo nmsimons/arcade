@@ -1,0 +1,152 @@
+{
+  "scenario": "mixed-max",
+  "start": 210,
+  "frames": 60,
+  "phaseBuild": true,
+  "browser": "155.0.4283.45",
+  "wasmHash": "ac2c69d85cc6d726e883f94fc31140887223578c59de0ef45bb1d3b106d814a6",
+  "fixtureHash": "dc0f9294542e35fce97e4edbf09f4d92f5ed516161b02f38af26c3cdc0bfaa4e",
+  "samples": 7706,
+  "note": "Instrumented production-browser sampling profile. Phase build inhibits helper inlining. Timings are diagnostic only; compare uninstrumented stress runs for FPS.",
+  "phases": [
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13node_contacts",
+      "count": 693,
+      "percent": 8.992992473397353
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13span_contacts",
+      "count": 268,
+      "percent": 3.477809499091617
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver15constraint_pass",
+      "count": 449,
+      "percent": 5.82662860109006
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver18clearance_recovery",
+      "count": 11,
+      "percent": 0.14274591227614847
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain",
+      "count": 44,
+      "percent": 0.5709836491045939
+    }
+  ],
+  "topSelfSamples": [
+    [
+      "n._overlapAxes http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      2639
+    ],
+    [
+      "n.collides http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      2105
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13node_contacts wasm://wasm/lab_rope.wasm-0004c152",
+      641
+    ],
+    [
+      "K0 http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      519
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver15constraint_pass wasm://wasm/lab_rope.wasm-0004c152",
+      449
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13span_contacts wasm://wasm/lab_rope.wasm-0004c152",
+      136
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope4bend wasm://wasm/lab_rope.wasm-0004c152",
+      125
+    ],
+    [
+      "n._findSupports http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      100
+    ],
+    [
+      "Ma http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      82
+    ],
+    [
+      "(anonymous) http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      52
+    ],
+    [
+      "(garbage collector) ",
+      52
+    ],
+    [
+      "Jf http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      51
+    ],
+    [
+      "fl http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      37
+    ],
+    [
+      "Ze http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      35
+    ],
+    [
+      "Ut http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      33
+    ],
+    [
+      "n.contains http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      31
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain wasm://wasm/lab_rope.wasm-0004c152",
+      30
+    ],
+    [
+      "drawImage ",
+      30
+    ],
+    [
+      "yt http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      29
+    ],
+    [
+      "_RNvMCsh8yo57lOh8f_8lab_ropeNtB2_5Shape4face wasm://wasm/lab_rope.wasm-0004c152",
+      28
+    ],
+    [
+      "Ac http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      28
+    ],
+    [
+      "re http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      28
+    ],
+    [
+      "dd http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      25
+    ],
+    [
+      "Se http://127.0.0.1:4192/assets/lab-profile-entry-CqJ2b-eh.js",
+      24
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope5clear wasm://wasm/lab_rope.wasm-0004c152",
+      24
+    ]
+  ],
+  "outcomeHash": "48aa361d0ee5688119526f0723bd930b7d6c4ea9fb4a416b6448f34ab2f72716",
+  "output": "C:\\Users\\nsimons\\code\\arcade\\.local\\lab-max-late-phases.cpuprofile",
+  "selfSampleFamilies": {
+    "wasm": {
+      "count": 1486,
+      "percent": 19.283675058396057
+    },
+    "matterCollision": {
+      "count": 4844,
+      "percent": 62.86010900596938
+    }
+  }
+}

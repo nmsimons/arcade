@@ -1,0 +1,52 @@
+{
+  "machine": "Snapdragon(R) X 12-core X1E80100 @ 3.40 GHz",
+  "system": "win32 arm64",
+  "node": "v24.14.1",
+  "backend": "typescript",
+  "ropeWasm": {
+    "installed": false,
+    "enabled": false,
+    "wasmSteps": 0,
+    "failures": 0
+  },
+  "note": "Simulation CPU for two adjacent 120 Hz ticks; excludes rendering, browser scheduling and input latency. One warmup and one measured historical route.",
+  "frames": 3128,
+  "meanMs": 8.992785262148173,
+  "p50Ms": 7.439699999995355,
+  "p95Ms": 17.983099999990372,
+  "p99Ms": 58.84180000000197,
+  "worstMs": 157.81330000000162,
+  "trajectoryChecksum": "df3f2bfbf88fe62a93189cebefb794496f2fc2a5387bf93889908e44249a842b",
+  "slowPhases": [
+    {
+      "endTick": 1674,
+      "x": 2909.9130218064824,
+      "y": 960,
+      "msPerTick": 25.42456521739128
+    },
+    {
+      "endTick": 1651,
+      "x": 2930.4685773620354,
+      "y": 960,
+      "msPerTick": 24.192529999999845
+    },
+    {
+      "endTick": 1581,
+      "x": 2928.176910695369,
+      "y": 960,
+      "msPerTick": 22.532306557377733
+    },
+    {
+      "endTick": 1459,
+      "x": 2801.093577362054,
+      "y": 953.4409722222222,
+      "msPerTick": 15.963400000000547
+    },
+    {
+      "endTick": 1458,
+      "x": 2800.0519106953875,
+      "y": 960,
+      "msPerTick": 11.608911111110096
+    }
+  ]
+}

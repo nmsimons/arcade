@@ -1,0 +1,111 @@
+{
+  "version": 1,
+  "jumpModel": "tap-hold",
+  "note": "Fresh-start normal-control service routes. No actor positions, velocities or mechanism states are changed.",
+  "runs": [
+    {
+      "route": "service",
+      "file": "Load Test.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 15.09166666666645,
+      "activeTime": 15.949999999999735,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 59,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 117,
+          "input": {
+            "move": 1,
+            "descend": true,
+            "drop": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 417,
+          "input": {
+            "descend": true,
+            "drop": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 438,
+          "input": {
+            "move": 1,
+            "detach": true
+          }
+        },
+        {
+          "frames": 747,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 136,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "route": "service",
+      "file": "Load Test Max.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 15.09166666666645,
+      "activeTime": 15.949999999999735,
+      "coins": 0,
+      "trace": [
+        {
+          "frames": 59,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 117,
+          "input": {
+            "move": 1,
+            "descend": true,
+            "drop": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 417,
+          "input": {
+            "descend": true,
+            "drop": true,
+            "crouch": true
+          }
+        },
+        {
+          "frames": 438,
+          "input": {
+            "move": 1,
+            "detach": true
+          }
+        },
+        {
+          "frames": 747,
+          "input": {
+            "climb": true
+          }
+        },
+        {
+          "frames": 136,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    }
+  ]
+}

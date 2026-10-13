@@ -25,7 +25,7 @@ else app.whenReady().then(async () => {
       if (!target) return new Response('Not found', { status: 404 })
       const response = await net.fetch(pathToFileURL(target).href)
       const headers = new Headers(response.headers)
-      headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
+      headers.set('Content-Security-Policy', "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'")
       headers.set('X-Content-Type-Options', 'nosniff')
       return new Response(request.method === 'HEAD' ? null : response.body, { status: response.status, headers })
     } catch { return new Response('Not found', { status: 404 }) }

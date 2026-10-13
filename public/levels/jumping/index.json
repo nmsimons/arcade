@@ -27,6 +27,8 @@
     "rampingup.jump-level.json",
     "escapade.jump-level.json",
     "buoyancy.jump-level.json",
-    "Waterline.jump-level.json"
+    "Waterline.jump-level.json",
+    "Load Test.jump-level.json",
+    "Load Test Max.jump-level.json"
   ]
 }

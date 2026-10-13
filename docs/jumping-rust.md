@@ -1,5 +1,16 @@
 # LAB Rust/Wasm rope prototype
 
+The subsequent chain-tension trial is also **rejected**: global propagation
+helped free swings, but guarded mixed scenes were slower and failed contact and
+stretch gates. Its source/binary are archived as benchmark fixtures; the shipped
+kernel remains `e83d8b69…`. See the [rope algorithm results](jumping-performance.md).
+
+**October 13 decision:** keep the JavaScript app codebase and do not start a full
+Rust rewrite on the measured evidence. The alternative Rust prop engine improved
+the prop-only control substantially, but did not deliver mixed-scene 60 FPS; a
+batched rope replacement failed the contact-quality gates. Both new probes are
+benchmark-only. See the [go/no-go findings](jumping-performance.md).
+
 The `codex/lab-rust-prototype` branch introduces an opt-in Rust kernel for awake
 ropes that are not attached to the player. Its purpose is to measure whether
 larger rope populations can retain the existing physics and visual quality.

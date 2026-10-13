@@ -47,6 +47,103 @@ Use `?labRopes=wasm&labSolver=active` on either level's URL for the opt-in solve
 omit the flags for the established TypeScript version. Keep resolution, route,
 and other running previews consistent when comparing devices or backends.
 
+## Alternative Rust physics capacity probe
+
+`@dimforge/rapier2d-compat` 0.21.0 is a pinned development dependency. Its package
+and both probe modules are excluded from normal gameplay. The build plugin
+injects a delegation only into benchmark builds; production source files and the
+shipped custom rope binary remain unchanged.
+
+Run the final prop comparison in PowerShell with the previews paused and no
+other builds, tests or measurements running:
+
+```powershell
+$env:LAB_STRESS_COMPARE_PROPS='1'
+$env:LAB_STRESS_SOLVER='active'
+$env:LAB_STRESS_RAPIER_ROPES='0'
+$env:LAB_STRESS_CASES='props-80,mixed-medium,mixed-max'
+$env:LAB_STRESS_FRAMES='300'
+$env:LAB_STRESS_EPISODES='3'
+node scripts/benchmark-lab-stress.mjs .local/lab-rapier-long.json
+```
+
+Remove these environment variables before reproducing older comparison modes.
+Both arms use the same bundle, existing active Rust rope solver, counts, initial
+inputs, simulation clock, viewport and full-quality renderer. The native prop
+model uses true circles and changed trajectories, so this mode records drift
+without claiming exact parity. No sleeping is allowed in the native engine.
+The final crowded-scene residual-overlap gate is 0.5 units; separate mechanical
+tests use 0.15. Native execution and fallback counters are retained. Unsupported
+player/robot/water interactions delegate to the established prop solver, and
+their performance has not been qualified by this numerical comparison.
+
+`LAB_STRESS_RAPIER_ROPES='1'` enables the **rejected**, benchmark-only batched
+soft-rope experiment. It checks fixed anchors within 0.001 units, total stretch
+below 2%, local stretch below 10%, and zero blocked complete spans. It throws on
+player-loaded ropes or fallback ticks. The crowded trial fails these gates;
+it is not a playable mode or an accepted performance result. Raw arms are saved
+before validation so rejected candidates remain inspectable.
+
+Run `node --test tests/jumping-rapier-probe.test.mjs` for the narrower stack, CCD,
+cargo, fallback and static rope tests. These do not replace the crowded gates.
+For the slow-window diagnostic set `LAB_STRESS_PROPS='rapier'`,
+`LAB_STRESS_SOLVER='active'`, `LAB_STRESS_PROFILE_READABLE='1'`,
+`LAB_STRESS_CASE='mixed-max'`, `LAB_STRESS_SKIP='210'`, `LAB_STRESS_FRAMES='60'`,
+then run `node scripts/profile-lab-stress-browser.mjs .local/rapier-max.cpuprofile`.
+Readable profiles are unminified and diagnostic; use repeated uninstrumented
+benchmark arms for FPS claims. [Recorded decision and results](jumping-performance.md).
+
+## Rejected chain tension experiment
+
+`LAB_STRESS_COMPARE_ROPE_ALGORITHM=1` selects the frozen dual-mode kernel in
+[`tests/fixtures/jumping/lab-rope-chain-probe`](../tests/fixtures/jumping/lab-rope-chain-probe/).
+The `ordered` and `chain` arms use that same binary, bundle, Matter props and
+selected active-solver setting. The shipped kernel and source remain unchanged;
+this experiment has no playable URL flag. Its changed trajectories are recorded,
+not accepted as exact parity.
+
+```powershell
+$env:LAB_STRESS_COMPARE_PROPS='0'
+$env:LAB_STRESS_RAPIER_ROPES='0'
+$env:LAB_STRESS_COMPARE_ROPE_ALGORITHM='1'
+$env:LAB_STRESS_SOLVER='active'
+$env:LAB_STRESS_CASES='mixed-medium,mixed-max'
+$env:LAB_STRESS_WARMUP='30'
+$env:LAB_STRESS_FRAMES='300'
+$env:LAB_STRESS_EPISODES='3'
+node scripts/benchmark-lab-stress.mjs .local/lab-rope-chain-guarded.json
+```
+
+The expected result is a **nonzero exit** after all twelve arms are saved: local
+stretch, total stretch and solid-crossing gates reject the candidate. Reports
+retain `measurementsComplete: true`, `complete: false`, and `qualityFailures`.
+Quality checks cover anchors within 0.001 units, local stretch below 10%, total
+arc stretch below 2%, and zero blocked path legs, including corner bends. Checks
+also record the reference and distinguish terrain, mechanism and prop contacts.
+The extreme reference has unresolved contacts with dynamically intruding props;
+the candidate does not solve that limitation. See the [recorded decision](jumping-performance.md).
+
+`chainStats` contains attempts, chain passes, original pass budget, attempts
+reaching the budget, and ordered retries. Rejected chain outputs rerun the old
+solver from the same input packet. Chain-pass counts exclude that retry cost.
+The eight numerical checks run with
+`node --test tests/jumping-rope-chain.test.mjs`; these narrow checks do not
+override the rejected mixed-scene gates or claim a manual feel review.
+
+The archived Cargo crate can be rebuilt with a Rust toolchain containing
+`wasm32-unknown-unknown`, without replacing production assets:
+
+```powershell
+cargo build --locked --release --target wasm32-unknown-unknown `
+  --manifest-path tests/fixtures/jumping/lab-rope-chain-probe/Cargo.toml `
+  --target-dir .local/lab-rope-chain-rebuild
+```
+
+Use `LAB_STRESS_WASM` to select the rebuilt `lab_rope.wasm` for a fresh run. The
+committed fixture and build hashes identify the actually measured binary; a
+different toolchain/path may produce a different binary hash. Clear these
+environment variables before reproducing other modes.
+
 ## Workloads
 
 The layout and object prototypes live in
@@ -102,7 +199,9 @@ Machine/browser/GPU details and fixture, bundle and binary hashes identify the
 measured build. Both arms must retain the same renderer and backing size. The
 final player, prop, rope node/bend and mechanism state must agree within 1e-6
 world units before timings are accepted. Reports also record exact hash equality.
-An error, hidden page, Wasm fallback or trajectory divergence invalidates the run;
+This parity rule applies to the original and exact-optimization modes. Alternative
+prop/rope model probes record drift and apply their separate mechanical gates.
+An error, hidden page, unexpected Wasm fallback or required-parity divergence invalidates the run;
 partial checkpoint reports have `complete: false`.
 
 ## Selecting runs
@@ -167,7 +266,7 @@ The selective solver is chosen with `LAB_STRESS_SOLVER=active`.
 compiled source graph and Wasm binary, using `before` / `optimized` labels.
 `LAB_STRESS_COMPARE_BUILD` can instead compare a frozen earlier implementation,
 including its captured binary. The recorded final selective-solver run uses
-that frozen reference. All modes retain the exact state checks:
+that frozen reference. These exact-optimization modes retain the exact state checks:
 
 ```powershell
 $env:LAB_STRESS_SOLVER = 'active'

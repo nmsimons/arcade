@@ -1,0 +1,191 @@
+{
+  "scenario": "mixed-max",
+  "start": 210,
+  "frames": 60,
+  "phaseBuild": true,
+  "readable": true,
+  "propBackend": "matter",
+  "propQuality": {
+    "nativeSteps": 0,
+    "fallbackSteps": 0,
+    "nativeRopeSteps": 0,
+    "maxPenetration": null
+  },
+  "solver": "active",
+  "solverStats": {
+    "enabled": true,
+    "propQueries": 1163680,
+    "propSkipped": 957510,
+    "propMutations": 144205,
+    "rope": [
+      101088000,
+      14014158,
+      101088000,
+      88671851
+    ]
+  },
+  "browser": "155.0.4283.45",
+  "wasmHash": "069f6799b5800947969cc782d5201e44868d81e12b4636ec6d7e853eed3364e7",
+  "fixtureHash": "dc0f9294542e35fce97e4edbf09f4d92f5ed516161b02f38af26c3cdc0bfaa4e",
+  "samples": 1906,
+  "note": "Instrumented production-browser sampling profile. Phase build inhibits helper inlining. Timings are diagnostic only; compare uninstrumented stress runs for FPS.",
+  "phases": [
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13span_contacts",
+      "count": 187,
+      "percent": 9.81112277019937
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver15constraint_pass",
+      "count": 367,
+      "percent": 19.25498426023085
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13node_contacts",
+      "count": 142,
+      "percent": 7.4501573976915
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain",
+      "count": 21,
+      "percent": 1.1017838405036726
+    },
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver18clearance_recovery",
+      "count": 7,
+      "percent": 0.3672612801678909
+    }
+  ],
+  "inclusivePhases": [
+    {
+      "name": "stepPropPhysics",
+      "count": 633,
+      "percent": 33.2109129066107
+    },
+    {
+      "name": "stepRope",
+      "count": 880,
+      "percent": 46.16998950682056
+    },
+    {
+      "name": "stepUnattachedRopeWasm",
+      "count": 774,
+      "percent": 40.60860440713536
+    }
+  ],
+  "selfSampleFamilies": {
+    "wasm": {
+      "count": 735,
+      "percent": 38.562434417628545
+    },
+    "matterCollision": {
+      "count": 169,
+      "percent": 8.866736621196223
+    }
+  },
+  "topSelfSamples": [
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver15constraint_pass wasm://wasm/lab_rope.wasm-0005249a",
+      366
+    ],
+    [
+      "Collision2._overlapAxes http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      160
+    ],
+    [
+      "Collision2.collides http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      137
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13node_contacts wasm://wasm/lab_rope.wasm-0005249a",
+      128
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver13span_contacts wasm://wasm/lab_rope.wasm-0005249a",
+      92
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope4bend wasm://wasm/lab_rope.wasm-0005249a",
+      89
+    ],
+    [
+      "collides http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      82
+    ],
+    [
+      "stepPropPhysics http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      69
+    ],
+    [
+      "penetration http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      51
+    ],
+    [
+      "(anonymous) http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      49
+    ],
+    [
+      "(garbage collector) ",
+      43
+    ],
+    [
+      "boundaryGeometry http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      38
+    ],
+    [
+      "lightReachesView http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      37
+    ],
+    [
+      "stepUnattachedRopeWasm http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      32
+    ],
+    [
+      "drawImage ",
+      32
+    ],
+    [
+      "boxShape http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      27
+    ],
+    [
+      "(program) ",
+      20
+    ],
+    [
+      "syncPlatforms http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      20
+    ],
+    [
+      "ropePath http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      20
+    ],
+    [
+      "drawClimbables http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      19
+    ],
+    [
+      "(idle) ",
+      19
+    ],
+    [
+      "bounds http://127.0.0.1:4192/assets/lab-profile-entry-C6xGm1jw.js",
+      16
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain wasm://wasm/lab_rope.wasm-0005249a",
+      14
+    ],
+    [
+      "fill ",
+      13
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope5clear wasm://wasm/lab_rope.wasm-0005249a",
+      13
+    ]
+  ],
+  "outcomeHash": "48aa361d0ee5688119526f0723bd930b7d6c4ea9fb4a416b6448f34ab2f72716",
+  "output": "C:\\Users\\nsimons\\code\\arcade\\.local\\lab-rope-algorithm-before.cpuprofile",
+  "analysisNote": "Inclusive ancestry reprocessed from the same saved CPU profile. The original formatter stopped at the first Rust phase and undercounted its JavaScript ancestors. Individual phase and self-sample counts are unchanged."
+}

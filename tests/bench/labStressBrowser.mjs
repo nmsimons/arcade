@@ -4,8 +4,11 @@ import { NEUTRAL_INPUT, STEP } from '../../src/games/jumping/model.ts'
 import { LightingRenderer, lightingPixelRatio } from '../../src/games/jumping/lightingRender.ts'
 import { lightingForLevel } from '../../src/games/jumping/lightingDefinition.ts'
 import { gameCamera } from '../../src/games/jumping/camera.ts'
-import { installRopeWasm, setRopeWasmEnabled, ropeWasmStatus } from '../../src/games/jumping/ropeWasm.ts'
+import { installRopeWasm, setRopeWasmEnabled, ropeWasmStatus, setRopeChainEnabled } from '../../src/games/jumping/ropeWasm.ts'
+import { ropeQuality } from './labRopeQuality.mjs'
 import { setLabSolverEnabled, labSolverStatus } from '../../src/games/jumping/labSolver.ts'
+import { setPropProbe, setRopeProbe } from './labPropProbe.ts'
+import { rapierReady, RapierPropProbe } from './labRapierProps.mjs'
 
 const installed = fetch('./lab-rope.wasm').then(async response => {
   if (!response.ok) throw new Error('Stress Wasm asset missing')
@@ -18,12 +21,19 @@ const stats = values => {
     p99: sorted[Math.ceil(n * .99) - 1], max: sorted.at(-1) }
 }
 window.labStress = {
-  async runCase({ fixture, scenario, backend, frames, warmup, width, height, dpr, profileWindow, solver = 'baseline' }) {
+  async runCase({ fixture, scenario, backend, frames, warmup, width, height, dpr, profileWindow, solver = 'baseline', propBackend = 'matter', rapierRopes = false, ropeAlgorithm = 'ordered' }) {
     await installed
+    await rapierReady
     setLabSolverEnabled(false)
+    setRopeChainEnabled(false)
+    setPropProbe();setRopeProbe()
     const run = stressRun(fixture, scenario), renderer = new LightingRenderer({ backend: 'auto' })
+    const propProbe = new RapierPropProbe(12,rapierRopes)
+    if (propBackend === 'rapier') setPropProbe((...args) => propProbe.step(...args))
+    if (rapierRopes) setRopeProbe((...args) => propProbe.publishRope(run,...args))
     setLabSolverEnabled(solver === 'active')
     setRopeWasmEnabled(backend === 'wasm')
+    setRopeChainEnabled(ropeAlgorithm === 'chain')
     const canvas = document.createElement('canvas'), ratio = lightingPixelRatio(width, height, dpr)
     canvas.width = Math.round(width * ratio); canvas.height = Math.round(height * ratio)
     canvas.style.width = `${width}px`; canvas.style.height = `${height}px`
@@ -65,8 +75,10 @@ window.labStress = {
       if (run.finished) throw new Error('Stress scene unexpectedly completed')
       const after = ropeWasmStatus(), intervals = stats(samples.intervals)
       if (after.failures !== before.failures) throw new Error('Wasm failed during measurement')
-      if (backend === 'wasm' && scenario.ropes && after.wasmSteps === before.wasmSteps) throw new Error('No actual Wasm rope steps')
-      if (solver === 'active' && scenario.ropes && backend === 'wasm' && !after.active) throw new Error('Active rope solver did not run')
+      if (!rapierRopes && backend === 'wasm' && scenario.ropes && after.wasmSteps === before.wasmSteps) throw new Error('No actual Wasm rope steps')
+      if (!rapierRopes && solver === 'active' && scenario.ropes && backend === 'wasm' && !after.active) throw new Error('Active rope solver did not run')
+      if (rapierRopes && scenario.ropes && !propProbe.metrics.nativeRopeSteps) throw new Error('No native rope steps')
+      if (ropeAlgorithm === 'chain' && scenario.ropes && !after.chainStats[0]) throw new Error('No chain rope steps')
       return { scenario: scenario.id, backend, frames, warmup, elapsedMs: performance.now() - started,
         fps: 1000 / intervals.mean, simulation: stats(samples.simulation), draw: stats(samples.draw), cpu: stats(samples.cpu), intervals,
         over16_9ms: samples.intervals.filter(ms => ms > 16.9).length,
@@ -75,7 +87,8 @@ window.labStress = {
         renderer: { backend: metrics.backend, lights: totalLights, edges: maxEdges, peakBuffers,
           backingWidth: canvas.width, backingHeight: canvas.height, ratio },
         wasmSteps: after.wasmSteps - before.wasmSteps, wasmMemoryBytes: after.memoryBytes, solver,
-        solverStats: { ...labSolverStatus(), rope: after.activeStats }, samples, snapshot: stressSnapshot(run) }
-    } finally { renderer.dispose(); setRopeWasmEnabled(false); setLabSolverEnabled(false) }
+        solverStats: { ...labSolverStatus(), rope: after.activeStats }, ropeAlgorithm, chainStats: after.chainStats,
+        ropeQuality: ropeQuality(run), propBackend, rapierRopes, propQuality: propProbe.quality(run), samples, snapshot: stressSnapshot(run) }
+    } finally { renderer.dispose(); propProbe.dispose(); setPropProbe(); setRopeProbe(); setRopeWasmEnabled(false); setLabSolverEnabled(false); setRopeChainEnabled(false) }
   },
 }

@@ -44,6 +44,7 @@
     "react-router-dom": "^7.11.0"
   },
   "devDependencies": {
+    "@dimforge/rapier2d-compat": "0.21.0",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4.1.18",

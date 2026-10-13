@@ -4,19 +4,23 @@ import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises'
 import { resolve, join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { buildPhaseProfile } from './lab-rope-profile-build.mjs'
+import { propProbePlugin } from './lab-prop-probe-build.mjs'
 
 const fixture = JSON.parse(await readFile('tests/fixtures/jumping/lab-stress.json', 'utf8'))
 const scenario = fixture.cases.find(c => c.id === (process.env.LAB_STRESS_CASE ?? 'mixed-max'))
 const start = Number(process.env.LAB_STRESS_SKIP ?? 210), frames = Number(process.env.LAB_STRESS_FRAMES ?? 60)
 if (!scenario || !Number.isInteger(start) || start < 30 || start > 10000 || !Number.isInteger(frames) || frames < 10 || frames > 1000) throw new Error('Invalid profiling window')
 const phaseBuild = process.env.LAB_STRESS_PROFILE_PHASES === '1'
+const propBackend = process.env.LAB_STRESS_PROPS ?? 'matter'
+const readable = process.env.LAB_STRESS_PROFILE_READABLE === '1'
+if (!['matter','rapier'].includes(propBackend)) throw new Error('Invalid prop backend')
 const wasmPath = phaseBuild ? buildPhaseProfile() : process.env.LAB_STRESS_WASM ?? 'public/wasm/lab-rope.wasm'
 const bytes = await readFile(wasmPath)
 const output = resolve(process.argv[2] ?? `.local/${scenario.id}-${start}-browser.cpuprofile`)
 const root = process.cwd(), directory = resolve('.local/lab-profile-build'), input = resolve('.local/lab-profile-entry.html')
 await mkdir(directory, { recursive: true }); await mkdir(resolve(output, '..'), { recursive: true })
 await writeFile(input, '<!doctype html><meta charset="utf-8"><title>LAB CPU profile</title><script type="module" src="/tests/bench/labStressBrowser.mjs"></script>')
-await build({ configFile: false, root, publicDir: false, logLevel: 'warn', build: { outDir: directory, emptyOutDir: false, rollupOptions: { input }, minify: 'esbuild' } })
+await build({ configFile: false, root, publicDir: false, logLevel: 'warn', plugins: propBackend === 'rapier' ? [propProbePlugin()] : [], build: { outDir: directory, emptyOutDir: false, rollupOptions: { input }, minify: readable ? false : 'esbuild' } })
 await copyFile(join(directory, '.local/lab-profile-entry.html'), join(directory, 'index.html'))
 await writeFile(join(directory, 'lab-rope.wasm'), bytes)
 const server = await preview({ configFile: false, root, publicDir: false, logLevel: 'warn', build: { outDir: directory }, preview: { host: '127.0.0.1', port: 4192, strictPort: true } })
@@ -37,25 +41,30 @@ try {
   })
   await page.goto('http://127.0.0.1:4192/'); await page.waitForFunction(() => !!window.labStress)
   const solver = process.env.LAB_STRESS_SOLVER ?? 'baseline'
-  const result = await page.evaluate(options => window.labStress.runCase(options), { fixture, scenario, backend: 'wasm', solver, frames: start + frames - 30, warmup: 30, width: 1280, height: 800, dpr: 1, profileWindow: { start, end: start + frames } })
+  const result = await page.evaluate(options => window.labStress.runCase(options), { fixture, scenario, backend: 'wasm', solver, propBackend, frames: start + frames - 30, warmup: 30, width: 1280, height: 800, dpr: 1, profileWindow: { start, end: start + frames } })
   if (errors.length || !profile) throw new Error(`Invalid profile: ${errors.join(', ')}`)
   await writeFile(output, JSON.stringify(profile))
-  const byId = new Map(profile.nodes.map(n => [n.id, n])), parents = new Map(), self = new Map(), phases = new Map(), families = { wasm: 0, matterCollision: 0 }
+  const byId = new Map(profile.nodes.map(n => [n.id, n])), parents = new Map(), self = new Map(), phases = new Map(), inclusive = new Map(), families = { wasm: 0, matterCollision: 0 }
   for (const n of profile.nodes) for (const child of n.children ?? []) parents.set(child, n.id)
   for (const id of profile.samples) {
     const n = byId.get(id), key = `${n.callFrame.functionName || '(anonymous)'} ${n.callFrame.url}`
     self.set(key, (self.get(key) ?? 0) + 1)
     if (n.callFrame.url.startsWith('wasm:')) families.wasm++
     if (/^n\.collides$|_overlapAxes|_findSupports/.test(n.callFrame.functionName)) families.matterCollision++
+    let phaseSeen = false
     for (let p = id; p; p = parents.get(p)) {
       const name = byId.get(p).callFrame.functionName
-      if (/constraint_pass|node_contacts|span_contacts|clearance_recovery|read_terrain/.test(name)) { phases.set(name, (phases.get(name) ?? 0) + 1); break }
+      if (/^(planMechanismMotion|stepMechanisms|stepPropPhysics|stepRope|stepUnattachedRopeWasm)$/.test(name)) inclusive.set(name,(inclusive.get(name)??0)+1)
+      if (!phaseSeen && /constraint_pass|node_contacts|span_contacts|clearance_recovery|read_terrain/.test(name)) {
+        phases.set(name, (phases.get(name) ?? 0) + 1); phaseSeen = true
+      }
     }
   }
-  const summary = { scenario: scenario.id, start, frames, phaseBuild, solver, solverStats: result.solverStats, browser: await browser.version(), wasmHash: createHash('sha256').update(bytes).digest('hex'),
+  const summary = { scenario: scenario.id, start, frames, phaseBuild, readable, propBackend, propQuality: result.propQuality, solver, solverStats: result.solverStats, browser: await browser.version(), wasmHash: createHash('sha256').update(bytes).digest('hex'),
     fixtureHash: createHash('sha256').update(JSON.stringify(fixture)).digest('hex'), samples: profile.samples.length,
     note: 'Instrumented production-browser sampling profile. Phase build inhibits helper inlining. Timings are diagnostic only; compare uninstrumented stress runs for FPS.',
     phases: [...phases].map(([name, count]) => ({ name, count, percent: 100 * count / profile.samples.length })),
+    inclusivePhases: [...inclusive].map(([name,count])=>({name,count,percent:100*count/profile.samples.length})),
     selfSampleFamilies: Object.fromEntries(Object.entries(families).map(([name, count]) => [name, { count, percent: 100 * count / profile.samples.length }])),
     topSelfSamples: [...self].toSorted((a, b) => b[1] - a[1]).slice(0, 25), outcomeHash: createHash('sha256').update(JSON.stringify(result.snapshot)).digest('hex'), output }
   await writeFile(output.replace(/\.cpuprofile$/, '.summary.json'), JSON.stringify(summary, null, 2) + '\n')

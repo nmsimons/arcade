@@ -1,0 +1,172 @@
+{
+  "scenario": "mixed-max",
+  "start": 210,
+  "frames": 60,
+  "phaseBuild": false,
+  "readable": true,
+  "propBackend": "rapier",
+  "propQuality": {
+    "nativeSteps": 1083,
+    "fallbackSteps": 0,
+    "maxPenetration": 0.13645291328430176,
+    "solverIterations": 12,
+    "sleepingDisabled": true,
+    "awakeProps": 80
+  },
+  "solver": "active",
+  "solverStats": {
+    "enabled": true,
+    "propQueries": 0,
+    "propSkipped": 0,
+    "propMutations": 0,
+    "rope": [
+      101088000,
+      13816020,
+      101088000,
+      89039477
+    ]
+  },
+  "browser": "155.0.4283.45",
+  "wasmHash": "e83d8b696cc0ae10a79fa020cda04f8211c0a641d0344df0651e415880edb2b6",
+  "fixtureHash": "dc0f9294542e35fce97e4edbf09f4d92f5ed516161b02f38af26c3cdc0bfaa4e",
+  "samples": 1895,
+  "note": "Instrumented production-browser sampling profile. Phase build inhibits helper inlining. Timings are diagnostic only; compare uninstrumented stress runs for FPS.",
+  "phases": [
+    {
+      "name": "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain",
+      "count": 47,
+      "percent": 2.480211081794195
+    }
+  ],
+  "inclusivePhases": [
+    {
+      "name": "stepPropPhysics",
+      "count": 113,
+      "percent": 5.963060686015831
+    },
+    {
+      "name": "stepUnattachedRopeWasm",
+      "count": 1133,
+      "percent": 59.78891820580475
+    },
+    {
+      "name": "stepRope",
+      "count": 1313,
+      "percent": 69.28759894459102
+    }
+  ],
+  "selfSampleFamilies": {
+    "wasm": {
+      "count": 1188,
+      "percent": 62.69129287598945
+    },
+    "matterCollision": {
+      "count": 0,
+      "percent": 0
+    }
+  },
+  "topSelfSamples": [
+    [
+      "js-to-wasm:dddddi:i wasm://wasm/lab_rope.wasm-00052ada",
+      755
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope4bend wasm://wasm/lab_rope.wasm-00052ada",
+      159
+    ],
+    [
+      "(anonymous) http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      99
+    ],
+    [
+      "penetration http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      67
+    ],
+    [
+      "solve wasm://wasm/lab_rope.wasm-00052ada",
+      62
+    ],
+    [
+      "stepUnattachedRopeWasm http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      45
+    ],
+    [
+      "syncPlatforms http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      38
+    ],
+    [
+      "(garbage collector) ",
+      35
+    ],
+    [
+      "drawImage ",
+      33
+    ],
+    [
+      "(program) ",
+      28
+    ],
+    [
+      "_RNvMs_Csh8yo57lOh8f_8lab_ropeNtB4_6Solver12read_terrain wasm://wasm/lab_rope.wasm-00052ada",
+      27
+    ],
+    [
+      "ropePath http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      26
+    ],
+    [
+      "_RNvCsh8yo57lOh8f_8lab_rope5clear wasm://wasm/lab_rope.wasm-00052ada",
+      24
+    ],
+    [
+      "interval http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      22
+    ],
+    [
+      "_RNvMCsh8yo57lOh8f_8lab_ropeNtB2_5Shape6inside wasm://wasm/lab_rope.wasm-00052ada",
+      21
+    ],
+    [
+      "stepRope http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      21
+    ],
+    [
+      "_RNvMCsh8yo57lOh8f_8lab_ropeNtB2_5Shape4face wasm://wasm/lab_rope.wasm-00052ada",
+      20
+    ],
+    [
+      "_RNvMCsh8yo57lOh8f_8lab_ropeNtB2_5Shape11face_branch wasm://wasm/lab_rope.wasm-00052ada",
+      20
+    ],
+    [
+      "fill ",
+      16
+    ],
+    [
+      "wasm-function[38] wasm://wasm/0092c1ce",
+      15
+    ],
+    [
+      "render http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      15
+    ],
+    [
+      "boundaryGeometry http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      14
+    ],
+    [
+      "bounds http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      14
+    ],
+    [
+      "wasm-function[2328] wasm://wasm/0092c1ce",
+      13
+    ],
+    [
+      "drawClimbables http://127.0.0.1:4192/assets/lab-profile-entry-TT-ELm9W.js",
+      13
+    ]
+  ],
+  "outcomeHash": "b19837956db5ee7232004debd1e1695f1ed5ad17f73b3a497c64ebd6ba2d093d",
+  "output": "C:\\Users\\nsimons\\code\\arcade\\.local\\lab-rapier-max-profile.cpuprofile"
+}

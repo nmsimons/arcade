@@ -11,12 +11,16 @@ interface Kernel {
   solve(x: number, y: number, length: number, dt: number, damping: number, shapes: number): number
   set_active_solver?(value: number): void
   active_stats?(index: number): number
+  set_chain_solver?(value: number): void
+  chain_stats?(index: number): number
 }
 let kernel: Kernel | null = null
 let enabled = false
 let wasmSteps = 0
 let failures = 0
 let activeConfigured = false
+let chainEnabled = false
+let chainConfigured = false
 
 /** Explicit installation is shared by the browser, Node parity tests and benchmarks. */
 export async function installRopeWasm(bytes: BufferSource) {
@@ -40,11 +44,15 @@ export async function installRopeWasm(bytes: BufferSource) {
   }
   kernel = candidate
   activeConfigured = false
+  chainConfigured = false
   kernel.set_active_solver?.(0)
+  kernel.set_chain_solver?.(0)
 }
 export function setRopeWasmEnabled(value: boolean) { enabled = value }
+export function setRopeChainEnabled(value: boolean) { chainEnabled = value }
 export function ropeWasmStatus() { return { installed: !!kernel, enabled, wasmSteps, failures, memoryBytes: kernel?.memory.buffer.byteLength ?? 0,
-  active: activeConfigured, activeStats: Array.from({ length: 4 }, (_, i) => kernel?.active_stats?.(i) ?? 0) } }
+  active: activeConfigured, activeStats: Array.from({ length: 4 }, (_, i) => kernel?.active_stats?.(i) ?? 0),
+  chain: chainConfigured, chainStats: Array.from({ length: 5 }, (_, i) => kernel?.chain_stats?.(i) ?? 0) } }
 
 /** The gameplay solver calls this only for unattached, awake ropes. All copies,
  * packet packing and geometry preparation are included in end-to-end benchmarks.
@@ -59,6 +67,10 @@ export function stepUnattachedRopeWasm(rope: RopeState, dt: number, terrain: rea
   const terrainSize = outlines.reduce((sum, points) => sum + 5 + points.length * 2, 0)
   if (terrainSize > 262144) return false
   try {
+    if (chainConfigured !== chainEnabled) {
+      if (!kernel.set_chain_solver) throw new Error('LAB chain solver unavailable in this kernel')
+      chainConfigured = chainEnabled; kernel.set_chain_solver(Number(chainConfigured))
+    }
     if (activeConfigured !== labSolverEnabled()) {
       if (!kernel.set_active_solver) throw new Error('LAB active solver unavailable in this kernel')
       activeConfigured = labSolverEnabled(); kernel.set_active_solver(Number(activeConfigured))

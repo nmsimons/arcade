@@ -5,20 +5,28 @@ import { resolve, join } from 'node:path'
 import { cpus, arch, platform, release } from 'node:os'
 import { createHash } from 'node:crypto'
 import assert from 'node:assert/strict'
+import { propProbePlugin } from './lab-prop-probe-build.mjs'
 
 const output = resolve(process.argv[2] ?? '.local/lab-stress-results.json')
-const wasmPath = resolve(process.env.LAB_STRESS_WASM ?? 'public/wasm/lab-rope.wasm')
+const compareRopeAlgorithm = process.env.LAB_STRESS_COMPARE_ROPE_ALGORITHM === '1'
+const wasmPath = resolve(process.env.LAB_STRESS_WASM ?? (compareRopeAlgorithm
+  ? 'tests/fixtures/jumping/lab-rope-chain-probe/lab-rope.wasm' : 'public/wasm/lab-rope.wasm'))
 const referenceWasm = process.env.LAB_STRESS_COMPARE_WASM ? resolve(process.env.LAB_STRESS_COMPARE_WASM) : null
 const originalQueries = process.env.LAB_STRESS_COMPARE_COLLISION_QUERIES === '1'
 const solver = process.env.LAB_STRESS_SOLVER ?? 'baseline'
 const compareSolver = process.env.LAB_STRESS_COMPARE_SOLVER === '1'
+const compareProps = process.env.LAB_STRESS_COMPARE_PROPS === '1'
+const rapierRopes = process.env.LAB_STRESS_RAPIER_ROPES === '1'
+if (rapierRopes && !compareProps)throw new Error('Batched native ropes require the prop-engine comparison')
 if (!['baseline', 'active'].includes(solver)) throw new Error('Invalid LAB_STRESS_SOLVER')
 if (originalQueries && process.env.LAB_STRESS_COMPARE_BUILD) throw new Error('Select one bundle reference')
 const referenceBuild = process.env.LAB_STRESS_COMPARE_BUILD ? resolve(process.env.LAB_STRESS_COMPARE_BUILD) : originalQueries ? resolve('.local/lab-stress-reference-build') : null
 if (referenceBuild && referenceWasm) throw new Error('Compare either a production bundle or a Wasm binary')
 if (compareSolver && (referenceBuild || referenceWasm)) throw new Error('Select one comparison reference')
-const comparing = !!(referenceBuild || referenceWasm || compareSolver)
-const backends = comparing ? ['before', 'optimized'] : ['typescript', 'wasm']
+if (compareProps && (referenceBuild || referenceWasm || compareSolver)) throw new Error('Select one comparison reference')
+if (compareRopeAlgorithm && (referenceBuild || referenceWasm || compareSolver || compareProps || rapierRopes)) throw new Error('Select one comparison reference')
+const comparing = !!(referenceBuild || referenceWasm || compareSolver || compareProps || compareRopeAlgorithm)
+const backends = compareRopeAlgorithm ? ['ordered', 'chain'] : compareProps ? ['matter', 'rapier'] : comparing ? ['before', 'optimized'] : ['typescript', 'wasm']
 const wasmBytes = await readFile(wasmPath), referenceBytes = referenceWasm ? await readFile(referenceWasm) : originalQueries || compareSolver ? wasmBytes : referenceBuild ? await readFile(join(referenceBuild, 'lab-rope.wasm')) : null
 const fixture = JSON.parse(await readFile('tests/fixtures/jumping/lab-stress.json', 'utf8'))
 const filter = process.env.LAB_STRESS_CASES?.split(',')
@@ -51,7 +59,7 @@ if (originalQueries) {
 }
 // Compile the production engine and renderer once. No dev server transforms or
 // another app's RAF loops are part of these measurements.
-await build({ configFile: false, root, publicDir: false, logLevel: 'warn', build: {
+await build({ configFile: false, root, publicDir: false, logLevel: 'warn', plugins: compareProps ? [propProbePlugin()] : [], build: {
   outDir: directory, emptyOutDir: false, rollupOptions: { input }, minify: 'esbuild',
 } })
 await copyFile(join(directory, '.local/lab-stress-entry.html'), join(directory, 'index.html'))
@@ -88,14 +96,14 @@ try {
     wasmHash: createHash('sha256').update(wasmBytes).digest('hex'),
     referenceWasmHash: referenceBytes ? createHash('sha256').update(referenceBytes).digest('hex') : null,
     referenceBuild,
-    referenceMode: compareSolver ? 'same-bundle-solver' : originalQueries ? 'original-prop-queries' : referenceBuild ? 'frozen-bundle' : referenceWasm ? 'frozen-wasm' : 'typescript',
+    referenceMode: compareRopeAlgorithm ? 'same-bundle-rope-algorithm' : compareProps ? 'same-bundle-prop-engine' : compareSolver ? 'same-bundle-solver' : originalQueries ? 'original-prop-queries' : referenceBuild ? 'frozen-bundle' : referenceWasm ? 'frozen-wasm' : 'typescript',
     referencePropPhysicsHash,
     referenceBundleHash: referenceBuild ? await bundleHash(referenceBuild) : null,
     width, height, dpr, frames, warmup, episodes,
-    solver,
-    note: 'Production LAB simulation and renderer; fixed two 120 Hz ticks per RAF for identical workloads. Full-quality lighting; adaptive quality disabled. Real RAF intervals include presentation and scheduling. CPU spans exclude asynchronous GPU completion. No React UI, accounts, persistence or audio. Isolated storage. Alternating sequential backends.',
+    solver, rapierRopes,
+    note: 'Production LAB simulation and renderer; fixed two 120 Hz ticks per RAF for identical workloads. Full-quality lighting; adaptive quality disabled. Real RAF intervals include presentation and scheduling. CPU spans exclude asynchronous GPU completion. No React UI, accounts, persistence or audio. Isolated storage. Alternating sequential backends.' + (compareProps ? ' Rapier prop-engine probe allows changed trajectories; legacy player/robot/water contact cases fall back. Native sleeping is disabled. Population, initial inputs and render quality remain identical.' : '') + (compareRopeAlgorithm ? ' The chain tension algorithm allows changed trajectories. Forces, fine segments, contact predicates and recovery remain; converged solves stop at a complete contact cycle. End-state quality gates do not establish subjective feel.' : ''),
     bundleHash: await bundleHash(directory),
-    rows, comparisons: [], summary: [] }
+    rows, comparisons: [], summary: [], qualityFailures: [] }
   await mkdir(resolve(output, '..'), { recursive: true }); await writeFile(output, JSON.stringify(report, null, 2) + '\n')
   for (const scenario of cases) {
     for (let episode = 0; episode < episodes; episode++) {
@@ -105,10 +113,11 @@ try {
         // Reset module globals, Matter IDs, rope-layout caches and render state.
         await page.goto(referenceBuild && backend === 'before' ? 'http://127.0.0.1:4193/' : 'http://127.0.0.1:4191/'); await page.waitForFunction(() => !!window.labStress)
         const result = await page.evaluate(options => window.labStress.runCase(options), { fixture, scenario, backend: comparing ? 'wasm' : backend,
-          solver: backend === 'before' ? 'baseline' : solver, frames, warmup, width, height, dpr })
+          solver: backend === 'before' ? 'baseline' : solver, ropeAlgorithm: backend === 'chain' ? 'chain' : 'ordered', propBackend: backend === 'rapier' ? 'rapier' : 'matter', rapierRopes: backend==='rapier'&&rapierRopes, frames, warmup, width, height, dpr })
         const { snapshot, ...row } = result
         snapshots[backend] = snapshot; rows.push({ ...row, backend, episode, outcomeHash: hash(snapshot),
           wasmHash: backend === 'before' && comparing ? report.referenceWasmHash : report.wasmHash })
+        await writeFile(output, JSON.stringify(report, null, 2) + '\n')
       }
       const [before, after] = backends.map(backend => snapshots[backend])
       assert.equal(before.length, after.length)
@@ -116,9 +125,32 @@ try {
       assert.equal(rows.at(-2).renderer.backingWidth, rows.at(-1).renderer.backingWidth)
       assert.equal(rows.at(-2).renderer.backingHeight, rows.at(-1).renderer.backingHeight)
       const maxDrift = Math.max(...before.map((value, i) => Math.abs(value - after[i])))
-      if (maxDrift >= 1e-6) await writeFile(join(directory, `${scenario.id}-parity-failure.json`), JSON.stringify({ scenario, snapshots, maxDrift }, null, 2))
-      assert.ok(maxDrift < 1e-6, `${scenario.id}: trajectory drift ${maxDrift}`)
-      report.comparisons.push({ scenario: scenario.id, episode, maxDrift, identical: hash(before) === hash(after) })
+      if (compareRopeAlgorithm) {
+        const candidate = rows.findLast(r => r.scenario === scenario.id && r.episode === episode && r.backend === 'chain')
+        assert.ok(!scenario.ropes || candidate.chainStats[0] > 0, 'No actual chain solve')
+        // Capture every planned pair even when the mechanical gates reject a
+        // candidate. Such reports remain incomplete and cannot claim a win.
+        for (const [name, passed] of [
+          ['anchor drift', candidate.ropeQuality.maxAnchorDrift < .001],
+          ['local rope stretch', candidate.ropeQuality.maxLocalStretch < 1.1],
+          ['total rope stretch', candidate.ropeQuality.maxTotalStretch < 1.02],
+          ['solid crossing', candidate.ropeQuality.blockedSpans === 0],
+        ]) if (!passed) report.qualityFailures.push({ scenario: scenario.id, episode, name })
+      } else if (!compareProps) {
+        if (maxDrift >= 1e-6) await writeFile(join(directory, `${scenario.id}-parity-failure.json`), JSON.stringify({ scenario, snapshots, maxDrift }, null, 2))
+        assert.ok(maxDrift < 1e-6, `${scenario.id}: trajectory drift ${maxDrift}`)
+      } else {
+        const candidate = rows.findLast(r=>r.scenario===scenario.id && r.episode===episode && r.backend==='rapier')
+        assert.ok(!scenario.props || candidate.propQuality.nativeSteps > 0, 'No native prop steps executed')
+        assert.ok(candidate.propQuality.maxPenetration == null || candidate.propQuality.maxPenetration < .5, `Final native overlap ${candidate.propQuality.maxPenetration} px`)
+        if(rapierRopes){
+          assert.ok(candidate.propQuality.maxAnchorDrift<.001,'Native rope anchor drift')
+          assert.ok(candidate.propQuality.totalRopeStretch<1.02,'Native rope total stretch')
+          assert.ok(candidate.propQuality.maxRopeStretch<1.1,'Native rope local stretch')
+          assert.equal(candidate.propQuality.blockedRopeSpans,0,'Native rope cuts through a solid')
+        }
+      }
+      report.comparisons.push({ scenario: scenario.id, episode, maxDrift, identical: hash(before) === hash(after), trajectoryParityRequired: !compareProps && !compareRopeAlgorithm })
       await mkdir(resolve(output, '..'), { recursive: true }); await writeFile(output, JSON.stringify(report, null, 2) + '\n')
       const a = rows.at(-2), b = rows.at(-1)
       console.log(`${scenario.id} episode ${episode + 1}: ${a.backend} ${a.fps.toFixed(1)} FPS / ${a.intervals.p95.toFixed(1)} ms p95; ${b.backend} ${b.fps.toFixed(1)} FPS / ${b.intervals.p95.toFixed(1)} ms p95`)
@@ -139,7 +171,9 @@ try {
     await page.screenshot({ path: join(directory, `${scenario.id}.png`) })
   }
   assert.deepEqual(errors, [], 'Browser errors invalidate the run')
-  report.complete = true
+  report.measurementsComplete = true
+  report.complete = report.qualityFailures.length === 0
   await writeFile(output, JSON.stringify(report, null, 2) + '\n')
+  assert.deepEqual(report.qualityFailures, [], 'Rope quality gates reject the candidate; raw measurements retained')
   console.log(`Saved ${rows.length} measured arms across ${report.comparisons.length} matched episodes to ${output}`)
 } finally { await browser?.close(); if (referenceServer) await new Promise(resolve => referenceServer.httpServer.close(resolve)); await new Promise(resolve => server.httpServer.close(resolve)) }

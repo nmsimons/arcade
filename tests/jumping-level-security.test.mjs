@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { decodeLevelFile, loadLocalLevelFiles, loadLevelCatalog } from '../src/games/jumping/levelAssets.ts'
 import { MAX_COLLECTION_BYTES, MAX_LEVEL_BYTES, readLevelResponse, readInBatches } from '../src/games/jumping/levelLimits.ts'
-import { prepareLevelInWorker, clonePreparedLevel, LEVEL_PREPARATION_TIMEOUT } from '../src/games/jumping/levelPreparation.ts'
+import { prepareLevelInWorker, clonePreparedLevel, LEVEL_PREPARATION_TIMEOUT, LEVEL_WORKER_START_TIMEOUT } from '../src/games/jumping/levelPreparation.ts'
 import { blankTrial, levelProblems, prepareLevelRopes } from '../src/games/jumping/level.ts'
 import { createRun, createPreviewRun } from './helpers/jumping-active-run.mjs'
 import { ropeCanSleep } from '../src/games/jumping/ropeSleep.ts'
@@ -91,10 +91,87 @@ test('preparation deadlines terminate the worker instead of just ignoring its re
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const pending = prepareLevelInWorker(FIRST_LEVEL, { play: true })
   const rejected = assert.rejects(pending, /too long/)
+  workers[0].onmessage({ data: { ready: true } })
   assert.equal(workers[0].message.play, true)
   t.mock.timers.tick(LEVEL_PREPARATION_TIMEOUT)
   await rejected
   assert.equal(workers[0].terminated, true)
+})
+
+test('cold worker loading gets a separate startup deadline and the complete geometry budget', async t => {
+  const workers = mockWorker(t)
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const pending = prepareLevelInWorker(FIRST_LEVEL, { play: true }), worker = workers[0]
+  assert.equal(worker.message, undefined, 'do not enqueue geometry before the worker can accept it')
+  t.mock.timers.tick(LEVEL_PREPARATION_TIMEOUT + 1000)
+  assert.equal(worker.terminated, false, 'slow code loading cannot be mistaken for complex geometry')
+  worker.onmessage({ data: { ready: true } })
+  assert.deepEqual(worker.message, { level: FIRST_LEVEL, play: true })
+  t.mock.timers.tick(LEVEL_PREPARATION_TIMEOUT - 1)
+  assert.equal(worker.terminated, false, 'preparation receives its whole budget after startup')
+  const result = { level: FIRST_LEVEL, run: null, player: null }
+  worker.onmessage({ data: { result } })
+  assert.equal(await pending, result)
+  assert.equal(worker.terminated, true)
+  t.mock.timers.tick(LEVEL_WORKER_START_TIMEOUT)
+})
+
+test('a worker that never starts is terminated without blaming level geometry or posting after failure', async t => {
+  const workers = mockWorker(t)
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const pending = prepareLevelInWorker(FIRST_LEVEL), worker = workers[0]
+  const rejected = assert.rejects(pending, /could not start/)
+  t.mock.timers.tick(LEVEL_WORKER_START_TIMEOUT)
+  await rejected
+  worker.onmessage({ data: { ready: true } })
+  assert.equal(worker.message, undefined)
+  assert.equal(worker.terminated, true)
+})
+
+test('edits during worker startup cannot change the requested level snapshot', async t => {
+  const workers = mockWorker(t), level = structuredClone(FIRST_LEVEL)
+  const pending = prepareLevelInWorker(level), worker = workers[0]
+  level.name = 'A later editor draft'
+  worker.onmessage({ data: { ready: true } })
+  assert.deepEqual(worker.message.level, FIRST_LEVEL)
+  worker.onmessage({ data: { result: { level: worker.message.level, run: null, player: null } } })
+  assert.equal((await pending).level.name, FIRST_LEVEL.name)
+})
+
+test('duplicate readiness cannot extend a running preparation deadline', async t => {
+  const workers = mockWorker(t)
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const pending = prepareLevelInWorker(FIRST_LEVEL), worker = workers[0]
+  const rejected = assert.rejects(pending, /too long/)
+  worker.onmessage({ data: { ready: true } })
+  t.mock.timers.tick(LEVEL_PREPARATION_TIMEOUT / 2)
+  worker.onmessage({ data: { ready: true } })
+  t.mock.timers.tick(LEVEL_PREPARATION_TIMEOUT / 2)
+  await rejected
+  assert.equal(worker.terminated, true)
+})
+
+test('cancelling startup ignores late readiness and cancelling geometry terminates the ready worker', async t => {
+  const workers = mockWorker(t)
+  for (const started of [false, true]) {
+    const controller = new AbortController(), pending = prepareLevelInWorker(FIRST_LEVEL, { signal: controller.signal })
+    const worker = workers.at(-1), rejected = assert.rejects(pending, { name: 'AbortError' })
+    if (started) worker.onmessage({ data: { ready: true } })
+    controller.abort()
+    worker.onmessage({ data: { ready: true } })
+    await rejected
+    assert.equal(worker.terminated, true)
+    assert.equal(!!worker.message, started)
+  }
+})
+
+test('a failed request transfer terminates its ready worker', async t => {
+  const workers = mockWorker(t), pending = prepareLevelInWorker(FIRST_LEVEL), worker = workers[0]
+  const rejected = assert.rejects(pending, /could not clone/)
+  worker.postMessage = () => { throw new Error('could not clone') }
+  worker.onmessage({ data: { ready: true } })
+  await rejected
+  assert.equal(worker.terminated, true)
 })
 
 test('preparation cancellation terminates work, ignores late replies, and handles pre-aborted requests', async t => {
@@ -114,6 +191,7 @@ test('success, validation failures and worker failures all release the worker', 
   for (const mode of ['success', 'validation', 'crash', 'decode']) {
     const pending = prepareLevelInWorker(FIRST_LEVEL), worker = workers.at(-1)
     const checked = mode === 'success' ? pending : assert.rejects(pending, /invalid|could not/)
+    worker.onmessage({ data: { ready: true } })
     if (mode === 'success') worker.onmessage({ data: { result: { level: FIRST_LEVEL, run: null, player: null } } })
     if (mode === 'validation') worker.onmessage({ data: { error: 'invalid level' } })
     if (mode === 'crash') worker.onerror({ preventDefault() {} })

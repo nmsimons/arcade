@@ -19,3 +19,7 @@ self.onmessage = (event: MessageEvent<{ level: JumpLevel; play: boolean }>) => {
   } catch (error) { reply = { error: error instanceof Error ? error.message : 'This level could not be prepared.' } }
   self.postMessage(reply)
 }
+
+// Static imports have loaded and the request handler is installed. The caller
+// starts the separate, bounded geometry deadline only after this handshake.
+self.postMessage({ ready: true } satisfies PreparationReply)

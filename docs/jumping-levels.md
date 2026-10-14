@@ -115,10 +115,13 @@ moving more levels there when it is full. Save, rename, and restore also check t
 destination budget before writing, while preserving external-edit checks.
 
 Thumbnails draw authored geometry only and allocate canvas pixels while visible.
-Rope settling and initial world preparation run in a disposable worker, with a
-five-second deadline and cancellation when leaving the level. Failed preparation
-keeps the picker and editor responsive; simplify overly complex ropes or terrain
-before trying again. Saved settled ropes still start in their authored positions.
+Rope settling and initial world preparation run in a disposable worker. Loading
+and compiling its modules has a separate 30-second startup deadline; the
+five-second preparation budget starts after the worker reports readiness.
+Cancellation terminates the worker in either phase. Failed preparation keeps
+the picker and editor responsive. A geometry timeout suggests simplifying ropes
+or terrain; a startup timeout asks the player to retry instead. Saved settled
+ropes still start in their authored positions.
 
 `npm run security:check` checks the locked dependencies against npm advisories.
 CI runs this check along with validation, gameplay tests, lint, build, and browser

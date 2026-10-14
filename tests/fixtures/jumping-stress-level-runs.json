@@ -277,8 +277,8 @@
     {
       "file": "Load Test Max.jump-level.json",
       "jumpModel": "tap-hold",
-      "elapsed": 6.633333333333453,
-      "activeTime": 7.491666666666829,
+      "elapsed": 6.58333333333345,
+      "activeTime": 7.441666666666826,
       "coins": 3,
       "trace": [
         {
@@ -543,7 +543,7 @@
           "input": {}
         },
         {
-          "frames": 121,
+          "frames": 115,
           "input": {
             "move": 1
           }

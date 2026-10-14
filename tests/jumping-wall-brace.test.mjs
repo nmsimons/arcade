@@ -12,7 +12,7 @@ const airborne = (values = {}) => Object.assign(createPlayer(), { x: 338, y: 400
 function advance(p, seconds, input = {}, platforms = world) {
   for (let t = 0; t < seconds - STEP / 2; t += STEP) stepPlayer(p, { ...NEUTRAL_INPUT, ...input }, STEP, platforms)
 }
-const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
+const distance = (a, b, depth = 0) => Math.hypot(a[0] - b[0], a[1] - b[1], depth)
 
 test('airborne contact braces on either side while gravity continues unchanged', () => {
   for (const direction of [-1, 1]) {
@@ -103,8 +103,10 @@ test('brace animation keeps forward knees, natural ankles and foot contact again
       const pose = athletePose(p)
       for (const limb of [pose.frontArm, pose.backArm, pose.frontLeg, pose.backLeg]) {
         const leg = 'footAngle' in limb
-        assert.ok(Math.abs(distance(limb.root, limb.joint) - (leg ? 15 : 10)) < 1e-6)
-        assert.ok(Math.abs(distance(limb.joint, limb.end) - (leg ? 14.5 : 9)) < 1e-6)
+        // Approaching hands retain their cleared depth fold until the brace
+        // loads. Measure the fixed bones in 3D rather than their projection.
+        assert.ok(Math.abs(distance(limb.root, limb.joint, limb.jointDepth ?? 0) - (leg ? 15 : 10)) < 1e-6)
+        assert.ok(Math.abs(distance(limb.joint, limb.end, (limb.endDepth ?? 0) - (limb.jointDepth ?? 0)) - (leg ? 14.5 : 9)) < 1e-6)
       }
       for (const leg of [pose.frontLeg, pose.backLeg]) for (const point of FOOT_CONTACT) {
         assert.ok(leg.end[0] + footPoint(point, leg.footAngle, leg.toeAngle)[0] <= 12.01, 'the approaching foot must not pass through the wall')

@@ -5,7 +5,12 @@ import Matter from 'matter-js'
 // adjacent to each analytic extremum instead of rescanning the entire circle.
 const roundBodies = new WeakSet<Matter.Body>()
 interface ProjectionPlan { angle: number; n: number; values: Float64Array; indices: number[] }
+// Matter's runtime record is mutable; its typings omit supportCount.
+type QueryCollision = Omit<Matter.Collision, 'depth'> & { depth: number; supportCount: number }
 const extrema = new WeakMap<Matter.Vector[], ProjectionPlan>()
+const findSupports = (Matter.Collision as unknown as {
+  _findSupports(a: Matter.Body, b: Matter.Body, normal: Matter.Vector, direction: number): Matter.Vector[]
+})._findSupports
 /** Register only a ballHull outline (or its rigid/uniformly scaled image). */
 export function registerRoundBody(body: Matter.Body) {
   if (body.vertices.length === 32 || body.vertices.length === 64) roundBodies.add(body)
@@ -24,14 +29,14 @@ function projectionPlan(axes: Matter.Vector[], angle: number, n: number) {
     const values = new Float64Array(axes.length * 2), indices: number[] = []
     for (const [i, axis] of axes.entries()) {
       values[i * 2] = axis.x; values[i * 2 + 1] = axis.y
-      indices.push(Math.round((Math.atan2(axis.y, axis.x) - angle) * n / (2 * Math.PI) - .5) % n)
+      indices.push(Math.floor((Math.atan2(axis.y, axis.x) - angle) * n / (2 * Math.PI) - .5) % n)
     }
     cached = { angle, n, values, indices }; extrema.set(axes, cached)
   }
   return cached!.indices
 }
 
-function projection(body: Matter.Body, axis: Matter.Vector, index?: number) {
+function projection(body: Matter.Body, axis: Matter.Vector, index: number | undefined, result: { min: number; max: number }) {
   const vertices = body.vertices
   if (index === undefined) {
     let min = vertices[0].x * axis.x + vertices[0].y * axis.y, max = min
@@ -40,20 +45,21 @@ function projection(body: Matter.Body, axis: Matter.Vector, index?: number) {
       if (dot > max) max = dot
       else if (dot < min) min = dot
     }
-    return { min, max }
+    result.min = min; result.max = max
+    return
   }
   const n = vertices.length, mask = n - 1
   let min = Infinity, max = -Infinity
-  // Both possible edge endpoints plus a neighbour cover exact projection ties
-  // and floating point drift after repeated translation. Use world coordinates
-  // for the dot products, just as Matter does, rather than center + radius.
-  for (let offset = -1; offset <= 1; offset++) {
+  // The direction lies between these two ordered vertices. Evaluate both to
+  // retain projection ties and floating point drift after translation. Use
+  // world coordinates for the dot products, just as Matter does.
+  for (let offset = 0; offset <= 1; offset++) {
     const high = vertices[(index + offset) & mask]
     const low = vertices[(index + n / 2 + offset) & mask]
     max = Math.max(max, high.x * axis.x + high.y * axis.y)
     min = Math.min(min, low.x * axis.x + low.y * axis.y)
   }
-  return { min, max }
+  result.min = min; result.max = max
 }
 
 function minimumAxis(a: Matter.Body, b: Matter.Body, axes: Matter.Vector[]) {
@@ -62,8 +68,10 @@ function minimumAxis(a: Matter.Body, b: Matter.Body, axes: Matter.Vector[]) {
   if (roundBodies.has(b)) indicesB = indicesA && a.angle === b.angle && a.vertices.length === b.vertices.length
     ? indicesA : projectionPlan(axes, b.angle, b.vertices.length)
   let depth = Number.MAX_VALUE, chosen = axes[0]
+  const pa = { min: 0, max: 0 }, pb = { min: 0, max: 0 }
   for (let i = 0; i < axes.length; i++) {
-    const axis = axes[i], pa = projection(a, axis, indicesA?.[i]), pb = projection(b, axis, indicesB?.[i])
+    const axis = axes[i]
+    projection(a, axis, indicesA?.[i], pa); projection(b, axis, indicesB?.[i], pb)
     const overlap = Math.min(pa.max - pb.min, pb.max - pa.min)
     if (overlap < depth) {
       depth = overlap; chosen = axis
@@ -82,11 +90,33 @@ export function roundCollision(a: Matter.Body, b: Matter.Body): Matter.Collision
   if (ab.depth <= 0) return null
   const bb = minimumAxis(b, a, ba)
   if (bb.depth <= 0) return null
-  // Let Matter generate the original contact record on the two winning axes.
-  // The call is synchronous; restore both full axis arrays before returning.
-  a.axes = [ab.chosen]; b.axes = [bb.chosen]
-  try { return Matter.Collision.collides(a, b) }
-  finally { a.axes = aa; b.axes = ba }
+  // Contact assembly follows Matter.js 0.20's Collision.collides (MIT).
+  // Keep its axis tie, ID ordering and support finder, while reusing the exact
+  // projections above instead of scanning every vertex again on the winners.
+  const collision = Matter.Collision.create(a, b) as QueryCollision
+  collision.collided = true
+  collision.bodyA = a.id < b.id ? a : b; collision.bodyB = a.id < b.id ? b : a
+  a = collision.bodyA; b = collision.bodyB
+  collision.parentA = a.parent; collision.parentB = b.parent
+  const minimum = ab.depth < bb.depth ? ab : bb
+  let nx = minimum.chosen.x, ny = minimum.chosen.y
+  if (nx * (b.position.x - a.position.x) + ny * (b.position.y - a.position.y) >= 0) { nx = -nx; ny = -ny }
+  collision.normal.x = nx; collision.normal.y = ny
+  collision.tangent.x = -ny; collision.tangent.y = nx
+  collision.penetration.x = nx * minimum.depth; collision.penetration.y = ny * minimum.depth
+  collision.depth = minimum.depth
+  const supportsB = findSupports(a, b, collision.normal, 1)
+  let count = 0
+  if (Matter.Vertices.contains(a.vertices, supportsB[0])) collision.supports[count++] = supportsB[0]
+  if (Matter.Vertices.contains(a.vertices, supportsB[1])) collision.supports[count++] = supportsB[1]
+  if (count < 2) {
+    const supportsA = findSupports(b, a, collision.normal, -1)
+    if (Matter.Vertices.contains(b.vertices, supportsA[0])) collision.supports[count++] = supportsA[0]
+    if (count < 2 && Matter.Vertices.contains(b.vertices, supportsA[1])) collision.supports[count++] = supportsA[1]
+  }
+  if (count === 0) collision.supports[count++] = supportsB[0]
+  collision.supportCount = count
+  return collision
 }
 
 /** Matter.Query's bounds, compound traversal and first-hit ordering. */

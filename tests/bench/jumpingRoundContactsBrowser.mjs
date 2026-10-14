@@ -15,7 +15,7 @@ window.pinballProbe = async ({data, scenario, frames=300,warmup=30,width=1280,he
   document.body.style.margin='0';document.body.replaceChildren(canvas)
   const ctx=renderer.drawingContext(canvas),lighting=lightingForLevel(run.level)
   const simulation=[],draw=[],intervals=[],trajectory=[],phases=[]
-  let previous,metrics
+  let previous,metrics,spilledMax=0
   try {
     for(let frame=0;frame<=frames+warmup;frame++) {
       if(document.hidden)throw new Error('Hidden benchmark')
@@ -35,11 +35,14 @@ window.pinballProbe = async ({data, scenario, frames=300,warmup=30,width=1280,he
       trajectory.push([run.player.x,run.player.y,run.player.vx,run.player.vy,!!run.player.inverted,
         ...run.props.flatMap(p=>[p.x,p.y,p.vx,p.vy,p.angle,p.angularVelocity,p.grounded]),
         ...run.triggers.flatMap(t=>[t.held,t.pressed,t.active,t.depression]),...run.forceFields.map(f=>f.active)])
-      if(frame%60===59)phases.push({frame:frame+1,x:run.player.x,y:run.player.y,active:run.triggers.map(t=>t.active),gravity:run.props.map(p=>p.gravity)})
+      const chuteRight=run.level.platforms[0].x+run.level.platforms[0].w
+      const spilled=run.props.filter(p=>p.kind==='ball'&&p.x-p.size/2>=chuteRight).length
+      if(frame>=warmup)spilledMax=Math.max(spilledMax,spilled)
+      if(frame%60===59)phases.push({frame:frame+1,x:run.player.x,y:run.player.y,spilled,active:run.triggers.map(t=>t.active),gravity:run.props.map(p=>p.gravity)})
       previous=now
     }
     if(scenario==='ascent'&&warmup+frames>=600&&(run.player.y>=200||!run.player.inverted))throw new Error('Gravity ascent changed')
-    return {scenario,frames,warmup,fps:1000/stats(intervals).mean,simulation:stats(simulation),draw:stats(draw),intervals:stats(intervals),
+    return {scenario,frames,warmup,spilledMax,fps:1000/stats(intervals).mean,simulation:stats(simulation),draw:stats(draw),intervals:stats(intervals),
       over33_83ms:intervals.filter(t=>t>33.83).length,renderer:metrics.backend,width:canvas.width,height:canvas.height,
       phases,samples:{simulation,draw,intervals},trajectory}
   }finally{renderer.dispose()}

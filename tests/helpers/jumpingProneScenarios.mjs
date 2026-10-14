@@ -8,6 +8,8 @@ import { boxShape, ballShape } from '../../src/games/jumping/propGeometry.ts'
 export const PRONE_CLEARANCE_SCENARIOS = [
   { name: 'front wall', solids: [{ x: 520, y: 0, w: 200, h: 1400 }] },
   { name: 'rear wall', solids: [{ x: 280, y: 0, w: 200, h: 1400 }] },
+  { name: 'thin rear wall', solids: [{ x: 464, y: 0, w: 20, h: 1400 }] },
+  { name: 'thin front wall', solids: [{ x: 516, y: 0, w: 20, h: 1400 }] },
   { name: 'corner', solids: [{ x: 520, y: 350, w: 200, h: 180 }] },
   { name: 'overhead face beyond the physical hull', solids: [{ x: 516, y: 480, w: 80, h: 14 }] },
   { name: 'undercut', solids: [{ x: 520, y: 300, w: 200, h: 1100,
@@ -29,7 +31,7 @@ export function proneClearancePlayer(config, direction, inverted) {
     balls: config.ball ? [{ ...config.ball, x: direction > 0 ? config.ball.x : 1000 - config.ball.x, y: inverted ? -config.ball.y : config.ball.y }] : [] }
 }
 
-export const PRONE_DROP_SCENARIOS = ['wall', 'undercut', 'force field', 'moving gate', 'box', 'ball']
+export const PRONE_DROP_SCENARIOS = ['wall', 'thin wall', 'undercut', 'force field', 'moving gate', 'box', 'ball']
 
 export function proneDropLevel(kind, direction) {
   const width = 2000, rect = (x, y, w, h) => ({ x: direction > 0 ? x : width - x - w, y, w, h })
@@ -37,6 +39,7 @@ export function proneDropLevel(kind, direction) {
     entrance: { x: direction > 0 ? 200 : 1800, y: 160 }, goal: { x: direction > 0 ? 1820 : 180, y: 2400 },
     platforms: [rect(100, 160, 220, 24)] }
   if (kind === 'wall') level.platforms.push(rect(420, 0, 200, 2400))
+  if (kind === 'thin wall') level.platforms.push(rect(420, 0, 20, 2400))
   if (kind === 'undercut') {
     const points = [[0, 0], [200, 0], [200, 2400], [0, 2400], [0, 1500], [80, 1500], [80, 200], [0, 200]]
     level.platforms.push({ ...rect(420, 0, 200, 2400), polygon: direction > 0 ? points : points.map(([x, y]) => [200 - x, y]).reverse() })
@@ -47,6 +50,15 @@ export function proneDropLevel(kind, direction) {
   }
   if (kind === 'box' || kind === 'ball') level.props = [{ kind, x: direction > 0 ? 440 : 1560, y: 2400, size: kind === 'box' ? 80 : 100 }]
   return level
+}
+
+/** A supported entrance beside a pinball-sized column, with space to walk off
+ * and release steering while sideways velocity is still settling. */
+export function proneColumnDropLevel(direction) {
+  const width = 1800, rect = (x, y, w, h) => ({ x: direction > 0 ? x : width - x - w, y, w, h })
+  return { ...blankTrial(), width, height: 2000, floor: 2000,
+    entrance: { x: direction > 0 ? 240 : 1560, y: 265 }, goal: { x: direction > 0 ? 1600 : 200, y: 2000 },
+    platforms: [rect(280, 265, 20, 1735), rect(210, 265, 90, 24)] }
 }
 
 /** A real Shift + direction walk-off, release, then deliberate departure.

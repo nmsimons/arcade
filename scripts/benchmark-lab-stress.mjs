@@ -31,9 +31,11 @@ if (originalQueries) {
   // Same current engine and renderer; remove only the cache and its two queries.
   await build({ configFile: false, root, publicDir: false, logLevel: 'warn', plugins: [{ name: 'reference-prop-queries', enforce: 'pre', transform(source, id) {
     if (!id.replaceAll('\\', '/').endsWith('/src/games/jumping/propPhysics.ts')) return
-    if (!source.includes('  const queries = new CollisionQueries()') || source.match(/queries\.collides\(/g)?.length !== 2) throw new Error('Original query reference requires review after source changes')
+    if (!source.includes('  const queries = new CollisionQueries(true)') || source.match(/queries\.collides\(/g)?.length !== 2
+      || source.match(/queries\.invalidate\(/g)?.length !== 4) throw new Error('Original query reference requires review after source changes')
     const original = source.replace(/^import \{ CollisionQueries \} from '\.\/collisionQueries\.ts'\r?\n/m, '')
-      .replace(/^  const queries = new CollisionQueries\(\)\r?\n/m, '').replaceAll('queries.collides(', 'Query.collides(')
+      .replace(/^  const queries = new CollisionQueries\(true\)\r?\n/m, '').replaceAll('queries.collides(', 'Query.collides(')
+      .replace(/queries\.invalidate\((?:a|b|body)\);?/g, '')
     referencePropPhysicsHash = createHash('sha256').update(original.replace(/\r\n/g, '\n')).digest('hex')
     return original
   } }], build: { outDir: referenceBuild, emptyOutDir: true, rollupOptions: { input }, minify: 'esbuild' } })

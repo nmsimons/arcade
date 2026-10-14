@@ -4,6 +4,7 @@ import { readFile, writeFile, mkdir, copyFile } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
 import { createHash } from 'node:crypto'
 import { cpus, platform, arch } from 'node:os'
+import { execFileSync } from 'node:child_process'
 import assert from 'node:assert/strict'
 
 // A supplied runtime JSON asset; the opening control sequences were measured
@@ -19,12 +20,21 @@ for (const [name, value, min, max] of [['frames', frames, 10, 10000], ['warmup',
   if (!Number.isInteger(value) || value < min || value > max) throw new Error(`Invalid ${name}`)
 }
 const hash = value => createHash('sha256').update(value).digest('hex')
+const referenceCommit = process.env.ROUND_CONTACT_COMPARE_COMMIT
+const referenceFiles = new Map()
+if (referenceCommit) for (const name of ['roundCollision', 'collisionQueries', 'propPhysics', 'athlete']) {
+  referenceFiles.set(name, execFileSync('git', ['show', `${referenceCommit}:src/games/jumping/${name}.ts`], { encoding: 'utf8' }))
+}
 const input = resolve('.local/round-contacts-entry.html'), directories = ['before', 'after'].map(mode => resolve(`.local/round-contacts-${mode}-build`))
 await mkdir('.local', { recursive: true }); await mkdir(dirname(output), { recursive: true })
 await writeFile(input, '<!doctype html><meta charset="utf-8"><script type="module" src="/tests/bench/jumpingRoundContactsBrowser.mjs"></script>')
 const bundleHashes = []
 for (const [index, mode] of ['before', 'after'].entries()) {
   await build({ configFile: false, publicDir: false, logLevel: 'warn', plugins: mode === 'before' ? [{ name: 'original-round-contacts', enforce: 'pre', transform(source, id) {
+    if (referenceCommit) {
+      const name = id.replaceAll('\\', '/').match(/\/src\/games\/jumping\/(roundCollision|collisionQueries|propPhysics|athlete)\.ts$/)?.[1]
+      return name ? referenceFiles.get(name) : undefined
+    }
     if (!id.replaceAll('\\', '/').endsWith('/src/games/jumping/roundCollision.ts')) return
     return "import Matter from 'matter-js'; export function registerRoundBody() {} export function registerRoundProbe() {} export function roundCollision(a,b) { return Matter.Collision.collides(a,b) } export const roundQuery = Matter.Query.collides;"
   } }] : [], build: { outDir: directories[index], emptyOutDir: true, rollupOptions: { input } } })
@@ -44,7 +54,7 @@ try {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 }), errors = []
   page.on('pageerror', error => errors.push(error.message))
   const report = { date: new Date().toISOString(), machine: cpus()[0].model, system: `${platform()} ${arch()}`, browser: await browser.version(), gpu,
-    levelPath, levelHash: hash(levelSource), bundleHashes, frames, warmup, episodes, width: 1280, height: 800, dpr: 1, rows, complete: false,
+    levelPath, levelHash: hash(levelSource), referenceCommit, bundleHashes, frames, warmup, episodes, width: 1280, height: 800, dpr: 1, rows, complete: false,
     note: 'Full-quality production simulation and renderer. Two 120 Hz ticks per RAF; excludes React, audio, persistence and real-game catch-up. Fresh alternating arms; exact per-frame player/prop/switch trajectory parity required. Opening controls are probes, not completed routes.' }
   const checkpoint = () => writeFile(output, JSON.stringify(report, null, 2) + '\n')
   await checkpoint()

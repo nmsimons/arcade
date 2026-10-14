@@ -343,6 +343,45 @@ test('held movement springs a long-fall landing into the actual supported gait',
   }
 })
 
+test('released steering retains a flat long-fall landing despite remaining sideways drift', () => {
+  const base = [{ x: -2000, y: 1400, w: 6000, h: 100 }]
+  for (const inverted of [false, true]) for (const direction of [-1, 1]) {
+    const floor = inverted ? base.map(mirrorPlatform) : base
+    const p = createPlayer({ x: 500, y: inverted ? -100 : 100 })
+    Object.assign(p, { grounded: false, coyote: 0, inverted, facing: direction })
+    const baseline = structuredClone(p), gravity = inverted ? -TUNING.gravity : TUNING.gravity
+    let released = false, impact = false, recovered = false, impactFrame
+    for (let frame = 0; frame < 400; frame++) {
+      released ||= p.y * (inverted ? -1 : 1) >= 1100
+      const input = { ...NEUTRAL_INPUT, move: released ? 0 : direction }
+      const grounded = p.grounded
+      stepPlayer(p, input, STEP, floor, undefined, undefined, undefined, undefined, gravity)
+      baseline.freeFall = null
+      stepPlayer(baseline, input, STEP, floor, undefined, undefined, undefined, undefined, gravity)
+      for (const key of ['x', 'y', 'vx', 'vy', 'grounded', 'facing']) assert.equal(p[key], baseline[key], key)
+      const pose = athletePose(p)
+      limbLengths(pose)
+      if (!grounded && p.grounded) {
+        impact = true; impactFrame = frame
+        assert.ok(released && Math.abs(p.vx) > 100, 'steering is released while real sideways drift remains')
+        assert.equal(p.freeFall?.amount, 1, 'the ordinary fall acquired the full prone pose')
+      }
+      if (!impact) continue
+      assert.equal(p.freeFall?.moving, undefined, 'drift cannot start the steering get-up')
+      if (p.freeFall?.recovery < .18) {
+        assert.ok(Math.abs(pose.shoulder[1] - pose.hip[1]) < 2, 'the impact remains flat')
+        assert.ok(!pose.frontLeg.planted && !pose.backLeg.planted, 'feet do not claim the initial impact')
+      }
+      if (!p.freeFall) {
+        recovered = true
+        assert.ok((frame - impactFrame) * STEP >= TUNING.fallRecoveryTime, 'neutral recovery completes its full sequence')
+        break
+      }
+    }
+    assert.ok(impact && recovered)
+  }
+})
+
 test('movement introduced throughout get-up keeps its joints continuous and its step audio honest', () => {
   const floor = [{ x: -2000, y: 1400, w: 6000, h: 100 }]
   const joints = pose => [pose.hip, pose.shoulder, pose.head,

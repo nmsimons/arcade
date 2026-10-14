@@ -399,12 +399,25 @@ and knees, bring the feet under the body, then stand. Prone knees and elbows
 face the contact plane, trailing toes point down, and the neck follows the
 horizontal torso so the silhouette reads as belly-down. Jumping or catching a
 grip interrupts the pose.
+Active steering during recovery can spring into the supported walking gait.
+Sideways drift after releasing movement retains the flat impact and full
+hands-and-knees recovery; collision corrections and support transport do not
+count as a new steering command. This distinction is covered in
+`tests/jumping-traversal-presentation.test.mjs`.
 Support transport and ordinary collision sweeps still apply; the animation does
 not change the player hull. Gravity-facing ceiling contact returns to the normal
 supported pose. Leaving weightlessness while traveling against gravity blends
 back to the ordinary airborne pose over 0.28 seconds.
 The same state runs in the reflected gravity frame. Respawn clears it.
 Regression coverage lives in `tests/jumping-free-fall.test.mjs`.
+
+Prone limbs clear the terrain on the same side as their shoulder or hip. A
+penetrating knee, ankle or hand must not take a thin wall's nearer far-side exit
+and leave its connecting bone through the wall. The visible foot clearance also
+includes the curved skin between contour samples. These presentation corrections
+retain fixed bone lengths and leave the collision root unchanged. Mirrored thin
+walls, ordinary walk-offs and complete rendered outlines are covered in
+`tests/jumping-prone-clearance-acceptance.test.mjs`.
 
 A fading pushing pose remembers its collider identity until the blend reaches
 zero. Reacquiring that same surface resumes the existing blend, including after

@@ -729,7 +729,9 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
     advanceFootwork(feetPlayer, dt, from[0], world.platforms)
     p.footwork = feetPlayer.footwork; p.stride = feetPlayer.stride
   }
-  advanceMovingRecovery(p, dt, Math.abs(contacts.motion.x) > .05, turnFrame)
+  // Residual flight drift or a contact correction is not a requested step.
+  // Only active steering starts the faster get-up after a prone impact.
+  advanceMovingRecovery(p, dt, Math.abs(input.move) > .01 && Math.abs(contacts.motion.x) > .05, turnFrame)
   advanceDryTurn(p, input, dt, turnFrame)
   advanceSlideEntry(p, dt, slideEntryFrame, input)
 }

@@ -295,6 +295,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (b.kind === 'box' && Math.abs(Body.getAngularVelocity(body) * 60 - b.angularVelocity) > 1e-5) Body.setAngularVelocity(body, b.angularVelocity / 60)
   }
   Engine.update(world.engine, dt * 1000)
+  // The synchronous correction stage owns all hull edits from here through
+  // the final contact query. Track each write instead of rescanning vertices.
+  const queries = new CollisionQueries(true)
   const p = run.player, height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
   const heldBox = grip ? run.props.filter(b => b.kind === 'box')[grip.platform! - run.terrain.length - run.mechanisms.length] : undefined
@@ -352,6 +355,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (blocked > 1e-7) {
       Sleeping.set(body, false)
       Body.translate(body, { x: -nx * blocked, y: -ny * blocked })
+      queries.invalidate(body)
       const point = hit.supports[0]!
       const lever = (point.x - body.position.x) * ny - (point.y - body.position.y) * nx
       const velocity = Body.getVelocity(body), angular = Body.getAngularVelocity(body)
@@ -366,7 +370,6 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   }
   const solids = [...world.terrain, ...world.mechanisms, ...world.bodies.values()]
   const candidates = new Map([...world.bodies.values()].map(body => [body, solids.filter(other => other !== body)]))
-  const queries = new CollisionQueries()
   // Recompute normals at joins after the solver's position iterations. A ball
   // reaching the flat floor can have a new contact that the old ramp normal
   // alone cannot separate, even with more iterations of that old contact.
@@ -377,8 +380,8 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       const a = hit.bodyA, b = hit.bodyB, wa = a.isStatic || a.isSleeping ? 0 : a.inverseMass, wb = b.isStatic || b.isSleeping ? 0 : b.inverseMass
       if (!wa && !wb) continue
       const distance = (hit.depth - .0001) / (wa + wb)
-      if (wa) Body.translate(a, { x: hit.normal.x * distance * wa, y: hit.normal.y * distance * wa })
-      if (wb) Body.translate(b, { x: -hit.normal.x * distance * wb, y: -hit.normal.y * distance * wb })
+      if (wa) { Body.translate(a, { x: hit.normal.x * distance * wa, y: hit.normal.y * distance * wa }); queries.invalidate(a) }
+      if (wb) { Body.translate(b, { x: -hit.normal.x * distance * wb, y: -hit.normal.y * distance * wb }); queries.invalidate(b) }
       corrected = true
     }
     for (const [prop, body] of world.bodies) {
@@ -412,7 +415,11 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
         }
       }
     }
-    for (const [prop, body] of world.bodies) if (prop.floatSwitch) corrected = constrainFloatSwitch(body, prop.floatSwitch) || corrected
+    for (const [prop, body] of world.bodies) if (prop.floatSwitch) {
+      corrected = constrainFloatSwitch(body, prop.floatSwitch) || corrected
+      // Even a correction below the arm's convergence tolerance edits its hull.
+      queries.invalidate(body)
+    }
     if (!corrected) break
   }
   const byBody = new Map([...world.bodies].map(([prop, body]) => [body, prop]))

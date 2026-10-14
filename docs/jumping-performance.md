@@ -1,5 +1,50 @@
 # LAB performance notes
 
+## October 13, 2026: Updated pinball spill sequence
+
+The current local pinball file has thirteen balls, a loose box, a gate and a
+20-unit-wide chute wall. Standing on the floor button activates the gravity
+field; a ball escapes into the main room while the remaining balls collide near
+the ceiling. This is a different authored file from the earlier investigation.
+
+The fresh profile still points to simulation: round SAT projections and repeated
+geometry fingerprints dominate the slow window. The correction stage now marks
+every owned hull write explicitly, including sub-tolerance float-arm corrections.
+Other collision-query callers retain full geometry inspection. Round projection
+plans evaluate the two vertices surrounding each extremum and reuse scratch
+ranges. Contact assembly reuses those exact projections with Matter's existing
+support finder and original axis/ID ordering, eliminating the second vertex scan.
+The solver budget, hull detail, sleep rules and object motion are unchanged.
+
+The [spill report](performance/2026-10-13-pinball-spill.json) compares commit
+`de5ac32` with these changes in the same current level, using three alternating
+fresh pairs, 90 warmup plus 300 measured frames (simulation seconds 1.5–6.5),
+1280×800 / DPR 1 and full-quality hardware Edge rendering. Medians:
+
+| Measure | Before | After |
+| --- | ---: | ---: |
+| FPS | 35.8 | 50.7 |
+| Simulation CPU p95 | 46.8 ms | 27.8 ms |
+| Frame interval p95 | 50.3 ms | 33.4 ms |
+| Frames above 33.83 ms / 300 | 65 | 4 |
+
+All three paired trajectory hashes match exactly; each sequence includes a ball
+spilling out of the chute. The baseline varies from 35.6–46.4 FPS, versus
+50.6–52.0 after the change. Crowded contacts still miss some 60 Hz frames. These
+fixed two-tick measurements exclude the real game's catch-up policy and do not
+establish sustained 60 FPS in actual play.
+
+Validation: 160 focused collision, prop, prone, water and traversal checks pass,
+as do eight production-browser keyboard fall/catch/recovery checks, including
+thin walls in both directions. The production build and targeted lint pass.
+A live keyboard check also confirms standing on the current button while a ball
+spills into the main room; actual gameplay still has frame spikes.
+
+Reproduce with `ROUND_CONTACT_COMPARE_COMMIT=de5ac32`,
+`ROUND_CONTACT_CASES=plate` and `ROUND_CONTACT_WARMUP=90`, then run
+`node scripts/benchmark-jumping-round-contacts.mjs "public/levels/jumping/Untitled level 2.jump-level.json" .local/pinball-spill.json`.
+Use the same saved level file for both arms; the report records its hash.
+
 ## October 13, 2026: Pinball round contacts
 
 The new local `pinball` asset packs nine small balls and a heavy box into an

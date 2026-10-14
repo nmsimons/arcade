@@ -19,7 +19,16 @@ interface CachedCollision { body: number; other: number; hit: Matter.Collision |
 export class CollisionQueries {
   private geometry = new Map<Matter.Body, Geometry>()
   private pairs = new Map<Matter.Body, Map<Matter.Body, CachedCollision>>()
+  private tracked: boolean
+  private revisions = new Map<Matter.Body, number>()
+  /** A synchronous owner may opt in if it invalidates every geometry write. */
+  constructor(trackChanges = false) { this.tracked = trackChanges }
+  invalidate(body: Matter.Body) {
+    if (this.tracked) this.revisions.set(body, (this.revisions.get(body) ?? 0) + 1)
+    else { this.geometry.delete(body); this.pairs.clear() }
+  }
   private revision(body: Matter.Body) {
+    if (this.tracked) return this.revisions.get(body) ?? 0
     let g = this.geometry.get(body)
     const size = 2 + body.vertices.length * 2 + body.axes.length * 2
     let changed = !g || g.id !== body.id || g.parent !== body.parent

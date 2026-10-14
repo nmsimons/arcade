@@ -1788,7 +1788,19 @@ function waterLandingPose(p: Player): AthletePose {
 
 /** Extended silhouettes reach beyond the standing controller hull. Keep
  * the head and spine outside nearby solids before solving the reaching limbs. */
-function bodyIntrusion(p: Player, point: Point, radius: number, visibleBall?: Platform) {
+function clearanceBoundary(p: Player, solid: Platform, x: number, y: number, origin?: Point) {
+  const edge = nearestBoundary(solid, x, y)
+  if (origin && pointInside(solid, x, y)) {
+    const ox = p.x + origin[0] * p.facing, oy = p.y + origin[1]
+    // A free limb belongs to its clear shoulder/hip. The nearest exit from a
+    // thin solid can be its far face, leaving the connecting bone through it.
+    if ((ox - edge.x) * edge.nx + (oy - edge.y) * edge.ny < -1e-7 && !pointInside(solid, ox, oy)) {
+      return nearestBoundary(solid, x, y, [ox - x, oy - y])
+    }
+  }
+  return edge
+}
+function bodyIntrusion(p: Player, point: Point, radius: number, visibleBall?: Platform, origin?: Point) {
   const x = p.x + point[0] * p.facing, y = p.y + point[1]
   for (const b of p.terrain ?? []) {
     if (x < b.x - radius || x > b.x + b.w + radius || y < b.y - radius || y > b.y + b.h + radius) continue
@@ -1799,7 +1811,7 @@ function bodyIntrusion(p: Player, point: Point, radius: number, visibleBall?: Pl
       if (depth > .01) return { x: dx / (distance || 1) * (depth + .05) * p.facing, y: dy / (distance || 1) * (depth + .05) }
       continue
     }
-    const edge = nearestBoundary(b, x, y), inside = pointInside(b, x, y)
+    const edge = clearanceBoundary(p, b, x, y, origin), inside = pointInside(b, x, y)
     const depth = radius + (inside ? edge.distance : -edge.distance)
     if (depth > .01) {
       // Outside a corner, a circle separates radially from the closest point.
@@ -1898,7 +1910,7 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
     const samples = hands ? 10 : 4
     for (const [index, [a, b]] of [[limb.root, limb.joint], [limb.joint, limb.end]].entries()) for (let i = 0; i <= samples; i++) {
       const radius = hands ? 1.65 : 'footAngle' in source ? index ? 1.8 : 2.2 : 1.6
-      if (bodyIntrusion(p, mix(a, b, i / samples), radius, holdContact ? visibleBall : undefined)) return false
+      if (bodyIntrusion(p, mix(a, b, i / samples), radius, holdContact ? visibleBall : undefined, source.root)) return false
     }
     return !hands || !handIntrusion(limb)
   }
@@ -1923,7 +1935,7 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
   if (holdContact) return fold(source.end, source) ?? source
   let current = source, target: Point = [...source.end]
   for (let pass = 0; pass < 12; pass++) {
-    const intrusion = bodyIntrusion(p, target, 1.8) ?? (hands ? handIntrusion(retarget({ ...current, end: target })) : null)
+    const intrusion = bodyIntrusion(p, target, 1.8, undefined, source.root) ?? (hands ? handIntrusion(retarget({ ...current, end: target })) : null)
     if (intrusion) {
       const separated = add(target, [intrusion.x, intrusion.y])
       // A covered seam can separate out of a wall straight into its floor.
@@ -1936,9 +1948,9 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
     if (folded) return folded
     // If the straight chord crosses a corner, recover the hand/foot toward the
     // body until there is room, then extend again as normal travel clears it.
-    const blocked = bodyIntrusion(p, solved.joint, 1.8)
-      ?? bodyIntrusion(p, mix(solved.root, solved.joint, .5), 1.8)
-      ?? bodyIntrusion(p, mix(solved.joint, solved.end, .5), 1.8)
+    const blocked = bodyIntrusion(p, solved.joint, 1.8, undefined, source.root)
+      ?? bodyIntrusion(p, mix(solved.root, solved.joint, .5), 1.8, undefined, source.root)
+      ?? bodyIntrusion(p, mix(solved.joint, solved.end, .5), 1.8, undefined, source.root)
     target = blocked ? add(target, [blocked.x, blocked.y]) : mix(target, source.root, .12)
     current = retarget({ ...source, ...solved })
   }
@@ -2245,14 +2257,14 @@ function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
       const sole = footPoint(point, current.footAngle * current.footFacing, current.toeAngle * current.footFacing, toe)
       const x = p.x + (current.end[0] + sole[0] * current.footFacing * (1 - (current.rear ?? 0))) * p.facing, y = p.y + current.end[1] + sole[1]
       for (const b of p.terrain!) if (pointInside(b, x, y)) {
-        const edge = nearestBoundary(b, x, y)
+        const edge = clearanceBoundary(p, b, x, y, leg.root)
         if (edge.distance >= .01 && (!deepest || edge.distance > deepest.distance)) {
           deepest = { ...edge, x: edge.x - x, y: edge.y - y }
         }
       }
     }
     if (!deepest) break
-    target[0] += (deepest.x + deepest.nx * .05) * p.facing; target[1] += deepest.y + deepest.ny * .05
+    target[0] += (deepest.x + deepest.nx * .1) * p.facing; target[1] += deepest.y + deepest.ny * .1
     current = { ...current, ...solveNear(current, target, 15, 14.5, landing && p.grounded ? Math.PI / 12 : MIN_KNEE_OPENING) }
   }
   return current

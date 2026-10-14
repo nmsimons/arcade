@@ -55,3 +55,17 @@ test('compound bodies and padded probe objects use Matter traversal unchanged', 
   const probe = { ...a, vertices: a.vertices.map(v => ({ ...v, x: v.x * 1.001, y: v.y * 1.001 })) }
   compare(queries, probe, [compound])
 })
+
+test('tracked correction queries reuse unchanged hulls and invalidate every edited participant', t => {
+  const queries = new CollisionQueries(true), a = Matter.Bodies.rectangle(0, 0, 32, 32)
+  const b = Matter.Bodies.circle(24, 0, 16), original = Matter.Collision.collides
+  let calls = 0
+  t.mock.method(Matter.Collision, 'collides', (...args) => { calls++; return original(...args) })
+  queries.collides(a, [b]); const first = calls
+  queries.collides(a, [b]); assert.equal(calls, first)
+  for (const body of [a, b]) {
+    Matter.Body.translate(body, { x: .01, y: .003 }); queries.invalidate(body); compare(queries, a, [b]); compare(queries, b, [a])
+    Matter.Body.rotate(body, .03); queries.invalidate(body); compare(queries, a, [b])
+    body.vertices[0].x += 1e-9; queries.invalidate(body); compare(queries, a, [b])
+  }
+})

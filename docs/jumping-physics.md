@@ -419,6 +419,20 @@ retain fixed bone lengths and leave the collision root unchanged. Mirrored thin
 walls, ordinary walk-offs and complete rendered outlines are covered in
 `tests/jumping-prone-clearance-acceptance.test.mjs`.
 
+A reach retains the free arm's existing bend through depth, unfolding it as
+contact weight increases. Reconstructing its projected angles at full planar
+bone length would visibly extend the wrist even at zero reach weight. Both
+ordinary and reflected gravity preserve the original rig at zero weight and
+fixed 3D bone lengths throughout the blend. Coverage lives in
+`tests/jumping-ledge-reach-depth.test.mjs`.
+
+Limb clearance reuses an exactly matching palm position and angle only within
+one read-only limb solve. Bend candidates share their root and endpoint caps;
+an obstructed cap or fixed-angle palm rejects the common target before searching
+its 33 bend planes. Full contour samples, bend order and clearance tolerances
+remain in use. Escapade tower regressions cover fresh walking departures into
+catches in the complete authored world, with only the entrance repositioned.
+
 A fading pushing pose remembers its collider identity until the blend reaches
 zero. Reacquiring that same surface resumes the existing blend, including after
 a brief gap in a moving box, ball or bot contact. A new surface starts its own

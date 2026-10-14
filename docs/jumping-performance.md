@@ -1,5 +1,52 @@
 # LAB performance notes
 
+## October 13, 2026: Escapade tower catches
+
+Falling into the tower lips spends most of its CPU time fitting the visible
+limbs around concave terrain. In a catch-window profile, repeated palm-contour
+queries and bend attempts dominated; player movement itself was inexpensive.
+Elbow alternatives often leave the same palm unchanged. The limb solver now
+reuses that exact palm query within its read-only solve and rejects common
+blocked root/end caps or fixed-angle palms before trying 33 bend planes.
+Contour detail, candidate order and collision tolerances are preserved.
+
+The [CPU comparison](performance/2026-10-13-escapade-catches.json) uses Node
+24.14.1 on Snapdragon X Elite and the same authored Escapade terrain for both
+arms, comparing `6261cfa` with the change. It starts ordinary and prone falls at
+35 exposed tower lips, runs 40 ticks per fall, warms all cases once and measures
+three repetitions (8,400 samples per arm):
+
+| Pose CPU time | Before | After |
+| --- | ---: | ---: |
+| Mean | 1.33 ms | 0.72 ms |
+| p95 | 6.41 ms | 2.47 ms |
+| p99 | 14.65 ms | 4.56 ms |
+| Maximum | 31.50 ms | 27.96 ms |
+
+All 70 falls catch their lip. The 2,800 sampled physics states and catch poses
+match exactly between arms. Occasional high outliers remain; this is a CPU
+diagnostic with static terrain, excluding props, mechanisms, lighting and frame
+scheduling. It measures the catch fitting cost rather than whole-game FPS.
+
+The apparent brief arm stretch has a separate cause: a prepared reach rebuilt
+an already depth-folded arm from its projected angles at full planar lengths.
+That extended the wrist immediately, even at zero contact weight. The reach now
+keeps and gradually unfolds its existing depth, retaining the original rig at
+zero weight and fixed bone lengths throughout. Mirrored-gravity regressions
+check continuous joint movement and read-only drawing.
+
+Four fresh-start production Edge checks preserve the complete authored world,
+move only the entrance beside each tower, walk off with Shift, turn toward the
+lip, settle into a hang and jump away using normal keyboard controls. All pass.
+The focused Node regressions, production build and targeted lint also pass.
+These probes do not establish a completed Escapade route or sustained 60 FPS.
+
+Reproduce each CPU arm with
+`node scripts/benchmark-jumping-ledge-catches.mjs --reference 6261cfa --output .local/escapade-before.json`
+and `node scripts/benchmark-jumping-ledge-catches.mjs --output .local/escapade-after.json`.
+Run them sequentially while other builds/tests and interactive previews are idle.
+The report records the level/source hashes and retains every tested lip.
+
 ## October 13, 2026: Updated pinball spill sequence
 
 The current local pinball file has thirteen balls, a loose box, a gate and a

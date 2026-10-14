@@ -68,9 +68,13 @@ function solve(root: Point, target: Point, upper: number, lower: number, bend: n
   return { root, joint: [root[0] + ux * along - uy * offset, root[1] + uy * along + ux * offset],
     end: [root[0] + ux * distance, root[1] + uy * distance] }
 }
-function armPose(root: Point, angle: number, bend: number): Limb {
-  const elbow: Point = [root[0] + Math.sin(angle) * UPPER_ARM, root[1] + Math.cos(angle) * UPPER_ARM]
-  return { root, joint: elbow, end: [elbow[0] + Math.sin(angle + bend) * FOREARM, elbow[1] + Math.cos(angle + bend) * FOREARM] }
+function armPose(root: Point, angle: number, bend: number, jointDepth = 0, endDepth = 0): Limb {
+  const upper = jointDepth ? Math.sqrt(Math.max(0, UPPER_ARM ** 2 - jointDepth ** 2)) : UPPER_ARM
+  const lowerDepth = endDepth - jointDepth
+  const lower = lowerDepth ? Math.sqrt(Math.max(0, FOREARM ** 2 - lowerDepth ** 2)) : FOREARM
+  const elbow: Point = [root[0] + Math.sin(angle) * upper, root[1] + Math.cos(angle) * upper]
+  return { root, joint: elbow, end: [elbow[0] + Math.sin(angle + bend) * lower, elbow[1] + Math.cos(angle + bend) * lower],
+    ...(jointDepth || endDepth ? { jointDepth, endDepth } : {}) }
 }
 /** Retarget a foot without discarding the knee's current bend plane. */
 function solveNear(source: Limb, target: Point, upper: number, lower: number, minOpening = 0): Limb {
@@ -374,7 +378,11 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
   // A departing surface can pass behind the shoulder while contact fades.
   // Blend wrapped angles along the short arc instead of spinning a whole turn
   // when atan2 crosses its branch cut.
-  const arm = armPose(root, mixAngle(from[0], to[0], contact), mixAngle(from[1], to[1], contact) + Math.sin(contact * Math.PI) * lift)
+  // A cleared free arm may already bend through depth beside the obstacle.
+  // Retain that fold while reaching; rebuilding its projected angles at full
+  // bone length would instantly extend it even with zero contact weight.
+  const arm = armPose(root, mixAngle(from[0], to[0], contact), mixAngle(from[1], to[1], contact) + Math.sin(contact * Math.PI) * lift,
+    (free.jointDepth ?? 0) * (1 - contact), (free.endDepth ?? 0) * (1 - contact))
   const angle = Math.atan2(arm.end[1] - arm.joint[1], arm.end[0] - arm.joint[0])
   const freePalm: Point = [Math.cos(angle) * 1.4, Math.sin(angle) * 1.4]
   const contactPalm: Point = [grip[0] - wrist[0], grip[1] - wrist[1]]
@@ -1889,17 +1897,23 @@ function pushBallSurface(p: Player) {
  * without stretching bones or sending a shin/elbow through the solid. */
 function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false, handContact = false, holdContact = false): Limb {
   const visibleBall = handContact ? pushBallSurface(p) : undefined
+  let lastHand: { x: number; y: number; angle: number; hit: ReturnType<typeof bodyIntrusion> } | undefined
   const handIntrusion = (limb: Limb) => {
+    const { palm, angle } = handGeometry(limb)
+    // Changing an elbow's bend plane can leave the entire palm unchanged.
+    // Clearance owns no world writes, so reuse that exact contour query while
+    // searching the other bends of the same wrist target.
+    if (lastHand?.x === palm[0] && lastHand.y === palm[1] && lastHand.angle === angle) return lastHand.hit
+    let deepest: ReturnType<typeof bodyIntrusion> = null
     // An unanchored swimming palm uses one enclosing circle. Full contour
     // queries remain for planted/working hands that must touch a surface.
     if (p.waterMotion && !p.pushing?.amount && !p.waterMotion.landing && !p.waterMotion.ceiling?.amount && !p.waterMotion.floor) {
-      return bodyIntrusion(p, handGeometry(limb).palm, 2.1)
-    }
-    let deepest: ReturnType<typeof bodyIntrusion> = null
-    for (const point of handOutline(limb)) {
+      deepest = bodyIntrusion(p, palm, 2.1)
+    } else for (const point of handOutline(limb)) {
       const hit = bodyIntrusion(p, point, handContact ? 0 : .03, visibleBall)
       if (hit && (!deepest || Math.hypot(hit.x, hit.y) > Math.hypot(deepest.x, deepest.y))) deepest = hit
     }
+    lastHand = { x: palm[0], y: palm[1], angle, hit: deepest }
     return deepest
   }
   // A contact palm is relative to its wrist. Retargeting the wrist must carry
@@ -1918,6 +1932,14 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
   const fold = (end: Point, previous: Limb) => {
     const dx = end[0] - source.root[0], dy = end[1] - source.root[1], length = Math.hypot(dx, dy)
     if (length < Math.abs(upper - lower) || length > upper + lower) return undefined
+    // Every bend shares its shoulder/hip and wrist/ankle. A blocked fixed cap
+    // (or a palm with a fixed angle) cannot be repaired by trying 33 elbows.
+    // Reject that target once before searching its bend planes.
+    const target = retarget({ ...source, end })
+    const leg = 'footAngle' in source, solid = holdContact ? visibleBall : undefined
+    if (bodyIntrusion(p, source.root, hands ? 1.65 : leg ? 2.2 : 1.6, solid, source.root)
+      || bodyIntrusion(p, end, hands ? 1.65 : leg ? 1.8 : 1.6, solid, source.root)
+      || hands && source.handAngle !== undefined && handIntrusion(target)) return undefined
     const along = (upper ** 2 - lower ** 2 + length ** 2) / (2 * length)
     const center: Point = [source.root[0] + dx / length * along, source.root[1] + dy / length * along]
     const radius = Math.sqrt(Math.max(0, upper ** 2 - along ** 2)), normal: Point = [-dy / length, dx / length]

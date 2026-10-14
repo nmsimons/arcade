@@ -18,7 +18,7 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, captureDryTurn, captureSlideEntry, dryTurnDirection, settleFallClearance, settleWaterClearance, swimmingLedgeReach } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, captureDryTurn, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, swimmingLedgeReach } from './athlete.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
@@ -709,7 +709,11 @@ export function finishPlayerStep(p: Player, input: JumpInput, dt: number, world:
     from = [from[0] + dx, from[1] + dy]
   }
   contacts.motion = { x: p.x - from[0], y: p.y - from[1], speed: Math.hypot(p.x - from[0], p.y - from[1]) / dt }
-  updatePushingPose(p, contacts.push ?? anticipatePush(p, input, world), dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
+  // A physical contact owns its hands. Otherwise an imminent dry ledge grip
+  // takes precedence over object preparation; do not combine two targets.
+  if (!p.waterMotion && contacts.push?.hands) p.ledgeReach = null
+  const preparation = contacts.push || !p.waterMotion && p.ledgeReach ? null : anticipatePush(p, input, world)
+  updatePushingPose(p, contacts.push ?? preparation, dt, contacts.motion.speed, [contacts.motion.x, contacts.motion.y])
   // A rolling ball remains an obstruction for the motor, but the published
   // working contacts and rig must release once the shove supplies no force.
   p.contacts = contacts.push?.passive ? { ...contacts, push: null } : contacts
@@ -1228,6 +1232,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     }
   }
   let reach: Player['ledgeReach'] = null
+  let reachScore = -1, dryReachPose: AthletePose | null | undefined
   if (!p.grounded && !p.crouching && p.grabCooldown === 0 && !input.drop && p.vy > -500) {
     let catchPosition: ReturnType<typeof moveBody> | undefined
     ledges: for (let index = 0; index < platforms.length; index++) for (const ledge of platformLedges(platforms[index])) {
@@ -1249,9 +1254,17 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
         ? swimmingLedgeReach(p, edge, edgeY) : undefined
       if (outside && gap < 55 && (waterReach && reachable(p.y) || Math.abs(handY - edgeY) < 48)) {
         const heightReach = waterReach && reachable(p.y) ? 1 : ledgeEase((48 - Math.abs(handY - edgeY)) / 28)
-        const target = swimmingReach ?? Math.min(ledgeEase((55 - gap) / 27), heightReach)
+        if (swimmingReach === undefined && dryReachPose === undefined) dryReachPose = dryLedgeReachPose(p)
+        const target = swimmingReach ?? Math.min(ledgeEase((55 - gap) / 27), heightReach,
+          dryLedgeReach(p, edge, edgeY, dryReachPose ?? null))
         const previous = p.ledgeReach?.x === edge && p.ledgeReach.y === edgeY ? p.ledgeReach.amount : 0
-        if ((target > 0 || previous > .001) && (!reach || target > reach.amount)) {
+        // Compare candidate strengths, not one candidate's already eased
+        // amount. Keep a usable target through small score ties, then use
+        // coordinates to make selection independent of platform order.
+        const score = target + (previous > 0 ? .05 : 0)
+        if (target > 0 && (score > reachScore || score === reachScore && reach
+          && (edge < reach.x || edge === reach.x && edgeY < reach.y))) {
+          reachScore = score
           reach = { x: edge, y: edgeY, amount: previous + (target - previous) * (1 - Math.exp(-dt / .045)) }
         }
       }

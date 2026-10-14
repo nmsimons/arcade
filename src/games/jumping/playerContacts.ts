@@ -5,7 +5,7 @@ import { STEP, TUNING } from './model.ts'
 import type { GroundSurface } from './terrain.ts'
 import { exposedWallFaces, groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { boxPushFace, propBounds, propPushHands } from './propGeometry.ts'
+import { boxPushFace, propBounds, propPushHands, PROP_APPROACH_GAP } from './propGeometry.ts'
 import type { PushHands } from './propGeometry.ts'
 import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
@@ -13,7 +13,7 @@ import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_T
 import { ledgeObstacles } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless, playerWaterCenterOffset } from './gravity.ts'
-import { retainInterruptedStepPose, swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './athlete.ts'
+import { dryPreparationFacesForward, retainInterruptedStepPose, swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './athlete.ts'
 
 /** A stable identity connects the same solid across successive geometry snapshots. */
 export interface PlayerCollider {
@@ -205,22 +205,7 @@ export function playerContacts(p: Player, input: JumpInput, world: ContactWorld,
     if (b) {
       const bounds = propBounds(b)
       if (p.y <= bounds.y + 12 || p.y - 42 >= bounds.y + bounds.h || p.y > bounds.y + bounds.h + b.size * .6) continue
-      const motorHands = propPushHands(b, p.x, p.y, direction)
-      let lowerHands = p.crouch ? propPushHands(b, p.x, p.y, direction, 43 - p.crouch * 15) : motorHands
-      if (!lowerHands && motorHands && p.crouch) {
-        // A rotating face can move the low grip just outside the existing
-        // reach. Follow its nearest reachable height instead of jumping all
-        // the way back to standing hands when that boundary is crossed.
-        let low = 43 - p.crouch * 15, high = 43
-        for (let pass = 0; pass < 12; pass++) {
-          const height = (low + high) / 2, candidate = propPushHands(b, p.x, p.y, direction, height)
-          if (candidate) { high = height; lowerHands = candidate }
-          else low = height
-        }
-      }
-      // Working height changes the visible palms, while the existing motor
-      // spacing continues to follow its established face on tilted objects.
-      const hands = lowerHands && motorHands ? { ...lowerHands, wallX: motorHands.wallX, slope: motorHands.slope } : motorHands
+      const hands = dryPropPushHands(p, b, direction)
       const face = b.kind === 'box' ? boxPushFace(b, p.x, p.y, direction, Math.min(43, b.size * .6)) : null
       const wallX = face?.wallX ?? hands?.wallX
       if (wallX === undefined || (b.kind === 'box' && !face)) continue
@@ -358,6 +343,24 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
   return direction * Math.min(requestedVelocity * direction, constrained * direction)
 }
 
+/** Preparation and working contact follow the same motor face and nearest
+ * usable crouched height. A curved/rotating face cannot change those owners
+ * simply because unloaded hands used a different maximum approach gap. */
+function dryPropPushHands(p: Player, prop: Prop, direction: number, maxGap = 38): PushHands | null {
+  const motorHands = propPushHands(prop, p.x, p.y, direction, 43, maxGap)
+  let lowerHands = p.crouch ? propPushHands(prop, p.x, p.y, direction, 43 - p.crouch * 15, maxGap) : motorHands
+  if (!lowerHands && motorHands && p.crouch) {
+    let low = 43 - p.crouch * 15, high = 43
+    for (let pass = 0; pass < 12; pass++) {
+      const height = (low + high) / 2, candidate = propPushHands(prop, p.x, p.y, direction, height, maxGap)
+      if (candidate) { high = height; lowerHands = candidate }
+      else low = height
+    }
+  }
+  // Palm height can adapt while motor spacing retains its established face.
+  return lowerHands && motorHands ? { ...lowerHands, wallX: motorHands.wallX, slope: motorHands.slope } : motorHands
+}
+
 /** Lead a shove with a reach toward the first exposed prop. This deliberately
  * lives outside the force-contact query: preparation cannot move an object. */
 export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld): PushContact | null {
@@ -374,30 +377,35 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
   // an ordinary free reach cannot take over another contact's torso.
   const falling = !p.grounded && p.vy >= 0 && !p.jumpLift && !p.waterMotion
     && (p.dryTurn?.step || !p.sliding?.amount && !p.wallBrace?.amount && !p.slideEntry)
-  if (!direction || !(p.grounded || falling) || p.hang || p.mantle || p.climbing || p.freeFall?.amount
+  // A returning step explicitly turns its captured rig toward incoming palms;
+  // ordinary preparation waits until the visible body faces the target.
+  const forward = p.dryTurn?.step || dryPreparationFacesForward(p, direction)
+  if (!direction || !forward || !(p.grounded || falling) || p.hang || p.mantle || p.climbing || p.freeFall?.amount
     || input.jump && !p.jumpHeld || p.buffer > 0) return null
   const candidates = world.colliders.flatMap(collider => {
     if (!collider.prop || collider.id === p.contacts?.support?.collider.id) return []
+    const bounds = propBounds(collider.prop)
+    if (p.y <= bounds.y + 12 || p.y - 42 >= bounds.y + bounds.h || p.y > bounds.y + bounds.h + collider.prop.size * .6) return []
     if (collider.prop.kind === 'ball' && collider.prop.vx * direction > Math.abs(input.move) * 90 + .1) return []
     // Reach ahead only while closing on the surface. Chasing an escaping prop
     // keeps the unloaded palms stretched forward and delays the gait release.
     if ((collider.prop.vx - p.vx) * direction > 0) return []
-    const hands = propPushHands(collider.prop, p.x, p.y, direction, 43 - p.crouch * 15, 72)
+    const hands = dryPropPushHands(p, collider.prop, direction, PROP_APPROACH_GAP)
     // Higher footing can put a neighboring prop's grip below the feet. Such
     // a reach cannot become a working push; leave walking/stepping in control
     // rather than folding the whole body toward an unreachable low surface.
     if (!hands || (hands.height ?? 43) < 12) return []
     const gap = (hands.wallX - p.x) * direction
-    if (gap >= 72) return []
+    if (gap >= PROP_APPROACH_GAP) return []
     const sweep = moveBody([p.x, p.y], [p.x + direction * gap, p.y], world.platforms,
       p.crouching ? TUNING.crouchHeight : TUNING.height)
     const first = sweep.contacts.find(contact => contact.normal[0] * direction < -.4)
     if (first?.platform !== collider.platform) return []
-    const proximity = Math.max(0, Math.min(1, (72 - gap) / 34))
+    const proximity = Math.max(0, Math.min(1, (PROP_APPROACH_GAP - gap) / (PROP_APPROACH_GAP - 38)))
     return [{ collider, direction, effort: 0, wallX: hands.wallX, hands,
       anticipation: proximity * proximity * (3 - 2 * proximity) }]
   })
-  candidates.sort((a, b) => (a.wallX - b.wallX) * direction)
+  candidates.sort((a, b) => (a.wallX - b.wallX) * direction || a.collider.id.localeCompare(b.collider.id))
   return candidates[0] ?? null
 }
 
@@ -414,7 +422,8 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
       // approach grip. Ease the unloaded height, querying the actual surface
       // each step; force-bearing palms still use their exact current contact.
       const height = previous.height + (hands.height - previous.height) * (1 - Math.exp(-dt / .08))
-      hands = propPushHands(contact.collider.prop, p.x, p.y, contact.direction, height, 72) ?? hands
+      const palms = propPushHands(contact.collider.prop, p.x, p.y, contact.direction, height, PROP_APPROACH_GAP)
+      if (palms) hands = { ...palms, wallX: hands.wallX, slope: hands.slope }
     }
     // Opposition is the requested motion that the contact solver could not
     // deliver. Ease its presentation independently of the hand-contact blend.
@@ -425,10 +434,19 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
       // be established now; resistance still loads the body gradually above.
       amount: contact.anticipation === undefined
         ? (previous?.amount ?? 0) + Math.max(-dt / .16, Math.min(dt / .14, (contact.reach ?? 1) - (previous?.amount ?? 0)))
-        : previous?.amount ?? 0,
-      ready: contact.anticipation ?? (contact.collider.prop && !contact.swimming ? 1 : 0), effort: contact.effort, load }
+        : Math.max(0, Math.max(previous?.amount ?? 0, previous?.effort ? previous.ready ?? 0 : 0) - dt / .16),
+      // An unloaded target can appear nearby on a turn or after a prop moves.
+      // Ease toward it; retaining old load here would freeze a released brace.
+      ready: contact.anticipation === undefined ? (contact.collider.prop && !contact.swimming ? 1 : 0)
+        // A returning step already owns and budgets its whole incoming rig.
+        // Keep its target current rather than adding a second handoff delay.
+        : p.dryTurn?.step ? contact.anticipation
+          : (previous?.ready ?? 0) + (contact.anticipation - (previous?.ready ?? 0)) * (1 - Math.exp(-dt / .045)),
+      effort: contact.effort, load }
   } else if (p.pushing) {
-    const amount = Math.max(0, p.pushing.amount - dt / .16)
+    // Force-bearing prop palms used the full ready stance, even when the
+    // timed contact blend was young. Release that actual outgoing weight.
+    const amount = Math.max(0, Math.max(p.pushing.amount, p.pushing.effort ? p.pushing.ready ?? 0 : 0) - dt / .16)
     const ready = Math.max(0, (p.pushing.ready ?? 0) - dt / .16)
     p.pushing = (amount || ready) && (p.grounded || p.waterMotion) && !p.hang && !p.mantle && !p.climbing && p.pushing.direction === p.facing
       // Released palms relax with the outgoing body. Keeping their old world

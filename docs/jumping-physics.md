@@ -426,6 +426,31 @@ ordinary and reflected gravity preserve the original rig at zero weight and
 fixed 3D bone lengths throughout the blend. Coverage lives in
 `tests/jumping-ledge-reach-depth.test.mjs`.
 
+Dry ledge preparation measures both visible shoulders, starts within 28 units,
+and waits for a lip ahead of the body with a clear hand path. Departing motion,
+prone falls, slides and wall braces retain their own pose. Candidate selection
+compares target strengths before easing, retains a usable target through small
+ties and uses coordinates to resolve equal candidates consistently. A physical
+push owns its hands; otherwise a selected ledge preparation takes precedence
+over an object preparation. These checks do not change physical catch windows.
+
+Ordinary object preparation starts within 50 units, just before the existing
+38-unit pushing window. It eases unloaded arms toward a usable forward face;
+low grips and crouched approaches also gather their nearby working posture.
+Ordinary tall grips leave walking and the torso in their usual balance. Both
+preparation and force use the same motor face and crouched-height query.
+Released load fades from the actual outgoing stance even while preparation
+continues. A canceled step retains its captured rig and
+planned turn toward incoming palms until the real contact owns the transfer;
+it does not restart an ordinary free reach during one-tick slips. Coverage lives
+in `tests/jumping-reach-preparation.test.mjs` and the returning-step regressions.
+
+Catch transfers carry an elbow's bend around the wrist axis through a fixed
+reference plane. Opposed bends cannot cancel and flip midway through the reach.
+The actual outgoing palm offset and wrapped angle survive a zero-weight reach
+and blend continuously into the grip, including arms already folded through
+depth beside terrain. Bone lengths and loaded palm anchors remain fixed.
+
 Limb clearance reuses an exactly matching palm position and angle only within
 one read-only limb solve. Bend candidates share their root and endpoint caps;
 an obstructed cap or fixed-angle palm rejects the common target before searching

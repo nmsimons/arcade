@@ -15,10 +15,15 @@ const athletePath = fileURLToPath(new URL('../src/games/jumping/athlete.ts', imp
 let athleteSource = readFileSync(athletePath, 'utf8')
 if (reference) {
   athleteSource = execFileSync('git', ['show', `${reference}:src/games/jumping/athlete.ts`], { encoding: 'utf8' })
+  // Pose selection also lives in the controller/contact modules. Load the
+  // complete referenced runtime so older exports and their callers agree.
+  const changed = execFileSync('git', ['diff', '--name-only', '--diff-filter=M', reference, '--', 'src/games/jumping'], { encoding: 'utf8' })
+    .trim().split('\n').filter(path => path.endsWith('.ts'))
+  const sources = new Map(changed.map(path => [new URL(`../${path}`, import.meta.url).href,
+    stripTypeScriptTypes(execFileSync('git', ['show', `${reference}:${path}`], { encoding: 'utf8' }))]))
+  sources.set(new URL('../src/games/jumping/athlete.ts', import.meta.url).href, stripTypeScriptTypes(athleteSource))
   registerHooks({ load(url, context, next) {
-    if (url.startsWith('file:') && fileURLToPath(url) === athletePath) {
-      return { format: 'module', source: stripTypeScriptTypes(athleteSource), shortCircuit: true }
-    }
+    if (sources.has(url)) return { format: 'module', source: sources.get(url), shortCircuit: true }
     return next(url, context)
   } })
 }
@@ -64,6 +69,12 @@ const report = { reference: reference ?? 'working tree', node: process.version, 
   levelHash: hash(source), athleteHash: hash(athleteSource), cases: cases.length, ticksPerCase: 40, repetitions: 3,
   samples: poses.length, caught: results.filter(r => r.caught).length,
   simulationMs: stats(simulation), poseMs: stats(poses), physicsHash: hash(states), poseHash: hash(rigs), results }
+// The complete state hash above includes caught/prepared presentation. Keep
+// a separate movement hash when deliberately revising that choreography.
+report.motionHash = hash(states.map(({ index, edge, prone, tick, x, y, vx, vy, grounded, facing, hang, freeFall }) =>
+  ({ index, edge, prone, tick, x, y, vx, vy, grounded, facing,
+    hang: hang && { x: hang.edgeX, y: hang.edgeY, time: hang.time },
+    freeFall: freeFall && { time: freeFall.time, amount: freeFall.amount, recovery: freeFall.recovery } })))
 if (report.caught !== cases.length) throw new Error('Every diagnostic fall must catch its exposed lip')
 if (output) writeFileSync(output, JSON.stringify(report, null, 2) + '\n')
 console.log(JSON.stringify({ ...report, results: undefined }, null, 2))

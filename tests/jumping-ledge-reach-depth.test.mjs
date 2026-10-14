@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { athletePose } from '../src/games/jumping/athlete.ts'
+import { athletePose, handOutline } from '../src/games/jumping/athlete.ts'
 import { createPlayer, gaitPose } from '../src/games/jumping/model.ts'
 import { mirrorPlatform, mirrorPlayerState } from '../src/games/jumping/gravityFrame.ts'
 
@@ -22,8 +22,13 @@ for (const side of [-1, 1]) for (const inverted of [false, true]) {
         const arm = pose[name], a = free[name]
         assert.ok(Math.abs(Math.hypot(arm.joint[0] - arm.root[0], arm.joint[1] - arm.root[1], arm.jointDepth ?? 0) - 10) < 1e-6)
         assert.ok(Math.abs(Math.hypot(arm.end[0] - arm.joint[0], arm.end[1] - arm.joint[1], (arm.endDepth ?? 0) - (arm.jointDepth ?? 0)) - 9) < 1e-6)
-        if (frame === 0) for (const point of ['joint', 'end']) assert.ok(Math.hypot(...arm[point].map((v, i) => v - a[point][i])) < 1e-6,
-          'a zero-weight reach cannot extend the already cleared limb')
+        if (frame === 0) {
+          for (const point of ['joint', 'end']) assert.ok(Math.hypot(...arm[point].map((v, i) => v - a[point][i])) < 1e-6,
+            'a zero-weight reach cannot extend the already cleared limb')
+          const before = handOutline(a), after = handOutline(arm)
+          assert.ok(after.every((point, i) => Math.hypot(...point.map((n, j) => n - before[i][j])) < 1e-6),
+            'a zero-weight reach also retains the real palm position and orientation')
+        }
         if (previous) for (const point of ['joint', 'end']) assert.ok(Math.hypot(...arm[point].map((v, i) => v - previous[name][point][i])) < .4,
           'the projected reach changes gradually as its depth unfolds')
       }

@@ -27,7 +27,7 @@ test('a close falling approach prepares unloaded hands without acquiring support
   assert.equal(p.pushing.amount,0)
   assert.equal(p.pushing.load,0)
   assert.equal(p.pushing.effort,0)
-  assert.equal(p.pushing.ready,1)
+  assert.ok(p.pushing.ready>0&&p.pushing.ready<1,'an unloaded preparation eases in instead of snapping to full extension')
   assert.deepEqual({...p,pushing:snapshot.pushing},snapshot,'presentation changes no other player state')
   assert.deepEqual(prop,object,'no force or movement is supplied')
   updatePushingPose(p,null,STEP)

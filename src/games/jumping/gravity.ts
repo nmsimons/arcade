@@ -275,18 +275,20 @@ export const propGravity = (field: GravityField, prop: Prop, offsetY = 0) => pro
 /** Water resistance uses the same submerged area and overlap composition as buoyancy. */
 export const propWaterStrength = (field: GravityField, prop: Prop) => field.hasWater ? propFieldValue(field, prop, 0, 'swim') : 0
 
-/** Only a restoring vertical gradient damps bobbing. Uniform weak/reverse/zero
- * gravity and sideways field edges retain their ordinary free-flight behavior.
- * Critical damping scales with the body's actual local restoring stiffness. */
+/** Water's restoring vertical gradient damps bobbing. Dry gravity fields only
+ * accelerate bodies, retaining their momentum across every field boundary.
+ * Critical water damping scales with the actual local restoring stiffness. */
 function floatDrag(above: number, below: number) {
   const stiffness = (above - below) / 2
   return stiffness > .01 ? 2 * Math.sqrt(stiffness) : 0
 }
 export function playerFloatDrag(field: GravityField, player: Player) {
-  return field.strips.length ? floatDrag(playerGravity(field, player, -1), playerGravity(field, player, 1)) : 0
+  if (!field.hasWater || !(playerWaterValue(field, player, -1, 'swim') > 0 || playerWaterValue(field, player, 1, 'swim') > 0)) return 0
+  return floatDrag(playerGravity(field, player, -1), playerGravity(field, player, 1))
 }
 export function propFloatDrag(field: GravityField, prop: Prop) {
-  return field.strips.length ? floatDrag(propGravity(field, prop, -1), propGravity(field, prop, 1)) : 0
+  if (!field.hasWater || !(propFieldValue(field, prop, -1, 'swim') > 0 || propFieldValue(field, prop, 1, 'swim') > 0)) return 0
+  return floatDrag(propGravity(field, prop, -1), propGravity(field, prop, 1))
 }
 
 export function setPlayerGravity(player: Player, gravity: number, supportAcceleration = gravity) {

@@ -79,9 +79,14 @@ test('a heavy crate can lower the float while the grav lift remains powered', ()
   level.props = [{ kind: 'box', x: c.x + 10, y: c.y - 20, size: 80, weight: 'heavy' }]
   const run = createRun(parseLevel(level))
   assert.equal(run.switchStates.get('lamp'), true)
-  advance(run, 2)
-  assert.equal(run.switchStates.get('lamp'), false)
-  assert.ok(run.floatSwitches[0].prop.y - 20 > 610, 'load moves the real arm downward')
+  let lowered = false
+  for (let tick = 0; tick < 240; tick++) {
+    advance(run, 1 / 120)
+    lowered ||= !run.switchStates.get('lamp') && run.floatSwitches[0].prop.y - 20 > 610
+  }
+  assert.ok(lowered, 'load moves the real arm downward and releases the contact while the field remains powered')
+  // Dry-field momentum can then carry the crate off the lever, allowing the
+  // unloaded arm to rise again rather than pinning it at a field equilibrium.
 })
 
 test('EMP suppresses the contact while water remains buoyant and a grav lift loses force', () => {

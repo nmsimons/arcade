@@ -535,11 +535,19 @@ and gravitational loads continue through the existing contact-force policy.
 This applies to floating props in weak gravity as well as zero gravity.
 Regression coverage lives in `tests/jumping-zero-gravity.test.mjs`.
 
-At the top boundary of an upward field, partial coverage supplies a restoring
-force. Critical vertical damping uses the local force gradient to settle bobbing
-without snapping positions or removing horizontal momentum. Uniform fields,
-side edges and unstable lower boundaries receive no extra damping. Floating
-props can sleep after settling; impacts, loading, power changes and EMP wake them.
+Dry gravity fields change acceleration and preserve velocity through their
+boundaries. An upward field launches the player, balls and boxes beyond its top;
+stronger fields build more exit speed within the ordinary integration bounds.
+Partial coverage blends the force, without adding surface damping or a velocity
+reset. Ordinary gravity outside the field eventually turns an upward flight.
+`tests/jumping-gravity-momentum.test.mjs` covers field strength, rotated boxes,
+different update rates and dry fields in levels that also contain water.
+
+At the water surface, partial coverage supplies a restoring force. Critical
+vertical damping uses the local force gradient to settle bobbing. Water retains
+its existing submerged resistance and floating behavior. Surface damping applies
+only where water overlaps the body, including its neighboring vertical samples.
+Floating props can sleep after settling; impacts and loading wake them.
 Landing on a floating prop exchanges momentum and applies the rider's ongoing
 weight. Off-center impacts can rotate a box; unloading lets it rise again.
 Rider loads follow the live carried position during every prop solver substep,
@@ -897,7 +905,7 @@ momentum. Under negative gravity, ceilings and the undersides of solid objects
 support walking, running, crouching and downward jumps where grip permits;
 steeper undersides slide under the same friction rules. The movement controller
 uses reflected geometry, retaining ordinary friction, slopes and swept collisions.
-Leaving the field restores ordinary acceleration without resetting velocity;
+Leaving a dry field restores ordinary acceleration without resetting velocity;
 the player returns upright on landing on a normal floor. Player vertical
 speed is bounded to ±1100; props use the solver's ±1000 integration bound. There
 are no special field collision exceptions.

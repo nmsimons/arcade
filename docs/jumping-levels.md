@@ -1063,8 +1063,11 @@ active rectangles average their gravity settings at each point, then the body
 averages that field over its area. Entering or leaving changes acceleration,
 retaining momentum. The force acts at the center of mass; partial coverage does
 not invent an angular impulse. Free rope particles use the same local field.
-Negative plate lift scales inversely with prop weight, so heavy props settle
-deeper at the field's edge. The player's lift,
+Dry fields preserve upward momentum through their upper boundary rather than
+settling bodies there. Stronger fields build more exit speed, within the ordinary
+speed bounds. Water retains its buoyancy and surface damping.
+Negative plate lift scales inversely with prop weight, so heavy props accelerate
+more slowly and leave the field with less momentum. The player's lift,
 positive gravity and zero gravity are unchanged.
 On reaching a grippable ceiling under negative gravity, the player turns upside
 down to walk, run, crouch and jump away from that surface. Leaving the field

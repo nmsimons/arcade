@@ -26,67 +26,78 @@ const fixture = (props = [], effect) => {
   return run
 }
 
-for (const effect of [undefined, 'water']) for (const kind of ['box', 'ball']) for (const dt of [STEP, 1 / 30]) {
-  test(`${effect ?? 'grav plate'} settles a ${kind} approaching the surface from either direction at ${dt}`, () => {
-    const run = fixture([{ kind, x: 500, y: 180, size: 80 }, { kind, x: 850, y: 800, size: 80 }], effect)
+for (const kind of ['box', 'ball']) for (const dt of [STEP, 1 / 30]) {
+  test(`water settles a ${kind} approaching the surface from either direction at ${dt}`, () => {
+    const run = fixture([{ kind, x: 500, y: 180, size: 80 }, { kind, x: 850, y: 800, size: 80 }], 'water')
     step(run, 8, dt)
     for (const b of run.props) {
-      assert.ok(Math.abs(b.y - 440) < (effect === 'water' ? 2.4 : .02), `partly submerged at rest: ${b.y}`)
-      assert.ok(Math.abs(b.vy) < (effect === 'water' ? 4 : .05), `settled velocity: ${b.vy}`)
+      assert.ok(Math.abs(b.y - 440) < 2.4, `partly submerged at rest: ${b.y}`)
+      assert.ok(Math.abs(b.vy) < 4, `settled velocity: ${b.vy}`)
       assert.equal(b.grounded, false, 'floating does not manufacture a solid ground contact')
     }
   })
 }
 
-test('rotated floating boxes settle without artificial torque or a positional snap', () => {
-  const run = fixture([{ kind: 'box', x: 500, y: 480, size: 80 }])
+test('rotated boxes travel through a dry field boundary without artificial torque or a positional snap', () => {
+  const run = fixture([{ kind: 'box', x: 500, y: 600, size: 80 }])
   run.props[0].angle = Math.PI / 4
-  step(run, 8)
-  assert.ok(Math.abs(run.props[0].y - 440) < .02)
+  let exited = false
+  for (let tick = 0; tick < 360; tick++) {
+    const y = run.props[0].y
+    stepRun(run, NEUTRAL_INPUT)
+    assert.ok(Math.abs(run.props[0].y - y) < 1000 * STEP + 1, 'motion remains integrated')
+    if (run.props[0].y < 380) { exited = true; break }
+  }
+  assert.ok(exited && run.props[0].vy < -200, 'the box continues through the field boundary')
   assert.ok(Math.abs(run.props[0].angle - Math.PI / 4) < 1e-8)
 })
 
-test('floating props can sleep, wake when disturbed, and fall when field power is lost', () => {
+test('ceiling-supported props can sleep, wake when disturbed, and fall when field power is lost', () => {
   const original = Matter.Engine.update
   let engine
   Matter.Engine.update = (world, dt) => { engine = world; return original(world, dt) }
   try {
-    const run = fixture([{ kind: 'box', x: 500, y: 500, size: 80 }])
+    const run = createRun({ ...blankTrial(), props: [{ kind: 'box', x: 500, y: 500, size: 80 }],
+      gravityPlates: [pool({ y: 0, h: 920 })] })
     step(run, 8)
     const body = Matter.Composite.allBodies(engine.world).find(b => !b.isStatic)
-    assert.equal(body.isSleeping, true, 'buoyant equilibrium permits sleep')
+    assert.equal(body.isSleeping, true, 'real ceiling support permits sleep')
     run.props[0].vy = 120
     step(run, .1)
     assert.equal(body.isSleeping, false)
-    assert.ok(run.props[0].y > 440.5, 'an impulse displaces the float normally')
+    assert.ok(run.props[0].y > 80.5, 'an impulse displaces the supported body normally')
     step(run, 8)
     assert.equal(body.isSleeping, true)
     run.empRemaining = 1
     step(run, .3)
     assert.equal(body.isSleeping, false)
-    assert.ok(run.props[0].y > 480, 'EMP removes buoyant support')
+    assert.ok(run.props[0].y > 120, 'EMP pulls the body away from ceiling support')
     step(run, 8)
-    assert.ok(Math.abs(run.props[0].y - 440) < .02, 'power restoration brings it back to the surface')
+    assert.ok(Math.abs(run.props[0].y - 80) < .02, 'power restoration brings it back to the ceiling')
   } finally { Matter.Engine.update = original }
 })
 
-test('surface damping preserves horizontal prop drift and exiting restores ordinary falling', () => {
-  const run = fixture([{ kind: 'box', x: 500, y: 440, size: 80 }])
+test('dry field exits preserve horizontal drift while ordinary gravity changes vertical velocity', () => {
+  const run = fixture([{ kind: 'box', x: 500, y: 570, size: 80 }])
   run.props[0].vx = 40
   step(run, 2)
   assert.ok(Math.abs(run.props[0].x - 580) < .001)
   assert.ok(Math.abs(run.props[0].vx - 40) < .001)
   run.props[0].x = 1300
+  const vy = run.props[0].vy
   step(run, .3)
-  assert.ok(run.props[0].y > 480)
+  assert.ok(Math.abs(run.props[0].vy - vy - TUNING.gravity * .3) < .001)
 })
 
-for (const inverted of [false, true]) for (const dt of [STEP, 1 / 30]) test(`player settles at a field surface, inverted=${inverted}, dt=${dt}`, () => {
-  const field = fieldFor([pool()]), p = createPlayer({ x: 500, y: inverted ? 350 : 500 })
+for (const inverted of [false, true]) for (const dt of [STEP, 1 / 30]) test(`player carries momentum through a dry field surface, inverted=${inverted}, dt=${dt}`, () => {
+  const field = fieldFor([pool()]), p = createPlayer({ x: 500, y: 570 })
   p.grounded = false; p.coyote = 0; p.inverted = inverted
-  for (let i = 0; i < Math.round(8 / dt); i++) stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, field)
-  assert.ok(Math.abs(playerGravity(field, p)) < .01)
-  assert.ok(Math.abs(p.vy) < .01)
+  let exited = false
+  for (let i = 0; i < Math.round(3 / dt); i++) {
+    stepPlayer(p, NEUTRAL_INPUT, dt, [], undefined, undefined, undefined, field)
+    if (p.y < 400 && playerGravity(field, p) === TUNING.gravity) { exited = true; break }
+  }
+  assert.ok(exited && p.vy < -200, 'leaving the field retains upward momentum')
   assert.equal(p.grounded, false)
   assert.equal(p.inverted, inverted, 'floating retains orientation without a ceiling/floor contact')
 })
@@ -374,10 +385,10 @@ for (const dt of [STEP, 1 / 30]) test(`a player can dive, return to the surface,
   assert.ok(p.y < 400, 'a surface jump clears the water')
 })
 
-for (const effect of [undefined, 'water']) for (const kind of ['box', 'ball']) {
-  test(`landing momentum, rider weight and unloading affect a floating ${kind} in ${effect ?? 'grav'}`, () => {
+for (const kind of ['box', 'ball']) {
+  test(`landing momentum, rider weight and unloading affect a floating ${kind} in water`, () => {
     const land = speed => {
-      const run = fixture([{ kind, x: 500, y: 500, size: 80 }], effect)
+      const run = fixture([{ kind, x: 500, y: 500, size: 80 }], 'water')
       step(run, 8)
       run.player = createPlayer({ x: 500, y: 350 }); run.player.grounded = false; run.player.coyote = 0; run.player.vy = speed
       let impact = 0, dip = 0
@@ -396,7 +407,7 @@ for (const effect of [undefined, 'water']) for (const kind of ['box', 'ball']) {
     assert.equal(fast.run.player.contacts.support?.collider.prop, fast.run.props[0])
     fast.run.player = createPlayer({ x: 100, y: 920 })
     step(fast.run, 8)
-    assert.ok(Math.abs(fast.run.props[0].y - 440) < (effect === 'water' ? 2.4 : .02), 'unloading restores the unladen equilibrium with its small water bob')
+    assert.ok(Math.abs(fast.run.props[0].y - 440) < 2.4, 'unloading restores the unladen equilibrium with its small water bob')
   })
 }
 
@@ -599,8 +610,8 @@ test('water resistance scales with submerged area and composition, persists duri
   assert.ok(Math.abs(run.props[0].vx - 110) < .001, 'leaving water restores ordinary prop travel')
 })
 
-for (const dt of [STEP, 1 / 30]) for (const effect of [undefined, 'water']) test(`a drifting and bobbing floating box carries a centered rider without invented torque or foot chatter, effect=${effect ?? 'grav'}, dt=${dt}`, () => {
-  const run = fixture([{ kind: 'box', x: 600, y: 450, size: 100 }], effect)
+for (const dt of [STEP, 1 / 30]) test(`a drifting and bobbing floating box in water carries a centered rider without invented torque or foot chatter, dt=${dt}`, () => {
+  const run = fixture([{ kind: 'box', x: 600, y: 450, size: 100 }], 'water')
   run.player = createPlayer({ x: 600, y: 340 }); run.player.grounded = false; run.player.coyote = 0
   step(run, 4, dt)
   const p = run.player, b = run.props[0], shoulder = athletePose(p).shoulder

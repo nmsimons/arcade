@@ -84,14 +84,20 @@ for (const kind of ['ball', 'box']) for (const dt of [STEP, 1 / 30]) for (const 
   })
 
 for (const kind of ['ball', 'box']) for (const dt of [STEP, 1 / 30])
-  test(`a gravity plate lifts a normal ${kind} higher and a heavy one deeper, dt=${dt}`, () => {
+  test(`a gravity plate launches a normal ${kind} faster than a heavy one, dt=${dt}`, () => {
     const run = createRun({ ...blankTrial(), props: weights.map((weight, i) => ({ kind, weight, x: 450 + i * 250, y: 750, size: 80 })), gravityPlates: [pool()] })
-    advance(run, 12, dt)
-    for (const b of run.props) {
-      assert.equal(b.grounded, false); assert.ok(Math.abs(propGravity(run.gravityField, b)) < .05)
-      assert.ok(Math.abs(b.vy) < .1)
+    const exits = new Map()
+    for (let frame = 0; frame < Math.round(4 / dt) && exits.size < weights.length; frame++) {
+      stepRun(run, NEUTRAL_INPUT, dt)
+      for (const b of run.props) if (!exits.has(b.weight) && b.y < 400) {
+        assert.equal(b.grounded, false)
+        assert.ok(b.vy < -200, 'the object carries upward momentum out of the field')
+        exits.set(b.weight, { frame, speed: -b.vy })
+      }
     }
-    assert.ok(run.props[0].y < run.props[1].y - 8)
+    assert.equal(exits.size, weights.length)
+    assert.ok(exits.get('normal').frame < exits.get('heavy').frame)
+    assert.ok(exits.get('normal').speed > exits.get('heavy').speed + 100)
   })
 
 for (const kind of ['ball', 'box']) test(`${kind} presets change solver mass and yield differently in a collision`, () => {

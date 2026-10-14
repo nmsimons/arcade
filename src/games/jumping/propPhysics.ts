@@ -1,5 +1,6 @@
 import Matter from 'matter-js'
 import { CollisionQueries } from './collisionQueries.ts'
+import { registerRoundBody, registerRoundProbe, roundQuery } from './roundCollision.ts'
 import { constrainFloatSwitch, floatSwitchConstraint } from './floatSwitchPhysics.ts'
 import type { Prop, Run } from './challenge.ts'
 import type { Platform } from './model.ts'
@@ -37,9 +38,11 @@ function controlledHull(points: readonly Vec[]) {
 function contactProbe(body: Matter.Body, padding = .001): Matter.Body {
   const center = body.position
   const scale = 1 + padding / Math.max(1, Math.min(body.bounds.max.x - body.bounds.min.x, body.bounds.max.y - body.bounds.min.y) / 2)
-  return { ...body,
+  const probe = { ...body,
     bounds: { min: { x: body.bounds.min.x - padding, y: body.bounds.min.y - padding }, max: { x: body.bounds.max.x + padding, y: body.bounds.max.y + padding } },
     vertices: body.vertices.map(v => ({ ...v, x: center.x + (v.x - center.x) * scale, y: center.y + (v.y - center.y) * scale })) }
+  registerRoundProbe(body, probe)
+  return probe
 }
 
 function terrainBodies(s: Platform, run: Run) {
@@ -62,6 +65,7 @@ function makeProp(b: Prop) {
       vertices: ballHull(b.size, (b.waterImmersion ?? 0) > 0).map(([x, y]) => ({ x, y })) })
   Body.setInertia(body, b.kind === 'box' ? body.mass * b.size ** 2 / 6 : Infinity)
   if (b.kind === 'box') Body.setAngle(body, b.angle)
+  else registerRoundBody(body)
   return body
 }
 
@@ -104,7 +108,7 @@ function worldFor(run: Run) {
     const queue = [...world.driven], reached = new Set(world.driven), props = [...bodies.values()]
     for (let i = 0; i < queue.length; i++) {
       const body = queue[i], probe = contactProbe(body)
-      for (const hit of Query.collides(probe, props.filter(b => !reached.has(b)))) {
+      for (const hit of roundQuery(probe, props.filter(b => !reached.has(b)))) {
         const other = hit.parentA === body ? hit.parentB : hit.parentA
         reached.add(other); queue.push(other)
         if (other.isSleeping) Sleeping.set(other, false)
@@ -420,7 +424,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   // inactive cached pairs, so check the current hulls with a small tolerance.
   const liveContacts = contacts.filter(c => !c.bodyA.isSleeping && !c.bodyB.isSleeping)
   for (const body of world.bodies.values()) if (body.isSleeping) {
-    liveContacts.push(...Query.collides(contactProbe(body, .01), candidates.get(body)!).map(hit => ({ ...hit, bodyA: hit.parentA, bodyB: hit.parentB })))
+    liveContacts.push(...roundQuery(contactProbe(body, .01), candidates.get(body)!).map(hit => ({ ...hit, bodyA: hit.parentA, bodyB: hit.parentB })))
   }
   const supported = new Set<Matter.Body>()
   for (let pass = 0; pass <= run.props.length; pass++) {

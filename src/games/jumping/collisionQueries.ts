@@ -1,4 +1,5 @@
 import Matter from 'matter-js'
+import { roundCollision } from './roundCollision.ts'
 
 interface Geometry {
   revision: number
@@ -62,7 +63,7 @@ export class CollisionQueries {
       else {
         // Match Query.collides' argument order. SAT ties can depend on it, so
         // reversed queries have separate entries even for the same two hulls.
-        hit = Matter.Collision.collides(other, body)
+        hit = roundCollision(other, body)
         pairs.set(other, { body: revision, other: otherRevision, hit })
       }
       if (hit) hits.push(hit)

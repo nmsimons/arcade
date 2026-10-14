@@ -1,5 +1,59 @@
 # LAB performance notes
 
+## October 13, 2026: Pinball round contacts
+
+The new local `pinball` asset packs nine small balls and a heavy box into an
+80-unit gravity shaft. Its slow opening is primarily simulation work: a Node
+profile attributed about 75% of self samples to Matter collision detection,
+mostly the repeated correction queries and sleeping-support probes. The
+64-sided dry ball hulls require many vertex projections per separating axis.
+
+`roundCollision.ts` now locates projection extrema directly for the existing
+regular ball polygons. It evaluates their actual world vertices, retains axis
+order and ties, and lets Matter create the original normal and support records
+on the winning axes. Boxes and terrain retain full projection scans. The same
+shortcut serves padded wake/support probes; the per-step collision cache still
+requires exactly equal geometry. Hulls, iterations, sleep rules, controls,
+lighting and the authored level are unchanged.
+
+The [hardware Edge report](performance/2026-10-13-pinball-round-contacts.json)
+contains three fresh alternating pairs per sequence, 30 warmup plus 300 measured
+frames for the opening probes. The ascent advances 300 fresh-start frames before
+measuring frames 300–599 (simulation seconds 5–10). It activates the adjacent
+floor button, enters the shaft with ordinary run/held-jump controls and rises
+into the ceiling ball cluster. Snapdragon X Elite / Adreno X1-85, 1280×800 / DPR 1,
+GPU lighting at full quality, two 120 Hz ticks per RAF. Medians of episode statistics:
+
+| Opening sequence | Simulation CPU p95 before → after | Frame interval p95 | FPS |
+| --- | ---: | ---: | ---: |
+| Push into crowded objects | 45.5 → 18.3 ms | 50.0 → 17.5 ms | 47.6 → 58.6 |
+| Stand on gravity plate | 21.0 → 8.4 ms | 25.0 → 17.1 ms | 58.3 → 60.0 |
+| Gravity-lift ascent | 47.2 → 16.0 ms | 50.1 → 17.0 ms | 34.4 → 59.6 |
+
+Every paired per-frame player/prop/switch/field trajectory hash is identical.
+The opening/ascent median counts of frames over 33.83 ms fall from 31/67 to zero
+out of 300. These are performance probes, not completed routes. They exclude the
+real game's catch-up policy, React, audio and persistence; they establish reduced
+contact cost and stutters, not sustained 60 FPS throughout the level.
+
+A separate production-game keyboard check averaged 53.6 FPS with 33.5 ms p95
+and 66.5 ms p99 intervals, with no browser errors. It used real wall-clock input
+durations, so its trajectory differs from the fixed-step ascent and it did not
+reach the top. Catch-up and crowded contacts still produce live frame spikes;
+the matched benchmark's near-60 FPS result is not a whole-game guarantee.
+
+Reproduce with
+`node scripts/benchmark-jumping-round-contacts.mjs "public/levels/jumping/Untitled level 2.jump-level.json" .local/round-contacts-results.json`.
+The asset remains the user's local working file; supply its new path if renamed.
+The runner compares the shortcut against Matter's original queries in the same
+source graph, verifies hardware graphics and exact trajectories, and saves raw
+timings. Stop other builds/tests and pause interactive previews while measuring.
+
+Focused contact, gravity, sleeping, water and existing medal-route checks pass.
+The independent medal-catalog coverage check currently fails because the two
+new Untitled files have no recording or pending audit. Their routes and medal
+times remain unverified. The production build and targeted TypeScript lint pass.
+
 ## October 13 cleanup decision
 
 The active app remains in JavaScript. Keep the exact prop collision cache,

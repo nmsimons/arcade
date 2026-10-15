@@ -4,10 +4,34 @@ import { GameCamera, gameCamera, LEVEL_BOTTOM_PADDING } from '../src/games/jumpi
 import { blankTrial, levelHeight } from '../src/games/jumping/level.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { createPlayer, NEUTRAL_INPUT, STEP, TUNING } from '../src/games/jumping/model.ts'
+import { finishGravityTurn } from '../src/games/jumping/ropeGravity.ts'
 
 const sizes = [{ width: 320, height: 740 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1280, height: 800 }]
 const room = (height = 600, width = 4000) => ({ ...blankTrial(), width, height, floor: height, entrance: { x: 1500, y: height }, goal: { x: width - 200, y: height } })
 const screen = (c, point) => [(point[0] - c.x) * c.zoom, (point[1] - c.y) * c.zoom]
+
+test('gravity turns keep the occupied body centered without a camera jump when inversion completes', () => {
+  for (const size of sizes) for (const challenge of [false, true]) for (const inverted of [false, true]) {
+    const level = room(2000), p = createPlayer({ x: 1500, y: 900 }), camera = new GameCamera()
+    p.inverted = inverted
+    const orientation = inverted ? -1 : 1, radius = TUNING.height / 2, views = []
+    for (let i = 0; i <= 54; i++) {
+      const angle = Math.PI * i / 54
+      p.releaseTurn = { angle, target: Math.PI }
+      p.x = 1500 - Math.sin(angle) * radius * orientation
+      p.y = 900 + Math.cos(angle) * radius * orientation
+      const snapshot = structuredClone(p)
+      views.push(camera.view(size.width, size.height, p, level, challenge, STEP))
+      assert.deepEqual(p, snapshot, 'view sampling does not change the turn')
+    }
+    finishGravityTurn(p)
+    views.push(camera.view(size.width, size.height, p, level, challenge, STEP))
+    for (const view of views) {
+      assert.ok(Math.abs(view.x - views[0].x) < 1e-7)
+      assert.ok(Math.abs(view.y - views[0].y) < 1e-7, 'completing the half-turn cannot shift the camera by 62 units')
+    }
+  }
+})
 
 test('phone challenge framing gives a readable figure and balances unused short-room space', () => {
   const level = room(), p = createPlayer(level.entrance)

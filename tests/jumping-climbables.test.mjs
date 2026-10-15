@@ -186,7 +186,7 @@ test('rope rest hangs from overhead grips and swinging turns smoothly into a pro
     let pose = athletePose(p)
     for (const arm of [pose.frontArm, pose.backArm]) {
       assert.ok(arm.hand[1] < pose.head[1] - 8, 'both hands rest above the head')
-      assert.ok(distance(arm.root, arm.end) > 18.5, 'the resting arms bear weight almost straight')
+      assert.ok(distance(arm.root, arm.end) > 18 && distance(arm.root, arm.end) < 18.6, 'the loaded elbows retain a little flex')
     }
     let previous
     for (const input of [{ move: -1 }, { move: 1 }, { climb: true }]) {

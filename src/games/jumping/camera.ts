@@ -2,6 +2,7 @@ import { TUNING } from './model.ts'
 import type { Player } from './model.ts'
 import { levelHeight } from './level.ts'
 import type { JumpLevel } from './level.ts'
+import { playerTurnAngle } from './ropeGravity.ts'
 export const LEVEL_BOTTOM_PADDING = 32
 
 function verticalCamera(height: number, zoom: number, center: number, roomHeight: number) {
@@ -15,10 +16,13 @@ function verticalCamera(height: number, zoom: number, center: number, roomHeight
 /** Shared by the original and lit renderers so lighting never changes framing. */
 export function gameCamera(width: number, height: number, p: Player, level: JumpLevel, challenge: boolean, lookAhead = 0) {
   const y = p.y + ((p.waterCamera?.y ?? p.y) - p.y) * (p.waterCamera?.amount ?? 0)
-  const center = y - TUNING.height / 2 * (p.inverted ? -1 : 1)
+  const angle = playerTurnAngle(p), radius = TUNING.height / 2 * (p.inverted ? -1 : 1)
+  // Follow occupied body space through a turn. The foot-root changes meaning
+  // at inversion; treating it as upright until then makes the view jump a body height.
+  const centerX = p.x + Math.sin(angle) * radius, center = y - Math.cos(angle) * radius
   if (!challenge) {
     const zoom = Math.max(.45, Math.min(1.6, height / 760))
-    return { zoom, x: p.x - width / zoom / 2,
+    return { zoom, x: centerX - width / zoom / 2,
       y: verticalCamera(height, zoom, center, levelHeight(level)) }
   }
   // At .42 the entire standing figure is only 26 CSS pixels high. A .6 floor
@@ -28,7 +32,7 @@ export function gameCamera(width: number, height: number, p: Player, level: Jump
   const half = width / zoom / 2
   const leadLimit = Math.max(0, half - 72)
   const ahead = Math.max(-leadLimit, Math.min(leadLimit, lookAhead))
-  const cameraX = level.width < half * 2 - 80 ? level.width / 2 : Math.max(half - 40, Math.min(level.width - half + 40, p.x + ahead))
+  const cameraX = level.width < half * 2 - 80 ? level.width / 2 : Math.max(half - 40, Math.min(level.width - half + 40, centerX + ahead))
   return { zoom, x: cameraX - half, y: verticalCamera(height, zoom, center, levelHeight(level)) }
 }
 

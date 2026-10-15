@@ -5,6 +5,8 @@ import type { GaitPose, Platform, Player } from './model.ts'
 import type { Footwork } from './footwork.ts'
 import { lineBlocked, moveBody, movePoint, nearestBoundary, pointInside, segmentPenetration, ropeBend, polygonIntersects } from './geometry.ts'
 import { initRopeSleep, ropeCanSleep, settleRopeSleep } from './ropeSleep.ts'
+import { ropeHangOffset, ropePump } from './ropeBodyMotion.ts'
+import type { RopeBodyMotion } from './ropeBodyMotion.ts'
 
 export type Point = [number, number]
 export const ROPE_CLEARANCE = 1.5
@@ -34,6 +36,7 @@ export interface Climbing {
   screenAxis?: number
   screenDirection?: number
   turn?: { angle: number; target: number; grip: number }
+  bodyMotion?: RopeBodyMotion
   caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number; freeFall?: Player['freeFall']; dryTurn?: Player['dryTurn'] }
 }
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v))
@@ -107,9 +110,9 @@ export function climbGait(distance: number, handLimit = Infinity, footLimit = In
 /** Keep the player/camera under the loaded grip, rather than following the rope's loose tail. */
 export function climbRoot(climb: Climbing, facing: number): Point {
   if (climb.turn) {
-    // The neutral hanging rig: arm reach, torso, then the free legs/root.
-    const grip = ropePoint(climb.rope!, climb.turn.grip), radius = Math.sqrt(18.8 ** 2 - 3.9 ** 2) - .7 + 16.6 + 32
-    return [grip[0] - Math.sin(climb.turn.angle) * radius, grip[1] + Math.cos(climb.turn.angle) * radius]
+    const grip = ropePoint(climb.rope!, climb.turn.grip), angle = climb.turn.angle
+    const [x, y] = ropeHangOffset(climb, facing)
+    return [grip[0] + x * Math.cos(angle) - y * Math.sin(angle), grip[1] + x * Math.sin(angle) + y * Math.cos(angle)]
   }
   const root = freeClimbRoot(climb, facing), weight = rappelWeight(climb)
   if (!weight) return root
@@ -147,10 +150,9 @@ function freeClimbRoot(climb: Climbing, facing: number): Point {
   if (!climb.rope || !hanging) return root
   const grip = gait.grip
   const hands = gait.hands.map(hand => climbPoint(climb, hand.distance + (grip - hand.distance) * hanging))
-  const spread = 3.9 * (1 - ease(Math.abs(climb.lean) / .65)), out = climb.lean * 7
-  const pump = ropePump(climb)
-  const x = (hands[0][0] + hands[1][0]) / 2 + out + pump.hip[0]
-  const y = (hands[0][1] + hands[1][1]) / 2 + Math.sqrt(18.8 ** 2 - (Math.abs(out) + spread) ** 2) - .7 + pump.hip[1] + 32
+  const offset = ropeHangOffset(climb, facing)
+  const x = (hands[0][0] + hands[1][0]) / 2 + offset[0]
+  const y = (hands[0][1] + hands[1][1]) / 2 + offset[1]
   return [root[0] + (x - root[0]) * hanging, root[1] + (y - root[1]) * hanging]
 }
 
@@ -249,18 +251,7 @@ export function updateRopeWall(climb: Climbing, terrain: readonly Platform[], mo
   }
 }
 
-/** Gather before the swing accelerates in the requested direction, then unfold with its momentum. */
-export function ropePump(climb: Climbing) {
-  const direction = Math.sign(climb.lean), turn = ease(Math.abs(climb.lean) / .65)
-  const gather = Math.abs(climb.lean) * (1 - clamp(climb.lean * climb.swingVelocity, 0, 1))
-  const chestAngle = climb.lean * .18 + direction * gather * .28
-  const hipAngle = climb.lean * .62 + direction * gather * .6
-  const waist: Point = [Math.sin(chestAngle) * 10.1, Math.cos(chestAngle) * 10.1]
-  const hip: Point = [waist[0] + Math.sin(hipAngle) * 6.5, waist[1] + Math.cos(hipAngle) * 6.5]
-  const frontFoot: Point = [climb.lean * (16 + gather * 8), 29 - turn * 5 - gather * 16]
-  const backFoot: Point = [climb.lean * (9 + gather * 8), 28.5 - gather * 14]
-  return { waist, hip, frontFoot, backFoot }
-}
+export { ropePump } from './ropeBodyMotion.ts'
 
 /** The material point carrying the body, independent of the animated body root. */
 export function ropeGripDistance(climb: Climbing) {

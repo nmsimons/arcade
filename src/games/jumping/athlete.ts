@@ -5,7 +5,8 @@ import { advanceFootwork, FOOT_CONTACT, footPoint, sampleStride, soleContact, to
 import { groundAt } from './terrain.ts'
 import { bodyPolygon, lineBlocked, moveBody, nearestBoundary, pointInside, platformOutline } from './geometry.ts'
 import { BACK_GRIP, BACK_WRIST, climbFrame, FRONT_GRIP, FRONT_WRIST, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
-import { climbBody, climbGait, climbNormal, climbPoint, climbRoot, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
+import { climbBody, climbGait, climbNormal, climbPoint, ropePoint, ropePump, rappelFrame, rappelWeight } from './climbables.ts'
+import { ropeArmReach, ropeHangOffset } from './ropeBodyMotion.ts'
 import { keepRopeGrip } from './ropeGravity.ts'
 import { stepFootOffsets } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
@@ -651,13 +652,14 @@ function ledgePose(p: Player): AthletePose {
   }
   return { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg }
 }
-function climbingPose(p: Player): AthletePose {
+function climbingPose(p: Player, turnAngle = 0): AthletePose {
   const c = p.climbing!, d = c.distance, blend = smooth(c.time / .16)
   if (c.turn) {
-    const base = { ...c, turn: undefined, time: .16, hangBlend: 1, wall: undefined, wallBlend: 0, lean: 0, swing: 0 }
+    const base = { ...c, turn: undefined, time: .16, hangBlend: 1, wall: undefined, wallBlend: 0 }
     keepRopeGrip(base, c.turn.grip)
-    const root = climbRoot(base, p.facing), pivot = ropePoint(c.rope!, c.turn.grip)
-    const pose = climbingPose({ ...p, x: root[0], y: root[1], climbing: base })
+    const pivot = ropePoint(c.rope!, c.turn.grip), offset = ropeHangOffset(base, p.facing, c.turn.angle)
+    const root: Point = [pivot[0] + offset[0], pivot[1] + offset[1]]
+    const pose = climbingPose({ ...p, x: root[0], y: root[1], climbing: base }, c.turn.angle)
     return rotatePose(pose, c.turn.angle, p.facing, [(pivot[0] - root[0]) * p.facing, pivot[1] - root[1]],
       [(root[0] - p.x) * p.facing, root[1] - p.y])
   }
@@ -700,18 +702,21 @@ function climbingPose(p: Player): AthletePose {
   if (hanging) {
     const mid = mix(hands[0].point, hands[1].point, .5)
     const out = -lean * 12, spread = 3.9 * blend * (1 - sideView)
-    const chest = add(mid, [out, Math.sqrt(18.8 ** 2 - (Math.abs(out) + spread) ** 2) - .7])
+    const reach = ropeArmReach(c)
+    const chest = add(mid, [out, Math.sqrt(reach ** 2 - (Math.abs(out) + spread) ** 2) - .7])
     // Reach up and forward to the fixed grip, with the head behind the hands.
     // The pelvis and legs still lead the pump; this offset only changes the silhouette.
     for (let pass = 0; pass < 12; pass++) for (const [i, hand] of hands.entries()) {
       const offset = (i ? 1 : -1) * spread
       const dx = chest[0] + offset - hand.point[0], dy = chest[1] + .7 - hand.point[1], length = Math.hypot(dx, dy)
-      if (length > 18.8) { chest[0] = hand.point[0] + dx * 18.8 / length - offset; chest[1] = hand.point[1] + dy * 18.8 / length - .7 }
+      if (length > reach) { chest[0] = hand.point[0] + dx * reach / length - offset; chest[1] = hand.point[1] + dy * reach / length - .7 }
     }
-    const pump = ropePump(c), offset = (point: Point): Point => [point[0] * p.facing, point[1]]
+    const pump = ropePump(c, turnAngle, p.facing), offset = (point: Point): Point => [point[0] * p.facing, point[1]]
     const pelvis = add(chest, offset(pump.hip))
     hip = mix(hip, pelvis, hanging); waist = mix(waist, add(chest, offset(pump.waist)), hanging)
-    shoulder = mix(shoulder, chest, hanging); head = mix(head, add(chest, [lean, -7.3]), hanging)
+    shoulder = mix(shoulder, chest, hanging)
+    const neck = lean - (c.bodyMotion?.angle ?? 0) * p.facing * .75 + pump.curl * p.facing
+    head = mix(head, add(chest, [neck, -Math.sqrt(7.3 ** 2 - neck ** 2)]), hanging)
     feet[0].point = mix(feet[0].point, add(pelvis, offset(pump.frontFoot)), hanging)
     feet[1].point = mix(feet[1].point, add(pelvis, offset(pump.backFoot)), hanging)
   }
@@ -741,7 +746,7 @@ function climbingPose(p: Player): AthletePose {
   })
   const legs = feet.map((foot, i) => {
     const side = i ? 1 : -1
-    const spread = lerp(-side * (foot.supported ? .2 : .1), -facing, sideView)
+    const spread = lerp(-side * lerp(foot.supported ? .2 : .1, .5, hanging), -facing, sideView)
     const solved = solveRear(add(hip, [side * 2.7 * blend * (1 - sideView), 1]), foot.point, 15, 14.5, 1,
       spread)
     const wallAngle = -Math.PI / 2 + (wallFrame?.steps[i].lift ?? 0) * .4
@@ -763,6 +768,13 @@ function rotatePose(pose: AthletePose, angle: number, facing: number, pivot: Poi
   return { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head),
     frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg),
     ...(pose.headTilt !== undefined ? { headTilt: pose.headTilt + angle * facing } : {}) }
+}
+
+/** Carry the gathered rig off a turning rope before releasing into free flight. */
+export function captureRopeTurnRelease(p: Player): NonNullable<Player['releaseTurn']> {
+  const turn = p.climbing!.turn!
+  return { angle: turn.angle, target: turn.target, time: 0, facing: p.facing,
+    pose: rotatePose(athletePose(p), -turn.angle, p.facing) }
 }
 
 /** A reaching foot meets the wall immediately while the torso eases into its brace. */
@@ -2064,7 +2076,12 @@ function resolveAthletePose(p: Player): AthletePose {
     try { return athletePose(p) }
     finally { mirrorPlayerState(p); p.inverted = true }
   }
-  if (p.releaseTurn) return rotatePose(athletePose({ ...p, releaseTurn: undefined }), p.releaseTurn.angle, p.facing)
+  if (p.releaseTurn) {
+    const turn = p.releaseTurn, target = athletePose({ ...p, releaseTurn: undefined })
+    const source = turn.pose && (turn.facing === p.facing ? turn.pose : reflectAthletePose(turn.pose))
+    const pose = source ? transferPose(source, target, [0, 0], smooth((turn.time ?? 0) / .18)) : target
+    return rotatePose(pose, turn.angle, p.facing)
+  }
   if (p.mantle?.step) return prepareReturningStepPose(p)
   if (p.hang || p.mantle) return ledgePose(p)
   if (p.climbing) return climbingPose(p)
@@ -2329,11 +2346,13 @@ function resolveAthletePose(p: Player): AthletePose {
     resolved.frontLeg = clearRiserLeg(p, resolved.frontLeg); resolved.backLeg = clearRiserLeg(p, resolved.backLeg)
   }
   if (p.sliding) {
-    // The slide owns the final arms, so the free-flight clearance above cannot
-    // protect a palm after its balance target changes. Soles retain their real
-    // contacts while an uphill knee bends through depth around a steep face.
-    resolved.frontArm = clearLimb(p, clearSlidingArm(p, resolved.frontArm), UPPER_ARM, FOREARM, 1, true)
-    resolved.backArm = clearLimb(p, clearSlidingArm(p, resolved.backArm), UPPER_ARM, FOREARM, 1, true)
+    // Protect the final balance arms without moving a loaded wall palm away
+    // from its own face. Knees still clear the actual sliding surface.
+    for (const [i, name] of (['frontArm', 'backArm'] as const).entries()) {
+      const bracing = wallBraceSharesSlide(p) && p.wallBrace!.hands[i] > 0
+      resolved[name] = clearLimb(p, bracing ? resolved[name] : clearSlidingArm(p, resolved[name]), UPPER_ARM, FOREARM, 1, true,
+        bracing, bracing && p.wallBrace!.hands[i] === 1)
+    }
     resolved.frontLeg = clearSlidingJoint(p, resolved.frontLeg, 15, 14.5, 2.2)
     resolved.backLeg = clearSlidingJoint(p, resolved.backLeg, 15, 14.5, 2.2)
   }
@@ -2466,9 +2485,23 @@ function clearSlidingJoint<T extends Limb>(p: Player, limb: T, upper: number, lo
     jointDepth: Math.sqrt((limb.jointDepth ?? 0) ** 2 + offset ** 2 * (1 - amount ** 2)) }
 }
 
+function wallBraceSharesSlide(p: Player) {
+  const s = p.sliding!, brace = p.wallBrace
+  // A canted wall can also report a downhill slip. Its loaded palms keep
+  // their wall targets as gravity changes sign. A separate slope in a narrow
+  // gap still owns its ordinary balance arms.
+  return !!brace?.normal && brace.normal[0] * Math.sin(s.angle) - brace.normal[1] * Math.cos(s.angle) > .999
+    && Math.abs((s.x - brace.wallX) * brace.normal[0] + (s.y - (brace.wallY ?? p.y)) * brace.normal[1]) < .2
+}
+
 /** Keep weight over staggered feet, with restrained slow slips and fast counterbalance. */
 function slidingPose(p: Player, free: AthletePose): AthletePose {
-  const s = p.sliding!, weight = smooth(s.amount)
+  const s = p.sliding!, brace = wallBraceSharesSlide(p) ? p.wallBrace : null
+  // A weak field can reverse a tiny slip on every bob. Retain the relaxed
+  // wall brace instead of straightening the body over a nearly vertical sole
+  // contact. Ordinary gravity keeps the full downhill balance and landing rig.
+  const floating = smooth((1 - Math.abs(p.gravity ?? TUNING.gravity) / TUNING.gravity) / .4)
+  const weight = smooth(s.amount) * (1 - (brace ? smooth(brace.amount ?? Math.max(...brace.hands, ...brace.feet)) * floating : 0))
   if (!weight) return free
   const landing = anticipateSlideLanding(p), supported = p.grounded && !s.active
   const poseAngle = supported ? p.groundAngle : landing?.angle ?? s.angle
@@ -2504,9 +2537,45 @@ function slidingPose(p: Player, free: AthletePose): AthletePose {
   const armRoot = add(shoulder, [0, .7])
   const frontArm = armPose(armRoot, .08 + speed * .16 + effort * .32 + correction * .015, .2 + speed * .55 + effort * .9)
   const backArm = armPose(armRoot, -.12 - speed * .18 - effort * .18 + correction * .02, .14 + speed * .1 + effort * .72)
-  const arm = (original: Limb, relaxed: Limb) => solve(armRoot, mix(original.end, relaxed.end, weight), UPPER_ARM, FOREARM, 1)
+  const arm = (original: Limb, relaxed: Limb, index: number) => {
+    const target = mix(original.end, relaxed.end, weight)
+    if (!wallBraceSharesSlide(p)) return solve(armRoot, target, UPPER_ARM, FOREARM, 1)
+    // A faint slip retains the outgoing elbow's depth and bend plane, including
+    // a hand that is still reaching for its first contact.
+    const balanced = solveNear({ ...original, root: armRoot,
+      joint: add(armRoot, [original.joint[0] - original.root[0], original.joint[1] - original.root[1]]),
+      endDepth: (original.endDepth ?? 0) * (1 - weight) }, target, UPPER_ARM, FOREARM)
+    if (original.hand) balanced.hand = add(balanced.end, [original.hand[0] - original.end[0], original.hand[1] - original.end[1]])
+    // Keep palms on their face while the sliding torso changes height. A hand
+    // can travel along the wall to stay within reach of the moving shoulder.
+    const y = lerp(original.end[1], armRoot[1] - 12 - index * 2, weight)
+    return wallBraceArm(p, shoulder, balanced, p.wallBrace!.hands[index], y)
+  }
   return { hip, waist, shoulder, head, frontLeg: leg(free.frontLeg, front), backLeg: leg(free.backLeg, back),
-    frontArm: arm(free.frontArm, frontArm), backArm: arm(free.backArm, backArm) }
+    frontArm: arm(free.frontArm, frontArm, 0), backArm: arm(free.backArm, backArm, 1) }
+}
+
+function wallBraceArm(p: Player, shoulder: Point, limb: Limb, weight: number, y: number): Limb {
+  const brace = p.wallBrace!, slope = brace.normal ? -brace.normal[1] / brace.normal[0] * p.facing : 0
+  const wall = (brace.wallX - p.x) * p.facing + slope * (p.y + y - (brace.wallY ?? p.y))
+  const contact = smooth(weight), normal: Point = [-1 / Math.hypot(1, slope), slope / Math.hypot(1, slope)]
+  const root = add(shoulder, [0, .7]), wrist = add([wall, y], [normal[0] * 2.8, normal[1] * 2.8])
+  // A cleared airborne elbow can cross the angular branch cut while the
+  // torso leans in. Carry its bend around the wrist through depth, rather
+  // than reversing the forearm's interpolated rotation halfway to the wall.
+  // Prefer the air side with room in depth when the shoulder nears the wrist.
+  const target = solveNear({ root, end: wrist, joint: add(root, [normal[0] * 6, 8 + normal[1] * 6]),
+    jointDepth: 6, endDepth: 0 }, wrist, UPPER_ARM, FOREARM)
+  const end = mix(add(root, [limb.end[0] - limb.root[0], limb.end[1] - limb.root[1]]), target.end, contact)
+  const endDepth = (limb.endDepth ?? 0) * (1 - contact) + Math.sin(Math.PI * contact) * 3
+  const vector = [end[0] - root[0], end[1] - root[1], endDepth], length = Math.hypot(...vector)
+  const axis = length > .001 ? vector.map(v => v / length) : [0, 1, 0]
+  const bend = reachingBend(limb, target, contact, axis, 3)
+  const solved = solveNear({ root, joint: add(root, [bend[0] * UPPER_ARM, bend[1] * UPPER_ARM]),
+    end, jointDepth: bend[2] * UPPER_ARM, endDepth }, end, UPPER_ARM, FOREARM)
+  const palm = handGeometry(limb)
+  return { ...solved, hand: add(solved.end, mix([palm.palm[0] - limb.end[0], palm.palm[1] - limb.end[1]], [-normal[0] * 1.2, -normal[1] * 1.2], contact)),
+    handAngle: mixAngle(palm.angle, Math.PI / 2 - Math.atan(slope), contact) }
 }
 
 /** Keep the ordinary pushing silhouette, with the legs reaching diagonally to the wall. */
@@ -2531,12 +2600,6 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
   }
   const hip = mix(free.hip, add(pushing.hip, offset), amount), waist = mix(free.waist, towardWall(pushing.waist), amount)
   const shoulder = mix(free.shoulder, towardWall(pushing.shoulder), amount), head = mix(free.head, towardWall(pushing.head), amount)
-  const arm = (limb: Limb, weight: number, y: number) => {
-    const contact = smooth(weight)
-    const braced = grippingArm(add(shoulder, [0, .7]), [wallAt(y) - 2.8, y], [wallAt(y) - 1.6, y], limb, contact)
-    braced.handAngle = lerp(braced.handAngle ?? 0, -wallAngle, contact)
-    return braced
-  }
   const leg = (limb: Leg, weight: number, y: number): Leg => {
     const contact = smooth(weight)
     const target = mix(limb.end, [wallAt(y) - 2.8, y], contact)
@@ -2556,7 +2619,7 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
     return result
   }
   return { hip, waist, shoulder, head,
-    frontArm: arm(free.frontArm, brace.hands[0], -43), backArm: arm(free.backArm, brace.hands[1], -46),
+    frontArm: wallBraceArm(p, shoulder, free.frontArm, brace.hands[0], -43), backArm: wallBraceArm(p, shoulder, free.backArm, brace.hands[1], -46),
     frontLeg: leg(free.frontLeg, brace.feet[0], -13), backLeg: leg(free.backLeg, brace.feet[1], -17) }
 }
 

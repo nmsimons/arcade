@@ -488,6 +488,18 @@ the limbs snapping back and forth. A separate wall brace keeps its own contact
 and release blend when a slope contact starts, and both poses compose through
 their existing weights.
 
+When the brace and slip describe the same canted face, the loaded palms keep
+their wall targets. Gravity-field bobbing can start and stop the downhill slip
+without pulling the palms off that wall; hands can travel along the face to stay
+within reach of the moving shoulders. The arm reach carries its elbow bend
+through depth so the forearm cannot flip halfway through the brace. This changes
+presentation only; collision, sliding friction, and fresh wall jumps keep their
+ordinary rules. `tests/jumping-canted-float.test.mjs` covers repeated bobs on
+either side and in either gravity orientation at 120/30 Hz.
+In weak gravity, the same-face slip also retains the relaxed wall-brace body
+instead of planting the feet beneath a straightened torso against the wall.
+This blends back to downhill balance as the gravity strength increases.
+
 The last supported rig transfers into a new slide over 120 ms, including a
 one-tick slip that temporarily loses contact. A contact-selected facing change
 retains the outgoing rig while mechanical steering and fresh jumps remain
@@ -922,18 +934,44 @@ anchor. Nearly horizontal spans retain their last material direction. A player's
 load uses the gravity averaged across their body, scaled to the rope's existing
 baseline, independently of the field at their hands. The anchor stays fixed.
 
+Free rope hangs retain softly bent elbows, relaxed knees and staggered feet.
+Two damped body followers respond to acceleration at the retained material grip:
+the pelvis lags changes in travel and the legs settle later. Constant velocity
+does not sustain a lean. Weak gravity and reduced apparent load soften the arms
+and knees; the pose settles without a repeating idle animation. These followers
+advance only in simulation, preserve bone lengths and never supply rope forces
+or extra release momentum. The collision root follows the same articulated pelvis.
+
 When gravity reverses during a rope hold, the body hangs from the retained hand
-grip and turns over 0.45 seconds. The actual rotated hull is checked along the
-arc; a blocked turn waits for clearance while climbing or release remains
-available. A five-percent gravity deadband retains the current orientation near
-zero. Releasing during a turn continues around the body center in free flight.
+grip and turns over 0.45 seconds. The spine curls as the knees gather, the feet
+trail the turn, and the limbs unfold into the new hang. The actual rotated hull
+is checked along the arc; a blocked turn waits for clearance while climbing or
+release remains available. Real gravity-facing contact with a grippable ceiling
+can release a blocked rope turn when the full standing body fits there. Loose
+props and walls do not supply that automatic transfer. A five-percent gravity
+deadband retains the current orientation near zero. Releasing during a turn
+continues around the body center in free flight. The ordinary contact solver
+separates the changing hull from nearby solids in small bounded steps, allowing
+the body to finish turning and settle onto ceiling footing. Insufficient room
+still blocks the turn; rotating cannot eject the body from a narrow passage.
+The gathered rig blends into free flight over 0.18 seconds on a turning release,
+including an automatic transfer, without changing physical velocity.
+The camera follows the rotated hull's center throughout the hold and release,
+so completing inversion does not switch its target by a full body height.
 Turning motion and changes in the catch pose never add release momentum.
 Jump pushes against current gravity, carrying real rope motion; letting go or
 climbing off the free end preserves momentum without a forced downward kick.
 Ceiling and ceiling-slope transfers use the existing reflected contact, support
 and clear-path checks. Regression coverage lives in
 `tests/jumping-rope-gravity.test.mjs` and
-`tests/browser/jumpingRopeGravity.spec.mjs`. The rope CPU benchmark includes
+`tests/browser/jumpingRopeGravity.spec.mjs`. Passive follow-through, relaxed
+poses, articulated turns, interrupted reversals, render purity and release
+momentum are covered at 120/30 Hz in `tests/jumping-rope-body-motion.test.mjs`;
+`tests/browser/jumpingRopeBodyMotion.dev.spec.mjs` checks fresh keyboard controls
+and captures enlarged poses for visual review. Ceiling landings after manual
+release and automatic contact transfers, mirrored approaches, 120/30 Hz,
+standing clearance and the ordinary-gravity landing reference are covered in
+`tests/jumping-rope-ceiling-landing.test.mjs`. The rope CPU benchmark includes
 matched upright and reverse-gravity player loads:
 `node scripts/benchmark-jumping-ropes.mjs`.
 

@@ -197,5 +197,7 @@ for (const kind of ['box', 'ball']) test(`a gravity turn collides with a loose $
     const hull = bodyPolygon(p.x, p.y, 62, p.inverted ? -1 : 1, playerTurnAngle(p))
     assert.ok(!polygonIntersects(hull, kind === 'ball' ? ballShape(prop) : boxShape(prop), .05), `actual body stays outside ${kind} at ${i}`)
   }
-  assert.ok(turned); assert.equal(run.player.climbing?.kind, 'rope')
+  assert.ok(turned)
+  assert.ok(run.player.climbing?.kind === 'rope' || run.player.inverted && run.player.grounded && run.player.contacts?.support,
+    'retain the rope or transfer onto the actual ceiling after clearing the prop')
 })

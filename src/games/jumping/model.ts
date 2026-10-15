@@ -18,7 +18,7 @@ import type { StepUp } from './stepUp.ts'
 import type { PushHands } from './propGeometry.ts'
 import type { TerrainMaterial } from './terrainMaterials.ts'
 import { TUNING } from './movementTuning.ts'
-import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, captureDryTurn, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, swimmingLedgeReach } from './athlete.ts'
+import { advanceReturningStepPreparation, advanceDryTurn, advanceMovingRecovery, advanceSlideEntry, advanceWaterCeiling, advanceWaterLanding, captureDryTurn, captureRopeTurnRelease, captureSlideEntry, dryTurnDirection, dryLedgeReach, dryLedgeReachPose, settleFallClearance, settleWaterClearance, swimmingLedgeReach } from './athlete.ts'
 import type { DryTurnFrame, SlideEntryFrame } from './athlete.ts'
 import type { AthletePose } from './athlete.ts'
 import { advanceWaterBob, advanceWaterCamera, waterBobAcceleration } from './waterBob.ts'
@@ -26,7 +26,8 @@ import type { WaterBob, WaterCamera } from './waterBob.ts'
 import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform, mirrorLadder } from './gravityFrame.ts'
 import { isWeightless, playerFieldCoverage, playerFloatDrag, playerGravity, playerOrientationGravity, playerSwimStrength, playerSwimDepth, playerWaterCenterOffset, setPlayerGravity, swimmingAcceleration, swimmingDirection, underwaterSwimming } from './gravity.ts'
 import type { GravityField } from './gravity.ts'
-import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn } from './ropeGravity.ts'
+import { finishGravityTurn, keepRopeGrip, playerTurnAngle, ropeTurnHasSupport, ropeScreenDirection, ropeWantsTurn, stepReleasedTurn, stepRopeTurn } from './ropeGravity.ts'
+import { stepRopeBodyMotion } from './ropeBodyMotion.ts'
 export { TUNING } from './movementTuning.ts'
 
 /** Runtime prop hulls allow free swimming limbs to pass through depth. */
@@ -86,7 +87,7 @@ export interface Player {
   terrain?: readonly Platform[]
   gravity?: number
   inverted?: boolean
-  releaseTurn?: { angle: number; target: number }
+  releaseTurn?: { angle: number; target: number; pose?: AthletePose; facing?: number; time?: number }
 }
 export function createPlayer(spawn = { x: 0, y: 0 }): Player {
   return { x: spawn.x, y: spawn.y, vx: 0, vy: 0, facing: 1, grounded: true, groundAngle: 0, sliding: null,
@@ -945,7 +946,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     c.rappelMotion = approach(c.rappelMotion ?? 0, Number(!!c.wall && vertical !== 0), dt / .16)
     if (c.wall) { p.facing = c.wall.side; c.swing = 0 }
     c.swing += ((c.rope && !c.wall ? input.move : 0) - c.swing) * (1 - Math.exp(-dt / .2))
-    c.lean += ((c.rope && !c.wall && !c.direction ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
+    c.lean += ((c.rope && !c.wall && !c.direction && !turning ? input.move : 0) - c.lean) * (1 - Math.exp(-dt / (c.direction ? .14 : .24)))
     // As the feet run out of rope, keep the body hanging below its hands instead
     // of extrapolating the last tiny segment into a long, whipping body support.
     const endHang = c.rope ? ease((c.distance - c.rope.definition.length + 80) / 48) : 0
@@ -962,11 +963,12 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       // Catch blends, hand-over-hand poses and weight-shift poses do not add
       // physical momentum. Sample the same loaded material point at both times.
       ropeVelocity = velocity
+      stepRopeBodyMotion(c, velocity[0], velocity[1], orientationGravity, dt)
     }
     p.crouch = 0; p.crouching = false; p.reach = 0; p.landing = 0; p.buffer = 0
     if (jumping || input.detach) {
       if (ropeVelocity && (previousClimb.time < .16 || turning)) [p.vx, p.vy] = ropeVelocity
-      if (c.turn) p.releaseTurn = { angle: c.turn.angle, target: c.turn.target }
+      if (c.turn) p.releaseTurn = captureRopeTurnRelease(p)
       p.climbing = null; p.grabCooldown = .35; p.grounded = false
       const launchMove = c.rope && wall ? -wall.side : input.move
       if (jumping && !input.detach) {
@@ -986,9 +988,11 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const climbSpeed = (c.rope ? vertical : materialVertical) > 0 ? 85 : 105
     c.distance = Math.max(c.ladder ? 18 : 12, Math.min(bottom, c.distance - materialVertical * climbSpeed * dt))
     if (c.turn) c.turn.grip = Math.max(18, Math.min(c.rope!.definition.length, c.turn.grip + c.distance - oldDistance))
+    let turnBlocked = false
     if (c.rope && turning && c.hangBlend === 1 && !(c.wallBlend ?? 0) && c.time >= .16) {
-      c.swing = 0; c.lean = 0
+      const angle = c.turn?.angle ?? 0
       stepRopeTurn(c, orientationGravity, p.facing, platforms, dt)
+      turnBlocked = !!c.turn && c.turn.angle === angle && Math.abs(c.turn.target - angle) > 1e-6
     }
     if (c.rope && c.time >= .16 && Math.abs(input.move) < .1) settleRopeGrip(c, p.facing, platforms, dt)
     const target = climbRoot(c, p.facing), blend = ease(c.time / .16)
@@ -1045,9 +1049,13 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
       p.vx = ropeVelocity[0] + (after[0] - before[0]) / dt
       p.vy = ropeVelocity[1] + (after[1] - before[1]) / dt
     }
+    if (p.climbing === c && turnBlocked && ropeTurnHasSupport(p, orientationGravity, platforms)) {
+      p.releaseTurn = captureRopeTurnRelease(p)
+      p.climbing = null; p.grabCooldown = .35; p.grounded = false
+    }
     if (c.rope && p.climbing && c.distance === bottom && materialVertical < 0 && c.time >= .16) {
       // Descending off the last handhold is a natural exit, not a jump.
-      if (c.turn) p.releaseTurn = { angle: c.turn.angle, target: c.turn.target }
+      if (c.turn) p.releaseTurn = captureRopeTurnRelease(p)
       p.climbing = null; p.grabCooldown = .35
     }
     return

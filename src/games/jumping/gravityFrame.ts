@@ -124,6 +124,9 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     if (value.rope) rope(value.rope)
     if (value.screenAxis) value.screenAxis = -value.screenAxis
     if (value.turn) { value.turn.angle = -value.turn.angle; value.turn.target = -value.turn.target }
+    if (value.bodyMotion && !seen.has(value.bodyMotion)) {
+      seen.add(value.bodyMotion); value.bodyMotion.gripVy = -value.bodyMotion.gripVy
+    }
   }
   p.y = -p.y; p.vy = -p.vy; p.spawnY = -p.spawnY; p.jumpStart = -p.jumpStart; p.groundAngle = -p.groundAngle
   if (p.gravity !== undefined) p.gravity = -p.gravity

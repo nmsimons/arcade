@@ -1,4 +1,4 @@
-import { traceAthlete } from './athlete.ts'
+import { traceAthleteArtwork } from './athlete.ts'
 import type { AthleteOutline } from './athlete.ts'
 import type { Player, Platform } from './model.ts'
 import type { Vec } from './geometry.ts'
@@ -51,6 +51,6 @@ export function athleteCasters(player: Player): Platform[] {
     },
     closePath: close,
   }
-  traceAthlete(path, player); close()
+  traceAthleteArtwork(path, player); close()
   return shapes
 }

@@ -14,6 +14,8 @@ import { canGrip } from './friction.ts'
 import { propPushHands } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
+import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
+import type { AndroidMaterials } from './androidArtwork.ts'
 
 type Point = [number, number]
 type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
@@ -301,12 +303,13 @@ function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1
     path.closePath()
   }
 }
-function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string) {
+function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string, materials: AndroidMaterials) {
   const path = joined([segmentPath(limb.root, limb.joint, 2.2, 1.65, 2.2), roundPath(limb.joint, 1.7),
     segmentPath(limb.joint, limb.end, 1.7, 1.25, 1.8), roundPath(limb.end, 1.3)])
-  fillShape(ctx, path, color)
-  if (limb.rear) fillShape(ctx, roundPath(add(limb.end, [0, 1]), 2.1 * limb.rear, 1.8), color)
-  if ((limb.rear ?? 0) < 1) fillShape(ctx, footPath(limb.end, limb.footAngle, limb.footFacing, limb.toeAngle, 1 - (limb.rear ?? 0)), color)
+  fillShape(ctx, path, materials.joint)
+  drawAndroidLeg(ctx, limb, color)
+  if (limb.rear) fillShape(ctx, roundPath(add(limb.end, [0, 1]), 2.1 * limb.rear, 1.8), materials.grip)
+  if ((limb.rear ?? 0) < 1) fillShape(ctx, footPath(limb.end, limb.footAngle, limb.footFacing, limb.toeAngle, 1 - (limb.rear ?? 0)), materials.grip)
 }
 function handGeometry(limb: Limb) {
   const forearmAngle = Math.atan2(limb.end[1] - limb.joint[1], limb.end[0] - limb.joint[0])
@@ -320,11 +323,13 @@ export function handOutline(limb: Limb): Point[] {
   const { palm, angle } = handGeometry(limb), cos = Math.cos(angle), sin = Math.sin(angle)
   return handBoundary.map(([x, y]) => [palm[0] + x * cos - y * sin, palm[1] + x * sin + y * cos])
 }
-function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string) {
+function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials) {
   const { palm, angle } = handGeometry(limb)
   const path = joined([roundPath(limb.root, 1.65), segmentPath(limb.root, limb.joint, 1.6, 1.35, 1.6), roundPath(limb.joint, 1.4),
     segmentPath(limb.joint, limb.end, 1.4, 1.05, 1.45), roundPath(palm, 2.1, 1.6, angle)])
-  fillShape(ctx, path, color)
+  fillShape(ctx, path, materials.joint)
+  drawAndroidArm(ctx, limb, color)
+  fillShape(ctx, roundPath(palm, 2.1, 1.6, angle), materials.grip)
 }
 function drawTorso(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string) {
   ctx.beginPath(); traceTorso(ctx, hip, waist, shoulder); ctx.fillStyle = color; ctx.fill()
@@ -343,10 +348,6 @@ function traceTorso(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Poi
   ctx.bezierCurveTo(...at(hip, 4.8, -1.5), ...at(waist, 4.6, 2), ...at(waist, 3.2, -1))
   ctx.quadraticCurveTo(...at(shoulder, 2.5, 4), ...at(shoulder, 1.4, -.7))
   ctx.closePath()
-}
-function drawHead(ctx: CanvasRenderingContext2D, head: Point, color: string) {
-  ctx.beginPath(); ctx.ellipse(head[0], head[1], HEAD_RADIUS, HEAD_RADIUS, 0, 0, TAU)
-  ctx.fillStyle = color; ctx.fill()
 }
 function neckPoints(shoulder: Point, head: Point, tilt = 0): [Point, Point] {
   const sin = Math.sin(tilt), cos = Math.cos(tilt)
@@ -375,9 +376,9 @@ function traceBack(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Poin
   ctx.quadraticCurveTo(...at(shoulder, 0, -2), ...at(shoulder, -width)); ctx.closePath()
 }
 
-/** Trace the same skin and current pose for lighting, without altering the rig or artwork. */
-export function traceAthlete(path: AthleteOutline, p: Player) {
-  const pose = athletePose(p), { hip, waist, shoulder, head, backView = 0 } = pose
+/** Trace the original contact skin independently of the cosmetic shell. */
+function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, includeHead: boolean) {
+  const { hip, waist, shoulder, head, backView = 0 } = pose
   const round = (center: Point, rx: number, ry = rx, angle = 0) => {
     path.ellipse(...center, rx, ry, angle, 0, TAU, true); path.closePath()
   }
@@ -397,7 +398,18 @@ export function traceAthlete(path: AthleteOutline, p: Player) {
   else traceTorso(path, hip, waist, shoulder)
   const [neck, nape] = neckPoints(shoulder, head, pose.headTilt)
   traceSegment(path, neck, nape, 1.15, 1.15, 1.15)
-  round(head, HEAD_RADIUS)
+  if (includeHead) round(head, HEAD_RADIUS)
+}
+
+export function traceAthlete(path: AthleteOutline, p: Player, pose = athletePose(p)) {
+  traceAthleteSkin(path, p, pose, true)
+}
+
+/** The shell casts light shadows without becoming part of the contact rig. */
+export function traceAthleteArtwork(path: AthleteOutline, p: Player) {
+  const pose = athletePose(p)
+  traceAthleteSkin(path, p, pose, false)
+  traceAndroidShell(path, pose, !!p.climbing || (pose.backView ?? 0) > 0)
 }
 
 /** The wrist reaches the corner; the palm rests on top instead of pointing through it. */
@@ -2630,21 +2642,23 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
 }
 
 export const NIGHT_PLAYER_COLOR = '#e5e7e6'
-/** Original daytime silhouette; night rendering supplies its own lit material. */
+/** The android shell follows the original solved joints and contact rig. */
 export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e') {
-  const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = athletePose(p)
+  const pose = athletePose(p), { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, p.inverted ? -1 : 1)
+  const materials = androidMaterials(body), shell = materials.shell
   const backPose = !!p.climbing || backView > 0
-  drawLeg(ctx, backLeg, body)
-  drawArm(ctx, backArm, body)
-  if (backPose) drawArm(ctx, frontArm, body)
+  drawLeg(ctx, backLeg, materials.rear, materials)
+  drawArm(ctx, backArm, materials.rear, materials)
+  if (backPose) drawArm(ctx, frontArm, shell, materials)
 
-  if (backPose) drawBack(ctx, hip, waist, shoulder, body, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
-  else drawTorso(ctx, hip, waist, shoulder, body)
-  drawLeg(ctx, frontLeg, body)
+  if (backPose) drawBack(ctx, hip, waist, shoulder, materials.joint, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
+  else drawTorso(ctx, hip, waist, shoulder, materials.joint)
+  drawAndroidTorso(ctx, pose, backPose, materials)
+  drawLeg(ctx, frontLeg, shell, materials)
   const [neck, nape] = neckPoints(shoulder, head, headTilt)
-  fillShape(ctx, segmentPath(neck, nape, 1.15, 1.15, 1.15), body)
-  drawHead(ctx, head, body)
-  if (!backPose) drawArm(ctx, frontArm, body)
+  fillShape(ctx, segmentPath(neck, nape, 1.15, 1.15, 1.15), materials.joint)
+  drawAndroidHead(ctx, head, headTilt ?? 0, materials)
+  if (!backPose) drawArm(ctx, frontArm, shell, materials)
   ctx.restore()
 }

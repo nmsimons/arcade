@@ -51,7 +51,10 @@ export const goalEase = (value: number) => { const t = Math.max(0, Math.min(1, v
 export function drawDoorway(ctx: CanvasRenderingContext2D, door: ReturnType<typeof goalDoor>, opening: number, editor = false) {
   const width = door.w * goalEase(opening)
   if (width > 0) {
-    ctx.fillStyle = '#000000'; ctx.fillRect(door.x + (door.w - width) / 2, door.y, width, door.h)
+    const x = door.x + (door.w - width) / 2
+    ctx.fillStyle = '#46544835'; ctx.fillRect(x - 3, door.y - 3, width + 6, door.h + 3)
+    ctx.fillStyle = '#ffffff65'; ctx.fillRect(x + width, door.y, 1, door.h)
+    ctx.fillStyle = '#000000'; ctx.fillRect(x, door.y, width, door.h)
   } else if (editor) {
     ctx.save(); ctx.strokeStyle = '#8a938b'; ctx.lineWidth = 1; ctx.setLineDash([4, 4])
     ctx.strokeRect(door.x, door.y, door.w, door.h); ctx.restore()

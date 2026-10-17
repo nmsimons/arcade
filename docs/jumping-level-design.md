@@ -52,6 +52,13 @@ should still suggest how someone normally uses it: a maintenance route, freight
 access, a stairwell, a crossing, or a way to return home. Do not add decorative
 supports or clutter solely to justify every platform.
 
+Place recognizable background hardware deliberately. Grates, vents, cables, and
+service panels should have chosen positions and a purpose in the room; do not
+scatter them procedurally as wall texture. Shared surface treatments such as
+panel joints, subtle edge relief, and contact shading can establish material
+depth without adding implied machinery. Keep decorative hardware clear of hints
+and distinguish it from usable ropes, ladders, and powered mechanisms.
+
 When a level promises a building, group its running surfaces into usable rooms
 and connected rooflines. Let door openings, service passages and ladder hatches
 explain how the storeys connect. A few substantial halls and open loading yards

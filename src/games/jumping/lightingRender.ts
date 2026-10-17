@@ -19,10 +19,12 @@ import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from 
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { ambientExposure, angularFalloff, betweenLightAndView, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
+import { drawBeamDust } from './surfaceDepth.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
 export type LightingShadows = 'full' | 'structural'
 const BUFFER_BUDGET = 64 * 1024 * 1024
+const TERRAIN_RELIEF_MARGIN = 16 // Attachment shading reaches fourteen world units.
 export const lightingPixelRatio = (width: number, height: number, dpr = 1, reduced = false) =>
   Math.min(dpr, reduced ? 1 : 2, Math.sqrt((reduced ? 1_000_000 : 2_000_000) / Math.max(1, width * height)))
 const gray = (value: number) => { const c = Math.round(value * 255); return `rgb(${c},${c},${c})` }
@@ -543,10 +545,10 @@ export class LightingRenderer {
           const tile = 128, rows = Math.ceil(height / tile), columns = Math.ceil(width / tile)
           const covered = Array.from({ length: rows }, () => Array<boolean>(columns).fill(false))
           for (const shape of run.terrain) {
-            const left = Math.max(0, Math.floor(((shape.x - view.x) * view.zoom - 2) / tile))
-            const top = Math.max(0, Math.floor(((shape.y - view.y) * view.zoom - 2) / tile))
-            const right = Math.min(columns - 1, Math.floor(((shape.x + shape.w - view.x) * view.zoom + 2) / tile))
-            const bottom = Math.min(rows - 1, Math.floor(((shape.y + shape.h - view.y) * view.zoom + 2) / tile))
+            const left = Math.max(0, Math.floor(((shape.x - view.x - TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
+            const top = Math.max(0, Math.floor(((shape.y - view.y - TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
+            const right = Math.min(columns - 1, Math.floor(((shape.x + shape.w - view.x + TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
+            const bottom = Math.min(rows - 1, Math.floor(((shape.y + shape.h - view.y + TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
             for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) covered[y][x] = true
           }
           const regions: { x: number; y: number; w: number; h: number }[] = []
@@ -621,6 +623,15 @@ export class LightingRenderer {
       ctx.save(); ctx.globalCompositeOperation = 'lighter'
       ctx.globalAlpha *= beamStrength / (1 - ambient)
       ctx.drawImage(correction.canvas, 0, 0); ctx.restore()
+      if (!editor) {
+        clear(emission, width, height)
+        transform(emission.ctx, view)
+        drawBeamDust(emission.ctx, bounds, 'activeTime' in run ? run.activeTime : 0)
+        emission.ctx.resetTransform(); emission.ctx.globalCompositeOperation = 'source-in'
+        emission.ctx.drawImage(correction.canvas, 0, 0)
+        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .6 / (1 - ambient)
+        ctx.drawImage(emission.canvas, 0, 0); ctx.restore()
+      }
     }
     // Keep the stronger short source glow behind physical objects and fixtures.
     if (nightMode && !emptyNight) {

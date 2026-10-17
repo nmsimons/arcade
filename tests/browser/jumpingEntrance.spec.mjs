@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { useLevelFixtures, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
@@ -8,19 +9,19 @@ test('the silhouette emerges through a closing entrance; idle play, pause and re
     entrance: { x: 100, y: 500 }, goal: { x: 850, y: 500, id: 'exit', power: 'switched' },
     mechanisms: [{ id: 'lift', kind: 'lift', x: 400, y: 480, w: 120, h: 20, travel: 100, power: 'always' }] }
   await useLevelFixtures(page, [level])
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
     window.entranceFrames = []
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
       if (this.canvas instanceof HTMLCanvasElement && this.canvas.matches('canvas[tabindex]') && this.fillStyle === '#000000' && args[3] === 80)
         window.entranceFrames.push({ kind: 'door', width: args[2] })
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (this.canvas instanceof HTMLCanvasElement && this.canvas.matches('canvas[tabindex]') && args[2] === 6.2 && args[3] === 6.2)
-        window.entranceFrames.push({ kind: 'head', x: this.getTransform().e, alpha: this.globalAlpha })
-      return ellipse.apply(this, args)
-    }
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, alpha } }) => {
+      if (canvas instanceof HTMLCanvasElement && canvas.matches('canvas[tabindex]'))
+        window.entranceFrames.push({ kind: 'head', x: body.e, alpha: alpha })
+    })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab')

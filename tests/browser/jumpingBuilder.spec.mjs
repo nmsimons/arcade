@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/folderTest.mjs'
 import { selectBuilderOption, selectBuilderObject, restartFromPause, useLevelFixtures, installTestFolder, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
@@ -11,8 +12,9 @@ async function open(page, level) {
   if (level) await useLevelFixtures(page, [level])
   await installTestFolder(page, level ? { 'fixture.json': level } : {})
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, text = proto.fillText, arc = proto.arc, begin = proto.beginPath, move = proto.moveTo, fill = proto.fill
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, arc = proto.arc, begin = proto.beginPath, move = proto.moveTo, fill = proto.fill
     proto.beginPath = function (...args) { this.jumpPath = []; return begin.apply(this, args) }
     proto.moveTo = function (x, y) { this.jumpPath?.push([x, y]); return move.call(this, x, y) }
     proto.fill = function (...args) {
@@ -32,13 +34,12 @@ async function open(page, level) {
       if (this.fillStyle === '#c65231') this.canvas.builderHandles?.push({ x: args[0], y: args[1] })
       return arc.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.jumpCamera) {
-        const body = this.getTransform(), camera = this.canvas.jumpCamera
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
+      if (canvas.jumpCamera) {
+        const camera = canvas.jumpCamera
         window.jumpPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
       }
-      return ellipse.apply(this, args)
-    }
+    })
     proto.fillText = function (value, x, y, ...rest) {
       this.canvas.builderLabels?.push(String(value))
       if (['#718074', '#94433f'].includes(this.fillStyle)) {

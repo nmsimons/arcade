@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './athleteHead.mjs'
 import { blankTrial } from '../../../src/games/jumping/level.ts'
 
 export function smallPropGap(reverse = false) {
@@ -11,20 +12,20 @@ export function smallPropGap(reverse = false) {
 }
 
 export async function observeGapHead(page) {
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.gapCamera = this.getTransform().inverse()
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.gapCamera) {
-        const transform = this.canvas.gapCamera.multiply(this.getTransform())
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, head: args } }) => {
+      if (canvas.gapCamera) {
+        const transform = canvas.gapCamera.multiply(body)
         const head = transform.transformPoint(new DOMPoint(args[0], args[1]))
-        this.canvas.gapFrames ??= []
-        this.canvas.gapFrames.push({ time: performance.now(), headX: head.x, headY: head.y, x: transform.e, y: transform.f })
+        canvas.gapFrames ??= []
+        canvas.gapFrames.push({ time: performance.now(), headX: head.x, headY: head.y, x: transform.e, y: transform.f })
       }
-      return ellipse.apply(this, args)
-    }
+    })
   })
 }

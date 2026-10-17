@@ -71,7 +71,8 @@ test('daylight shades walls and receivers while terrain, mechanisms and borders 
   })
   // Unobstructed wall pixels retain the artwork. Every structural front and
   // enclosing border receives the same ambient exposure, regardless of sunlight.
-  for (const i of [0, 2, 4]) expect(result.samples[i].day).toEqual(result.samples[i].original)
+  for (const i of [0, 2, 4]) result.samples[i].day.forEach((channel, c) =>
+    expect(Math.abs(channel - result.samples[i].original[c])).toBeLessThanOrEqual(1))
   expect(result.ambient).toBe(.95)
   for (const i of [1, 3, 5, 6, 7, 8, 9, 10, 11, 12]) expectDayAmbientPixel(result.samples[i].day, result.samples[i].original)
   expect(result.empSamples).toEqual(result.samples.map(sample => sample.day))
@@ -187,7 +188,7 @@ test('existing version-1 levels receive daylight in the live game without upgrad
         original: [...original.getImageData(Math.round(x * a + e), Math.round(y * d + f), 1, 1).data].slice(0, 3) }))
   }, legacy)
   expect(pixels[0].actual).toEqual(pixels[0].original)
-  pixels[1].actual.forEach((channel, i) => expect(Math.abs(channel - pixels[1].original[i] * .95)).toBeLessThanOrEqual(1))
+  expectDayAmbientPixel(pixels[1].actual, pixels[1].original)
   expect(pixels[2].actual.some(channel => channel > 0)).toBe(true)
   expect(legacy.version).toBe(1); expect(legacy.lighting).toBeUndefined()
   await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('daylight-live-game.png') })

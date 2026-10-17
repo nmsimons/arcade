@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { hold } from './helpers/controller.mjs'
@@ -13,8 +14,9 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
   await useLevelFixtures(page, levels)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installDigitalClockSpy(page)
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, arc = proto.arc
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, arc = proto.arc
     proto.arc = function (...args) {
       if (args[2] === 11 && ['#a9d56b', '#9aa38e'].includes(this.fillStyle)) {
         const t = this.getTransform()
@@ -27,15 +29,14 @@ async function setup(page, lesson = 0, levels = CAMPAIGN) {
       if (this.fillStyle === '#000000' && args[3] === 80) window.goalDoor = { x: args[0], y: args[1], w: args[2], h: args[3] }
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
       // Lighting replays the same head into cropped offscreen canvases. Only
       // the canvas that painted this camera owns a world-position observation.
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.levelCamera) {
-        const body = this.getTransform(), camera = this.canvas.levelCamera
+      if (canvas.levelCamera) {
+        const camera = canvas.levelCamera
         window.levelPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
       }
-      return ellipse.apply(this, args)
-    }
+    })
   })
   await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()

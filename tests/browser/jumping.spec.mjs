@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { flattenFixtureEntrance } from '../helpers/jumping-entrance-bank.mjs'
 import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { DEFAULT_LEVEL } from '../helpers/jumping-fixtures.mjs'
@@ -8,29 +9,29 @@ import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 async function setup(page, controller = false, level = DEFAULT_LEVEL) {
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installAthleteHeadObserver(page)
   await page.addInitScript(({ controller }) => {
     if (controller) {
       window.testPad = { index: 0, id: 'Jump test controller', connected: true, mapping: 'standard', axes: [0, 0, 0, 0], buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })) }
       Object.defineProperty(navigator, 'getGamepads', { value: () => [window.testPad] })
     }
     // Measure the rendered athlete against the rendered terrain; no simulation backdoor.
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') window.jumpCamera = this.getTransform()
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && window.jumpCamera) {
-        const body = this.getTransform(), camera = window.jumpCamera
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, head: args } }) => {
+      if (window.jumpCamera) {
+        const camera = window.jumpCamera
         window.jumpPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
         window.jumpHead = { x: (body.e + body.a * args[0] + body.c * args[1] - camera.e) / camera.a,
           y: (body.f + body.b * args[0] + body.d * args[1] - camera.f) / camera.d }
         const now = performance.now()
         window.jumpMotion = [...(window.jumpMotion ?? []).filter(point => now - point.time < 200), { x: window.jumpPlayer.x, time: now }]
-        window.jumpScreen = { x: body.e / this.canvas.width, y: (body.f - Math.abs(body.d) * 31) / this.canvas.height }
+        window.jumpScreen = { x: body.e / canvas.width, y: (body.f - Math.abs(body.d) * 31) / canvas.height }
       }
-      return ellipse.apply(this, args)
-    }
+    })
   }, { controller })
   await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()

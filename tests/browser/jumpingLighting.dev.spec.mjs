@@ -1,9 +1,9 @@
 import { ambientExposure } from '../../src/games/jumping/ambientLight.ts'
 
-// Canvas multiply/add emission correction can round one 8-bit channel differently
+// Canvas multiply/add emission correction can round two 8-bit levels differently
 // across Skia backends. Keep geometry and same-renderer cache checks exact.
-function expectColor(actual, expected) {
-  actual.forEach((value, i) => expect(Math.abs(value - expected[i])).toBeLessThanOrEqual(1))
+function expectColor(actual, expected, message) {
+  actual.forEach((value, i) => expect(Math.abs(value - expected[i]), message).toBeLessThanOrEqual(2))
 }
 import { test, expect } from './helpers/test.mjs'
 
@@ -127,7 +127,7 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the readable night pl
       : { head: [184, 192, 181], torso: [181, 189, 178] }
     for (const part of ['head', 'torso']) {
       const expected = colors[part].map(channel => Math.round(channel * (!result.nightMode || lit ? 1 : .65)))
-      result[part].forEach((channel, i) => expect(Math.abs(channel - expected[i]), JSON.stringify(result)).toBeLessThanOrEqual(1))
+      expectColor(result[part], expected, JSON.stringify(result))
     }
     expect(result.backend).toBe(backend)
   }

@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
@@ -6,20 +7,20 @@ import { advanceJumpingSimulation as advance } from './helpers/simulation.mjs'
 test.use({ viewport: { width: 852, height: 393 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true })
 async function open(page, level = blankTrial()) {
   await useLevelFixtures(page, [level])
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.touchCamera = this.getTransform()
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.touchCamera) {
-        const body = this.getTransform(), camera = this.canvas.touchCamera
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
+      if (canvas.touchCamera) {
+        const camera = canvas.touchCamera
         window.touchPlayer = { x: (body.e - camera.e) / camera.a, y: (body.f - camera.f) / camera.d }
         window.touchMinY = Math.min(window.touchMinY ?? Infinity, window.touchPlayer.y)
       }
-      return ellipse.apply(this, args)
-    }
+    })
   })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab')

@@ -4,6 +4,7 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { expectAccessibleSelection } from './helpers/jumpingAccessibility.mjs'
+import { androidMaterials } from '../../src/games/jumping/androidArtwork.ts'
 
 const levels = () => ['First room', 'Second room', 'Third room'].map((name, i) => ({ ...blankTrial(), id: `menu-${i}`, name }))
 async function open(page, local = false, maps = levels()) {
@@ -331,7 +332,8 @@ test('all object types appear in menu, library and overview previews through the
     expect(has('fill', (_, c) => c === '#a9ef82')).toBe(true)
     expect(has('fillRect', (a, c) => a[0] === 66 && a[1] === 12 && a[2] === 3 && a[3] === 3 && c === '#a9ef82')).toBe(true)
     expect(has('fill', (_, c) => c === '#ba8542')).toBe(true)
-    expect(has('ellipse', a => a[2] === 6.2)).toBe(true)
+    const faces = ['#686b6e', '#e5e7e6'].map(ink => androidMaterials(ink).face)
+    expect(has('fill', (_, c) => faces.includes(c))).toBe(true)
     expect(has('fillRect', (a, c) => a[2] === 40 && a[3] === 80 && c === '#000000')).toBe(true)
   }
   await check(page.locator('.jumping-level-card .level-thumbnail'))

@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { finishJumpingEntrance, restartFromPause, useLevelFixtures } from './helpers/jumpingLevels.mjs'
@@ -8,20 +9,20 @@ test('a rear rider stays unseen and can stand, crouch and jump from the bot body
     robots: [{ x: 600, y: 600, left: 100, right: 1000 }] }
   await useLevelFixtures(page, [level])
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse, arc = proto.arc
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, arc = proto.arc
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.riderCamera = this.getTransform()
       if (args[2] === 5 && args[3] === 5 && ['#94433f', '#a5b3a7'].includes(this.fillStyle)) this.canvas.botEye = this.fillStyle
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.riderCamera) {
-        const t = this.canvas.riderCamera.inverse().multiply(this.getTransform())
-        this.canvas.rider = { x: t.e, y: t.f }
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
+      if (canvas.riderCamera) {
+        const t = canvas.riderCamera.inverse().multiply(body)
+        canvas.rider = { x: t.e, y: t.f }
       }
-      return ellipse.apply(this, args)
-    }
+    })
     proto.arc = function (...args) {
       if (args[2] === 9 && this.fillStyle === '#68736e' && this.canvas.riderCamera) {
         const t = this.canvas.riderCamera.inverse().multiply(this.getTransform())

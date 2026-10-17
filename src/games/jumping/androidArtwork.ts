@@ -89,8 +89,9 @@ export function drawAndroidTorso(ctx: CanvasRenderingContext2D, pose: AthletePos
   ctx.restore()
 }
 export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt: number, materials: AndroidMaterials) {
-  const outer = shape(path => headShell(path, head, tilt))
-  const at = headPoint(head, tilt)
+  ctx.save(); ctx.translate(...head); ctx.rotate(tilt)
+  const outer = shape(path => headShell(path, [0, 0], 0))
+  const at = headPoint([0, 0], 0)
   const face = new Path2D(); headFront(face, at)
   face.bezierCurveTo(...at(-1.3, 3.5), ...at(-1.8, -3.8), ...at(-.5, -5.8)); face.closePath()
   // Adjacent color regions share one opacity rather than stacking during
@@ -98,6 +99,7 @@ export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt
   const shell = new Path2D(outer); shell.addPath(face)
   ctx.fillStyle = materials.cranial; ctx.fill(shell, 'evenodd')
   ctx.fillStyle = materials.face; ctx.fill(face)
+  ctx.restore()
 }
 
 /** Lighting uses the shell silhouette. Physical clearance retains the

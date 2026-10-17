@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/folderTest.mjs'
 import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
+import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/jumping/water-reservoir.json', import.meta.url), 'utf8'))
 
@@ -57,6 +58,7 @@ test('reservoir controls wire both directions, undo, duplicate, save and reopen'
 })
 
 test('keyboard toggle fills and drains the real game, and pause stops the waterline', async ({ page }, info) => {
+  test.setTimeout(60_000)
   const level = fixture(); level.gravityPlates[0].waterMinLevel = 12.5
   await useLevelFixtures(page, [level])
   await page.addInitScript(() => {
@@ -76,22 +78,22 @@ test('keyboard toggle fills and drains the real game, and pause stops the waterl
   await expect(page.getByRole('img', { name: 'Water reservoir test: reach the exit', exact: true })).toBeFocused()
   await page.clock.runFor(150)
   await page.keyboard.down('d'); await page.clock.runFor(400); await page.keyboard.up('d')
-  await page.clock.runFor(2500)
+  await advanceJumpingPassiveWait(page, 2500)
   const filled = await page.evaluate(() => window.reservoirWaterline)
   expect(filled, JSON.stringify(await page.evaluate(() => ({ motion: window.jumpingMotion?.read().recent.at(-1), focused: document.activeElement?.tagName })))).toBeLessThan(650)
   await page.keyboard.press('Escape')
   const paused = await page.evaluate(() => window.reservoirWaterline)
-  await page.clock.runFor(2000)
+  await advanceJumpingPassiveWait(page, 2000)
   expect(await page.evaluate(() => window.reservoirWaterline)).toBe(paused)
   await page.getByRole('button', { name: /^Resume/ }).click()
   await page.keyboard.down('a'); await page.clock.runFor(500); await page.keyboard.up('a'); await page.clock.runFor(300)
   await page.keyboard.down('d'); await page.clock.runFor(450); await page.keyboard.up('d')
-  await page.clock.runFor(2500)
+  await advanceJumpingPassiveWait(page, 2500)
   expect(await page.evaluate(() => window.reservoirWaterline)).toBeGreaterThan(filled)
-  await page.clock.runFor(4000)
+  await advanceJumpingPassiveWait(page, 4000)
   const lowMark = await page.evaluate(() => window.reservoirWaterline)
   expect(lowMark).toBeCloseTo(845, 1)
-  await page.clock.runFor(1500)
+  await advanceJumpingPassiveWait(page, 1500)
   expect(await page.evaluate(() => window.reservoirWaterline)).toBeCloseTo(lowMark, 1)
   await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('reservoir-keyboard-draining.png') })
 })

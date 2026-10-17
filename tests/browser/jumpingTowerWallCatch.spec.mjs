@@ -4,7 +4,8 @@ import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels
 import { towerWallCatchLevel } from '../helpers/jumpingTowerWallCatch.mjs'
 
 test('Tower II wall return catches the upper lip and pulls up with normal keys', async ({ page }, info) => {
-  test.setTimeout(60_000)
+  // Polling the full Tower scene renders hundreds of software-lit frames in CI.
+  test.setTimeout(120_000)
   const level = towerWallCatchLevel(JSON.parse(await readFile(new URL('../../public/levels/jumping/Tower II.jump-level.json', import.meta.url), 'utf8')))
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))

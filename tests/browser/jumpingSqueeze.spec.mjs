@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
@@ -60,8 +61,9 @@ test('a shovebot cannot squeeze the player inside two balls, and jumping remains
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, arc = proto.arc, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, arc = proto.arc
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
         this.canvas.squeezeCamera = this.getTransform().inverse(); this.canvas.squeezeBalls = []
@@ -75,14 +77,13 @@ test('a shovebot cannot squeeze the player inside two balls, and jumping remains
       }
       return arc.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.squeezeCamera) {
-        const root = this.canvas.squeezeCamera.multiply(this.getTransform())
-        this.canvas.squeezeFrames ??= []
-        this.canvas.squeezeFrames.push({ x: root.e, y: root.f, balls: this.canvas.squeezeBalls })
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
+      if (canvas.squeezeCamera) {
+        const root = canvas.squeezeCamera.multiply(body)
+        canvas.squeezeFrames ??= []
+        canvas.squeezeFrames.push({ x: root.e, y: root.f, balls: canvas.squeezeBalls })
       }
-      return ellipse.apply(this, args)
-    }
+    })
   })
   await page.goto('/lab?motionDebug=1')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()

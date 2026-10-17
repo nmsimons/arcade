@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
@@ -14,20 +15,20 @@ for (const [tread, template] of [[20, false], [40, false], [40, true]]) test(`${
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.stairCamera = this.getTransform().inverse()
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.stairCamera) {
-        const root = this.canvas.stairCamera.multiply(this.getTransform())
-        this.canvas.stairFrames ??= []
-        this.canvas.stairFrames.push({ x: root.e, y: root.f })
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
+      if (canvas.stairCamera) {
+        const root = canvas.stairCamera.multiply(body)
+        canvas.stairFrames ??= []
+        canvas.stairFrames.push({ x: root.e, y: root.f })
       }
-      return ellipse.apply(this, args)
-    }
+    })
   })
   await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()

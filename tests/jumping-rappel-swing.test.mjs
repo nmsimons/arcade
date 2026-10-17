@@ -213,7 +213,7 @@ test('swinging toward a cliff meets it with the soles even when the rope is outs
       if (previous) current.forEach((point, j) => { maxStep = Math.max(maxStep, distance(point, previous[j])) })
       previous = current
     }
-    assert.ok(maxStep < 6, 'feet-first wall contact must blend without snapping the body')
+    assert.ok(maxStep < 6, `feet-first wall contact must blend without snapping the body, side ${side}, gap ${gap}, largest step ${maxStep}`)
     if (gap === 20) {
       assert.ok(firstContactGap > 16, 'the feet must establish support before the rope reaches the old contact threshold')
       assert.ok(braced > 200 && transitions <= 4, 'a loaded foothold must settle instead of flickering as the rope flexes')

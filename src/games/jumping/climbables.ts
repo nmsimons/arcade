@@ -32,6 +32,7 @@ export interface Climbing {
   wallContact?: { x: number; side: number; time: number }
   rappelPull?: number
   rappelMotion?: number
+  rappelStepHeight?: number
   surfaceSupport?: number
   screenAxis?: number
   screenDirection?: number
@@ -204,7 +205,7 @@ export function rappelFrame(climb: Climbing) {
   // Use world height, not rope travel, so the loaded sole stays on its foothold
   // even while the rope stretches. Alternate a full step with a clear knee tuck.
   const steps = [0, 20].map(offset => {
-    const contact = climbContact(hip[1], 20 + offset, 40)
+    const contact = climbContact(climb.rappelStepHeight ?? hip[1], 20 + offset, 40)
     const moving = ease(climb.rappelMotion ?? Math.abs(climb.direction))
     return { ...contact, distance: contact.distance - offset, lift: contact.lift * moving, planted: contact.planted || moving === 0 }
   })

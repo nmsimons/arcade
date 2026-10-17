@@ -123,6 +123,7 @@ export function mirrorPlayerState(p: Player, allRopes = false) {
     if (value.ladder) value.ladder = mirrorLadder(value.ladder)
     if (value.rope) rope(value.rope)
     if (value.screenAxis) value.screenAxis = -value.screenAxis
+    if (value.rappelStepHeight !== undefined) value.rappelStepHeight = -value.rappelStepHeight
     if (value.turn) { value.turn.angle = -value.turn.angle; value.turn.target = -value.turn.target }
     if (value.bodyMotion && !seen.has(value.bodyMotion)) {
       seen.add(value.bodyMotion); value.bodyMotion.gripVy = -value.bodyMotion.gripVy

@@ -121,9 +121,12 @@ test('near-zero gravity retains rope orientation and material controls', () => {
 test('rope reflection is an involution including live nodes, bends, grip turns and authored anchors', () => {
   const s = scene(); s.tick(); s.tick({}, 40)
   s.p.climbing.turn = { angle: .4, target: Math.PI, grip: ropeGripDistance(s.p.climbing) }
+  s.p.climbing.rappelStepHeight = 630
   s.rope.bends[20] = [502, 635]
   const before = structuredClone(s.p), definition = s.rope.definition
-  mirrorPlayerState(s.p, true); mirrorPlayerState(s.p, true)
+  mirrorPlayerState(s.p, true)
+  assert.equal(s.p.climbing.rappelStepHeight, -630, 'wall foothold height follows the gravity coordinate frame')
+  mirrorPlayerState(s.p, true)
   assert.deepEqual(s.p, before); assert.equal(s.rope.definition, definition)
 })
 

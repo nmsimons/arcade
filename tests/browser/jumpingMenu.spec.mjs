@@ -4,6 +4,7 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { hold, tap } from './helpers/controller.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { expectAccessibleSelection } from './helpers/jumpingAccessibility.mjs'
+import { androidMaterials } from '../../src/games/jumping/androidArtwork.ts'
 
 const levels = () => ['First room', 'Second room', 'Third room'].map((name, i) => ({ ...blankTrial(), id: `menu-${i}`, name }))
 async function open(page, local = false, maps = levels()) {
@@ -182,22 +183,30 @@ test('pause has no brightness control and night ignores the retired saved prefer
   await expect(page.getByRole('status')).toContainText('Paused while the game was out of focus.')
   await expect(page.getByRole('slider', { name: 'Night brightness' })).toHaveCount(0)
   const wallColor = () => page.locator('canvas[role="img"]').evaluate(canvas => {
-    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data, counts = new Map()
+    // This fixture's empty central wall stays clear of actors and the enclosing
+    // solid. Panel pigments split the wall into several subtly different colors.
+    const size = Math.max(1, Math.floor(Math.min(canvas.width, canvas.height) * .08))
+    const pixels = canvas.getContext('2d').getImageData(Math.floor(canvas.width / 2 - size / 2),
+      Math.floor(canvas.height * .45 - size / 2), size, size).data, counts = new Map()
     for (let i = 0; i < pixels.length; i += 4) {
       const key = [...pixels.slice(i, i + 3)].join(','); counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     return [...counts].sort((a, b) => b[1] - a[1])[0][0].split(',').map(Number)
   })
-  const expected = [241, 241, 237].map(channel => Math.round(channel * .35))
-  expect(await wallColor()).toEqual(expected)
+  const baseline = [241, 241, 237].map(channel => Math.round(channel * .35))
+  // Quiet panel pigments vary slightly; the retired 45% preference would
+  // brighten these channels by more than twenty steps.
+  const expectWallBaseline = async () => (await wallColor()).forEach((channel, i) =>
+    expect(Math.abs(channel - baseline[i])).toBeLessThanOrEqual(2))
+  await expectWallBaseline()
   await page.getByRole('button', { name: 'Restart level', exact: true }).click()
   await page.keyboard.press('Escape')
-  expect(await wallColor()).toEqual(expected)
+  await expectWallBaseline()
   await page.clock.resume(); await page.reload()
   await expect(page.locator('canvas[role="img"]')).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('slider', { name: 'Night brightness' })).toHaveCount(0)
-  expect(await wallColor()).toEqual(expected)
+  await expectWallBaseline()
   await page.screenshot({ path: info.outputPath('fixed-night-pause.png') })
 })
 
@@ -323,7 +332,8 @@ test('all object types appear in menu, library and overview previews through the
     expect(has('fill', (_, c) => c === '#a9ef82')).toBe(true)
     expect(has('fillRect', (a, c) => a[0] === 66 && a[1] === 12 && a[2] === 3 && a[3] === 3 && c === '#a9ef82')).toBe(true)
     expect(has('fill', (_, c) => c === '#ba8542')).toBe(true)
-    expect(has('ellipse', a => a[2] === 6.2)).toBe(true)
+    const faces = ['#686b6e', '#e5e7e6'].map(ink => androidMaterials(ink).face)
+    expect(has('fill', (_, c) => faces.includes(c))).toBe(true)
     expect(has('fillRect', (a, c) => a[2] === 40 && a[3] === 80 && c === '#000000')).toBe(true)
   }
   await check(page.locator('.jumping-level-card .level-thumbnail'))

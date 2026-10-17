@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/folderTest.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { finishJumpingEntrance, selectBuilderObject, installTestFolder, reopenTestLevel, restartFromPause, saveTestLevel, useLevelFixtures } from './helpers/jumpingLevels.mjs'
@@ -16,8 +17,9 @@ async function open(page, editor = false, crouch = false) {
   if (editor) await installTestFolder(page, { 'fixture.json': fixture })
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await installDigitalClockSpy(page)
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, text = proto.fillText
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') {
         this.canvas.bonusNumbers = []; this.canvas.bonusLabels = []; this.canvas.bonusCamera = this.getTransform()
@@ -33,13 +35,12 @@ async function open(page, editor = false, crouch = false) {
       }
       return text.call(this, value, ...args)
     }
-    proto.ellipse = function (x, y, rx, ry, ...args) {
-      if (rx === 6.2 && ry === 6.2 && this.canvas.bonusCamera) {
-        const transform = this.canvas.bonusCamera.inverse().multiply(this.getTransform())
-        this.canvas.playerRoot = { x: transform.e, y: transform.f, head: y }
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, head: [, y] } }) => {
+      if (canvas.bonusCamera) {
+        const transform = canvas.bonusCamera.inverse().multiply(body)
+        canvas.playerRoot = { x: transform.e, y: transform.f, head: y }
       }
-      return ellipse.call(this, x, y, rx, ry, ...args)
-    }
+    })
   })
   await page.goto('/lab')
   await page.locator('.jumping-level-card[aria-pressed=true]').waitFor()

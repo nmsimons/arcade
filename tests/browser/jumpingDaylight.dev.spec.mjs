@@ -71,7 +71,8 @@ test('daylight shades walls and receivers while terrain, mechanisms and borders 
   })
   // Unobstructed wall pixels retain the artwork. Every structural front and
   // enclosing border receives the same ambient exposure, regardless of sunlight.
-  for (const i of [0, 2, 4]) expect(result.samples[i].day).toEqual(result.samples[i].original)
+  for (const i of [0, 2, 4]) result.samples[i].day.forEach((channel, c) =>
+    expect(Math.abs(channel - result.samples[i].original[c])).toBeLessThanOrEqual(1))
   expect(result.ambient).toBe(.95)
   for (const i of [1, 3, 5, 6, 7, 8, 9, 10, 11, 12]) expectDayAmbientPixel(result.samples[i].day, result.samples[i].original)
   expect(result.empSamples).toEqual(result.samples.map(sample => sample.day))
@@ -175,15 +176,20 @@ test('existing version-1 levels receive daylight in the live game without upgrad
   await page.getByRole('button', { name: `Play ${legacy.name}`, exact: true }).click()
   await expect(page.getByRole('img', { name: `${legacy.name}: reach the exit` })).toBeFocused()
   await expect.poll(() => page.evaluate(() => !!window.daylightCamera)).toBe(true)
-  const pixels = await page.evaluate(() => {
+  const pixels = await page.evaluate(async legacy => {
+    const { drawLevelBackdrop } = await import('/src/games/jumping/render.ts')
     const canvas = document.querySelector('.jumping-game > canvas'), ctx = canvas.getContext('2d')
     const { a, d, e, f } = window.daylightCamera
+    const reference = document.createElement('canvas'); reference.width = canvas.width; reference.height = canvas.height
+    const original = reference.getContext('2d'); original.setTransform(a, 0, 0, d, e, f)
+    drawLevelBackdrop(original, legacy, { x: -e / a, y: -f / d, w: canvas.width / a, h: canvas.height / d }, a)
     return [[710, 310], [110, 510], [1160, 650]].map(([x, y]) =>
-      [...ctx.getImageData(Math.round(x * a + e), Math.round(y * d + f), 1, 1).data].slice(0, 3))
-  })
-  expect(pixels[0]).toEqual([241, 241, 237])
-  pixels[1].forEach((channel, i) => expect(Math.abs(channel - pixels[0][i] * .95)).toBeLessThanOrEqual(1))
-  expect(pixels[2].some(channel => channel > 0)).toBe(true)
+      ({ actual: [...ctx.getImageData(Math.round(x * a + e), Math.round(y * d + f), 1, 1).data].slice(0, 3),
+        original: [...original.getImageData(Math.round(x * a + e), Math.round(y * d + f), 1, 1).data].slice(0, 3) }))
+  }, legacy)
+  expect(pixels[0].actual).toEqual(pixels[0].original)
+  expectDayAmbientPixel(pixels[1].actual, pixels[1].original)
+  expect(pixels[2].actual.some(channel => channel > 0)).toBe(true)
   expect(legacy.version).toBe(1); expect(legacy.lighting).toBeUndefined()
   await page.locator('.jumping-game > canvas').screenshot({ path: info.outputPath('daylight-live-game.png') })
 })

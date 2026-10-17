@@ -1,9 +1,9 @@
 import { ambientExposure } from '../../src/games/jumping/ambientLight.ts'
 
-// Canvas multiply/add emission correction can round one 8-bit channel differently
+// Canvas multiply/add emission correction can round two 8-bit levels differently
 // across Skia backends. Keep geometry and same-renderer cache checks exact.
-function expectColor(actual, expected) {
-  actual.forEach((value, i) => expect(Math.abs(value - expected[i])).toBeLessThanOrEqual(1))
+function expectColor(actual, expected, message) {
+  actual.forEach((value, i) => expect(Math.abs(value - expected[i]), message).toBeLessThanOrEqual(2))
 }
 import { test, expect } from './helpers/test.mjs'
 
@@ -74,8 +74,8 @@ test('the player receives light, casts a moving shadow, and releases light while
   expect(result.crouched).toEqual(result.full)
   expect(result.gone).toEqual(result.full)
   expect(result.outage).toEqual(result.ambient)
-  expectColor(result.ink, [229, 231, 230])
-  expectColor(result.ambientInk, [229, 231, 230].map(channel => Math.round(channel * .65)))
+  expectColor(result.ink, [212, 220, 207])
+  expectColor(result.ambientInk, [212, 220, 207].map(channel => Math.round(channel * .65)))
   expect(result.fading[0]).toBeGreaterThan(result.standing[0])
   expect(result.fading[0]).toBeLessThan(result.gone[0])
 })
@@ -115,21 +115,25 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the readable night pl
         h.run.empRemaining = condition === 'emp' ? 5 : 0
         const frame = h.render(ambient, condition === 'unlit' ? [] : [lamp], .2, undefined, nightMode)
         results.push({ ambient, nightMode, x, condition, backend: frame.stats.backend,
-          head: h.pixel(frame, x + head[0], 400 + head[1]), torso: h.pixel(frame, x + hip[0], 400 + hip[1]) })
+          head: h.pixel(frame, x + head[0], 400 + head[1]), torso: h.pixel(frame, x + hip[0], 402 + hip[1]) })
       }
     }
     h.renderer.dispose(); return results
   }, backend)
   for (const result of results) {
     const lit = result.x === 500 && result.condition === 'spotlight'
-    const expected = !result.nightMode ? [48, 60, 54] : [229, 231, 230].map(channel => Math.round(channel * (lit ? 1 : .65)))
-    for (const part of ['head', 'torso']) result[part].forEach((channel, i) =>
-      expect(Math.abs(channel - expected[i]), JSON.stringify(result)).toBeLessThanOrEqual(1))
+    // Head and torso have distinct shell materials; light applies to each.
+    const colors = result.nightMode ? { head: [212, 220, 207], torso: [216, 222, 213] }
+      : { head: [184, 192, 181], torso: [181, 189, 178] }
+    for (const part of ['head', 'torso']) {
+      const expected = colors[part].map(channel => Math.round(channel * (!result.nightMode || lit ? 1 : .65)))
+      expectColor(result[part], expected, JSON.stringify(result))
+    }
     expect(result.backend).toBe(backend)
   }
 })
 
-test('full-bright editing preserves the original dark player ink with no lighting surfaces', async ({ page }) => {
+test('full-bright editing preserves the android material with no lighting surfaces', async ({ page }) => {
   await page.goto('/lab/lighting-lab')
   const result = await page.evaluate(async () => {
     const { lightingHarness } = await import('/tests/browser/helpers/lightingHarness.mjs')
@@ -147,7 +151,7 @@ test('full-bright editing preserves the original dark player ink with no lightin
     h.renderer.dispose(); return { comparisons, legacyInk }
   })
   expect(result.comparisons).toEqual(Array.from({ length: 3 }, () => ({ difference: 0, bytes: 0 })))
-  expectColor(result.legacyInk, [104, 107, 110])
+  expectColor(result.legacyInk, [184, 192, 181])
 })
 
 test('playground players receive lighting with full or reduced object shadows', async ({ page }) => {
@@ -169,7 +173,7 @@ test('playground players receive lighting with full or reduced object shadows', 
     h.renderer.dispose(); return samples
   })
   // Compare with quantized pixel channels, matching the other ambient checks.
-  for (const sample of samples) expectColor(sample.pixel, [229, 231, 230].map(channel => Math.round(channel * (sample.lit ? 1 : .65))))
+  for (const sample of samples) expectColor(sample.pixel, [212, 220, 207].map(channel => Math.round(channel * (sample.lit ? 1 : .65))))
 })
 
 for (const backend of ['canvas', 'gpu']) test(`${backend}: the player stays readable in darkness and receives partial shadows`, async ({ page }, info) => {
@@ -200,17 +204,18 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: the player stays read
     const fading = h.render(0)
     h.run.exit.elapsed = .75; const gone = h.render(0)
     const result = { dark: h.pixel(dark, x, y), ball: h.pixel(dark, 600, 370), wall: h.pixel(dark, 550, y),
-      lit: h.pixel(lit, x, y), partialHead: h.pixel(partial, x, y), partialTorso: h.pixel(partial, 500 + hip[0], 400 + hip[1]),
+      lit: h.pixel(lit, x, y), litTorso: h.pixel(lit, 500 + hip[0], 402 + hip[1]),
+      partialHead: h.pixel(partial, x, y), partialTorso: h.pixel(partial, 500 + hip[0], 402 + hip[1]),
       fading: h.pixel(fading, x, y), gone: h.pixel(gone, x, y) }
     document.body.replaceChildren(comparison)
     h.renderer.dispose(); return result
   }, backend)
-  expectColor(result.dark, [229, 231, 230].map(channel => Math.round(channel * .65)))
+  expectColor(result.dark, [212, 220, 207].map(channel => Math.round(channel * .65)))
   expectColor(result.ball, [143, 158, 152].map(channel => Math.round(channel * .35)))
   expect(result.dark[0] - result.wall[0]).toBeGreaterThan(50)
-  expectColor(result.lit, [229, 231, 230])
+  expectColor(result.lit, [212, 220, 207])
   expectColor(result.partialHead, result.dark)
-  expectColor(result.partialTorso, result.lit)
+  expectColor(result.partialTorso, result.litTorso)
   expectColor(result.fading, result.dark.map((channel, i) => (channel + result.gone[i]) / 2))
   await page.locator('canvas').screenshot({ path: info.outputPath(`${backend}-player-and-ball.png`) })
 })

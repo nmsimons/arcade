@@ -13,6 +13,7 @@ import { terrainDrawOrder } from './terrainOrder.ts'
 import { drawFootBoosters } from './airBoosters.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
+import { drawTerrainAttachment, drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -46,10 +47,15 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   for (let x = Math.max(0, Math.floor(view.x / grid) * grid); x <= Math.min(level.width, view.x + view.w); x += grid) { ctx.moveTo(x, view.y); ctx.lineTo(x, view.y + view.h) }
   const bottom = levelHeight(level), firstY = bottom - Math.floor((bottom - Math.max(0, view.y)) / grid) * grid
   for (let y = firstY; y <= Math.min(bottom, view.y + view.h); y += grid) { ctx.moveTo(view.x, y); ctx.lineTo(view.x + view.w, y) }
-  ctx.stroke(); ctx.restore()
+  ctx.stroke()
+  drawWallPanels(ctx, { x: Math.max(0, view.x), y: Math.max(0, view.y),
+    w: Math.min(level.width, view.x + view.w) - Math.max(0, view.x),
+    h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) })
+  ctx.restore()
   if (includeText) drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
+  if (level) drawTerrainAttachment(ctx, platforms, level)
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false
@@ -82,6 +88,7 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly P
     }
   }
   if (started) ctx.fill()
+  if (level) drawTerrainEdges(ctx, platforms, level)
 }
 export function drawMovementEffects(ctx: CanvasRenderingContext2D, p: Player, paint: WorldPaint = paintNormally) {
   if (airBoostStrength(p) >= .01) paint(ctx, 1, () => drawFootBoosters(ctx, p))

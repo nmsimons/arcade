@@ -52,6 +52,10 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
     ctx.save(); ctx.translate(b.x, b.y - r); ctx.rotate(b.angle); ctx.translate(-b.x, -b.y + r)
     ctx.fillStyle = b.weight === 'heavy' ? '#6b777d' : '#b3a28d'
     rounded(ctx, x, y, b.size, b.size, 2); ctx.fill()
+    ctx.save(); ctx.clip()
+    ctx.fillStyle = '#ffffff30'; ctx.fillRect(x, y, b.size, 2); ctx.fillRect(x, y, 1.5, b.size)
+    ctx.fillStyle = '#26382d24'; ctx.fillRect(x, y + b.size - 3, b.size, 3); ctx.fillRect(x + b.size - 2, y, 2, b.size)
+    ctx.restore()
     const seam = Math.max(1, b.size * .025), inset = b.size * .12
     if (b.weight === 'heavy') {
       ctx.fillStyle = '#4d5b62'

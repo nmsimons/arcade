@@ -1,3 +1,4 @@
+import { installAthleteHeadObserver } from './helpers/athleteHead.mjs'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial, levelProblems } from '../../src/games/jumping/level.ts'
@@ -10,22 +11,22 @@ for (const gap of [24, 18]) test(`a pull-up beside a box uses available space ($
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.climbCamera = this.getTransform().inverse()
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.climbCamera) {
-        const transform = this.canvas.climbCamera.multiply(this.getTransform())
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body, head: args } }) => {
+      if (canvas.climbCamera) {
+        const transform = canvas.climbCamera.multiply(body)
         const head = transform.transformPoint(new DOMPoint(args[0], args[1]))
         const sample = { time: performance.now(), x: head.x, y: head.y, rootX: transform.e, rootY: transform.f }
-        this.canvas.climbFrames ??= []
-        this.canvas.climbFrames.push(sample)
+        canvas.climbFrames ??= []
+        canvas.climbFrames.push(sample)
       }
-      return ellipse.apply(this, args)
-    }
+    })
   })
   await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
@@ -74,19 +75,19 @@ for (const start of ['below', 'narrow landing']) test(`a pinned ball allows pull
   await useLevelFixtures(page, [level])
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await installAthleteHeadObserver(page)
   await page.addInitScript(() => {
-    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect, ellipse = proto.ellipse
+    const proto = CanvasRenderingContext2D.prototype, rect = proto.fillRect
     proto.fillRect = function (...args) {
       if (args[0] === 0 && args[1] === 0 && this.fillStyle === '#f1f1ed') this.canvas.ledgeCamera = this.getTransform().inverse()
       return rect.apply(this, args)
     }
-    proto.ellipse = function (...args) {
-      if (args[2] === 6.2 && args[3] === 6.2 && this.canvas.ledgeCamera) {
-        const transform = this.canvas.ledgeCamera.multiply(this.getTransform())
-        this.canvas.ledgePlayer = { x: transform.e, y: transform.f }
+    window.addEventListener('jumping-athlete-head', ({ detail: { canvas, body } }) => {
+      if (canvas.ledgeCamera) {
+        const transform = canvas.ledgeCamera.multiply(body)
+        canvas.ledgePlayer = { x: transform.e, y: transform.f }
       }
-      return ellipse.apply(this, args)
-    }
+    })
   })
   await page.goto('/lab')
   await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()

@@ -579,8 +579,20 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
       // sideways launch. The vertical face arrests lateral movement only.
       const n = !collisionOutline?.(b) && !b.polygon && !b.profile && p.y > b.y && p.y - TUNING.height < b.y + b.h && (p.x < b.x || p.x > b.x + b.w)
         ? [p.x < b.x ? -1 : 1, 0] : normal
+      // A polygon lip meets the 18-unit toe bevel before the hands reach
+      // catch height. Preserve small glancing deflections, but stop a fall
+      // from generating a larger outward kick while reaching into that lip.
+      const face = !collisionOutline?.(b) && b.polygon && !b.looseProp && p.vy > 0 && normal[1] < 0
+        && !p.grounded && !p.climbing && !mantle && !p.hang && !p.waterMotion && !p.sliding?.active
+        && p.grabCooldown === 0 && !p.crouching && !input.drop
+        ? bodyContact(b, p.x, p.y, normal, afterBody.height) : null
+      const incomingVx = p.vx
       const into = p.vx * n[0] + p.vy * n[1]
       if (into < 0) { p.vx -= into * n[0]; p.vy -= into * n[1] }
+      if (face && Math.abs(face.nx) > 1 - 1e-7 && p.y > face.y && (p.x - face.x) * face.nx > 0
+        && input.move * face.nx < 0 && incomingVx * face.nx <= 0 && p.vx * face.nx > Math.abs(incomingVx)
+        && platformLedges(b).some(edge => edge.side === -face.nx && Math.abs(edge.edgeX - face.x) < .01
+          && p.y >= edge.edgeY && p.y - edge.edgeY <= 18 && ledgeExposed(platforms, edge))) p.vx = 0
     }
   }
   if (!p.climbing && !p.hang && !p.mantle && !p.releaseTurn) {

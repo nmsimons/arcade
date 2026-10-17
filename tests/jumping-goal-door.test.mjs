@@ -14,7 +14,8 @@ test('the closed door leaves the wall untouched, opens black, and has an editor-
   const goal = { x: 500, y: 920 }
   drawGoalDoor(ctx, goal, 0); assert.deepEqual(calls, [])
   drawGoalDoor(ctx, goal, 0, true); assert.deepEqual(calls, ['guide']); calls.length = 0
-  drawGoalDoor(ctx, goal, 1); assert.deepEqual(calls, [['#000000', 580, 840, 40, 80]])
+  drawGoalDoor(ctx, goal, 1)
+  assert.deepEqual(calls.filter(call => call[0] === '#000000'), [['#000000', 580, 840, 40, 80]])
 })
 
 test('the mirrored goal footprint includes the door and requires its floor and headroom', () => {

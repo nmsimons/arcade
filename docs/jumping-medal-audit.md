@@ -1,5 +1,56 @@
 # Built-in jumping medal audit
 
+October 15 Freight Run warehouse revision: the 6,600-unit left-to-right
+course separates the express roofs (mostly y=500–650), customer-service
+catwalks (y=1220–1300) and lost-property floor (mostly y=1580–1600). The always-open exit
+is on the receiving dock at y=500. The course follows the last parcel through
+sorting, a returns wash and automatic sorting to rooftop dispatch. Five
+shovebots handle intake, sorting, wash supervision and quality control.
+The sorter emitter is inset into its loading floor: running through it launches
+the player onto the receiving tray without another jump. Connected stepped roofs,
+side walls, generous door openings and foundations now form a loading annex,
+sorting hall, washhouse, packing hall and dispatch tower. The raised washhouse
+roof contains a drying loft; the quality-control bot occupies a rooftop office.
+Recessed roofs catch missed jumps, and a new washhouse ladder hatch returns to
+the express roof. The yard recovery ladder has a clear hatch through both floors.
+The low clearance gauge hangs from the sorting floor above a crouched service
+passage. The demonstration parcel was removed after it travelled into the
+dispatch shaft and obstructed the lift during a fresh control replay.
+Six coins pay the postage for the final grav lift. Its emitter meets a floor
+foundation beside the dispatch tower, with separate middle and ground approaches.
+The independent fire escape climbs the outside of the rooftop dock and returns
+the player toward its doorway.
+The reservoir now has a stone basin, two banks, approach and departure ramps,
+and short pool steps. Its water occupies the basin, below the middle bridge.
+
+Fresh-start tap/hold recordings establish **17 / 30 / 50** medal targets:
+
+| Route | Clock | Active | Evidence |
+| --- | ---: | ---: | --- |
+| Express | 12.40 | 16.26 | Hold Right throughout; three linked rope releases, roof landings and the rising exit jump. |
+| Middle | 18.27 | 19.13 | Sorting-room jumps, the automatic sorter and the dispatch grav lift. |
+| Middle, tea break | 18.23 | 19.09 | Collect EMP to pause the staff and sorter, then jump to the receiving tray while the machinery is off. |
+| Low, grav lift | 24.55 | 25.41 | Flat-pack gauge, reservoir swim and pool steps, then the six-coin lift. |
+| Low, ladder | 35.94 | 36.80 | The same low crossing, followed by the outside fire escape. |
+
+The express recording uses only Right and Jump and requires no ledge catches,
+pull-ups, swimming or stops. Regression replays include rope releases two
+physics ticks earlier and later. The middle recording uses analog walking to board
+the grav lift gently. Alternative inputs and timings remain available to players.
+The tea-break recording verifies the global EMP pause and a continued route
+through the inactive sorter, with power restored before boarding the dispatch lift.
+See `tests/fixtures/jumping-freight-routes.json` and
+`tests/jumping-freight-run.test.mjs` alongside the main medal recording.
+These are automated control replays, including a missed washhouse jump and
+ladder recovery. Normal-speed graphical playback and room-by-room inspection
+checked the building silhouettes and roof route. A fresh browser keyboard
+playthrough of this architecture revision completed the drain route via the
+flat-pack passage, pool steps, ground doorways and freight lift. Its 1:11.55 clock
+includes idle inspection between UI actions and does not establish a medal
+target. The review checked room openings, pool and emitter placement at narrow
+gameplay scale. Complete manual keyboard runs of the express and standard lines
+and an independent enjoyment review remain unverified.
+
 October 11 Waterline update: the built-in collection now has 26 levels. Waterline
 keeps its verified **30 / 45 / 60** medal times. Its fresh-start control recording
 scores **29.48** seconds, and its browser keyboard playthrough scored **29.55**.

@@ -52,9 +52,24 @@ should still suggest how someone normally uses it: a maintenance route, freight
 access, a stairwell, a crossing, or a way to return home. Do not add decorative
 supports or clutter solely to justify every platform.
 
+When a level promises a building, group its running surfaces into usable rooms
+and connected rooflines. Let door openings, service passages and ladder hatches
+explain how the storeys connect. A few substantial halls and open loading yards
+read more clearly than a separate support under every ledge. Preserve the jump
+arcs and recovery routes when adding walls; architecture is playable terrain.
+
 Use the existing materials to distinguish ground, building, and machinery. Keep
 their use consistent within the level. Material changes are visual cues; stone,
 earth, chalk, and steel currently have the same collision and grip.
+
+Give machines an installed place and a visible job. A floor grav emitter should
+meet its boarding surface; a ceiling emitter should meet the underside that
+holds it. Check the emitter edge, rather than only the field rectangle. Connect
+the arrival, powered travel and departure to the surrounding room. Shaft walls
+or a receiving tray should help the route work, rather than merely decorate an
+otherwise unexplained machine. A few coherent work areas usually tell a clearer
+story than adding a separate prop, joke and ladder at every gap. Let the player
+experience the joke through an action, such as being handled by a parcel sorter.
 
 ## 2. Build routes with different reasons to exist
 
@@ -70,6 +85,12 @@ These can share geometry. Every platform does not need its own ladder, and every
 obstacle does not need a bypass. The level as a whole should usually offer more
 than one meaningful solution or route. Two corridors with identical effort and
 consequences do little work.
+
+When offering high, middle and low lines, give them distinct elevations and
+consequences. A higher destination lets the expert line keep its momentum while
+lower arrivals choose a climb or lift. Leave enough separation for the middle
+route's jumps and for readable falls between storeys; closely stacked shelves
+can turn a route choice into an accidental ceiling collision.
 
 The ordinary route gives the shortcut context. Waiting for a lift, bringing a
 crate, or walking back to a ladder makes a daring jump a considered choice.
@@ -123,6 +144,21 @@ Some rooms can be almost entirely about movement: a satisfying run of jumps,
 coins tracing a climb, or a rope transfer that feels great when it comes together.
 Give these the same care as a machine puzzle. Preserve room for momentum, playful
 experimentation, and solutions the author did not anticipate.
+
+For a wide left-to-right course, build short movement phrases with distinct
+silhouettes: rising landings, a moving crossing, a swing, then a new takeoff.
+Leave room to carry running speed between them. Connect missed jumps back into
+the nearby section so a fall need not repeat the whole journey. If ordinary
+access uses a moving platform, check its phase when the player actually arrives;
+starting it on boarding can avoid an empty wait for its first return.
+
+When promising a continuous fast line, record a run that holds forward through
+the course and check the movement between obstacles, not just its completion
+time. A forced pull-up, a swing that dies before release, or a wall that arrests
+the next jump can break the rhythm of an otherwise quick route. Match receiving
+platforms to the actual swing release arc, leave some running room after a
+landing, and check modest timing variations. Short rope jumps and downhill
+landings can carry a line more naturally than a full-height jump at every gap.
 
 Coins should shape a journey: draw the eye toward a route, require a useful
 detour, unlock a new part of a room, or bring the player back through a changed
@@ -189,6 +225,10 @@ bank or ladder. Test reaching and pulling out from the water with normal control
 a nearby top surface alone does not establish an exit. Consider floating props,
 a blocked pull-up when reviewing recovery. Water is always present; switches and
 EMPs cannot empty the pool.
+Give water physical containment: a visible basin floor and banks that reach its
+waterline. Compose the reservoir and its access together, including ramps or
+steps where the lower route enters and leaves it. An open water rectangle with
+no containing architecture does not read as a pool.
 Flooded passages can place coins and other pickups below the surface. Give the
 player room to dive, turn, and stop beside the item; submerged steering maintains
 depth and release eases into an upright float after a short glide. Test the passage in both directions

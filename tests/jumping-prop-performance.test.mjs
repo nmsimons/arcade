@@ -7,6 +7,22 @@ import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { ballHull, ballShape } from '../src/games/jumping/propGeometry.ts'
 
+test('distant shovebots do not build rigid wheel hulls during the prop correction solve', t => {
+  const level = blankTrial()
+  level.width = 2600; level.entrance = { x: 160, y: level.floor }
+  level.props = [{ kind: 'box', x: 220, y: level.floor, size: 100 }]
+  level.robots = [{ x: 1500, y: level.floor, left: 1400, right: 1600 }]
+  const run = createRun(level), create = Matter.Body.create
+  let wheels = 0
+  t.mock.method(Matter.Body, 'create', options => {
+    if (options.vertices?.length === 32) wheels++
+    return create(options)
+  })
+  for (let i = 0; i < 30; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1 })
+  assert.equal(wheels, 0, 'remote rigid wheels stay unallocated even during a player load')
+  assert.notEqual(run.robots[0].x, 1500, 'the distant bot continues its normal patrol')
+})
+
 test('distant props skip detailed player collision queries', t => {
   const level = blankTrial()
   level.width = 2600; level.entrance = { x: 160, y: level.floor }

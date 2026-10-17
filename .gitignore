@@ -17,6 +17,7 @@ test-results
 test-results-desktop
 *.local
 .local/
+.tmp/
 native/**/target/
 
 # Editor directories and files

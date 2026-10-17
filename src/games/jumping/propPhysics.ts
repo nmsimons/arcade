@@ -34,6 +34,20 @@ function controlledHull(points: readonly Vec[]) {
   return Body.create({ isStatic: true, vertices, position: Vertices.centre(vertices) })
 }
 
+// Every chassis/wheel point is within 64 units of the axle center for all
+// headings and windup heights. Delay building the detailed hulls until a prop
+// reaches this conservative bound, including props moved by later corrections.
+function nearRobot(body: Matter.Body, robot: { x: number; y: number }) {
+  const bounds = body.bounds
+  return bounds.max.x >= robot.x - 64 && bounds.min.x <= robot.x + 64
+    && bounds.max.y >= robot.y - 9 - 64 && bounds.min.y <= robot.y - 9 + 64
+}
+
+function lazyRobotHulls(robot: Run['robots'][number]) {
+  let hulls: Matter.Body[] | undefined
+  return { robot, hulls: () => hulls ??= robotHulls(robot).map(controlledHull) }
+}
+
 /** Query near-touching faces without moving a body. */
 function contactProbe(body: Matter.Body, padding = .001): Matter.Body {
   const center = body.position
@@ -150,9 +164,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const barriers = [...run.terrain, ...run.mechanisms.map(mechanismShape)]
   const driven = world.driven
   driven.clear()
-  const robots = run.robots.map(robot => ({ robot, hulls: robotHulls(robot).map(controlledHull) }))
+  const robots = run.robots.map(lazyRobotHulls)
   const robotProbes = run.robots.filter(robot => powered && robotDrive(robot)).map(robot => ({ robot,
-    hulls: robotHulls({ ...robot, x: robot.x + robot.facing * 3 }).map(controlledHull) }))
+    probe: lazyRobotHulls({ ...robot, x: robot.x + robot.facing * 3 }) }))
   run.mechanisms.forEach((m, i) => {
     if (Math.hypot(world.mechanisms[i].position.x - m.x - m.definition.w / 2, world.mechanisms[i].position.y - m.y - m.definition.h / 2) > 1e-7) {
       // Moving a static support must also wake its sleeping passengers.
@@ -181,8 +195,9 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     }
     // Motors push only at an actual forward contact, using the same bounded
     // forces as the player. A charge has a faster target, never a velocity reset.
-    for (const { robot, hulls } of robotProbes) {
-      const touching = hulls.some(hull => {
+    for (const { robot, probe } of robotProbes) {
+      if (!nearRobot(body, probe.robot)) continue
+      const touching = probe.hulls().some(hull => {
         if (!Bounds.overlaps(body.bounds, hull.bounds)) return false
         const hit = Collision.collides(body, hull)
         const point = hit?.supports[0]
@@ -297,14 +312,25 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   Engine.update(world.engine, dt * 1000)
   // The synchronous correction stage owns all hull edits from here through
   // the final contact query. Track each write instead of rescanning vertices.
-  const queries = new CollisionQueries(true)
+  const solids = [...world.terrain, ...world.mechanisms, ...world.bodies.values()]
+  const queries = new CollisionQueries(true, solids)
   const p = run.player, height = p.crouching ? TUNING.crouchHeight : TUNING.height
   const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
   const heldBox = grip ? run.props.filter(b => b.kind === 'box')[grip.platform! - run.terrain.length - run.mechanisms.length] : undefined
-  const propShapes = (except: Matter.Body) => [...world.bodies].filter(([, body]) => body !== except).map(([prop, body]) => {
+  const shapeCache = new Map<Matter.Body, { x: number; y: number; angle: number; shape: Platform }>()
+  const shapeFor = (prop: Prop, body: Matter.Body) => {
+    const cached = shapeCache.get(body)
+    if (cached && Object.is(cached.x, body.position.x) && Object.is(cached.y, body.position.y) && Object.is(cached.angle, body.angle)) return cached.shape
     const moved = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2, angle: body.angle }
-    return prop.kind === 'box' ? boxShape(moved) : ballShape(moved)
-  })
+    const shape = prop.kind === 'box' ? boxShape(moved) : ballShape(moved)
+    shapeCache.set(body, { x: body.position.x, y: body.position.y, angle: body.angle, shape })
+    return shape
+  }
+  const propShapes = (except: Matter.Body) => {
+    const shapes: Platform[] = []
+    for (const [prop, body] of world.bodies) if (body !== except) shapes.push(shapeFor(prop, body))
+    return shapes
+  }
   const transport = (x: number, y: number, source: Matter.Body) => {
     // Contact corrections change props during this solve. Sweep against their
     // current hulls, so separating one contact cannot bury the player in the
@@ -368,14 +394,13 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     }
     return true
   }
-  const solids = [...world.terrain, ...world.mechanisms, ...world.bodies.values()]
   const candidates = new Map([...world.bodies.values()].map(body => [body, solids.filter(other => other !== body)]))
   // Recompute normals at joins after the solver's position iterations. A ball
   // reaching the flat floor can have a new contact that the old ramp normal
   // alone cannot separate, even with more iterations of that old contact.
   for (let pass = 0; pass < 32; pass++) {
     let corrected = false
-    for (const body of world.bodies.values()) for (const hit of queries.collides(body, candidates.get(body)!)) {
+    for (const body of world.bodies.values()) for (const hit of queries.penetrationsNearby(body)) {
       if (hit.depth < .001) continue
       const a = hit.bodyA, b = hit.bodyB, wa = a.isStatic || a.isSleeping ? 0 : a.inverseMass, wb = b.isStatic || b.isSleeping ? 0 : b.inverseMass
       if (!wa && !wb) continue
@@ -392,26 +417,30 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
         // against it, just as a bot does, rather than relocating the anchor.
         if (!p.hang && (!p.mantle || p.mantle.step) && !p.climbing) transport(x, y, body)
       }) || corrected
-      for (const { robot, hulls } of robots) for (const hull of hulls) {
-        const moved = resolveActor(body, hull, robot, x => {
-          if (!powered) return // The unpowered chassis stays solid without its motor or yielding motion.
-          const props = propShapes(body)
-          const oldX = p.x, oldY = p.y
-          // The contacted prop can also be under a wheel. Keep it in the
-          // support query so yielding does not drive the bot down through it.
-          const prop = [...world.bodies].find(([, candidate]) => candidate === body)![0]
-          const movedProp = { ...prop, x: body.position.x, y: body.position.y + prop.size / 2, angle: body.angle }
-          const footing = prop.kind === 'box' ? boxShape(movedProp) : ballShape(movedProp)
-          moveRobot([...barriers, ...props], robot, x, props, p, footing, forceFieldPlatforms(run.forceFields))
-          Body.translate(playerHull, { x: p.x - oldX, y: p.y - oldY })
-        })
-        if (moved) {
-          // Contact can change wheel height and tilt as well as position.
-          robotHulls(robot).forEach((points, i) => {
-            const vertices = points.map(([x, y]) => ({ x, y }))
-            Body.setPosition(hulls[i], Vertices.centre(vertices)); Body.setVertices(hulls[i], vertices)
+      for (const entry of robots) {
+        const { robot } = entry
+        if (!nearRobot(body, robot)) continue
+        const hulls = entry.hulls()
+        for (const hull of hulls) {
+          const moved = resolveActor(body, hull, robot, x => {
+            if (!powered) return // The unpowered chassis stays solid without its motor or yielding motion.
+            const props = propShapes(body)
+            const oldX = p.x, oldY = p.y
+            // The contacted prop can also be under a wheel. Keep it in the
+            // support query so yielding does not drive the bot down through it.
+            const prop = [...world.bodies].find(([, candidate]) => candidate === body)![0]
+            const footing = shapeFor(prop, body)
+            moveRobot([...barriers, ...props], robot, x, props, p, footing, forceFieldPlatforms(run.forceFields))
+            Body.translate(playerHull, { x: p.x - oldX, y: p.y - oldY })
           })
-          corrected = true
+          if (moved) {
+            // Contact can change wheel height and tilt as well as position.
+            robotHulls(robot).forEach((points, i) => {
+              const vertices = points.map(([x, y]) => ({ x, y }))
+              Body.setPosition(hulls[i], Vertices.centre(vertices)); Body.setVertices(hulls[i], vertices)
+            })
+            corrected = true
+          }
         }
       }
     }
@@ -425,7 +454,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const byBody = new Map([...world.bodies].map(([prop, body]) => [body, prop]))
   const supports = new Map<Matter.Body, Matter.Vector>()
   const contacts: Matter.Collision[] = world.engine.pairs.list.filter((pair: Matter.Pair) => pair.isActive).map((pair: Matter.Pair) => pair.collision)
-  for (const body of world.bodies.values()) contacts.push(...queries.collides(body, candidates.get(body)!))
+  for (const body of world.bodies.values()) contacts.push(...queries.collidesNearby(body))
   // Validate sleeping support separately, keeping the solver's original
   // contact ordering and friction normals for awake objects. Sleep can leave
   // inactive cached pairs, so check the current hulls with a small tolerance.
@@ -490,17 +519,26 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   // A solver's sub-pixel resting tilt must not turn a flat box top into a slope.
   // Square only settled faces with two flat supports, without disturbing tilted
   // boxes, motion, or neighboring bodies. Keep Matter and player geometry equal.
+  const restingShapes = new Map<Prop, Platform>()
+  const restingShape = (prop: Prop) => {
+    let shape = restingShapes.get(prop)
+    if (!shape) { shape = prop.kind === 'box' ? boxShape(prop) : ballShape(prop); restingShapes.set(prop, shape) }
+    return shape
+  }
   for (const [b, body] of world.bodies) {
     if (b.kind !== 'box' || !b.grounded || Math.hypot(b.vx, b.vy) > .5 || Math.abs(b.angularVelocity) > .005) continue
     const angle = Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2)
     if (Math.abs(b.angle - angle) > BOX_RESTING_ANGLE_TOLERANCE) continue
-    const solids = [...barriers, ...run.props.filter(other => other !== b).map(other => other.kind === 'box' ? boxShape(other) : ballShape(other))]
+    const solids = [...barriers, ...run.props.filter(other => other !== b).map(restingShape)]
     const y = flatBoxSupport(b, solids)
     if (y === null) continue
     const shape = boxShape({ ...b, angle, y })
-    if (solids.some(s => polygonIntersects(polygonPoints(shape), s, .0001))) continue
+    const outline = polygonPoints(shape)
+    if (solids.some(s => polygonIntersects(outline, s, .0001))) continue
     b.angle = angle; b.y = y
     Body.setAngle(body, angle); Body.setPosition(body, { x: b.x, y: y - b.size / 2 })
+    // Later crates must see this newly squared support, never its old hull.
+    restingShapes.delete(b)
   }
 }
 

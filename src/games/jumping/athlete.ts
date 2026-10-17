@@ -11,7 +11,7 @@ import { keepRopeGrip } from './ropeGravity.ts'
 import { stepFootOffsets } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
 import { canGrip } from './friction.ts'
-import { propPushHands, PROP_APPROACH_GAP } from './propGeometry.ts'
+import { propPushHands } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
 
@@ -401,7 +401,7 @@ export function traceAthlete(path: AthleteOutline, p: Player) {
 }
 
 /** The wrist reaches the corner; the palm rests on top instead of pointing through it. */
-function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact: number, lift = 0): Limb {
+function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact: number, lift = 0, forward = false): Limb {
   const target = solve(root, wrist, UPPER_ARM, FOREARM, 1)
   const angles = (limb: Limb) => {
     const upper = Math.atan2(limb.joint[0] - limb.root[0], limb.joint[1] - limb.root[1])
@@ -409,6 +409,10 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
     return [upper, Math.atan2(Math.sin(lower - upper), Math.cos(lower - upper))]
   }
   const from = angles(free), to = angles(target)
+  // An approaching push raises the arm forward, including high grips above a
+  // crouched shoulder. The shortest arc changes sides at an opposed upper arm
+  // and would flip the elbow midway through that otherwise continuous reach.
+  const upper = forward && to[0] < 0 && target.joint[1] < root[1] ? to[0] + Math.PI * 2 : to[0]
   // Rotate through the reach; folding the elbow lifts a released hand clear of the top.
   // A departing surface can pass behind the shoulder while contact fades.
   // Blend wrapped angles along the short arc instead of spinning a whole turn
@@ -416,7 +420,7 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
   // A cleared free arm may already bend through depth beside the obstacle.
   // Retain that fold while reaching; rebuilding its projected angles at full
   // bone length would instantly extend it even with zero contact weight.
-  const arm = armPose(root, mixAngle(from[0], to[0], contact), mixAngle(from[1], to[1], contact) + Math.sin(contact * Math.PI) * lift,
+  const arm = armPose(root, forward ? lerp(from[0], upper, contact) : mixAngle(from[0], to[0], contact), mixAngle(from[1], to[1], contact) + Math.sin(contact * Math.PI) * lift,
     (free.jointDepth ?? 0) * (1 - contact), (free.endDepth ?? 0) * (1 - contact))
   const palm = handGeometry(free)
   const freePalm: Point = [palm.palm[0] - free.end[0], palm.palm[1] - free.end[1]]
@@ -2095,12 +2099,14 @@ function resolveAthletePose(p: Player): AthletePose {
   const { speed, moving, run } = pose, air = p.hang || p.mantle ? 0 : pose.air
   const cycle = p.stride * p.facing
   const pushing = smooth(Math.max(p.pushing?.amount ?? 0, p.pushing?.ready ?? 0))
-  // Ordinary preparation belongs to the arms. A nearby low or crouched grip
-  // needs a gradual hinge before loading, within the same short approach.
-  const approachGap = p.pushing ? (p.pushing.wallX - p.x) * p.pushing.direction : PROP_APPROACH_GAP
-  const lowPreparation = p.grounded ? Math.min(p.pushing?.ready ?? 0, smooth((PROP_APPROACH_GAP - approachGap) / 12))
-    * Math.max(p.crouch, smooth((43 - (p.pushing?.height ?? 43)) / 28)) : 0
-  const bodyPush = p.contacts?.push?.hands ? pushing : smooth(Math.max(p.pushing?.amount ?? 0, lowPreparation))
+  // Gather the supported body with the hands before contact. Otherwise the
+  // first force-bearing frame moves the shoulders and both wrists at once.
+  const bodyPush = p.grounded ? pushing : smooth(p.pushing?.amount ?? 0)
+  // Preparation aims at the incoming working stance, not the distant surface.
+  // Keep the real palm coordinates for contact, but cap unloaded reach so a
+  // faster, earlier anticipation cannot pull the pelvis toward the object.
+  const preparationOffset = p.grounded && !p.contacts?.push?.hands && !p.pushing?.effort && p.pushing
+    ? Math.max(0, (p.pushing.wallX - p.x) * p.pushing.direction - 38) : 0
   const gait = moving * (1 - p.crouch) * (1 - air) * (1 - bodyPush)
   const squat = p.crouch
   // Contact compresses the hips first, followed by the chest and then the head.
@@ -2233,7 +2239,7 @@ function resolveAthletePose(p: Player): AthletePose {
     // advances the pelvis with the chest, rather than stretching the spine.
     let reach = 0
     for (const palm of p.pushing!.palms) {
-      const x = (palm.x + palm.nx * 2.8 - p.x) * p.facing, y = palm.y + palm.ny * 2.8 - p.y
+      const x = (palm.x + palm.nx * 2.8 - p.x) * p.facing - preparationOffset, y = palm.y + palm.ny * 2.8 - p.y
       const dy = y - shoulder[1] - .7
       reach = Math.max(reach, x - shoulder[0] - Math.sqrt(Math.max(0, 18.7 ** 2 - dy * dy)))
     }
@@ -2272,8 +2278,8 @@ function resolveAthletePose(p: Player): AthletePose {
     const press = (arm: Limb, y: number, index: number) => {
       const palm = p.pushing!.palms?.[index]
       if (palm) {
-        const point: Point = [(palm.x - p.x) * p.facing, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
-        const result = grippingArm(arm.root, add(point, [normal[0] * 2.8, normal[1] * 2.8]), add(point, [normal[0] * 1.6, normal[1] * 1.6]), arm, pushing)
+        const point: Point = [(palm.x - p.x) * p.facing - preparationOffset, palm.y - p.y], normal: Point = [palm.nx * p.facing, palm.ny]
+        const result = grippingArm(arm.root, add(point, [normal[0] * 2.8, normal[1] * 2.8]), add(point, [normal[0] * 1.6, normal[1] * 1.6]), arm, pushing, 0, preparationOffset > 0)
         result.handAngle = (result.handAngle ?? 0) + Math.atan2(-normal[0], normal[1]) * pushing
         return result
       }

@@ -348,11 +348,18 @@ export function pushingVelocity(p: Player, contact: PushContact | null, world: C
  * simply because unloaded hands used a different maximum approach gap. */
 function dryPropPushHands(p: Player, prop: Prop, direction: number, maxGap = 38): PushHands | null {
   const motorHands = propPushHands(prop, p.x, p.y, direction, 43, maxGap)
-  let lowerHands = p.crouch ? propPushHands(prop, p.x, p.y, direction, 43 - p.crouch * 15, maxGap) : motorHands
+  // Preview the grip available at the start of working contact. On a ball a
+  // low palm is farther away than the motor face; using the longer approach
+  // range for that palm would suddenly lift it on the first loaded frame.
+  const arrivalGap = 38 - Math.min(2, Math.max(0, (p.vx - (prop.vx ?? 0)) * direction) * STEP)
+  const gripX = motorHands && maxGap > 38
+    ? p.x + direction * Math.max(0, (motorHands.wallX - p.x) * direction - arrivalGap) : p.x
+  const gripGap = Math.min(38, maxGap)
+  let lowerHands = p.crouch ? propPushHands(prop, gripX, p.y, direction, 43 - p.crouch * 15, gripGap) : motorHands
   if (!lowerHands && motorHands && p.crouch) {
     let low = 43 - p.crouch * 15, high = 43
     for (let pass = 0; pass < 12; pass++) {
-      const height = (low + high) / 2, candidate = propPushHands(prop, p.x, p.y, direction, height, maxGap)
+      const height = (low + high) / 2, candidate = propPushHands(prop, gripX, p.y, direction, height, gripGap)
       if (candidate) { high = height; lowerHands = candidate }
       else low = height
     }
@@ -390,18 +397,23 @@ export function anticipatePush(p: Player, input: JumpInput, world: ContactWorld)
     // Reach ahead only while closing on the surface. Chasing an escaping prop
     // keeps the unloaded palms stretched forward and delays the gait release.
     if ((collider.prop.vx - p.vx) * direction > 0) return []
-    const hands = dryPropPushHands(p, collider.prop, direction, PROP_APPROACH_GAP)
+    // Budget roughly a quarter second to gather the arms at any approach
+    // speed. A fixed twelve-unit lead gives a runner only three physics ticks.
+    // Use relative travel so a moving prop does not attract an early reach.
+    const closingSpeed = Math.max(0, (p.vx - (collider.prop.vx ?? 0)) * direction)
+    const approachGap = Math.max(PROP_APPROACH_GAP, 38 + closingSpeed * .24)
+    const hands = dryPropPushHands(p, collider.prop, direction, approachGap)
     // Higher footing can put a neighboring prop's grip below the feet. Such
     // a reach cannot become a working push; leave walking/stepping in control
     // rather than folding the whole body toward an unreachable low surface.
     if (!hands || (hands.height ?? 43) < 12) return []
     const gap = (hands.wallX - p.x) * direction
-    if (gap >= PROP_APPROACH_GAP) return []
+    if (gap >= approachGap) return []
     const sweep = moveBody([p.x, p.y], [p.x + direction * gap, p.y], world.platforms,
       p.crouching ? TUNING.crouchHeight : TUNING.height)
     const first = sweep.contacts.find(contact => contact.normal[0] * direction < -.4)
     if (first?.platform !== collider.platform) return []
-    const proximity = Math.max(0, Math.min(1, (PROP_APPROACH_GAP - gap) / (PROP_APPROACH_GAP - 38)))
+    const proximity = Math.max(0, Math.min(1, (approachGap - gap) / (approachGap - 38)))
     return [{ collider, direction, effort: 0, wallX: hands.wallX, hands,
       anticipation: proximity * proximity * (3 - 2 * proximity) }]
   })
@@ -422,7 +434,8 @@ export function updatePushingPose(p: Player, contact: PushContact | null, dt: nu
       // approach grip. Ease the unloaded height, querying the actual surface
       // each step; force-bearing palms still use their exact current contact.
       const height = previous.height + (hands.height - previous.height) * (1 - Math.exp(-dt / .08))
-      const palms = propPushHands(contact.collider.prop, p.x, p.y, contact.direction, height, PROP_APPROACH_GAP)
+      const palms = propPushHands(contact.collider.prop, p.x, p.y, contact.direction, height,
+        Math.max(PROP_APPROACH_GAP, (hands.wallX - p.x) * contact.direction + 1))
       if (palms) hands = { ...palms, wallX: hands.wallX, slope: hands.slope }
     }
     // Opposition is the requested motion that the contact solver could not

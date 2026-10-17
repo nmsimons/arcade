@@ -1,5 +1,103 @@
 # LAB performance notes
 
+## October 16, 2026: Loaded-pile correction spikes
+
+Following the packed-bin changes below, profiling sustained player pressure
+found repeated whole-scene queries, unused contact manifolds, regenerated prop
+snapshots and distant shovebot wheel bodies inside the correction work.
+
+The correction solver now maintains conservative, ordered neighborhoods for
+its convex hulls. Each participant stays inside a padded envelope; leaving it
+immediately updates both sides of the adjacency graph. Queries still test the
+current bounds and preserve scene order, including contacts first encountered
+during a later correction pass. Position corrections compute exact SAT depth
+and normal without assembling support points. Final support/friction queries
+retain the complete contact manifold. Transport reuses prop snapshots only at
+exactly equal poses, and rigid bot wheels are built lazily when a prop reaches
+their conservative bound. Forces, tolerances and iteration limits are unchanged.
+
+The [follow-up report](performance/2026-10-16-box-bin-pressure.json) retains the
+same full scene, source hashes, pre-change source overrides, an earlier repeat
+and isolated-bin results. Sequential fresh-process arms each run three episodes
+per scenario, with 480 settling and 720 measured ticks on Node 24.14.1 /
+Snapdragon X Elite. For sustained pressure in the full scene:
+
+| Simulation CPU per tick | Before | After |
+| --- | ---: | ---: |
+| Median episode mean | 9.59 ms | 7.13 ms |
+| Median episode p95 | 18.56 ms | 10.30 ms |
+| Median episode p99 | 21.97 ms | 12.05 ms |
+| Maximum | 86.17 ms | 25.45 ms |
+| Ticks over 16.67 ms, of 2,160 | 172 | 3 |
+| Ticks over 33.33 ms, of 2,160 | 22 | 0 |
+
+All 4,320 sampled player/prop/bot states match exactly between arms. The
+isolated ten-crate fixture also matches exactly; its pressure p95 stays below
+the 8.33 ms tick budget in every episode. Its small timing differences and idle
+scene timings vary between runs, so they do not establish a further improvement.
+The earlier full-scene repeat had a 5.77 ms pressure mean and 8.65 ms p95;
+the table uses the final source run. These are simulation CPU measurements,
+excluding rendering, audio, browser scheduling and catch-up. Some full-scene
+ticks still exceed the physics budget; live browser frame rate is unverified.
+
+Regression checks cover adjacency updates after translation/rotation/resizing,
+exact polygon/round SAT results, deferred manifold construction, distant bot
+hulls, sustained pile separation, and a per-tick manifold-work bound. The
+contact suite also exercises slopes, riders, lifts, water, gravity and box grabs.
+`benchmark-jumping-box-bin.mjs --reference-dir <saved-checkout>` can compare an
+uncommitted baseline, alongside its existing Git `--reference` option. The
+report's `beforeSourceOverrides` preserves that baseline's four physics modules.
+
+## October 16, 2026: Packed box bin
+
+The reported mixed-size crate pile settles normally; its ten boxes sleep after
+the initial settling period. Holding forward into the packed bin supplies a
+real lateral player load, wakes the coupled cargo and keeps the correction
+solver busy. The surrounding level also spends substantial CPU time solving
+five shovebots' wheel support and rebuilding collision snapshots.
+
+Wheel support now ends when both height and angle reach an exactly identical
+fixed point, retaining all twelve passes when the solution keeps changing.
+Wheel queries reuse validated terrain outlines. Bot collision snapshots retain
+their identity until position, angle, facing or windup height changes. The
+crate-squaring pass reuses neighbouring shapes, invalidating each squared
+support immediately. The correction solver can use its known single-convex-body
+entry point without repeatedly checking every candidate for compound parts.
+Contact order, iteration limits, tolerances and forces are preserved.
+
+`scripts/benchmark-jumping-box-bin.mjs` measures Node simulation CPU, with
+separate idle and held-forward-pressure scenarios. Its default JSON is the
+retained ten-crate regression fixture. `--level`, `--pressure-x` and
+`--pressure-y` accept a larger saved scene; `--reference` loads the selected
+physics modules from that revision, keeping the surrounding runtime
+identical. Reports include the exact input JSON, source hashes, per-episode
+timings and per-tick trajectory hashes. Rendering, audio, browser scheduling
+and the game's catch-up policy are outside this diagnostic.
+
+The [saved comparison](performance/2026-10-16-box-bin.json) retains the complete
+24-prop, five-bot, eleven-rope source scene. Each arm runs three fresh episodes
+per scenario, with 480 settling ticks and 720 measured ticks at 120 Hz. On Node
+24.14.1 / Snapdragon X Elite, medians of the episode means were:
+
+| Simulation CPU per tick | Before | After |
+| --- | ---: | ---: |
+| Idle | 5.72 ms | 3.92 ms |
+| Held forward into the bin | 11.66 ms | 9.27 ms |
+
+All 4,320 sampled player/prop/bot trajectories match exactly between arms.
+Pressure p95 did **not** improve in this run (15.55 to 16.11 ms), and occasional
+larger outliers remain. Sustained compressed contacts can still exceed the
+8.33 ms physics-tick budget. These sequential-process Node measurements show
+lower average simulation cost, not a guaranteed frame rate or a solved worst case.
+Use `--level` with the report's saved level, `--pressure-x 8230` and
+`--reference` with its recorded revision to reproduce the full-scene comparison.
+
+The regression fixture checks quiet settling and sustained pressure against the
+bin without interpenetration. Separate checks cover exact-convergence work,
+collision-cache invalidation, compound-query fallback, bot riders and slopes,
+and the previously reported upper-crate grabs. Browser FPS and manual review of
+the stressed pile remain unverified.
+
 ## October 13, 2026: Escapade tower catches
 
 Falling into the tower lips spends most of its CPU time fitting the visible

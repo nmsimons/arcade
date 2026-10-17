@@ -1,0 +1,601 @@
+{
+  "runs": [
+    {
+      "route": "middle",
+      "file": "Freight Run.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 18.274999999999604,
+      "activeTime": 19.13333333333289,
+      "coins": 7,
+      "trace": [
+        {
+          "frames": 194,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 98,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 106,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 106,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 111,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 329,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 100,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 11,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 72,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 14,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 101,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 119,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 111,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 106,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {
+            "move": 0
+          }
+        },
+        {
+          "frames": 89,
+          "input": {
+            "move": 0.3
+          }
+        },
+        {
+          "frames": 72,
+          "input": {
+            "move": 0
+          }
+        },
+        {
+          "frames": 122,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 32,
+          "input": {
+            "move": 0
+          }
+        },
+        {
+          "frames": 153,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "route": "middle-break",
+      "file": "Freight Run.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 18.23333333333294,
+      "activeTime": 19.091666666666224,
+      "coins": 6,
+      "trace": [
+        {
+          "frames": 194,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 98,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 106,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 106,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 111,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 329,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 60,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 36,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 8,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 75,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 37,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 101,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 35,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 12,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 83,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 10,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 104,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 18,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 23,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 22,
+          "input": {
+            "move": 1,
+            "jump": true
+          }
+        },
+        {
+          "frames": 106,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 50,
+          "input": {
+            "move": 0
+          }
+        },
+        {
+          "frames": 53,
+          "input": {
+            "move": 0.3
+          }
+        },
+        {
+          "frames": 73,
+          "input": {
+            "move": 0
+          }
+        },
+        {
+          "frames": 122,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 33,
+          "input": {
+            "move": 0
+          }
+        },
+        {
+          "frames": 152,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    },
+    {
+      "route": "low-ladder",
+      "file": "Freight Run.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 35.94166666666527,
+      "activeTime": 36.799999999998555,
+      "coins": 6,
+      "trace": [
+        {
+          "frames": 246,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "descend": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 304,
+          "input": {
+            "move": 1,
+            "descend": true,
+            "crouch": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 861,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 187,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 170,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 750,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 1539,
+          "input": {
+            "move": 0,
+            "climb": true
+          }
+        },
+        {
+          "frames": 131,
+          "input": {
+            "move": -1
+          }
+        }
+      ]
+    },
+    {
+      "route": "low-lift",
+      "file": "Freight Run.jump-level.json",
+      "jumpModel": "tap-hold",
+      "elapsed": 24.549999999999248,
+      "activeTime": 25.408333333332532,
+      "coins": 6,
+      "trace": [
+        {
+          "frames": 246,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 24,
+          "input": {
+            "move": 1,
+            "descend": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 204,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 304,
+          "input": {
+            "move": 1,
+            "descend": true,
+            "crouch": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 861,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 187,
+          "input": {
+            "move": 1,
+            "climb": true
+          }
+        },
+        {
+          "frames": 170,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 554,
+          "input": {
+            "move": 1
+          }
+        },
+        {
+          "frames": 93,
+          "input": {
+            "move": 1,
+            "crouch": true,
+            "descend": true,
+            "drop": true
+          }
+        },
+        {
+          "frames": 116,
+          "input": {
+            "move": 0
+          }
+        },
+        {
+          "frames": 290,
+          "input": {
+            "move": 1
+          }
+        }
+      ]
+    }
+  ]
+}

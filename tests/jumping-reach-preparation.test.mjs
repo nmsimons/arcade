@@ -43,7 +43,7 @@ for (const inverted of [false, true]) {
 }
 
 for (const side of [-1, 1]) {
-  test(`unloaded object preparation leaves the gait and trunk in ordinary travel: side=${side}`, () => {
+  test(`unloaded object preparation gathers gradually without moving the player or planted feet: side=${side}`, () => {
     for (const gap of [20, 30, 38, 45]) {
       const p = Object.assign(createPlayer({ x: 500, y: 920 }), { vx: side * 200, facing: side, gait: gaitPose(200) })
       const prop = { kind: 'box', x: 500 + side * (gap + 40), y: 920, size: 80, angle: 0, vx: 0, vy: 0 }
@@ -51,15 +51,21 @@ for (const side of [-1, 1]) {
       const contact = anticipatePush(p, { ...NEUTRAL_INPUT, move: side }, world)
       assert.ok(contact)
       const free = athletePose(p)
+      const before = structuredClone(p)
       updatePushingPose(p, contact, STEP)
       const prepared = athletePose(p)
-      for (const point of ['hip', 'waist', 'shoulder', 'head']) assert.deepEqual(prepared[point], free[point], 'unloaded hands cannot drag the body toward the object')
-      for (const leg of ['frontLeg', 'backLeg']) assert.deepEqual(prepared[leg], free[leg], 'the approaching player keeps walking normally')
+      for (const point of ['hip', 'waist', 'shoulder', 'head']) assert.ok(
+        Math.hypot(...prepared[point].map((v, i) => v - free[point][i])) < 1.5, 'a newly seen grip cannot snap the trunk into its working stance')
+      for (const leg of ['frontLeg', 'backLeg']) for (let i = 0; i < 2; i++) assert.ok(
+        Math.abs(prepared[leg].end[i] - free[leg].end[i]) < 1e-6, 'preparation preserves the gait ankles')
       assert.equal(p.pushing.effort, 0)
+      assert.equal(p.pushing.load, 0)
+      assert.equal(p.pushing.amount, 0)
+      assert.deepEqual({ ...p, pushing: before.pushing }, before, 'preparation only changes presentation')
     }
   })
   test(`distant and overhead objects cannot attract a dry preparation: side=${side}`, () => {
-    for (const [gap, bottom] of [[65, 920], [20, 820]]) {
+    for (const [gap, bottom] of [[140, 920], [20, 820]]) {
       const p = Object.assign(createPlayer({ x: 500, y: 920 }), { vx: side * 200, facing: side })
       const prop = { kind: 'box', x: 500 + side * (gap + 40), y: bottom, size: 80, angle: 0, vx: 0, vy: 0 }
       const platform = boxShape(prop), world = { platforms: [platform], colliders: [{ id: 'prop:0', platform, prop }] }

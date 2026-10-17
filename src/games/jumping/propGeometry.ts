@@ -5,7 +5,7 @@ import { polygonPoints } from './geometry.ts'
 
 /** Maximum imperceptible resting rotation from a square face, in radians. */
 export const BOX_RESTING_ANGLE_TOLERANCE = .001
-/** A short arm preparation before entering the existing 38-unit push window. */
+/** Minimum preparation distance before entering the existing 38-unit push window. */
 export const PROP_APPROACH_GAP = 50
 
 /** Prop positions retain their file convention: center X and unrotated bottom Y. */

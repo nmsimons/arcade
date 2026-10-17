@@ -9,6 +9,65 @@ const snapshot = hits => hits.map(hit => ({
   supports: hit.supports.slice(0, hit.supportCount).map(v => [v.body.id, v.index, v.x, v.y]),
 }))
 const compare = (queries, body, others) => assert.deepEqual(snapshot(queries.collides(body, others)), snapshot(Matter.Query.collides(body, others)))
+const penetrationSnapshot = hits => hits.map(({ bodyA, bodyB, normal, depth }) => ({ a: bodyA.id, b: bodyB.id, normal: { ...normal }, depth }))
+
+test('correction neighborhoods preserve scene order as either hull enters, leaves, rotates and resizes', () => {
+  const bodies = [Matter.Bodies.rectangle(0, 0, 30, 30), Matter.Bodies.rectangle(500, 0, 30, 30),
+    Matter.Bodies.rectangle(1000, 0, 30, 30), Matter.Bodies.rectangle(0, 27, 30, 30)]
+  const queries = new CollisionQueries(true, bodies)
+  const check = () => {
+    for (const body of bodies) {
+      const expected = Matter.Query.collides(body, bodies.filter(other => other !== body))
+      assert.deepEqual(snapshot(queries.collidesNearby(body)), snapshot(expected))
+      assert.deepEqual(penetrationSnapshot(queries.penetrationsNearby(body)), penetrationSnapshot(expected))
+    }
+  }
+  check()
+  // Moving the *other* participant must update an unchanged query body's list.
+  for (const x of [28, 28.25, 28.75, 29.25, 30 - 1e-10, 30, 30 + 1e-10, -28, 900, 0]) {
+    Matter.Body.setPosition(bodies[1], { x, y: 0 }); queries.invalidate(bodies[1]); check()
+  }
+  for (const body of bodies) {
+    Matter.Body.rotate(body, .43); queries.invalidate(body); check()
+    Matter.Body.scale(body, 80, 1); queries.invalidate(body); check()
+    Matter.Body.translate(body, { x: -900, y: 2 }); queries.invalidate(body); check()
+  }
+})
+
+test('correction queries exclude remote candidates and defer manifolds until the support query', t => {
+  const body = Matter.Bodies.rectangle(0, 0, 30, 30), near = Matter.Bodies.rectangle(28, 0, 30, 30)
+  const scene = [body, ...Array.from({ length: 200 }, (_, i) => Matter.Bodies.rectangle(1000 + i * 100, 0, 30, 30)), near]
+  const queries = new CollisionQueries(true, scene)
+  const overlaps = Matter.Bounds.overlaps, create = Matter.Collision.create
+  let boundsTests = 0, manifolds = 0
+  t.mock.method(Matter.Bounds, 'overlaps', (...args) => { boundsTests++; return overlaps(...args) })
+  t.mock.method(Matter.Collision, 'create', (...args) => { manifolds++; return create(...args) })
+  for (let i = 0; i < 32; i++) {
+    Matter.Body.translate(near, { x: -.001, y: 0 }); queries.invalidate(near)
+    assert.equal(queries.penetrationsNearby(body).length, 1)
+  }
+  assert.equal(boundsTests, 32, 'each pass tests only the local pair')
+  assert.equal(manifolds, 0, 'position corrections do not assemble support points')
+  assert.deepEqual(snapshot(queries.collidesNearby(body)), snapshot(Matter.Query.collides(body, [near])))
+  assert.ok(manifolds > 0, 'final support queries retain the full contact record')
+})
+
+test('convex correction queries preserve Matter contacts through ordered hull edits', () => {
+  const queries = new CollisionQueries(true)
+  const a = Matter.Bodies.rectangle(0, 0, 32, 32), b = Matter.Bodies.rectangle(28, 0, 32, 32)
+  const c = Matter.Bodies.circle(0, 28, 16)
+  const check = () => {
+    for (const [body, others] of [[a, [b, c]], [b, [c, a]], [c, [a, b]]]) {
+      assert.deepEqual(snapshot(queries.collidesConvex(body, others)), snapshot(Matter.Query.collides(body, others)))
+    }
+  }
+  check()
+  for (const body of [a, b, c]) {
+    Matter.Body.translate(body, { x: .003, y: -.01 }); queries.invalidate(body); check()
+    Matter.Body.rotate(body, .03); queries.invalidate(body); check()
+  }
+  Matter.Body.setPosition(b, { x: 100, y: 100 }); queries.invalidate(b); check()
+})
 
 test('ordered queries reuse exact hull pairs and invalidate translations and rotations', () => {
   const queries = new CollisionQueries(), a = Matter.Bodies.rectangle(0, 0, 32, 32)

@@ -7,6 +7,56 @@ import {createRun,stepRun} from './helpers/jumping-active-run.mjs'
 import {blankTrial} from '../src/games/jumping/level.ts'
 import {athletePose} from '../src/games/jumping/athlete.ts'
 
+test('grounded hand preparation uses closing speed and cannot reach through a nearer solid',()=>{
+ for(const direction of [-1,1]){
+  const p=Object.assign(createPlayer({x:500,y:920}),{facing:direction,vx:direction*TUNING.runSpeed})
+  const prop={kind:'box',x:500+direction*140,y:920,size:80,angle:0,vx:0,vy:0}
+  const platform=boxShape(prop),collider={id:'prop:0',platform,prop},input={...NEUTRAL_INPUT,move:direction}
+  const world={platforms:[platform],colliders:[collider]},before=structuredClone(p)
+  assert.ok(anticipatePush(p,input,world),'a runner has time to gather before the old short reach window')
+  assert.deepEqual(p,before,'the wider query remains presentation-only')
+  assert.equal(anticipatePush({...p,vx:direction*TUNING.walkSpeed},input,world),null,'walking starts closer to the object')
+  const carried={...prop,vx:direction*(TUNING.runSpeed-30)}
+  assert.equal(anticipatePush(p,input,{...world,colliders:[{...collider,prop:carried}]}),null,'shared world travel cannot inflate the lead distance')
+  const wall={x:500+direction*55-(direction<0?5:0),y:800,w:5,h:120}
+  assert.equal(anticipatePush(p,input,{platforms:[wall,platform],colliders:[{id:'wall',platform:wall},collider]}),null)
+ }
+})
+
+test('walking, running and crouched approaches gather before the first loaded palm without a hand snap',()=>{
+ for(const dt of [STEP,1/60])for(const direction of [-1,1])for(const [kind,size]of [['box',80],['ball',100],['box',30],['ball',30]]){
+  for(const [pace,move,crouch]of [['creep',.1,false],['walk',TUNING.walkSpeed/TUNING.runSpeed,false],['run',1,false],['crouch',1,true]]){
+   const run=createRun({...blankTrial(),entrance:{x:800-direction*(size/2+240),y:920},props:[{kind,x:800,y:920,size}]})
+   const label=`${kind}/${size} ${pace} direction=${direction} dt=${dt}`
+   let previous,preparation=0,loaded=false
+   for(let tick=0;tick<2400;tick++){
+    stepRun(run,{...NEUTRAL_INPUT,move:direction*move,crouch},dt)
+    const p=run.player,pose=athletePose(p),wrists=[pose.frontArm,pose.backArm].map(arm=>[p.x+arm.end[0]*p.facing,p.y+arm.end[1]])
+    if(p.pushing?.ready&&!p.contacts?.push){
+     preparation+=dt
+     assert.equal(p.pushing.effort,0,label+': gathering supplies no force')
+     assert.equal(p.pushing.load,0,label+': resistance begins at actual contact')
+     assert.ok(pose.hip[0]<20,label+': the pelvis is not drawn toward the distant surface')
+    }
+    if(p.contacts?.push?.hands){
+     loaded=true
+     assert.ok(preparation>=.18,label+': fast and slow approaches have time to prepare')
+     const motion=Math.max(...wrists.map((point,i)=>Math.hypot(...point.map((v,j)=>v-previous[i][j]))))
+     assert.ok(motion<6+TUNING.runSpeed*dt,label+`: first contact wrist motion ${motion}`)
+     for(const [i,arm]of [pose.frontArm,pose.backArm].entries()){
+      const palm=p.pushing.palms[i]
+      assert.ok(Math.hypot(p.x+arm.hand[0]*p.facing-palm.x-palm.nx*1.6,p.y+arm.hand[1]-palm.y-palm.ny*1.6)<.5,
+       label+': working palms still meet the actual surface immediately')
+     }
+     break
+    }
+    previous=wrists
+   }
+   assert.ok(loaded,label+': normal controls reach the object')
+  }
+ }
+})
+
 test('a close falling approach prepares unloaded hands without acquiring support or moving the prop',()=>{
  for(const side of [-1,1]){
   const p=createPlayer({x:500,y:620}),prop={kind:'box',x:500+side*60,y:650,size:80,angle:0}

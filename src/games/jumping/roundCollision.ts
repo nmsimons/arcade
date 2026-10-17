@@ -81,6 +81,45 @@ function minimumAxis(a: Matter.Body, b: Matter.Body, axes: Matter.Vector[]) {
   return { depth, chosen }
 }
 
+export type CollisionPenetration = Pick<Matter.Collision, 'bodyA' | 'bodyB' | 'normal'> & { depth: number }
+interface AxisOverlap { overlap: number; axis: Matter.Vector }
+const overlapAxes = (Matter.Collision as unknown as {
+  _overlapAxes(result: AxisOverlap, a: Matter.Vector[], b: Matter.Vector[], axes: Matter.Vector[]): void
+})._overlapAxes
+const overlapAB: AxisOverlap = { overlap: 0, axis: { x: 0, y: 0 } }
+const overlapBA: AxisOverlap = { overlap: 0, axis: { x: 0, y: 0 } }
+
+/** Exact convex SAT depth/normal without building an unused contact manifold.
+ * Correction passes need no supports, tangents or impulse-pair records. An
+ * optional record belongs to that ordered query and may be reused next time.
+ */
+export function collisionPenetration(a: Matter.Body, b: Matter.Body, record?: CollisionPenetration | null): CollisionPenetration | null {
+  let depth: number, axis: Matter.Vector
+  if (roundBodies.has(a) || roundBodies.has(b)) {
+    const ab = minimumAxis(a, b, a.axes)
+    if (ab.depth <= 0) return null
+    const bb = minimumAxis(b, a, b.axes)
+    if (bb.depth <= 0) return null
+    const minimum = ab.depth < bb.depth ? ab : bb
+    depth = minimum.depth; axis = minimum.chosen
+  } else {
+    // The same projection implementation and tie order as Matter 0.20.
+    overlapAxes(overlapAB, a.vertices, b.vertices, a.axes)
+    if (overlapAB.overlap <= 0) return null
+    overlapAxes(overlapBA, b.vertices, a.vertices, b.axes)
+    if (overlapBA.overlap <= 0) return null
+    const minimum = overlapAB.overlap < overlapBA.overlap ? overlapAB : overlapBA
+    depth = minimum.overlap; axis = minimum.axis
+  }
+  const first = a.id < b.id ? a : b, second = a.id < b.id ? b : a
+  let nx = axis.x, ny = axis.y
+  if (nx * (second.position.x - first.position.x) + ny * (second.position.y - first.position.y) >= 0) { nx = -nx; ny = -ny }
+  const hit = record ?? { bodyA: first, bodyB: second, normal: { x: 0, y: 0 }, depth: 0 }
+  hit.bodyA = first; hit.bodyB = second; hit.depth = depth
+  hit.normal.x = nx; hit.normal.y = ny
+  return hit
+}
+
 /** Preserve Matter's SAT axis order, floating point projections, normals and
  * support records. Only registered regular ball hulls use the shortcut. */
 export function roundCollision(a: Matter.Body, b: Matter.Body): Matter.Collision | null {

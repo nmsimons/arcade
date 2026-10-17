@@ -1,0 +1,158 @@
+{
+  "version": 1,
+  "id": "box-bin-regression",
+  "name": "Box bin regression",
+  "width": 2600,
+  "height": 2000,
+  "floor": 2000,
+  "entrance": {
+    "x": 100,
+    "y": 1960
+  },
+  "goal": {
+    "x": 2500,
+    "y": 2000
+  },
+  "platforms": [
+    {
+      "x": 1500,
+      "y": 1200,
+      "w": 900,
+      "h": 800
+    },
+    {
+      "x": 570,
+      "y": 1360,
+      "w": 790,
+      "h": 440,
+      "polygon": [
+        [
+          0,
+          240
+        ],
+        [
+          20,
+          240
+        ],
+        [
+          20,
+          420
+        ],
+        [
+          770,
+          420
+        ],
+        [
+          770,
+          0
+        ],
+        [
+          790,
+          0
+        ],
+        [
+          790,
+          420
+        ],
+        [
+          790,
+          440
+        ],
+        [
+          0,
+          435
+        ]
+      ]
+    },
+    {
+      "x": 80,
+      "y": 1960,
+      "w": 1420,
+      "h": 40
+    }
+  ],
+  "checkpoints": [],
+  "climbables": {
+    "ropes": [],
+    "ladders": []
+  },
+  "props": [
+    {
+      "kind": "box",
+      "x": 1045,
+      "y": 1780,
+      "size": 190,
+      "weight": "heavy"
+    },
+    {
+      "kind": "box",
+      "x": 1240,
+      "y": 1780,
+      "size": 200
+    },
+    {
+      "kind": "box",
+      "x": 1050,
+      "y": 1590,
+      "size": 180,
+      "weight": "heavy"
+    },
+    {
+      "kind": "box",
+      "x": 850,
+      "y": 1780,
+      "size": 200,
+      "weight": "heavy",
+      "branded": true
+    },
+    {
+      "kind": "box",
+      "x": 1262.5,
+      "y": 1580,
+      "size": 155
+    },
+    {
+      "kind": "box",
+      "x": 1200,
+      "y": 1425,
+      "size": 120
+    },
+    {
+      "kind": "box",
+      "x": 1300,
+      "y": 1425,
+      "size": 80,
+      "branded": true
+    },
+    {
+      "kind": "box",
+      "x": 670,
+      "y": 1780,
+      "size": 160
+    },
+    {
+      "kind": "box",
+      "x": 887.5,
+      "y": 1580,
+      "size": 145
+    },
+    {
+      "kind": "box",
+      "x": 470,
+      "y": 1960,
+      "size": 200,
+      "weight": "heavy"
+    }
+  ],
+  "robots": [],
+  "triggers": [],
+  "mechanisms": [],
+  "timers": [],
+  "texts": [],
+  "pickups": [],
+  "times": {
+    "gold": 10,
+    "silver": 20,
+    "bronze": 40
+  }
+}

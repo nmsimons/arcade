@@ -269,6 +269,12 @@ once a box stops moving. Ordinary player contact must not remove a supported
 box's lip because of imperceptible solver rotation. The box still needs two flat
 base contacts, grounded support, and low vertical and angular speed; falling,
 tipping, balancing, and floating boxes remain ineligible.
+Supporting crates in a stack may retain that same resting tilt, with the
+corresponding tiny height difference across the base. Grip eligibility accepts
+those contacts, while independently squaring a crate still requires horizontal
+supports so it cannot open a gap within the stack. Fresh-start normal-control
+regressions climb all three layers from either side, dry and in shallow water,
+in `tests/jumping-box-hang.test.mjs`.
 
 Rope contacts apply to the complete path, including spans between particles and
 corner bends. Body corrections during climbing must keep adjacent spans clear;
@@ -434,16 +440,21 @@ ties and uses coordinates to resolve equal candidates consistently. A physical
 push owns its hands; otherwise a selected ledge preparation takes precedence
 over an object preparation. These checks do not change physical catch windows.
 
-Ordinary object preparation starts within 50 units, just before the existing
-38-unit pushing window. It eases unloaded arms toward a usable forward face;
-low grips and crouched approaches also gather their nearby working posture.
-Ordinary tall grips leave walking and the torso in their usual balance. Both
-preparation and force use the same motor face and crouched-height query.
+Ordinary object preparation budgets 240 ms of closing travel before the existing
+38-unit pushing window, with a minimum starting gap of 50 units. Relative player
+and prop speed gives running approaches more lead distance than walking or
+crouching. The unloaded hands and supported trunk gather together toward the
+incoming stance; their target reach is capped at the working-window distance,
+so an earlier preparation cannot pull the body toward a distant surface. It
+supplies no force or player translation and preserves the gait's foot targets.
+Both preparation and force use the same motor face and crouched-height query;
+curved grips preview the height available at the start of working contact.
 Released load fades from the actual outgoing stance even while preparation
 continues. A canceled step retains its captured rig and
 planned turn toward incoming palms until the real contact owns the transfer;
 it does not restart an ordinary free reach during one-tick slips. Coverage lives
-in `tests/jumping-reach-preparation.test.mjs` and the returning-step regressions.
+in `tests/jumping-reach-preparation.test.mjs`, `tests/jumping-push-anticipation.test.mjs`
+and the returning-step regressions.
 
 Catch transfers carry an elbow's bend around the wrist axis through a fixed
 reference plane. Opposed bends cannot cancel and flip midway through the reach.

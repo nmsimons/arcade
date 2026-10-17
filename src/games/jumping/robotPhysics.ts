@@ -1,6 +1,6 @@
 import type { Platform, Player } from './model.ts'
 import type { RobotState } from './challenge.ts'
-import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
+import { bodyIntersects, lineBlocked, moveBody, platformOutline, polygonIntersects } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { groundAt } from './terrain.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
@@ -47,16 +47,23 @@ export function robotHulls(r: Pick<RobotState, 'x' | 'y' | 'angle' | 'facing' | 
   })
 }
 
-/** Player contact uses the same chassis and wheels as loose objects.
- * Bots offer footing, but no ledge grabs that could tether a falling rider. */
-export function robotPlatforms(robot: Parameters<typeof robotHulls>[0]): Platform[] {
-  return robotHulls(robot).map(points => {
+const robotShapes = new WeakMap<object, { x: number; y: number; angle: number; facing: number; top: number; platforms: Platform[] }>()
+/** Player contact uses the same chassis and wheels as loose objects. These
+ * read-only snapshots are reusable until the exact pose changes. Bots offer
+ * footing, but no ledge grabs that could tether a falling rider. */
+export function robotPlatforms(robot: Parameters<typeof robotHulls>[0]): readonly Platform[] {
+  const saved = robotShapes.get(robot), top = robotTop(robot)
+  if (saved && Object.is(saved.x, robot.x) && Object.is(saved.y, robot.y) && Object.is(saved.angle, robot.angle)
+    && saved.facing === robot.facing && saved.top === top) return saved.platforms
+  const platforms = robotHulls(robot).map(points => {
     const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
     const shape: Platform = { x, y, w: Math.max(...points.map(p => p[0])) - x, h: Math.max(...points.map(p => p[1])) - y,
       polygon: points.map(p => [p[0] - x, p[1] - y]) }
     disablePlatformLedges(shape)
     return shape
   })
+  robotShapes.set(robot, { x: robot.x, y: robot.y, angle: robot.angle, facing: robot.facing, top, platforms })
+  return platforms
 }
 
 export function robotTouchesProps(robot: RobotState, props: readonly Platform[], distance = 0) {
@@ -77,7 +84,7 @@ function wheelHeight(platforms: readonly Platform[], x: number, nearY: number, r
   const accept = (y: number) => { if (Math.abs(y - nearY) <= reach) height = Math.min(height, y) }
   for (const platform of platforms) {
     if (x + RADIUS < platform.x || x - RADIUS > platform.x + platform.w) continue
-    const points = polygonPoints(platform)
+    const points = platformOutline(platform)
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length], dx = b[0] - a[0], dy = b[1] - a[1]
       if (dx <= 1e-7) continue
@@ -97,7 +104,12 @@ export function robotSupport(platforms: readonly Platform[], x: number, y: numbe
     const left = wheelHeight(platforms, x - dx, centerY - dy, reach)
     const right = wheelHeight(platforms, x + dx, centerY + dy, reach)
     if (left === null || right === null) return null
-    angle = Math.atan2(right - left, dx * 2); centerY = (left + right) / 2
+    const nextAngle = Math.atan2(right - left, dx * 2), nextY = (left + right) / 2
+    // Exact convergence makes all remaining passes identical. Keep the full
+    // budget on changing slopes and contacts; no approximate early exit.
+    const settled = Object.is(angle, nextAngle) && Object.is(centerY, nextY)
+    angle = nextAngle; centerY = nextY
+    if (settled) break
   }
   const c = Math.cos(angle), s = Math.sin(angle)
   const hull: Vec[] = [[-26, -37], [26, -37], [26, -3], [-26, -3]].map(([px, py]) => [x + px * c - py * s, centerY + px * s + py * c])

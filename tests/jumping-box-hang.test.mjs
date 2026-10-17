@@ -29,6 +29,45 @@ function advance(run, frames, input = {}) {
   }
 }
 
+for (const side of [-1, 1]) for (const wet of [false, true]) for (const baseWeight of ['normal', 'heavy']) {
+  test(`normal jump and pull-up controls climb all three box layers (${side}, ${wet ? 'puddle' : 'dry'}, ${baseWeight} bases)`, () => {
+    const level = blankTrial(), mirror = x => side > 0 ? x : level.width - x
+    level.entrance = { x: mirror(300), y: 920 }
+    // The offset pyramid includes a second-layer crate bridging two bases.
+    level.props = [
+      { kind: 'box', x: 700, y: 920, size: 200, weight: baseWeight },
+      { kind: 'box', x: 980, y: 920, size: 200, weight: baseWeight },
+      { kind: 'box', x: 820, y: 720, size: 200, weight: 'heavy' },
+      { kind: 'box', x: 1200, y: 920, size: 200, weight: baseWeight },
+      { kind: 'box', x: 1040, y: 720, size: 200 },
+      { kind: 'box', x: 940, y: 520, size: 200 },
+    ].map(b => ({ ...b, x: mirror(b.x) }))
+    if (wet) level.gravityPlates = [{ id: 'puddle', x: 0, y: 760, w: level.width, h: 160,
+      effect: 'water', gravity: -1, waterLevel: 15, waterMinLevel: 15 }]
+    const run = createRun(level), p = run.player
+    advance(run, 480)
+    for (const index of [0, 2, 5]) {
+      const box = run.props[index]
+      for (let tick = 0; tick < 600 && (box.x - p.x) * side - box.size / 2 > 60; tick++) {
+        stepRun(run, { ...NEUTRAL_INPUT, move: side })
+      }
+      advance(run, 22, { move: side, jump: true })
+      for (let tick = 0; tick < 240 && !p.hang && !p.grounded; tick++) {
+        stepRun(run, { ...NEUTRAL_INPUT, move: side })
+      }
+      assert.ok(p.hang, `catch box layer ${index === 0 ? 1 : index === 2 ? 2 : 3}`)
+      assert.equal(run.platforms[p.hang.platform].looseProp, true)
+      advance(run, 120)
+      assert.ok(p.hang, `the supported grip survives release on layer ${index}: ${JSON.stringify({x:box.x,y:box.y,angle:box.angle,vy:box.vy,spin:box.angularVelocity,grounded:box.grounded})}`)
+      for (let tick = 0; tick < 240 && (!p.grounded || p.mantle); tick++) {
+        stepRun(run, { ...NEUTRAL_INPUT, climb: true })
+      }
+      assert.ok(p.grounded && !p.hang && !p.mantle, 'Up pulls onto the supported crate')
+      assert.ok(Math.abs(p.y - (box.y - box.size)) < .01, 'land on the actual box top')
+    }
+  })
+}
+
 for (const direction of [-1, 1]) for (const approach of ['running', 'pushing']) for (const hold of [14, 22]) {
   test(`the first level box catches a ${approach} jump, hold ${hold}, direction ${direction}`, () => {
     const level = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/LAB1.jump-level.json', import.meta.url))))

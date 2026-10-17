@@ -1,5 +1,12 @@
 # Built-in jumping medal audit
 
+October 16 collection publication: World I, pinball and the new Untitled level
+have explicit pending audits. Their existing **10 / 20 / 40** targets still need
+completed fresh-start medal recordings. The historical A Little Swing recording
+now holds its final controls for one additional physics tick to finish the
+doorway animation after the rope-motion revision. A fresh replay completes in
+**6.36** clock seconds (**7.22** active), retaining its **7 / 12 / 24** targets.
+
 October 15 Freight Run warehouse revision: the 6,600-unit left-to-right
 course separates the express roofs (mostly y=500–650), customer-service
 catwalks (y=1220–1300) and lost-property floor (mostly y=1580–1600). The always-open exit

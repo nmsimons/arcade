@@ -8,6 +8,18 @@
     {
       "file": "LAB2.jump-level.json",
       "reason": "New authored level; its 13 / 20 / 30 medal targets have not yet been verified by a recorded fresh-start route."
+    },
+    {
+      "file": "Untitled level.jump-level.json",
+      "reason": "New authored level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
+    },
+    {
+      "file": "Untitled level 2.jump-level.json",
+      "reason": "Updated pinball level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
+    },
+    {
+      "file": "world1.jump-level.json",
+      "reason": "New World I level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
     }
   ],
   "runs": [
@@ -228,8 +240,8 @@
     },
     {
       "file": "02.json",
-      "elapsed": 6.350000000000105,
-      "activeTime": 7.208333333333481,
+      "elapsed": 6.358333333333439,
+      "activeTime": 7.216666666666815,
       "coins": 0,
       "trace": [
         {
@@ -279,7 +291,7 @@
           }
         },
         {
-          "frames": 300,
+          "frames": 301,
           "input": {
             "move": 1,
             "climb": true

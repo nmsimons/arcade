@@ -101,20 +101,32 @@ export function propPushHands(b: Prop, x: number, y: number, direction: number, 
   const lowGrip = b.size * .7 < handHeight ? b.y - b.size * .7
     : Math.min(b.y - b.size * .7, Math.max(shape.y + 3, y - handHeight))
   const handY = Math.max(lowGrip, Math.min(shape.y + shape.h - 5, y - handHeight))
-  const palm = (height: number): PushPalm | null => {
+  const palm = (height: number) => {
     for (let i = 0; i < points.length; i++) {
       const a = points[i], c = points[(i + 1) % points.length], dx = c[0] - a[0], dy = c[1] - a[1]
       if (dy * direction >= 0 || height < Math.min(a[1], c[1]) || height > Math.max(a[1], c[1])) continue
       const length = Math.hypot(dx, dy)
-      return { x: a[0] + (height - a[1]) * dx / dy, y: height, nx: dy / length, ny: -dx / length }
+      return { point: { x: a[0] + (height - a[1]) * dx / dy, y: height, nx: dy / length, ny: -dx / length }, a, c }
     }
     return null
   }
-  const front = palm(handY), back = palm(handY - 3)
-  if (!front || !back) return null
+  const face = palm(handY)
+  if (!face) return null
+  let front = face.point, back = palm(handY - 3)?.point
+  if (!back) return null
+  if (Math.hypot(front.x - back.x, front.y - back.y) > 19) {
+    // A higher hand must not select the distant end of a nearly flat top.
+    // Lower the pair just enough to share the near face. Nearby contacts
+    // around a tumbling corner retain their continuous, independent heights.
+    const { a, c } = face, dx = c[0] - a[0], dy = c[1] - a[1], top = Math.min(a[1], c[1])
+    if (Math.abs(dy) < 3 || Math.hypot(dx, dy) * 3 > 19 * Math.abs(dy)) return null
+    const height = Math.max(top + 3, handY)
+    const at = (y: number): PushPalm => ({ ...face.point, x: a[0] + (y - a[1]) * dx / dy, y })
+    front = at(height); back = at(height - 3)
+  }
   const gap = (front.x - x) * direction
-  return gap >= 6 && gap <= maxGap ? { wallX: front.x, slope: handY === y - handHeight ? -front.ny / front.nx : 0,
-    height: y - handY, palms: [front, back] } : null
+  return gap >= 6 && gap <= maxGap ? { wallX: front.x, slope: front.y === y - handHeight ? -front.ny / front.nx : 0,
+    height: y - front.y, palms: [front, back] } : null
 }
 
 /** Only the contacting edge/corner loads a plate, including a tilted box. */

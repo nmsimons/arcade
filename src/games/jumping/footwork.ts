@@ -8,9 +8,9 @@ export interface FootContact {
   x: number; y: number; anchorX: number; anchorY: number; groundAngle: number; groundY: number
   angle: number; facing: number; planted: boolean; blockedCycle: number
   release: { x: number; y: number; angle: number; time: number; landing?: boolean } | null
-  settle: { x: number; y: number; angle: number; facing: number; time: number; duration: number } | null
+  settle: { x: number; y: number; angle: number; facing: number; time: number; duration: number; forward?: boolean } | null
 }
-export interface Footwork { feet: [FootContact, FootContact]; moving: boolean; facing: number; terrain: readonly Platform[]; pushBalance?: [Point, Point, Point]; armOffset?: { angle: number; time: number }; heldArmPhase?: boolean }
+export interface Footwork { feet: [FootContact, FootContact]; moving: boolean; facing: number; terrain: readonly Platform[]; pushBalance?: [Point, Point, Point]; armOffset?: { angle: number; time: number }; heldArmPhase?: boolean; shortStepSpeed?: number; shortStepTravel?: number }
 const TAU = Math.PI * 2
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 const clamp = (n: number) => Math.max(0, Math.min(1, n))
@@ -160,7 +160,7 @@ function pushBalance(p: Player, previous: Footwork, feet: Footwork['feet'], dt: 
   }) as [Point, Point, Point]
 }
 
-function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[], advancing = false): Footwork {
+function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readonly Platform[], travel = 0): Footwork {
   // Bring the stance under the body, keeping both targets on the current platform.
   const surface = p.contacts?.support?.platform ?? groundAt(platforms, p.x, p.y, .15)?.platform
   const margin = Math.min(3, (surface?.w ?? 6) / 2)
@@ -171,13 +171,23 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   const brace = p.pushing?.effort || (p.pushing?.amount ?? 0) > 0 ? 1 : 0
   const shortSteps = p.crouch > 0 || !!p.pushing?.effort
   const stepDistance = 14
-  const steppingForward = shortSteps && advancing
+  // Contact correction can move a blocked body a fraction forward, then back.
+  // Average signed travel before planning a forward step, rather than treating
+  // each positive correction as walking. Slow, sustained progress still steps.
+  const beforeSpeed = previous.facing === p.facing ? previous.shortStepSpeed ?? 0 : 0
+  const shortStepSpeed = shortSteps && Math.abs(travel) > .0001 ? lerp(beforeSpeed, travel / dt, 1 - Math.exp(-dt / .15)) : 0
+  const shortStepTravel = shortSteps && Math.abs(travel) > .0001
+    ? Math.max(-.5, (previous.facing === p.facing ? previous.shortStepTravel ?? 0 : 0) + travel) : 0
+  const steppingForward = shortSteps && shortStepSpeed > .5
   // During a crouch walk or moving push either foot steps ahead of the hips. Keeping one
   // foot permanently behind them stretched that leg on an uphill slope and
   // forced the whole torso to drop abruptly as the other foot took a step.
   const lead = lerp(8, 4, p.crouch)
-  const targets = (steppingForward ? [center + lead * p.facing, center + lead * p.facing]
-    : [center + 2 * p.facing, center - (2 + brace * 8) * p.facing]).map(target => {
+  const targets = previous.feet.map((foot, i) => {
+    // A swing keeps its forward/brace plan until it lands. Switching between
+    // those targets mid-step snapped the rear ankle by eighteen units.
+    const forward = foot.settle?.forward ?? steppingForward
+    const target = center + (forward ? lead : i === 0 ? 2 : -(2 + brace * 8)) * p.facing
     if (groundAt(platforms, target, p.y)) return target
     const inset = withinSupport(target)
     if (groundAt(platforms, inset, p.y)) return inset
@@ -200,7 +210,9 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   const needsBrace = !!brace && Math.abs(previous.feet[0].anchorX - previous.feet[1].anchorX) < 8
   const threshold = steppingForward ? stepDistance : brace && !needsBrace ? 12 : .15
   // Finish airborne feet first, then reposition the remaining support foot with a small step.
-  const adjusting = previous.feet.some(foot => !foot.planted) ? -1
+  // A brief speed spike cannot start a forward step without net progress
+  // since the previous landing. Keep backward corrections so they cancel.
+  const adjusting = previous.feet.some(foot => !foot.planted) || steppingForward && shortStepTravel < .5 ? -1
     : corrections[0] >= corrections[1] && corrections[0] > threshold ? 0 : corrections[1] > threshold ? 1 : -1
   const feet = previous.feet.map((before, i): FootContact => {
     const foot = { ...before, release: null }
@@ -212,7 +224,7 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
       foot.settle = null
       return foot
     }
-    const start = foot.settle ?? { x: foot.x, y: foot.y, angle: foot.angle, facing: foot.facing, time: 0,
+    const start = foot.settle ?? { x: foot.x, y: foot.y, angle: foot.angle, facing: foot.facing, time: 0, forward: steppingForward,
       duration: shortSteps ? .24 : .14 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
     // A rolling ball can travel much faster than a heavy box. Complete each
     // step within fourteen units of travel so the planted leg does not drag
@@ -236,7 +248,8 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
     return foot
   }) as [FootContact, FootContact]
   return { feet, moving: false, facing: p.facing, terrain: platforms, pushBalance: pushBalance(p, previous, feet, dt), armOffset: advanceArmOffset(previous, dt),
-    heldArmPhase: shortSteps || !!p.pushing?.amount && !!previous.heldArmPhase }
+    heldArmPhase: shortSteps || !!p.pushing?.amount && !!previous.heldArmPhase, shortStepSpeed,
+    shortStepTravel: feet.some((foot, i) => foot.planted && !previous.feet[i].planted) ? 0 : shortStepTravel }
 }
 
 /** Persistent world-space contacts survive changes in speed and body pose. */
@@ -252,7 +265,7 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
     return foot
   }
   const previous: Footwork = p.footwork ?? { feet: [makeFoot(2), makeFoot(-2)], moving: false, facing: p.facing, terrain: platforms }
-  if (!traveling || p.crouch > 0 || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing > .0001); return }
+  if (!traveling || p.crouch > 0 || p.pushing?.effort) { p.footwork = settleFeet(p, previous, dt, platforms, (p.x - oldX) * p.facing); return }
   const rephased = traveling && (!previous.moving || previous.facing !== p.facing)
   const beforeCycle = p.stride * p.facing
   let armOffset = advanceArmOffset(previous, dt)

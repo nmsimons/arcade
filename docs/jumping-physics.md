@@ -17,6 +17,19 @@ ball roll back from a wall instead of behaving like fixed ground under the playe
 Standing on a grippable surface balances weight and traction; it does not apply
 a sideways force to that support. This keeps an idle player from propelling a
 ball simply by standing off its center. The foot reaction requires an active shove.
+On crates, that reaction is bounded by the player's mass rather than growing
+with the supporting crate. Oversized reactions at the feet can otherwise torque
+a compressed pile upward despite its weight. Small props retain their usual
+response, and balls keep their existing rolling traction.
+
+Pushing steps follow resolved travel relative to the supporting surface. Their
+forward-step decision averages signed travel and requires net progress since
+the last landing, so small alternating contact corrections do not repeatedly
+lift a blocked player's feet. Once a foot starts
+a forward or bracing step, it keeps that plan until landing instead of switching
+between those targets mid-swing. Sustained slow pushes still advance the feet;
+a blocked stance settles while retaining its hand contact and jump response.
+
 Grounded bracing uses the actual exposed vertical face at hand height, including
 faces inset within a single terrain polygon, rather than its bounding edge.
 Airborne bracing and wall jumps also accept exposed faces canted up to 30 degrees
@@ -275,6 +288,16 @@ those contacts, while independently squaring a crate still requires horizontal
 supports so it cannot open a gap within the stack. Fresh-start normal-control
 regressions climb all three layers from either side, dry and in shallow water,
 in `tests/jumping-box-hang.test.mjs`.
+
+Near a box's top, the two pushing palms must remain within one arm's reach of
+each other. If a tiny tilt sends the higher palm to a distant top corner, lower
+the pair onto the near face instead. Nearby contacts around a tumbling corner
+retain their normal transition. Airborne hand preparation follows its existing
+folded arc only as far as the drawn limb clears the solids; a raised knee uses
+the same riser clearance as walking, including resting crate tilt. The packed
+mountain regressions in `tests/jumping-box-bin.test.mjs` cover jumps, reaching,
+sustained pushing, release and mirrored approaches at 120 and 30 Hz, including
+the actual rendered skin as well as collision hulls.
 
 Rope contacts apply to the complete path, including spans between particles and
 corner bends. Body corrections during climbing must keep adjacent spans clear;

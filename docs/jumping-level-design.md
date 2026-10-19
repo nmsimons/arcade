@@ -327,6 +327,8 @@ the layout. Do not add object-specific exceptions to make one puzzle work.
 Use the existing red graffiti style for short, human advice near a decision:
 “leave something heavy,” “ladder's out,” or “the clock stops. you don't.” Use
 official text for functional labels such as a room name or destination.
+These labels should read as painted facility stencils; reserve monospace machine
+lettering for message screens.
 
 A hint should point toward a relationship or overlooked possibility. It need
 not narrate the solution. Place it where the player can read it before the

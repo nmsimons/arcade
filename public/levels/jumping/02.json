@@ -373,28 +373,6 @@
   ],
   "texts": [
     {
-      "x": 405,
-      "y": 200,
-      "w": 220,
-      "h": 195,
-      "text": "Jump into the rope.\nIt catches you.",
-      "fontSize": 34,
-      "align": "center",
-      "style": "graffiti",
-      "rotation": -4
-    },
-    {
-      "x": 580,
-      "y": 830,
-      "w": 180,
-      "h": 100,
-      "text": "Hold up\nto climb.",
-      "fontSize": 24,
-      "align": "left",
-      "style": "graffiti",
-      "rotation": -4
-    },
-    {
       "x": 1300,
       "y": 20,
       "w": 240,

@@ -78,15 +78,15 @@
   "timers": [],
   "texts": [
     {
-      "x": 630,
-      "y": 415,
+      "x": 280,
+      "y": 295,
       "w": 205,
       "h": 225,
       "text": "Run up, hold jump",
       "fontSize": 40,
-      "align": "center",
-      "style": "graffiti",
-      "rotation": 5
+      "align": "left",
+      "style": "official",
+      "rotation": 0
     },
     {
       "x": 1040,

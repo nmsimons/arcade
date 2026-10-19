@@ -53,26 +53,26 @@
   "timers": [],
   "texts": [
     {
-      "x": 240,
-      "y": 420,
-      "w": 300,
-      "h": 100,
+      "x": 355,
+      "y": 340,
+      "w": 155,
+      "h": 85,
       "text": "Run up.\nTap jump.",
       "fontSize": 32,
       "align": "left",
-      "style": "graffiti",
-      "rotation": -10
+      "style": "official",
+      "rotation": 0
     },
     {
-      "x": 580,
-      "y": 830,
+      "x": 575,
+      "y": 820,
       "w": 180,
       "h": 100,
       "text": "Hold up\nto climb.",
       "fontSize": 24,
       "align": "left",
-      "style": "graffiti",
-      "rotation": -4
+      "style": "official",
+      "rotation": 0
     },
     {
       "x": 1040,

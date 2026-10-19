@@ -3,9 +3,9 @@ import { test, expect } from './helpers/test.mjs'
 test('both wall-text styles keep their ink position, blank lines and clipping across canvas scales', async ({ page }, info) => {
   await page.goto('/tests/fixtures/jumping/lighting-prototype.json')
   const samples = await page.evaluate(async () => {
-    const { drawWallTexts, GRAFFITI_FONT, clearWallTextLayouts } = await import('/src/games/jumping/wallText.ts')
-    const face = new FontFace(GRAFFITI_FONT, 'url(/src/games/jumping/fonts/PermanentMarker-Regular.ttf)')
-    document.fonts.add(face); await face.load(); clearWallTextLayouts()
+    const { drawWallTexts } = await import('/src/games/jumping/wallText.ts')
+    const { loadWallTextFonts } = await import('/src/games/jumping/useWallTextFont.ts')
+    await loadWallTextFonts()
     const samples = [], texts = new Map(), preview = document.createElement('canvas')
     preview.width = 800; preview.height = 280
     const previewCtx = preview.getContext('2d')

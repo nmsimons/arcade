@@ -499,15 +499,16 @@ playgrounds. Each entry has `x`, `y` (top-left in JSON coordinates), `w`, `h`,
   "text": "Run up.\nPress to jump.", "fontSize": 24, "align": "left" }]
 ```
 
-Official text uses flat, muted lettering with no panel or outline. Explicit newlines are
-preserved; words wrap at the area's width, and excess lines are clipped to its
+Official text uses muted stencil lettering painted directly on the wall, with no
+panel or outline. Explicit newlines are preserved; words wrap at the area's
+width, and excess lines are clipped to its
 height. Font sizes range from 12 to 96 world units, text is limited to 1,000
 characters, and areas are 40–2,000 units wide and 24–1,200 units high, bounded by
 the level. Choose **Back wall → Wall text** in the builder, then edit content,
 font size, alignment, position, and dimensions in the inspector. **Style** selects
-clean **Official** lettering or **Graffiti** marker lettering, muted red in daytime
-and warm yellow in night mode for readability. The
-graffiti font is bundled with the game and works offline. **Rotation (°)** turns
+painted **Official** stencils or **Graffiti** marker lettering, muted red in daytime
+and warm yellow in night mode for readability. The wall fonts are bundled with
+the game and work offline. **Rotation (°)** turns
 the area around its center, from −180 to 180 degrees; positive values turn
 clockwise. The selection frame and resize handles rotate with it. In JSON,
 `style: "graffiti"` and `rotation: -12` are optional; omitted fields retain the

@@ -11,7 +11,9 @@ export interface WallText extends NamedObject {
   style?: 'official' | 'graffiti' | 'lab-stamp' | 'terminal'
 }
 export const WALL_TEXT_COLOR = '#718074'
-export const WALL_TEXT_FONT = 'ui-monospace, monospace'
+export const OFFICIAL_FONT = 'UJG Official'
+export const WALL_TEXT_FONT = `"${OFFICIAL_FONT}", sans-serif`
+export const MESSAGE_SCREEN_FONT = 'ui-monospace, monospace'
 export const GRAFFITI_FONT = 'UJG Graffiti'
 export const GRAFFITI_COLOR = '#94433f'
 export const NIGHT_GRAFFITI_COLOR = '#f4d35e'
@@ -115,7 +117,7 @@ function drawMessageScreen(ctx: CanvasRenderingContext2D, text: WallText, paint:
   const content = messageScreenContent(text)
   paint(ctx, .65, () => {
     ctx.save(); ctx.shadowColor = MESSAGE_SCREEN_COLOR; ctx.shadowBlur = 2
-    drawPrintedWallTexts(ctx, [content], false, MESSAGE_SCREEN_COLOR)
+    drawPrintedWallTexts(ctx, [content], false, MESSAGE_SCREEN_COLOR, true)
     ctx.restore()
   }, true, { x: content.x, y: content.y, w: content.w, h: content.h })
   ctx.restore()
@@ -128,7 +130,7 @@ export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
     else paint(ctx, 0, () => drawPrintedWallTexts(ctx, [text], nightMode))
   }
 }
-function drawPrintedWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, ink?: string) {
+function drawPrintedWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, ink?: string, screen = false) {
   for (const text of texts) {
     ctx.save(); ctx.translate(text.x + text.w / 2, text.y + text.h / 2); ctx.rotate((text.rotation ?? 0) * Math.PI / 180)
     ctx.translate(-text.w / 2, -text.h / 2)
@@ -139,7 +141,8 @@ function drawPrintedWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
     }
     const graffiti = text.style === 'graffiti'
     const transform = ctx.getTransform(), scale = Math.hypot(transform.c, transform.d) || 1
-    const font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize * scale}px ${WALL_TEXT_FONT}`
+    const font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive`
+      : `${screen ? 500 : 400} ${text.fontSize * scale}px ${screen ? MESSAGE_SCREEN_FONT : WALL_TEXT_FONT}`
     ctx.font = font
     ctx.fillStyle = ink ?? (graffiti ? nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR : WALL_TEXT_COLOR); ctx.textAlign = text.align; ctx.textBaseline = 'alphabetic'
     let layout = layouts.get(text)

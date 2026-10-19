@@ -1047,7 +1047,8 @@
       "kind": "box",
       "x": 1430,
       "y": 800,
-      "size": 70
+      "size": 70,
+      "branded": true
     }
   ],
   "mechanisms": [
@@ -1085,15 +1086,14 @@
   "pickups": [],
   "texts": [
     {
-      "x": 860,
-      "y": 240,
-      "w": 320,
-      "h": 100,
-      "text": "Hahaha!!!",
+      "x": 1380,
+      "y": 20,
+      "w": 240,
+      "h": 110,
+      "text": "L.A.B.\nexperiments",
       "fontSize": 28,
-      "align": "left",
-      "style": "graffiti",
-      "rotation": -15
+      "align": "center",
+      "style": "lab-stamp"
     }
   ]
 }

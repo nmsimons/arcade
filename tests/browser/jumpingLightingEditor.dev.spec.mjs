@@ -82,13 +82,20 @@ test('spotlight flicker previews live, undoes, duplicates and round-trips throug
 })
 
 test('saved spotlight flicker runs during play and returns to the builder', async ({ page }) => {
+  test.setTimeout(60_000)
+  await page.setViewportSize({ width: 640, height: 400 })
   const errors = await captureLampOutputs(page)
   await open(page, flickerLevel(true))
   await saveTestLevel(page, 'Save and Test')
   await expect(page.getByRole('button', { name: 'Return to builder', exact: true })).toBeVisible()
   await page.locator('.jumping-game > canvas').focus(); await page.keyboard.press('ArrowRight')
   await page.evaluate(() => { window.lampOutputs = [] })
-  await expect.poll(() => page.evaluate(() => window.lampOutputs.some(a => a > 0 && a < .5)), { timeout: 10000 }).toBe(true)
+  // Slow software rendering caps each live frame's elapsed time. Advance every
+  // animation frame explicitly so a real-time wait cannot miss the next fault.
+  await expect.poll(async () => {
+    await page.clock.runFor(160)
+    return page.evaluate(() => window.lampOutputs.some(a => a > 0 && a < .5))
+  }, { timeout: 30_000, intervals: [0] }).toBe(true)
   await page.keyboard.press('Escape')
   await page.evaluate(() => { window.lampOutputs = [] })
   await expect(page.getByRole('dialog', { name: 'Game paused', exact: true })).toBeVisible()

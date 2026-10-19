@@ -112,7 +112,7 @@ for (const recording of recordings.runs) test(`built-in ${recording.jumpModel ??
     assert.ok(weighted(level.triggers[1]).length > 0, 'a ball must take over the pressure plate')
   }
   if (recording.file === 'Tower.jump-level.json') {
-    const outside = weighted(level.triggers.find(plate => plate.x === 0 && plate.y === 2000))
+    const outside = weighted(level.triggers.find(plate => plate.name === 'Outside'))
     const lobby = weighted(level.triggers.find(plate => plate.x === 580 && plate.y === 2000))
     assert.equal(outside.length, 1)
     assert.equal(lobby.length, 1)

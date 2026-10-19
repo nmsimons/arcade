@@ -8,6 +8,9 @@ async function open(page) {
   await installBuiltInFixtures(page, { 'first.json': FIRST_LEVEL })
   await page.goto('/lab')
   await expect(page.locator('.jumping-level-browser .jumping-level-card')).toHaveCount(1)
+  // The initial public catalog can be replaced by the writable dev catalog.
+  // Wait for its final file identity before measuring the card's CSS.
+  await expect(page.getByRole('button', { name: 'Delete first.json', exact: true })).toBeVisible()
   await page.locator('.jumping-menu-navigation button').first().focus()
   await page.locator('.jumping-level-browser button.jumping-level-card').hover()
   await page.mouse.move(0, 0)

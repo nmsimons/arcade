@@ -24,6 +24,10 @@ async function open(page, _legacy = false, maps = levels()) {
 }
 
 test('built-in tiles edit independently by button and Y while arrows browse tiles and A plays', async ({ page }, info) => {
+  await page.route('**/src/games/jumping/LevelBuilder.tsx*', async route => {
+    await new Promise(resolve => setTimeout(resolve, 250))
+    await route.continue()
+  })
   await open(page, true)
   const first = page.getByRole('button', { name: 'Level 1: First room', exact: true })
   await first.focus(); await page.clock.runFor(64)
@@ -31,7 +35,12 @@ test('built-in tiles edit independently by button and Y while arrows browse tile
   await expect(page.getByRole('button', { name: 'Level 2: Second room', exact: true })).toBeFocused()
   await expect(page.getByRole('button', { name: 'Level 2: Second room', exact: true })).toHaveAttribute('aria-pressed', 'true')
   await tap(page, 3)
+  // React's lazy editor must load with a running scheduler before freezing
+  // time again for the remaining controller assertions.
+  await page.clock.resume()
   await expect(page.getByRole('textbox', { name: 'Level name' })).toHaveValue('Second room')
+  await waitForBuilderPreview(page)
+  await page.clock.pauseAt(new Date(await page.evaluate(() => Date.now() + 1000)))
   await expect(page.getByRole('textbox', { name: 'Player hint', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: 'Back to game', exact: true }).click()
   await page.getByRole('button', { name: 'Edit Third room', exact: true }).click()

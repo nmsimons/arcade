@@ -1,18 +1,15 @@
 import { readFileSync } from 'node:fs'
-import { test, expect } from './helpers/folderTest.mjs'
-import { useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
+import { test, expect } from './helpers/test.mjs'
+import { useLevelFixtures, installBuiltInFixtures, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 
 const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/jumping/water-reservoir.json', import.meta.url), 'utf8'))
 
 test('ball and box weights update their appearance, undo, duplicate, save and reopen', async ({ page }, info) => {
   const level = fixture()
-  await useLevelFixtures(page, [level]); await installTestFolder(page, { 'weights.json': level })
+  await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'weights.json': level })
   await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
-  const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })
-  if (await local.count()) await local.click()
-  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await page.getByRole('button', { name: 'Open weights.json', exact: true }).click()
   await waitForBuilderPreview(page); await selectBuilderObject(page, 'prop:0')
   const weight = page.getByRole('combobox', { name: 'Object weight', exact: true })

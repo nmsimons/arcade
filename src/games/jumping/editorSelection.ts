@@ -1,4 +1,4 @@
-import { allSelections, clamp, deleteItem, itemBounds, itemDefinition, itemOutline, moveItem, reorderTerrain, transformTerrain } from './editor.ts'
+import { allSelections, carryWallTerminals, clamp, deleteItem, itemBounds, itemDefinition, itemOutline, moveItem, reorderTerrain, transformTerrain } from './editor.ts'
 import type { Selection, TerrainTransform } from './editor.ts'
 import { copyLevel, levelHeight, newLevelId, parseLevel } from './level.ts'
 import type { JumpLevel } from './level.ts'
@@ -146,7 +146,7 @@ export function moveSelections(level: JumpLevel, selections: readonly Selection[
     }
     if (s.kind === 'trigger') attachPressurePlateOnSurface(next, next.triggers![s.index])
   }
-  return next
+  return carryWallTerminals(level, next)
 }
 export function deleteSelections(level: JumpLevel, selections: readonly Selection[]): JumpLevel {
   let next = level

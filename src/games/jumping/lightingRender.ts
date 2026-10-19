@@ -3,7 +3,8 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { DAY_AMBIENT_EXPOSURE, daylightShadowPolygons } from './daylight.ts'
 import { drawPuzzleWorld } from './challengeRender.ts'
 import { NIGHT_PLAYER_COLOR, withAthletePose } from './athlete.ts'
-import { drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds } from './goal.ts'
+import { awakeningProgress, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds } from './goal.ts'
+import { awakeningPose } from './athlete.ts'
 import { airBoostStrength } from './model.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawLevelBackdrop, drawMovementEffects, drawTerrain } from './render.ts'
 import { levelHeight, levelTerrain } from './level.ts'
@@ -15,6 +16,7 @@ import { isExitEdge } from './lightingBoundary.ts'
 import { MechanismLighting } from './lightingStructures.ts'
 import { RestingCasters } from './lightingCache.ts'
 import { drawWallTexts } from './wallText.ts'
+import { drawWallWiring, hasWallWiring } from './wallWiring.ts'
 import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from './worldPaint.ts'
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { ambientExposure, angularFalloff, betweenLightAndView, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
@@ -178,16 +180,20 @@ export class LightingRenderer {
     // The backdrop precedes every emission, so it cannot occlude one.
     if (backdrop && layer !== 'objects') drawLevelBackdrop(ctx, run.level,
       { x: view.x, y: view.y, w: view.width / view.zoom, h: view.height / view.zoom }, view.zoom, false)
-    // Text is the first wall artwork: empty emission masks need no text erase.
-    // Replay it only with the backdrop or when masking the airborne beam.
-    if (layer !== 'objects' && (backdrop || layer === 'wall')) paint(ctx, 0, () => drawWallTexts(ctx, run.level.texts ?? [], nightMode))
+    const wiring = hasWallWiring(run.level)
+    if (layer !== 'objects') drawWallWiring(ctx, run.level, 'elapsed' in run ? run : undefined, paint, nightMode)
+    // Plain text may cover energized wires and must retain that draw order.
+    // Message screens need the readable passes too. Replay the whole text order
+    // when one is present, so overlapping signs still cover phosphor correctly.
+    if (layer !== 'objects' && (backdrop || layer === 'wall' || wiring || run.level.texts?.some(text => text.style === 'terminal')))
+      drawWallTexts(ctx, run.level.texts ?? [], nightMode, paint)
     // The thin figure needs readable hands and feet in shadow at phone scale.
     // Reuse the existing artwork exposure pass; surrounding light is unchanged.
     const playerExposure = nightMode ? .65 : 0
     if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer, playerExposure)
     else {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
-      if (layer !== 'objects' && (editor || run.entrance)) ambientPaint(paint)(ctx, 0, () =>
+      if (layer !== 'objects' && run.level.entrance.kind !== 'charging-bay' && (editor || run.entrance)) ambientPaint(paint)(ctx, 0, () =>
         drawDoorway(ctx, entranceDoor(run.level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))
       if (layer !== 'wall') {
         paint(ctx, 0, () => {
@@ -198,8 +204,9 @@ export class LightingRenderer {
           drawCheckpointMarkers(ctx, run.player, run.level)
         })
         if (run.entrance && !editor) {
-          ctx.save(); ctx.globalAlpha *= entranceVisibility(run.entrance.elapsed)
-          paint(ctx, playerExposure, () => drawAthlete(ctx, run.entrance!.player, ink)); ctx.restore()
+          const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
+          ctx.save(); ctx.globalAlpha *= waking ? 1 : entranceVisibility(entrance.elapsed)
+          paint(ctx, playerExposure, () => drawAthlete(ctx, entrance.player, ink, waking ? awakeningPose(entrance.player, awakeningProgress(entrance.elapsed)) : undefined)); ctx.restore()
         } else {
           drawMovementEffects(ctx, run.player, paint)
           paint(ctx, playerExposure, () => drawAthlete(ctx, run.player, ink))
@@ -248,7 +255,7 @@ export class LightingRenderer {
     const ambient = nightMode ? ambientExposure(definition.ambient) : DAY_AMBIENT_EXPOSURE, ambientColor = gray(ambient)
     const cacheDayField = this.cacheDayAmbient && this.reuseAmbientBuffer && !nightMode && !sources.length && !editor
       && width * height <= 2_000_000 && 'elapsed' in run && !run.mechanisms.length
-    const cacheAmbientWorld = cacheDayField && 'elapsed' in run && !run.pickups.length && !run.triggers.length
+    const cacheAmbientWorld = cacheDayField && 'elapsed' in run && !hasWallWiring(run.level) && !run.pickups.length && !run.triggers.length
       && !run.level.timers?.length && !run.level.wallLights?.length && !run.level.gravityPlates?.length && !run.forceFields.length
       && !run.level.climbables?.ladders?.length && !run.level.climbables?.ropes?.length
       && airBoostStrength(run.player) < .01

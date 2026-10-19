@@ -11,23 +11,16 @@ A small retro-style browser arcade: a full-screen game selector that launches se
 
 ## Optional accounts and cloud saves
 
-Players can keep playing anonymously, or sign in with Google or a personal
-Microsoft account. Enabling cloud storage separately uses a visible Google Drive
-folder or OneDrive's app folder. Saves, personal bests and account custom levels
-sync directly from the browser while the player stays in a game. Sign-in and cloud
-controls are available in the arcade, Levels and Level Studio; Account-level Refresh checks the cloud. Conflicts
-retain both versions; no player database or save service is required.
+Players can play anonymously or sign in with Google or a personal Microsoft
+account. Optional Google Drive or OneDrive sync keeps game saves, personal bests
+and L.A.B. completion available across devices. Account controls live in game
+menus. Conflicts retain both versions; no player database or save service is
+required. Accounts stay selected until sign-out or clearing site data, and
+expired cloud access offers an explicit Reconnect.
 
-OneDrive files live in `Apps/Dream Large Arcade`; Google Drive uses
-`My Drive/Dream Large Arcade`. Both are organized by game. The jumping
-game's `Levels` folder contains ordinary level JSON files and `index.json`, just
-like local and built-in collections. Copy them together to move a collection;
-files added or edited in OneDrive are read on the next sync. Google grants access
-per file: use **Manage saves → Choose from Google Drive** to select levels copied
-into Drive, or **Import level files** for files on your computer. Both accounts stay
-selected across tabs and browser sessions until sign-out or clearing site data.
-Expired cloud access offers Reconnect without switching away from the player's
-local saves.
+Level authoring is a localhost development tool. Player accounts have no level
+library, file importer or custom-level folder picker. Legacy level data in old
+backups is preserved for compatibility.
 
 Sign-in buttons remain disabled until public OAuth client IDs are configured.
 See [account and cloud storage setup](docs/account-cloud-saves.md) for provider
@@ -504,8 +497,8 @@ trials; [the AI evaluation](docs/bumper-ball-ai.md) records the findings and lim
 
 **L.A.B. Experiments (Leaps and Bounds)** (`/lab`)
 
-**First Leap** and **Second Leap** are included as built-in levels. Open a local
-folder to play your own levels, ordered by its manifest or filename. **JSON Test Lab** lives in the automated test
+The game plays its built-in JSON collection in manifest order. Level studio is
+available only with `npm run dev` on localhost. **JSON Test Lab** lives in the automated test
 fixtures and is not offered in the game or builder.
 
 There is no death or automatic reset. Depress the goal's floor plate to switch on
@@ -573,10 +566,10 @@ live in `src/games/jumping/model.ts`; the simulation advances at 120 Hz
 independently of rendering and viewport size. Built-in maps are runtime JSON
 assets in `public/levels/jumping/`.
 
-Open **Level builder** to enter the **Level studio**. Its **Library** button opens
-a centered dialog with **New level**, local files, and published built-in templates.
+In local development, open **Level studio** or **Edit** a built-in tile.
+**Library** provides **New level**, built-in files and templates.
 Replacing an unsaved draft offers **Save and continue**, **Discard changes**, or **Cancel**. **Use as template**
-under a local file starts a new level with the same contents, a new ID, and an
+under a built-in file starts a new level with the same contents, a new ID, and an
 filename based on its new name. Save the new level to create its file; the source stays unchanged.
 
 - **Terrain** draws static terrain anywhere in the room. Drag both width and height.
@@ -607,53 +600,25 @@ filename based on its new name. Save the new level to create its file; the sourc
   or use middle-button drag to pan.
   **Fit level** or the overview fits the map; **Find start** returns to the player.
 
-**Save and Test** saves the level to its folder before running the authored trial.
-**Return to builder** preserves the draft and undo history. The inspector flags
-invalid starts, goals, medals, unsupported pushers, and missing mechanism links.
-**Local folder → Choose folder** in the level menu loads
-JSON files from disk using the folder’s `index.json` order, with filename order as the default.
-**Edit selected level** opens a file in the builder. With a writable folder open,
-**Save level** writes directly to it. Without writable access, the Library opens
-so you can choose a folder or enable saving.
-The selected folder is remembered in browser storage and reopened automatically
-on reload, reading its current files from disk. The picker remembers the last
-selected collection separately, defaulting to built-ins on a first visit when
-available. Restoring a folder never switches the selected tab. If permission expires, use
-**Reconnect folder**; **Enable saving** renews write access when only read access
-remains. Browser storage holds the folder reference and collection choice, not copies of levels.
-There are no browser copies or autosaved drafts. Save to a file before leaving
-or reloading the game; edits remain in memory during playtests and menu visits.
-**Refresh** picks up edits made in a text editor or by Codex. Browsers that only
-read folders show **Reselect folder** instead; they remember the folder name but
-require reselection after reload. Editing and saving requires writable folder access.
+**Save and Test** writes the built-in file before running the authored trial.
+**Return to builder** preserves the draft and undo history. Level studio and its
+routes, edit shortcuts, and file controls are unavailable in production and
+`vite preview`.
 
-The inspector’s **Level settings** section contains both **Level name** and **File name**. New drafts create no
-level file until the first save, using the level name unless you specify a filename.
-Changing a saved filename renames that file on Save and keeps the level ID.
-Connecting a writable folder creates a missing `index.json` automatically in
-filename mode. Read-only folders prompt you to enable saving; existing manifests
-are left unchanged. Drag tiles directly in **Library**, or focus one and use
-**Alt + Arrow keys**, to rearrange levels. Each move saves the specified sequence
-to `index.json` automatically. **Sort by filename** restores filename ordering.
-Reordering never rewrites level files or changes the current draft.
-**Delete** immediately moves a local file into the folder's recycle bin.
-**Library → Recycle bin** shows level cards with **Recover** and **Delete permanently**;
-permanent deletion and **Empty recycle bin** both require confirmation.
-Recovery copies are stored in a `Deleted levels` subfolder, separate from the OS
-trash. Externally deleted files remain as **Missing file** cards until you confirm
-removing their index entries. Deleting a saved file keeps any open editor draft.
-Files contain the full
-level, including terrain, mechanisms, goals, medal thresholds and rope attachments.
-To open an existing file, put it in the selected level folder and refresh, or
-change folders in Library. There is no separate file import or export flow.
-Save failures and filename conflicts leave the draft intact.
-Local and built-in collections share the same manifest format, so a folder of
-levels and its manifest can be shared or promoted to built-in assets unchanged.
-On localhost in `npm run dev`, built-ins have the same editing and Library controls
-as local files. Saves write directly to `public/levels/jumping` for Git to track;
-built-in recovery copies stay in the ignored `.local/jumping-recycle-bin` folder.
-The development editor can reopen unfinished maps, while publishing still validates
-every built-in. Deployed builds keep built-ins read-only.
+The studio has one destination: `public/levels/jumping/` in this checkout.
+**Save level** writes directly to it and updates the manifest for new files or
+renames. Renames preserve IDs. **Refresh built-in levels** picks up external
+changes. External-edit checks and failed writes leave the draft intact. New
+levels create no file until their first save. Library supports drag or Alt +
+arrow reordering, templates, deletion and recovery. Recovery copies live in
+ignored `.local/jumping-recycle-bin/`, outside published assets. Permanent
+deletion requires confirmation. The dev editor can reopen unfinished maps;
+publishing validates every built-in.
+
+The file writer requires localhost development, a same-origin request and a
+per-server token. There are no browser folder permissions or cloud level
+imports. See [level authoring](docs/jumping-levels.md#development-authoring).
+
 Built-in files are fetched at runtime and use the manifest’s ordering. Reload the page
 to pick up changes (or use **Refresh** in the dev editor). Run `npm run levels:index` after adding, removing or renaming
 assets; the command preserves any custom sequence. Existing-file edits need no index change. `npm run levels:sync` copies the
@@ -740,11 +705,11 @@ npm run prod
 
 This type-checks and builds the app, validates built-in levels, and serves `dist/web/`
 (typically http://localhost:4173). Developer tools and built-in level editing are
-disabled; local level folders and the normal level builder remain available.
+disabled. Only the built-in game and player progress are available.
 Restart `npm run prod` after changing code or built-in levels to rebuild the preview.
 
 Both modes can run at the same time. Their different ports keep browser saves,
-preferences, and remembered folder connections separate. Use the URL printed by
+and preferences separate. Use the URL printed by
 each server if its default port is already occupied.
 
 ## Scripts

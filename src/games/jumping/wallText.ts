@@ -1,11 +1,14 @@
 import type { NamedObject } from './objectNames.ts'
 import { drawLabStamp } from '../../branding/lab.ts'
+import { DIGITAL_GREEN, drawDigitalHousing } from './digitalDisplay.ts'
+import { paintNormally } from './worldPaint.ts'
+import type { WorldPaint } from './worldPaint.ts'
 /** A non-solid text area, positioned by its top-left corner in world coordinates. */
 export interface WallText extends NamedObject {
   x: number; y: number; w: number; h: number
   text: string; fontSize: number; align: 'left' | 'center' | 'right'
   rotation?: number // Clockwise degrees around the center of the text area.
-  style?: 'official' | 'graffiti' | 'lab-stamp'
+  style?: 'official' | 'graffiti' | 'lab-stamp' | 'terminal'
 }
 export const WALL_TEXT_COLOR = '#718074'
 export const WALL_TEXT_FONT = 'ui-monospace, monospace'
@@ -13,6 +16,8 @@ export const GRAFFITI_FONT = 'UJG Graffiti'
 export const GRAFFITI_COLOR = '#94433f'
 export const NIGHT_GRAFFITI_COLOR = '#f4d35e'
 export const WALL_TEXT_LINE_HEIGHT = 1.3
+export const MESSAGE_SCREEN_COLOR = DIGITAL_GREEN
+export const MESSAGE_SCREEN_PADDING = 12
 
 export function wallTextPoint(text: WallText, x: number, y: number) {
   const angle = (text.rotation ?? 0) * Math.PI / 180, c = Math.cos(angle), s = Math.sin(angle)
@@ -89,7 +94,41 @@ function capitalAscent(ctx: CanvasRenderingContext2D, font: string, size: number
   capitalAscents.set(font, ascent)
   return ascent
 }
-export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false) {
+const screenContents = new WeakMap<WallText, WallText>()
+/** Screen geometry uses the same authored area, rotation, clipping and text layout as signs. */
+export function messageScreenContent(text: WallText): WallText {
+  const pad = Math.min(MESSAGE_SCREEN_PADDING, text.w / 8, text.h / 5)
+  let content = screenContents.get(text)
+  if (!content || content.text !== text.text || content.w !== text.w - pad * 2 || content.h !== text.h - pad * 2
+    || content.fontSize !== text.fontSize || content.align !== text.align) {
+    content = { x: pad, y: pad, w: text.w - pad * 2, h: text.h - pad * 2,
+      text: text.text, fontSize: text.fontSize, align: text.align, style: 'official' }
+    screenContents.set(text, content)
+  }
+  return content
+}
+function drawMessageScreen(ctx: CanvasRenderingContext2D, text: WallText, paint: WorldPaint) {
+  ctx.save(); ctx.translate(text.x + text.w / 2, text.y + text.h / 2); ctx.rotate((text.rotation ?? 0) * Math.PI / 180)
+  ctx.translate(-text.w / 2, -text.h / 2)
+  ctx.beginPath(); ctx.rect(0, 0, text.w, text.h); ctx.clip()
+  paint(ctx, 0, () => drawDigitalHousing(ctx, text.w, text.h), true, { x: 0, y: 0, w: text.w, h: text.h })
+  const content = messageScreenContent(text)
+  paint(ctx, .65, () => {
+    ctx.save(); ctx.shadowColor = MESSAGE_SCREEN_COLOR; ctx.shadowBlur = 2
+    drawPrintedWallTexts(ctx, [content], false, MESSAGE_SCREEN_COLOR)
+    ctx.restore()
+  }, true, { x: content.x, y: content.y, w: content.w, h: content.h })
+  ctx.restore()
+}
+
+/** Readable phosphor is confined to the screen; ordinary lettering still follows room light. */
+export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, paint: WorldPaint = paintNormally) {
+  for (const text of texts) {
+    if (text.style === 'terminal') drawMessageScreen(ctx, text, paint)
+    else paint(ctx, 0, () => drawPrintedWallTexts(ctx, [text], nightMode))
+  }
+}
+function drawPrintedWallTexts(ctx: CanvasRenderingContext2D, texts: readonly WallText[], nightMode = false, ink?: string) {
   for (const text of texts) {
     ctx.save(); ctx.translate(text.x + text.w / 2, text.y + text.h / 2); ctx.rotate((text.rotation ?? 0) * Math.PI / 180)
     ctx.translate(-text.w / 2, -text.h / 2)
@@ -102,7 +141,7 @@ export function drawWallTexts(ctx: CanvasRenderingContext2D, texts: readonly Wal
     const transform = ctx.getTransform(), scale = Math.hypot(transform.c, transform.d) || 1
     const font = graffiti ? `400 ${text.fontSize * scale}px "${GRAFFITI_FONT}", cursive` : `500 ${text.fontSize * scale}px ${WALL_TEXT_FONT}`
     ctx.font = font
-    ctx.fillStyle = graffiti ? nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR : WALL_TEXT_COLOR; ctx.textAlign = text.align; ctx.textBaseline = 'alphabetic'
+    ctx.fillStyle = ink ?? (graffiti ? nightMode ? NIGHT_GRAFFITI_COLOR : GRAFFITI_COLOR : WALL_TEXT_COLOR); ctx.textAlign = text.align; ctx.textBaseline = 'alphabetic'
     let layout = layouts.get(text)
     if (!layout || layout.text !== text.text || layout.width !== text.w || layout.font !== font || layout.scale !== scale) {
       // Safari's top baseline includes extra font ascent. Anchor to measured ink

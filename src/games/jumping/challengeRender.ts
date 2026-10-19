@@ -2,10 +2,13 @@ import { gravityPlateActive } from './gravity.ts'
 import { drawForceField } from './forceFieldRender.ts'
 import { drawGravityDust, drawGravityPlate, drawGravityRegion, drawWaterRegion, drawWaterSurfaceDetails } from './gravityRender.ts'
 import { drawLevelBackdrop, drawMovementEffects } from './render.ts'
+import { drawWallWiring } from './wallWiring.ts'
+import { drawWallTexts } from './wallText.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX } from './goal.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX } from './goal.ts'
+import { awakeningPose } from './athlete.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
 import { drawCoinSwitch } from './coins.ts'
@@ -149,7 +152,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
     wallPaint(ctx, 0, () => drawGoalDoor(ctx, level.goal, run.goalElapsed / GOAL_OPEN_SECONDS, editor))
-    if (editor || !run.started && run.entrance) wallPaint(ctx, 0, () =>
+    if (level.entrance.kind !== 'charging-bay' && (editor || !run.started && run.entrance)) wallPaint(ctx, 0, () =>
       drawDoorway(ctx, entranceDoor(level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))
     // Wall displays sit behind solid terrain and actors, and have no physics shape.
     const clockFinished = run.exit !== null, clockStopped = !clockFinished && run.timeStopRemaining > 0
@@ -185,8 +188,9 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   })
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint, lights.find(light => light.robot === i)?.fade ?? 0)
   if (!run.started && run.entrance && !editor) {
-    ctx.save(); ctx.globalAlpha *= entranceVisibility(run.entrance.elapsed)
-    paint(ctx, playerExposure, () => drawAthlete(ctx, run.entrance!.player, playerInk)); ctx.restore()
+    const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
+    ctx.save(); ctx.globalAlpha *= waking ? 1 : entranceVisibility(entrance.elapsed)
+    paint(ctx, playerExposure, () => drawAthlete(ctx, entrance.player, playerInk, waking ? awakeningPose(entrance.player, awakeningProgress(entrance.elapsed)) : undefined)); ctx.restore()
   }
   else if (run.exit) {
     ctx.save(); ctx.globalAlpha = 1 - goalEase((run.exit.elapsed - .25) / .5)
@@ -205,7 +209,9 @@ export function drawChallenge(ctx: CanvasRenderingContext2D, width: number, heig
   ctx.fillStyle = '#f0efe8'; ctx.fillRect(0, 0, width, height)
   const { zoom, x: left, y: top } = view
   ctx.save(); ctx.scale(zoom, zoom); ctx.translate(-left, -top)
-  drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom)
+  drawLevelBackdrop(ctx, level, { x: left, y: top, w: width / zoom, h: height / zoom }, zoom, false)
+  drawWallWiring(ctx, level, run)
+  drawWallTexts(ctx, level.texts ?? [])
   drawPuzzleWorld(ctx, run)
   ctx.restore()
 }

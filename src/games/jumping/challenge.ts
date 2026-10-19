@@ -9,7 +9,7 @@ export type { PuzzleLevel } from './level.ts'
 import { moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
-import { advanceEntranceAnimation, createEntranceAnimation, ENTRANCE_SECONDS, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
+import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
 import type { EntranceAnimation, GoalExit } from './goal.ts'
 import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
@@ -131,7 +131,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   p.terrain = world.platforms
   advanceFootwork(p, 0, p.x, world.platforms)
   run.waterSurface = createWaterSurface(run.water.plates, run.terrain, p, run.props, run.gravityField)
-  if (!preview) run.entrance = createEntranceAnimation(p, world.platforms)
+  if (!preview) run.entrance = createEntranceAnimation(p, world.platforms, level.entrance)
   return run
 }
 function syncPlatforms(run: Run): ContactWorld {
@@ -326,14 +326,14 @@ function collectPickups(run: Run, dt: number) {
   run.empRemaining += collected.empSeconds
   if (collected.empSeconds) for (const robot of run.robots) robot.vx = 0
   run.coinsCollected += collected.coins
-  run.elapsed = Math.max(0, run.elapsed + collected.timeAdded - collected.timeOff)
+  if (run.level.timing !== 'untimed') run.elapsed = Math.max(0, run.elapsed + collected.timeAdded - collected.timeOff)
 }
 export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   if (run.finished) return
   if (!run.started) {
     if (!run.entrance) return // Static previews never activate.
     dt = advanceEntranceAnimation(run.entrance, dt, syncPlatforms(run))
-    if (run.entrance.elapsed + 1e-9 < ENTRANCE_SECONDS) return
+    if (run.entrance.elapsed + 1e-9 < entranceDuration(run.entrance)) return
     run.entrance = null; run.started = true
     if (dt < 1e-9) return
   }
@@ -348,7 +348,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     const fast = Math.min(dt, run.timeFastRemaining)
     run.timeStopRemaining = Math.max(0, run.timeStopRemaining - stopped)
     run.timeFastRemaining = Math.max(0, run.timeFastRemaining - dt)
-    run.elapsed += dt - stopped + Math.max(0, fast - stopped)
+    if (run.level.timing !== 'untimed') run.elapsed += dt - stopped + Math.max(0, fast - stopped)
   }
   if (run.exit) {
     const p = run.player, from: [number, number] = [p.x, p.y]
@@ -423,7 +423,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     // a loose prop blocks a sideways step toward its center.
     const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
-    run.medal = medalFor(run.elapsed, run.level)
+    run.medal = run.level.timing === 'untimed' ? null : medalFor(run.elapsed, run.level)
     p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null; p.freeFall = null
     cancelJumpInput(p)
   }

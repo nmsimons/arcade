@@ -23,8 +23,9 @@ export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
     const prop = level.props?.[s.index], weight = prop?.weight === 'heavy' ? 'Heavy ' : ''
     return `${weight}${prop?.kind === 'ball' ? 'Ball' : prop?.branded ? 'L.A.B. crate' : 'Box'} ${s.index + 1}`
   }
+  if (s.kind === 'text' && level.texts?.[s.index]?.style === 'terminal') return `Message screen ${s.index + 1}`
   if (s.kind === 'text' && level.texts?.[s.index]?.style === 'lab-stamp') return `L.A.B. wall stamp ${s.index + 1}`
-  const name = s.kind === 'entrance' ? 'Entrance door' : s.kind === 'goal' ? 'Exit door'
+  const name = s.kind === 'entrance' ? level.entrance.kind === 'charging-bay' ? 'Charging bay' : 'Entrance door' : s.kind === 'goal' ? 'Exit door'
     : s.kind === 'pickup' ? pickupLabel(level.pickups![s.index].kind) : s.kind === 'light' ? 'Spotlight' : s.kind === 'force-field' ? level.forceFields![s.index].orientation === 'horizontal' ? 'Horizontal force field' : 'Vertical force field' : s.kind === 'gravity-plate' ? level.gravityPlates?.[s.index]?.effect === 'water' ? 'Water' : 'Gravity plate' : s.kind === 'wall-light' ? 'Wall light' : s.kind === 'timer' ? 'Wall timer' : s.kind === 'text' ? 'Wall text' : s.kind === 'robot' ? 'Shovebot' : s.kind === 'trigger' ? level.triggers?.[s.index]?.mode === 'coins' ? 'Coin switch' : 'Pressure plate' : s.kind === 'mechanism' ? mechanismLabel(level.mechanisms![s.index]) : s.kind === 'platform' ? 'Terrain' : s.kind[0].toUpperCase() + s.kind.slice(1)
   return `${name}${s.kind === 'entrance' || s.kind === 'goal' ? '' : ` ${s.index + 1}`}`
 }

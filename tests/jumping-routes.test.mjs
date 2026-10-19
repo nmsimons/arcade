@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { jumpingRoute, levelPath, playtestPath, JUMPING_MENU, JUMPING_BUILDER, JUMPING_PLAYTEST } from '../src/games/jumping/routes.ts'
 
 test('level links preserve filenames with spaces, Unicode, percent, query and hash characters', () => {
-  for (const source of ['built-in', 'local']) for (const edit of [true, false]) {
+  for (const source of ['built-in']) for (const edit of [true, false]) {
     const fileName = '03-café #1? 100%.json'
     assert.deepEqual(jumpingRoute(levelPath(source, fileName, edit)), edit
       ? { screen: 'builder', file: { source, fileName } } : { screen: 'level', source, fileName })
@@ -20,14 +20,14 @@ test('menu, draft builder and session playtest have distinct routes', () => {
 
 test('LAB file links use /lab and reject unrelated or retired route prefixes', () => {
   assert.equal(levelPath('built-in', 'Tower #2.json'), '/lab/levels/built-in/Tower%20%232.json')
-  assert.equal(levelPath('local', 'Tower #2.json', true), '/lab/builder/local/Tower%20%232.json')
+  assert.equal(levelPath('built-in', 'Tower #2.json', true), '/lab/builder/built-in/Tower%20%232.json')
   for (const prefix of ['/lab-other', '/untitled-jumping-game', '/games/lab']) {
     assert.deepEqual(jumpingRoute(`${prefix}/levels/built-in/00.json`), { screen: 'missing' })
   }
 })
 
 test('playtest URLs identify saved files or unsaved draft IDs without confusing normal play routes', () => {
-  for (const source of ['built-in', 'local']) {
+  for (const source of ['built-in']) {
     const fileName = 'Tower #2? 100%.json', builder = levelPath(source, fileName, true)
     assert.deepEqual(jumpingRoute(playtestPath(builder, 'draft-id')), { screen: 'playtest', file: { source, fileName } })
   }
@@ -36,7 +36,7 @@ test('playtest URLs identify saved files or unsaved draft IDs without confusing 
 })
 
 test('malformed and nested file links cannot resolve to another file', () => {
-  for (const tail of ['levels/local/%ZZ.json', 'levels/local/a%2Fb.json', 'levels/local/a%5Cb.json', 'levels/remote/a.json', 'builder/local', 'levels/local/a.json/extra',
+  for (const tail of ['levels/local/legacy.json', 'builder/local/legacy.json', 'builder/local/legacy.json/playtest', 'levels/local/%ZZ.json', 'levels/local/a%2Fb.json', 'levels/local/a%5Cb.json', 'levels/remote/a.json', 'builder/local', 'levels/local/a.json/extra',
     'levels/local/a.json/playtest', 'builder/local/a%2Fb.json/playtest', 'builder/local/%ZZ/playtest', 'builder/playtest/%ZZ', 'builder/playtest/a%2Fb'])
     assert.deepEqual(jumpingRoute(`${JUMPING_MENU}/${tail}`), { screen: 'missing' })
 })

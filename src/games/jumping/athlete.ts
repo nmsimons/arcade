@@ -2664,9 +2664,22 @@ function wallBracePose(p: Player, free: AthletePose): AthletePose {
 }
 
 export const NIGHT_PLAYER_COLOR = '#e5e7e6'
+/** A quiet head-and-shoulder recovery, with both feet held on the charging sill. */
+export function awakeningPose(p: Player, progress: number): AthletePose {
+  const target = athletePose(p)
+  if (progress >= 1) return target
+  const from = structuredClone(target)
+  from.waist = [target.waist[0] + 2, target.waist[1] + 1]
+  from.shoulder = [target.shoulder[0] + 4, target.shoulder[1] + 3]
+  from.head = [target.head[0] + 8, target.head[1] + 7]
+  from.headTilt = .65
+  from.frontArm = armPose(from.shoulder, .1, .1)
+  from.backArm = armPose(from.shoulder, -.12, .1)
+  return transferPose(from, target, [0, 0], Math.max(0, progress))
+}
 /** The android shell follows the original solved joints and contact rig. */
-export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e') {
-  const pose = athletePose(p), { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
+export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#686b6e', pose = athletePose(p)) {
+  const { hip, waist, shoulder, head, frontArm, backArm, frontLeg, backLeg, backView = 0, headTilt } = pose
   ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.facing, p.inverted ? -1 : 1)
   const materials = androidMaterials(body), shell = materials.shell
   const backPose = !!p.climbing || backView > 0

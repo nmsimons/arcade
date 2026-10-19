@@ -4,20 +4,14 @@ import { KeyboardDialog } from '../games/hardVacuum/KeyboardDialog'
 import { configured, prepareAuth, signIn } from './auth'
 import type { Provider } from './auth'
 import { createCloudStore } from './cloudStore'
-import { createGoogleDriveStore } from './googleDriveStore'
-import type { PickedGoogleFile } from './googleDriveStore'
-import { googlePickerConfigured, pickGoogleLevels } from './googlePicker'
 import type { CloudEntry, CloudFolder } from './cloudStore'
 import { CloudAccessError, CloudBusyError, CloudChangedError } from './errors'
 import { createSync } from './sync'
 import type { SyncPhase, SyncResult } from './sync'
 import { currentProfile, gameStorage, subscribeGameStorage, SAVE_SLOTS, LEVELS_SLOT } from './profileStorage'
 import { digest, parseWorkspace, readCurrentWorkspace, readWorkspace, replaceWorkspace, serializeWorkspace } from './data'
-import { isLevelFileName } from '../games/jumping/levelAssets'
-import { importLevelCollection } from './levelLibrary'
-import { readLevelText } from '../games/jumping/levelLimits'
 import { getLevelSyncActivity, setLevelSyncActivity } from './levelSaveState'
-import { cloudDownloadsAllowed, getAccountOpenRequest, getAccountSurface, hasUnsavedDraft, refreshAccountCloud, registerAccountSync, restartAccountGame, subscribeAccountRuntime } from './runtime'
+import { cloudDownloadsAllowed, getAccountOpenRequest, getAccountSurface, hasUnsavedDraft, registerAccountSync, restartAccountGame, subscribeAccountRuntime } from './runtime'
 import { disconnectCloud, enableCloud, getSession, leaveAccount, operation, subscribeSession, setLogin } from './session'
 // Official provider artwork from their sign-in branding guidelines.
 import googleLogo from '../assets/auth/google.png'
@@ -29,10 +23,10 @@ type Confirmation = { label: string; description: string; action: () => Promise<
 type Screen = 'home' | 'saves' | 'settings' | 'history'
 const label = (provider: Provider) => provider === 'google' ? 'Google Drive' : 'OneDrive'
 const providerName = (provider: Provider) => provider === 'google' ? 'Google' : 'Microsoft'
-const signInDescription = 'Signing in lets you save game data and custom levels in your own Google Drive or OneDrive.'
+const signInDescription = 'Signing in lets you save game progress in your own Google Drive or OneDrive.'
 const date = (value: string) => new Date(value).toLocaleString()
 const errorText = (error: unknown) => error instanceof SyntaxError
-  ? 'A save file could not be read. Check that it is a valid game backup or level file.'
+  ? 'A save file could not be read. Check that it is a valid game backup.'
   : error instanceof Error ? error.message : 'Please try again.'
 function download(text: string, name: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }))
@@ -61,25 +55,13 @@ export default function AccountControls() {
   const [cloudFolder, setCloudFolder] = useState<CloudFolder & { owner: string }>()
   const [confirmation, setConfirmation] = useState<Confirmation>()
   const busyRef = useRef<symbol | undefined>(undefined), lifetime = useRef(0), pauseSync = useRef(false), confirming = useRef(false)
-  const input = useRef<HTMLInputElement>(null), backupInput = useRef<HTMLInputElement>(null), trigger = useRef<HTMLButtonElement>(null)
+  const backupInput = useRef<HTMLInputElement>(null), trigger = useRef<HTMLButtonElement>(null)
   const statusRef = useRef<HTMLDivElement>(null)
-  const pickerOperation = useRef<AbortController | undefined>(undefined)
-  const drivePickerTrigger = useRef<HTMLButtonElement>(null)
-  const [pickerCompleted, setPickerCompleted] = useState(0)
-  const pickerFocusRestored = useRef(0)
   const syncRef = useRef<{ run: (choice?: 'local' | CloudEntry, completed?: string) => Promise<SyncResult | undefined> } | null>(null)
   const login = account.login, owner = currentProfile(), busy = !!activity
   const drive = login ? label(login.identity.provider) : ''
   const connectReady = login?.identity.provider !== 'google' || !!ready.google
   const folder = login && cloudFolder?.owner === owner ? cloudFolder : undefined
-
-  useLayoutEffect(() => {
-    if (busy || pickerFocusRestored.current === pickerCompleted) return
-    pickerFocusRestored.current = pickerCompleted
-    // Wait for React to enable the button. An animation frame can run before
-    // that commit, when a disabled button silently rejects focus.
-    if (open && screen === 'saves') drivePickerTrigger.current?.focus({ preventScroll: true })
-  }, [busy, open, screen, pickerCompleted])
 
   useEffect(() => {
     const lifetimeRef = lifetime
@@ -95,13 +77,12 @@ export default function AccountControls() {
       if (event.key === 'F8' && !event.repeat) {
         // Account controls belong to menus and the editor, never gameplay.
         // Native file dialogs also make their surrounding header inert.
-        if (!getAccountSurface() || pickerOperation.current || document.querySelector('dialog:modal')) return
+        if (!getAccountSurface() || document.querySelector('dialog:modal')) return
         event.preventDefault(); event.stopPropagation(); setScreen('home'); setOpen(true)
       }
     }
     window.addEventListener('keydown', shortcut, true)
-    const pickerRef = pickerOperation
-    return () => { lifetimeRef.current++; pickerRef.current?.abort(); unsubscribe(); window.removeEventListener('keydown', shortcut, true) }
+    return () => { lifetimeRef.current++; unsubscribe(); window.removeEventListener('keydown', shortcut, true) }
   }, [])
   useEffect(() => {
     if (!open) return
@@ -155,7 +136,7 @@ export default function AccountControls() {
       setLevelSyncActivity(owner, 'checking')
       let retrySoon = false
       setWaitingForCloud(undefined)
-      setActivity({ title: `Connecting to ${driveName}…`, detail: 'Checking for saved progress and custom levels.' })
+      setActivity({ title: `Connecting to ${driveName}…`, detail: 'Checking for saved progress.' })
       requestAnimationFrame(() => statusRef.current?.scrollIntoView({ block: 'nearest' }))
       setSyncProblem(undefined)
       const op = operation(); pending = op.controller
@@ -171,7 +152,7 @@ export default function AccountControls() {
               ? { tone: 'warning', title: 'An interrupted upload needs recovery', detail: `Choose this device’s saves or a complete cloud version. The interrupted files will be kept in ${driveName} history.` }
               : { tone: 'warning', title: 'Which progress would you like to keep playing?', detail: 'This device and the cloud have different saves. Choose one to continue. Both versions will stay in history.' })
           } else if (next.status === 'deferred') {
-            setNotice({ title: 'New cloud saves are available', detail: 'Your current game and editor are unchanged. Refresh your level library to load them, or load the cloud saves here to restart this game.' })
+            setNotice({ title: 'New cloud saves are available', detail: 'Your current game is unchanged. Load the cloud saves here to restart this game with the saved progress.' })
           } else {
             const current = serializeWorkspace(await readCurrentWorkspace(store))
             const confirmed = await digest(current) === next.hash && serializeWorkspace(readWorkspace(store)) === current
@@ -321,72 +302,8 @@ export default function AccountControls() {
     if (hasUnsavedDraft()) confirm('Sign out and close draft', 'Save your unfinished editor changes first, or continue to discard them. Saved account files stay on this device.', signOut)
     else void signOut()
   }
-  async function importLevels(files: FileList | null) {
-    if (!files?.length || !login) return
-    const chosen = Array.from(files), selectedOwner = owner
-    await action({ title: 'Importing your levels…', detail: 'Checking the files and adding them to Account levels.' }, async () => {
-      if (chosen.filter(file => file.name !== 'index.json').length > 500) throw new Error('Import at most 500 levels at once.')
-      const store = gameStorage(selectedOwner), data = await readCurrentWorkspace(store), before = serializeWorkspace(data)
-      const incoming: Record<string, string> = {}
-      for (const file of chosen) {
-        if (file.name !== 'index.json' && !isLevelFileName(file.name)) throw new Error('Choose level JSON files and an optional index.json.')
-        if (incoming[file.name] !== undefined) throw new Error('Choose each filename only once.')
-        incoming[file.name] = await readLevelText(file)
-      }
-      data.levels = importLevelCollection(data.levels, incoming)
-      if (currentProfile() !== selectedOwner) throw new Error('The account changed. Import was cancelled.')
-      await replaceWorkspace(store, data, before)
-      const count = chosen.filter(file => file.name !== 'index.json').length
-      return `Imported ${count} level${count === 1 ? '' : 's'}`
-    }, true)
-  }
-  async function chooseDriveLevels() {
-    if (!login || login.identity.provider !== 'google' || !account.cloudEnabled || busyRef.current || pickerOperation.current) return
-    const selectedLogin = login, selectedOwner = owner, path = location.pathname
-    const op = operation(); pickerOperation.current = op.controller
-    const check = () => {
-      if (getSession().login !== selectedLogin || currentProfile() !== selectedOwner || location.pathname !== path) op.controller.abort()
-      op.controller.signal.throwIfAborted()
-    }
-    const unsubscribe = subscribeAccountRuntime(() => {
-      if (location.pathname !== path || !getAccountSurface()) op.controller.abort()
-    })
-    let files: PickedGoogleFile[] | undefined
-    try {
-      const succeeded = await action({ title: 'Opening Google Drive…', detail: 'Select level JSON files and an optional index.json. Google will give Arcade access to the selected files.' }, async () => {
-        const cloud = createGoogleDriveStore(() => selectedLogin.token(), fetch)
-        const parent = await cloud.levelFolder(op.controller.signal)
-        const ids = await pickGoogleLevels(await selectedLogin.token(), parent, op.controller.signal)
-        check()
-        if (!ids) return
-        setActivity({ title: 'Reading your selected levels…', detail: 'Checking the files before adding them to Account levels.' })
-        files = await cloud.pickedFiles(ids, op.controller.signal)
-        check()
-      })
-      if (!succeeded || !files) return
-      // Selection grants access to existing library files. Pull them first, so
-      // importing the same bytes locally cannot create a needless sync conflict.
-      check(); await refreshAccountCloud(); check()
-      const outside = files.filter(file => !file.inLibrary)
-      if (outside.length) {
-        await action({ title: 'Importing your levels…', detail: 'Copying the selected files into Account levels. The originals stay in Google Drive.' }, async () => {
-          check()
-          const store = gameStorage(selectedOwner), data = await readCurrentWorkspace(store), before = serializeWorkspace(data)
-          data.levels = importLevelCollection(data.levels, Object.fromEntries(outside.map(file => [file.name, file.text])))
-          check(); await replaceWorkspace(store, data, before)
-          return 'Google Drive levels imported'
-        }, true)
-      } else setNotice({ tone: 'success', title: 'Google Drive levels are ready', detail: 'Your selected files are available under Account levels.' })
-    } catch (error) {
-      if (!op.controller.signal.aborted) setNotice({ tone: 'error', title: 'Drive levels couldn’t finish loading', detail: errorText(error) })
-    } finally {
-      unsubscribe(); op.release()
-      if (pickerOperation.current === op.controller) pickerOperation.current = undefined
-      if (!op.controller.signal.aborted) setPickerCompleted(previous => previous + 1)
-    }
-  }
+
   function closePanel() {
-    pickerOperation.current?.abort()
     // The Microsoft bridge can take time to notice a closed popup. Reject any
     // late sign-in response after the player explicitly leaves this panel.
     if (busy && !login) { lifetime.current++; busyRef.current = undefined; setActivity(undefined); setNotice(undefined) }
@@ -397,7 +314,7 @@ export default function AccountControls() {
   const defaultNotice: Notice = !login
     ? { title: 'Your next game, on any device', detail: signInDescription }
     : !account.cloudEnabled
-      ? { title: 'Save across devices', detail: `Connect ${drive} to keep your account’s progress and custom levels backed up and ready on your other devices.` }
+      ? { title: 'Save across devices', detail: `Connect ${drive} to keep your account’s progress backed up and ready on your other devices.` }
       : { title: 'Ready to sync', detail: `Check ${drive} for your latest progress.` }
   const conflict = result?.status === 'conflict' && !syncProblem
   const pendingNotice: Notice | undefined = login && account.cloudEnabled && pendingLocal && !syncProblem && !conflict && !waitingForCloud && result?.status !== 'deferred'
@@ -448,43 +365,41 @@ export default function AccountControls() {
           {syncProblem && account.cloudEnabled && <div className="account-actions"><button className="account-primary" disabled={busy || syncProblem === 'reconnect' && !connectReady} onClick={() => syncProblem === 'reconnect' ? connect() : void syncRef.current?.run()}>{syncProblem === 'reconnect' ? `Reconnect ${drive}` : 'Try sync again'}</button>{screen === 'home' && <button disabled={busy} onClick={closePanel}>Play on this device</button>}</div>}
           {screen === 'home' && <>
             {conflict ? <div className="account-conflict"><button disabled={busy} onClick={() => confirm('Use this device', 'Continue with this device’s progress on all devices. The other versions will stay in cloud history.', async () => { await syncRef.current?.run('local') })}><strong>Use this device</strong><span>Your progress saved in this browser</span></button>
-              {result.heads.map(entry => <button disabled={busy} key={entry.id} onClick={() => confirm('Use cloud version', `Continue with the saves from ${date(entry.at)}. Your current saved progress will be backed up first. This reloads the game; save unfinished editor changes first.`, () => restoreCloud(entry))}><strong>Use cloud version</strong><span>Saved {date(entry.at)}</span></button>)}
+              {result.heads.map(entry => <button disabled={busy} key={entry.id} onClick={() => confirm('Use cloud version', `Continue with the saves from ${date(entry.at)}. Your current saved progress will be backed up first. This reloads the game.`, () => restoreCloud(entry))}><strong>Use cloud version</strong><span>Saved {date(entry.at)}</span></button>)}
               <button className="account-text-button" disabled={busy} onClick={closePanel}>Decide later</button>
             </div> : !syncProblem && <div className="account-actions">
               {!account.cloudEnabled ? <><button className="account-primary" disabled={busy || !connectReady} onClick={connect}>{busy ? 'Connecting…' : !connectReady ? 'Loading Google sign-in…' : `Connect ${drive}`}</button><button disabled={busy} onClick={closePanel}>Play on this device</button></>
                 : <><button className="account-primary" onClick={closePanel}>{compact ? 'Keep playing' : 'Back to arcade'}</button><button disabled={busy} onClick={() => void syncRef.current?.run()}>{busy ? 'Syncing…' : 'Sync now'}</button></>}
             </div>}
-            {result?.status === 'deferred' && <button disabled={busy} onClick={() => confirm('Load cloud saves', 'Load your cloud saves and restart this game. Save any unfinished editor changes first. Your saved local progress will be kept in history.', () => restoreCloud(result.heads[0]))}>Load cloud saves</button>}
+            {result?.status === 'deferred' && <button disabled={busy} onClick={() => confirm('Load cloud saves', 'Load your cloud saves and restart this game. Your saved local progress will be kept in history.', () => restoreCloud(result.heads[0]))}>Load cloud saves</button>}
             {!conflict && <p className="account-note">{account.cloudEnabled ? 'Changes save on this device first and sync automatically while you play. Wait for sync to finish before closing this tab.' : 'Cloud saves are optional. To bring in progress from before you signed in, choose Manage saves.'}</p>}
             <nav className="account-secondary" aria-label="Account options"><button disabled={busy} onClick={() => go('saves')}>Manage saves</button><button disabled={busy} onClick={() => go('settings')}>Account settings</button></nav>
           </>}
           {screen === 'saves' && <>
-            <div className="account-option"><div><h3>Bring your guest progress</h3><p>Copy the progress you made before signing in into this account.</p></div><button disabled={busy} onClick={() => confirmTransfer('Import guest progress', 'Replace this account’s game progress with guest progress from this browser. Account levels are kept, and a recovery copy is saved first.', async () => {
+            <div className="account-option"><div><h3>Bring your guest progress</h3><p>Copy the progress you made before signing in into this account.</p></div><button disabled={busy} onClick={() => confirmTransfer('Import guest progress', 'Replace this account’s game progress with guest progress from this browser. A recovery copy is saved first.', async () => {
               const store = gameStorage(owner), data = await readCurrentWorkspace(store), before = serializeWorkspace(data), anonymous = readWorkspace(gameStorage(''))
               await replaceWorkspace(store, { ...data, slots: anonymous.slots }, before); return 'Guest progress imported'
             })}>Import guest progress</button></div>
-            <div className="account-option"><div><h3>Custom levels</h3><p>Choose level JSON files and an optional index.json. Find them under Account levels in the jumping game.{login.identity.provider === 'google' && (googlePickerConfigured ? ' Added files directly in Drive? Choose them below to give Arcade access.' : ' Files copied directly into Google Drive are not automatically available to Arcade; import the originals from your computer.')}</p></div><div className="account-actions"><button disabled={busy} onClick={() => input.current?.click()}>Import level files</button>{login.identity.provider === 'google' && googlePickerConfigured && <button ref={drivePickerTrigger} disabled={busy || !account.cloudEnabled} title={!account.cloudEnabled ? 'Connect Google Drive first' : undefined} onClick={() => void chooseDriveLevels()}>Choose from Google Drive</button>}</div></div>
-            <div className="account-option"><div><h3>Backups</h3><p>Download all your game data, or restore a backup you already have.</p></div><div className="account-actions"><button disabled={busy} onClick={() => void action({ title: 'Preparing your backup…', detail: 'Collecting your saves and custom levels.' }, async () => { download(serializeWorkspace(await readCurrentWorkspace(gameStorage(owner))), 'arcade-backup.json'); return 'Backup download started' })}>Download backup</button><button disabled={busy} onClick={() => backupInput.current?.click()}>Import backup</button></div></div>
+            <div className="account-option"><div><h3>Backups</h3><p>Download all your game data, or restore a backup you already have.</p></div><div className="account-actions"><button disabled={busy} onClick={() => void action({ title: 'Preparing your backup…', detail: 'Collecting your saves.' }, async () => { download(serializeWorkspace(await readCurrentWorkspace(gameStorage(owner))), 'arcade-backup.json'); return 'Backup download started' })}>Download backup</button><button disabled={busy} onClick={() => backupInput.current?.click()}>Import backup</button></div></div>
             <div className="account-option"><div><h3>Recover earlier progress</h3><p>Undo the last import or restore an earlier cloud save.</p></div><div className="account-actions"><button disabled={busy} onClick={() => confirmTransfer('Restore local recovery copy', 'Restore the copy saved before the last import or cloud download. Current progress becomes the next recovery copy.', async () => {
               const store = gameStorage(owner), text = store.getItem('arcade.cloud.recovery.v1')
               if (!text) throw new Error('No recovery copy is available on this device.')
               await replaceWorkspace(store, parseWorkspace(text), serializeWorkspace(await readCurrentWorkspace(store))); return 'Recovery copy restored'
             })}>Restore local recovery copy</button>{account.cloudEnabled && <button disabled={busy} onClick={() => go('history')}>Cloud history</button>}</div></div>
           </>}
-          {screen === 'history' && <div className="account-history"><p>Choose a saved version to restore. Your current progress will be backed up first.</p>{!result?.entries.length && <p className="account-note">No cloud versions to show yet. Sync your game progress to create the first one.</p>}{[...(result?.entries ?? [])].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 30).map(entry => <button key={entry.id} disabled={busy} onClick={() => confirm('Restore cloud version', `Restore progress from ${date(entry.at)}. Your current saved progress will be backed up first. This reloads the game; save unfinished editor changes first.`, () => restoreCloud(entry, 'Cloud version restored'))}>{date(entry.at)} · Restore</button>)}</div>}
+          {screen === 'history' && <div className="account-history"><p>Choose a saved version to restore. Your current progress will be backed up first.</p>{!result?.entries.length && <p className="account-note">No cloud versions to show yet. Sync your game progress to create the first one.</p>}{[...(result?.entries ?? [])].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 30).map(entry => <button key={entry.id} disabled={busy} onClick={() => confirm('Restore cloud version', `Restore progress from ${date(entry.at)}. Your current saved progress will be backed up first. This reloads the game.`, () => restoreCloud(entry, 'Cloud version restored'))}>{date(entry.at)} · Restore</button>)}</div>}
           {screen === 'settings' && <>
-            <div className="account-option"><h3>Your storage</h3><p>{folder ? <>Your {drive} folder is <strong>{folder.name}</strong>. {folder.webUrl && <a href={folder.webUrl} target="_blank" rel="noopener noreferrer">Open your {drive} folder ↗</a>}</> : <>Connect {drive} and sync to find your app folder.</>} Each game has its own folder. L.A.B. custom levels are in <strong>Untitled Jumping Game/Levels</strong>. Copy the level JSON files and index.json together to move a collection.</p>{login.identity.provider === 'google' && <p>Google gives Arcade access per file. Copying files into this folder does not grant access. {googlePickerConfigured ? <>Use <strong>Manage saves → Choose from Google Drive</strong> to select those files once; then they can sync.</> : <>Use <strong>Manage saves → Import level files</strong> to import the JSON files from your computer.</>}</p>}{account.cloudEnabled && <div className="account-actions"><button disabled={busy || !connectReady} onClick={connect}>Reconnect {drive}</button><button disabled={busy} onClick={() => {
+            <div className="account-option"><h3>Your storage</h3><p>{folder ? <>Your {drive} folder is <strong>{folder.name}</strong>. {folder.webUrl && <a href={folder.webUrl} target="_blank" rel="noopener noreferrer">Open your {drive} folder ↗</a>}</> : <>Connect {drive} and sync to find your app folder.</>} Your game progress syncs automatically.</p>{account.cloudEnabled && <div className="account-actions"><button disabled={busy || !connectReady} onClick={connect}>Reconnect {drive}</button><button disabled={busy} onClick={() => {
               disconnectCloud(); setResult(undefined); setSyncProblem(undefined); setLastSync(''); pauseSync.current = false
               setNotice({ title: 'Cloud saves disconnected', detail: 'Your progress stays on this device. Existing cloud files are kept.' }); setScreen('home')
             }}>Disconnect cloud</button></div>}</div>
             <div className="account-option"><h3>Your account</h3><p>Signing out keeps your account’s saves and returns you to your guest progress.</p><div className="account-actions"><button disabled={busy} onClick={requestSignOut}>Sign out</button><button disabled={busy} onClick={() => window.open(login.identity.provider === 'google' ? 'https://myaccount.google.com/connections' : 'https://account.live.com/consent/Manage', '_blank', 'noopener,noreferrer')}>Review provider permissions ↗</button></div></div>
             <p className="account-note">Dream Large Arcade requests access only to its game storage. Your files stay with your storage provider. You can revoke access in your provider’s settings.</p>
           </>}
-          <input ref={input} type="file" accept="application/json,.json" multiple hidden onChange={event => { void importLevels(event.target.files); event.target.value = '' }} />
           <input ref={backupInput} type="file" accept="application/json,.json" hidden onChange={event => {
             const file = event.target.files?.[0]; event.target.value = ''; if (!file) return
             if (file.size > 4_000_000) { setNotice({ tone: 'error', title: 'This backup is too large', detail: 'Choose a backup smaller than 4 MB.' }); return }
-            confirmTransfer('Import backup', 'Replace this account’s saves and levels with the selected backup. Your current data is kept in local recovery.', async () => {
+            confirmTransfer('Import backup', 'Replace this account’s saves with the selected backup. Your current data is kept in local recovery.', async () => {
               const store = gameStorage(owner), before = serializeWorkspace(await readCurrentWorkspace(store)), text = await file.text()
               await replaceWorkspace(store, parseWorkspace(text), before); return 'Backup imported'
             })

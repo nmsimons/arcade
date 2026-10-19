@@ -9,8 +9,8 @@ function RestartIcon() {
   </svg>
 }
 
-export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, onResume, onRestart, onBuilder, onLevels, onExit }: {
-  name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean
+export function JumpingPauseDialog({ name, reason, connected, touchControls, testing, challenge, canEdit, onResume, onRestart, onBuilder, onLevels, onExit }: {
+  name: string; reason: string; connected: boolean; touchControls?: boolean; testing: boolean; challenge: boolean; canEdit: boolean
   onResume: () => void; onRestart: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
   const [controls, setControls] = useState(false)
@@ -64,39 +64,39 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
         </>}
       </div>
       {!controls && <nav className="jumping-dialog-actions jumping-pause-destinations" aria-label="Other destinations">
-        <button onClick={onBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button>
+        {canEdit && <button onClick={onBuilder}>{testing ? 'Return to builder' : 'Level studio'}</button>}
         <button onClick={onExit}>Back to arcade</button>
       </nav>}
     </div>
   </KeyboardDialog>
 }
 
-export function JumpingResultDialog({ level, elapsed, medal, best, testing, saveError, onNext, onRetry, onBuilder, onLevels, onExit }: {
-  level: PuzzleLevel; elapsed: number; medal: string; best: number | null; testing: boolean; saveError: boolean
+export function JumpingResultDialog({ level, elapsed, medal, best, testing, saveError, canEdit, onNext, onRetry, onBuilder, onLevels, onExit }: {
+  level: PuzzleLevel; elapsed: number; medal: string; best: number | null; testing: boolean; saveError: boolean; canEdit: boolean
   onNext?: () => void; onRetry: () => void; onBuilder: () => void; onLevels: () => void; onExit: () => void
 }) {
-  const primary = testing ? onBuilder : onNext ?? onRetry
-  const primaryLabel = testing ? 'Return to builder' : onNext ? 'Next level' : 'Try again'
+  const primary = testing && canEdit ? onBuilder : onNext ?? onRetry
+  const primaryLabel = testing && canEdit ? 'Return to builder' : onNext ? 'Next level' : 'Try again'
   const time = formatTime(elapsed), [wholeTime, fraction] = time.split('.')
   return <KeyboardDialog label="Level complete" focusKey="jumping-complete" onClose={onRetry} className="jumping-overlay jumping-dialog-overlay">
     <div className="jumping-dialog-panel jumping-result" data-controller-scroll>
       <header className="jumping-dialog-heading">
         <p className="jumping-eyebrow">{level.name}</p>
         <h2 className="jumping-result-heading">{testing ? 'Test complete.' : 'Level complete.'}</h2>
-        <p className="jumping-result-time" aria-label={`Finish time ${time}`}>{wholeTime}<wbr /><span className="jumping-result-fraction">.{fraction}</span></p>
-        <div className="jumping-result-summary">
+        {level.timing !== 'untimed' && <p className="jumping-result-time" aria-label={`Finish time ${time}`}>{wholeTime}<wbr /><span className="jumping-result-fraction">.{fraction}</span></p>}
+        {level.timing !== 'untimed' && <div className="jumping-result-summary">
           <p className="jumping-result-award">
             {medal === 'No medal' ? 'No medal' : `${medal} medal`}
             {medal !== 'No medal' && <svg className={`jumping-result-medal ${medal.toLowerCase()}`} viewBox="0 0 24 32" fill="currentColor" aria-hidden="true"><path d="M5 17 2 32l10-5 10 5-3-15Z" /><circle cx="12" cy="11" r="11" /></svg>}
           </p>
           {!testing && best !== null && <p className="jumping-result-best">{elapsed <= best ? 'Personal best' : <>Best <span>{formatTime(best)}</span></>}</p>}
-        </div>
+        </div>}
       </header>
-      <dl className="jumping-result-targets" aria-label="Medal target times">
+      {level.timing !== 'untimed' && <dl className="jumping-result-targets" aria-label="Medal target times">
         {(['gold', 'silver', 'bronze'] as const).map(target => <div key={target}>
           <dt>{target[0].toUpperCase() + target.slice(1)}</dt><dd>{formatTime(level.times[target]).replace(/\.00$/, '')}</dd>
         </div>)}
-      </dl>
+      </dl>}
       <nav className="jumping-dialog-actions jumping-result-actions" aria-label="Completion actions">
         <button data-initial-focus onClick={primary}>{primaryLabel}{!testing && !onNext && <RestartIcon />}</button>
         {(testing || onNext) && <button onClick={onRetry}>Try again <RestartIcon /></button>}
@@ -106,7 +106,7 @@ export function JumpingResultDialog({ level, elapsed, medal, best, testing, save
           <button onClick={onLevels}>Level menu</button>
           <button onClick={onExit}>Back to arcade</button>
         </nav>
-        {saveError && <p className="jumping-result-storage" role="status">Your time is kept for this visit. Browser storage is unavailable.</p>}
+        {saveError && <p className="jumping-result-storage" role="status">{level.timing === 'untimed' ? 'Your completion is kept' : 'Your time is kept'} for this visit. Browser storage is unavailable.</p>}
       </footer>
     </div>
   </KeyboardDialog>

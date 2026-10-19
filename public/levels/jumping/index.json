@@ -2,6 +2,7 @@
   "version": 1,
   "order": "listed",
   "levels": [
+    "Wake.jump-level.json",
     "LAB1.jump-level.json",
     "00.json",
     "01.json",

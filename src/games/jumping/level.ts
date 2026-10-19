@@ -11,9 +11,9 @@ import { advanceFootwork } from './footwork.ts'
 import { canGrip } from './friction.ts'
 import { nearestBoundary, polygonIntersects, validPolygon } from './geometry.ts'
 import { entranceDoor, goalBounds, goalDoor, goalPoleX } from './goal.ts'
-import { MAX_SWITCH_TARGETS, parseSwitchSettings, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
-import type { PlateBehavior, PowerMode, SwitchSettings } from './switchPower.ts'
-import type { Goal } from './goal.ts'
+import { MAX_SWITCH_TARGETS, parseSwitchSettings, parseWallWiring, removeSwitchTarget, switchWiringProblems, validSwitchTargetId } from './switchPower.ts'
+import type { PlateBehavior, PowerMode, SwitchSettings, WallWiringSettings } from './switchPower.ts'
+import type { Entrance, Goal } from './goal.ts'
 import { WALL_TIMER_WIDTH, WALL_TIMER_HEIGHT } from './wallTimer.ts'
 import type { WallTimer } from './wallTimer.ts'
 import type { WallText } from './wallText.ts'
@@ -50,7 +50,7 @@ export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: n
 export interface Mechanism extends NamedObject, SwitchSettings { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
-export type Trigger = NamedObject & { x: number; y: number; w: number } & TriggerConnection
+export type Trigger = NamedObject & WallWiringSettings & { x: number; y: number; w: number } & TriggerConnection
   & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; mount?: PressurePlateMount; ceiling?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
@@ -58,7 +58,8 @@ export interface Pusher extends NamedObject { x: number; y: number; left: number
 export interface JumpLevel {
   version: 1 | 2; id: string; name: string; width: number; height?: number
   lighting?: LightingDefinition
-  entrance: Checkpoint; checkpoints: Checkpoint[]; platforms: Platform[]
+  entrance: Entrance; checkpoints: Checkpoint[]; platforms: Platform[]
+  timing?: 'untimed'
   climbables: { ladders: ClimbableWorld['ladders'][number][]; ropes: ClimbableWorld['ropes'][number][] }
   floor?: number; goal?: Goal
   floorMaterial?: TerrainMaterial
@@ -288,10 +289,14 @@ export function parseLevel(value: unknown): JumpLevel {
   })
   // Legacy player positions become entrance doors at the same feet position.
   const entrance = point(v.entrance ?? v.spawn), checkpoints = list(v.checkpoints, 30).map(point)
+  const entranceKind = object(v.entrance ?? v.spawn).kind
+  if (entranceKind !== undefined && entranceKind !== 'charging-bay') fail()
+  if (v.timing !== undefined && v.timing !== 'untimed') fail()
   if (entrance.x > width || checkpoints.some(p => p.x > width)) fail()
   const level: JumpLevel = { version: v.version as 1 | 2, id: v.id as string, name: (v.name as string).trim(), width,
     ...(v.height === undefined ? {} : { height: num(v.height, 400, 6000) }),
-    platforms, entrance, checkpoints, climbables: { ladders, ropes } }
+    platforms, entrance: { ...entrance, ...(entranceKind ? { kind: entranceKind as 'charging-bay' } : {}) }, checkpoints, climbables: { ladders, ropes },
+    ...(v.timing ? { timing: v.timing as 'untimed' } : {}) }
   if (v.floorMaterial !== undefined) {
     if (!isTerrainMaterial(v.floorMaterial)) return fail()
     level.floorMaterial = v.floorMaterial
@@ -334,6 +339,7 @@ export function parseLevel(value: unknown): JumpLevel {
     if (new Set(level.mechanisms.map(m => m.id)).size !== level.mechanisms.length) fail()
     level.triggers = list(v.triggers, 40).map(item => {
       const t = object(item); if (t.mode !== 'touch' && t.mode !== 'weight' && t.mode !== 'coins') fail()
+      const wiring = parseWallWiring(t, fail)
       if (t.mode === 'coins' && t.mount !== undefined) fail()
       if (t.ceiling !== undefined && (t.mode === 'coins' || typeof t.ceiling !== 'boolean')) fail()
       if (t.behavior !== undefined && (t.mode === 'coins' || !['pressure', 'switch', 'toggle'].includes(t.behavior as string))) fail()
@@ -353,7 +359,7 @@ export function parseLevel(value: unknown): JumpLevel {
         if (t.display !== undefined && t.display !== 'digital') fail()
         if (t.display === 'digital') {
           if (t.orientation !== undefined || t.h !== undefined || t.w !== DIGITAL_DISPLAY_WIDTH) fail()
-          return { ...objectName(t), x: num(t.x, 0, width - DIGITAL_DISPLAY_WIDTH),
+          return { ...objectName(t), ...wiring, x: num(t.x, 0, width - DIGITAL_DISPLAY_WIDTH),
             y: num(t.y, 0, level.floor! - DIGITAL_DISPLAY_HEIGHT), w: DIGITAL_DISPLAY_WIDTH,
             ...connection, mode: 'coins', threshold, display: 'digital' }
         }
@@ -366,7 +372,7 @@ export function parseLevel(value: unknown): JumpLevel {
           : { w: num(t.w, COIN_SWITCH_MIN_LENGTH, 240) }
         const h = dimensions.h ?? COIN_SWITCH_THICKNESS
         const x = num(t.x, 0, width - (t.w as number)) + (t.orientation === 'vertical' ? ((t.w as number) - dimensions.w) / 2 : 0)
-        return { ...objectName(t), x, y: num(t.y, 0, level.floor! - h), ...dimensions, ...connection, mode: 'coins', threshold }
+        return { ...objectName(t), ...wiring, x, y: num(t.y, 0, level.floor! - h), ...dimensions, ...connection, mode: 'coins', threshold }
       }
       const w = num(t.w, 40, 240)
       let mount: PressurePlateMount | undefined
@@ -377,7 +383,7 @@ export function parseLevel(value: unknown): JumpLevel {
       }
       const position = { x: num(t.x, 0, width - w), y: num(t.y, -1800, level.floor!) }
       if (mount) { const host = level.mechanisms!.find(m => m.id === mount.mechanism)!; position.x = host.x + mount.x; position.y = host.y + (t.ceiling ? host.h : 0) }
-      return { ...objectName(t), ...position, w, ...connection, mode: t.mode as 'touch' | 'weight', ...(mount ? { mount } : {}),
+      return { ...objectName(t), ...wiring, ...position, w, ...connection, mode: t.mode as 'touch' | 'weight', ...(mount ? { mount } : {}),
         ...(t.ceiling === undefined ? {} : { ceiling: t.ceiling as boolean }),
         ...(t.behavior === undefined ? {} : { behavior: t.behavior as PlateBehavior }), ...(t.startsOn === undefined ? {} : { startsOn: t.startsOn as boolean }) }
     })
@@ -409,7 +415,7 @@ export function parseLevel(value: unknown): JumpLevel {
   if (v.texts !== undefined) level.texts = list(v.texts, 80).map(item => {
     const t = object(item), w = num(t.w, 40, 2000), h = num(t.h, 24, 1200)
     if (typeof t.text !== 'string' || t.text.length > 1000 || !['left', 'center', 'right'].includes(t.align as string)) fail()
-    if (t.style !== undefined && t.style !== 'official' && t.style !== 'graffiti' && t.style !== 'lab-stamp') fail()
+    if (t.style !== undefined && t.style !== 'official' && t.style !== 'graffiti' && t.style !== 'lab-stamp' && t.style !== 'terminal') fail()
     const text: WallText = { ...objectName(t), x: num(t.x, -1000, width), y: num(t.y, -600, levelHeight(level)), w, h,
       text: t.text as string, fontSize: num(t.fontSize, 12, 96), align: t.align as WallText['align'],
       ...(t.style === undefined ? {} : { style: t.style as WallText['style'] }),
@@ -433,7 +439,7 @@ export function parseLevel(value: unknown): JumpLevel {
       if (input.relay !== undefined || input.targets !== undefined) return fail()
       return parseSwitchSettings(input, fail)
     }
-    return { ...objectName(p), ...(water ? {} : settings), id: p.id,
+    return { ...objectName(p), ...(water ? settings.wireTerminal ? { wireTerminal: settings.wireTerminal } : {} : settings), id: p.id,
       x: num(p.x, 0, width - w), y: num(p.y, 0, levelHeight(level) - h), w, h, gravity: p.effect === 'water' ? -1 : num(p.gravity, -3, 3),
       ...(p.effect === undefined ? {} : { effect: p.effect as 'water' }),
       ...(p.waterLevel === undefined ? {} : { waterLevel: num(p.waterLevel, minimum, 100) }),
@@ -465,7 +471,7 @@ export function parseLevel(value: unknown): JumpLevel {
     if (typeof f.id !== 'string' || !f.id.trim() || f.id.length > 100 || f.power !== undefined || f.relay !== undefined || f.switchLogic !== undefined || f.switchReversed !== undefined) return fail()
     if (f.activeWhen !== undefined && f.activeWhen !== 'raised' && f.activeWhen !== 'lowered') return fail()
     for (const key of ['flipX', 'startsRaised']) if (f[key] !== undefined && typeof f[key] !== 'boolean') return fail()
-    const definition: FloatSwitch = { ...objectName(f), id: f.id, x: num(f.x, 0, width), y: num(f.y, 0, levelHeight(level)),
+    const definition: FloatSwitch = { ...objectName(f), ...parseWallWiring(f, fail), id: f.id, x: num(f.x, 0, width), y: num(f.y, 0, levelHeight(level)),
       armLength: num(f.armLength, 40, 400), size: num(f.size, 20, 100), targets: parseSwitchSettings(f, fail).targets ?? [],
       ...(f.travelAngle === undefined ? {} : { travelAngle: num(f.travelAngle, 10, 80) }),
       ...(f.activeWhen === undefined ? {} : { activeWhen: f.activeWhen as 'raised' | 'lowered' }),

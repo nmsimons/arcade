@@ -4,14 +4,14 @@ import type { KeyStorage } from '../platform/contracts.ts'
 export type { KeyStorage } from '../platform/contracts.ts'
 
 /** Anonymous keys stay unchanged. Account data never shares the anonymous slot. */
-export const SAVE_SLOTS = ['hard-vacuum-expedition-v1', 'hard-vacuum-expedition-v1-backup', 'hard-vacuum-expedition-v1-unreadable', 'arcade.jumping.times.v1'] as const
+export const SAVE_SLOTS = ['hard-vacuum-expedition-v1', 'hard-vacuum-expedition-v1-backup', 'hard-vacuum-expedition-v1-unreadable', 'arcade.jumping.times.v1', 'arcade.jumping.completed.v1'] as const
 export const LEVELS_SLOT = 'arcade.account.levels.v1'
 export const CLOUD_BASELINE_SLOT = 'arcade.cloud.baseline.v2'
 const writes = new WeakMap<KeyStorage, Promise<unknown>>()
 /** Short read/modify/write transactions; never hold this lock over cloud I/O. */
 export async function withWorkspaceLock<T>(store: KeyStorage, work: (current: KeyStorage) => T): Promise<T> {
   if (store.workspaceLock) {
-    if (!globalThis.navigator?.locks) return Promise.reject(new Error('Account saves aren’t available in this browser. Try a different browser or use a local folder.'))
+    if (!globalThis.navigator?.locks) return Promise.reject(new Error('Account saves aren’t available in this browser. Try a different browser.'))
     return navigator.locks.request(store.workspaceLock, () => transactLibrary(store, LEVELS_SLOT, work))
   }
   // Non-browser stores (including tests) share a queue by storage identity.

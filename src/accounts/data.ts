@@ -49,6 +49,10 @@ export function parseWorkspace(text: string): Workspace {
       const times: unknown = JSON.parse(raw)
       if (!object(times) || Object.keys(times).length > 10000 || Object.entries(times).some(([id, time]) => id.length > 400 || typeof time !== 'number' || !Number.isFinite(time) || time < 0)) throw new Error('Invalid personal best times.')
     }
+    if (key === 'arcade.jumping.completed.v1') {
+      const completed: unknown = JSON.parse(raw)
+      if (!object(completed) || Object.keys(completed).length > 10000 || Object.entries(completed).some(([id, done]) => id.length > 400 || done !== true)) throw new Error('Invalid completed levels.')
+    }
     slots[key] = raw
   }
   return { version: 1, slots, levels: validateLibrary(value.levels) }

@@ -112,6 +112,7 @@ export function BuilderHelp({ tools, onClose }: {
           <div><dt>Rotate &amp; flip terrain</dt><dd>Select terrain to enable Rotate left, Rotate right, Flip horizontal, and Flip vertical in the top toolbar. Rotations turn 90° around the center, shifting inward if needed to fit the level. Rope anchors follow the shape. Other objects stay in place; attached ladders become independent when terrain rotates. Undo reverses each action.</dd></div>
           <div><dt>Terrain draw order</dt><dd>Select a terrain block and use Draw order in the Object inspector. Backward and Forward move one layer; Send to back and Bring to front move to either end. Overlapping blocks are selected from front to back. Drawing order is saved, supports Undo and Redo, and keeps collision and attachments unchanged.</dd></div>
           <div><dt>Select a group</dt><dd>Shift-click to add or remove objects. Drag from empty canvas to select objects inside a rectangle; Shift-drag adds to the selection. Drag any selected object or use arrow keys to move the group. Space-drag or the middle mouse button pans.</dd></div>
+          <div><dt>Wall terminals</dt><dd>With Pointer, drag a wire’s round wall jack to move it without moving the device. Alt bypasses Snap. Click a jack and use arrow keys to nudge it; Shift moves one unit. Its X/Y fields are under Wall terminal in the Object inspector. Reset terminal position, or Delete while the jack is focused, restores automatic placement. One custom position serves all wires for that item.</dd></div>
           <div><dt>Copy &amp; transform groups</dt><dd>Copy and Paste work within Level studio, including between levels. Pasted groups keep their layout, copied attachments and internal switch connections. Start and goal remain unique and are excluded from copies. Rotate and flip are enabled when every selected object is terrain and transform the whole layout around its center. Each group edit uses one Undo step.</dd></div>
           <div><dt>Snap to fit</dt><dd>Choose 5-unit or 20-unit spacing with Grid beside Snap. Positions, sizes, terrain nodes and nudges use that spacing. Snap also catches nearby surfaces. Turn it off or hold Alt for free placement.</dd></div>
           <div><dt>Find your way</dt><dd>Fit level shows the whole map. Find start returns to the player. The overview in the corner also fits the level.</dd></div>
@@ -139,8 +140,8 @@ export function BuilderHelp({ tools, onClose }: {
       </dl>}
       {name === 'Levels' && <dl className="builder-help-copy">
         <div><dt>Name &amp; filename</dt><dd>Edit these in the Inspector’s Level tab. The level name suggests its filename unless you enter one yourself. A file is created on the first save. Changing a saved filename renames that file on the next save.</dd></div>
-        <div><dt>Save &amp; test</dt><dd>Save level writes to the selected folder. Save and Test saves first, then starts the game. Return to builder brings you back to your draft.</dd></div>
-        <div><dt>Library</dt><dd>Choose the save folder, open a level, create a new one, or use a level as a template. In development, built-in levels can be edited too. Opening another level prompts you to save unsaved changes.</dd></div>
+        <div><dt>Save &amp; test</dt><dd>Save level writes to the built-in collection. Save and Test saves first, then starts the game. Return to builder brings you back to your draft.</dd></div>
+        <div><dt>Library</dt><dd>Open a built-in level, create a new one, or use a level as a template. Saving writes directly to this checkout. Opening another level prompts you to save unsaved changes.</dd></div>
         <div><dt>Recycle bin</dt><dd>Deleted levels can be recovered from the library’s recycle bin. Permanent deletion and emptying the bin require confirmation.</dd></div>
         <div><dt>Map dimensions</dt><dd>Changing the height adds or removes space at the top; the floor stays at Y = 0. The width and height must leave room for your objects.</dd></div>
         <div><dt>Medal times</dt><dd>Set gold, silver, and bronze times in seconds.</dd></div>
@@ -164,7 +165,7 @@ export function BuilderHelp({ tools, onClose }: {
           <div><dt>View / Share · Menu / Options</dt><dd>Open Library / Save and Test. During a canvas drag, Menu first cancels the drag; press again to test.</dd></div>
           <div><dt>Inspector fields</dt><dd>Left / right changes a number; up / down moves to another control. A opens lists and an on-screen keyboard for names and wall text. B cancels; A confirms the selected list item or text-keyboard action.</dd></div>
         </dl>
-        <p>Disconnecting the controller or leaving the window cancels an unfinished drag. A browser folder chooser may need the keyboard or mouse once; connected folders remain usable from Library.</p>
+        <p>Disconnecting the controller or leaving the window cancels an unfinished drag.</p>
       </div>}
     </div>)}
   </dialog>

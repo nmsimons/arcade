@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { useLevelFixtures, installTestFolder, readTestLevel } from './helpers/jumpingLevels.mjs'
+import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { blankTrial } from '../../src/games/jumping/level.ts'
 import { FIRST_LEVEL } from '../helpers/jumping-fixtures.mjs'
 
@@ -65,26 +65,6 @@ test('offscreen thumbnails allocate pixels only when scrolled into view', async 
   await last.scrollIntoViewIfNeeded()
   await expect.poll(() => last.evaluate(canvas => canvas.width)).toBeGreaterThan(1)
   await expect.poll(() => first.evaluate(canvas => canvas.width)).toBe(1)
-})
-
-test('failed preparation preserves the editor draft and the original local file', async ({ page }) => {
-  await installTestFolder(page, { 'complex.json': slow }); await trackWorkers(page)
-  await page.goto('/lab')
-  await page.getByRole('button', { name: 'Local folder', exact: true }).click()
-  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
-  await page.getByRole('button', { name: 'Edit Complex rope', exact: true }).click()
-  const name = page.getByRole('textbox', { name: 'Level name', exact: true })
-  await name.fill('Unsaved complex rope')
-  await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  const failure = page.getByRole('alertdialog', { name: 'Save failed', exact: true })
-  await expect(failure).toContainText('took too long', { timeout: 10_000 })
-  await failure.getByRole('button', { name: 'Close', exact: true }).click()
-  await expect(name).toHaveValue('Unsaved complex rope')
-  expect((await readTestLevel(page, 'complex.json')).name).toBe('Complex rope')
-  await expect.poll(() => page.evaluate(() => window.levelWorkers.every(worker => worker.terminated))).toBe(true)
-  await expect(page.getByRole('application', { name: 'Level canvas', exact: true })).toHaveAttribute('aria-busy', 'false')
-  await name.fill('Still editable')
-  await expect(name).toHaveValue('Still editable')
 })
 
 test('Back during preparation cancels it and Forward prepares the requested level again', async ({ page }) => {

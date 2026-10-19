@@ -6,6 +6,12 @@ empty documents, and the engine receives the selected level as data.
 
 For route design, teaching, wall guidance, puzzles, and playtesting, see
 [Making a fun jumping level](jumping-level-design.md).
+The [campaign canon](jumping-campaign.md) defines the approved required-level
+sequence rules and optional silver-average certification. The
+[outdoor finale brief](jumping-outdoors.md) specifies the escape environment.
+Campaign locks, exterior backgrounds, and the outdoor ending remain design
+requirements pending implementation. The untimed opening, charging-bay entrance,
+and optional wall wiring described below are supported authoring features.
 
 Version 1 remains supported unchanged. Version 2 adds authored lighting, described
 below and in the [flat-lighting specification](jumping-lighting.md). The studio
@@ -37,8 +43,7 @@ in the deployed app:
 Add future built-ins directly to this folder. The JSON test lab, old lessons,
 playground and counterweight yard live under `tests/fixtures/jumping/` solely for
 automated tests. They are not copied into or offered by the deployed game.
-When the built-in catalog is empty, the level picker opens Local folder and the
-builder omits the built-in templates section.
+The game offers only the built-in catalog. An empty catalog never falls back to a local or account library.
 
 Playable stress challenges live separately in `dev/levels/jumping/`, using the
 same JSON schema and manifest. `npm run dev` offers them under **Stress tests ·
@@ -127,34 +132,29 @@ ropes still start in their authored positions.
 CI runs this check along with validation, gameplay tests, lint, build, and browser
 regressions.
 
-## Local levels and editing
+## Development authoring
 
-### Editing built-ins during development
+Level studio is a private development tool. Production builds, including
+`vite preview`, offer only the built-in game and progress. Menu, pause and result
+screens have no editor or folder actions. Builder and playtest links return to
+the level menu; retired local-file links do not load a collection.
 
-With `npm run dev` open on localhost, built-in levels have the same **Edit**
-controls as local levels. **Library** includes a **Built-in levels / Local folder**
-selector. Open a built-in, edit it, and use **Save level** or **Save and Test**;
-the JSON is written directly to `public/levels/jumping/` in the current checkout
-and appears in Git. No folder picker or app rebuild is needed.
+With `npm run dev` open on localhost, select **Edit** on a built-in tile, or
+**Level studio → Library → New level** to add a level. **Library** contains one
+built-in collection. New levels and templates save directly to
+`public/levels/jumping/` in this checkout and appear in Git. **Save and Test** saves
+before playing; **Return to builder** preserves the draft and undo history.
+No browser folder permissions, account level library, or cloud level import is
+involved. **Refresh built-in levels** picks up edits made outside the studio.
 
-New levels and templates use the collection selected in Library. Filenames,
-renames, drag/keyboard ordering, missing-file removal and recovery work the same
-way in both collections. **Refresh** picks up edits made outside the game.
-Switching collections in Library does not move the current draft or change its
-save destination; opening or creating a level still asks about unsaved changes.
+The repository writer requires the local dev server, same-origin requests and
+a per-server token. Network development hosts and production previews cannot
+author. Built-in recovery copies live in ignored `.local/jumping-recycle-bin/`,
+outside the published assets. Unfinished maps remain editable after restarting
+the dev server; build/publish validation requires ready-to-play maps.
 
-Built-in recovery copies live in the ignored `.local/jumping-recycle-bin/`
-directory, outside the published assets. The repository writer is available only
-through the local dev server with same-origin requests and a per-server token;
-production builds and `vite preview` retain the read-only built-in experience.
-Unfinished maps remain editable after restarting the dev server. Build and publish
-validation still requires every built-in level to be ready to play.
-
-Use `npm run prod` to build and run the customer experience locally, normally on
-port 4173 alongside development on port 5173. It serves built-in JSON from `dist/web/`
-and enables editing only for local folders. Restart this command after changes
-to rebuild the preview. The two ports have separate browser storage and remembered
-folder connections.
+Use `npm run prod` to build and preview the player experience, normally on port
+4173 alongside development on port 5173. Restart it to rebuild after changes.
 
 ### Using the editor
 
@@ -178,7 +178,7 @@ selected object, or on the cursor for wheel zoom when nothing is selected.
 Entrance and exit doors are already part of each time trial. Drag the existing
 doors, or select **Entrance door** / **Exit door** in the Inspector’s **Object** tab to edit their position.
 
-The Inspector separates **Level** settings (names, save location, dimensions,
+The Inspector separates **Level** settings (names, dimensions,
 night mode, floor material, and medal times) from **Object** properties. Selecting
 or placing an object opens **Object** automatically; switching tabs preserves the
 selection. The tabs stay visible while scrolling. With a tab focused, Left/Right
@@ -249,30 +249,12 @@ inside the room even near an edge. **Keep placing** repeats it. Each template
 becomes one ordinary terrain piece with editable nodes,
 dimensions, material, duplication, transforms, and undo/redo.
 
-Choose **Local folder → Choose folder** in the game menu. The game reads JSON files
-directly in that folder, applies its manifest (or filename order), and lets you play them or choose
-**Edit** on a level tile. Click a tile, press Enter, or press controller A while
-it is selected to play immediately. Thumbnails fill the width of the picker.
-Each timed level tile shows your personal best and highest earned medal; unplayed
-levels show **Best —** and **No medal yet**. These update after completing a run.
-Unfinished levels show repair messages on their tiles and remain available to edit.
-Medal target times appear after completing a run. Add wall text to give players
-guidance inside a level.
-Each tile has **Play** at the bottom right, beside **Edit** for local
-levels. Controller Y (or keyboard Y) edits the selected local level. Built-in
-levels remain available as templates in the builder's Library. Files in nested
-folders and non-JSON files are ignored.
-**Refresh** rereads external edits, additions, deletions, and renames.
-The picker remembers your last selected collection separately from the folder
-connection. A first visit defaults to built-ins when available; an empty built-in
-catalog opens Local folder. Restoring a remembered folder never switches the tab.
-The game automatically reopens that folder on refresh or reload. It rereads
-the current files from disk each time. Only the folder name and directory handle
-are stored in IndexedDB; level contents and editor drafts are never cached there.
-If the browser needs permission again, **Reconnect folder** restores access to
-the same folder without another folder chooser. If read access remains available
-but write permission has expired, levels load automatically and **Enable saving**
-restores direct saves. A missing folder can be replaced with **Change folder**.
+The level menu loads the built-in JSON collection. Click a tile, press Enter,
+or press controller A to play. Timed tiles show personal bests and earned medals;
+untimed tiles show completion. Finishing updates those records. In local dev,
+unready maps show repair messages and remain editable. Each tile has **Play**;
+local dev adds **Edit** and deletion. Controller or keyboard Y edits the selected
+level only in local dev.
 
 Level studio supports standard controllers. **Y / △** switches between editor
 controls and the canvas cursor. Returning to the controls restores the last
@@ -296,116 +278,38 @@ redo. **View / Share** opens Library; **Menu / Options** saves and playtests.
 During a canvas drag, Menu first cancels the preview; press again to test.
 Held inputs must be released after changing screens, opening a dialog, or
 reconnecting. Leaving the window or disconnecting cancels an unfinished drag.
-Native browser folder choosers may need the keyboard or mouse once; connected
-folders work with the controller.
 
-In the builder, **Library** opens a centered, nearly full-screen dialog. It contains
-**New level**, local files, built-in templates, and folder controls. **Choose folder**
-selects the destination for **Save level**. Replacing a draft with unsaved changes
-offers **Save and continue**, **Discard changes**, or **Cancel**.
-Click any file in the folder's list to open it for editing. **Change folder**
-switches folders; the **Save location** control in the
-Inspector’s **Level** tab takes you back to Library. The
-filename and level name are independently editable in the **Level** tab. A new draft
-creates no level file until its first save. Until then, its filename follows the level
-name unless you type a filename yourself. Clearing the filename restores that
-automatic suggestion. After saving, changing the level name leaves the filename
-alone. Editing the filename renames the existing file on the next save, preserving
-its ID and any manifest position. Rename collisions or changes made externally
-block the operation; the original is retained until the replacement is saved.
-**Use as template** under a local file starts a new draft with the same layout,
-objects, timers, and settings, a new ID, and a filename based on its new level name.
-It remains unwritten until Save. Choose another filename if it conflicts with an existing file. The source file is
-unchanged; **Save level** writes the new file to the selected writable folder.
-Saving refuses to overwrite a file that changed outside the builder since it was
-loaded. Refresh and open the latest file before saving or renaming it.
+In the studio, **Library** provides **New level**, built-in files, templates,
+ordering and a recycle bin. Opening another level prompts about unsaved changes.
+**Use as template** creates an independent draft with new IDs and remapped
+connections. **Save level** writes to the built-in collection; **Save and Test**
+waits for a successful write before playing. Renames keep level identity and
+update the manifest. External-edit checks protect changes made outside the
+studio; a failed write leaves the current draft editable.
 
-**Save level** writes to the selected writable folder; **Save and Test** waits for
-that save to finish before starting play. With no writable folder open, Library
-opens to let you choose a folder or enable saving. There is no download fallback,
-**Open file**, or **Export**. Put JSON files in the level folder and refresh, or
-change folders to open them. If the browser cannot write directly to folders,
-its folder input still loads levels for play; use
-**Reselect folder** to refresh it. These browsers remember the folder name but
-require reselection after reload. The folder panel shows the save behavior and
-level count. No custom files are uploaded to a server. Clearing this site's
-browser storage also clears the remembered folder, without deleting local files.
-
-Drag level tiles directly in **Library** to change their order. With a level
-focused, **Alt + Left/Right** moves it one position; **Alt + Up/Down** moves it
-one row. Each move saves only `index.json`, switching to explicit listed order.
-**Sort by filename** restores automatic filename ordering. Existing level bytes
-and the current draft are untouched. A failed save leaves the sequence unchanged
-and reports the problem; external manifest edits require refreshing first.
-
-**Delete** on a local level moves it straight to the folder's recycle bin, without
-a confirmation. The game verifies a recovery copy before removing the original
-file and its index entry. An open draft stays in the editor; saving it again
-creates a new file. If a file was deleted outside the game, its **Missing file**
-card stays visible until **Delete** is clicked, which immediately removes only the
-index entry without confirmation.
-The game cannot recover externally deleted files it has not backed up.
-
-**Library → Recycle bin** displays the same level thumbnails and filenames as the
-library, with **Recover** and **Delete permanently** actions. Recovery preserves
-the original file contents and level ID, refuses to overwrite existing files,
-and lets you choose another filename. Recovered levels go at the end of a custom
-order. **Delete permanently** and **Empty recycle bin** both require confirmation.
-Read-only folders allow viewing the bin; enable saving to change it.
-Recovery files live in `Deleted levels/<timestamp-id>/<filename>` inside the
-selected folder, not in the operating system's Trash or Recycle Bin.
-
-To share a collection, send its level JSON files and `index.json` together.
-Leave out the `Deleted levels` subfolder.
-OneDrive account levels use this same structure under
-`Apps/Dream Large Arcade/Untitled Jumping Game/Levels`. Copy that folder's level
-JSON files and manifest to a local folder or built-in assets without conversion.
-Files copied into OneDrive appear in Account levels after automatic sync at the
-level chooser, or by using **Refresh** in Account levels. Saved edits upload in
-the background from the builder. Each account file shows its local/cloud state;
-sign-in and Cloud saves are available without leaving the game.
-Account-panel imports accept `index.json` alongside the level files and
-preserve its order and metadata. See [cloud storage](account-cloud-saves.md) for
-sync, conflicts, and recovery.
-Another player can put them in one folder and choose it in the game. To promote
-a local collection to built-in levels, copy the same files (including the
-manifest) into `public/levels/jumping/`, then run `npm run levels:index` or
-`npm run levels:sync`. No level-format conversion is needed. The manifest provides
-a place to add chapter metadata later; chapter navigation is not implemented yet.
+Drag library entries or use Alt + arrow keys to reorder them. The manifest saves
+the order automatically. **Delete** moves a built-in to the private recycle bin;
+**Recover** restores it without overwriting another file. Permanent deletion and
+emptying the bin require confirmation. Recovery files never enter published
+assets. Add external JSON by placing it in `public/levels/jumping/` and refreshing
+the dev library; use `npm run levels:check` before release.
 
 Menu tiles, builder templates and the overview all use the
 game's world renderer for their static previews. They include props, shovebots,
 pressure plates, both gate orientations, elevators, moving platforms, ropes, ladders, timers, text,
 pickups and goal exits in their starting state.
 
-The level menu is `/lab`, playing a saved level uses
-`/lab/levels/built-in/<filename>` or
-`/lab/levels/local/<filename>`,
-and the builder is `/lab/builder`. Editing a local file uses
-`/lab/builder/local/<filename>`. Filenames are URL encoded.
-All LAB entry points use `/lab`; the former untitled-game routes are retired.
-Published hosting uses an [explicit route rewrite](https://learn.microsoft.com/en-us/azure/static-web-apps/configuration#routes)
-for `/lab/*` so saved-level URLs ending in
-`.json` also work on direct visits and reloads. Raw level assets remain under
-`/levels/jumping/`.
-Back and Forward navigate between these screens.
-Playtesting a file appends `/playtest` to its builder URL, for example
-`/lab/builder/local/Tower.json/playtest`. Back and **Return to
-builder** preserve the current draft and undo history. Reloading a file playtest
-uses the saved level; local links reopen the remembered folder or ask for access.
-Unsaved levels use `/lab/builder/playtest/<level-id>` and remain
-session-only. Reloading an unsaved playtest returns to the empty builder.
+The level menu is `/lab`; normal play uses
+`/lab/levels/built-in/<filename>`. Development editing uses
+`/lab/builder/built-in/<filename>`, and saved playtests append `/playtest`.
+Filenames are URL encoded. Back, Forward and reload preserve the intended route.
+Production redirects authoring URLs to `/lab`. All LAB entry points use `/lab`;
+the former untitled-game and local-library routes are retired.
 
-There are no browser copies or automatic draft saves. Edits and undo history stay
-in memory while returning from a playtest or the level menu, but reloading or
-leaving the game discards unsaved work. Save a JSON file to keep changes. Old
-browser level data is no longer read or written. Personal best times still use
-browser storage independently of level files.
-
-Keep a level's `id` stable when changing its layout or filename. IDs identify best
-times; the collection manifest determines ordering, with filename order as the fallback. IDs must be unique within a collection.
-Local best times are separate from built-in records. Opening a file
-preserves its ID. Using a built-in or local level as a template creates a new ID.
+Published hosting rewrites `/lab/*` to the app shell, including playable URLs
+ending in `.json`. Raw JSON assets remain under `/levels/jumping/`. A saved file
+keeps its ID; a template gets a new ID. Built-in IDs identify completion and best
+records and must stay unique across the collection.
 
 ## Validation and reference level
 
@@ -595,7 +499,7 @@ playgrounds. Each entry has `x`, `y` (top-left in JSON coordinates), `w`, `h`,
   "text": "Run up.\nPress to jump.", "fontSize": 24, "align": "left" }]
 ```
 
-Text uses flat, muted lettering with no panel or outline. Explicit newlines are
+Official text uses flat, muted lettering with no panel or outline. Explicit newlines are
 preserved; words wrap at the area's width, and excess lines are clipped to its
 height. Font sizes range from 12 to 96 world units, text is limited to 1,000
 characters, and areas are 40–2,000 units wide and 24–1,200 units high, bounded by
@@ -611,6 +515,22 @@ original upright Official style. Rotated areas stay within the room. Text can be
 duplicated, deleted, undone, and copied through templates. It moves with the
 camera, sits behind terrain and actors, and never affects physics. Growing the
 level adds space above it. Older files may omit `texts`.
+
+**Back wall → Message screen** mounts a small dark terminal with softly glowing
+green monospace lettering. It is a text area with `style: "terminal"`, using the
+same content, font size, alignment, rotation, resize, copy, and undo controls.
+Explicit newlines and wrapping work inside a small inset; excess text is clipped.
+The message is static and immediately visible. Its lettering retains at least
+65% exposure in Night mode, like clock digits; the frame follows room lighting.
+It illuminates no surrounding surfaces, casts no shadow, and has no collision
+or switch behavior. Screens count toward the same 80-area text limit and render
+behind terrain and actors in play, previews, and thumbnails.
+
+```json
+"texts": [{ "x": 340, "y": 530, "w": 300, "h": 90,
+  "text": "OPERATOR CONNECTION\nNO RESPONSE", "fontSize": 17, "align": "left",
+  "style": "terminal" }]
+```
 
 **Back wall → L.A.B. wall stamp** places the facility mark with its small,
 full-width `experiments` subtitle and an ink border. It is an ordinary wall text
@@ -720,6 +640,84 @@ On play and restart, the silhouette fades into view and takes a short step out
 of the open entrance, then the door closes into the wall. The entrance lasts
 1.35 seconds. The clock and physical world remain frozen during it and start
 automatically as soon as it disappears. Pause freezes the entrance too.
+
+For an awakening, use `entrance: { x, y, kind: "charging-bay" }`. It keeps the
+same supported 40-by-80 footprint and placement rules. A small installed bay
+remains on the back wall, and the existing robot rig raises its head and
+shoulders for 2.2 seconds before control and the world activate automatically.
+Pause freezes that sequence; restart repeats it. No doorway is drawn or closed.
+Choose **Object → Entrance → Charging bay** while the entrance is selected;
+**Door** restores the ordinary entrance. Both styles preview, save, and reopen.
+
+`timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
+level** in the studio. The world and animation time still advance, but the
+score stays zero, time pickups cannot change it, and no medal or personal best
+is awarded. The tile, screen-reader status, and result omit timing and grades.
+The shared trial shape retains increasing positive `times` values for a later
+return to timed mode; those values are ignored while untimed. Completion saves
+separately from best times, using stable IDs and the same local/built-in record
+namespaces, and participates in account backups and cloud sync.
+
+### Optional back-wall wiring
+
+Select a pressure plate, coin switch, float switch, or relay source and enable
+**Object → Back-wall wiring → Show wall wiring**. Physical items with Relay
+enabled also expose it. This draws thin wires with softly rounded bends along
+the back wall between the actual **Activates** connections. Small wall terminals
+end each run near its source and destination, with a visible gap to the
+equipment. The wire never plugs into a pressure plate or moving part. It is off
+by default; enabling it never creates or changes a logical connection. Existing
+levels stay unchanged.
+
+At an exit, overhead wiring ends above the indicator. A lower incoming run ends
+at a wall jack beside the whole exit assembly on the approaching side, at
+indicator height. It stays clear of the pole and doorway in either exit
+orientation, with the opposite side available when room-edge clearance is tight.
+
+![Exit wiring approaches from above (top row) and below (bottom row), from both sides in both exit orientations.](images/lab-exit-wire-terminals.png)
+
+Sources save optional `showWires: true` and `wireHeight`, a distance above the
+floor in world units (default 160). **Wire height** moves the horizontal run;
+routes are clipped to the room. The height is preserved when the room grows.
+Connections added, moved, duplicated, or deleted in the editor update their
+visible routes automatically. Group copy remaps connections in the usual way.
+Save/reopen, studio previews, gameplay, and thumbnails use the same artwork.
+
+With Pointer, drag either wall jack to position it exactly; the connected device
+stays in place. Selecting a device outlines its visible jacks. **Object → Wall
+terminal** also provides X/Y fields, measured from the bottom left like other
+editor coordinates. Snap applies while dragging; hold Alt to bypass it. Click a
+jack and use arrow keys to nudge it, with Shift for one-unit steps. Delete on a
+focused jack, or **Reset terminal position**, restores automatic placement.
+These edits support Undo and Redo.
+
+A source or destination can save optional `wireTerminal: { "x": 620, "y": 480 }`.
+These are absolute world coordinates with Y measured downward in JSON. Keep the
+center at least 4 units inside the room. One custom terminal serves all incoming
+and outgoing wires for that item, including both pump inputs on water. Moving or
+copying the device in the editor carries its custom terminal; changing room
+height preserves its height above the floor. During play the jack stays fixed
+on the wall when its device moves. Omitting `wireTerminal` keeps the automatic
+approach-aware placement described above.
+
+Inactive wires are a soft gray-green; energized wires and their terminal pins turn a quiet
+green. Color shows the source's outgoing signal: pressure/coin/float switches
+use their actual output, and relays use their resolved AND/OR/XOR and reversal
+result. A live input wire can lead to a device that is still off because its
+other inputs have not satisfied its condition. EMP darkens the wiring until
+power returns. Shared segments remain green if any overlapping run is live.
+
+Wiring has no collision, grip, signal delay, or current animation. Energized
+strokes and terminal pins retain at least 65% exposure at night, with a subtle
+glow immediately around the thin line. Day mode keeps the crisp line without
+glow. The glow is artwork, not a light source for nearby surfaces. Inactive cables and jack housings
+receive ordinary room lighting. Existing switch and relay behavior is unchanged.
+Runs use authored installation positions, including fixed control
+terminals for moving machinery, rather than stretching cables onto moving
+parts. Keep runs clear of important hints, clocks, and landings. Switches need
+not show wires when concealment or visual simplicity better serves the level.
+
+### Terrain and climbing
 
 Terrain uses a top-left `x, y`
 and a `w, h` bounding rectangle. Without additional fields, it is a solid rectangle.

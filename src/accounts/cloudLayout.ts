@@ -9,6 +9,7 @@ const slots: Record<string, string> = {
   'hard-vacuum-expedition-v1-backup': 'Hard Vacuum/expedition.backup.json',
   'hard-vacuum-expedition-v1-unreadable': 'Hard Vacuum/expedition.unreadable.json',
   'arcade.jumping.times.v1': 'Untitled Jumping Game/personal-bests.json',
+  'arcade.jumping.completed.v1': 'Untitled Jumping Game/completed-levels.json',
 }
 const deletedDirectory = /^(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)-([a-zA-Z0-9-]{1,100})$/
 export const isDeletedDirectory = (name: string) => deletedDirectory.test(name)

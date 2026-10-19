@@ -13,8 +13,8 @@ import { copyLevel, isPuzzleLevel, levelPlayer, levelProblems, levelHeight, pars
 import type { JumpLevel } from './level'
 import { blankTrial } from './level'
 import type { LevelFile } from './levelAssets'
-import { levelFileName } from './localLevels'
-import type { LocalLevels } from './localLevels'
+import { levelFileName } from './levelFiles'
+import type { BuiltInLevels } from './builtInLevels'
 import { copyForEditing } from './puzzleEditor'
 import { createPreviewRun } from './challenge'
 import { useRopePreview } from './useRopePreview'
@@ -22,7 +22,8 @@ import { prepareLevelInWorker } from './levelPreparation'
 import { canPlaceOnSurface, placeOnSurface, surfacePlacement } from './editorPlacement'
 import { NumberField } from './NumberField'
 import { BuilderSelect } from './BuilderSelect'
-import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight, setCrateBranding } from './editor'
+import { setPickupSeconds, setWallTextRotation, setShovebotLimit, setShovebotHeadlight, setCrateBranding, setWallWiring, setWallTerminal } from './editor'
+import { DEFAULT_WIRE_HEIGHT, wallTerminals } from './wallWiring'
 import { wallTextLocalPoint, wallTextPoint } from './wallText'
 import { useWallTextFont } from './useWallTextFont'
 import { ObjectNameField } from './ObjectNameField'
@@ -34,12 +35,11 @@ import { BuilderLibrary } from './BuilderLibrary'
 import { SaveFailureDialog } from './LevelFileActions'
 import { BuilderHelp } from './BuilderHelp'
 import type { LibraryChoice } from './BuilderLibrary'
-import type { LevelSource } from './routes'
 import { isHorizontalGate, mechanismAnchor, mechanismOpenPosition, mechanismRopeEnd } from './mechanisms'
 import { LightingRenderer, lightingPixelRatio } from './lightingRender'
 import { playgroundLightingWorld } from './lightingModel'
 import { editLight, lightHandles, setLevelNightMode } from './lightingEditor'
-import { switchedItems, switchSources, switchTargets, switchItemLabel } from './switchPower'
+import { switchedItems, switchSources, switchTargets, switchItemLabel, wallWiringItems } from './switchPower'
 import { waterControlId } from './waterLevel'
 import { drawLogicRelay } from './logicRelay'
 import { setObjectPower, setObjectSwitchLogic, setObjectSwitchReversed, setObjectRelay, setSwitchTargets, setPlateBehavior, setPressurePlateMount, setPlateCeiling, setGravityPlateEffect, setWaterControl } from './editor'
@@ -49,8 +49,6 @@ import { BuilderTextEntry } from './BuilderTextEntry'
 import { drawPlacementPreview, placementPreview } from './builderPlacement'
 import { BUILDER_GRID_SIZE } from './builderSnap'
 import './builder.css'
-import { LevelSaveStatus } from '../../accounts/LevelSaveStatus'
-import { AccountSurface } from '../../accounts/AccountSurface'
 import { protectUnsavedDraft } from '../../accounts/runtime'
 
 // Rope rest shapes are derived asynchronously, not unsaved author edits.
@@ -91,7 +89,7 @@ function selectionHandles(level: JumpLevel, selection: Selection | null, zoom: n
     y: bounds.y + (corner.startsWith('top') ? -8 / zoom : corner.startsWith('bottom') ? bounds.h + 8 / zoom : bounds.h / 2) }))
   return selection.kind === 'text' ? handles.map(p => ({ ...p, ...wallTextPoint(level.texts![selection.index], p.x - bounds.x, p.y - bounds.y) })) : handles
 }
-type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean }
+type Drag = { mode: 'move' | 'resize' | 'travel' | 'patrol' | 'point' | 'wire-terminal' | 'draw' | 'pan' | 'marquee' | 'aim' | 'spread'; start: Point; screen: Point; base: JumpLevel; view: View; selection: Selection | null; point?: number; terminal?: Point; corner?: ResizeHandle; side?: 'left' | 'right'; inserted?: boolean; selections?: Selection[]; additive?: boolean }
 const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'select', group: 'Editing', label: 'Pointer', help: 'Drag to move; handles resize. Snap catches nearby surfaces. Alt bypasses snapping. Space + drag pans.' },
   { id: 'node', group: 'Editing', label: 'Node', help: 'Drag an existing node to reshape terrain, or click an edge to add one. N activates this tool.' },
@@ -121,6 +119,7 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'light', group: 'Back wall', label: 'Spotlight', help: 'Click to place a spotlight on the back wall, or drag to aim it. Drag its center handle to aim and its outer handles to widen the beam. Lights have no range limit. EMP cuts their power.' },
   { id: 'wall-light', group: 'Back wall', label: 'Wall light', help: 'Place the goal-style indicator on the wall, with a circular rim. Connect switches to turn it green. Supports Logic, Reversed and the optional Relay setting.' },
   { id: 'text', group: 'Back wall', label: 'Wall text', help: 'Click or drag a text area onto the back wall. Choose Official or red Graffiti, and edit the text, size, alignment, and rotation in the inspector. Text never blocks movement.' },
+  { id: 'message-screen', group: 'Back wall', label: 'Message screen', help: 'Click or drag to mount a small terminal. Edit its message, size, alignment and rotation. Green phosphor lettering stays readable in the dark.' },
   { id: 'lab-stamp', group: 'Back wall', label: 'L.A.B. wall stamp', help: 'Click or drag to stamp the L.A.B. Experiments mark onto the back wall. Resize or rotate it in the inspector. It stays behind terrain and never blocks movement.' },
   { id: 'coin', group: 'Collectibles', label: 'Coin', help: 'Place a slowly spinning gold coin. Touch it to collect it and fill every coin switch in the level. Restarting restores all coins.' },
   { id: 'stopwatch', group: 'Collectibles', label: 'Stopwatch', help: 'Place a stopwatch to collect. Touching it stops the level timer for 10 seconds while gameplay continues. Extra watches extend the pause.' },
@@ -131,17 +130,16 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
 ]
 const selectionLabel = (s: Selection, level: JumpLevel) => objectLabel(level, s)
 
-export function LevelBuilder({ active, onPlay, onClose, templates, local, collections, initialFile, onFileChange }: {
+export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onFileChange }: {
   active: boolean; onPlay: (level: JumpLevel) => void; onClose: () => void
-  templates: LevelFile[]; local: LocalLevels; initialFile?: LevelFile
-  collections?: { local: LocalLevels; builtIn: LocalLevels }
-  onFileChange: (fileName?: string, source?: LevelSource) => void
+  levels: BuiltInLevels; initialFile?: LevelFile
+  onFileChange: (fileName?: string) => void
 }) {
   const wallTextFontReady = useWallTextFont()
   const [initial] = useState(() => ({ level: prepareLevelRopes(initialFile ? copyLevel(initialFile.level) : blankTrial(), true) }))
-  const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name, local.entries.map(file => file.fileName)))
+  const [fileName, setFileName] = useState(initialFile?.fileName ?? levelFileName(initial.level.name, levels.entries.map(file => file.fileName)))
   const suggestFileName = useRef(!initialFile)
-  const [fileSource, setFileSource] = useState({ text: initialFile?.sourceText, fileName: initialFile?.fileName, folderId: local.folderId })
+  const [fileSource, setFileSource] = useState({ text: initialFile?.sourceText, fileName: initialFile?.fileName })
   const [saved, setSaved] = useState<{ level: string | null; fileName: string }>({ level: editSignature(initial.level), fileName })
   const [history, setHistory] = useState({ past: [] as JumpLevel[], present: initial.level, future: [] as JumpLevel[] })
   const [preview, setPreview] = useState<JumpLevel | null>(null)
@@ -168,26 +166,27 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const [clipboard, setClipboard] = useState<EditorClipboard | null>(null), pasteCount = useRef(0)
   const [marquee, setMarquee] = useState<{ x: number; y: number; w: number; h: number } | null>(null)
   const [selectedNode, setSelectedNode] = useState<number | null>(null)
+  const [terminalFocus, setTerminalFocus] = useState<Point | null>(null)
   const [libraryOpen, setLibraryOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
-  const observedRemoval = useRef(local.lastRemoved)
+  const observedRemoval = useRef(levels.lastRemoved)
   const signature = useMemo(() => editSignature(history.present), [history.present])
   const dirty = saved.level !== signature || saved.fileName !== fileName
   useEffect(() => { if (dirty || !fileSource.text) return protectUnsavedDraft() }, [dirty, fileSource.text])
   const detachDeletedFile = useEffectEvent(() => {
-    if (local.lastRemoved?.folderId !== fileSource.folderId || local.lastRemoved?.fileName !== fileSource.fileName) return
-    setFileSource({ text: undefined, fileName: undefined, folderId: local.folderId })
+    if (levels.lastRemoved?.fileName !== fileSource.fileName) return
+    setFileSource({ text: undefined, fileName: undefined })
     setSaved({ level: null, fileName }); onFileChange(undefined)
     setMessage('')
   })
   useEffect(() => {
-    if (observedRemoval.current === local.lastRemoved) return
-    observedRemoval.current = local.lastRemoved
+    if (observedRemoval.current === levels.lastRemoved) return
+    observedRemoval.current = levels.lastRemoved
     // A library deletion detaches the saved file and updates the parent route while
     // retaining this mounted editor's draft; it cannot be applied during render.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (local.lastRemoved) detachDeletedFile()
-  }, [local.lastRemoved])
+    if (levels.lastRemoved) detachDeletedFile()
+  }, [levels.lastRemoved])
   const [keepTool, setKeepTool] = useState(false)
   const panHeld = useRef(false)
   const [pointer, setPointer] = useState<(Point & { free?: boolean }) | null>(null)
@@ -249,6 +248,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const selectedSource = sources.find(item => item.kind === selection?.kind && item.index === selection.index)
   const incomingSources = sources.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
   const outgoingTargets = targets.filter(item => item.kind !== selection?.kind || item.index !== selection.index)
+  const terminals = useMemo(() => wallTerminals(level), [level])
+  const selectedTerminals = useMemo(() => terminals.filter(point => selection && sameSelection(point.owner, selection)), [terminals, selection])
+  const customTerminal = selection ? wallWiringItems(level).find(item => sameSelection(item, selection))?.definition.wireTerminal : undefined
+  const terminalPosition = customTerminal ?? terminalFocus ?? selectedTerminals[0]
+  const hoveredTerminal = tool === 'select' && pointer && terminals.find(point => Math.hypot(pointer.x - point.x, pointer.y - point.y) < 10 / view.zoom)
   const aimHandles = useMemo(() => light ? lightHandles(light, view.zoom) : [], [light, view.zoom])
   const wallText = selection?.kind === 'text' ? level.texts?.[selection.index] : null
   const pickup = selection?.kind === 'pickup' ? level.pickups?.[selection.index] : null
@@ -273,12 +277,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   function chooseSelection(next: Selection | null) {
     if (next && inspectorTab !== 'object') chooseInspectorTab('object')
     if (next?.kind !== selection?.kind || next?.index !== selection?.index) inspectorRef.current?.scrollTo({ top: 0 })
-    setSelectedItems(next ? [next] : []); setSelectedNode(null); setPreviewLight(null)
+    setSelectedItems(next ? [next] : []); setSelectedNode(null); setTerminalFocus(null); setPreviewLight(null)
   }
   function chooseSelections(items: Selection[]) {
     const next = validSelections(level, items)
     if (next.length) chooseInspectorTab('object')
-    setSelectedItems(next); setSelectedNode(null); setPreviewLight(null)
+    setSelectedItems(next); setSelectedNode(null); setTerminalFocus(null); setPreviewLight(null)
   }
   function copy() {
     const next = copySelections(history.present, selectedItems)
@@ -292,7 +296,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       const offset = (pasteCount.current + 1) * 40
       const result = pasteSelections(history.present, clipboard, offset, offset)
       if (!result.selections.length) return
-      commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); chooseInspectorTab('object'); setTool('select')
+      commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); setTerminalFocus(null); chooseInspectorTab('object'); setTool('select')
       pasteCount.current++; canvasRef.current?.focus()
     } catch (error) { setMessage((error as Error).message) }
   }
@@ -336,23 +340,22 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       },
     }
   }
-  function load(next: JumpLevel, file?: LevelFile, source: LevelSource = local.repository && local.repositoryKind !== 'account' ? 'built-in' : 'local') {
+  function load(next: JumpLevel, file?: LevelFile) {
     next = prepareLevelRopes(copyLevel(next), true)
     suggestFileName.current = !file
-    const target = collections ? source === 'built-in' ? collections.builtIn : collections.local : local
-    const name = file?.fileName ?? levelFileName(next.name, target.entries.map(file => file.fileName))
-    setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName, folderId: target.folderId })
+    const name = file?.fileName ?? levelFileName(next.name, levels.entries.map(file => file.fileName))
+    setFileName(name); setFileSource({ text: file?.sourceText, fileName: file?.fileName })
     setHistory({ past: [], present: next, future: [] })
     setSaved({ level: editSignature(next), fileName: name })
     setPreview(null); latestPreview.current = null; setDrag(null); setMarquee(null)
     chooseSelection(null); chooseInspectorTab('level'); setTool('select'); setView(homeView(next, size.height)); setMessage('')
-    onFileChange(file?.fileName, source)
+    onFileChange(file?.fileName)
   }
   function chooseLibraryItem(choice: LibraryChoice) {
-    if (choice.kind === 'template') chooseTemplate(choice.file.level, choice.source)
+    if (choice.kind === 'template') chooseTemplate(choice.file.level)
     else {
       const next = choice.kind === 'open' ? choice.file.level : blankTrial()
-      load(next, choice.kind === 'open' ? choice.file : undefined, choice.source)
+      load(next, choice.kind === 'open' ? choice.file : undefined)
       if (choice.kind === 'open') fitLevel(next)
     }
     setLibraryOpen(false)
@@ -381,29 +384,29 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     } catch (error) { setMessage((error as Error).message) }
   }
   async function save(testAfter = false, updateRoute = true): Promise<LevelFile | undefined> {
-    if (savePending.current || local.busy || saveFailure) return undefined
-    if (!local.canWrite) {
-      setMessage(local.hasHandle ? 'Enable saving in this folder before saving your level.' : 'Choose a writable level folder before saving your level.')
+    if (savePending.current || levels.busy || saveFailure) return undefined
+    if (!levels.canWrite) {
+      setMessage('Built-in editing requires the local development server.')
       setLibraryOpen(true)
       return undefined
     }
     const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const name = suggestFileName.current ? levelFileName(level.name, local.entries.map(file => file.fileName)) : fileName
+    const name = suggestFileName.current ? levelFileName(level.name, levels.entries.map(file => file.fileName)) : fileName
     savePending.current = true; setSaving(true); setMessage('')
     try {
       const controller = new AbortController(); savePreparation.current = controller
       const next = parseLevel((await prepareLevelInWorker(level, { signal: controller.signal })).level)
-      const ownsFile = fileSource.folderId === local.folderId && fileSource.text !== undefined
+      const ownsFile = fileSource.text !== undefined
       const previousName = ownsFile ? fileSource.fileName! : name
-      if (local.files.some(file => file.fileName !== previousName && file.fileName !== name && file.level.id === next.id)) {
-        throw new Error('Another file in this folder uses this level’s ID. Use a template to create an independent level.')
+      if (levels.files.some(file => file.fileName !== previousName && file.fileName !== name && file.level.id === next.id)) {
+        throw new Error('Another built-in file uses this level’s ID. Use a template to create an independent level.')
       }
-      const source = await local.save(name, next, ownsFile ? fileSource.text : undefined, previousName)
+      const source = await levels.save(name, next, ownsFile ? fileSource.text : undefined, previousName)
       suggestFileName.current = false
-      setFileName(name); setFileSource({ text: source, fileName: name, folderId: local.folderId })
+      setFileName(name); setFileSource({ text: source, fileName: name })
       setSaved({ level: editSignature(history.present), fileName: name })
-      const savedMessage = previousName !== name ? `Renamed “${previousName}” to “${name}” and saved.` : `Saved “${name}” to ${local.name}.`
-      setMessage(local.repository && local.repositoryKind === 'account' ? '' : savedMessage)
+      const savedMessage = previousName !== name ? `Renamed “${previousName}” to “${name}” and saved.` : `Saved “${name}” to built-in levels.`
+      setMessage(savedMessage)
       if (updateRoute) onFileChange(name)
       if (testAfter) onPlay(copyLevel(next))
       return { fileName: name, level: next, sourceText: source }
@@ -508,6 +511,10 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         ctx.beginPath(); ctx.arc(hoveredNode.x, hoveredNode.y, 6 / view.zoom, 0, Math.PI * 2)
         ctx.fillStyle = '#c65231'; ctx.fill(); ctx.strokeStyle = '#fffdf5'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
       }
+      for (const point of selectedTerminals) {
+        ctx.beginPath(); ctx.arc(point.x, point.y, 7 / view.zoom, 0, Math.PI * 2)
+        ctx.strokeStyle = '#c65231'; ctx.lineWidth = 1.5 / view.zoom; ctx.stroke()
+      }
       if (nodeTarget) {
         const points = polygonPoints(level.platforms[nodeTarget.index]), a = points[nodeTarget.edge], b = points[(nodeTarget.edge + 1) % points.length]
         ctx.strokeStyle = '#c65231'; ctx.lineWidth = 3 / view.zoom
@@ -536,7 +543,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     }
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
-  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
+  }, [active, level, previewRun, previewPlayer, view, size, outline, selectedItems, selectedTerminals, resizeHandles, chosen, selectedNode, mechanism, robot, hoveredNode, nodeTarget, support, wallText, wallTextFontReady, light, aimHandles, lightingPreview, previewLight, helpOpen, libraryOpen, lightingGeometry.ready, lightingGeometry.groups, lightingRenderer])
   useEffect(() => {
     if (!active || size.width <= 0 || size.height <= 0) return
     // Cursor movement must not restart lighting or redraw the authored world.
@@ -601,6 +608,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       setMarquee({ ...p, w: 0, h: 0 })
       setDrag({ mode: 'marquee', start: p, screen, base, view, selection: null, selections: selectedItems, additive: true }); return
     }
+    const terminal = wallTerminals(base).find(point => Math.hypot(p.x - point.x, p.y - point.y) < 10 / view.zoom)
+    if (terminal) {
+      chooseSelection(terminal.owner); setTerminalFocus({ x: terminal.x, y: terminal.y })
+      setDrag({ mode: 'wire-terminal', start: p, screen, base, view, selection: terminal.owner, terminal }); return
+    }
+    setTerminalFocus(null)
     const aimHandle = aimHandles.find(h => Math.hypot(p.x - h.x, p.y - h.y) < 10 / view.zoom)
     if (selection?.kind === 'light' && aimHandle) { chooseInspectorTab('object'); setDrag({ mode: aimHandle.kind, start: p, screen, base, view, selection }); return }
     if (selection && travelHandleAt(p)) {
@@ -651,6 +664,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         : d.selection.kind === 'wall-light' ? { ...rawBounds, ...d.base.wallLights![d.selection.index] }
         : d.selection.kind === 'float-switch' ? { ...rawBounds, ...d.base.floatSwitches![d.selection.index] }
         : d.selection.kind === 'logic-relay' ? { ...rawBounds, ...d.base.logicRelays![d.selection.index] } : rawBounds
+      if (d.mode === 'wire-terminal' && d.terminal && Math.hypot(dx, dy) * view.zoom >= 3) {
+        next = setWallTerminal(d.base, d.selection, { x: qx(d.terminal.x + dx), y: qy(d.terminal.y + dy) })
+      }
       if (d.mode === 'move') {
         next = moveSelections(d.base, d.selections ?? [d.selection], qx(b.x + dx) - b.x, qy(b.y + dy) - b.y)
         if (snap && !event.altKey && (d.selections?.length ?? 1) === 1) next = placeOnSurface(next, d.selection, 12 / view.zoom)
@@ -744,7 +760,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     try {
       const result = pasteSelections(history.present, copySelections(history.present, selectedItems), 40, 0)
       if (!result.selections.length) { setMessage('Select an object to duplicate. Entrance and exit doors cannot be duplicated.'); return }
-      commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); chooseInspectorTab('object')
+      commit(result.level); setSelectedItems(result.selections); setSelectedNode(null); setTerminalFocus(null); chooseInspectorTab('object')
       setMessage(result.selections.length === 1 ? `Created ${selectionLabel(result.selections[0], result.level)}.` : `Duplicated ${result.selections.length} objects.`)
       canvasRef.current?.focus()
     } catch (error) { setMessage((error as Error).message) }
@@ -753,9 +769,9 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     const z = Math.min(size.width / (next.width + 120), size.height / (levelHeight(next) + 120))
     setView({ x: -60, y: -60, zoom: clamp(z, .08, 2.5) })
   }
-  function chooseTemplate(template: JumpLevel, source?: LevelSource) {
+  function chooseTemplate(template: JumpLevel) {
     const next = copyForEditing(template)
-    load(next, undefined, source); fitLevel(next); setSaved({ level: null, fileName: levelFileName(next.name) })
+    load(next); fitLevel(next); setSaved({ level: null, fileName: levelFileName(next.name) })
     setMessage(`Created a new level from “${template.name}”. Its file will be created when you save.`)
     requestAnimationFrame(() => canvasRef.current?.focus())
   }
@@ -776,7 +792,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       if (field === 'text') text.text = String(value).slice(0, 1000)
       if (field === 'fontSize' && Number.isFinite(Number(value))) text.fontSize = clamp(Number(value), 12, 96)
       if (field === 'align' && (value === 'left' || value === 'center' || value === 'right')) text.align = value
-      if (field === 'style' && (value === 'official' || value === 'graffiti' || value === 'lab-stamp')) text.style = value
+      if (field === 'style' && (value === 'official' || value === 'graffiti' || value === 'lab-stamp' || value === 'terminal')) text.style = value
     }
     return next
   }
@@ -787,8 +803,8 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
   const { connected: controllerConnected, cursorElement: controllerCursorElement } = useBuilderController({ active, root: builderRef, canvas: canvasRef,
     onPan: (x, y) => setView(previous => ({ ...previous, x: previous.x + x / previous.zoom, y: previous.y + y / previous.zoom })),
     onZoom: zoom, onUndo: undo, onRedo: redo, onDuplicate: duplicate,
-    onLibrary: () => { if (!saving && !local.busy) setLibraryOpen(true) },
-    onTest: () => { if (!drag && !problem && !saving && !local.busy) void save(true) }, onEditText: setTextEntry })
+    onLibrary: () => { if (!saving && !levels.busy) setLibraryOpen(true) },
+    onTest: () => { if (!drag && !problem && !saving && !levels.busy) void save(true) }, onEditText: setTextEntry })
 
   return <section ref={builderRef} className="jumping-builder" hidden={!active} aria-label="Level builder"
     onKeyDownCapture={event => { if (event.nativeEvent.isTrusted) event.currentTarget.dataset.inputMethod = 'keyboard' }} onKeyDown={event => {
@@ -806,6 +822,19 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     else if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); save() }
     else if (event.key === 'Escape') { setTool('select'); chooseSelection(null); setDrag(null); setMarquee(null); setPreview(null); latestPreview.current = null }
     else if (!event.ctrlKey && !event.metaKey && ({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) { event.preventDefault(); setTool(({ v: 'select', n: 'node', p: 'platform', r: 'rope', l: 'ladder' } as Record<string, Tool>)[event.key.toLowerCase()]) }
+    else if (event.target === canvasRef.current && selection && terminalFocus && terminalPosition) {
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault(); commit(setWallTerminal(history.present, selection, null)); setTerminalFocus(null)
+      } else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
+        event.preventDefault(); const step = event.shiftKey ? 1 : gridSize
+        const dx = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0
+        const dy = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0
+        commit(setWallTerminal(history.present, selection, {
+          x: snap && !event.shiftKey && dx ? quantize(terminalPosition.x + dx, gridSize) : terminalPosition.x + dx,
+          y: snap && !event.shiftKey && dy ? quantizeY(terminalPosition.y + dy, gridSize) : terminalPosition.y + dy,
+        }))
+      }
+    }
     else if (event.target === canvasRef.current && selectedItems.length > 1) {
       if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); remove() }
       else if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) {
@@ -833,13 +862,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     <header className="builder-header">
       <div className="builder-brand"><h1>Level studio</h1></div>
       <div className="builder-main-actions">
-        <button className="builder-play" title="Save this level and playtest it" disabled={!!problem || local.busy || saving} aria-busy={saving} onClick={() => void save(true)}><span aria-hidden="true">▶</span> Save and Test</button>
-        <button title="Save this level (Ctrl/⌘ + S)" disabled={local.busy || saving} onClick={() => void save()}>Save level</button>
+        <button className="builder-play" title="Save this level and playtest it" disabled={!!problem || levels.busy || saving} aria-busy={saving} onClick={() => void save(true)}><span aria-hidden="true">▶</span> Save and Test</button>
+        <button title="Save this level (Ctrl/⌘ + S)" disabled={levels.busy || saving} onClick={() => void save()}>Save level</button>
         <button aria-haspopup="dialog" title="Level builder help (F1)" onClick={() => setHelpOpen(true)}>Help</button>
         <button aria-haspopup="dialog" title="Open the library to create or choose a level" disabled={saving} onClick={() => { setMessage(''); setLibraryOpen(true) }}>Library</button>
         <button className="builder-back" title="Return to the game" disabled={saving} onClick={onClose}>Back to game</button>
       </div>
-      <AccountSurface active={active} />
     </header>
     <div className="builder-view-controls" role="group" aria-label="Canvas controls">
       <div className="builder-control-group builder-mode-controls" role="group" aria-label="Editing tools">
@@ -879,7 +907,7 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
     <div className="builder-stage" data-placement-at-cursor={placementAtCursor || undefined}>
       <div ref={controllerCursorElement} className="builder-controller-cursor" hidden aria-hidden="true" />
       <canvas ref={placementCanvasRef} className="builder-placement-preview" aria-hidden="true" />
-      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' ? 'grabbing' : hoveredNode ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
+      <canvas ref={canvasRef} tabIndex={0} role="application" aria-label="Level canvas" aria-busy={preparingRopes || !lightingGeometry.ready} style={{ cursor: placementAtCursor ? 'none' : drag?.mode === 'pan' || drag?.mode === 'point' || drag?.mode === 'wire-terminal' ? 'grabbing' : hoveredNode || hoveredTerminal ? 'grab' : tool === 'select' ? adjustingPatrol ? 'ew-resize' : adjustingTravel ? mechanism?.orientation === 'horizontal' ? 'ew-resize' : 'ns-resize' : resizeCorner ? resizeCursor : 'default' : 'crosshair' }}
         onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={() => { setMarquee(null); setDrag(null); setPreview(null); setPointer(null); latestPreview.current = null }} onContextMenu={e => e.preventDefault()}
         onPointerLeave={() => { if (!drag) setPointer(null) }} />
       <button className="builder-minimap" aria-label="Fit level overview" title="Click to fit the whole level" onClick={() => fitLevel()}><LevelThumbnail level={level} preview /><span>Overview</span></button>
@@ -1039,11 +1067,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
         {wallText && <>
           {wallText.style !== 'lab-stamp' && <label>Text<textarea aria-label="Wall text content" rows={4} maxLength={1000} value={wallText.text} onChange={e => changeObject('text', e.target.value)} /></label>}
           <div className="builder-dimensions">
-            <BuilderSelect label="Style" accessibleLabel="Text style" title="Official lettering, marker graffiti, or the L.A.B. wall stamp" value={wallText.style ?? 'official'} options={[{ value: 'official', label: 'Official' }, { value: 'graffiti', label: 'Graffiti' }, { value: 'lab-stamp', label: 'L.A.B. stamp' }]} onChange={value => changeObject('style', value)} />
+            <BuilderSelect label="Style" accessibleLabel="Text style" title="Official lettering, graffiti, a message screen, or the L.A.B. wall stamp" value={wallText.style ?? 'official'} options={[{ value: 'official', label: 'Official' }, { value: 'graffiti', label: 'Graffiti' }, { value: 'terminal', label: 'Message screen' }, { value: 'lab-stamp', label: 'L.A.B. stamp' }]} onChange={value => changeObject('style', value)} />
             <label>Rotation (°)<NumberField label="Text rotation" min={-180} max={180} step={5} value={wallText.rotation ?? 0} {...numberEdit((base, value) => changedObject(base, 'rotation', value))} /></label>
             {wallText.style !== 'lab-stamp' && <><label>Font size<NumberField label="Text font size" min={12} max={96} step={2} value={wallText.fontSize} {...numberEdit((base, value) => changedObject(base, 'fontSize', value))} /></label>
             <BuilderSelect label="Alignment" accessibleLabel="Text alignment" value={wallText.align} options={['left', 'center', 'right'].map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) }))} onChange={value => changeObject('align', value)} /></>}
           </div>
+          {wallText.style === 'terminal' && <p className="builder-hint">A static message in green phosphor lettering. The screen stays readable in the dark.</p>}
           {wallText.style === 'lab-stamp' && <p className="builder-hint">Resize the stamp with Width and Height. The logo keeps its proportions and has no collision.</p>}
         </>}
         {selection.kind === 'rope' && <div className="builder-anchor"><span>{level.climbables.ropes[selection.index].anchor ? `Anchored to ${selectionLabel({ kind: 'platform', index: level.climbables.ropes[selection.index].anchor!.platform }, level)}` : 'Free anchor'}</span><button className="builder-property-action" title="Attach the rope anchor to nearby terrain, or detach it" onClick={() => {
@@ -1102,6 +1131,28 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <p className="builder-hint">{trigger.behavior === 'switch' ? `The first press switches ${trigger.startsOn ? 'off' : 'on'} until restart.`
             : trigger.behavior === 'toggle' ? 'Each press reverses the state. Release before pressing again.' : 'On while held down; off when released.'}</p>
         </>}
+        {selectedSource && <fieldset className="builder-connections"><legend>Back-wall wiring</legend>
+          <label><input type="checkbox" checked={!!selectedSource.definition.showWires} onChange={e => commit(setWallWiring(history.present, selection, e.target.checked))} />Show wall wiring</label>
+          {selectedSource.definition.showWires && <label>Wire height<NumberField label="Wire height" min={0} max={levelHeight(level)} step={snap ? gridSize : 1}
+            value={selectedSource.definition.wireHeight ?? DEFAULT_WIRE_HEIGHT} {...numberEdit((base, value) => setWallWiring(base, selection, true, value))} /></label>}
+          <p className="builder-hint">Draws quiet conduit to this switch's connected items. Height is above the floor. Appearance only.</p>
+        </fieldset>}
+        {terminalPosition && <fieldset className="builder-connections"><legend>Wall terminal</legend>
+          <div className="builder-dimensions">
+            <label>X<NumberField label="Wire terminal X" min={4} max={level.width - 4} step={snap ? gridSize : 1} value={terminalPosition.x}
+              {...numberEdit((base, value) => setWallTerminal(base, selection, { x: value, y: terminalPosition.y }))} /></label>
+            <label>Y<NumberField label="Wire terminal Y" min={4} max={roomHeight - 4} step={snap ? gridSize : 1} value={roomHeight - terminalPosition.y}
+              {...numberEdit((base, value) => setWallTerminal(base, selection, { x: terminalPosition.x, y: levelHeight(base) - value }))} /></label>
+          </div>
+          <button disabled={!customTerminal} onClick={() => { commit(setWallTerminal(history.present, selection, null)); setTerminalFocus(null) }}>Reset terminal position</button>
+          <p className="builder-hint">{customTerminal ? 'Custom position, shared by this item’s wires.' : 'Automatic position.'} Drag a wall jack to move it. Hold Alt to ignore the grid.</p>
+        </fieldset>}
+        {selection.kind === 'entrance' && <BuilderSelect label="Entrance" accessibleLabel="Entrance style" value={level.entrance.kind ?? 'door'}
+          options={[{ value: 'door', label: 'Door' }, { value: 'charging-bay', label: 'Charging bay' }]} onChange={value => {
+            const next = copyLevel(history.present)
+            if (value === 'charging-bay') next.entrance.kind = 'charging-bay'; else delete next.entrance.kind
+            commit(next)
+          }} />}
         {selectedSource && <fieldset className="builder-connections"><legend>Activates</legend>
           {selectedSource.kind !== 'trigger' && selectedSource.kind !== 'float-switch' && <p className="builder-hint">Sends this item's resulting on/off state, including Logic and Reversed.{selectedSource.kind !== 'logic-relay' && ' Turning Relay off clears these outputs.'}</p>}
           {outgoingTargets.map(item => <label key={item.id}><input type="checkbox" checked={switchTargets(selectedSource.definition).includes(item.id)} onChange={e => {
@@ -1117,11 +1168,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       </div>
       <div id="builder-inspector-panel-level" role="tabpanel" aria-labelledby="builder-inspector-tab-level" hidden={inspectorTab !== 'level'}>
       <div className="builder-level-settings">
-        <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value, local.entries.map(file => file.fileName))); commit({ ...history.present, name: e.target.value }) }} /></label>
+        <label>Level name<input aria-label="Level name" title="The name shown in the level picker" maxLength={80} value={level.name} onChange={e => { if (suggestFileName.current) setFileName(levelFileName(e.target.value, levels.entries.map(file => file.fileName))); commit({ ...history.present, name: e.target.value }) }} /></label>
         <label>File name<input aria-label="Level file name" placeholder={levelFileName(level.name)} title="Created on first save. Changing a saved filename renames that file on the next save." spellCheck={false} value={fileName} onChange={e => { suggestFileName.current = !e.target.value; setFileName(e.target.value) }} /></label>
-        <div className="builder-save-field"><span id="builder-save-label">Save location</span><button className="builder-save-location" aria-labelledby="builder-save-label builder-save-value" aria-haspopup="dialog" title={local.canWrite ? local.name : 'Choose a save folder in Library'} onClick={() => { setMessage(''); setLibraryOpen(true) }}><span id="builder-save-value">{local.name || 'Choose level folder'}</span><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="miter"><path d="M3 7V4h7l2 3h9v13H3ZM3 9h18" /></svg></button></div>
+        <p className="builder-save-location">Built-in levels · Saved in this checkout</p>
         <div className="builder-dimensions"><label>Level width<NumberField label="Level width" step={100} value={level.width} min={800} max={20000} {...numberEdit((base, value) => {
-          const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
+          const extent = Math.ceil(Math.max(800, base.entrance.x + 40, ...(base.robots ?? []).map(robot => robot.right + ROBOT_HALF_WIDTH), ...wallWiringItems(base).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.x + 4] : []), ...allSelections(base).map(s => { const b = itemBounds(base, s)!; return b.x + b.w })))
           return { ...base, width: clamp(value, extent, 20000) }
         })} /></label>
         <label>Level height<NumberField label="Level height" step={100} value={levelHeight(level)} min={400} max={6000} {...numberEdit(resizeLevelHeight, true)} /></label></div>
@@ -1129,7 +1180,12 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
           <div className="builder-lighting-heading"><span>Lighting</span><label className="builder-night-mode" title="Use spotlights against the game's dark background"><input type="checkbox" checked={nightModeEnabled(level.lighting)} onChange={e => commit(setLevelNightMode(history.present, e.target.checked))} />Night mode</label></div>
         </div>
         <TerrainMaterialPicker label="Floor material" value={level.floorMaterial} onChange={floorMaterial => commit({ ...history.present, floorMaterial })} />
-        {isPuzzleLevel(level) && <fieldset className="builder-medals"><legend>Medal times (seconds)</legend><div className="builder-medal-inputs">{(['gold', 'silver', 'bronze'] as const).map(medal => {
+        {isPuzzleLevel(level) && <label><input type="checkbox" checked={level.timing === 'untimed'} onChange={e => {
+          const next = copyLevel(history.present)
+          if (e.target.checked) next.timing = 'untimed'; else delete next.timing
+          commit(next)
+        }} />Untimed level</label>}
+        {isPuzzleLevel(level) && level.timing !== 'untimed' && <fieldset className="builder-medals"><legend>Medal times (seconds)</legend><div className="builder-medal-inputs">{(['gold', 'silver', 'bronze'] as const).map(medal => {
           const min = medal === 'gold' ? 1 : Math.floor(level.times[medal === 'silver' ? 'gold' : 'silver']) + 1
           const max = medal === 'bronze' ? 3600 : Math.ceil(level.times[medal === 'gold' ? 'silver' : 'bronze']) - 1
           return <label key={medal}>{medal[0].toUpperCase() + medal.slice(1)}<NumberField label={`${medal} time`} min={min} max={max} step={1} value={level.times[medal]} {...numberEdit((base, value) => ({ ...base, times: { ...base.times!, [medal]: value } }))} /></label>
@@ -1139,12 +1195,11 @@ export function LevelBuilder({ active, onPlay, onClose, templates, local, collec
       {problems.length > 0 && <div className="builder-validation"><strong>Before you play</strong>{problems.map(issue => <p key={issue} role="alert">{issue}</p>)}</div>}
     </aside>
     <footer className="builder-status"><span className="builder-status-copy" role="status" aria-label="Builder status">
-      <LevelSaveStatus context="builder" kind={local.repository ? local.repositoryKind === 'account' ? 'account' : 'built-in' : 'folder'}
-        fileName={fileSource.fileName ?? fileName} text={fileSource.text} dirty={dirty || !fileSource.text} saving={saving} />
+      <span>{saving ? 'Saving…' : dirty || !fileSource.text ? 'Unsaved changes' : 'Built-in level'}</span>
       {(lightingGeometry.error || message) && <span className="builder-status-message">{lightingGeometry.error || message}</span>}
     </span>{controllerConnected && <span className="builder-controller-hint">Y / △: Canvas ↔ controls · A / ×: Select / edit / drag · B / ○: Cancel · Help: Controller</span>}<span><output aria-label="Cursor coordinates">{pointer ? `${Math.round(pointer.x)}, ${Math.round(roomHeight - pointer.y)}` : '—'}</output></span></footer>
     {active && helpOpen && <BuilderHelp tools={TOOLS} onClose={() => setHelpOpen(false)} />}
-    {active && libraryOpen && <BuilderLibrary local={local} collections={collections} templates={templates} level={level} dirty={dirty} saving={saving}
+    {active && libraryOpen && <BuilderLibrary levels={levels} level={level} dirty={dirty} saving={saving}
       message={message} onSave={() => save(false, false)} onChoose={chooseLibraryItem} onClose={() => setLibraryOpen(false)} />}
     {active && saveFailure && <SaveFailureDialog {...saveFailure} onClose={() => setSaveFailure(null)} />}
     {active && textEntry && <BuilderTextEntry input={textEntry} onClose={() => setTextEntry(null)} />}

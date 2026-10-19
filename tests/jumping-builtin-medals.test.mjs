@@ -10,15 +10,20 @@ import { propLoadsPlate } from '../src/games/jumping/propGeometry.ts'
 const root = new URL('../public/levels/jumping/', import.meta.url)
 const catalog = JSON.parse(await readFile(new URL('index.json', root), 'utf8'))
 const recordings = JSON.parse(await readFile(new URL('fixtures/jumping-builtin-medal-runs.json', import.meta.url), 'utf8'))
+const untimed = []
+for (const file of catalog.levels) {
+  const level = parseLevel(JSON.parse(await readFile(new URL(file, root), 'utf8')))
+  if (level.timing === 'untimed') untimed.push(file)
+}
 
-test('every built-in level has one medal recording or an explicit pending audit', () => {
+test('every built-in level has one medal recording, an explicit pending audit, or an authored untimed mode', () => {
   assert.equal(recordings.version, 2)
   assert.equal(recordings.jumpModel, 'recorded-impulses')
   const pending = recordings.pendingAudit ?? []
   for (const audit of pending) assert.ok(typeof audit.reason === 'string' && audit.reason.trim().length > 0, 'pending audits explain the missing evidence')
   // Keep all recorded routes strict. Adding a level must explicitly record a
   // route or acknowledge its unverified medal times; never silently skip it.
-  const accounted = [...recordings.runs.map(run => run.file), ...pending.map(audit => audit.file)]
+  const accounted = [...recordings.runs.map(run => run.file), ...pending.map(audit => audit.file), ...untimed]
   assert.equal(new Set(accounted).size, accounted.length, 'each level has exactly one audit status')
   assert.deepEqual(accounted.sort(), [...catalog.levels].sort())
 })

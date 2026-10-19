@@ -31,10 +31,10 @@ test('wall text supports editing, duplication, room resizing, and lossless JSON 
   }
 })
 
-test('wall text is behind terrain, stays attached to the wall, and never changes player or prop physics', () => {
+for (const tool of ['text', 'message-screen']) test(`${tool} is behind terrain, stays attached to the wall, and never changes player or prop physics`, () => {
   const level = blankTrial()
   level.props = [{ kind: 'box', x: 420, y: 920, size: 60 }, { kind: 'ball', x: 700, y: 920, size: 60 }]
-  const decorated = addItem(level, 'text', { x: 200, y: 800 }, { x: 900, y: 920 }).level
+  const decorated = addItem(level, tool, { x: 200, y: 800 }, { x: 900, y: 920 }).level
   const front = { ...decorated, platforms: [{ x: 200, y: 800, w: 100, h: 100 }] }
   assert.deepEqual(hitItem(front, 250, 850, 0), { kind: 'platform', index: 0 })
   assert.deepEqual(moveItem(front, { kind: 'platform', index: 0 }, 100, 0).texts, decorated.texts)
@@ -59,8 +59,8 @@ test('wall text imports are bounded, and old files do not acquire a text field',
   ].map(patch => [{ ...valid, ...patch }])]) assert.throws(() => parseLevel({ ...legacy, texts: value }))
 })
 
-for (const rotation of [-180, -90, -25, 0, 30, 90, 180]) test(`wall text at ${rotation} degrees selects, moves, resizes and round-trips in both styles`, () => {
-  for (const style of ['official', 'graffiti']) {
+for (const rotation of [-180, -90, -25, 0, 30, 90, 180]) test(`wall text at ${rotation} degrees selects, moves, resizes and round-trips in every text style`, () => {
+  for (const style of ['official', 'graffiti', 'terminal']) {
     const added = addItem(blankTrial(), 'text', { x: 400, y: 350 }, { x: 720, y: 470 })
     let level = setWallTextRotation(added.level, 0, rotation)
     const text = level.texts[0], selection = added.selection
@@ -116,4 +116,16 @@ test('wall text wraps words, long words and Unicode without losing explicit blan
   assert.deepEqual(wallTextLines('Hold to charge.\n\nRelease to jump.', 100, measure), ['Hold to', 'charge.', '', 'Release to', 'jump.'])
   assert.deepEqual(wallTextLines('abcdefghijk', 40, measure), ['abcd', 'efgh', 'ijk'])
   assert.deepEqual(wallTextLines('→ 🙂🙂🙂🙂🙂', 40, measure), ['→', '🙂🙂🙂🙂', '🙂'])
+})
+
+test('message screens use editable, bounded wall-text data in both level types', () => {
+  for (const source of [blankTrial(), newLevel()]) {
+    const { level, selection } = addItem(source, 'message-screen', { x: 300, y: 300 }, { x: 300, y: 300 })
+    assert.deepEqual(selection, { kind: 'text', index: 0 })
+    assert.equal(level.texts[0].style, 'terminal')
+    level.texts[0].text = 'OPERATOR CONNECTION\nNO RESPONSE'
+    assert.deepEqual(parseLevel(JSON.parse(JSON.stringify(level))), level)
+    assert.deepEqual(levelProblems(level), [])
+    assert.equal(deleteItem(level, selection).texts.length, 0)
+  }
 })

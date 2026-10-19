@@ -114,6 +114,10 @@
   ],
   "mechanisms": [
     {
+      "wireTerminal": {
+        "x": 1400,
+        "y": 240
+      },
       "id": "b40b1ca1-9684-4ae6-8cb5-f31fbe1985ed",
       "kind": "gate",
       "x": 1420,
@@ -123,6 +127,10 @@
       "travel": 220
     },
     {
+      "wireTerminal": {
+        "x": 1500,
+        "y": 240
+      },
       "id": "62480c80-33c3-4d39-a452-653f1e1a56f4",
       "kind": "gate",
       "x": 1460,
@@ -134,7 +142,9 @@
   ],
   "triggers": [
     {
-      "x": 24,
+      "showWires": true,
+      "wireHeight": 680,
+      "x": 25,
       "y": 920,
       "w": 100,
       "targets": [
@@ -143,6 +153,8 @@
       "mode": "touch"
     },
     {
+      "showWires": true,
+      "wireHeight": 625,
       "x": 680,
       "y": 880,
       "w": 40,

@@ -1,0 +1,166 @@
+{
+  "version": 2,
+  "id": "1986ae30-4b97-4815-a35a-cfe3852bca9e",
+  "name": "Wake",
+  "width": 1800,
+  "height": 720,
+  "platforms": [
+    {
+      "name": "Idle maintenance step",
+      "x": 930,
+      "y": 620,
+      "w": 160,
+      "h": 100,
+      "material": "steel"
+    }
+  ],
+  "entrance": {
+    "name": "Charging bay 01",
+    "x": 200,
+    "y": 720,
+    "kind": "charging-bay"
+  },
+  "checkpoints": [],
+  "climbables": {
+    "ladders": [],
+    "ropes": []
+  },
+  "timing": "untimed",
+  "floor": 720,
+  "goal": {
+    "name": "Training route",
+    "wireTerminal": {
+      "x": 1640,
+      "y": 620
+    },
+    "x": 1740,
+    "y": 720,
+    "flipX": true,
+    "id": "training-access",
+    "power": "switched"
+  },
+  "times": {
+    "gold": 10,
+    "silver": 20,
+    "bronze": 40
+  },
+  "props": [],
+  "mechanisms": [],
+  "triggers": [
+    {
+      "name": "Local power",
+      "showWires": true,
+      "wireHeight": 220,
+      "wireTerminal": {
+        "x": 570,
+        "y": 695
+      },
+      "x": 520,
+      "y": 720,
+      "w": 100,
+      "targets": [
+        "training-access",
+        "access-light",
+        "power-ready"
+      ],
+      "mode": "weight",
+      "behavior": "switch"
+    }
+  ],
+  "robots": [],
+  "timers": [],
+  "pickups": [],
+  "texts": [
+    {
+      "x": 145,
+      "y": 600,
+      "w": 105,
+      "h": 30,
+      "text": "STANDBY / 01",
+      "fontSize": 14,
+      "align": "center",
+      "style": "official"
+    },
+    {
+      "name": "Operator terminal",
+      "x": 305,
+      "y": 585,
+      "w": 130,
+      "h": 120,
+      "text": "OPERATOR CONNECTION\nNO RESPONSE",
+      "fontSize": 12,
+      "align": "left",
+      "style": "terminal"
+    },
+    {
+      "x": 770,
+      "y": 568,
+      "w": 160,
+      "h": 40,
+      "text": "hold jump",
+      "fontSize": 20,
+      "align": "left",
+      "style": "graffiti",
+      "rotation": -3
+    },
+    {
+      "x": 1370,
+      "y": 548,
+      "w": 300,
+      "h": 60,
+      "text": "EXTERIOR ACCESS\nTRAINING ROUTE →",
+      "fontSize": 18,
+      "align": "left",
+      "style": "official"
+    },
+    {
+      "x": 1380,
+      "y": 110,
+      "w": 280,
+      "h": 100,
+      "text": "L.A.B.\nexperiments",
+      "fontSize": 28,
+      "align": "center",
+      "style": "lab-stamp"
+    }
+  ],
+  "wallLights": [
+    {
+      "name": "Local power indicator",
+      "id": "power-ready",
+      "x": 670,
+      "y": 648
+    }
+  ],
+  "lighting": {
+    "nightMode": true,
+    "ambient": 0,
+    "lights": [
+      {
+        "id": "bay-light",
+        "x": 330,
+        "y": 470,
+        "intensity": 100,
+        "direction": 100,
+        "spread": 105,
+        "power": "always",
+        "flicker": true,
+        "name": "Bay work light"
+      },
+      {
+        "id": "access-light",
+        "x": 1450,
+        "y": 465,
+        "intensity": 100,
+        "direction": 80,
+        "spread": 90,
+        "power": "switched",
+        "wireTerminal": {
+          "x": 1430,
+          "y": 465
+        },
+        "name": "Training access light"
+      }
+    ]
+  }
+}

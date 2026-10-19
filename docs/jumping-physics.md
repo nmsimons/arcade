@@ -186,6 +186,19 @@ When the door disappears, the world and clock activate automatically, including
 with neutral input. The entrance time does not count toward medals. Pause freezes
 its progress; restart reconstructs it. Static editor previews show the open entrance.
 
+An authored `entrance.kind: "charging-bay"` replaces that door presentation with
+a 2.2-second awakening. The separate actor stays on its planted feet while its
+head and shoulders rise; the physical player, world, and input remain frozen.
+Control activates automatically when the sequence finishes. Pause and restart
+apply as for the door. The installed bay is non-colliding back-wall artwork and
+uses the same clear 40-by-80 start footprint. `timing: "untimed"` keeps score at
+zero and awards no medal, while active simulation, mechanisms, and animation
+continue normally after waking. Completion is saved independently of best time.
+
+Optional wall conduit follows authored switch connections without changing
+contacts, switching, EMP, or power propagation. It has no physical shape, grip,
+delay, light emission, or simulated cable behavior.
+
 1. Read pressure plates and move mechanisms, carrying supported riders.
 2. Apply shovebot actions and advance prop physics using the selected pushing
    contact. Carry riders and their foot anchors with their supporting prop.

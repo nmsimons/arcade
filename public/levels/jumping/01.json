@@ -37,7 +37,11 @@
   },
   "floor": 1000,
   "goal": {
-    "x": 1304,
+    "wireTerminal": {
+      "x": 1200,
+      "y": 500
+    },
+    "x": 1300,
     "y": 600,
     "flipX": true,
     "id": "b7bb98a0-4ba2-431e-b30b-9dbf3cb4e788",
@@ -59,6 +63,8 @@
   "mechanisms": [],
   "triggers": [
     {
+      "showWires": true,
+      "wireHeight": 755,
       "x": 200,
       "y": 600,
       "w": 40,
@@ -73,7 +79,7 @@
   "texts": [
     {
       "x": 630,
-      "y": 400,
+      "y": 415,
       "w": 205,
       "h": 225,
       "text": "Run up, hold jump",
@@ -81,28 +87,6 @@
       "align": "center",
       "style": "graffiti",
       "rotation": 5
-    },
-    {
-      "x": 215,
-      "y": 495,
-      "w": 50,
-      "h": 60,
-      "text": "->",
-      "fontSize": 36,
-      "align": "center",
-      "style": "graffiti",
-      "rotation": 115
-    },
-    {
-      "x": 205,
-      "y": 430,
-      "w": 125,
-      "h": 75,
-      "text": "Don't ignore.",
-      "fontSize": 28,
-      "align": "center",
-      "style": "graffiti",
-      "rotation": 15
     },
     {
       "x": 1040,

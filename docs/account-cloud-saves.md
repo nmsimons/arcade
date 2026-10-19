@@ -6,95 +6,29 @@ Provider documentation was checked October 2, 2026.
 
 ## Player behavior
 
-Anonymous play, browser saves and local level folders remain available. Signing
-in creates a separate browser save space for that provider and account. It does
-not upload anonymous progress. **Manage saves → Import guest progress** makes that transfer
-explicit and preserves an account recovery copy first.
+Players can play without signing in. Guest progress stays on the device. Signing
+in selects a separate profile; connecting Google Drive or OneDrive optionally
+syncs game progress across devices. Disconnecting or signing out keeps existing
+saves. Backups and recovery remain available under **Manage saves**.
 
-Sign-in and cloud consent are separate. Google accounts connect Google Drive;
-personal Microsoft accounts connect OneDrive. This release does not link a
-Google identity to a Microsoft identity or join accounts by matching email.
-Both sign-ins and the cloud-connection choice survive tab closure and browser
-restarts until sign-out or clearing site data. The selected identity is remembered
-in localStorage; startup restores its save owner before mounting a game. Existing
-tab-scoped sign-ins upgrade on their next successful restoration. If persistent
-storage is unavailable, sign-in falls back to the current tab.
-Microsoft uses MSAL's localStorage cache to reuse credentials across tabs. MSAL
-may discard those credentials on browser closure unless the player selected
-**Keep me signed in** with Microsoft; the remembered Arcade profile remains
-available either way. Google keeps only its short-lived access token in tab
-session storage, rechecking the token's account before any Drive request after a
-reload. Expired or unavailable cloud access offers Reconnect without switching
-to guest saves or opening a popup automatically. Account saves remain on the
-device and are found by the stable provider account ID.
+L.A.B. ships one built-in collection. Level authoring belongs to the localhost
+development studio and writes to the checkout. The game and account panel have
+no local level-folder picker, account library, custom-level imports, Google
+level picker, or per-file cloud status. Developer drafts never join player cloud
+saves. Existing legacy level data in account backups remains compatible and is
+preserved by the storage layer; removing the UI does not delete saved files.
 
-The account panel guides players through sign-in, **Connect OneDrive / Google
-Drive**, and a synced confirmation. Pending actions identify the popup or sync
-stage, while failures offer retry or reconnect. **Manage saves** holds imports,
-backups and recovery; **Account settings** holds disconnect and sign-out.
-Imports and local restores sync automatically when cloud storage is connected.
-**Open OneDrive folder** or **Open Google Drive folder** appears beside the
-account status as soon as the provider locates the app folder. The OneDrive link
-and the folder name in Account settings come from Graph's actual app-folder
-metadata; the name may differ from Dream Large Arcade if the Entra registration
-used another name. Independent folder checks run concurrently with bounded
-parallelism; before/after checks still detect changes during sync.
-Conflicts and access/provider failures pause background retries until the player
-acts. An active upload in another browser, or files changing during a sync,
-retries automatically after five seconds; the status explains the wait.
+Cloud sync continues across navigation. Frequent gameplay saves are grouped into
+one automatic upload per 30 seconds and still save locally immediately. **Sync
+now** and safe menus can sync sooner. Incoming saves apply at a safe menu or
+through **Load cloud saves**, which restarts the game. Expiry, offline mode,
+denied consent and provider failures leave local progress available. Reconnect
+is explicit. Wait for the account indicator to confirm sync before closing a tab.
 
-The account control shows the player's name when signed in and **Sign in**
-otherwise. It opens account settings and cloud saves in the arcade menu, Levels,
-and Level Studio (also with F8). Levels and Level Studio place it at the top right,
-with navigation and editing actions wrapping onto a separate row on smaller
-screens. Gameplay has no account controls or account shortcut; background sync
-continues while playing. Switching accounts remounts the current
-game with the new save owner, and switching away from an unsaved editor draft
-requires confirmation.
-Library contains only file controls; close it to use the account control in
-Level Studio. The F8 shortcut waits until native file dialogs are closed.
-
-Level-library writes queue background sync after a 700 ms debounce. Frequent game
-autosaves are grouped into one automatic upload per 30 seconds; they still save
-locally immediately. **Sync now**, **Refresh**, and returning to a safe menu can
-sync sooner. Sync continues across navigation. A visible tab also checks a minute after
-completion and when it regains focus. Account-level **Refresh** checks cloud
-storage, waits for completion, then reloads the list; errors keep local files
-visible and writable. Incoming saves apply at safe menus or an explicit library
-refresh. During active play they wait until a safe menu or an explicit **Load
-cloud saves** action that restarts the game. Unsaved editor drafts remain in
-memory; stale-file checks prevent silently overwriting a downloaded file.
-The app cannot sync after the tab closes. Players should wait for the
-synced status before closing. Expiry, offline mode, denied consent, provider
-errors and quota failures leave local progress available. Reconnect is an
-explicit button so browser popup activation and Google's renewal rules work.
-Account files have a single status line in the library and level chooser, and
-the builder uses its existing status bar: saved locally, waiting to sync, syncing,
-saved to the provider, or sync needs attention. Unsaved builder edits take priority
-over the status of the last saved file. Tooltips explain the state and next step.
-The last successful sync records a SHA-256 digest per filename alongside its
-workspace baseline; a file is confirmed only when its exact bytes match. These
-small confirmations survive reloads without duplicating level content. New files,
-renames and edits cannot inherit another file's synced status.
-Both providers show backup/upload file counts and a
-final verification stage, then **Saved to the provider** only after publication
-finishes and the current local workspace matches the published bytes. An edit
-made during an upload keeps the account indicator pending until that newer edit
-is also confirmed. Unchanged checks do not claim files are being uploaded.
-
-Hard Vacuum's expedition, backup and unreadable recovery slot are included, as
-are jumping-game personal bests and the account level library. Other games do
-not currently persist progress. New persistent data types must be explicitly
-added to the save-slot allowlist and validation; arbitrary browser storage and
-credentials are never uploaded.
-
-Signed-in players can switch between **Account levels** and their existing
-**Local folder** in the jumping-game menu. The account library works in the
-normal builder, including ordering, renaming, deletion and recovery. Local disk
-folders are not uploaded implicitly. Import JSON level files from the account
-panel to copy them into the account library. Include `index.json` to retain the
-collection's ordering and metadata. Download backup produces a
-portable JSON backup, including levels, which Import backup can restore.
+Hard Vacuum expedition/recovery, L.A.B. best times and L.A.B. completion are
+allowlisted save slots. Other games do not currently persist progress. Arbitrary
+browser storage and credentials are never uploaded. Historical level-library
+storage and version metadata remain supported solely for backup compatibility.
 
 ## Provider permissions and authentication
 
@@ -128,20 +62,12 @@ Google's `drive.file` scope permits visible app-created or user-selected files;
 it is a per-file grant, not a recursive folder grant. Arcade creates
 `My Drive/Dream Large Arcade` and records a private app property on that folder
 to find it again, including after a rename. Files copied into it outside Arcade
-are not automatically accessible. **Manage saves → Choose from Google Drive**
-opens Google's multi-file picker in `Untitled Jumping Game/Levels`. Selecting
-files grants access and immediately refreshes account levels. Existing files in
-that folder are read in place, without duplicate uploads; selected files elsewhere
-are copied into the library using the normal validation and collision checks.
-Select individual level JSON files and, optionally, `index.json`; selecting a
-folder would not grant access to its contents. Future files added outside Arcade
-must be selected too. **Import level files** remains available for files on the
-computer. No full-Drive scopes are requested.
+are not automatically accessible. The current game does not import custom
+levels from Drive or expose a file picker. No full-Drive scopes are requested.
 
 Sources: [Google file metadata](https://developers.google.com/workspace/drive/api/reference/rest/v2/files),
 [Drive scopes](https://developers.google.com/workspace/drive/api/guides/api-specific-auth),
 [Google token flow](https://developers.google.com/identity/oauth2/web/guides/use-token-model),
-[Google Picker setup](https://developers.google.com/workspace/drive/picker/guides/web-picker-sample),
 [MSAL Browser](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/about-msal-browser),
 [redirect bridge](https://learn.microsoft.com/en-us/entra/msal/javascript/browser/redirect-bridge),
 [OneDrive app folders](https://learn.microsoft.com/en-us/graph/onedrive-sharepoint-appfolder),
@@ -169,13 +95,6 @@ Sources: [Google file metadata](https://developers.google.com/workspace/drive/ap
    that time before retrying. See [Google's branding and domain requirements](https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification).
    Add test users while the consent screen is in testing, and complete Google's
    applicable branding/verification requirements before general release.
-   For **Choose from Google Drive**, also enable the Google Picker API and create
-   a browser API key in that same project. Restrict the key to Google Picker API
-   and Google Drive API, and to website referrers for the site (locally,
-   `http://localhost:5173/*`) plus `https://docs.google.com/*`, which hosts the
-   picker iframe. Set `VITE_GOOGLE_PICKER_API_KEY` and
-   `VITE_GOOGLE_PROJECT_NUMBER` (the numeric project number, not project name).
-   Without those values, the picker action is hidden and local-file import works.
 3. In Microsoft Entra, register an app supporting **personal Microsoft accounts**.
    Add a **Single-page application** redirect URI exactly matching
    `https://YOUR-ORIGIN/auth-redirect.html` (including any configured Vite base
@@ -188,7 +107,7 @@ Sources: [Google file metadata](https://developers.google.com/workspace/drive/ap
    origin, such as `http://localhost:5173`, and Microsoft's matching
    `/auth-redirect.html` SPA callback. These are public client IDs, never secrets.
 5. For the existing Azure deployment, set repository Actions **variables** with
-   those names, including the two picker values when enabled. The build injects
+   the configured client ID names. The build injects
    them only on main push builds. PR preview
    builds intentionally have sign-in disabled. Environment values are baked
    into the Vite build; changing a variable requires rebuilding.
@@ -217,6 +136,7 @@ Apps/Dream Large Arcade/
     History/
   Untitled Jumping Game/
     personal-bests.json
+    completed-levels.json
     Levels/
       index.json
       My level.jump-level.json
@@ -234,7 +154,7 @@ metadata/order are retained. A missing manifest is generated in filename order.
 Copy the level files and manifest together to move a collection; omit the
 `Deleted levels` subfolder when publishing built-ins. Levels copied into OneDrive,
 and edits, renames or removals made there, are picked up at the next safe-menu
-sync or Account-level Refresh. Missing indexed files retain their manifest entries just like local folders.
+sync. Missing indexed files retain their manifest entries just like local folders.
 Invalid files stop sync with local data intact. OneDrive filenames must also meet
 OneDrive's filename rules and cannot differ only by capitalization.
 
@@ -399,7 +319,7 @@ uploads, and autosave batching with explicit sync. History tests cover file reus
 more than 2,000 versions, clock skew and interrupted archiving. Real provider behavior still requires a signed-in
 provider check; mocked responses do not establish live API guarantees. Google
 browser coverage includes reloads, expiry, wrong cached accounts, disconnect,
-sign-out, visible folder links, upload feedback and in-game cloud Refresh.
+sign-out, visible progress storage links and upload feedback.
 Both providers also exercise fresh tabs or browser sessions with only persistent
 storage retained, profile restoration before gameplay, legacy session upgrades,
 and sign-out surviving a later visit. Google tests cover persistent-storage

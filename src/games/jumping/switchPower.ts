@@ -7,7 +7,21 @@ export type PlateBehavior = 'pressure' | 'switch' | 'toggle'
 export type SwitchLogic = 'or' | 'and' | 'xor'
 /** Water shares the 16-field limit and supplies two pump inputs per reservoir. */
 export const MAX_SWITCH_TARGETS = 209
-export interface SwitchSettings { switchLogic?: SwitchLogic; switchReversed?: boolean; relay?: boolean; targets?: string[] }
+export interface WallWiringSettings { showWires?: boolean; wireHeight?: number; wireTerminal?: { x: number; y: number } }
+export interface SwitchSettings extends WallWiringSettings { switchLogic?: SwitchLogic; switchReversed?: boolean; relay?: boolean; targets?: string[] }
+export function parseWallWiring(value: { showWires?: unknown; wireHeight?: unknown; wireTerminal?: unknown }, fail: () => never): WallWiringSettings {
+  if (value.showWires !== undefined && typeof value.showWires !== 'boolean') return fail()
+  if (value.wireHeight !== undefined && (typeof value.wireHeight !== 'number' || !Number.isFinite(value.wireHeight) || value.wireHeight < 0 || value.wireHeight > 6000)) return fail()
+  let wireTerminal: WallWiringSettings['wireTerminal']
+  if (value.wireTerminal !== undefined) {
+    const p = value.wireTerminal as { x?: unknown; y?: unknown } | null
+    if (!p || typeof p !== 'object' || Array.isArray(p) || typeof p.x !== 'number' || !Number.isFinite(p.x) || p.x < 4 || p.x > 19996
+      || typeof p.y !== 'number' || !Number.isFinite(p.y) || p.y < 4 || p.y > 5996) return fail()
+    wireTerminal = { x: p.x, y: p.y }
+  }
+  return { ...(value.showWires ? { showWires: true } : {}), ...(value.wireHeight === undefined ? {} : { wireHeight: value.wireHeight as number }),
+    ...(wireTerminal ? { wireTerminal } : {}) }
+}
 interface SwitchInputs { connected: number; active: number }
 export const validSwitchTargetId = (id: unknown): id is string => typeof id === 'string' && !!id
   && (id.length <= 100 || id.length <= 106 && /:(fill|drain)$/.test(id))
@@ -16,14 +30,14 @@ interface GravitySwitchItem {
   definition: SwitchSettings & { id?: string }
 }
 
-export function parseSwitchSettings(value: { switchLogic?: unknown; switchReversed?: unknown; relay?: unknown; targets?: unknown }, fail: () => never): SwitchSettings {
+export function parseSwitchSettings(value: { switchLogic?: unknown; switchReversed?: unknown; relay?: unknown; targets?: unknown; showWires?: unknown; wireHeight?: unknown; wireTerminal?: unknown }, fail: () => never): SwitchSettings {
   const { switchLogic, switchReversed, relay, targets } = value
   if (switchLogic !== undefined && switchLogic !== 'or' && switchLogic !== 'and' && switchLogic !== 'xor') return fail()
   if (switchReversed !== undefined && typeof switchReversed !== 'boolean') return fail()
   if (relay !== undefined && typeof relay !== 'boolean') return fail()
   if (targets !== undefined && (!Array.isArray(targets) || targets.length > MAX_SWITCH_TARGETS
     || targets.some(id => !validSwitchTargetId(id)) || new Set(targets).size !== targets.length)) return fail()
-  return { ...(switchLogic === undefined ? {} : { switchLogic }), ...(switchReversed === undefined ? {} : { switchReversed }), ...(relay === undefined ? {} : { relay }),
+  return { ...parseWallWiring(value, fail), ...(switchLogic === undefined ? {} : { switchLogic }), ...(switchReversed === undefined ? {} : { switchReversed }), ...(relay === undefined ? {} : { relay }),
     ...(targets === undefined ? {} : { targets: [...targets as string[]] }) }
 }
 
@@ -80,6 +94,21 @@ export function switchSources(level: JumpLevel) {
     ...(level.floatSwitches ?? []).map((definition, index) => ({ kind: 'float-switch' as const, index, definition })), ...switchedItems(level).filter(isSwitchRelay)]
 }
 
+/** Include inactive and disconnected devices so wall positions survive power edits. */
+export function wallWiringItems(level: JumpLevel) {
+  return [
+    ...(level.triggers ?? []).map((definition, index) => ({ kind: 'trigger' as const, index, definition })),
+    ...(level.floatSwitches ?? []).map((definition, index) => ({ kind: 'float-switch' as const, index, definition })),
+    ...(level.mechanisms ?? []).map((definition, index) => ({ kind: 'mechanism' as const, index, definition })),
+    ...(level.lighting?.lights ?? []).map((definition, index) => ({ kind: 'light' as const, index, definition })),
+    ...(level.wallLights ?? []).map((definition, index) => ({ kind: 'wall-light' as const, index, definition })),
+    ...(level.logicRelays ?? []).map((definition, index) => ({ kind: 'logic-relay' as const, index, definition })),
+    ...(level.gravityPlates ?? []).map((definition, index) => ({ kind: 'gravity-plate' as const, index, definition })),
+    ...(level.forceFields ?? []).map((definition, index) => ({ kind: 'force-field' as const, index, definition })),
+    ...(level.goal ? [{ kind: 'goal' as const, index: 0, definition: level.goal }] : []),
+  ]
+}
+
 /** Settle a whole relay chain before mechanisms, exit and lights read the result. */
 export function resolveSwitchStates(level: JumpLevel, triggers: readonly { active: boolean }[], floats: readonly { active: boolean }[] = []) {
   const items = switchedItems(level), byId = new Map(items.map(item => [item.id, item]))
@@ -115,6 +144,11 @@ export function resolveSwitchStates(level: JumpLevel, triggers: readonly { activ
 
 export function switchWiringProblems(level: JumpLevel, validateTriggers = true): string[] {
   const items = switchedItems(level), byId = new Map(items.map(item => [item.id, item])), issues: string[] = []
+  for (const item of wallWiringItems(level)) {
+    const p = item.definition.wireTerminal
+    if (p && (!Number.isFinite(p.x) || !Number.isFinite(p.y) || p.x < 4 || p.x > level.width - 4 || p.y < 4 || p.y > (level.floor ?? level.height ?? 1020) - 4))
+      issues.push(`Keep the wall terminal for ${objectReference(level, item.kind, item.index)} inside the level.`)
+  }
   for (const source of switchSources(level)) if ((validateTriggers || source.kind !== 'trigger') && switchTargets(source.definition).some(id => !byId.has(id))) {
     issues.push(`Connect ${objectReference(level, source.kind, source.index)} only to existing switched items.`)
   }

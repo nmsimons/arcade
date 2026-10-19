@@ -1,19 +1,16 @@
 import { readFileSync } from 'node:fs'
-import { test, expect } from './helpers/folderTest.mjs'
-import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
+import { test, expect } from './helpers/test.mjs'
+import { finishJumpingEntrance, useLevelFixtures, installBuiltInFixtures, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, waitForBuilderPreview } from './helpers/jumpingLevels.mjs'
 import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 const fixture = () => JSON.parse(readFileSync(new URL('../fixtures/jumping/water-reservoir.json', import.meta.url), 'utf8'))
 
 test('reservoir controls wire both directions, undo, duplicate, save and reopen', async ({ page }, info) => {
   const level = fixture()
-  await useLevelFixtures(page, [level]); await installTestFolder(page, { 'reservoir.json': level })
+  await useLevelFixtures(page, [level]); await installBuiltInFixtures(page, { 'reservoir.json': level })
   await page.goto('/lab')
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('button', { name: 'Library', exact: true }).click()
-  const local = page.getByRole('dialog').getByRole('button', { name: 'Local folder', exact: true })
-  if (await local.count()) await local.click()
-  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
   await page.getByRole('button', { name: 'Open reservoir.json', exact: true }).click()
   await waitForBuilderPreview(page); await selectBuilderObject(page, 'gravity-plate:0')
   const fill = page.getByRole('group', { name: 'Fill water', exact: true }), drain = page.getByRole('group', { name: 'Drain water', exact: true })

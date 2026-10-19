@@ -16,7 +16,9 @@ jobs:
     name: Validate and build
     outputs:
       fast: ${{ steps.scope.outputs.fast }}
-    timeout-minutes: 15
+    # Full replay coverage can take fourteen minutes before lint and build.
+    # Leave room for setup, artifact upload and runner cleanup as well.
+    timeout-minutes: 20
     permissions:
       contents: read
       actions: read

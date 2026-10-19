@@ -63,16 +63,18 @@ function stanceAngle(phase: number, run: number) {
   return -lerp(.12, .1, run) * (1 - smooth(phase / .18)) + lerp(.6, .65, run) * smooth((phase - toeOff) / (1 - toeOff))
 }
 
-export function strideProfile(run: number, moving = 1) {
-  const scale = lerp(.25, 1, moving), duty = lerp(.55, .3, run)
-  const lead = lerp(10, 18, run) * scale, trail = lerp(12, 13, run) * scale
+export function strideProfile(run: number, moving = 1, jog = 0) {
+  // Open the intermediate jog without changing the established walk or full
+  // run. The stride still advances from travel, keeping stance feet planted.
+  const scale = lerp(.25, 1, moving), duty = lerp(.55, .3, run) - jog * .14
+  const lead = (lerp(10, 18, run) + jog) * scale, trail = (lerp(12, 13, run) + jog) * scale
   return { duty, lead, trail, scale, length: (lead + trail) / duty }
 }
 
 /** The stance moves backward exactly one world unit per unit of body travel. */
-export function sampleStride(cycle: number, run: number, moving = 1) {
+export function sampleStride(cycle: number, run: number, moving = 1, jog = 0) {
   const phase = ((cycle / TAU) % 1 + 1) % 1
-  const { duty, lead, trail, scale, length } = strideProfile(run, moving)
+  const { duty, lead, trail, scale, length } = strideProfile(run, moving, jog)
   if (phase < duty) {
     const angle = stanceAngle(phase / duty, run), roll = footRoll(angle)
     return { ankle: [lead - phase * length + roll[0], roll[1]] as Point, angle, planted: true }
@@ -255,8 +257,8 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
 /** Persistent world-space contacts survive changes in speed and body pose. */
 export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: readonly Platform[]) {
   if (!p.grounded || p.hang || p.mantle) { p.footwork = null; return }
-  const run = p.gait?.run ?? 0, moving = p.gait?.moving ?? 0
-  const profile = strideProfile(run, moving), traveling = Math.abs(p.x - oldX) > .0001
+  const run = p.gait?.run ?? 0, moving = p.gait?.moving ?? 0, jog = p.gait?.jog ?? 0
+  const profile = strideProfile(run, moving, jog), traveling = Math.abs(p.x - oldX) > .0001
   const makeFoot = (offset: number): FootContact => {
     const x = oldX + offset * p.facing, ground = groundAt(platforms, x, p.y)
     const foot = { x, anchorX: x, anchorY: ground?.y ?? p.y, y: p.y - 2.8, groundAngle: ground?.angle ?? 0, groundY: ground?.y ?? p.y,
@@ -288,7 +290,7 @@ export function advanceFootwork(p: Player, dt: number, oldX: number, platforms: 
   const feet = previous.feet.map((before, index): FootContact => {
     const foot = { ...before }, cycle = p.stride * p.facing + index * Math.PI
     if (rephased) foot.blockedCycle = -1
-    const lap = Math.floor(cycle / TAU), step = sampleStride(cycle, run, moving)
+    const lap = Math.floor(cycle / TAU), step = sampleStride(cycle, run, moving, jog)
     const targetX = p.x + step.ankle[0] * p.facing
     const targetGround = groundAt(platforms, targetX, p.y)
     const targetY = (targetGround?.y ?? p.y) + step.ankle[1], targetAngle = step.angle + (targetGround?.angle ?? 0) * p.facing

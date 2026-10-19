@@ -47,6 +47,8 @@ for (const backend of ['canvas', 'gpu']) test(`${backend}: thin wires have a tig
     for (const [row, mode] of ['Night', 'Day'].entries()) {
       const render = () => h.render(mode === 'Night' ? 0 : 100, [], .2, undefined, mode === 'Night')
       h.run.triggers[0].active = false; h.run.empRemaining = 0
+      // Settle first-use graphics/readback rounding before comparing signals.
+      render()
       const off = render()
       h.run.triggers[0].active = true
       const on = render()

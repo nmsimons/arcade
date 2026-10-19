@@ -5,6 +5,43 @@ import { finishJumpingEntrance, installBuiltInFixtures, useLevelFixtures, select
 const wake = JSON.parse(readFileSync(new URL('../../public/levels/jumping/Wake.jump-level.json', import.meta.url), 'utf8'))
 const next = JSON.parse(readFileSync(new URL('../../public/levels/jumping/LAB1.jump-level.json', import.meta.url), 'utf8'))
 
+test('Wake preserves its full-speed running stride after keyboard walking', async ({ page }, info) => {
+  test.setTimeout(90_000)
+  await page.setViewportSize({ width: 960, height: 600 })
+  await useLevelFixtures(page, [wake])
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab?motionDebug=1')
+  const play = page.getByRole('button', { name: 'Play Wake', exact: true })
+  await expect(play).toBeEnabled()
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await play.click()
+  await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
+  await page.clock.runFor(160)
+  await expect(page.locator('.jumping-state')).toHaveText('Waking up')
+  await finishJumpingEntrance(page)
+  await page.keyboard.down('Shift'); await page.keyboard.down('ArrowRight')
+  await page.clock.runFor(1800)
+  await page.screenshot({ path: info.outputPath('wake-walking.png') })
+  const walking = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1))
+  expect(walking.vx).toBeCloseTo(125)
+  expect(walking.signals.grounded).toBe(true)
+  await page.keyboard.up('Shift'); await page.clock.runFor(300)
+  const start = await page.evaluate(() => window.jumpingMotion.read().recent.at(-1).time)
+  await page.clock.runFor(1200)
+  const jogging = await page.evaluate(start => window.jumpingMotion.read().recent.filter(s => s.time > start), start)
+  let landings = 0
+  for (let i = 1; i < jogging.length; i++) landings += jogging[i].contacts.feet.filter((foot, j) => foot.planted && !jogging[i - 1].contacts.feet[j].planted).length
+  expect(jogging.length).toBeGreaterThan(120)
+  expect(jogging.at(-1).vx).toBeCloseTo(410)
+  expect(landings).toBeGreaterThanOrEqual(8)
+  expect(landings).toBeLessThanOrEqual(10)
+  expect(jogging.filter(s => s.contacts.feet.every(foot => !foot.planted)).length / jogging.length).toBeGreaterThan(.3)
+  const separation = Math.max(...jogging.map(s => Math.abs(s.points[8][0] - s.points[10][0])))
+  expect(separation).toBeGreaterThan(38); expect(separation).toBeLessThan(42)
+  await page.screenshot({ path: info.outputPath('wake-running.png') })
+  await page.keyboard.up('ArrowRight')
+})
+
 test('Wake pauses and restarts its awakening, completes with normal keys, and remembers an untimed finish', async ({ page }, info) => {
   // The staged night lighting and full route are rendered in software on CI.
   test.setTimeout(180000)

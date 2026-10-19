@@ -2170,7 +2170,7 @@ function resolveAthletePose(p: Player): AthletePose {
   // The round head reads as looking by leaning at the neck, without moving the body.
   head[0] -= p.look * 2
   head[1] -= p.look * (p.look > 0 ? .45 : .8)
-  const frontStep = sampleStride(cycle, run, moving), backStep = sampleStride(cycle + Math.PI, run, moving)
+  const frontStep = sampleStride(cycle, run, moving, pose.jog), backStep = sampleStride(cycle + Math.PI, run, moving, pose.jog)
   if (bodyPush) {
     // Crouching already lowers the body; do not add a second squat when pushing.
     const pushDip = bodyPush * (1 - squat)

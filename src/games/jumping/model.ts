@@ -37,7 +37,7 @@ export interface Checkpoint extends NamedObject { x: number; y: number; radius?:
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
-export interface GaitPose { speed: number; moving: number; run: number; air: number }
+export interface GaitPose { speed: number; moving: number; run: number; air: number; jog?: number }
 export function gaitPose(vx: number, airborne = false): GaitPose {
   const smooth = (value: number) => { const t = Math.max(0, Math.min(1, value)); return t * t * (3 - 2 * t) }
   const speed = Math.min(1, Math.abs(vx) / TUNING.runSpeed)
@@ -108,9 +108,15 @@ function settleGait(p: Player, dt: number) {
     const value = from + (to - from) * (1 - Math.exp(-dt / response))
     return Math.abs(value - to) < .001 ? to : value
   }
+  // Lengthen the settled middle pace, rather than imposing a full jogging
+  // cycle during the brief acceleration into a sprint. Keep the old sprint
+  // and precision-walk contacts and their traversal handoffs.
+  const jogging = Math.abs(previous.speed - target.speed) < .02 && !target.air
+    ? 16 * target.run ** 2 * (1 - target.run) ** 2 : 0
+  const jog = blend(previous.jog ?? 0, jogging, .12)
   // Animation settles independently of physical braking; the feet return to rest.
   p.gait = { speed: blend(previous.speed, target.speed), moving: blend(previous.moving, target.moving), run: blend(previous.run, target.run),
-    air: blend(previous.air, target.air, target.air ? .035 : .065) }
+    air: blend(previous.air, target.air, target.air ? .035 : .065), ...(jog > .001 ? { jog } : {}) }
 }
 export function cancelJumpInput(p: Player) {
   p.slideEntry = null

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { blankTrial } from '../src/games/jumping/level.ts'
 import { athletePose } from '../src/games/jumping/athlete.ts'
-import { NEUTRAL_INPUT, gaitPose, TUNING } from '../src/games/jumping/model.ts'
+import { createPlayer, stepPlayer, NEUTRAL_INPUT, gaitPose, STEP, TUNING } from '../src/games/jumping/model.ts'
 import { footPoint, FOOT_BALL, strideProfile } from '../src/games/jumping/footwork.ts'
 
 const distance = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
@@ -18,6 +18,35 @@ test('precision walking stays a walk and rising analog speed promptly becomes a 
   assert.ok(strideProfile(gaitPose(180).run).duty < .5, 'a slow jog introduces a brief flight phase')
   assert.ok(gaitPose(240).run > .7, 'most of the middle analog range no longer uses a walking stride')
   assert.equal(gaitPose(TUNING.runSpeed).run, 1)
+})
+
+test('resolved jogging travel lengthens steps while preserving the full-speed running stride', () => {
+  const floor = [{ x: -4000, y: 900, w: 8000, h: 100 }]
+  for (const dt of [STEP, 1 / 30]) for (const direction of [-1, 1]) for (const speed of [180, 210, 240, TUNING.runSpeed]) {
+    const p = createPlayer({ x: 0, y: 900 }), input = { ...NEUTRAL_INPUT, move: direction * speed / TUNING.runSpeed }
+    for (let time = 0; time < 1 - dt / 2; time += dt) stepPlayer(p, input, dt, floor)
+    let previous = p.footwork.feet.map(foot => foot.planted), landings = 0, flight = 0, separation = 0, samples = 0
+    const startX = p.x
+    for (let time = 0; time < 4 - dt / 2; time += dt) {
+      stepPlayer(p, input, dt, floor)
+      const pose = athletePose(p), feet = p.footwork.feet
+      landings += feet.filter((foot, i) => foot.planted && !previous[i]).length
+      flight += Number(feet.every(foot => !foot.planted)); samples++
+      separation = Math.max(separation, Math.abs(pose.frontLeg.end[0] - pose.backLeg.end[0]))
+      previous = feet.map(foot => foot.planted)
+    }
+    const context = `${speed} units/s, ${direction}, ${Math.round(1 / dt)} Hz`
+    if (speed === TUNING.runSpeed) {
+      assert.ok(landings >= 30 && landings <= 33, `${context}: preserve the established running cadence, got ${landings / 4}`)
+      assert.ok(separation > 38 && separation < 42, `${context}: preserve the established full-speed reach`)
+    } else {
+      assert.ok(landings >= 10 && landings <= 23, `${context}: a jog stays below six steps per second, got ${landings / 4}`)
+      assert.ok(separation > 28, `${context}: the drawn legs open into a longer stride`)
+      assert.ok(separation < 42, `${context}: jogging stays within the original running reach`)
+    }
+    assert.ok(Math.abs(p.x - startX - direction * speed * 4) < .01, `${context}: stride changes preserve motor travel`)
+    assert.ok(flight / samples > .08, `${context}: both feet visibly leave support between steps`)
+  }
 })
 
 test('walking and running arms reach behind the torso while the opposite arm folds forward', () => {

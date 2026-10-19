@@ -393,7 +393,11 @@ actual bindings. Regression coverage includes the action-feedback suite and
 - Animation may reposition limbs, but never the player's physical root.
 - Gait uses resolved travel, not requested speed or velocity before a collision.
   Support transport happens before that measurement, so riding does not make
-  the player walk in place.
+  the player walk in place. Precision movement remains a walk; above walking
+  speed, blend into a longer jogging stride with an unloaded flight phase.
+  Intermediate movement grows stride length rather than churning the walking
+  steps; the established full-speed running stride remains unchanged. Planted
+  footprints stay fixed to their support throughout the transition.
 - Hand targets use the contacted face, including a box's tilt. Feet sample their
   own points on the terrain, with the resolved support defining their stance.
 - Jumping, turning away and losing support release the push constraint. Cosmetic

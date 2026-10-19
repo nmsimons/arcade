@@ -143,7 +143,7 @@ export function drawGoalDoor(ctx: CanvasRenderingContext2D, goal: Goal, opening:
   drawDoorway(ctx, goalDoor(goal), opening, editor)
 }
 /** Shared world renderer for play and editor previews; wall text is drawn with the backdrop. */
-export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0) {
+export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor = false, paint: WorldPaint = paintNormally, playerInk?: string, lights: readonly LightSource[] = [], layer: WorldLayer = 'all', playerExposure: Exposure = 0, terrainArtwork?: (ctx: CanvasRenderingContext2D) => void) {
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
@@ -166,7 +166,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   if (layer === 'wall') return
   paint(ctx, 0, () => {
-    drawTerrain(ctx, run.terrain, level.platforms, level)
+    if (terrainArtwork) terrainArtwork(ctx)
+    else drawTerrain(ctx, run.terrain, level.platforms, level)
     const corners = mechanismCornerRadii(run)
     for (const [i, m] of run.mechanisms.entries()) drawMechanism(ctx, m, corners[i])
   }, false)

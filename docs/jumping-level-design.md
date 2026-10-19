@@ -1,6 +1,6 @@
 # Making a fun jumping level
 
-**Updated October 18, 2026.** This is the design brief for creating and
+**Updated October 19, 2026.** This is the design brief for creating and
 reviewing levels in L.A.B. Experiments (Leaps and Bounds). It draws on the built-in maps, the
 authored Tower maps, and the local Night Shift collection. Existing levels are
 references, not evidence that every placement in them is ideal.
@@ -37,6 +37,12 @@ Length alone does not make a level substantial.
 Readable causes, dependable interactions, and demonstrated completion are
 requirements. The route patterns and pacing below are defaults to apply with
 judgment. A level can bend a default when that produces a clear, enjoyable idea.
+
+Performance and movement feel have the highest priority. Visual polish must fit
+within that budget. Simplify or remove decorative work when it reduces frame
+rate, input responsiveness, or the clarity of movement. Test representative
+authored levels on the target machine; attractive still frames do not establish
+that an effect is affordable during play.
 
 ## Campaign context
 
@@ -91,8 +97,9 @@ supports or clutter solely to justify every platform.
 Place recognizable background hardware deliberately. Grates, vents, cables, and
 service panels should have chosen positions and a purpose in the room; do not
 scatter them procedurally as wall texture. Shared surface treatments such as
-panel joints, subtle edge relief, and contact shading can establish material
-depth without adding implied machinery. Keep decorative hardware clear of hints
+panel joints and subtle interior edge relief can establish material depth
+without adding implied machinery. Keep terrain silhouettes crisp, without
+decorative drop-shadow halos. Keep decorative hardware clear of hints
 and distinguish it from usable ropes, ladders, and powered mechanisms.
 
 When a level promises a building, group its running surfaces into usable rooms

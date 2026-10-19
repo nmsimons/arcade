@@ -32,7 +32,7 @@ export function drawWallPanels(ctx: CanvasRenderingContext2D, view: WallView) {
   ctx.restore()
 }
 
-interface Relief { key: string; clip: Path2D; shadows: Path2D[]; light: Path2D; dark: Path2D }
+interface Relief { key: string; clip: Path2D; light: Path2D; dark: Path2D }
 const reliefs = new WeakMap<object, Relief>()
 const strip = (path: Path2D, ax: number, ay: number, bx: number, by: number, dx: number, dy: number) => {
   path.moveTo(ax, ay); path.lineTo(bx, by); path.lineTo(bx + dx, by + dy); path.lineTo(ax + dx, ay + dy); path.closePath()
@@ -44,7 +44,6 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
   const cached = reliefs.get(level)
   if (cached?.key === key) return cached
   const clip = new Path2D(), light = new Path2D(), dark = new Path2D()
-  const shadows = [new Path2D(), new Path2D(), new Path2D(), new Path2D()]
   for (const shape of platforms) {
     const points = polygonPoints(shape)
     points.forEach(([x, y], i) => i ? clip.lineTo(x, y) : clip.moveTo(x, y)); clip.closePath()
@@ -54,19 +53,10 @@ function relief(platforms: readonly Platform[], level: JumpLevel): Relief {
     const dx = b[0] - a[0], dy = b[1] - a[1], length = Math.hypot(dx, dy)
     if (!length) continue
     const nx = dy / length, ny = -dx / length
-    for (const [i, width] of [14, 9, 5, 2].entries()) strip(shadows[i], ...a, ...b, nx * width, ny * width)
     const lit = nx * -.55 + ny * -.83 > 0
     strip(lit ? light : dark, ...a, ...b, -nx * (lit ? 2 : 3), -ny * (lit ? 2 : 3))
   }
-  const result = { key, clip, shadows, light, dark }; reliefs.set(level, result); return result
-}
-
-/** A short ambient attachment shadow, painted before the opaque terrain. */
-export function drawTerrainAttachment(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], level: JumpLevel) {
-  const { shadows } = relief(platforms, level)
-  for (const [i, alpha] of [.014, .021, .032, .045].entries()) {
-    ctx.fillStyle = `rgba(38,52,43,${alpha})`; ctx.fill(shadows[i])
-  }
+  const result = { key, clip, light, dark }; reliefs.set(level, result); return result
 }
 
 /** Fine relief stays inside the real collision silhouette. */
@@ -75,23 +65,5 @@ export function drawTerrainEdges(ctx: CanvasRenderingContext2D, platforms: reado
   ctx.save(); ctx.clip(r.clip)
   ctx.fillStyle = '#ffffff35'; ctx.fill(r.light)
   ctx.fillStyle = '#26382d25'; ctx.fill(r.dark)
-  ctx.restore()
-}
-
-/** A bounded, deterministic mask. The compositor reveals only illuminated,
- * unoccluded motes, so dust cannot become a light source or enter a blackout. */
-export function drawBeamDust(ctx: CanvasRenderingContext2D, view: WallView, time: number) {
-  const cell = 104 * Math.max(1, Math.ceil(Math.sqrt(view.w * view.h / (104 * 104 * 240))))
-  ctx.save()
-  for (let row = Math.floor(view.y / cell) - 1; row <= Math.ceil((view.y + view.h) / cell); row++) {
-    for (let col = Math.floor(view.x / cell) - 1; col <= Math.ceil((view.x + view.w) / cell); col++) {
-      const seed = noise(col + 7, row - 3)
-      if (seed < .35) continue
-      const x = (col + noise(col, row + 19)) * cell + Math.sin(time * .2 + seed * 30) * 11
-      const y = (row + noise(col + 29, row)) * cell + Math.sin(time * .16 + seed * 17) * 14
-      ctx.fillStyle = `rgba(255,255,255,${.24 + seed * .34})`
-      ctx.beginPath(); ctx.arc(x, y, .65 + seed * .55, 0, Math.PI * 2); ctx.fill()
-    }
-  }
   ctx.restore()
 }

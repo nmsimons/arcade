@@ -13,7 +13,7 @@ import { terrainDrawOrder } from './terrainOrder.ts'
 import { drawFootBoosters } from './airBoosters.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
-import { drawTerrainAttachment, drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
+import { drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
 import { drawChargingBay, drawChargingBayCover } from './goal.ts'
 
@@ -59,7 +59,6 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
-  if (level) drawTerrainAttachment(ctx, platforms, level)
   // Fill consecutive terrain of the same material as one compound silhouette.
   // Separate antialiased fills leave partial coverage along their shared edges.
   let material: Platform['material'], started = false

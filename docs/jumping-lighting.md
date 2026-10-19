@@ -666,6 +666,14 @@ The current game uses Canvas 2D. Preserve that renderer unless a measured
 prototype demonstrates that the agreed contract cannot meet budget. Do not
 rewrite the movement engine or introduce a general game engine for lighting.
 
+Performance and movement feel take priority over visual polish. Optional surface
+depth, dust, glows, and other decoration must not force sustained low frame rates
+or compromise control response. Measure their complete rendering cost on authored
+levels, including GPU presentation; low JavaScript draw time alone is insufficient.
+Optimize, simplify, or remove an effect when it cannot meet that priority.
+
+Airborne dust motes are intentionally omitted to preserve rendering headroom.
+
 Conceptually, each frame consists of:
 
 1. Read final world transforms, power states, and animation time.
@@ -723,6 +731,13 @@ zoom, render scale, and current object snapshot. No one-frame shadow trails.
 - Reuse scratch buffers and bound the number of full-resolution stationary-light
   caches by viewport size; cap complete lighting buffers at 64 MiB with eviction.
   Avoid canvas readback in the frame loop.
+- Night composition retains static terrain artwork in the existing haze
+  surface, keyed by exact camera, size, materials, and geometry. Exposure masks
+  replay those pixels instead of repeatedly rasterizing translucent relief.
+  GPU source glow borrows the emission surface after its other passes finish;
+  Canvas source glow occupies the lamp scratch surface after field construction. This
+  adds no lighting surfaces, preserves memory limits, and refreshes immediately
+  for camera or terrain edits.
 - Static preparation must be chunked or done in a worker. Bound jobs, cancel
   outdated editor revisions, and discard stale results rather than overwriting
   a newer edit. Do not reveal a fully bright frame while preparation is pending.

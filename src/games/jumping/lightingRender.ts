@@ -21,18 +21,16 @@ import { ambientPaint, ambientSurfacePaint, emissionPaint, paintNormally } from 
 import type { WorldLayer, WorldPaint } from './worldPaint.ts'
 import { ambientExposure, angularFalloff, betweenLightAndView, dynamicCasters, lightReachesView, LightingState, shadowQuad, sourceCovered, SPOT_EDGE_WIDTH, staticCasters } from './lightingModel.ts'
 import type { CasterGroup, LightSource, LightingDefinition, LightingWorld } from './lightingModel.ts'
-import { drawBeamDust } from './surfaceDepth.ts'
 
 export interface LightingView { width: number; height: number; x: number; y: number; zoom: number }
 export type LightingShadows = 'full' | 'structural'
 const BUFFER_BUDGET = 64 * 1024 * 1024
-const TERRAIN_RELIEF_MARGIN = 16 // Attachment shading reaches fourteen world units.
 export const lightingPixelRatio = (width: number, height: number, dpr = 1, reduced = false) =>
   Math.min(dpr, reduced ? 1 : 2, Math.sqrt((reduced ? 1_000_000 : 2_000_000) / Math.max(1, width * height)))
 const gray = (value: number) => { const c = Math.round(value * 255); return `rgb(${c},${c},${c})` }
-const surface = () => {
+const surface = (willReadFrequently = false) => {
   const canvas = document.createElement('canvas')
-  const ctx = canvas.getContext('2d')!
+  const ctx = canvas.getContext('2d', { willReadFrequently })!
   return { canvas, ctx }
 }
 type Surface = ReturnType<typeof surface>
@@ -93,9 +91,12 @@ export class LightingRenderer {
   private cacheDayAmbient: boolean
   private cacheDayBackground: boolean
   private reuseAthletePose: boolean
+  private reuseTerrainArtwork: boolean
+  private terrainArtwork?: { buffer: Surface; view: LightingView }
+  private terrainRaster?: { key: string; buffer: Surface }
   // Explicit 'gpu' is for renderer experiments, including software-only CI.
   // Live play uses 'auto' so a CPU WebGL driver falls back to Canvas.
-  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean; reuseAthletePose?: boolean } = {}) {
+  constructor(options: { backend?: 'canvas' | 'auto' | 'gpu'; boundedEmissions?: boolean; skipEmptyNightPasses?: boolean; reuseAmbientBuffer?: boolean; reuseExposureCorrection?: boolean; cacheDayAmbient?: boolean; cacheDayBackground?: boolean; reuseAthletePose?: boolean; reuseTerrainArtwork?: boolean } = {}) {
     this.preferGpu = options.backend === 'auto' || options.backend === 'gpu'
     this.allowSoftware = options.backend === 'gpu'
     // The full composition remains available as a pixel/performance reference.
@@ -106,6 +107,7 @@ export class LightingRenderer {
     this.cacheDayAmbient = options.cacheDayAmbient !== false
     this.cacheDayBackground = options.cacheDayBackground !== false
     this.reuseAthletePose = options.reuseAthletePose !== false
+    this.reuseTerrainArtwork = options.reuseTerrainArtwork !== false
   }
   private staticFields = new Map<string, { key: string; groups: readonly CasterGroup[]; resting: readonly CasterGroup[]; buffer: Surface }>()
   private gradients = new Map<string, CanvasGradient>()
@@ -190,14 +192,14 @@ export class LightingRenderer {
     // The thin figure needs readable hands and feet in shadow at phone scale.
     // Reuse the existing artwork exposure pass; surrounding light is unchanged.
     const playerExposure = nightMode ? .65 : 0
-    if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer, playerExposure)
+    if ('elapsed' in run) drawPuzzleWorld(ctx, run, editor, paint, ink, sources, layer, playerExposure, target => this.paintTerrain(target, run, view))
     else {
       if (layer !== 'objects') drawLightFixtures(ctx, sources, ambientPaint(paint))
       if (layer !== 'objects' && run.level.entrance.kind !== 'charging-bay' && (editor || run.entrance)) ambientPaint(paint)(ctx, 0, () =>
         drawDoorway(ctx, entranceDoor(run.level.entrance), editor ? 1 : entranceOpening(run.entrance!.elapsed)))
       if (layer !== 'wall') {
         paint(ctx, 0, () => {
-          drawTerrain(ctx, levelTerrain(run.level), run.level.platforms, run.level)
+          this.paintTerrain(ctx, run, view)
         }, false)
         paint(ctx, 0, () => {
           drawClimbables(ctx, run.player, run.level.climbables)
@@ -217,9 +219,17 @@ export class LightingRenderer {
     }
     ctx.restore()
   }
+  private paintTerrain(ctx: CanvasRenderingContext2D, run: LightingWorld, view: LightingView) {
+    const artwork = this.terrainArtwork
+    if (artwork && artwork.view.x === view.x && artwork.view.y === view.y && artwork.view.zoom === view.zoom
+      && artwork.view.width === view.width && artwork.view.height === view.height) {
+      ctx.save(); ctx.resetTransform(); ctx.drawImage(artwork.buffer.canvas, 0, 0); ctx.restore()
+    } else drawTerrain(ctx, 'terrain' in run ? run.terrain : levelTerrain(run.level), run.level.platforms, run.level)
+  }
   render(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
     const render = () => this.renderFrame(ctx, run, definition, view, dt, onlyLight, editor, shadows, fullBright)
-    return this.reuseAthletePose ? withAthletePose(run.player, render) : render()
+    try { return this.reuseAthletePose ? withAthletePose(run.player, render) : render() }
+    finally { this.terrainArtwork = undefined }
   }
   private renderFrame(ctx: CanvasRenderingContext2D, run: LightingWorld, definition: LightingDefinition, view: LightingView, dt: number, onlyLight?: string, editor = false, shadows: LightingShadows = 'structural', fullBright = false) {
     const sources = this.state.sources(definition, run, dt)
@@ -243,7 +253,15 @@ export class LightingRenderer {
       this.daylight = undefined
     }
     if (view.width * view.height > 2_100_000) throw new Error('Lighting viewport exceeds its buffer budget.')
-    const buffers = this.buffers ??= { haze: surface(), shadow: surface(), correction: surface(), emission: surface() }
+    const readback = ctx.getContextAttributes().willReadFrequently
+    const buffers = this.buffers ??= { haze: surface(readback), shadow: surface(), correction: surface(), emission: surface() }
+    // Match the target's raster path for retained terrain, including software
+    // canvases used for readback. Cross-backend antialiasing differs on some
+    // hardware drivers even when the geometry and transforms are identical.
+    if (buffers.haze.ctx.getContextAttributes().willReadFrequently !== readback) {
+      buffers.haze.canvas.width = buffers.haze.canvas.height = 0
+      buffers.haze = surface(readback); this.terrainRaster = undefined
+    }
     const { haze, shadow, correction, emission } = buffers
     const { width, height } = view
     // Keep resting silhouettes current through a flicker dropout; clearing them
@@ -269,8 +287,6 @@ export class LightingRenderer {
         const stats = gpu.render(groups, activeSources, view, definition.ambient, run.level.width, levelHeight(run.level), !nightMode)
         const bufferBytes = stats.bufferBytes + width * height * 16
         if (bufferBytes > BUFFER_BUDGET) throw new Error('GPU lighting exceeds its buffer budget.')
-        clear(haze, width, height)
-        haze.ctx.drawImage(gpu.canvas, width, 0, width, height, 0, 0, width, height)
         lighting = { ...stats, bufferBytes, backend: 'gpu', drawField: target => target.drawImage(gpu.canvas, 0, 0, width, height, 0, 0, width, height) }
       } catch {
         // Preserve the complete frame and all shadows on unsupported hardware,
@@ -292,7 +308,8 @@ export class LightingRenderer {
           cached.buffer.canvas.width = cached.buffer.canvas.height = 0; this.staticFields.delete(id)
         }
       }
-      if (!cacheAmbientWorld || !this.dayAmbient) clear(haze, width, height)
+      if (nightMode) clear(emission, width, height)
+      else if (!cacheAmbientWorld || !this.dayAmbient) clear(haze, width, height)
       if (!cacheDayField) { clear(field, width, height); field.ctx.fillStyle = ambientColor; field.ctx.fillRect(0, 0, width, height) }
       let edges = 0, lights = 0
       if (!nightMode) {
@@ -410,16 +427,34 @@ export class LightingRenderer {
           clear(correction, width, height); transform(correction.ctx, view)
           drawLightHaze(correction.ctx, light, definition.ambient)
           correction.ctx.resetTransform(); correction.ctx.globalCompositeOperation = 'destination-in'; correction.ctx.drawImage(lamp.canvas, 0, 0)
-          haze.ctx.drawImage(correction.canvas, 0, 0)
+          emission.ctx.drawImage(correction.canvas, 0, 0)
         }
         lamp.ctx.globalCompositeOperation = 'destination-over'; lamp.ctx.fillStyle = ambientColor; lamp.ctx.fillRect(0, 0, width, height)
         field.ctx.globalCompositeOperation = 'lighten'; field.ctx.drawImage(lamp.canvas, 0, 0)
       }
 
+      // Lamp fields are complete. Keep source glow in their now-free scratch
+      // canvas while the emission surface handles exposure masks.
+      if (nightMode) { clear(lamp, width, height); lamp.ctx.drawImage(emission.canvas, 0, 0) }
       lighting = { lights, edges, bufferBytes: width * height * 4 * (6 + Number(!nightMode) + this.staticFields.size), backend: 'canvas',
         drawField: target => target.drawImage(cacheDayField ? this.daylight!.buffer.canvas : field.canvas, 0, 0) }
     }
     const { lights, edges, bufferBytes, backend, drawField } = lighting
+    // Night replays the terrain through several exposure and occlusion masks.
+    // Retain its translucent relief in an existing surface and replay the same
+    // pixels. Source glow uses the emission scratch surface after its other
+    // passes finish, leaving this cache intact without adding any buffers.
+    if (nightMode && this.reuseTerrainArtwork && ctx.globalAlpha === 1 && ctx.globalCompositeOperation === 'source-over') {
+      const terrain = 'terrain' in run ? run.terrain : levelTerrain(run.level)
+      const key = `${view.x}:${view.y}:${view.zoom}:${width}:${height}:${run.level.width}:${levelHeight(run.level)}:`
+        + terrain.map(b => `${b.x},${b.y},${b.w},${b.h},${b.material},${b.zIndex}:${b.polygon?.flat() ?? b.profile?.flat() ?? ''}`).join(';')
+      if (this.terrainRaster?.key !== key || this.terrainRaster.buffer !== haze) {
+        clear(haze, width, height); transform(haze.ctx, view)
+        drawTerrain(haze.ctx, terrain, run.level.platforms, run.level)
+        this.terrainRaster = { key, buffer: haze }
+      }
+      this.terrainArtwork = { buffer: haze, view }
+    } else this.terrainRaster = undefined
     // Cache only a static daylight terrain mask. Worlds with other ambient
     // artwork or changing light retain the complete composition below.
     const cacheAmbient = cacheAmbientWorld && backend === 'canvas'
@@ -554,10 +589,10 @@ export class LightingRenderer {
           const tile = 128, rows = Math.ceil(height / tile), columns = Math.ceil(width / tile)
           const covered = Array.from({ length: rows }, () => Array<boolean>(columns).fill(false))
           for (const shape of run.terrain) {
-            const left = Math.max(0, Math.floor(((shape.x - view.x - TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
-            const top = Math.max(0, Math.floor(((shape.y - view.y - TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
-            const right = Math.min(columns - 1, Math.floor(((shape.x + shape.w - view.x + TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
-            const bottom = Math.min(rows - 1, Math.floor(((shape.y + shape.h - view.y + TERRAIN_RELIEF_MARGIN) * view.zoom) / tile))
+            const left = Math.max(0, Math.floor(((shape.x - view.x) * view.zoom - 2) / tile))
+            const top = Math.max(0, Math.floor(((shape.y - view.y) * view.zoom - 2) / tile))
+            const right = Math.min(columns - 1, Math.floor(((shape.x + shape.w - view.x) * view.zoom + 2) / tile))
+            const bottom = Math.min(rows - 1, Math.floor(((shape.y + shape.h - view.y) * view.zoom + 2) / tile))
             for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) covered[y][x] = true
           }
           const regions: { x: number; y: number; w: number; h: number }[] = []
@@ -632,22 +667,21 @@ export class LightingRenderer {
       ctx.save(); ctx.globalCompositeOperation = 'lighter'
       ctx.globalAlpha *= beamStrength / (1 - ambient)
       ctx.drawImage(correction.canvas, 0, 0); ctx.restore()
-      if (!editor) {
-        clear(emission, width, height)
-        transform(emission.ctx, view)
-        drawBeamDust(emission.ctx, bounds, 'activeTime' in run ? run.activeTime : 0)
-        emission.ctx.resetTransform(); emission.ctx.globalCompositeOperation = 'source-in'
-        emission.ctx.drawImage(correction.canvas, 0, 0)
-        ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha *= .6 / (1 - ambient)
-        ctx.drawImage(emission.canvas, 0, 0); ctx.restore()
-      }
     }
     // Keep the stronger short source glow behind physical objects and fixtures.
     if (nightMode && !emptyNight) {
-      haze.ctx.globalCompositeOperation = 'destination-out'; haze.ctx.drawImage(shadow.canvas, 0, 0)
-      haze.ctx.globalCompositeOperation = 'source-over'
-      haze.ctx.save(); transform(haze.ctx, view); drawLightFixtures(haze.ctx, sources, erase); haze.ctx.restore()
-      ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(haze.canvas, 0, 0)
+      // Emissions are complete. Borrow that scratch surface for source
+      // glow so the existing haze surface can retain the static terrain art.
+      const glow = backend === 'gpu' ? emission : this.canvasFields!.lamp
+      if (backend === 'gpu') {
+        this.terrainArtwork = undefined
+        clear(glow, width, height)
+        glow.ctx.drawImage(this.gpu!.canvas, width, 0, width, height, 0, 0, width, height)
+      }
+      glow.ctx.globalCompositeOperation = 'destination-out'; glow.ctx.drawImage(shadow.canvas, 0, 0)
+      glow.ctx.globalCompositeOperation = 'source-over'
+      glow.ctx.save(); transform(glow.ctx, view); drawLightFixtures(glow.ctx, sources, erase); glow.ctx.restore()
+      ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(glow.canvas, 0, 0)
     }
     ctx.restore()
     if (background) ctx.restore()
@@ -662,6 +696,7 @@ export class LightingRenderer {
     for (const { buffer } of this.staticFields.values()) buffer.canvas.width = buffer.canvas.height = 0
     this.staticFields.clear(); this.resting.reset()
     this.buffers = undefined; this.gradients.clear()
+    this.terrainArtwork = undefined; this.terrainRaster = undefined
     this.dayAmbient = undefined; this.dayCorrections = undefined; this.dayBackground = undefined; this.dayBackgroundCandidate = undefined
     if (this.daylight) this.daylight.buffer.canvas.width = this.daylight.buffer.canvas.height = 0
     this.daylight = undefined

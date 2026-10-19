@@ -328,3 +328,50 @@ framebuffers, pixel readbacks, or extra light-geometry passes are introduced.
 Browser regressions sample nearby and distant player/object shadows, verify
 ambient-only structures through mechanism travel, and retain gate leakage,
 room-boundary, cache invalidation, readable-artwork and EMP coverage.
+
+### LAB2 terrain relief regression — October 19, 2026
+
+On the Qualcomm Adreno X1-85 in hardware-accelerated Edge, LAB2's night renderer
+repeatedly rasterized the same translucent terrain relief through its exposure
+and occlusion masks. Frame rate was about 20–30 FPS at 1280×800 even though CPU
+submission took only about 5 ms. Disabling the relief diagnostically restored
+60 FPS; removing wires or reducing the lamp count did not resolve the slowdown.
+
+Night composition now retains terrain artwork in an existing scratch surface.
+Camera, dimensions, material, geometry, and draw-order changes invalidate it.
+Source glow reuses other scratch storage after its earlier work completes,
+preserving the same lights, shadows, and buffer budget. Regression comparisons
+cover both GPU and Canvas, high DPR, camera movement, EMP, and material edits.
+
+With 30 warmup and 120 measured frames, full-quality GPU and Canvas rendering
+both held about 60 FPS at 1280×800. Continuous camera panning measured about
+50 FPS; the 1920×1080 GPU case measured about 57 FPS at the existing two-million
+pixel cap. A separate normal-keyboard gameplay run with adaptive performance
+mode enabled reported 60 FPS standing and 59 FPS moving, retaining a native
+1280×800 canvas and about 32.2 MiB of estimated lighting buffers. These are local
+RAF measurements, not a guarantee for every route or machine. No physics or
+level assets changed for this optimization.
+
+After these measurements, the decorative outer terrain attachment shadow was
+removed to keep terrain edges crisp. The thin interior relief and artwork cache
+remain; the renderer no longer builds or paints the four outer shadow bands.
+
+### Airborne dust cost — October 19, 2026
+
+Dust radii were initially reduced from 0.65–1.2 to 0.3–0.55 world units. A
+temporary `beamDust: false` reference option skipped the complete dust mask and
+composite while retaining beam haze and illumination. Smaller particles alone
+did not remove those two viewport-sized composites or their rendering cost.
+
+On the same hardware at 1280×800, two runs per variant, each with 30 warmup and
+180 measured RAF frames, averaged 3.07 ms CPU draw submission with dust and
+2.80 ms without it for the settled view. Continuous camera motion averaged
+3.65 versus 3.47 ms. These CPU timings exclude GPU work and presentation.
+The settled view held about 60 FPS in both variants. Camera-motion runs ranged
+52–60 FPS with dust and 56–61 without; this variability prevents a precise GPU
+cost claim. Treat dust as optional decoration with measurable overhead, rather
+than assuming its sparse particle count makes its complete pass free.
+
+Following this comparison, airborne dust motes and their entire rendering pass
+were removed to preserve performance headroom. The temporary reference option
+and particle drawing code were removed as well.

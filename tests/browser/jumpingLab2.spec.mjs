@@ -5,7 +5,8 @@ import { useLevelFixtures, finishJumpingEntrance } from './helpers/jumpingLevels
 const lab2 = JSON.parse(readFileSync(new URL('../../public/levels/jumping/LAB2.jump-level.json', import.meta.url), 'utf8'))
 
 test('LAB2 crate powers the plate, releases it when pushed, and presses again after restart', async ({ page }, info) => {
-  test.setTimeout(90000)
+  // The full night-mode route and restart render in software on CI.
+  test.setTimeout(180000)
   await page.setViewportSize({ width: 960, height: 600 })
   await useLevelFixtures(page, [lab2])
   await page.addInitScript(() => {

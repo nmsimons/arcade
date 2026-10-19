@@ -111,7 +111,9 @@ test('two fingers walk, run, jump and crouch without switching ownership or jump
   expect(stopped.y).toBeCloseTo(level.entrance.y, 1)
 })
 
-test('cancellation, lost capture, pause and rotation clear held movement and queued actions', async ({ page }, info) => {
+test('cancellation, lost capture, pause and rotation clear held movement and queued actions', async ({ page, browserName }, info) => {
+  // Match the other long touch sequences at iPhone DPR in software WebKit.
+  if (browserName === 'webkit') test.setTimeout(60_000)
   const level = await open(page)
   for (const cancel of ['pointercancel', 'lostpointercapture']) {
     await pointer(page, 'pointerdown', 1); await pointer(page, 'pointermove', 1, 740, 270)

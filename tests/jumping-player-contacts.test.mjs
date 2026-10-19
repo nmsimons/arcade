@@ -151,7 +151,8 @@ test('pushing varied prop sizes keeps palms on the surface and feet moving with 
             p.y + arm.hand[1] - palm.y - palm.ny * 1.6) < 2, 'palms follow the visible surface')
         }
         assert.ok(pose.hip[1] < -10, 'a planted leg must not drag the pelvis down to the floor')
-        assert.ok(Math.hypot(...pose.shoulder.map((v, j) => v - previous[j])) < 3, 'a turning box must not snap the torso between edge heights')
+        assert.ok(Math.hypot(...pose.shoulder.map((v, j) => v - previous[j])) < 3,
+          `a turning prop keeps the torso continuous: ${kind}, size ${size}, side ${direction}, frame ${i}`)
       }
       previous = pose.shoulder
       previousLegs = [pose.frontLeg, pose.backLeg]

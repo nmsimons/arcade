@@ -258,9 +258,14 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
     if (braced) {
       // A shove needs footing. When that footing is loose, the opposite force
       // goes into it rather than treating the player's feet as a fixed anchor.
+      // Bound a crate's reaction by the player's mass. Scaling its torque up
+      // with a large support can jack a tightly packed stack upward. Balls
+      // retain their existing rolling response and have no angular motor.
       const target = -push.direction * push.effort * 90
       const acceleration = Math.max(-900, Math.min(900, (target - b.vx) * 20))
-      Body.applyForce(body, { x: run.player.x, y: run.player.y }, { x: body.mass * acceleration / propWeightScale(b) / 1e6, y: 0 })
+      const supportMass = body.mass / propWeightScale(b)
+      const mass = b.kind === 'box' ? Math.min(PLAYER_MASS, supportMass) : supportMass
+      Body.applyForce(body, { x: run.player.x, y: run.player.y }, { x: mass * acceleration / 1e6, y: 0 })
     }
     if (contact && (push?.collider.prop !== b || push.swimming)) {
       // The player is a controlled body, but its normal load still belongs in

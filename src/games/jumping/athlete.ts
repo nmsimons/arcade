@@ -11,7 +11,7 @@ import { keepRopeGrip } from './ropeGravity.ts'
 import { stepFootOffsets } from './stepUp.ts'
 import { TUNING } from './movementTuning.ts'
 import { canGrip } from './friction.ts'
-import { propPushHands } from './propGeometry.ts'
+import { BOX_RESTING_ANGLE_TOLERANCE, propPushHands } from './propGeometry.ts'
 import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
 import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
@@ -438,6 +438,39 @@ function grippingArm(root: Point, wrist: Point, grip: Point, free: Limb, contact
   const freePalm: Point = [palm.palm[0] - free.end[0], palm.palm[1] - free.end[1]]
   const contactPalm: Point = [grip[0] - wrist[0], grip[1] - wrist[1]]
   return { ...arm, hand: add(arm.end, mix(freePalm, contactPalm, contact)), handAngle: mixAngle(palm.angle, 0, contact) }
+}
+
+/** An unloaded reach advances along its existing folded arc only while clear.
+ * Re-solving a blocked elbow after the reach can abruptly change its bend plane. */
+function clearLedgeReach(p: Player, wrist: Point, grip: Point, free: Limb, amount: number): Limb {
+  const at = (t: number) => grippingArm(free.root, wrist, grip, free, t)
+  const x = p.x + free.root[0] * p.facing, y = p.y + free.root[1]
+  // Both bones and the complete palm stay within 24 units of the shoulder.
+  // Long levels must not scan every distant solid for each sampled reach.
+  const nearby = p.terrain?.filter(b => b.x <= x + 24 && b.x + b.w >= x - 24
+    && b.y <= y + 24 && b.y + b.h >= y - 24) ?? []
+  if (!amount || !nearby.length) return at(amount)
+  const local = { ...p, terrain: nearby }
+  const clear = (arm: Limb) => {
+    for (const [a, b] of [[arm.root, arm.joint], [arm.joint, arm.end]]) for (let i = 0; i <= 10; i++) {
+      if (bodyIntrusion(local, mix(a, b, i / 10), 1.65, undefined, free.root)) return false
+    }
+    return handOutline(arm).every(point => !bodyIntrusion(local, point, .03))
+  }
+  let previous = 0, arm = at(0)
+  for (let i = 1; i <= 8; i++) {
+    const t = amount * i / 8, candidate = at(t)
+    if (!clear(candidate)) {
+      let low = previous, high = t
+      for (let pass = 0; pass < 10; pass++) {
+        const mid = (low + high) / 2
+        if (clear(at(mid))) low = mid; else high = mid
+      }
+      return at(low)
+    }
+    previous = t; arm = candidate
+  }
+  return arm
 }
 
 /** A cancelled climb can prepare for a real incoming prop while its root
@@ -2309,8 +2342,8 @@ function resolveAthletePose(p: Player): AthletePose {
   }
   if (p.ledgeReach && !p.grounded) {
     const origin: Point = [(p.ledgeReach.x - p.x) * p.facing, p.ledgeReach.y - p.y]
-    frontArm = grippingArm(frontRoot(), add(origin, FRONT_WRIST), add(origin, FRONT_GRIP), frontArm, p.ledgeReach.amount)
-    backArm = grippingArm(backRoot(), add(origin, BACK_WRIST), add(origin, BACK_GRIP), backArm, p.ledgeReach.amount)
+    frontArm = clearLedgeReach(p, add(origin, FRONT_WRIST), add(origin, FRONT_GRIP), frontArm, p.ledgeReach.amount)
+    backArm = clearLedgeReach(p, add(origin, BACK_WRIST), add(origin, BACK_GRIP), backArm, p.ledgeReach.amount)
   }
   const frontFacing = (contacts?.[0].facing ?? p.facing) * p.facing, backFacing = (contacts?.[1].facing ?? p.facing) * p.facing
   const terrainHeight = p.footwork ? (x: number) => {
@@ -2358,6 +2391,13 @@ function resolveAthletePose(p: Player): AthletePose {
   // instead of switching the entire rig when a brief slide starts or ends.
   const braced = p.wallBrace ? wallBracePose(p, result) : result
   const resolved = p.sliding ? slidingPose(p, braced) : braced
+  if (!p.grounded && p.terrain && !p.sliding && !p.slideEntry) for (const name of ['frontLeg', 'backLeg'] as const) {
+    // A raised knee can cross a crate before the beveled motor hull does.
+    // Apply the existing riser clearance to free legs in flight too; planted
+    // shoes retain their actual support anchors.
+    const leg = resolved[name]
+    if (!leg.planted) resolved[name] = clearRiserLeg(p, leg, !!p.wallBrace)
+  }
   if ((!p.grounded || p.sliding) && p.terrain) {
     resolved.frontLeg = clearAirborneFoot(p, resolved.frontLeg); resolved.backLeg = clearAirborneFoot(p, resolved.backLeg)
   } else if (p.terrain) {
@@ -2407,7 +2447,7 @@ function clearAirborneFoot(p: Player, leg: Leg, passes = 6): Leg {
 
 /** A stair riser blocks the visible toe and knee before the body starts climbing.
  * Fold the knee in depth, keeping bone lengths and the rest of the pose intact. */
-function clearRiserLeg(p: Player, leg: Leg): Leg {
+function clearRiserLeg(p: Player, leg: Leg, cornerOnly = false): Leg {
   let current = leg
   const rootX = p.x + leg.root[0] * p.facing
   for (const b of p.terrain!) {
@@ -2415,11 +2455,15 @@ function clearRiserLeg(p: Player, leg: Leg): Leg {
     const points = platformOutline(b)
     for (let i = 0; i < points.length; i++) {
       const a = points[i], end = points[(i + 1) % points.length]
-      if (Math.abs(a[0] - end[0]) > 1e-7) continue
+      const tolerance = b.looseProp ? b.h * BOX_RESTING_ANGLE_TOLERANCE : 1e-7
+      if (Math.abs(a[0] - end[0]) > tolerance) continue
       const normal = Math.sign(end[1] - a[1]), gap = (rootX - a[0]) * normal
       if (gap < 0 || gap > 36) continue
       const side = -normal * p.facing, wall = (a[0] - p.x) * p.facing
       const top = Math.min(a[1], end[1]), bottom = Math.max(a[1], end[1])
+      // An established wall brace owns its feet and knee bend. Only a lip
+      // within the body needs the additional airborne corner clearance.
+      if (cornerOnly && top < p.y - TUNING.height) continue
       let intrusion = 0
       for (const point of FOOT_CONTACT) {
         const sole = footPoint(point, current.footAngle * current.footFacing, current.toeAngle * current.footFacing)

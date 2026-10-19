@@ -14,7 +14,8 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Share the web job's headroom for the full replay suite, build and upload.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7

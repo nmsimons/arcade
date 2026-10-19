@@ -17,8 +17,13 @@ test('LAB2 crate powers the plate, releases it when pushed, and presses again af
       return fillRect.apply(this, args)
     }
   })
-  await page.clock.install()
-  await page.goto('/lab/levels/built-in/00-fixture.json')
+  await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
+  await page.goto('/lab')
+  const play = page.getByRole('button', { name: `Play ${lab2.name}`, exact: true })
+  await expect(play).toBeEnabled()
+  // Keep slow browser calls from adding held-key frames between route steps.
+  await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
+  await play.click()
   await finishJumpingEntrance(page)
   await page.clock.runFor(500)
   await expect.poll(() => page.evaluate(() => window.lab2Plate?.color)).toBe('#9bb878')

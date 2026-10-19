@@ -7,7 +7,7 @@ import { drawWallTexts } from './wallText.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawTerrain } from './render.ts'
 import type { Prop, RobotState, Run, MechanismState } from './challenge.ts'
 import type { Goal } from './goal.ts'
-import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX } from './goal.ts'
+import { GOAL_LIGHT_HEIGHT, GOAL_OPEN_SECONDS, awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalDoor, goalEase, goalPoleX } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
 import { drawWallTimer } from './wallTimer.ts'
 import { drawPickup, TIME_PENALTY_COLOR } from './pickups.ts'
@@ -189,7 +189,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint, lights.find(light => light.robot === i)?.fade ?? 0)
   if (!run.started && run.entrance && !editor) {
     const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
-    ctx.save(); ctx.globalAlpha *= waking ? 1 : entranceVisibility(entrance.elapsed)
+    ctx.save(); ctx.globalAlpha *= waking ? .45 + .55 * chargingBayOpening(entrance.elapsed) : entranceVisibility(entrance.elapsed)
     paint(ctx, playerExposure, () => drawAthlete(ctx, entrance.player, playerInk, waking ? awakeningPose(entrance.player, awakeningProgress(entrance.elapsed)) : undefined)); ctx.restore()
   }
   else if (run.exit) {
@@ -200,6 +200,8 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     drawMovementEffects(ctx, p, paint)
     paint(ctx, playerExposure, () => drawAthlete(ctx, p, playerInk))
   }
+  if (level.entrance.kind === 'charging-bay')
+    drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)

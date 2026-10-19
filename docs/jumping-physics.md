@@ -187,8 +187,11 @@ with neutral input. The entrance time does not count toward medals. Pause freeze
 its progress; restart reconstructs it. Static editor previews show the open entrance.
 
 An authored `entrance.kind: "charging-bay"` replaces that door presentation with
-a 2.2-second awakening. The separate actor stays on its planted feet while its
-head and shoulders rise; the physical player, world, and input remain frozen.
+a 3.6-second awakening: power returns, the robot rises from its slumped pose,
+and the capsule cover retracts. The separate actor stays on its planted feet;
+the physical player, world, and input remain frozen. Presentation framing
+starts closer to the pod and returns continuously to the normal camera before
+control activates.
 Control activates automatically when the sequence finishes. Pause and restart
 apply as for the door. The installed bay is non-colliding back-wall artwork and
 uses the same clear 40-by-80 start footprint. `timing: "untimed"` keeps score at

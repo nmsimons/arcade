@@ -3,7 +3,7 @@ import { nightModeEnabled } from './ambientLight.ts'
 import { DAY_AMBIENT_EXPOSURE, daylightShadowPolygons } from './daylight.ts'
 import { drawPuzzleWorld } from './challengeRender.ts'
 import { NIGHT_PLAYER_COLOR, withAthletePose } from './athlete.ts'
-import { awakeningProgress, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds } from './goal.ts'
+import { awakeningProgress, chargingBayOpening, drawChargingBayCover, drawDoorway, entranceDoor, entranceOpening, entranceVisibility, goalBounds } from './goal.ts'
 import { awakeningPose } from './athlete.ts'
 import { airBoostStrength } from './model.ts'
 import { drawAthlete, drawCheckpointMarkers, drawClimbables, drawLevelBackdrop, drawMovementEffects, drawTerrain } from './render.ts'
@@ -205,12 +205,14 @@ export class LightingRenderer {
         })
         if (run.entrance && !editor) {
           const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
-          ctx.save(); ctx.globalAlpha *= waking ? 1 : entranceVisibility(entrance.elapsed)
+          ctx.save(); ctx.globalAlpha *= waking ? .45 + .55 * chargingBayOpening(entrance.elapsed) : entranceVisibility(entrance.elapsed)
           paint(ctx, playerExposure, () => drawAthlete(ctx, entrance.player, ink, waking ? awakeningPose(entrance.player, awakeningProgress(entrance.elapsed)) : undefined)); ctx.restore()
         } else {
           drawMovementEffects(ctx, run.player, paint)
           paint(ctx, playerExposure, () => drawAthlete(ctx, run.player, ink))
         }
+        if (run.level.entrance.kind === 'charging-bay')
+          drawChargingBayCover(ctx, run.level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightMode)
       }
     }
     ctx.restore()

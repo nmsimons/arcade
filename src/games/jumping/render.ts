@@ -15,7 +15,7 @@ import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainAttachment, drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
 import { drawWallWiring } from './wallWiring.ts'
-import { drawChargingBay } from './goal.ts'
+import { drawChargingBay, drawChargingBayCover } from './goal.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -121,5 +121,7 @@ export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, hei
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
   drawTerrain(ctx, levelTerrain(level), level.platforms, level); drawClimbables(ctx, p, level.climbables)
   drawCheckpointMarkers(ctx, p, level)
-  drawMovementEffects(ctx, p); drawAthlete(ctx, p); ctx.restore()
+  drawMovementEffects(ctx, p); drawAthlete(ctx, p)
+  if (level.entrance.kind === 'charging-bay') drawChargingBayCover(ctx, level.entrance)
+  ctx.restore()
 }

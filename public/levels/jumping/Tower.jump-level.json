@@ -1680,7 +1680,7 @@
   "triggers": [
     {
       "name": "Outside",
-      "x": 0,
+      "x": 5,
       "y": 2000,
       "w": 40,
       "targets": [

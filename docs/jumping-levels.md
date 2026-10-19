@@ -642,12 +642,15 @@ of the open entrance, then the door closes into the wall. The entrance lasts
 automatically as soon as it disappears. Pause freezes the entrance too.
 
 For an awakening, use `entrance: { x, y, kind: "charging-bay" }`. It keeps the
-same supported 40-by-80 footprint and placement rules. A small installed bay
-remains on the back wall, and the existing robot rig raises its head and
-shoulders for 2.2 seconds before control and the world activate automatically.
+same supported 40-by-80 footprint and placement rules. An installed capsule with a rounded shell, recessed cradle, and split glass cover
+remains on the back wall. Over 3.6 seconds, its quiet green power strips return,
+the existing robot rig raises its head and shoulders, and the cover retracts.
+The camera begins closer to the occupied pod and gently reveals the room before
+control and the world activate automatically.
 Pause freezes that sequence; restart repeats it. No doorway is drawn or closed.
 Choose **Object → Entrance → Charging bay** while the entrance is selected;
-**Door** restores the ordinary entrance. Both styles preview, save, and reopen.
+**Door** restores the ordinary entrance. Both styles preview, save, and reopen. The pod has a 102-by-126 artwork outline
+for selection; its collision and start validation keep the clear 40-by-80 footprint.
 
 `timing: "untimed"` makes a finishable level untimed. Enable **Level → Untimed
 level** in the studio. The world and animation time still advance, but the

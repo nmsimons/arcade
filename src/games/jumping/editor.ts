@@ -11,7 +11,7 @@ import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
-import { entranceDoor, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds } from './goal.ts'
+import { entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds } from './goal.ts'
 import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
@@ -180,7 +180,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   return p ? { x: p.x, y: p.y, w: 0, h: 0 } : null
 }
 export function itemOutline(level: JumpLevel, selection: Selection) {
-  if (selection.kind === 'entrance') return entranceDoor(level.entrance)
+  if (selection.kind === 'entrance') return entranceBounds(level.entrance)
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
@@ -383,7 +383,7 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     const b = logicRelayBounds(level.logicRelays![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'logic-relay', index: i }
   }
-  const entrance = entranceDoor(level.entrance)
+  const entrance = entranceBounds(level.entrance)
   if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) return { kind: 'entrance', index: 0 }
   for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) return { kind: 'checkpoint', index: i }
   if (level.goal) {

@@ -4,7 +4,9 @@ import { readFileSync } from 'node:fs'
 import { createRun, createPreviewRun, stepRun, BEST_TIME_KEY } from '../src/games/jumping/challenge.ts'
 import { parseLevel, levelProblems } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
-import { AWAKENING_SECONDS } from '../src/games/jumping/goal.ts'
+import { AWAKENING_SECONDS, awakeningPower, awakeningProgress, chargingBayOpening, entranceBounds, entranceDoor } from '../src/games/jumping/goal.ts'
+import { awakeningCamera, gameCamera } from '../src/games/jumping/camera.ts'
+import { itemOutline, hitItem } from '../src/games/jumping/editor.ts'
 import { awakeningPose, athletePose } from '../src/games/jumping/athlete.ts'
 import { COMPLETION_KEY, readCompleted, saveCompleted } from '../src/games/jumping/completion.ts'
 import { emptyWorkspace, parseWorkspace } from '../src/accounts/data.ts'
@@ -42,6 +44,57 @@ test('awakening holds gameplay, preserves planted feet, then hands off automatic
   const preview = createPreviewRun(level), before = structuredClone(preview)
   stepRun(preview, { ...NEUTRAL_INPUT, move: 1 }, 30)
   assert.deepEqual(preview, before)
+})
+
+test('the pod restores power before waking and releasing its cover; the camera hands off without a cut', () => {
+  assert.equal(awakeningPower(0), 0)
+  assert.equal(awakeningProgress(.9), 0)
+  assert.equal(chargingBayOpening(2), 0)
+  assert.equal(awakeningPower(2), 1)
+  assert.equal(awakeningProgress(3.3), 1)
+  assert.equal(chargingBayOpening(3.3), 1)
+  const run = createRun(opening()), animation = run.entrance, before = structuredClone(animation)
+  for (const [width, height] of [[1280, 800], [390, 844], [844, 390]]) {
+    const base = gameCamera(width, height, run.player, run.level, true)
+    const close = awakeningCamera(base, width, height, animation)
+    assert.ok(close.zoom > base.zoom, 'the occupied pod gets a closer first view')
+    const pod = entranceBounds(run.level.entrance)
+    const left = (pod.x - close.x) * close.zoom, top = (pod.y - close.y) * close.zoom
+    assert.ok(left >= 0 && left + pod.w * close.zoom <= width, 'the complete capsule stays in view')
+    assert.ok(top >= 0 && top + pod.h * close.zoom <= height)
+    for (let frame = 0; frame < AWAKENING_SECONDS / STEP; frame++) {
+      const c = awakeningCamera(base, width, height, { ...animation, elapsed: frame * STEP })
+      assert.ok((pod.y - c.y) * c.zoom >= 0, 'the top of the pod stays visible throughout the reveal')
+      assert.ok((run.level.floor - c.y) * c.zoom < height, 'the landing floor stays visible throughout the reveal')
+    }
+    const almost = awakeningCamera(base, width, height, { ...animation, elapsed: AWAKENING_SECONDS - STEP })
+    assert.ok(Math.abs(almost.zoom - base.zoom) < .001)
+    assert.ok(Math.hypot(almost.x - base.x, almost.y - base.y) * base.zoom < .1)
+    assert.deepEqual(awakeningCamera(base, width, height, { ...animation, elapsed: AWAKENING_SECONDS }), base)
+    assert.deepEqual(awakeningCamera(base, width, height, { ...animation, kind: undefined }), base, 'ordinary entrances keep their framing')
+  }
+  assert.deepEqual(animation, before, 'framing never advances the sequence')
+})
+
+test('the studio selects the full pod shell while its validated physical start stays the ordinary clear footprint', () => {
+  const level = opening(), bounds = entranceBounds(level.entrance)
+  assert.deepEqual(itemOutline(level, { kind: 'entrance', index: 0 }), bounds)
+  assert.deepEqual(hitItem(level, bounds.x + 3, bounds.y + 28, 0), { kind: 'entrance', index: 0 })
+  assert.deepEqual(entranceDoor(level.entrance), { x: 180, y: 580, w: 40, h: 80 })
+  assert.deepEqual(levelProblems(level), [])
+})
+
+test('the robot wakes inside the raised pod and can hop down to the room without a special movement rule', () => {
+  const level = opening(), run = createRun(level)
+  const plinth = level.platforms.find(platform => platform.name === 'Charging pod plinth')
+  assert.equal(run.player.y, plinth.y)
+  assert.ok(run.player.x > plinth.x && run.player.x < plinth.x + plinth.w)
+  assert.equal(level.floor - plinth.y, 60)
+  stepRun(run, NEUTRAL_INPUT, AWAKENING_SECONDS)
+  for (let i = 0; i < 150; i++) stepRun(run, { ...NEUTRAL_INPUT, move: 1, jump: i < 8 })
+  assert.ok(run.player.x > plinth.x + plinth.w)
+  assert.equal(run.player.y, level.floor)
+  assert.equal(run.player.grounded, true)
 })
 
 test('the opening completes with ordinary running and a held jump; time and medals remain absent', () => {

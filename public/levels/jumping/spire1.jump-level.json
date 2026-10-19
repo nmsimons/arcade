@@ -658,6 +658,10 @@
       "travel": 80
     },
     {
+      "wireTerminal": {
+        "x": 1480,
+        "y": 1150
+      },
       "id": "3c30cd11-c50d-43ad-b778-008f13ab7cb7",
       "kind": "gate",
       "x": 1500,
@@ -678,6 +682,8 @@
       "mode": "touch"
     },
     {
+      "showWires": true,
+      "wireHeight": 130,
       "x": 24,
       "y": 1200,
       "w": 40,
@@ -702,17 +708,6 @@
   "timers": [],
   "pickups": [],
   "texts": [
-    {
-      "x": 20,
-      "y": 1040,
-      "w": 320,
-      "h": 40,
-      "text": "Open sesame...",
-      "fontSize": 28,
-      "align": "left",
-      "style": "graffiti",
-      "rotation": -20
-    },
     {
       "x": 20,
       "y": 20,

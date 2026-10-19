@@ -2669,10 +2669,10 @@ export function awakeningPose(p: Player, progress: number): AthletePose {
   const target = athletePose(p)
   if (progress >= 1) return target
   const from = structuredClone(target)
-  from.waist = [target.waist[0] + 2, target.waist[1] + 1]
-  from.shoulder = [target.shoulder[0] + 4, target.shoulder[1] + 3]
-  from.head = [target.head[0] + 8, target.head[1] + 7]
-  from.headTilt = .65
+  from.waist = [target.waist[0] + 2, target.waist[1] + 2]
+  from.shoulder = [target.shoulder[0] + 6, target.shoulder[1] + 6]
+  from.head = [target.head[0] + 12, target.head[1] + 12]
+  from.headTilt = .95
   from.frontArm = armPose(from.shoulder, .1, .1)
   from.backArm = armPose(from.shoulder, -.12, .1)
   return transferPose(from, target, [0, 0], Math.max(0, progress))

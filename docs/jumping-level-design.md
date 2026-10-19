@@ -256,7 +256,15 @@ and the medal clock activate automatically.
 
 The supported charging-bay entrance gives the campaign's
 [opening](jumping-campaign.md#opening-wake) its awakening, with both feet planted
-and no door sequence. Ordinary entrances retain the doorway contract above.
+and no door sequence. Give that first occupied pod a readable capsule silhouette
+and enough screen space to make the awakening matter. Use a short, clear sequence
+of restored power, the robot waking, and the cover releasing; reveal the room
+before handing over control. Keep its light restrained and its cradle visible
+after departure. Layer the glass and front sill over the robot, including its
+feet, so the occupant reads as inside the capsule rather than standing in front
+of a wall panel. Use an authored, flat steel plinth when the robot should
+step or hop down from the pod; keep that first descent small and recoverable.
+Ordinary entrances retain the doorway contract above.
 The [final outdoor coda](jumping-campaign.md#finale-outside) still needs separate
 runtime support before authoring.
 

@@ -5,7 +5,7 @@ import { lightingForLevel } from './jumping/lightingDefinition'
 import { AccountSurface } from '../accounts/AccountSurface'
 import { useCloudDownloads } from '../accounts/useCloudDownloads'
 import { playgroundLightingWorld } from './jumping/lightingModel'
-import { GameCamera } from './jumping/camera'
+import { awakeningCamera, GameCamera } from './jumping/camera'
 import { levelTerrain } from './jumping/level'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState, useSyncExternalStore, lazy, Suspense } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -488,7 +488,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
       // Fractional render scales round the backing dimensions to whole pixels.
       // Frame against the drawable area so rounding cannot shift the view.
-      const camera = gameCamera.view(canvas.width / ratio, canvas.height / ratio, player.current, level, !!run.current, dt)
+      const viewWidth = canvas.width / ratio, viewHeight = canvas.height / ratio
+      const camera = awakeningCamera(gameCamera.view(viewWidth, viewHeight, player.current, level, !!run.current, dt),
+        viewWidth, viewHeight, run.current?.entrance ?? playgroundEntrance.current)
       lightingStats = lightingRenderer.render(ctx, run.current ?? playgroundLightingWorld(level, player.current, playgroundEntrance.current), lightingForLevel(level),
         { ...camera, width: canvas.width, height: canvas.height, zoom: camera.zoom * ratio }, dt)
     }

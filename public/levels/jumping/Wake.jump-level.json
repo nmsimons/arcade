@@ -6,18 +6,18 @@
   "height": 720,
   "platforms": [
     {
-      "name": "Idle maintenance step",
-      "x": 930,
-      "y": 620,
+      "name": "Charging pod plinth",
+      "x": 120,
+      "y": 660,
       "w": 160,
-      "h": 100,
+      "h": 60,
       "material": "steel"
     }
   ],
   "entrance": {
-    "name": "Charging bay 01",
+    "name": "Charging pod 01",
     "x": 200,
-    "y": 720,
+    "y": 660,
     "kind": "charging-bay"
   },
   "checkpoints": [],
@@ -73,7 +73,7 @@
   "texts": [
     {
       "x": 145,
-      "y": 600,
+      "y": 500,
       "w": 105,
       "h": 30,
       "text": "STANDBY / 01",
@@ -91,17 +91,6 @@
       "fontSize": 12,
       "align": "left",
       "style": "terminal"
-    },
-    {
-      "x": 770,
-      "y": 568,
-      "w": 160,
-      "h": 40,
-      "text": "hold jump",
-      "fontSize": 20,
-      "align": "left",
-      "style": "graffiti",
-      "rotation": -3
     },
     {
       "x": 1370,

@@ -33,7 +33,7 @@ export async function finishJumpingEntrance(page) {
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
   await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
   const waking = await page.locator('.jumping-state').textContent() === 'Waking up'
-  await page.clock.runFor(waking ? 2200 : 1350)
+  await page.clock.runFor(waking ? 3600 : 1350)
   // Preparation and the first RAF can delay the opening. Advance neutral
   // frames until its published status confirms that ordinary controls are live.
   await expect.poll(async () => {

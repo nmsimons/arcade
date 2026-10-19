@@ -181,15 +181,20 @@ placed first in the built-in collection. Keep it simple, beautiful, and a little
 spooky: Night mode, one occupied charging bay, a failing work light, a small
 operator terminal, and sparse installed hardware. The terminal reads “OPERATOR
 CONNECTION / NO RESPONSE” in dim green phosphor. Its lettering stays readable
-when the light cuts out. The robot's head and shoulders
-rise using the existing rig before control passes to the player. There is no
+when the light cuts out. The occupied pod has a substantial rounded shell,
+a recessed cradle, and a split glass cover. It stands on a low steel plinth;
+the robot begins inside the pod on that support and its first movement is a
+small hop down to the room floor. The glass and front sill overlap the robot,
+so its sleeping silhouette reads as enclosed within the cradle. A closer
+initial view holds on the sleeping robot: quiet green power returns, its head and shoulders rise using
+the existing rig, and the cover releases. The camera gently reveals the room
+within the 3.6-second awakening before control passes to the player. There is no
 introductory door sequence, timer, medal, required collectible, or new bitmap.
 
 One broad latching floor switch restores the access light and training-route
 exit. Optional thin wall wires with small, separate terminals make those
-relationships visible. A single maintenance step supports a held jump or a
-ledge catch; the continuous floor
-provides local recovery. Missing the switch allows a readable return. Avoid
+relationships visible. After the small hop down from the pod, the room floor
+provides a clear route and easy recovery. Missing the switch allows a readable return. Avoid
 adding more puzzles, props, lore panels, or dramatic effects before reviewing
 this small room at normal speed.
 
@@ -197,6 +202,8 @@ Charging-bay entrances and untimed levels are reusable studio choices with
 pause, restart, automatic input handoff, and saved completion. Ordinary levels
 retain their doorway entrance and scoring. The broader campaign locks remain
 separate work; the current Next level action leads from Wake into the collection.
+
+![The robot enclosed behind the pod glass on its raised plinth as local power returns.](images/lab-wake-pod.png)
 
 ![Wake with its unanswered operator terminal, thin wall wires, and night lighting.](images/lab-wake-opening.png)
 

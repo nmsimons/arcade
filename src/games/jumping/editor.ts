@@ -11,8 +11,8 @@ import { platformSurface } from './terrain.ts'
 import { nearestBoundary, pointInside, polygonPoints, validPolygon } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { ropePath, ropeSegmentCount } from './climbables.ts'
-import { entranceDoor, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds } from './goal.ts'
-import { removeSwitchTarget, switchedItems, switchSources } from './switchPower.ts'
+import { entranceBounds, GOAL_DOOR_HEIGHT, GOAL_DOOR_WIDTH, goalBounds } from './goal.ts'
+import { removeSwitchTarget, switchedItems, switchSources, wallWiringItems } from './switchPower.ts'
 import { waterControlId } from './waterLevel.ts'
 import type { PlateBehavior, PowerMode, SwitchLogic, SwitchSettings } from './switchPower.ts'
 import { attachPressurePlateOnSurface, syncPressurePlateMounts } from './pressurePlateMount.ts'
@@ -35,13 +35,35 @@ import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from 
 import { plateSolids, plateSurface } from './plateSurface.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 export type ResizeHandle = ResizeCorner | 'left' | 'right' | 'top' | 'bottom'
 export type Selection = { kind: 'platform' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'goal' | 'prop' | 'robot' | 'mechanism' | 'trigger' | 'timer' | 'text' | 'pickup' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'force-field'; index: number }
 export const clamp = (n: number, low: number, high: number) => Math.max(low, Math.min(high, n))
+
+/** Carry custom wall points with authored edits, never with runtime mechanism motion. */
+export function carryWallTerminals(before: JumpLevel, next: JumpLevel): JumpLevel {
+  const changed = new Map(wallWiringItems(next).map(item => [`${item.kind}:${item.index}`, item.definition]))
+  for (const item of wallWiringItems(before)) {
+    const p = item.definition.wireTerminal, target = changed.get(`${item.kind}:${item.index}`)
+    if (p && target) target.wireTerminal = {
+      x: clamp(p.x + target.x - item.definition.x, 4, next.width - 4),
+      y: clamp(p.y + target.y - item.definition.y, 4, levelHeight(next) - 4),
+    }
+  }
+  return next
+}
+
+export function setWallTerminal(level: JumpLevel, selection: Selection, point: { x: number; y: number } | null): JumpLevel {
+  if (point && (!Number.isFinite(point.x) || !Number.isFinite(point.y))) return level
+  const next = copyLevel(level), item = wallWiringItems(next).find(item => item.kind === selection.kind && item.index === selection.index)
+  if (!item) return level
+  if (point) item.definition.wireTerminal = { x: clamp(point.x, 4, next.width - 4), y: clamp(point.y, 4, levelHeight(next) - 4) }
+  else delete item.definition.wireTerminal
+  return next
+}
 
 /** Change only visual depth; terrain indices and all attachments stay stable. */
 export function reorderTerrain(level: JumpLevel, index: number, action: TerrainOrderAction): JumpLevel {
@@ -117,7 +139,8 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     const clearance = s.kind === 'checkpoint' ? TUNING.height : 0
     return b.y - clearance
   })
-  const height = clamp(requested, Math.ceil(Math.max(400, ...tops.map(y => before - y))), 6000)
+  const terminalTops = wallWiringItems(level).flatMap(item => item.definition.wireTerminal ? [item.definition.wireTerminal.y - 4] : [])
+  const height = clamp(requested, Math.ceil(Math.max(400, ...[...tops, ...terminalTops].map(y => before - y))), 6000)
   const dy = height - before
   if (!dy) return level
   const next = copyLevel(level)
@@ -132,7 +155,7 @@ export function resizeLevelHeight(level: JumpLevel, requested: number): JumpLeve
     // against the resized room before previewing, playing, or saving the level.
     delete rope.rest
   }
-  return next
+  return carryWallTerminals(level, next)
 }
 export function itemBounds(level: JumpLevel, selection: Selection) {
   const i = selection.index
@@ -157,7 +180,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   return p ? { x: p.x, y: p.y, w: 0, h: 0 } : null
 }
 export function itemOutline(level: JumpLevel, selection: Selection) {
-  if (selection.kind === 'entrance') return entranceDoor(level.entrance)
+  if (selection.kind === 'entrance') return entranceBounds(level.entrance)
   if (selection.kind === 'goal' && level.goal) return goalBounds(level.goal)
   if (selection.kind === 'text') return level.texts?.[selection.index] ? wallTextBounds(level.texts[selection.index]) : null
   const robot = selection.kind === 'robot' ? level.robots?.[selection.index] : undefined
@@ -199,6 +222,14 @@ export function setSwitchTargets(level: JumpLevel, selection: Selection, targets
   if (source.kind === 'trigger') delete source.definition.target
   const available = new Set(switchedItems(next).map(item => item.id))
   source.definition.targets = [...new Set(targets.filter(id => available.has(id)))]
+  return next
+}
+export function setWallWiring(level: JumpLevel, selection: Selection, enabled: boolean, height?: number): JumpLevel {
+  const next = copyLevel(level), source = switchSources(next).find(item => item.kind === selection.kind && item.index === selection.index)
+  if (!source || height !== undefined && !Number.isFinite(height)) return level
+  if (enabled) source.definition.showWires = true
+  else delete source.definition.showWires
+  if (height !== undefined) source.definition.wireHeight = clamp(Math.round(height), 0, levelHeight(next))
   return next
 }
 export function setPlateBehavior(level: JumpLevel, index: number, behavior: PlateBehavior, startsOn = false): JumpLevel {
@@ -306,7 +337,7 @@ export function editFloatSwitch(level: JumpLevel, index: number, patch: Partial<
   if (b.w > next.width || b.h > levelHeight(next)) return level
   f.x += clamp(b.x, 0, next.width - b.w) - b.x
   f.y += clamp(b.y, 0, levelHeight(next) - b.h) - b.y
-  return next
+  return carryWallTerminals(level, next)
 }
 export function setCoinThreshold(level: JumpLevel, index: number, threshold: number): JumpLevel {
   if (level.triggers?.[index]?.mode !== 'coins' || !Number.isFinite(threshold)) return level
@@ -352,7 +383,7 @@ export function hitItem(level: JumpLevel, x: number, y: number, tolerance: numbe
     const b = logicRelayBounds(level.logicRelays![i])
     if (x >= b.x - tolerance && x <= b.x + b.w + tolerance && y >= b.y - tolerance && y <= b.y + b.h + tolerance) return { kind: 'logic-relay', index: i }
   }
-  const entrance = entranceDoor(level.entrance)
+  const entrance = entranceBounds(level.entrance)
   if (x >= entrance.x - tolerance && x <= entrance.x + entrance.w + tolerance && y >= entrance.y - tolerance && y <= entrance.y + entrance.h + tolerance) return { kind: 'entrance', index: 0 }
   for (let i = level.checkpoints.length - 1; i >= 0; i--) if (Math.hypot(x - level.checkpoints[i].x, y - level.checkpoints[i].y + 25) < tolerance * 3) return { kind: 'checkpoint', index: i }
   if (level.goal) {
@@ -443,7 +474,7 @@ export function replacePlatform(level: JumpLevel, index: number, platform: Platf
     const carriedX = platform.x + (supportX - before.x) / before.w * platform.w
     p.x += carriedX - supportX; p.y = platformSurface(platform, carriedX).y
   }
-  return next
+  return carryWallTerminals(level, next)
 }
 
 /** Transform the selected terrain and its rope anchors without moving other objects. */
@@ -529,7 +560,7 @@ export function moveItem(level: JumpLevel, selection: Selection, dx: number, dy:
     attachPressurePlateOnSurface(next, t)
   }
   if (selection.kind === 'mechanism') syncPressurePlateMounts(next)
-  return next
+  return carryWallTerminals(level, next)
 }
 export function resizeItem(level: JumpLevel, selection: Selection, w: number, h: number, handle?: ResizeHandle): JumpLevel {
   const next = copyLevel(level)
@@ -616,7 +647,7 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
     }
   }
   if (selection.kind === 'mechanism') syncPressurePlateMounts(next)
-  return next
+  return carryWallTerminals(level, next)
 }
 export function deleteItem(level: JumpLevel, selection: Selection): JumpLevel {
   const next = copyLevel(level), i = selection.index
@@ -734,16 +765,16 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       intensity: 100, direction: drag ? Math.atan2(end.y - start.y, end.x - start.x) * 180 / Math.PI : 90, spread: 70, power: 'always' })
     return { level: next, selection: { kind: 'light', index: next.lighting.lights.length - 1 } }
   }
-  if (tool === 'text' || tool === 'lab-stamp') {
+  if (tool === 'text' || tool === 'lab-stamp' || tool === 'message-screen') {
     const texts = next.texts ??= []
     if (texts.length >= 80) throw new Error('This level already has 80 wall text areas.')
     const click = Math.hypot(end.x - start.x, end.y - start.y) < 10
-    const stamp = tool === 'lab-stamp'
+    const stamp = tool === 'lab-stamp', screen = tool === 'message-screen'
     const w = clamp(click ? stamp ? 240 : 320 : Math.abs(end.x - start.x), 40, Math.min(2000, next.width))
     const h = clamp(click ? stamp ? 110 : 100 : Math.abs(end.y - start.y), 24, Math.min(1200, levelHeight(next)))
     texts.push({ x: clamp(x, 0, next.width - w), y: clamp(y, 0, levelHeight(next) - h), w, h,
-      text: stamp ? 'L.A.B.\nexperiments' : 'Your text', fontSize: 28, align: stamp ? 'center' : 'left',
-      ...(stamp ? { style: 'lab-stamp' as const } : {}) })
+      text: stamp ? 'L.A.B.\nexperiments' : screen ? 'NO SIGNAL' : 'Your text', fontSize: screen ? 18 : 28, align: stamp ? 'center' : 'left',
+      ...(stamp ? { style: 'lab-stamp' as const } : screen ? { style: 'terminal' as const } : {}) })
     return { level: next, selection: { kind: 'text', index: texts.length - 1 } }
   }
   if (['platform', 'pillar', 'ramp', 'rough'].includes(tool)) {
@@ -764,7 +795,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
   }
   if (tool === 'entrance' || tool === 'checkpoint') {
     const point = { x: clamp(end.x, 10, next.width - 10), y: clamp(end.y, 0, levelHeight(next)) }
-    if (tool === 'entrance') next.entrance = point
+    if (tool === 'entrance') next.entrance = { ...next.entrance, ...point }
     else { if (next.checkpoints.length >= 30) throw new Error('This level already has 30 checkpoints.'); next.checkpoints.push(point) }
     return { level: next, selection: { kind: tool, index: tool === 'entrance' ? 0 : next.checkpoints.length - 1 } }
   }

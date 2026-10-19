@@ -1,15 +1,13 @@
-import { test, expect } from './helpers/folderTest.mjs'
-import { finishJumpingEntrance, useLevelFixtures, installTestFolder, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
+import { test, expect } from './helpers/test.mjs'
+import { finishJumpingEntrance, useLevelFixtures, installBuiltInFixtures, selectBuilderObject, selectBuilderOption, saveTestLevel, reopenTestLevel, restartFromPause } from './helpers/jumpingLevels.mjs'
 import { readLevelAsset } from '../helpers/jumping-fixtures.mjs'
 
 test('float switch editor controls, outputs, undo, duplication and saved templates work', async ({page}, info) => {
   const level = readLevelAsset('float-switch.json')
-  await useLevelFixtures(page,[level]); await installTestFolder(page,{'floats.json':level})
+  await useLevelFixtures(page,[level]); await installBuiltInFixtures(page,{'floats.json':level})
   await page.goto('/lab')
   await page.getByRole('button',{name:'Level studio',exact:true}).click()
   await page.getByRole('button',{name:'Library',exact:true}).click()
-  await page.getByRole('dialog').getByRole('button',{name:'Local folder',exact:true}).click()
-  await page.getByRole('button',{name:'Choose folder',exact:true}).click()
   await page.getByRole('button',{name:'Open floats.json',exact:true}).click()
   const canvas=page.getByRole('application',{name:'Level canvas'})
   await expect(canvas).toHaveAttribute('aria-busy','false')

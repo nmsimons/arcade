@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
 import { CAMPAIGN } from '../helpers/jumping-fixtures.mjs'
-import { installTestFolder, readTestLevel, dismissSaveFailure } from './helpers/jumpingLevels.mjs'
+import { dismissSaveFailure } from './helpers/jumpingLevels.mjs'
 
 // Real dev middleware and Git worktree files, without touching authored repo maps.
 const test = base.extend({
@@ -91,28 +91,20 @@ test('built-in library creates, reorders, recycles and recovers maps without pub
   await expect(page.getByRole('button', { name: `Open ${fileName}`, exact: true })).toBeVisible()
 })
 
-test('switching Library collections keeps save destinations and unsaved changes separate', async ({ page, project }) => {
-  // A local copy may have the same filename and level id as the built-in.
-  await installTestFolder(page, { '00.json': { ...CAMPAIGN[0], name: 'Local original' } })
+test('opening another built-in preserves draft confirmation and has no folder choices', async ({ page, project }) => {
   await page.goto(`${project.url}/lab`)
   await page.getByRole('button', { name: 'Edit First Leap', exact: true }).click()
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Built-in draft')
   await page.getByRole('button', { name: 'Library', exact: true }).click()
-  await page.getByRole('group', { name: 'Library source' }).getByRole('button', { name: 'Local folder', exact: true }).click()
-  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Open 00.json', exact: true })).toBeEnabled()
-  await page.getByRole('button', { name: 'Open 00.json', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Local folder', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Choose folder', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Open 01.json', exact: true }).click()
   await page.getByRole('button', { name: 'Cancel', exact: true }).click()
   expect((await project.read('00.json')).name).toBe('First Leap')
-  await page.getByRole('button', { name: 'Open 00.json', exact: true }).click()
+  await page.getByRole('button', { name: 'Open 01.json', exact: true }).click()
   await page.getByRole('button', { name: 'Save and continue', exact: true }).click()
-  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Local original')
-  await expect(page).toHaveURL(/\/builder\/local\/00.json$/)
-  expect((await project.read('00.json')).name).toBe('Built-in draft')
-  await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Local edit')
-  await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
-  expect((await readTestLevel(page, '00.json')).name).toBe('Local edit')
+  await expect(page).toHaveURL(/\/builder\/built-in\/01.json$/)
+  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue(CAMPAIGN[1].name)
   expect((await project.read('00.json')).name).toBe('Built-in draft')
 })
 

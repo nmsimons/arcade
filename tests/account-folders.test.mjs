@@ -86,11 +86,13 @@ test('collection imports preserve supplied manifest bytes and append new files t
 test('OneDrive layout is per game and level collections load unchanged with the local loader', async () => {
   const local = store(), drive = oneDrive(), repo = accountLevelRepository(local)
   setSave(local, 42); local.setItem('arcade.jumping.times.v1', '{"tower":12.3}')
+  local.setItem('arcade.jumping.completed.v1', '{"wake":true}')
   await repo.save('My level.jump-level.json', JSON.parse(fixture))
   const before = readWorkspace(local)
   await createSync(local, connect(drive)).sync(signal())
   assert.equal(drive.find('Hard Vacuum/expedition.json').text, before.slots[SAVE_SLOTS[0]])
   assert.equal(drive.find('Untitled Jumping Game/personal-bests.json').text, '{"tower":12.3}')
+  assert.equal(drive.find('Untitled Jumping Game/completed-levels.json').text, '{"wake":true}')
   for (const [name, text] of Object.entries(before.levels.files)) assert.equal(drive.find(`${LEVEL_FOLDER}/${name}`).text, text)
   const collection = await loadLocalLevelFiles(Object.entries(before.levels.files).map(([name, text]) => ({ name, size: Buffer.byteLength(text), text: async () => text })))
   assert.deepEqual(collection.errors, []); assert.equal(collection.files.length, 1)

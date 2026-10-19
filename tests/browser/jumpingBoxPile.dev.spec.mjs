@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { test, expect } from './helpers/test.mjs'
 import { finishJumpingEntrance, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { advanceJumpingPassiveWait } from './helpers/simulation.mjs'
 
 const read = page => page.evaluate(() => window.jumpingMotion.read())
 const sample = async page => (await read(page)).recent.at(-1)
@@ -21,7 +22,7 @@ async function start(page, x) {
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
   await page.getByRole('button', { name: 'Play Box bin regression', exact: true }).click()
   await finishJumpingEntrance(page)
-  await page.clock.runFor(4000)
+  await advanceJumpingPassiveWait(page, 4000)
   // Enter the bin from its authored floor, climbing the outside crate and
   // jumping its rim with ordinary keys before approaching the reported pile.
   await page.keyboard.down('ArrowRight'); await until(page, p => p.x >= 290)
@@ -71,7 +72,8 @@ test('keyboard approaches and jumps beside the LAB crate keep the visible rig co
 })
 
 test('a keyboard jump followed by sustained pushing leaves the loaded mountain on its floor', async ({ page }, info) => {
-  test.setTimeout(60_000)
+  // Preserve all 15 seconds of rendered contact/rig samples on slower CI CPUs.
+  test.setTimeout(120_000)
   await start(page, 630)
   await page.keyboard.down('ArrowRight'); await page.keyboard.down('Space')
   await page.clock.runFor(180); await page.keyboard.up('Space')
@@ -90,6 +92,6 @@ test('a keyboard jump followed by sustained pushing leaves the loaded mountain o
   }
   expect(stepStarts).toBeLessThanOrEqual(2)
   await page.screenshot({ path: info.outputPath('stable-loaded-mountain.png') })
-  await page.keyboard.up('ArrowRight'); await page.clock.runFor(3000)
+  await page.keyboard.up('ArrowRight'); await advanceJumpingPassiveWait(page, 3000)
   expect(Math.abs((await read(page)).recent.at(-1).y - 1580)).toBeLessThan(1)
 })

@@ -183,7 +183,7 @@
     }
   ],
   "entrance": {
-    "x": 20,
+    "x": 55,
     "y": 920
   },
   "checkpoints": [],
@@ -1638,9 +1638,19 @@
   },
   "floor": 920,
   "goal": {
+    "wireTerminal": {
+      "x": 1655,
+      "y": 170
+    },
+    "relay": true,
+    "targets": [
+      "45299575-13e3-40a6-93f3-55986506256b"
+    ],
     "x": 1800,
     "y": 220,
-    "flipX": true
+    "flipX": true,
+    "id": "2fb4f5fe-08ea-45da-a7c0-5586f00d9d4d",
+    "power": "switched"
   },
   "times": {
     "gold": 12,
@@ -1677,6 +1687,10 @@
       "travel": 180
     },
     {
+      "wireTerminal": {
+        "x": 1560,
+        "y": 870
+      },
       "id": "e523b5e4-020a-4472-87f4-35942ca1fa43",
       "kind": "lift",
       "x": 1380,
@@ -1704,7 +1718,8 @@
       "y": 200,
       "w": 120,
       "targets": [
-        "4a9f2762-f1ff-4ffb-876e-937d561729c8"
+        "4a9f2762-f1ff-4ffb-876e-937d561729c8",
+        "debdb888-2d0a-4d94-982b-af31201dcb04"
       ],
       "mode": "coins",
       "threshold": 9,
@@ -1723,6 +1738,10 @@
       "display": "digital"
     },
     {
+      "wireTerminal": {
+        "x": 1580,
+        "y": 760
+      },
       "x": 1600,
       "y": 720,
       "orientation": "vertical",
@@ -1730,7 +1749,7 @@
       "h": 120,
       "targets": [
         "e523b5e4-020a-4472-87f4-35942ca1fa43",
-        "45299575-13e3-40a6-93f3-55986506256b"
+        "2fb4f5fe-08ea-45da-a7c0-5586f00d9d4d"
       ],
       "mode": "coins",
       "threshold": 10
@@ -1853,7 +1872,7 @@
         "intensity": 100,
         "direction": 90,
         "spread": 30,
-        "power": "always"
+        "power": "switched"
       },
       {
         "id": "45299575-13e3-40a6-93f3-55986506256b",

@@ -4,7 +4,7 @@ export const JUMPING_MENU = LAB_PATH
 export const JUMPING_BUILDER = `${JUMPING_MENU}/builder`
 export const JUMPING_BUILTIN_BUILDER = `${JUMPING_BUILDER}/built-in`
 export const JUMPING_PLAYTEST = `${JUMPING_BUILDER}/playtest`
-export type LevelSource = 'built-in' | 'local'
+export type LevelSource = 'built-in'
 type FileRoute = { source: LevelSource; fileName: string }
 export type JumpingRoute = { screen: 'menu' } | { screen: 'missing' } | { screen: 'playtest'; file?: FileRoute; draftId?: string }
   | { screen: 'builder'; file?: FileRoute; source?: LevelSource }
@@ -34,7 +34,7 @@ export function jumpingRoute(pathname: string): JumpingRoute {
     } catch { /* A malformed draft link cannot identify a session snapshot. */ }
     return { screen: 'missing' }
   }
-  const match = tail.match(/^\/(levels|builder)\/(built-in|local)\/([^/]+)(\/playtest)?$/)
+  const match = tail.match(/^\/(levels|builder)\/(built-in)\/([^/]+)(\/playtest)?$/)
   if (match) {
     try {
       const fileName = decodeURIComponent(match[3])

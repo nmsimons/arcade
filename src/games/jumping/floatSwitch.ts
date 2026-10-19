@@ -1,10 +1,11 @@
 import type { NamedObject } from './objectNames.ts'
+import type { WallWiringSettings } from './switchPower.ts'
 import type { Prop } from './challenge.ts'
 import { drawWallLight, WALL_LIGHT_RADIUS } from './wallLight.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 
-export interface FloatSwitch extends NamedObject {
+export interface FloatSwitch extends NamedObject, WallWiringSettings {
   id: string; x: number; y: number; armLength: number; size: number; targets: string[]
   travelAngle?: number; flipX?: boolean; startsRaised?: boolean; activeWhen?: 'raised' | 'lowered'
 }

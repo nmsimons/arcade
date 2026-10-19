@@ -115,8 +115,8 @@
     {
       "file": "01.json",
       "jumpModel": "tap-hold",
-      "elapsed": 6.008333333333422,
-      "activeTime": 6.866666666666798,
+      "elapsed": 6.000000000000088,
+      "activeTime": 6.858333333333464,
       "coins": 0,
       "trace": [
         {
@@ -224,7 +224,7 @@
           }
         },
         {
-          "frames": 416,
+          "frames": 415,
           "input": {
             "move": 1,
             "jump": false,

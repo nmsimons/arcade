@@ -1,7 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { moveDialogSelection } from '../hardVacuum/dialogNavigation'
-import './localFolder.css'
+import './levelFiles.css'
 
 export function SaveFailureDialog({ fileName, reason, returnFocus, onClose }: {
   fileName: string; reason: string; returnFocus: HTMLElement | null; onClose: () => void

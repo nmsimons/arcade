@@ -32,20 +32,21 @@ export async function finishJumpingEntrance(page) {
   const { expect } = await import('@playwright/test')
   await expect(page.locator('.jumping-game > canvas')).toBeFocused()
   await expect(page.getByRole('dialog', { name: 'Preparing level', exact: true })).toHaveCount(0)
-  await page.clock.runFor(1350)
+  const waking = await page.locator('.jumping-state').textContent() === 'Waking up'
+  await page.clock.runFor(waking ? 3600 : 1350)
   // Preparation and the first RAF can delay the opening. Advance neutral
   // frames until its published status confirms that ordinary controls are live.
   await expect.poll(async () => {
     await page.clock.runFor(16)
     return page.locator('.jumping-state').innerText()
-  }, { intervals: [0] }).not.toBe('Entering the level')
+  }, { intervals: [0] }).not.toMatch(/^(Entering the level|Waking up)$/)
   // Begin controls on a rendered frame, keeping recorded input phases stable.
   const now = await page.evaluate(() => performance.now())
   await page.clock.runFor((16 - now % 16) % 16)
 }
 
-/** Real file handles, isolated in browser-test storage; production always uses the user's folder. */
-export async function installTestFolder(page, files = {}) {
+/** Isolated repository fixtures exercise the same file operations as local dev, without touching authored assets. */
+export async function installBuiltInFixtures(page, files = {}) {
   await page.addInitScript(files => {
     window.testFolderWrites = 0
     FileSystemHandle.prototype.queryPermission = async () => 'granted'
@@ -56,7 +57,8 @@ export async function installTestFolder(page, files = {}) {
       writer.close = async () => { await close(); window.testFolderWrites++ }
       return writer
     }
-    window.testLevelDirectory = async () => {
+    let directoryReady
+    window.testLevelDirectory = () => directoryReady ??= (async () => {
       const directory = await (await navigator.storage.getDirectory()).getDirectoryHandle('Test levels', { create: true })
       for (const [name, level] of Object.entries(files)) {
         try { await directory.getFileHandle(name); continue } catch { /* Seed only once, preserving saves across reload. */ }
@@ -64,9 +66,26 @@ export async function installTestFolder(page, files = {}) {
         await writer.write(JSON.stringify(level)); await writer.close()
       }
       return directory
-    }
-    window.showDirectoryPicker = window.testLevelDirectory
+    })()
   }, files)
+  let queue = Promise.resolve()
+  await page.route('**/__arcade/jumping-levels', async route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: { token: 'fixture-repository' } })
+    const request = route.request().postDataJSON()
+    try {
+      const pending = queue.then(() => page.evaluate(async ({ method, args }) => {
+        const { directoryRepository } = await import('/src/games/jumping/levelRepository.ts')
+        const repository = directoryRepository(await window.testLevelDirectory())
+        if (!['read', 'save', 'reorder', 'remove', 'deleted', 'restore', 'empty'].includes(method)) throw new Error('Unknown fixture operation.')
+        // JSON sends omitted optional arguments as null; the real dev endpoint
+        // restores them to undefined before calling the repository.
+        return await repository[method](...args.map(value => value === null ? undefined : value)) ?? null
+      }, request))
+      queue = pending.catch(() => {})
+      const result = await pending
+      return route.fulfill({ json: result })
+    } catch (error) { return route.fulfill({ status: 400, json: { error: error.message } }) }
+  })
 }
 
 export async function readTestLevel(page, fileName) {
@@ -102,7 +121,6 @@ export async function dismissSaveFailure(page, reason) {
 export async function reopenTestLevel(page, saved) {
   await page.getByRole('button', { name: 'Library', exact: true }).click()
   const open = page.getByRole('button', { name: `Open ${saved.fileName}`, exact: true })
-  if (!await open.count()) await page.getByRole('button', { name: /^(Choose|Reselect) folder$/ }).click()
   await open.click()
   if (await page.getByRole('alertdialog', { name: 'Unsaved changes' }).count()) await page.getByRole('button', { name: 'Discard changes', exact: true }).click()
 }

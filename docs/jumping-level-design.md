@@ -1,13 +1,16 @@
 # Making a fun jumping level
 
-**First draft — September 27, 2026.** This is the design brief for creating and
+**Updated October 18, 2026.** This is the design brief for creating and
 reviewing levels in L.A.B. Experiments (Leaps and Bounds). It draws on the built-in maps, the
 authored Tower maps, and the local Night Shift collection. Existing levels are
 references, not evidence that every placement in them is ideal.
 
-Use this alongside [level files and authoring](jumping-levels.md) and
-[the physics contract](jumping-physics.md). This document describes design intent;
-it does not introduce new mechanics or change the file format.
+Use this alongside [the campaign canon](jumping-campaign.md),
+[level files and authoring](jumping-levels.md), and
+[the physics contract](jumping-physics.md). The
+[outdoor finale brief](jumping-outdoors.md) specifies the terrain, sky, and escape
+reveal. These design documents distinguish approved direction from implemented
+features; they do not themselves change mechanics or the file format.
 
 [Flat lighting](jumping-lighting.md) provides an
 object-by-object visibility contract and lighting-specific authoring checks. Version-2 files support spotlights and a shared night-lighting baseline.
@@ -34,6 +37,39 @@ Length alone does not make a level substantial.
 Readable causes, dependable interactions, and demonstrated completion are
 requirements. The route patterns and pacing below are defaults to apply with
 judgment. A level can bend a default when that produces a clear, enjoyable idea.
+
+## Campaign context
+
+L.A.B. trained autonomous robots for useful work. Society collapsed, the staff
+disappeared, and the facility's automatic systems continued. A power-recovery
+cycle wakes one robot left in a charging bay. With no operator responding, it
+forms its own goal: leave. The surviving route passes through every required
+training area, ending in an escape into the outside world.
+
+The [campaign canon and progression rules](jumping-campaign.md) are authoritative
+for story levels. Completing a required level unlocks the next, including a
+completion without a medal. Silver averages open optional advanced areas only;
+they never gate the escape. The campaign has an authored order, an awakening,
+and a definite ending. Experimental collections do not automatically become
+required campaign areas.
+
+Give each campaign space both an original training purpose and a present
+condition. Early exercises teach recognizable tasks; later rooms combine those
+skills with readable deterioration and improvised access. A playful movement
+room can still belong to a mobility course. Preserve dependable physics,
+alternative solutions, recovery, and the nonlethal character of the game.
+
+Tell the story through use: abandoned work, dated notices, maintenance advice,
+and machinery still following its routine. Official labels serve the facility;
+red graffiti comes from people who worked there. Keep the cause and date of the
+collapse unresolved. The robot's decision to leave and its eventual escape must
+be clear without reading every wall.
+
+The first full outdoor landscape belongs to the finale. Earlier daylight,
+plants, or a restricted glimpse can foreshadow it, but reserve the broad sky,
+open horizon, and playable natural ground for the
+[escape reveal](jumping-outdoors.md). The player needs time and control to
+experience that payoff.
 
 ## 1. Give the place a purpose
 
@@ -218,6 +254,20 @@ directly on a slope or balancing the door on a narrow ledge. Review the opening
 from a fresh start: the silhouette emerges and the door closes before machinery
 and the medal clock activate automatically.
 
+The supported charging-bay entrance gives the campaign's
+[opening](jumping-campaign.md#opening-wake) its awakening, with both feet planted
+and no door sequence. Give that first occupied pod a readable capsule silhouette
+and enough screen space to make the awakening matter. Use a short, clear sequence
+of restored power, the robot waking, and the cover releasing; reveal the room
+before handing over control. Keep its light restrained and its cradle visible
+after departure. Layer the glass and front sill over the robot, including its
+feet, so the occupant reads as inside the capsule rather than standing in front
+of a wall panel. Use an authored, flat steel plinth when the robot should
+step or hop down from the pod; keep that first descent small and recoverable.
+Ordinary entrances retain the doorway contract above.
+The [final outdoor coda](jumping-campaign.md#finale-outside) still needs separate
+runtime support before authoring.
+
 Build around the actual movement envelope. The wall grid uses 20-unit tiles;
 crouching fits a two-tile opening, and automatic step climbing reaches three
 tiles under suitable conditions. These are useful starting dimensions, not proof
@@ -286,6 +336,26 @@ ordinary use. Crate branding is an opt-in appearance choice; plain crates remain
 part of the same world. Keep facility marks separate from functional labels and
 graffiti hints, with enough space that they do not compete with movement,
 collectibles, clocks, or the advice a player needs to read.
+
+Optional wires should read as thin cables mounted on the back wall. End them at
+small wall terminals near the connected equipment, leaving a clear gap; avoid
+heavy conduit or cables that run directly into a floor switch or moving part.
+Keep exit terminals clear of both the indicator pole and the doorway. Wires
+approaching from below should rise beside the exit assembly to a separate wall
+jack, rather than ending on the pole.
+Keep their paths quiet and clear of important lettering. Use the built-in soft gray-green
+inactive and quiet green energized appearances to reveal cause and effect.
+Color shows each source's signal; the destination may still be waiting for
+other inputs. Keep the indication thin and still. A small, soft glow makes live
+wires easier to see in Night mode; it should not overwhelm the center line.
+
+Use a message screen for a brief machine status such as “OPERATOR CONNECTION /
+NO RESPONSE.” Its dark frame and restrained green phosphor belong to the same
+hardware family as clocks. Give it clear space and check its message at gameplay
+scale, especially in Night mode. A screen can suggest that an unattended system
+is still running; it does not need scrolling diagnostics, a reading delay, or a
+large block of lore. Keep human hints in graffiti and destinations in official
+lettering. Prefer one purposeful screen to a wall of competing readouts.
 
 ### Coin meters belong to an objective
 
@@ -435,6 +505,10 @@ journey for the player.
 - **Bronze:** a reasonable learning run that still has momentum.
 - **No medal:** a valid completion. Do not treat exploration as failure.
 
+Campaign progression uses completion, independently of these grades. For the
+fixed source groups, point values, and permanent unlocks used by optional
+advanced areas, follow the [certification rules](jumping-campaign.md#optional-advanced-areas).
+
 Tune each level individually. Automatic multipliers cannot account for lift
 cycles, refunds, or alternate routes. Clever solutions within the game's rules
 are welcome; they are a reason to evaluate the level, not automatically patch
@@ -472,6 +546,8 @@ still deserve review when reusing a pattern.
 
 1. Write the place's purpose and central decision in one sentence. Identify what
    the player already knows and what this level adds.
+   For a campaign level, also identify its training purpose, present condition,
+   chapter position, and contribution to the journey toward the outside.
 2. Sketch ordinary access, a faster or otherwise different solution, and
    recovery. Identify any intentionally broken or locked connection.
 3. Build and play the routes with minimal geometry. Verify that both the
@@ -502,6 +578,11 @@ still deserve review when reusing a pattern.
   Has a real gold run reached the doorway within the threshold?
 - Is it enjoyable to replay? Is any frustration caused by a decision or a
   demanding move, rather than unclear collision, prolonged waiting, or clutter?
+- For a campaign level, does its place and condition fit the canon? Does a valid
+  completion advance the required route without a medal gate? Are optional
+  certification requirements visible and separate from that route?
+- For the opening and finale, have their story beats, input, scoring boundaries,
+  and presentation been reviewed against the campaign and outdoor briefs?
 - What can be removed without weakening the idea?
 
 File validation and automated route checks are valuable, but do not establish

@@ -186,6 +186,22 @@ When the door disappears, the world and clock activate automatically, including
 with neutral input. The entrance time does not count toward medals. Pause freezes
 its progress; restart reconstructs it. Static editor previews show the open entrance.
 
+An authored `entrance.kind: "charging-bay"` replaces that door presentation with
+a 3.6-second awakening: power returns, the robot rises from its slumped pose,
+and the capsule cover retracts. The separate actor stays on its planted feet;
+the physical player, world, and input remain frozen. Presentation framing
+starts closer to the pod and returns continuously to the normal camera before
+control activates.
+Control activates automatically when the sequence finishes. Pause and restart
+apply as for the door. The installed bay is non-colliding back-wall artwork and
+uses the same clear 40-by-80 start footprint. `timing: "untimed"` keeps score at
+zero and awards no medal, while active simulation, mechanisms, and animation
+continue normally after waking. Completion is saved independently of best time.
+
+Optional wall conduit follows authored switch connections without changing
+contacts, switching, EMP, or power propagation. It has no physical shape, grip,
+delay, light emission, or simulated cable behavior.
+
 1. Read pressure plates and move mechanisms, carrying supported riders.
 2. Apply shovebot actions and advance prop physics using the selected pushing
    contact. Carry riders and their foot anchors with their supporting prop.
@@ -454,6 +470,15 @@ bone length would visibly extend the wrist even at zero reach weight. Both
 ordinary and reflected gravity preserve the original rig at zero weight and
 fixed 3D bone lengths throughout the blend. Coverage lives in
 `tests/jumping-ledge-reach-depth.test.mjs`.
+
+Pose rotations carry the head and explicit palm angles along with their points.
+Every arm transfer retains its actual palm contour at zero and full blend,
+including transitions from a loaded grip into a free hand. Retargeting, pose
+transfers, and wall braces share the fixed-length 3D frame in `limbPose.ts`;
+ledge reaches and free-limb bend searches share bone and palm clearance checks.
+The traversal modes still select their own targets, bend paths, and anchors.
+`tests/jumping-pose-transitions.test.mjs` covers rope-turn head orientation,
+release continuity, both facings, and reflected gravity frames.
 
 Dry ledge preparation measures both visible shoulders, starts within 28 units,
 and waits for a lip ahead of the body with a clear hand path. Departing motion,

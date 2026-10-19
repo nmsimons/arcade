@@ -137,7 +137,7 @@ function roundedCaster(rect: Platform, radius: number | CornerRadii): Platform {
 export function dynamicCasters(run: LightingWorld, objectShadows = true): CasterGroup[] {
   const corners = mechanismCornerRadii(run)
   const entrance = 'entrance' in run ? run.entrance : null
-  const opacity = entrance ? entranceVisibility(entrance.elapsed) : run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
+  const opacity = entrance ? entrance.kind === 'charging-bay' ? 1 : entranceVisibility(entrance.elapsed) : run.exit ? 1 - goalEase((run.exit.elapsed - .25) / .5) : 1
   return [...(objectShadows ? run.props.map(prop => [prop.kind === 'ball' ? ballShape(prop) : roundedCaster(boxShape(prop), 2)]) : []),
     ...run.mechanisms.map((m, i) => Object.assign([roundedCaster({ x: m.x, y: m.y, w: m.definition.w, h: m.definition.h }, corners[i])], { mechanism: true as const })),
     ...(objectShadows ? run.robots.map(robot => robotPlatforms(robot).map((shape, i) => i === 0 ? roundedCaster(shape, 4) : shape)) : []),

@@ -14,6 +14,8 @@ import { drawFootBoosters } from './airBoosters.ts'
 import { paintNormally } from './worldPaint.ts'
 import type { WorldPaint } from './worldPaint.ts'
 import { drawTerrainAttachment, drawTerrainEdges, drawWallPanels } from './surfaceDepth.ts'
+import { drawWallWiring } from './wallWiring.ts'
+import { drawChargingBay, drawChargingBayCover } from './goal.ts'
 
 import { drawAthlete } from './athlete.ts'
 export { drawAthlete } from './athlete.ts'
@@ -37,7 +39,7 @@ export function drawClimbables(ctx: CanvasRenderingContext2D, p: Player, world: 
 }
 
 export const TERRAIN_COLOR = terrainMaterial().color
-export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom = 1, includeText = true) {
+export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLevel, view: { x: number; y: number; w: number; h: number }, zoom = 1, includeWallArt = true) {
   ctx.fillStyle = TERRAIN_COLOR; ctx.fillRect(view.x, view.y, view.w, view.h)
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, level.width, levelHeight(level)); ctx.clip()
   ctx.fillStyle = '#f1f1ed'; ctx.fillRect(0, 0, level.width, levelHeight(level))
@@ -51,8 +53,10 @@ export function drawLevelBackdrop(ctx: CanvasRenderingContext2D, level: JumpLeve
   drawWallPanels(ctx, { x: Math.max(0, view.x), y: Math.max(0, view.y),
     w: Math.min(level.width, view.x + view.w) - Math.max(0, view.x),
     h: Math.min(levelHeight(level), view.y + view.h) - Math.max(0, view.y) })
+  if (includeWallArt) drawWallWiring(ctx, level)
+  if (level.entrance.kind === 'charging-bay') drawChargingBay(ctx, level.entrance)
   ctx.restore()
-  if (includeText) drawWallTexts(ctx, level.texts ?? [])
+  if (includeWallArt) drawWallTexts(ctx, level.texts ?? [])
 }
 export function drawTerrain(ctx: CanvasRenderingContext2D, platforms: readonly Platform[], authored: readonly Platform[] = platforms, level?: JumpLevel) {
   if (level) drawTerrainAttachment(ctx, platforms, level)
@@ -117,5 +121,7 @@ export function drawPlayground(ctx: CanvasRenderingContext2D, width: number, hei
   drawLevelBackdrop(ctx, level, { x, y, w: width / zoom, h: height / zoom }, zoom)
   drawTerrain(ctx, levelTerrain(level), level.platforms, level); drawClimbables(ctx, p, level.climbables)
   drawCheckpointMarkers(ctx, p, level)
-  drawMovementEffects(ctx, p); drawAthlete(ctx, p); ctx.restore()
+  drawMovementEffects(ctx, p); drawAthlete(ctx, p)
+  if (level.entrance.kind === 'charging-bay') drawChargingBayCover(ctx, level.entrance)
+  ctx.restore()
 }

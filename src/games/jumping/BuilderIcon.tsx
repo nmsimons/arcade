@@ -25,6 +25,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   'horizontal-gate': 'M3 9h18v6H3zM7 11v2M12 11v2M17 11v2',
   timer: 'M2 6h20v12H2zM6 10v4M10 10v4M14 10v4M18 10v4',
   text: 'M4 7V4h16v3M12 4v16M8 20h8',
+  'message-screen': 'M2 4h20v16H2zM5 7l3 3-3 3M11 14h6M5 17h14',
   'lab-stamp': 'M2 6h20v12H2zM5 9v6h4M11 15l2-6 2 6M12 13h2M18 9h1v6h-1',
   light: 'M6 4Q12 0 18 4L21 14H3ZM5 17h14M7 21l-1-2M17 21l1-2',
   'wall-light': 'M21 12a9 9 0 1 1-18 0 9 9 0 1 1 18 0ZM18 12a6 6 0 1 1-12 0 6 6 0 1 1 12 0Z',

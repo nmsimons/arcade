@@ -37,7 +37,7 @@ test('render enlarged resting, passive-swing and gravity-turn frames for visual 
     const { createPlayer, stepPlayer, NEUTRAL_INPUT, STEP } = await import('/src/games/jumping/model.ts')
     const { ropeGripDistance, ropePoint, ropeImpulse, ropePath } = await import('/src/games/jumping/climbables.ts')
     const { createGravityField, updateGravityField } = await import('/src/games/jumping/gravity.ts')
-    const { drawAthlete } = await import('/src/games/jumping/athlete.ts')
+    const { drawAthlete, athletePose } = await import('/src/games/jumping/athlete.ts')
     const canvas = document.createElement('canvas'); canvas.width = 1400; canvas.height = 950
     document.body.replaceChildren(canvas); document.body.style.margin = '0'
     const ctx = canvas.getContext('2d'), frames = []
@@ -71,11 +71,13 @@ test('render enlarged resting, passive-swing and gravity-turn frames for visual 
       ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath()
       const rope = actor.climbing.rope; ctx.moveTo(rope.definition.x, rope.definition.y)
       for (const point of ropePath(rope.definition, rope)) ctx.lineTo(...point)
-      ctx.stroke(); drawAthlete(ctx, actor, '#30423a'); ctx.restore()
+      ctx.stroke(); drawAthlete(ctx, actor); ctx.restore()
     }
-    return frames.map(({ label, p }) => ({ label, inverted: p.inverted, angle: p.climbing.turn?.angle ?? 0 }))
+    return frames.map(({ label, p }) => ({ label, inverted: p.inverted, angle: p.climbing.turn?.angle ?? 0,
+      facing: p.facing, headTilt: athletePose(p).headTilt ?? 0 }))
   })
   expect(gallery.at(-1).inverted).toBe(true)
+  for (const frame of gallery) expect(frame.headTilt, frame.label).toBeCloseTo(frame.angle * frame.facing, 6)
   await page.locator('canvas').screenshot({ path: info.outputPath('rope-body-motion-gallery.png') })
 })
 
@@ -133,7 +135,7 @@ test('manual release and automatic support finish the reverse-gravity turn on a 
       const rope = p.ropes[0]; ctx.strokeStyle = '#998263'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'
       ctx.beginPath(); ctx.moveTo(rope.definition.x, rope.definition.y)
       for (const point of ropePath(rope.definition, rope)) ctx.lineTo(...point)
-      ctx.stroke(); drawAthlete(ctx, p, '#30423a'); ctx.restore()
+      ctx.stroke(); drawAthlete(ctx, p); ctx.restore()
     }
     return outcomes
   })

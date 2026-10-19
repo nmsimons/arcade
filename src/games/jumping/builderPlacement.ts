@@ -9,7 +9,7 @@ import { placeOnSurface } from './editorPlacement.ts'
 import { createPlayer } from './model.ts'
 import { drawAthlete, drawClimbables, drawTerrain } from './render.ts'
 import { drawGoal, drawGoalDoor, drawMechanism, drawPressurePlate, drawProp, drawRobot } from './challengeRender.ts'
-import { drawDoorway, entranceDoor } from './goal.ts'
+import { drawChargingBay, drawChargingBayCover, drawDoorway, entranceDoor } from './goal.ts'
 import { mechanismCornerRadii } from './mechanismAppearance.ts'
 import { drawCoinSwitch } from './coins.ts'
 import { drawPickup } from './pickups.ts'
@@ -69,7 +69,7 @@ export function drawPlacementPreview(ctx: CanvasRenderingContext2D, { level, sel
     case 'text': drawWallTexts(ctx, [level.texts![i]]); break
     case 'pickup': drawPickup(ctx, { definition: level.pickups![i], collectedAge: null }); break
     case 'goal': drawGoalDoor(ctx, level.goal!, 1, true); drawGoal(ctx, level.goal!, true); break
-    case 'entrance': drawDoorway(ctx, entranceDoor(level.entrance), 1); break
+    case 'entrance': if (level.entrance.kind === 'charging-bay') { drawChargingBay(ctx, level.entrance); drawChargingBayCover(ctx, level.entrance) } else drawDoorway(ctx, entranceDoor(level.entrance), 1); break
     case 'checkpoint': drawAthlete(ctx, createPlayer(level.checkpoints[i])); break
   }
   const outline = itemOutline(level, selection)

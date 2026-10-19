@@ -1,5 +1,5 @@
 import { test, expect } from './helpers/test.mjs'
-import { finishJumpingEntrance, installTestFolder, useLevelFixtures } from './helpers/jumpingLevels.mjs'
+import { finishJumpingEntrance, installBuiltInFixtures, useLevelFixtures } from './helpers/jumpingLevels.mjs'
 import { advanceJumpingSimulation } from './helpers/simulation.mjs'
 import { blankTrial, newLevel } from '../../src/games/jumping/level.ts'
 import { BEST_TIME_KEY, formatTime } from '../../src/games/jumping/challenge.ts'
@@ -34,51 +34,6 @@ test('picker shows saved medals and best times on every timed level, including z
     expect(layout).toEqual({ overflow: false, overlap: false })
     await page.screenshot({ path: info.outputPath(`picker-progress-${viewport.width}.png`) })
   }
-})
-
-test('local and built-in records remain separate and the picker reacts to saved record updates', async ({ page }) => {
-  const map = level('shared-id', 'Shared room')
-  await useLevelFixtures(page, [map])
-  await installTestFolder(page, { 'shared.json': map })
-  await page.addInitScript(key => localStorage.setItem(key, JSON.stringify({ 'shared-id': 8, 'local:shared-id': 25 })), BEST_TIME_KEY)
-  await page.goto('/lab')
-  await expect(card(page, 'Shared room')).toHaveAccessibleDescription('Best 0:08.00 Gold medal')
-  await page.getByRole('button', { name: 'Local folder', exact: true }).click()
-  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
-  await expect(card(page, 'Shared room')).toHaveAccessibleDescription('Best 0:25.00 Bronze medal')
-  // Other tabs and cloud downloads notify the same storage subscription.
-  await page.evaluate(key => {
-    const oldValue = localStorage.getItem(key)
-    const newValue = JSON.stringify({ 'shared-id': 8, 'local:shared-id': 15 })
-    localStorage.setItem(key, newValue)
-    window.dispatchEvent(new StorageEvent('storage', { key, oldValue, newValue }))
-  }, BEST_TIME_KEY)
-  await expect(card(page, 'Shared room')).toHaveAccessibleDescription('Best 0:15.00 Silver medal')
-  await page.getByRole('button', { name: 'Built-in levels', exact: true }).click()
-  await expect(card(page, 'Shared room')).toHaveAccessibleDescription('Best 0:08.00 Gold medal')
-})
-
-test('repair warnings keep tile actions stable while selecting and editing an unfinished level', async ({ page }) => {
-  const unfinished = { ...level('repair-warning-room', 'Repair room'), goal: { x: 500, y: 150 } }
-  const ready = level('ready-warning-room', 'Ready room')
-  await useLevelFixtures(page, [unfinished, ready])
-  await installTestFolder(page, {
-    '00-fixture.json': unfinished, '01-fixture.json': ready,
-    'index.json': { version: 1, order: 'listed', levels: ['00-fixture.json', '01-fixture.json'] },
-  })
-  await page.goto('/lab')
-  await page.getByRole('button', { name: 'Local folder', exact: true }).click()
-  await page.getByRole('button', { name: 'Choose folder', exact: true }).click()
-  const readyCard = card(page, 'Ready room')
-  const edit = page.getByRole('button', { name: 'Edit Repair room', exact: true })
-  await expect(readyCard).toHaveAttribute('aria-pressed', 'true')
-  const before = await edit.boundingBox()
-  await edit.focus()
-  await expect(page.getByRole('region', { name: 'Level issues for Repair room' })).toBeVisible()
-  expect(await edit.boundingBox()).toEqual(before)
-  await readyCard.focus()
-  await edit.click()
-  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Repair room')
 })
 
 for (const storageAvailable of [true, false]) test(`a completed run updates the picker when storage is ${storageAvailable ? 'available' : 'unavailable'}`, async ({ page }) => {

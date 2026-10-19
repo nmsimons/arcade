@@ -117,8 +117,8 @@ test('refreshing a game restores its save owner before mounting, without grantin
   expect(owner).toEqual({ profile: `microsoft:${alice}`, cloud: false })
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Level menu', exact: true }).click()
-  await page.getByRole('button', { name: 'Account levels', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Refresh account levels' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Alice Microsoft', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Account levels', exact: true })).toHaveCount(0)
   expect(context.pages()).toHaveLength(1)
 })
 

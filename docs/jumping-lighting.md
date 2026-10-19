@@ -15,6 +15,21 @@ Read alongside [Making a fun jumping level](jumping-level-design.md),
 [the movement and mechanism contract](jumping-physics.md). Lighting must preserve
 the latter's physics, timing, input, and scoring rules.
 
+The [outdoor finale brief](jumping-outdoors.md#depth-indoor-transition-and-lighting)
+specifies a future sky and landscape backdrop. Its sky and distant scenery are
+not wall receivers and must not acquire projected wall shadows or panel grids.
+That environment support is pending implementation; existing Day mode alone
+does not create an outdoor background. Preserve this document's current indoor
+lighting contract while adding it.
+
+Charging bays and optional switch wiring are supported back-wall artwork.
+Charging bays, inactive wires, and jack housings receive ordinary illumination
+and shadows. Energized wires and their terminal pins turn green with a 65%
+readability floor and a small, soft halo in Night mode, following the source's
+output. EMP returns them to their lighter gray-green inactive appearance.
+They cast no shadows and illuminate no surrounding surface. Wake uses the
+existing fixed Night-mode baseline, spotlights, flicker, and readable materials.
+
 ## 1. Intent and boundaries
 
 Lighting gives a level atmosphere, organizes its spaces, and lets discovery
@@ -222,6 +237,8 @@ exposure is an artistic multiplier, not an accessibility contrast certification.
 | Pressure plate and its active/inactive strip | Ordinary. Its active color is a state indicator, not a luminous surface. | No; too small to justify extra shadow noise. | No. | Existing load/activation behavior; no invented glow. |
 | Coin switch | Filled gold/green segments retain at least 65% exposure; housing, empty track and dividers receive ordinary lighting. | No. | No. | Readout remains visible and counts coins. Switching still obeys EMP and latching rules. |
 | Wall clock | Digits and status symbols retain at least 65% exposure; the dark face and frame receive ordinary lighting. | No. | No. | Keeps showing the real clock and existing clock-effect states. |
+| Message screen | Green phosphor lettering retains at least 65% exposure; its dark glass and frame receive ordinary lighting. The small glyph glow stays inside the screen. | No. | No. | Its static message remains visible. |
+| Optional wall wiring | Energized wires and terminal pins are muted green with at least 65% exposure and a tight, soft halo in Night mode. Day keeps the thin crisp line. Inactive cable is lighter gray-green; it and the jack housings receive ordinary lighting. | No. | No; the halo is local artwork. | Wire and pin return to their inactive appearance; live signals reappear after EMP. |
 | Official wall text | Ordinary; receives spotlights and shadows. | No. | No. | Unchanged. |
 | Graffiti | Warm yellow (`#f4d35e`) in night mode, muted red in daytime. Ordinary exposure, including spotlights and shadows; no brightness floor. | No. | No. | Unchanged. |
 | Player | Near-white in direct night light, with 65% minimum exposure for its thin silhouette in shadow; existing dark ink in Day. | No. | No; no automatic halo or headlamp. | Existing movement and animation unchanged. |

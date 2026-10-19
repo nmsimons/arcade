@@ -1,5 +1,12 @@
 # Built-in jumping medal audit
 
+Wake is an authored untimed opening. It has no medal targets to calibrate and
+is explicitly accounted for by its untimed mode in the catalog audit. Its
+normal-control completion and awakening/restart behavior are covered separately
+in `tests/jumping-opening.test.mjs` and the browser opening checks. Increasing
+`times` values remain in the shared file shape for compatibility with the studio;
+they are ignored in untimed mode and are not claimed as calibrated targets.
+
 October 16 collection publication: World I, pinball and the new Untitled level
 have explicit pending audits. Their existing **10 / 20 / 40** targets still need
 completed fresh-start medal recordings. The historical A Little Swing recording

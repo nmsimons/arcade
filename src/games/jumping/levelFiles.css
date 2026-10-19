@@ -1,0 +1,21 @@
+.level-file-dialog { position: fixed; inset: 0; width: min(480px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); margin: auto; padding: 28px; border: 1px solid var(--jumping-rule); border-radius: 12px; background: var(--jumping-paper); color: var(--jumping-ink); box-shadow: none; overflow: auto; }
+.level-file-dialog::backdrop { background: var(--jumping-backdrop); backdrop-filter: none; }
+.jumping-game .level-file-dialog h2 { margin: 0 0 20px; font: 600 24px 'Segoe UI', sans-serif; letter-spacing: -.03em; text-transform: none; color: var(--jumping-ink); }
+.level-file-dialog p { margin: 0 0 12px; font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.level-file-dialog p:last-child { margin-bottom: 0; }
+.level-file-dialog fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
+.level-file-dialog label { display: grid; gap: 8px; margin: 18px 0; font-size: 12px; }
+.level-file-dialog input { min-width: 0; width: 100%; padding: 10px; border: 1px solid var(--jumping-rule); border-radius: 4px; background: var(--jumping-paper); color: var(--jumping-ink); font: inherit; }
+.level-file-dialog .level-file-note { font-size: 12px; color: var(--jumping-ink); }
+.level-file-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 26px; }
+.jumping-game .level-file-actions button { min-height: 44px; padding: 10px 18px; }
+.jumping-game .level-file-danger { color: var(--jumping-danger); border-color: var(--jumping-rule); }
+.jumping-game .level-file-primary { background: var(--jumping-color-ink); color: var(--jumping-color-paper); border-color: var(--jumping-color-ink); }
+.level-file-error { color: var(--jumping-danger); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.jumping-game .level-file-delete { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 8px; min-width: 40px; color: var(--jumping-danger); }
+.level-file-delete svg { width: 18px; height: 18px; }
+.jumping-game .level-file-delete-labeled { flex-direction: row; align-items: center; justify-content: center; min-height: 40px; gap: 8px; padding: 8px 14px; font-size: 12px; line-height: 1.4; white-space: nowrap; }
+.level-file-delete svg { flex: 0 0 18px; }
+.level-file-missing { display: flex; flex-direction: column; width: 100%; gap: 10px; padding: 10px; color: var(--jumping-ink); overflow-wrap: anywhere; }
+.level-thumbnail.level-file-placeholder { display: grid; place-items: center; flex-shrink: 0; border: 1px dashed var(--jumping-rule); border-radius: 4px; background: var(--jumping-section); color: var(--jumping-ink); font-size: 30px; }
+.level-file-placeholder span { font-size: 12px; }

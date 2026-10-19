@@ -6,8 +6,34 @@ import { parseLevel, levelTerrain, levelProblems } from '../src/games/jumping/le
 import { bodyIntersects } from '../src/games/jumping/geometry.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { towerWallCatchLevel } from './helpers/jumpingTowerWallCatch.mjs'
+import { mirrorPlatform, mirrorPlayerState } from '../src/games/jumping/gravityFrame.ts'
+import { createGravityField, updateGravityField } from '../src/games/jumping/gravity.ts'
 
 const authored = parseLevel(JSON.parse(readFileSync(new URL('../public/levels/jumping/Tower II.jump-level.json', import.meta.url), 'utf8')))
+
+test('equivalent rectangle, polygon and profile lips retain falling catches in either gravity frame', () => {
+  for (const dt of [STEP, 1 / 30]) for (const side of [-1, 1]) for (const inverted of [false, true]) {
+    for (const shape of [{}, { polygon: [[0, 0], [400, 0], [400, 140], [0, 140]] }, { profile: [[0, 0], [400, 0]] }]) {
+      let lip = { x: 900, y: 1080, w: 400, h: 140, ...shape }
+      const edge = side === -1 ? 1300 : 900
+      const p = createPlayer({ x: edge - side * 11.5, y: 1085 })
+      Object.assign(p, { vx: side * 15, vy: 500, grounded: false, coyote: 0, facing: side })
+      const field = createGravityField()
+      if (inverted) {
+        mirrorPlayerState(p); p.inverted = true; lip = mirrorPlatform(lip)
+        updateGravityField(field, [{ id: 'reverse', x: 0, y: -5000, w: 5000, h: 10000, gravity: -1, power: 'always' }], new Map(), true)
+      }
+      let caught = false
+      for (let tick = 0; tick < 1 / dt; tick++) {
+        stepPlayer(p, { ...NEUTRAL_INPUT, move: caught ? 0 : side }, dt, [lip], undefined, undefined, undefined, field)
+        caught ||= !!p.hang
+      }
+      assert.ok(caught && p.hang, `${JSON.stringify(shape)}: side=${side}, inverted=${inverted}, dt=${dt}`)
+      assert.equal(p.hang.edgeX, edge)
+      assert.equal(p.hang.edgeY, inverted ? -1080 : 1080)
+    }
+  }
+})
 
 test('falling past a polygon lip does not kick the player away from an intended grip', () => {
   for (const side of [-1, 1]) for (const reverse of [false, true]) {

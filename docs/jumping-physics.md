@@ -455,6 +455,15 @@ ordinary and reflected gravity preserve the original rig at zero weight and
 fixed 3D bone lengths throughout the blend. Coverage lives in
 `tests/jumping-ledge-reach-depth.test.mjs`.
 
+Pose rotations carry the head and explicit palm angles along with their points.
+Every arm transfer retains its actual palm contour at zero and full blend,
+including transitions from a loaded grip into a free hand. Retargeting, pose
+transfers, and wall braces share the fixed-length 3D frame in `limbPose.ts`;
+ledge reaches and free-limb bend searches share bone and palm clearance checks.
+The traversal modes still select their own targets, bend paths, and anchors.
+`tests/jumping-pose-transitions.test.mjs` covers rope-turn head orientation,
+release continuity, both facings, and reflected gravity frames.
+
 Dry ledge preparation measures both visible shoulders, starts within 28 units,
 and waits for a lip ahead of the body with a clear hand path. Departing motion,
 prone falls, slides and wall braces retain their own pose. Candidate selection

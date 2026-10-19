@@ -16,9 +16,9 @@ import type { ContactWorld } from './playerContacts.ts'
 import type { Prop } from './challenge.ts'
 import { androidMaterials, drawAndroidArm, drawAndroidHead, drawAndroidLeg, drawAndroidTorso, traceAndroidShell } from './androidArtwork.ts'
 import type { AndroidMaterials } from './androidArtwork.ts'
+import { limbOnBend, limbReach } from './limbPose.ts'
+import type { Limb, Point } from './limbPose.ts'
 
-type Point = [number, number]
-type Limb = { root: Point; joint: Point; end: Point; hand?: Point; handAngle?: number; jointDepth?: number; endDepth?: number }
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
 export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
 export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; ledgeDrop?: boolean; slide?: boolean; pushing?: boolean; step?: NonNullable<Player['mantle']> }
@@ -81,22 +81,9 @@ function armPose(root: Point, angle: number, bend: number, jointDepth = 0, endDe
 }
 /** Retarget a foot without discarding the knee's current bend plane. */
 function solveNear(source: Limb, target: Point, upper: number, lower: number, minOpening = 0): Limb {
-  const vector = [target[0] - source.root[0], target[1] - source.root[1], source.endDepth ?? 0]
-  const minReach = Math.sqrt(upper ** 2 + lower ** 2 - 2 * upper * lower * Math.cos(minOpening)) + .02
-  if (Math.hypot(...vector) < minReach) vector[2] = Math.sqrt(Math.max(0, minReach ** 2 - vector[0] ** 2 - vector[1] ** 2))
-  const actual = Math.hypot(...vector)
-  const length = Math.max(minReach, Math.min(upper + lower - .02, actual))
-  const axis = actual > .001 ? vector.map(v => v / actual) : [0, 1, 0]
-  const along = (upper ** 2 - lower ** 2 + length ** 2) / (2 * length)
-  const center = axis.map(v => v * along)
+  const reach = limbReach(source.root, target, upper, lower, source.endDepth ?? 0, minOpening), { center } = reach
   const preferred = [source.joint[0] - source.root[0] - center[0], source.joint[1] - source.root[1] - center[1], (source.jointDepth ?? 0) - center[2]]
-  const parallel = preferred.reduce((sum, v, i) => sum + v * axis[i], 0)
-  let perpendicular = preferred.map((v, i) => v - axis[i] * parallel)
-  if (Math.hypot(...perpendicular) < .001) perpendicular = [axis[1], -axis[0], 0]
-  const scale = Math.sqrt(Math.max(0, upper ** 2 - along ** 2)) / (Math.hypot(...perpendicular) || 1)
-  const joint = center.map((v, i) => v + perpendicular[i] * scale)
-  return { ...source, joint: add(source.root, [joint[0], joint[1]]),
-    end: add(source.root, [axis[0] * length, axis[1] * length]), jointDepth: joint[2], endDepth: axis[2] * length }
+  return { ...source, ...limbOnBend(reach, preferred) }
 }
 /** Back-view knees bend into the ladder; only a small part of that bend projects sideways. */
 function solveRear(root: Point, target: Point, upper: number, lower: number, side: number, spread: number, reachDepth = 0, sideBend = 0): Limb {
@@ -105,8 +92,7 @@ function solveRear(root: Point, target: Point, upper: number, lower: number, sid
     // The grip is in front of the shoulder in depth. Passing it must not flip the elbow across the body.
     const depth = Math.sqrt(1 - spread * spread)
     const z = Math.min(reachDepth * depth, Math.sqrt(Math.max(0, (upper + lower - .02) ** 2 - planar ** 2)))
-    const actual = Math.hypot(planar, z), length = Math.max(Math.abs(upper - lower) + .02, Math.min(upper + lower - .02, actual))
-    const u = [dx0 / actual, dy0 / actual, z / actual]
+    const reach = limbReach(root, target, upper, lower, z), u = reach.axis
     // A continuous basis over the forward hemisphere also handles a wrist directly in front of its shoulder.
     const a = 1 / (1 + u[2]), b = -u[0] * u[1] * a
     const across = [1 - u[0] ** 2 * a, b, -u[0]], down = [b, 1 - u[1] ** 2 * a, -u[1]]
@@ -119,10 +105,7 @@ function solveRear(root: Point, target: Point, upper: number, lower: number, sid
       const length = Math.hypot(...perpendicular) || 1
       for (let i = 0; i < 3; i++) perpendicular[i] /= length
     }
-    const along = (upper * upper - lower * lower + length * length) / (2 * length)
-    const height = Math.sqrt(Math.max(0, upper * upper - along * along))
-    const joint = u.map((value, i) => value * along + perpendicular[i] * height)
-    return { root, end: [root[0] + u[0] * length, root[1] + u[1] * length], joint: [root[0] + joint[0], root[1] + joint[1]], jointDepth: joint[2], endDepth: u[2] * length }
+    return limbOnBend(reach, perpendicular)
   }
   const solved = solve(root, target, upper, lower, side)
   const dx = solved.end[0] - root[0], dy = solved.end[1] - root[1], distance = Math.hypot(dx, dy)
@@ -168,27 +151,21 @@ function transferPose(from: AthletePose, to: AthletePose, shift: Point, t: numbe
   const limb = (a: Limb, b: Limb, upper: number, lower: number, clearance = 0, minOpening = 0, reachDepth?: number): Limb => {
     const root = point(a.root, b.root), target = point(a.end, b.end)
     // A regripping hand passes in front of the shoulder instead of through it.
-    const vector = [target[0] - root[0], target[1] - root[1], lerp(a.endDepth ?? 0, b.endDepth ?? 0, t) + Math.sin(Math.PI * t) * clearance]
-    if (reachDepth !== undefined) vector[2] = Math.max(vector[2], reachDepth)
-    const minimum = Math.sqrt(upper ** 2 + lower ** 2 - 2 * upper * lower * Math.cos(minOpening)) + .02
-    if (Math.hypot(...vector) < minimum) vector[2] = Math.sqrt(Math.max(0, minimum ** 2 - vector[0] ** 2 - vector[1] ** 2))
-    const actual = Math.hypot(...vector), length = Math.max(minimum, Math.min(upper + lower - .02, actual))
-    const axis = actual > .001 ? vector.map(v => v / actual) : [0, 1, 0]
-    const along = (upper * upper - lower * lower + length * length) / (2 * length)
-    const center = axis.map(v => v * along), preferred = point(a.joint, b.joint)
+    let depth = lerp(a.endDepth ?? 0, b.endDepth ?? 0, t) + Math.sin(Math.PI * t) * clearance
+    if (reachDepth !== undefined) depth = Math.max(depth, reachDepth)
+    const reach = limbReach(root, target, upper, lower, depth, minOpening), { axis, center } = reach
+    const preferred = point(a.joint, b.joint)
     const bend = [preferred[0] - root[0] - center[0], preferred[1] - root[1] - center[1], lerp(a.jointDepth ?? 0, b.jointDepth ?? 0, t) - center[2] + (transition?.depth ?? (turning ? Math.sin(Math.PI * t) * 8 : 0))]
-    const parallel = bend.reduce((sum, v, i) => sum + v * axis[i], 0)
     const stableReach = transition?.stableReach && !('footAngle' in a)
-    let perpendicular = stableReach ? reachingBend(a, b, t, axis, clearance) : bend.map((v, i) => v - axis[i] * parallel)
-    if (Math.hypot(...perpendicular) < .001) perpendicular = [-axis[1], axis[0], 0]
-    const scale = Math.sqrt(Math.max(0, upper * upper - along * along)) / (Math.hypot(...perpendicular) || 1)
-    const joint = center.map((v, i) => v + perpendicular[i] * scale)
-    const end: Point = [root[0] + axis[0] * length, root[1] + axis[1] * length]
-    const palmA = stableReach ? handGeometry(a) : undefined, palmB = stableReach ? handGeometry(b) : undefined
+    const solved = limbOnBend(reach, stableReach ? reachingBend(a, b, t, axis, clearance) : bend, [-axis[1], axis[0], 0])
+    const { end } = solved
+    // Every arm transition retains its actual palm at both endpoints,
+    // including a contact hand blending into an implicit free-hand pose.
+    const hands = !('footAngle' in a), palmA = hands ? handGeometry(a) : undefined, palmB = hands ? handGeometry(b) : undefined
     const hand = palmA && palmB ? add(end, mix([palmA.palm[0] - a.end[0], palmA.palm[1] - a.end[1]],
       [palmB.palm[0] - b.end[0], palmB.palm[1] - b.end[1]], t))
-      : a.hand && b.hand ? add(end, mix([a.hand[0] - a.end[0], a.hand[1] - a.end[1]], [b.hand[0] - b.end[0], b.hand[1] - b.end[1]], t)) : undefined
-    return { root, joint: [root[0] + joint[0], root[1] + joint[1]], end, jointDepth: joint[2], endDepth: axis[2] * length,
+      : undefined
+    return { ...solved,
       hand, handAngle: palmA && palmB ? mixAngle(palmA.angle, palmB.angle, t) : mixAngle(a.handAngle ?? 0, b.handAngle ?? 0, t) }
   }
   const leg = (a: Leg, b: Leg): Leg => {
@@ -451,12 +428,7 @@ function clearLedgeReach(p: Player, wrist: Point, grip: Point, free: Limb, amoun
     && b.y <= y + 24 && b.y + b.h >= y - 24) ?? []
   if (!amount || !nearby.length) return at(amount)
   const local = { ...p, terrain: nearby }
-  const clear = (arm: Limb) => {
-    for (const [a, b] of [[arm.root, arm.joint], [arm.joint, arm.end]]) for (let i = 0; i <= 10; i++) {
-      if (bodyIntrusion(local, mix(a, b, i / 10), 1.65, undefined, free.root)) return false
-    }
-    return handOutline(arm).every(point => !bodyIntrusion(local, point, .03))
-  }
+  const { clear } = limbClearance(local, free, { hands: true, fullPalm: true })
   let previous = 0, arm = at(0)
   for (let i = 1; i <= 8; i++) {
     const t = amount * i / 8, candidate = at(t)
@@ -812,11 +784,12 @@ function rotatePose(pose: AthletePose, angle: number, facing: number, pivot: Poi
   const point = ([x, y]: Point): Point => [pivot[0] + (x - pivot[0]) * cos - (y - pivot[1]) * sin + shift[0],
     pivot[1] + (x - pivot[0]) * sin + (y - pivot[1]) * cos + shift[1]]
   const limb = <T extends Limb>(value: T): T => ({ ...value, root: point(value.root), joint: point(value.joint), end: point(value.end),
-    ...(value.hand ? { hand: point(value.hand) } : {}) })
+    ...(value.hand ? { hand: point(value.hand) } : {}),
+    ...(value.handAngle !== undefined ? { handAngle: value.handAngle + angle * facing } : {}) })
   const leg = (value: Leg): Leg => ({ ...limb(value), footAngle: value.footAngle + angle * facing / value.footFacing })
   return { ...pose, hip: point(pose.hip), waist: point(pose.waist), shoulder: point(pose.shoulder), head: point(pose.head),
     frontArm: limb(pose.frontArm), backArm: limb(pose.backArm), frontLeg: leg(pose.frontLeg), backLeg: leg(pose.backLeg),
-    ...(pose.headTilt !== undefined ? { headTilt: pose.headTilt + angle * facing } : {}) }
+    headTilt: (pose.headTilt ?? 0) + angle * facing }
 }
 
 /** Carry the gathered rig off a turning rope before releasing into free flight. */
@@ -2024,9 +1997,10 @@ function pushBallSurface(p: Player) {
   const reflected = mirrorPlatform(surface)
   return p.terrain?.includes(reflected) ? reflected : surface
 }
-/** Fold through depth around a blocked corner. The projected bend can change
- * without stretching bones or sending a shin/elbow through the solid. */
-function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false, handContact = false, holdContact = false): Limb {
+/** Reaches and bend searches use the same bone radii, palm contour and anchor
+ * rules. Cache only within this read-only query of the current terrain. */
+function limbClearance(p: Player, source: Limb,
+  { hands = false, handContact = false, holdContact = false, fullPalm = false } = {}) {
   const visibleBall = handContact ? pushBallSurface(p) : undefined
   let lastHand: { x: number; y: number; angle: number; hit: ReturnType<typeof bodyIntrusion> } | undefined
   const handIntrusion = (limb: Limb) => {
@@ -2038,7 +2012,7 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
     let deepest: ReturnType<typeof bodyIntrusion> = null
     // An unanchored swimming palm uses one enclosing circle. Full contour
     // queries remain for planted/working hands that must touch a surface.
-    if (p.waterMotion && !p.pushing?.amount && !p.waterMotion.landing && !p.waterMotion.ceiling?.amount && !p.waterMotion.floor) {
+    if (!fullPalm && p.waterMotion && !p.pushing?.amount && !p.waterMotion.landing && !p.waterMotion.ceiling?.amount && !p.waterMotion.floor) {
       deepest = bodyIntrusion(p, palm, 2.1)
     } else for (const point of handOutline(limb)) {
       const hit = bodyIntrusion(p, point, handContact ? 0 : .03, visibleBall)
@@ -2047,10 +2021,6 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
     lastHand = { x: palm[0], y: palm[1], angle, hit: deepest }
     return deepest
   }
-  // A contact palm is relative to its wrist. Retargeting the wrist must carry
-  // that palm too; otherwise the hand stays embedded after the arm clears.
-  const retarget = (limb: Limb): Limb => source.hand ? { ...limb,
-    hand: add(source.hand, [limb.end[0] - source.end[0], limb.end[1] - source.end[1]]) } : limb
   const clear = (limb: Limb) => {
     const samples = hands ? 10 : 4
     for (const [index, [a, b]] of [[limb.root, limb.joint], [limb.joint, limb.end]].entries()) for (let i = 0; i <= samples; i++) {
@@ -2059,6 +2029,17 @@ function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: 
     }
     return !hands || !handIntrusion(limb)
   }
+  return { clear, handIntrusion, visibleBall }
+}
+
+/** Fold through depth around a blocked corner. The projected bend can change
+ * without stretching bones or sending a shin/elbow through the solid. */
+function clearLimb(p: Player, source: Limb, upper: number, lower: number, bend: number, hands = false, handContact = false, holdContact = false): Limb {
+  const { clear, handIntrusion, visibleBall } = limbClearance(p, source, { hands, handContact, holdContact })
+  // A contact palm is relative to its wrist. Retargeting the wrist must carry
+  // that palm too; otherwise the hand stays embedded after the arm clears.
+  const retarget = (limb: Limb): Limb => source.hand ? { ...limb,
+    hand: add(source.hand, [limb.end[0] - source.end[0], limb.end[1] - source.end[1]]) } : limb
   if (clear(source)) return source
   const fold = (end: Point, previous: Limb) => {
     const dx = end[0] - source.root[0], dy = end[1] - source.root[1], length = Math.hypot(dx, dy)
@@ -2630,11 +2611,8 @@ function wallBraceArm(p: Player, shoulder: Point, limb: Limb, weight: number, y:
     jointDepth: 6, endDepth: 0 }, wrist, UPPER_ARM, FOREARM)
   const end = mix(add(root, [limb.end[0] - limb.root[0], limb.end[1] - limb.root[1]]), target.end, contact)
   const endDepth = (limb.endDepth ?? 0) * (1 - contact) + Math.sin(Math.PI * contact) * 3
-  const vector = [end[0] - root[0], end[1] - root[1], endDepth], length = Math.hypot(...vector)
-  const axis = length > .001 ? vector.map(v => v / length) : [0, 1, 0]
-  const bend = reachingBend(limb, target, contact, axis, 3)
-  const solved = solveNear({ root, joint: add(root, [bend[0] * UPPER_ARM, bend[1] * UPPER_ARM]),
-    end, jointDepth: bend[2] * UPPER_ARM, endDepth }, end, UPPER_ARM, FOREARM)
+  const reach = limbReach(root, end, UPPER_ARM, FOREARM, endDepth)
+  const solved = limbOnBend(reach, reachingBend(limb, target, contact, reach.axis, 3))
   const palm = handGeometry(limb)
   return { ...solved, hand: add(solved.end, mix([palm.palm[0] - limb.end[0], palm.palm[1] - limb.end[1]], [-normal[0] * 1.2, -normal[1] * 1.2], contact)),
     handAngle: mixAngle(palm.angle, Math.PI / 2 - Math.atan(slope), contact) }

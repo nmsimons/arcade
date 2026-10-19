@@ -6,7 +6,7 @@ import { useLevelFixtures } from './helpers/jumpingLevels.mjs'
 
 import { providers, login } from './helpers/googleAccount.mjs'
 
-test('account controls stay in menus and the studio, and switch jumping game saves in place', async ({ page }, testInfo) => {
+test('account controls stay in menus, the studio stays private, and signed-in players can play built-in levels', async ({ page }, testInfo) => {
   await providers(page)
   await useLevelFixtures(page, [JSON.parse(readFileSync(new URL('../fixtures/jumping/00-json-test-lab.json', import.meta.url), 'utf8'))])
   for (const route of ['/hard-vacuum', '/bumper-ball', '/urban-fire']) {
@@ -27,24 +27,19 @@ test('account controls stay in menus and the studio, and switch jumping game sav
   }
   await page.getByRole('button', { name: 'Level studio', exact: true }).click()
   await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Keep this draft')
-  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await page.screenshot({ path: testInfo.outputPath('builder-sign-in.png') })
-  await page.getByRole('button', { name: 'Sign in with Google', exact: true }).click()
-  await expect(page.getByRole('alertdialog', { name: 'Sign in and switch saves', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Cancel', exact: true }).click()
-  await page.getByRole('button', { name: 'Close account', exact: true }).click()
-  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Keep this draft')
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCount(0)
   await page.keyboard.press('F8')
+  await expect(page.getByRole('dialog', { name: 'Player account', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Keep this draft')
+  await page.screenshot({ path: testInfo.outputPath('private-local-studio.png') })
+  await page.getByRole('button', { name: 'Back to game', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
   await page.getByRole('button', { name: 'Sign in with Google', exact: true }).click()
   await page.getByRole('alertdialog', { name: 'Sign in and switch saves', exact: true }).getByRole('button', { name: 'Sign in and switch saves', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Alice Example' })).toBeVisible()
   await page.getByRole('button', { name: 'Close account', exact: true }).click()
-  await expect(page).toHaveURL(/lab/)
-  await expect(page.getByRole('textbox', { name: 'Level name', exact: true })).toHaveValue('Untitled level')
-  await page.getByRole('button', { name: 'Back to game', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Account levels', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Account levels', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Alice Example', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Built-in levels', exact: true }).click()
   await page.getByRole('button', { name: /^Level 1:/ }).click()
   await expect(page.getByRole('img', { name: 'JSON Test Lab: reach the exit' })).toBeFocused()
   await expect(page.getByRole('dialog', { name: 'L.A.B. Experiments', exact: true })).toHaveCount(0)
@@ -116,47 +111,6 @@ test('leaving a pending sign-in rejects a late successful response', async ({ pa
   await expect(page.getByRole('heading', { name: 'Alice Example' })).toHaveCount(0)
 })
 
-test('account levels import into the existing level builder and save without a local directory handle', async ({ page }) => {
-  await providers(page); await page.goto('/'); await login(page)
-  await page.getByRole('button', { name: 'Manage saves', exact: true }).click()
-  const fixture = readFileSync(new URL('../fixtures/jumping/00-json-test-lab.json', import.meta.url))
-  await page.locator('input[type=file][multiple]').setInputFiles({ name: 'cloud-level.json', mimeType: 'application/json', buffer: fixture })
-  await expect(page.locator('.account-status')).toContainText('Imported 1 level')
-  await page.getByRole('button', { name: 'Close account' }).click()
-  await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
-  await page.getByRole('button', { name: 'Account levels', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'Refresh account levels' })).toBeVisible()
-  await page.getByRole('button', { name: `Edit ${JSON.parse(fixture).name}`, exact: true }).click()
-  await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('Account edited level')
-  await page.getByRole('button', { name: 'Save level', exact: true }).click()
-  await expect(page.getByRole('status', { name: 'Builder status' })).toContainText('Saved')
-  const name = await page.evaluate(() => JSON.parse(JSON.parse(localStorage.getItem('arcade.player.google%3Aalice.arcade.account.levels.v1')).files['cloud-level.json']).name)
-  expect(name).toBe('Account edited level')
-})
-
-test('new account levels get distinct suggested filenames and existing edits can be saved repeatedly', async ({ page }) => {
-  await providers(page); await page.goto('/'); await login(page)
-  await page.getByRole('button', { name: 'Close account' }).click()
-  await page.getByRole('button', { name: 'L.A.B. Experiments', exact: true }).click()
-  await page.getByRole('button', { name: 'Account levels', exact: true }).click()
-  await page.getByRole('button', { name: 'Level studio', exact: true }).click()
-  const save = page.getByRole('button', { name: 'Save level', exact: true })
-  const status = page.getByRole('status', { name: 'Builder status' })
-  await save.click()
-  await expect(status).toContainText('Saved')
-  await page.getByRole('textbox', { name: 'Level name', exact: true }).fill('First draft')
-  await save.click()
-  await expect(status).toContainText('Saved')
-  await page.getByRole('button', { name: 'Library', exact: true }).click()
-  await page.getByRole('button', { name: 'New level', exact: true }).click()
-  await save.click()
-  await expect(status).toContainText('Saved')
-  await expect(page.getByRole('alertdialog', { name: 'Save failed' })).toHaveCount(0)
-  const files = await page.evaluate(() => JSON.parse(localStorage.getItem('arcade.player.google%3Aalice.arcade.account.levels.v1')).files)
-  expect(JSON.parse(files['Untitled level.jump-level.json']).name).toBe('First draft')
-  expect(JSON.parse(files['Untitled level 2.jump-level.json']).name).toBe('Untitled level')
-})
-
 test('Microsoft uses a personal-account PKCE popup and denied consent leaves anonymous play intact', async ({ page, context }) => {
   await providers(page)
   const authority = 'https://login.microsoftonline.com/consumers'
@@ -182,14 +136,14 @@ test('Microsoft uses a personal-account PKCE popup and denied consent leaves ano
   const params = new URL(popup.url()).searchParams
   expect(params.get('response_type')).toBe('code'); expect(params.get('code_challenge_method')).toBe('S256')
   expect(params.get('code_challenge')).toBeTruthy(); expect(params.get('state')).toBeTruthy(); expect(params.get('nonce')).toBeTruthy()
-  expect(params.get('redirect_uri')).toBe('http://127.0.0.1:4176/auth-redirect.html')
+  expect(params.get('redirect_uri')).toBe(new URL('/auth-redirect.html', page.url()).href)
   expect(params.get('scope')).not.toContain('Files.')
   await popup.goto(params.get('redirect_uri') + '#error=access_denied&error_description=Cancelled&state=' + encodeURIComponent(params.get('state')), { waitUntil: 'commit' })
   await expect(page.getByRole('button', { name: 'Sign in with Microsoft', exact: true })).toBeEnabled({ timeout: 10000 })
   await expect(page.getByRole('heading', { name: 'Play anywhere' })).toBeVisible()
 })
 
-test('OneDrive sync publishes a portable game collection and reads copied files back through the account UI', async ({ page }) => {
+test('OneDrive sync publishes progress and reads remote progress back through the account UI', async ({ page }) => {
   const drive = oneDrive(), errors = []
   drive.items.get('root').name = 'Arcade Test Registration'
   page.on('pageerror', error => errors.push(error.message))
@@ -209,26 +163,23 @@ test('OneDrive sync publishes a portable game collection and reads copied files 
   await page.getByRole('button', { name: 'Account settings', exact: true }).click()
   await expect(page.getByText(/Connect OneDrive and sync to find your app folder/)).toBeVisible()
   await page.getByRole('button', { name: 'Back to cloud saves' }).click()
-  await page.getByRole('button', { name: 'Manage saves', exact: true }).click()
-  const level = readFileSync(new URL('../fixtures/jumping/00-json-test-lab.json', import.meta.url), 'utf8')
-  const index = '{ "version": 1, "order": "listed", "levels": ["Portable.json"], "chapter": "Test" }\n'
-  await page.locator('input[type=file][multiple]').setInputFiles([
-    { name: 'Portable.json', mimeType: 'application/json', buffer: Buffer.from(level) },
-    { name: 'index.json', mimeType: 'application/json', buffer: Buffer.from(index) },
-  ])
-  await expect(page.locator('.account-status')).toContainText('Imported 1 level')
-  await page.getByRole('button', { name: 'Back to cloud saves' }).click()
+  await page.evaluate(async () => {
+    const { gameStorage } = await import('/src/accounts/profileStorage.ts')
+    gameStorage().setItem('arcade.jumping.times.v1', '{"Tower":123}')
+  })
   await page.getByRole('button', { name: 'Connect OneDrive', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Synced with OneDrive')
   await expect(page.getByRole('link', { name: 'Open OneDrive folder' })).toHaveAttribute('href', 'https://onedrive.live.com/?id=test-app-folder')
   await page.getByRole('button', { name: 'Account settings', exact: true }).click()
   await expect(page.getByText('Arcade Test Registration', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Back to cloud saves' }).click()
-  expect(drive.find('Untitled Jumping Game/Levels/Portable.json').text).toBe(level)
-  expect(drive.find('Untitled Jumping Game/Levels/index.json').text).toBe(index)
-  drive.put('Untitled Jumping Game/Levels/Copied.json', JSON.stringify({ ...JSON.parse(level), id: 'copied-level', name: 'Copied from OneDrive' }))
+  expect(drive.find('Untitled Jumping Game/personal-bests.json').text).toBe('{"Tower":123}')
+  drive.put('Untitled Jumping Game/personal-bests.json', '{"Tower":111}')
   await page.getByRole('button', { name: 'Sync now', exact: true }).click()
   await expect(page.locator('.account-status')).toContainText('Synced with OneDrive')
-  await expect.poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('arcade.player.microsoft%3Afolder-test.arcade.account.levels.v1')).files['Copied.json'])).toBeTruthy()
+  await expect.poll(() => page.evaluate(async () => {
+    const { gameStorage } = await import('/src/accounts/profileStorage.ts')
+    return JSON.parse(gameStorage().getItem('arcade.jumping.times.v1')).Tower
+  })).toBe(111)
   expect(errors).toEqual([])
 })

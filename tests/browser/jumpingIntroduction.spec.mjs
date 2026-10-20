@@ -45,11 +45,9 @@ for (const [file, name] of [['00.json', 'First Gap'], ['02.json', 'A Little Swin
       await page.clock.runFor(16); p = await sample(page)
     }
     expect(p.x).toBeGreaterThan(540); expect(p.x).toBeLessThanOrEqual(573)
-    // HUD metrics publish at most every 80 ms. Advance the frozen animation
-    // clock through that boundary before asserting its contact-specific cue.
     await page.keyboard.up('a'); await page.keyboard.down('w'); await page.clock.runFor(160)
     expect((await sample(page)).signals.mode).toBe('ladder')
-    await expect(page.getByLabel('Available actions')).toContainText('Up / Down to climb')
+    await expect(page.getByLabel('Available actions')).toHaveCount(0)
     await page.screenshot({ path: info.outputPath('ladder-acquired.png') })
     await page.clock.runFor(5400); await page.keyboard.up('w')
     p = await sample(page)
@@ -69,7 +67,7 @@ test('A Little Swing teaches an automatic catch, held-press consumption, and a d
   let p = await sample(page)
   expect(p.input.climb).toBe(false); expect(p.signals.mode).toBe('rope')
   await page.clock.runFor(96)
-  await expect(page.getByLabel('Available actions')).toContainText('Release Space, then press again to jump off')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   await page.keyboard.up('d'); await page.clock.runFor(168)
   expect((await sample(page)).signals.mode).toBe('rope')
   await page.screenshot({ path: info.outputPath('rope-automatic-held-catch.png') })
@@ -78,7 +76,7 @@ test('A Little Swing teaches an automatic catch, held-press consumption, and a d
   await page.keyboard.down('w'); await page.clock.runFor(832); await page.keyboard.up('w')
   p = await sample(page)
   expect(p.signals.mode).toBe('rope'); expect(p.y).toBeLessThan(caught.y - 30)
-  await expect(page.getByLabel('Available actions')).toContainText('Space to jump off')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   let direction = 1, forward = false
   await page.keyboard.down('d')
   for (let i = 0; i < 220; i++) {

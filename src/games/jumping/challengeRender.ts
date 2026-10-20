@@ -27,6 +27,8 @@ import { drawFloatSwitchArm } from './floatSwitch.ts'
 import { drawWallLight } from './wallLight.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { drawLabLogo, LAB_LOGO_HEIGHT, LAB_LOGO_WIDTH } from '../../branding/lab.ts'
+import { drawGadgets, drawLooseGadget } from './gadgetRender.ts'
+import { drawRepulsorBot } from './repulsorBotRender.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -50,6 +52,7 @@ export function drawMechanism(ctx: CanvasRenderingContext2D, m: Pick<MechanismSt
   }
 }
 export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
+  if (b.gadget) { drawLooseGadget(ctx, b); return }
   const r = b.size / 2, x = b.x - r, y = b.y - b.size
   if (b.kind === 'box') {
     ctx.save(); ctx.translate(b.x, b.y - r); ctx.rotate(b.angle); ctx.translate(-b.x, -b.y + r)
@@ -96,6 +99,7 @@ export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
   }
 }
 export function drawRobot(ctx: CanvasRenderingContext2D, r: RobotState, elapsed: number, angry = false, powered = true, paint: WorldPaint = paintNormally, headlightFade = 0) {
+  if (r.actor) { drawRepulsorBot(ctx, r, powered, paint, headlightFade); return }
   ctx.save(); ctx.translate(r.x, r.y - 9); ctx.rotate(r.angle); ctx.translate(0, 9); ctx.scale(r.facing, 1)
   const top = robotTop(r)
   paint(ctx, 0, () => {
@@ -147,7 +151,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   const { level, player: p } = run
   if (layer !== 'objects') {
     const wallPaint = ambientPaint(paint)
-    for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), editor, wallPaint)
+    for (const plate of level.gravityPlates ?? []) drawGravityRegion(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), editor, wallPaint)
     drawGravityDust(ctx, level.gravityPlates ?? [], run.gravityField, run.activeTime, paint, nightModeEnabled(level.lighting))
     drawLightFixtures(ctx, lights, wallPaint)
     for (const light of level.wallLights ?? []) drawWallLight(ctx, light, !!run.switchStates.get(light.id), paint)
@@ -178,7 +182,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
       drawPressurePlate(ctx, position.x, position.y, plate.w, run.triggers[i].active, run.triggers[i].depression, plate.ceiling)
     }
   })
-  for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), paint)
+  for (const plate of level.gravityPlates ?? []) drawGravityPlate(ctx, plate, !run.gadgets.disabled.has(plate) && gravityPlateActive(plate, run.switchStates, run.empRemaining === 0), paint)
   for (const field of run.forceFields) drawForceField(ctx, field.definition, field.active, run.activeTime, editor, field.pending, paint)
   drawGoal(ctx, level.goal, run.goalLit, paint)
   for (const state of run.floatSwitches) drawFloatSwitchArm(ctx, state, paint)
@@ -187,7 +191,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
     for (const b of run.props) drawProp(ctx, b)
     drawClimbables(ctx, p, level.climbables)
   })
-  for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0, paint, lights.find(light => light.robot === i)?.fade ?? 0)
+  for (const [i, r] of run.robots.entries()) drawRobot(ctx, r, run.activeTime, r.seesPlayer, run.empRemaining === 0 && !r.deactivated && !run.gadgets.disabled.has(r), paint, lights.find(light => light.robot === i)?.fade ?? 0)
   if (!run.started && run.entrance && !editor) {
     const entrance = run.entrance, waking = entrance.kind === 'charging-bay'
     ctx.save(); ctx.globalAlpha *= waking ? .45 + .55 * chargingBayOpening(entrance.elapsed) : entranceVisibility(entrance.elapsed)
@@ -203,6 +207,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
+  if (!editor) drawGadgets(ctx, run, paint, playerExposure)
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)

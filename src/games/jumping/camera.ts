@@ -16,16 +16,24 @@ function verticalCamera(height: number, zoom: number, center: number, roomHeight
 }
 
 /** Shared by the original and lit renderers so lighting never changes framing. */
-export function gameCamera(width: number, height: number, p: Player, level: JumpLevel, challenge: boolean, lookAhead = 0) {
+export function gameCamera(width: number, height: number, p: Player, level: JumpLevel, challenge: boolean, lookAhead = 0, verticalLook = 0) {
   const y = p.y + ((p.waterCamera?.y ?? p.y) - p.y) * (p.waterCamera?.amount ?? 0)
   const angle = playerTurnAngle(p), radius = TUNING.height / 2 * (p.inverted ? -1 : 1)
   // Follow occupied body space through a turn. The foot-root changes meaning
   // at inversion; treating it as upright until then makes the view jump a body height.
   const centerX = p.x + Math.sin(angle) * radius, center = y - Math.cos(angle) * radius
+  const vertical = (zoom: number) => {
+    const roomHeight = levelHeight(level), base = verticalCamera(height, zoom, center, roomHeight), viewHeight = height / zoom
+    if (!verticalLook || roomHeight + LEVEL_BOTTOM_PADDING * 2 / zoom <= viewHeight) return base
+    const margin = 12 / zoom, extent = Math.abs(Math.cos(angle) * radius) + Math.abs(Math.sin(angle) * TUNING.width / 2)
+    const low = Math.max(-LEVEL_BOTTOM_PADDING / zoom, center + extent - viewHeight + margin)
+    const high = Math.min(roomHeight + LEVEL_BOTTOM_PADDING / zoom - viewHeight, center - extent - margin)
+    return Math.max(low, Math.min(high, base + verticalLook))
+  }
   if (!challenge) {
     const zoom = Math.max(.45, Math.min(1.6, height / 760))
     return { zoom, x: centerX - width / zoom / 2,
-      y: verticalCamera(height, zoom, center, levelHeight(level)) }
+      y: vertical(zoom) }
   }
   // At .42 the entire standing figure is only 26 CSS pixels high. A .6 floor
   // keeps its hands/feet legible on phones while retaining more approach view
@@ -35,7 +43,7 @@ export function gameCamera(width: number, height: number, p: Player, level: Jump
   const leadLimit = Math.max(0, half - 72)
   const ahead = Math.max(-leadLimit, Math.min(leadLimit, lookAhead))
   const cameraX = level.width < half * 2 - 80 ? level.width / 2 : Math.max(half - 40, Math.min(level.width - half + 40, centerX + ahead))
-  return { zoom, x: cameraX - half, y: verticalCamera(height, zoom, center, levelHeight(level)) }
+  return { zoom, x: cameraX - half, y: vertical(zoom) }
 }
 
 /** Hold on the occupied pod, then quietly reveal the room before control starts. */
@@ -61,10 +69,11 @@ export class GameCamera {
   private player?: Player
   private level?: JumpLevel
   private lookAhead = 0
+  private verticalLook = 0
 
   view(width: number, height: number, p: Player, level: JumpLevel, challenge: boolean, dt = 0) {
     if (p !== this.player || level !== this.level) {
-      this.player = p; this.level = level; this.lookAhead = 0
+      this.player = p; this.level = level; this.lookAhead = 0; this.verticalLook = 0
     }
     // The original desktop view already covers a full running jump. Add lead
     // only when the visible half-span falls short of that commitment.
@@ -76,6 +85,8 @@ export class GameCamera {
     // changing facing or input never flips the camera in a single frame.
     const elapsed = Math.max(0, dt), change = (target - this.lookAhead) * (1 - Math.exp(-elapsed / .12))
     this.lookAhead += Math.max(-800 * elapsed, Math.min(800 * elapsed, change))
-    return gameCamera(width, height, p, level, challenge, this.lookAhead)
+    const verticalTarget = (p.crouch - p.look) * Math.min(80, height / base.zoom * .08)
+    this.verticalLook += (verticalTarget - this.verticalLook) * (1 - Math.exp(-elapsed / .16))
+    return gameCamera(width, height, p, level, challenge, this.lookAhead, this.verticalLook)
   }
 }

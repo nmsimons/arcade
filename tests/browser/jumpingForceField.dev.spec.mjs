@@ -20,10 +20,10 @@ async function instrument(page) {
         this.canvas.fieldCamera = this.getTransform(); this.canvas.fieldBeams = []; this.canvas.fieldHandles = []; this.canvas.fieldBoxes = []; this.canvas.fieldSparks = []
       }
       const t = this.getTransform()
-      if (this.fillStyle === '#267da7') {
+      if (this.fillStyle === '#267da7' || this.fillStyle === '#b63f48') {
         this.canvas.fieldBeams ??= []
         this.canvas.fieldBeams.push({ x: t.a * (args[0] + args[2] / 2) + t.c * (args[1] + args[3] / 2) + t.e,
-          y: t.b * (args[0] + args[2] / 2) + t.d * (args[1] + args[3] / 2) + t.f })
+          y: t.b * (args[0] + args[2] / 2) + t.d * (args[1] + args[3] / 2) + t.f, red: this.fillStyle === '#b63f48' })
       }
       if (this.fillStyle === '#d3f4ff') { this.canvas.fieldSparks ??= []; this.canvas.fieldSparks.push({x:t.a*args[0]+t.c*args[1]+t.e,y:t.b*args[0]+t.d*args[1]+t.f,alpha:this.globalAlpha}) }
       if (this.fillStyle === '#c65231' && args[2] === args[3]) {
@@ -46,9 +46,10 @@ async function openGame(page, level) {
   await useLevelFixtures(page,[level]); await instrument(page)
   await page.clock.install({ time: new Date('2026-01-01T00:00:00Z') })
   await page.goto('/lab?motionDebug=1')
-  await expect(page.locator('.jumping-level-card[aria-pressed=true]')).toBeVisible()
+  const card=page.locator('.jumping-level-card[aria-pressed=true]').filter({hasText:level.name})
+  await expect(card).toBeVisible({timeout:15000})
   await page.clock.pauseAt(new Date('2026-01-01T01:00:00Z'))
-  await page.locator('.jumping-level-card[aria-pressed=true]').click(); await finishJumpingEntrance(page)
+  await card.click(); await finishJumpingEntrance(page)
   await expect(page.locator('canvas')).toBeFocused(); await page.clock.runFor(64)
 }
 async function point(page, x, y) {
@@ -70,6 +71,47 @@ test('a player pushes a box through a vertical field, stops at the beam, and can
   await page.keyboard.down('Space'); await page.clock.runFor(32); await page.keyboard.up('Space'); await page.clock.runFor(200)
   expect((await player(page)).y).toBeLessThan(560)
   expect((await player(page)).x).toBeLessThan(500)
+  expect(errors).toEqual([])
+})
+
+test('a red vertical field stops a pushed box while the player jumps through', async ({ page }, info) => {
+  const level=fixture(); level.forceFields[0].mode='objects'
+  const errors=[]; page.on('pageerror',e=>errors.push(e.message))
+  await openGame(page,level)
+  await page.keyboard.down('d'); await page.clock.runFor(1800)
+  const boxes=await page.locator('canvas').evaluate(c=>c.fieldBoxes)
+  expect(boxes).toHaveLength(1); expect(boxes[0].x).toBeLessThanOrEqual(480.1)
+  await page.keyboard.down('Space'); await page.clock.runFor(150); await page.keyboard.up('Space')
+  await page.clock.runFor(900); await page.keyboard.up('d')
+  expect((await player(page)).x).toBeGreaterThan(560)
+  expect((await page.locator('canvas').evaluate(c=>c.fieldBoxes))[0].x).toBeLessThanOrEqual(480.1)
+  expect((await page.locator('canvas').evaluate(c=>c.fieldBeams)).some(b=>b.red)).toBe(true)
+  await page.screenshot({path:info.outputPath('red-vertical-player-through.png')})
+  expect(errors).toEqual([])
+})
+
+for (const night of [false,true]) test(`red horizontal fields retain objects while the player falls through in ${night?'night':'day'}`, async ({ page }, info) => {
+  const level=fixture(true,night); level.forceFields[0].mode='objects'
+  const errors=[]; page.on('pageerror',e=>errors.push(e.message))
+  await openGame(page,level)
+  await page.keyboard.down('d'); await page.clock.runFor(700); await page.keyboard.up('d'); await page.clock.runFor(1000)
+  const standing=await player(page)
+  expect(standing.y).toBeCloseTo(600,1); expect(standing.signals.grounded).toBe(true)
+  const canvas=page.locator('canvas')
+  expect((await canvas.evaluate(c=>c.fieldBoxes)).some(b=>Math.abs(b.y-330)<1)).toBe(true)
+  const visible=await canvas.evaluate(c=>{
+    const ctx=c.getContext('2d')
+    return c.fieldBeams.some(p=>{
+      if(!p.red||p.x<2||p.y<2||p.x>=c.width-2||p.y>=c.height-2)return false
+      for(let dx=-1;dx<=1;dx++) for(let dy=-1;dy<=1;dy++) {
+        const [r,g,b]=ctx.getImageData(Math.floor(p.x)+dx,Math.floor(p.y)+dy,1,1).data
+        if(r>100&&r>g+15&&r>b+15)return true
+      }
+      return false
+    })
+  })
+  expect(visible).toBe(true)
+  await page.screenshot({path:info.outputPath(`red-horizontal-force-field-${night?'night':'day'}.png`)})
   expect(errors).toEqual([])
 })
 
@@ -142,17 +184,27 @@ test('both studio tools have end handles, support wiring and group copy, and per
   await page.getByRole('button',{name:'Undo',exact:true}).click(); await selectBuilderObject(page,'force-field:0')
   await expect(page.getByRole('spinbutton',{name:'Object h',exact:true})).toHaveValue(before)
   await expect(page.getByRole('spinbutton',{name:'Object w',exact:true})).toBeDisabled()
+  await expect(page.getByRole('combobox',{name:'Force field mode',exact:true})).toHaveText('Blue · blocks player')
+  await selectBuilderOption(page,'Force field mode','objects')
+  await page.getByRole('button',{name:'Undo',exact:true}).click()
+  await selectBuilderObject(page,'force-field:0')
+  await expect(page.getByRole('combobox',{name:'Force field mode',exact:true})).toHaveText('Blue · blocks player')
+  await page.getByRole('button',{name:'Redo',exact:true}).click()
+  await selectBuilderObject(page,'force-field:0')
+  await expect(page.getByRole('combobox',{name:'Force field mode',exact:true})).toHaveText('Red · lets player through')
   await selectBuilderOption(page,'Force field power','switched')
   await page.getByRole('group',{name:'Switched by',exact:true}).getByRole('checkbox',{name:'Pressure plate 1',exact:true}).check()
   await board(page).focus(); await page.keyboard.press('Control+c'); await page.keyboard.press('Control+v')
   const saved=await saveTestLevel(page)
   expect(saved.level.forceFields).toHaveLength(3)
-  expect(saved.level.forceFields[0]).toMatchObject({orientation:'vertical',power:'switched',w:12,h:Number(before)})
+  expect(saved.level.forceFields[0]).toMatchObject({orientation:'vertical',power:'switched',mode:'objects',w:12,h:Number(before)})
   expect(saved.level.forceFields[1]).toMatchObject({orientation:'horizontal',power:'always',h:12})
   expect(saved.level.forceFields[2].id).not.toBe(saved.level.forceFields[0].id)
+  expect(saved.level.forceFields[2].mode).toBe('objects')
   expect(saved.level.triggers[0].targets).toContain(saved.level.forceFields[0].id)
   await reopenTestLevel(page,saved); await selectBuilderObject(page,'force-field:0')
   await expect(page.getByRole('combobox',{name:'Force field power',exact:true})).toHaveText('Switched')
+  await expect(page.getByRole('combobox',{name:'Force field mode',exact:true})).toHaveText('Red · lets player through')
   await expect(page.getByRole('group',{name:'Switched by',exact:true}).getByRole('checkbox',{name:'Pressure plate 1',exact:true})).toBeChecked()
   await page.screenshot({path:info.outputPath('force-field-studio.png')})
 })

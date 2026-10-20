@@ -12,9 +12,12 @@ function fieldSeed(field: ForceField) {
   return seed
 }
 const fraction = (value: number) => value - Math.floor(value)
+const BLUE = { glow: '#63c8ed', core: '#267da7', bright: '#c1efff', ripple: '#a5e7ff', spark: '#d3f4ff', pending: '#67badc', off: '#859aa3' }
+const RED = { glow: '#ed777d', core: '#b63f48', bright: '#ffd4cb', ripple: '#ffb8af', spark: '#ffe4d9', pending: '#d37878', off: '#a8898c' }
 
 /** A bounded Canvas effect: no particle integration, blur, shadow buffers or light source. */
 export function drawForceField(ctx: CanvasRenderingContext2D, field: ForceField, active: boolean, time = 0, editor = false, pending = false, paint: WorldPaint = paintNormally) {
+  const ink = field.mode === 'objects' ? RED : BLUE
   const horizontal = field.orientation === 'horizontal', length = horizontal ? field.w : field.h
   const transform = ctx.getTransform(), scale = Math.hypot(transform.a, transform.b) || 1
   const x = transform.a * field.x + transform.c * field.y + transform.e
@@ -31,7 +34,7 @@ export function drawForceField(ctx: CanvasRenderingContext2D, field: ForceField,
     const alpha = ctx.globalAlpha, seed = fieldSeed(field)
     // Nested translucent bands give soft edges without a blur/filter pass.
     const shimmer = .9 + .1 * Math.sin(time * 2.1 + seed % 17)
-    ctx.fillStyle = '#63c8ed'
+    ctx.fillStyle = ink.glow
     for (let edge = 6; edge > 0; edge--) {
       ctx.globalAlpha = alpha * shimmer * (edge === 6 ? .025 : .045)
       ctx.fillRect(6, -edge * 1.5, length - 12, 12 + edge * 3)
@@ -39,11 +42,11 @@ export function drawForceField(ctx: CanvasRenderingContext2D, field: ForceField,
     ctx.globalAlpha = alpha * .22
     ctx.fillRect(7, 0, length - 14, 12)
     ctx.globalAlpha = alpha
-    ctx.fillStyle = '#267da7'; ctx.fillRect(7, 3, length - 14, 6)
-    ctx.fillStyle = '#c1efff'; ctx.fillRect(7, 5, length - 14, 2)
+    ctx.fillStyle = ink.core; ctx.fillRect(7, 3, length - 14, 6)
+    ctx.fillStyle = ink.bright; ctx.fillRect(7, 5, length - 14, 2)
     // Two slow ripples, with at most 24 segments each even for room-wide beams.
     const segments = Math.min(24, Math.max(4, Math.ceil(length / 24)))
-    ctx.strokeStyle = '#a5e7ff'; ctx.lineWidth = 1
+    ctx.strokeStyle = ink.ripple; ctx.lineWidth = 1
     ctx.globalAlpha = alpha * .6
     for (const side of [-1, 1]) {
       ctx.beginPath()
@@ -56,7 +59,7 @@ export function drawForceField(ctx: CanvasRenderingContext2D, field: ForceField,
     }
     // Sparse sparks drift away and fade. Positions are evaluated, never simulated.
     const count = Math.min(8, Math.max(2, Math.floor(length / 65)))
-    ctx.fillStyle = '#d3f4ff'
+    ctx.fillStyle = ink.spark
     for (let i = 0; i < count; i++) {
       const phase = fraction(Math.sin(seed + i * 17.31) * 43758.5453)
       const age = fraction(time / (1.7 + phase * .7) + i / count + phase)
@@ -68,7 +71,7 @@ export function drawForceField(ctx: CanvasRenderingContext2D, field: ForceField,
     ctx.globalAlpha = alpha
   })
   else if (editor || pending) paint(ctx, .65, () => {
-    ctx.strokeStyle = pending ? '#267da7' : '#859aa3'; ctx.lineWidth = 1
+    ctx.strokeStyle = pending ? ink.core : ink.off; ctx.lineWidth = 1
     ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.moveTo(7, 6); ctx.lineTo(length - 7, 6); ctx.stroke(); ctx.setLineDash([])
   })
   paint(ctx, .65, () => {
@@ -76,7 +79,7 @@ export function drawForceField(ctx: CanvasRenderingContext2D, field: ForceField,
     ctx.fillRect(0, 0, 8, 12); ctx.fillRect(length - 8, 0, 8, 12)
     ctx.fillStyle = '#a5b2b7'
     ctx.fillRect(2, 2, 2, 8); ctx.fillRect(length - 4, 2, 2, 8)
-    ctx.fillStyle = active ? '#c1efff' : pending ? '#67badc' : '#859aa3'
+    ctx.fillStyle = active ? ink.bright : pending ? ink.pending : ink.off
     ctx.fillRect(6, 2, 2, 8); ctx.fillRect(length - 8, 2, 2, 8)
   })
   ctx.restore()

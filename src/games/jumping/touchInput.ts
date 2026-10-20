@@ -14,6 +14,8 @@ export interface TouchFeedback { id: number; x: number; y: number; label: string
 export function createJumpTouch() {
   const contacts = new Map<number, Contact>(), actions: Action[] = []
   let releaseJump = false
+  const gadgetActions: ('use' | 'interact')[] = []
+  let releaseGadget = false
   function update(now: number) {
     for (const c of contacts.values()) {
       if (c.stroke) {
@@ -30,7 +32,8 @@ export function createJumpTouch() {
   return {
     get active() { return contacts.size > 0 },
     has: (id: number) => contacts.has(id),
-    reset() { contacts.clear(); actions.length = 0; releaseJump = false },
+    reset() { contacts.clear(); actions.length = 0; releaseJump = false; gadgetActions.length = 0; releaseGadget = false },
+    gadgetAction(action: 'use' | 'interact') { gadgetActions.push(action) },
     down(id: number, x: number, y: number, now: number, width: number) {
       if (contacts.has(id) || contacts.size >= 2) return false
       const movement = ![...contacts.values()].some(c => c.movement)
@@ -79,7 +82,10 @@ export function createJumpTouch() {
       const values = [...contacts.values()], mover = values.find(c => c.movement)
       const climb = values.some(c => c.vertical > 0), descend = !climb && values.some(c => c.vertical < 0)
       const move = (mover?.direction ?? 0) * (mover?.running || descend ? 1 : TUNING.walkSpeed / TUNING.runSpeed)
-      const input = { ...NEUTRAL_INPUT, move, climb, descend, drop: descend, crouch: descend }
+      const gadget = releaseGadget ? undefined : gadgetActions.shift()
+      releaseGadget = !!gadget
+      const toolInput = { ...(gadget === 'use' ? { use: true } : {}), ...(gadget === 'interact' ? { interact: true } : {}) }
+      const input = { ...NEUTRAL_INPUT, move, climb, descend, drop: descend, crouch: descend, ...toolInput }
       if (releaseJump) { releaseJump = false; return input }
       const action = actions.shift()
       if (action?.kind === 'jump') { releaseJump = true; return { ...input, jump: true, jumpStrength: action.strength } }

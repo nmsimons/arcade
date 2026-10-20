@@ -54,17 +54,20 @@ export function createControllerReader(layout: ControllerLayout = DEFAULT_CONTRO
         if (pressed) down.add(index)
       })
       const x = stickAxis(pad?.axes[screen === 'flight' ? layout.axes.turn : layout.axes.menuX]), y = stickAxis(pad?.axes[layout.axes.menuY])
+      const rawAxis = (index: number) => Number.isFinite(pad?.axes[index]) ? Math.max(-1, Math.min(1, pad!.axes[index])) : 0
+      const rawX = rawAxis(layout.axes.menuX), rawY = rawAxis(layout.axes.menuY)
+      const axisActive = screen === 'flight' ? x !== 0 : Math.hypot(rawX, rawY) > STICK_DEAD_ZONE
       const scrollAxis = stickAxis(pad?.axes[layout.axes.scroll])
       const isMap = screen === 'map' || screen.startsWith('map:')
       const token = focused ? screen : 'unfocused'
       if (context !== token) {
         context = token; blocked = new Set(down)
-        axisBlocked = x !== 0 || (screen !== 'flight' && y !== 0)
+        axisBlocked = axisActive
         scrollBlocked = scrollAxis !== 0
         menuDirection = null; repeatAt = 0
       }
       for (const button of blocked) if (!down.has(button)) blocked.delete(button)
-      if (x === 0 && (screen === 'flight' || y === 0)) axisBlocked = false
+      if (!axisActive) axisBlocked = false
       if (scrollAxis === 0) scrollBlocked = false
       const held = (button: number) => focused && down.has(button) && !blocked.has(button)
       const pressed = [...down].filter(button => held(button) && !previous.has(button))
@@ -88,6 +91,10 @@ export function createControllerReader(layout: ControllerLayout = DEFAULT_CONTRO
         connected: !!pad, disconnected,
         unsupported: !pad && pads.some(p => p?.connected),
         pressed, held: [...down].filter(held), navigation, direction,
+        // Preserve the stick's angle before consumers choose direction sectors.
+        // Movement/menu axes keep their existing per-axis response curve.
+        stickDirection: focused && !axisBlocked && Math.hypot(rawX, rawY) > STICK_DEAD_ZONE
+          ? { x: rawX, y: rawY } : { x: 0, y: 0 },
         scroll: focused && !scrollBlocked && screen.startsWith('menu:') ? scrollAxis : 0,
         flight: screen === 'flight' && focused && !disconnected
           ? { turn: axisBlocked ? 0 : x, thrust: held(CONTROLLER.thrust) ? thrust : 0, reverse: held(CONTROLLER.reverse) ? reverse : 0,

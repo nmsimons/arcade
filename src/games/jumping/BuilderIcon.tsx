@@ -2,6 +2,8 @@ import type { Tool, TerrainTransform } from './editor'
 import { STOPWATCH_FACE_PATH, STOPWATCH_DETAILS_PATH, STOPWATCH_HAND_PATH, TIME_BONUS_ARROW_PATH, TIME_BONUS_ARROW_WIDTH, TIME_BONUS_DEFAULT_SECONDS, TIME_PENALTY_COLOR, EMP_BOLT_PATH } from './pickups'
 const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' | 'time-penalty' | 'emp'> | TerrainTransform, string> = {
   select: 'M5 3v16l4-5 4 7 3-2-4-6 7-1Z',
+  'carried-emp': 'M3 7h18v10H3zM6 7v10M13 8l-3 4h3l-1 4 4-5h-3Z',
+  repulsor: 'M3 7h18v10H3zM6 7v10M16 7v10M9 10h4M20 10h2v4h-2',
   node: 'M3 17h6m6 0h6M12 14a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM12 3v7M8.5 6.5h7',
   'rotate-left': 'M8 3 4 7l4 4M4 7h9a7 7 0 1 1-7 9',
   'rotate-right': 'm16 3 4 4-4 4M20 7h-9a7 7 0 1 0 7 9',
@@ -15,6 +17,7 @@ const paths: Record<Exclude<Tool, 'stopwatch' | 'fast-stopwatch' | 'time-bonus' 
   box: 'M4 4h16v16H4zM7 9h10M7 15h10', ball: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM18 12a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z',
   'branded-box': 'M4 4h16v16H4zM7 7h10M7 17h10M8 10v4h3M13 14l2-4 2 4M14 12h2',
   pusher: 'M4 5h16v13H4zM7 10h3M14 9h3v3h-3zM7 18v3M17 18v3',
+  repulsorbot: 'M9 2h6v5H9zM7 8h10v7H7zM7 9H3v6h4M17 9h5v5h-5M9 15l-2 7M15 15l2 7M3 12h4M19 10v3',
   'force-field': 'M9 2h6v4H9zM9 18h6v4H9zM12 7v2M12 11v2M12 15v2M9 7v10M15 7v10',
   'horizontal-force-field': 'M2 9h4v6H2zM18 9h4v6h-4zM7 12h2M11 12h2M15 12h2M7 9h10M7 15h10',
   'gravity-plate': 'M2 19h20M4 14h16v2H4zM12 10V3M9 6l3-3 3 3',

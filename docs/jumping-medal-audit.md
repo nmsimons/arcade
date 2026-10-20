@@ -1,5 +1,16 @@
 # Built-in jumping medal audit
 
+October 20 catalog upkeep: Freight Run was removed from the built-in collection.
+Its map is retained in `tests/fixtures/jumping/freight-run.json`, with its express
+and alternative recordings in `tests/fixtures/jumping-freight-routes.json`, solely
+for movement regression coverage. Aloft's **10 / 20 / 40** targets are explicitly
+pending a fresh-start medal recording. Slow is Smooth's existing input recording
+now continues through the full exit animation after the traversal changes:
+**10.93** clock seconds (**11.79** active), still Gold against **12 / 20 / 40**.
+The archived Freight Run middle route likewise finishes its exit animation at
+**18.34** clock seconds (**19.20** active); its route assertions remain strict.
+These automated replays do not establish a new manual playtest or enjoyment review.
+
 Wake is an authored untimed opening. It has no medal targets to calibrate and
 is explicitly accounted for by its untimed mode in the catalog audit. Its
 normal-control completion and awakening/restart behavior are covered separately
@@ -54,7 +65,7 @@ the grav lift gently. Alternative inputs and timings remain available to players
 The tea-break recording verifies the global EMP pause and a continued route
 through the inactive sorter, with power restored before boarding the dispatch lift.
 See `tests/fixtures/jumping-freight-routes.json` and
-`tests/jumping-freight-run.test.mjs` alongside the main medal recording.
+`tests/jumping-freight-run.test.mjs` for the archived route recordings.
 These are automated control replays, including a missed washhouse jump and
 ladder recovery. Normal-speed graphical playback and room-by-room inspection
 checked the building silhouettes and roof route. A fresh browser keyboard

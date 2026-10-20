@@ -229,8 +229,13 @@ object or use arrow keys to move the group by one shared offset. Its spacing is
 preserved when a room edge stops movement. Selected children of terrain or
 mounted plates move once with their selected hosts.
 
-**Copy / Paste** (Ctrl/⌘ + C / V) keeps a snapshot within Level studio, available
-when opening another level. **Duplicate** (Ctrl/⌘ + D) also accepts groups. Pasted
+**Cut / Copy / Paste** (Ctrl/⌘ + X / C / V) transfers selected objects through the
+system clipboard, including between levels and browser tabs. A local copy also
+survives switching levels and reloading the same tab when browser clipboard
+access is blocked. Text fields retain their normal text clipboard shortcuts.
+Objects copied from another level paste near the center of the current view;
+repeated pastes are offset and the whole group stays inside the room.
+**Duplicate** (Ctrl/⌘ + D) also accepts groups. Pasted
 groups preserve their layout and terrain order, remap copied rope/ladder anchors
 and plate mounts, and receive independent device IDs with their internal wiring
 intact. Children copied without their hosts become independent. External switch
@@ -577,6 +582,27 @@ grey dots following a short arc to suggest the sphere's shape.
 Save the optional preset as `"weight": "normal"` or `"heavy"` on a prop;
 omitting it preserves normal behavior. The retired `"light"` preset loads as normal.
 
+**Gadgets → Carried EMP / Repulsor rifle** places a right-forearm sleeve. Save it
+as a `props` entry with `kind: "box"`, `gadget: "emp"` or `gadget: "repulsor"`,
+and the usual `x`, `y`, `size`, optional name and weight. The default scale is 40;
+its actual rectangular hull is `size * .4` wide and `size * .2` high. As with
+other props, X is the center and Y is the unrotated bottom. The editor shows that
+footprint. Loose sleeves rotate, fall, float, and contact plates as physical
+props. The player passes through loose sleeves without tripping or pushing them;
+walking over one does not collect it. Normal weight floats; Heavy sinks.
+E / controller X picks up or drops;
+F / RT fires it. The EMP sends a traveling bolt that disables the hit device for
+ten seconds, with a one-second cooldown. It remains equipped after firing.
+Movement directions also point either tool in eight directions;
+neutral input returns to horizontal hip fire. The arm shows direction without a
+reticle. Active red fields drop the sleeve on the approach side while the player
+continues through.
+Equipped sleeves permit normal traversal, including climbing, grabs, pushing,
+and wall jumps. Aim/use pause only while the right arm supports the player.
+See [the gadget contract](jumping-carried-gadgets.md) for hand support,
+field interactions, cooldown, and prototype tuning. Existing `pickups` with
+`kind: "emp"` remain automatic collectibles.
+
 Crate branding is optional per box. **Objects → L.A.B. crate** places a box with
 `"branded": true`; the ordinary **Box** tool creates a plain box. The box
 inspector's **L.A.B. branding** checkbox changes either style. Omitted or false
@@ -785,7 +811,7 @@ retains momentum without a downward kick. Ropes can transfer onto ceilings and
 ceiling slopes using the same support and clearance rules as ordinary exits.
 
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
-The builder's **Objects** tools place balls, boxes, and shovebots at the cursor,
+The builder's **Objects** tools place balls, boxes, shovebots, and repulsorbots at the cursor,
 with their feet at its height. Snap catches nearby surfaces; **Place on surface**
 moves an existing object to a surface farther below.
 Shovebots snap with both round wheels on the slope, rather than resting an
@@ -811,12 +837,66 @@ keeps up with ordinary movement but allows a sudden charge to pull the bot out
 from under a rider. Departing preserves the player's earned momentum. Shovebots
 push the player through physical contact, with no proximity knockback or upward
 launch; a pinned player blocks the bot against a wall.
+Physical player contact or a repulsor hit turns a shovebot to face the player,
+including from behind; nearby players alone do not turn it.
 Shovebots only see ahead of their current left/right facing and need a clear line
 from their eye to the player's body to pursue or charge. Players behind them
 remain unseen until the bot turns toward them. Terrain, boxes, balls, mechanisms,
 and other bots can provide cover;
 wall decorations and collectibles do not. Losing sight restores ordinary patrol
 and the calm eye color. Crouching behind low cover can hide the player.
+
+**Objects → Repulsorbot** adds a humanoid hunter, saved in `robots` with
+`kind: "repulsor"`. Omission keeps the legacy shovebot. The existing `x`, `y`,
+`left`, `right`, optional name and headlight fields round trip; patrol limits
+apply only to shovebots. Repulsorbots search the whole level.
+They know the authored entrance and investigate it before general patrol.
+They reuse the player controller, walking/foot rig, ledge grabs, jumping,
+ladder/rope climbing, gravity and water movement. Their red armor and wider
+shell, flared forearm/lower-leg armor and large feet distinguish them; their
+palms emit the repulsor without carrying a weapon. Planted feet and palms keep
+their original contacts. They climb over loose boxes and balls rather than
+driving them along with a pushing motor. They do not collect items.
+They can jump over shovebots or clear a blocking shovebot with a palm shot.
+Their horizontal speed in dry air can reach 20% above the player's running speed;
+ground speed and jump height stay unchanged. They back up for long running jumps
+when a pull-up leaves them near a platform edge, and can lower back onto ropes
+to continue searching outside a structure through an open exit.
+
+Facing and clear line of sight acquire a player within 850 horizontal and 480
+vertical units. Once acquired, the hunt persists for the run. They follow the
+last confirmed position and movement after occlusion, then search outward along
+reachable routes, including other floors. Stalled search routes are skipped;
+quiet hidden movement never updates their knowledge. Running, hard landings and
+gadget fire can attract them to an approximate last-heard location, with walls
+reducing hearing range. New noises can lure them into another area; remembered
+sounds keep a progressing search active after sight is lost. Hearing alone
+never permits a shot at the player. Recently observed players can
+also be intercepted by reaching a relevant pressure/switch plate or repulsing
+cargo off a pressure plate. These actions use ordinary contacts and wiring;
+stale knowledge sends the bot back to searching rather than guarding forever.
+Blue fields let the bot pass; red fields contain it. Trapping it or using the
+ten-second EMP window is intended encounter counterplay.
+Sight still gates acquisition and charging a shot at the player. They close to within 600 horizontal
+and 240 vertical units before planting their feet to fire. An arm charge lasts
+0.8 seconds, with aim locked for its final 45%; jumping or taking cover can
+dodge it. The pulse reaches 1,000 units, stops at the first terrain, prop, bot,
+or red field, and imparts a strong finite impulse through normal player physics.
+It releases hand support without teleporting or bypassing collisions. A
+1.4-second recovery gives the player a response window. The player's repulsor
+interrupts the shot and recoils the bot; an EMP freezes it for ten seconds and
+cancels its windup. Both bots remain physical while disabled.
+
+Navigation shares a bounded surface/climb graph per run and issues ordinary
+controls. Replanning starts at the actual position rather than forcing a return
+to an earlier waypoint. Accepted climbs finish before changing routes; blocked
+transfers return or release through normal controls. It retries blocked approaches, temporarily avoids failed waypoints,
+and chooses reachable alternatives. Moving obstacles still use actual contacts;
+closed gates and active red barriers also inform route choices, so an available
+climb detour is preferable to repeatedly firing into a field.
+The graph does not grant movement abilities or puzzle solutions. Review pursuit
+routes in the authored level as part of playtesting.
+
 The **Mechanisms** tools place elevators, moving platforms, vertical and horizontal gates, and pressure plates. Select a
 plate and check one or more switched items in **Activates**, or select a gate,
 switched elevator, moving platform, exit, or spotlight and check its switches in **Switched by**; new plates connect to
@@ -1224,17 +1304,26 @@ water-region assignment: forces act on the actual ball wherever it moves.
 ### Force fields
 
 Both file versions support up to 40 `forceFields`. A field is a thin rectangle
-that stops the player from either side. Boxes, balls, shovebots, ropes, and light
-pass through, including its emitters. Horizontal fields support walking and
-jumping; their underside supports the player under reverse gravity. Beams have
-no ledge to grab.
+with two modes, including its emitters:
+
+- **Blue** (`mode: "player"`, the default) stops only the player. Boxes, balls,
+  shovebots, ropes and moving mechanisms pass through. Horizontal blue fields
+  support walking and jumping, including the underside under reverse gravity.
+- **Red** (`mode: "objects"`) lets the player through and blocks boxes, balls,
+  shovebots, ropes and moving mechanisms. Horizontal red fields support objects,
+  including under reverse gravity. The player can pass through while climbing
+  or riding an object, subject to that object's ordinary solid contacts.
+
+Light passes through both modes. Neither creates a ledge for the player to grab.
 
 ```json
 "forceFields": [
   { "id": "player-barrier", "x": 500, "y": 100, "w": 12, "h": 500,
     "orientation": "vertical", "power": "always" },
   { "id": "player-bridge", "x": 700, "y": 400, "w": 300, "h": 12,
-    "orientation": "horizontal", "power": "switched" }
+    "orientation": "horizontal", "power": "switched" },
+  { "id": "object-barrier", "x": 900, "y": 100, "w": 12, "h": 500,
+    "orientation": "vertical", "mode": "objects", "power": "always" }
 ]
 ```
 
@@ -1243,15 +1332,21 @@ no ledge to grab.
 rectangle must fit inside the level. `power` defaults to Always on; Switched
 uses the standard Logic, Reversed, Relay, Switched by and Activates controls.
 IDs must be unique across all devices. Optional `name` follows the normal rules.
-EMP disables either power mode. If the player overlaps an enabled beam, it waits
-until their current collision body clears the rectangle before becoming solid.
+EMP disables either power mode. Enabling a blue field waits for the player's
+current collision body to clear it. Red waits for overlapping props, bots,
+mechanisms and rope spans to clear; an overlapping player does not delay it.
+An always-on red field participates in the rope's prepared starting layout.
+If an EMP lets a rope fall through a red field, the returning beam stays pending
+until the rope clears it.
 
 Choose **Vertical force field** or **Horizontal force field** in Level studio.
 Click for a 180-unit beam, or drag along its axis to set its length. The two end
-handles resize it; the inspector edits position, length and power. Fields support
+handles resize it; the inspector edits position, length, **Mode** and power. Choose
+**Red · lets player through** for the object barrier. Always-on red fields also
+support **Place on surface** for props, bots and mechanisms. Fields support
 multi-select, copy/paste, duplicate, undo, templates, save/reopen and thumbnails.
-A bright blue beam with a soft glow, slow ripples and sparse fading sparks shows
-an active field. Disabled beams
+A bright blue or red beam with a soft glow, slow ripples and sparse fading sparks
+shows an active field. Disabled beams
 retain their end emitters; the studio also shows a dashed guide. The effect pauses
 with the game and remains readable at night without casting light or shadows.
 

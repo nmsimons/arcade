@@ -1170,10 +1170,11 @@
   "triggers": [],
   "robots": [
     {
-      "x": 966,
+      "x": 1050,
       "y": 860,
-      "left": 640,
-      "right": 1080
+      "left": 630,
+      "right": 1090,
+      "kind": "repulsor"
     }
   ],
   "timers": [

@@ -130,13 +130,19 @@ test('cancellation, lost capture, pause and rotation clear held movement and que
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toBeVisible()
   expect(await page.locator('.jumping-game > canvas').evaluate(c => getComputedStyle(c).touchAction)).toBe('auto')
   await page.getByRole('button', { name: 'Controls', exact: true }).click()
-  await expect(page.getByRole('region', { name: 'How to play' })).toContainText('flick up and lift')
+  const instructions = page.getByRole('region', { name: 'How to play' })
+  await expect(instructions).toContainText('flick up and lift')
+  await expect(instructions).toContainText('Tools: E / X-Square')
   await expect(page.getByRole('heading', { name: 'Controls.', exact: true })).toBeInViewport()
   await expect(page.getByText('Jump / higher jump', { exact: true })).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport()
   await page.screenshot({ path: info.outputPath('touch-controls.png') })
   await page.getByText('Let go', { exact: true }).scrollIntoViewIfNeeded()
   await expect(page.getByText('Let go', { exact: true })).toBeInViewport()
+  await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport()
+  const tools = instructions.getByText(/^Tools:/)
+  await tools.scrollIntoViewIfNeeded()
+  await expect(tools).toBeInViewport()
   await expect(page.getByRole('button', { name: 'Back', exact: true })).toBeInViewport()
   await page.getByRole('button', { name: 'Back', exact: true }).click()
   await page.getByRole('button', { name: /^Resume/ }).click()
@@ -149,7 +155,9 @@ test('cancellation, lost capture, pause and rotation clear held movement and que
   await expect(page.getByRole('dialog', { name: 'Game paused' })).toContainText('orientation changed')
 })
 
-test('vertical holds climb and descend a ladder; a down flick lets go and a tap jumps away', async ({ page }, info) => {
+test('vertical holds climb and descend a ladder; a down flick lets go and a tap jumps away', async ({ page, browserName }, info) => {
+  // Match the other long touch sequences at iPhone DPR in software WebKit.
+  if (browserName === 'webkit') test.setTimeout(60_000)
   const level = blankTrial()
   level.climbables.ladders = [{ x: level.entrance.x, top: 600, bottom: level.entrance.y, platform: -1, side: 1 }]
   await open(page, level)

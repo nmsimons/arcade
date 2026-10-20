@@ -13,10 +13,9 @@ import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
 import { createJumpTouch } from './jumping/touchInput'
+import { cancelGadgetInput } from './jumping/gadgets'
 import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
-import { actionFeedbackText, playerActionFeedback } from './jumping/actionFeedback'
-import type { ActionFeedback } from './jumping/actionFeedback'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
@@ -53,7 +52,7 @@ import './jumping/interface.css'
 const DevLevelBuilder = import.meta.env.DEV ? lazy(() => import('./jumping/LevelBuilder').then(module => ({ default: module.LevelBuilder }))) : null
 
 type Screen = 'menu' | 'playing' | 'paused' | 'building' | 'complete'
-const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
+const PLAY_KEYS = new Set(['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'KeyW', 'ArrowUp', 'KeyS', 'ArrowDown', 'KeyX', 'KeyE', 'KeyF', 'Space', 'ShiftLeft', 'ShiftRight', 'Escape'])
 
 export function UntitledJumpingGame({ onExit }: { onExit: () => void }) {
   useEffect(() => {
@@ -180,7 +179,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
-  const [metrics, setMetrics] = useState<{state:string;elapsed:number;actions:ActionFeedback|null}>({ state: 'Ready', elapsed: 0, actions:null })
+  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
@@ -192,6 +191,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     if (next === 'paused' && screenRef.current === 'playing' && !reason) audio.current?.pauseCue()
     audioState.reset(player.current, run.current)
     keys.current.clear(); controller.reset(); touch.reset(); cancelJumpInput(player.current)
+    if (run.current) cancelGadgetInput(run.current)
     jumpQueue.current = []; keyboardJump.current = false
     screenRef.current = next; setScreen(next)
     if (next === 'building' || next === 'menu') lightingRenderer.release()
@@ -412,6 +412,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     if (event.code === 'Escape') changeScreen('paused')
     else {
       if (event.code === 'Space' && !keys.current.has(event.code)) jumpQueue.current.push(true)
+      if (event.code === 'KeyE') touch.gadgetAction('interact')
+      if (event.code === 'KeyF') touch.gadgetAction('use')
       keys.current.add(event.code)
     }
   })
@@ -459,6 +461,9 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     if (pad.pause) { changeScreen('paused'); return null }
     const k = keys.current, keyboard = keyboardMovement(k)
     return { move: keyboard || pad.move, jump: pad.jump,
+      interact: k.has('KeyE') || pad.interact, use: k.has('KeyF') || pad.use,
+      aimX: Math.sign(keyboard) || pad.aimX,
+      aimY: Number(k.has('KeyS') || k.has('ArrowDown')) - Number(k.has('KeyW') || k.has('ArrowUp')) || pad.aimY,
       swimVertical: Number(k.has('KeyS') || k.has('ArrowDown')) - Number(k.has('KeyW') || k.has('ArrowUp')) || pad.swimVertical,
       climb: k.has('KeyW') || k.has('ArrowUp') || pad.climb,
       drop: k.has('KeyS') || k.has('ArrowDown') || k.has('KeyX') || pad.drop,
@@ -528,6 +533,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
           }
           const gesture = touch.sample(now)
           const controls = { ...input, move: input.move || gesture.move,
+            interact: input.interact || gesture.interact, use: input.use || gesture.use,
+            aimX: input.aimX || Math.sign(gesture.move), aimY: input.aimY || Number(gesture.descend) - Number(gesture.climb),
             swimVertical: input.swimVertical || Number(gesture.descend) - Number(gesture.climb),
             climb: input.climb || gesture.climb, descend: input.descend || gesture.descend,
             drop: input.drop || gesture.drop, detach: input.detach || gesture.detach, crouch: input.crouch || gesture.crouch,
@@ -570,7 +577,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         const p = player.current
         const entering = run.current?.entrance || playgroundEntrance.current
         setMetrics({ state: entering ? entering.kind === 'charging-bay' ? 'Waking up' : 'Entering the level' : run.current?.exit ? 'Entering the exit' : playerState(p),
-          elapsed: run.current?.elapsed ?? 0, actions: entering || run.current?.exit ? null : playerActionFeedback(p,activeLevel.current.climbables) })
+          elapsed: run.current?.elapsed ?? 0 })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -587,15 +594,14 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   }, [audioState, lightingRenderer, performanceMonitor, adaptiveLighting, touch])
 
   return <div className={`jumping-game${screen === 'playing' && !devOpen ? ' jumping-playing' : ''}`} ref={rootRef} onPointerDownCapture={() => audio.current?.unlock()} onKeyDownCapture={() => audio.current?.unlock()}>
-    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the exit` : `${LAB_NAME} movement playground`} />
+    <canvas ref={canvasRef} tabIndex={0} role="img" aria-label={challenge ? `${trial.name}: reach the exit` : `${LAB_NAME} movement playground`}
+      onPointerDown={event => { if (event.pointerType === 'mouse' && event.button === 0 && screenRef.current === 'playing') { touch.gadgetAction('use'); canvasRef.current?.focus() } }} />
     {screen === 'playing' && <>
       {!devOpen && <JumpingTouchControls canvasRef={canvasRef} reader={touch} active available={touchAvailable}
+        gadgets={!!trial.props?.some(prop => prop.gadget)}
         onTouch={() => setTouchAvailable(true)} onPause={() => changeScreen('paused')} />}
       {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
-      {!devOpen && metrics.actions && <p className="jumping-action-hint" aria-label="Available actions">
-        {actionFeedbackText(metrics.actions,connected?'controller':touchAvailable?'touch':'keyboard')}
-      </p>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
         {challenge && trial.timing !== 'untimed' && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}

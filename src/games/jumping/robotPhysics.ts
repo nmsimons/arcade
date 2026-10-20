@@ -1,6 +1,7 @@
 import type { Platform, Player } from './model.ts'
 import type { RobotState } from './challenge.ts'
-import { bodyIntersects, lineBlocked, moveBody, platformOutline, polygonIntersects } from './geometry.ts'
+import { bodyIntersects, bodyPolygon, lineBlocked, moveBody, platformOutline, polygonIntersects } from './geometry.ts'
+import { TUNING } from './model.ts'
 import type { Vec } from './geometry.ts'
 import { groundAt } from './terrain.ts'
 import { disablePlatformLedges } from './terrainLedges.ts'
@@ -11,15 +12,86 @@ import { playerTurnAngle } from './ropeGravity.ts'
 const RADIUS = 9, HALF_AXLE = 17
 /** Flat chassis and wheel footprint; no additional authoring inset. */
 export const ROBOT_HALF_WIDTH = HALF_AXLE + RADIUS
+const REPULSE_SPEED = 900, REPULSE_DECELERATION = 2250, REPULSE_AIR_DECELERATION = 225
 
-export const robotDrive = (r: Pick<RobotState, 'phase'>) => r.phase === 'charge' ? 540 : r.phase === 'chase' ? 235 : r.phase === 'patrol' ? 92 : 0
-export const robotTop = (r: Pick<RobotState, 'phase'>) => r.phase === 'windup' ? -39 : -46
+export function faceRobotToward(robot: RobotState, x: number) {
+  if (Math.abs(x - robot.x) > .5) robot.facing = Math.sign(x - robot.x)
+  if (robot.actor) robot.actor.facing = robot.facing
+}
+
+/** A contact-sized sweep uses the actual player envelope and bot pieces, not
+ * a proximity/sight radius. This also catches passive side bumps and riders. */
+export function robotTouchesPlayer(robot: RobotState, player: Player) {
+  if (Math.abs(player.x - robot.x) > 80 || Math.abs(player.y - robot.y) > 150) return false
+  const body = playerContactBody(player, true), flip = player.inverted ? -1 : 1
+  const x = body.x + Math.sign(robot.x - body.x) * .25
+  const y = body.y + Math.sign(robot.y - 26 - (body.y - body.height / 2 * flip)) * .25
+  return moveBody([body.x, body.y], [x, y], robotPlatforms(robot), body.height, flip, playerTurnAngle(player), body.outline).contacts.length > 0
+}
+
+/** Recoil is velocity resolved by swept wheel/contact movement on
+ * subsequent simulation steps, never an immediate positional correction. */
+export function repulseRobot(robot: RobotState, horizontal: number, sourceX?: number) {
+  robot.recoilVx = Math.max(-REPULSE_SPEED, Math.min(REPULSE_SPEED, (robot.recoilVx ?? 0) + horizontal * REPULSE_SPEED))
+  if (robot.phase !== 'recover') robot.time = 0
+  robot.phase = 'recover'
+  if (sourceX !== undefined) faceRobotToward(robot, sourceX)
+}
+
+export function stepRobotRecoil(platforms: readonly Platform[], robot: RobotState, dt: number, props: readonly Platform[], player: Player,
+  playerBarriers: readonly Platform[], objectBarriers: readonly Platform[]) {
+  const velocity = robot.recoilVx ?? 0
+  if (!velocity || !(dt > 0)) return
+  // Losing wheel footing also loses the grounded braking force. Retaining
+  // momentum carries the chassis clear instead of parking it over the lip.
+  const deceleration = robot.fallVelocity === undefined ? REPULSE_DECELERATION : REPULSE_AIR_DECELERATION
+  const direction = Math.sign(velocity), time = Math.min(dt, Math.abs(velocity) / deceleration)
+  const distance = velocity * time - direction * deceleration * time ** 2 / 2
+  const destination = robot.x + distance
+  const supported = robot.fallVelocity === undefined && moveRobot(platforms, robot, destination, props, player, undefined, playerBarriers, objectBarriers)
+  const clear = supported || translateRobot(platforms, robot, destination - robot.x, 0, props, player, playerBarriers, objectBarriers)
+  const solids = [...platforms, ...objectBarriers]
+  if (!robotSupport(solids, robot.x, robot.y, robot.angle, .2)) robot.fallVelocity ??= 0
+  if (robot.x < robot.definition.left - .01 || robot.x > robot.definition.right + .01) robot.deactivated = true
+  robot.recoilVx = clear ? direction * Math.max(0, Math.abs(velocity) - deceleration * dt) : 0
+}
+
+/** External force can cross an unsupported edge. Sweep every actual hull piece;
+ * patrol's two-wheel footing rule and authored lane limits apply only to drive. */
+function translateRobot(platforms: readonly Platform[], robot: RobotState, dx: number, dy: number, props: readonly Platform[], player: Player,
+  playerBarriers: readonly Platform[], objectBarriers: readonly Platform[]) {
+  const solids = [...platforms, ...props, ...objectBarriers], delta = dx || dy
+  if (!delta) return true
+  let fraction = 1
+  for (const hull of robotHulls(robot)) {
+    const outline: Vec[] = hull.map(([x, y]) => [x - robot.x, y - robot.y])
+    const safe = moveBody([robot.x, robot.y], [robot.x + dx, robot.y + dy], solids, 62, 1, 0, outline)
+    fraction = Math.min(fraction, Math.max(0, Math.min(1, (dx ? safe.x - robot.x : safe.y - robot.y) / delta)))
+  }
+  if (!placeRobot(solids, robot, { x: robot.x + dx * fraction, y: robot.y + dy * fraction, angle: robot.angle }, player, playerBarriers)) return false
+  return fraction > 1 - 1e-6
+}
+
+export function stepRobotFall(platforms: readonly Platform[], robot: RobotState, dt: number, props: readonly Platform[], player: Player,
+  playerBarriers: readonly Platform[], objectBarriers: readonly Platform[]) {
+  if (robot.fallVelocity === undefined) return
+  const solids = [...platforms, ...objectBarriers]
+  const support = robotSupport(solids, robot.x, robot.y, robot.angle, .2)
+  if (support) { delete robot.fallVelocity; return }
+  const velocity = robot.fallVelocity
+  robot.fallVelocity = Math.min(1400, velocity + TUNING.gravity * dt)
+  const distance = (velocity + robot.fallVelocity) * dt / 2
+  if (!translateRobot(platforms, robot, 0, distance, props, player, playerBarriers, objectBarriers)) robot.fallVelocity = 0
+}
+
+export const robotDrive = (r: Pick<RobotState, 'phase'> & Partial<Pick<RobotState, 'definition' | 'deactivated'>>) => r.deactivated || r.definition?.kind === 'repulsor' ? 0 : r.phase === 'charge' ? 540 : r.phase === 'chase' ? 235 : r.phase === 'patrol' ? 92 : 0
+export const robotTop = (r: Pick<RobotState, 'phase'> & Partial<Pick<RobotState, 'definition'>>) => r.definition?.kind === 'repulsor' ? -TUNING.height : r.phase === 'windup' ? -39 : -46
 
 /** One forward sight line from the eye to the player's body. Facing, range and
  * shape bounds reject irrelevant geometry before any polygon edges are tested. */
 export function robotSensesPlayer(r: RobotState, p: Player, obstacles: Iterable<Platform>) {
-  if ((p.x - r.x) * r.facing <= 0 || Math.abs(p.y - r.y) >= 240 || Math.abs(p.x - r.x) >= 850
-    || p.x < r.definition.left - 200 || p.x > r.definition.right + 200) return false
+  if ((p.x - r.x) * r.facing <= 0 || Math.abs(p.y - r.y) >= (r.definition.kind === 'repulsor' ? 480 : 240) || Math.abs(p.x - r.x) >= 850
+    || r.definition.kind !== 'repulsor' && (p.x < r.definition.left - 200 || p.x > r.definition.right + 200)) return false
   const c = Math.cos(r.angle), s = Math.sin(r.angle), eyeX = 13.5 * r.facing, eyeY = robotTop(r) + 21.5
   const eye: Vec = [r.x + eyeX * c - eyeY * s, r.y - 9 + eyeX * s + eyeY * c]
   const body = playerContactBody(p)
@@ -32,7 +104,11 @@ export function* robotSightObstacles(world: ContactWorld, observer: RobotState) 
 }
 
 /** Just the chassis and wheels: no projecting mechanism to trap a foot. */
-export function robotHulls(r: Pick<RobotState, 'x' | 'y' | 'angle' | 'facing' | 'phase'>): Vec[][] {
+export function robotHulls(r: Pick<RobotState, 'x' | 'y' | 'angle' | 'facing' | 'phase'> & Partial<Pick<RobotState, 'definition' | 'actor'>>): Vec[][] {
+  if (r.definition?.kind === 'repulsor') {
+    const body = r.actor ? playerContactBody(r.actor, true) : { x: r.x, y: r.y, height: TUNING.height }
+    return [bodyPolygon(body.x, body.y, body.height, r.actor?.inverted ? -1 : 1, r.actor ? playerTurnAngle(r.actor) : 0, body.outline)]
+  }
   const c = Math.cos(r.angle), s = Math.sin(r.angle)
   const rectangle = (x: number, y: number, w: number, h: number): Vec[] => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]]
   const top = robotTop(r)
@@ -53,7 +129,7 @@ const robotShapes = new WeakMap<object, { x: number; y: number; angle: number; f
  * footing, but no ledge grabs that could tether a falling rider. */
 export function robotPlatforms(robot: Parameters<typeof robotHulls>[0]): readonly Platform[] {
   const saved = robotShapes.get(robot), top = robotTop(robot)
-  if (saved && Object.is(saved.x, robot.x) && Object.is(saved.y, robot.y) && Object.is(saved.angle, robot.angle)
+  if (robot.definition?.kind !== 'repulsor' && saved && Object.is(saved.x, robot.x) && Object.is(saved.y, robot.y) && Object.is(saved.angle, robot.angle)
     && saved.facing === robot.facing && saved.top === top) return saved.platforms
   const platforms = robotHulls(robot).map(points => {
     const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
@@ -119,6 +195,7 @@ export function robotSupport(platforms: readonly Platform[], x: number, y: numbe
 
 export function prepareRobots(platforms: readonly Platform[], robots: RobotState[]) {
   for (const robot of robots) {
+    if (robot.definition.kind === 'repulsor') continue
     const surface = groundAt(platforms, robot.x, robot.y, 55)
     const support = robotSupport(platforms, robot.x, robot.y, surface?.angle ?? 0, 55)
     if (support) Object.assign(robot, support)
@@ -134,24 +211,25 @@ export function robotPreviewPose(platforms: readonly Platform[], robot: Pick<Rob
 
 /** A moving support can leave a wheel in the air even when the motor is idle.
  * Re-seat locally at the current x; the drive query still refuses cliff edges. */
-export function settleRobot(platforms: readonly Platform[], robot: RobotState, dt: number, player?: Player, playerBarriers: readonly Platform[] = []) {
+export function settleRobot(platforms: readonly Platform[], robot: RobotState, dt: number, player?: Player, playerBarriers: readonly Platform[] = [], objectBarriers: readonly Platform[] = []) {
+  const solids = objectBarriers.length ? [...platforms, ...objectBarriers] : platforms
   const centerY = robot.y - RADIUS, dx = HALF_AXLE * Math.cos(robot.angle), dy = HALF_AXLE * Math.sin(robot.angle)
-  if (wheelHeight(platforms, robot.x - dx, centerY - dy, .1) !== null
-    && wheelHeight(platforms, robot.x + dx, centerY + dy, .1) !== null) return
+  if (wheelHeight(solids, robot.x - dx, centerY - dy, .1) !== null
+    && wheelHeight(solids, robot.x + dx, centerY + dy, .1) !== null) return
   const reach = HALF_AXLE * 2 + 2
-  const target = robotSupport(platforms, robot.x, robot.y, robot.angle, reach)
+  const target = robotSupport(solids, robot.x, robot.y, robot.angle, reach)
   // Settling cannot climb onto a higher object or invent support over a drop.
   if (!target || target.y < robot.y - .01) return
   const angle = robot.angle + Math.max(-2 * dt, Math.min(2 * dt, target.angle - robot.angle))
   const nextDx = HALF_AXLE * Math.cos(angle), nextDy = HALF_AXLE * Math.sin(angle)
-  const left = wheelHeight(platforms, robot.x - nextDx, centerY - nextDy, reach)
-  const right = wheelHeight(platforms, robot.x + nextDx, centerY + nextDy, reach)
+  const left = wheelHeight(solids, robot.x - nextDx, centerY - nextDy, reach)
+  const right = wheelHeight(solids, robot.x + nextDx, centerY + nextDy, reach)
   if (left === null || right === null) return
   // The higher contact constrains the chassis while the other wheel lowers.
   const y = Math.min(left + nextDy, right - nextDy) + RADIUS
   if (y < robot.y - .01) return
   const next = { ...robot, y: Math.min(y, robot.y + 130 * dt), angle }
-  if (robotTouchesProps(next, platforms)) return
+  if (robotTouchesProps(next, solids)) return
   placeRobot(platforms, robot, next, player, playerBarriers)
 }
 
@@ -176,12 +254,13 @@ function placeRobot(platforms: readonly Platform[], robot: RobotState, next: { x
   return true
 }
 
-export function moveRobot(platforms: readonly Platform[], robot: RobotState, destination: number, props: readonly Platform[] = [], player?: Player, footing?: Platform, playerBarriers: readonly Platform[] = []) {
+export function moveRobot(platforms: readonly Platform[], robot: RobotState, destination: number, props: readonly Platform[] = [], player?: Player, footing?: Platform, playerBarriers: readonly Platform[] = [], objectBarriers: readonly Platform[] = []) {
+  const solids = objectBarriers.length ? [...platforms, ...objectBarriers] : platforms
   const distance = destination - robot.x, steps = Math.max(1, Math.ceil(Math.abs(distance) / 2)), dx = distance / steps
   for (let i = 0; i < steps; i++) {
     // A prop being separated by the contact solver may already support a
     // wheel. Include its surface without rejecting the unresolved body contact.
-    const next = robotSupport(footing ? [...platforms, footing] : platforms, robot.x + dx, robot.y, robot.angle, Math.abs(dx) * 2 + 2, platforms)
+    const next = robotSupport(footing ? [...solids, footing] : solids, robot.x + dx, robot.y, robot.angle, Math.abs(dx) * 2 + 2, solids)
     if (!next) return false
     const pose = { ...robot, ...next }
     if (robotTouchesProps(pose, props)) return false

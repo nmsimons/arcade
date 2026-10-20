@@ -2,6 +2,7 @@ import type { Platform, Player } from './model.ts'
 import type { Prop } from './challenge.ts'
 import type { GravityField, GravityPlate } from './gravity.ts'
 import { playerSwimStrength, playerWaterCenterOffset, propWaterStrength } from './gravity.ts'
+import { propHeight, propWidth } from './propGeometry.ts'
 import { platformOutline } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 
@@ -199,7 +200,7 @@ export function advanceWaterSurface(state: WaterSurfaceState, player: Player, pr
   observe(state, 0, player.x, player.y, player.vx, player.vy, playerImmersion, 60, centerY, dt)
   for (let i = 0; i < props.length; i++) {
     const b = props[i]
-    observe(state, i + 1, b.x, b.y, b.vx, b.vy, b.waterImmersion ?? 0, b.size, b.y - b.size / 2, dt)
+    observe(state, i + 1, b.x, b.y, b.vx, b.vy, b.waterImmersion ?? 0, propWidth(b), b.y - propHeight(b) / 2, dt)
   }
   if (!state.active) return
   state.accumulator += dt
@@ -211,9 +212,9 @@ export function advanceWaterSurface(state: WaterSurfaceState, player: Player, pr
     const b = props[i]
     if (b.grounded || (b.waterImmersion ?? 0) <= .1 || (b.waterImmersion ?? 0) >= .9) continue
     for (const s of state.surfaces) {
-      if (!s.active || b.x < s.left || b.x > s.right || Math.abs(b.y - b.size / 2 - s.y) > b.size / 2 + 12) continue
-      const left = sampleWaterSurface(s, b.x - b.size * .3), right = sampleWaterSurface(s, b.x + b.size * .3)
-      state.propHeight[i] = (left + right) / 2; state.propSlope[i] = (right - left) / b.size
+      if (!s.active || b.x < s.left || b.x > s.right || Math.abs(b.y - propHeight(b) / 2 - s.y) > propHeight(b) / 2 + 12) continue
+      const left = sampleWaterSurface(s, b.x - propWidth(b) * .3), right = sampleWaterSurface(s, b.x + propWidth(b) * .3)
+      state.propHeight[i] = (left + right) / 2; state.propSlope[i] = (right - left) / propWidth(b)
       if (b.kind === 'box' && Math.abs(state.propSlope[i]) > .0001 && !state.propRock[i]) {
         state.propRock[i] = 1; state.propRestAngle[i] = b.angle
       }

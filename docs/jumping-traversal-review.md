@@ -232,7 +232,7 @@ Sources: [movement state priorities](../src/games/jumping/model.ts), [input mapp
 | Collectibles and EMP | Contact collects coins/clocks/EMP; EMP immediately pauses powered mechanisms and suppresses fields for five seconds. | Movement is unchanged by clock scoring effects, but EMP can radically alter a route. Its automatic activation deserves special teaching near moving supports. |
 | Goal entry | Grounded doorway contact commits a short 0.85-second exit; score locks at entry and movement finalization is shared. | Sensible authored completion. Entry removes control, so the threshold and open door must be unmistakable. |
 
-Terrain materials currently change appearance only: stone, earth, chalk, and steel share grip. Carried EMPs, boost gadgets, grappling tools, and remote-control cars in [the gadget proposal](jumping-carried-gadgets.md) are deferred designs, not current traversal capabilities.
+Terrain materials currently change appearance only: stone, earth, chalk, and steel share grip. The [carried-gadget prototype](jumping-carried-gadgets.md) adds a deliberate-use EMP and repulsor forearm sleeve. Equipped sleeves allow normal traversal, including pushing, climbing, grabs, and wall jumps. Aim/use pause only while the right arm supports the player. Movement inputs also aim in eight directions; neutral input returns to horizontal hip fire. Active red fields detach the sleeve without interrupting player travel or grips. Ergonomic review with a physical controller and phone remains pending. Earlier boost, grapple, and remote-car candidates remain deferred.
 
 ## Input and presentation checks
 

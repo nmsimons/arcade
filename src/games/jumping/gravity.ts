@@ -8,6 +8,7 @@ import { playerContactBody } from './playerContacts.ts'
 import type { Vec } from './geometry.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { propWeightScale } from './propWeight.ts'
+import { propHeight, propWidth } from './propGeometry.ts'
 
 export const MAX_GRAVITY_PLATES = 16
 export const isWeightless = (gravity: number) => Math.abs(gravity) < TUNING.gravity * .05
@@ -33,9 +34,9 @@ export const createGravityField = (): GravityField => ({ strips: [], mask: -1, r
 
 /** Partition switched rectangles once per power change. Cells never overlap,
  * so integrating a body counts its mass exactly once, even under several plates. */
-export function updateGravityField(field: GravityField, plates: readonly GravityPlate[], states: ReadonlyMap<string, boolean>, powered: boolean, geometryRevision = 0) {
+export function updateGravityField(field: GravityField, plates: readonly GravityPlate[], states: ReadonlyMap<string, boolean>, powered: boolean, geometryRevision = 0, disabled?: (plate: GravityPlate) => boolean) {
   let mask = 0
-  for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states, powered)) mask |= 1 << i
+  for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states, powered) && !disabled?.(plates[i])) mask |= 1 << i
   if (mask === field.mask && geometryRevision === (field.geometryRevision ?? 0)) return
   field.geometryRevision = geometryRevision
   field.mask = mask; field.revision++; field.strips = []; field.maxMultiplier = 1; field.maxPropLift = 0
@@ -257,17 +258,19 @@ export function swimmingAcceleration(player: Player, input: JumpInput, strength:
 function propFieldValue(field: GravityField, prop: Prop, offsetY = 0, property: 'multiplier' | 'swim' = 'multiplier') {
   const water = property === 'swim', baseline = water ? 1 : TUNING.gravity, outside = water ? 0 : 1
   if (!field.strips.length) return water ? 0 : TUNING.gravity
-  const radius = prop.size / 2, cx = prop.x, cy = prop.y - radius + offsetY
+  const radius = prop.size / 2, cx = prop.x, cy = prop.y - propHeight(prop) / 2 + offsetY
   // Lift is a force: heavy props respond less. Keep ordinary,
   // positive and zero gravity unchanged. Use the existing area pass; resistance
   // still uses immersion, independent of the object's weight.
   const weightShift = water ? 0 : 1 / propWeightScale(prop) - 1
   if (prop.kind === 'ball') return integrate(field, cx - radius, cy - radius, cx + radius, cy + radius, Math.PI * radius * radius,
     (l, t, r, b) => circleRectangleArea(cx, cy, radius, l, t, r, b), property, baseline, outside, weightShift)
-  const cos = Math.cos(prop.angle), sin = Math.sin(prop.angle), extent = radius * (Math.abs(cos) + Math.abs(sin))
+  const rx = propWidth(prop) / 2, ry = propHeight(prop) / 2
+  const cos = Math.cos(prop.angle), sin = Math.sin(prop.angle)
+  const ex = rx * Math.abs(cos) + ry * Math.abs(sin), ey = rx * Math.abs(sin) + ry * Math.abs(cos)
   let points: Vec[] | undefined
-  return integrate(field, cx - extent, cy - extent, cx + extent, cy + extent, prop.size * prop.size, (l, t, r, b) => {
-    points ??= [[-radius, -radius], [radius, -radius], [radius, radius], [-radius, radius]].map(([x, y]) => [cx + x * cos - y * sin, cy + x * sin + y * cos])
+  return integrate(field, cx - ex, cy - ey, cx + ex, cy + ey, rx * ry * 4, (l, t, r, b) => {
+    points ??= [[-rx, -ry], [rx, -ry], [rx, ry], [-rx, ry]].map(([x, y]) => [cx + x * cos - y * sin, cy + x * sin + y * cos])
     return clippedPolygonArea(points, l, t, r, b)
   }, property, baseline, outside, weightShift)
 }

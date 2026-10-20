@@ -2,14 +2,16 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
-import { parseLevel } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { groundAt } from '../src/games/jumping/terrain.ts'
+import { readLevelAsset } from './helpers/jumping-fixtures.mjs'
 
-const file = 'Freight Run.jump-level.json'
-const level = () => parseLevel(JSON.parse(readFileSync(new URL(`../public/levels/jumping/${file}`, import.meta.url))))
-const flow = JSON.parse(readFileSync(new URL('fixtures/jumping-builtin-medal-runs.json', import.meta.url))).runs.find(r => r.file === file)
-const alternatives = JSON.parse(readFileSync(new URL('fixtures/jumping-freight-routes.json', import.meta.url))).runs
+// Freight Run is retired from the built-in catalog; keep its route coverage on
+// the archived map without restoring it to the game or the built-in medal audit.
+const level = () => readLevelAsset('freight-run.json')
+const recordings = JSON.parse(readFileSync(new URL('fixtures/jumping-freight-routes.json', import.meta.url))).runs
+const flow = recordings.find(r => r.route === 'flow')
+const alternatives = recordings.filter(r => r !== flow)
 
 test('Freight Run grav emitters sit on usable floors', () => {
   const map = level()

@@ -9,11 +9,17 @@ export const BOX_RESTING_ANGLE_TOLERANCE = .001
 export const PROP_APPROACH_GAP = 50
 
 /** Prop positions retain their file convention: center X and unrotated bottom Y. */
-export function boxShape(b: Pick<Prop, 'x' | 'y' | 'size' | 'angle'>): Platform {
-  const r = b.size / 2
-  if (Math.abs(b.angle - Math.round(b.angle / (Math.PI / 2)) * (Math.PI / 2)) < 1e-8) return { looseProp: true, x: b.x - r, y: b.y - b.size, w: b.size, h: b.size }
+export const propWidth = (b: Pick<Prop, 'size' | 'gadget'>) => b.size * (b.gadget ? .4 : 1)
+export const propHeight = (b: Pick<Prop, 'size' | 'gadget'>) => b.size * (b.gadget ? .2 : 1)
+export function boxShape(b: Pick<Prop, 'x' | 'y' | 'size' | 'angle' | 'gadget'>): Platform {
+  const w = propWidth(b), h = propHeight(b), rx = w / 2, ry = h / 2
+  const quarter = Math.round(b.angle / (Math.PI / 2))
+  if (Math.abs(b.angle - quarter * (Math.PI / 2)) < 1e-8) {
+    const width = quarter % 2 ? h : w, height = quarter % 2 ? w : h
+    return { looseProp: true, x: b.x - width / 2, y: b.y - ry - height / 2, w: width, h: height }
+  }
   const c = Math.cos(b.angle), s = Math.sin(b.angle)
-  const points = [[-r, -r], [r, -r], [r, r], [-r, r]].map(([x, y]) => [b.x + x * c - y * s, b.y - r + x * s + y * c] as Vec)
+  const points = [[-rx, -ry], [rx, -ry], [rx, ry], [-rx, ry]].map(([x, y]) => [b.x + x * c - y * s, b.y - ry + x * s + y * c] as Vec)
   const x = Math.min(...points.map(p => p[0])), y = Math.min(...points.map(p => p[1]))
   return { looseProp: true, x, y, w: Math.max(...points.map(p => p[0])) - x, h: Math.max(...points.map(p => p[1])) - y,
     polygon: points.map(p => [p[0] - x, p[1] - y]) }
@@ -98,8 +104,8 @@ export function propPushHands(b: Prop, x: number, y: number, direction: number, 
   // A higher footing can bring the upper face into ordinary standing reach.
   // Keep the center-based low grip for short props, but do not drag those hands
   // down toward a tall box's center while the player is standing on a ball.
-  const lowGrip = b.size * .7 < handHeight ? b.y - b.size * .7
-    : Math.min(b.y - b.size * .7, Math.max(shape.y + 3, y - handHeight))
+  const lowGrip = propHeight(b) * .7 < handHeight ? b.y - propHeight(b) * .7
+    : Math.min(b.y - propHeight(b) * .7, Math.max(shape.y + 3, y - handHeight))
   const handY = Math.max(lowGrip, Math.min(shape.y + shape.h - 5, y - handHeight))
   const palm = (height: number) => {
     for (let i = 0; i < points.length; i++) {

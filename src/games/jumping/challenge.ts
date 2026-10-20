@@ -1,4 +1,5 @@
-import { bodyIntersects, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
+import { bodyIntersects, lineBlocked, moveBody, polygonIntersects, polygonPoints } from './geometry.ts'
+import { ropePath } from './climbables.ts'
 import { cancelJumpInput, finishPlayerStep, NEUTRAL_INPUT, STEP, stepPlayer, TUNING } from './model.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
 import { levelPlayer, levelTerrain, prepareLevelRopes } from './level.ts'
@@ -6,7 +7,7 @@ import { resolveSwitchStates } from './switchPower.ts'
 import { pressurePlatePosition } from './pressurePlateMount.ts'
 import type { PuzzleLevel, Mechanism, Pusher, PropDefinition } from './level.ts'
 export type { PuzzleLevel } from './level.ts'
-import { moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesProps, settleRobot } from './robotPhysics.ts'
+import { faceRobotToward, moveRobot, prepareRobots, robotPlatforms, robotPreviewPose, robotSensesPlayer, robotSightObstacles, robotTouchesPlayer, robotTouchesProps, settleRobot, stepRobotFall, stepRobotRecoil } from './robotPhysics.ts'
 import { groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
 import { advanceEntranceAnimation, createEntranceAnimation, entranceDuration, GOAL_OPEN_SECONDS, GOAL_EXIT_SECONDS, goalDoor, goalExitPosition } from './goal.ts'
@@ -15,12 +16,12 @@ import { stepPickups } from './pickups.ts'
 import type { PickupState } from './pickups.ts'
 import { planMechanismMotion, prepareProps, propBlocksMechanism, stepPropPhysics } from './propPhysics.ts'
 import { ballShape, boxShape, propLoadsPlate } from './propGeometry.ts'
-import { playerContacts, translatePlayer } from './playerContacts.ts'
+import { followPropGrip, playerContacts, translatePlayer } from './playerContacts.ts'
 import { advanceFootwork } from './footwork.ts'
 import type { ContactWorld, PlayerCollider, PlayerContacts } from './playerContacts.ts'
 import { mechanismOpenPosition, mechanismShape, mechanismSweep, prepareMechanism } from './mechanisms.ts'
 import { canHangFromBox } from './boxSupport.ts'
-import { disablePlatformLedges, platformLedges } from './terrainLedges.ts'
+import { disablePlatformLedges } from './terrainLedges.ts'
 
 import { createGravityField, playerFieldCoverage, playerFloatDrag, playerGravity, playerSwimStrength, playerSwimDepth, propGravity, setPlayerGravity, swimmingAcceleration, updateGravityField } from './gravity.ts'
 import { waterBobAcceleration } from './waterBob.ts'
@@ -36,12 +37,17 @@ import type { GravityField } from './gravity.ts'
 import { createForceField, forceFieldPlatforms, updateForceFields } from './forceField.ts'
 import type { ForceFieldState } from './forceField.ts'
 import { mirrorPlatform } from './gravityFrame.ts'
+import { advanceGadgetDisables, createGadgetState, finishGadgetMotion, heldToolFrame, prepareGadgets, toolShape } from './gadgets.ts'
+import type { GadgetState } from './gadgets.ts'
+import { createRepulsorActor, stepRepulsorBot } from './repulsorBot.ts'
+import { recordPlayerNoise, resetPlayerNoise } from './botHearing.ts'
 
 import { createFloatSwitch, updateFloatSwitch } from './floatSwitch.ts'
 import type { FloatSwitch, FloatSwitchState } from './floatSwitch.ts'
 
 export type Medal = 'Gold' | 'Silver' | 'Bronze' | 'No medal'
 export interface Prop extends PropDefinition {
+  gadgetCooldown?: number
   floatSwitch?: FloatSwitch
   gravity?: number
   waterBob?: WaterBob
@@ -49,8 +55,9 @@ export interface Prop extends PropDefinition {
   vx: number; vy: number; angle: number; angularVelocity: number; grounded: boolean
 }
 export interface MechanismState { definition: Mechanism; x: number; y: number; direction: number; wait: number; active: boolean; safetyHold: number | null }
-export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean }
+export interface RobotState { definition: Pusher; x: number; y: number; vx: number; angle: number; facing: number; phase: 'patrol' | 'chase' | 'windup' | 'charge' | 'recover'; time: number; seesPlayer: boolean; recoilVx?: number; fallVelocity?: number; deactivated?: boolean; actor?: Player; aim?: number; shots?: number }
 export interface Run {
+  gadgets: GadgetState
   level: PuzzleLevel; player: Player; props: Prop[]; platforms: Platform[]; terrain: Platform[]
   mechanisms: MechanismState[]; triggers: { held: number; pressed: boolean; active: boolean; depression: number }[]; robots: RobotState[]
   forceFields: ForceFieldState[]
@@ -95,14 +102,15 @@ export function setWaterEffectsEnabled(run: Run, enabled: boolean) {
 }
 function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   const floats = (level.floatSwitches ?? []).map(createFloatSwitch)
-  const run: Run = { floatSwitches: floats, level, player: levelPlayer(level, preview), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
+  const run: Run = { gadgets: createGadgetState(), floatSwitches: floats, level, player: levelPlayer(level, preview), props: level.props.map(p => ({ ...p, vx: 0, vy: 0, angle: 0, angularVelocity: 0, grounded: true })),
     terrain: levelTerrain(level), platforms: [],
     mechanisms: level.mechanisms.map(m => {
       const definition = prepareMechanism(m, level.floor)
       return { definition, x: definition.x, y: definition.y, direction: -1, wait: 0, active: false, safetyHold: null }
     }),
     triggers: level.triggers.map(t => ({ held: 0, pressed: false, active: t.mode !== 'coins' && (t.behavior === 'switch' || t.behavior === 'toggle') && !!t.startsOn, depression: 0 })),
-    robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false })),
+    robots: level.robots.map(definition => ({ definition, x: definition.x, y: definition.y, vx: 0, angle: 0, facing: -1, phase: 'patrol', time: 0, seesPlayer: false,
+      ...(definition.kind === 'repulsor' ? { actor: createRepulsorActor(definition.x, definition.y) } : {}) })),
     pickups: (level.pickups ?? []).map(definition => ({ definition, collectedAge: null })), pickupTime: 0, coinsCollected: 0, activeTime: 0, timeStopRemaining: 0, timeFastRemaining: 0, empRemaining: 0,
     water: createWaterLevels(level.gravityPlates ?? []), waterSpaces: new Map(), waterEffectsEnabled: true,
     forceFields: (level.forceFields ?? []).map(createForceField), switchStates: new Map(), gravityField: createGravityField(), elapsed: 0, started: false, entrance: null, goalLit: false, goalElapsed: 0, exit: null, finished: false, medal: null }
@@ -112,10 +120,11 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   if (run.goalLit) run.goalElapsed = GOAL_OPEN_SECONDS
   if (!preview) {
     prepareProps(run); syncPlatforms(run)
-    prepareRobots(run.platforms, run.robots)
+    prepareRobots([...run.platforms, ...forceFieldPlatforms(run.forceFields, 'objects')], run.robots)
   } else if (run.robots.length) {
     syncPlatforms(run)
-    for (const robot of run.robots) Object.assign(robot, robotPreviewPose(run.platforms, robot))
+    const solids = [...run.platforms, ...forceFieldPlatforms(run.forceFields, 'objects')]
+    for (const robot of run.robots) if (!robot.actor) Object.assign(robot, robotPreviewPose(solids, robot))
   }
   if (run.robots.length) {
     const world = syncPlatforms(run)
@@ -130,6 +139,7 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
   p.contacts = playerContacts(p, NEUTRAL_INPUT, world)
   p.terrain = world.platforms
   advanceFootwork(p, 0, p.x, world.platforms)
+  resetPlayerNoise(run)
   run.waterSurface = createWaterSurface(run.water.plates, run.terrain, p, run.props, run.gravityField)
   if (!preview) run.entrance = createEntranceAnimation(p, world.platforms, level.entrance)
   return run
@@ -137,18 +147,23 @@ function createInitialWorld(level: PuzzleLevel, preview = false): Run {
 function syncPlatforms(run: Run): ContactWorld {
   const colliders: PlayerCollider[] = [...run.terrain.map((platform, i) => ({ id: `terrain:${i}`, platform })),
     ...run.mechanisms.map((m, i) => ({ id: `mechanism:${i}`, platform: mechanismShape(m) })),
-    ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind
+    ...['box', 'ball'].flatMap(kind => run.props.flatMap((prop, i) => prop.kind === kind && !prop.gadget
       ? [{ id: `prop:${i}`, prop, platform: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) }] : []))]
   run.platforms = colliders.map(c => c.platform)
-  for (const collider of colliders) if (collider.prop && !canHangFromBox(collider.prop, run.platforms.filter(b => b !== collider.platform))) disablePlatformLedges(collider.platform)
+  const objectFields = forceFieldPlatforms(run.forceFields, 'objects')
+  const supports = objectFields.length ? [...run.platforms, ...objectFields] : run.platforms
+  for (const collider of colliders) if (collider.prop && !canHangFromBox(collider.prop, supports.filter(b => b !== collider.platform))) disablePlatformLedges(collider.platform)
   // Keep the bots out of their own navigation geometry and prop solver. The
   // player receives their full hulls with stable identities and drive velocity.
   for (const [i, robot] of run.robots.entries()) for (const [piece, platform] of robotPlatforms(robot).entries()) {
     colliders.push({ id: `robot:${i}:${piece}`, platform, robot })
   }
-  const ropePlatforms = colliders.map(c => c.platform)
-  if (!run.forceFields.length) return { platforms: ropePlatforms, colliders }
-  for (const [i, field] of run.forceFields.entries()) if (field.active) colliders.push({ id: `force-field:${i}`, platform: field.platform, playerOnly: true })
+  // Humanoid actors use the player's rope contact path, including after release.
+  // Reintroducing their body as a rope obstacle at a ledge exit kicks the rope.
+  const ropePlatforms = colliders.filter(c => !c.robot?.actor).map(c => c.platform)
+  if (!run.forceFields.length) return { platforms: colliders.map(c => c.platform), ropePlatforms, colliders }
+  ropePlatforms.push(...objectFields)
+  for (const [i, field] of run.forceFields.entries()) if (field.active && field.definition.mode !== 'objects') colliders.push({ id: `force-field:${i}`, platform: field.platform, playerOnly: true })
   return { platforms: colliders.map(c => c.platform), colliders, ropePlatforms }
 }
 const approach = (from: number, to: number, delta: number) => from + Math.max(-delta, Math.min(delta, to - from))
@@ -162,7 +177,9 @@ function reverseLift(m: MechanismState) {
   m.direction *= -1
 }
 function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
+  const objectFields = forceFieldPlatforms(run.forceFields, 'objects')
   for (const [index, m] of run.mechanisms.entries()) {
+    if (run.gadgets.disabled.has(m)) continue
     const def = m.definition
     if (def.kind === 'lift' && !m.active) continue
     if (m.wait > 0) { m.wait -= dt; continue }
@@ -175,7 +192,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const rider = onProp || support?.id === `mechanism:${index}`
       || p.hang?.platform === platformIndex || !!p.mantle && !p.mantle.step && Math.abs(p.mantle.edgeY - m.y) < .2 && p.mantle.edgeX >= m.x && p.mantle.edgeX <= m.x + def.w
     const obstacles = [...run.platforms.filter((b, i) => i !== platformIndex && b !== support?.platform), ...forceFieldPlatforms(run.forceFields)]
-    const solids = [...run.terrain, ...run.mechanisms.filter(other => other !== m).map(mechanismShape)]
+    const solids = [...run.terrain, ...run.mechanisms.filter(other => other !== m).map(mechanismShape), ...objectFields]
     const passengerBlocked = (dx: number, dy: number) => passengers.some(b => solids.some(s => propBlocksMechanism(b, s, { ...s, x: s.x - dx, y: s.y - dy })))
     if (m.safetyHold != null && m.x === open.x && m.y === open.y) {
       // After reversing, wait for the whole closing path to clear. A small pause
@@ -198,7 +215,7 @@ function stepMechanisms(run: Run, dt: number, contacts: PlayerContacts) {
     const nextShape = { ...def, x, y }
     const liftHull = def.kind === 'lift' ? polygonPoints(nextShape) : null
     const terrainBlocked = liftHull && solids.some(s => x < s.x + s.w && x + def.w > s.x && y < s.y + s.h && y + def.h > s.y
-      && polygonIntersects(liftHull, s, .01))
+      && polygonIntersects(liftHull, s, .01)) || objectFields.some(s => polygonIntersects(polygonPoints(nextShape), s, .01))
     // A rising top can meet airborne feet between player steps. Board it just
     // like a landing; side/underside contact can still obstruct the mechanism.
     const boarding = def.kind === 'lift' && !p.inverted && !rider && dy < 0 && p.y <= m.y + .01 && bodyOverlap(p, nextShape)
@@ -262,7 +279,8 @@ function stepTriggers(run: Run, dt: number, powered = run.empRemaining === 0) {
     }
     const position = pressurePlatePosition(plate, run.mechanisms)
     const weighted = run.props.some(b => propLoadsPlate(b, position.x, position.y, plate.w, plate.ceiling))
-    const touched = !!run.player.inverted === !!plate.ceiling && run.player.grounded && Math.abs(run.player.y - position.y) < 3 && run.player.x >= position.x && run.player.x <= position.x + plate.w
+    const loads = (actor: Player) => !!actor.inverted === !!plate.ceiling && actor.grounded && Math.abs(actor.y - position.y) < 3 && actor.x >= position.x && actor.x <= position.x + plate.w
+    const touched = loads(run.player) || run.robots.some(robot => robot.actor && loads(robot.actor))
     sensor.held = weighted || touched ? sensor.held + dt : 0
     const pressed = sensor.held >= .15, behavior = plate.behavior ?? 'pressure'
     if (behavior === 'pressure') sensor.active = powered && pressed
@@ -278,16 +296,48 @@ function updateSwitchTargets(run: Run) {
   for (const state of run.floatSwitches) updateFloatSwitch(state, run.empRemaining === 0)
   const states = resolveSwitchStates(run.level, run.triggers, run.floatSwitches)
   run.switchStates = states
-  updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0)
-  updateGravityField(run.gravityField, run.water.plates, states, run.empRemaining === 0, run.water.revision)
+  updateForceFields(run.forceFields, run.player, states, run.empRemaining === 0, platform => {
+    const held = heldToolFrame(run.player)
+    if (held && polygonIntersects(polygonPoints(toolShape(held)), platform, .001)) return true
+    if (run.props.some(b => polygonIntersects(polygonPoints(b.kind === 'box' ? boxShape(b) : ballShape(b)), platform, .001))
+      || run.robots.some(r => robotPlatforms(r).some(b => polygonIntersects(polygonPoints(b), platform, .001)))
+      || run.mechanisms.some(m => polygonIntersects(polygonPoints(mechanismShape(m)), platform, .001))) return true
+    return (run.player.ropes ?? []).some(rope => {
+      const path = ropePath(rope.definition, rope)
+      return path.slice(1).some((point, i) => lineBlocked(path[i], point, [platform]))
+    })
+  }, field => run.gadgets.disabled.has(field))
+  updateGravityField(run.gravityField, run.water.plates, states, run.empRemaining === 0, run.water.revision, plate => run.gadgets.disabled.has(plate))
   for (const mechanism of run.mechanisms) mechanism.active = mechanism.definition.kind === 'lift' && mechanism.definition.power === 'always' || !!states.get(mechanism.definition.id)
   run.goalLit = !!run.exit || run.level.goal.power !== 'switched' || !!states.get(run.level.goal.id ?? '')
 }
+function faceContactedRobots(player: Player, contacts: PlayerContacts | null, robots: readonly RobotState[]) {
+  const face = (collider?: PlayerCollider) => { if (collider?.robot) faceRobotToward(collider.robot, player.x) }
+  face(contacts?.support?.collider)
+  if (contacts?.push?.hands && !contacts.push.anticipation) face(contacts.push.collider)
+  for (const contact of contacts?.body ?? []) face(contact.collider)
+  for (const robot of robots) if (robotTouchesPlayer(robot, player)) faceRobotToward(robot, player.x)
+}
 function stepRobots(run: Run, dt: number, world: ContactWorld) {
+  if (!run.robots.length) return
   const p = run.player
   const oldX = p.x
+  const playerFields = forceFieldPlatforms(run.forceFields), objectFields = forceFieldPlatforms(run.forceFields, 'objects')
   for (const r of run.robots) {
-    settleRobot(run.platforms, r, dt, p, forceFieldPlatforms(run.forceFields))
+    if (run.gadgets.disabled.has(r)) { r.vx = 0; continue }
+    if (r.definition.kind === 'repulsor') { stepRepulsorBot(run, r, dt, world); continue }
+    settleRobot(run.platforms, r, dt, p, playerFields, objectFields)
+    if (r.recoilVx || r.fallVelocity !== undefined) {
+      const obstacles = [...run.props.filter(prop => !prop.gadget).map(b => b.kind === 'box' ? boxShape(b) : ballShape(b)),
+        ...run.robots.filter(other => other !== r).flatMap(robotPlatforms)]
+      stepRobotRecoil(run.platforms, r, dt, obstacles, p, playerFields, objectFields)
+      if (r.fallVelocity !== undefined) {
+        stepRobotFall(run.platforms, r, dt, obstacles, p, playerFields, objectFields)
+        r.phase = 'recover'; r.time = 0
+        continue
+      }
+    }
+    if (r.deactivated) { r.vx = 0; r.seesPlayer = false; r.phase = 'recover'; r.time = 0; continue }
     const bounds = r.definition, gap = p.x - r.x
     // Reuse the current collision shapes and publish this result for rendering.
     const seesPlayer = r.seesPlayer = robotSensesPlayer(r, p, robotSightObstacles(world, r))
@@ -308,8 +358,9 @@ function stepRobots(run: Run, dt: number, world: ContactWorld) {
     } else if (r.phase === 'recover' && r.time >= .34) { r.phase = 'chase'; r.time = 0 }
     if (speed) {
       const x = approach(r.x, Math.max(bounds.left, Math.min(bounds.right, r.x + r.facing * speed * dt)), speed * dt)
-      const props = run.props.map(b => b.kind === 'box' ? boxShape(b) : ballShape(b))
-      const blocked = !moveRobot(run.platforms, r, x, props, p, undefined, forceFieldPlatforms(run.forceFields))
+      const props = [...run.props.filter(prop => !prop.gadget).map(b => b.kind === 'box' ? boxShape(b) : ballShape(b)),
+        ...run.robots.filter(other => other !== r).flatMap(robotPlatforms)]
+      const blocked = !moveRobot(run.platforms, r, x, props, p, undefined, playerFields, objectFields)
       if ((blocked && !robotTouchesProps(r, props, 3) || x === bounds.left || x === bounds.right) && r.phase === 'patrol') r.facing *= -1
     }
   }
@@ -361,11 +412,13 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   }
   // Collect intent, advance the contacted world, then solve player motion once.
   // Geometry is refreshed after moving bodies; the contact policy is shared.
+  input = prepareGadgets(run, input, dt)
+  const toolBefore = heldToolFrame(run.player)
   let world = syncPlatforms(run)
   const poweredDt = dt > run.empRemaining + 1e-9 ? dt - run.empRemaining : 0, powered = poweredDt > 0
   stepTriggers(run, poweredDt, powered)
   if (advanceWaterLevels(run.water, run.switchStates, poweredDt)) {
-    updateGravityField(run.gravityField, run.water.plates, run.switchStates, powered, run.water.revision)
+    updateGravityField(run.gravityField, run.water.plates, run.switchStates, powered, run.water.revision, plate => run.gadgets.disabled.has(plate))
     if (run.waterEffectsEnabled) run.waterSurface = createWaterSurface(run.water.plates, run.terrain, run.player, run.props, run.gravityField, run.waterSurface)
   }
   if (run.forceFields.length) world = syncPlatforms(run)
@@ -375,7 +428,8 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
   setPlayerGravity(run.player, run.player.gravity, run.player.gravity + run.player.swimAcceleration)
   if (powered) stepMechanisms(run, poweredDt, playerContacts(run.player, input, world, dt))
   world = syncPlatforms(run)
-  const rider = playerContacts(run.player, input, world, dt).support
+  const beforeContacts = playerContacts(run.player, input, world, dt), rider = beforeContacts.support
+  if (powered && run.robots.length) faceContactedRobots(run.player, beforeContacts, run.robots)
   const robotStarts = run.robots.map(r => r.x)
   if (powered) stepRobots(run, poweredDt, world)
   stepProps(run, playerContacts(run.player, input, world, dt), dt, powered)
@@ -391,26 +445,18 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
       translatePlayer(p, safe.x - p.x, safe.y - p.y)
     } else p.grounded = false
   }
-  const pGrip = run.player.hang ?? (run.player.mantle?.step ? null : run.player.mantle)
-  const held = pGrip?.platform === undefined ? undefined : world.colliders[pGrip.platform]
-  if (held?.prop && pGrip) {
-    const edge = platformLedges(run.player.inverted ? mirrorPlatform(held.platform) : held.platform).find(e => e.side === pGrip.side)
-    if (edge) {
-      translatePlayer(run.player, edge.edgeX - pGrip.edgeX, (run.player.inverted ? -edge.edgeY : edge.edgeY) - pGrip.edgeY)
-      // A settling box can square its lip after the catch. Follow its current
-      // slope too, so the pull-up cannot retain a path through the old top.
-      pGrip.slope = edge.slope === undefined ? undefined : run.player.inverted ? -edge.slope : edge.slope
-      const mantle = run.player.mantle
-      if (mantle === pGrip) mantle.toY = mantle.edgeY + (mantle.toX - mantle.edgeX) * mantle.side * (pGrip.slope ?? 0)
-    }
-    else { run.player.hang = null; run.player.mantle = null; run.player.grounded = false; run.player.grabCooldown = .25; cancelJumpInput(run.player) }
-  }
-  stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world, run.gravityField)
+  followPropGrip(run.player, world)
+  stepPlayer(run.player, input, dt, world.platforms, run.level.climbables, { checkpoints: [], fallY: Infinity }, world, run.gravityField,
+    undefined, 1, undefined, { ropeRiders: run.robots.flatMap(r => r.actor ? [r.actor] : []) })
+  if (powered && run.robots.length) faceContactedRobots(run.player, run.player.contacts, run.robots)
+  finishGadgetMotion(run, toolBefore)
+  recordPlayerNoise(run, dt)
   if (run.waterSurface) advanceWaterSurface(run.waterSurface, run.player, run.props, swimStrength, dt)
   // EMP time is gameplay time, independent of every clock collectible. Spend
   // the old duration before collection so a fresh pulse gets its full five seconds.
   run.empRemaining = Math.max(0, run.empRemaining - dt)
   if (run.empRemaining < 1e-9) run.empRemaining = 0
+  advanceGadgetDisables(run, dt)
   // Pickups remain available until entry, including one touched on the entry step.
   collectPickups(run, dt)
   stepTriggers(run, 0)
@@ -423,6 +469,7 @@ export function stepRun(run: Run, input: JumpInput, dt = STEP) {
     // a loose prop blocks a sideways step toward its center.
     const intoDoor = moveBody([p.x, p.y], [door.x + door.w / 2, p.y], exitObstacles)
     run.exit = { elapsed: 0, fromX: p.x, toX: intoDoor.x }
+    run.gadgets.held = null; run.gadgets.aiming = false; delete p.heldTool
     run.medal = run.level.timing === 'untimed' ? null : medalFor(run.elapsed, run.level)
     p.vx = 0; p.vy = 0; p.pushing = null; p.wallBrace = null; p.sliding = null; p.freeFall = null
     cancelJumpInput(p)

@@ -9,14 +9,24 @@ const root = new URL('../dev/levels/jumping/', import.meta.url)
 const manifest = decodeLevelManifest(await readFile(new URL('index.json', root), 'utf8'))
 const recordings = JSON.parse(await readFile(new URL('fixtures/jumping-stress-level-runs.json', import.meta.url), 'utf8'))
 
-test('development stress maps stay outside the production collection and have both routes recorded', async () => {
+test('development maps stay outside production; stress benchmarks retain both recorded routes', async () => {
   const production = decodeLevelManifest(await readFile(new URL('../public/levels/jumping/index.json', import.meta.url), 'utf8'))
   assert.equal(recordings.jumpModel, 'tap-hold')
   for (const file of manifest.levels) {
     assert.ok(!production.levels.includes(file))
+    if (file === 'Tool Bench.jump-level.json') {
+      // A tool sandbox has no medal routes. Its interactions have dedicated
+      // normal-control browser coverage and gadget physics regressions.
+      const level = decodeLevelFile(await readFile(new URL(file, root), 'utf8'))
+      assert.equal(level.timing, 'untimed')
+      assert.ok(playableLevelFile({ fileName: file, level }))
+      assert.ok(level.props.some(prop => prop.gadget === 'emp'))
+      assert.ok(level.props.some(prop => prop.gadget === 'repulsor'))
+      continue
+    }
     assert.deepEqual(recordings.runs.filter(r => r.file === file).map(r => r.route).sort(), ['service', 'upper'])
   }
-  assert.equal(recordings.runs.length, manifest.levels.length * 2)
+  assert.equal(recordings.runs.length, manifest.levels.filter(file => file !== 'Tool Bench.jump-level.json').length * 2)
 })
 
 for (const recording of recordings.runs) test(`development stress ${recording.route} route: ${recording.file}`, async () => {

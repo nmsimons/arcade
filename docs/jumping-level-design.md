@@ -233,6 +233,12 @@ A hint on the wall behind solid terrain, or a sentence clipped halfway through
 its action, does not teach the rule. Keep each hint local and brief rather than
 listing every movement rule in the room.
 
+Equipped forearm gadgets preserve normal traversal. Do not build routine
+drop/climb/retrieve chores around a ladder, ledge, or push. Aim/use pause only
+while the equipped right arm supports the player; red object fields detach the
+sleeve while the player continues. Teach this tool boundary through a useful, recoverable
+choice. See [the gadget contract](jumping-carried-gadgets.md) for the shared rules.
+
 Large levels need distinct sections and a visible sense of progress. Tower's
 repeated building bays make its structure readable while doors, props, and lift
 connections change the local problem. A return journey can be especially strong

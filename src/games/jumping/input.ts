@@ -16,6 +16,9 @@ export function createJumpController() {
       const move = Number(held(15)) - Number(held(14)) || sample.direction.x
       return { ...sample, move,
         swimVertical: Number(held(13)) - Number(held(12)) || sample.direction.y,
+        interact: held(2), use: held(7),
+        aimX: Number(held(15)) - Number(held(14)) || sample.stickDirection.x,
+        aimY: Number(held(13)) - Number(held(12)) || sample.stickDirection.y,
         jump: held(0), climb: held(12) || sample.direction.y < -.5, drop: held(1) || held(13) || sample.direction.y > .65,
         descend: held(13) || sample.direction.y > .65, detach: held(1),
         crouch: held(13) || sample.direction.y > .65, reach: false,

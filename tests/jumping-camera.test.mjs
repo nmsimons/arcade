@@ -126,3 +126,31 @@ test('running toward both room ends keeps the room clamp and resets lead for a f
   const next = createPlayer({ x: 1500, y: 1000 })
   assert.deepEqual(camera.view(320, 740, next, level, true), gameCamera(320, 740, next, level, true), 'restarting does not inherit the preceding run direction')
 })
+
+test('looking up and crouching gently pan vertically, then return without changing the player', () => {
+  const level = room(2200), p = createPlayer({ x: 1500, y: 1100 }), camera = new GameCamera()
+  const neutral = camera.view(1280, 800, p, level, true)
+  p.look = 1
+  const before = structuredClone(p), first = camera.view(1280, 800, p, level, true, STEP)
+  assert.ok(first.y < neutral.y && first.y > neutral.y - 5)
+  for (let i = 0; i < 120; i++) camera.view(1280, 800, p, level, true, STEP)
+  const up = camera.view(1280, 800, p, level, true)
+  assert.ok(up.y < neutral.y - 50)
+  assert.deepEqual(p, before)
+  p.look = 0; p.crouch = 1; p.crouching = true
+  for (let i = 0; i < 160; i++) camera.view(1280, 800, p, level, true, STEP)
+  assert.ok(camera.view(1280, 800, p, level, true).y > neutral.y + 50)
+  p.crouch = 0; p.crouching = false
+  for (let i = 0; i < 240; i++) camera.view(1280, 800, p, level, true, STEP)
+  assert.ok(Math.abs(camera.view(1280, 800, p, level, true).y - neutral.y) < .001)
+})
+
+test('vertical looking keeps the body in view at enclosing contacts and does not pan a fully visible room', () => {
+  const level = room(2200), p = createPlayer({ x: 1500, y: 2200 }), camera = new GameCamera()
+  p.look = 1
+  for (let i = 0; i < 120; i++) camera.view(1280, 800, p, level, true, STEP)
+  const view = camera.view(1280, 800, p, level, true)
+  assert.ok(screen(view, [p.x, p.y])[1] <= 788.01)
+  const short = room(600), neutral = gameCamera(1280, 800, p, short, true)
+  assert.deepEqual(gameCamera(1280, 800, p, short, true, 0, -80), neutral)
+})

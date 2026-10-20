@@ -10,8 +10,10 @@ const day: AndroidMaterials = {
   grip: '#697d70', mark: '#8ba58e', cranial: '#a9b7ad', face: '#b8c0b5',
 }
 const night: AndroidMaterials = {
-  shell: '#d8ded5', rear: '#adbfaa', joint: '#8ca291',
-  grip: '#9cb29e', mark: '#bdcfb4', cranial: '#9cb19d', face: '#d4dccf',
+  // Joints, grips and the back of the head must survive both the night
+  // exposure floor and the translucent water overlay at phone scale.
+  shell: '#d8ded5', rear: '#adbfaa', joint: '#a5b7a8',
+  grip: '#a8bda9', mark: '#bdcfb4', cranial: '#a8bda9', face: '#d4dccf',
 }
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */

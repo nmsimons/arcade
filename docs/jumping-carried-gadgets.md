@@ -1,9 +1,9 @@
 # Carried EMP and repulsor rifle for L.A.B. Experiments
 
-**Prototype contract — October 19, 2026. Implemented on `codex/carried-gadgets` for review.**
+**Prototype contract — October 20, 2026. Implemented on `codex/carried-gadgets` for review.**
 
-This proposal focuses on two tools: a single-use carried EMP and a reusable
-repulsor rifle. The player deliberately picks up, carries, uses, and drops one
+This proposal focuses on two reusable tools: a carried EMP projector and a
+repulsor rifle. The player deliberately picks up, carries, fires, and drops one
 tool at a time. Equipping a sleeve preserves normal traversal. Tools belong
 to their authored level and never enter a campaign inventory.
 
@@ -53,7 +53,7 @@ cannot occur while a hand-dependent climb, hang, pull-up, or gravity-turn
 transition is in progress. It never silently releases a grip.
 
 Dropping places the complete tool just clear of the body, near its actual held
-position. An aimed rifle stays on its held side rather than being
+position. An aimed tool stays on its held side rather than being
 moved through the torso to match facing. Test a short, swept outward placement
 path; do not search across a wall or field for a convenient empty destination.
 If there is no legal placement, retain the tool and show a brief blocked cue.
@@ -96,9 +96,9 @@ ladder/rope climbing uses that hand's actual planted phase. Merely equipping a
 gadget never suppresses a movement action.
 
 When the right arm takes support, its ordinary contact pose takes priority over
-pointing the rifle. Movement controls always retain their normal meaning. The
-rifle follows directional input again when the arm is free; holding Fire never
-queues a later shot through a grip. A failed use retains the tool/EMP charge and
+pointing the tool. Movement controls always retain their normal meaning. The
+tool follows directional input again when the arm is free; holding Fire never
+queues a later shot through a grip. A failed use retains the tool and
 gives a brief supporting-arm cue. Releasing a grip does not grant an extra jump
 or reset cooldown.
 
@@ -132,12 +132,12 @@ Movement and aiming happen together. There is no aim mode or aim modifier.
 | Action | Keyboard / mouse | Controller | Touch |
 | --- | --- | --- | --- |
 | Pick up / Drop | E | X / Square | Tap Pick up / Drop |
-| Use EMP / fire rifle | F or primary mouse click in the play canvas | Right trigger / R2 | Tap Use / Fire |
-| Move and point rifle | Arrow keys or WASD; combine directions for diagonals | Left stick or D-pad | Normal movement and Up/Down gestures |
+| Fire either tool | F or primary mouse click in the play canvas | Right trigger / R2 | Tap Use / Fire |
+| Move and point either tool | Arrow keys or WASD; combine directions for diagonals | Left stick or D-pad | Normal movement and Up/Down gestures |
 | Jump | Space | A / Cross | Existing jump gestures |
 | Detach from a rope or ledge | X | B / Circle | Existing downward flick |
 
-The rifle snaps to the nearest of eight directions, 45 degrees apart. The
+Either tool snaps to the nearest of eight directions, 45 degrees apart. The
 stick's radial dead zone rejects drift before selecting the nearest sector;
 keyboard and D-pad combinations supply cardinal or diagonal directions, with
 opposing keys cancelling on that axis. Walking with Shift does not change a
@@ -149,7 +149,7 @@ Directions keep all ordinary movement meanings, including running, air steering,
 crouching, swimming, and climbing. Aiming adds no position lock, movement gate,
 extra braking, or wait for neutral input. Jump remains separate. Pointing left or
 right turns the player toward the shot; exactly vertical aim retains facing.
-When directions are released, the rifle returns to horizontal hip fire in the
+When directions are released, the tool returns to horizontal hip fire in the
 current facing direction. Fire remains an independent fresh action and works
 while moving or standing, subject to hand support, power, cooldown, and clearance.
 There is no separate right-stick, mouse-pointer, Q, or left-trigger aiming path.
@@ -175,11 +175,11 @@ A blocked pose/muzzle may give a brief cue on the item and an appropriate sound;
 it does not reveal a distant target or obstruction. There is no automatic target
 selection, homing, zoom, or world pause.
 
-On touch, ordinary movement and vertical holds also select the rifle direction.
+On touch, ordinary movement and vertical holds also select the tool direction.
 Pick up / Drop and Use / Fire buttons sit outside the canvas gesture recognizer,
 have generous touch targets, and retain their own pointers. A button press must
 not jump, detach, or change a movement finger's role. Existing tap/flick jump
-and detach gestures retain their timing and meaning. EMP has no directional use.
+and detach gestures retain their timing and meaning. Both tools use the same aiming controls.
 Actual phone ergonomics still require review.
 
 ## Activation and feedback
@@ -188,17 +188,20 @@ Use requires a fresh press (or completed touch tap). Holding a key/trigger never
 auto-fires, queues a shot through cooldown, or uses a tool collected later.
 Pickup and drop take priority over Use in the same step; no use occurs that
 step. A newly picked-up tool waits for release and a fresh Use press. An empty
-hand, blocked muzzle, cooldown, or disabled rifle gives a short local cue and
+hand, blocked muzzle, cooldown, or disabled tool gives a short local cue and
 never queues a later activation.
 
-Consume an EMP only when the outage begins. A valid rifle discharge starts its
+Both tools remain equipped after firing. A valid discharge starts its
 cooldown even if it misses or strikes an immovable surface; empty space is a
-legitimate shot. Retain cooldown on that physical rifle through drop and pickup.
+legitimate shot. Retain cooldown on that physical tool through drop and pickup.
 
 Show the held object, its name, the relevant controls, and ready/cooling/disabled
 state without a large permanent inventory panel. Separate pickup, drop, EMP
-activation, rifle discharge, and impact cues. The EMP outage ring and power-down
-sound belong to activation, not pickup. Use shape or a brief label as well as
+discharge, rifle discharge, and impact cues. While a device is disabled, short
+cyan/white lightning arcs crackle across its body or emitters. Three five-segment
+arcs per body flicker at 14 Hz, with no particles, blur, dynamic lights, or new
+lighting passes. Arc count stays fixed regardless of device size. There is no
+countdown ring, number, or timer above the device. Use shape or a brief label as well as
 color. Failed actions should not open a dialog or interrupt movement.
 
 ## Force fields and solid obstructions
@@ -209,18 +212,20 @@ color. Failed actions should not open a dialog or interrupt movement.
 | Loose tool, or tool transferring during pickup/drop | Passes through | Blocked as an object |
 | Held tool | Tool passes; the player's body remains blocked | Detaches at the first swept contact on the approach side; player continues |
 | Repulsor pulse | Passes through | Stops at the first field surface |
-| EMP outage | Global effect disables the field | Global effect disables the field |
+| Carried EMP bolt | Passes through the beam; hitting either emitter disables this field | Beam absorbs the bolt and disables this field |
+| Automatic EMP collectible | Global effect disables the field | Global effect disables the field |
 
 Walking, jumping, climbing, or riding through an active red field leaves the
 same tool loose on the approach side without stopping the player or releasing
-a grip. The item retains cooldown, charge, and ordinary physical behavior; its
+a grip. The item retains cooldown and ordinary physical behavior; its
 velocity into the field is removed. It is recoverable where it drops. Carrying
 it across requires finding a route around the field or removing power. Pickup,
 aimed pose changes, and manual drops still require a clear transfer. Fast
 travel and moving supports cannot skip the swept detachment check, and a muzzle
 cannot be placed through a red field to fire from its far side.
 
-Terrain and solid gates/lifts block tool transfers and rifle shots. Existing
+Terrain and solid gates/lifts block tool transfers and shots. An EMP hit on a
+gate/lift freezes it rather than opening it or continuing through it. Existing
 player/object distinctions still apply to blue fields; they can separate the
 player from something the rifle can affect. A rifle pulse has no physical body
 that holds a switch or prevents a field from returning.
@@ -234,32 +239,38 @@ Blue fields retain their existing player-clearance rule.
 
 ## Carried EMP
 
-**Single use; no aiming.** With the right arm free, Use consumes the charge and begins
-the existing global five-second power outage. Carrying or dropping it has no
-electrical effect. It works in the air and underwater. Terrain and red fields
-block transport of the charge, but do not shield equipment from its global
-effect. This distinction must be explicit in teaching and feedback.
+**Reusable projectile weapon; no ammunition.** With the right arm free, each
+fresh Fire sends a visible electric bolt in the selected direction. Start with
+1,200 units/second bolt speed, 900 units of range, a one-second cooldown, and a
+ten-second disable. The sleeve stays equipped. A miss still spends cooldown.
+Bolts sweep the whole distance traveled each step, so thin obstacles stop them.
 
-Preserve the existing electrical behavior: powered machinery and shovebots stop
-in place; spotlights lose power; force fields and gravity plates disable;
-pumps pause while existing water remains physical. The player, loose objects,
-ropes, water buoyancy, ambient light, and level clock continue. Stopped machinery
-and bots remain solid. Pressure inputs turn off; Switch/Toggle state and already
-latched coin thresholds persist. A newly reached coin threshold waits for power.
-Always-on exits remain usable and switched exits follow their ordinary inputs.
+The first hit consumes the bolt. A mechanism freezes at its current position,
+retaining its direction, wait state, and ordinary collision hull. A shovebot
+stops its motor, perception, timers, and recoil, stays solid, faces the shooter,
+and loses its own headlight. Hitting a force field disables only that field;
+either emitter can be targeted, while an active red beam also absorbs bolts.
+A dry gravity plate is hit through its shallow emitter bar, not its invisible
+field volume. Its gravity effect stops independently of other fields and water.
+Terrain and loose props absorb bolts without an electrical effect. Ladders,
+ropes, water, collectibles, switches, relays, and lights are not bolt targets.
 
-An EMP used during an outage adds five seconds. A further charge still requires
-explicit pickup and a fresh Use action. The repulsor rifle cannot fire during
-an outage, although pickup and drop remain available and its cooldown advances.
-EMP charges remain usable to extend the outage. This is a shared tool rule,
-not an exception authored for an individual puzzle.
+The rest of the level keeps running: no global blackout, switch reset, remote
+pump interruption, or changed exit logic. Disabling a gate stops it rather than
+opening it. Repeated hits refresh ten seconds rather than adding durations.
+When the effect ends, normal power and clearance rules apply; a force field
+waits for overlapping bodies to clear before returning. Dropping the weapon
+does not cancel an existing bolt or disable. Bolts work in the air and underwater.
+There is no area effect in this version; the impact and crackle identify the hit
+device without suggesting neighboring devices are affected.
+
+Legacy automatic EMP collectibles retain their global five-second outages and
+stacking duration. Both carried weapons stop firing during that outage; pickup,
+drop, cooldowns, and existing local disable timers continue normally.
 
 Potential uses include choosing a lift's stopping height, interrupting a charge,
-removing a barrier, or changing gravity while a delivered object keeps moving.
-Authors must consider all simultaneous consequences. A required use should not
-depend on discovering a distant, unadvertised power change. Global reach and
-five seconds are the starting behavior; a local EMP would be a separate future
-revision, not an unexplained per-level setting.
+removing one barrier, or switching off a particular gravity emitter while other
+equipment keeps moving. Shared tuning and direct-hit rules apply across levels.
 
 ## Repulsor rifle
 
@@ -268,11 +279,13 @@ bounded pulse along the selected direction. Start evaluation at 1,500 units of
 range and a 0.4-second cooldown; both are provisional shared tuning values.
 The current prop impulse is `3600 / mass`, capped at a 1,000-unit/second velocity
 change and the existing prop speed limit. This is four times the first prototype's
-mass-scaled impulse, with a higher cap for light objects. Bot recoil requests up
-to 180 units over 0.4 seconds, starting at up to 900 units/second and decelerating
-at 2,250 units/second squared. Each simulation step resolves that step's travel
-through the ordinary wheel and collision controller, constrained by its authored
-lane, footing, other bodies, and red fields. A hit never changes position at once.
+mass-scaled impulse, with a higher cap for light objects. Grounded bot recoil
+travels up to 180 units over 0.4 seconds, starting at up to 900 units/second and
+decelerating at 2,250 units/second squared. Losing wheel footing reduces braking
+to 225 units/second squared, preserving momentum over the lip before landing.
+Each step sweeps the chassis and wheels against terrain, other bodies and red
+fields. External force can leave the patrol lane; the motor then deactivates.
+A hit never changes position at once.
 The visible beam is a 25 ms flash. A separate small impact ring fades over 90 ms;
 the beam must not linger in a running player's path after the shot.
 Impulse strength and pulse width must be chosen through contact and usability
@@ -306,22 +319,24 @@ physical contacts. Repeated firing cannot force an object through terrain or
 ignore the existing velocity bounds. Water does not block the pulse; submerged
 objects retain ordinary buoyancy and resistance after the hit.
 
-Shovebots currently use a driven controller, so a convincing hit response needs
-explicit future support. A hit interrupts windup/charge, applies bounded swept
+Shovebots use a driven controller. A hit interrupts windup/charge, applies bounded swept
 recoil, and enters the normal recovery phase before sensing and driving again.
-Terrain, red fields, other bodies, and wheel support constrain recoil. It cannot
-teleport a bot, launch it over a cliff, destroy it, or change its patrol limits.
+Terrain, red fields and other bodies constrain recoil. External force can carry
+it over a cliff or past its authored patrol bounds. An unsupported chassis falls
+under gravity and lands through swept contacts. Outside its patrol range it
+deactivates for the remainder of the run, retaining its solid body and response
+to further repulsor hits. Its motor never tries to return to the old range.
 Physical player contact or a repulsor hit turns the bot to face the player,
 including contact or a shot from behind. Merely standing nearby behind it does
 not reveal the player. During recoil, it faces the shooter while moving away.
 Further hits during recovery may displace it but do not restart its recovery
-timer indefinitely. Tune the response for a readable opening, not permanent
-stun. This does not by itself establish a richer adversary; evaluate the
+timer indefinitely. Inside its patrol range the normal recovery still resumes
+its motor. This does not by itself establish a richer adversary; evaluate the
 encounter separately from the rifle's object-manipulation uses.
 
 ## Level boundaries, pause, and restart
 
-Tools and their state exist only within the current run. No tool, charge,
+Tools and their state exist only within the current run. No tool,
 cooldown, or effect transfers to another level or account inventory. Campaign
 progress stores no transferable tool inventory. Accepted exit entry locks score
 and tool input under the normal doorway rules. Leave held equipment in that
@@ -337,10 +352,10 @@ control. Directional aiming follows fresh movement input after resume, with
 no retained aim session or pending shot.
 
 Restart restores authored tools and positions, empties the hands, resets aim
-and cooldowns, and clears outages and pulses. Beginning another run or playtest
+and cooldowns, and clears outages, device disables, bolts, and pulses. Beginning another run or playtest
 also clears this state. A future resume that preserves a world must preserve
-held/loose/consumed identity consistently; it cannot duplicate a tool or refill
-an EMP. A stranded tool has no automatic recall or replacement button.
+held/loose identity and timers consistently; it cannot duplicate a tool or reset
+its cooldown. A stranded tool has no automatic recall or replacement button.
 
 ## Authoring and compatibility
 
@@ -352,7 +367,7 @@ scale parameter (default 40); sleeve hull width is `size * .4` and height is
 `size * .2`. Positions use center X and unrotated bottom Y, like other props.
 The same rectangle rotates, collides, loads plates, and integrates buoyancy when
 loose. Held geometry uses those same dimensions on the forearm. Mutable
-ownership, cooldown, aim, and consumption belong to run state.
+ownership, cooldown, aim, and device disables belong to run state.
 
 Keep existing `pickups` entries with `kind: "emp"` as automatic on-contact EMPs.
 Introduce carried tools as an explicitly distinct authoring feature; never
@@ -365,7 +380,7 @@ Teach pickup, drop, hand support, aiming, and red/blue behavior through clear,
 recoverable encounters. Provide usable positions from which to observe and act,
 and ensure required equipment can be reached and placed with normal controls.
 Review tool-equipped grabs and pull-ups, swimming to a bank with the sleeve,
-blocked drops, wasted EMPs, missed shots, and lost equipment. Intentional
+blocked drops, missed shots, and lost equipment. Intentional
 restart states must be understandable. Favor meaningful choices over repeated
 mandatory tool shuttling or extra waiting on every replay.
 
@@ -397,8 +412,10 @@ Verification should include:
 - Both field modes for loose/held tools, automatic red-field detachment from
   either side and during climbing, preserved item state, transfer paths, pulses,
   fast movement, transport, inversion, EMP removal, and pending reactivation.
-- All EMP consequences and extensions, rifle disabled during outage, legacy
-  automatic EMP behavior, and no activation on collection of a carried charge.
+- Local EMP first-hit targets, duration/refresh, unobstructed devices continuing,
+  eight-direction shots, cooldown preserved through drop, field reactivation,
+  bounded crackle without countdowns, both tools disabled during a global outage,
+  and unchanged legacy automatic EMP behavior.
 - First-hit ordering and occlusion, misses, cooldown, mass differences, rolling,
   trapped/stacked props, float constraints, bots in each phase, and no tunneling,
   direct switching, self-recoil, permanent stun, or unsupported chain impulses.
@@ -421,6 +438,6 @@ movement or gravity turns. Revise the shared design if those encounters feel
 awkward; do not patch individual levels with special tool rules.
 
 The pickup/drop model, normal traversal, supporting-arm use gate, eight-direction movement aiming with neutral hip fire,
-level-local ownership, field distinctions, global single-use EMP, and reusable
+level-local ownership, field distinctions, reusable direct-hit EMP, and reusable
 nonlethal rifle are the concrete proposal for review. Their ability to support
 distinct, enjoyable challenges remains a playtesting question.

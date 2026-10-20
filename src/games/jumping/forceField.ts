@@ -26,9 +26,9 @@ export function createForceField(definition: ForceField): ForceFieldState {
   return { definition, platform, active: false, pending: false }
 }
 export function updateForceFields(fields: readonly ForceFieldState[], player: Player, states: ReadonlyMap<string, boolean>, powered: boolean,
-  objectsOverlap: (platform: Platform) => boolean) {
+  objectsOverlap: (platform: Platform) => boolean, disabled?: (field: ForceFieldState) => boolean) {
   for (const field of fields) {
-    const enabled = powered && (field.definition.power !== 'switched' || !!states.get(field.definition.id))
+    const enabled = powered && !disabled?.(field) && (field.definition.power !== 'switched' || !!states.get(field.definition.id))
     if (!enabled) { field.active = false; field.pending = false; continue }
     if (field.active) continue
     if (field.definition.mode === 'objects') field.pending = objectsOverlap(field.platform)

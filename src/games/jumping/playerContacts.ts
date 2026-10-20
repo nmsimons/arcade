@@ -1,7 +1,7 @@
-import { mirrorPlayerState, mirrorContactWorld, mirrorContacts } from './gravityFrame.ts'
+import { mirrorPlayerState, mirrorContactWorld, mirrorContacts, mirrorPlatform } from './gravityFrame.ts'
 import type { Prop, RobotState } from './challenge.ts'
 import type { JumpInput, Platform, Player } from './model.ts'
-import { STEP, TUNING } from './model.ts'
+import { cancelJumpInput, STEP, TUNING } from './model.ts'
 import type { GroundSurface } from './terrain.ts'
 import { exposedWallFaces, groundAt } from './terrain.ts'
 import { canGrip } from './friction.ts'
@@ -10,7 +10,7 @@ import type { PushHands } from './propGeometry.ts'
 import { bodyContact, bodyIntersects, moveBody } from './geometry.ts'
 import type { Vec } from './geometry.ts'
 import { climbBodyHeight, climbContactRoot, climbFrame, ledgeEase, LEDGE_CATCH_TIME, LEDGE_CLIMB_TIME, ROPE_LEDGE_CATCH_TIME } from './ledge.ts'
-import { ledgeObstacles } from './terrainLedges.ts'
+import { ledgeObstacles, platformLedges } from './terrainLedges.ts'
 import { playerTurnAngle } from './ropeGravity.ts'
 import { isWeightless, playerWaterCenterOffset } from './gravity.ts'
 import { dryPreparationFacesForward, retainInterruptedStepPose, swimmingBodyOutline, swimmingPushHands, swimmingTerrainOutline } from './athlete.ts'
@@ -482,6 +482,22 @@ export function translatePlayer(p: Player, dx: number, dy: number) {
   translateFeet(p, dx, dy)
   if (p.hang) { p.hang.edgeX += dx; p.hang.edgeY += dy; p.hang.caught.x += dx; p.hang.caught.y += dy }
   if (p.mantle) { p.mantle.edgeX += dx; p.mantle.edgeY += dy; p.mantle.toX += dx; p.mantle.toY += dy }
+}
+
+/** Both controlled actors follow the current lip of a settling held prop.
+ * Keeping yesterday's edge makes an otherwise clear pull-up hit its own box. */
+export function followPropGrip(p: Player, world: ContactWorld) {
+  const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
+  const held = grip?.platform === undefined ? undefined : world.colliders[grip.platform]
+  if (!held?.prop || !grip) return
+  const edge = platformLedges(p.inverted ? mirrorPlatform(held.platform) : held.platform).find(e => e.side === grip.side)
+  if (!edge) {
+    p.hang = null; p.mantle = null; p.grounded = false; p.grabCooldown = .25; cancelJumpInput(p)
+    return
+  }
+  translatePlayer(p, edge.edgeX - grip.edgeX, (p.inverted ? -edge.edgeY : edge.edgeY) - grip.edgeY)
+  grip.slope = edge.slope === undefined ? undefined : p.inverted ? -edge.slope : edge.slope
+  if (p.mantle === grip) p.mantle.toY = grip.edgeY + (p.mantle.toX - grip.edgeX) * grip.side * (grip.slope ?? 0)
 }
 
 /** A planted foot follows its support independently of the body's inertia. */

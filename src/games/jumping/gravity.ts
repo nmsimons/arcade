@@ -34,9 +34,9 @@ export const createGravityField = (): GravityField => ({ strips: [], mask: -1, r
 
 /** Partition switched rectangles once per power change. Cells never overlap,
  * so integrating a body counts its mass exactly once, even under several plates. */
-export function updateGravityField(field: GravityField, plates: readonly GravityPlate[], states: ReadonlyMap<string, boolean>, powered: boolean, geometryRevision = 0) {
+export function updateGravityField(field: GravityField, plates: readonly GravityPlate[], states: ReadonlyMap<string, boolean>, powered: boolean, geometryRevision = 0, disabled?: (plate: GravityPlate) => boolean) {
   let mask = 0
-  for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states, powered)) mask |= 1 << i
+  for (let i = 0; i < plates.length; i++) if (gravityPlateActive(plates[i], states, powered) && !disabled?.(plates[i])) mask |= 1 << i
   if (mask === field.mask && geometryRevision === (field.geometryRevision ?? 0)) return
   field.geometryRevision = geometryRevision
   field.mask = mask; field.revision++; field.strips = []; field.maxMultiplier = 1; field.maxPropLift = 0

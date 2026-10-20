@@ -103,9 +103,10 @@ const TOOLS: { id: Tool; group: string; label: string; help: string }[] = [
   { id: 'ball', group: 'Objects', label: 'Ball', help: 'Click for a standard ball, or drag to choose its size. Corner handles resize it.' },
   { id: 'box', group: 'Objects', label: 'Box', help: 'Click for a standard box, or drag to choose its size. Corner handles resize it.' },
   { id: 'branded-box', group: 'Objects', label: 'L.A.B. crate', help: 'Place a crate with the L.A.B. Experiments stencil. It behaves like an ordinary box. Toggle L.A.B. branding in the inspector for either crate style.' },
-  { id: 'carried-emp', group: 'Gadgets', label: 'Carried EMP', help: 'Pick up or drop with E / X. F / RT triggers a five-second outage while the right arm is free. Normal traversal stays available; red fields drop the tool.' },
+  { id: 'carried-emp', group: 'Gadgets', label: 'Carried EMP', help: 'E / X picks up or drops. F / RT fires an electric bolt: hit devices stop for ten seconds; one-second cooldown. Movement also aims. Red fields drop the tool.' },
   { id: 'repulsor', group: 'Gadgets', label: 'Repulsor rifle', help: 'Pick up with E / X. F / RT fires. Movement also aims in eight directions. Red fields drop carried tools and block pulses.' },
   { id: 'pusher', group: 'Objects', label: 'Shovebot', help: 'Click to place a shovebot at the cursor. Snap catches nearby surfaces. Drag either end of its patrol range, or set the limits in the inspector.' },
+  { id: 'repulsorbot', group: 'Objects', label: 'Repulsorbot', help: 'Hunts across the whole level once it spots you. Runs, jumps, and climbs with the player rig. Its arm charges before firing a strong repulsor. Cover blocks shots; EMP disables it.' },
   { id: 'lift', group: 'Mechanisms', label: 'Elevator', help: 'Click to place the platform, or drag vertically to set its travel. Select it and drag the upper stop to change travel height. Connect a pressure plate or coin switch to move it.' },
   { id: 'moving-platform', group: 'Mechanisms', label: 'Moving platform', help: 'Click to place, or drag horizontally from the starting position to set travel and direction. Drag the far stop to change travel distance. Flip horizontally reverses direction. Connect a pressure plate or coin switch to move it.' },
   { id: 'gate', group: 'Mechanisms', label: 'Gate', help: 'Click for a standard gate, or drag vertically to choose its height. Drag its top or bottom handle to resize.' },
@@ -236,7 +237,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
   const digitalCoinSwitch = trigger?.mode === 'coins' && trigger.display === 'digital'
   const verticalCoinSwitch = trigger?.mode === 'coins' && trigger.orientation === 'vertical'
   const robot = selection?.kind === 'robot' ? level.robots?.[selection.index] : null
-  const patrolHandles = robot ? (['left', 'right'] as const).map(side => ({ side, x: robot[side], y: robot.y - 65 })) : []
+  const patrolHandles = robot && robot.kind !== 'repulsor' ? (['left', 'right'] as const).map(side => ({ side, x: robot[side], y: robot.y - 65 })) : []
   const patrolHandleAt = (p: Point) => patrolHandles.find(handle => Math.hypot(p.x - handle.x, p.y - handle.y) < 10 / view.zoom)
   const adjustingPatrol = drag?.mode === 'patrol' || pointer && patrolHandleAt(pointer)
   const light = selection?.kind === 'light' ? level.lighting?.lights[selection.index] : null
@@ -525,7 +526,7 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           ctx.beginPath(); ctx.arc(handle.x, handle.y, (handle.kind === 'aim' ? 5 : 4) / view.zoom, 0, Math.PI * 2); ctx.fill()
         }
       }
-      if (robot) {
+      if (robot && robot.kind !== 'repulsor') {
         ctx.strokeStyle = '#cc6a49'; ctx.lineWidth = 2 / view.zoom; ctx.setLineDash([5 / view.zoom, 3 / view.zoom]); ctx.beginPath(); ctx.moveTo(robot.left, robot.y - 65); ctx.lineTo(robot.right, robot.y - 65); ctx.stroke(); ctx.setLineDash([])
         const handle = 9 / view.zoom; ctx.fillStyle = '#c65231'
         for (const x of [robot.left, robot.right]) ctx.fillRect(x - handle / 2, robot.y - 65 - handle / 2, handle, handle)
@@ -1224,7 +1225,8 @@ export function LevelBuilder({ active, onPlay, onClose, levels, initialFile, onF
           }} />{switchItemLabel(level, item)}</label>)}
           {!outgoingTargets.length && <span>No switched items</span>}
         </fieldset>}
-        {robot && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={ROBOT_HALF_WIDTH} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? gridSize : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - ROBOT_HALF_WIDTH)} step={snap ? gridSize : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
+        {robot && robot.kind !== 'repulsor' && <div className="builder-dimensions"><label>Left limit<NumberField label="Shovebot left limit" min={ROBOT_HALF_WIDTH} max={Math.floor(Math.min(robot.x, robot.right - 50))} step={snap ? gridSize : 1} value={robot.left} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'left', value))} /></label><label>Right limit<NumberField label="Shovebot right limit" min={Math.ceil(Math.max(robot.x, robot.left + 50))} max={Math.floor(level.width - ROBOT_HALF_WIDTH)} step={snap ? gridSize : 1} value={robot.right} {...numberEdit((base, value) => setShovebotLimit(base, selection.index, 'right', value))} /></label></div>}
+        {robot?.kind === 'repulsor' && <p>Hunts the player across the whole level once alerted. Large forearms charge and fire from the palms. Sight and cover govern its shots.</p>}
         {robot && <label className="builder-headlight" title="Lights ahead of this shovebot in night mode"><input type="checkbox" checked={!!robot.headlight} onChange={event => commit(setShovebotHeadlight(history.present, selection.index, event.target.checked))} />Headlight</label>}
         <div className="builder-object-actions"><button title="Duplicate this object (Ctrl/⌘ + D)" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={duplicate}>Duplicate</button><button className="builder-delete" aria-label="Delete object" title="Delete this object" disabled={['entrance', 'goal'].includes(selection.kind)} onClick={remove}>Delete</button></div>
       </div> : <p className="builder-inspector-empty">Select an object on the canvas to edit it.</p>}

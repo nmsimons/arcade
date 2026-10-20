@@ -16,12 +16,21 @@ rectangular hull and sweeps against red object fields, including during climbing
 An active red field detaches the sleeve on the approach side while player motion
 and grip progress continue. Ordinary terrain/prop clearance remains the movement
 rig's responsibility. Blue fields retain their player-only collision policy.
-Movement inputs also point the rifle in eight directions, with no aim mode.
+Movement inputs also point either tool in eight directions, with no aim mode.
 Neutral directions return to horizontal hip fire; loaded right-arm contacts take
 priority over aiming and use. Momentum, gravity, buoyancy, and support motion
 continue. Rifle
 pulses stop at the first solid/red boundary and apply a finite mass-dependent
 impulse to a prop, or bounded shovebot recoil; they do not directly flip switches.
+The reusable carried EMP fires a swept electric bolt at 1,200 units/second,
+with a 900-unit range and one-second cooldown. Its first hit disables just that
+mechanism, shovebot, force field, or dry gravity emitter for ten seconds.
+Machinery and bots freeze in place and stay solid; fields lose their effect.
+Rehits refresh the duration. Terrain and props absorb bolts. Blue beams pass
+them, but either emitter is targetable; red beams absorb them and disable only
+that field. Water is unaffected and does not block shots. This local disable
+does not alter wiring, switches, other devices, or the legacy automatic EMP's
+global power outage. Bolts, cooldowns, and disable timers use simulation time.
 
 Each collider has a stable identity and a current geometry snapshot. Terrain,
 mechanisms, boxes and balls all appear in the player's collision world. A contact
@@ -108,6 +117,94 @@ uses its normal endpoint pause and reverses, continuing to cycle in the availabl
 space. Each trip retries the full configured travel, so removing an obstruction
 automatically restores the original range. Releasing its pressure plate still
 pauses both travel and endpoint waiting.
+
+Repulsorbots (`robots[].kind: "repulsor"`) use an actual `Player` actor and
+`stepPlayer` for movement, contacts, jumps, ledge transfers, ladders, ropes,
+gravity and water. Their broader artwork retains planted foot/hand anchors.
+They share visible rope state; the primary player step advances each rope once,
+using a bot rider when the player is not attached. Humanoid bodies stay outside
+rope obstacle geometry throughout attachment and release, matching the player;
+their body cannot suddenly kick the rope during an exit. Their route planner supplies
+controls from a bounded, shared graph; collision queries determine actual travel.
+Climb routes include intermediate ledge heights and exposed-lip handoffs onto
+the supporting platform. Jump edges retain their required strength, allowing
+short jumps under low ceilings as well as full-height reaches. Takeoff approach
+speed follows the planned arc; high jumps steer toward the outside handhold
+before pulling onto the surface. Takeoff waits for sufficient ground speed when
+there is still footing; near-apex grips use the controller's existing hand-reach
+window. Planned rope exits issue the ordinary jump
+control instead of continuing to hold the rope.
+Before grabbing, local steering samples visible segments of the simulated rope
+and leads their motion briefly. It aims the hands at an attainable segment and
+keeps Up available; the player controller still enforces the usual catch radius
+and blocked reach. The navigation graph retains stable rope topology.
+Long rope catches approach the actual platform lip before launching, including
+the controller's normal coyote window. Rope graph points include feet below the
+dangling handhold. Rbot's dry airborne horizontal speed cap is 1.2 times the
+player's running speed, reached through ordinary air acceleration. Ground speed,
+vertical jump strength, hand reach and collision rules retain their player values.
+The route planner uses that horizontal profile. When a pull-up leaves too little
+runway beside a long-jump lip, Rbot backs up on clear footing and takes a running
+jump instead of repeatedly launching at low speed from the edge.
+Exposed-lip climb routes work in both directions: a hunter can lower from a
+platform onto its rope and search back down after the player leaves. Live red
+fields still block that return route; loss of sight alone does not close it.
+An unalerted bot knows the authored entrance and investigates it before a
+general patrol. A closed door still motivates approaching the nearest reachable
+point. This map knowledge creates no player sighting. Empty or inaccessible
+entrances give way to further patrol after that approach.
+Acquisition requires line of sight. The alerted hunt persists using the last
+confirmed position and velocity through occlusion, then expands its search
+through reachable surface and climb routes. Routes that stop making progress
+give way to other search points. Hidden player movement cannot update this
+memory. Recent sightings can also motivate physical plate presses or repulsor
+shots at plate cargo to disrupt relevant mechanisms through normal wiring.
+Running foot contacts, hard landings and player gadget shots emit short-lived
+world noises independently of audio playback. Quiet walking/crouching and NPC
+shots do not. Each intervening solid wall or mechanism attenuates the range.
+Hearing records an approximate point and time, without player velocity or a
+confirmed sighting. New noises redirect an old search; silence never updates
+that point. The bot remembers and investigates it through occlusion rather than
+expiring the clue during a progressing route. Firing at the player still requires
+actual sight. These distinct visual and acoustic memories allow deliberate
+lures and quiet escapes without revealing hidden movement.
+Search rules out visible empty surfaces and compares actual route costs to
+other places. The last observed vertical velocity biases which floor to check
+first. Patrols select reachable destinations across floors, then continue from
+route ends rather than holding against a wall. A bot standing on the player
+steps onto clear ground before charging its weapon.
+Blue fields pass the bot; red fields contain its body and shots. Locomotion
+climbs over loose props instead of applying a pushing motor. Accepted ledge
+transfers finish before a replan; blocked transfers return through normal controls.
+Both actors follow the current lip and slope of a settling held box. Its support
+is excluded from its own pull-up separation, so a mantle cannot shove the box
+away and stall against its old edge. A humanoid pinned between rounded props
+without standing footing backs out using ordinary jump/climb controls before
+replanning; it receives no extra jump or direct positional correction.
+Rope descent never sends opposing Up/Down inputs; a walking route near the
+floor releases a low grip through the normal detach control.
+Ground approaches ease off the motor before a waypoint, avoiding an overshoot
+off a thin or irregular platform. Jumping past a setup waypoint advances the
+route instead of steering back toward a spot beneath the bot. Player collision
+bodies never expose grabbable ledges to NPCs, preventing a midair collision
+from leaving a grip fixed at the player's old position.
+Their charged repulsor locks aim before firing, sweeps the first physical hit,
+and adds a bounded player velocity impulse. Normal walls, props, supports and
+water resolve that motion. EMP and repulsor hits interrupt the weapon; no hit
+directly changes position. See the [authoring contract](jumping-levels.md) and
+`tests/jumping-repulsor-bot.test.mjs` for tuning and traversal coverage.
+`tests/jumping-bot-level-routes.test.mjs` also replays saved Aloft and Uninvited
+Company layouts through the real controller, including waiting at the entrance.
+
+Repulsor recoil can force a shovebot beyond its patrol bounds or off a ledge.
+The external impulse sweeps its real chassis and wheel pieces against terrain,
+objects, other bots and red fields; normal driving still requires both wheels
+to have footing. Once unsupported, it falls under gravity and lands through
+the same swept hulls. EMP pauses this motion. Leaving the authored patrol range
+deactivates the motor and headlight permanently for the run; its body remains
+solid and can still be repulsed. It never drives back toward an obsolete range.
+Repulsorbots can jump over shovebots or deliberately fire to clear one from a
+hunt route. Wheeled drive also respects other bots' bodies.
 
 Shovebots start aligned with their supporting slope and use each surface's
 normal to account for a round wheel's clearance. This lets valid steep slopes

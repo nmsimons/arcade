@@ -35,6 +35,7 @@ export interface Platform extends NamedObject { looseProp?: boolean; x: number; 
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
+interface PlayerStepOptions { advanceRopes?: boolean; ropeRiders?: readonly Player[]; airSpeedScale?: number }
 export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export interface GaitPose { speed: number; moving: number; run: number; air: number; jog?: number }
@@ -48,6 +49,7 @@ export function gaitPose(vx: number, airborne = false): GaitPose {
 }
 export interface Player {
   heldTool?: import('./gadgets.ts').HeldTool
+  armAim?: { angle: number; aiming: boolean }
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
   sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number } | null
   coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
@@ -426,7 +428,8 @@ export function playerState(p: Player) {
 export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: readonly Platform[] = [],
   climbables: ClimbableWorld = NO_CLIMBABLES,
   rules: LevelRules = { checkpoints: [], fallY: Infinity }, world: ContactWorld = staticContactWorld(platforms), gravityField?: GravityField, gravityOverride?: number, frameDirection = 1,
-  fieldMotionOverride?: { floatDrag: number; swimStrength: number; swimDepth: number; swimAcceleration: number; orientationGravity: number }) {
+  fieldMotionOverride?: { floatDrag: number; swimStrength: number; swimDepth: number; swimAcceleration: number; orientationGravity: number },
+  options: PlayerStepOptions = {}) {
   const swimStrength = fieldMotionOverride?.swimStrength ?? (gravityField ? playerSwimStrength(gravityField, p) : 0)
   const swimDepth = fieldMotionOverride?.swimDepth ?? (gravityField ? playerSwimDepth(gravityField, p) : 0)
   const floatDrag = fieldMotionOverride?.floatDrag ?? (gravityField ? playerFloatDrag(gravityField, p) : 0)
@@ -452,7 +455,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
     mirrorPlayerState(p, true); p.inverted = false
     try {
       stepPlayer(p, input, dt, reflected.platforms, { ladders: climbables.ladders.map(mirrorLadder), ropes: p.ropes?.map(r => r.definition) ?? [] },
-        { checkpoints: [], fallY: Infinity }, reflected, gravityField, -gravity, -1, reflectedMotion)
+        { checkpoints: [], fallY: Infinity }, reflected, gravityField, -gravity, -1, reflectedMotion, options)
     } finally { mirrorPlayerState(p, true); p.inverted = true }
     if (p.contacts) p.contacts = mirrorContacts(p.contacts, world)
     finishGravityTurn(p)
@@ -561,7 +564,7 @@ export function stepPlayer(p: Player, input: JumpInput, dt = STEP, platforms: re
   } else delete p.waterMotion
   const verticalUsed = !!(p.climbing || p.hang || p.mantle)
   const initialContacts = playerContacts(p, input, world, dt), previousGround = initialContacts.support
-  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField, frameDirection, floatDrag, swimStrength, swimDepth, orientationGravity)) return
+  if (stepMotion(p, input, dt, platforms, climbables, rules, world, initialContacts, gravityField, frameDirection, floatDrag, swimStrength, swimDepth, orientationGravity, options)) return
   const leavingGround = previousGround && !p.grounded
     && p.vx * Math.sin(previousGround.angle) - p.vy * Math.cos(previousGround.angle) > .1
   // The hanging climb clears its own ledge; low steps use the full solid hull.
@@ -784,7 +787,7 @@ export function verticalClimbOption(p: Player, climbables: ClimbableWorld, platf
     && !(found.ladder && p.grounded && (Math.abs(p.y - found.ladder.top) < 1 || (Math.abs(p.y - found.ladder.bottom) < 1 && vertical < 0))) ? found : null
 }
 function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly Platform[], climbables: ClimbableWorld, rules: LevelRules,
-  world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1, floatDrag = 0, swimStrength = 0, swimDepth = 0, orientationGravity = p.gravity ?? TUNING.gravity) {
+  world: ContactWorld, contacts: PlayerContacts, gravityField?: GravityField, frameDirection = 1, floatDrag = 0, swimStrength = 0, swimDepth = 0, orientationGravity = p.gravity ?? TUNING.gravity, options: PlayerStepOptions = {}) {
   const gravity = p.gravity ?? TUNING.gravity
   p.airBoost.x = 0; p.airBoost.lift = 0; p.airBoost.time += dt
   const stepIntent = p.stepIntent; p.stepIntent = null
@@ -808,11 +811,15 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
   const surfaceExit = towardLedge && !input.jump && !input.detach ? findRopeStepUp(p, world) : null
   if (climbables.ropes.length) {
     p.ropes ??= climbables.ropes.map(createRope)
-    for (const [i, rope] of p.ropes.entries()) stepRope(rope, dt, world.ropePlatforms ?? platforms,
-      p.climbing?.kind === 'rope' && p.climbing.index === i ? { distance: p.climbing.distance, move: p.climbing.wall ? 0 : p.climbing.swing,
-        wall: p.climbing.wall, bracing: ease(p.climbing.time / .25),
-        body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing, ...(world.ropePlatforms ? { platforms } : {}) },
-        gravity: gravity * 1400 / TUNING.gravity } : null, gravityField, frameDirection)
+    if (options.advanceRopes !== false) for (const [i, rope] of p.ropes.entries()) {
+      const rider = p.climbing?.kind === 'rope' && p.climbing.index === i ? p
+        : options.ropeRiders?.find(r => r.climbing?.kind === 'rope' && r.climbing.index === i && !!r.inverted === !!p.inverted)
+      const grip = rider?.climbing
+      stepRope(rope, dt, world.ropePlatforms ?? platforms, grip && rider ? { distance: grip.distance, move: grip.wall ? 0 : grip.swing,
+        wall: grip.wall, bracing: ease(grip.time / .25),
+        body: { climb: grip, from: [rider.x, rider.y], facing: rider.facing, ...(world.ropePlatforms ? { platforms: rider === p ? platforms : rider.terrain ?? platforms } : {}) },
+        gravity: (rider.gravity ?? gravity) * 1400 / TUNING.gravity } : null, gravityField, frameDirection)
+    }
   }
   if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.crouching = !!p.mantle?.crouched; p.crouch = Number(p.crouching); p.reach = 0; p.footwork = null; p.ledgeReach = null; p.landing = 0 }
   if (p.mantle) {
@@ -1145,8 +1152,9 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
 
   const move = Math.max(-1, Math.min(1, input.move)), waterControl = Math.min(1, swimStrength / .2)
   const drySpeed = p.crouching ? TUNING.walkSpeed : TUNING.runSpeed
+  const airSpeedScale = !p.grounded && !isWeightless(gravity) ? options.airSpeedScale ?? 1 : 1
   const swimMove = p.grounded ? move : swimmingDirection(input).x
-  const target = move * drySpeed * (1 - waterControl) + swimMove * Math.min(drySpeed, TUNING.swimHorizontalSpeed) * waterControl
+  const target = move * drySpeed * airSpeedScale * (1 - waterControl) + swimMove * Math.min(drySpeed, TUNING.swimHorizontalSpeed) * waterControl
   // Release carries a damped glide; intentional reversals still steer firmly.
   const coasting = waterControl > 0 && !p.grounded && !move
   if (waterControl && (coasting || move * p.vx < 0 || Math.abs(p.vx) > Math.abs(target))) {

@@ -166,7 +166,7 @@ test('aim and fire are available during an actual free right-hand climbing phase
   assert.equal(run.gadgets.shots, 1)
 })
 
-test('an EMP activation denied by a supporting arm retains the charge and never queues use', () => {
+test('an EMP shot denied by a supporting arm never queues use or consumes the weapon', () => {
   const level = scene('emp'); level.platforms = [{ x: 350, y: 750, w: 250, h: 20 }]
   const run = equipped(level), p = run.player, prop = run.gadgets.held
   Object.assign(p, { x: 338, y: 820, grounded: false, coyote: 0, vy: 100, footwork: null })
@@ -176,8 +176,9 @@ test('an EMP activation denied by a supporting arm retains the charge and never 
   assert.equal(run.empRemaining, 0)
   assert.equal(p.hang, null)
   tick(run); tick(run, 1, { use: true })
-  assert.equal(run.gadgets.held, null)
-  assert.ok(run.empRemaining > 4)
+  assert.equal(run.gadgets.held, prop)
+  assert.equal(run.gadgets.shots, 1)
+  assert.equal(run.empRemaining, 0)
 })
 
 test('a red field strips the sleeve off during a climb without interrupting the grip', () => {

@@ -6,7 +6,7 @@ import { ballShape, boxShape, propHeight } from './propGeometry.ts'
 import { athletePose } from './athlete.ts'
 import { forceFieldPlatforms } from './forceField.ts'
 import { mechanismShape } from './mechanisms.ts'
-import { repulseRobot, robotPlatforms } from './robotPhysics.ts'
+import { faceRobotToward, repulseRobot, robotPlatforms } from './robotPhysics.ts'
 import { setPropCarried, repulseProp } from './propPhysics.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 
@@ -17,6 +17,10 @@ export const REPULSOR_RANGE = 1500
 export const REPULSOR_COOLDOWN = .4
 export const REPULSOR_BEAM_SECONDS = .025
 export const REPULSOR_IMPACT_SECONDS = .09
+export const EMP_RANGE = 900
+export const EMP_BOLT_SPEED = 1200
+export const EMP_COOLDOWN = 1
+export const EMP_DISABLE_SECONDS = 10
 export const gadgetLabel = (kind: GadgetKind) => kind === 'emp' ? 'Carried EMP' : 'Repulsor rifle'
 export interface HeldTool {
   kind: GadgetKind; size: number; angle: number; aiming: boolean; blocked: boolean
@@ -27,11 +31,22 @@ export interface GadgetState {
   held: Prop | null; nearby: Prop | null; aiming: boolean; angle: number; blocked: boolean
   previousUse: boolean; previousInteract: boolean
   feedback: string; feedbackTime: number; serial: number; shots: number
-  pulses: { from: Vec; to: Vec; age: number }[]
+  lastShotKind?: GadgetKind
+  pulses: { from: Vec; to: Vec; age: number; kind?: GadgetKind }[]
+  bolts: { position: Vec; direction: Vec; remaining: number; sourceX: number }[]
+  disabled: Map<object, number>
 }
 export const createGadgetState = (): GadgetState => ({ held: null, nearby: null, aiming: false, angle: 0, blocked: false,
   previousUse: false, previousInteract: false,
-  feedback: '', feedbackTime: 0, serial: 0, shots: 0, pulses: [] })
+  feedback: '', feedbackTime: 0, serial: 0, shots: 0, pulses: [], bolts: [], disabled: new Map() })
+
+/** Device timers use gameplay time, independent of pickup/drop or global power. */
+export function advanceGadgetDisables(run: Run, dt: number) {
+  for (const [device, time] of run.gadgets.disabled) {
+    if (time <= dt + 1e-9) run.gadgets.disabled.delete(device)
+    else run.gadgets.disabled.set(device, time - dt)
+  }
+}
 
 /** The same sleeve hull and forearm axis drive artwork, clearance and firing. */
 export function heldToolFrame(p: Player, tool = p.heldTool): ToolFrame | null {
@@ -128,7 +143,9 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
   const state = run.gadgets, p = run.player
   state.feedbackTime = Math.max(0, state.feedbackTime - dt)
   state.pulses = state.pulses.filter(pulse => (pulse.age += dt) < REPULSOR_IMPACT_SECONDS)
-  for (const prop of [...run.props, ...(state.held ? [state.held] : [])]) if (prop.gadgetCooldown) prop.gadgetCooldown = Math.max(0, prop.gadgetCooldown - dt)
+  advanceEmpBolts(run, dt)
+  for (const prop of [...run.props, ...(state.held ? [state.held] : [])]) if (prop.gadgetCooldown)
+    prop.gadgetCooldown = prop.gadgetCooldown <= dt + 1e-9 ? 0 : prop.gadgetCooldown - dt
   if (!state.held && !run.props.some(prop => prop.gadget)) { delete p.heldTool; return input }
   const use = !!input.use && !state.previousUse, interact = !!input.interact && !state.previousInteract
   state.previousUse = !!input.use; state.previousInteract = !!input.interact
@@ -147,7 +164,7 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
     const previousPresentation = p.heldTool?.presentation
     const supporting = rightArmSupporting(p)
     const ax = input.aimX ?? Math.sign(input.move), ay = input.aimY ?? (Number(!!input.descend) - Number(input.climb))
-    const aiming = !supporting && prop.gadget === 'repulsor' && Math.hypot(ax, ay) > .001
+    const aiming = !supporting && Math.hypot(ax, ay) > .001
     const angle = aiming ? Math.round(Math.atan2(ay, ax) / (Math.PI / 4)) * (Math.PI / 4) : p.facing < 0 ? Math.PI : 0
     const facing = aiming && Math.abs(Math.cos(angle)) > .01 ? Math.sign(Math.cos(angle)) : p.facing
     const turnSupported = aiming && rightArmSupporting({ ...p, facing })
@@ -162,13 +179,10 @@ export function prepareGadgets(run: Run, input: JumpInput, dt: number): JumpInpu
     p.heldTool!.presentation = easeArm(p, previousPresentation, dt)
     if (use && !interact) {
       if (supporting || turnSupported) feedback(run, 'Right arm supporting')
-      else if (prop.gadget === 'emp') {
-        state.held = null; state.aiming = false; run.empRemaining += 5; state.serial++
-        for (const robot of run.robots) robot.vx = 0
-        feedback(run, 'EMP · power off')
-      } else if (run.empRemaining > 0) feedback(run, 'Power off')
+      else if (run.empRemaining > 0) feedback(run, 'Power off')
       else if (state.blocked) feedback(run, 'Barrel blocked')
       else if (prop.gadgetCooldown) feedback(run, 'Cooling')
+      else if (prop.gadget === 'emp') fireEmp(run)
       else fireRepulsor(run)
     }
   } else state.aiming = false
@@ -231,7 +245,7 @@ function fireRepulsor(run: Run) {
     ...run.props.map(prop => ({ shape: prop.kind === 'box' ? boxShape(prop) : ballShape(prop), prop, robot: -1 })),
     ...run.robots.flatMap((robot, index) => robotPlatforms(robot).map(shape => ({ shape, prop: null, robot: index })))]
   const hit = pulseHit(from, direction, targets.map(t => t.shape)), target = targets[hit.index]
-  state.held!.gadgetCooldown = REPULSOR_COOLDOWN; state.serial++; state.shots++
+  state.held!.gadgetCooldown = REPULSOR_COOLDOWN; state.serial++; state.shots++; state.lastShotKind = 'repulsor'
   state.pulses.push({ from, to: hit.point, age: 0 })
   if (target?.prop) repulseProp(run, target.prop, direction)
   if (target && target.robot >= 0) {
@@ -240,10 +254,58 @@ function fireRepulsor(run: Run) {
   feedback(run, target?.prop || target && target.robot >= 0 ? 'Hit' : 'Pulse')
 }
 
+function fireEmp(run: Run) {
+  const state = run.gadgets, p = run.player, frame = heldToolFrame(p)!
+  const direction: Vec = [Math.cos(frame.angle), Math.sin(frame.angle)]
+  p.heldTool!.presentation = { ...armAngles(p), climbAim: p.climbing ? 1 : 0, firing: true }
+  state.bolts.push({ position: [frame.x + direction[0] * frame.size * .2, frame.y + direction[1] * frame.size * .2],
+    direction, remaining: EMP_RANGE, sourceX: p.x })
+  state.held!.gadgetCooldown = EMP_COOLDOWN; state.serial++; state.shots++; state.lastShotKind = 'emp'
+  feedback(run, 'EMP · fired')
+}
+
+function advanceEmpBolts(run: Run, dt: number) {
+  const state = run.gadgets
+  if (!state.bolts.length || !(dt > 0)) return
+  const targets: { shape: Platform; device?: object; robot?: Run['robots'][number] }[] = [
+    ...run.terrain.map(shape => ({ shape })),
+    ...run.mechanisms.map(device => ({ shape: mechanismShape(device), device })),
+    ...run.props.map(prop => ({ shape: prop.kind === 'box' ? boxShape(prop) : ballShape(prop) })),
+    ...run.robots.flatMap(robot => robotPlatforms(robot).map(shape => ({ shape, device: robot, robot }))),
+  ]
+  for (const field of run.forceFields) {
+    if (field.active && field.definition.mode === 'objects') targets.push({ shape: field.platform, device: field })
+    const { x, y, w, h, orientation } = field.definition
+    // Blue beams pass projectiles; either emitter can still be targeted.
+    for (const end of [0, 1]) targets.push({ device: field, shape: orientation === 'vertical'
+      ? { x: x - 2, y: y + h * end - 4, w: w + 4, h: 8 }
+      : { x: x + w * end - 4, y: y - 2, w: 8, h: h + 4 } })
+  }
+  for (const plate of run.water.plates) if (plate.effect !== 'water') targets.push({ device: plate,
+    shape: { x: plate.x, y: plate.ceiling ? plate.y : plate.y + plate.h - 7, w: plate.w, h: 7 } })
+  state.bolts = state.bolts.filter(bolt => {
+    const distance = Math.min(bolt.remaining, EMP_BOLT_SPEED * dt)
+    const hit = pulseHit(bolt.position, bolt.direction, targets.map(target => target.shape), distance)
+    bolt.remaining -= distance
+    if (hit.index < 0) { bolt.position = hit.point; return bolt.remaining > 1e-6 }
+    const target = targets[hit.index]
+    if (target.device) {
+      state.disabled.set(target.device, EMP_DISABLE_SECONDS)
+      if (target.robot) {
+        faceRobotToward(target.robot, bolt.sourceX); target.robot.vx = 0; target.robot.recoilVx = 0
+        if (target.robot.actor) { target.robot.phase = 'recover'; target.robot.time = 0; target.robot.actor.vx = 0; target.robot.actor.vy = 0 }
+      }
+      feedback(run, 'EMP · disabled')
+    } else feedback(run, 'EMP · blocked')
+    state.pulses.push({ from: hit.point, to: hit.point, age: 0, kind: 'emp' })
+    return false
+  })
+}
+
 export function gadgetStatus(run: Run, device: 'keyboard' | 'controller' | 'touch') {
   const state = run.gadgets, interact = device === 'controller' ? 'X / Square' : device === 'touch' ? 'Pick up' : 'E'
   if (!state.held) return state.feedbackTime && state.feedback ? state.feedback
     : state.nearby ? `${interact} · ${gadgetLabel(state.nearby.gadget!)}` : ''
   const use = device === 'controller' ? 'RT' : device === 'touch' ? 'Use' : 'F'
-  return `${gadgetLabel(state.held.gadget!)} · ${use} ${state.held.gadget === 'emp' ? 'use' : 'fire'} · ${interact} drop${rightArmSupporting(run.player) ? ' · right arm supporting' : run.empRemaining ? ' · power off' : state.held.gadgetCooldown ? ' · cooling' : state.feedbackTime && state.blocked ? ' · blocked' : ''}`
+  return `${gadgetLabel(state.held.gadget!)} · ${use} fire · ${interact} drop${rightArmSupporting(run.player) ? ' · right arm supporting' : run.empRemaining ? ' · power off' : state.held.gadgetCooldown ? ' · cooling' : state.feedbackTime && state.blocked ? ' · blocked' : ''}`
 }

@@ -1,5 +1,5 @@
 import { traceAthleteArtwork } from './athlete.ts'
-import type { AthleteOutline } from './athlete.ts'
+import type { AthleteOutline, AthletePose } from './athlete.ts'
 import type { Player, Platform } from './model.ts'
 import type { Vec } from './geometry.ts'
 
@@ -7,7 +7,7 @@ const TOLERANCE = .2
 const middle = (a: Vec, b: Vec): Vec => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2]
 
 /** Flatten the artwork's curves, not the player's rectangular collision body. */
-export function athleteCasters(player: Player): Platform[] {
+export function athleteCasters(player: Player, pose?: AthletePose): Platform[] {
   const shapes: Platform[] = []
   let points: Vec[] = []
   const close = () => {
@@ -51,6 +51,6 @@ export function athleteCasters(player: Player): Platform[] {
     },
     closePath: close,
   }
-  traceAthleteArtwork(path, player); close()
+  traceAthleteArtwork(path, player, pose); close()
   return shapes
 }

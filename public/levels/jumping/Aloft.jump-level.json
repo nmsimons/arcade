@@ -2617,10 +2617,17 @@
     },
     {
       "kind": "box",
-      "x": 1665,
+      "x": 2198,
       "y": 3300,
       "size": 40,
       "gadget": "repulsor"
+    },
+    {
+      "kind": "box",
+      "x": 1598,
+      "y": 3300,
+      "size": 40,
+      "gadget": "emp"
     }
   ],
   "mechanisms": [],
@@ -2694,10 +2701,17 @@
   ],
   "robots": [
     {
-      "x": 4435,
-      "y": 3300,
-      "left": 26,
-      "right": 6974
+      "x": 276,
+      "y": 2450,
+      "left": 30,
+      "right": 500
+    },
+    {
+      "x": 396,
+      "y": 2980,
+      "left": 235,
+      "right": 705,
+      "kind": "repulsor"
     }
   ],
   "timers": [],

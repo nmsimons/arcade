@@ -109,6 +109,8 @@ export class JumpingSound {
         (Math.sin(t * Math.PI * 2 * 1046.5) + .3 * Math.sin(t * Math.PI * 2 * 1568)) * .13 * Math.exp(-t * 19) * Math.min(1, (.28 - t) / .025)),
       repulsor: makeBuffer(ctx, .22, (t, noise) => Math.min(1, t / .003) *
         (Math.sin(Math.PI * 2 * (240 * t - 300 * t * t)) * .24 + noise * .06) * Math.exp(-t * 24)),
+      'emp-shot': makeBuffer(ctx, .18, (t, noise) => Math.min(1, t / .002) *
+        (noise * .22 + Math.sin(t * Math.PI * 2 * 1450) * .08) * Math.exp(-t * 32)),
       'timer-paused': makeBuffer(ctx, .46, t => {
         const note = (start: number, frequency: number) => {
           const age = t - start

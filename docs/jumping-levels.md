@@ -591,7 +591,9 @@ footprint. Loose sleeves rotate, fall, float, and contact plates as physical
 props. The player passes through loose sleeves without tripping or pushing them;
 walking over one does not collect it. Normal weight floats; Heavy sinks.
 E / controller X picks up or drops;
-F / RT uses it. Movement directions also point the rifle in eight directions;
+F / RT fires it. The EMP sends a traveling bolt that disables the hit device for
+ten seconds, with a one-second cooldown. It remains equipped after firing.
+Movement directions also point either tool in eight directions;
 neutral input returns to horizontal hip fire. The arm shows direction without a
 reticle. Active red fields drop the sleeve on the approach side while the player
 continues through.
@@ -809,7 +811,7 @@ retains momentum without a downward kick. Ropes can transfer onto ceilings and
 ceiling slopes using the same support and clearance rules as ordinary exits.
 
 Medal `times` are increasing positive seconds: `gold < silver < bronze`.
-The builder's **Objects** tools place balls, boxes, and shovebots at the cursor,
+The builder's **Objects** tools place balls, boxes, shovebots, and repulsorbots at the cursor,
 with their feet at its height. Snap catches nearby surfaces; **Place on surface**
 moves an existing object to a surface farther below.
 Shovebots snap with both round wheels on the slope, rather than resting an
@@ -843,6 +845,58 @@ remain unseen until the bot turns toward them. Terrain, boxes, balls, mechanisms
 and other bots can provide cover;
 wall decorations and collectibles do not. Losing sight restores ordinary patrol
 and the calm eye color. Crouching behind low cover can hide the player.
+
+**Objects → Repulsorbot** adds a humanoid hunter, saved in `robots` with
+`kind: "repulsor"`. Omission keeps the legacy shovebot. The existing `x`, `y`,
+`left`, `right`, optional name and headlight fields round trip; patrol limits
+apply only to shovebots. Repulsorbots search the whole level.
+They know the authored entrance and investigate it before general patrol.
+They reuse the player controller, walking/foot rig, ledge grabs, jumping,
+ladder/rope climbing, gravity and water movement. Their red armor and wider
+shell, flared forearm/lower-leg armor and large feet distinguish them; their
+palms emit the repulsor without carrying a weapon. Planted feet and palms keep
+their original contacts. They climb over loose boxes and balls rather than
+driving them along with a pushing motor. They do not collect items.
+They can jump over shovebots or clear a blocking shovebot with a palm shot.
+Their horizontal speed in dry air can reach 20% above the player's running speed;
+ground speed and jump height stay unchanged. They back up for long running jumps
+when a pull-up leaves them near a platform edge, and can lower back onto ropes
+to continue searching outside a structure through an open exit.
+
+Facing and clear line of sight acquire a player within 850 horizontal and 480
+vertical units. Once acquired, the hunt persists for the run. They follow the
+last confirmed position and movement after occlusion, then search outward along
+reachable routes, including other floors. Stalled search routes are skipped;
+quiet hidden movement never updates their knowledge. Running, hard landings and
+gadget fire can attract them to an approximate last-heard location, with walls
+reducing hearing range. New noises can lure them into another area; remembered
+sounds keep a progressing search active after sight is lost. Hearing alone
+never permits a shot at the player. Recently observed players can
+also be intercepted by reaching a relevant pressure/switch plate or repulsing
+cargo off a pressure plate. These actions use ordinary contacts and wiring;
+stale knowledge sends the bot back to searching rather than guarding forever.
+Blue fields let the bot pass; red fields contain it. Trapping it or using the
+ten-second EMP window is intended encounter counterplay.
+Sight still gates acquisition and charging a shot at the player. They close to within 600 horizontal
+and 240 vertical units before planting their feet to fire. An arm charge lasts
+0.8 seconds, with aim locked for its final 45%; jumping or taking cover can
+dodge it. The pulse reaches 1,000 units, stops at the first terrain, prop, bot,
+or red field, and imparts a strong finite impulse through normal player physics.
+It releases hand support without teleporting or bypassing collisions. A
+1.4-second recovery gives the player a response window. The player's repulsor
+interrupts the shot and recoils the bot; an EMP freezes it for ten seconds and
+cancels its windup. Both bots remain physical while disabled.
+
+Navigation shares a bounded surface/climb graph per run and issues ordinary
+controls. Replanning starts at the actual position rather than forcing a return
+to an earlier waypoint. Accepted climbs finish before changing routes; blocked
+transfers return or release through normal controls. It retries blocked approaches, temporarily avoids failed waypoints,
+and chooses reachable alternatives. Moving obstacles still use actual contacts;
+closed gates and active red barriers also inform route choices, so an available
+climb detour is preferable to repeatedly firing into a field.
+The graph does not grant movement abilities or puzzle solutions. Review pursuit
+routes in the authored level as part of playtesting.
+
 The **Mechanisms** tools place elevators, moving platforms, vertical and horizontal gates, and pressure plates. Select a
 plate and check one or more switched items in **Activates**, or select a gate,
 switched elevator, moving platform, exit, or spotlight and check its switches in **Switched by**; new plates connect to

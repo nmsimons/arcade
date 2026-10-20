@@ -4,7 +4,8 @@ import { blankTrial } from '../src/games/jumping/level.ts'
 import { NEUTRAL_INPUT, STEP } from '../src/games/jumping/model.ts'
 import { createRun, stepRun } from './helpers/jumping-active-run.mjs'
 import { prepareGadgets } from '../src/games/jumping/gadgets.ts'
-import { repulseRobot, stepRobotRecoil } from '../src/games/jumping/robotPhysics.ts'
+import { repulseRobot, robotHulls, stepRobotRecoil } from '../src/games/jumping/robotPhysics.ts'
+import { polygonIntersects } from '../src/games/jumping/geometry.ts'
 
 const tick = (run, frames = 1, input = {}) => { for (let i = 0; i < frames; i++) stepRun(run, { ...NEUTRAL_INPUT, ...input }) }
 function scene() {
@@ -94,18 +95,65 @@ test('recoil decelerates over 0.4 seconds with bounded displacement and timestep
   }
 })
 
-for (const obstacle of ['wall', 'red', 'lane', 'prop', 'bot', 'cliff']) test(`recoil respects ${obstacle} without tunneling`, () => {
+for (const obstacle of ['wall', 'red', 'prop', 'bot']) test(`recoil respects ${obstacle} without tunneling`, () => {
   const run = equipped(), robot = run.robots[0]
   const wall = { x: 530, y: 700, w: 20, h: 220 }
-  if (obstacle === 'lane') robot.definition = { ...robot.definition, right: 500 }
-  const platforms = obstacle === 'wall' ? [...run.platforms, wall]
-    : obstacle === 'cliff' ? [{ x: 0, y: 920, w: 550, h: 20 }] : run.platforms
+  const platforms = obstacle === 'wall' ? [...run.platforms, wall] : run.platforms
   const objects = obstacle === 'prop' || obstacle === 'bot' ? [wall] : []
   const fields = obstacle === 'red' ? [wall] : []
   repulseRobot(robot, 1)
   for (let frame = 0; frame < 70; frame++) stepRobotRecoil(platforms, robot, STEP, objects, run.player, [], fields)
-  assert.ok(robot.x <= (obstacle === 'lane' ? 500 : obstacle === 'cliff' ? 533 : 505))
+  assert.ok(robot.x <= 505)
   assert.equal(robot.recoilVx, 0)
+})
+
+for (const direction of [-1, 1]) test(`a repulsor knocks a shovebot ${direction < 0 ? 'left' : 'right'} off a shelf and beyond its patrol bounds`, () => {
+  const mirror = x => direction > 0 ? x : 1800 - x
+  const level = blankTrial(); level.entrance = { x: mirror(400), y: 650 }
+  level.platforms = [{ x: direction > 0 ? 300 : 1100, y: 650, w: 400, h: 20 }]
+  level.props = [{ kind: 'box', gadget: 'repulsor', x: mirror(430), y: 650, size: 40 }]
+  level.robots = [{ x: mirror(650), y: 650, left: direction > 0 ? 326 : 1126, right: direction > 0 ? 674 : 1474 }]
+  const run = equipped(level), bot = run.robots[0]
+  run.player.facing = direction
+  tick(run, 1, { use: true })
+  let airborne = false, crossed = false, landed = false
+  for (let frame = 0; frame < 260; frame++) {
+    const x = bot.x, y = bot.y; tick(run)
+    assert.ok(Math.abs(bot.x - x) < 10 && Math.abs(bot.y - y) < 14, 'fall and recoil remain continuous')
+    crossed ||= direction > 0 ? bot.x > 726 : bot.x < 1074
+    airborne ||= bot.y > 652 && bot.y < 918
+    landed ||= crossed && Math.abs(bot.y - 920) < .01 && bot.fallVelocity === undefined
+    for (const hull of robotHulls(bot)) for (const solid of run.terrain) assert.equal(polygonIntersects(hull, solid, .01), false)
+  }
+  assert.ok(crossed); assert.ok(airborne); assert.ok(landed)
+  assert.equal(bot.deactivated, true)
+  assert.equal(bot.seesPlayer, false)
+  const stopped = { x: bot.x, y: bot.y }; tick(run, 180)
+  assert.deepEqual({ x: bot.x, y: bot.y }, stopped, 'a stranded bot cannot jitter back toward its old patrol')
+})
+
+test('an airborne shovebot stops at walls and EMP pauses its fall', () => {
+  const level = scene(); level.entrance = { x: 1500, y: 920 }; level.props = []
+  level.platforms = [{ x: 300, y: 650, w: 400, h: 20 }, { x: 790, y: 0, w: 12, h: 920 }]
+  level.robots[0] = { x: 650, y: 650, left: 326, right: 674 }
+  const run = createRun(level), bot = run.robots[0]; repulseRobot(bot, 1)
+  for (let frame = 0; frame < 120 && bot.y < 690; frame++) tick(run)
+  assert.ok(bot.fallVelocity > 0)
+  const x = bot.x, y = bot.y; run.gadgets.disabled.set(bot, 1)
+  tick(run, 90); assert.equal(bot.x, x); assert.equal(bot.y, y)
+  tick(run, 180)
+  assert.ok(bot.x <= 764.01); assert.ok(Math.abs(bot.y - 920) < .01)
+  for (const hull of robotHulls(bot)) for (const solid of run.terrain) assert.equal(polygonIntersects(hull, solid, .01), false)
+})
+
+test('losing wheel footing removes grounded recoil braking instead of parking the chassis over a lip', () => {
+  const level = scene(); level.entrance = { x: 1500, y: 920 }; level.props = []
+  level.platforms = [{ x: 300, y: 650, w: 400, h: 20 }]
+  level.robots[0] = { x: 532.5, y: 650, left: 326, right: 674 }
+  const run = createRun(level), bot = run.robots[0]; repulseRobot(bot, 1)
+  tick(run, 240)
+  assert.ok(bot.x > 726); assert.equal(bot.y, 920)
+  assert.equal(bot.fallVelocity, undefined); assert.equal(bot.deactivated, true)
 })
 
 test('further hits cap recoil speed and do not restart recovery', () => {

@@ -216,7 +216,7 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const driven = world.driven
   driven.clear()
   const robots = run.robots.map(lazyRobotHulls)
-  const robotProbes = run.robots.filter(robot => powered && robotDrive(robot)).map(robot => ({ robot,
+  const robotProbes = run.robots.filter(robot => powered && !run.gadgets.disabled.has(robot) && robotDrive(robot)).map(robot => ({ robot,
     probe: lazyRobotHulls({ ...robot, x: robot.x + robot.facing * 3 }) }))
   run.mechanisms.forEach((m, i) => {
     if (Math.hypot(world.mechanisms[i].position.x - m.x - m.definition.w / 2, world.mechanisms[i].position.y - m.y - m.definition.h / 2) > 1e-7) {
@@ -371,8 +371,13 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
   const solids = [...world.terrain, ...world.mechanisms, ...world.fields.values(), ...world.bodies.values()]
   const queries = new CollisionQueries(true, solids)
   const p = run.player, height = p.crouching ? TUNING.crouchHeight : TUNING.height
-  const grip = p.hang ?? (p.mantle?.step ? null : p.mantle)
-  const heldBox = grip ? run.props.filter(b => b.kind === 'box' && !b.gadget)[grip.platform! - run.terrain.length - run.mechanisms.length] : undefined
+  const boxes = run.props.filter(b => b.kind === 'box' && !b.gadget)
+  const heldBy = (actor: Run['player']) => {
+    const grip = actor.hang ?? (actor.mantle?.step ? null : actor.mantle)
+    return grip ? boxes[grip.platform! - run.terrain.length - run.mechanisms.length] : undefined
+  }
+  const heldBox = heldBy(p)
+  const robotGrips = new Map(robots.map(({ robot }) => [robot, robot.actor && heldBy(robot.actor)]))
   const shapeCache = new Map<Matter.Body, { x: number; y: number; angle: number; shape: Platform }>()
   const shapeFor = (prop: Prop, body: Matter.Body) => {
     const cached = shapeCache.get(body)
@@ -475,11 +480,12 @@ export function stepPropPhysics(run: Run, playerContact: PlayerContacts, dt: num
       }) || corrected
       for (const entry of robots) {
         const { robot } = entry
+        if (prop === robotGrips.get(robot)) continue
         if (!nearRobot(body, robot)) continue
         const hulls = entry.hulls()
         for (const hull of hulls) {
           const moved = resolveActor(body, hull, robot, x => {
-            if (!powered) return // The unpowered chassis stays solid without its motor or yielding motion.
+            if (!powered || run.gadgets.disabled.has(robot) || robot.deactivated || robot.actor) return // Humanoids use the player controller; the wheeled yielding motor cannot reposition them.
             const props = propShapes(body)
             const oldX = p.x, oldY = p.y
             // The contacted prop can also be under a wheel. Keep it in the

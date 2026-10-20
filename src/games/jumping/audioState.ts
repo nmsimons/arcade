@@ -5,7 +5,7 @@ import { pressurePlatePosition } from './pressurePlateMount.ts'
 import { playerSwimStrength, propWaterStrength } from './gravity.ts'
 
 export type LoopKind = 'ball' | 'box' | 'gate-open' | 'gate-close' | 'elevator' | 'booster'
-export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'repulsor'
+export type CueKind = 'footstep' | 'box-impact' | 'ball-impact' | 'water-entry' | 'switch' | 'timer-paused' | 'time-penalty' | 'coin' | 'emp' | 'emp-shot' | 'repulsor'
 export interface SoundCue { kind: CueKind; volume: number; pan: number; strength: number; size?: number }
 export interface SoundLoop { id: string; kind: LoopKind; volume: number; pan: number; pace: number; size: number }
 export interface SoundFrame { loops: SoundLoop[]; cues: SoundCue[] }
@@ -28,6 +28,7 @@ function snapshot(p: Player, run: Run | null) {
     triggers: run?.triggers.map(t => t.active) ?? [],
     coins: run?.coinsCollected ?? 0,
     outage: run?.empRemaining ?? 0, shots: run?.gadgets.shots ?? 0,
+    robotShots: run?.robots.map(robot => robot.shots ?? 0) ?? [],
     propIdentities: run?.props.slice() ?? [],
     timeBonuses: run?.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length ?? 0,
     penalties: run?.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length ?? 0,
@@ -103,6 +104,7 @@ export class JumpingAudioState {
       this.loops.push({ id: 'player:booster', kind: 'booster', volume: boost, pan: 0, pace: boost, size: 0 })
     }
     if (run) {
+      for (const [i, robot] of run.robots.entries()) if ((robot.shots ?? 0) > (before.robotShots[i] ?? 0)) cue('repulsor', robot.x, robot.y)
       for (let i = 0; i < run.props.length; i++) {
         const b = run.props[i], old = before.props[i]
         if (!old) { this.propWater[i] = waterContact(current.props[i].water); continue }
@@ -159,7 +161,7 @@ export class JumpingAudioState {
       if (run.goalLit && !before.goalLit) cue('switch', run.level.goal.x, run.level.goal.y, .8)
       if (run.coinsCollected > before.coins) cue('coin', p.x, p.y - 30)
       if (run.empRemaining > before.outage + .01) cue('emp', p.x, p.y - 30)
-      if (run.gadgets.shots > before.shots) cue('repulsor', p.x, p.y - 30)
+      if (run.gadgets.shots > before.shots) cue(run.gadgets.lastShotKind === 'emp' ? 'emp-shot' : 'repulsor', p.x, p.y - 30)
       if (run.pickups.filter(p => (p.definition.kind === 'time-penalty' || p.definition.kind === 'fast-stopwatch') && p.collectedAge !== null).length > before.penalties) cue('time-penalty', p.x, p.y - 30)
       // Another stopwatch extends an existing pause and still deserves feedback.
       if (run.timeStopRemaining > before.stopped + .01 || run.pickups.filter(p => p.definition.kind === 'time-bonus' && p.collectedAge !== null).length > before.timeBonuses

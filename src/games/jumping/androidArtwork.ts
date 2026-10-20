@@ -18,6 +18,7 @@ const night: AndroidMaterials = {
 
 /** Explicit diagnostic inks draw the same shell as a monochrome mask. */
 export function androidMaterials(ink: string): AndroidMaterials {
+  if (ink === '#b66d65') return { shell: ink, rear: '#925f59', joint: '#56685f', grip: '#6a6559', mark: '#ccad72', cranial: '#9b625b', face: '#d0c6af' }
   if (ink === '#e5e7e6') return night
   if (ink === '#686b6e' || ink === '#303c36') return day
   return { shell: ink, rear: ink, joint: ink, grip: ink, mark: ink, cranial: ink, face: ink }
@@ -34,13 +35,13 @@ function panel(path: AthleteOutline, a: Point, b: Point, from: number, to: numbe
   path.lineTo(...at(a, -from))
   path.quadraticCurveTo(a[0] - dx / length * from, a[1] - dy / length * from, ...at(a, from)); path.closePath()
 }
-function armShell(path: AthleteOutline, limb: Limb) {
+function armShell(path: AthleteOutline, limb: Limb, forearmScale = 1) {
   panel(path, along(limb.root, limb.joint, .06), along(limb.root, limb.joint, .78), 2.5, 1.95)
-  panel(path, along(limb.joint, limb.end, .18), along(limb.joint, limb.end, .86), 2.15, 1.6)
+  panel(path, along(limb.joint, limb.end, .18), along(limb.joint, limb.end, .86), 2.15, 1.6 * forearmScale)
 }
-function legShell(path: AthleteOutline, limb: Limb) {
+function legShell(path: AthleteOutline, limb: Limb, calfScale = 1) {
   panel(path, along(limb.root, limb.joint, .04), along(limb.root, limb.joint, .8), 3, 2.35)
-  panel(path, along(limb.joint, limb.end, .15), along(limb.joint, limb.end, .88), 2.25, 1.6)
+  panel(path, along(limb.joint, limb.end, .15), along(limb.joint, limb.end, .88), 2.25, 1.6 * calfScale)
 }
 function torso(path: AthleteOutline, pose: AthletePose, back: boolean) {
   const { hip, waist, shoulder } = pose
@@ -77,11 +78,11 @@ function headShell(path: AthleteOutline, head: Point, tilt: number) {
 function shape(trace: (path: AthleteOutline) => void) {
   const path = new Path2D(); trace(path); return path
 }
-export function drawAndroidArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string) {
-  ctx.fillStyle = color; ctx.fill(shape(path => armShell(path, limb)))
+export function drawAndroidArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, forearmScale = 1) {
+  ctx.fillStyle = color; ctx.fill(shape(path => armShell(path, limb, forearmScale)))
 }
-export function drawAndroidLeg(ctx: CanvasRenderingContext2D, limb: Limb, color: string) {
-  ctx.fillStyle = color; ctx.fill(shape(path => legShell(path, limb)))
+export function drawAndroidLeg(ctx: CanvasRenderingContext2D, limb: Limb, color: string, calfScale = 1) {
+  ctx.fillStyle = color; ctx.fill(shape(path => legShell(path, limb, calfScale)))
 }
 export function drawAndroidTorso(ctx: CanvasRenderingContext2D, pose: AthletePose, back: boolean, materials: AndroidMaterials) {
   const body = shape(path => torso(path, pose, back))
@@ -107,7 +108,7 @@ export function drawAndroidHead(ctx: CanvasRenderingContext2D, head: Point, tilt
 /** Lighting uses the shell silhouette. Physical clearance retains the
  * separate, original traceAthlete skin and the existing locomotion hull. */
 export function traceAndroidShell(path: AthleteOutline, pose: AthletePose, back: boolean) {
-  for (const limb of [pose.backLeg, pose.frontLeg]) legShell(path, limb)
-  for (const limb of [pose.backArm, pose.frontArm]) armShell(path, limb)
+  for (const limb of [pose.backLeg, pose.frontLeg]) legShell(path, limb, pose.calfScale)
+  for (const limb of [pose.backArm, pose.frontArm]) armShell(path, limb, pose.forearmScale)
   torso(path, pose, back); headShell(path, pose.head, pose.headTilt ?? 0)
 }

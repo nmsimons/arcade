@@ -57,7 +57,7 @@ test('keyboard movement aims in eight directions, red fields detach, and restart
   const errors = []; page.on('pageerror', error => errors.push(error.message))
   await open(page, fixture())
   await key(page, 'e')
-  await expect(page.getByLabel('Available actions')).toContainText('Repulsor rifle')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   const x = (await motion(page)).x
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(200)
   expect((await motion(page)).x).toBeCloseTo(x, 1)
@@ -73,10 +73,10 @@ test('keyboard movement aims in eight directions, red fields detach, and restart
   const sleeves = await page.locator('canvas').evaluate(canvas => canvas.sleeves)
   expect(sleeves).toHaveLength(1)
   expect(sleeves[0].x).toBeLessThan(500)
-  await expect(page.getByLabel('Available actions')).not.toContainText('F fire')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   await page.keyboard.press('Escape'); await page.getByRole('button', { name: 'Restart level', exact: true }).click()
   await finishJumpingEntrance(page); await page.clock.runFor(200)
-  await expect(page.getByLabel('Available actions')).toContainText('E · Repulsor rifle')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   expect(errors).toEqual([])
 })
 
@@ -114,23 +114,51 @@ test('normal Up controls climb with the sleeve, then keep climbing after a red f
   await open(page, level); await key(page, 'e')
   await page.keyboard.down('ArrowUp'); await page.clock.runFor(700)
   expect((await motion(page)).y).toBeLessThan(550)
-  await expect(page.getByLabel('Available actions')).toContainText('Repulsor rifle')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   await page.screenshot({ path: info.outputPath('sleeve-climbing.png') })
   await page.clock.runFor(2600); await page.keyboard.up('ArrowUp')
   expect((await motion(page)).y).toBeLessThan(360)
-  await expect(page.getByLabel('Available actions')).not.toContainText('F fire')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   const sleeves = await page.locator('canvas').evaluate(canvas => canvas.sleeves)
   expect(sleeves).toHaveLength(1)
   expect(sleeves[0].y).toBeGreaterThan(372)
   await page.screenshot({ path: info.outputPath('red-field-climb-detached.png') })
 })
 
-test('carried EMP activates on Use and clears the red barrier', async ({ page }) => {
+test('carried EMP bolt disables the red barrier and stays equipped', async ({ page }, info) => {
   await open(page, fixture(true)); await key(page, 'e')
-  await expect(page.getByLabel('Available actions')).toContainText('Carried EMP')
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
   await key(page, 'f')
+  await page.clock.runFor(300)
+  await page.screenshot({ path: info.outputPath('emp-disabled-field.png') })
   await page.keyboard.down('d'); await page.clock.runFor(1600); await page.keyboard.up('d')
   expect((await motion(page)).x).toBeGreaterThan(520)
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
+  const sleeve = await page.locator('canvas').evaluate(canvas => canvas.sleeves.find(sleeve => sleeve.y < 580))
+  expect(sleeve.x).toBeGreaterThan(520)
+})
+
+test('an EMP bolt stops one shovebot with visible crackle while the other keeps moving', async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message))
+  const level = fixture(true)
+  level.forceFields = []; level.props = level.props.slice(0, 1)
+  level.robots = [{ x: 500, y: 600, left: 400, right: 750 }, { x: 1100, y: 600, left: 1000, right: 1400 }]
+  await open(page, level); await key(page, 'e')
+  await page.keyboard.down('f'); await page.clock.runFor(48)
+  await page.screenshot({ path: info.outputPath('emp-traveling-bolt.png') })
+  await page.keyboard.up('f'); await page.clock.runFor(400)
+  const positions = () => page.locator('canvas').evaluate(canvas => canvas.gadgetRobots.map(robot => robot.x))
+  const before = await positions()
+  await page.screenshot({ path: info.outputPath('emp-shovebot-crackle.png') })
+  await page.clock.runFor(400)
+  const after = await positions()
+  expect(after[0]).toBeCloseTo(before[0], 6)
+  expect(Math.abs(after[1] - before[1])).toBeGreaterThan(5)
+  await page.screenshot({ path: info.outputPath('emp-shovebot-crackle-next.png') })
+  await expect(page.getByLabel('Available actions')).toHaveCount(0)
+  await page.clock.runFor(10500)
+  expect(Math.abs((await positions())[0] - after[0])).toBeGreaterThan(5)
+  expect(errors).toEqual([])
 })
 
 test('the sleeve follows its supporting forearm through both directions of a rope swing', async ({ page }, info) => {
@@ -176,4 +204,23 @@ test('a repulsor shot visibly recoils the shovebot across successive frames', as
   await page.keyboard.up('f')
   expect(previous - start).toBeGreaterThan(90)
   expect(previous - start).toBeLessThan(180)
+})
+
+test('a repulsor knocks a shovebot off a ledge, where it falls and deactivates outside its patrol', async ({ page }, info) => {
+  const level = fixture(); level.forceFields = []
+  level.entrance = { x: 350, y: 400 }
+  level.platforms = [{ x: 140, y: 400, w: 560, h: 20 }]
+  level.props = [{ kind: 'box', gadget: 'repulsor', x: 380, y: 400, size: 40 }]
+  level.robots = [{ x: 650, y: 400, left: 166, right: 674 }]
+  await open(page, level); await key(page, 'e'); await key(page, 'f')
+  await page.clock.runFor(600)
+  const robot = () => page.locator('canvas').evaluate(canvas => canvas.gadgetRobots[0])
+  expect((await robot()).x).toBeGreaterThan(726)
+  await page.screenshot({ path: info.outputPath('shovebot-knocked-off-shelf.png') })
+  await page.clock.runFor(1400)
+  const landed = await robot()
+  expect(landed.y).toBeCloseTo(600, 1)
+  await page.clock.runFor(1600)
+  expect((await robot()).x).toBeCloseTo(landed.x, 5)
+  await page.screenshot({ path: info.outputPath('shovebot-deactivated-below-shelf.png') })
 })

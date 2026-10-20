@@ -13,11 +13,9 @@ import { KeyboardDialog } from './hardVacuum/KeyboardDialog'
 import { controlDialog, controllerDialog } from './hardVacuum/controllerUi'
 import { createJumpController, keyboardMovement } from './jumping/input'
 import { createJumpTouch } from './jumping/touchInput'
-import { cancelGadgetInput, gadgetStatus } from './jumping/gadgets'
+import { cancelGadgetInput } from './jumping/gadgets'
 import { JumpingTouchControls } from './jumping/JumpingTouchControls'
 import { cancelJumpInput, playerState, respawn, STEP, stepPlayer } from './jumping/model'
-import { actionFeedbackText, playerActionFeedback } from './jumping/actionFeedback'
-import type { ActionFeedback } from './jumping/actionFeedback'
 import { blankTrial, copyLevel, levelProblems, isPuzzleLevel, levelRules } from './jumping/level'
 import type { JumpLevel, PuzzleLevel } from './jumping/level'
 import { BEST_TIME_KEY, createRun, formatTime, readBest, saveBest, setWaterEffectsEnabled, stepRun } from './jumping/challenge'
@@ -181,7 +179,7 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
   const screenRef = useRef<Screen>('menu')
   const [connected, setConnected] = useState(false)
   const [pauseReason, setPauseReason] = useState('')
-  const [metrics, setMetrics] = useState<{state:string;elapsed:number;actions:ActionFeedback|null;gadget?:string}>({ state: 'Ready', elapsed: 0, actions:null })
+  const [metrics, setMetrics] = useState({ state: 'Ready', elapsed: 0 })
 
   function changeScreen(next: Screen, reason?: string) {
     if (next !== screenRef.current) { performanceMonitor?.reset(); adaptiveLighting?.suspend() }
@@ -428,9 +426,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
     touch.reset()
     if (screenRef.current === 'playing') changeScreen('paused', 'Paused after the screen orientation changed.')
   })
-  const gadgetFeedback = useEffectEvent(() => ({
-    gadget: run.current ? gadgetStatus(run.current, connected ? 'controller' : touchAvailable ? 'touch' : 'keyboard') : '',
-  }))
   const frameInput = useEffectEvent((now: number) => {
     let pads: (Gamepad | null)[] = []
     try { pads = [...navigator.getGamepads?.() ?? []] } catch { /* Keyboard stays available. */ }
@@ -581,8 +576,8 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
       if (now - published > 80) {
         const p = player.current
         const entering = run.current?.entrance || playgroundEntrance.current
-        setMetrics({ ...gadgetFeedback(), state: entering ? entering.kind === 'charging-bay' ? 'Waking up' : 'Entering the level' : run.current?.exit ? 'Entering the exit' : playerState(p),
-          elapsed: run.current?.elapsed ?? 0, actions: entering || run.current?.exit ? null : playerActionFeedback(p,activeLevel.current.climbables) })
+        setMetrics({ state: entering ? entering.kind === 'charging-bay' ? 'Waking up' : 'Entering the level' : run.current?.exit ? 'Entering the exit' : playerState(p),
+          elapsed: run.current?.elapsed ?? 0 })
         published = now
       }
       frame = requestAnimationFrame(tick)
@@ -607,9 +602,6 @@ function JumpingGameSession({ initialCatalog, stressCatalog, onExit }: { initial
         onTouch={() => setTouchAvailable(true)} onPause={() => changeScreen('paused')} />}
       {import.meta.env.DEV && showPerformance && !devOpen && <PerformancePanel snapshot={performanceSnapshot} />}
       {testing && <button className="jumping-builder-return" title="Return to the level editor" onClick={openBuilder}>Return to builder</button>}
-      {!devOpen && (metrics.actions || metrics.gadget) && <p className="jumping-action-hint" aria-label="Available actions">
-        {metrics.gadget || actionFeedbackText(metrics.actions!,connected?'controller':touchAvailable?'touch':'keyboard')}
-      </p>}
       <aside className="jumping-visually-hidden" aria-label="Player status">
         <span className="jumping-state">{metrics.state}</span>
         {challenge && trial.timing !== 'untimed' && <span role="timer" aria-label="Elapsed level time" data-testid="level-time">{formatTime(metrics.elapsed)}</span>}

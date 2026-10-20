@@ -22,7 +22,7 @@ import { drawSleeve } from './sleeveArtwork.ts'
 import { rightArmAnimating, rightArmSupporting } from './armSupport.ts'
 
 type Leg = Limb & { footAngle: number; toeAngle: number; footFacing: number; planted: boolean; rear?: number }
-export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point }
+export type AthletePose = { hip: Point; waist: Point; shoulder: Point; head: Point; frontArm: Limb; backArm: Limb; frontLeg: Leg; backLeg: Leg; sideView?: number; backView?: number; headTilt?: number; waterOffset?: Point; forearmScale?: number; calfScale?: number; footScale?: number }
 export interface DryTurnFrame { pose: AthletePose; facing: number; grip: boolean; ledgeDrop?: boolean; slide?: boolean; pushing?: boolean; step?: NonNullable<Player['mantle']> }
 export interface SlideEntryFrame { player: Player; facing: number; sliding: boolean }
 const renderPoses = new WeakMap<Player, { pose?: AthletePose; base?: AthletePose }>()
@@ -264,12 +264,12 @@ function solveLeg(root: Point, target: Point, desired: number, grounded: boolean
   }
   return { ...clearKnee(), footAngle: angle, toeAngle: flex(), footFacing, planted }
 }
-function footPath(ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1): Path2D {
-  const path = new Path2D(); traceFoot(path, ankle, angle, facing, toeAngle, profile); return path
+function footPath(ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1, scale = 1): Path2D {
+  const path = new Path2D(); traceFoot(path, ankle, angle, facing, toeAngle, profile, scale); return path
 }
-function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1) {
+function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1, toeAngle = 0, profile = 1, scale = 1) {
   const at = (p: Point, toe: boolean): Point => {
-    const point = footPoint(p, angle * facing, toeAngle * facing, toe)
+    const point = footPoint([p[0] * scale, p[1]], angle * facing, toeAngle * facing, toe)
     return [ankle[0] + point[0] * facing * profile, ankle[1] + point[1]]
   }
   for (const [toe, contours] of footContours) {
@@ -282,13 +282,13 @@ function traceFoot(path: AthleteOutline, ankle: Point, angle: number, facing = 1
     path.closePath()
   }
 }
-function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string, materials: AndroidMaterials) {
+function drawLeg(ctx: CanvasRenderingContext2D, limb: Leg, color: string, materials: AndroidMaterials, calfScale = 1, footScale = 1) {
   const path = joined([segmentPath(limb.root, limb.joint, 2.2, 1.65, 2.2), roundPath(limb.joint, 1.7),
     segmentPath(limb.joint, limb.end, 1.7, 1.25, 1.8), roundPath(limb.end, 1.3)])
   fillShape(ctx, path, materials.joint)
-  drawAndroidLeg(ctx, limb, color)
-  if (limb.rear) fillShape(ctx, roundPath(add(limb.end, [0, 1]), 2.1 * limb.rear, 1.8), materials.grip)
-  if ((limb.rear ?? 0) < 1) fillShape(ctx, footPath(limb.end, limb.footAngle, limb.footFacing, limb.toeAngle, 1 - (limb.rear ?? 0)), materials.grip)
+  drawAndroidLeg(ctx, limb, color, calfScale)
+  if (limb.rear) fillShape(ctx, roundPath(add(limb.end, [0, 1]), 2.1 * limb.rear * footScale, 1.8), materials.grip)
+  if ((limb.rear ?? 0) < 1) fillShape(ctx, footPath(limb.end, limb.footAngle, limb.footFacing, limb.toeAngle, 1 - (limb.rear ?? 0), footScale), materials.grip)
 }
 function handGeometry(limb: Limb) {
   const forearmAngle = Math.atan2(limb.end[1] - limb.joint[1], limb.end[0] - limb.joint[0])
@@ -302,12 +302,12 @@ export function handOutline(limb: Limb): Point[] {
   const { palm, angle } = handGeometry(limb), cos = Math.cos(angle), sin = Math.sin(angle)
   return handBoundary.map(([x, y]) => [palm[0] + x * cos - y * sin, palm[1] + x * sin + y * cos])
 }
-function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials) {
+function drawArm(ctx: CanvasRenderingContext2D, limb: Limb, color: string, materials: AndroidMaterials, forearmScale = 1) {
   const { palm, angle } = handGeometry(limb)
   const path = joined([roundPath(limb.root, 1.65), segmentPath(limb.root, limb.joint, 1.6, 1.35, 1.6), roundPath(limb.joint, 1.4),
     segmentPath(limb.joint, limb.end, 1.4, 1.05, 1.45), roundPath(palm, 2.1, 1.6, angle)])
   fillShape(ctx, path, materials.joint)
-  drawAndroidArm(ctx, limb, color)
+  drawAndroidArm(ctx, limb, color, forearmScale)
   fillShape(ctx, roundPath(palm, 2.1, 1.6, angle), materials.grip)
 }
 function drawTorso(ctx: CanvasRenderingContext2D, hip: Point, waist: Point, shoulder: Point, color: string) {
@@ -356,7 +356,7 @@ function traceBack(ctx: AthleteOutline, hip: Point, waist: Point, shoulder: Poin
 }
 
 /** Trace the original contact skin independently of the cosmetic shell. */
-function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, includeHead: boolean) {
+function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, includeHead: boolean, footScale = 1) {
   const { hip, waist, shoulder, head, backView = 0 } = pose
   const round = (center: Point, rx: number, ry = rx, angle = 0) => {
     path.ellipse(...center, rx, ry, angle, 0, TAU, true); path.closePath()
@@ -364,8 +364,8 @@ function traceAthleteSkin(path: AthleteOutline, p: Player, pose: AthletePose, in
   for (const leg of [pose.backLeg, pose.frontLeg]) {
     traceSegment(path, leg.root, leg.joint, 2.2, 1.65, 2.2); round(leg.joint, 1.7)
     traceSegment(path, leg.joint, leg.end, 1.7, 1.25, 1.8); round(leg.end, 1.3)
-    if (leg.rear) round(add(leg.end, [0, 1]), 2.1 * leg.rear, 1.8)
-    if ((leg.rear ?? 0) < 1) traceFoot(path, leg.end, leg.footAngle, leg.footFacing, leg.toeAngle, 1 - (leg.rear ?? 0))
+    if (leg.rear) round(add(leg.end, [0, 1]), 2.1 * leg.rear * footScale, 1.8)
+    if ((leg.rear ?? 0) < 1) traceFoot(path, leg.end, leg.footAngle, leg.footFacing, leg.toeAngle, 1 - (leg.rear ?? 0), footScale)
   }
   for (const arm of [pose.backArm, pose.frontArm]) {
     const angle = arm.handAngle ?? Math.atan2(arm.end[1] - arm.joint[1], arm.end[0] - arm.joint[0])
@@ -385,9 +385,8 @@ export function traceAthlete(path: AthleteOutline, p: Player, pose = athletePose
 }
 
 /** The shell casts light shadows without becoming part of the contact rig. */
-export function traceAthleteArtwork(path: AthleteOutline, p: Player) {
-  const pose = presentedAthletePose(p)
-  traceAthleteSkin(path, p, pose, false)
+export function traceAthleteArtwork(path: AthleteOutline, p: Player, pose = presentedAthletePose(p)) {
+  traceAthleteSkin(path, p, pose, false, pose.footScale)
   traceAndroidShell(path, pose, !!p.climbing || (pose.backView ?? 0) > 0)
 }
 
@@ -2127,10 +2126,10 @@ function climbingAimArm(p: Player, from: Limb, to: Limb): Limb {
 }
 
 function equippedArmPose(p: Player, pose: AthletePose, presentation = false): AthletePose {
-  const tool = p.heldTool
+  const tool = p.heldTool ?? (p.armAim?.aiming ? p.armAim : undefined)
   if (tool && !rightArmSupporting(p) && (tool.aiming || !rightArmAnimating(p))) {
     const flip = p.inverted ? -1 : 1
-    const display = presentation ? tool.presentation : undefined
+    const display = presentation ? p.heldTool?.presentation : undefined
     const angle = display?.forearm ?? (tool.aiming ? tool.angle : p.facing < 0 ? Math.PI : 0)
     const direction: Point = [Math.cos(angle) * p.facing, Math.sin(angle) * flip]
     // The sleeve wraps the forearm. Solve the bones first, with no separate grip
@@ -2750,23 +2749,23 @@ export function drawAthlete(ctx: CanvasRenderingContext2D, p: Player, body = '#6
     drawSleeve(ctx, tool.kind, tool.size, tool.blocked); ctx.restore()
   }
   const backPose = !!p.climbing || backView > 0
-  drawLeg(ctx, backLeg, materials.rear, materials)
-  drawArm(ctx, backArm, materials.rear, materials)
+  drawLeg(ctx, backLeg, materials.rear, materials, pose.calfScale, pose.footScale)
+  drawArm(ctx, backArm, materials.rear, materials, pose.forearmScale)
   if (p.facing < 0) sleeve(backArm)
   if (backPose) {
-    drawArm(ctx, frontArm, shell, materials)
+    drawArm(ctx, frontArm, shell, materials, pose.forearmScale)
     if (p.facing >= 0) sleeve(frontArm)
   }
 
   if (backPose) drawBack(ctx, hip, waist, shoulder, materials.joint, backView, Math.sign(p.climbing?.lean ?? 0) * p.facing || 1)
   else drawTorso(ctx, hip, waist, shoulder, materials.joint)
   drawAndroidTorso(ctx, pose, backPose, materials)
-  drawLeg(ctx, frontLeg, shell, materials)
+  drawLeg(ctx, frontLeg, shell, materials, pose.calfScale, pose.footScale)
   const [neck, nape] = neckPoints(shoulder, head, headTilt)
   fillShape(ctx, segmentPath(neck, nape, 1.15, 1.15, 1.15), materials.joint)
   drawAndroidHead(ctx, head, headTilt ?? 0, materials)
   if (!backPose) {
-    drawArm(ctx, frontArm, shell, materials)
+    drawArm(ctx, frontArm, shell, materials, pose.forearmScale)
     if (p.facing >= 0) sleeve(frontArm)
   }
   ctx.restore()

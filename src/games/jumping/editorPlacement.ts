@@ -78,7 +78,7 @@ export function surfacePlacement(level: JumpLevel, selection: Selection, reach =
       if (robot) {
         const pose = robotSupport(solids, robot.x, y, Math.atan(slope), 55)
         if (!pose) continue
-        robotShapes = robotHulls({ ...pose, facing: -1, phase: 'patrol' })
+        robotShapes = robotHulls({ ...pose, definition: robot, facing: -1, phase: 'patrol' })
         if (robotShapes.some(hull => hull.some(([x, y]) => x < 0 || x > level.width || y < 0 || y > levelHeight(level)))) continue
       }
       const shape = selection.kind === 'platform' ? { ...level.platforms[selection.index], y: bounds.y + delta }

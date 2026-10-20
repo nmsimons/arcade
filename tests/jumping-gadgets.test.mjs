@@ -70,27 +70,6 @@ test('directions aim and move together, with horizontal hip fire when released',
   assert.ok(run.player.x > before + 30, 'no mode-exit release requirement delays movement')
 })
 
-test('carried EMP waits for Use, disables fields and freezes machinery', () => {
-  const level = scene([gadget('emp')])
-  level.forceFields = [{ id: 'red', mode: 'objects', x: 500, y: 600, w: 12, h: 320, orientation: 'vertical' }]
-  level.mechanisms = [{ id: 'lift', kind: 'lift', x: 800, y: 880, w: 120, h: 20, travel: 200, power: 'always' }]
-  const run = createRun(level)
-  pickup(run)
-  assert.equal(run.empRemaining, 0)
-  assert.equal(run.forceFields[0].active, true)
-  tick(run, 1, { use: true })
-  assert.equal(run.gadgets.held, null)
-  assert.ok(Math.abs(run.empRemaining - (5 - STEP)) < 1e-6)
-  assert.equal(run.forceFields[0].active, false)
-  const y = run.mechanisms[0].y
-  tick(run, 120)
-  assert.equal(run.mechanisms[0].y, y)
-  const restarted = createRun(level)
-  assert.equal(restarted.gadgets.held, null)
-  assert.equal(restarted.props[0].gadget, 'emp')
-  assert.equal(restarted.empRemaining, 0)
-})
-
 for (const mode of ['objects', 'player']) test(`rifle pulse ${mode === 'objects' ? 'stops at red' : 'passes through blue'} fields`, () => {
   const level = scene([gadget(), { kind: 'ball', x: 500, y: 920, size: 68 }])
   level.forceFields = [{ id: 'beam', mode, x: 350, y: 500, w: 12, h: 420, orientation: 'vertical' }]

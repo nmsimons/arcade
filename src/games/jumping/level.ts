@@ -54,7 +54,7 @@ export type Trigger = NamedObject & WallWiringSettings & { x: number; y: number;
   & ({ mode: 'weight' | 'touch'; behavior?: PlateBehavior; startsOn?: boolean; mount?: PressurePlateMount; ceiling?: boolean } | { mode: 'coins'; threshold: number } & CoinSwitchOrientation)
 /** Legacy single connections remain readable without rewriting existing files. */
 export const triggerTargets = (trigger: Trigger): readonly string[] => trigger.targets ?? (trigger.target ? [trigger.target] : [])
-export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean }
+export interface Pusher extends NamedObject { x: number; y: number; left: number; right: number; headlight?: boolean; kind?: 'repulsor' }
 export interface JumpLevel {
   version: 1 | 2; id: string; name: string; width: number; height?: number
   lighting?: LightingDefinition
@@ -398,7 +398,9 @@ export function parseLevel(value: unknown): JumpLevel {
     level.robots = list(v.robots, 30).map(item => {
       const r = object(item), left = num(r.left, ROBOT_HALF_WIDTH, width - ROBOT_HALF_WIDTH - 50), right = num(r.right, left + 50, width - ROBOT_HALF_WIDTH)
       if (r.headlight !== undefined && typeof r.headlight !== 'boolean') fail()
+      if (r.kind !== undefined && r.kind !== 'repulsor') fail()
       return { ...objectName(r), x: num(r.x, left, right), y: num(r.y, -1800, level.floor!), left, right,
+        ...(r.kind === 'repulsor' ? { kind: 'repulsor' as const } : {}),
         ...(r.headlight === undefined ? {} : { headlight: r.headlight as boolean }) }
     })
     if (v.timers !== undefined) level.timers = list(v.timers, 40).map(item => {

@@ -20,6 +20,10 @@
     {
       "file": "world1.jump-level.json",
       "reason": "New World I level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
+    },
+    {
+      "file": "Aloft.jump-level.json",
+      "reason": "New authored level; its 10 / 20 / 40 medal targets have not yet been verified by a recorded fresh-start route."
     }
   ],
   "runs": [
@@ -2229,8 +2233,8 @@
     },
     {
       "file": "04.json",
-      "elapsed": 10.258333333333391,
-      "activeTime": 11.116666666666676,
+      "elapsed": 10.933333333333353,
+      "activeTime": 11.791666666666638,
       "coins": 0,
       "trace": [
         {
@@ -2323,7 +2327,7 @@
           }
         },
         {
-          "frames": 212,
+          "frames": 293,
           "input": {
             "move": -1
           }
@@ -5338,209 +5342,6 @@
         {
           "frames": 160,
           "input": {}
-        }
-      ]
-    },
-    {
-      "file": "Freight Run.jump-level.json",
-      "jumpModel": "tap-hold",
-      "elapsed": 12.399999999999917,
-      "activeTime": 16.258333333333052,
-      "coins": 11,
-      "trace": [
-        {
-          "frames": 74,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 100,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 13,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 98,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 13,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 110,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 42,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 95,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 20,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 15,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 72,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 18,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 12,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 123,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 82,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 20,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 15,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 105,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 133,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 130,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 9,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 135,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 2,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 100,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 20,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 12,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 105,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 24,
-          "input": {
-            "move": 1
-          }
-        },
-        {
-          "frames": 253,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
-        },
-        {
-          "frames": 1,
-          "input": {
-            "move": 1,
-            "jump": true
-          }
         }
       ]
     }

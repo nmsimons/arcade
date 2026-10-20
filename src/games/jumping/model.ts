@@ -35,7 +35,7 @@ export interface Platform extends NamedObject { looseProp?: boolean; x: number; 
 export const STEP = 1 / 120
 export interface Checkpoint extends NamedObject { x: number; y: number; radius?: number }
 export interface LevelRules { checkpoints: readonly Checkpoint[]; fallY: number }
-export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number }
+export interface JumpInput { move: number; jump: boolean; jumpStrength?: number; climb: boolean; drop: boolean; crouch: boolean; reach: boolean; descend?: boolean; detach?: boolean; swimVertical?: number; interact?: boolean; use?: boolean; aimX?: number; aimY?: number }
 export const NEUTRAL_INPUT: JumpInput = { move: 0, jump: false, climb: false, drop: false, crouch: false, reach: false, descend: false, detach: false }
 export interface GaitPose { speed: number; moving: number; run: number; air: number; jog?: number }
 export function gaitPose(vx: number, airborne = false): GaitPose {
@@ -47,6 +47,7 @@ export function gaitPose(vx: number, airborne = false): GaitPose {
   return { speed, moving: smooth(speed * 6), run: smooth((speed - TUNING.walkSpeed / TUNING.runSpeed) / .4), air: Number(airborne) }
 }
 export interface Player {
+  heldTool?: import('./gadgets.ts').HeldTool
   x: number; y: number; vx: number; vy: number; facing: number; grounded: boolean; groundAngle: number
   sliding: { angle: number; amount: number; time: number; active: boolean; x: number; y: number; balanceSpeed?: number } | null
   coyote: number; buffer: number; jumpStrength: number | undefined; jumpHeld: boolean
@@ -59,7 +60,7 @@ export interface Player {
   ledgeReach: { x: number; y: number; amount: number } | null
   stepIntent: (TerrainLedge & { time: number }) | null
   hang: { platform: number; side: number; edgeX: number; edgeY: number; slope?: number; time: number; queued: boolean; braced: boolean; dropLocked?: boolean; upLocked?: boolean;
-    caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; waterMotion?: Player['waterMotion']; dryTurn?: Player['dryTurn'] } } | null
+    caught: { x: number; y: number; vx: number; vy: number; stride: number; gait: GaitPose | null; ledgeReach: Player['ledgeReach']; climbing?: Climbing | null; freeFall?: Player['freeFall']; waterMotion?: Player['waterMotion']; dryTurn?: Player['dryTurn']; heldTool?: Player['heldTool'] } } | null
   mantle: { edgeX: number; edgeY: number; side: number; slope?: number; toX: number; toY: number; time: number; braced: boolean;
     platform?: number; returning?: boolean; crouched?: boolean; inset?: number; blockedTime?: number;
     step?: StepUp;
@@ -810,7 +811,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     for (const [i, rope] of p.ropes.entries()) stepRope(rope, dt, world.ropePlatforms ?? platforms,
       p.climbing?.kind === 'rope' && p.climbing.index === i ? { distance: p.climbing.distance, move: p.climbing.wall ? 0 : p.climbing.swing,
         wall: p.climbing.wall, bracing: ease(p.climbing.time / .25),
-        body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing },
+        body: { climb: p.climbing, from: [p.x, p.y], facing: p.facing, ...(world.ropePlatforms ? { platforms } : {}) },
         gravity: gravity * 1400 / TUNING.gravity } : null, gravityField, frameDirection)
   }
   if (p.hang || p.mantle || p.climbing) { p.wallBrace = null; p.pushing = null; p.crouching = !!p.mantle?.crouched; p.crouch = Number(p.crouching); p.reach = 0; p.footwork = null; p.ledgeReach = null; p.landing = 0 }
@@ -908,7 +909,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
     const edge = loweringOption(p,platforms)
     if (edge) {
       const { crouched, inset, braced } = edge
-      const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, crouching: p.crouching, crouch: p.crouch, facing: p.facing, freeFall: p.freeFall, dryTurn: p.dryTurn }
+      const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, crouching: p.crouching, crouch: p.crouch, facing: p.facing, freeFall: p.freeFall, dryTurn: p.dryTurn,
+        ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
       const ladderIndex = climbables.ladders.findIndex(ladder => {
         const exit = ladderLedge(ladder, platforms)
         return exit?.platform === edge.platform && sameLedge(exit, edge)
@@ -1058,7 +1060,7 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
           if (c.rope) c.screenDirection = 0
           if (c.turn && previousClimb.turn) c.turn.grip = previousClimb.turn.grip
         }
-        for (let i = 0; i < 4; i++) safe = constrainRopeBody(c, [oldX, oldY], p.facing, platforms)
+        for (let i = 0; i < 4; i++) safe = constrainRopeBody(c, [oldX, oldY], p.facing, platforms, world.ropePlatforms ?? platforms)
         p.x = safe.x; p.y = safe.y
         p.vx = (p.x - oldX) / dt; p.vy = (p.y - oldY) / dt
       } else { p.climbing = null; p.grabCooldown = .3; p.vx = 0; p.vy = 0 }
@@ -1318,7 +1320,8 @@ function stepMotion(p: Player, input: JumpInput, dt: number, platforms: readonly
           || !reachable(catchPosition.y)) continue
         p.x = catchPosition.x; p.y = catchPosition.y
         const caught = { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, gait: p.gait, ledgeReach: reach, freeFall: p.freeFall, dryTurn: p.dryTurn,
-          ...(p.waterMotion ? { waterMotion: { ...p.waterMotion } } : {}) }
+          ...(p.waterMotion ? { waterMotion: { ...p.waterMotion } } : {}),
+          ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
         p.vx = 0; p.vy = 0; p.hang = { platform: index, side, edgeX: edge, edgeY, slope: ledge.slope, time: 0, queued: false, braced, caught }
         cancelJumpInput(p); p.jumpHeld = input.jump; break ledges
       }

@@ -27,6 +27,7 @@ import { drawFloatSwitchArm } from './floatSwitch.ts'
 import { drawWallLight } from './wallLight.ts'
 import { nightModeEnabled } from './ambientLight.ts'
 import { drawLabLogo, LAB_LOGO_HEIGHT, LAB_LOGO_WIDTH } from '../../branding/lab.ts'
+import { drawGadgets, drawLooseGadget } from './gadgetRender.ts'
 
 const rounded = (ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, radius: number) => { ctx.beginPath(); ctx.roundRect(x, y, w, h, radius) }
 export const BALL_COLOR = '#8f9e98'
@@ -50,6 +51,7 @@ export function drawMechanism(ctx: CanvasRenderingContext2D, m: Pick<MechanismSt
   }
 }
 export function drawProp(ctx: CanvasRenderingContext2D, b: Prop) {
+  if (b.gadget) { drawLooseGadget(ctx, b); return }
   const r = b.size / 2, x = b.x - r, y = b.y - b.size
   if (b.kind === 'box') {
     ctx.save(); ctx.translate(b.x, b.y - r); ctx.rotate(b.angle); ctx.translate(-b.x, -b.y + r)
@@ -203,6 +205,7 @@ export function drawPuzzleWorld(ctx: CanvasRenderingContext2D, run: Run, editor 
   }
   if (level.entrance.kind === 'charging-bay')
     drawChargingBayCover(ctx, level.entrance, editor ? undefined : run.entrance?.elapsed, paint, nightModeEnabled(level.lighting))
+  if (!editor) paint(ctx, playerExposure, () => drawGadgets(ctx, run))
   const waterSurface = run.waterSurface?.enabled === false ? undefined : run.waterSurface
   for (const plate of run.water.plates) drawWaterRegion(ctx, plate, paint, waterSurface, run.waterSpaces.get(plate))
   if (waterSurface) drawWaterSurfaceDetails(ctx, waterSurface, paint)

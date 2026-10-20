@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "id": "rope-ball-ledge",
+  "name": "Ball at rope anchor",
+  "width": 1800,
+  "height": 1100,
+  "floor": 1100,
+  "entrance": { "x": 480, "y": 400 },
+  "goal": { "x": 1600, "y": 1100 },
+  "platforms": [{ "x": 100, "y": 400, "w": 530, "h": 15 }],
+  "props": [{ "kind": "ball", "x": 550, "y": 400, "size": 68 }],
+  "climbables": {
+    "ladders": [],
+    "ropes": [{ "x": 630, "y": 400, "length": 290, "segments": 37 }]
+  },
+  "checkpoints": [],
+  "robots": [],
+  "triggers": [],
+  "mechanisms": [],
+  "timers": [],
+  "texts": [],
+  "pickups": [],
+  "times": { "gold": 10, "silver": 20, "bronze": 40 }
+}

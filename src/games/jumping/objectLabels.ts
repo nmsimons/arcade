@@ -19,8 +19,10 @@ export function itemDefinition(level: JumpLevel, selection: Selection): NamedObj
 export function defaultObjectLabel(level: JumpLevel, s: Selection): string {
   if (s.kind === 'float-switch') return `Float switch ${s.index + 1}`
   if (s.kind === 'logic-relay') return `Logic relay ${s.index + 1}`
+  if (s.kind === 'force-field' && level.forceFields?.[s.index].mode === 'objects') return `Red ${level.forceFields[s.index].orientation} force field ${s.index + 1}`
   if (s.kind === 'prop') {
     const prop = level.props?.[s.index], weight = prop?.weight === 'heavy' ? 'Heavy ' : ''
+    if (prop?.gadget) return `${prop.gadget === 'emp' ? 'Carried EMP' : 'Repulsor rifle'} ${s.index + 1}`
     return `${weight}${prop?.kind === 'ball' ? 'Ball' : prop?.branded ? 'L.A.B. crate' : 'Box'} ${s.index + 1}`
   }
   if (s.kind === 'text' && level.texts?.[s.index]?.style === 'terminal') return `Message screen ${s.index + 1}`

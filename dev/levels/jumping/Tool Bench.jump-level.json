@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "id": "lab-tool-bench-prototype",
+  "name": "Tool Bench",
+  "width": 2400,
+  "height": 720,
+  "floor": 720,
+  "timing": "untimed",
+  "entrance": { "x": 100, "y": 720 },
+  "goal": { "x": 2340, "y": 720, "flipX": true },
+  "times": { "gold": 30, "silver": 60, "bronze": 120 },
+  "checkpoints": [],
+  "platforms": [
+    { "x": 400, "y": 570, "w": 180, "h": 20, "material": "steel" },
+    { "x": 1680, "y": 600, "w": 20, "h": 120, "material": "stone" },
+    { "x": 2200, "y": 600, "w": 20, "h": 120, "material": "stone" }
+  ],
+  "climbables": { "ladders": [{ "x": 385, "top": 570, "bottom": 720, "platform": -1, "side": 1 }], "ropes": [] },
+  "props": [
+    { "name": "Repulsor", "kind": "box", "gadget": "repulsor", "x": 160, "y": 720, "size": 40 },
+    { "name": "Spare EMP", "kind": "box", "gadget": "emp", "x": 265, "y": 720, "size": 40 },
+    { "kind": "ball", "x": 450, "y": 720, "size": 68 },
+    { "kind": "ball", "x": 540, "y": 720, "size": 68, "weight": "heavy" },
+    { "kind": "box", "x": 650, "y": 720, "size": 80 },
+    { "name": "Receiver ball", "kind": "ball", "x": 1000, "y": 720, "size": 68 },
+    { "name": "Field EMP", "kind": "box", "gadget": "emp", "x": 1420, "y": 720, "size": 40 },
+    { "name": "Pool rifle", "kind": "box", "gadget": "repulsor", "x": 1850, "y": 700, "size": 40 }
+  ],
+  "mechanisms": [],
+  "triggers": [{ "name": "Receiver", "x": 1110, "y": 720, "w": 100, "mode": "weight", "targets": ["receiver-light"] }],
+  "wallLights": [{ "id": "receiver-light", "x": 1160, "y": 550 }],
+  "robots": [{ "name": "Test bot", "x": 1280, "y": 720, "left": 1230, "right": 1360 }],
+  "forceFields": [
+    { "name": "Blue", "id": "blue-bench", "x": 900, "y": 340, "w": 12, "h": 380, "orientation": "vertical", "mode": "player" },
+    { "name": "Red", "id": "red-bench", "x": 1500, "y": 340, "w": 12, "h": 380, "orientation": "vertical", "mode": "objects" }
+  ],
+  "gravityPlates": [{ "id": "bench-pool", "x": 1700, "y": 610, "w": 500, "h": 110, "gravity": -1, "effect": "water" }],
+  "texts": [
+    { "x": 50, "y": 390, "w": 270, "h": 70, "text": "TOOL BENCH", "fontSize": 32, "align": "left", "style": "official" },
+    { "x": 60, "y": 490, "w": 250, "h": 120, "text": "E / X: pick up or drop\nF / RT: use or fire\nMove to aim: 8 directions", "fontSize": 20, "align": "left", "style": "official" },
+    { "x": 375, "y": 450, "w": 250, "h": 60, "text": "take it with you", "fontSize": 24, "align": "center", "style": "graffiti" },
+    { "x": 770, "y": 250, "w": 200, "h": 60, "text": "BLUE\nblocks you", "fontSize": 24, "align": "center", "style": "official" },
+    { "x": 1400, "y": 240, "w": 220, "h": 80, "text": "RED\ntools drop off", "fontSize": 22, "align": "center", "style": "official" },
+    { "x": 1780, "y": 450, "w": 300, "h": 80, "text": "WET TESTING", "fontSize": 28, "align": "center", "style": "official" }
+  ]
+}

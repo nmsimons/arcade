@@ -46,7 +46,7 @@ import type { PropWeight } from './propWeight.ts'
 
 export const LEVEL_GRID_SIZE = 20
 
-export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight; branded?: boolean }
+export interface PropDefinition extends NamedObject { kind: 'box' | 'ball'; x: number; y: number; size: number; weight?: PropWeight; branded?: boolean; gadget?: 'emp' | 'repulsor' }
 export interface Mechanism extends NamedObject, SwitchSettings { id: string; kind: 'lift' | 'gate'; x: number; y: number; w: number; h: number; travel: number; orientation?: 'horizontal'; flipX?: boolean; power?: PowerMode }
 /** Both legacy mode values accept the player and props; retained for file compatibility. */
 type TriggerConnection = { targets: string[]; target?: never } | { target: string; targets?: never }
@@ -100,16 +100,22 @@ export function levelRules(level: JumpLevel): LevelRules {
 }
 export function levelPlayer(level: JumpLevel, preview = false) {
   const p = createPlayer(level.entrance), terrain = levelTerrain(level), ground = groundAt(terrain, level.entrance.x, level.entrance.y, .1)
-  p.ropes = level.climbables.ropes.map(r => createRope(preview ? r : prepareRope(r, terrain)))
+  const ropeSolids = ropeTerrain(level)
+  p.ropes = level.climbables.ropes.map(r => createRope(preview ? r : prepareRope(r, ropeSolids)))
   Object.assign(p, { x: level.entrance.x, y: level.entrance.y, spawnX: level.entrance.x, spawnY: level.entrance.y,
     grounded: !!ground, groundAngle: ground?.angle ?? 0, jumpStart: level.entrance.y })
   p.terrain = terrain
   advanceFootwork(p, 0, p.x, terrain)
   return p
 }
+/** Always-on red beams support the initial rope path, just like fixed terrain. */
+function ropeTerrain(level: JumpLevel) {
+  return [...levelTerrain(level), ...(level.forceFields ?? []).filter(f => f.mode === 'objects' && f.power !== 'switched')
+    .map(({ x, y, w, h }) => ({ x, y, w, h }))]
+}
 /** Saved geometry is also the editor preview and the first playable frame. */
 export function prepareLevelRopes<T extends JumpLevel>(level: T, preview = false): T {
-  const terrain = levelTerrain(level), ropes = level.climbables.ropes.map(r => {
+  const terrain = ropeTerrain(level), ropes = level.climbables.ropes.map(r => {
     const resolved = prepareRope(r, terrain, preview)
     if (resolved.x !== r.x || resolved.y !== r.y) {
       const platform = level.platforms.findIndex(b => nearestBoundary(b, resolved.x, resolved.y).distance < .01)
@@ -318,11 +324,13 @@ export function parseLevel(value: unknown): JumpLevel {
       const b = object(item); if (b.kind !== 'box' && b.kind !== 'ball') fail()
       if (b.weight !== undefined && b.weight !== 'light' && b.weight !== 'normal' && b.weight !== 'heavy') fail()
       if (b.branded !== undefined && (b.kind !== 'box' || typeof b.branded !== 'boolean')) fail()
+      if (b.gadget !== undefined && (b.kind !== 'box' || !['emp', 'repulsor'].includes(b.gadget as string))) fail()
       const size = num(b.size, 30, 200)
       return { ...objectName(b), kind: b.kind as 'box' | 'ball', x: num(b.x, size / 2, width - size / 2), y: num(b.y, -1800, level.floor!), size,
         // Retired light variants load as ordinary props, keeping saved levels usable.
         ...(b.weight === undefined || b.weight === 'light' ? {} : { weight: b.weight as PropWeight }),
-        ...(b.branded === undefined ? {} : { branded: b.branded as boolean }) }
+        ...(b.branded === undefined ? {} : { branded: b.branded as boolean }),
+        ...(b.gadget === undefined ? {} : { gadget: b.gadget as 'emp' | 'repulsor' }) }
     })
     level.mechanisms = list(v.mechanisms, 40).map(item => {
       const m = object(item); if (m.kind !== 'lift' && m.kind !== 'gate' || typeof m.id !== 'string' || !m.id || m.id.length > 100) fail()
@@ -453,11 +461,13 @@ export function parseLevel(value: unknown): JumpLevel {
     if (typeof field.id !== 'string' || !field.id.trim() || field.id.length > 100) return fail()
     if (field.orientation !== 'horizontal' && field.orientation !== 'vertical') return fail()
     if (field.power !== undefined && field.power !== 'always' && field.power !== 'switched') return fail()
+    if (field.mode !== undefined && field.mode !== 'player' && field.mode !== 'objects') return fail()
     const horizontal = field.orientation === 'horizontal'
     const w = num(field.w, horizontal ? FORCE_FIELD_MIN_LENGTH : FORCE_FIELD_THICKNESS, horizontal ? width : FORCE_FIELD_THICKNESS)
     const h = num(field.h, horizontal ? FORCE_FIELD_THICKNESS : FORCE_FIELD_MIN_LENGTH, horizontal ? FORCE_FIELD_THICKNESS : levelHeight(level))
     return { ...objectName(field), ...parseSwitchSettings(field, fail), id: field.id,
       x: num(field.x, 0, width - w), y: num(field.y, 0, levelHeight(level) - h), w, h, orientation: field.orientation,
+      ...(field.mode === undefined ? {} : { mode: field.mode }),
       ...(field.power === undefined ? {} : { power: field.power as PowerMode }) }
   })
   if (v.wallLights !== undefined) level.wallLights = list(v.wallLights, MAX_WALL_LIGHTS).map(item => {

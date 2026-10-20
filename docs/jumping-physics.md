@@ -4,6 +4,25 @@ The player uses the custom movement controller for its existing acceleration,
 jumps on press, slope traction and climbing. Matter simulates loose props. Their
 boundary is the contact model in `src/games/jumping/playerContacts.ts`.
 
+The [carried-gadget prototype](jumping-carried-gadgets.md) equips a right-forearm
+sleeve from an explicit physical prop. Equipping permits normal traversal,
+including pushing, climbing, ledge catches, and wall jumps. Aim/use pause while
+the right arm supports the player; the sleeve follows its ordinary working pose.
+Ordinary impacts and support
+loads against ordinary props remain physical. Loose sleeves do not collide with
+or receive impulses from the player, while water, gravity lifts, world geometry,
+bots, and other props retain physical contacts. A held sleeve shares its loose
+rectangular hull and sweeps against red object fields, including during climbing.
+An active red field detaches the sleeve on the approach side while player motion
+and grip progress continue. Ordinary terrain/prop clearance remains the movement
+rig's responsibility. Blue fields retain their player-only collision policy.
+Movement inputs also point the rifle in eight directions, with no aim mode.
+Neutral directions return to horizontal hip fire; loaded right-arm contacts take
+priority over aiming and use. Momentum, gravity, buoyancy, and support motion
+continue. Rifle
+pulses stop at the first solid/red boundary and apply a finite mass-dependent
+impulse to a prop, or bounded shovebot recoil; they do not directly flip switches.
+
 Each collider has a stable identity and a current geometry snapshot. Terrain,
 mechanisms, boxes and balls all appear in the player's collision world. A contact
 query identifies the supporting surface and the nearest reachable pushing face.
@@ -106,7 +125,9 @@ EMP pauses both driving and settling. Regression coverage lives in
 `tests/jumping-robot-settling.test.mjs`.
 
 Shovebot sight uses its current left/right facing before checking range and cover.
-A player behind it cannot trigger a chase, windup, or charge or turn the bot around.
+A player behind it cannot trigger a chase, windup, or charge through sight alone.
+Physical player contact or a repulsor hit turns it to face the player, including
+from behind. A nearby player without contact does not turn it.
 Moving behind an aggressive bot loses sight and restores patrol; an ordinary
 patrol turn can reveal the player again. The eye color follows this same detection.
 
@@ -324,6 +345,13 @@ Rope contacts include gates and terrain throughout climbing and window transfers
 Regression coverage lives in `tests/jumping-rope-gate.test.mjs` and
 `tests/browser/jumpingRopeGate.dev.spec.mjs`.
 
+At a fixed rope pin, the first span's collision padding cannot exceed the pin's
+actual clearance from that solid. A ball rolling across a ledge can touch the
+pin; demanding the full rope radius there amplifies a tiny contact into an
+unbounded correction of the first free particle. Solid penetration still
+resolves, and subsequent spans retain their normal padding. Both rolling
+directions and 120/30 Hz steps are covered in `tests/jumping-rope-props.test.mjs`.
+
 Automatic steps up low terrain prefer their normal 12-unit landing inset, but
 can shorten it to 8 units when the next riser leaves a narrow tread. Both flat
 soles need supported landing contacts, and the entire path uses the ordinary
@@ -398,6 +426,13 @@ actual bindings. Regression coverage includes the action-feedback suite and
   Intermediate movement grows stride length rather than churning the walking
   steps; the established full-speed running stride remains unchanged. Planted
   footprints stay fixed to their support throughout the transition.
+- Moving box and ball pushes open their supported step as sustained resolved
+  travel increases. Do not retain a fixed tiny step and raise its cadence for
+  faster pushes. Creep and blocked effort retain the compact brace; crouched
+  work keeps its shorter reach. The loaded shoe stays anchored, leg lengths
+  remain fixed, and presentation never changes the shove's physical speed.
+  Coverage lives in `tests/jumping-push-stride.test.mjs` and
+  `tests/browser/jumpingPushStride.dev.spec.mjs`.
 - Hand targets use the contacted face, including a box's tilt. Feet sample their
   own points on the terrain, with the resolved support defining their stance.
 - Jumping, turning away and losing support release the push constraint. Cosmetic
@@ -1099,23 +1134,34 @@ measures Canvas draw submission against a local Vite server on port 4176;
 `GRAVITY_URL` can select another server. GPU completion and lighting passes are
 excluded from that isolated benchmark.
 
-## Player-only force fields
+## Force fields
 
-Active force-field rectangles are appended only to the player's contact world.
-They use the existing swept hull, support, wall, crouch and reflected gravity
-controller. Their ledges are disabled because a beam has no physical lip.
-Physical rope obstacles are kept separately from player obstacles, including in
-reverse gravity. Field geometry never enters Matter, prop preparation, robot
-navigation or sight, mechanism obstruction geometry, or lighting casters.
-Player transport from lifts, props and bots still sweeps against active fields;
-the transporting object itself can pass through when it has room to separate.
+Blue force-field rectangles (`mode: "player"` or omitted) are appended only to
+the player's contact world. They use the existing swept hull, support, wall,
+crouch and reflected gravity controller. Their ledges are disabled because a
+beam has no physical lip. Player transport from lifts, props and bots still
+sweeps against blue fields; the transporting object itself can pass through
+when it has room to separate.
 
-Always on and standard switched fields obey EMP. Enabling a field while the
-player's current body (including a climb or gravity-turn pose) overlaps it waits
-for clearance, rather than resolving a new solid through their body. Removing
-power removes collision immediately and releases unsupported footing normally.
+Red force fields (`mode: "objects"`) enter Matter's static body contacts, robot
+support/navigation, mechanism obstruction checks and complete rope paths. They
+are excluded from player contacts and transport sweeps. A loaded rope keeps its
+red-field contacts while the attached player's body can pass through. Always-on
+red fields participate in rope preparation and editor object surface placement.
+Blue fields never enter those object collision paths. Both modes remain
+transparent to robot sight and lighting and do not cast shadows.
+
+Always on and standard switched fields obey EMP. A blue field waits to activate
+while the player's current body (including a climb or gravity-turn pose)
+overlaps it. A red field waits for props, bots, mechanisms and
+rope spans, ignoring the player. Removing power removes collision immediately;
+red Matter bodies are added/removed only when the active state changes, waking
+sleeping props when support changes. A rope threaded through an unpowered red
+field keeps it pending when power returns, rather than being cut or launched.
 At most 40 fixed rectangles add collision work. Artwork uses simple Canvas fills
 with two ripples of at most 24 segments and eight time-evaluated sparks per beam;
 no particle simulation, blur or
 extra light source is involved. Coverage lives in
-`tests/jumping-force-field.test.mjs` and `tests/browser/jumpingForceField.spec.mjs`.
+`tests/jumping-force-field.test.mjs`, `tests/jumping-red-force-field.test.mjs`,
+`tests/jumping-force-field-render.test.mjs` and
+`tests/browser/jumpingForceField.dev.spec.mjs`.

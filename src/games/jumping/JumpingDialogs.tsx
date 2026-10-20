@@ -51,6 +51,7 @@ export function JumpingPauseDialog({ name, reason, connected, touchControls, tes
             <p>In water, Up swims up and Down dives. Combine horizontal and vertical movement to swim diagonally. Release to glide, then ease into an upright float at your reached depth underwater. On the pool floor, stand or walk with relaxed arms; Down crouches and Up swims away. Jump at the surface to leave. Swim to push objects. Only a stable supported crate offers a grip: use Up, with a surface jump first if needed, then pull up. Terrain banks can catch automatically.</p>
             </>}
           </section>
+          <p>Tools: E / X-Square picks up or drops. F / RT-R2 uses an EMP or fires a repulsor. Movement directions also aim the rifle in eight directions; release them for horizontal hip fire. Equipped tools allow normal traversal, including pushing, climbing, grabs, and wall jumps. Aiming and use pause while the right arm supports you. Red fields strip off carried tools and block pulses. On touch, use the gadget buttons alongside normal movement gestures.</p>
           <nav className="jumping-dialog-actions jumping-controls-actions" aria-label="Controls actions">
             <button data-initial-focus onClick={() => setControls(false)}>Back</button>
           </nav>

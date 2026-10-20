@@ -34,8 +34,10 @@ import { MAX_GRAVITY_PLATES } from './gravity.ts'
 import { MAX_FORCE_FIELDS, FORCE_FIELD_THICKNESS, FORCE_FIELD_MIN_LENGTH } from './forceField.ts'
 import { plateSolids, plateSurface } from './plateSurface.ts'
 import { terrainDrawOrder } from './terrainOrder.ts'
+import { GADGET_SIZE } from './gadgets.ts'
+import { propHeight, propWidth } from './propGeometry.ts'
 
-export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field'
+export type Tool = 'select' | 'node' | 'platform' | 'steps-narrow' | 'steps-wide' | 'ramp' | 'rough' | 'rope' | 'ladder' | 'entrance' | 'checkpoint' | 'pillar' | 'pit' | 'goal' | 'box' | 'branded-box' | 'ball' | 'pusher' | 'plate' | 'lift' | 'moving-platform' | 'gate' | 'horizontal-gate' | 'timer' | 'text' | 'lab-stamp' | 'message-screen' | 'stopwatch' | 'coin' | 'time-bonus' | 'time-penalty' | 'fast-stopwatch' | 'emp' | 'coin-switch' | 'light' | 'wall-light' | 'logic-relay' | 'float-switch' | 'gravity-plate' | 'water' | 'force-field' | 'horizontal-force-field' | 'carried-emp' | 'repulsor'
 export type TerrainTransform = 'rotate-left' | 'rotate-right' | 'flip-horizontal' | 'flip-vertical'
 export type TerrainOrderAction = 'back' | 'backward' | 'forward' | 'front'
 export type ResizeCorner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -168,7 +170,7 @@ export function itemBounds(level: JumpLevel, selection: Selection) {
   if (selection.kind === 'platform') return level.platforms[i] ?? null
   if (selection.kind === 'rope') { const r = level.climbables.ropes[i]; return r ? { x: r.x, y: r.y, w: 0, h: r.length } : null }
   if (selection.kind === 'ladder') { const l = level.climbables.ladders[i]; return l ? { x: l.x, y: l.top, w: 0, h: l.bottom - l.top } : null }
-  if (selection.kind === 'prop') { const b = level.props?.[i]; return b ? { x: b.x - b.size / 2, y: b.y - b.size, w: b.size, h: b.size } : null }
+  if (selection.kind === 'prop') { const b = level.props?.[i]; return b ? { x: b.x - propWidth(b) / 2, y: b.y - propHeight(b), w: propWidth(b), h: propHeight(b) } : null }
   if (selection.kind === 'robot') { const r = level.robots?.[i]; return r ? { x: r.x - 26, y: r.y - 50, w: 52, h: 50 } : null }
   if (selection.kind === 'mechanism') return level.mechanisms?.[i] ?? null
   if (selection.kind === 'trigger') { const t = level.triggers?.[i]; return t ? t.mode === 'coins' ? coinSwitchBounds(t) : { x: t.x, y: t.y - (t.ceiling ? 0 : 8), w: t.w, h: 8 } : null }
@@ -611,11 +613,11 @@ export function resizeItem(level: JumpLevel, selection: Selection, w: number, h:
   }
   if (selection.kind === 'prop') {
     const b = next.props![selection.index], before = itemBounds(level, selection)!
-    const requested = Math.abs(w - b.size) >= Math.abs(h - b.size) ? w : h
+    const requested = Math.abs(w - before.w) >= Math.abs(h - before.h) ? w * b.size / before.w : h * b.size / before.h
     const maxWidth = handle ? left ? before.x + before.w : next.width - before.x : Math.min(b.x, next.width - b.x) * 2
     const maxHeight = !handle || top ? b.y : levelHeight(level) - before.y
-    b.size = clamp(requested, 30, Math.min(200, maxWidth, maxHeight))
-    if (handle) { b.x = left ? before.x + before.w - b.size / 2 : before.x + b.size / 2; b.y = top ? b.y : before.y + b.size }
+    b.size = clamp(requested, 30, Math.min(200, maxWidth / (b.gadget ? .4 : 1), maxHeight / (b.gadget ? .2 : 1)))
+    if (handle) { b.x = left ? before.x + before.w - propWidth(b) / 2 : before.x + propWidth(b) / 2; b.y = top ? b.y : before.y + propHeight(b) }
     b.x = clamp(b.x, b.size / 2, next.width - b.size / 2)
   }
   if (selection.kind === 'mechanism') {
@@ -835,7 +837,7 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       w: DIGITAL_DISPLAY_WIDTH, display: 'digital', mode: 'coins', threshold: 3, targets: nearest ? [nearest.id] : [] })
     return { level: trial, selection: { kind: 'trigger', index: trial.triggers.length - 1 } }
   }
-  if (['goal', 'box', 'branded-box', 'ball', 'pusher', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
+  if (['goal', 'box', 'branded-box', 'ball', 'carried-emp', 'repulsor', 'pusher', 'plate', 'lift', 'moving-platform', 'gate', 'horizontal-gate'].includes(tool)) {
     // New objects follow the authored point. The canvas applies nearby surface
     // snapping separately, so Snap off and Alt also preserve the cursor's height.
     const trial = asTrial(level), point = { x: Math.min(start.x, end.x), y: clamp(Math.min(start.y, end.y), 0, levelHeight(trial)) }
@@ -844,11 +846,12 @@ export function addItem(level: JumpLevel, tool: Tool, start: { x: number; y: num
       trial.goal = { ...trial.goal, ...point, x: clamp(point.x, Math.max(0, -bounds.x), Math.min(trial.width, trial.width - bounds.x - bounds.w)) }
       return { level: trial, selection: { kind: 'goal', index: 0 } }
     }
-    if (tool === 'box' || tool === 'branded-box' || tool === 'ball') {
+    if (tool === 'box' || tool === 'branded-box' || tool === 'ball' || tool === 'carried-emp' || tool === 'repulsor') {
       if (trial.props.length >= 80) throw new Error('This level already has 80 props.')
       const drawn = Math.max(Math.abs(end.x - start.x), Math.abs(end.y - start.y))
-      const size = drawn > 10 ? clamp(drawn, 30, 200) : tool === 'ball' ? 68 : 80
-      trial.props.push({ kind: tool === 'branded-box' ? 'box' : tool, x: clamp(point.x + (drawn > 10 ? size / 2 : 0), size / 2, trial.width - size / 2),
+      const gadget = tool === 'carried-emp' ? 'emp' : tool === 'repulsor' ? 'repulsor' : undefined
+      const size = gadget ? GADGET_SIZE : drawn > 10 ? clamp(drawn, 30, 200) : tool === 'ball' ? 68 : 80
+      trial.props.push({ kind: tool === 'ball' ? 'ball' : 'box', ...(gadget ? { gadget } : {}), x: clamp(point.x + (drawn > 10 ? size / 2 : 0), size / 2, trial.width - size / 2),
         y: clamp(drawn > 10 ? Math.max(start.y, end.y) : point.y, size, levelHeight(trial)), size,
         ...(tool === 'branded-box' ? { branded: true } : {}) })
       return { level: trial, selection: { kind: 'prop', index: trial.props.length - 1 } }

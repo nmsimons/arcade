@@ -26,7 +26,7 @@ export interface PlayerCollider {
 export interface ContactWorld {
   platforms: readonly Platform[]
   colliders: readonly PlayerCollider[]
-  /** Physical rope obstacles exclude player-only barriers. */
+  /** Rope obstacles include red fields and exclude blue fields; player contacts do the reverse. */
   ropePlatforms?: readonly Platform[]
 }
 export interface SupportContact extends GroundSurface { collider: PlayerCollider }

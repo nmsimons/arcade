@@ -172,25 +172,36 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
   // foot with every fraction of that fade lifted it on each brief release.
   const brace = p.pushing?.effort || (p.pushing?.amount ?? 0) > 0 ? 1 : 0
   const shortSteps = p.crouch > 0 || !!p.pushing?.effort
-  const stepDistance = 14
   // Contact correction can move a blocked body a fraction forward, then back.
   // Average signed travel before planning a forward step, rather than treating
   // each positive correction as walking. Slow, sustained progress still steps.
   const beforeSpeed = previous.facing === p.facing ? previous.shortStepSpeed ?? 0 : 0
   const shortStepSpeed = shortSteps && Math.abs(travel) > .0001 ? lerp(beforeSpeed, travel / dt, 1 - Math.exp(-dt / .15)) : 0
+  // Open moving pushes from sustained travel rather than speeding up the same
+  // tiny shuffle. A heavy, creeping load keeps its compact braced stance;
+  // quicker boxes and balls gain enough reach for a deliberate weight transfer.
+  const openStep = p.pushing?.effort ? smooth((shortStepSpeed - 10) / 80) * (1 - smooth(p.crouch)) : 0
+  const stepDistance = 14 + openStep * 8
   const shortStepTravel = shortSteps && Math.abs(travel) > .0001
     ? Math.max(-.5, (previous.facing === p.facing ? previous.shortStepTravel ?? 0 : 0) + travel) : 0
   const steppingForward = shortSteps && shortStepSpeed > .5
   // During a crouch walk or moving push either foot steps ahead of the hips. Keeping one
   // foot permanently behind them stretched that leg on an uphill slope and
   // forced the whole torso to drop abruptly as the other foot took a step.
-  const lead = lerp(8, 4, p.crouch)
+  const compactLead = lerp(8, 4, p.crouch), lead = compactLead + openStep * 2
   const targets = previous.feet.map((foot, i) => {
     // A swing keeps its forward/brace plan until it lands. Switching between
     // those targets mid-step snapped the rear ankle by eighteen units.
     const forward = foot.settle?.forward ?? steppingForward
-    const target = center + (forward ? lead : i === 0 ? 2 : -(2 + brace * 8)) * p.facing
-    if (groundAt(platforms, target, p.y)) return target
+    let target = center + (forward ? lead : i === 0 ? 2 : -(2 + brace * 8)) * p.facing
+    // A tilted crate can expose an upward face beside the ankle. Keep the
+    // longer lead on the floor rather than planting it on the moving push face.
+    let ground = groundAt(platforms, target, p.y)
+    if (forward && openStep && surface !== p.contacts?.push?.collider.platform
+      && ground?.platform === p.contacts?.push?.collider.platform) {
+      target = center + compactLead * p.facing; ground = groundAt(platforms, target, p.y)
+    }
+    if (ground) return target
     const inset = withinSupport(target)
     if (groundAt(platforms, inset, p.y)) return inset
     // A concave support's bounding edge can lie beyond its actual tread. Find
@@ -228,9 +239,8 @@ function settleFeet(p: Player, previous: Footwork, dt: number, platforms: readon
     }
     const start = foot.settle ?? { x: foot.x, y: foot.y, angle: foot.angle, facing: foot.facing, time: 0, forward: steppingForward,
       duration: shortSteps ? .24 : .14 + Math.min(.08, Math.abs(foot.x - targets[i]) * .003) }
-    // A rolling ball can travel much faster than a heavy box. Complete each
-    // step within fourteen units of travel so the planted leg does not drag
-    // behind the hips. Crouch walking shares the same cadence as pushing.
+    // Finish within the planned travel so the support leg does not drag.
+    // Fast upright pushes use the opened step; crouch keeps its shorter reach.
     const speed = p.contacts?.motion.speed ?? Math.abs(p.vx)
     const rate = shortSteps ? Math.max(1, speed * start.duration / stepDistance) : 1
     const time = Math.min(start.duration, start.time + dt * rate), t = time / start.duration, blend = smooth(t)

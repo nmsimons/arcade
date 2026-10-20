@@ -39,3 +39,18 @@ test('offscreen fields submit no artwork, including their particles and glow',()
   const a=recorder();drawForceField(a.ctx,{...field,x:-40000},true,3)
   assert.deepEqual(a.draws,[])
 })
+
+test('red fields use red artwork in both orientations with the same bounded drawing cost',()=>{
+  for (const orientation of ['horizontal','vertical']) {
+    const shape=orientation==='horizontal'?field:{...field,w:12,h:300,orientation}
+    const blue=recorder(),red=recorder(),pending=recorder()
+    drawForceField(blue.ctx,shape,true,1)
+    drawForceField(red.ctx,{...shape,mode:'objects'},true,1)
+    assert.equal(red.draws.length,blue.draws.length)
+    assert.equal(red.draws.filter(d=>d.ink==='#ed777d'&&d.args[1]<0).length,6)
+    assert.ok(red.draws.some(d=>d.ink==='#b63f48'))
+    assert.ok(red.draws.every(d=>!['#63c8ed','#267da7','#d3f4ff'].includes(d.ink)))
+    drawForceField(pending.ctx,{...shape,mode:'objects'},false,1,false,true)
+    assert.ok(pending.draws.some(d=>d.kind==='stroke'&&d.ink==='#b63f48'))
+  }
+})

@@ -38,7 +38,7 @@ export interface Climbing {
   screenDirection?: number
   turn?: { angle: number; target: number; grip: number }
   bodyMotion?: RopeBodyMotion
-  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number; freeFall?: Player['freeFall']; dryTurn?: Player['dryTurn'] }
+  caught: { x: number; y: number; vx: number; vy: number; stride: number; grounded: boolean; gait: GaitPose | null; footwork: Footwork | null; hang?: Player['hang']; crouching?: boolean; crouch?: number; facing?: number; freeFall?: Player['freeFall']; dryTurn?: Player['dryTurn']; heldTool?: Player['heldTool'] }
 }
 const clamp = (v: number, low: number, high: number) => Math.max(low, Math.min(high, v))
 export const ease = (v: number) => { const t = clamp(v, 0, 1); return t * t * (3 - 2 * t) }
@@ -308,7 +308,7 @@ function ropeIsClear(rope: RopeState, terrain: readonly Platform[]) {
 const ropeGravityRevisions = new WeakMap<RopeState, number>()
 
 export function stepRope(rope: RopeState, dt: number, platforms: readonly Platform[], load: { distance: number; move: number; wall?: Climbing['wall']; bracing?: number;
-  body?: { climb: Climbing; from: Point; facing: number }; gravity?: number } | null, gravityField?: GravityField, frameDirection = 1) {
+  body?: { climb: Climbing; from: Point; facing: number; platforms?: readonly Platform[] }; gravity?: number } | null, gravityField?: GravityField, frameDirection = 1) {
   const { nodes, definition } = rope
   if (gravityField && (gravityField.strips.length || ropeGravityRevisions.has(rope)) && ropeGravityRevisions.get(rope) !== gravityField.revision) {
     ropeGravityRevisions.set(rope, gravityField.revision)
@@ -334,8 +334,19 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
   const nearby = platforms.filter(b => b.x < right + 96 && b.x + b.w > left - 96 && b.y < bottom + 96 && b.y + b.h > top - 96
     && (!(b.polygon || b.profile) || polygonIntersects(sweepBounds, b)))
   if (ropeCanSleep(rope, nearby, !!load)) return
+  const playerTerrain = load?.body?.platforms
+  const bodyTerrain = playerTerrain ? nearby.filter(b => playerTerrain.includes(b)) : nearby
   const before = nodes.map(node => [node.x, node.y] as Point), previousBends = rope.bends.slice()
   const wasClear = ropeIsClear(rope, nearby)
+  // A fixed pin cannot acquire more clearance than the surrounding solid gives
+  // it. Near the pin, enforcing the full radius through an almost zero contact
+  // weight can throw the first free particle thousands of units away.
+  const pinClearances = new Map<Platform, number>()
+  for (const b of nearby) if (definition.x >= b.x - ROPE_CLEARANCE && definition.x <= b.x + b.w + ROPE_CLEARANCE
+    && definition.y >= b.y - ROPE_CLEARANCE && definition.y <= b.y + b.h + ROPE_CLEARANCE) {
+    pinClearances.set(b, pointInside(b, definition.x, definition.y) ? 0
+      : Math.min(ROPE_CLEARANCE, nearestBoundary(b, definition.x, definition.y).distance))
+  }
   const lengths = nodes.slice(1).map((_, i) => ropeDistance(rope, i + 1) - ropeDistance(rope, i))
   let loadDistance = load?.distance ?? 0
   if (load?.body) loadDistance = ropeGripDistance(load.body.climb)
@@ -420,7 +431,8 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
       rope.bends[i - 1] = ropeBend([a.x, a.y], [b.x, b.y], nearby, ROPE_CLEARANCE)
       if (rope.bends[i - 1]) continue
       for (const terrain of nearby) {
-        const hit = segmentPenetration([a.x, a.y], [b.x, b.y], terrain, ROPE_CLEARANCE)
+        const clearance = i === 1 ? pinClearances.get(terrain) ?? ROPE_CLEARANCE : ROPE_CLEARANCE
+        const hit = segmentPenetration([a.x, a.y], [b.x, b.y], terrain, clearance)
         if (!hit) continue
         const wa = weight(i - 1), wb = weight(i), denominator = (1 - hit.t) ** 2 * wa + hit.t ** 2 * wb
         if (denominator < 1e-8) continue
@@ -442,7 +454,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
       const target = wall.x - wall.side * wallGap
       if ((target - n.x) * wall.side < 0) n.x += (target - n.x) * .45
     }
-    if (load?.body && nearby.length) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, nearby)
+    if (load?.body && nearby.length) constrainRopeBody(load.body.climb, load.body.from, load.body.facing, bodyTerrain, nearby)
   }
   // Length and body constraints can reintroduce a crossing after contacts.
   // Keep the final movement within the last clear rope configuration.
@@ -463,7 +475,7 @@ export function stepRope(rope: RopeState, dt: number, platforms: readonly Platfo
 }
 
 /** Resolve the rope points that determine the body position, leaving its tail free. */
-export function constrainRopeBody(climb: Climbing, from: Point, facing: number, terrain: readonly Platform[]) {
+export function constrainRopeBody(climb: Climbing, from: Point, facing: number, terrain: readonly Platform[], ropeTerrain: readonly Platform[] = terrain) {
   const rope = climb.rope!
   const root = climbRoot(climb, facing), blend = ease(climb.time / .16)
   const target: Point = [climb.caught.x + (root[0] - climb.caught.x) * blend, climb.caught.y + (root[1] - climb.caught.y) * blend]
@@ -510,7 +522,7 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
         if (into < 0) { vx -= into * normal[0] * weight; vy -= into * normal[1] * weight }
       }
       const corrected = movePoint([node.x, node.y], [node.x + dx * wx / Math.max(norm[0], 1e-8) / blend * fraction,
-        node.y + dy * wy / Math.max(norm[1], 1e-8) / blend * fraction], terrain, ROPE_CLEARANCE)
+        node.y + dy * wy / Math.max(norm[1], 1e-8) / blend * fraction], ropeTerrain, ROPE_CLEARANCE)
       node.x = corrected.x; node.y = corrected.y
       node.oldX = node.x - vx; node.oldY = node.y - vy
     }
@@ -518,8 +530,8 @@ export function constrainRopeBody(climb: Climbing, from: Point, facing: number, 
     for (let i = 0; i < rope.bends.length; i++) {
       if (!weights[i].some(Boolean) && !weights[i + 1].some(Boolean)) continue
       const a: Point = [rope.nodes[i].x, rope.nodes[i].y], b: Point = [rope.nodes[i + 1].x, rope.nodes[i + 1].y]
-      const bend = rope.bends[i] = fraction ? ropeBend(a, b, terrain, ROPE_CLEARANCE) : bends[i]
-      blocked ||= bend ? lineBlocked(a, bend, terrain) || lineBlocked(bend, b, terrain) : lineBlocked(a, b, terrain)
+      const bend = rope.bends[i] = fraction ? ropeBend(a, b, ropeTerrain, ROPE_CLEARANCE) : bends[i]
+      blocked ||= bend ? lineBlocked(a, bend, ropeTerrain) || lineBlocked(bend, b, ropeTerrain) : lineBlocked(a, b, ropeTerrain)
     }
     if (!blocked || !fraction) break
   }
@@ -536,7 +548,8 @@ export function ropeImpulse(rope: RopeState, distance: number, vx: number, vy: n
 }
 
 function caughtPose(p: Player): Climbing['caught'] {
-  return { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, freeFall: p.freeFall, dryTurn: p.dryTurn }
+  return { x: p.x, y: p.y, vx: p.vx, vy: p.vy, stride: p.stride, grounded: p.grounded, gait: p.gait, footwork: p.footwork, freeFall: p.freeFall, dryTurn: p.dryTurn,
+    ...(p.heldTool ? { heldTool: structuredClone(p.heldTool) } : {}) }
 }
 
 export function findClimbable(p: Player, world: ClimbableWorld, terrain: readonly Platform[] = []): Climbing | null {
